@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  # BACKEND (Go)
+  backend:
+    build:
+      context: ./saas
+      dockerfile: Dockerfile
+    container_name: bookinaja_api
+    restart: always
+    ports:
+      - "8080:8080"
+    env_file: ./saas/.env
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+
+  # FRONTEND (Next.js)
+  frontend:
+    build:
+      context: ./saas-app
+      dockerfile: Dockerfile
+    container_name: bookinaja_fe
+    restart: always
+    ports:
+      - "3000:3000"
+    env_file: ./saas-app/.env
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"

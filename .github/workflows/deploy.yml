@@ -1,0 +1,39 @@
+name: Deploy Monorepo to EC2
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Execute Remote SSH Commands
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Masuk ke folder monorepo di EC2
+            cd ~/bookinaja || (git clone https://github.com/helwyza-f/bookinaja.git ~/bookinaja && cd ~/bookinaja)
+
+            # Paksa ambil kode terbaru
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Buat file .env masing-masing dari GitHub Secrets
+            echo "${{ secrets.BE_ENV }}" > saas/.env
+            echo "${{ secrets.FE_ENV }}" > saas-app/.env
+
+            # Matikan container lama jika ada (biar bersih)
+            sudo docker-compose down
+
+            # Hajar Build & Run!
+            sudo docker-compose up --build -d
+
+            # Bersihkan sampah image
+            sudo docker image prune -f
