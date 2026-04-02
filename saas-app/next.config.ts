@@ -9,6 +9,8 @@ const nextConfig: NextConfig = {
     "minibos.bookinaja.com:3000",
     "*.bookinaja.com:3000",
     "localhost:3000",
+    "bookinaja.local",
+    "*.bookinaja.local",
   ],
 };
 

@@ -3,6 +3,7 @@ package tenant
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -57,9 +58,12 @@ func (h *Handler) Register(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		return
 	}
+	protocol := os.Getenv("APP_PROTOCOL") // default "http"
+	appDomain := os.Getenv("APP_DOMAIN")
+
 	c.JSON(http.StatusCreated, gin.H{
 		"tenant":    t,
-		"login_url": fmt.Sprintf("https://%s.%s", t.Slug, "bookinaja.com"),
+		"login_url": fmt.Sprintf("%s://%s.%s", protocol, t.Slug, appDomain),
 	})
 }
 

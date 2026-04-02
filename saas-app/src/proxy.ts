@@ -1,54 +1,64 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export function proxy(req: NextRequest) {
+export default function proxy(req: NextRequest) {
   const url = req.nextUrl;
-  const hostname = req.headers.get("host") || "";
+  const path = url.pathname;
 
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "bookinaja.com";
-
-  // 1. BYPASS UNTUK SUBDOMAIN API (api.bookinaja.com)
-  if (hostname.startsWith(`api.`)) {
-    return NextResponse.next();
-  }
-
-  // 2. LOGIKA ROOT DOMAIN (Marketing Page)
+  // 1. FILTER ASSET STATIS & INTERNAL NEXT.JS (WAJIB)
+  // Agar file .js, .css, .png, dan folder _next tidak kena rewrite ke folder tenant
   if (
-    hostname === rootDomain || 
-    hostname === `www.${rootDomain}` || 
-    hostname === "localhost:3000"
+    path.startsWith("/_next") ||
+    path.startsWith("/api") ||
+    path.includes(".")
   ) {
     return NextResponse.next();
   }
 
-  // 3. LOGIKA SUBDOMAIN (Tenant Page)
-  const currentHost = hostname
-    .replace(`.${rootDomain}`, "")
-    .replace(":3000", "")
-    .replace("www.", "");
+  const host = req.headers.get("host") || "";
+  const hostname = host.split(":")[0];
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "bookinaja.com";
 
-  // Hanya rewrite jika benar-benar ada subdomain tenant (misal: 'minibos')
-  if (currentHost && currentHost !== rootDomain) {
-    const path = url.pathname === "/" ? "" : url.pathname;
-    
-    // Rewrite ke folder tenant: /minibos/admin atau /minibos/booking
+  // 2. BYPASS SUBDOMAIN API
+  if (hostname.startsWith("api.")) {
+    return NextResponse.next();
+  }
+
+  // 3. LOGIKA ROOT DOMAIN (Marketing Page)
+  if (
+    hostname === rootDomain ||
+    hostname === `www.${rootDomain}` ||
+    hostname === "localhost"
+  ) {
+    return NextResponse.next();
+  }
+
+  // 4. LOGIKA SUBDOMAIN (Tenant Page)
+  const tenantSlug = hostname.replace(`.${rootDomain}`, "").replace("www.", "");
+
+  if (tenantSlug && tenantSlug !== hostname) {
+    // Debugging (Bisa kamu hapus kalau sudah oke)
+    console.log(`[Proxy] Tenant: ${tenantSlug} | Path: ${path}`);
+
+    // Rewrite internal ke folder tenant: /ps/dashboard misalnya
     return NextResponse.rewrite(
-      new URL(`/${currentHost}${path}${url.search}`, req.url)
+      new URL(`/${tenantSlug}${path}${url.search}`, req.url),
     );
   }
 
   return NextResponse.next();
 }
 
+// MATCHER agar Next.js tahu file ini harus menangani route apa saja
 export const config = {
   matcher: [
     /*
-     * Match semua request KECUALI:
-     * 1. /api atau /api/ (Abaikan semua request API)
-     * 2. /_next (Next.js internals)
-     * 3. /_static, /_vercel
-     * 4. File dengan ekstensi (e.g. favicon.ico, logo.png)
+     * Match semua request path KECUALI:
+     * - api (route api nextjs)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico, dsb.
      */
-    "/((?!api|_next/|_static/|_vercel|[\\w-]+\\.\\w+).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
   ],
 };

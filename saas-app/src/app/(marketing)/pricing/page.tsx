@@ -3,51 +3,69 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, Sparkles } from "lucide-react";
+import {
+  Check,
+  Sparkles,
+  HelpCircle,
+  ShieldCheck,
+  Zap,
+  ChevronRight,
+} from "lucide-react";
 import Link from "next/link";
-import { cn } from "@/lib/utils"; // Pastikan util ini ada (bawaan shadcn)
+import { cn } from "@/lib/utils";
 
+/**
+ * PRICING PAGE - BOOKINAJA.COM
+ * Dioptimasi untuk Review Midtrans & Konversi B2B SaaS Profesional
+ */
 export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(true);
 
+  // Definisi Paket (Data Detail untuk Transparansi Bank/Midtrans)
   const plans = [
     {
       name: "Starter",
-      price: isAnnual ? "0" : "0",
-      desc: "Untuk individu atau bisnis yang baru memulai digitalisasi.",
+      price: "0",
+      rawPrice: 0,
+      desc: "Ideal untuk UMKM yang baru memulai digitalisasi operasional.",
       features: [
-        "1 Resource / Spot",
-        "50 Reservasi / bulan",
+        "1 Resource (Meja/Ruangan/Unit)",
+        "Maks. 50 Reservasi per bulan",
         "Subdomain bookinaja.com",
-        "Email Support",
+        "Laporan Pendapatan Dasar",
+        "Email Support (Jam Kerja)",
       ],
       cta: "Mulai Gratis",
       popular: false,
     },
     {
       name: "Professional",
-      price: isAnnual ? "119k" : "149k",
-      desc: "Solusi lengkap untuk bisnis yang sedang bertumbuh pesat.",
+      price: isAnnual ? "119.000" : "149.000",
+      rawPrice: isAnnual ? 119000 : 149000,
+      desc: "Fitur lengkap untuk bisnis persewaan dengan mobilitas tinggi.",
       features: [
-        "Unlimited Resources",
-        "Reservasi Tanpa Batas",
-        "Dashboard Analytics Pro",
-        "Integrasi WhatsApp Notif",
+        "Unlimited Resource & Spot",
+        "Reservasi & Booking Tanpa Batas",
+        "Dashboard Analytics Real-time",
+        "WhatsApp Business Notification",
+        "Dynamic Pricing Engine",
         "Prioritas Support 24/7",
       ],
-      cta: "Coba Pro Gratis",
+      cta: "Coba Pro 14 Hari",
       popular: true,
     },
     {
       name: "Enterprise",
       price: "Custom",
-      desc: "Keamanan dan kontrol penuh untuk jaringan bisnis skala besar.",
+      rawPrice: null,
+      desc: "Solusi kustom untuk jaringan bisnis nasional dan franchise.",
       features: [
-        "Custom Domain (bisnisanda.com)",
-        "White-label Branding",
-        "Multi-user Admin Role",
-        "Dedicated Database",
-        "SLA & Account Manager",
+        "Custom Domain (brandanda.com)",
+        "White-label Dashboard Branding",
+        "Multi-user & Role Permission",
+        "Dedicated Database Instance",
+        "SLA & Dedicated Account Manager",
+        "Integrasi API Kustom",
       ],
       cta: "Hubungi Sales",
       popular: false,
@@ -55,109 +73,119 @@ export default function PricingPage() {
   ];
 
   return (
-    <section className="relative flex-1 flex flex-col items-center justify-center py-20 overflow-hidden">
-      {/* Background Decorative Blobs */}
-      <div className="absolute top-0 -z-10 h-full w-full bg-white">
-        <div className="absolute bottom-auto left-auto right-0 top-0 h-[500px] w-[500px] -translate-x-[30%] translate-y-[20%] rounded-full bg-[rgba(173,109,244,0.05)] opacity-50 blur-[80px]"></div>
-        <div className="absolute bottom-0 left-0 right-auto top-auto h-[500px] w-[500px] translate-x-[30%] -translate-y-[20%] rounded-full bg-[rgba(100,180,244,0.05)] opacity-50 blur-[80px]"></div>
+    <section className="relative flex-1 flex flex-col items-center py-24 md:py-32 overflow-hidden">
+      {/* --- BACKGROUND SYSTEM (Elite Glassmorphism) --- */}
+      <div className="fixed inset-0 -z-10 bg-background">
+        <div className="absolute top-0 left-1/4 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-blue-600/5 blur-[120px]" />
+        <div className="absolute bottom-0 right-1/4 h-[500px] w-[500px] translate-x-1/2 rounded-full bg-indigo-600/5 blur-[120px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
       </div>
 
-      <div className="container px-4">
-        {/* Header Section */}
-        <div className="mx-auto flex max-w-[58rem] flex-col items-center space-y-6 text-center mb-16">
+      <div className="container relative z-10 px-6">
+        {/* --- HEADER SECTION --- */}
+        <div className="mx-auto flex max-w-[58rem] flex-col items-center space-y-6 text-center mb-20">
           <Badge
             variant="outline"
-            className="border-primary/20 bg-primary/5 text-primary px-4 py-1"
+            className="border-blue-500/20 bg-blue-500/5 text-blue-500 px-5 py-1.5 font-syne text-[10px] font-bold uppercase tracking-widest"
           >
-            Harga Fleksibel
+            Subscription Plans
           </Badge>
-          <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl">
-            Pilih Paket yang <br />{" "}
-            <span className="text-primary">Tumbuh Bersama Anda</span>
+          <h1 className="text-5xl font-black tracking-tighter sm:text-7xl text-foreground">
+            Investasi Cerdas untuk <br />
+            <span className="text-blue-500 italic">Pertumbuhan Bisnis.</span>
           </h1>
-          <p className="max-w-[85%] text-lg text-muted-foreground">
-            Tanpa biaya tersembunyi. Batalkan kapan saja. Mulai dengan gratis,
-            upgrade saat Anda siap mendominasi pasar.
+          <p className="max-w-[32rem] text-lg md:text-xl text-muted-foreground font-medium">
+            Harga transparan dalam Rupiah (IDR). Tanpa biaya tersembunyi.
+            Batalkan langganan kapan saja.
           </p>
 
-          {/* Toggle Billing */}
-          <div className="flex items-center gap-4 mt-4">
-            <span
-              className={cn("text-sm font-medium", !isAnnual && "text-primary")}
+          {/* Billing Switcher (PBI Compliance: Clear IDR Info) */}
+          <div className="flex items-center gap-5 mt-8 p-1.5 bg-secondary/30 backdrop-blur-md rounded-2xl border border-border">
+            <button
+              onClick={() => setIsAnnual(false)}
+              className={cn(
+                "px-6 py-2.5 text-sm font-bold rounded-xl transition-all",
+                !isAnnual
+                  ? "bg-background shadow-lg text-blue-500"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
             >
               Bulanan
-            </span>
-            <button
-              onClick={() => setIsAnnual(!isAnnual)}
-              className="relative h-6 w-11 rounded-full bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <div
-                className={cn(
-                  "absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition-all",
-                  isAnnual && "left-6",
-                )}
-              />
             </button>
-            <span
-              className={cn("text-sm font-medium", isAnnual && "text-primary")}
+            <button
+              onClick={() => setIsAnnual(true)}
+              className={cn(
+                "px-6 py-2.5 text-sm font-bold rounded-xl transition-all flex items-center gap-2",
+                isAnnual
+                  ? "bg-background shadow-lg text-blue-500"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
             >
-              Tahunan{" "}
-              <Badge className="ml-1 bg-green-500/10 text-green-600 hover:bg-green-500/10 border-none">
-                -20%
+              Tahunan
+              <Badge className="bg-green-500/10 text-green-600 border-none text-[10px] px-2 py-0">
+                {" "}
+                Hemat 20%{" "}
               </Badge>
-            </span>
+            </button>
           </div>
         </div>
 
-        {/* Cards Grid */}
-        <div className="grid w-full gap-8 lg:grid-cols-3 items-stretch">
+        {/* --- PRICING CARDS GRID --- */}
+        <div className="grid w-full gap-8 lg:grid-cols-3 items-stretch max-w-7xl mx-auto">
           {plans.map((plan) => (
             <div
               key={plan.name}
               className={cn(
-                "relative flex flex-col rounded-3xl border bg-card p-8 transition-all hover:shadow-2xl hover:-translate-y-1",
+                "relative flex flex-col rounded-[3rem] border p-10 transition-all duration-500 hover:shadow-[0_40px_80px_-15px_rgba(59,130,246,0.15)]",
                 plan.popular
-                  ? "border-primary shadow-xl ring-1 ring-primary/20 bg-gradient-to-b from-primary/[0.02] to-transparent"
-                  : "border-border/50 shadow-sm",
+                  ? "border-blue-500 bg-card shadow-2xl ring-4 ring-blue-500/5 z-20 scale-105"
+                  : "border-border/60 bg-card/40 backdrop-blur-sm shadow-sm hover:border-blue-500/30",
               )}
             >
               {plan.popular && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-primary px-4 py-1 text-sm font-bold text-primary-foreground shadow-lg">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  PALING POPULER
+                <div className="absolute -top-5 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-full bg-blue-500 px-6 py-1.5 text-[10px] font-black uppercase tracking-widest text-white shadow-xl">
+                  <Sparkles className="h-3.5 w-3.5 fill-white" />
+                  Most Popular
                 </div>
               )}
 
-              <div className="mb-8">
-                <h3 className="text-xl font-bold">{plan.name}</h3>
-                <p className="mt-2 text-sm text-muted-foreground min-h-[40px]">
+              <div className="mb-10">
+                <h3 className="text-2xl font-black tracking-tight">
+                  {plan.name}
+                </h3>
+                <p className="mt-3 text-sm text-muted-foreground font-medium leading-relaxed">
                   {plan.desc}
                 </p>
               </div>
 
-              <div className="mb-8 flex items-baseline gap-1">
-                <span className="text-5xl font-extrabold tracking-tight">
-                  {plan.price === "Custom" ? "" : "Rp "}
-                  {plan.price}
-                </span>
-                {plan.price !== "Custom" && (
-                  <span className="text-muted-foreground font-medium">
-                    /bulan
+              <div className="mb-10 flex flex-col">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm font-black text-muted-foreground uppercase">
+                    IDR
                   </span>
-                )}
+                  <span className="text-5xl md:text-6xl font-black tracking-tighter text-foreground">
+                    {plan.price}
+                  </span>
+                </div>
+                <div className="text-xs font-bold text-muted-foreground mt-2 uppercase tracking-widest">
+                  Per {isAnnual ? "Tahun" : "Bulan"} per Tenant
+                </div>
               </div>
 
-              <div className="flex-1 space-y-4 mb-8">
-                <p className="text-sm font-bold uppercase tracking-wider text-muted-foreground/80">
-                  Fitur Utama:
+              <div className="flex-1 space-y-6 mb-10 border-t border-border pt-8">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">
+                  Fitur Utama & Layanan:
                 </p>
-                <ul className="space-y-3">
+                <ul className="space-y-4">
                   {plan.features.map((f) => (
-                    <li key={f} className="flex items-start gap-3 text-sm">
-                      <div className="mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                        <Check className="h-3 w-3" />
+                    <li
+                      key={f}
+                      className="flex items-start gap-4 text-sm font-semibold text-muted-foreground group"
+                    >
+                      <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-blue-500 transition-colors group-hover:bg-blue-500 group-hover:text-white">
+                        <Check className="h-3.5 w-3.5" />
                       </div>
-                      <span className="text-muted-foreground/90 font-medium">
+                      <span className="leading-tight group-hover:text-foreground transition-colors">
                         {f}
                       </span>
                     </li>
@@ -165,28 +193,63 @@ export default function PricingPage() {
                 </ul>
               </div>
 
-              <Link href="/register" className="w-full">
+              <Link href="/register" className="w-full group">
                 <Button
                   className={cn(
-                    "w-full h-12 text-md font-bold rounded-xl transition-all",
+                    "w-full h-16 text-lg font-black rounded-2xl transition-all active:scale-95",
                     plan.popular
-                      ? "shadow-lg shadow-primary/20 hover:shadow-primary/30"
-                      : "",
+                      ? "bg-blue-600 text-white hover:bg-blue-700 shadow-xl shadow-blue-500/20"
+                      : "bg-secondary text-foreground hover:bg-blue-500 hover:text-white",
                   )}
-                  variant={plan.popular ? "default" : "outline"}
+                  variant={plan.popular ? "default" : "secondary"}
                 >
                   {plan.cta}
+                  <ChevronRight className="ml-2 h-5 w-5 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
                 </Button>
               </Link>
             </div>
           ))}
         </div>
 
-        {/* Trust Footer */}
-        <p className="mt-12 text-center text-sm text-muted-foreground">
-          Butuh konsultasi khusus?{" "}
-          <Link href="#" className="text-primary underline underline-offset-4">
-            Hubungi tim kami
+        {/* --- MIDTRANS TRUST FOOTER --- */}
+        <div className="mt-24 max-w-4xl mx-auto grid md:grid-cols-3 gap-8 py-12 border-t border-border/50">
+          <div className="flex flex-col items-center text-center space-y-3">
+            <div className="h-12 w-12 rounded-2xl bg-blue-500/5 flex items-center justify-center text-blue-500">
+              <ShieldCheck className="h-6 w-6" />
+            </div>
+            <h4 className="font-bold text-sm">Secure Payment</h4>
+            <p className="text-xs text-muted-foreground">
+              Diproteksi oleh standar keamanan AES-256 dan 3D Secure.
+            </p>
+          </div>
+          <div className="flex flex-col items-center text-center space-y-3">
+            <div className="h-12 w-12 rounded-2xl bg-blue-500/5 flex items-center justify-center text-blue-500">
+              <Zap className="h-6 w-6" />
+            </div>
+            <h4 className="font-bold text-sm">Instant Activation</h4>
+            <p className="text-xs text-muted-foreground">
+              Sistem aktif dalam 60 detik setelah konfirmasi pembayaran.
+            </p>
+          </div>
+          <div className="flex flex-col items-center text-center space-y-3">
+            <div className="h-12 w-12 rounded-2xl bg-blue-500/5 flex items-center justify-center text-blue-500">
+              <HelpCircle className="h-6 w-6" />
+            </div>
+            <h4 className="font-bold text-sm">Refund Guarantee</h4>
+            <p className="text-xs text-muted-foreground">
+              Kebijakan refund transparan untuk kepuasan pelanggan Anda.
+            </p>
+          </div>
+        </div>
+
+        {/* Final Help Text */}
+        <p className="mt-16 text-center text-sm text-muted-foreground font-medium">
+          Ada pertanyaan khusus atau butuh demo?{" "}
+          <Link
+            href="mailto:support@bookinaja.com"
+            className="text-blue-500 font-bold hover:underline underline-offset-4"
+          >
+            Hubungi Tim Support
           </Link>
         </p>
       </div>
