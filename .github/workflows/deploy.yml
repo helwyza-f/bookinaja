@@ -1,40 +1,64 @@
-name: Deploy Monorepo to EC2
+name: Fast Deploy Monorepo to EC2
 
 on:
   push:
     branches: [main]
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Execute Remote SSH Commands
+      # --- BUILD BACKEND ---
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: Build Backend Binary
+        run: |
+          cd saas
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o main cmd/api/main.go
+
+      # --- BUILD FRONTEND ---
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: "saas-app/package-lock.json"
+      - name: Build Frontend Standalone
+        env:
+          NEXT_PUBLIC_API_URL: https://api.bookinaja.com/api/v1
+        run: |
+          cd saas-app
+          npm install
+          npm run build
+
+      # --- SEND TO EC2 ---
+      - name: Transfer Mateng ke EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          # Kirim hanya file yang dibutuhkan untuk running
+          source: "saas/main,saas/migrations,saas/Dockerfile,saas-app/.next/standalone,saas-app/.next/static,saas-app/public,saas-app/Dockerfile,docker-compose.yml"
+          target: "~/bookinaja"
+          strip_components: 0
+
+      # --- RESTART DOCKER ---
+      - name: Execute SSH Commands
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Masuk ke folder monorepo di EC2
-            cd ~/bookinaja || (git clone https://github.com/helwyza-f/bookinaja.git ~/bookinaja && cd ~/bookinaja)
-
-            # Paksa ambil kode terbaru dari branch main
-            git fetch origin main
-            git reset --hard origin/main
-
-            # Injeksi environment variables dari GitHub Secrets
+            cd ~/bookinaja
             echo "${{ secrets.BE_ENV }}" > saas/.env
             echo "${{ secrets.FE_ENV }}" > saas-app/.env
-
-            # Bersihkan container lama agar port tidak bentrok
             sudo docker-compose down
-
-            # Bangun ulang image dan jalankan di background
-            # Note: Ini akan memakan waktu karena build Next.js cukup berat di t3.micro
             sudo docker-compose up --build -d
-
-            # Hapus image lama yang tidak terpakai (dangling images)
             sudo docker image prune -f
