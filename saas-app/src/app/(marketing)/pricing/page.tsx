@@ -16,24 +16,23 @@ import { cn } from "@/lib/utils";
 
 /**
  * PRICING PAGE - BOOKINAJA.COM
- * Dioptimasi untuk Review Midtrans & Konversi B2B SaaS Profesional
+ * Realistis, Transparan, & Sesuai Kapasitas Development
  */
 export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(true);
 
-  // Definisi Paket (Data Detail untuk Transparansi Bank/Midtrans)
   const plans = [
     {
       name: "Starter",
       price: "0",
       rawPrice: 0,
-      desc: "Ideal untuk UMKM yang baru memulai digitalisasi operasional.",
+      desc: "Solusi dasar untuk mendigitalisasi operasional persewaan Anda.",
       features: [
-        "1 Resource (Meja/Ruangan/Unit)",
-        "Maks. 50 Reservasi per bulan",
-        "Subdomain bookinaja.com",
-        "Laporan Pendapatan Dasar",
-        "Email Support (Jam Kerja)",
+        "1 Unit/Resource (Misal: 1 Lapangan)",
+        "Maks. 50 Booking per bulan",
+        "Link Website bisnisanda.bookinaja.com",
+        "Laporan Pendapatan Sederhana",
+        "Dukungan Komunitas & Help Center",
       ],
       cta: "Mulai Gratis",
       popular: false,
@@ -42,14 +41,14 @@ export default function PricingPage() {
       name: "Professional",
       price: isAnnual ? "119.000" : "149.000",
       rawPrice: isAnnual ? 119000 : 149000,
-      desc: "Fitur lengkap untuk bisnis persewaan dengan mobilitas tinggi.",
+      desc: "Untuk bisnis yang butuh kendali penuh dan automasi harian.",
       features: [
-        "Unlimited Resource & Spot",
-        "Reservasi & Booking Tanpa Batas",
-        "Dashboard Analytics Real-time",
-        "WhatsApp Business Notification",
-        "Dynamic Pricing Engine",
-        "Prioritas Support 24/7",
+        "Unit & Resource Tanpa Batas",
+        "Booking & Reservasi Tanpa Batas",
+        "Dashboard Status Real-time",
+        "Notifikasi Pengingat WhatsApp",
+        "Atur Harga Khusus Weekend",
+        "Prioritas Chat Support",
       ],
       cta: "Coba Pro 14 Hari",
       popular: true,
@@ -58,14 +57,14 @@ export default function PricingPage() {
       name: "Enterprise",
       price: "Custom",
       rawPrice: null,
-      desc: "Solusi kustom untuk jaringan bisnis nasional dan franchise.",
+      desc: "Dukungan eksklusif untuk bisnis skala besar atau franchise.",
       features: [
         "Custom Domain (brandanda.com)",
-        "White-label Dashboard Branding",
-        "Multi-user & Role Permission",
-        "Dedicated Database Instance",
-        "SLA & Dedicated Account Manager",
-        "Integrasi API Kustom",
+        "Hapus Logo Bookinaja (White Label)",
+        "Laporan Analitik Bisnis Bulanan",
+        "Akses Tim (Admin & Kasir)",
+        "SLA & Dedicated Support",
+        "Setup Akun Dibantu Tim Kami",
       ],
       cta: "Hubungi Sales",
       popular: false,
@@ -74,7 +73,7 @@ export default function PricingPage() {
 
   return (
     <section className="relative flex-1 flex flex-col items-center py-24 md:py-32 overflow-hidden">
-      {/* --- BACKGROUND SYSTEM (Elite Glassmorphism) --- */}
+      {/* --- BACKGROUND SYSTEM --- */}
       <div className="fixed inset-0 -z-10 bg-background">
         <div className="absolute top-0 left-1/4 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-blue-600/5 blur-[120px]" />
         <div className="absolute bottom-0 right-1/4 h-[500px] w-[500px] translate-x-1/2 rounded-full bg-indigo-600/5 blur-[120px]" />
@@ -88,18 +87,18 @@ export default function PricingPage() {
             variant="outline"
             className="border-blue-500/20 bg-blue-500/5 text-blue-500 px-5 py-1.5 font-syne text-[10px] font-bold uppercase tracking-widest"
           >
-            Subscription Plans
+            Investasi Bisnis
           </Badge>
-          <h1 className="text-5xl font-black tracking-tighter sm:text-7xl text-foreground">
-            Investasi Cerdas untuk <br />
-            <span className="text-blue-500 italic">Pertumbuhan Bisnis.</span>
+          <h1 className="text-5xl font-black tracking-tighter sm:text-7xl text-foreground leading-[0.9]">
+            Pilih Paket untuk <br />
+            <span className="text-blue-500 italic">Pertumbuhan Cuan.</span>
           </h1>
           <p className="max-w-[32rem] text-lg md:text-xl text-muted-foreground font-medium">
-            Harga transparan dalam Rupiah (IDR). Tanpa biaya tersembunyi.
-            Batalkan langganan kapan saja.
+            Satu akun untuk satu bisnis. Harga jujur dalam Rupiah (IDR). Tanpa
+            biaya tambahan yang tiba-tiba muncul.
           </p>
 
-          {/* Billing Switcher (PBI Compliance: Clear IDR Info) */}
+          {/* Billing Switcher */}
           <div className="flex items-center gap-5 mt-8 p-1.5 bg-secondary/30 backdrop-blur-md rounded-2xl border border-border">
             <button
               onClick={() => setIsAnnual(false)}
@@ -145,7 +144,7 @@ export default function PricingPage() {
               {plan.popular && (
                 <div className="absolute -top-5 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-full bg-blue-500 px-6 py-1.5 text-[10px] font-black uppercase tracking-widest text-white shadow-xl">
                   <Sparkles className="h-3.5 w-3.5 fill-white" />
-                  Most Popular
+                  Rekomendasi
                 </div>
               )}
 
@@ -168,13 +167,13 @@ export default function PricingPage() {
                   </span>
                 </div>
                 <div className="text-xs font-bold text-muted-foreground mt-2 uppercase tracking-widest">
-                  Per {isAnnual ? "Tahun" : "Bulan"} per Tenant
+                  Per {isAnnual ? "Tahun" : "Bulan"}
                 </div>
               </div>
 
               <div className="flex-1 space-y-6 mb-10 border-t border-border pt-8">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">
-                  Fitur Utama & Layanan:
+                  Layanan Tersedia:
                 </p>
                 <ul className="space-y-4">
                   {plan.features.map((f) => (
@@ -214,42 +213,41 @@ export default function PricingPage() {
         {/* --- MIDTRANS TRUST FOOTER --- */}
         <div className="mt-24 max-w-4xl mx-auto grid md:grid-cols-3 gap-8 py-12 border-t border-border/50">
           <div className="flex flex-col items-center text-center space-y-3">
-            <div className="h-12 w-12 rounded-2xl bg-blue-500/5 flex items-center justify-center text-blue-500">
+            <div className="h-12 w-12 rounded-2xl bg-blue-500/5 flex items-center justify-center text-blue-600">
               <ShieldCheck className="h-6 w-6" />
             </div>
-            <h4 className="font-bold text-sm">Secure Payment</h4>
-            <p className="text-xs text-muted-foreground">
-              Diproteksi oleh standar keamanan AES-256 dan 3D Secure.
+            <h4 className="font-bold text-sm">Aman & Terenkripsi</h4>
+            <p className="text-xs text-muted-foreground text-pretty">
+              Pembayaran diproteksi oleh standar AES-256 dan 3D Secure Midtrans.
             </p>
           </div>
           <div className="flex flex-col items-center text-center space-y-3">
-            <div className="h-12 w-12 rounded-2xl bg-blue-500/5 flex items-center justify-center text-blue-500">
+            <div className="h-12 w-12 rounded-2xl bg-blue-500/5 flex items-center justify-center text-blue-600">
               <Zap className="h-6 w-6" />
             </div>
-            <h4 className="font-bold text-sm">Instant Activation</h4>
-            <p className="text-xs text-muted-foreground">
-              Sistem aktif dalam 60 detik setelah konfirmasi pembayaran.
+            <h4 className="font-bold text-sm">Aktif Seketika</h4>
+            <p className="text-xs text-muted-foreground text-pretty">
+              Layanan otomatis aktif setelah konfirmasi pembayaran berhasil.
             </p>
           </div>
           <div className="flex flex-col items-center text-center space-y-3">
-            <div className="h-12 w-12 rounded-2xl bg-blue-500/5 flex items-center justify-center text-blue-500">
+            <div className="h-12 w-12 rounded-2xl bg-blue-500/5 flex items-center justify-center text-blue-600">
               <HelpCircle className="h-6 w-6" />
             </div>
-            <h4 className="font-bold text-sm">Refund Guarantee</h4>
-            <p className="text-xs text-muted-foreground">
-              Kebijakan refund transparan untuk kepuasan pelanggan Anda.
+            <h4 className="font-bold text-sm">Bantuan Teknis</h4>
+            <p className="text-xs text-muted-foreground text-pretty">
+              Tim support kami siap membantu operasional digital bisnis Anda.
             </p>
           </div>
         </div>
 
-        {/* Final Help Text */}
         <p className="mt-16 text-center text-sm text-muted-foreground font-medium">
-          Ada pertanyaan khusus atau butuh demo?{" "}
+          Ragu memilih paket? Coba dulu paket Starter atau{" "}
           <Link
             href="mailto:support@bookinaja.com"
             className="text-blue-500 font-bold hover:underline underline-offset-4"
           >
-            Hubungi Tim Support
+            Konsultasi Gratis
           </Link>
         </p>
       </div>

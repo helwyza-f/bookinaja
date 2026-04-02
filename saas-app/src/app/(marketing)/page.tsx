@@ -11,12 +11,8 @@ import {
   Rocket,
   ShieldCheck,
   BarChart3,
-  Users,
-  Activity,
-  ArrowUpRight,
   Monitor,
   Camera,
-  SportShoe,
   Coffee,
   Briefcase,
   PlayCircle,
@@ -24,30 +20,40 @@ import {
   Wallet,
   Smartphone,
   ChevronRight,
-  Star,
   QrCode,
+  Layout,
+  Command,
+  Cpu,
+  Workflow,
+  Target,
+  History,
+  TrendingUp,
+  UserCheck,
+  CreditCard,
+  BellRing,
+  Map,
+  MessageCircle,
+  Share2,
+  Heart,
 } from "lucide-react";
 import Link from "next/link";
 
 /**
  * LANDING PAGE COMPONENT - BOOKINAJA.COM
- * High-End B2B SaaS Architecture
+ * Elite B2B SaaS Branding - Jargon-free Copywriting
+ * Single Account focus for Maximum Profitability
  */
 export default function LandingPage() {
   return (
-    <div className="relative flex flex-col items-center selection:bg-blue-600/30 overflow-x-hidden">
-      {/* --- ELITE PRO VISUAL BACKGROUND SYSTEM (IMMERSIVE & FIXED) --- */}
-      <div className="fixed inset-0 -z-10 overflow-hidden bg-background">
-        {/* Animated Layered Mesh Gradients */}
-        <div className="absolute -top-[10%] left-[-10%] h-[50rem] md:h-[70rem] w-[50rem] md:w-[70rem] rounded-full bg-blue-600/10 blur-[80px] md:blur-[140px] animate-pulse" />
-        <div className="absolute top-[15%] right-[-10%] h-[40rem] md:h-[60rem] w-[40rem] md:w-[60rem] rounded-full bg-indigo-600/10 blur-[80px] md:blur-[140px]" />
-        <div className="absolute bottom-[-15%] left-[5%] h-[35rem] md:h-[55rem] w-[35rem] md:w-[55rem] rounded-full bg-blue-400/5 blur-[80px] md:blur-[130px]" />
-
-        {/* Infinite Grid System - Glassmorphism Support */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:32px_32px] md:bg-[size:48px_48px] [mask-image:radial-gradient(ellipse_90%_90%_at_50%_50%,#000_80%,transparent_100%)] opacity-100" />
-
-        {/* Grain Overlay */}
-        <div className="absolute inset-0 opacity-[0.02] pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+    <div className="relative flex flex-col items-center selection:bg-blue-600/30 overflow-x-hidden bg-background">
+      {/* --- DYNAMIC BACKGROUND SYSTEM --- */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[1000px] bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.15)_0%,transparent_70%)]" />
+        <div className="sticky top-0 h-screen w-full overflow-hidden opacity-40">
+          <div className="absolute top-[-10%] right-[-10%] h-[40rem] w-[40rem] rounded-full bg-blue-600/20 blur-[120px] animate-pulse" />
+          <div className="absolute bottom-[10%] left-[-10%] h-[35rem] w-[35rem] rounded-full bg-indigo-600/10 blur-[100px]" />
+        </div>
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:radial-gradient(ellipse_80%_80%_at_50%_50%,#000_100%,transparent_100%)]" />
       </div>
 
       {/* --- HERO SECTION --- */}
@@ -55,24 +61,24 @@ export default function LandingPage() {
         <div className="flex justify-center mb-6 md:mb-10">
           <Badge
             variant="outline"
-            className="rounded-full border-blue-500/30 bg-blue-500/10 px-4 md:px-6 py-1.5 md:py-2 font-syne text-[8px] md:text-[10px] font-bold uppercase tracking-[0.2em] text-blue-500 backdrop-blur-md animate-in fade-in zoom-in duration-1000"
+            className="rounded-full border-blue-500/30 bg-blue-500/10 px-4 md:px-6 py-1.5 md:py-2 font-syne text-[8px] md:text-[10px] font-bold uppercase tracking-[0.2em] text-blue-500 backdrop-blur-md"
           >
             <Sparkles className="mr-2 h-3 w-3 md:h-3.5 md:w-3.5 fill-current" />
-            The Operating System for Service-Based Businesses
+            Sistem Operasi Bisnis Persewaan No. 1
           </Badge>
         </div>
 
         <h1 className="max-w-6xl mx-auto text-4xl font-black tracking-tighter sm:text-7xl md:text-9xl text-foreground leading-[0.9] md:leading-[0.85] mb-8 md:mb-12">
-          Satu Dashboard. <br />
+          Kelola Bisnis. <br />
           <span className="bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-400 bg-clip-text text-transparent italic">
-            Tanpa Batas.
+            Gak Pake Ribet.
           </span>
         </h1>
 
-        <p className="mt-4 md:mt-8 max-w-3xl mx-auto text-base leading-relaxed text-muted-foreground sm:text-2xl font-medium px-2 md:px-4 opacity-90">
-          Digitalisasi operasional manual Anda menjadi sistem otomatis cerdas.
-          Manajemen resource, billing real-time, dan publisitas instan dalam
-          satu platform premium.
+        <p className="mt-4 md:mt-8 max-w-3xl mx-auto text-base leading-relaxed text-muted-foreground sm:text-2xl font-medium px-2 md:px-4">
+          Hentikan pembukuan manual yang berantakan. Pantau ketersediaan slot,
+          terima pembayaran digital, dan automasi jadwal bisnis Anda dalam satu
+          layar.
         </p>
 
         <div className="mt-10 md:mt-16 flex flex-col gap-4 sm:flex-row justify-center items-center px-4">
@@ -81,7 +87,7 @@ export default function LandingPage() {
               size="lg"
               className="group h-16 md:h-20 w-full sm:w-auto px-10 md:px-16 text-lg md:text-xl font-bold rounded-2xl bg-blue-600 shadow-[0_15px_40px_-10px_rgba(59,130,246,0.5)] hover:bg-blue-700 transition-all hover:-translate-y-2 text-white"
             >
-              Mulai Bisnis Sekarang
+              Daftarkan Bisnis Saya
               <ArrowRight className="ml-3 h-5 w-5 md:h-6 md:w-6 transition-transform group-hover:translate-x-2" />
             </Button>
           </Link>
@@ -91,35 +97,97 @@ export default function LandingPage() {
               size="lg"
               className="h-16 md:h-20 w-full sm:w-auto px-10 md:px-16 text-lg md:text-xl font-bold rounded-2xl border-2 border-border bg-background/20 backdrop-blur-2xl hover:bg-secondary transition-all"
             >
-              Lihat Paket Harga
+              Cek Paket Harga
             </Button>
           </Link>
         </div>
 
-        {/* --- INTERACTIVE DASHBOARD PREVIEW --- */}
+        {/* INTERACTIVE PREVIEW - MOBILE CLEANED */}
         <div className="mt-24 md:mt-40 relative mx-auto max-w-7xl group">
-          <div className="absolute -inset-2 md:-inset-4 rounded-[2rem] md:rounded-[3.5rem] bg-gradient-to-r from-blue-600/30 to-indigo-600/30 opacity-20 blur-2xl md:blur-3xl transition duration-1000 group-hover:opacity-40" />
+          <div className="absolute -inset-2 md:-inset-4 rounded-[2rem] md:rounded-[3.5rem] bg-gradient-to-r from-blue-600/30 to-indigo-600/30 opacity-20 blur-2xl md:blur-3xl" />
           <div className="relative rounded-[1.5rem] md:rounded-[3rem] border border-white/10 bg-card/30 p-2 md:p-4 shadow-2xl backdrop-blur-md overflow-hidden">
             <div className="overflow-hidden rounded-[1rem] md:rounded-[2rem] border border-white/5 bg-background/50">
               <img
                 src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=2426"
-                alt="Bookinaja Dashboard"
-                className="w-full object-cover aspect-[4/3] md:aspect-[16/9] opacity-95 transition-transform duration-1000 group-hover:scale-[1.02]"
+                alt="Dashboard Bookinaja"
+                className="w-full object-cover aspect-[4/3] md:aspect-[16/9] opacity-90 transition-transform duration-1000 group-hover:scale-[1.02]"
               />
             </div>
-            {/* Live Widget Overlay - Visible only on Desktop */}
-            <div className="absolute bottom-12 left-12 p-6 rounded-2xl bg-background/95 border border-border shadow-2xl animate-bounce-slow hidden lg:block backdrop-blur-md">
-              <div className="flex items-center gap-5">
-                <div className="h-14 w-14 rounded-full bg-blue-600/10 flex items-center justify-center text-blue-600">
-                  <Activity className="h-7 w-7" />
+          </div>
+        </div>
+      </section>
+
+      {/* --- WHAT WE DO SECTION --- */}
+      <section className="container relative z-10 mx-auto px-6 py-24 md:py-40">
+        <div className="grid lg:grid-cols-2 gap-16 md:gap-24 items-center text-center md:text-left">
+          <div className="space-y-8 md:space-y-12">
+            <div className="space-y-4">
+              <Badge
+                variant="outline"
+                className="text-blue-500 border-blue-500/20 bg-blue-500/5 px-4 py-1"
+              >
+                APA ITU BOOKINAJA?
+              </Badge>
+              <h2 className="text-4xl md:text-7xl font-black tracking-tighter leading-none">
+                Asisten Digital <br />
+                <span className="text-blue-500">24 Jam Anda.</span>
+              </h2>
+            </div>
+
+            <p className="text-lg md:text-2xl text-muted-foreground leading-relaxed font-medium">
+              Kami memindahkan bisnis Anda dari buku tulis ke sistem digital.
+              Pelanggan bisa cek ketersediaan jam sendiri, bayar langsung, dan
+              Anda tinggal terima laporan beres di akhir bulan tanpa pusing
+              catat sana-sini.
+            </p>
+
+            <div className="grid sm:grid-cols-2 gap-8">
+              <div className="space-y-3">
+                <div className="h-10 w-10 mx-auto md:mx-0 rounded-xl bg-blue-600/10 flex items-center justify-center text-blue-600">
+                  <Workflow className="h-5 w-5" />
                 </div>
-                <div className="text-left">
-                  <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">
-                    Live Occupancy
-                  </div>
-                  <div className="text-2xl font-black text-foreground">
-                    84% Capacity
-                  </div>
+                <h4 className="text-xl font-bold">Otomasi Jadwal</h4>
+                <p className="text-muted-foreground text-sm">
+                  Gak ada lagi jadwal bentrok. Sistem kunci slot otomatis saat
+                  ada pesanan masuk.
+                </p>
+              </div>
+              <div className="space-y-3">
+                <div className="h-10 w-10 mx-auto md:mx-0 rounded-xl bg-indigo-600/10 flex items-center justify-center text-indigo-600">
+                  <TrendingUp className="h-5 w-5" />
+                </div>
+                <h4 className="text-xl font-bold">Simpel & Fokus</h4>
+                <p className="text-muted-foreground text-sm">
+                  Satu akun untuk satu bisnis. Langsung bisa dipakai cari cuan
+                  tanpa ribet.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* HIDDEN ON MOBILE FOR CLEANER FLOW */}
+          <div className="hidden lg:block relative">
+            <div className="absolute -inset-4 bg-blue-600/20 blur-3xl rounded-full opacity-50" />
+            <div className="relative grid grid-cols-2 gap-4">
+              <div className="space-y-4">
+                <div className="aspect-square rounded-[2rem] bg-card border border-border p-8 flex items-center justify-center shadow-xl">
+                  <Cpu className="h-12 w-12 text-blue-500" />
+                </div>
+                <div className="aspect-[4/5] rounded-[2rem] bg-blue-600 p-8 flex flex-col justify-end text-white">
+                  <p className="text-2xl font-black leading-none">
+                    Sistem <br /> Cerdas.
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-4 pt-12">
+                <div className="aspect-[4/5] rounded-[2rem] bg-secondary border border-border p-8 flex flex-col justify-between">
+                  <ShieldCheck className="h-10 w-10 text-indigo-500" />
+                  <p className="text-xl font-bold leading-tight">
+                    Data <br /> Aman.
+                  </p>
+                </div>
+                <div className="aspect-square rounded-[2rem] bg-card border border-border p-8 flex items-center justify-center">
+                  <Command className="h-12 w-12 text-slate-400" />
                 </div>
               </div>
             </div>
@@ -127,7 +195,66 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- SECTOR USE-CASES --- */}
+      {/* --- AUTOMATIC LANDING PAGE SECTION (NEW) --- */}
+      <section className="container relative z-10 mx-auto px-6 py-24 md:py-40 border-y border-border/50 bg-secondary/5 backdrop-blur-sm">
+        <div className="flex flex-col items-center text-center space-y-12">
+          <div className="max-w-3xl space-y-6">
+            <Badge
+              variant="outline"
+              className="text-indigo-500 border-indigo-500/20 bg-indigo-500/5 px-4 py-1"
+            >
+              PROMOSI TANPA MODAL
+            </Badge>
+            <h2 className="text-4xl md:text-7xl font-black tracking-tighter leading-tight">
+              Dapat Website <span className="text-indigo-500">Siap Pakai.</span>
+            </h2>
+            <p className="text-lg md:text-2xl text-muted-foreground font-medium">
+              Gak perlu bayar desainer. Setiap daftar, Anda langsung dapat link
+              website profesional atas nama bisnis Anda sendiri.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 w-full max-w-5xl">
+            {[
+              {
+                icon: <Heart className="text-pink-500" />,
+                title: "Pasang di Bio IG",
+                desc: "Ubah followers jadi pembeli. Pelanggan klik link di bio, langsung pilih jadwal.",
+              },
+              {
+                icon: <MessageCircle className="text-emerald-500" />,
+                title: "Share ke WhatsApp",
+                desc: "Gak perlu capek balas chat ketersediaan. Kirim link, biarkan pelanggan pesan sendiri.",
+              },
+              {
+                icon: <Share2 className="text-blue-500" />,
+                title: "Promosi Dimana Saja",
+                desc: "Link website Anda kompatibel dengan semua media sosial dan Google Maps.",
+              },
+            ].map((item, i) => (
+              <div
+                key={i}
+                className="p-8 rounded-3xl bg-card border border-border hover:border-indigo-500/30 transition-all group"
+              >
+                <div className="mb-6 h-14 w-14 rounded-2xl bg-secondary flex items-center justify-center group-hover:scale-110 transition-transform">
+                  {item.icon}
+                </div>
+                <h4 className="text-xl font-bold mb-3">{item.title}</h4>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="w-full max-w-2xl p-6 md:p-8 rounded-[2rem] bg-indigo-600/5 border border-indigo-500/20 font-mono text-lg md:text-2xl text-indigo-500 shadow-xl flex items-center justify-center gap-4">
+            <Globe className="h-6 w-6 opacity-50" />
+            <span className="truncate">nama-bisnis.bookinaja.com</span>
+          </div>
+        </div>
+      </section>
+
+      {/* --- INDUSTRIES SECTION --- */}
       <section
         id="industries"
         className="container relative z-10 mx-auto px-6 py-20 md:py-32"
@@ -137,181 +264,130 @@ export default function LandingPage() {
             variant="outline"
             className="border-blue-500/20 text-blue-500 font-bold tracking-widest px-4 py-1"
           >
-            INDUSTRIES
+            BIDANG USAHA
           </Badge>
           <h2 className="text-4xl md:text-6xl font-black tracking-tighter">
-            Solusi untuk Semua <span className="text-blue-500">Resource.</span>
+            Satu Aplikasi. <br /> Berbagai{" "}
+            <span className="text-blue-500">Macam Bisnis.</span>
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto text-base md:text-xl font-medium">
-            Platform fleksibel untuk berbagai unit bisnis persewaan dan jasa.
+            Apapun yang Anda sewakan, sistem kami siap menanganinya.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 text-left">
           <SectorCard
             icon={<Monitor />}
-            title="Gaming Hub & PS"
-            desc="Manajemen billing per jam otomatis dengan fitur preventif double-booking."
+            title="Rental PS & Gaming Hub"
+            desc="Hitung billing per jam otomatis. Gak perlu jagain stopwatch manual lagi."
           />
           <SectorCard
             icon={<Camera />}
-            title="Photo & Video Studio"
-            desc="Booking jadwal pemotretan dan manajemen alat dalam satu kalender terpusat."
+            title="Studio Foto & Kreatif"
+            desc="Kelola jadwal sewa studio dan paket alat biar gak berantakan."
           />
           <SectorCard
             icon={<Zap />}
-            title="Sport Center & Court"
-            desc="Digitalisasi lapangan futsal, badminton, atau tennis dengan sistem DP otomatis."
+            title="Lapangan Olahraga"
+            desc="Futsal, Badminton, atau Tennis. Pelanggan bisa cek jam kosong lewat HP."
           />
           <SectorCard
             icon={<Briefcase />}
-            title="Co-Working Space"
-            desc="Sewa meja harian atau meeting room per jam dengan dashboard pelanggan mandiri."
+            title="Ruang Meeting & Kantor"
+            desc="Sewa meja atau ruangan per jam dengan sistem booking mandiri."
           />
           <SectorCard
             icon={<Coffee />}
-            title="Cafe & Social Space"
-            desc="Reservasi meja untuk event atau penggunaan private space secara terukur."
+            title="Cafe & Reservasi Meja"
+            desc="Bantu pelanggan pesan tempat untuk acara atau nongkrong dari rumah."
           />
           <SectorCard
             icon={<PlayCircle />}
-            title="Podcast Room"
-            desc="Penjadwalan ruangan kedap suara dengan sistem add-ons peralatan otomatis."
+            title="Ruang Podcast & Musik"
+            desc="Kelola jadwal latihan atau rekaman tanpa perlu admin standby 24 jam."
           />
         </div>
       </section>
 
-      {/* --- TRUST STATS --- */}
-      <section className="container relative z-10 mx-auto px-6 py-12 md:py-20 bg-background/5 backdrop-blur-sm border-y border-border/50">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 py-8">
-          <StatCard label="Active Tenants" value="1,200+" icon={<Users />} />
-          <StatCard label="Monthly Vol" value="Rp 42B+" icon={<Wallet />} />
-          <StatCard label="Uptime" value="99.9%" icon={<ShieldCheck />} />
-          <StatCard label="Rating" value="4.9/5" icon={<Star />} />
-        </div>
-      </section>
-
-      {/* --- VALUE PROPOSITION: B2B ENGINE --- */}
-      <section className="w-full relative z-10 bg-secondary/15 py-24 md:py-40 backdrop-blur-md border-b border-border">
+      {/* --- VALUE PROPOSITION --- */}
+      <section id="features" className="w-full relative z-10 py-24 md:py-40">
         <div className="container mx-auto px-6">
-          <div className="flex flex-col lg:flex-row justify-between items-center lg:items-end mb-16 md:mb-24 gap-8 text-center lg:text-left">
-            <div className="space-y-4 md:space-y-6 max-w-2xl">
-              <h2 className="text-4xl md:text-8xl font-black font-syne uppercase tracking-tighter leading-none">
-                Engine <br className="hidden md:block" />{" "}
-                <span className="text-blue-500">Pertumbuhan.</span>
-              </h2>
-              <p className="text-muted-foreground text-lg md:text-2xl font-medium">
-                Kami membangun infrastruktur yang mengonversi operasional
-                menjadi profit murni.
-              </p>
-            </div>
-            <Link href="#features" scroll={true}>
-              <Button
-                variant="link"
-                className="text-blue-500 font-bold text-base md:text-lg p-0 flex items-center gap-2 group"
-              >
-                Pelajari Semua Fitur{" "}
-                <ArrowUpRight className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-              </Button>
-            </Link>
+          <div className="flex flex-col items-center text-center mb-16 md:mb-32 space-y-6 px-4">
+            <Badge className="bg-blue-600/10 text-blue-500 border-none font-bold">
+              SOLUSI BISNIS
+            </Badge>
+            <h2 className="text-4xl md:text-8xl font-black font-syne uppercase tracking-tighter leading-tight">
+              Bikin Cuan <span className="text-blue-500">Lancar.</span>
+            </h2>
+            <p className="text-muted-foreground text-lg md:text-2xl font-medium max-w-3xl leading-snug">
+              Dirancang untuk memaksimalkan setiap slot waktu yang Anda miliki.
+            </p>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-8 md:gap-12">
+          <div className="grid lg:grid-cols-3 gap-6 md:gap-10">
             <ValueCard
-              icon={<Rocket />}
-              title="Revenue Generator"
+              icon={<Rocket className="text-blue-500" />}
+              title="Tambah Pemasukan"
+              desc="Optimalkan harga di jam sibuk dan tawarkan paket tambahan saat booking."
               points={[
-                "Dynamic Pricing Engine (Harga Weekend Otomatis)",
-                "No-Show Protection via DP (Midtrans)",
-                "Upselling Paket Snack & Extend Jam",
+                "Harga Naik Otomatis di Jam Ramai",
+                "Cegah Pelanggan PHP Pakai DP",
+                "Tawarkan Paket Snack/Minum",
               ]}
             />
             <ValueCard
-              icon={<ShieldCheck />}
-              title="Cost Efficiency"
+              icon={<ShieldCheck className="text-indigo-500" />}
+              title="Hemat Waktu"
+              desc="Biarkan sistem yang kerja. Anda gak perlu lagi jawab chat ketersediaan satu-satu."
               points={[
-                "Digital Concierge 24/7 (Tanpa Admin Malam)",
-                "Otomasi Reminder WhatsApp Business API",
-                "Sistem Self Check-in Mandiri via QR",
+                "Pelanggan Pesan Sendiri 24 Jam",
+                "Kirim Pengingat Jadwal via WA",
+                "Pelanggan Masuk via Scan QR",
               ]}
             />
             <ValueCard
-              icon={<BarChart3 />}
-              title="Scale & Analytics"
+              icon={<BarChart3 className="text-emerald-500" />}
+              title="Laporan Jelas"
+              desc="Semua data uang masuk dan keluar tercatat otomatis secara real-time."
               points={[
-                "Multi-Branch Centralized Dashboard",
-                "Laporan P&L Real-time Audit",
-                "Prediksi Jam Ramai via Analitik Data",
+                "Pantau Bisnis dari Mana Saja",
+                "Rekap Untung Rugi Otomatis",
+                "Tahu Jam Paling Ramai",
               ]}
             />
           </div>
         </div>
       </section>
 
-      {/* --- FEATURE DEEP DIVE: AI & DOMAIN --- */}
-      <section
-        id="features"
-        className="container relative z-10 mx-auto px-6 py-24 md:py-48 space-y-32 md:space-y-64"
-      >
-        {/* AI SECTION */}
+      {/* --- FEATURE DEEP DIVE --- */}
+      <section className="container relative z-10 mx-auto px-6 py-24 md:py-48 space-y-32 md:space-y-64">
+        {/* FEATURE 1: LAYOUT & VISUAL */}
         <div className="flex flex-col lg:flex-row items-center gap-16 md:gap-32">
-          <div className="flex-1 space-y-6 md:space-y-10 text-left">
+          <div className="flex-1 space-y-6 md:space-y-10 text-center md:text-left">
             <Badge className="bg-blue-600/10 text-blue-500 border-none font-bold px-4 md:px-5 py-1.5 md:py-2">
-              AI-POWERED DIGITALIZATION
+              UBAH KE DIGITAL
             </Badge>
             <h2 className="text-4xl md:text-7xl font-black tracking-tighter leading-[1.1] text-foreground">
-              Konversi Manual <br />
-              <span className="text-blue-600">Jadi Digital.</span>
+              Atur Unit Bisnis <br />
+              <span className="text-blue-600">Jadi Lebih Mudah.</span>
             </h2>
             <p className="text-lg md:text-2xl text-muted-foreground leading-relaxed font-medium">
-              Teknologi AI Menu Sync mengenali katalog layanan fisik Anda dan
-              mengubahnya menjadi unit digital siap booking dalam hitungan
-              detik.
+              Gak perlu tebak-tebakan meja atau ruangan mana yang kosong. Lihat
+              denah bisnis Anda secara langsung di layar dashboard.
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-8 pt-4 md:pt-6">
-              <FeatureItem icon={<Clock />} text="Smart Scheduling" />
-              <FeatureItem icon={<Layers />} text="AI Inventory Sync" />
-              <FeatureItem icon={<QrCode />} text="QR Billing Tracking" />
-              <FeatureItem icon={<Smartphone />} text="Real-time Status" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-8 pt-4 md:pt-6 text-left">
+              <FeatureItem icon={<History />} text="Jadwal Antrean Rapi" />
+              <FeatureItem icon={<Map />} text="Denah Bisnis Visual" />
+              <FeatureItem icon={<QrCode />} text="Scan Cek Total Billing" />
+              <FeatureItem icon={<UserCheck />} text="Data Pelanggan Setia" />
             </div>
           </div>
-          <div className="flex-1 w-full relative group">
-            <div className="absolute -inset-6 md:-inset-10 rounded-[3rem] md:rounded-[5rem] bg-blue-600/10 blur-[60px] md:blur-[100px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-            <div className="relative bg-card/40 backdrop-blur-2xl rounded-[2.5rem] md:rounded-[4rem] p-12 md:p-20 border border-border flex items-center justify-center shadow-3xl overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-transparent" />
-              <Sparkles className="h-32 w-32 md:h-64 md:w-64 text-blue-600 animate-pulse relative z-10" />
-            </div>
-          </div>
-        </div>
 
-        {/* DOMAIN SECTION */}
-        <div className="flex flex-col lg:flex-row-reverse items-center gap-16 md:gap-32">
-          <div className="flex-1 space-y-6 md:space-y-10 text-left">
-            <Badge className="bg-indigo-600/10 text-indigo-500 border-none font-bold px-4 md:px-5 py-1.5 md:py-2">
-              INSTANT PUBLISITAS
-            </Badge>
-            <h2 className="text-4xl md:text-7xl font-black tracking-tighter leading-[1.1] text-foreground">
-              Landing Page <br />
-              <span className="text-indigo-600">Otomatis.</span>
-            </h2>
-            <p className="text-lg md:text-2xl text-muted-foreground leading-relaxed font-medium">
-              Setiap tenant mendapatkan subdomain eksklusif yang dioptimasi
-              untuk SEO. Branding instan untuk memperluas jangkauan bisnis Anda
-              secara nasional.
-            </p>
-            <div className="group relative p-6 md:p-10 rounded-[1.5rem] md:rounded-[2.5rem] bg-indigo-600/5 border border-indigo-600/20 font-mono text-lg md:text-3xl text-indigo-500 shadow-3xl overflow-hidden text-center sm:text-left transition-all hover:scale-[1.02]">
-              <span className="relative z-10">bisnis-anda.bookinaja.com</span>
-              <div className="absolute inset-0 bg-indigo-600/10 translate-x-full group-hover:translate-x-0 transition-transform duration-1000" />
-            </div>
-          </div>
-          <div className="flex-1 w-full relative">
-            <div className="absolute -inset-6 md:-inset-8 rounded-[3rem] md:rounded-[4rem] bg-indigo-600/15 blur-[80px] md:blur-[120px]" />
-            <div className="relative aspect-video bg-card/50 backdrop-blur-2xl border border-border rounded-[2rem] md:rounded-[3.5rem] shadow-[0_30px_60px_-10px_rgba(0,0,0,0.5)] overflow-hidden group">
-              <img
-                src="https://images.unsplash.com/photo-1467232004584-a241de8bcf5d?auto=format&fit=crop&q=80&w=2426"
-                alt="Subdomain Preview"
-                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
-              />
+          <div className="hidden lg:block flex-1 w-full relative">
+            <div className="aspect-square rounded-[3rem] bg-gradient-to-br from-blue-600/20 to-transparent border border-border p-1 flex items-center justify-center">
+              <div className="w-full h-full rounded-[2.8rem] bg-card border border-border flex items-center justify-center shadow-inner">
+                <Sparkles className="h-32 w-32 md:h-48 md:w-48 text-blue-500 animate-pulse" />
+              </div>
             </div>
           </div>
         </div>
@@ -324,16 +400,17 @@ export default function LandingPage() {
 
           <div className="relative z-10 mx-auto max-w-5xl space-y-10 md:space-y-16">
             <h2 className="text-4xl font-black text-white sm:text-9xl tracking-tighter leading-[0.9] md:leading-[0.85]">
-              Dominasi Pasar <br /> Sekarang Juga.
+              Bikin Bisnis <br /> Jadi Autopilot.
             </h2>
             <p className="text-lg text-slate-400 font-medium max-w-3xl mx-auto sm:text-3xl leading-relaxed opacity-80">
-              Ganti Buku Tulis Anda dengan Ekosistem Digital dalam 60 detik.
+              Buang buku tulis manual Anda. Mulai cari cuan dengan sistem
+              digital dalam 60 detik.
             </p>
             <div className="flex justify-center pt-4 md:pt-8">
               <Link href="/register" className="w-full sm:w-auto">
                 <Button
                   size="lg"
-                  className="h-20 md:h-24 w-full sm:w-auto px-12 md:px-28 text-xl md:text-3xl font-black rounded-[2rem] md:rounded-[3rem] bg-white text-slate-950 hover:bg-slate-100 transition-all hover:scale-[1.05] active:scale-95 shadow-[0_0_100px_rgba(255,255,255,0.1)]"
+                  className="h-20 md:h-24 w-full sm:w-auto px-12 md:px-28 text-xl md:text-3xl font-black rounded-[2rem] md:rounded-[3rem] bg-white text-slate-950 hover:bg-slate-100 transition-all active:scale-95 shadow-[0_0_100px_rgba(255,255,255,0.1)]"
                 >
                   Bangun Bisnis Sekarang
                 </Button>
@@ -360,7 +437,7 @@ function SectorCard({
   desc: string;
 }) {
   return (
-    <div className="p-8 md:p-10 rounded-[2rem] md:rounded-[3rem] bg-card/20 backdrop-blur-xl border border-border/50 hover:border-blue-500/50 transition-all group">
+    <div className="p-8 md:p-10 rounded-[2rem] md:rounded-[3rem] bg-card/20 backdrop-blur-xl border border-border/50 hover:border-blue-500/50 transition-all group text-left">
       <div className="mb-6 md:mb-8 h-12 w-12 md:h-16 md:w-16 flex items-center justify-center rounded-2xl bg-blue-600/10 text-blue-500 group-hover:scale-110 transition-transform">
         {icon}
       </div>
@@ -374,59 +451,39 @@ function SectorCard({
   );
 }
 
-function StatCard({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string;
-  icon: any;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center space-y-2 md:space-y-4 group">
-      <div className="text-blue-500 mb-1 md:mb-2 group-hover:scale-125 transition-transform duration-500">
-        {icon}
-      </div>
-      <div className="text-2xl md:text-5xl font-black text-foreground tracking-tighter leading-none">
-        {value}
-      </div>
-      <div className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-60 text-center">
-        {label}
-      </div>
-    </div>
-  );
-}
-
 function ValueCard({
   icon,
   title,
+  desc,
   points,
 }: {
   icon: any;
   title: string;
+  desc: string;
   points: string[];
 }) {
   return (
-    <div className="p-10 md:p-14 rounded-[2.5rem] md:rounded-[4rem] bg-card/20 backdrop-blur-2xl border border-border/50 hover:border-blue-500/50 transition-all group relative overflow-hidden">
-      <div className="mb-8 md:mb-12 flex h-16 w-16 md:h-24 md:w-24 items-center justify-center rounded-[1.5rem] md:rounded-[2.5rem] bg-blue-600/10 text-blue-500 group-hover:bg-blue-600 group-hover:text-white transition-all duration-700 shadow-2xl">
+    <div className="p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] bg-card/10 backdrop-blur-md border border-border/50 hover:bg-card/20 transition-all group relative overflow-hidden text-left">
+      <div className="mb-6 h-12 w-12 flex items-center justify-center rounded-2xl bg-secondary text-foreground group-hover:bg-blue-600 group-hover:text-white transition-all duration-500 shadow-sm">
         {icon}
       </div>
-      <h3 className="text-2xl md:text-4xl font-black mb-6 md:mb-10 tracking-tighter text-foreground leading-[1.0]">
+      <h3 className="text-2xl md:text-3xl font-black mb-2 tracking-tighter text-foreground">
         {title}
       </h3>
-      <ul className="space-y-4 md:space-y-6">
+      <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
+        {desc}
+      </p>
+      <ul className="space-y-4">
         {points.map((p) => (
           <li
             key={p}
-            className="flex items-start gap-3 md:gap-5 text-sm md:text-lg text-muted-foreground font-semibold group/item leading-tight"
+            className="flex items-start gap-4 text-sm md:text-base text-foreground font-semibold group/item"
           >
-            <div className="mt-1.5 h-2 w-2 rounded-full bg-blue-600 group-hover/item:scale-[1.8] transition-all shrink-0" />
+            <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-blue-600 group-hover/item:scale-[1.8] transition-all shrink-0" />
             {p}
           </li>
         ))}
       </ul>
-      <div className="absolute -bottom-24 -right-24 h-48 w-48 bg-blue-600/5 blur-3xl rounded-full" />
     </div>
   );
 }
@@ -434,7 +491,7 @@ function ValueCard({
 function FeatureItem({ icon, text }: { icon: any; text: string }) {
   return (
     <div className="flex items-center gap-4 md:gap-5 font-black text-base md:text-xl text-foreground group">
-      <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-secondary flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+      <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-secondary flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors border border-border">
         {icon}
       </div>
       <span>{text}</span>

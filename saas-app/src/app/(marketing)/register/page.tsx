@@ -21,7 +21,6 @@ import {
   Mail,
   Lock,
   Building2,
-  ChevronRight,
   Monitor,
   Briefcase,
   Info,
@@ -29,10 +28,6 @@ import {
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-/**
- * DEFINISI KATEGORI DENGAN CONTOF FIELD
- * Dioptimasi untuk memperjelas sektor bisnis kepada calon tenant.
- */
 const CATEGORIES = [
   {
     id: "gaming_hub",
@@ -70,6 +65,8 @@ export default function RegisterPage() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // FIX 1: Memaksa browser untuk scroll ke posisi paling atas (0,0) saat halaman dimuat
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     setMounted(true);
   }, []);
 
@@ -120,7 +117,7 @@ export default function RegisterPage() {
   if (!mounted) return null;
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center py-12 md:py-24 px-4 md:px-6 overflow-hidden selection:bg-blue-600/30 font-plus-jakarta bg-background">
+    <div className="relative min-h-screen flex flex-col items-center justify-center py-12 md:py-24 px-4 md:px-6 overflow-hidden selection:bg-blue-600/30 font-plus-jakarta bg-background">
       {/* --- PERSISTENT BACKGROUND SYSTEM --- */}
       <div className="fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute -top-[10%] left-[-10%] h-[40rem] w-[40rem] rounded-full bg-blue-600/10 blur-[120px]" />
@@ -128,7 +125,7 @@ export default function RegisterPage() {
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:radial-gradient(ellipse_80%_80%_at_50%_50%,#000_70%,transparent_100%)]" />
       </div>
 
-      <div className="w-full max-w-6xl">
+      <div className="w-full max-w-6xl animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="flex flex-col lg:flex-row rounded-[2.5rem] md:rounded-[3.5rem] border border-border/50 bg-card/40 shadow-3xl backdrop-blur-3xl overflow-hidden transition-all duration-700">
           {/* --- LEFT: B2B AUTHORITY PITCH --- */}
           <div className="relative hidden lg:flex w-full flex-col justify-between p-16 text-white lg:max-w-md bg-[#0f1f4a] overflow-hidden">
@@ -145,8 +142,8 @@ export default function RegisterPage() {
                   <span className="text-blue-500">Nasional.</span>
                 </h2>
                 <p className="text-slate-400 font-medium text-lg leading-relaxed">
-                  Gabung bersama ribuan tenant yang telah mengotomatisasi profit
-                  mereka hari ini.
+                  Gabung bersama ratusan pemilik usaha yang telah
+                  mengotomatisasi bisnis mereka hari ini.
                 </p>
               </div>
 
@@ -302,7 +299,6 @@ export default function RegisterPage() {
                             </p>
                           </div>
 
-                          {/* FIELD CONTOH (EXAMPLE) */}
                           <div
                             className={cn(
                               "flex items-start gap-2 pt-2 border-t border-border/40 transition-colors",
