@@ -1,7 +1,7 @@
 version: "3.8"
 
 services:
-  # BACKEND (Go)
+  # BACKEND (Go) - Folder: saas
   backend:
     build:
       context: ./saas
@@ -16,7 +16,7 @@ services:
       options:
         max-size: "10m"
 
-  # FRONTEND (Next.js)
+  # FRONTEND (Next.js) - Folder: saas-app
   frontend:
     build:
       context: ./saas-app

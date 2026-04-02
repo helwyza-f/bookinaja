@@ -21,19 +21,20 @@ jobs:
             # Masuk ke folder monorepo di EC2
             cd ~/bookinaja || (git clone https://github.com/helwyza-f/bookinaja.git ~/bookinaja && cd ~/bookinaja)
 
-            # Paksa ambil kode terbaru
+            # Paksa ambil kode terbaru dari branch main
             git fetch origin main
             git reset --hard origin/main
 
-            # Buat file .env masing-masing dari GitHub Secrets
+            # Injeksi environment variables dari GitHub Secrets
             echo "${{ secrets.BE_ENV }}" > saas/.env
             echo "${{ secrets.FE_ENV }}" > saas-app/.env
 
-            # Matikan container lama jika ada (biar bersih)
+            # Bersihkan container lama agar port tidak bentrok
             sudo docker-compose down
 
-            # Hajar Build & Run!
+            # Bangun ulang image dan jalankan di background
+            # Note: Ini akan memakan waktu karena build Next.js cukup berat di t3.micro
             sudo docker-compose up --build -d
 
-            # Bersihkan sampah image
+            # Hapus image lama yang tidak terpakai (dangling images)
             sudo docker image prune -f
