@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +16,6 @@ import {
   Sparkles,
   Camera,
   Trophy,
-  Coffee,
   Check,
   User,
   Mail,
@@ -24,6 +24,7 @@ import {
   Monitor,
   Briefcase,
   Info,
+  Fingerprint,
 } from "lucide-react";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -59,16 +60,16 @@ const CATEGORIES = [
   },
 ];
 
-export default function RegisterPage() {
+// Sub-component untuk menangani form logic agar Suspense bekerja dengan baik
+function RegisterForm() {
   const [loading, setLoading] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("gaming_hub");
-  const [mounted, setMounted] = useState(false);
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams.get("category");
 
-  useEffect(() => {
-    // FIX 1: Memaksa browser untuk scroll ke posisi paling atas (0,0) saat halaman dimuat
-    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-    setMounted(true);
-  }, []);
+  // Inisialisasi category dari URL jika ada, jika tidak default ke gaming_hub
+  const [selectedCategory, setSelectedCategory] = useState(
+    categoryParam || "gaming_hub",
+  );
 
   const { register, handleSubmit, watch } = useForm({
     defaultValues: {
@@ -113,6 +114,236 @@ export default function RegisterPage() {
       setLoading(false);
     }
   };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-12">
+      {/* 1. IDENTITY SECTION */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-4 group">
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white font-black text-sm shadow-lg shadow-blue-600/20 group-hover:scale-110 transition-transform">
+            1
+          </span>
+          <Label className="font-syne text-[11px] font-bold uppercase tracking-[0.3em] text-blue-500">
+            Identitas Bisnis
+          </Label>
+          <div className="h-px flex-1 bg-border/60" />
+        </div>
+
+        <div className="grid gap-6">
+          <div className="space-y-3">
+            <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
+              Nama Entitas Bisnis
+            </Label>
+            <div className="relative">
+              <Building2 className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40" />
+              <Input
+                placeholder="Contoh: Nexus Gaming Hub"
+                className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold focus:ring-4 focus:ring-blue-600/5 pl-14 transition-all"
+                {...register("businessName")}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
+              Eksklusif Subdomain
+            </Label>
+            <div className="relative flex items-center group">
+              <Input
+                placeholder="nama-bisnis"
+                className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold focus:ring-4 focus:ring-blue-600/5 px-6 pr-44 lowercase transition-all"
+                {...register("subdomain")}
+                required
+                pattern="[a-z0-9-]+"
+              />
+              <span className="absolute right-6 text-sm font-black text-muted-foreground/40 group-focus-within:text-blue-500 transition-colors">
+                .bookinaja.com
+              </span>
+            </div>
+            {slugValue && (
+              <p className="text-[10px] font-black text-blue-500 tracking-[0.2em] px-4 italic uppercase animate-in fade-in slide-in-from-left-4">
+                LIVE URL: {slugValue.toLowerCase()}.bookinaja.com
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 2. SECTOR SELECTION WITH EXAMPLES */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-4 group">
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white font-black text-sm shadow-lg shadow-blue-600/20 group-hover:scale-110 transition-transform">
+            2
+          </span>
+          <Label className="font-syne text-[11px] font-bold uppercase tracking-[0.3em] text-blue-500">
+            Sektor Bisnis
+          </Label>
+          <div className="h-px flex-1 bg-border/60" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {CATEGORIES.map((cat) => (
+            <div
+              key={cat.id}
+              onClick={() => setSelectedCategory(cat.id)}
+              className={cn(
+                "relative cursor-pointer p-6 rounded-[2rem] border-2 transition-all duration-500 flex flex-col items-start gap-4 group overflow-hidden",
+                selectedCategory === cat.id
+                  ? "border-blue-600 bg-blue-600/5 ring-8 ring-blue-600/5 shadow-2xl"
+                  : "border-border/40 bg-secondary/10 hover:border-blue-500/30",
+              )}
+            >
+              {selectedCategory === cat.id && (
+                <div className="absolute top-0 right-0 p-4 bg-blue-600 rounded-bl-[1.5rem] shadow-xl animate-in fade-in zoom-in">
+                  <Check className="h-4 w-4 text-white stroke-[4]" />
+                </div>
+              )}
+              <div
+                className={cn(
+                  "p-3 rounded-xl bg-background border border-border shadow-sm transition-transform duration-500 group-hover:scale-110",
+                  selectedCategory === cat.id
+                    ? "text-blue-600"
+                    : "text-muted-foreground",
+                )}
+              >
+                <cat.icon className="h-6 w-6" />
+              </div>
+              <div className="text-left space-y-2">
+                <div>
+                  <p
+                    className={cn(
+                      "text-sm font-black uppercase tracking-tighter",
+                      selectedCategory === cat.id
+                        ? "text-foreground"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {cat.name}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground font-bold leading-relaxed mt-1 opacity-70">
+                    {cat.desc}
+                  </p>
+                </div>
+
+                <div
+                  className={cn(
+                    "flex items-start gap-2 pt-2 border-t border-border/40 transition-colors",
+                    selectedCategory === cat.id
+                      ? "border-blue-500/20"
+                      : "border-border/20",
+                  )}
+                >
+                  <Info
+                    className={cn(
+                      "h-3 w-3 mt-0.5 shrink-0",
+                      selectedCategory === cat.id
+                        ? "text-blue-500"
+                        : "text-muted-foreground/40",
+                    )}
+                  />
+                  <p
+                    className={cn(
+                      "text-[9px] font-bold leading-tight",
+                      selectedCategory === cat.id
+                        ? "text-blue-600/80"
+                        : "text-muted-foreground/50",
+                    )}
+                  >
+                    {cat.example}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 3. ACCESS SECTION */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-4 group">
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white font-black text-sm shadow-lg shadow-blue-600/20 group-hover:scale-110 transition-transform">
+            3
+          </span>
+          <Label className="font-syne text-[11px] font-bold uppercase tracking-[0.3em] text-blue-500">
+            Akses Kredensial
+          </Label>
+          <div className="h-px flex-1 bg-border/60" />
+        </div>
+        <div className="grid gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
+                Nama Pemilik
+              </Label>
+              <div className="relative">
+                <User className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40" />
+                <Input
+                  placeholder="Helwiza Fahry"
+                  className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold pl-14 focus:ring-4 focus:ring-blue-600/5"
+                  {...register("fullName")}
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-3">
+              <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
+                Email Utama
+              </Label>
+              <div className="relative">
+                <Mail className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40" />
+                <Input
+                  type="email"
+                  placeholder="admin@bisnis.com"
+                  className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold pl-14 focus:ring-4 focus:ring-blue-600/5"
+                  {...register("email")}
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
+              Secure Password
+            </Label>
+            <div className="relative">
+              <Lock className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40" />
+              <Input
+                type="password"
+                placeholder="••••••••"
+                className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold pl-14 focus:ring-4 focus:ring-blue-600/5"
+                {...register("password")}
+                required
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Button
+        type="submit"
+        disabled={loading}
+        className="w-full h-24 rounded-[2.5rem] bg-blue-600 text-2xl font-black italic uppercase tracking-[0.2em] text-white shadow-[0_30px_60px_-15px_rgba(37,99,235,0.5)] hover:bg-blue-700 transition-all hover:-translate-y-2 active:scale-95 border-b-[12px] border-blue-900 group"
+      >
+        {loading ? (
+          <span className="flex items-center gap-4 animate-pulse">
+            Menyiapkan Sistem...
+          </span>
+        ) : (
+          <span className="flex items-center gap-4">Daftar Sekarang</span>
+        )}
+      </Button>
+    </form>
+  );
+}
+
+export default function RegisterPage() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    setMounted(true);
+  }, []);
 
   if (!mounted) return null;
 
@@ -176,9 +407,9 @@ export default function RegisterPage() {
           <div className="flex flex-1 items-center justify-center p-6 py-12 md:p-16 lg:p-20">
             <div className="w-full max-w-[540px] space-y-12">
               <div className="space-y-4 text-center sm:text-left">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20">
-                  <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-                  <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em]">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500">
+                  <Fingerprint className="h-4 w-4" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em]">
                     Business Registration
                   </span>
                 </div>
@@ -190,226 +421,16 @@ export default function RegisterPage() {
                 </p>
               </div>
 
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-12">
-                {/* 1. IDENTITY SECTION */}
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4 group">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white font-black text-sm shadow-lg shadow-blue-600/20 group-hover:scale-110 transition-transform">
-                      1
-                    </span>
-                    <Label className="font-syne text-[11px] font-bold uppercase tracking-[0.3em] text-blue-500">
-                      Identitas Bisnis
-                    </Label>
-                    <div className="h-px flex-1 bg-border/60" />
+              {/* Suspense diperlukan karena useSearchParams() mengakses state client-side yang dinamis */}
+              <Suspense
+                fallback={
+                  <div className="h-96 flex items-center justify-center animate-pulse text-blue-600 font-bold uppercase tracking-widest text-xs">
+                    Menyiapkan Form...
                   </div>
-
-                  <div className="grid gap-6">
-                    <div className="space-y-3">
-                      <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
-                        Nama Entitas Bisnis
-                      </Label>
-                      <div className="relative">
-                        <Building2 className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40" />
-                        <Input
-                          placeholder="Contoh: Nexus Gaming Hub"
-                          className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold focus:ring-4 focus:ring-blue-600/5 pl-14 transition-all"
-                          {...register("businessName")}
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
-                        Eksklusif Subdomain
-                      </Label>
-                      <div className="relative flex items-center group">
-                        <Input
-                          placeholder="nama-bisnis"
-                          className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold focus:ring-4 focus:ring-blue-600/5 px-6 pr-44 lowercase transition-all"
-                          {...register("subdomain")}
-                          required
-                          pattern="[a-z0-9-]+"
-                        />
-                        <span className="absolute right-6 text-sm font-black text-muted-foreground/40 group-focus-within:text-blue-500 transition-colors">
-                          .bookinaja.com
-                        </span>
-                      </div>
-                      {slugValue && (
-                        <p className="text-[10px] font-black text-blue-500 tracking-[0.2em] px-4 italic uppercase animate-in fade-in slide-in-from-left-4">
-                          LIVE URL: {slugValue.toLowerCase()}.bookinaja.com
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2. SECTOR SELECTION WITH EXAMPLES */}
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4 group">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white font-black text-sm shadow-lg shadow-blue-600/20 group-hover:scale-110 transition-transform">
-                      2
-                    </span>
-                    <Label className="font-syne text-[11px] font-bold uppercase tracking-[0.3em] text-blue-500">
-                      Sektor Bisnis
-                    </Label>
-                    <div className="h-px flex-1 bg-border/60" />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {CATEGORIES.map((cat) => (
-                      <div
-                        key={cat.id}
-                        onClick={() => setSelectedCategory(cat.id)}
-                        className={cn(
-                          "relative cursor-pointer p-6 rounded-[2rem] border-2 transition-all duration-500 flex flex-col items-start gap-4 group overflow-hidden",
-                          selectedCategory === cat.id
-                            ? "border-blue-600 bg-blue-600/5 ring-8 ring-blue-600/5 shadow-2xl"
-                            : "border-border/40 bg-secondary/10 hover:border-blue-500/30",
-                        )}
-                      >
-                        {selectedCategory === cat.id && (
-                          <div className="absolute top-0 right-0 p-4 bg-blue-600 rounded-bl-[1.5rem] shadow-xl animate-in fade-in zoom-in">
-                            <Check className="h-4 w-4 text-white stroke-[4]" />
-                          </div>
-                        )}
-                        <div
-                          className={cn(
-                            "p-3 rounded-xl bg-background border border-border shadow-sm transition-transform duration-500 group-hover:scale-110",
-                            selectedCategory === cat.id
-                              ? "text-blue-600"
-                              : "text-muted-foreground",
-                          )}
-                        >
-                          <cat.icon className="h-6 w-6" />
-                        </div>
-                        <div className="text-left space-y-2">
-                          <div>
-                            <p
-                              className={cn(
-                                "text-sm font-black uppercase tracking-tighter",
-                                selectedCategory === cat.id
-                                  ? "text-foreground"
-                                  : "text-muted-foreground",
-                              )}
-                            >
-                              {cat.name}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground font-bold leading-relaxed mt-1 opacity-70">
-                              {cat.desc}
-                            </p>
-                          </div>
-
-                          <div
-                            className={cn(
-                              "flex items-start gap-2 pt-2 border-t border-border/40 transition-colors",
-                              selectedCategory === cat.id
-                                ? "border-blue-500/20"
-                                : "border-border/20",
-                            )}
-                          >
-                            <Info
-                              className={cn(
-                                "h-3 w-3 mt-0.5 shrink-0",
-                                selectedCategory === cat.id
-                                  ? "text-blue-500"
-                                  : "text-muted-foreground/40",
-                              )}
-                            />
-                            <p
-                              className={cn(
-                                "text-[9px] font-bold leading-tight",
-                                selectedCategory === cat.id
-                                  ? "text-blue-600/80"
-                                  : "text-muted-foreground/50",
-                              )}
-                            >
-                              {cat.example}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 3. ACCESS SECTION */}
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4 group">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white font-black text-sm shadow-lg shadow-blue-600/20 group-hover:scale-110 transition-transform">
-                      3
-                    </span>
-                    <Label className="font-syne text-[11px] font-bold uppercase tracking-[0.3em] text-blue-500">
-                      Akses Kredensial
-                    </Label>
-                    <div className="h-px flex-1 bg-border/60" />
-                  </div>
-                  <div className="grid gap-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      <div className="space-y-3">
-                        <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
-                          Nama Pemilik
-                        </Label>
-                        <div className="relative">
-                          <User className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40" />
-                          <Input
-                            placeholder="Helwiza Fahry"
-                            className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold pl-14 focus:ring-4 focus:ring-blue-600/5"
-                            {...register("fullName")}
-                            required
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-3">
-                        <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
-                          Email Utama
-                        </Label>
-                        <div className="relative">
-                          <Mail className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40" />
-                          <Input
-                            type="email"
-                            placeholder="admin@bisnis.com"
-                            className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold pl-14 focus:ring-4 focus:ring-blue-600/5"
-                            {...register("email")}
-                            required
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
-                        Secure Password
-                      </Label>
-                      <div className="relative">
-                        <Lock className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40" />
-                        <Input
-                          type="password"
-                          placeholder="••••••••"
-                          className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold pl-14 focus:ring-4 focus:ring-blue-600/5"
-                          {...register("password")}
-                          required
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full h-24 rounded-[2.5rem] bg-blue-600 text-2xl font-black italic uppercase tracking-[0.2em] text-white shadow-[0_30px_60px_-15px_rgba(37,99,235,0.5)] hover:bg-blue-700 transition-all hover:-translate-y-2 active:scale-95 border-b-[12px] border-blue-900 group"
-                >
-                  {loading ? (
-                    <span className="flex items-center gap-4 animate-pulse">
-                      Menyiapkan Sistem...
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-4">
-                      Daftar Sekarang
-                    </span>
-                  )}
-                </Button>
-              </form>
+                }
+              >
+                <RegisterForm />
+              </Suspense>
 
               <div className="text-center space-y-6">
                 <p className="text-sm text-muted-foreground font-bold italic uppercase tracking-[0.1em]">

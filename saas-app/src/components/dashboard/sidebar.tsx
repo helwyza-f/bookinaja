@@ -14,6 +14,7 @@ import {
   Zap,
   ChevronLeft,
   ChevronRight,
+  Utensils,
 } from "lucide-react";
 import {
   Tooltip,
@@ -36,6 +37,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
     { label: "Bookings", icon: CalendarDays, href: "/admin/bookings" },
     { label: "POS / Kasir", icon: MonitorPlay, href: "/admin/pos" },
     { label: "Resources", icon: Box, href: "/admin/resources" },
+    { href: "/admin/fnb", icon: Utensils, label: "F&B / Menu" },
     { label: "Customers", icon: Users, href: "/admin/customers" },
   ];
 

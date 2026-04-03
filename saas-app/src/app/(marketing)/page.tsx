@@ -84,11 +84,10 @@ export default function LandingPage() {
         </p>
 
         <div className="mt-10 md:mt-16 flex flex-col gap-4 sm:flex-row justify-center items-center px-4">
-          <Link
-            href="https://bisnis-contoh.bookinaja.com"
-            target="_blank"
-            className="w-full sm:w-auto"
-          >
+          {/* GANTI LINK INI */}
+          <Link href="/demos" className="w-full sm:w-auto">
+            {" "}
+            {/* Sebelumnya ke https://bisnis-contoh... */}
             <Button
               size="lg"
               className="group h-16 md:h-20 w-full sm:w-auto px-10 md:px-16 text-lg md:text-xl font-bold rounded-2xl bg-blue-600 shadow-[0_15px_40px_-10px_rgba(59,130,246,0.5)] hover:bg-blue-700 transition-all hover:-translate-y-2 text-white"

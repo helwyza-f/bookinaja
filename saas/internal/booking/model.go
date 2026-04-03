@@ -1,16 +1,24 @@
 package booking
 
 import (
-	"encoding/json" // Import ini penting untuk json.RawMessage
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
+
 const (
-    ItemTypeConsole = "console_option" // Pilihan utama (Eksklusif)
-    ItemTypeAddon   = "add_on"         // Tambahan (Bisa banyak)
+	ItemTypeConsole = "console_option" // Pilihan utama (Eksklusif)
+	ItemTypeAddon   = "add_on"         // Tambahan (Bisa banyak)
+
+	// Definisi Unit Harga (Opsional: untuk konsistensi di level kode)
+	PriceUnitHour    = "hour"
+	PriceUnitDay     = "day"
+	PriceUnitSession = "session"
+	PriceUnitPcs     = "pcs"
 )
+
 // Tenant mewakili tabel 'tenants'
 type Tenant struct {
 	ID           uuid.UUID      `db:"id" json:"id"`
@@ -23,7 +31,7 @@ type Tenant struct {
 	CloseTime    string         `db:"close_time" json:"close_time"`
 	LogoURL      string         `db:"logo_url" json:"logo_url"`
 	BannerURL    string         `db:"banner_url" json:"banner_url"`
-	Gallery      pq.StringArray `db:"gallery" json:"gallery"` // Array string untuk galeri
+	Gallery      pq.StringArray `db:"gallery" json:"gallery"`
 	CreatedAt    time.Time      `db:"created_at" json:"created_at"`
 }
 
@@ -45,8 +53,8 @@ type Resource struct {
 	Name      string          `db:"name" json:"name"`
 	Category  string          `db:"category" json:"category"`
 	Status    string          `db:"status" json:"status"`
-	Metadata  json.RawMessage `db:"metadata" json:"metadata"` // Diubah ke json.RawMessage
-	Items     []ResourceItem `db:"-" json:"items"`
+	Metadata  json.RawMessage `db:"metadata" json:"metadata"`
+	Items     []ResourceItem  `db:"-" json:"items"`
 	CreatedAt time.Time       `db:"created_at" json:"created_at"`
 }
 
@@ -55,10 +63,11 @@ type ResourceItem struct {
 	ID           uuid.UUID       `db:"id" json:"id"`
 	ResourceID   uuid.UUID       `db:"resource_id" json:"resource_id"`
 	Name         string          `db:"name" json:"name"`
-	PricePerHour float64         `db:"price_per_hour" json:"price_per_hour"`
+	PricePerHour float64         `db:"price_per_hour" json:"price_per_hour"` // Nilai nominal harga
+	PriceUnit    string          `db:"price_unit" json:"price_unit"`         // New Field: hour, day, session, pcs
 	ItemType     string          `db:"item_type" json:"item_type"`
 	IsDefault    bool            `db:"is_default" json:"is_default"`
-	Metadata     json.RawMessage `db:"metadata" json:"metadata"` // Diubah ke json.RawMessage
+	Metadata     json.RawMessage `db:"metadata" json:"metadata"`
 }
 
 // Booking mewakili tabel 'bookings'
@@ -97,12 +106,11 @@ type User struct {
 	TenantID  uuid.UUID `db:"tenant_id" json:"tenant_id"`
 	Name      string    `db:"name" json:"name"`
 	Email     string    `db:"email" json:"email"`
-	Password  string    `db:"password" json:"-"` // Jangan tampilkan password di JSON
+	Password  string    `db:"password" json:"-"`
 	Role      string    `db:"role" json:"role"`
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
 
-// Request untuk pendaftaran tenant baru via Landing Page
 type RegisterTenantReq struct {
 	TenantName   string `json:"tenant_name" binding:"required"`
 	TenantSlug   string `json:"tenant_slug" binding:"required"`
@@ -115,4 +123,11 @@ type RegisterTenantReq struct {
 type LoginResponse struct {
 	Token string `json:"token"`
 	User  User   `json:"user"`
+}
+
+// internal/booking/model.go (atau file DTO terkait)
+type ResourceListResponse struct {
+    TenantCategory string     `json:"tenant_category"`
+    TenantType     string     `json:"tenant_type"`
+    Resources      []Resource `json:"resources"`
 }

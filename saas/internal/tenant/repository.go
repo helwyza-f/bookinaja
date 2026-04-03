@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/helwiza/saas/internal/booking"
+	"github.com/helwiza/saas/internal/fnb" // Import package fnb yang akan kita buat
 	"github.com/jmoiron/sqlx"
 )
 
@@ -18,22 +20,87 @@ func NewRepository(db *sqlx.DB) *Repository {
 	return &Repository{db: db}
 }
 
+// CreateWithAdmin membuat Tenant dan Admin User dalam satu transaksi
 func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u booking.User) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer tx.Rollback()
 
-	// Update query untuk menyertakan business_category
 	_, err = tx.NamedExecContext(ctx, `
 		INSERT INTO tenants (id, name, slug, business_category, business_type) 
 		VALUES (:id, :name, :slug, :business_category, :business_type)`, t)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	_, err = tx.NamedExecContext(ctx, `
 		INSERT INTO users (id, tenant_id, name, email, password, role) 
 		VALUES (:id, :tenant_id, :name, :email, :password, :role)`, u)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
+	return tx.Commit()
+}
+
+// SeedTenantData menyuntikkan data fisik (resources & operational items)
+func (r *Repository) SeedTenantData(ctx context.Context, tenantID uuid.UUID, resources []booking.Resource) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	for _, res := range resources {
+		res.ID = uuid.New()
+		res.TenantID = tenantID
+		res.Status = "available"
+		res.Metadata = []byte("{}")
+
+		_, err = tx.NamedExecContext(ctx, `
+			INSERT INTO resources (id, tenant_id, name, category, status, metadata) 
+			VALUES (:id, :tenant_id, :name, :category, :status, :metadata)`, res)
+		if err != nil {
+			return fmt.Errorf("failed seed resource %s: %w", res.Name, err)
+		}
+
+		for _, item := range res.Items {
+			item.ID = uuid.New()
+			item.ResourceID = res.ID
+			item.Metadata = []byte("{}")
+
+			_, err = tx.NamedExecContext(ctx, `
+				INSERT INTO resource_items (id, resource_id, name, price_per_hour, price_unit, item_type, is_default, metadata) 
+				VALUES (:id, :resource_id, :name, :price_per_hour, :price_unit, :item_type, :is_default, :metadata)`, item)
+			if err != nil {
+				return fmt.Errorf("failed seed item %s: %w", item.Name, err)
+			}
+		}
+	}
+	return tx.Commit()
+}
+
+// SeedFnbData menyuntikkan data katalog makanan/minuman global
+func (r *Repository) SeedFnbData(ctx context.Context, tenantID uuid.UUID, items []fnb.Item) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	for _, item := range items {
+		item.ID = uuid.New()
+		item.TenantID = tenantID
+		
+		_, err = tx.NamedExecContext(ctx, `
+			INSERT INTO fnb_items (id, tenant_id, name, price, category, is_available) 
+			VALUES (:id, :tenant_id, :name, :price, :category, :is_available)`, item)
+		if err != nil {
+			return fmt.Errorf("failed seed fnb item %s: %w", item.Name, err)
+		}
+	}
 	return tx.Commit()
 }
 
@@ -69,62 +136,49 @@ func (r *Repository) Update(ctx context.Context, t Tenant) error {
 func (r *Repository) Exists(ctx context.Context, slug, email string) (bool, bool, error) {
 	var slugExists, emailExists bool
 	err := r.db.GetContext(ctx, &slugExists, "SELECT EXISTS(SELECT 1 FROM tenants WHERE slug = $1)", slug)
+	if err != nil { return false, false, err }
 	err = r.db.GetContext(ctx, &emailExists, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", email)
-	return slugExists, emailExists, err
-}
-
-func (r *Repository) ListResources(ctx context.Context, tenantID uuid.UUID) ([]booking.Resource, error) {
-	var res []booking.Resource
-	query := `SELECT * FROM resources WHERE tenant_id = $1 AND status != 'deleted' ORDER BY created_at DESC`
-	err := r.db.SelectContext(ctx, &res, query, tenantID)
-	return res, err
+	if err != nil { return false, false, err }
+	return slugExists, emailExists, nil
 }
 
 func (r *Repository) ListResourcesWithItems(ctx context.Context, tenantID uuid.UUID) ([]map[string]interface{}, error) {
-    // Gunakan ::text untuk kolom id dan di dalam json_build_object
-    query := `
-        SELECT 
-            r.id::text as id, 
-            r.name, 
-            r.category, 
-            r.status,
-            COALESCE(json_agg(json_build_object(
-                'id', i.id::text, 
-                'name', i.name,
-                'item_type', i.item_type,
-                'price_per_hour', i.price_per_hour
-            )) FILTER (WHERE i.id IS NOT NULL), '[]') as items
-        FROM resources r
-        LEFT JOIN resource_items i ON r.id = i.resource_id
-        WHERE r.tenant_id = $1 AND r.status != 'deleted'
-        GROUP BY r.id
-        ORDER BY r.created_at DESC`
+	query := `
+		SELECT 
+			r.id::text as id, 
+			r.name, 
+			r.category, 
+			r.status,
+			COALESCE(json_agg(json_build_object(
+				'id', i.id::text, 
+				'name', i.name,
+				'item_type', i.item_type,
+				'price_per_hour', i.price_per_hour,
+				'price_unit', i.price_unit
+			)) FILTER (WHERE i.id IS NOT NULL), '[]') as items
+		FROM resources r
+		LEFT JOIN resource_items i ON r.id = i.resource_id
+		WHERE r.tenant_id = $1 AND r.status != 'deleted'
+		GROUP BY r.id
+		ORDER BY r.created_at DESC`
 
-    rows, err := r.db.QueryxContext(ctx, query, tenantID)
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
+	rows, err := r.db.QueryxContext(ctx, query, tenantID)
+	if err != nil { return nil, err }
+	defer rows.Close()
 
-    var results []map[string]interface{}
-    for rows.Next() {
-        res := make(map[string]interface{})
-        err := rows.MapScan(res)
-        if err != nil {
-            return nil, err
-        }
+	var results []map[string]interface{}
+	for rows.Next() {
+		res := make(map[string]interface{})
+		err := rows.MapScan(res)
+		if err != nil { return nil, err }
 
-        // --- PENTING: Fix untuk json_agg yang terbaca sebagai []byte ---
-        // Kadang json_agg tetap dikirim sebagai []byte oleh driver
-        if itemsBytes, ok := res["items"].([]byte); ok {
-            var itemsArray []map[string]interface{}
-            if err := json.Unmarshal(itemsBytes, &itemsArray); err == nil {
-                res["items"] = itemsArray
-            }
-        }
-
-        results = append(results, res)
-    }
-
-    return results, nil
+		if itemsBytes, ok := res["items"].([]byte); ok {
+			var itemsArray []map[string]interface{}
+			if err := json.Unmarshal(itemsBytes, &itemsArray); err == nil {
+				res["items"] = itemsArray
+			}
+		}
+		results = append(results, res)
+	}
+	return results, nil
 }

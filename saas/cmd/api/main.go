@@ -9,9 +9,10 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 
-	// Import semua domain baru
+	// Import semua domain
 	"github.com/helwiza/saas/internal/auth"
 	"github.com/helwiza/saas/internal/customer"
+	"github.com/helwiza/saas/internal/fnb" // Tambahkan import F&B
 	"github.com/helwiza/saas/internal/reservation"
 	"github.com/helwiza/saas/internal/resource"
 	"github.com/helwiza/saas/internal/tenant"
@@ -44,30 +45,35 @@ func main() {
 	runMigration(db.DB)
 
 	// 3. Dependency Injection (Wiring)
-	
+
 	// --- AUTH DOMAIN ---
 	authSvc := auth.NewService()
 	authHdl := auth.NewHandler(authSvc)
 
 	// --- TENANT DOMAIN ---
 	tenantRepo := tenant.NewRepository(db)
-	tenantSvc  := tenant.NewService(tenantRepo, authSvc) // Butuh authSvc buat Login (JWT)
-	tenantHdl  := tenant.NewHandler(tenantSvc)
+	tenantSvc := tenant.NewService(tenantRepo, authSvc) // Butuh authSvc buat Login (JWT)
+	tenantHdl := tenant.NewHandler(tenantSvc)
 
 	// --- RESOURCE DOMAIN ---
 	resourceRepo := resource.NewRepository(db)
-	resourceSvc  := resource.NewService(resourceRepo)
-	resourceHdl  := resource.NewHandler(resourceSvc)
+	resourceSvc := resource.NewService(resourceRepo)
+	resourceHdl := resource.NewHandler(resourceSvc)
 
 	// --- RESERVATION DOMAIN ---
 	reservationRepo := reservation.NewRepository(db)
-	reservationSvc  := reservation.NewService(reservationRepo)
-	reservationHdl  := reservation.NewHandler(reservationSvc)
+	reservationSvc := reservation.NewService(reservationRepo)
+	reservationHdl := reservation.NewHandler(reservationSvc)
 
 	// --- CUSTOMER DOMAIN ---
 	customerRepo := customer.NewRepository(db)
-	customerSvc  := customer.NewService(customerRepo)
-	customerHdl  := customer.NewHandler(customerSvc)
+	customerSvc := customer.NewService(customerRepo)
+	customerHdl := customer.NewHandler(customerSvc)
+
+	// --- F&B DOMAIN (BARU: Inisialisasi agar tidak NIL) ---
+	fnbRepo := fnb.NewRepository(db)
+	fnbSvc := fnb.NewService(fnbRepo)
+	fnbHdl := fnb.NewHandler(fnbSvc)
 
 	// 4. Setup Router dengan Config Baru
 	routerConfig := http.Config{
@@ -76,8 +82,9 @@ func main() {
 		ReservationHandler: reservationHdl,
 		CustomerHandler:    customerHdl,
 		AuthHandler:        authHdl,
+		FnbHandler:         fnbHdl, // Masukkan handler F&B ke config
 	}
-	
+
 	r := http.NewRouter(routerConfig)
 
 	// 5. Start Server
@@ -85,7 +92,7 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	
+
 	log.Printf("🚀 Server bookinaja-api running on :%s", port)
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("Failed to run server: %v", err)
@@ -97,7 +104,7 @@ func runMigration(db *sql.DB) {
 	if err != nil {
 		log.Fatalf("Migration driver error: %v", err)
 	}
-	
+
 	m, err := migrate.NewWithDatabaseInstance(
 		"file://migrations",
 		"postgres", driver,
@@ -109,6 +116,6 @@ func runMigration(db *sql.DB) {
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		log.Fatalf("Migration failed: %v", err)
 	}
-	
+
 	log.Println("✅ Database migration completed.")
 }
