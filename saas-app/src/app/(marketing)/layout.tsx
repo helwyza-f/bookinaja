@@ -1,9 +1,10 @@
 "use client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Mail, Phone, MapPin, Moon, Sun } from "lucide-react";
+import { Mail, Phone, MapPin, Moon, Sun, Menu, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 
 export default function MarketingLayout({
   children,
@@ -12,11 +13,20 @@ export default function MarketingLayout({
 }) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Mencegah hydration mismatch untuk toggle theme
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Navigasi Link Data (Path Absolut agar jalan di semua halaman)
+  const navLinks = [
+    { name: "Industries", href: "/#industries" },
+    { name: "Fitur", href: "/#features" },
+    { name: "Pricing", href: "/pricing" },
+    { name: "FAQ", href: "/faq" },
+  ];
 
   return (
     <div className="flex min-h-screen flex-col selection:bg-blue-600/30 font-plus-jakarta transition-colors duration-300">
@@ -24,9 +34,12 @@ export default function MarketingLayout({
       <header className="sticky top-0 z-[100] w-full px-4 pt-4 md:pt-6">
         <div className="container mx-auto max-w-7xl">
           <div className="flex h-16 md:h-22 items-center justify-between rounded-[1.5rem] md:rounded-[2rem] border border-border/50 dark:border-white/10 bg-background/60 dark:bg-[#07070d]/60 px-5 md:px-8 shadow-xl dark:shadow-[0_0_20px_-5px_rgba(59,130,246,0.2)] backdrop-blur-2xl transition-all">
-            {/* Logo - Perbesar Ukuran */}
-            <Link href="/" className="group flex items-center gap-3 md:gap-4">
-              <div className="flex h-11 w-11 md:h-14 md:w-14 items-center justify-center rounded-xl md:rounded-2xl bg-[#0f1f4a] shadow-lg transition-transform group-hover:rotate-6">
+            {/* Logo */}
+            <Link
+              href="/"
+              className="group flex items-center gap-3 md:gap-4 shrink-0"
+            >
+              <div className="flex h-10 w-10 md:h-14 md:w-14 items-center justify-center rounded-2xl bg-[#0f1f4a] shadow-lg transition-transform group-hover:rotate-6">
                 <svg
                   width="32"
                   height="32"
@@ -35,18 +48,18 @@ export default function MarketingLayout({
                   className="md:w-10 md:h-10"
                 >
                   <rect
-                    x="14"
-                    y="20"
-                    width="36"
-                    height="10"
+                    x="10"
+                    y="18"
+                    width="46"
+                    height="12"
                     rx="5"
                     fill="#3b82f6"
                   />
                   <rect
-                    x="14"
-                    y="35"
-                    width="24"
-                    height="10"
+                    x="10"
+                    y="37"
+                    width="26"
+                    height="12"
                     rx="5"
                     fill="#1d4ed8"
                   />
@@ -57,37 +70,21 @@ export default function MarketingLayout({
               </span>
             </Link>
 
-            {/* Navigation - Desktop Only */}
+            {/* Navigation - Desktop */}
             <nav className="hidden lg:flex items-center gap-10">
-              <Link
-                href="#industries"
-                className="text-sm font-bold uppercase tracking-[0.2em] text-foreground hover:text-blue-500 transition-colors"
-              >
-                Industries
-              </Link>
-              <Link
-                href="#features"
-                className="text-sm font-bold uppercase tracking-[0.2em] text-foreground hover:text-blue-500 transition-colors"
-              >
-                Fitur
-              </Link>
-              <Link
-                href="/pricing"
-                className="text-sm font-bold uppercase tracking-[0.2em] text-foreground hover:text-blue-500 transition-colors"
-              >
-                Pricing
-              </Link>
-              <Link
-                href="/faq"
-                className="text-sm font-bold uppercase tracking-[0.2em] text-foreground hover:text-blue-500 transition-colors"
-              >
-                FAQ
-              </Link>
+              {navLinks.map((link) => (
+                <Link
+                  key={link.name}
+                  href={link.href}
+                  className="text-sm font-bold uppercase tracking-[0.2em] text-foreground hover:text-blue-500 transition-colors"
+                >
+                  {link.name}
+                </Link>
+              ))}
             </nav>
 
             {/* Actions */}
-            <div className="flex items-center gap-4">
-              {/* Theme Toggle - Desktop Only */}
+            <div className="flex items-center gap-2 md:gap-4">
               {mounted && (
                 <Button
                   variant="ghost"
@@ -100,13 +97,51 @@ export default function MarketingLayout({
                 </Button>
               )}
 
-              <Link href="/register">
-                <Button className="rounded-xl md:rounded-2xl bg-blue-600 px-6 md:px-10 h-11 md:h-14 font-bold text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all text-sm md:text-base">
+              <Link href="/register" className="hidden sm:block">
+                <Button className="rounded-xl md:rounded-2xl bg-blue-600 px-6 md:px-10 h-11 md:h-14 font-bold text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all text-sm md:text-base uppercase tracking-wider">
                   Mulai Bisnis
                 </Button>
               </Link>
+
+              {/* Mobile Menu Toggle */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="lg:hidden rounded-xl"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              >
+                {isMobileMenuOpen ? <X /> : <Menu />}
+              </Button>
             </div>
           </div>
+        </div>
+
+        {/* Mobile Menu Dropdown */}
+        <div
+          className={cn(
+            "lg:hidden absolute top-24 left-4 right-4 bg-background border border-border rounded-3xl p-6 shadow-2xl transition-all duration-300 origin-top",
+            isMobileMenuOpen
+              ? "scale-y-100 opacity-100 visible"
+              : "scale-y-95 opacity-0 invisible",
+          )}
+        >
+          <nav className="flex flex-col gap-6">
+            {navLinks.map((link) => (
+              <Link
+                key={link.name}
+                href={link.href}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="text-lg font-bold uppercase tracking-widest text-foreground py-2 border-b border-border/50"
+              >
+                {link.name}
+              </Link>
+            ))}
+            <Link href="/register" onClick={() => setIsMobileMenuOpen(false)}>
+              <Button className="w-full h-14 rounded-2xl bg-blue-600 font-bold text-white uppercase tracking-widest">
+                Mulai Bisnis Sekarang
+              </Button>
+            </Link>
+          </nav>
         </div>
       </header>
 
@@ -114,7 +149,7 @@ export default function MarketingLayout({
       {mounted && (
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="md:hidden fixed bottom-6 right-6 z-[200] flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-[0_10px_30px_rgba(59,130,246,0.5)] active:scale-90 transition-all"
+          className="md:hidden fixed bottom-6 right-6 z-[200] flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-[0_10px_30px_rgba(59,130,246,0.5)] active:scale-90 transition-all border-4 border-background/20"
         >
           {theme === "dark" ? (
             <Sun className="h-6 w-6" />
@@ -171,7 +206,7 @@ export default function MarketingLayout({
                 </li>
                 <li>
                   <Link
-                    href="#features"
+                    href="/#features"
                     className="hover:text-blue-500 transition-colors"
                   >
                     Digitalisasi AI
@@ -179,7 +214,7 @@ export default function MarketingLayout({
                 </li>
                 <li>
                   <Link
-                    href="#features"
+                    href="/#features"
                     className="hover:text-blue-500 transition-colors"
                   >
                     Publisitas Bisnis
@@ -221,14 +256,16 @@ export default function MarketingLayout({
               </ul>
             </div>
 
-            {/* Social */}
+            {/* Social - Menggunakan SVG Manual */}
             <div className="space-y-8">
               <h4 className="font-syne text-[10px] font-bold uppercase tracking-[0.3em] text-blue-500">
                 Connect
               </h4>
               <div className="flex gap-4">
+                {/* Instagram SVG */}
                 <Link
                   href="https://instagram.com/bookinaja"
+                  target="_blank"
                   className="p-3 rounded-2xl bg-background border border-border/50 hover:bg-blue-500 hover:text-white transition-all hover:-translate-y-1 shadow-sm"
                 >
                   <svg
@@ -246,8 +283,10 @@ export default function MarketingLayout({
                     <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
                   </svg>
                 </Link>
+                {/* LinkedIn SVG */}
                 <Link
                   href="https://linkedin.com/company/bookinaja"
+                  target="_blank"
                   className="p-3 rounded-2xl bg-background border border-border/50 hover:bg-blue-500 hover:text-white transition-all hover:-translate-y-1 shadow-sm"
                 >
                   <svg
@@ -269,7 +308,7 @@ export default function MarketingLayout({
             </div>
           </div>
 
-          <div className="mt-24 border-t border-border/50 pt-10 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="mt-24 border-t border-border/50 pt-10 flex flex-col md:flex-row justify-between items-center gap-6 text-center md:text-left">
             <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
               © 2026 bookinaja.com · Batam, Indonesia 🇮🇩
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -10,92 +10,108 @@ import {
   ShieldCheck,
   Zap,
   ChevronRight,
+  Users2,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 /**
  * PRICING PAGE - BOOKINAJA.COM
- * Realistis, Transparan, & Sesuai Kapasitas Development
+ * Logic: Annual price displayed as "effective monthly" to lower barrier.
+ * Features: Starter (Single Owner) vs Pro (Multi-Role Staff).
  */
 export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    setMounted(true);
+  }, []);
 
   const plans = [
     {
       name: "Starter",
-      price: "0",
-      rawPrice: 0,
-      desc: "Solusi dasar untuk mendigitalisasi operasional persewaan Anda.",
+      effectiveMonthly: isAnnual ? "79.000" : "99.000",
+      originalMonthly: "149.000",
+      annualTotal: "948.000",
+      desc: "Digitalisasi dasar untuk operasional bisnis persewaan tunggal.",
       features: [
-        "1 Unit/Resource (Misal: 1 Lapangan)",
-        "Maks. 50 Booking per bulan",
-        "Link Website bisnisanda.bookinaja.com",
-        "Laporan Pendapatan Sederhana",
-        "Dukungan Komunitas & Help Center",
+        "1 Akun Utama (Owner Only)",
+        "Akses Full Dashboard Admin",
+        "Website Booking (Subdomain)",
+        "Manajemen 1-5 Unit/Resource",
+        "Laporan Pendapatan Bulanan",
+        "Email & Chat Support",
       ],
-      cta: "Mulai Gratis",
+      cta: "Pilih Starter",
       popular: false,
     },
     {
       name: "Professional",
-      price: isAnnual ? "119.000" : "149.000",
-      rawPrice: isAnnual ? 119000 : 149000,
-      desc: "Untuk bisnis yang butuh kendali penuh dan automasi harian.",
+      effectiveMonthly: isAnnual ? "159.000" : "199.000",
+      originalMonthly: "299.000",
+      annualTotal: "1.908.000",
+      desc: "Fitur lengkap untuk bisnis dengan tim dan trafik tinggi.",
       features: [
+        "Akses Akun Staff/Karyawan",
+        "Role-Based Access (Admin/Kasir)",
         "Unit & Resource Tanpa Batas",
-        "Booking & Reservasi Tanpa Batas",
-        "Dashboard Status Real-time",
-        "Notifikasi Pengingat WhatsApp",
-        "Atur Harga Khusus Weekend",
-        "Prioritas Chat Support",
+        "Dashboard Status Live Real-time",
+        "Sistem Harga Khusus Weekend",
+        "WhatsApp Reminder Otomatis",
+        "Prioritas Support 24/7",
       ],
-      cta: "Coba Pro 14 Hari",
+      cta: "Pilih Professional",
       popular: true,
     },
     {
       name: "Enterprise",
       price: "Custom",
-      rawPrice: null,
-      desc: "Dukungan eksklusif untuk bisnis skala besar atau franchise.",
+      desc: "Dukungan eksklusif untuk jaringan bisnis skala nasional.",
       features: [
-        "Custom Domain (brandanda.com)",
-        "Hapus Logo Bookinaja (White Label)",
-        "Laporan Analitik Bisnis Bulanan",
-        "Akses Tim (Admin & Kasir)",
-        "SLA & Dedicated Support",
-        "Setup Akun Dibantu Tim Kami",
+        "Custom Domain (bisnisanda.com)",
+        "Hapus Logo & Branding Bookinaja",
+        "Unlimited Multi-User Roles",
+        "Analitik Data Konsumen Lanjutan",
+        "SLA & Akun Manajer Khusus",
+        "Setup Dibantu Tim Ahli",
       ],
       cta: "Hubungi Sales",
       popular: false,
     },
   ];
 
+  if (!mounted) return null;
+
   return (
-    <section className="relative flex-1 flex flex-col items-center py-24 md:py-32 overflow-hidden">
-      {/* --- BACKGROUND SYSTEM --- */}
-      <div className="fixed inset-0 -z-10 bg-background">
-        <div className="absolute top-0 left-1/4 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-blue-600/5 blur-[120px]" />
-        <div className="absolute bottom-0 right-1/4 h-[500px] w-[500px] translate-x-1/2 rounded-full bg-indigo-600/5 blur-[120px]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
+    <section className="relative flex-1 flex flex-col items-center py-24 md:py-32 overflow-hidden selection:bg-blue-600/30">
+      {/* --- DYNAMIC BACKGROUND SYSTEM --- */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[1000px] bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.15)_0%,transparent_70%)]" />
+        <div className="sticky top-0 h-screen w-full overflow-hidden opacity-40">
+          <div className="absolute top-[-10%] right-[-10%] h-[40rem] w-[40rem] rounded-full bg-blue-600/20 blur-[120px] animate-pulse" />
+          <div className="absolute bottom-[10%] left-[-10%] h-[35rem] w-[35rem] rounded-full bg-indigo-600/10 blur-[100px]" />
+        </div>
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:radial-gradient(ellipse_80%_80%_at_50%_50%,#000_100%,transparent_100%)]" />
       </div>
 
-      <div className="container relative z-10 px-6">
+      <div className="container relative z-10 px-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
         {/* --- HEADER SECTION --- */}
         <div className="mx-auto flex max-w-[58rem] flex-col items-center space-y-6 text-center mb-20">
           <Badge
             variant="outline"
             className="border-blue-500/20 bg-blue-500/5 text-blue-500 px-5 py-1.5 font-syne text-[10px] font-bold uppercase tracking-widest"
           >
-            Investasi Bisnis
+            Pilihan Investasi
           </Badge>
           <h1 className="text-5xl font-black tracking-tighter sm:text-7xl text-foreground leading-[0.9]">
             Pilih Paket untuk <br />
             <span className="text-blue-500 italic">Pertumbuhan Cuan.</span>
           </h1>
           <p className="max-w-[32rem] text-lg md:text-xl text-muted-foreground font-medium">
-            Satu akun untuk satu bisnis. Harga jujur dalam Rupiah (IDR). Tanpa
-            biaya tambahan yang tiba-tiba muncul.
+            Tinggalkan cara manual. Digitalisasi operasional Anda dengan sistem
+            yang transparan dan aman.
           </p>
 
           {/* Billing Switcher */}
@@ -148,7 +164,7 @@ export default function PricingPage() {
                 </div>
               )}
 
-              <div className="mb-10">
+              <div className="mb-8 text-center lg:text-left">
                 <h3 className="text-2xl font-black tracking-tight">
                   {plan.name}
                 </h3>
@@ -157,18 +173,35 @@ export default function PricingPage() {
                 </p>
               </div>
 
-              <div className="mb-10 flex flex-col">
+              <div className="mb-10 flex flex-col items-center lg:items-start">
+                {/* Markup Harga Coret (Original Monthly) */}
+                {plan.name !== "Enterprise" && (
+                  <div className="text-sm font-bold text-muted-foreground/40 line-through mb-1 italic">
+                    IDR {plan.originalMonthly}
+                  </div>
+                )}
+
                 <div className="flex items-baseline gap-2">
                   <span className="text-sm font-black text-muted-foreground uppercase">
                     IDR
                   </span>
                   <span className="text-5xl md:text-6xl font-black tracking-tighter text-foreground">
-                    {plan.price}
+                    {plan.name === "Enterprise"
+                      ? "Custom"
+                      : plan.effectiveMonthly}
                   </span>
+                  {plan.name !== "Enterprise" && (
+                    <span className="text-sm font-bold text-muted-foreground">
+                      /bln
+                    </span>
+                  )}
                 </div>
-                <div className="text-xs font-bold text-muted-foreground mt-2 uppercase tracking-widest">
-                  Per {isAnnual ? "Tahun" : "Bulan"}
-                </div>
+
+                {plan.name !== "Enterprise" && isAnnual && (
+                  <div className="text-[11px] font-black text-blue-500 mt-2 uppercase tracking-widest bg-blue-500/5 px-3 py-1 rounded-full border border-blue-500/10">
+                    Tagihan tahunan IDR {plan.annualTotal}
+                  </div>
+                )}
               </div>
 
               <div className="flex-1 space-y-6 mb-10 border-t border-border pt-8">
@@ -210,39 +243,53 @@ export default function PricingPage() {
           ))}
         </div>
 
-        {/* --- MIDTRANS TRUST FOOTER --- */}
+        {/* --- TRUST FOOTER (Midtrans Compliance) --- */}
         <div className="mt-24 max-w-4xl mx-auto grid md:grid-cols-3 gap-8 py-12 border-t border-border/50">
           <div className="flex flex-col items-center text-center space-y-3">
-            <div className="h-12 w-12 rounded-2xl bg-blue-500/5 flex items-center justify-center text-blue-600">
+            <div className="h-12 w-12 rounded-2xl bg-blue-500/5 flex items-center justify-center text-blue-500">
               <ShieldCheck className="h-6 w-6" />
             </div>
-            <h4 className="font-bold text-sm">Aman & Terenkripsi</h4>
+            <h4 className="font-bold text-sm text-foreground">
+              Aman & Terenkripsi
+            </h4>
             <p className="text-xs text-muted-foreground text-pretty">
               Pembayaran diproteksi oleh standar AES-256 dan 3D Secure Midtrans.
             </p>
           </div>
           <div className="flex flex-col items-center text-center space-y-3">
-            <div className="h-12 w-12 rounded-2xl bg-blue-500/5 flex items-center justify-center text-blue-600">
+            <div className="h-12 w-12 rounded-2xl bg-blue-500/5 flex items-center justify-center text-blue-500">
               <Zap className="h-6 w-6" />
             </div>
-            <h4 className="font-bold text-sm">Aktif Seketika</h4>
+            <h4 className="font-bold text-sm text-foreground">
+              Aktif Seketika
+            </h4>
             <p className="text-xs text-muted-foreground text-pretty">
-              Layanan otomatis aktif setelah konfirmasi pembayaran berhasil.
+              Layanan otomatis aktif sesaat setelah pembayaran berhasil.
             </p>
           </div>
           <div className="flex flex-col items-center text-center space-y-3">
-            <div className="h-12 w-12 rounded-2xl bg-blue-500/5 flex items-center justify-center text-blue-600">
+            <div className="h-12 w-12 rounded-2xl bg-blue-500/5 flex items-center justify-center text-blue-500">
               <HelpCircle className="h-6 w-6" />
             </div>
-            <h4 className="font-bold text-sm">Bantuan Teknis</h4>
+            <h4 className="font-bold text-sm text-foreground">
+              Bantuan Teknis
+            </h4>
             <p className="text-xs text-muted-foreground text-pretty">
-              Tim support kami siap membantu operasional digital bisnis Anda.
+              Tim support kami siap membantu setiap kendala bisnis Anda.
             </p>
           </div>
         </div>
 
         <p className="mt-16 text-center text-sm text-muted-foreground font-medium">
-          Ragu memilih paket? Coba dulu paket Starter atau{" "}
+          Ragu memilih paket? Cek dulu{" "}
+          <Link
+            href="https://bisnis-contoh.bookinaja.com"
+            target="_blank"
+            className="text-blue-500 font-bold hover:underline underline-offset-4"
+          >
+            Live Demo Sistem
+          </Link>{" "}
+          atau{" "}
           <Link
             href="mailto:support@bookinaja.com"
             className="text-blue-500 font-bold hover:underline underline-offset-4"
