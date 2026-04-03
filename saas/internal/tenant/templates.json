@@ -1,0 +1,121 @@
+{
+  "gaming_hub": {
+    "resources": [
+      { "name": "MEJA 01", "category": "REGULER" },
+      { "name": "MEJA 02", "category": "REGULER" },
+      { "name": "MEJA 03", "category": "VIP" }
+    ],
+    "main_items": [
+      {
+        "name": "PS5 SLIM",
+        "price": 10000,
+        "price_unit": "hour",
+        "is_default": true
+      },
+      {
+        "name": "PS5 PRO",
+        "price": 15000,
+        "price_unit": "hour",
+        "is_default": false
+      }
+    ],
+    "unit_addons": [
+      { "name": "STIK TAMBAHAN", "price": 5000, "price_unit": "session" }
+    ],
+    "fnb_catalog": [
+      { "name": "INDOMIE GORENG + TELUR", "price": 15000, "category": "Food" },
+      { "name": "ES TEH MANIS", "price": 5000, "category": "Drink" },
+      { "name": "KENTANG GORENG", "price": 12000, "category": "Snack" }
+    ]
+  },
+  "creative_space": {
+    "resources": [
+      { "name": "STUDIO A", "category": "MAIN ROOM" },
+      { "name": "PODCAST ROOM", "category": "AUDIO" }
+    ],
+    "main_items": [
+      {
+        "name": "PAKET REGULER",
+        "price": 150000,
+        "price_unit": "hour",
+        "is_default": true
+      },
+      {
+        "name": "PAKET FULL-DAY",
+        "price": 1000000,
+        "price_unit": "day",
+        "is_default": false
+      }
+    ],
+    "unit_addons": [
+      {
+        "name": "SEWA LIGHTING EXTRA",
+        "price": 50000,
+        "price_unit": "session"
+      },
+      { "name": "OPERATOR / EDITOR", "price": 100000, "price_unit": "hour" }
+    ],
+    "fnb_catalog": [
+      { "name": "HOT AMERICANO", "price": 20000, "category": "Drink" },
+      { "name": "CLUB SANDWICH", "price": 35000, "category": "Food" },
+      { "name": "AIR MINERAL 600ML", "price": 5000, "category": "Drink" }
+    ]
+  },
+  "sport_center": {
+    "resources": [
+      { "name": "LAPANGAN A", "category": "VINYL" },
+      { "name": "LAPANGAN B", "category": "VINYL" }
+    ],
+    "main_items": [
+      {
+        "name": "HARGA NORMAL",
+        "price": 50000,
+        "price_unit": "hour",
+        "is_default": true
+      },
+      {
+        "name": "HARGA MEMBER",
+        "price": 40000,
+        "price_unit": "hour",
+        "is_default": false
+      }
+    ],
+    "unit_addons": [
+      { "name": "SEWA RAKET", "price": 10000, "price_unit": "pcs" },
+      { "name": "SHUTTLECOCK (ISI 3)", "price": 15000, "price_unit": "pcs" }
+    ],
+    "fnb_catalog": [
+      { "name": "POCARI SWEAT 500ML", "price": 10000, "category": "Drink" },
+      { "name": "PISANG GORENG (ISI 5)", "price": 15000, "category": "Snack" },
+      { "name": "NASI GORENG ATY", "price": 25000, "category": "Food" }
+    ]
+  },
+  "social_space": {
+    "resources": [
+      { "name": "MEETING ROOM VIP", "category": "PRIVATE" },
+      { "name": "CO-WORKING DESK 01", "category": "HOT DESK" }
+    ],
+    "main_items": [
+      {
+        "name": "SEWA PER JAM",
+        "price": 100000,
+        "price_unit": "hour",
+        "is_default": true
+      },
+      {
+        "name": "DAILY PASS",
+        "price": 450000,
+        "price_unit": "day",
+        "is_default": false
+      }
+    ],
+    "unit_addons": [
+      { "name": "PROJECTOR & SCREEN", "price": 75000, "price_unit": "session" }
+    ],
+    "fnb_catalog": [
+      { "name": "CAFE LATTE", "price": 28000, "category": "Drink" },
+      { "name": "COFFEE BREAK PACKAGE", "price": 35000, "category": "Snack" },
+      { "name": "CROISSANT", "price": 22000, "category": "Snack" }
+    ]
+  }
+}
