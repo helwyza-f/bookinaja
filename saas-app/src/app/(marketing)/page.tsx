@@ -34,12 +34,16 @@ import {
   Key,
   Database,
   Cloud,
+  Activity,
+  BarChart,
+  Search,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 
 /**
  * LANDING PAGE COMPONENT - BOOKINAJA.COM
- * Version: 3.0 (Owner Monitoring & Consistent Blue Branding)
+ * Version: 4.0 (No Jargon, Owner-Centric Monitoring, Full Blue Theme)
  */
 export default function LandingPage() {
   return (
@@ -104,7 +108,7 @@ export default function LandingPage() {
           </Link>
         </div>
 
-        {/* INTERACTIVE PREVIEW */}
+        {/* MAIN PREVIEW CARD */}
         <div className="mt-24 md:mt-40 relative mx-auto max-w-7xl group">
           <div className="absolute -inset-2 md:-inset-4 rounded-[2rem] md:rounded-[3.5rem] bg-gradient-to-r from-blue-600/30 to-indigo-600/30 opacity-20 blur-2xl md:blur-3xl transition duration-1000 group-hover:opacity-40" />
           <div className="relative rounded-[1.5rem] md:rounded-[3rem] border border-white/10 bg-card/30 p-2 md:p-4 shadow-2xl backdrop-blur-md overflow-hidden">
@@ -119,84 +123,88 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- REAL-TIME MONITORING (OWNER PRIDE) --- */}
-      <section className="container relative z-10 mx-auto px-6 py-20 md:py-32">
-        <div className="grid lg:grid-cols-2 gap-16 md:gap-24 items-center">
-          <div className="order-2 lg:order-1 flex justify-center">
-            {/* Visual Phone Mockup - Hidden on tiny screens, shown on mobile/desktop */}
-            <div className="relative w-full max-w-[300px] aspect-[9/19] bg-slate-950 rounded-[3rem] border-[8px] border-slate-900 shadow-3xl overflow-hidden group">
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/3 h-6 bg-slate-900 rounded-b-2xl z-20" />
-              <div className="p-4 pt-10 space-y-4">
-                <div className="h-20 w-full rounded-2xl bg-blue-600/20 border border-blue-500/30 p-4">
-                  <p className="text-[10px] text-blue-400 font-bold uppercase">
-                    Omzet Hari Ini
-                  </p>
-                  <p className="text-xl font-black text-white">Rp 2.450.000</p>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="h-20 rounded-2xl bg-slate-900 border border-border p-3 text-center">
-                    <Users2 className="h-4 w-4 mx-auto text-blue-500 mb-1" />
-                    <p className="text-[10px] text-muted-foreground font-bold">
-                      12 Booking
-                    </p>
-                  </div>
-                  <div className="h-20 rounded-2xl bg-slate-900 border border-border p-3 text-center">
-                    <Clock className="h-4 w-4 mx-auto text-blue-500 mb-1" />
-                    <p className="text-[10px] text-muted-foreground font-bold">
-                      8 Active
-                    </p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {[1, 2, 3].map((i) => (
-                    <div
-                      key={i}
-                      className="h-12 w-full rounded-xl bg-slate-900/50 border border-border flex items-center px-3 gap-3"
-                    >
-                      <div className="h-2 w-2 rounded-full bg-blue-500" />
-                      <div className="h-2 w-12 bg-slate-800 rounded" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-t from-blue-600/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
-          </div>
-
-          <div className="order-1 lg:order-2 space-y-8 text-center md:text-left">
+      {/* --- OWNER MONITORING SECTION (JARGON-FREE) --- */}
+      <section className="container relative z-10 mx-auto px-6 py-20 md:py-40">
+        <div className="grid lg:grid-cols-2 gap-16 md:gap-32 items-center">
+          <div className="space-y-8 text-center md:text-left">
             <div className="space-y-4">
               <Badge
                 variant="outline"
-                className="text-blue-500 border-blue-500/20 bg-blue-500/5 px-4 py-1"
+                className="text-blue-500 border-blue-500/20 bg-blue-500/5 px-4 py-1 font-bold"
               >
-                OWNER DASHBOARD
+                KHUSUS PEMILIK
               </Badge>
               <h2 className="text-4xl md:text-7xl font-black tracking-tighter leading-none">
-                Pantau Bisnis <br />
-                <span className="text-blue-500">Kapan Saja.</span>
+                Pantau Kondisi Bisnis <br />
+                <span className="text-blue-500 italic">Secara Live.</span>
               </h2>
             </div>
-            <p className="text-lg md:text-2xl text-muted-foreground font-medium">
-              Dashboard yang didesain khusus untuk Anda sebagai pemilik. Pantau
-              laporan harian, status unit, hingga kinerja staff secara real-time
-              langsung dari smartphone Anda.
+            <p className="text-lg md:text-2xl text-muted-foreground font-medium leading-relaxed">
+              Gak perlu bolak-balik ke lokasi atau telepon staff cuma buat tanya
+              "Lagi ramai gak?". Cukup buka dashboard dari HP Anda, semua data
+              tersaji instan.
             </p>
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-4 justify-center md:justify-start">
-                <div className="h-10 w-10 rounded-full bg-blue-600/10 flex items-center justify-center text-blue-600 shadow-sm">
-                  <Cloud className="h-5 w-5" />
+            <div className="grid sm:grid-cols-2 gap-6 pt-4">
+              <div className="flex items-center gap-4 group cursor-default">
+                <div className="h-12 w-12 rounded-2xl bg-blue-600/10 flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
+                  <Search className="h-6 w-6" />
                 </div>
                 <p className="font-bold text-foreground italic">
-                  Sinkronisasi Cloud Terpusat
+                  Cek Unit Terisi
                 </p>
               </div>
-              <div className="flex items-center gap-4 justify-center md:justify-start">
-                <div className="h-10 w-10 rounded-full bg-blue-600/10 flex items-center justify-center text-blue-600 shadow-sm">
-                  <Smartphone className="h-5 w-5" />
+              <div className="flex items-center gap-4 group cursor-default">
+                <div className="h-12 w-12 rounded-2xl bg-blue-600/10 flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
+                  <Wallet className="h-6 w-6" />
                 </div>
                 <p className="font-bold text-foreground italic">
-                  Akses darimana saja lewat browser
+                  Audit Uang Masuk
                 </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Visual Hub Decoration */}
+          <div className="hidden lg:grid grid-cols-2 gap-6 relative">
+            <div className="absolute inset-0 bg-blue-500/5 blur-[120px] -z-10" />
+            <div className="space-y-6">
+              <div className="p-8 rounded-[2.5rem] bg-card border border-border shadow-2xl hover:-translate-y-2 transition-transform duration-500">
+                <div className="h-10 w-10 rounded-xl bg-blue-600/20 flex items-center justify-center text-blue-600 mb-6">
+                  <TrendingUp className="h-5 w-5" />
+                </div>
+                <p className="text-sm font-bold text-muted-foreground mb-1 uppercase tracking-widest">
+                  Uang Masuk Hari Ini
+                </p>
+                <p className="text-3xl font-black text-foreground tracking-tighter">
+                  IDR 12.4M
+                </p>
+              </div>
+              <div className="p-8 rounded-[2.5rem] bg-blue-600 text-white shadow-3xl hover:-translate-y-2 transition-transform duration-500">
+                <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center text-white mb-6">
+                  <Users2 className="h-5 w-5" />
+                </div>
+                <p className="text-sm font-bold opacity-70 mb-1 uppercase tracking-widest">
+                  Antrean Aktif
+                </p>
+                <p className="text-3xl font-black tracking-tighter">
+                  42 Booking
+                </p>
+              </div>
+            </div>
+            <div className="space-y-6 pt-12">
+              <div className="p-8 rounded-[2.5rem] bg-card border border-border shadow-2xl hover:-translate-y-2 transition-transform duration-500">
+                <div className="h-10 w-10 rounded-xl bg-blue-600/20 flex items-center justify-center text-blue-600 mb-6">
+                  <Cloud className="h-5 w-5" />
+                </div>
+                <p className="text-sm font-bold text-muted-foreground mb-1 uppercase tracking-widest">
+                  Koneksi Server
+                </p>
+                <p className="text-3xl font-black text-foreground tracking-tighter">
+                  Online
+                </p>
+              </div>
+              <div className="p-8 rounded-[2.5rem] bg-secondary/50 backdrop-blur-xl border border-border shadow-2xl hover:-translate-y-2 transition-transform duration-500 flex items-center justify-center">
+                <QrCode className="h-16 w-16 text-muted-foreground/30" />
               </div>
             </div>
           </div>
@@ -204,7 +212,7 @@ export default function LandingPage() {
       </section>
 
       {/* --- WHAT WE DO SECTION --- */}
-      <section className="container relative z-10 mx-auto px-6 py-18 md:py-20">
+      <section className="container relative z-10 mx-auto px-6 py-18 md:py-20 border-t border-border/50">
         <div className="grid lg:grid-cols-2 gap-16 md:gap-24 items-center text-center md:text-left">
           <div className="space-y-8 md:space-y-12">
             <div className="space-y-4">
@@ -222,7 +230,7 @@ export default function LandingPage() {
 
             <p className="text-lg md:text-2xl text-muted-foreground leading-relaxed font-medium">
               Kami memindahkan bisnis Anda dari buku tulis ke sistem otomatis.
-              Satu akun khusus untuk bisnis Anda—fokus, simpel, dan cuan tanpa
+              Satu akun khusus untuk satu bisnis—fokus, simpel, dan cuan tanpa
               ribet.
             </p>
 
@@ -231,28 +239,30 @@ export default function LandingPage() {
                 <div className="h-12 w-12 mx-auto md:mx-0 rounded-2xl bg-blue-600/10 flex items-center justify-center text-blue-600 transition-colors group-hover:bg-blue-600 group-hover:text-white">
                   <Workflow className="h-6 w-6" />
                 </div>
-                <h4 className="text-xl font-extrabold tracking-tight">
+                <h4 className="text-xl font-extrabold tracking-tight italic uppercase text-xs">
                   Otomasi Jadwal
                 </h4>
-                <p className="text-muted-foreground text-sm leading-relaxed italic">
-                  Sistem mengunci slot jam secara otomatis.
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Sistem cerdas mengunci slot jam secara otomatis saat booking
+                  masuk.
                 </p>
               </div>
               <div className="space-y-4 group">
                 <div className="h-12 w-12 mx-auto md:mx-0 rounded-2xl bg-blue-600/10 flex items-center justify-center text-blue-600 transition-colors group-hover:bg-blue-600 group-hover:text-white">
                   <TrendingUp className="h-6 w-6" />
                 </div>
-                <h4 className="text-xl font-extrabold tracking-tight">
+                <h4 className="text-xl font-extrabold tracking-tight italic uppercase text-xs">
                   Cuan Maksimal
                 </h4>
-                <p className="text-muted-foreground text-sm leading-relaxed italic">
-                  Atur harga promo dan weekend tanpa manual.
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Tingkatkan profit dengan manajemen harga weekend otomatis.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="hidden lg:block relative">
+          {/* RIGHT FILLER DECORATION */}
+          <div className="hidden lg:block relative group">
             <div className="absolute -inset-4 bg-blue-600/20 blur-3xl rounded-full opacity-30" />
             <div className="relative grid grid-cols-2 gap-4">
               <div className="space-y-4">
@@ -260,20 +270,20 @@ export default function LandingPage() {
                   <Cpu className="h-14 w-14 text-blue-500" />
                 </div>
                 <div className="aspect-[4/5] rounded-[2.5rem] bg-blue-600 p-8 flex flex-col justify-end text-white shadow-2xl">
-                  <p className="text-2xl font-black leading-none">
-                    Smart <br /> System.
+                  <p className="text-2xl font-black leading-none italic uppercase">
+                    Master <br /> System.
                   </p>
                 </div>
               </div>
               <div className="space-y-4 pt-12">
                 <div className="aspect-[4/5] rounded-[2.5rem] bg-secondary border border-border p-8 flex flex-col justify-between hover:scale-105 transition-transform duration-500">
                   <ShieldCheck className="h-12 w-12 text-blue-500" />
-                  <p className="text-xl font-black leading-tight text-foreground">
-                    Secure <br /> Access.
+                  <p className="text-xl font-black leading-tight text-foreground uppercase italic text-xs">
+                    Isolated <br /> Database.
                   </p>
                 </div>
                 <div className="aspect-square rounded-[2.5rem] bg-card border border-border p-8 flex items-center justify-center shadow-xl">
-                  <Command className="h-14 w-14 text-slate-400" />
+                  <Command className="h-14 w-14 text-slate-400 opacity-20" />
                 </div>
               </div>
             </div>
@@ -281,7 +291,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- STAFF & ROLE ACCESS SECTION (CONSISTENT BLUE THEME) --- */}
+      {/* --- STAFF & ROLE ACCESS SECTION --- */}
       <section className="container relative z-10 mx-auto px-6 py-18 md:py-24">
         <div className="flex flex-col lg:flex-row-reverse items-center gap-16 md:gap-24">
           <div className="flex-1 space-y-8 text-center md:text-left">
@@ -299,24 +309,24 @@ export default function LandingPage() {
             </div>
             <p className="text-lg md:text-2xl text-muted-foreground font-medium">
               Buat akun khusus untuk karyawan (Kasir/Admin). Batasi akses mereka
-              sesuai tugasnya.
+              sesuai tugasnya agar operasional tetap jujur.
             </p>
             <div className="grid sm:grid-cols-2 gap-6">
               {[
                 {
                   icon: <Key />,
                   title: "Akses Terbatas",
-                  desc: "Kasir hanya bisa urus booking, gak bisa liat laporan cuan total.",
+                  desc: "Kasir hanya bisa urus booking, tidak bisa melihat laporan cuan total.",
                 },
                 {
                   icon: <Lock />,
-                  title: "Mencegah Curang",
-                  desc: "Setiap transaksi terekam permanen, audit keuangan jadi gampang.",
+                  title: "Cegah Kecurangan",
+                  desc: "Setiap transaksi terekam permanen, audit keuangan bisnis jadi instan.",
                 },
               ].map((item, i) => (
                 <div
                   key={i}
-                  className="flex gap-4 items-start p-5 rounded-3xl bg-blue-600/5 border border-blue-500/10 hover:border-blue-500/30 transition-colors text-left"
+                  className="flex gap-4 items-start p-5 rounded-3xl bg-blue-600/5 border border-blue-500/10 hover:border-blue-500/30 transition-colors text-left text-pretty"
                 >
                   <div className="text-blue-600 mt-1">{item.icon}</div>
                   <div>
@@ -332,9 +342,8 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Visual Decorator HIDDEN ON MOBILE */}
           <div className="hidden lg:flex flex-1 justify-center relative group">
-            <div className="absolute inset-0 bg-blue-600/10 blur-[100px] opacity-50 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute inset-0 bg-blue-600/10 blur-[100px] opacity-50" />
             <div className="relative p-10 rounded-[3rem] bg-card border border-border shadow-3xl">
               <div className="flex items-center gap-4 mb-8">
                 <div className="h-12 w-12 rounded-full bg-blue-600/20 flex items-center justify-center text-blue-600 font-black">
@@ -342,7 +351,7 @@ export default function LandingPage() {
                 </div>
                 <div>
                   <p className="font-black text-foreground leading-none text-lg italic">
-                    Owner Dashboard
+                    Owner Profile
                   </p>
                   <Badge className="bg-blue-600/10 text-blue-600 border-none text-[10px] uppercase font-bold tracking-widest mt-1">
                     Master Admin
@@ -352,19 +361,17 @@ export default function LandingPage() {
               <div className="space-y-4 opacity-40">
                 <div className="h-10 w-full bg-secondary rounded-xl animate-pulse" />
                 <div className="h-10 w-full bg-secondary rounded-xl" />
-                <div className="h-10 w-3/4 bg-secondary rounded-xl" />
               </div>
             </div>
-            {/* Sub Account Card Overlay */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/4 translate-y-1/4 p-8 rounded-[2.5rem] bg-background border-2 border-blue-500 shadow-3xl scale-90 transition-transform group-hover:scale-100">
               <div className="flex items-center gap-4">
                 <Users2 className="h-8 w-8 text-blue-500" />
                 <div>
                   <p className="font-bold text-foreground leading-none italic uppercase text-xs">
-                    Kasir Shift 1
+                    Akun Kasir
                   </p>
                   <p className="text-[10px] text-muted-foreground font-medium mt-1">
-                    Status: Restricted Access
+                    Status: Terbatas
                   </p>
                 </div>
               </div>
@@ -376,7 +383,7 @@ export default function LandingPage() {
       {/* --- LANDING PAGE SECTION --- */}
       <section className="container relative z-10 mx-auto px-6 py-18 md:py-20 border-y border-border/50 bg-secondary/5 backdrop-blur-sm">
         <div className="flex flex-col items-center text-center space-y-12">
-          <div className="max-w-3xl space-y-6">
+          <div className="max-w-3xl space-y-6 px-4">
             <Badge
               variant="outline"
               className="text-blue-500 border-blue-500/20 bg-blue-500/5 px-4 py-1 font-bold"
@@ -385,11 +392,11 @@ export default function LandingPage() {
             </Badge>
             <h2 className="text-4xl md:text-7xl font-black tracking-tighter leading-tight">
               Website Bisnis <br />
-              <span className="text-blue-600 italic">Otomatis Jadi.</span>
+              <span className="text-blue-500 italic">Otomatis Jadi.</span>
             </h2>
-            <p className="text-lg md:text-2xl text-muted-foreground font-medium text-pretty px-4">
-              Gak perlu sewa developer. Anda langsung dapat link website
-              profesional atas nama bisnis Anda sendiri sejak pertama daftar.
+            <p className="text-lg md:text-2xl text-muted-foreground font-medium text-pretty">
+              Gak perlu sewa desainer. Anda langsung dapat link website
+              profesional atas nama bisnis Anda sendiri sejak hari pertama.
             </p>
           </div>
 
@@ -428,9 +435,9 @@ export default function LandingPage() {
             ))}
           </div>
 
-          <div className="w-full max-w-2xl p-8 rounded-[2.5rem] bg-blue-600/5 border border-blue-500/20 font-mono text-lg md:text-3xl text-blue-600 shadow-xl flex items-center justify-center gap-4 group transition-all hover:bg-blue-600/10">
+          <div className="w-full max-w-2xl p-8 rounded-[2.5rem] bg-blue-600/5 border border-blue-500/20 font-mono text-lg md:text-3xl text-blue-600 shadow-xl flex items-center justify-center gap-4 group transition-all hover:bg-blue-600/10 mx-4 overflow-hidden">
             <span className="truncate opacity-70 group-hover:opacity-100 transition-opacity">
-              https://nama-bisnis.bookinaja.com
+              https://bisnis-anda.bookinaja.com
             </span>
           </div>
         </div>
@@ -441,23 +448,23 @@ export default function LandingPage() {
         id="industries"
         className="container relative z-10 mx-auto px-6 py-20 md:py-32"
       >
-        <div className="text-center mb-16 md:mb-24 space-y-4">
+        <div className="text-center mb-16 md:mb-24 space-y-4 px-4">
           <Badge
             variant="outline"
-            className="border-blue-500/20 text-blue-500 font-bold tracking-widest px-4 py-1"
+            className="border-blue-500/20 text-blue-500 font-bold tracking-widest px-4 py-1 uppercase"
           >
-            BIDANG USAHA
+            Bidang Usaha
           </Badge>
           <h2 className="text-4xl md:text-6xl font-black tracking-tighter leading-[1.0]">
             Satu Aplikasi. <br /> Berbagai{" "}
             <span className="text-blue-500">Macam Bisnis.</span>
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto text-base md:text-xl font-medium">
-            Apapun sektor persewaan Anda, sistem kami siap menanganinya.
+            Sistem kami siap menangani apapun sektor persewaan Anda.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 px-4">
           <SectorCard
             icon={<Monitor />}
             title="Rental PS & Gaming Hub"
@@ -493,10 +500,10 @@ export default function LandingPage() {
 
       {/* --- FINAL CTA --- */}
       <section className="container relative z-10 mx-auto px-6 pb-24 md:pb-48">
-        <div className="relative overflow-hidden rounded-[3rem] md:rounded-[5rem] bg-slate-950 px-6 md:px-8 py-24 md:py-40 text-center shadow-3xl border border-white/10">
+        <div className="relative overflow-hidden rounded-[3rem] md:rounded-[5rem] bg-slate-950 px-6 md:px-8 py-24 md:py-40 text-center shadow-3xl border border-white/10 mx-2 md:mx-0">
           <div className="absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 h-[40rem] w-[40rem] bg-blue-600 rounded-full blur-[150px] md:blur-[200px] opacity-30 animate-pulse" />
 
-          <div className="relative z-10 mx-auto max-w-5xl space-y-12 md:space-y-16">
+          <div className="relative z-10 mx-auto max-w-5xl space-y-12 md:space-y-16 px-4">
             <div className="space-y-6">
               <h2 className="text-4xl font-black text-white sm:text-9xl tracking-tighter leading-[0.9] md:leading-[0.85]">
                 Bikin Bisnis <br /> Jadi Autopilot.
@@ -523,9 +530,9 @@ export default function LandingPage() {
               <Link href="/register" className="w-full sm:w-auto">
                 <Button
                   variant="link"
-                  className="text-white font-bold text-xl underline underline-offset-8 decoration-blue-500 hover:text-blue-400 transition-colors"
+                  className="text-white font-bold text-xl underline underline-offset-8 decoration-blue-500 hover:text-blue-400 transition-colors uppercase tracking-widest"
                 >
-                  Atau Daftar Akun Gratis
+                  Daftar Akun
                 </Button>
               </Link>
             </div>
@@ -566,7 +573,7 @@ function SectorCard({
       <div className="mb-8 h-12 w-12 md:h-16 md:w-16 flex items-center justify-center rounded-2xl bg-blue-600/10 text-blue-500 group-hover:bg-blue-600 group-hover:text-white transition-all duration-500">
         {icon}
       </div>
-      <h3 className="text-2xl font-black mb-4 tracking-tighter text-foreground leading-tight italic uppercase text-sm">
+      <h3 className="text-2xl font-black mb-4 tracking-tighter text-foreground leading-tight italic uppercase text-xs">
         {title}
       </h3>
       <p className="text-sm md:text-base text-muted-foreground leading-relaxed font-medium opacity-80">
@@ -592,7 +599,7 @@ function ValueCard({
       <div className="mb-8 h-12 w-12 flex items-center justify-center rounded-2xl bg-secondary text-foreground group-hover:bg-blue-600 group-hover:text-white transition-all duration-500 shadow-sm">
         {icon}
       </div>
-      <h3 className="text-2xl md:text-4xl font-black mb-3 tracking-tighter text-foreground italic uppercase">
+      <h3 className="text-2xl md:text-4xl font-black mb-3 tracking-tighter text-foreground italic uppercase text-sm">
         {title}
       </h3>
       <p className="text-sm text-muted-foreground mb-10 leading-relaxed font-medium">
@@ -619,7 +626,9 @@ function FeatureItem({ icon, text }: { icon: any; text: string }) {
       <div className="h-12 w-12 md:h-14 md:w-14 rounded-2xl bg-secondary flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all duration-500 border border-border shadow-sm">
         {icon}
       </div>
-      <span className="tracking-tight italic uppercase text-xs">{text}</span>
+      <span className="tracking-tight italic uppercase text-[10px]">
+        {text}
+      </span>
     </div>
   );
 }
