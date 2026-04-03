@@ -49,15 +49,15 @@ jobs:
             rm -rf ~/bookinaja/saas-app/.next
             # Jangan hapus seluruh folder saas karena ada .env penting di sana jika tidak di-inject ulang
 
-      # --- SEND EVERYTHING TO EC2 (SINKRONISASI TOTAL) ---
-      - name: Transfer Files to EC2
+      # --- SEND TO EC2 ---
+      - name: Transfer Mateng ke EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          # Perhatikan: Kita kirim seluruh folder 'saas/' agar file .go juga terupdate di server
-          source: "saas/,saas-app/.next/standalone,saas-app/.next/static,saas-app/public,saas-app/Dockerfile,docker-compose.yml"
+          # Pastikan seluruh folder saas/internal ikut terkirim
+          source: "saas/main,saas/migrations,saas/internal,saas/Dockerfile,saas-app/.next/standalone,saas-app/.next/static,saas-app/public,saas-app/Dockerfile,docker-compose.yml"
           target: "~/bookinaja"
           strip_components: 0
           overwrite: true
@@ -71,16 +71,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd ~/bookinaja
-
-            # Inject ulang ENV dari GitHub Secrets ke file .env di EC2
-            echo "${{ secrets.BE_ENV }}" > saas/.env
-            echo "${{ secrets.FE_ENV }}" > saas-app/.env
-
-            # Matikan container lama
             sudo docker-compose down
-
-            # Build ulang tanpa cache untuk memastikan binary 'main' terbaru yang dipakai
+            # Gunakan --build untuk memastikan COPY internal di Dockerfile tereksekusi
             sudo docker-compose up --build -d
-
-            # Bersihkan image-image sisa build yang tidak terpakai (biar storage gak penuh)
             sudo docker image prune -f
