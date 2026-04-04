@@ -8,6 +8,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
+
 func NewPostgres(host, port, user, password, dbname string) (*sqlx.DB, error) {
 	// Ambil sslmode dari env, jika kosong default ke require (aman untuk RDS)
 	sslMode := os.Getenv("DB_SSLMODE")
