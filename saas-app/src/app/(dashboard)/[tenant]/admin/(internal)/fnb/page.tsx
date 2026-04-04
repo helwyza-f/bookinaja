@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea"; // Pastikan sudah install shadcn textarea
+import { Textarea } from "@/components/ui/textarea";
 import {
   Plus,
   UtensilsCrossed,
@@ -15,7 +15,7 @@ import {
   Edit3,
   Loader2,
   PackageSearch,
-  Upload,
+  ChevronRight,
 } from "lucide-react";
 import {
   Dialog,
@@ -64,6 +64,40 @@ export default function FnbManagementPage() {
   useEffect(() => {
     fetchMenu();
   }, []);
+
+  // FUNGSI BARU: Quick Toggle untuk ketersediaan stok
+  const handleToggleAvailable = async (item: any) => {
+    const originalStatus = item.is_available;
+
+    // Optimistic Update (Ubah di UI dulu biar instan)
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === item.id ? { ...i, is_available: !originalStatus } : i,
+      ),
+    );
+
+    try {
+      await api.put(`/fnb/${item.id}`, {
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        category: item.category,
+        image_url: item.image_url,
+        is_available: !originalStatus,
+      });
+      toast.success(
+        `${item.name} kini ${!originalStatus ? "Tersedia" : "Habis"}`,
+      );
+    } catch (err) {
+      // Rollback jika gagal
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === item.id ? { ...i, is_available: originalStatus } : i,
+        ),
+      );
+      toast.error("Gagal update status");
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,15 +150,15 @@ export default function FnbManagementPage() {
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-in fade-in duration-500 font-plus-jakarta px-4 mt-10">
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b-2 border-slate-100 pb-8">
-        <div className="space-y-2">
-          <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-slate-900 uppercase italic pr-6">
-            Katalog <span className="text-blue-600">F&B</span>
+    <div className="max-w-7xl mx-auto space-y-8 pb-32 animate-in fade-in duration-700 font-plus-jakarta px-4 mt-8">
+      {/* COMPACT HEADER */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-6">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-black tracking-tighter text-slate-900 uppercase italic">
+            Menu <span className="text-blue-600">Library</span>
           </h1>
-          <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em] italic">
-            Manajemen makanan & minuman untuk upsell booking
+          <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest italic">
+            {items.length} Total Items in Catalog
           </p>
         </div>
 
@@ -136,204 +170,191 @@ export default function FnbManagementPage() {
           }}
         >
           <DialogTrigger asChild>
-            <Button className="h-14 px-8 rounded-2xl bg-blue-600 font-black uppercase tracking-widest text-[11px] shadow-xl shadow-blue-200 hover:scale-105 transition-all italic">
-              <Plus className="mr-2 h-5 w-5 stroke-[3]" /> Tambah Menu
+            <Button className="h-12 px-6 rounded-xl bg-slate-900 shadow-lg hover:scale-105 transition-all">
+              <Plus className="mr-2 h-4 w-4 text-blue-400 stroke-[3]" />
+              <span className="font-black uppercase tracking-widest text-[10px] italic text-white">
+                Add New Item
+              </span>
             </Button>
           </DialogTrigger>
-          <DialogContent className="rounded-[2.5rem] p-10 border-none shadow-2xl max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter">
-                {editingId ? "Update" : "Register"}{" "}
-                <span className="text-blue-600">Menu</span>
-              </DialogTitle>
-            </DialogHeader>
-            <form
-              onSubmit={handleSave}
-              className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4"
-            >
-              {/* Kolom Kiri: Upload Image */}
-              <div className="space-y-4">
-                <SingleImageUpload
-                  value={imageUrl}
-                  onChange={setImageUrl}
-                  endpoint="/fnb/upload" // Menggunakan endpoint baru yang kita buat tadi
-                  label="Foto Produk"
-                />
 
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 italic">
-                    Kategori
-                  </Label>
-                  <Select value={category} onValueChange={setCategory}>
-                    <SelectTrigger className="h-14 rounded-2xl bg-slate-50 border-none font-bold uppercase italic text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl border-none shadow-xl font-bold uppercase italic">
-                      <SelectItem value="Food">Food</SelectItem>
-                      <SelectItem value="Drink">Drink</SelectItem>
-                      <SelectItem value="Snack">Snack</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
+          <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 overflow-hidden border-none bg-white rounded-[2rem] shadow-2xl">
+            <div className="flex flex-col md:flex-row w-full max-h-[90vh]">
+              <div className="w-full md:w-5/12 bg-slate-50/50 p-8 flex flex-col border-b md:border-b-0 md:border-r border-slate-100">
+                <div className="space-y-6">
+                  <DialogHeader className="text-left">
+                    <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter">
+                      {editingId ? "Modify" : "Register"}{" "}
+                      <span className="text-blue-600">Product</span>
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="relative aspect-square w-full rounded-2xl overflow-hidden shadow-md ring-4 ring-white bg-white">
+                    <SingleImageUpload
+                      value={imageUrl}
+                      onChange={setImageUrl}
+                      endpoint="/fnb/upload"
+                      label=""
+                    />
+                  </div>
                 </div>
               </div>
-
-              {/* Kolom Kanan: Detail Data */}
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                    Nama Produk
-                  </Label>
-                  <Input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="MISAL: KOPI GULA AREN"
-                    className="h-14 rounded-2xl bg-slate-50 border-none font-bold text-lg focus:ring-blue-600"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                    Harga (Rp)
-                  </Label>
-                  <Input
-                    value={price}
-                    onChange={(e) =>
-                      setPrice(e.target.value.replace(/\D/g, ""))
-                    }
-                    placeholder="15000"
-                    className="h-14 rounded-2xl bg-slate-50 border-none font-black text-blue-600 text-lg"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                    Deskripsi Singkat
-                  </Label>
-                  <Textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Misal: Kurang manis, level 5, dll"
-                    className="rounded-2xl bg-slate-50 border-none font-medium min-h-[100px] resize-none"
-                  />
-                </div>
-
-                <div className="flex items-center gap-3 p-4 rounded-2xl border-2 border-dashed bg-blue-50/30 border-blue-100">
-                  <input
-                    type="checkbox"
-                    id="avail"
-                    checked={available}
-                    onChange={(e) => setAvailable(e.target.checked)}
-                    className="h-5 w-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-600 cursor-pointer"
-                  />
-                  <Label
-                    htmlFor="avail"
-                    className="text-xs font-black uppercase italic text-slate-700 cursor-pointer"
+              <div className="w-full md:w-7/12 p-8 md:p-10 overflow-y-auto bg-white">
+                <form onSubmit={handleSave} className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-400 italic">
+                        Product Name
+                      </Label>
+                      <Input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Ex: Latte"
+                        className="h-12 rounded-xl bg-slate-50 border-none font-bold px-4"
+                        required
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400 italic">
+                          Price
+                        </Label>
+                        <Input
+                          value={price}
+                          onChange={(e) =>
+                            setPrice(e.target.value.replace(/\D/g, ""))
+                          }
+                          className="h-12 rounded-xl bg-slate-50 border-none font-black text-blue-600"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400 italic">
+                          Category
+                        </Label>
+                        <Select value={category} onValueChange={setCategory}>
+                          <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none font-bold italic text-xs uppercase">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="font-bold uppercase italic">
+                            <SelectItem value="Food">Food</SelectItem>
+                            <SelectItem value="Drink">Drink</SelectItem>
+                            <SelectItem value="Snack">Snack</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-400 italic">
+                        Description
+                      </Label>
+                      <Textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        className="rounded-xl bg-slate-50 border-none min-h-[80px] text-sm"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full h-14 rounded-xl bg-slate-900 font-black uppercase italic text-[10px] tracking-widest"
                   >
-                    Menu Tersedia
-                  </Label>
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full h-16 rounded-[2rem] bg-slate-900 text-white font-black uppercase tracking-[0.2em] italic text-xs shadow-2xl border-b-8 border-slate-800 active:scale-95 transition-all"
-                >
-                  {editingId ? "Update Menu" : "Simpan Menu"}
-                </Button>
+                    <span className="mr-2">
+                      {editingId ? "Update" : "Save Product"}
+                    </span>
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </form>
               </div>
-            </form>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
 
+      {/* COMPACT GRID */}
       {loading ? (
-        <div className="h-96 flex flex-col items-center justify-center gap-4">
-          <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
-          <p className="font-black text-slate-300 uppercase tracking-widest text-xs italic text-center px-10">
-            Menghubungkan ke Dapur...
+        <div className="h-64 flex flex-col items-center justify-center gap-4 text-slate-300">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          <p className="font-black uppercase tracking-widest text-[9px] italic">
+            Loading Menu...
           </p>
         </div>
       ) : items.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-in fade-in duration-500">
           {items.map((item) => (
             <Card
               key={item.id}
-              className="group rounded-[3rem] border-none shadow-sm hover:shadow-2xl transition-all duration-500 bg-white ring-1 ring-slate-100 overflow-hidden"
+              className={cn(
+                "group rounded-2xl border-none shadow-sm hover:shadow-md transition-all bg-white ring-1 ring-slate-100 overflow-hidden flex flex-col",
+                !item.is_available && "opacity-75 grayscale-[0.5]", // Visual feedback kalau stok habis
+              )}
             >
-              {/* IMAGE PREVIEW IN CARD */}
               <div className="aspect-video w-full bg-slate-100 relative overflow-hidden">
                 {item.image_url ? (
                   <img
                     src={item.image_url}
                     alt={item.name}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-300">
-                    <PackageSearch className="h-12 w-12 opacity-20" />
+                  <div className="w-full h-full flex items-center justify-center text-slate-200">
+                    <PackageSearch className="h-8 w-8 opacity-20" />
                   </div>
                 )}
-                <div className="absolute top-4 right-4">
-                  <Badge
+
+                {/* TOGGLE SWITCH DI ATAS GAMBAR */}
+                <div className="absolute top-2 right-2 flex items-center gap-2 bg-black/40 backdrop-blur-md p-1.5 px-2 rounded-lg">
+                  <span className="text-[8px] font-black text-white uppercase italic tracking-tighter">
+                    {item.is_available ? "Ready" : "Out"}
+                  </span>
+                  <button
+                    onClick={() => handleToggleAvailable(item)}
                     className={cn(
-                      "border-none px-4 py-1.5 rounded-full font-black uppercase text-[9px] tracking-widest italic shadow-lg",
-                      item.is_available
-                        ? "bg-emerald-500 text-white"
-                        : "bg-red-500 text-white",
+                      "w-8 h-4 rounded-full relative transition-colors duration-200",
+                      item.is_available ? "bg-emerald-500" : "bg-slate-400",
                     )}
                   >
-                    {item.is_available ? "READY" : "OUT"}
-                  </Badge>
+                    <div
+                      className={cn(
+                        "absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform duration-200",
+                        item.is_available
+                          ? "translate-x-4.5"
+                          : "translate-x-0.5",
+                      )}
+                    />
+                  </button>
                 </div>
+
+                <Badge
+                  className={cn(
+                    "absolute top-2 left-2 border-none px-2 py-0.5 rounded-md font-black uppercase text-[8px] italic shadow-md",
+                    item.is_available
+                      ? "bg-emerald-500/90 text-white"
+                      : "bg-red-500/90 text-white",
+                  )}
+                >
+                  {item.category}
+                </Badge>
               </div>
 
-              <CardContent className="p-8">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="space-y-1 flex-1">
-                    <Badge
-                      variant="secondary"
-                      className="bg-blue-50 text-blue-600 font-bold text-[8px] uppercase tracking-widest px-2 py-0.5 border-none mb-1"
-                    >
-                      {item.category}
-                    </Badge>
-                    <h3 className="text-2xl font-black text-slate-900 uppercase italic pr-4 tracking-tighter leading-tight break-words">
-                      {item.name}
-                    </h3>
-                  </div>
-                  <div
-                    className={cn(
-                      "h-12 w-12 rounded-2xl flex items-center justify-center shadow-inner shrink-0",
-                      item.category === "Drink"
-                        ? "bg-cyan-50 text-cyan-600"
-                        : "bg-orange-50 text-orange-600",
-                    )}
-                  >
-                    {item.category === "Drink" ? (
-                      <Coffee className="h-6 w-6" />
-                    ) : (
-                      <UtensilsCrossed className="h-6 w-6" />
-                    )}
-                  </div>
+              <CardContent className="p-4 flex flex-col flex-1 space-y-3">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-black text-slate-900 uppercase italic tracking-tighter line-clamp-1">
+                    {item.name}
+                  </h3>
+                  <p className="text-slate-400 text-[10px] leading-tight italic line-clamp-2 h-7">
+                    {item.description || "-"}
+                  </p>
                 </div>
 
-                <p className="text-slate-400 text-xs font-medium italic mb-6 line-clamp-2 min-h-[2rem]">
-                  {item.description || "Tidak ada deskripsi produk."}
-                </p>
-
-                <div className="flex items-end justify-between border-t border-slate-50 pt-6">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      Price
-                    </p>
-                    <p className="text-2xl font-black text-blue-600 italic tracking-tighter">
-                      Rp{formatIDR(item.price)}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
+                <div className="flex items-center justify-between pt-3 border-t border-slate-50 mt-auto">
+                  <p className="text-base font-black text-slate-900 italic tracking-tighter">
+                    <span className="text-blue-600 text-[10px] mr-0.5">Rp</span>
+                    {formatIDR(item.price)}
+                  </p>
+                  <div className="flex gap-1">
                     <Button
                       variant="ghost"
+                      size="icon"
                       onClick={() => {
                         setEditingId(item.id);
                         setName(item.name);
@@ -344,16 +365,17 @@ export default function FnbManagementPage() {
                         setAvailable(item.is_available);
                         setOpen(true);
                       }}
-                      className="h-11 w-11 p-0 rounded-xl bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                      className="h-8 w-8 rounded-lg bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
                     >
-                      <Edit3 className="h-5 w-5" />
+                      <Edit3 className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
+                      size="icon"
                       onClick={() => handleDelete(item.id)}
-                      className="h-11 w-11 p-0 rounded-xl bg-slate-50 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                      className="h-8 w-8 rounded-lg bg-slate-50 text-slate-400 hover:text-red-600 hover:bg-red-50"
                     >
-                      <Trash2 className="h-5 w-5" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>
@@ -362,8 +384,14 @@ export default function FnbManagementPage() {
           ))}
         </div>
       ) : (
-        <div className="py-32 text-center bg-slate-50/50 rounded-[4rem] border-4 border-dashed border-slate-100">
-          {/* ... Bagian Empty State Tetap Sama ... */}
+        <div className="py-20 text-center bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-100 flex flex-col items-center gap-4">
+          <PackageSearch className="w-10 h-10 text-slate-200" />
+          <Button
+            onClick={() => setOpen(true)}
+            className="rounded-xl h-10 px-6 bg-blue-600 font-black uppercase italic text-[9px] tracking-widest"
+          >
+            Create Item
+          </Button>
         </div>
       )}
     </div>
