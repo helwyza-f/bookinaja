@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/helwiza/saas/internal/resource" // Import modul resource untuk akses detail item
+	"github.com/helwiza/saas/internal/resource"
 )
 
 type Service struct {
 	repo         *Repository
-	resourceRepo *resource.Repository // Tambahkan akses ke resource repo untuk ambil UnitDuration
+	resourceRepo *resource.Repository
 }
 
 func NewService(r *Repository, resRepo *resource.Repository) *Service {
@@ -22,6 +22,7 @@ func NewService(r *Repository, resRepo *resource.Repository) *Service {
 	}
 }
 
+// Create menangani pendaftaran reservasi baru
 func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, error) {
 	// 1. PARSE WAKTU AWAL
 	layout := "2006-01-02T15:04:05"
@@ -37,19 +38,13 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, e
 	rID, _ := uuid.Parse(req.ResourceID)
 
 	// 2. HITUNG END TIME BERDASARKAN UNIT DURATION
-	// Ambil item utama (biasanya item pertama dalam list req.ItemIDs)
 	if len(req.ItemIDs) == 0 {
 		return nil, errors.New("PILIH MINIMAL SATU PAKET/UNIT")
 	}
 	
 	mainItemID, _ := uuid.Parse(req.ItemIDs[0])
+	var unitMinutes int = 60 
 	
-	// Kita perlu tau durasi per unit dari database
-	// Catatan: Pastikan di repository resource ada method GetItemByID atau gunakan repository yang sudah ada
-	// Untuk demo ini, kita asumsikan item utama menentukan durasi
-	var unitMinutes int = 60 // Default 1 jam
-	
-	// Cari detail item untuk ambil UnitDuration
 	resDetail, err := s.resourceRepo.GetOneWithItems(ctx, rID)
 	if err == nil {
 		for _, item := range resDetail.Items {
@@ -60,7 +55,6 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, e
 		}
 	}
 
-	// EndTime = StartTime + (Durasi x Menit per unit)
 	totalMinutes := req.Duration * unitMinutes
 	end := start.Add(time.Duration(totalMinutes) * time.Minute)
 
@@ -70,7 +64,7 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, e
 		return nil, fmt.Errorf("GAGAL MENGIDENTIFIKASI CUSTOMER")
 	}
 
-	// 4. CEK KETERSEDIAAN (Tabrakan Jadwal)
+	// 4. CEK KETERSEDIAAN
 	available, err := s.repo.CheckAvailability(ctx, rID, start, end)
 	if err != nil || !available {
 		return nil, errors.New("SLOT WAKTU SUDAH TERISI")
@@ -96,13 +90,46 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, e
 		CreatedAt:   time.Now(),
 	}
 
-	// 6. SIMPAN KE DATABASE
 	if err := s.repo.CreateWithItems(ctx, newBooking, itemUUIDs, req.Duration); err != nil {
 		return nil, err
 	}
 
 	return &newBooking, nil
 }
+
+// --- POS & ORDERING SERVICES ---
+
+// GetActiveSessions mengambil sesi yang sedang berlangsung untuk dashboard POS
+func (s *Service) GetActiveSessions(ctx context.Context, tenantID string) ([]BookingDetail, error) {
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, errors.New("ID TENANT TIDAK VALID")
+	}
+	return s.repo.FindActiveSessions(ctx, tID)
+}
+
+// AddFnbOrder menambahkan pesanan makanan/minuman ke dalam bill booking
+func (s *Service) AddFnbOrder(ctx context.Context, bookingID string, req AddOrderReq) error {
+	bID, err := uuid.Parse(bookingID)
+	if err != nil {
+		return errors.New("ID BOOKING TIDAK VALID")
+	}
+
+	// Validasi tambahan: Pastikan booking exists dan statusnya active/ongoing
+	// (Opsional, tapi bagus untuk keamanan data)
+	booking, err := s.repo.FindByID(ctx, bID, uuid.Nil) // tenantID Nil jika bypass check di repo
+	if err != nil || booking == nil {
+		return errors.New("SESI BOOKING TIDAK DITEMUKAN")
+	}
+
+	if booking.Status != "active" && booking.Status != "ongoing" {
+		return errors.New("PESANAN HANYA BISA DITAMBAHKAN PADA SESI AKTIF")
+	}
+
+	return s.repo.AddFnbOrder(ctx, bID, req.FnbItemID, req.Quantity)
+}
+
+// --- EXISTING SERVICES ---
 
 func (s *Service) GetAvailability(ctx context.Context, resourceID string, date time.Time) ([]map[string]string, error) {
 	rID, err := uuid.Parse(resourceID)
@@ -116,7 +143,6 @@ func (s *Service) GetAvailability(ctx context.Context, resourceID string, date t
 		return nil, err
 	}
 
-	// Kembalikan start dan end agar frontend bisa blokir slot dengan presisi menit
 	busySlots := []map[string]string{}
 	for _, b := range bookings {
 		busySlots = append(busySlots, map[string]string{

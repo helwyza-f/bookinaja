@@ -63,21 +63,19 @@ func NewRouter(cfg Config) *gin.Engine {
 				admin.GET("/profile", cfg.TenantHandler.GetProfile)
 				admin.PUT("/profile", cfg.TenantHandler.UpdateProfile)
 				
-				// REUSABLE UPLOAD: Untuk Logo & Banner Bisnis
 				admin.POST("/upload", func(c *gin.Context) {
 					HandleSingleUpload(c, "tenants")
 				})
 			}
 
-			// RESOURCE MANAGEMENT (Visuals & Inventory)
+			// RESOURCE MANAGEMENT
 			resources := protected.Group("/resources-all")
 			{
 				resources.GET("", cfg.ResourceHandler.List)
 				resources.POST("", cfg.ResourceHandler.Create)
-				resources.PUT("/:id", cfg.ResourceHandler.Update) // Update Marketing Data
+				resources.PUT("/:id", cfg.ResourceHandler.Update) 
 				resources.DELETE("/:id", cfg.ResourceHandler.Delete)
 
-				// REUSABLE UPLOAD: Untuk Cover Unit & Gallery Foto Detail
 				resources.POST("/upload-cover", func(c *gin.Context) {
 					HandleSingleUpload(c, "resources/covers")
 				})
@@ -85,7 +83,6 @@ func NewRouter(cfg Config) *gin.Engine {
 					HandleBulkUpload(c, "resources/gallery")
 				})
 
-				// Item Options Management
 				resources.GET("/:id/items", cfg.ResourceHandler.ListItems)
 				resources.POST("/:id/items", cfg.ResourceHandler.AddItem)
 				resources.PUT("/items/:id", cfg.ResourceHandler.UpdateItem)
@@ -100,19 +97,24 @@ func NewRouter(cfg Config) *gin.Engine {
 				fnbGroup.PUT("/:id", cfg.FnbHandler.UpdateItem)
 				fnbGroup.DELETE("/:id", cfg.FnbHandler.DeleteItem)
 
-				// TAMBAHKAN INI: Upload Gambar Menu F&B
 				fnbGroup.POST("/upload", func(c *gin.Context) {
 					HandleSingleUpload(c, "fnb/items")
 				})
 			}
 
-			// BOOKING MANAGEMENT
+			// BOOKING & POS MANAGEMENT
 			bookings := protected.Group("/bookings")
 			{
 				bookings.GET("", cfg.ReservationHandler.ListAll)
 				bookings.GET("/:id", cfg.ReservationHandler.GetDetail)
 				bookings.PUT("/:id/status", cfg.ReservationHandler.UpdateStatus)
 				bookings.POST("/manual", cfg.ReservationHandler.Create)
+				
+				// --- POS SPECIFIC ROUTES ---
+				// Mengambil unit yang sedang aktif digunakan
+				bookings.GET("/pos/active", cfg.ReservationHandler.GetActiveSessions)
+				// Menambah pesanan makanan ke billing booking
+				bookings.POST("/pos/order/:id", cfg.ReservationHandler.AddOrder)
 			}
 
 			// CUSTOMER MANAGEMENT

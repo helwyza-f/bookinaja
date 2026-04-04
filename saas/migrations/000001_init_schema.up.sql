@@ -1,4 +1,7 @@
+-- 000001_init_schema.up.sql
+
 -- 1. EXTENSIONS
+-- Dibutuhkan untuk fungsi uuid_generate_v4()
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 2. TENANTS
@@ -42,7 +45,7 @@ CREATE TABLE customers (
     UNIQUE(tenant_id, phone)
 );
 
--- 5. RESOURCES (Units like Studio A, Table 1, etc)
+-- 5. RESOURCES (Units like Studio A, Table 1, Room 101, etc)
 CREATE TABLE resources (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
@@ -78,9 +81,11 @@ CREATE TABLE bookings (
     start_time TIMESTAMP WITH TIME ZONE NOT NULL,
     end_time TIMESTAMP WITH TIME ZONE NOT NULL,
     access_token UUID DEFAULT uuid_generate_v4(),
-    status VARCHAR(20) DEFAULT 'pending', -- pending, active, completed, cancelled
+    status VARCHAR(20) DEFAULT 'pending', -- pending, active, ongoing, completed, cancelled
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+CREATE INDEX idx_bookings_status ON bookings(status);
+CREATE INDEX idx_bookings_tenant_time ON bookings(tenant_id, start_time, end_time);
 
 -- 8. BOOKING OPTIONS (Selected Resource Items during booking)
 CREATE TABLE booking_options (
@@ -95,7 +100,7 @@ CREATE TABLE fnb_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
-    description TEXT DEFAULT '', -- UPDATED: Sesuai model baru
+    description TEXT DEFAULT '',
     price DECIMAL(12,2) NOT NULL DEFAULT 0,
     category VARCHAR(100),
     image_url TEXT,
@@ -104,10 +109,10 @@ CREATE TABLE fnb_items (
 );
 
 -- 10. ORDER ITEMS (Transactions for FnB that attach to Bookings)
--- Ini adalah jembatan POS ke Booking
+-- Jembatan POS ke Booking Session
 CREATE TABLE order_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    booking_id UUID REFERENCES bookings(id) ON DELETE CASCADE, -- Nullable jika walk-in fnb
+    booking_id UUID REFERENCES bookings(id) ON DELETE CASCADE,
     fnb_item_id UUID REFERENCES fnb_items(id),
     quantity INTEGER NOT NULL DEFAULT 1,
     price_at_purchase DECIMAL(12, 2) NOT NULL,
