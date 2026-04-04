@@ -1,3 +1,4 @@
+// src/components/upload/single-image-upload.tsx
 "use client";
 
 import { useState } from "react";

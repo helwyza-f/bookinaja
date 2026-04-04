@@ -99,6 +99,11 @@ func NewRouter(cfg Config) *gin.Engine {
 				fnbGroup.POST("", cfg.FnbHandler.CreateItem)
 				fnbGroup.PUT("/:id", cfg.FnbHandler.UpdateItem)
 				fnbGroup.DELETE("/:id", cfg.FnbHandler.DeleteItem)
+
+				// TAMBAHKAN INI: Upload Gambar Menu F&B
+				fnbGroup.POST("/upload", func(c *gin.Context) {
+					HandleSingleUpload(c, "fnb/items")
+				})
 			}
 
 			// BOOKING MANAGEMENT
