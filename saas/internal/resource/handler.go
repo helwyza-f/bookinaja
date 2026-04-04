@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/helwiza/saas/internal/booking"
 )
 
 type Handler struct {
@@ -18,21 +17,52 @@ func NewHandler(s *Service) *Handler {
 // Create menangani pembuatan unit utama (POST /resources)
 func (h *Handler) Create(c *gin.Context) {
 	tenantID := c.MustGet("tenantID").(string)
+	
 	var req struct {
-		Name     string `json:"name" binding:"required"`
-		Category string `json:"category"`
+		Name        string `json:"name" binding:"required"`
+		Category    string `json:"category"`
+		Description string `json:"description"`
+		ImageURL    string `json:"image_url"`
 	}
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	res, err := h.service.CreateResource(c.Request.Context(), tenantID, req.Name, req.Category)
+	// Memanggil service yang sudah diupdate dengan parameter marketing
+	res, err := h.service.CreateResource(
+		c.Request.Context(), 
+		tenantID, 
+		req.Name, 
+		req.Category, 
+		req.Description, 
+		req.ImageURL,
+	)
+	
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusCreated, res)
+}
+
+// Update menangani perubahan data utama unit (PUT /resources/:id)
+func (h *Handler) Update(c *gin.Context) {
+	id := c.Param("id")
+	var req Resource // Menggunakan struct model agar bisa update gallery, desc, dll
+	
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.service.UpdateResource(c.Request.Context(), id, req); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Unit marketing data updated successfully"})
 }
 
 // List mengambil semua resource milik tenant (GET /resources)
@@ -49,11 +79,13 @@ func (h *Handler) List(c *gin.Context) {
 // AddItem menambahkan item/opsi ke resource (POST /resources/:id/items)
 func (h *Handler) AddItem(c *gin.Context) {
 	resourceID := c.Param("id")
+	
 	var req struct {
 		Name         string  `json:"name" binding:"required"`
-		PricePerHour float64 `json:"price_per_hour"`
-		PriceUnit    string  `json:"price_unit" binding:"required"` // Field baru: 'hour', 'session', 'day', 'pcs'
-		ItemType     string  `json:"item_type" binding:"required"`  // 'main' atau 'addon'
+		Price        float64 `json:"price" binding:"required"`      
+		PriceUnit    string  `json:"price_unit" binding:"required"` 
+		UnitDuration int     `json:"unit_duration"`                 
+		ItemType     string  `json:"item_type" binding:"required"`  
 		IsDefault    bool    `json:"is_default"`
 	}
 
@@ -62,20 +94,22 @@ func (h *Handler) AddItem(c *gin.Context) {
 		return
 	}
 
-	// Panggil service dengan parameter price_unit yang baru
 	item, err := h.service.AddResourceItem(
 		c.Request.Context(),
 		resourceID,
 		req.Name,
-		req.PricePerHour,
+		req.Price,
 		req.PriceUnit,
 		req.ItemType,
 		req.IsDefault,
+		req.UnitDuration,
 	)
+	
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	
 	c.JSON(http.StatusCreated, item)
 }
 
@@ -103,7 +137,7 @@ func (h *Handler) Delete(c *gin.Context) {
 // UpdateItem menangani update detail item (PUT /resources-all/items/:id)
 func (h *Handler) UpdateItem(c *gin.Context) {
 	id := c.Param("id")
-	var req booking.ResourceItem // Menggunakan struct model langsung agar fleksibel (termasuk price_unit)
+	var req ResourceItem 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -127,7 +161,7 @@ func (h *Handler) DeleteItem(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Item deleted successfully"})
 }
 
-// GetPublicDetail mengambil detail resource untuk halaman publik
+// GetPublicDetail mengambil detail resource (termasuk visual & items) untuk customer
 func (h *Handler) GetPublicDetail(c *gin.Context) {
 	id := c.Param("id")
 	res, err := h.service.GetResourceDetail(c.Request.Context(), id)

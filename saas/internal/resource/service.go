@@ -2,10 +2,11 @@ package resource
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/helwiza/saas/internal/booking"
 )
 
 type Service struct {
@@ -16,65 +17,116 @@ func NewService(r *Repository) *Service {
 	return &Service{repo: r}
 }
 
-// CreateResource membuat unit utama (misal: Meja 1, Lapangan A)
-func (s *Service) CreateResource(ctx context.Context, tenantID, name, category string) (*booking.Resource, error) {
+// CreateResource membuat unit utama dengan informasi visual untuk marketing
+func (s *Service) CreateResource(ctx context.Context, tenantID, name, category, description, imageURL string) (*Resource, error) {
 	tID, err := uuid.Parse(tenantID)
 	if err != nil {
 		return nil, err
 	}
-	res := booking.Resource{
-		ID:       uuid.New(),
-		TenantID: tID,
-		Name:     name,
-		Category: category,
-		Status:   "available",
-		Metadata: []byte("{}"),
+
+	// Inisialisasi metadata kosong agar tidak NULL di database
+	emptyMeta := json.RawMessage("{}")
+
+	res := Resource{
+		ID:          uuid.New(),
+		TenantID:    tID,
+		Name:        name,
+		Category:    category,
+		Description: description,
+		ImageURL:    imageURL,
+		Gallery:     []string{}, // Inisialisasi gallery kosong [] bukan null
+		Status:      "available",
+		Metadata:    &emptyMeta,
 	}
 	return s.repo.Create(ctx, res)
 }
 
-// ListResources mengambil semua resource milik tenant beserta items di dalamnya
-// internal/resource/service.go
-func (s *Service) ListResources(ctx context.Context, tenantID string) (any, error) {
-    tID, err := uuid.Parse(tenantID)
-    if err != nil {
-        return nil, err
-    }
+// UpdateResource memperbarui data utama unit (termasuk deskripsi dan foto)
+func (s *Service) UpdateResource(ctx context.Context, id string, req Resource) error {
+	resID, err := uuid.Parse(id)
+	if err != nil {
+		return err
+	}
 
-    resources, category, bType, err := s.repo.ListByTenant(ctx, tID)
-    if err != nil {
-        return nil, err
-    }
+	// Ambil data lama untuk memastikan tenant_id konsisten (keamanan)
+	existing, err := s.repo.GetOneWithItems(ctx, resID)
+	if err != nil {
+		return err
+	}
 
-    // Kembalikan objek gabungan
-    return gin.H{
-        "business_category": category,
-        "business_type":     bType,
-        "resources":         resources,
-    }, nil
+	req.ID = resID
+	req.TenantID = existing.TenantID // Proteksi: jangan ubah kepemilikan tenant
+
+	// Jaga agar metadata tetap aman jika request tidak mengirimkan metadata
+	if req.Metadata == nil {
+		req.Metadata = existing.Metadata
+	}
+
+	return s.repo.Update(ctx, req)
 }
 
-// AddResourceItem menambahkan opsi barang/layanan ke dalam resource (dengan dukungan PriceUnit)
-func (s *Service) AddResourceItem(ctx context.Context, resID, name string, price float64, priceUnit, iType string, isDefault bool) (*booking.ResourceItem, error) {
+// ListResources mengambil semua resource milik tenant beserta items di dalamnya
+func (s *Service) ListResources(ctx context.Context, tenantID string) (any, error) {
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	resources, category, bType, err := s.repo.ListByTenant(ctx, tID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Kembalikan objek gabungan untuk dashboard admin/public
+	return gin.H{
+		"business_category": category,
+		"business_type":     bType,
+		"resources":         resources,
+	}, nil
+}
+
+// AddResourceItem menambahkan opsi barang/layanan ke dalam resource
+func (s *Service) AddResourceItem(ctx context.Context, resID, name string, price float64, priceUnit, iType string, isDefault bool, customDuration int) (*ResourceItem, error) {
 	rID, err := uuid.Parse(resID)
 	if err != nil {
 		return nil, err
 	}
-	item := booking.ResourceItem{
+
+	// Logic Otomatis Penentuan Durasi (dalam Menit)
+	duration := customDuration
+	if duration <= 0 {
+		switch strings.ToLower(priceUnit) {
+		case "hour":
+			duration = 60
+		case "day":
+			duration = 1440
+		case "session":
+			duration = 120
+		default:
+			duration = 0
+		}
+	}
+
+	// Inisialisasi metadata kosong
+	emptyMeta := json.RawMessage("{}")
+
+	item := ResourceItem{
 		ID:           uuid.New(),
 		ResourceID:   rID,
 		Name:         name,
-		PricePerHour: price,
-		PriceUnit:    priceUnit, // Field baru: hour, session, day, pcs
+		Price:        price,
+		PriceUnit:    priceUnit,
+		UnitDuration: duration,
 		ItemType:     iType,
 		IsDefault:    isDefault,
-		Metadata:     []byte("{}"),
+		Metadata:     &emptyMeta,
 	}
+
 	return s.repo.CreateItem(ctx, item)
 }
 
 // GetItems mengambil daftar item berdasarkan Resource ID
-func (s *Service) GetItems(ctx context.Context, resourceID string) ([]booking.ResourceItem, error) {
+func (s *Service) GetItems(ctx context.Context, resourceID string) ([]ResourceItem, error) {
 	rID, err := uuid.Parse(resourceID)
 	if err != nil {
 		return nil, err
@@ -92,12 +144,18 @@ func (s *Service) DeleteResource(ctx context.Context, id string) error {
 }
 
 // UpdateItem memperbarui detail item (Nama, Harga, Satuan, Default status)
-func (s *Service) UpdateItem(ctx context.Context, id string, item booking.ResourceItem) error {
+func (s *Service) UpdateItem(ctx context.Context, id string, item ResourceItem) error {
 	uID, err := uuid.Parse(id)
 	if err != nil {
 		return err
 	}
-	// Pastikan ID di dalam struct item konsisten dengan ID di parameter
+	
+	// Pastikan metadata tidak nil sebelum masuk ke repo untuk menghindari error scan
+	if item.Metadata == nil {
+		emptyMeta := json.RawMessage("{}")
+		item.Metadata = &emptyMeta
+	}
+
 	return s.repo.UpdateItem(ctx, uID, item)
 }
 
@@ -110,8 +168,8 @@ func (s *Service) DeleteItem(ctx context.Context, id string) error {
 	return s.repo.DeleteItem(ctx, uID)
 }
 
-// GetResourceDetail mengambil satu resource lengkap dengan daftar itemnya
-func (s *Service) GetResourceDetail(ctx context.Context, id string) (*booking.Resource, error) {
+// GetResourceDetail mengambil satu resource lengkap dengan daftar item & visual data
+func (s *Service) GetResourceDetail(ctx context.Context, id string) (*Resource, error) {
 	uID, err := uuid.Parse(id)
 	if err != nil {
 		return nil, err

@@ -142,6 +142,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 }
 
 // UploadImage menangani upload logo/banner ke S3 storage
+
 func (h *Handler) UploadImage(c *gin.Context) {
 	file, err := c.FormFile("image")
 	if err != nil {

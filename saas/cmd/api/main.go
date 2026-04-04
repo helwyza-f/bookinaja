@@ -62,7 +62,7 @@ func main() {
 
 	// --- RESERVATION DOMAIN ---
 	reservationRepo := reservation.NewRepository(db)
-	reservationSvc := reservation.NewService(reservationRepo)
+	reservationSvc := reservation.NewService(reservationRepo, resourceRepo)
 	reservationHdl := reservation.NewHandler(reservationSvc)
 
 	// --- CUSTOMER DOMAIN ---

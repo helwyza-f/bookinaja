@@ -2,8 +2,9 @@ package tenant
 
 import (
 	"time"
+
 	"github.com/google/uuid"
-	"github.com/helwiza/saas/internal/booking"
+
 	"github.com/lib/pq"
 )
 
@@ -24,7 +25,17 @@ type LoginReq struct {
 
 type LoginResponse struct {
 	Token string       `json:"token"`
-	User  booking.User `json:"user"`
+	User  User `json:"user"`
+}
+
+type User struct {
+	ID        uuid.UUID `db:"id" json:"id"`
+	TenantID  uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	Name      string    `db:"name" json:"name"`
+	Email     string    `db:"email" json:"email"`
+	Password  string    `db:"password" json:"-"`
+	Role      string    `db:"role" json:"role"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
 
 type Tenant struct {

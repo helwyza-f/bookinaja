@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { format, isBefore, startOfToday, parse, addHours } from "date-fns";
+import { format, isBefore, startOfToday, parse, addMinutes } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -15,35 +15,32 @@ import {
 } from "@/components/ui/popover";
 import {
   Clock,
-  Gamepad2,
-  PlusCircle,
   CheckCircle2,
   ChevronRight,
   Zap,
   ArrowLeft,
   Calendar as CalendarIcon,
   Loader2,
-  User,
   ShieldCheck,
   ShieldAlert,
-  Info,
+  Sparkles,
+  Receipt,
+  Package,
+  Image as ImageIcon,
+  Check,
 } from "lucide-react";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-
-const TIME_SLOTS = [
-  "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", 
-  "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00",
-];
+import { Badge } from "@/components/ui/badge";
 
 export default function ResourceBookingDetail() {
   const params = useParams();
   const router = useRouter();
 
   const [resource, setResource] = useState<any>(null);
-  const [busySlots, setBusySlots] = useState<string[]>([]);
+  const [busySlots, setBusySlots] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Form State
@@ -51,24 +48,31 @@ export default function ResourceBookingDetail() {
   const [custName, setCustName] = useState("");
   const [custPhone, setCustPhone] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
-  const [duration, setDuration] = useState(1);
+  const [durationValue, setDurationValue] = useState(1);
   const [selectedMainId, setSelectedMainId] = useState("");
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // WhatsApp Validation State
+  // WhatsApp Validation
   const [isValidating, setIsValidating] = useState(false);
-  const [phoneStatus, setPhoneStatus] = useState<"idle" | "valid" | "invalid">("idle");
+  const [phoneStatus, setPhoneStatus] = useState<"idle" | "valid" | "invalid">(
+    "idle",
+  );
 
+  // 1. Fetch Resource & Data Marketing
   useEffect(() => {
     const fetchData = async () => {
       try {
         const resDetail = await api.get(`/public/resources/${params.id}`);
-        setResource(resDetail.data);
-        const def = resDetail.data.items?.find((i: any) => i.is_default && i.item_type === "main");
+        const data = resDetail.data;
+        setResource(data);
+
+        const def = data.items?.find(
+          (i: any) => i.is_default && i.item_type === "console_option",
+        );
         if (def) setSelectedMainId(def.id);
       } catch (err) {
-        toast.error("GAGAL MENGAMBIL DATA UNIT");
+        toast.error("Gagal memuat data unit");
       } finally {
         setLoading(false);
       }
@@ -76,61 +80,88 @@ export default function ResourceBookingDetail() {
     fetchData();
   }, [params.id]);
 
+  // 2. WhatsApp Live Check
   useEffect(() => {
     const validateWA = async (phone: string) => {
-      if (phone.length < 10) { setPhoneStatus("idle"); return; }
+      if (phone.length < 10) {
+        setPhoneStatus("idle");
+        return;
+      }
       setIsValidating(true);
       try {
         const res = await api.get(`/validate-phone?phone=${phone}`);
         setPhoneStatus(res.data.valid ? "valid" : "invalid");
-      } catch (err) { setPhoneStatus("invalid"); } finally { setIsValidating(false); }
+      } catch (err) {
+        setPhoneStatus("invalid");
+      } finally {
+        setIsValidating(false);
+      }
     };
-    const timer = setTimeout(() => { if (custPhone) validateWA(custPhone); }, 800);
+    const timer = setTimeout(() => {
+      if (custPhone) validateWA(custPhone);
+    }, 800);
     return () => clearTimeout(timer);
   }, [custPhone]);
 
+  // 3. Fetch Availability
   useEffect(() => {
     if (date) {
       const fetchBusy = async () => {
         try {
           const formattedDate = format(date, "yyyy-MM-dd");
-          const resBusy = await api.get(`/guest/availability/${params.id}?date=${formattedDate}`);
+          const resBusy = await api.get(
+            `/guest/availability/${params.id}?date=${formattedDate}`,
+          );
           setBusySlots(resBusy.data.busy_slots || []);
           setSelectedTime("");
         } catch (err) {
-          toast.error("GAGAL CEK JADWAL");
+          toast.error("Gagal cek jadwal");
         }
       };
       fetchBusy();
     }
   }, [date, params.id]);
 
-  const getMaxDuration = (startTime: string) => {
-    const startIndex = TIME_SLOTS.indexOf(startTime);
-    let count = 0;
-    for (let i = startIndex; i < TIME_SLOTS.length; i++) {
-      if (busySlots.includes(TIME_SLOTS[i])) break;
-      count++;
+  const selectedItem = useMemo(
+    () => resource?.items?.find((i: any) => i.id === selectedMainId),
+    [resource, selectedMainId],
+  );
+
+  // 4. Logic Slot Waktu (Adaptif)
+  const availableSlots = useMemo(() => {
+    if (!selectedItem) return [];
+    const unitMinutes = selectedItem.unit_duration || 60;
+    if (selectedItem.price_unit === "day") return ["09:00"];
+
+    const slots = [];
+    let current = parse("09:00", "HH:mm", date || new Date());
+    const end = parse("22:00", "HH:mm", date || new Date());
+
+    while (isBefore(current, end)) {
+      slots.push(format(current, "HH:mm"));
+      current = addMinutes(current, unitMinutes);
     }
-    return count > 5 ? 5 : count;
-  };
+    return slots;
+  }, [selectedItem, date]);
 
   const calculateTotal = () => {
-    if (!resource || !resource.items) return 0;
-    const mainItem = resource.items.find((i: any) => i.id === selectedMainId);
-    const mainPrice = (mainItem?.price_per_hour || 0) * duration;
-    
+    if (!selectedItem) return 0;
+    const mainPrice = (selectedItem.price || 0) * durationValue;
     const addonsPrice = resource.items
       .filter((i: any) => selectedAddons.includes(i.id))
-      .reduce((acc: number, curr: any) => acc + curr.price_per_hour, 0);
-      
-    // Addons dibayar FLAT (sekali bayar), tidak dikali durasi sesuai request
+      .reduce((acc: number, curr: any) => acc + (curr.price || 0), 0);
     return mainPrice + addonsPrice;
   };
 
   const handleBooking = async () => {
-    if (!custName || !custPhone || !date || !selectedTime || phoneStatus !== "valid") {
-      toast.error("LENGKAPI IDENTITAS DAN VALIDASI WHATSAPP");
+    if (
+      !custName ||
+      !custPhone ||
+      !date ||
+      !selectedTime ||
+      phoneStatus !== "valid"
+    ) {
+      toast.error("Mohon lengkapi data & validasi WA");
       return;
     }
     setIsSubmitting(true);
@@ -143,178 +174,379 @@ export default function ResourceBookingDetail() {
         resource_id: resource.id,
         item_ids: [selectedMainId, ...selectedAddons],
         start_time: startTimeISO,
-        duration: duration,
+        duration: durationValue,
       };
       const res = await api.post("/public/bookings", payload);
       toast.success("BOOKING BERHASIL!");
       router.push(res.data.redirect_url);
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "GAGAL BOOKING");
+      toast.error(err.response?.data?.error || "Gagal membuat booking");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-950"><Loader2 className="h-12 w-12 animate-spin text-blue-500" /></div>;
+  if (loading)
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
+      </div>
+    );
 
   return (
-    <div className="min-h-screen bg-white md:bg-slate-50 font-sans pb-48 selection:bg-blue-600/30 overflow-x-hidden">
-      {/* HEADER */}
-      <div className="bg-slate-950 text-white p-6 pt-10 md:p-12 rounded-b-[3rem] shadow-2xl relative overflow-hidden">
-        <Zap className="absolute -right-10 -top-10 h-64 w-64 text-blue-600/10 rotate-12" />
-        <div className="max-w-4xl mx-auto space-y-6 relative z-10">
-          <Button variant="ghost" onClick={() => router.back()} className="text-slate-400 hover:text-white p-0 h-auto font-black uppercase text-[10px] tracking-widest italic">
-            <ArrowLeft className="mr-2 h-4 w-4 stroke-[3]" /> KEMBALI
-          </Button>
-          <div>
-            <h1 className="text-4xl md:text-7xl font-black italic uppercase tracking-tighter leading-none">{resource?.name}</h1>
-            <p className="text-blue-500 font-black uppercase text-[10px] tracking-[0.4em] italic mt-2">{resource?.category || "PREMIUM UNIT"}</p>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-plus-jakarta pb-40 selection:bg-blue-500/30 transition-colors duration-300">
+      {/* --- HERO SECTION (VISUAL COVER) --- */}
+      <div className="relative h-[45vh] md:h-[65vh] w-full overflow-hidden bg-slate-900">
+        {resource?.image_url ? (
+          <img
+            src={resource.image_url}
+            className="w-full h-full object-cover opacity-70 dark:opacity-50"
+            alt="Cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-slate-800">
+            <ImageIcon className="h-20 w-20 text-slate-700" />
           </div>
+        )}
+
+        {/* Gradients */}
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-50 dark:from-slate-950 via-transparent to-black/20" />
+
+        <div className="absolute top-6 left-4 md:left-10 z-30">
+          <Button
+            variant="ghost"
+            onClick={() => router.back()}
+            className="bg-white/10 dark:bg-black/20 backdrop-blur-xl text-white hover:bg-white/20 rounded-full font-black uppercase text-[10px] tracking-widest px-5 h-10 italic"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4 stroke-[3]" /> Kembali
+          </Button>
+        </div>
+
+        <div className="absolute bottom-12 left-4 md:left-10 right-4 z-20 space-y-3">
+          <Badge className="bg-blue-600 text-white border-none rounded-md px-3 py-1 font-black text-[10px] tracking-widest uppercase italic shadow-xl">
+            {resource?.category || "PREMIUM"}
+          </Badge>
+          <h1 className="text-4xl md:text-8xl font-black italic uppercase tracking-tighter leading-[0.85] text-slate-950 dark:text-white drop-shadow-sm">
+            {resource?.name}
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400 font-medium italic text-sm md:text-xl max-w-2xl line-clamp-3">
+            {resource?.description ||
+              "Rasakan pengalaman terbaik di fasilitas eksklusif kami."}
+          </p>
         </div>
       </div>
 
-      <main className="max-w-4xl mx-auto p-4 md:p-6 -translate-y-8">
-        <Card className="rounded-[2.5rem] md:rounded-[3rem] border-none shadow-2xl p-6 md:p-12 space-y-10 bg-white">
-          
-          {/* STEP 1: TANGGAL */}
+      <main className="max-w-4xl mx-auto px-4 md:px-6 -translate-y-6 relative z-30">
+        <Card className="rounded-[2.5rem] md:rounded-[3.5rem] border-none shadow-2xl p-6 md:p-14 space-y-12 bg-white dark:bg-slate-900 transition-colors">
+          {/* GALLERY SHOWCASE */}
+          {resource?.gallery && resource.gallery.length > 0 && (
+            <section className="space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
+                  <Sparkles className="h-4 w-4 text-blue-600" />
+                </div>
+                <h2 className="text-xl font-black uppercase italic tracking-tight text-slate-950 dark:text-white">
+                  Intip Suasana
+                </h2>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {resource.gallery.map((img: string, i: number) => (
+                  <div
+                    key={i}
+                    className="aspect-square rounded-2xl overflow-hidden border-2 border-slate-50 dark:border-slate-800 bg-slate-100 dark:bg-slate-800"
+                  >
+                    <img
+                      src={img}
+                      className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
+                      alt="Gallery"
+                    />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* STEP 1: PILIH PAKET */}
           <section className="space-y-6">
             <div className="flex items-center gap-4">
-              <div className="h-10 w-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-600/20"><CalendarIcon className="h-5 w-5" /></div>
-              <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-950">1. Pilih Tanggal</h2>
+              <div className="h-10 w-10 bg-slate-950 dark:bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-xl font-black italic">
+                01
+              </div>
+              <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-950 dark:text-white">
+                Pilih Konfigurasi
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {resource.items
+                ?.filter((i: any) => i.item_type === "console_option")
+                .map((item: any) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setSelectedMainId(item.id);
+                      setSelectedTime("");
+                    }}
+                    className={cn(
+                      "p-6 rounded-[2rem] border-4 text-left transition-all relative overflow-hidden group",
+                      selectedMainId === item.id
+                        ? "border-blue-600 bg-blue-50/50 dark:bg-blue-900/20"
+                        : "border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 hover:border-slate-200",
+                    )}
+                  >
+                    <div className="relative z-10 space-y-1">
+                      <p
+                        className={cn(
+                          "text-lg font-black uppercase italic tracking-tighter leading-none",
+                          selectedMainId === item.id
+                            ? "text-blue-600"
+                            : "text-slate-900 dark:text-slate-100",
+                        )}
+                      >
+                        {item.name}
+                      </p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
+                        Rp {item.price.toLocaleString()} /{" "}
+                        {item.price_unit === "hour"
+                          ? "JAM"
+                          : item.price_unit === "day"
+                            ? "HARI"
+                            : `${item.unit_duration} MNT`}
+                      </p>
+                    </div>
+                    {selectedMainId === item.id && (
+                      <CheckCircle2 className="absolute right-6 top-1/2 -translate-y-1/2 h-8 w-8 text-blue-600 animate-in zoom-in duration-300" />
+                    )}
+                  </button>
+                ))}
+            </div>
+          </section>
+
+          {/* STEP 2: TANGGAL */}
+          <section className="space-y-6 pt-10 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-4">
+              <div className="h-10 w-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                <CalendarIcon className="h-5 w-5" />
+              </div>
+              <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-950 dark:text-white">
+                Pilih Tanggal
+              </h2>
             </div>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="ghost" className="h-16 w-full justify-start rounded-2xl bg-slate-50 border-none font-black italic px-6 text-lg md:text-xl uppercase tracking-tighter shadow-sm">
-                  <CalendarIcon className="mr-3 h-5 w-5 text-blue-600" />
-                  {date ? format(date, "EEEE, dd MMM yyyy", { locale: idLocale }) : "PILIH TANGGAL"}
+                <Button
+                  variant="ghost"
+                  className="h-20 w-full justify-start rounded-[1.5rem] bg-slate-50 dark:bg-slate-800 border-none font-black italic px-8 text-xl md:text-2xl uppercase tracking-tighter shadow-inner"
+                >
+                  <CalendarIcon className="mr-4 h-6 w-6 text-blue-600" />
+                  {date
+                    ? format(date, "EEEE, dd MMM yyyy", { locale: idLocale })
+                    : "PILIH TANGGAL"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 border-none shadow-2xl rounded-[2rem] bg-white overflow-hidden" align="center">
-                <Calendar mode="single" selected={date} onSelect={setDate} disabled={(d) => d < startOfToday()} initialFocus className="p-4 uppercase italic font-black" />
+              <PopoverContent
+                className="w-auto p-0 border-none shadow-2xl rounded-[2rem] bg-white dark:bg-slate-900"
+                align="center"
+              >
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  onSelect={setDate}
+                  disabled={(d) => d < startOfToday()}
+                  className="p-4 uppercase italic font-black"
+                />
               </PopoverContent>
             </Popover>
           </section>
 
-          {/* STEP 2: JAM (GRID SYSTEM) */}
-          {date && (
-            <section className="space-y-6 pt-10 border-t border-slate-50 animate-in fade-in slide-in-from-top-4 duration-500">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg"><Clock className="h-5 w-5" /></div>
-                  <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-950">2. Jam Mulai</h2>
+          {/* STEP 3: JAM */}
+          {date && selectedMainId && (
+            <section className="space-y-6 pt-10 border-t border-slate-100 dark:border-slate-800 animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="flex items-center gap-4">
+                <div className="h-10 w-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                  <Clock className="h-5 w-5" />
                 </div>
+                <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-950 dark:text-white">
+                  Jam Mulai
+                </h2>
               </div>
-              
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 md:gap-3">
-                {TIME_SLOTS.map((time) => {
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                {availableSlots.map((time) => {
                   const now = new Date();
                   const slotTime = parse(time, "HH:mm", date);
                   const isPast = isBefore(slotTime, now);
-                  const isBusy = busySlots.includes(time);
+                  const isBusy = busySlots.some((b) => time === b.start_time);
                   const isSelected = selectedTime === time;
 
                   return (
                     <button
                       key={time}
                       disabled={isPast || isBusy}
-                      onClick={() => { setSelectedTime(time); setDuration(1); }}
+                      onClick={() => {
+                        setSelectedTime(time);
+                        setDurationValue(1);
+                      }}
                       className={cn(
-                        "h-12 md:h-14 rounded-xl md:rounded-2xl border-2 font-black transition-all text-[11px] md:text-sm uppercase italic",
-                        isSelected ? "border-blue-600 bg-blue-600 text-white shadow-xl scale-105 z-10" :
-                        isPast ? "bg-slate-100 border-slate-100 text-slate-300 opacity-40 cursor-not-allowed" :
-                        isBusy ? "bg-red-50 border-red-100 text-red-400 cursor-not-allowed" : 
-                        "bg-white border-slate-100 text-slate-900 hover:border-blue-600 hover:text-blue-600"
+                        "h-14 md:h-16 rounded-2xl border-4 font-black transition-all text-xs md:text-sm uppercase italic relative",
+                        isSelected
+                          ? "border-blue-600 bg-blue-600 text-white shadow-xl scale-105"
+                          : isPast
+                            ? "bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600 opacity-40 cursor-not-allowed"
+                            : isBusy
+                              ? "bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900 text-red-400"
+                              : "bg-white dark:bg-slate-800 border-slate-50 dark:border-slate-800 text-slate-950 dark:text-slate-200 hover:border-blue-600",
                       )}
                     >
-                      {isPast ? "PAST" : isBusy ? "FULL" : time}
+                      {time}
+                      {isBusy && (
+                        <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full animate-pulse" />
+                      )}
                     </button>
                   );
                 })}
               </div>
-
-              {/* Legend Mini */}
-              <div className="flex gap-4 text-[9px] font-black uppercase italic text-slate-400 tracking-widest justify-center">
-                  <span className="flex items-center gap-1"><div className="h-2 w-2 rounded-full bg-slate-200"/> Past</span>
-                  <span className="flex items-center gap-1"><div className="h-2 w-2 rounded-full bg-red-400"/> Full</span>
-                  <span className="flex items-center gap-1"><div className="h-2 w-2 rounded-full bg-blue-600"/> Ready</span>
-              </div>
             </section>
           )}
 
-          {/* STEP 3: DURASI & UNIT */}
+          {/* STEP 4: DURASI & ADDONS */}
           {selectedTime && (
-            <div className="space-y-10 animate-in slide-in-from-bottom-6 duration-500">
-              <section className="space-y-4 pt-10 border-t border-slate-50">
-                <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-950">3. Durasi Sewa</h2>
-                <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide px-1">
-                  {Array.from({ length: getMaxDuration(selectedTime) }).map((_, i) => (
-                    <button key={i} onClick={() => setDuration(i + 1)} className={cn("h-14 min-w-[90px] md:min-w-[110px] rounded-xl md:rounded-2xl border-2 font-black text-lg md:text-xl transition-all italic shrink-0", duration === i + 1 ? "bg-blue-600 border-blue-600 text-white shadow-xl" : "bg-white border-slate-100 text-slate-300")}>
-                      {i + 1} JAM
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              <section className="space-y-4 pt-10 border-t border-slate-50">
-                <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-950">4. Pilih Mesin</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {resource.items?.filter((i: any) => i.item_type === "main").map((item: any) => (
-                    <button key={item.id} onClick={() => setSelectedMainId(item.id)} className={cn("p-5 rounded-[1.5rem] md:rounded-[2rem] border-4 text-left transition-all flex justify-between items-center", selectedMainId === item.id ? "border-blue-600 bg-blue-50/50" : "border-slate-50 bg-slate-50/50")}>
-                      <div className="space-y-1">
-                        <p className={cn("text-lg md:text-xl font-black uppercase italic tracking-tighter leading-none", selectedMainId === item.id ? "text-blue-600" : "text-slate-900")}>{item.name}</p>
-                        <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest italic leading-none">Rp {item.price_per_hour.toLocaleString()} / JAM</p>
-                      </div>
-                      {selectedMainId === item.id && <CheckCircle2 className="h-6 w-6 text-blue-600" />}
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              <section className="space-y-4 pt-10 border-t border-slate-50">
-                <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-950">5. Tambahan</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {resource.items?.filter((i: any) => i.item_type === "addon").map((item: any) => {
-                    const isSel = selectedAddons.includes(item.id);
-                    return (
-                      <button key={item.id} onClick={() => setSelectedAddons((p) => isSel ? p.filter((a) => a !== item.id) : [...p, item.id])} 
-                        className={cn("p-4 rounded-xl border-2 transition-all flex flex-col gap-1 items-start text-left", isSel ? "border-purple-600 bg-purple-50 text-purple-700 shadow-lg" : "border-slate-50 bg-slate-50/30 text-slate-400")}>
-                        <span className="font-black uppercase text-[9px] md:text-[10px] italic truncate w-full leading-none">{item.name}</span>
-                        <span className="text-[8px] md:text-[9px] font-black italic opacity-70 leading-none">+ RP{item.price_per_hour.toLocaleString()}</span>
+            <div className="space-y-12 animate-in slide-in-from-bottom-6 duration-500 pt-4">
+              {selectedItem?.price_unit !== "day" && (
+                <section className="space-y-6">
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 bg-purple-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                      <Sparkles className="h-5 w-5" />
+                    </div>
+                    <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-950 dark:text-white">
+                      Berapa Lama?
+                    </h2>
+                  </div>
+                  <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
+                    {[1, 2, 3, 4, 5].map((val) => (
+                      <button
+                        key={val}
+                        onClick={() => setDurationValue(val)}
+                        className={cn(
+                          "h-16 md:h-20 min-w-[80px] md:min-w-[100px] rounded-3xl border-4 font-black text-xl md:text-2xl transition-all italic shrink-0",
+                          durationValue === val
+                            ? "bg-blue-600 border-blue-600 text-white shadow-2xl scale-110"
+                            : "bg-white dark:bg-slate-800 border-slate-50 dark:border-slate-800 text-slate-300",
+                        )}
+                      >
+                        {val}{" "}
+                        <span className="text-[9px] block not-italic -mt-1 opacity-60 uppercase">
+                          {selectedItem?.price_unit === "hour" ? "JAM" : "SESI"}
+                        </span>
                       </button>
-                    )
-                  })}
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              <section className="space-y-6 pt-10 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 bg-orange-500 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                    <Package className="h-5 w-5" />
+                  </div>
+                  <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-950 dark:text-white">
+                    Extra Add-ons
+                  </h2>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                  {resource.items
+                    ?.filter((i: any) => i.item_type === "add_on")
+                    .map((item: any) => {
+                      const isSel = selectedAddons.includes(item.id);
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() =>
+                            setSelectedAddons((p) =>
+                              isSel
+                                ? p.filter((a) => a !== item.id)
+                                : [...p, item.id],
+                            )
+                          }
+                          className={cn(
+                            "p-4 md:p-6 rounded-3xl border-4 transition-all flex flex-col items-center text-center gap-2 relative",
+                            isSel
+                              ? "border-orange-500 bg-orange-50 dark:bg-orange-950/20 text-orange-700 dark:text-orange-400 shadow-xl"
+                              : "border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-slate-400",
+                          )}
+                        >
+                          <span className="font-black uppercase text-[10px] italic leading-tight">
+                            {item.name}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className="font-black text-[9px] border-orange-200 dark:border-orange-900"
+                          >
+                            + RP {item.price.toLocaleString()}
+                          </Badge>
+                          {isSel && (
+                            <div className="absolute -top-2 -right-2 bg-orange-500 text-white rounded-full p-1.5 shadow-lg">
+                              <Check className="h-3 w-3 stroke-[5]" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
                 </div>
               </section>
 
-              {/* STEP: IDENTITAS (PALING BAWAH) */}
-              <section className="space-y-6 pt-12 border-t-4 border-slate-950/5">
-                <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 bg-slate-900 rounded-xl flex items-center justify-center text-white shadow-xl italic font-black leading-none">ID</div>
-                  <div>
-                    <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-950 leading-none">Identitas</h2>
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest italic mt-1">Data Terakhir Sebelum Checkout</p>
-                  </div>
+              {/* IDENTITAS PELANGGAN */}
+              <section className="space-y-8 pt-12 border-t-8 border-slate-950/5 dark:border-white/5">
+                <div className="space-y-2">
+                  <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-950 dark:text-white leading-none">
+                    Checkout <span className="text-blue-600">Details</span>
+                  </h2>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">
+                    Data untuk tiket konfirmasi booking
+                  </p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                  <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 italic">Nama Lengkap</Label>
-                    <Input placeholder="NAMA KAMU" value={custName} onChange={(e) => setCustName(e.target.value.toUpperCase())} className="h-14 md:h-16 rounded-2xl bg-slate-50 border-none font-black px-6 focus:ring-4 focus:ring-blue-600/10 text-lg uppercase italic" />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 italic">
+                      Nama Lengkap
+                    </Label>
+                    <Input
+                      placeholder="NAMA ANDA"
+                      value={custName}
+                      onChange={(e) =>
+                        setCustName(e.target.value.toUpperCase())
+                      }
+                      className="h-16 rounded-[1.5rem] bg-slate-50 dark:bg-slate-800 border-none font-black px-8 focus:ring-8 focus:ring-blue-600/5 text-xl uppercase italic shadow-inner dark:text-white"
+                    />
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 italic">WhatsApp Aktif</Label>
-                    <div className="relative">
-                        <Input placeholder="08..." value={custPhone} onChange={(e) => setCustPhone(e.target.value.replace(/[^0-9]/g, ""))} 
-                            className={cn(
-                                "h-14 md:h-16 w-full rounded-2xl bg-slate-50 border-none font-black px-6 text-lg transition-all italic",
-                                phoneStatus === "valid" ? "ring-2 ring-emerald-500/50" : 
-                                phoneStatus === "invalid" ? "ring-2 ring-red-500/50" : "focus:ring-blue-600/10"
-                            )} 
-                        />
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                            {isValidating ? <Loader2 className="h-5 w-5 animate-spin text-slate-400" /> : 
-                            phoneStatus === "valid" ? <ShieldCheck className="h-5 w-5 text-emerald-500" /> :
-                            phoneStatus === "invalid" ? <ShieldAlert className="h-5 w-5 text-red-500" /> : null}
-                        </div>
+                  <div className="space-y-3">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 italic">
+                      No. WhatsApp
+                    </Label>
+                    <div className="relative group">
+                      <Input
+                        placeholder="08..."
+                        value={custPhone}
+                        onChange={(e) =>
+                          setCustPhone(e.target.value.replace(/[^0-9]/g, ""))
+                        }
+                        className={cn(
+                          "h-16 w-full rounded-[1.5rem] bg-slate-50 dark:bg-slate-800 border-none font-black px-8 text-xl italic transition-all shadow-inner dark:text-white",
+                          phoneStatus === "valid"
+                            ? "ring-2 ring-emerald-500"
+                            : phoneStatus === "invalid"
+                              ? "ring-2 ring-red-500"
+                              : "focus:ring-blue-600/5",
+                        )}
+                      />
+                      <div className="absolute right-6 top-1/2 -translate-y-1/2">
+                        {isValidating ? (
+                          <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                        ) : phoneStatus === "valid" ? (
+                          <ShieldCheck className="h-7 w-7 text-emerald-500 drop-shadow-sm" />
+                        ) : phoneStatus === "invalid" ? (
+                          <ShieldAlert className="h-7 w-7 text-red-500 drop-shadow-sm" />
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -324,16 +556,41 @@ export default function ResourceBookingDetail() {
         </Card>
       </main>
 
-      {/* FOOTER TOTAL (STICKY) */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 md:p-6 bg-slate-950/95 backdrop-blur-2xl border-t border-white/10 z-50">
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
-          <div className="space-y-0.5">
-            <p className="text-[8px] md:text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] leading-none italic">ESTIMASI TOTAL</p>
-            <h3 className="text-2xl md:text-5xl font-black italic text-white tracking-tighter leading-none uppercase">Rp {calculateTotal().toLocaleString()}</h3>
+      {/* STICKY FOOTER (TOTAL & BUTTON) */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 md:p-8 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border-t border-slate-100 dark:border-slate-800 z-50 animate-in slide-in-from-bottom-full duration-700">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-4 md:gap-6">
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2">
+              <Receipt className="h-3 w-3 text-blue-600" />
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic leading-none">
+                Total Estimasi
+              </p>
+            </div>
+            <h3 className="text-2xl md:text-5xl font-black italic text-slate-950 dark:text-white tracking-tighter leading-none mt-1">
+              Rp {calculateTotal().toLocaleString()}
+            </h3>
           </div>
-          <Button disabled={!selectedTime || !selectedMainId || isSubmitting || !custName || !custPhone || phoneStatus !== "valid"} onClick={handleBooking} 
-            className="h-14 md:h-20 px-6 md:px-12 rounded-2xl md:rounded-[2rem] bg-blue-600 hover:bg-blue-500 text-white font-black uppercase italic tracking-widest transition-all active:scale-95 border-b-4 md:border-b-8 border-blue-800 shadow-xl shadow-blue-600/20 text-[10px] md:text-base">
-            {isSubmitting ? <Loader2 className="animate-spin" /> : <span className="flex items-center gap-1 md:gap-2">CHECKOUT <ChevronRight className="h-4 w-4 md:h-6 md:w-6 stroke-[4]" /></span>}
+
+          <Button
+            disabled={
+              !selectedTime ||
+              !selectedMainId ||
+              isSubmitting ||
+              !custName ||
+              !custPhone ||
+              phoneStatus !== "valid"
+            }
+            onClick={handleBooking}
+            className="h-14 md:h-24 px-6 md:px-12 rounded-[1.5rem] md:rounded-[2.5rem] bg-blue-600 hover:bg-blue-500 text-white font-black uppercase italic tracking-widest transition-all active:scale-95 border-b-4 md:border-b-8 border-blue-800 shadow-2xl group flex-1 md:flex-none"
+          >
+            {isSubmitting ? (
+              <Loader2 className="animate-spin" />
+            ) : (
+              <span className="flex items-center gap-2 text-xs md:text-xl">
+                BOOK NOW{" "}
+                <ChevronRight className="h-4 w-4 md:h-8 md:w-8 stroke-[4] group-hover:translate-x-2 transition-transform" />
+              </span>
+            )}
           </Button>
         </div>
       </div>

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -24,7 +25,6 @@ func NewS3Client() (*S3Client, error) {
 	region := os.Getenv("AWS_REGION")
 	bucket := os.Getenv("AWS_BUCKET")
 
-	// Load config otomatis dari env AWS_ACCESS_KEY_ID & AWS_SECRET_ACCESS_KEY
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
 		return nil, fmt.Errorf("unable to load SDK config, %v", err)
@@ -37,6 +37,7 @@ func NewS3Client() (*S3Client, error) {
 	}, nil
 }
 
+// UploadFile mengupload satu file ke S3
 func (s *S3Client) UploadFile(ctx context.Context, file *multipart.FileHeader, folder string) (string, error) {
 	f, err := file.Open()
 	if err != nil {
@@ -44,8 +45,6 @@ func (s *S3Client) UploadFile(ctx context.Context, file *multipart.FileHeader, f
 	}
 	defer f.Close()
 
-	// Rename file: folder/uuid-namaasli.ext
-	// Contoh: tenants/minibos/a1b2c3d4-logo.png
 	fileExt := filepath.Ext(file.Filename)
 	fileName := strings.TrimSuffix(file.Filename, fileExt)
 	newFileName := fmt.Sprintf("%s/%s-%s%s", folder, uuid.New().String(), fileName, fileExt)
@@ -61,7 +60,46 @@ func (s *S3Client) UploadFile(ctx context.Context, file *multipart.FileHeader, f
 		return "", fmt.Errorf("failed to upload object, %v", err)
 	}
 
-	// URL Public
 	url := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", s.bucket, s.region, newFileName)
 	return url, nil
+}
+
+// UploadBulk mengupload banyak file sekaligus secara paralel
+func (s *S3Client) UploadBulk(ctx context.Context, files []*multipart.FileHeader, folder string) ([]string, error) {
+	var wg sync.WaitGroup
+	results := make(chan string, len(files))
+	errors := make(chan error, len(files))
+
+	for _, file := range files {
+		wg.Add(1)
+		go func(f *multipart.FileHeader) {
+			defer wg.Done()
+			// Re-use fungsi UploadFile yang sudah ada
+			url, err := s.UploadFile(ctx, f, folder)
+			if err != nil {
+				errors <- err
+				return
+			}
+			results <- url
+		}(file)
+	}
+
+	// Tunggu semua goroutine selesai di background
+	go func() {
+		wg.Wait()
+		close(results)
+		close(errors)
+	}()
+
+	var urls []string
+	for url := range results {
+		urls = append(urls, url)
+	}
+
+	// Cek jika ada error (opsional: bisa return partial results atau error langsung)
+	if len(errors) > 0 {
+		return urls, <-errors
+	}
+
+	return urls, nil
 }

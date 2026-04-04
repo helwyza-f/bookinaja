@@ -4,7 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/helwiza/saas/internal/auth"
 	"github.com/helwiza/saas/internal/customer"
-	"github.com/helwiza/saas/internal/fnb" // Import package fnb
+	"github.com/helwiza/saas/internal/fnb"
 	"github.com/helwiza/saas/internal/middleware"
 	"github.com/helwiza/saas/internal/reservation"
 	"github.com/helwiza/saas/internal/resource"
@@ -17,7 +17,7 @@ type Config struct {
 	ReservationHandler *reservation.Handler
 	CustomerHandler    *customer.Handler
 	AuthHandler        *auth.Handler
-	FnbHandler         *fnb.Handler // Tambahkan FnbHandler
+	FnbHandler         *fnb.Handler
 }
 
 func NewRouter(cfg Config) *gin.Engine {
@@ -40,12 +40,8 @@ func NewRouter(cfg Config) *gin.Engine {
 		v1.GET("/public/landing", cfg.TenantHandler.GetPublicLandingData)
 		v1.GET("/public/resources/:id", cfg.ResourceHandler.GetPublicDetail)
 		v1.POST("/public/bookings", cfg.ReservationHandler.Create)
-		
-		// F&B Public: Untuk upsell pesanan makanan saat booking
-		v1.GET("/public/fnb", cfg.FnbHandler.GetMenu) 
-
-		// Live validation WA untuk customer publik
-		v1.GET("/validate-phone", cfg.CustomerHandler.ValidatePhone) 
+		v1.GET("/public/fnb", cfg.FnbHandler.GetMenu)
+		v1.GET("/validate-phone", cfg.CustomerHandler.ValidatePhone)
 
 		v1.POST("/register", cfg.TenantHandler.Register)
 		v1.POST("/login", cfg.TenantHandler.Login)
@@ -66,23 +62,37 @@ func NewRouter(cfg Config) *gin.Engine {
 			{
 				admin.GET("/profile", cfg.TenantHandler.GetProfile)
 				admin.PUT("/profile", cfg.TenantHandler.UpdateProfile)
-				admin.POST("/upload", cfg.TenantHandler.UploadImage)
+				
+				// REUSABLE UPLOAD: Untuk Logo & Banner Bisnis
+				admin.POST("/upload", func(c *gin.Context) {
+					HandleSingleUpload(c, "tenants")
+				})
 			}
 
-			// RESOURCE MANAGEMENT (Meja, Studio, Lapangan, Unit Add-ons)
+			// RESOURCE MANAGEMENT (Visuals & Inventory)
 			resources := protected.Group("/resources-all")
 			{
 				resources.GET("", cfg.ResourceHandler.List)
 				resources.POST("", cfg.ResourceHandler.Create)
+				resources.PUT("/:id", cfg.ResourceHandler.Update) // Update Marketing Data
 				resources.DELETE("/:id", cfg.ResourceHandler.Delete)
 
+				// REUSABLE UPLOAD: Untuk Cover Unit & Gallery Foto Detail
+				resources.POST("/upload-cover", func(c *gin.Context) {
+					HandleSingleUpload(c, "resources/covers")
+				})
+				resources.POST("/upload-gallery", func(c *gin.Context) {
+					HandleBulkUpload(c, "resources/gallery")
+				})
+
+				// Item Options Management
 				resources.GET("/:id/items", cfg.ResourceHandler.ListItems)
 				resources.POST("/:id/items", cfg.ResourceHandler.AddItem)
 				resources.PUT("/items/:id", cfg.ResourceHandler.UpdateItem)
 				resources.DELETE("/items/:id", cfg.ResourceHandler.DeleteItem)
 			}
 
-			// F&B MANAGEMENT (Katalog Menu Kantin Global)
+			// F&B MANAGEMENT
 			fnbGroup := protected.Group("/fnb")
 			{
 				fnbGroup.GET("", cfg.FnbHandler.GetMenu)

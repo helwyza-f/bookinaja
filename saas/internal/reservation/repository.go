@@ -18,6 +18,7 @@ func NewRepository(db *sqlx.DB) *Repository {
 	return &Repository{db: db}
 }
 
+// GetOrCreateCustomer mengidentifikasi customer berdasarkan nomor HP di dalam satu tenant
 func (r *Repository) GetOrCreateCustomer(ctx context.Context, tenantID uuid.UUID, name, phone string) (uuid.UUID, error) {
 	var customerID uuid.UUID
 	queryFind := `SELECT id FROM customers WHERE tenant_id = $1 AND phone = $2 LIMIT 1`
@@ -34,9 +35,9 @@ func (r *Repository) GetOrCreateCustomer(ctx context.Context, tenantID uuid.UUID
 	return customerID, err
 }
 
+// CheckAvailability memastikan tidak ada irisan waktu pada resource yang sama
 func (r *Repository) CheckAvailability(ctx context.Context, resourceID uuid.UUID, start, end time.Time) (bool, error) {
 	var count int
-	// Menggunakan OVERLAPS untuk memastikan tidak ada tabrakan jadwal
 	query := `
 		SELECT COUNT(*) 
 		FROM bookings 
@@ -48,7 +49,7 @@ func (r *Repository) CheckAvailability(ctx context.Context, resourceID uuid.UUID
 	return count == 0, err
 }
 
-// CreateWithItems Update: Menambahkan parameter duration untuk hitung harga
+// CreateWithItems membuat booking dan menghitung harga item secara dinamis
 func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []uuid.UUID, duration int) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -66,12 +67,21 @@ func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []u
 		return fmt.Errorf("repo: gagal insert booking: %w", err)
 	}
 
-	// 2. Insert Booking Options dengan Harga x Durasi
+	// 2. Insert Booking Options dengan Logika Harga Baru
 	if len(itemIDs) > 0 {
-		// FIX: price_per_hour dikalikan dengan duration ($4)
+		// Logika: 
+		// - Jika price_unit != 'pcs', harga = price * duration
+		// - Jika price_unit == 'pcs', harga = price (Flat)
 		queryItem := `
 			INSERT INTO booking_options (id, booking_id, resource_item_id, price_at_booking)
-			SELECT uuid_generate_v4(), $1, id, (price_per_hour * $4) 
+			SELECT 
+				gen_random_uuid(), 
+				$1, 
+				id, 
+				CASE 
+					WHEN price_unit = 'pcs' THEN price 
+					ELSE (price * $4) 
+				END
 			FROM resource_items 
 			WHERE id = $2 AND resource_id = $3`
 
@@ -86,6 +96,7 @@ func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []u
 	return tx.Commit()
 }
 
+// GetByToken mengambil detail booking lengkap untuk halaman publik
 func (r *Repository) GetByToken(ctx context.Context, token uuid.UUID) (*BookingDetail, error) {
 	var b BookingDetail
 
@@ -110,6 +121,7 @@ func (r *Repository) GetByToken(ctx context.Context, token uuid.UUID) (*BookingD
 		return nil, err
 	}
 
+	// Ambil detail item yang dipilih
 	var options []BookingOptionDetail
 	queryOptions := `
 		SELECT 
@@ -129,14 +141,15 @@ func (r *Repository) GetByToken(ctx context.Context, token uuid.UUID) (*BookingD
 	return &b, nil
 }
 
+// ListUpcoming mengambil jadwal booking yang akan datang (untuk cek ketersediaan)
 func (r *Repository) ListUpcoming(ctx context.Context, resourceID uuid.UUID, from time.Time) ([]Booking, error) {
 	var bookings []Booking
-	// Query tetap sama, tapi end_time > from memastikan jam di tengah durasi juga kena tarik
 	query := `SELECT * FROM bookings WHERE resource_id = $1 AND end_time > $2 AND status != 'cancelled' ORDER BY start_time ASC`
 	err := r.db.SelectContext(ctx, &bookings, query, resourceID, from)
 	return bookings, err
 }
 
+// FindAllByTenant mengambil semua reservasi untuk admin panel
 func (r *Repository) FindAllByTenant(ctx context.Context, tenantID uuid.UUID, status string) ([]BookingDetail, error) {
 	var res []BookingDetail
 	query := `
@@ -157,12 +170,14 @@ func (r *Repository) FindAllByTenant(ctx context.Context, tenantID uuid.UUID, st
 	return res, err
 }
 
+// UpdateStatus mengubah status booking (Confirmed, Cancelled, dll)
 func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, status string) error {
 	query := `UPDATE bookings SET status = $1 WHERE id = $2 AND tenant_id = $3`
 	_, err := r.db.ExecContext(ctx, query, status, id, tenantID)
 	return err
 }
 
+// FindByID mengambil satu detail booking untuk admin
 func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*BookingDetail, error) {
 	var b BookingDetail
 	query := `
@@ -173,7 +188,11 @@ func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*Boo
 		JOIN resources r ON b.resource_id = r.id
 		WHERE b.id = $1 AND b.tenant_id = $2
 		LIMIT 1`
+	
 	err := r.db.GetContext(ctx, &b, query, id, tenantID)
+	if err != nil {
+		return nil, err
+	}
 
 	var options []BookingOptionDetail
 	queryOptions := `
@@ -181,8 +200,9 @@ func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*Boo
 		FROM booking_options bo
 		JOIN resource_items ri ON bo.resource_item_id = ri.id
 		WHERE bo.booking_id = $1`
+	
 	r.db.SelectContext(ctx, &options, queryOptions, b.ID)
 	b.Options = options
 
-	return &b, err
+	return &b, nil
 }

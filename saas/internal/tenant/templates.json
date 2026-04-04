@@ -10,17 +10,24 @@
         "name": "PS5 SLIM",
         "price": 10000,
         "price_unit": "hour",
+        "unit_duration": 60,
         "is_default": true
       },
       {
         "name": "PS5 PRO",
         "price": 15000,
         "price_unit": "hour",
+        "unit_duration": 60,
         "is_default": false
       }
     ],
     "unit_addons": [
-      { "name": "STIK TAMBAHAN", "price": 5000, "price_unit": "session" }
+      {
+        "name": "STIK TAMBAHAN",
+        "price": 5000,
+        "price_unit": "session",
+        "unit_duration": 0
+      }
     ],
     "fnb_catalog": [
       { "name": "INDOMIE GORENG + TELUR", "price": 15000, "category": "Food" },
@@ -38,12 +45,14 @@
         "name": "PAKET REGULER",
         "price": 150000,
         "price_unit": "hour",
+        "unit_duration": 60,
         "is_default": true
       },
       {
         "name": "PAKET FULL-DAY",
         "price": 1000000,
         "price_unit": "day",
+        "unit_duration": 1440,
         "is_default": false
       }
     ],
@@ -51,9 +60,15 @@
       {
         "name": "SEWA LIGHTING EXTRA",
         "price": 50000,
-        "price_unit": "session"
+        "price_unit": "session",
+        "unit_duration": 0
       },
-      { "name": "OPERATOR / EDITOR", "price": 100000, "price_unit": "hour" }
+      {
+        "name": "OPERATOR / EDITOR",
+        "price": 100000,
+        "price_unit": "hour",
+        "unit_duration": 60
+      }
     ],
     "fnb_catalog": [
       { "name": "HOT AMERICANO", "price": 20000, "category": "Drink" },
@@ -71,18 +86,30 @@
         "name": "HARGA NORMAL",
         "price": 50000,
         "price_unit": "hour",
+        "unit_duration": 60,
         "is_default": true
       },
       {
         "name": "HARGA MEMBER",
         "price": 40000,
         "price_unit": "hour",
+        "unit_duration": 60,
         "is_default": false
       }
     ],
     "unit_addons": [
-      { "name": "SEWA RAKET", "price": 10000, "price_unit": "pcs" },
-      { "name": "SHUTTLECOCK (ISI 3)", "price": 15000, "price_unit": "pcs" }
+      {
+        "name": "SEWA RAKET",
+        "price": 10000,
+        "price_unit": "pcs",
+        "unit_duration": 0
+      },
+      {
+        "name": "SHUTTLECOCK (ISI 3)",
+        "price": 15000,
+        "price_unit": "pcs",
+        "unit_duration": 0
+      }
     ],
     "fnb_catalog": [
       { "name": "POCARI SWEAT 500ML", "price": 10000, "category": "Drink" },
@@ -100,17 +127,24 @@
         "name": "SEWA PER JAM",
         "price": 100000,
         "price_unit": "hour",
+        "unit_duration": 60,
         "is_default": true
       },
       {
         "name": "DAILY PASS",
         "price": 450000,
         "price_unit": "day",
+        "unit_duration": 1440,
         "is_default": false
       }
     ],
     "unit_addons": [
-      { "name": "PROJECTOR & SCREEN", "price": 75000, "price_unit": "session" }
+      {
+        "name": "PROJECTOR & SCREEN",
+        "price": 75000,
+        "price_unit": "session",
+        "unit_duration": 0
+      }
     ],
     "fnb_catalog": [
       { "name": "CAFE LATTE", "price": 28000, "category": "Drink" },

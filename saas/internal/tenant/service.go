@@ -11,8 +11,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/helwiza/saas/internal/auth"
-	"github.com/helwiza/saas/internal/booking"
 	"github.com/helwiza/saas/internal/fnb"
+	"github.com/helwiza/saas/internal/resource"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -57,7 +57,7 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 		CreatedAt:        time.Now(),
 	}
 
-	user := booking.User{
+	user := User{
 		ID:        uuid.New(),
 		TenantID:  tID,
 		Name:      req.AdminName,
@@ -87,22 +87,26 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 		return
 	}
 
-	// 2. Struktur parsing JSON disesuaikan dengan format terbaru
+	// 2. Struktur parsing JSON (Dukungan metadata & visual data)
 	var allTemplates map[string]struct {
 		Resources []struct {
-			Name     string `json:"name"`
-			Category string `json:"category"`
+			Name        string `json:"name"`
+			Category    string `json:"category"`
+			Description string `json:"description"`
+			ImageURL    string `json:"image_url"`
 		} `json:"resources"`
 		MainItems []struct {
-			Name      string  `json:"name"`
-			Price     float64 `json:"price"`
-			PriceUnit string  `json:"price_unit"`
-			IsDefault bool    `json:"is_default"`
+			Name         string  `json:"name"`
+			Price        float64 `json:"price"`
+			PriceUnit    string  `json:"price_unit"`
+			UnitDuration int     `json:"unit_duration"`
+			IsDefault    bool    `json:"is_default"`
 		} `json:"main_items"`
 		UnitAddons []struct {
-			Name      string  `json:"name"`
-			Price     float64 `json:"price"`
-			PriceUnit string  `json:"price_unit"`
+			Name         string  `json:"name"`
+			Price        float64 `json:"price"`
+			PriceUnit    string  `json:"price_unit"`
+			UnitDuration int     `json:"unit_duration"`
 		} `json:"unit_addons"`
 		FnbCatalog []struct {
 			Name     string  `json:"name"`
@@ -122,33 +126,54 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 		return
 	}
 
+	// Persiapkan metadata kosong sebagai pointer
+	emptyMeta := json.RawMessage("{}")
+
 	// 3. Mapping Resource & Unit Addons
-	var resourcesToSeed []booking.Resource
+	var resourcesToSeed []resource.Resource
 	for _, r := range tpl.Resources {
-		res := booking.Resource{
-			Name:     r.Name,
-			Category: r.Category,
+		res := resource.Resource{
+			Name:        r.Name,
+			Category:    r.Category,
+			Description: r.Description,
+			ImageURL:    r.ImageURL,
+			Gallery:     []string{}, // Slice kosong []
+			Metadata:    &emptyMeta,  // Pointer ke json.RawMessage
 		}
 
 		// Masukkan Main Items
 		for _, mi := range tpl.MainItems {
-			res.Items = append(res.Items, booking.ResourceItem{
+			duration := mi.UnitDuration
+			if duration <= 0 {
+				duration = s.getDefaultDuration(mi.PriceUnit)
+			}
+
+			res.Items = append(res.Items, resource.ResourceItem{
 				Name:         mi.Name,
-				PricePerHour: mi.Price,
+				Price:        mi.Price,
 				PriceUnit:    mi.PriceUnit,
+				UnitDuration: duration,
 				ItemType:     "console_option",
 				IsDefault:    mi.IsDefault,
+				Metadata:     &emptyMeta,
 			})
 		}
 
-		// Masukkan Unit Addons (Item yang nempel ke aset)
+		// Masukkan Unit Addons
 		for _, ua := range tpl.UnitAddons {
-			res.Items = append(res.Items, booking.ResourceItem{
+			duration := ua.UnitDuration
+			if duration <= 0 {
+				duration = s.getDefaultDuration(ua.PriceUnit)
+			}
+
+			res.Items = append(res.Items, resource.ResourceItem{
 				Name:         ua.Name,
-				PricePerHour: ua.Price,
+				Price:        ua.Price,
 				PriceUnit:    ua.PriceUnit,
+				UnitDuration: duration,
 				ItemType:     "add_on",
 				IsDefault:    false,
+				Metadata:     &emptyMeta,
 			})
 		}
 		resourcesToSeed = append(resourcesToSeed, res)
@@ -165,18 +190,28 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 		})
 	}
 
-	// 5. Eksekusi Seeding melalui Repo
-	// Seed Data Fisik (Resource & Item)
+	// 5. Eksekusi Seeding
 	if err := s.repo.SeedTenantData(ctx, tenantID, resourcesToSeed); err != nil {
 		log.Printf("[SEEDER] Gagal seeding Resource/Items: %v", err)
 	}
 
-	// Seed Katalog F&B (Global)
 	if err := s.repo.SeedFnbData(ctx, tenantID, fnbToSeed); err != nil {
 		log.Printf("[SEEDER] Gagal seeding F&B Catalog: %v", err)
 	}
 
 	log.Printf("[SEEDER] Berhasil menyuntikkan template lengkap untuk tenant %s", tenantID)
+}
+
+// Helper untuk durasi default jika tidak ditentukan di JSON
+func (s *Service) getDefaultDuration(unit string) int {
+	switch strings.ToLower(unit) {
+	case "hour":
+		return 60
+	case "day":
+		return 1440
+	default:
+		return 0
+	}
 }
 
 func (s *Service) Login(ctx context.Context, email, password string) (*LoginResponse, error) {
@@ -211,7 +246,7 @@ func (s *Service) UpdateProfile(ctx context.Context, id uuid.UUID, req Tenant) (
 	}
 
 	req.ID = id
-	req.Slug = curr.Slug // Protect slug
+	req.Slug = curr.Slug // Protect slug agar tidak bisa diubah lewat profil
 	if err := s.repo.Update(ctx, req); err != nil {
 		return nil, err
 	}

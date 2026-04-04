@@ -20,6 +20,7 @@ import {
   Briefcase,
   Plus,
   Check,
+  Clock,
 } from "lucide-react";
 import { AddResourceDialog } from "@/components/resources/add-resources-dialog";
 import api from "@/lib/api";
@@ -112,7 +113,6 @@ export default function ResourcesPage() {
       {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b-2 border-slate-100 pb-8">
         <div className="space-y-2">
-          {/* Tambahan pr-6 agar font italic pada kata 'Resources/Gaming' tidak kepotong di ujung h1 */}
           <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-slate-900 uppercase italic pr-6 leading-[1.1]">
             Manage <span className="text-blue-600">{labels.title}</span>
           </h1>
@@ -193,7 +193,6 @@ export default function ResourcesPage() {
 
                   {/* Title & Category Row */}
                   <div className="mb-6 space-y-2">
-                    {/* pr-4 dan tracking-tight untuk memberi ruang font italic */}
                     <h3 className="text-2xl font-black text-slate-900 uppercase italic pr-4 leading-tight tracking-tight break-words">
                       {res.name}
                     </h3>
@@ -236,13 +235,21 @@ export default function ResourcesPage() {
                                 >
                                   <Check className="h-2.5 w-2.5 text-white stroke-[4]" />
                                 </div>
-                                {/* Italic name inside item list juga diberi pr-1 */}
-                                <span className="text-[10px] font-black text-slate-700 uppercase italic truncate pr-1">
-                                  {item.name}
-                                </span>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-[10px] font-black text-slate-700 uppercase italic truncate pr-1">
+                                    {item.name}
+                                  </span>
+                                  {item.unit_duration > 0 && (
+                                    <span className="text-[7px] font-bold text-slate-400 flex items-center gap-0.5">
+                                      <Clock className="h-2 w-2" />{" "}
+                                      {item.unit_duration} Mnt
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                               <span className="text-[10px] font-black text-blue-600 italic whitespace-nowrap shrink-0">
-                                Rp{formatIDR(item.price_per_hour)}
+                                {/* UPDATE: Menggunakan .price sesuai backend baru */}
+                                Rp{formatIDR(item.price || 0)}
                                 <span className="text-[7px] text-slate-400 ml-0.5 font-bold">
                                   /{item.price_unit?.toUpperCase() || "JAM"}
                                 </span>

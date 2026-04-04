@@ -4,46 +4,41 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft,
   Plus,
   Trash2,
-  Zap,
-  Layers,
   Edit3,
   Star,
-  PlusCircle,
   MapPin,
   Clock,
   Package,
   Gamepad2,
-  Video,
   Trophy,
   Camera,
   Briefcase,
+  Loader2,
+  Save,
+  Monitor,
+  Sparkles,
+  Eye,
+  Settings2,
+  LayoutDashboard,
+  CheckCircle2,
+  Image as ImageIcon,
+  X,
+  ArrowUpRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { ManageItemDialog } from "@/components/resources/manage-item-dialog";
+import { SingleImageUpload } from "@/components/upload/single-image-upload";
+import { BulkImageUpload } from "@/components/upload/bulk-image-upload";
+import ResourceDetailLoading from "./loading";
 
 export default function ResourceDetailPage() {
   const params = useParams();
@@ -53,16 +48,15 @@ export default function ResourceDetailPage() {
   const [businessCategory, setBusinessCategory] = useState<string>("");
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
+
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [isUpdatingResource, setIsUpdatingResource] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
 
-  // Form States
-  const [name, setName] = useState("");
-  const [displayPrice, setDisplayPrice] = useState("");
-  const [rawPrice, setRawPrice] = useState(0);
-  const [isDefault, setIsDefault] = useState(false);
-  const [itemType, setItemType] = useState("main");
-  const [priceUnit, setPriceUnit] = useState("hour");
+  const [description, setDescription] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [gallery, setGallery] = useState<string[]>([]);
 
   const fetchData = async () => {
     try {
@@ -70,15 +64,19 @@ export default function ResourceDetailPage() {
       setItems(resItems.data || []);
 
       const resDetail = await api.get(`/resources-all`);
-      const category = resDetail.data?.business_category || "";
-      const currentRes =
-        resDetail.data?.resources?.find((r: any) => r.id === params.id) ||
-        resDetail.data?.find((r: any) => r.id === params.id);
+      const currentRes = resDetail.data?.resources?.find(
+        (r: any) => r.id === params.id,
+      );
 
-      setBusinessCategory(category);
-      setResource(currentRes);
+      if (currentRes) {
+        setResource(currentRes);
+        setBusinessCategory(resDetail.data?.business_category || "");
+        setDescription(currentRes.description || "");
+        setImageUrl(currentRes.image_url || "");
+        setGallery(currentRes.gallery || []);
+      }
     } catch (err) {
-      toast.error("Gagal sinkron data");
+      toast.error("Gagal sinkronisasi data unit");
     } finally {
       setLoading(false);
     }
@@ -88,47 +86,22 @@ export default function ResourceDetailPage() {
     fetchData();
   }, [params.id]);
 
-  const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
-
-  const handlePriceChange = (val: string) => {
-    const numeric = parseInt(val.replace(/\D/g, "")) || 0;
-    setRawPrice(numeric);
-    setDisplayPrice(formatIDR(numeric));
-  };
-
-  const resetForm = () => {
-    setEditingItem(null);
-    setName("");
-    setDisplayPrice("");
-    setRawPrice(0);
-    setIsDefault(false);
-    setItemType("main");
-    setPriceUnit("hour");
-  };
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const payload = {
-      name: name.toUpperCase(),
-      price_per_hour: rawPrice,
-      price_unit: priceUnit,
-      is_default: itemType === "addon" ? false : isDefault,
-      item_type: itemType === "main" ? "console_option" : "add_on",
-    };
-
+  const handleUpdateMarketing = async () => {
+    setIsUpdatingResource(true);
     try {
-      if (editingItem) {
-        await api.put(`/resources-all/items/${editingItem.id}`, payload);
-        toast.success("DATA DIPERBARUI!");
-      } else {
-        await api.post(`/resources-all/${params.id}/items`, payload);
-        toast.success("BARANG DITAMBAHKAN!");
-      }
-      setOpen(false);
+      await api.put(`/resources-all/${params.id}`, {
+        ...resource,
+        description,
+        image_url: imageUrl,
+        gallery,
+      });
+      toast.success("Visual marketing berhasil diperbarui!");
+      setIsEditMode(false);
       fetchData();
-      resetForm();
     } catch (err) {
-      toast.error("GAGAL SIMPAN");
+      toast.error("Gagal menyimpan data marketing");
+    } finally {
+      setIsUpdatingResource(false);
     }
   };
 
@@ -138,24 +111,64 @@ export default function ResourceDetailPage() {
         ...item,
         is_default: true,
       });
-      toast.success("SET SEBAGAI DEFAULT");
+      toast.success("Default diperbarui");
       fetchData();
     } catch (err) {
-      toast.error("GAGAL UPDATE");
+      toast.error("Gagal update status");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Hapus barang secara permanen?")) return;
+    if (!confirm("Hapus item ini?")) return;
     try {
       await api.delete(`/resources-all/items/${id}`);
-      toast.success("DIHAPUS");
+      toast.success("Terhapus");
       fetchData();
     } catch (err) {
-      toast.error("GAGAL");
+      toast.error("Gagal menghapus");
     }
   };
 
+  const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
+
+  const getUnitLabel = (unit: string) => {
+    const labels: Record<string, string> = {
+      hour: "/ JAM",
+      session: "/ SESI",
+      day: "/ HARI",
+      pcs: "/ PCS",
+    };
+    return labels[unit] || "/ UNIT";
+  };
+
+  const getContextConfig = () => {
+    const configs: Record<string, any> = {
+      gaming_hub: {
+        label: "Console / PC",
+        icon: <Gamepad2 className="h-6 w-6 text-blue-500" />,
+      },
+      creative_space: {
+        label: "Studio / Ruang",
+        icon: <Camera className="h-6 w-6 text-rose-500" />,
+      },
+      sport_center: {
+        label: "Tipe Lapangan",
+        icon: <Trophy className="h-6 w-6 text-emerald-500" />,
+      },
+      social_space: {
+        label: "Tipe Meja/Ruang",
+        icon: <Briefcase className="h-6 w-6 text-indigo-500" />,
+      },
+    };
+    return (
+      configs[businessCategory] || {
+        label: "Unit Utama",
+        icon: <Clock className="h-6 w-6 text-slate-500" />,
+      }
+    );
+  };
+
+  const config = getContextConfig();
   const mainItems = items.filter(
     (i) => i.item_type === "console_option" || i.item_type === "main",
   );
@@ -163,416 +176,371 @@ export default function ResourceDetailPage() {
     (i) => i.item_type === "add_on" || i.item_type === "addon",
   );
 
-  const getUnitLabel = (unit: string) => {
-    switch (unit) {
-      case "hour":
-        return "/ JAM";
-      case "session":
-        return "/ SESI";
-      case "day":
-        return "/ HARI";
-      case "pcs":
-        return "/ PCS";
-      default:
-        return "/ UNIT";
-    }
-  };
-
-  const getContextConfig = () => {
-    switch (businessCategory) {
-      case "gaming_hub":
-        return {
-          mainLabel: "Console / PC",
-          mainIcon: <Gamepad2 className="h-5 w-5" />,
-          placeholder: "CONTOH: PS5 SLIM / PC RTX 4090",
-          inputLabel: "NAMA CONSOLE / UNIT",
-        };
-      case "creative_space":
-        return {
-          mainLabel: "Studio / Ruang",
-          mainIcon: <Camera className="h-5 w-5" />,
-          placeholder: "CONTOH: STUDIO A / GREEN SCREEN ROOM",
-          inputLabel: "NAMA RUANGAN / TIPE",
-        };
-      case "sport_center":
-        return {
-          mainLabel: "Tipe Lapangan",
-          mainIcon: <Trophy className="h-5 w-5" />,
-          placeholder: "CONTOH: LAPANGAN FUTSAL / COURT 1",
-          inputLabel: "NAMA JENIS LAPANGAN",
-        };
-      default:
-        return {
-          mainLabel: "Unit Utama",
-          mainIcon: <Clock className="h-5 w-5" />,
-          placeholder: "CONTOH: UNIT 01 / RESOURCE A",
-          inputLabel: "NAMA ITEM UTAMA",
-        };
-    }
-  };
-
-  const config = getContextConfig();
+  if (loading) return <ResourceDetailLoading />;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-10 animate-in fade-in duration-500 px-4 selection:bg-blue-600/30 font-plus-jakarta">
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-6 gap-4">
-        <div className="space-y-1">
-          <Button
-            variant="ghost"
-            onClick={() => router.back()}
-            className="font-black text-slate-400 uppercase text-[9px] tracking-widest p-0 h-auto hover:bg-transparent hover:text-blue-600 transition-colors"
-          >
-            <ArrowLeft className="mr-1 h-3 w-3" /> KEMBALI
-          </Button>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-black italic uppercase tracking-tighter text-slate-900 leading-none pr-4">
-              KONFIGURASI <span className="text-blue-600">UNIT</span>
+    <div className="max-w-7xl mx-auto space-y-12 pb-24 animate-in fade-in duration-700 px-4 font-plus-jakarta">
+      {/* --- REFINED PROPORTIONAL HEADER --- */}
+      <header className="space-y-6">
+        <Button
+          variant="ghost"
+          onClick={() => router.back()}
+          className="group -ml-2 font-black text-slate-400 uppercase text-[10px] tracking-[0.2em] hover:bg-transparent hover:text-blue-600 transition-all italic"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4 stroke-[3] group-hover:-translate-x-1 transition-transform" />
+          Back to Inventory
+        </Button>
+
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="h-1 w-8 bg-blue-600 rounded-full" />
+              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600/60 italic">
+                Configuration Center
+              </p>
+            </div>
+            <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-[0.9]">
+              {resource?.name}
             </h1>
-            <Badge className="bg-slate-900 text-white border-none rounded-lg py-1 px-3 flex items-center gap-1.5 shadow-lg shadow-slate-200 shrink-0">
-              <MapPin className="h-3 w-3 text-blue-400" />
-              <span className="text-[10px] font-black tracking-widest uppercase italic pr-1">
-                {resource?.name || "LOADING..."}
-              </span>
-            </Badge>
+            <p className="text-slate-400 font-bold uppercase text-xs tracking-widest flex items-center gap-2 italic">
+              <MapPin className="h-3 w-3" /> Area:{" "}
+              {resource?.category || "General Space"}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => {
+                setEditingItem(null);
+                setDialogOpen(true);
+              }}
+              className="h-14 px-8 rounded-2xl bg-blue-600 font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-blue-500/20 text-white hover:bg-blue-700 transition-all active:scale-95 border-b-4 border-blue-800"
+            >
+              <Plus className="mr-2 h-4 w-4 stroke-[3]" /> Add New Option
+            </Button>
           </div>
         </div>
+      </header>
 
-        <Dialog
-          open={open}
-          onOpenChange={(v) => {
-            setOpen(v);
-            if (!v) resetForm();
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button className="h-12 px-6 rounded-xl bg-blue-600 font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-100 transition-all hover:scale-105 active:scale-95">
-              <Plus className="mr-2 h-4 w-4 stroke-[3]" /> TAMBAH ITEM
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="rounded-[2rem] p-8 sm:max-w-[450px] border-none shadow-2xl overflow-hidden bg-background">
-            <DialogHeader className="space-y-2 text-left">
-              <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter leading-none pr-4">
-                MANAGE <span className="text-blue-600">INVENTORY</span>
-              </DialogTitle>
-              <DialogDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic leading-relaxed">
-                Atur ketersediaan opsi untuk unit{" "}
-                <span className="text-slate-900">{resource?.name}</span>.
-              </DialogDescription>
-            </DialogHeader>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+        {/* --- LEFT: SHOWCASE & BRANDING --- */}
+        <div className="lg:col-span-5 space-y-8">
+          <Card className="rounded-[3rem] border-none shadow-2xl bg-white dark:bg-slate-900 overflow-hidden ring-1 ring-slate-100 dark:ring-slate-800 relative">
+            <div className="absolute top-6 right-6 z-20">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setIsEditMode(!isEditMode)}
+                className="rounded-full font-black text-[9px] uppercase tracking-widest shadow-xl border-none h-9 px-4 bg-white/90 dark:bg-slate-800/90 backdrop-blur"
+              >
+                {isEditMode ? (
+                  <>
+                    <X className="mr-1.5 h-3.5 w-3.5 text-red-500" /> Cancel
+                  </>
+                ) : (
+                  <>
+                    <Settings2 className="mr-1.5 h-3.5 w-3.5 text-blue-600" />{" "}
+                    Edit Visual
+                  </>
+                )}
+              </Button>
+            </div>
 
-            <form onSubmit={handleSave} className="space-y-6 pt-4">
-              <div className="space-y-1.5">
-                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 italic">
-                  {itemType === "main"
-                    ? config.inputLabel
-                    : "NAMA BARANG / TAMBAHAN"}
-                </Label>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value.toUpperCase())}
-                  placeholder={
-                    itemType === "main"
-                      ? config.placeholder
-                      : "MISAL: INDOMIE GORENG / SEWA LENSA"
-                  }
-                  className="h-14 rounded-2xl font-bold bg-slate-50 border-none px-5 text-sm focus-visible:ring-blue-600 transition-all"
-                  required
-                />
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 italic">
-                  TIPE ITEM
-                </Label>
-                <RadioGroup
-                  value={itemType}
-                  onValueChange={(v) => {
-                    setItemType(v);
-                    setPriceUnit(v === "main" ? "hour" : "pcs");
-                  }}
-                  className="grid grid-cols-2 gap-3"
-                >
-                  <div className="relative">
-                    <RadioGroupItem
-                      value="main"
-                      id="main"
-                      className="peer sr-only"
-                    />
-                    <Label
-                      htmlFor="main"
-                      className="flex flex-col items-center justify-center rounded-2xl border-2 border-slate-50 bg-slate-50 p-4 hover:bg-slate-100 peer-data-[state=checked]:border-blue-600 peer-data-[state=checked]:bg-blue-50 transition-all cursor-pointer h-24"
-                    >
-                      <div
-                        className={cn(
-                          "mb-2",
-                          itemType === "main"
-                            ? "text-blue-600"
-                            : "text-slate-300",
-                        )}
-                      >
-                        {config.mainIcon}
-                      </div>
-                      <span className="text-[10px] font-black uppercase tracking-tight text-center leading-none pr-1">
-                        {config.mainLabel}
-                      </span>
-                    </Label>
+            <div className="p-8 pt-10 space-y-10">
+              {isEditMode ? (
+                <div className="space-y-8 animate-in slide-in-from-top-4 duration-500">
+                  <div className="space-y-1">
+                    <h2 className="text-lg font-black uppercase italic tracking-widest text-slate-900 dark:text-white">
+                      Marketing Assets
+                    </h2>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">
+                      Visual yang akan memikat calon pelanggan
+                    </p>
                   </div>
-                  <div className="relative">
-                    <RadioGroupItem
-                      value="addon"
-                      id="addon"
-                      className="peer sr-only"
-                    />
-                    <Label
-                      htmlFor="addon"
-                      className="flex flex-col items-center justify-center rounded-2xl border-2 border-slate-50 bg-slate-50 p-4 hover:bg-slate-100 peer-data-[state=checked]:border-orange-500 peer-data-[state=checked]:bg-orange-50 transition-all cursor-pointer text-center h-24"
-                    >
-                      <PlusCircle
-                        className={cn(
-                          "mb-2 h-5 w-5",
-                          itemType === "addon"
-                            ? "text-orange-500"
-                            : "text-slate-300",
-                        )}
-                      />
-                      <span className="text-[10px] font-black uppercase tracking-tight leading-none pr-1">
-                        Add-on / Alat
-                      </span>
+
+                  <SingleImageUpload
+                    label="Cover Banner"
+                    value={imageUrl}
+                    onChange={setImageUrl}
+                    endpoint="/resources-all/upload-cover"
+                  />
+
+                  <div className="space-y-3">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic px-1">
+                      Selling Points & Description
                     </Label>
+                    <Textarea
+                      placeholder="Jelaskan kenyamanan, spesifikasi, atau vibe unik dari unit ini..."
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      className="min-h-[160px] rounded-[1.5rem] bg-slate-50 dark:bg-slate-800 border-none text-sm p-6 focus-visible:ring-2 focus-visible:ring-blue-500 font-medium leading-relaxed shadow-inner"
+                    />
                   </div>
-                </RadioGroup>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 italic">
-                    HARGA (Rp)
-                  </Label>
-                  <Input
-                    value={displayPrice}
-                    onChange={(e) => handlePriceChange(e.target.value)}
-                    placeholder="0"
-                    className="h-12 rounded-xl font-black bg-slate-50 border-none shadow-inner text-base"
-                    required
+                  <BulkImageUpload
+                    values={gallery}
+                    onChange={setGallery}
+                    endpoint="/resources-all/upload-gallery"
                   />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 italic">
-                    PER SATUAN
-                  </Label>
-                  <Select value={priceUnit} onValueChange={setPriceUnit}>
-                    <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none font-bold text-xs uppercase italic">
-                      <SelectValue placeholder="Satuan" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl font-bold uppercase">
-                      {itemType === "main" ? (
-                        <>
-                          <SelectItem value="hour">Per Jam</SelectItem>
-                          <SelectItem value="session">Per Sesi</SelectItem>
-                          <SelectItem value="day">Per Hari</SelectItem>
-                        </>
-                      ) : (
-                        <SelectItem value="pcs">Per Pcs / Unit</SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
 
-              {itemType === "main" && (
-                <div className="flex items-center space-x-3 p-4 rounded-2xl border-2 border-dashed bg-blue-50/50 border-blue-100 transition-all">
-                  <input
-                    type="checkbox"
-                    id="def"
-                    checked={isDefault}
-                    onChange={(e) => setIsDefault(e.target.checked)}
-                    className="h-4 w-4 rounded-md border-slate-300 text-blue-600 focus:ring-blue-600 cursor-pointer"
-                  />
-                  <Label
-                    htmlFor="def"
-                    className="text-[10px] font-black uppercase italic text-slate-700 cursor-pointer leading-none pr-1"
+                  <Button
+                    onClick={handleUpdateMarketing}
+                    disabled={isUpdatingResource}
+                    className="w-full h-16 rounded-[2rem] bg-slate-900 dark:bg-blue-600 text-white font-black uppercase text-[11px] tracking-[0.3em] shadow-2xl hover:bg-black transition-all border-b-8 border-slate-800 dark:border-blue-800"
                   >
-                    SET AS DEFAULT CONFIGURATION
-                  </Label>
+                    {isUpdatingResource ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-5 w-5" /> Save Marketing Data
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-10 animate-in fade-in duration-700">
+                  <div className="relative aspect-video rounded-[2.5rem] overflow-hidden shadow-2xl bg-slate-100 dark:bg-slate-800 ring-4 ring-slate-50 dark:ring-slate-800">
+                    {imageUrl ? (
+                      <img
+                        src={imageUrl}
+                        alt="Cover"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
+                        <ImageIcon className="h-16 w-16 mb-2 opacity-10" />
+                        <span className="text-[10px] font-black uppercase italic tracking-[0.4em] opacity-40">
+                          Empty Canvas
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
+                        <Sparkles className="h-5 w-5 fill-current" />
+                      </div>
+                      <h3 className="text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
+                        The Experience
+                      </h3>
+                    </div>
+                    <p className="text-base font-medium text-slate-500 dark:text-slate-400 leading-relaxed italic border-l-4 border-slate-100 dark:border-slate-800 pl-6 pr-4">
+                      {description ||
+                        "Belum ada deskripsi pemasaran. Gunakan fitur 'Edit Visual' untuk menambahkan narasi yang menjual."}
+                    </p>
+                  </div>
+
+                  {gallery.length > 0 && (
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] italic flex items-center gap-2">
+                          <LayoutDashboard className="h-4 w-4 text-blue-600" />{" "}
+                          Atmosphere Gallery
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className="text-[9px] font-black italic px-2 py-0"
+                        >
+                          {gallery.length} Photos
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-4 gap-3">
+                        {gallery.slice(0, 4).map((img, i) => (
+                          <div
+                            key={i}
+                            className="aspect-square rounded-2xl overflow-hidden shadow-md border border-slate-100 dark:border-slate-800 group hover:ring-2 ring-blue-500 transition-all"
+                          >
+                            <img
+                              src={img}
+                              className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all cursor-zoom-in group-hover:scale-110"
+                              alt="gallery"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
-
-              <Button
-                type="submit"
-                className="w-full h-16 rounded-[2rem] bg-slate-900 hover:bg-black font-black uppercase tracking-widest text-[11px] shadow-xl text-white transition-all active:scale-95 border-b-8 border-slate-800"
-              >
-                {editingItem ? "UPDATE ASSET INFO" : "SAVE NEW ASSET"}
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* RENDER MAIN ASSETS */}
-      <div className="space-y-5">
-        <div className="flex items-center gap-3 px-2">
-          <div className="h-1.5 w-10 bg-blue-600 rounded-full" />
-          <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-900 italic pr-4">
-            {config.mainLabel.toUpperCase()} OPTIONS
-          </h2>
+            </div>
+          </Card>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {mainItems.length > 0 ? (
-            mainItems.map((item) => (
-              <Card
-                key={item.id}
-                className={cn(
-                  "group rounded-[2.5rem] border-none p-6 transition-all duration-300 bg-white shadow-sm overflow-visible",
-                  item.is_default
-                    ? "ring-2 ring-blue-600 shadow-xl shadow-blue-100 scale-[1.02]"
-                    : "border border-slate-100 hover:shadow-xl hover:border-blue-100",
-                )}
-              >
-                <div className="flex items-start justify-between mb-5">
-                  <div
-                    className={cn(
-                      "h-12 w-12 rounded-2xl flex items-center justify-center transition-transform group-hover:rotate-3 shadow-inner",
-                      item.is_default
-                        ? "bg-blue-600 text-white shadow-lg"
-                        : "bg-slate-50 text-slate-300",
-                    )}
-                  >
-                    {config.mainIcon}
-                  </div>
-                  <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                    {!item.is_default && (
+
+        {/* --- RIGHT: OPERATIONS & INVENTORY --- */}
+        <div className="lg:col-span-7 space-y-16">
+          {/* Main Configurations */}
+          <section className="space-y-8">
+            <div className="flex items-center gap-4 px-2">
+              <div className="h-12 w-12 rounded-2xl bg-slate-900 dark:bg-white flex items-center justify-center text-white dark:text-slate-900 shadow-xl font-black italic">
+                1.0
+              </div>
+              <div className="space-y-0.5">
+                <h2 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none">
+                  Base Inventory
+                </h2>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">
+                  Tarif Utama & Opsi Perangkat
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {mainItems.map((item) => (
+                <Card
+                  key={item.id}
+                  className={cn(
+                    "group rounded-[2.5rem] border-none p-8 transition-all duration-500 bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-slate-800",
+                    item.is_default
+                      ? "ring-4 ring-blue-600/20 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.1)] scale-[1.02]"
+                      : "hover:shadow-2xl hover:ring-blue-500/20",
+                  )}
+                >
+                  <div className="flex items-start justify-between mb-8">
+                    <div
+                      className={cn(
+                        "h-14 w-14 rounded-[1.25rem] flex items-center justify-center shadow-inner transition-all",
+                        item.is_default
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-50 dark:bg-slate-800 text-slate-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 group-hover:text-blue-600",
+                      )}
+                    >
+                      {item.is_default ? (
+                        <CheckCircle2 className="h-7 w-7 stroke-[2.5]" />
+                      ) : (
+                        config.icon
+                      )}
+                    </div>
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                      {!item.is_default && (
+                        <Button
+                          onClick={() => handleSetDefault(item)}
+                          variant="ghost"
+                          className="h-10 w-10 p-0 text-slate-300 hover:text-yellow-500 bg-slate-50 dark:bg-slate-800 rounded-xl"
+                        >
+                          <Star className="h-5 w-5" />
+                        </Button>
+                      )}
                       <Button
-                        onClick={() => handleSetDefault(item)}
+                        onClick={() => {
+                          setEditingItem(item);
+                          setDialogOpen(true);
+                        }}
                         variant="ghost"
-                        className="h-9 w-9 p-0 text-slate-300 hover:text-yellow-500 bg-slate-50/50 rounded-xl"
+                        className="h-10 w-10 p-0 text-slate-300 hover:text-blue-600 bg-slate-50 dark:bg-slate-800 rounded-xl"
                       >
-                        <Star className="h-4.5 w-4.5" />
+                        <Edit3 className="h-5 w-5" />
                       </Button>
-                    )}
-                    <Button
-                      onClick={() => {
-                        setEditingItem(item);
-                        setName(item.name);
-                        setItemType("main");
-                        setRawPrice(item.price_per_hour);
-                        setDisplayPrice(formatIDR(item.price_per_hour));
-                        setIsDefault(item.is_default);
-                        setPriceUnit(item.price_unit || "hour");
-                        setOpen(true);
-                      }}
-                      variant="ghost"
-                      className="h-9 w-9 p-0 text-slate-300 hover:text-blue-600 bg-slate-50/50 rounded-xl"
-                    >
-                      <Edit3 className="h-4.5 w-4.5" />
-                    </Button>
-                    <Button
-                      onClick={() => handleDelete(item.id)}
-                      variant="ghost"
-                      className="h-9 w-9 p-0 text-slate-300 hover:text-red-500 bg-slate-50/50 rounded-xl"
-                    >
-                      <Trash2 className="h-4.5 w-4.5" />
-                    </Button>
+                      <Button
+                        onClick={() => handleDelete(item.id)}
+                        variant="ghost"
+                        className="h-10 w-10 p-0 text-slate-300 hover:text-red-500 bg-slate-50 dark:bg-slate-800 rounded-xl"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {/* pr-6 untuk menjamin font italic tidak kepotong oleh Badge */}
-                    <h4 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 pr-2 leading-tight">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-2xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none">
+                        {item.name}
+                      </h4>
+                      {item.is_default && (
+                        <Badge className="bg-emerald-500 text-white text-[8px] font-black px-2 py-0.5 rounded-md tracking-tighter">
+                          PRIMARY
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-2xl font-black text-blue-600 italic tracking-tight leading-none">
+                      Rp {formatIDR(item.price)}{" "}
+                      <span className="text-[11px] text-slate-400 uppercase font-black non-italic tracking-widest">
+                        {getUnitLabel(item.price_unit)}
+                      </span>
+                    </p>
+                    {item.unit_duration > 0 && (
+                      <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1.5 uppercase italic bg-slate-50 dark:bg-slate-800 w-fit px-3 py-1.5 rounded-xl">
+                        <Clock className="h-3.5 w-3.5 text-blue-500" />{" "}
+                        {item.unit_duration} Minutes Session
+                      </p>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </section>
+
+          {/* Upsell Add-ons */}
+          <section className="space-y-8">
+            <div className="flex items-center gap-4 px-2">
+              <div className="h-12 w-12 rounded-2xl bg-orange-500 flex items-center justify-center text-white shadow-xl font-black italic">
+                2.0
+              </div>
+              <div className="space-y-0.5">
+                <h2 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none">
+                  Add-ons & Equipment
+                </h2>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">
+                  Barang tambahan atau layanan ekstra
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {addonItems.map((item) => (
+                <Card
+                  key={item.id}
+                  className="group rounded-[2.5rem] border-none p-8 transition-all duration-500 bg-slate-50/50 dark:bg-slate-900/50 hover:bg-white dark:hover:bg-slate-900 hover:shadow-2xl ring-1 ring-transparent hover:ring-orange-500/20"
+                >
+                  <div className="flex items-start justify-between mb-6">
+                    <div className="h-12 w-12 rounded-2xl bg-white dark:bg-slate-800 text-slate-400 group-hover:text-orange-500 group-hover:shadow-lg group-hover:shadow-orange-500/10 transition-all shadow-inner flex items-center justify-center">
+                      <Package className="h-6 w-6 stroke-[2.5]" />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => {
+                          setEditingItem(item);
+                          setDialogOpen(true);
+                        }}
+                        variant="ghost"
+                        className="h-9 w-9 p-0 text-slate-300 hover:text-blue-600 bg-white dark:bg-slate-800 rounded-xl shadow-sm"
+                      >
+                        <Edit3 className="h-4.5 w-4.5" />
+                      </Button>
+                      <Button
+                        onClick={() => handleDelete(item.id)}
+                        variant="ghost"
+                        className="h-9 w-9 p-0 text-slate-300 hover:text-red-500 bg-white dark:bg-slate-800 rounded-xl shadow-sm"
+                      >
+                        <Trash2 className="h-4.5 w-4.5" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none">
                       {item.name}
                     </h4>
-                    {item.is_default && (
-                      <Badge className="bg-blue-600 text-white border-none text-[8px] font-black px-2 py-0.5 rounded-lg shadow-sm shrink-0">
-                        DEFAULT
-                      </Badge>
-                    )}
+                    <p className="text-lg font-black text-orange-600 italic leading-none">
+                      Rp {formatIDR(item.price)}{" "}
+                      <span className="text-[10px] text-slate-400 uppercase font-black non-italic ml-1.5 tracking-widest">
+                        / UNIT
+                      </span>
+                    </p>
                   </div>
-                  <p className="text-base font-black text-blue-600 italic tracking-tight flex items-center gap-1.5">
-                    Rp {formatIDR(item.price_per_hour)}
-                    <span className="text-[10px] text-slate-400 uppercase tracking-widest font-black non-italic">
-                      {getUnitLabel(item.price_unit)}
-                    </span>
-                  </p>
-                </div>
-              </Card>
-            ))
-          ) : (
-            <div className="col-span-full py-12 text-center rounded-[2.5rem] bg-slate-50/50 border border-dashed border-slate-200">
-              <p className="text-xs font-black text-slate-400 uppercase italic tracking-widest pr-4">
-                No options registered yet
-              </p>
+                </Card>
+              ))}
             </div>
-          )}
+          </section>
         </div>
       </div>
 
-      {/* RENDER ADD-ONS */}
-      <div className="space-y-5 pt-4">
-        <div className="flex items-center gap-3 px-2">
-          <div className="h-1.5 w-10 bg-orange-500 rounded-full" />
-          <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-900 italic pr-4">
-            ADD-ONS & SERVICES
-          </h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {addonItems.length > 0 ? (
-            addonItems.map((item) => (
-              <Card
-                key={item.id}
-                className="group rounded-[2.5rem] border border-slate-100 p-6 bg-slate-50/30 hover:bg-white hover:shadow-2xl transition-all duration-300 overflow-visible"
-              >
-                <div className="flex items-start justify-between mb-5">
-                  <div className="h-12 w-12 rounded-2xl flex items-center justify-center bg-white text-slate-200 group-hover:text-orange-500 group-hover:shadow-lg transition-all shadow-inner">
-                    <Package className="h-6 w-6 stroke-[2.5]" />
-                  </div>
-                  <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                    <Button
-                      onClick={() => {
-                        setEditingItem(item);
-                        setName(item.name);
-                        setItemType("addon");
-                        setRawPrice(item.price_per_hour);
-                        setDisplayPrice(formatIDR(item.price_per_hour));
-                        setIsDefault(item.is_default);
-                        setPriceUnit("pcs");
-                        setOpen(true);
-                      }}
-                      variant="ghost"
-                      className="h-9 w-9 p-0 text-slate-300 hover:text-blue-600 bg-white rounded-xl shadow-sm"
-                    >
-                      <Edit3 className="h-4.5 w-4.5" />
-                    </Button>
-                    <Button
-                      onClick={() => handleDelete(item.id)}
-                      variant="ghost"
-                      className="h-9 w-9 p-0 text-slate-300 hover:text-red-500 bg-white rounded-xl shadow-sm"
-                    >
-                      <Trash2 className="h-4.5 w-4.5" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <h4 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 pr-6 truncate leading-tight">
-                    {item.name}
-                  </h4>
-                  <p className="text-base font-black text-orange-600 italic tracking-tight">
-                    Rp {formatIDR(item.price_per_hour)}
-                    <span className="text-[10px] text-slate-400 uppercase tracking-widest font-black non-italic ml-1.5">
-                      / PCS
-                    </span>
-                  </p>
-                </div>
-              </Card>
-            ))
-          ) : (
-            <div className="col-span-full py-12 text-center rounded-[2.5rem] bg-slate-50/50 border border-dashed border-slate-200">
-              <p className="text-xs font-black text-slate-400 uppercase italic tracking-widest pr-4">
-                No add-ons registered yet
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
+      <ManageItemDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        editingItem={editingItem}
+        resourceId={params.id as string}
+        resourceName={resource?.name || "Unit"}
+        businessCategory={businessCategory}
+        onSuccess={fetchData}
+      />
     </div>
   );
 }
