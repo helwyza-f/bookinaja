@@ -37,12 +37,13 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
     { label: "Bookings", icon: CalendarDays, href: "/admin/bookings" },
     { label: "POS / Kasir", icon: MonitorPlay, href: "/admin/pos" },
     { label: "Resources", icon: Box, href: "/admin/resources" },
-    { href: "/admin/fnb", icon: Utensils, label: "F&B / Menu" },
+    { label: "F&B / Menu", icon: Utensils, href: "/admin/fnb" },
     { label: "Customers", icon: Users, href: "/admin/customers" },
   ];
 
   return (
-    <div className="relative flex h-full flex-col bg-slate-950 font-sans border-r border-white/5">
+    <div className="relative flex h-full flex-col bg-slate-950 font-sans border-r border-white/5 shadow-2xl">
+      {/* COLLAPSE TOGGLE BUTTON */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
         className="absolute -right-3 top-10 z-[60] flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-slate-900 text-white shadow-xl hover:bg-blue-600 transition-all active:scale-90"
@@ -54,6 +55,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
         )}
       </button>
 
+      {/* LOGO AREA */}
       <div
         className={cn(
           "flex h-24 items-center px-6 transition-all border-b border-white/5 shrink-0",
@@ -66,7 +68,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
           </div>
           {!isCollapsed && (
             <div className="flex flex-col animate-in fade-in slide-in-from-left-2 duration-300">
-              <span className="text-sm font-black italic tracking-tighter text-white uppercase leading-none truncate w-32">
+              <span className="text-sm font-black italic tracking-tighter text-white uppercase leading-none truncate w-32 pr-2">
                 {tenant}
               </span>
               <span className="text-[8px] font-black text-blue-500 uppercase tracking-[0.4em] mt-1">
@@ -77,13 +79,13 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
         </Link>
       </div>
 
+      {/* NAVIGATION ROUTES */}
       <div className="flex flex-col flex-1 gap-2 p-3 pt-8 overflow-y-auto scrollbar-hide">
         {routes.map((route) => {
           const isActive = pathname.includes(route.href);
 
           return (
             <Tooltip key={route.href}>
-              {/* Force tooltip tutup kalau sidebar tidak collapsed */}
               <TooltipTrigger asChild>
                 <Link
                   href={route.href}
@@ -93,7 +95,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                       ? "h-12 w-12 justify-center mx-auto rounded-2xl"
                       : "px-5 py-4 w-full gap-4 rounded-2xl",
                     isActive
-                      ? "bg-blue-600 text-white shadow-lg"
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
                       : "text-slate-500 hover:bg-white/5 hover:text-white",
                   )}
                 >
@@ -105,7 +107,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                     )}
                   />
                   {!isCollapsed && (
-                    <span className="text-[10px] font-black uppercase italic tracking-widest truncate animate-in fade-in duration-300">
+                    <span className="text-[10px] font-black uppercase italic tracking-widest truncate pr-2 animate-in fade-in duration-300">
                       {route.label}
                     </span>
                   )}
@@ -114,7 +116,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
               {isCollapsed && (
                 <TooltipContent
                   side="right"
-                  className="bg-blue-600 border-none font-black italic uppercase text-[9px] text-white px-3 py-1.5 shadow-2xl ml-2 animate-in zoom-in-95"
+                  className="bg-blue-600 border-none font-black italic uppercase text-[9px] text-white px-3 py-1.5 shadow-2xl ml-2"
                 >
                   {route.label}
                 </TooltipContent>
@@ -124,6 +126,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
         })}
       </div>
 
+      {/* FOOTER ACTIONS */}
       <div className="p-3 border-t border-white/5 space-y-2 pb-8 bg-slate-900/20">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -143,7 +146,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                 className={cn("shrink-0", isCollapsed ? "h-5 w-5" : "h-4 w-4")}
               />
               {!isCollapsed && (
-                <span className="text-[10px] font-black uppercase italic tracking-widest animate-in fade-in">
+                <span className="text-[10px] font-black uppercase italic tracking-widest pr-2 animate-in fade-in">
                   Settings
                 </span>
               )}
@@ -179,7 +182,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
             )}
           />
           {!isCollapsed && (
-            <span className="text-[10px] font-black uppercase italic tracking-widest animate-in fade-in">
+            <span className="text-[10px] font-black uppercase italic tracking-widest pr-2 animate-in fade-in">
               Logout
             </span>
           )}

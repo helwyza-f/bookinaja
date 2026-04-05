@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   format,
   addMinutes,
@@ -142,7 +142,6 @@ export default function NewManualBookingPage() {
     });
   };
 
-  // --- LOGIC: DYNAMIC MAX DURATION ---
   const maxAvailableDuration = useMemo(() => {
     if (!selectedTime || !selectedItem) return 1;
     if (selectedItem.price_unit === "day") return 1;
@@ -151,7 +150,6 @@ export default function NewManualBookingPage() {
     const startTotalMinutes = startH * 60 + startM;
     const unitMinutes = selectedItem.unit_duration || 60;
 
-    // Cari booking terdekat yang mulainya SETELAH jam pilihanku
     const nextBusyMinutes = busySlots
       .map((s) => {
         const [h, m] = s.start_time.split(":").map(Number);
@@ -160,17 +158,14 @@ export default function NewManualBookingPage() {
       .filter((m) => m > startTotalMinutes)
       .sort((a, b) => a - b)[0];
 
-    // Batas operasional (misal jam 23:59)
     const storeCloseMinutes = 23 * 60 + 59;
     const limitMinutes = nextBusyMinutes || storeCloseMinutes;
-
     const availableMinutes = limitMinutes - startTotalMinutes;
     const calculatedMax = Math.floor(availableMinutes / unitMinutes);
 
     return calculatedMax > 0 ? calculatedMax : 1;
   }, [selectedTime, busySlots, selectedItem]);
 
-  // Reset duration jika melampaui batas baru
   useEffect(() => {
     if (duration > maxAvailableDuration) setDuration(1);
   }, [selectedTime, maxAvailableDuration]);
@@ -255,9 +250,8 @@ export default function NewManualBookingPage() {
         </header>
 
         <div className="flex flex-col xl:flex-row gap-10 items-start">
-          {/* KONFIGURASI */}
           <div className="w-full xl:flex-1 space-y-8">
-            {/* STEP 01 */}
+            {/* STEP 01: Resource Selection */}
             <Card className="rounded-[3rem] border-none shadow-xl shadow-slate-200/40 dark:shadow-none p-8 lg:p-12 bg-white dark:bg-slate-900 space-y-10 ring-1 ring-slate-100 dark:ring-white/5 overflow-hidden">
               <div className="flex items-center gap-4 border-b border-slate-50 dark:border-white/5 pb-8">
                 <div className="w-12 h-12 rounded-2xl bg-slate-950 dark:bg-slate-800 flex items-center justify-center text-white shadow-xl">
@@ -284,7 +278,7 @@ export default function NewManualBookingPage() {
                       setSelectedTime("");
                     }}
                   >
-                    <SelectTrigger className="h-20 rounded-[1.5rem] border-none bg-slate-50 dark:bg-slate-800 font-black italic uppercase px-8 text-xl shadow-inner dark:text-white pr-2">
+                    <SelectTrigger className="h-20 rounded-[1.5rem] border-none bg-slate-50 dark:bg-slate-800 font-black italic uppercase px-8 text-xl shadow-inner dark:text-white pr-2 focus:ring-0">
                       <SelectValue placeholder="PILIH UNIT" />
                     </SelectTrigger>
                     <SelectContent className="rounded-2xl font-bold uppercase italic border-none shadow-2xl p-2 dark:bg-slate-800 dark:text-white">
@@ -292,9 +286,9 @@ export default function NewManualBookingPage() {
                         <SelectItem
                           key={r.id}
                           value={r.id}
-                          className="rounded-xl h-14 "
+                          className="rounded-xl h-14 pr-2 italic"
                         >
-                          <span className="mr-2"> {r.name}</span>
+                          {r.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -334,7 +328,7 @@ export default function NewManualBookingPage() {
                                   "text-base font-black uppercase italic pr-2",
                                   selectedMainId === item.id
                                     ? "text-blue-600"
-                                    : "text-slate-500",
+                                    : "text-slate-500 dark:text-slate-400",
                                 )}
                               >
                                 {item.name}
@@ -357,7 +351,7 @@ export default function NewManualBookingPage() {
               </div>
             </Card>
 
-            {/* STEP 02 */}
+            {/* STEP 02: Schedule Selection */}
             <Card
               className={cn(
                 "rounded-[3rem] border-none shadow-xl shadow-slate-200/40 dark:shadow-none p-8 lg:p-12 bg-white dark:bg-slate-900 space-y-10 transition-all duration-700 ring-1 ring-slate-100 dark:ring-white/5",
@@ -394,7 +388,7 @@ export default function NewManualBookingPage() {
                             : "PILIH TANGGAL"}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0 rounded-3xl border-none shadow-2xl overflow-hidden">
+                      <PopoverContent className="w-auto p-0 rounded-3xl border-none shadow-2xl overflow-hidden dark:bg-slate-900">
                         <Calendar
                           mode="single"
                           selected={date}
@@ -481,14 +475,13 @@ export default function NewManualBookingPage() {
             </Card>
           </div>
 
-          {/* SIDEBAR ADMINISTRASI */}
+          {/* SIDEBAR: Admin Controls */}
           <div
             className={cn(
               "w-full xl:w-[420px] space-y-6 sticky top-8 transition-all duration-700",
               !selectedTime && "opacity-20 blur-[1px] pointer-events-none",
             )}
           >
-            {/* IDENTITAS */}
             <Card className="rounded-[3rem] border-none shadow-xl p-8 lg:p-10 bg-white dark:bg-slate-900 space-y-8 ring-1 ring-slate-100 dark:ring-white/5">
               <div className="flex items-center justify-between border-b border-slate-50 dark:border-white/5 pb-5">
                 <h3 className="text-xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none pr-2">
@@ -503,7 +496,7 @@ export default function NewManualBookingPage() {
                     placeholder="NAMA LENGKAP"
                     value={custName}
                     onChange={(e) => setCustName(e.target.value.toUpperCase())}
-                    className="h-16 pl-12 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none font-black italic focus:ring-4 focus:ring-blue-500/5 transition-all text-xs uppercase pr-2 shadow-inner dark:text-white"
+                    className="h-16 pl-12 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none font-black italic focus:ring-4 focus:ring-blue-500/5 transition-all text-xs uppercase pr-2 shadow-inner dark:text-white focus-visible:ring-0"
                   />
                 </div>
                 <div className="relative group">
@@ -514,7 +507,7 @@ export default function NewManualBookingPage() {
                     onChange={(e) =>
                       setCustPhone(e.target.value.replace(/[^0-9]/g, ""))
                     }
-                    className="h-16 pl-12 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none font-black italic focus:ring-4 focus:ring-blue-500/5 transition-all text-xs pr-2 shadow-inner dark:text-white"
+                    className="h-16 pl-12 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none font-black italic focus:ring-4 focus:ring-blue-500/5 transition-all text-xs pr-2 shadow-inner dark:text-white focus-visible:ring-0"
                   />
                 </div>
               </div>
@@ -542,7 +535,6 @@ export default function NewManualBookingPage() {
               </div>
             </Card>
 
-            {/* ADDONS & SUMMARY */}
             <Card className="rounded-[3rem] border-none shadow-xl p-8 lg:p-10 bg-white dark:bg-slate-900 space-y-8 ring-1 ring-slate-100 dark:ring-white/5">
               <div className="space-y-4">
                 <div className="flex items-center gap-3 border-b border-slate-50 dark:border-white/5 pb-3">
@@ -635,7 +627,7 @@ export default function NewManualBookingPage() {
                     !custName ||
                     !selectedMainId
                   }
-                  className="w-full h-20 rounded-[2.5rem] bg-blue-600 text-white hover:bg-blue-500 transition-all shadow-2xl shadow-blue-500/30 active:scale-95 group border-b-8 border-blue-800 dark:border-blue-900 gap-4"
+                  className="w-full h-20 rounded-[2.5rem] bg-blue-600 text-white hover:bg-blue-500 transition-all shadow-2xl shadow-blue-500/30 active:scale-95 group border-b-8 border-blue-800 dark:border-blue-900 gap-4 pr-3"
                 >
                   {isSubmitting ? (
                     <Loader2 className="animate-spin text-white" />

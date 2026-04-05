@@ -10,7 +10,14 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { format, parse, addMinutes, isBefore } from "date-fns";
+import {
+  format,
+  parse,
+  addMinutes,
+  isBefore,
+  isSameDay,
+  isValid,
+} from "date-fns";
 import {
   Clock,
   X,
@@ -21,6 +28,8 @@ import {
   ChevronRight,
   Loader2,
   AlertTriangle,
+  History,
+  Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import api from "@/lib/api";
@@ -42,35 +51,41 @@ export function ExtendSessionDialog({
   const [busySlots, setBusySlots] = useState<any[]>([]);
   const [loadingSchedule, setLoadingSchedule] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [now] = useState(new Date());
   const [selectedExtension, setSelectedExtension] = useState<{
     count: number;
     time: string;
   } | null>(null);
 
-  const utcToLocalTime = (utcTimeStr: string) => {
-    if (!utcTimeStr) return "";
+  // Helper untuk konversi UTC dari API ke Date Object lokal pada tanggal sesi
+  const getLocalDateFromUTC = (utcTimeStr: string, baseDate: Date) => {
     const [hours, minutes] = utcTimeStr.split(":").map(Number);
-    const date = new Date();
-    date.setUTCHours(hours, minutes, 0, 0);
-    return format(date, "HH:mm");
+    const d = new Date(baseDate);
+    d.setUTCHours(hours, minutes, 0, 0);
+    return d;
   };
 
   useEffect(() => {
     if (open && session) {
       setLoadingSchedule(true);
-      const dateParam = format(new Date(session.start_time), "yyyy-MM-dd");
+      const sessionDate = new Date(session.start_time);
+      const dateParam = format(sessionDate, "yyyy-MM-dd");
 
       api
         .get(`/guest/availability/${session.resource_id}?date=${dateParam}`)
         .then((res) => {
-          const localBusySlots = (res.data.busy_slots || []).map(
-            (slot: any) => ({
+          const mappedSlots = (res.data.busy_slots || []).map((slot: any) => {
+            const startDate = getLocalDateFromUTC(slot.start_time, sessionDate);
+            const endDate = getLocalDateFromUTC(slot.end_time, sessionDate);
+            return {
               ...slot,
-              start_local: utcToLocalTime(slot.start_time),
-              end_local: utcToLocalTime(slot.end_time),
-            }),
-          );
-          setBusySlots(localBusySlots);
+              start_date: startDate,
+              end_date: endDate,
+              start_local: format(startDate, "HH:mm"),
+              end_local: format(endDate, "HH:mm"),
+            };
+          });
+          setBusySlots(mappedSlots);
         })
         .catch(() => setBusySlots([]))
         .finally(() => setLoadingSchedule(false));
@@ -81,30 +96,33 @@ export function ExtendSessionDialog({
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
 
-  // --- LOGIC TIME TABLE (Exclusive End Check) ---
+  // --- LOGIC: TIME TABLE GRID ---
   const timeSlots = useMemo(() => {
     if (!session) return [];
     const slots = [];
-    const startHour = parse("09:00", "HH:mm", new Date());
-    const endHour = parse("23:30", "HH:mm", new Date());
+    const sessionDate = new Date(session.start_time);
+    let current = new Date(sessionDate);
+    current.setHours(9, 0, 0, 0);
+
+    const endLimit = new Date(sessionDate);
+    endLimit.setHours(23, 30, 0, 0);
+
     const interval = session.unit_duration || 30;
-    let current = startHour;
 
-    while (isBefore(current, addMinutes(endHour, 1))) {
+    while (isBefore(current, addMinutes(endLimit, 1))) {
       const timeStr = format(current, "HH:mm");
+      const isPassed = isSameDay(current, now) && isBefore(current, now);
 
-      // Logic: Jam BUSY jika (Waktu Grid >= Jam Mulai) DAN (Waktu Grid < Jam Selesai)
-      // Contoh: Booking 14:00 - 15:00.
-      // Jam 14:00 -> BUSY.
-      // Jam 15:00 -> FREE.
+      // Cek tabrakan menggunakan perbandingan waktu murni (Date Object)
       const busySlot = busySlots.find(
-        (s) => timeStr >= s.start_local && timeStr < s.end_local,
+        (s) => current >= s.start_date && current < s.end_date,
       );
 
       slots.push({
         time: timeStr,
+        isPassed,
         status: busySlot
-          ? session && session.id === busySlot.id
+          ? busySlot.id === session.id
             ? "current"
             : "full"
           : "available",
@@ -112,36 +130,36 @@ export function ExtendSessionDialog({
       current = addMinutes(current, interval);
     }
     return slots;
-  }, [busySlots, session]);
+  }, [busySlots, session, now]);
 
-  // --- LOGIC EXTENSION OPTIONS (Dynamic Boundary) ---
+  // --- LOGIC: DYNAMIC EXTENSION OPTIONS (Fix Collision) ---
   const extensionOptions = useMemo(() => {
     if (!session) return [];
     const options = [];
     const currentEndTimeDate = new Date(session.end_time);
-    const currentEndTimeStr = format(currentEndTimeDate, "HH:mm");
     const unitDuration = session.unit_duration || 60;
 
-    // Cari booking orang lain terdekat yang dimulai SETELAH sesi ini berakhir
-    const nextBusyBooking = busySlots
-      .filter((s) => s.id !== session.id && s.start_local >= currentEndTimeStr)
-      .sort((a, b) => a.start_local.localeCompare(b.start_local))[0];
+    // Cari bokingan orang lain yang mulainya SETELAH sesi kita berakhir
+    const futureBookings = busySlots
+      .filter((s) => s.id !== session.id && s.start_date >= currentEndTimeDate)
+      .sort((a, b) => a.start_date.getTime() - b.start_date.getTime());
 
-    const limitTimeStr = nextBusyBooking
-      ? nextBusyBooking.start_local
-      : "23:59";
+    // Boundary adalah waktu mulai bokingan berikutnya, atau akhir hari (23:59)
+    const limitDate =
+      futureBookings.length > 0
+        ? futureBookings[0].start_date
+        : new Date(new Date(session.end_time).setHours(23, 59, 59, 999));
 
     for (let i = 1; i <= 4; i++) {
       const extensionMinutes = unitDuration * i;
       const potentialEndDate = addMinutes(currentEndTimeDate, extensionMinutes);
-      const potentialEndTimeStr = format(potentialEndDate, "HH:mm");
 
-      // Perpanjangan BLOCKED jika jam selesai baru MELEWATI jam mulai orang lain
-      const isBlocked = potentialEndTimeStr > limitTimeStr;
+      // FIX: Bandingkan Date object (getTime), bukan string
+      const isBlocked = potentialEndDate.getTime() > limitDate.getTime();
 
       options.push({
         count: i,
-        time: potentialEndTimeStr,
+        time: format(potentialEndDate, "HH:mm"),
         busy: isBlocked,
       });
     }
@@ -161,81 +179,72 @@ export function ExtendSessionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[98vw] lg:max-w-[94vw] h-[94vh] p-0 overflow-hidden rounded-[2.5rem] border-none shadow-3xl bg-white flex flex-col">
+      <DialogContent className="max-w-[98vw] lg:max-w-[94vw] h-[94vh] p-0 overflow-hidden rounded-[2.5rem] border-none shadow-3xl bg-slate-50 dark:bg-slate-950 flex flex-col font-plus-jakarta">
         <VisuallyHidden.Root>
           <DialogHeader>
             <DialogTitle>Extend Session</DialogTitle>
           </DialogHeader>
         </VisuallyHidden.Root>
 
-        {/* --- HEADER --- */}
-        <div className="p-5 lg:p-6 bg-slate-950 text-white shrink-0 flex items-center justify-between relative border-b border-white/5">
-          <div className="flex items-center gap-5">
+        <div className="p-5 lg:p-6 bg-slate-900 text-white shrink-0 flex items-center justify-between border-b border-white/5 shadow-md z-20">
+          <div className="flex items-center gap-4">
             <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
               <TimerReset className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-black italic uppercase tracking-tighter leading-none">
+              <h2 className="text-xl font-black italic uppercase tracking-tighter leading-none pr-2">
                 Extend <span className="text-blue-500">Scheduler</span>
               </h2>
-              <div className="flex items-center gap-3 text-[9px] font-bold text-slate-500 uppercase mt-1">
-                <span>
-                  User:{" "}
-                  <span className="text-white">{session?.customer_name}</span>
-                </span>
-                <span className="w-1 h-1 rounded-full bg-slate-800" />
-                <span>
-                  Unit:{" "}
-                  <span className="text-blue-400">
-                    {session?.resource_name}
-                  </span>
-                </span>
-              </div>
+              <p className="text-[9px] font-bold text-slate-500 uppercase mt-1 pr-2">
+                Unit:{" "}
+                <span className="text-blue-400">{session?.resource_name}</span>{" "}
+                • {session?.customer_name}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-6">
-            <div className="text-right">
-              <p className="text-[7px] font-black text-slate-500 uppercase italic mb-0.5">
-                End Schedule
+            <div className="text-right hidden sm:block">
+              <p className="text-[7px] font-black text-slate-500 uppercase italic mb-0.5 pr-1">
+                Current End
               </p>
-              <p className="text-xl font-black italic text-emerald-400 leading-none">
+              <p className="text-xl font-black italic text-emerald-400 leading-none pr-1">
                 {session && format(new Date(session.end_time), "HH:mm")}
               </p>
             </div>
             <Button
               variant="ghost"
+              size="icon"
               onClick={() => onOpenChange(false)}
-              className="rounded-lg text-slate-500 hover:text-white hover:bg-white/10 h-10 w-10 p-0 transition-all"
+              className="rounded-xl text-slate-500 hover:text-white hover:bg-white/10"
             >
               <X className="w-5 h-5" />
             </Button>
           </div>
         </div>
 
-        {/* --- BODY --- */}
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-slate-50/50">
-          <div className="flex-1 p-6 lg:p-8 overflow-hidden flex flex-col bg-white">
-            <div className="flex items-center justify-between mb-5 shrink-0">
-              <div className="flex items-center gap-3">
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+          <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 overflow-hidden border-r dark:border-white/5">
+            <div className="p-6 border-b dark:border-white/5 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
                 <CalendarCheck2 className="w-4 h-4 text-blue-600" />
-                <h3 className="text-[10px] font-black italic uppercase tracking-widest text-slate-950">
-                  Resource Availability
+                <h3 className="text-[10px] font-black italic uppercase tracking-widest text-slate-950 dark:text-white pr-1">
+                  Resource Activity Map
                 </h3>
               </div>
               <Badge
-                variant="outline"
-                className="text-[7px] font-black uppercase border-slate-200 text-slate-400 italic"
+                variant="secondary"
+                className="text-[7px] font-black uppercase bg-slate-100 dark:bg-slate-800 text-slate-400 pr-1"
               >
-                Grid: {session?.unit_duration || 30}m
+                Grid Interval: {session?.unit_duration || 30}m
               </Badge>
             </div>
 
-            <ScrollArea className="flex-1 pr-4">
+            <ScrollArea className="flex-1 p-6">
               {loadingSchedule ? (
                 <div className="flex flex-col items-center justify-center py-24 text-slate-300 gap-3">
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                  <p className="font-black italic uppercase text-[8px] tracking-widest text-slate-400">
-                    Scanning schedule...
+                  <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                  <p className="font-black italic uppercase text-[8px] tracking-widest pr-2">
+                    Scanning Availability...
                   </p>
                 </div>
               ) : (
@@ -244,41 +253,42 @@ export function ExtendSessionDialog({
                     <div
                       key={slot.time}
                       className={cn(
-                        "p-3 rounded-2xl text-center border-2 transition-all flex flex-col gap-0.5",
+                        "p-3 rounded-2xl text-center border-2 transition-all flex flex-col items-center justify-center gap-0.5",
                         slot.status === "available" &&
-                          "bg-white border-slate-50 shadow-sm",
+                          "bg-white dark:bg-slate-800 border-slate-50 dark:border-white/5 shadow-sm",
                         slot.status === "full" &&
-                          "bg-red-50/50 border-transparent opacity-40",
+                          "bg-red-50/30 dark:bg-red-950/10 border-transparent opacity-40",
                         slot.status === "current" &&
-                          "bg-blue-50 border-blue-200 shadow-inner",
+                          "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-500/30 shadow-inner",
+                        slot.isPassed && "grayscale opacity-30",
                       )}
                     >
-                      <p
+                      <span
                         className={cn(
-                          "text-xs font-black italic tracking-tighter",
+                          "text-xs font-black italic tracking-tighter pr-0.5",
                           slot.status === "full"
                             ? "text-red-400"
-                            : "text-slate-900",
+                            : "dark:text-white",
                         )}
                       >
                         {slot.time}
-                      </p>
-                      <p
-                        className={cn(
-                          "text-[6px] font-black uppercase",
-                          slot.status === "available"
-                            ? "text-slate-300"
-                            : slot.status === "full"
-                              ? "text-red-500"
+                      </span>
+                      {slot.isPassed ? (
+                        <History size={10} className="text-slate-400" />
+                      ) : slot.status === "full" ? (
+                        <Lock size={10} className="text-red-400" />
+                      ) : (
+                        <span
+                          className={cn(
+                            "text-[6px] font-black uppercase pr-1",
+                            slot.status === "available"
+                              ? "text-slate-300 dark:text-slate-600"
                               : "text-blue-600",
-                        )}
-                      >
-                        {slot.status === "available"
-                          ? "Free"
-                          : slot.status === "full"
-                            ? "Busy"
-                            : "Active"}
-                      </p>
+                          )}
+                        >
+                          {slot.status === "available" ? "Free" : "Active"}
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -286,17 +296,16 @@ export function ExtendSessionDialog({
             </ScrollArea>
           </div>
 
-          {/* RIGHT PANEL: Confirmation & Calculation */}
-          <div className="w-full md:w-[380px] bg-slate-100/50 border-l border-slate-200 flex flex-col overflow-hidden">
-            <div className="p-6 lg:p-8 space-y-8 flex-1 overflow-y-auto">
+          <div className="w-full md:w-[400px] bg-slate-100 dark:bg-slate-950 flex flex-col overflow-hidden shadow-2xl relative">
+            <div className="p-8 space-y-8 flex-1 overflow-y-auto scrollbar-hide">
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <LayoutGrid className="w-4 h-4 text-blue-600" />
-                  <h3 className="text-[10px] font-black italic uppercase tracking-widest text-slate-950">
-                    Add Session
+                  <h3 className="text-[10px] font-black italic uppercase tracking-widest text-slate-950 dark:text-white pr-2">
+                    Extension Options
                   </h3>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-3">
                   {extensionOptions.map((opt) => (
                     <button
                       key={opt.count}
@@ -308,36 +317,36 @@ export function ExtendSessionDialog({
                         })
                       }
                       className={cn(
-                        "p-5 rounded-2xl border-4 transition-all flex flex-col items-center justify-center group relative",
+                        "p-6 rounded-[2rem] border-4 transition-all flex flex-col items-center justify-center group relative",
                         selectedExtension?.count === opt.count
-                          ? "bg-white border-blue-600 shadow-lg scale-[1.03] z-10"
+                          ? "bg-white dark:bg-slate-800 border-blue-600 shadow-xl scale-[1.03] z-10"
                           : opt.busy
-                            ? "bg-slate-200/50 border-transparent opacity-30 cursor-not-allowed"
-                            : "bg-white border-white hover:border-blue-100 shadow-sm",
+                            ? "bg-slate-200/50 dark:bg-slate-900 border-transparent opacity-30 cursor-not-allowed"
+                            : "bg-white dark:bg-slate-800 border-transparent hover:border-blue-100 dark:hover:border-blue-900 shadow-sm",
                       )}
                     >
                       <span
                         className={cn(
-                          "text-2xl font-black italic tracking-tighter leading-none mb-1",
+                          "text-3xl font-black italic tracking-tighter leading-none mb-1 pr-1",
                           selectedExtension?.count === opt.count
                             ? "text-blue-600"
-                            : "text-slate-900",
+                            : "dark:text-white",
                         )}
                       >
                         +{opt.count}
                       </span>
-                      <span className="text-[7px] font-black uppercase text-slate-400 group-hover:text-slate-900">
-                        Session
+                      <span className="text-[8px] font-black uppercase text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-300">
+                        {session?.price_unit === "hour" ? "Hour" : "Session"}
                       </span>
                       {opt.busy && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-slate-100/10 rounded-xl">
-                          <Badge className="bg-red-500 text-[6px] p-0.5 px-1 uppercase font-black">
-                            FULL
+                        <div className="absolute inset-0 flex items-center justify-center bg-slate-100/5 dark:bg-slate-900/5 rounded-[2rem]">
+                          <Badge className="bg-red-500 text-[7px] p-0.5 px-2 uppercase font-black border-none">
+                            CONFLICT
                           </Badge>
                         </div>
                       )}
                       {selectedExtension?.count === opt.count && (
-                        <CheckCircle2 className="absolute -top-1.5 -right-1.5 w-4 h-4 text-blue-600 fill-white stroke-[3]" />
+                        <CheckCircle2 className="absolute -top-2 -right-2 w-5 h-5 text-blue-600 fill-white dark:fill-slate-900 stroke-[3]" />
                       )}
                     </button>
                   ))}
@@ -345,57 +354,59 @@ export function ExtendSessionDialog({
               </div>
 
               {selectedExtension && (
-                <div className="p-6 rounded-[2rem] bg-slate-900 text-white space-y-5 animate-in slide-in-from-bottom-4 shadow-2xl">
-                  <div className="space-y-0.5">
-                    <p className="text-[8px] font-black text-blue-400 uppercase italic">
-                      Confirmation
+                <div className="p-6 rounded-[2.5rem] bg-slate-900 dark:bg-blue-600 text-white space-y-6 animate-in slide-in-from-bottom-4 shadow-2xl overflow-hidden relative">
+                  <div className="relative z-10">
+                    <p className="text-[8px] font-black uppercase italic opacity-60 mb-1 pr-1">
+                      Planning Update
                     </p>
-                    <h4 className="text-lg font-black italic uppercase leading-tight">
-                      New End Time
+                    <h4 className="text-xl font-black italic uppercase tracking-tighter leading-none">
+                      New Summary
                     </h4>
                   </div>
-                  <div className="space-y-2.5">
-                    <div className="flex justify-between text-[10px] font-bold uppercase italic opacity-60">
-                      <span>Rencana Selesai</span>
-                      <span className="text-emerald-400 text-xs">
+                  <div className="space-y-3 relative z-10">
+                    <div className="flex justify-between items-center text-[10px] font-bold uppercase italic border-b border-white/10 pb-3">
+                      <span className="opacity-60">Selesai Baru</span>
+                      <span className="text-emerald-300 text-base font-black tracking-tight">
                         {selectedExtension.time} WIB
                       </span>
                     </div>
-                    <div className="pt-2.5 border-t border-white/10 flex justify-between items-center">
-                      <span className="text-[9px] font-black text-blue-400 uppercase italic">
-                        Extra Bill
+                    <div className="flex justify-between items-center">
+                      <span className="text-[9px] font-black uppercase italic opacity-60 pr-1">
+                        Total Biaya Tambahan
                       </span>
-                      <span className="text-lg font-black italic">
-                        Rp
+                      <span className="text-xl font-black italic pr-1">
+                        Rp{" "}
                         {formatIDR(
                           (session?.unit_price || 0) * selectedExtension.count,
                         )}
                       </span>
                     </div>
                   </div>
+                  <TimerReset className="absolute -right-6 -bottom-6 w-32 h-32 opacity-10 -rotate-12" />
                 </div>
               )}
 
-              <div className="p-4 bg-white rounded-2xl border border-slate-200 flex gap-3 items-start shadow-sm">
-                <AlertTriangle className="text-amber-500 w-4 h-4 shrink-0 mt-0.5" />
-                <p className="text-[8px] font-bold text-slate-400 uppercase italic leading-relaxed">
-                  Durasi dibatasi otomatis oleh jadwal customer berikutnya. Jam
-                  selesai sesi dianggap free untuk booking baru.
+              <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border dark:border-white/5 flex gap-4 items-start shadow-sm">
+                <AlertTriangle className="text-amber-500 w-5 h-5 shrink-0 mt-0.5" />
+                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase italic leading-relaxed pr-2">
+                  Sistem otomatis memblokir opsi perpanjangan jika menabrak
+                  jadwal pelanggan berikutnya.
                 </p>
               </div>
             </div>
 
-            <div className="p-6 bg-white border-t border-slate-200 shrink-0">
+            <div className="p-8 bg-white dark:bg-slate-900 border-t dark:border-white/5 shrink-0 z-20 shadow-[0_-10px_30px_rgba(0,0,0,0.05)] mt-auto">
               <Button
                 disabled={!selectedExtension || isSubmitting}
                 onClick={handleConfirmExtend}
-                className="w-full h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-xs shadow-xl gap-3 border-b-8 border-blue-800 active:border-b-0 active:translate-y-1 transition-all"
+                className="w-full h-16 rounded-[1.8rem] bg-blue-600 hover:bg-blue-500 text-white font-black uppercase italic text-xs shadow-xl gap-3 border-b-8 border-blue-800 active:border-b-0 active:translate-y-1 transition-all group pr-3"
               >
                 {isSubmitting ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <Loader2 className="w-5 h-5 animate-spin text-white" />
                 ) : (
                   <>
-                    CONFIRM EXTENSION <ChevronRight className="w-4 h-4" />
+                    Apply Extension{" "}
+                    <ChevronRight className="w-5 h-5 group-hover:translate-x-1.5 transition-transform stroke-[4]" />
                   </>
                 )}
               </Button>

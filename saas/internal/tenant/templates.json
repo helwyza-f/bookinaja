@@ -1,9 +1,26 @@
 {
   "gaming_hub": {
     "resources": [
-      { "name": "MEJA 01", "category": "REGULER" },
-      { "name": "MEJA 02", "category": "REGULER" },
-      { "name": "MEJA 03", "category": "VIP" }
+      {
+        "name": "MEJA 01",
+        "category": "REGULER",
+        "description": "Meja Reguler dengan Kursi Gaming Standard"
+      },
+      {
+        "name": "MEJA 02",
+        "category": "REGULER",
+        "description": "Meja Reguler dengan Kursi Gaming Standard"
+      },
+      {
+        "name": "MEJA 03",
+        "category": "VIP",
+        "description": "Private Room dengan Sofa & TV 65 Inch"
+      },
+      {
+        "name": "MEJA 04",
+        "category": "VIP",
+        "description": "Private Room dengan Sofa & TV 65 Inch"
+      }
     ],
     "main_items": [
       {
@@ -19,6 +36,13 @@
         "price_unit": "hour",
         "unit_duration": 60,
         "is_default": false
+      },
+      {
+        "name": "PAKET 3 JAM",
+        "price": 25000,
+        "price_unit": "hour",
+        "unit_duration": 180,
+        "is_default": false
       }
     ],
     "unit_addons": [
@@ -27,18 +51,39 @@
         "price": 5000,
         "price_unit": "session",
         "unit_duration": 0
+      },
+      {
+        "name": "HEADSET RAZER",
+        "price": 5000,
+        "price_unit": "session",
+        "unit_duration": 0
       }
     ],
     "fnb_catalog": [
       { "name": "INDOMIE GORENG + TELUR", "price": 15000, "category": "Food" },
+      { "name": "NASI GORENG GILA", "price": 25000, "category": "Food" },
+      { "name": "KENTANG GORENG", "price": 12000, "category": "Snack" },
       { "name": "ES TEH MANIS", "price": 5000, "category": "Drink" },
-      { "name": "KENTANG GORENG", "price": 12000, "category": "Snack" }
+      { "name": "KOPI SUSU AREN", "price": 18000, "category": "Drink" }
     ]
   },
   "creative_space": {
     "resources": [
-      { "name": "STUDIO A", "category": "MAIN ROOM" },
-      { "name": "PODCAST ROOM", "category": "AUDIO" }
+      {
+        "name": "STUDIO A",
+        "category": "MAIN ROOM",
+        "description": "Professional Studio for Photo & Video"
+      },
+      {
+        "name": "PODCAST ROOM",
+        "category": "AUDIO",
+        "description": "Soundproof room with 4 Mic Setup"
+      },
+      {
+        "name": "EDITING SUITE",
+        "category": "DIGITAL",
+        "description": "Mac Studio with Dual Monitor Setup"
+      }
     ],
     "main_items": [
       {
@@ -68,18 +113,38 @@
         "price": 100000,
         "price_unit": "hour",
         "unit_duration": 60
+      },
+      {
+        "name": "GREEN SCREEN",
+        "price": 75000,
+        "price_unit": "session",
+        "unit_duration": 0
       }
     ],
     "fnb_catalog": [
       { "name": "HOT AMERICANO", "price": 20000, "category": "Drink" },
+      { "name": "ICED LATTE", "price": 25000, "category": "Drink" },
       { "name": "CLUB SANDWICH", "price": 35000, "category": "Food" },
-      { "name": "AIR MINERAL 600ML", "price": 5000, "category": "Drink" }
+      { "name": "CROISSANT", "price": 22000, "category": "Snack" }
     ]
   },
   "sport_center": {
     "resources": [
-      { "name": "LAPANGAN A", "category": "VINYL" },
-      { "name": "LAPANGAN B", "category": "VINYL" }
+      {
+        "name": "LAPANGAN A",
+        "category": "VINYL",
+        "description": "Premium Vinyl Floor Badminton Court"
+      },
+      {
+        "name": "LAPANGAN B",
+        "category": "VINYL",
+        "description": "Premium Vinyl Floor Badminton Court"
+      },
+      {
+        "name": "LAPANGAN C",
+        "category": "VINYL",
+        "description": "Premium Vinyl Floor Badminton Court"
+      }
     ],
     "main_items": [
       {
@@ -109,47 +174,19 @@
         "price": 15000,
         "price_unit": "pcs",
         "unit_duration": 0
-      }
-    ],
-    "fnb_catalog": [
-      { "name": "POCARI SWEAT 500ML", "price": 10000, "category": "Drink" },
-      { "name": "PISANG GORENG (ISI 5)", "price": 15000, "category": "Snack" },
-      { "name": "NASI GORENG ATY", "price": 25000, "category": "Food" }
-    ]
-  },
-  "social_space": {
-    "resources": [
-      { "name": "MEETING ROOM VIP", "category": "PRIVATE" },
-      { "name": "CO-WORKING DESK 01", "category": "HOT DESK" }
-    ],
-    "main_items": [
-      {
-        "name": "SEWA PER JAM",
-        "price": 100000,
-        "price_unit": "hour",
-        "unit_duration": 60,
-        "is_default": true
       },
       {
-        "name": "DAILY PASS",
-        "price": 450000,
-        "price_unit": "day",
-        "unit_duration": 1440,
-        "is_default": false
-      }
-    ],
-    "unit_addons": [
-      {
-        "name": "PROJECTOR & SCREEN",
-        "price": 75000,
-        "price_unit": "session",
+        "name": "HANDUK SEWA",
+        "price": 5000,
+        "price_unit": "pcs",
         "unit_duration": 0
       }
     ],
     "fnb_catalog": [
-      { "name": "CAFE LATTE", "price": 28000, "category": "Drink" },
-      { "name": "COFFEE BREAK PACKAGE", "price": 35000, "category": "Snack" },
-      { "name": "CROISSANT", "price": 22000, "category": "Snack" }
+      { "name": "POCARI SWEAT 500ML", "price": 10000, "category": "Drink" },
+      { "name": "AIR MINERAL 600ML", "price": 5000, "category": "Drink" },
+      { "name": "PISANG GORENG (ISI 5)", "price": 15000, "category": "Snack" },
+      { "name": "MIE REBUS + TELUR", "price": 18000, "category": "Food" }
     ]
   }
 }

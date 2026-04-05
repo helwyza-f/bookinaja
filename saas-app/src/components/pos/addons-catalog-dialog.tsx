@@ -42,7 +42,6 @@ export function AddonsCatalogDialog({
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
 
-  // --- LOGIKA KERANJANG ---
   const addToCart = (item: any) => {
     setCart((prev) => ({
       ...prev,
@@ -85,8 +84,7 @@ export function AddonsCatalogDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* UKURAN SLIGHTLY SMALLER (max-w-5xl) dibanding F&B */}
-      <DialogContent className="max-w-[95vw] lg:max-w-5xl h-[80vh] p-0 overflow-hidden rounded-[3rem] border-none shadow-3xl bg-slate-50 flex flex-col md:flex-row">
+      <DialogContent className="max-w-[95vw] lg:max-w-5xl h-[85vh] p-0 overflow-hidden rounded-[3rem] border-none shadow-3xl bg-slate-50 dark:bg-slate-950 flex flex-col md:flex-row font-plus-jakarta">
         <VisuallyHidden.Root>
           <DialogHeader>
             <DialogTitle>Katalog Add-ons & Layanan</DialogTitle>
@@ -94,172 +92,188 @@ export function AddonsCatalogDialog({
         </VisuallyHidden.Root>
 
         {/* --- KIRI: KATALOG ADD-ONS --- */}
-        <div className="flex-1 flex flex-col h-full bg-white overflow-hidden">
-          <div className="p-6 lg:p-10 bg-slate-950 text-white shrink-0 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
-                <Package className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-black italic uppercase tracking-tighter leading-none">
-                  Add-ons <span className="text-orange-500">Inventory</span>
-                </h2>
-                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1.5 italic">
-                  Layanan & Alat Ekstra untuk Unit ini
-                </p>
+        <div className="flex-1 flex flex-col h-full bg-white dark:bg-slate-900 overflow-hidden border-r dark:border-white/5">
+          <div className="p-6 lg:p-10 bg-slate-950 text-white shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
+                  <Package className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-black italic uppercase tracking-tighter leading-none pr-2">
+                    Add-ons <span className="text-orange-500">Inventory</span>
+                  </h2>
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1.5 italic pr-2">
+                    Layanan & Alat Ekstra untuk Unit
+                  </p>
+                </div>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              onClick={() => onOpenChange(false)}
-              className="rounded-xl text-slate-500 hover:text-white h-10 w-10 p-0 lg:hidden"
-            >
-              <X />
-            </Button>
           </div>
 
-          <ScrollArea className="flex-1 bg-slate-50/30 p-6 lg:p-10">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 pb-10">
+          <ScrollArea className="flex-1 bg-slate-50/30 dark:bg-slate-900 p-6 lg:p-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pb-10">
               {availableAddons?.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => addToCart(item)}
                   className={cn(
-                    "flex justify-between items-center p-6 rounded-[2rem] transition-all group border-4 text-left",
+                    "flex justify-between items-center p-6 rounded-[2.2rem] transition-all group border-4 text-left relative",
                     cart[item.id]
-                      ? "bg-white border-orange-500 shadow-xl scale-[1.02]"
-                      : "bg-white border-transparent hover:border-slate-200 shadow-sm",
+                      ? "bg-white dark:bg-slate-800 border-orange-500 shadow-xl scale-[1.02]"
+                      : "bg-white dark:bg-slate-800/40 border-transparent dark:border-white/5 hover:border-slate-200 dark:hover:border-white/10 shadow-sm",
                   )}
                 >
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-black italic uppercase leading-none text-slate-900 block">
+                  <div className="space-y-1 pr-4">
+                    <span className="text-xs font-black italic uppercase leading-none text-slate-900 dark:text-white block pr-1">
                       {item.name}
                     </span>
-                    <span className="text-[9px] font-bold text-orange-600 uppercase">
+                    <span className="text-[10px] font-bold text-orange-600 dark:text-orange-500 uppercase">
                       Rp{formatIDR(item.price)}
                     </span>
                   </div>
 
                   {cart[item.id] ? (
-                    <Badge className="bg-orange-500 text-white h-8 w-8 flex items-center justify-center p-0 rounded-xl font-black text-sm">
+                    <Badge className="bg-orange-500 text-white h-10 w-10 flex items-center justify-center p-0 rounded-2xl font-black text-base border-none animate-in zoom-in">
                       {cart[item.id].quantity}
                     </Badge>
                   ) : (
-                    <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-orange-50 group-hover:text-orange-500 transition-colors">
+                    <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-700 flex items-center justify-center text-slate-300 dark:text-slate-500 group-hover:bg-orange-50 dark:group-hover:bg-orange-500/20 group-hover:text-orange-500 transition-colors">
                       <Plus className="w-5 h-5 stroke-[3]" />
                     </div>
                   )}
                 </button>
               ))}
               {(!availableAddons || availableAddons.length === 0) && (
-                <div className="col-span-full py-20 text-center opacity-20 italic font-black uppercase text-xs tracking-widest">
-                  Tidak ada layanan tambahan tersedia
+                <div className="col-span-full py-20 text-center opacity-20 italic font-black uppercase text-xs tracking-widest dark:text-white">
+                  Tidak ada layanan tersedia
                 </div>
               )}
             </div>
           </ScrollArea>
         </div>
 
-        {/* --- KANAN: REVIEW ADD-ONS --- */}
-        <div className="w-full md:w-[360px] bg-slate-100 border-l border-slate-200 flex flex-col h-full overflow-hidden shadow-[-10px_0_30px_rgba(0,0,0,0.05)]">
-          <div className="p-8 bg-white border-b border-slate-200 shrink-0">
-            <div className="flex items-center gap-2 mb-1">
+        {/* --- KANAN: REVIEW ADD-ONS (STICKY & COMPACT) --- */}
+        <div className="w-full md:w-[380px] bg-slate-100 dark:bg-slate-950 flex flex-col h-full overflow-hidden shadow-[-10px_0_30px_rgba(0,0,0,0.05)] relative">
+          {/* Header Panel Review */}
+          <div className="p-6 bg-white dark:bg-slate-900 border-b dark:border-white/5 shrink-0 z-20 flex items-center justify-between">
+            <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-orange-500" />
-              <h3 className="text-sm font-black uppercase italic tracking-widest text-slate-900">
+              <h3 className="text-sm font-black uppercase italic tracking-widest text-slate-900 dark:text-white pr-2">
                 Review Items
               </h3>
             </div>
-            <p className="text-[9px] font-bold text-slate-400 uppercase italic">
-              Tambahan alat & layanan
-            </p>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onOpenChange(false)}
+              className="h-9 w-9 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 transition-all shadow-sm"
+            >
+              <X className="w-4 h-4" />
+            </Button>
           </div>
 
-          <ScrollArea className="flex-1 p-6">
-            <div className="space-y-3">
+          {/* Area List Pesanan (Inner Scroll) */}
+          <ScrollArea className="flex-1">
+            <div className="p-4 space-y-2 pb-10">
               {cartItems.length > 0 ? (
                 cartItems.map((item: any) => (
                   <div
                     key={item.id}
-                    className="p-5 rounded-3xl bg-white shadow-sm flex flex-col gap-4 animate-in slide-in-from-right-4"
+                    className="px-4 py-3 rounded-2xl bg-white dark:bg-slate-900 shadow-sm border dark:border-white/5 animate-in slide-in-from-right-4 transition-all"
                   >
-                    <div className="flex justify-between items-start gap-4 text-[10px] font-black uppercase italic">
-                      <span className="flex-1 leading-tight">{item.name}</span>
-                      <span className="text-orange-600">
+                    <div className="flex justify-between items-start gap-2 mb-2">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[10px] font-black uppercase italic leading-tight block pr-2 dark:text-white truncate">
+                          {item.name}
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-black italic text-slate-950 dark:text-orange-500 shrink-0 pr-1">
                         Rp{formatIDR(item.price * item.quantity)}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-1 border border-slate-100">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeFromCart(item.id)}
-                        className="h-8 w-8 rounded-xl hover:bg-red-50 hover:text-red-600 transition-colors"
-                      >
-                        <Minus className="w-3 h-3 stroke-[3]" />
-                      </Button>
-                      <span className="text-xs font-black italic">
-                        {item.quantity}
+
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase">
+                        @ Rp{formatIDR(item.price)}
                       </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => addToCart(item)}
-                        className="h-8 w-8 rounded-xl hover:bg-orange-50 hover:text-orange-600 transition-colors"
-                      >
-                        <Plus className="w-3 h-3 stroke-[3]" />
-                      </Button>
+
+                      <div className="flex items-center bg-slate-50 dark:bg-slate-800 rounded-xl border dark:border-white/5 p-0.5 ml-auto">
+                        <button
+                          onClick={() => removeFromCart(item.id)}
+                          className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 transition-colors text-slate-400"
+                        >
+                          <Minus className="w-3 h-3 stroke-[3]" />
+                        </button>
+                        <span className="w-8 text-center text-[10px] font-black italic dark:text-white pr-0.5">
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() => addToCart(item)}
+                          className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/30 hover:text-orange-600 transition-colors text-slate-400"
+                        >
+                          <Plus className="w-3 h-3 stroke-[3]" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="py-20 text-center space-y-4 opacity-20">
-                  <Package className="w-12 h-12 mx-auto text-slate-400" />
-                  <p className="text-[9px] font-black uppercase italic">
-                    Pilih Add-on
+                <div className="py-32 text-center space-y-4 opacity-20 dark:opacity-10">
+                  <Package className="w-12 h-12 mx-auto text-slate-400 dark:text-white" />
+                  <p className="text-[10px] font-black uppercase italic tracking-widest dark:text-white pr-2">
+                    Belum ada add-on
                   </p>
                 </div>
               )}
             </div>
           </ScrollArea>
 
-          <div className="p-8 bg-white border-t border-slate-200 shrink-0 space-y-5 shadow-[0_-10px_30px_rgba(0,0,0,0.03)]">
-            <div className="flex justify-between items-end">
-              <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-400 uppercase italic">
-                  Ekstra Tagihan
+          {/* Footer Sticky (Sticky Total) */}
+          <div className="p-7 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-white/5 shrink-0 z-20 space-y-5 shadow-[0_-15px_30px_rgba(0,0,0,0.05)]">
+            <div className="flex justify-between items-center">
+              <div className="space-y-0.5">
+                <p className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase italic">
+                  Ekstra Billing
                 </p>
-                <p className="text-3xl font-black italic tracking-tighter leading-none flex items-start">
-                  <span className="text-lg text-orange-500 mr-1 mt-1">Rp</span>
-                  {formatIDR(cartTotal)}
-                </p>
+                <div className="flex items-baseline pr-2">
+                  <span className="text-sm text-orange-600 mr-1 font-bold">
+                    Rp
+                  </span>
+                  <span className="text-3xl font-black italic tracking-tighter dark:text-white">
+                    {formatIDR(cartTotal)}
+                  </span>
+                </div>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setCart({})}
-                className={cn(
-                  "text-red-400 hover:text-red-600 uppercase text-[9px] font-black italic",
-                  cartItems.length === 0 && "hidden",
-                )}
-              >
-                <Trash2 className="w-3 h-3 mr-1" />
-              </Button>
+
+              {cartItems.length > 0 && (
+                <Button
+                  variant="ghost"
+                  onClick={() => setCart({})}
+                  className="text-red-400 hover:text-red-600 dark:hover:bg-red-950/30 uppercase text-[8px] font-black italic transition-all px-2 pr-3"
+                >
+                  <Trash2 className="w-3 h-3 mr-1" /> Clear
+                </Button>
+              )}
             </div>
 
             <Button
               disabled={cartItems.length === 0 || isSubmitting}
               onClick={handleProcessOrder}
-              className="w-full h-16 rounded-[1.8rem] bg-slate-900 hover:bg-black text-white font-black uppercase italic text-xs shadow-2xl gap-3 border-b-8 border-slate-800 active:border-b-0 active:translate-y-1 transition-all"
+              className="w-full h-16 rounded-[1.8rem] bg-slate-900 hover:bg-black dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-black uppercase italic text-xs shadow-2xl gap-3 border-b-8 border-slate-800 dark:border-blue-800 active:border-b-0 active:translate-y-1 transition-all group pr-3"
             >
               {isSubmitting ? (
                 <Loader2 className="animate-spin" />
               ) : (
                 <>
-                  CONFIRM ADD-ONS{" "}
-                  <Send className="w-4 h-4 ml-1 text-orange-500" />
+                  Confirm Add-ons{" "}
+                  <Send className="w-4 h-4 ml-1 text-orange-500 dark:text-white group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                 </>
               )}
             </Button>
+            <p className="text-[7px] text-center text-slate-400 dark:text-slate-600 font-bold uppercase italic tracking-tighter leading-none pr-1">
+              Add-ons akan langsung ditambahkan ke tagihan sesi
+            </p>
           </div>
         </div>
       </DialogContent>

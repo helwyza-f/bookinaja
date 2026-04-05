@@ -1,7 +1,6 @@
 -- 000001_init_schema.up.sql
 
 -- 1. EXTENSIONS
--- Dibutuhkan untuk fungsi uuid_generate_v4()
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 2. TENANTS
@@ -86,14 +85,18 @@ CREATE TABLE bookings (
 );
 CREATE INDEX idx_bookings_status ON bookings(status);
 CREATE INDEX idx_bookings_tenant_time ON bookings(tenant_id, start_time, end_time);
+CREATE INDEX idx_bookings_access_token ON bookings(access_token);
 
 -- 8. BOOKING OPTIONS (Selected Resource Items during booking)
+-- REFACTORED: Ditambahkan quantity agar sinkron dengan durasi sewa
 CREATE TABLE booking_options (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     booking_id UUID REFERENCES bookings(id) ON DELETE CASCADE,
     resource_item_id UUID REFERENCES resource_items(id),
-    price_at_booking DECIMAL(12, 2) NOT NULL
+    quantity INTEGER NOT NULL DEFAULT 1, -- Baru: untuk menyimpan jam/sesi atau jumlah addon
+    price_at_booking DECIMAL(12, 2) NOT NULL -- Ini berfungsi sebagai SUB TOTAL (Unit Price * Quantity)
 );
+CREATE INDEX idx_booking_options_booking_id ON booking_options(booking_id);
 
 -- 9. FNB ITEMS (Global catalog for canteen)
 CREATE TABLE fnb_items (
@@ -109,7 +112,6 @@ CREATE TABLE fnb_items (
 );
 
 -- 10. ORDER ITEMS (Transactions for FnB that attach to Bookings)
--- Jembatan POS ke Booking Session
 CREATE TABLE order_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     booking_id UUID REFERENCES bookings(id) ON DELETE CASCADE,
@@ -119,3 +121,4 @@ CREATE TABLE order_items (
     status VARCHAR(20) DEFAULT 'delivered', -- ordered, delivered, cancelled
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+CREATE INDEX idx_order_items_booking_id ON order_items(booking_id);

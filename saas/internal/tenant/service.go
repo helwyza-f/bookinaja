@@ -87,7 +87,7 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 		return
 	}
 
-	// 2. Struktur parsing JSON (Dukungan metadata & visual data)
+	// 2. Struktur parsing JSON
 	var allTemplates map[string]struct {
 		Resources []struct {
 			Name        string `json:"name"`
@@ -126,7 +126,6 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 		return
 	}
 
-	// Persiapkan metadata kosong sebagai pointer
 	emptyMeta := json.RawMessage("{}")
 
 	// 3. Mapping Resource & Unit Addons
@@ -137,11 +136,11 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 			Category:    r.Category,
 			Description: r.Description,
 			ImageURL:    r.ImageURL,
-			Gallery:     []string{}, // Slice kosong []
-			Metadata:    &emptyMeta,  // Pointer ke json.RawMessage
+			Gallery:     []string{},
+			Metadata:    &emptyMeta,
 		}
 
-		// Masukkan Main Items
+		// Masukkan Main Items (REFACTORED: ItemType = main_option)
 		for _, mi := range tpl.MainItems {
 			duration := mi.UnitDuration
 			if duration <= 0 {
@@ -153,7 +152,7 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 				Price:        mi.Price,
 				PriceUnit:    mi.PriceUnit,
 				UnitDuration: duration,
-				ItemType:     "console_option",
+				ItemType:     "main_option", // Mengganti console_option
 				IsDefault:    mi.IsDefault,
 				Metadata:     &emptyMeta,
 			})
@@ -190,7 +189,7 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 		})
 	}
 
-	// 5. Eksekusi Seeding
+	// 5. Eksekusi Seeding melalui Repository
 	if err := s.repo.SeedTenantData(ctx, tenantID, resourcesToSeed); err != nil {
 		log.Printf("[SEEDER] Gagal seeding Resource/Items: %v", err)
 	}
@@ -202,7 +201,7 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 	log.Printf("[SEEDER] Berhasil menyuntikkan template lengkap untuk tenant %s", tenantID)
 }
 
-// Helper untuk durasi default jika tidak ditentukan di JSON
+// getDefaultDuration memberikan durasi default berdasarkan price_unit jika durasi di JSON kosong
 func (s *Service) getDefaultDuration(unit string) int {
 	switch strings.ToLower(unit) {
 	case "hour":
@@ -246,7 +245,7 @@ func (s *Service) UpdateProfile(ctx context.Context, id uuid.UUID, req Tenant) (
 	}
 
 	req.ID = id
-	req.Slug = curr.Slug // Protect slug agar tidak bisa diubah lewat profil
+	req.Slug = curr.Slug // Slug bersifat read-only lewat update profile
 	if err := s.repo.Update(ctx, req); err != nil {
 		return nil, err
 	}

@@ -59,8 +59,7 @@ func (r *Repository) SeedTenantData(ctx context.Context, tenantID uuid.UUID, res
 		res.ID = uuid.New()
 		res.TenantID = tenantID
 		res.Status = "available"
-		
-		// Pastikan metadata tidak nil
+
 		if res.Metadata == nil {
 			res.Metadata = &emptyMeta
 		}
@@ -75,7 +74,7 @@ func (r *Repository) SeedTenantData(ctx context.Context, tenantID uuid.UUID, res
 		for _, item := range res.Items {
 			item.ID = uuid.New()
 			item.ResourceID = res.ID
-			
+
 			if item.Metadata == nil {
 				item.Metadata = &emptyMeta
 			}
@@ -159,6 +158,7 @@ func (r *Repository) Exists(ctx context.Context, slug, email string) (bool, bool
 	return slugExists, emailExists, nil
 }
 
+// ListResourcesWithItems mengambil resource dan items terkait (REFACTORED: Sort order lebih rapi)
 func (r *Repository) ListResourcesWithItems(ctx context.Context, tenantID uuid.UUID) ([]map[string]interface{}, error) {
 	query := `
 		SELECT 
@@ -175,12 +175,12 @@ func (r *Repository) ListResourcesWithItems(ctx context.Context, tenantID uuid.U
 				'price', i.price,
 				'price_unit', i.price_unit,
 				'unit_duration', i.unit_duration
-			) ORDER BY i.item_type ASC, i.is_default DESC) FILTER (WHERE i.id IS NOT NULL), '[]') as items
+			) ORDER BY i.item_type ASC, i.is_default DESC, i.price ASC) FILTER (WHERE i.id IS NOT NULL), '[]') as items
 		FROM resources r
 		LEFT JOIN resource_items i ON r.id = i.resource_id
 		WHERE r.tenant_id = $1 AND r.status != 'deleted'
 		GROUP BY r.id
-		ORDER BY r.created_at DESC`
+		ORDER BY r.category ASC, r.name ASC`
 
 	rows, err := r.db.QueryxContext(ctx, query, tenantID)
 	if err != nil {
@@ -196,7 +196,6 @@ func (r *Repository) ListResourcesWithItems(ctx context.Context, tenantID uuid.U
 			return nil, err
 		}
 
-		// Handle pemetaan manual untuk JSON Aggregation
 		if itemsBytes, ok := res["items"].([]byte); ok {
 			var itemsArray []map[string]interface{}
 			if err := json.Unmarshal(itemsBytes, &itemsArray); err == nil {

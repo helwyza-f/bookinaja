@@ -19,12 +19,13 @@ type Booking struct {
 	CreatedAt   time.Time `db:"created_at" json:"created_at"`
 }
 
-// BookingOption menyimpan item resource yang dipilih (misal: Paket Utama, Alat Tambahan)
+// BookingOption menyimpan item resource yang dipilih (REFACTORED: ditambahkan Quantity)
 type BookingOption struct {
 	ID             uuid.UUID `db:"id" json:"id"`
 	BookingID      uuid.UUID `db:"booking_id" json:"booking_id"`
 	ResourceItemID uuid.UUID `db:"resource_item_id" json:"resource_item_id"`
-	PriceAtBooking float64   `db:"price_at_booking" json:"price_at_booking"`
+	Quantity       int       `db:"quantity" json:"quantity"` // Baru: Menyimpan durasi atau jumlah addon fisik
+	PriceAtBooking float64   `db:"price_at_booking" json:"price_at_booking"` // Ini adalah Subtotal (Price * Quantity)
 }
 
 // CreateBookingReq untuk payload dari Frontend/Public
@@ -71,11 +72,14 @@ type BookingDetail struct {
 	Orders         []OrderItem           `json:"orders"`          // Pesanan F&B POS
 }
 
+// BookingOptionDetail (REFACTORED: ditambahkan Quantity dan UnitPrice)
 type BookingOptionDetail struct {
 	ID             uuid.UUID `json:"id"`
 	ItemName       string    `db:"item_name" json:"item_name"`
 	ItemType       string    `db:"item_type" json:"item_type"`
-	PriceAtBooking float64   `db:"price_at_booking" json:"price_at_booking"`
+	Quantity       int       `db:"quantity" json:"quantity"`     // Baru: Dari table booking_options
+	UnitPrice      float64   `db:"unit_price" json:"unit_price"` // Baru: Harga satuan saat itu
+	PriceAtBooking float64   `db:"price_at_booking" json:"price_at_booking"` // Subtotal
 }
 
 // --- POS SPECIFIC REQUESTS ---
