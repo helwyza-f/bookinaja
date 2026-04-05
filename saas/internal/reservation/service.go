@@ -25,14 +25,17 @@ func NewService(r *Repository, resRepo *resource.Repository) *Service {
 // Create menangani pendaftaran reservasi baru
 func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, error) {
 	// 1. PARSE WAKTU AWAL
-	layout := "2006-01-02T15:04:05"
-	start, err := time.ParseInLocation(layout, req.StartTime, time.Local)
+	start, err := time.Parse(time.RFC3339, req.StartTime)
 	if err != nil {
-		start, err = time.Parse(time.RFC3339, req.StartTime)
+		layout := "2006-01-02T15:04:05"
+		start, err = time.ParseInLocation(layout, req.StartTime, time.Local)
 		if err != nil {
-			return nil, errors.New("FORMAT WAKTU SALAH, GUNAKAN YYYY-MM-DDTHH:MM:SS")
+			return nil, errors.New("FORMAT WAKTU SALAH, GUNAKAN ISO8601 DENGAN OFFSET")
 		}
 	}
+
+	// FORCE TO UTC: Agar database konsisten
+	start = start.UTC()
 
 	tID, _ := uuid.Parse(req.TenantID)
 	rID, _ := uuid.Parse(req.ResourceID)
@@ -87,9 +90,10 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, e
 		EndTime:     end,
 		AccessToken: uuid.New(),
 		Status:      "pending",
-		CreatedAt:   time.Now(),
+		CreatedAt:   time.Now().UTC(),
 	}
 
+	// 6. SIMPAN KE DATABASE
 	if err := s.repo.CreateWithItems(ctx, newBooking, itemUUIDs, req.Duration); err != nil {
 		return nil, err
 	}
@@ -97,7 +101,83 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, e
 	return &newBooking, nil
 }
 
-// --- POS & ORDERING SERVICES ---
+// --- POS & EXTENSION SERVICES ---
+
+// ExtendSession memperpanjang durasi booking DAN menambah tagihan (Bill) secara otomatis
+func (s *Service) ExtendSession(ctx context.Context, bookingID string, tenantID string, additionalDuration int) error {
+	bID, _ := uuid.Parse(bookingID)
+	tID, _ := uuid.Parse(tenantID)
+
+	// 1. Ambil data booking saat ini untuk identifikasi paket
+	booking, err := s.repo.FindByID(ctx, bID, tID)
+	if err != nil || booking == nil {
+		return errors.New("SESI TIDAK DITEMUKAN")
+	}
+
+	// 2. Cari ID Paket Utama (main_option/console_option) untuk menghitung biaya tambahan
+	// Kita butuh ID asli dari resource_items untuk proses INSERT di booking_options
+	var mainItemID uuid.UUID
+	resDetail, err := s.resourceRepo.GetOneWithItems(ctx, booking.ResourceID)
+	if err == nil {
+		// Kita cocokkan item yang ada di session dengan katalog asli resource
+		for _, opt := range booking.Options {
+			if opt.ItemType == "main_option" || opt.ItemType == "console_option" {
+				for _, item := range resDetail.Items {
+					if item.Name == opt.ItemName {
+						mainItemID = item.ID
+						break
+					}
+				}
+			}
+			if mainItemID != uuid.Nil { break }
+		}
+	}
+
+	if mainItemID == uuid.Nil {
+		return errors.New("GAGAL MENGIDENTIFIKASI PAKET UTAMA UNTUK PENAMBAHAN BILL")
+	}
+
+	// 3. Kalkulasi End Time baru
+	unitMinutes := booking.UnitDuration
+	if unitMinutes <= 0 { unitMinutes = 60 }
+	newEndTime := booking.EndTime.Add(time.Duration(additionalDuration*unitMinutes) * time.Minute)
+
+	// 4. Eksekusi Atomic Transaction (Validasi + Update Time + Add Bill)
+	// Kita memanggil fungsi repository yang sudah menggunakan transaksi (Safe dari Race Condition)
+	err = s.repo.ExtendSessionWithValidation(
+		ctx, 
+		bID, 
+		booking.ResourceID, 
+		booking.EndTime, 
+		newEndTime, 
+		mainItemID, 
+		additionalDuration,
+	)
+	
+	if err != nil {
+		return err // Mengembalikan "SLOT WAKTU SUDAH TERISI" atau error lainnya
+	}
+
+	return nil
+}
+
+// AddAddonOrder menambah layanan tambahan ke billing berjalan
+func (s *Service) AddAddonOrder(ctx context.Context, bookingID string, tenantID string, itemID string) error {
+	bID, _ := uuid.Parse(bookingID)
+	tID, _ := uuid.Parse(tenantID)
+	iID, _ := uuid.Parse(itemID)
+
+	booking, err := s.repo.FindByID(ctx, bID, tID)
+	if err != nil || booking == nil {
+		return errors.New("SESI TIDAK DITEMUKAN")
+	}
+
+	if booking.Status != "active" && booking.Status != "ongoing" {
+		return errors.New("HANYA BISA TAMBAH LAYANAN PADA SESI AKTIF")
+	}
+
+	return s.repo.AddAddonOrder(ctx, bID, iID)
+}
 
 // GetActiveSessions mengambil sesi yang sedang berlangsung untuk dashboard POS
 func (s *Service) GetActiveSessions(ctx context.Context, tenantID string) ([]BookingDetail, error) {
@@ -109,15 +189,15 @@ func (s *Service) GetActiveSessions(ctx context.Context, tenantID string) ([]Boo
 }
 
 // AddFnbOrder menambahkan pesanan makanan/minuman ke dalam bill booking
-func (s *Service) AddFnbOrder(ctx context.Context, bookingID string, req AddOrderReq) error {
+func (s *Service) AddFnbOrder(ctx context.Context, bookingID string, tenantID string, req AddOrderReq) error {
 	bID, err := uuid.Parse(bookingID)
+	tID, _ := uuid.Parse(tenantID)
+	
 	if err != nil {
 		return errors.New("ID BOOKING TIDAK VALID")
 	}
 
-	// Validasi tambahan: Pastikan booking exists dan statusnya active/ongoing
-	// (Opsional, tapi bagus untuk keamanan data)
-	booking, err := s.repo.FindByID(ctx, bID, uuid.Nil) // tenantID Nil jika bypass check di repo
+	booking, err := s.repo.FindByID(ctx, bID, tID) 
 	if err != nil || booking == nil {
 		return errors.New("SESI BOOKING TIDAK DITEMUKAN")
 	}
@@ -137,7 +217,7 @@ func (s *Service) GetAvailability(ctx context.Context, resourceID string, date t
 		return nil, errors.New("ID RESOURCE TIDAK VALID")
 	}
 
-	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local)
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
 	bookings, err := s.repo.ListUpcoming(ctx, rID, startOfDay)
 	if err != nil {
 		return nil, err
@@ -146,6 +226,7 @@ func (s *Service) GetAvailability(ctx context.Context, resourceID string, date t
 	busySlots := []map[string]string{}
 	for _, b := range bookings {
 		busySlots = append(busySlots, map[string]string{
+			"id":         b.ID.String(),
 			"start_time": b.StartTime.Format("15:04"),
 			"end_time":   b.EndTime.Format("15:04"),
 		})

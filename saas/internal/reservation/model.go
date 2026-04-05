@@ -15,11 +15,11 @@ type Booking struct {
 	StartTime   time.Time `db:"start_time" json:"start_time"`
 	EndTime     time.Time `db:"end_time" json:"end_time"`
 	AccessToken uuid.UUID `db:"access_token" json:"access_token"`
-	Status      string    `db:"status" json:"status"` // pending, active/ongoing, completed, cancelled
+	Status      string    `db:"status" json:"status"` // pending, active, ongoing, completed, cancelled
 	CreatedAt   time.Time `db:"created_at" json:"created_at"`
 }
 
-// BookingOption menyimpan item resource yang dipilih (misal: Paket Member, Alat Tambahan)
+// BookingOption menyimpan item resource yang dipilih (misal: Paket Utama, Alat Tambahan)
 type BookingOption struct {
 	ID             uuid.UUID `db:"id" json:"id"`
 	BookingID      uuid.UUID `db:"booking_id" json:"booking_id"`
@@ -42,26 +42,33 @@ type CreateBookingReq struct {
 
 // OrderItem mewakili item F&B yang dipesan melalui POS saat booking berlangsung
 type OrderItem struct {
-	ID             uuid.UUID `db:"id" json:"id"`
-	BookingID      uuid.UUID `db:"booking_id" json:"booking_id"`
-	FnbItemID      uuid.UUID `db:"fnb_item_id" json:"fnb_item_id"`
-	ItemName       string    `db:"item_name" json:"item_name"` // Join dari fnb_items
-	Quantity       int       `db:"quantity" json:"quantity"`
-	PriceAtPurchase float64  `db:"price_at_purchase" json:"price_at_purchase"`
-	Subtotal       float64   `db:"subtotal" json:"subtotal"`
+	ID              uuid.UUID `db:"id" json:"id"`
+	BookingID       uuid.UUID `db:"booking_id" json:"booking_id"`
+	FnbItemID       uuid.UUID `db:"fnb_item_id" json:"fnb_item_id"`
+	ItemName        string    `db:"item_name" json:"item_name"`
+	Quantity        int       `db:"quantity" json:"quantity"`
+	PriceAtPurchase float64   `db:"price_at_purchase" json:"price_at_purchase"`
+	Subtotal        float64   `db:"subtotal" json:"subtotal"`
 }
 
 // BookingDetail adalah view lengkap untuk Admin Panel & POS Dashboard
 type BookingDetail struct {
 	Booking
-	CustomerName  string                `db:"customer_name" json:"customer_name"`
-	CustomerPhone string                `db:"customer_phone" json:"customer_phone"`
-	ResourceName  string                `db:"resource_name" json:"resource_name"`
-	TotalResource float64               `db:"total_resource" json:"total_resource"` // Total dari booking_options
-	TotalFnb      float64               `db:"total_fnb" json:"total_fnb"`           // Total dari order_items (POS)
-	GrandTotal    float64               `db:"grand_total" json:"grand_total"`       // Resource + F&B
-	Options       []BookingOptionDetail `json:"options"`
-	Orders        []OrderItem           `json:"orders"` // List pesanan F&B dari POS
+	CustomerName  string `db:"customer_name" json:"customer_name"`
+	CustomerPhone string `db:"customer_phone" json:"customer_phone"`
+	ResourceName  string `db:"resource_name" json:"resource_name"`
+
+	// --- Field untuk Suplai Dialog Extend ---
+	UnitPrice    float64 `db:"unit_price" json:"unit_price"`       // Harga dasar per jam/sesi (dari item utama)
+	UnitDuration int     `db:"unit_duration" json:"unit_duration"` // Durasi per unit dalam menit (misal: 60)
+
+	TotalResource float64 `db:"total_resource" json:"total_resource"`
+	TotalFnb      float64 `db:"total_fnb" json:"total_fnb"`
+	GrandTotal    float64 `db:"grand_total" json:"grand_total"`
+
+	ResourceAddons []ResourceItemSimple `json:"resource_addons"` // Daftar katalog addon tersedia
+	Options        []BookingOptionDetail `json:"options"`         // Items yang sudah dibeli
+	Orders         []OrderItem           `json:"orders"`          // Pesanan F&B POS
 }
 
 type BookingOptionDetail struct {
@@ -77,4 +84,12 @@ type BookingOptionDetail struct {
 type AddOrderReq struct {
 	FnbItemID uuid.UUID `json:"fnb_item_id" binding:"required"`
 	Quantity  int       `json:"quantity" binding:"required,min=1"`
+}
+
+// ResourceItemSimple untuk daftar katalog addon yang bisa dipilih di POS
+type ResourceItemSimple struct {
+	ID       uuid.UUID `json:"id" db:"id"`
+	Name     string    `json:"name" db:"name"`
+	Price    float64   `json:"price" db:"price"`
+	ItemType string    `json:"item_type" db:"item_type"`
 }

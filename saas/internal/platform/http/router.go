@@ -102,6 +102,7 @@ func NewRouter(cfg Config) *gin.Engine {
 				})
 			}
 
+			
 			// BOOKING & POS MANAGEMENT
 			bookings := protected.Group("/bookings")
 			{
@@ -111,10 +112,14 @@ func NewRouter(cfg Config) *gin.Engine {
 				bookings.POST("/manual", cfg.ReservationHandler.Create)
 				
 				// --- POS SPECIFIC ROUTES ---
-				// Mengambil unit yang sedang aktif digunakan
 				bookings.GET("/pos/active", cfg.ReservationHandler.GetActiveSessions)
-				// Menambah pesanan makanan ke billing booking
 				bookings.POST("/pos/order/:id", cfg.ReservationHandler.AddOrder)
+
+				// --- FITUR BARU: POS CONTROL HUB ---
+				// POST /api/v1/bookings/:id/extend (Untuk perpanjang durasi)
+				bookings.POST("/:id/extend", cfg.ReservationHandler.ExtendSession)
+				// POST /api/v1/bookings/:id/addons (Untuk tambah layanan/alat ekstra)
+				bookings.POST("/:id/addons", cfg.ReservationHandler.AddAddonItem)
 			}
 
 			// CUSTOMER MANAGEMENT

@@ -29,6 +29,7 @@ import {
   Briefcase,
   Monitor,
   Package,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import api from "@/lib/api";
@@ -58,7 +59,7 @@ export function ManageItemDialog({
   const [displayPrice, setDisplayPrice] = useState("");
   const [rawPrice, setRawPrice] = useState(0);
   const [isDefault, setIsDefault] = useState(false);
-  const [itemType, setItemType] = useState("main");
+  const [itemType, setItemType] = useState("main"); // "main" atau "addon"
   const [priceUnit, setPriceUnit] = useState("hour");
   const [unitDuration, setUnitDuration] = useState<number>(60);
   const [loading, setLoading] = useState(false);
@@ -71,9 +72,8 @@ export function ManageItemDialog({
       setRawPrice(editingItem.price);
       setDisplayPrice(formatIDR(editingItem.price));
       setIsDefault(editingItem.is_default);
-      setItemType(
-        editingItem.item_type === "console_option" ? "main" : "addon",
-      );
+      // Mapping dari backend type ke UI state
+      setItemType(editingItem.item_type === "main_option" ? "main" : "add_on");
       setPriceUnit(editingItem.price_unit || "hour");
       setUnitDuration(editingItem.unit_duration || 60);
     } else {
@@ -107,7 +107,8 @@ export function ManageItemDialog({
       price_unit: priceUnit,
       unit_duration: itemType === "main" ? Number(unitDuration) : 0,
       is_default: itemType === "addon" ? false : isDefault,
-      item_type: itemType === "main" ? "console_option" : "add_on",
+      // Universal mapping: console_option diganti menjadi main_option
+      item_type: itemType === "main" ? "main_option" : "add_on",
     };
 
     try {
@@ -127,43 +128,42 @@ export function ManageItemDialog({
     }
   };
 
-  // Content configuration based on business category
   const getContextConfig = () => {
     switch (businessCategory) {
       case "gaming_hub":
         return {
           title: "Setup Gaming",
-          mainLabel: "Console / PC",
+          mainLabel: "Unit Utama",
           mainIcon: <Monitor className="h-5 w-5" />,
-          placeholder: "CONTOH: PS5 PRO / PC HIGH-END",
-          inputLabel: "NAMA UNIT GADGET",
+          placeholder: "CONTOH: PC HIGH-END / PS5 PRO",
+          inputLabel: "NAMA UNIT UTAMA",
           addonPlaceholder: "CONTOH: STIK TAMBAHAN / HEADSET",
         };
       case "creative_space":
         return {
           title: "Paket Studio",
-          mainLabel: "Tipe Ruangan",
+          mainLabel: "Tipe Paket",
           mainIcon: <Camera className="h-5 w-5" />,
-          placeholder: "CONTOH: STUDIO GREEN SCREEN / PODCAST BOX",
-          inputLabel: "NAMA TIPE RUANGAN",
+          placeholder: "CONTOH: PAKET PODCAST / STUDIO GREEN SCREEN",
+          inputLabel: "NAMA TIPE PAKET",
           addonPlaceholder: "CONTOH: SEWA LENSA / LIGHTING EXTRA",
         };
       case "sport_center":
         return {
-          title: "Opsi Lapangan",
+          title: "Opsi Fasilitas",
           mainLabel: "Jenis Sewa",
           mainIcon: <Trophy className="h-5 w-5" />,
-          placeholder: "CONTOH: LAPANGAN VINYL / RUMPUT SINTETIS",
-          inputLabel: "NAMA JENIS FASILITAS",
+          placeholder: "CONTOH: LAPANGAN VINYL / SINTETIS",
+          inputLabel: "NAMA JENIS SEWA",
           addonPlaceholder: "CONTOH: SEWA RAKET / SHUTTLECOCK",
         };
       case "social_space":
         return {
-          title: "Konfigurasi Ruang",
-          mainLabel: "Tipe Meja/Ruang",
+          title: "Opsi Ruang",
+          mainLabel: "Konfigurasi",
           mainIcon: <Briefcase className="h-5 w-5" />,
-          placeholder: "CONTOH: PRIVATE OFFICE / HOT DESK",
-          inputLabel: "NAMA TIPE LAYANAN",
+          placeholder: "CONTOH: MEJA PRIVATE / MEETING ROOM",
+          inputLabel: "NAMA KONFIGURASI RUANG",
           addonPlaceholder: "CONTOH: PROYEKTOR / SNACK BOX",
         };
       default:
@@ -172,8 +172,8 @@ export function ManageItemDialog({
           mainLabel: "Unit Utama",
           mainIcon: <Zap className="h-5 w-5" />,
           placeholder: "NAMA ITEM UTAMA",
-          inputLabel: "ITEM NAME",
-          addonPlaceholder: "NAMA ITEM TAMBAHAN",
+          inputLabel: "NAMA ITEM UTAMA",
+          addonPlaceholder: "NAMA LAYANAN TAMBAHAN",
         };
     }
   };
@@ -182,45 +182,24 @@ export function ManageItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-[2.5rem] p-8 sm:max-w-[480px] border-none shadow-2xl overflow-hidden bg-background">
+      <DialogContent className="rounded-[2.5rem] p-8 sm:max-w-[500px] border-none shadow-2xl overflow-hidden bg-background">
         <DialogHeader className="space-y-2 text-left">
-          <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter leading-none pr-4">
+          <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter leading-none">
             MANAGE <span className="text-blue-600">{config.title}</span>
           </DialogTitle>
           <DialogDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic leading-relaxed">
-            Konfigurasi tarif dan opsi untuk unit{" "}
-            <span className="text-slate-900 dark:text-white">
+            Konfigurasi tarif utama dan layanan tambahan untuk{" "}
+            <span className="text-slate-900 dark:text-white font-black px-1 underline decoration-blue-600">
               {resourceName}
             </span>
-            .
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSave} className="space-y-6 pt-4">
-          {/* NAMA ITEM */}
-          <div className="space-y-1.5">
-            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 italic">
-              {itemType === "main"
-                ? config.inputLabel
-                : "NAMA ADD-ON / LAYANAN"}
-            </Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value.toUpperCase())}
-              placeholder={
-                itemType === "main"
-                  ? config.placeholder
-                  : config.addonPlaceholder
-              }
-              className="h-14 rounded-2xl font-bold bg-slate-50 dark:bg-slate-900 border-none px-5 text-sm focus-visible:ring-blue-600 transition-all"
-              required
-            />
-          </div>
-
-          {/* TIPE ITEM */}
+          {/* TIPE ITEM (DIATAS AGAR KONTEKS JELAS) */}
           <div className="space-y-3">
             <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 italic">
-              TENTUKAN KATEGORI ITEM
+              KATEGORI PILIHAN
             </Label>
             <RadioGroup
               value={itemType}
@@ -249,7 +228,7 @@ export function ManageItemDialog({
                   >
                     {config.mainIcon}
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-tight text-center leading-none pr-1">
+                  <span className="text-[10px] font-black uppercase tracking-tight text-center leading-none">
                     {config.mainLabel}
                   </span>
                 </Label>
@@ -272,12 +251,32 @@ export function ManageItemDialog({
                         : "text-slate-300",
                     )}
                   />
-                  <span className="text-[10px] font-black uppercase tracking-tight leading-none pr-1">
-                    Add-on / Alat
+                  <span className="text-[10px] font-black uppercase tracking-tight leading-none">
+                    Layanan / Alat
                   </span>
                 </Label>
               </div>
             </RadioGroup>
+          </div>
+
+          {/* NAMA ITEM */}
+          <div className="space-y-1.5">
+            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 italic">
+              {itemType === "main"
+                ? config.inputLabel
+                : "NAMA LAYANAN TAMBAHAN"}
+            </Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value.toUpperCase())}
+              placeholder={
+                itemType === "main"
+                  ? config.placeholder
+                  : config.addonPlaceholder
+              }
+              className="h-14 rounded-2xl font-bold bg-slate-50 dark:bg-slate-900 border-none px-5 text-sm focus-visible:ring-blue-600 transition-all"
+              required
+            />
           </div>
 
           {/* HARGA & SATUAN */}
@@ -296,7 +295,7 @@ export function ManageItemDialog({
             </div>
             <div className="space-y-1.5">
               <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 italic">
-                SISTEM BILLING
+                METODE BILLING
               </Label>
               <Select
                 value={priceUnit}
@@ -306,7 +305,7 @@ export function ManageItemDialog({
                   if (v === "day") setUnitDuration(1440);
                 }}
               >
-                <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-slate-900 border-none font-bold text-xs uppercase italic">
+                <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-slate-900 border-none font-bold text-[10px] uppercase italic">
                   <SelectValue placeholder="Satuan" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl font-bold uppercase">
@@ -324,24 +323,23 @@ export function ManageItemDialog({
             </div>
           </div>
 
-          {/* DURASI (Dinamis muncul jika Per Sesi) */}
+          {/* DURASI SESI (Dinamis) */}
           {itemType === "main" && priceUnit === "session" && (
             <div className="space-y-1.5 animate-in slide-in-from-top-2">
               <Label className="text-[9px] font-black uppercase tracking-widest text-blue-600 px-1 italic">
-                DURASI SEWA PER SESI (MENIT)
+                DURASI PER SESI (MENIT)
               </Label>
               <Input
                 type="number"
                 value={unitDuration}
                 onChange={(e) => setUnitDuration(Number(e.target.value))}
                 className="h-12 rounded-xl font-black bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900 text-base"
-                placeholder="Misal: 120"
                 required
               />
             </div>
           )}
 
-          {/* DEFAULT TOGGLE */}
+          {/* DEFAULT CHECKBOX */}
           {itemType === "main" && (
             <div className="flex items-center space-x-3 p-4 rounded-2xl border-2 border-dashed bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900 transition-all">
               <input
@@ -353,9 +351,9 @@ export function ManageItemDialog({
               />
               <Label
                 htmlFor="def"
-                className="text-[10px] font-black uppercase italic text-slate-700 dark:text-slate-200 cursor-pointer leading-none pr-1"
+                className="text-[10px] font-black uppercase italic text-slate-700 dark:text-slate-200 cursor-pointer leading-none"
               >
-                JADIKAN PILIHAN UTAMA (DEFAULT)
+                Jadikan Paket Default
               </Label>
             </div>
           )}
@@ -363,16 +361,44 @@ export function ManageItemDialog({
           <Button
             type="submit"
             disabled={loading}
-            className="w-full h-16 rounded-[2rem] bg-slate-900 dark:bg-blue-600 hover:bg-black dark:hover:bg-blue-700 font-black uppercase tracking-widest text-[11px] shadow-xl text-white transition-all active:scale-95 border-b-8 border-slate-800 dark:border-blue-800"
+            className="w-full h-16 rounded-[2rem] bg-slate-900 dark:bg-blue-600 hover:bg-black dark:hover:bg-blue-700 font-black uppercase tracking-[0.2em] text-[10px] shadow-xl text-white transition-all active:scale-95 border-b-8 border-slate-800 dark:border-blue-800"
           >
-            {loading
-              ? "SAVING..."
-              : editingItem
-                ? "UPDATE CONFIGURATION"
-                : "ADD TO INVENTORY"}
+            {loading ? (
+              <Loader2 className="animate-spin h-5 w-5" />
+            ) : editingItem ? (
+              "SIMPAN PERUBAHAN"
+            ) : (
+              "TAMBAHKAN KE UNIT"
+            )}
           </Button>
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// Komponen Loader simpel untuk button
+function Loader2({ className }: { className?: string }) {
+  return (
+    <svg
+      className={cn("animate-spin", className)}
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      ></circle>
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      ></path>
+    </svg>
   );
 }

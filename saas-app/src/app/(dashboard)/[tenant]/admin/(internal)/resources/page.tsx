@@ -150,10 +150,13 @@ export default function ResourcesPage() {
       ) : resources.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {resources.map((res) => {
+            // Update filter agar mencakup tipe baru 'main_option'
             const mainItems =
               res.items?.filter(
                 (i: any) =>
-                  i.item_type === "console_option" || i.item_type === "main",
+                  i.item_type === "main_option" ||
+                  i.item_type === "main" ||
+                  i.item_type === "console_option",
               ) || [];
             const addonItems =
               res.items?.filter(
@@ -248,7 +251,6 @@ export default function ResourcesPage() {
                                 </div>
                               </div>
                               <span className="text-[10px] font-black text-blue-600 italic whitespace-nowrap shrink-0">
-                                {/* UPDATE: Menggunakan .price sesuai backend baru */}
                                 Rp{formatIDR(item.price || 0)}
                                 <span className="text-[7px] text-slate-400 ml-0.5 font-bold">
                                   /{item.price_unit?.toUpperCase() || "JAM"}

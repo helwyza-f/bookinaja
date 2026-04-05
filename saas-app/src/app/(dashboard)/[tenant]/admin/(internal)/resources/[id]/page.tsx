@@ -24,13 +24,11 @@ import {
   Save,
   Monitor,
   Sparkles,
-  Eye,
   Settings2,
   LayoutDashboard,
   CheckCircle2,
   Image as ImageIcon,
   X,
-  ArrowUpRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
@@ -111,7 +109,7 @@ export default function ResourceDetailPage() {
         ...item,
         is_default: true,
       });
-      toast.success("Default diperbarui");
+      toast.success("Paket utama diperbarui");
       fetchData();
     } catch (err) {
       toast.error("Gagal update status");
@@ -119,10 +117,10 @@ export default function ResourceDetailPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Hapus item ini?")) return;
+    if (!confirm("Hapus item ini secara permanen?")) return;
     try {
       await api.delete(`/resources-all/items/${id}`);
-      toast.success("Terhapus");
+      toast.success("Item berhasil dihapus");
       fetchData();
     } catch (err) {
       toast.error("Gagal menghapus");
@@ -144,33 +142,38 @@ export default function ResourceDetailPage() {
   const getContextConfig = () => {
     const configs: Record<string, any> = {
       gaming_hub: {
-        label: "Console / PC",
+        label: "Konfigurasi Unit",
         icon: <Gamepad2 className="h-6 w-6 text-blue-500" />,
       },
       creative_space: {
-        label: "Studio / Ruang",
+        label: "Paket Ruangan",
         icon: <Camera className="h-6 w-6 text-rose-500" />,
       },
       sport_center: {
-        label: "Tipe Lapangan",
+        label: "Opsi Fasilitas",
         icon: <Trophy className="h-6 w-6 text-emerald-500" />,
       },
       social_space: {
-        label: "Tipe Meja/Ruang",
+        label: "Tipe Ruang",
         icon: <Briefcase className="h-6 w-6 text-indigo-500" />,
       },
     };
     return (
       configs[businessCategory] || {
-        label: "Unit Utama",
+        label: "Pilihan Utama",
         icon: <Clock className="h-6 w-6 text-slate-500" />,
       }
     );
   };
 
   const config = getContextConfig();
+
+  // Memastikan sinkronisasi dengan item_type baru (main_option & add_on)
   const mainItems = items.filter(
-    (i) => i.item_type === "console_option" || i.item_type === "main",
+    (i) =>
+      i.item_type === "main_option" ||
+      i.item_type === "main" ||
+      i.item_type === "console_option",
   );
   const addonItems = items.filter(
     (i) => i.item_type === "add_on" || i.item_type === "addon",
@@ -180,7 +183,7 @@ export default function ResourceDetailPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-12 pb-24 animate-in fade-in duration-700 px-4 font-plus-jakarta">
-      {/* --- REFINED PROPORTIONAL HEADER --- */}
+      {/* --- HEADER --- */}
       <header className="space-y-6">
         <Button
           variant="ghost"
@@ -188,7 +191,7 @@ export default function ResourceDetailPage() {
           className="group -ml-2 font-black text-slate-400 uppercase text-[10px] tracking-[0.2em] hover:bg-transparent hover:text-blue-600 transition-all italic"
         >
           <ArrowLeft className="mr-2 h-4 w-4 stroke-[3] group-hover:-translate-x-1 transition-transform" />
-          Back to Inventory
+          KEMBALI KE INVENTORI
         </Button>
 
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
@@ -196,15 +199,15 @@ export default function ResourceDetailPage() {
             <div className="flex items-center gap-2">
               <span className="h-1 w-8 bg-blue-600 rounded-full" />
               <p className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600/60 italic">
-                Configuration Center
+                Pusat Konfigurasi
               </p>
             </div>
             <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-[0.9]">
               {resource?.name}
             </h1>
             <p className="text-slate-400 font-bold uppercase text-xs tracking-widest flex items-center gap-2 italic">
-              <MapPin className="h-3 w-3" /> Area:{" "}
-              {resource?.category || "General Space"}
+              <MapPin className="h-3 w-3 text-blue-500" /> Kategori:{" "}
+              {resource?.category || "Umum"}
             </p>
           </div>
 
@@ -216,7 +219,7 @@ export default function ResourceDetailPage() {
               }}
               className="h-14 px-8 rounded-2xl bg-blue-600 font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-blue-500/20 text-white hover:bg-blue-700 transition-all active:scale-95 border-b-4 border-blue-800"
             >
-              <Plus className="mr-2 h-4 w-4 stroke-[3]" /> Add New Option
+              <Plus className="mr-2 h-4 w-4 stroke-[3]" /> Tambah Opsi Baru
             </Button>
           </div>
         </div>
@@ -235,7 +238,7 @@ export default function ResourceDetailPage() {
               >
                 {isEditMode ? (
                   <>
-                    <X className="mr-1.5 h-3.5 w-3.5 text-red-500" /> Cancel
+                    <X className="mr-1.5 h-3.5 w-3.5 text-red-500" /> Batal
                   </>
                 ) : (
                   <>
@@ -251,15 +254,15 @@ export default function ResourceDetailPage() {
                 <div className="space-y-8 animate-in slide-in-from-top-4 duration-500">
                   <div className="space-y-1">
                     <h2 className="text-lg font-black uppercase italic tracking-widest text-slate-900 dark:text-white">
-                      Marketing Assets
+                      Aset Pemasaran
                     </h2>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">
-                      Visual yang akan memikat calon pelanggan
+                      Visual untuk menarik minat calon pelanggan
                     </p>
                   </div>
 
                   <SingleImageUpload
-                    label="Cover Banner"
+                    label="Banner Utama"
                     value={imageUrl}
                     onChange={setImageUrl}
                     endpoint="/resources-all/upload-cover"
@@ -267,10 +270,10 @@ export default function ResourceDetailPage() {
 
                   <div className="space-y-3">
                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic px-1">
-                      Selling Points & Description
+                      Deskripsi & Keunggulan
                     </Label>
                     <Textarea
-                      placeholder="Jelaskan kenyamanan, spesifikasi, atau vibe unik dari unit ini..."
+                      placeholder="Jelaskan vibe, fasilitas, atau keunikan unit ini..."
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       className="min-h-[160px] rounded-[1.5rem] bg-slate-50 dark:bg-slate-800 border-none text-sm p-6 focus-visible:ring-2 focus-visible:ring-blue-500 font-medium leading-relaxed shadow-inner"
@@ -292,7 +295,7 @@ export default function ResourceDetailPage() {
                       <Loader2 className="h-5 w-5 animate-spin" />
                     ) : (
                       <>
-                        <Save className="mr-2 h-5 w-5" /> Save Marketing Data
+                        <Save className="mr-2 h-5 w-5" /> Simpan Data Visual
                       </>
                     )}
                   </Button>
@@ -310,7 +313,7 @@ export default function ResourceDetailPage() {
                       <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
                         <ImageIcon className="h-16 w-16 mb-2 opacity-10" />
                         <span className="text-[10px] font-black uppercase italic tracking-[0.4em] opacity-40">
-                          Empty Canvas
+                          Tanpa Banner
                         </span>
                       </div>
                     )}
@@ -322,12 +325,12 @@ export default function ResourceDetailPage() {
                         <Sparkles className="h-5 w-5 fill-current" />
                       </div>
                       <h3 className="text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
-                        The Experience
+                        Vibe & Suasana
                       </h3>
                     </div>
                     <p className="text-base font-medium text-slate-500 dark:text-slate-400 leading-relaxed italic border-l-4 border-slate-100 dark:border-slate-800 pl-6 pr-4">
                       {description ||
-                        "Belum ada deskripsi pemasaran. Gunakan fitur 'Edit Visual' untuk menambahkan narasi yang menjual."}
+                        "Belum ada deskripsi pemasaran. Gunakan fitur 'Edit Visual' untuk menambahkan narasi yang menarik."}
                     </p>
                   </div>
 
@@ -336,13 +339,13 @@ export default function ResourceDetailPage() {
                       <div className="flex items-center justify-between">
                         <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] italic flex items-center gap-2">
                           <LayoutDashboard className="h-4 w-4 text-blue-600" />{" "}
-                          Atmosphere Gallery
+                          Galeri Foto
                         </p>
                         <Badge
                           variant="outline"
                           className="text-[9px] font-black italic px-2 py-0"
                         >
-                          {gallery.length} Photos
+                          {gallery.length} Foto
                         </Badge>
                       </div>
                       <div className="grid grid-cols-4 gap-3">
@@ -377,10 +380,10 @@ export default function ResourceDetailPage() {
               </div>
               <div className="space-y-0.5">
                 <h2 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none">
-                  Base Inventory
+                  {config.label}
                 </h2>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">
-                  Tarif Utama & Opsi Perangkat
+                  Tarif Utama & Opsi Layanan
                 </p>
               </div>
             </div>
@@ -447,7 +450,7 @@ export default function ResourceDetailPage() {
                       </h4>
                       {item.is_default && (
                         <Badge className="bg-emerald-500 text-white text-[8px] font-black px-2 py-0.5 rounded-md tracking-tighter">
-                          PRIMARY
+                          DEFAULT
                         </Badge>
                       )}
                     </div>
@@ -459,8 +462,8 @@ export default function ResourceDetailPage() {
                     </p>
                     {item.unit_duration > 0 && (
                       <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1.5 uppercase italic bg-slate-50 dark:bg-slate-800 w-fit px-3 py-1.5 rounded-xl">
-                        <Clock className="h-3.5 w-3.5 text-blue-500" />{" "}
-                        {item.unit_duration} Minutes Session
+                        <Clock className="h-3.5 w-3.5 text-blue-500" /> Durasi:{" "}
+                        {item.unit_duration} Menit
                       </p>
                     )}
                   </div>
@@ -477,10 +480,10 @@ export default function ResourceDetailPage() {
               </div>
               <div className="space-y-0.5">
                 <h2 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none">
-                  Add-ons & Equipment
+                  Layanan Tambahan
                 </h2>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">
-                  Barang tambahan atau layanan ekstra
+                  Alat pendukung atau fasilitas ekstra
                 </p>
               </div>
             </div>

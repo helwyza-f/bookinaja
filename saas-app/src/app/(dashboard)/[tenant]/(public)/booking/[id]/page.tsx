@@ -2,7 +2,14 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { format, isBefore, startOfToday, parse, addMinutes } from "date-fns";
+import {
+  format,
+  isBefore,
+  startOfToday,
+  parse,
+  addMinutes,
+  formatISO,
+} from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -17,17 +24,18 @@ import {
   Clock,
   CheckCircle2,
   ChevronRight,
-  Zap,
   ArrowLeft,
   Calendar as CalendarIcon,
   Loader2,
   ShieldCheck,
-  ShieldAlert,
   Sparkles,
   Receipt,
   Package,
   Image as ImageIcon,
   Check,
+  Plus,
+  Info,
+  Ticket,
 } from "lucide-react";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -52,22 +60,18 @@ export default function ResourceBookingDetail() {
   const [selectedMainId, setSelectedMainId] = useState("");
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // WhatsApp Validation
-  const [isValidating, setIsValidating] = useState(false);
   const [phoneStatus, setPhoneStatus] = useState<"idle" | "valid" | "invalid">(
     "idle",
   );
+  const [isValidating, setIsValidating] = useState(false);
 
-  // 1. Fetch Resource & Data Marketing
+  // 1. Fetch Data Unit
   useEffect(() => {
     const fetchData = async () => {
       try {
         const resDetail = await api.get(`/public/resources/${params.id}`);
-        const data = resDetail.data;
-        setResource(data);
-
-        const def = data.items?.find(
+        setResource(resDetail.data);
+        const def = resDetail.data.items?.find(
           (i: any) => i.is_default && i.item_type === "console_option",
         );
         if (def) setSelectedMainId(def.id);
@@ -80,39 +84,29 @@ export default function ResourceBookingDetail() {
     fetchData();
   }, [params.id]);
 
-  // 2. WhatsApp Live Check
+  // 2. Fetch Availability & Normalisasi UTC
   useEffect(() => {
-    const validateWA = async (phone: string) => {
-      if (phone.length < 10) {
-        setPhoneStatus("idle");
-        return;
-      }
-      setIsValidating(true);
-      try {
-        const res = await api.get(`/validate-phone?phone=${phone}`);
-        setPhoneStatus(res.data.valid ? "valid" : "invalid");
-      } catch (err) {
-        setPhoneStatus("invalid");
-      } finally {
-        setIsValidating(false);
-      }
-    };
-    const timer = setTimeout(() => {
-      if (custPhone) validateWA(custPhone);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [custPhone]);
-
-  // 3. Fetch Availability
-  useEffect(() => {
-    if (date) {
+    if (date && params.id) {
       const fetchBusy = async () => {
         try {
           const formattedDate = format(date, "yyyy-MM-dd");
           const resBusy = await api.get(
             `/guest/availability/${params.id}?date=${formattedDate}`,
           );
-          setBusySlots(resBusy.data.busy_slots || []);
+
+          const normalized = (resBusy.data.busy_slots || []).map(
+            (slot: any) => {
+              const start = new Date(`${formattedDate}T${slot.start_time}:00Z`);
+              const end = new Date(`${formattedDate}T${slot.end_time}:00Z`);
+              return {
+                start_min: start.getUTCHours() * 60 + start.getUTCMinutes(),
+                end_min: end.getUTCHours() * 60 + end.getUTCMinutes(),
+                display_start: format(start, "HH:mm"),
+                display_end: format(end, "HH:mm"),
+              };
+            },
+          );
+          setBusySlots(normalized);
           setSelectedTime("");
         } catch (err) {
           toast.error("Gagal cek jadwal");
@@ -127,10 +121,47 @@ export default function ResourceBookingDetail() {
     [resource, selectedMainId],
   );
 
-  // 4. Logic Slot Waktu (Adaptif)
+  // LOGIKA BUSY SLOT (Support per 15/30/60 menit)
+  const isTimeBusy = (timeStr: string) => {
+    const [h, m] = timeStr.split(":").map(Number);
+    const currentTotalMin = h * 60 + m;
+
+    return busySlots.some((slot) => {
+      // Slot dianggap busy jika jam mulai kita berada DI DALAM rentang booking orang lain
+      return (
+        currentTotalMin >= slot.start_min && currentTotalMin < slot.end_min
+      );
+    });
+  };
+
+  // LOGIKA DYNAMIC MAX SESSION
+  const maxAvailableSessions = useMemo(() => {
+    if (!selectedTime || !selectedItem) return 1;
+    if (selectedItem.price_unit === "day") return 1;
+
+    const [h, m] = selectedTime.split(":").map(Number);
+    const startMin = h * 60 + m;
+    const unitMin = selectedItem.unit_duration || 60;
+
+    // Cari booking terdekat yang mulainya SETELAH selectedTime kita
+    const nextBusy = busySlots
+      .filter((s) => s.start_min > startMin)
+      .sort((a, b) => a.start_min - b.start_min)[0];
+
+    if (!nextBusy) return 5; // Default max 10 sesi jika kosong sampai tutup
+
+    const availableMin = nextBusy.start_min - startMin;
+    return Math.floor(availableMin / unitMin);
+  }, [selectedTime, busySlots, selectedItem]);
+
+  // Reset durasi jika ganti jam dan durasi lama melebihi batas baru
+  useEffect(() => {
+    if (durationValue > maxAvailableSessions) setDurationValue(1);
+  }, [maxAvailableSessions]);
+
   const availableSlots = useMemo(() => {
     if (!selectedItem) return [];
-    const unitMinutes = selectedItem.unit_duration || 60;
+    const step = selectedItem.unit_duration || 60;
     if (selectedItem.price_unit === "day") return ["09:00"];
 
     const slots = [];
@@ -139,7 +170,7 @@ export default function ResourceBookingDetail() {
 
     while (isBefore(current, end)) {
       slots.push(format(current, "HH:mm"));
-      current = addMinutes(current, unitMinutes);
+      current = addMinutes(current, step);
     }
     return slots;
   }, [selectedItem, date]);
@@ -148,39 +179,30 @@ export default function ResourceBookingDetail() {
     if (!selectedItem) return 0;
     const mainPrice = (selectedItem.price || 0) * durationValue;
     const addonsPrice = resource.items
-      .filter((i: any) => selectedAddons.includes(i.id))
+      ?.filter((i: any) => selectedAddons.includes(i.id))
       .reduce((acc: number, curr: any) => acc + (curr.price || 0), 0);
     return mainPrice + addonsPrice;
   };
 
   const handleBooking = async () => {
-    if (
-      !custName ||
-      !custPhone ||
-      !date ||
-      !selectedTime ||
-      phoneStatus !== "valid"
-    ) {
-      toast.error("Mohon lengkapi data & validasi WA");
-      return;
-    }
+    if (!custName || !custPhone || !selectedTime)
+      return toast.error("Data belum lengkap");
     setIsSubmitting(true);
     try {
-      const startTimeISO = `${format(date, "yyyy-MM-dd")}T${selectedTime}:00`;
+      const fullDate = parse(selectedTime, "HH:mm", date || new Date());
       const payload = {
         tenant_id: resource.tenant_id,
         customer_name: custName.toUpperCase(),
         customer_phone: custPhone,
         resource_id: resource.id,
         item_ids: [selectedMainId, ...selectedAddons],
-        start_time: startTimeISO,
+        start_time: formatISO(fullDate),
         duration: durationValue,
       };
       const res = await api.post("/public/bookings", payload);
-      toast.success("BOOKING BERHASIL!");
       router.push(res.data.redirect_url);
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Gagal membuat booking");
+      toast.error(err.response?.data?.error || "Gagal booking");
     } finally {
       setIsSubmitting(false);
     }
@@ -188,95 +210,59 @@ export default function ResourceBookingDetail() {
 
   if (loading)
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
+      <div className="h-screen flex items-center justify-center">
+        <Loader2 className="animate-spin text-blue-600" />
       </div>
     );
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-plus-jakarta pb-40 selection:bg-blue-500/30 transition-colors duration-300">
-      {/* --- HERO SECTION (VISUAL COVER) --- */}
-      <div className="relative h-[45vh] md:h-[65vh] w-full overflow-hidden bg-slate-900">
+    <div className="min-h-screen bg-[#F8FAFC] font-plus-jakarta pb-40 selection:bg-blue-500/30 transition-all">
+      {/* HERO / COVER */}
+      <div className="relative h-[35vh] md:h-[45vh] w-full overflow-hidden bg-slate-900">
         {resource?.image_url ? (
           <img
             src={resource.image_url}
-            className="w-full h-full object-cover opacity-70 dark:opacity-50"
+            className="w-full h-full object-cover opacity-50"
             alt="Cover"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-slate-800">
-            <ImageIcon className="h-20 w-20 text-slate-700" />
+          <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-700">
+            <ImageIcon className="h-20 w-20" />
           </div>
         )}
-
-        {/* Gradients */}
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-50 dark:from-slate-950 via-transparent to-black/20" />
-
-        <div className="absolute top-6 left-4 md:left-10 z-30">
+        <div className="absolute inset-0 bg-gradient-to-t from-[#F8FAFC] via-transparent to-black/20" />
+        <div className="absolute top-6 left-6 z-30">
           <Button
             variant="ghost"
             onClick={() => router.back()}
-            className="bg-white/10 dark:bg-black/20 backdrop-blur-xl text-white hover:bg-white/20 rounded-full font-black uppercase text-[10px] tracking-widest px-5 h-10 italic"
+            className="bg-white/10 backdrop-blur-md text-white hover:bg-white/20 rounded-full font-black uppercase text-[10px] tracking-widest px-6 h-10 italic shadow-xl"
           >
             <ArrowLeft className="mr-2 h-4 w-4 stroke-[3]" /> Kembali
           </Button>
         </div>
-
-        <div className="absolute bottom-12 left-4 md:left-10 right-4 z-20 space-y-3">
+        <div className="absolute bottom-10 left-6 right-6 z-20 space-y-2">
           <Badge className="bg-blue-600 text-white border-none rounded-md px-3 py-1 font-black text-[10px] tracking-widest uppercase italic shadow-xl">
             {resource?.category || "PREMIUM"}
           </Badge>
-          <h1 className="text-4xl md:text-8xl font-black italic uppercase tracking-tighter leading-[0.85] text-slate-950 dark:text-white drop-shadow-sm">
+          <h1 className="text-4xl md:text-7xl font-black italic uppercase tracking-tighter text-slate-950 leading-none">
             {resource?.name}
           </h1>
-          <p className="text-slate-600 dark:text-slate-400 font-medium italic text-sm md:text-xl max-w-2xl line-clamp-3">
-            {resource?.description ||
-              "Rasakan pengalaman terbaik di fasilitas eksklusif kami."}
-          </p>
         </div>
       </div>
 
-      <main className="max-w-4xl mx-auto px-4 md:px-6 -translate-y-6 relative z-30">
-        <Card className="rounded-[2.5rem] md:rounded-[3.5rem] border-none shadow-2xl p-6 md:p-14 space-y-12 bg-white dark:bg-slate-900 transition-colors">
-          {/* GALLERY SHOWCASE */}
-          {resource?.gallery && resource.gallery.length > 0 && (
-            <section className="space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
-                  <Sparkles className="h-4 w-4 text-blue-600" />
-                </div>
-                <h2 className="text-xl font-black uppercase italic tracking-tight text-slate-950 dark:text-white">
-                  Intip Suasana
-                </h2>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {resource.gallery.map((img: string, i: number) => (
-                  <div
-                    key={i}
-                    className="aspect-square rounded-2xl overflow-hidden border-2 border-slate-50 dark:border-slate-800 bg-slate-100 dark:bg-slate-800"
-                  >
-                    <img
-                      src={img}
-                      className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
-                      alt="Gallery"
-                    />
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* STEP 1: PILIH PAKET */}
+      <main className="max-w-4xl mx-auto px-4 -translate-y-4 relative z-30 space-y-6">
+        <Card className="rounded-[2.5rem] border-none shadow-2xl p-6 md:p-10 bg-white space-y-12">
+          {/* STEP 1: PAKET */}
           <section className="space-y-6">
             <div className="flex items-center gap-4">
-              <div className="h-10 w-10 bg-slate-950 dark:bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-xl font-black italic">
+              <div className="h-10 w-10 bg-slate-950 rounded-2xl flex items-center justify-center text-white shadow-xl font-black italic">
                 01
               </div>
-              <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-950 dark:text-white">
+              <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-900">
                 Pilih Konfigurasi
               </h2>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {resource.items
                 ?.filter((i: any) => i.item_type === "console_option")
                 .map((item: any) => (
@@ -287,10 +273,10 @@ export default function ResourceBookingDetail() {
                       setSelectedTime("");
                     }}
                     className={cn(
-                      "p-6 rounded-[2rem] border-4 text-left transition-all relative overflow-hidden group",
+                      "p-6 rounded-[1.8rem] border-4 text-left transition-all relative overflow-hidden group",
                       selectedMainId === item.id
-                        ? "border-blue-600 bg-blue-50/50 dark:bg-blue-900/20"
-                        : "border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 hover:border-slate-200",
+                        ? "border-blue-600 bg-blue-50/30"
+                        : "border-slate-50 bg-slate-50/50 hover:border-slate-200",
                     )}
                   >
                     <div className="relative z-10 space-y-1">
@@ -299,7 +285,7 @@ export default function ResourceBookingDetail() {
                           "text-lg font-black uppercase italic tracking-tighter leading-none",
                           selectedMainId === item.id
                             ? "text-blue-600"
-                            : "text-slate-900 dark:text-slate-100",
+                            : "text-slate-900",
                         )}
                       >
                         {item.name}
@@ -314,7 +300,7 @@ export default function ResourceBookingDetail() {
                       </p>
                     </div>
                     {selectedMainId === item.id && (
-                      <CheckCircle2 className="absolute right-6 top-1/2 -translate-y-1/2 h-8 w-8 text-blue-600 animate-in zoom-in duration-300" />
+                      <CheckCircle2 className="absolute right-4 top-1/2 -translate-y-1/2 h-8 w-8 text-blue-600 animate-in zoom-in duration-300 opacity-20" />
                     )}
                   </button>
                 ))}
@@ -322,12 +308,12 @@ export default function ResourceBookingDetail() {
           </section>
 
           {/* STEP 2: TANGGAL */}
-          <section className="space-y-6 pt-10 border-t border-slate-100 dark:border-slate-800">
+          <section className="space-y-6 pt-10 border-t border-slate-100">
             <div className="flex items-center gap-4">
-              <div className="h-10 w-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
+              <div className="h-10 w-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-100">
                 <CalendarIcon className="h-5 w-5" />
               </div>
-              <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-950 dark:text-white">
+              <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-900">
                 Pilih Tanggal
               </h2>
             </div>
@@ -335,7 +321,7 @@ export default function ResourceBookingDetail() {
               <PopoverTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="h-20 w-full justify-start rounded-[1.5rem] bg-slate-50 dark:bg-slate-800 border-none font-black italic px-8 text-xl md:text-2xl uppercase tracking-tighter shadow-inner"
+                  className="h-20 w-full justify-start rounded-[1.5rem] bg-slate-50 border-none font-black italic px-8 text-xl md:text-2xl uppercase tracking-tighter shadow-inner"
                 >
                   <CalendarIcon className="mr-4 h-6 w-6 text-blue-600" />
                   {date
@@ -344,7 +330,7 @@ export default function ResourceBookingDetail() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                className="w-auto p-0 border-none shadow-2xl rounded-[2rem] bg-white dark:bg-slate-900"
+                className="w-auto p-0 border-none shadow-2xl rounded-[2rem] bg-white overflow-hidden"
                 align="center"
               >
                 <Calendar
@@ -352,53 +338,63 @@ export default function ResourceBookingDetail() {
                   selected={date}
                   onSelect={setDate}
                   disabled={(d) => d < startOfToday()}
-                  className="p-4 uppercase italic font-black"
+                  className="p-4 font-bold uppercase italic"
                 />
               </PopoverContent>
             </Popover>
           </section>
 
-          {/* STEP 3: JAM */}
+          {/* STEP 3: JAM (INTELLIGENT FILTER) */}
           {date && selectedMainId && (
-            <section className="space-y-6 pt-10 border-t border-slate-100 dark:border-slate-800 animate-in fade-in slide-in-from-top-4 duration-500">
-              <div className="flex items-center gap-4">
-                <div className="h-10 w-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg">
-                  <Clock className="h-5 w-5" />
+            <section className="space-y-6 pt-10 border-t border-slate-100 animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-100">
+                    <Clock className="h-5 w-5" />
+                  </div>
+                  <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-900">
+                    Jam Mulai
+                  </h2>
                 </div>
-                <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-950 dark:text-white">
-                  Jam Mulai
-                </h2>
+                {busySlots.length > 0 && (
+                  <Badge
+                    variant="outline"
+                    className="font-black italic text-[9px] border-red-200 text-red-500 uppercase"
+                  >
+                    {busySlots.length} Jadwal Terisi
+                  </Badge>
+                )}
               </div>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3 p-4 bg-slate-50/50 rounded-[2rem] shadow-inner border border-slate-100">
                 {availableSlots.map((time) => {
                   const now = new Date();
                   const slotTime = parse(time, "HH:mm", date);
                   const isPast = isBefore(slotTime, now);
-                  const isBusy = busySlots.some((b) => time === b.start_time);
+                  const isBusy = isTimeBusy(time);
                   const isSelected = selectedTime === time;
 
                   return (
                     <button
                       key={time}
                       disabled={isPast || isBusy}
-                      onClick={() => {
-                        setSelectedTime(time);
-                        setDurationValue(1);
-                      }}
+                      onClick={() => setSelectedTime(time)}
                       className={cn(
-                        "h-14 md:h-16 rounded-2xl border-4 font-black transition-all text-xs md:text-sm uppercase italic relative",
+                        "h-14 rounded-xl border-4 font-black transition-all text-[13px] uppercase italic relative flex items-center justify-center",
                         isSelected
-                          ? "border-blue-600 bg-blue-600 text-white shadow-xl scale-105"
+                          ? "border-blue-600 bg-blue-600 text-white shadow-xl scale-105 z-10"
                           : isPast
-                            ? "bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600 opacity-40 cursor-not-allowed"
+                            ? "bg-slate-100 border-transparent text-slate-200 opacity-40 cursor-not-allowed"
                             : isBusy
-                              ? "bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900 text-red-400"
-                              : "bg-white dark:bg-slate-800 border-slate-50 dark:border-slate-800 text-slate-950 dark:text-slate-200 hover:border-blue-600",
+                              ? "bg-white border-transparent text-slate-200 cursor-not-allowed opacity-30"
+                              : "bg-white border-white text-slate-900 hover:border-blue-600 shadow-sm",
                       )}
                     >
                       {time}
                       {isBusy && (
-                        <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full animate-pulse" />
+                        <span className="absolute bottom-1 text-[7px] opacity-60 uppercase font-black tracking-tighter">
+                          Full
+                        </span>
                       )}
                     </button>
                   );
@@ -407,51 +403,68 @@ export default function ResourceBookingDetail() {
             </section>
           )}
 
-          {/* STEP 4: DURASI & ADDONS */}
+          {/* STEP 4: DURASI (DYNAMIC MAX) & ADDONS */}
           {selectedTime && (
-            <div className="space-y-12 animate-in slide-in-from-bottom-6 duration-500 pt-4">
+            <div className="space-y-12 pt-4">
               {selectedItem?.price_unit !== "day" && (
-                <section className="space-y-6">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 bg-purple-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
-                      <Sparkles className="h-5 w-5" />
+                <section className="space-y-6 animate-in slide-in-from-left-4 duration-500">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="h-10 w-10 bg-purple-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-purple-100">
+                        <Sparkles className="h-5 w-5" />
+                      </div>
+                      <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-900">
+                        Berapa Lama?
+                      </h2>
                     </div>
-                    <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-950 dark:text-white">
-                      Berapa Lama?
-                    </h2>
+                    <Badge className="bg-blue-50 text-blue-600 border-none font-black italic text-[10px] px-3">
+                      MAKS: {maxAvailableSessions} SESI
+                    </Badge>
                   </div>
-                  <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
-                    {[1, 2, 3, 4, 5].map((val) => (
+                  <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                    {Array.from(
+                      { length: maxAvailableSessions },
+                      (_, i) => i + 1,
+                    ).map((val) => (
                       <button
                         key={val}
                         onClick={() => setDurationValue(val)}
                         className={cn(
-                          "h-16 md:h-20 min-w-[80px] md:min-w-[100px] rounded-3xl border-4 font-black text-xl md:text-2xl transition-all italic shrink-0",
+                          "h-20 min-w-[90px] rounded-[1.5rem] border-4 font-black text-2xl transition-all italic shrink-0 flex flex-col items-center justify-center leading-none",
                           durationValue === val
                             ? "bg-blue-600 border-blue-600 text-white shadow-2xl scale-110"
-                            : "bg-white dark:bg-slate-800 border-slate-50 dark:border-slate-800 text-slate-300",
+                            : "bg-white border-slate-50 text-slate-300",
                         )}
                       >
-                        {val}{" "}
-                        <span className="text-[9px] block not-italic -mt-1 opacity-60 uppercase">
-                          {selectedItem?.price_unit === "hour" ? "JAM" : "SESI"}
+                        {val}
+                        <span className="text-[8px] font-bold mt-1 uppercase not-italic opacity-60">
+                          {selectedItem?.price_unit === "hour" ? "JAM" : "Sesi"}
                         </span>
                       </button>
                     ))}
                   </div>
+                  {maxAvailableSessions === 1 && busySlots.length > 0 && (
+                    <div className="flex items-center gap-2 text-amber-500 bg-amber-50 p-4 rounded-xl border border-amber-100">
+                      <Info className="w-4 h-4" />
+                      <p className="text-[10px] font-bold uppercase italic leading-tight">
+                        Durasi dibatasi karena ada jadwal booking lain yang akan
+                        segera mulai.
+                      </p>
+                    </div>
+                  )}
                 </section>
               )}
 
-              <section className="space-y-6 pt-10 border-t border-slate-100 dark:border-slate-800">
+              <section className="space-y-6 pt-10 border-t border-slate-100">
                 <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 bg-orange-500 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                  <div className="h-10 w-10 bg-orange-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-orange-100">
                     <Package className="h-5 w-5" />
                   </div>
-                  <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-950 dark:text-white">
-                    Extra Add-ons
+                  <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-900">
+                    Layanan Tambahan
                   </h2>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {resource.items
                     ?.filter((i: any) => i.item_type === "add_on")
                     .map((item: any) => {
@@ -467,26 +480,34 @@ export default function ResourceBookingDetail() {
                             )
                           }
                           className={cn(
-                            "p-4 md:p-6 rounded-3xl border-4 transition-all flex flex-col items-center text-center gap-2 relative",
+                            "p-5 rounded-2xl border-4 transition-all flex items-center justify-between text-left relative",
                             isSel
-                              ? "border-orange-500 bg-orange-50 dark:bg-orange-950/20 text-orange-700 dark:text-orange-400 shadow-xl"
-                              : "border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-slate-400",
+                              ? "border-orange-500 bg-orange-50 text-orange-700 shadow-lg"
+                              : "border-slate-50 bg-slate-50/50 text-slate-400",
                           )}
                         >
-                          <span className="font-black uppercase text-[10px] italic leading-tight">
-                            {item.name}
-                          </span>
-                          <Badge
-                            variant="outline"
-                            className="font-black text-[9px] border-orange-200 dark:border-orange-900"
+                          <div className="space-y-0.5">
+                            <span className="font-black uppercase text-[11px] italic leading-tight block">
+                              {item.name}
+                            </span>
+                            <span className="font-bold text-[10px] block opacity-60">
+                              + RP {item.price.toLocaleString()}
+                            </span>
+                          </div>
+                          <div
+                            className={cn(
+                              "w-6 h-6 rounded-full flex items-center justify-center transition-all",
+                              isSel
+                                ? "bg-orange-500 text-white"
+                                : "bg-white border border-slate-100",
+                            )}
                           >
-                            + RP {item.price.toLocaleString()}
-                          </Badge>
-                          {isSel && (
-                            <div className="absolute -top-2 -right-2 bg-orange-500 text-white rounded-full p-1.5 shadow-lg">
+                            {isSel ? (
                               <Check className="h-3 w-3 stroke-[5]" />
-                            </div>
-                          )}
+                            ) : (
+                              <Plus className="h-3 w-3 opacity-20" />
+                            )}
+                          </div>
                         </button>
                       );
                     })}
@@ -494,16 +515,15 @@ export default function ResourceBookingDetail() {
               </section>
 
               {/* IDENTITAS PELANGGAN */}
-              <section className="space-y-8 pt-12 border-t-8 border-slate-950/5 dark:border-white/5">
-                <div className="space-y-2">
-                  <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-950 dark:text-white leading-none">
-                    Checkout <span className="text-blue-600">Details</span>
+              <section className="space-y-8 pt-12 border-t-8 border-slate-50">
+                <div className="space-y-1">
+                  <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900 leading-none">
+                    Konfirmasi <span className="text-blue-600">Tiket</span>
                   </h2>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">
-                    Data untuk tiket konfirmasi booking
+                    Data tiket akan dikirim via WhatsApp
                   </p>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-3">
                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 italic">
@@ -515,14 +535,14 @@ export default function ResourceBookingDetail() {
                       onChange={(e) =>
                         setCustName(e.target.value.toUpperCase())
                       }
-                      className="h-16 rounded-[1.5rem] bg-slate-50 dark:bg-slate-800 border-none font-black px-8 focus:ring-8 focus:ring-blue-600/5 text-xl uppercase italic shadow-inner dark:text-white"
+                      className="h-16 rounded-[1.5rem] bg-slate-50 border-none font-black px-8 focus:ring-8 focus:ring-blue-500/5 text-xl uppercase italic shadow-inner"
                     />
                   </div>
                   <div className="space-y-3">
                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 italic">
-                      No. WhatsApp
+                      No. WhatsApp Aktif
                     </Label>
-                    <div className="relative group">
+                    <div className="relative">
                       <Input
                         placeholder="08..."
                         value={custPhone}
@@ -530,21 +550,17 @@ export default function ResourceBookingDetail() {
                           setCustPhone(e.target.value.replace(/[^0-9]/g, ""))
                         }
                         className={cn(
-                          "h-16 w-full rounded-[1.5rem] bg-slate-50 dark:bg-slate-800 border-none font-black px-8 text-xl italic transition-all shadow-inner dark:text-white",
+                          "h-16 w-full rounded-[1.5rem] bg-slate-50 border-none font-black px-8 text-xl italic transition-all shadow-inner",
                           phoneStatus === "valid"
                             ? "ring-2 ring-emerald-500"
                             : phoneStatus === "invalid"
                               ? "ring-2 ring-red-500"
-                              : "focus:ring-blue-600/5",
+                              : "",
                         )}
                       />
                       <div className="absolute right-6 top-1/2 -translate-y-1/2">
-                        {isValidating ? (
-                          <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-                        ) : phoneStatus === "valid" ? (
-                          <ShieldCheck className="h-7 w-7 text-emerald-500 drop-shadow-sm" />
-                        ) : phoneStatus === "invalid" ? (
-                          <ShieldAlert className="h-7 w-7 text-red-500 drop-shadow-sm" />
+                        {phoneStatus === "valid" ? (
+                          <ShieldCheck className="h-7 w-7 text-emerald-500" />
                         ) : null}
                       </div>
                     </div>
@@ -556,40 +572,36 @@ export default function ResourceBookingDetail() {
         </Card>
       </main>
 
-      {/* STICKY FOOTER (TOTAL & BUTTON) */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 md:p-8 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border-t border-slate-100 dark:border-slate-800 z-50 animate-in slide-in-from-bottom-full duration-700">
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-4 md:gap-6">
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <Receipt className="h-3 w-3 text-blue-600" />
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic leading-none">
-                Total Estimasi
+      {/* STICKY FOOTER (MASIF) */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 md:p-8 bg-white/95 backdrop-blur-2xl border-t border-slate-100 z-50 animate-in slide-in-from-bottom-full duration-700">
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex flex-col leading-none text-center sm:text-left">
+            <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
+              <Ticket className="w-4 h-4 text-blue-600" />
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
+                Estimasi Penagihan
               </p>
             </div>
-            <h3 className="text-2xl md:text-5xl font-black italic text-slate-950 dark:text-white tracking-tighter leading-none mt-1">
-              Rp {calculateTotal().toLocaleString()}
+            <h3 className="text-3xl md:text-6xl font-black italic text-slate-900 tracking-tighter leading-none">
+              <span className="text-blue-600 text-xl md:text-3xl mr-2 font-bold leading-none">
+                Rp
+              </span>
+              {calculateTotal().toLocaleString()}
             </h3>
           </div>
 
           <Button
-            disabled={
-              !selectedTime ||
-              !selectedMainId ||
-              isSubmitting ||
-              !custName ||
-              !custPhone ||
-              phoneStatus !== "valid"
-            }
+            disabled={!selectedTime || isSubmitting || !custName || !custPhone}
             onClick={handleBooking}
-            className="h-14 md:h-24 px-6 md:px-12 rounded-[1.5rem] md:rounded-[2.5rem] bg-blue-600 hover:bg-blue-500 text-white font-black uppercase italic tracking-widest transition-all active:scale-95 border-b-4 md:border-b-8 border-blue-800 shadow-2xl group flex-1 md:flex-none"
+            className="h-16 md:h-24 px-10 md:px-16 rounded-[2rem] bg-blue-600 hover:bg-blue-500 text-white font-black uppercase italic tracking-widest transition-all active:scale-95 border-b-8 border-blue-800 shadow-[0_20px_50px_-10px_rgba(37,99,235,0.5)] flex items-center gap-4 group"
           >
             {isSubmitting ? (
               <Loader2 className="animate-spin" />
             ) : (
-              <span className="flex items-center gap-2 text-xs md:text-xl">
-                BOOK NOW{" "}
-                <ChevronRight className="h-4 w-4 md:h-8 md:w-8 stroke-[4] group-hover:translate-x-2 transition-transform" />
-              </span>
+              <>
+                <span className="text-sm md:text-xl">RESERVASI SEKARANG</span>
+                <ChevronRight className="h-6 w-6 md:h-8 md:w-8 stroke-[4] group-hover:translate-x-2 transition-transform" />
+              </>
             )}
           </Button>
         </div>
