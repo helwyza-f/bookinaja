@@ -33,11 +33,10 @@ func (s *Service) RequestOTP(ctx context.Context, tenantID uuid.UUID, phone stri
 		return fmt.Errorf("nomor %s tidak terdaftar. silakan hubungi admin atau buat reservasi baru", phone)
 	}
 
-	// 2. Generate 6 digit OTP acak yang unik tiap request
+	// 2. Generate 6 digit OTP acak
 	otpCode := fmt.Sprintf("%06d", rand.New(rand.NewSource(time.Now().UnixNano())).Intn(1000000))
 
 	// 3. Simpan ke Redis Cloud dengan TTL 5 Menit
-	// Format Key: otp:{tenant_id}:{phone} -> Mencegah tabrakan antar bisnis
 	key := fmt.Sprintf("otp:%s:%s", tenantID.String(), phone)
 	err = s.redis.Set(ctx, key, otpCode, 5*time.Minute).Err()
 	if err != nil {
@@ -64,7 +63,6 @@ func (s *Service) RequestOTP(ctx context.Context, tenantID uuid.UUID, phone stri
 func (s *Service) VerifyOTP(ctx context.Context, tenantID uuid.UUID, phone, code string) (*Customer, error) {
 	key := fmt.Sprintf("otp:%s:%s", tenantID.String(), phone)
 
-	// 1. Ambil kode dari Redis Cloud
 	savedCode, err := s.redis.Get(ctx, key).Result()
 	if err == redis.Nil {
 		return nil, fmt.Errorf("kode OTP sudah kadaluarsa, silakan minta kode baru")
@@ -72,15 +70,12 @@ func (s *Service) VerifyOTP(ctx context.Context, tenantID uuid.UUID, phone, code
 		return nil, fmt.Errorf("gagal verifikasi (redis error): %w", err)
 	}
 
-	// 2. Cocokkan input dengan yang ada di memori
 	if savedCode != code {
 		return nil, fmt.Errorf("kode OTP yang Anda masukkan salah")
 	}
 
-	// 3. Hapus dari Redis (Keamanan: OTP hanya bisa dipakai sekali)
 	s.redis.Del(ctx, key)
 
-	// 4. Ambil profil lengkap dari Postgres untuk payload JWT
 	return s.repo.FindByPhone(ctx, tenantID, phone)
 }
 
@@ -94,11 +89,15 @@ func (s *Service) Register(ctx context.Context, tenantID string, req RegisterReq
 	}
 
 	cust := Customer{
-		ID:       uuid.New(),
-		TenantID: tID,
-		Name:     req.Name,
-		Phone:    req.Phone,
-		Email:    req.Email,
+		ID:            uuid.New(),
+		TenantID:      tID,
+		Name:          req.Name,
+		Phone:         req.Phone,
+		Email:         req.Email,
+		Tier:          "NEW",
+		TotalVisits:   0,
+		TotalSpent:    0,
+		LoyaltyPoints: 0,
 	}
 
 	id, err := s.repo.Upsert(ctx, cust)
@@ -114,20 +113,24 @@ func (s *Service) SyncStats(ctx context.Context, customerID uuid.UUID, totalSpen
 	return s.repo.IncrementStats(ctx, customerID, totalSpent)
 }
 
-// GetDashboardData menyiapkan data untuk Portal Customer (/me).
+// GetDashboardData menyiapkan data untuk Portal Customer (/me) dengan pemisahan Active vs History.
 func (s *Service) GetDashboardData(ctx context.Context, customerID uuid.UUID) (*CustomerDashboardData, error) {
 	cust, err := s.repo.FindByID(ctx, customerID)
 	if err != nil || cust == nil {
 		return nil, fmt.Errorf("profil pelanggan tidak ditemukan")
 	}
 
-	// Ambil 5 riwayat transaksi terakhir
-	history, _ := s.repo.GetRecentHistory(ctx, customerID, 5)
+	// 1. Ambil bokingan aktif (Upcoming/In-Progress)
+	active, _ := s.repo.GetActiveBookings(ctx, customerID)
+
+	// 2. Ambil riwayat lampau (Limit 10 history terakhir)
+	past, _ := s.repo.GetPastHistory(ctx, customerID, 10)
 
 	return &CustomerDashboardData{
-		Customer:      *cust,
-		Points:        cust.LoyaltyPoints,
-		RecentHistory: history,
+		Customer:       *cust,
+		Points:         cust.LoyaltyPoints,
+		ActiveBookings: active,
+		PastHistory:    past,
 	}, nil
 }
 

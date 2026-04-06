@@ -25,11 +25,13 @@ import (
 
 func main() {
 	// 0. Load Configuration (.env)
+	// Penting untuk development agar environment variables terbaca
 	if err := godotenv.Load(); err != nil {
 		log.Println("Warning: .env file not found, using system environment variables")
 	}
 
 	// 1. Database Connection (Postgres via sqlx)
+	// Digunakan untuk persistence data utama
 	db, err := database.NewPostgres(
 		os.Getenv("DB_HOST"),
 		os.Getenv("DB_PORT"),
@@ -42,7 +44,8 @@ func main() {
 	}
 	defer db.Close()
 
-	// 2. Redis Connection (Redis Cloud for OTP & Cache)
+	// 2. Redis Connection (Redis Cloud)
+	// Digunakan untuk OTP, Caching Tenant ID, dan session ringan
 	rdb, err := database.NewRedisClient()
 	if err != nil {
 		log.Fatalf("❌ Redis Connection Error: %v", err)
@@ -50,17 +53,19 @@ func main() {
 	defer rdb.Close()
 
 	// 3. Database Migration (v4)
+	// Menjaga skema database tetap sinkron di semua environment
 	runMigration(db.DB)
 
 	// 4. Dependency Injection (Wiring/Kabel Modul)
+	// Kita susun dari Repository -> Service -> Handler
 
 	// --- AUTH DOMAIN ---
 	authSvc := auth.NewService()
 	authHdl := auth.NewHandler(authSvc)
 
-	// --- CUSTOMER DOMAIN (Inisialisasi Lebih Awal Karena Dibutuhkan Reservation) ---
+	// --- CUSTOMER DOMAIN ---
 	customerRepo := customer.NewRepository(db)
-	customerSvc := customer.NewService(customerRepo, rdb) // Suntikkan Redis Client ke sini
+	customerSvc := customer.NewService(customerRepo, rdb)
 	customerHdl := customer.NewHandler(customerSvc)
 
 	// --- TENANT DOMAIN ---
@@ -75,7 +80,6 @@ func main() {
 
 	// --- RESERVATION DOMAIN ---
 	reservationRepo := reservation.NewRepository(db)
-	// Suntikkan customerSvc agar Reservation bisa melakukan Silent Register & SyncStats CRM
 	reservationSvc := reservation.NewService(reservationRepo, resourceRepo, customerSvc)
 	reservationHdl := reservation.NewHandler(reservationSvc)
 
@@ -94,7 +98,8 @@ func main() {
 		FnbHandler:         fnbHdl,
 	}
 
-	r := http.NewRouter(routerConfig)
+	// UPDATE: Kita oper db dan rdb ke Router untuk keperluan middleware TenantIdentifier
+	r := http.NewRouter(routerConfig, db, rdb)
 
 	// 6. Start Server
 	port := os.Getenv("PORT")
@@ -110,7 +115,7 @@ func main() {
 	}
 }
 
-// runMigration menjalankan script SQL di folder /migrations secara otomatis
+// runMigration menjalankan script SQL secara otomatis dari folder /migrations
 func runMigration(db *sql.DB) {
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {

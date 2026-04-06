@@ -1,3 +1,4 @@
+// File: saas/internal/middleware/auth.go
 package middleware
 
 import (

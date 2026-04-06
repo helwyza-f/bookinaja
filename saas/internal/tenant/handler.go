@@ -21,25 +21,44 @@ func NewHandler(s *Service) *Handler {
 
 // GetPublicLandingData mengambil profil bisnis dan daftar unit untuk halaman depan pelanggan
 func (h *Handler) GetPublicLandingData(c *gin.Context) {
-	slug := c.Query("slug")
-	if slug == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "slug is required"})
-		return
+	var tID uuid.UUID
+	var tenant *Tenant
+	var err error
+
+	// 1. Cek apakah middleware TenantIdentifier sudah dapetin ID dari Subdomain/Redis
+	tenantIDRaw, exists := c.Get("tenantID")
+	
+	if exists {
+		// Jika ada di context, parse UUID-nya
+		tID, _ = uuid.Parse(tenantIDRaw.(string))
+		
+		// Tarik profile berdasarkan ID (Lebih akurat & kena cache di middleware tadi)
+		tenant, err = h.service.repo.GetByID(c.Request.Context(), tID)
+	} else {
+		// 2. Fallback: Jika middleware tidak ada (misal bypass), cari lewat slug query
+		slug := c.Query("slug")
+		if slug == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Identitas bisnis (slug) diperlukan"})
+			return
+		}
+
+		cleanSlug := strings.Split(slug, ".")[0]
+		tenant, err = h.service.repo.GetBySlug(c.Request.Context(), cleanSlug)
+		if tenant != nil {
+			tID = tenant.ID
+		}
 	}
 
-	// Membersihkan slug dari kemungkinan subdomain/domain penuh
-	cleanSlug := strings.Split(slug, ".")[0]
-
-	tenant, err := h.service.repo.GetBySlug(c.Request.Context(), cleanSlug)
+	// Cek apakah tenant beneran ketemu
 	if err != nil || tenant == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Bisnis tidak ditemukan"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Bisnis tidak ditemukan atau belum terdaftar"})
 		return
 	}
 
-	// Mengambil resources lengkap dengan items (JSON agg dari repo)
-	resources, err := h.service.repo.ListResourcesWithItems(c.Request.Context(), tenant.ID)
+	// 3. Mengambil resources lengkap dengan items menggunakan ID yang valid
+	resources, err := h.service.repo.ListResourcesWithItems(c.Request.Context(), tID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data unit"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal sinkronisasi data unit"})
 		return
 	}
 
@@ -57,24 +76,22 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	// Service.Register sekarang sudah mencakup Seeding Template secara otomatis
 	t, err := h.service.Register(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		return
 	}
 
-	protocol := os.Getenv("APP_PROTOCOL") // misal: "https" atau "http"
-	appDomain := os.Getenv("APP_DOMAIN")   // misal: "bookinaja.com" atau "localhost:3000"
+	protocol := os.Getenv("APP_PROTOCOL")
+	appDomain := os.Getenv("APP_DOMAIN")
 
-	// login_url diarahkan ke halaman login admin di subdomain bisnis baru
 	c.JSON(http.StatusCreated, gin.H{
 		"tenant":    t,
 		"login_url": fmt.Sprintf("%s://%s.%s/admin/login", protocol, t.Slug, appDomain),
 	})
 }
 
-// Login menangani autentikasi dan pembuatan token JWT
+// Login menangani autentikasi Admin/Owner
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -93,17 +110,8 @@ func (h *Handler) Login(c *gin.Context) {
 
 // GetProfile mengambil profil detail tenant berdasarkan token login
 func (h *Handler) GetProfile(c *gin.Context) {
-	tIDRaw, exists := c.Get("tenantID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
-
-	tID, err := uuid.Parse(tIDRaw.(string))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Tenant ID"})
-		return
-	}
+	tIDRaw := c.MustGet("tenantID").(string)
+	tID, _ := uuid.Parse(tIDRaw)
 
 	p, err := h.service.GetProfile(c.Request.Context(), tID)
 	if err != nil {
@@ -115,17 +123,8 @@ func (h *Handler) GetProfile(c *gin.Context) {
 
 // UpdateProfile memperbarui informasi bisnis tenant
 func (h *Handler) UpdateProfile(c *gin.Context) {
-	tIDRaw, exists := c.Get("tenantID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
-
-	tID, err := uuid.Parse(tIDRaw.(string))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Tenant ID"})
-		return
-	}
+	tIDRaw := c.MustGet("tenantID").(string)
+	tID, _ := uuid.Parse(tIDRaw)
 
 	var req Tenant
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -142,7 +141,6 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 }
 
 // UploadImage menangani upload logo/banner ke S3 storage
-
 func (h *Handler) UploadImage(c *gin.Context) {
 	file, err := c.FormFile("image")
 	if err != nil {
@@ -158,7 +156,6 @@ func (h *Handler) UploadImage(c *gin.Context) {
 		return
 	}
 
-	// File disimpan di path: tenants/{tenantID}/{filename}
 	url, err := s3Provider.UploadFile(c.Request.Context(), file, "tenants/"+tenantID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengupload gambar"})

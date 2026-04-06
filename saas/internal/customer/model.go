@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Customer adalah entitas pelanggan utama yang terhubung ke Tenant.
+// Customer adalah entitas pelanggan utama yang terhubung ke Tenant (CRM).
 type Customer struct {
 	ID            uuid.UUID  `db:"id" json:"id"`
 	TenantID      uuid.UUID  `db:"tenant_id" json:"tenant_id"`
@@ -43,19 +43,20 @@ type VerifyOtpReq struct {
 }
 
 type AuthResponse struct {
-	Token    string    `json:"token"`
-	Customer Customer  `json:"customer"`
+	Token    string   `json:"token"`
+	Customer Customer `json:"customer"`
 }
 
-// CustomerDashboardData: UPDATED FIELD 'RecentHistory'
+// CustomerDashboardData: Menampung data untuk Mobile Dashboard /me
 type CustomerDashboardData struct {
-	Customer      Customer           `json:"customer"`
-	ActiveSession interface{}        `json:"active_session"`
-	UpcomingCount int                `json:"upcoming_count"`
-	Points        int                `json:"points"`
-	RecentHistory []RecentHistoryDTO `json:"recent_history"` // Tambahkan ini agar tidak error di service
+	Customer       Customer           `json:"customer"`
+	Points         int                `json:"points"`
+	// Dipisah agar Frontend bisa render Tab "Active" vs "History" dengan benar
+	ActiveBookings []RecentHistoryDTO `json:"active_bookings"` 
+	PastHistory    []RecentHistoryDTO `json:"past_history"`    
 }
 
+// RecentHistoryDTO digunakan untuk list bokingan di dashboard customer
 type RecentHistoryDTO struct {
 	ID         uuid.UUID `json:"id" db:"id"`
 	Resource   string    `json:"resource" db:"resource"`

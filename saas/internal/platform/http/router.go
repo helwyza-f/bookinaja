@@ -9,6 +9,8 @@ import (
 	"github.com/helwiza/saas/internal/reservation"
 	"github.com/helwiza/saas/internal/resource"
 	"github.com/helwiza/saas/internal/tenant"
+	"github.com/jmoiron/sqlx"
+	"github.com/redis/go-redis/v9"
 )
 
 type Config struct {
@@ -20,23 +22,32 @@ type Config struct {
 	FnbHandler         *fnb.Handler
 }
 
-func NewRouter(cfg Config) *gin.Engine {
+// NewRouter menginisialisasi router Gin dengan middleware multi-tenancy berbasis Redis & DB
+func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 	r := gin.Default()
 
+	// Konfigurasi Router Dasar
 	r.RedirectTrailingSlash = false
 	r.RedirectFixedPath = false
 
+	// --- GLOBAL MIDDLEWARES ---
 	r.Use(middleware.CORSMiddleware())
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
 
+	// Health Check
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "pong"})
 	})
 
+	// API Group v1
 	v1 := r.Group("/api/v1")
+	
+	// MIDDLEWARE KRUSIAL: Identifikasi Tenant (Subdomain/Header)
+	// Semua request di bawah grup ini wajib lolos identifikasi tenant
+	v1.Use(middleware.TenantIdentifier(db, rdb)) 
 	{
-		// --- 1. PUBLIC ROUTES (Tanpa Login) ---
+		// --- 1. PUBLIC ROUTES (Akses tanpa login untuk Customer/Landing) ---
 		public := v1.Group("/public")
 		{
 			public.GET("/landing", cfg.TenantHandler.GetPublicLandingData)
@@ -44,51 +55,48 @@ func NewRouter(cfg Config) *gin.Engine {
 			public.POST("/bookings", cfg.ReservationHandler.Create)
 			public.GET("/fnb", cfg.FnbHandler.GetMenu)
 			
-			// Customer Auth (WhatsApp OTP Flow)
+			// Customer Auth Flow (WhatsApp OTP)
 			public.GET("/validate-phone", cfg.CustomerHandler.ValidatePhone)
 			public.POST("/customer/login", cfg.CustomerHandler.RequestOTP)
 			public.POST("/customer/verify", cfg.CustomerHandler.VerifyOTP)
 		}
 
-		// Admin/Tenant Platform Auth
+		// Admin/Tenant Platform Auth (Register & Login Owner)
 		v1.POST("/register", cfg.TenantHandler.Register)
 		v1.POST("/login", cfg.TenantHandler.Login)
 
-		// --- 2. GUEST ROUTES (Akses via Magic Link / Booking Token) ---
+		// --- 2. GUEST ROUTES (Akses via Magic Link / Token) ---
 		guest := v1.Group("/guest")
 		{
 			guest.GET("/availability/:resource_id", cfg.ReservationHandler.Availability)
 			guest.GET("/status/:token", cfg.ReservationHandler.Status)
 		}
 
-		// --- 3. PROTECTED ROUTES (Harus Login JWT) ---
+		// --- 3. PROTECTED ROUTES (Membutuhkan Validasi JWT) ---
 		protected := v1.Group("/")
 		protected.Use(middleware.AuthMiddleware()) 
 		{
-			// --- CUSTOMER PORTAL HUB ---
-			// gaming-demo.bookinaja.com/me
+			// --- CUSTOMER AREA ---
 			me := protected.Group("/me")
 			{
 				me.GET("", cfg.CustomerHandler.GetMe) 
 			}
 
-			// --- ADMIN & STAFF ONLY AREA ---
-			// Middleware AdminOnly menolak token yang hanya memiliki customer_id
+			// --- ADMIN & STAFF AREA (Internal Management) ---
 			adminArea := protected.Group("/")
 			adminArea.Use(middleware.AdminOnly()) 
 			{
-				// Profil & Pengaturan Usaha
+				// Business Profile
 				admin := adminArea.Group("/admin")
 				{
 					admin.GET("/profile", cfg.TenantHandler.GetProfile)
 					admin.PUT("/profile", cfg.TenantHandler.UpdateProfile)
-
 					admin.POST("/upload", func(c *gin.Context) {
 						HandleSingleUpload(c, "tenants")
 					})
 				}
 
-				// RESOURCE MANAGEMENT (Admin)
+				// Resource & Unit Management
 				resources := adminArea.Group("/resources-all")
 				{
 					resources.GET("", cfg.ResourceHandler.List)
@@ -109,20 +117,19 @@ func NewRouter(cfg Config) *gin.Engine {
 					resources.DELETE("/items/:id", cfg.ResourceHandler.DeleteItem)
 				}
 
-				// F&B MANAGEMENT (Admin)
+				// Food & Beverage Management
 				fnbGroup := adminArea.Group("/fnb")
 				{
 					fnbGroup.GET("", cfg.FnbHandler.GetMenu)
 					fnbGroup.POST("", cfg.FnbHandler.CreateItem)
 					fnbGroup.PUT("/:id", cfg.FnbHandler.UpdateItem)
 					fnbGroup.DELETE("/:id", cfg.FnbHandler.DeleteItem)
-
 					fnbGroup.POST("/upload", func(c *gin.Context) {
 						HandleSingleUpload(c, "fnb/items")
 					})
 				}
 
-				// BOOKING & POS MANAGEMENT (Admin)
+				// Reservation & POS System
 				bookings := adminArea.Group("/bookings")
 				{
 					bookings.GET("", cfg.ReservationHandler.ListAll)
@@ -130,14 +137,14 @@ func NewRouter(cfg Config) *gin.Engine {
 					bookings.PUT("/:id/status", cfg.ReservationHandler.UpdateStatus)
 					bookings.POST("/manual", cfg.ReservationHandler.Create)
 
-					// POS SESSION CONTROL
+					// POS Session Control
 					bookings.GET("/pos/active", cfg.ReservationHandler.GetActiveSessions)
 					bookings.POST("/pos/order/:id", cfg.ReservationHandler.AddOrder)
 					bookings.POST("/:id/extend", cfg.ReservationHandler.ExtendSession)
 					bookings.POST("/:id/addons", cfg.ReservationHandler.AddAddonItem)
 				}
 
-				// CUSTOMER CRM (Admin Only)
+				// Customer CRM Management
 				customers := adminArea.Group("/customers")
 				{
 					customers.GET("", cfg.CustomerHandler.List)
@@ -146,6 +153,7 @@ func NewRouter(cfg Config) *gin.Engine {
 					customers.GET("/search", cfg.CustomerHandler.SearchByPhone)
 				}
 
+				// Auth Check for UI State
 				adminArea.GET("/auth/me", cfg.AuthHandler.CheckMe)
 			}
 		}

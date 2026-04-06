@@ -18,24 +18,23 @@ func NewRepository(db *sqlx.DB) *Repository {
 }
 
 // Upsert menangani Silent Register: Insert jika nomor HP baru, Update nama jika sudah ada.
-// Penting untuk memastikan satu nomor HP hanya punya satu ID per tenant.
 func (r *Repository) Upsert(ctx context.Context, c Customer) (uuid.UUID, error) {
 	query := `
-        INSERT INTO customers (
-            id, tenant_id, name, phone, email, 
-            total_visits, total_spent, tier, loyalty_points, 
-            created_at, updated_at
-        ) 
-        VALUES (
-            $1, $2, $3, $4, $5, 
-            0, 0, 'NEW', 0, 
-            NOW(), NOW()
-        )
-        ON CONFLICT (tenant_id, phone) 
-        DO UPDATE SET 
-            name = EXCLUDED.name,
-            updated_at = NOW()
-        RETURNING id`
+		INSERT INTO customers (
+			id, tenant_id, name, phone, email, 
+			total_visits, total_spent, tier, loyalty_points, 
+			created_at, updated_at
+		) 
+		VALUES (
+			$1, $2, $3, $4, $5, 
+			0, 0, 'NEW', 0, 
+			NOW(), NOW()
+		)
+		ON CONFLICT (tenant_id, phone) 
+		DO UPDATE SET 
+			name = EXCLUDED.name,
+			updated_at = NOW()
+		RETURNING id`
 
 	var id uuid.UUID
 	err := r.db.QueryRowContext(ctx, query,
@@ -51,17 +50,17 @@ func (r *Repository) Upsert(ctx context.Context, c Customer) (uuid.UUID, error) 
 // IncrementStats memperbarui data fisik CRM saat bokingan selesai (completed).
 func (r *Repository) IncrementStats(ctx context.Context, id uuid.UUID, amount int64) error {
 	query := `
-        UPDATE customers SET 
-            total_visits = total_visits + 1,
-            total_spent = total_spent + $2,
-            last_visit = NOW(),
-            updated_at = NOW(),
-            tier = CASE 
-                WHEN (total_visits + 1) >= 50 THEN 'VIP'
-                WHEN (total_visits + 1) >= 15 THEN 'GOLD'
-                ELSE 'REGULAR'
-            END
-        WHERE id = $1`
+		UPDATE customers SET 
+			total_visits = total_visits + 1,
+			total_spent = total_spent + $2,
+			last_visit = NOW(),
+			updated_at = NOW(),
+			tier = CASE 
+				WHEN (total_visits + 1) >= 50 THEN 'VIP'
+				WHEN (total_visits + 1) >= 15 THEN 'GOLD'
+				ELSE 'REGULAR'
+			END
+		WHERE id = $1`
 
 	_, err := r.db.ExecContext(ctx, query, id, amount)
 	if err != nil {
@@ -78,7 +77,7 @@ func (r *Repository) FindByTenant(ctx context.Context, tenantID uuid.UUID) ([]Cu
 	return customers, err
 }
 
-// FindByID untuk detail profil (Modal di Admin atau Dashboard /me Customer).
+// FindByID untuk detail profil.
 func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*Customer, error) {
 	var c Customer
 	query := `SELECT * FROM customers WHERE id = $1 LIMIT 1`
@@ -92,7 +91,7 @@ func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*Customer, err
 	return &c, nil
 }
 
-// FindByPhone digunakan saat proses login (mencari keberadaan user sebelum kirim OTP).
+// FindByPhone digunakan saat proses login.
 func (r *Repository) FindByPhone(ctx context.Context, tenantID uuid.UUID, phone string) (*Customer, error) {
 	var c Customer
 	query := `SELECT * FROM customers WHERE tenant_id = $1 AND phone = $2 LIMIT 1`
@@ -106,8 +105,35 @@ func (r *Repository) FindByPhone(ctx context.Context, tenantID uuid.UUID, phone 
 	return &c, nil
 }
 
-// GetRecentHistory mengambil riwayat bokingan terakhir untuk dashboard customer portal.
-func (r *Repository) GetRecentHistory(ctx context.Context, customerID uuid.UUID, limit int) ([]RecentHistoryDTO, error) {
+// --- CORE DASHBOARD LOGIC (ACTIVE VS HISTORY) ---
+
+// GetActiveBookings mengambil bokingan yang sedang jalan atau akan datang.
+func (r *Repository) GetActiveBookings(ctx context.Context, customerID uuid.UUID) ([]RecentHistoryDTO, error) {
+	var bookings []RecentHistoryDTO
+	query := `
+		SELECT 
+			b.id, 
+			res.name as resource, 
+			b.start_time as date, 
+			b.status,
+			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) +
+			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_spent
+		FROM bookings b
+		JOIN resources res ON b.resource_id = res.id
+		WHERE b.customer_id = $1 
+		AND b.status IN ('confirmed', 'pending', 'in_progress')
+		AND b.start_time >= NOW() - INTERVAL '6 hours'
+		ORDER BY b.start_time ASC`
+
+	err := r.db.SelectContext(ctx, &bookings, query, customerID)
+	if err != nil {
+		return nil, fmt.Errorf("repo: gagal ambil active bookings: %w", err)
+	}
+	return bookings, nil
+}
+
+// GetPastHistory mengambil riwayat bokingan yang sudah selesai atau batal.
+func (r *Repository) GetPastHistory(ctx context.Context, customerID uuid.UUID, limit int) ([]RecentHistoryDTO, error) {
 	var history []RecentHistoryDTO
 	query := `
 		SELECT 
@@ -119,13 +145,14 @@ func (r *Repository) GetRecentHistory(ctx context.Context, customerID uuid.UUID,
 			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_spent
 		FROM bookings b
 		JOIN resources res ON b.resource_id = res.id
-		WHERE b.customer_id = $1
+		WHERE b.customer_id = $1 
+		AND (b.status IN ('completed', 'cancelled') OR b.start_time < NOW() - INTERVAL '6 hours')
 		ORDER BY b.start_time DESC
 		LIMIT $2`
 
 	err := r.db.SelectContext(ctx, &history, query, customerID, limit)
 	if err != nil {
-		return nil, fmt.Errorf("repo: gagal ambil history: %w", err)
+		return nil, fmt.Errorf("repo: gagal ambil past history: %w", err)
 	}
 	return history, nil
 }

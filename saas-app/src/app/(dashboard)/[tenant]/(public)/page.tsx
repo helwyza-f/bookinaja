@@ -37,6 +37,7 @@ import {
 import Link from "next/link";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { setCookie } from "cookies-next";
 
 /**
  * --- ASSETS & THEME ENGINE ---
@@ -117,8 +118,8 @@ export default function TenantPublicLanding() {
   const params = useParams();
   const { theme, setTheme } = useTheme();
 
-  // Handling dynamic slug (minibos.bookinaja.com)
-  const tenantSlug = (params.tenant as string).split(".")[0];
+  // Ambil slug dari params [tenant] yang dikirim oleh proxy.ts
+  const tenantSlug = params.tenant as string;
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -138,13 +139,27 @@ export default function TenantPublicLanding() {
 
     window.addEventListener("scroll", handleScroll);
 
+    // Ambil data landing berdasarkan slug
     api
       .get(`/public/landing?slug=${tenantSlug}`)
       .then((res) => {
         setData(res.data);
+
+        // --- INI KUNCI FIX PANIC ---
+        // Simpan Tenant ID ke cookie agar Axios Interceptor bisa ambil untuk X-Tenant-ID
+        if (res.data?.profile?.id) {
+          setCookie("current_tenant_id", res.data.profile.id, {
+            maxAge: 60 * 60 * 24, // Tahan 24 jam
+            path: "/",
+          });
+        }
+
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        console.error("Gagal load landing:", err);
+        setLoading(false);
+      });
 
     return () => window.removeEventListener("scroll", handleScroll);
   }, [tenantSlug]);
