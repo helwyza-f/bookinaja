@@ -3,28 +3,96 @@ package customer
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/helwiza/saas/internal/platform/fonnte"
+	"github.com/redis/go-redis/v9"
 )
 
 type Service struct {
-	repo *Repository
+	repo  *Repository
+	redis *redis.Client // Redis untuk OTP & Caching
 }
 
-func NewService(r *Repository) *Service {
-	return &Service{repo: r}
+func NewService(r *Repository, rdb *redis.Client) *Service {
+	return &Service{
+		repo:  r,
+		redis: rdb,
+	}
 }
 
-// Register menangani pendaftaran manual maupun "Silent Register" via Booking.
-// Sekarang lebih efisien karena mengandalkan metode Upsert di repository.
+// --- AUTH & OTP LOGIC (REDIS + FONNTE) ---
+
+// RequestOTP menangani alur permintaan login: Cek user -> Gen OTP -> Redis -> WhatsApp.
+func (s *Service) RequestOTP(ctx context.Context, tenantID uuid.UUID, phone string) error {
+	// 1. Pastikan nomor terdaftar di tenant ini (Postgres Check)
+	cust, err := s.repo.FindByPhone(ctx, tenantID, phone)
+	if err != nil || cust == nil {
+		return fmt.Errorf("nomor %s tidak terdaftar. silakan hubungi admin atau buat reservasi baru", phone)
+	}
+
+	// 2. Generate 6 digit OTP acak yang unik tiap request
+	otpCode := fmt.Sprintf("%06d", rand.New(rand.NewSource(time.Now().UnixNano())).Intn(1000000))
+
+	// 3. Simpan ke Redis Cloud dengan TTL 5 Menit
+	// Format Key: otp:{tenant_id}:{phone} -> Mencegah tabrakan antar bisnis
+	key := fmt.Sprintf("otp:%s:%s", tenantID.String(), phone)
+	err = s.redis.Set(ctx, key, otpCode, 5*time.Minute).Err()
+	if err != nil {
+		return fmt.Errorf("sistem login sedang sibuk (redis error): %w", err)
+	}
+
+	// 4. Integrasi Fonnte (Kirim WhatsApp Real-time)
+	msg := fmt.Sprintf(
+		"Halo *%s*,\n\nKode OTP login Anda adalah: *%s*\n\nKode ini berlaku selama 5 menit. Jangan berikan kode ini kepada siapapun termasuk pihak staff.",
+		cust.Name,
+		otpCode,
+	)
+	
+	success, err := fonnte.SendMessage(phone, msg)
+	if err != nil || !success {
+		return fmt.Errorf("gagal mengirim kode ke WhatsApp: %v", err)
+	}
+
+	fmt.Printf("[AUTH] OTP Request Success: %s -> %s\n", phone, otpCode)
+	return nil
+}
+
+// VerifyOTP memvalidasi kode dari customer dan mengembalikan data profil untuk JWT.
+func (s *Service) VerifyOTP(ctx context.Context, tenantID uuid.UUID, phone, code string) (*Customer, error) {
+	key := fmt.Sprintf("otp:%s:%s", tenantID.String(), phone)
+
+	// 1. Ambil kode dari Redis Cloud
+	savedCode, err := s.redis.Get(ctx, key).Result()
+	if err == redis.Nil {
+		return nil, fmt.Errorf("kode OTP sudah kadaluarsa, silakan minta kode baru")
+	} else if err != nil {
+		return nil, fmt.Errorf("gagal verifikasi (redis error): %w", err)
+	}
+
+	// 2. Cocokkan input dengan yang ada di memori
+	if savedCode != code {
+		return nil, fmt.Errorf("kode OTP yang Anda masukkan salah")
+	}
+
+	// 3. Hapus dari Redis (Keamanan: OTP hanya bisa dipakai sekali)
+	s.redis.Del(ctx, key)
+
+	// 4. Ambil profil lengkap dari Postgres untuk payload JWT
+	return s.repo.FindByPhone(ctx, tenantID, phone)
+}
+
+// --- CORE CUSTOMER LOGIC ---
+
+// Register menangani pendaftaran via Booking (Silent) atau manual Admin.
 func (s *Service) Register(ctx context.Context, tenantID string, req RegisterReq) (*Customer, error) {
 	tID, err := uuid.Parse(tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("service: id tenant tidak valid")
 	}
 
-	// Buat objek customer baru
-	// Jika nomor HP sudah ada, Repository akan mengupdate nama dan mengembalikan ID lama
 	cust := Customer{
 		ID:       uuid.New(),
 		TenantID: tID,
@@ -33,41 +101,54 @@ func (s *Service) Register(ctx context.Context, tenantID string, req RegisterReq
 		Email:    req.Email,
 	}
 
-	// Gunakan metode Upsert agar logic "Cek dulu baru Insert" dilakukan di level Database (Atomic)
 	id, err := s.repo.Upsert(ctx, cust)
 	if err != nil {
 		return nil, fmt.Errorf("service: gagal registrasi pelanggan: %w", err)
 	}
 
-	// Ambil data lengkap hasil upsert untuk dikembalikan ke pemanggil
 	return s.repo.FindByID(ctx, id)
 }
 
-// SyncStats digunakan untuk memperbarui total kunjungan dan belanja pelanggan.
-// Biasanya dipanggil dari modul Reservation saat status bokingan menjadi 'completed'.
+// SyncStats memperbarui total visits dan total spent (CRM logic).
 func (s *Service) SyncStats(ctx context.Context, customerID uuid.UUID, totalSpent int64) error {
 	return s.repo.IncrementStats(ctx, customerID, totalSpent)
 }
 
-// ListByTenant mengambil semua database pelanggan untuk halaman CRM.
+// GetDashboardData menyiapkan data untuk Portal Customer (/me).
+func (s *Service) GetDashboardData(ctx context.Context, customerID uuid.UUID) (*CustomerDashboardData, error) {
+	cust, err := s.repo.FindByID(ctx, customerID)
+	if err != nil || cust == nil {
+		return nil, fmt.Errorf("profil pelanggan tidak ditemukan")
+	}
+
+	// Ambil 5 riwayat transaksi terakhir
+	history, _ := s.repo.GetRecentHistory(ctx, customerID, 5)
+
+	return &CustomerDashboardData{
+		Customer:      *cust,
+		Points:        cust.LoyaltyPoints,
+		RecentHistory: history,
+	}, nil
+}
+
+// --- UTILITIES ---
+
 func (s *Service) ListByTenant(ctx context.Context, tenantID string) ([]Customer, error) {
 	tID, err := uuid.Parse(tenantID)
 	if err != nil {
-		return nil, fmt.Errorf("service: id tenant tidak valid")
+		return nil, fmt.Errorf("id tenant tidak valid")
 	}
 	return s.repo.FindByTenant(ctx, tID)
 }
 
-// GetDetail mengambil profil lengkap pelanggan beserta statistik CRM-nya.
+func (s *Service) GetByPhone(ctx context.Context, tenantID uuid.UUID, phone string) (*Customer, error) {
+	return s.repo.FindByPhone(ctx, tenantID, phone)
+}
+
 func (s *Service) GetDetail(ctx context.Context, id string) (*Customer, error) {
 	cID, err := uuid.Parse(id)
 	if err != nil {
-		return nil, fmt.Errorf("service: id customer tidak valid")
+		return nil, fmt.Errorf("id customer tidak valid")
 	}
 	return s.repo.FindByID(ctx, cID)
-}
-
-// GetByPhone pencarian cepat berdasarkan nomor HP (sering dipakai di Kasir/POS)
-func (s *Service) GetByPhone(ctx context.Context, tenantID uuid.UUID, phone string) (*Customer, error) {
-	return s.repo.FindByPhone(ctx, tenantID, phone)
 }

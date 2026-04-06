@@ -36,103 +36,118 @@ func NewRouter(cfg Config) *gin.Engine {
 
 	v1 := r.Group("/api/v1")
 	{
-		// --- PUBLIC ROUTES (No Auth Required) ---
-		v1.GET("/public/landing", cfg.TenantHandler.GetPublicLandingData)
-		v1.GET("/public/resources/:id", cfg.ResourceHandler.GetPublicDetail)
-		v1.POST("/public/bookings", cfg.ReservationHandler.Create)
-		v1.GET("/public/fnb", cfg.FnbHandler.GetMenu)
-		v1.GET("/validate-phone", cfg.CustomerHandler.ValidatePhone)
+		// --- 1. PUBLIC ROUTES (Tanpa Login) ---
+		public := v1.Group("/public")
+		{
+			public.GET("/landing", cfg.TenantHandler.GetPublicLandingData)
+			public.GET("/resources/:id", cfg.ResourceHandler.GetPublicDetail)
+			public.POST("/bookings", cfg.ReservationHandler.Create)
+			public.GET("/fnb", cfg.FnbHandler.GetMenu)
+			
+			// Customer Auth (WhatsApp OTP Flow)
+			public.GET("/validate-phone", cfg.CustomerHandler.ValidatePhone)
+			public.POST("/customer/login", cfg.CustomerHandler.RequestOTP)
+			public.POST("/customer/verify", cfg.CustomerHandler.VerifyOTP)
+		}
 
+		// Admin/Tenant Platform Auth
 		v1.POST("/register", cfg.TenantHandler.Register)
 		v1.POST("/login", cfg.TenantHandler.Login)
 
-		// --- GUEST ROUTES (Magic Link Access) ---
+		// --- 2. GUEST ROUTES (Akses via Magic Link / Booking Token) ---
 		guest := v1.Group("/guest")
 		{
 			guest.GET("/availability/:resource_id", cfg.ReservationHandler.Availability)
 			guest.GET("/status/:token", cfg.ReservationHandler.Status)
 		}
 
-		// --- PROTECTED ROUTES (Admin/Tenant Only) ---
+		// --- 3. PROTECTED ROUTES (Harus Login JWT) ---
 		protected := v1.Group("/")
-		protected.Use(middleware.AuthMiddleware())
+		protected.Use(middleware.AuthMiddleware()) 
 		{
-			// Admin Profile & Settings
-			admin := protected.Group("/admin")
+			// --- CUSTOMER PORTAL HUB ---
+			// gaming-demo.bookinaja.com/me
+			me := protected.Group("/me")
 			{
-				admin.GET("/profile", cfg.TenantHandler.GetProfile)
-				admin.PUT("/profile", cfg.TenantHandler.UpdateProfile)
-
-				admin.POST("/upload", func(c *gin.Context) {
-					HandleSingleUpload(c, "tenants")
-				})
+				me.GET("", cfg.CustomerHandler.GetMe) 
 			}
 
-			// RESOURCE MANAGEMENT
-			resources := protected.Group("/resources-all")
+			// --- ADMIN & STAFF ONLY AREA ---
+			// Middleware AdminOnly menolak token yang hanya memiliki customer_id
+			adminArea := protected.Group("/")
+			adminArea.Use(middleware.AdminOnly()) 
 			{
-				resources.GET("", cfg.ResourceHandler.List)
-				resources.POST("", cfg.ResourceHandler.Create)
-				resources.PUT("/:id", cfg.ResourceHandler.Update)
-				resources.DELETE("/:id", cfg.ResourceHandler.Delete)
+				// Profil & Pengaturan Usaha
+				admin := adminArea.Group("/admin")
+				{
+					admin.GET("/profile", cfg.TenantHandler.GetProfile)
+					admin.PUT("/profile", cfg.TenantHandler.UpdateProfile)
 
-				resources.POST("/upload-cover", func(c *gin.Context) {
-					HandleSingleUpload(c, "resources/covers")
-				})
-				resources.POST("/upload-gallery", func(c *gin.Context) {
-					HandleBulkUpload(c, "resources/gallery")
-				})
+					admin.POST("/upload", func(c *gin.Context) {
+						HandleSingleUpload(c, "tenants")
+					})
+				}
 
-				resources.GET("/:id/items", cfg.ResourceHandler.ListItems)
-				resources.POST("/:id/items", cfg.ResourceHandler.AddItem)
-				resources.PUT("/items/:id", cfg.ResourceHandler.UpdateItem)
-				resources.DELETE("/items/:id", cfg.ResourceHandler.DeleteItem)
+				// RESOURCE MANAGEMENT (Admin)
+				resources := adminArea.Group("/resources-all")
+				{
+					resources.GET("", cfg.ResourceHandler.List)
+					resources.POST("", cfg.ResourceHandler.Create)
+					resources.PUT("/:id", cfg.ResourceHandler.Update)
+					resources.DELETE("/:id", cfg.ResourceHandler.Delete)
+
+					resources.POST("/upload-cover", func(c *gin.Context) {
+						HandleSingleUpload(c, "resources/covers")
+					})
+					resources.POST("/upload-gallery", func(c *gin.Context) {
+						HandleBulkUpload(c, "resources/gallery")
+					})
+
+					resources.GET("/:id/items", cfg.ResourceHandler.ListItems)
+					resources.POST("/:id/items", cfg.ResourceHandler.AddItem)
+					resources.PUT("/items/:id", cfg.ResourceHandler.UpdateItem)
+					resources.DELETE("/items/:id", cfg.ResourceHandler.DeleteItem)
+				}
+
+				// F&B MANAGEMENT (Admin)
+				fnbGroup := adminArea.Group("/fnb")
+				{
+					fnbGroup.GET("", cfg.FnbHandler.GetMenu)
+					fnbGroup.POST("", cfg.FnbHandler.CreateItem)
+					fnbGroup.PUT("/:id", cfg.FnbHandler.UpdateItem)
+					fnbGroup.DELETE("/:id", cfg.FnbHandler.DeleteItem)
+
+					fnbGroup.POST("/upload", func(c *gin.Context) {
+						HandleSingleUpload(c, "fnb/items")
+					})
+				}
+
+				// BOOKING & POS MANAGEMENT (Admin)
+				bookings := adminArea.Group("/bookings")
+				{
+					bookings.GET("", cfg.ReservationHandler.ListAll)
+					bookings.GET("/:id", cfg.ReservationHandler.GetDetail)
+					bookings.PUT("/:id/status", cfg.ReservationHandler.UpdateStatus)
+					bookings.POST("/manual", cfg.ReservationHandler.Create)
+
+					// POS SESSION CONTROL
+					bookings.GET("/pos/active", cfg.ReservationHandler.GetActiveSessions)
+					bookings.POST("/pos/order/:id", cfg.ReservationHandler.AddOrder)
+					bookings.POST("/:id/extend", cfg.ReservationHandler.ExtendSession)
+					bookings.POST("/:id/addons", cfg.ReservationHandler.AddAddonItem)
+				}
+
+				// CUSTOMER CRM (Admin Only)
+				customers := adminArea.Group("/customers")
+				{
+					customers.GET("", cfg.CustomerHandler.List)
+					customers.POST("", cfg.CustomerHandler.Create)
+					customers.GET("/:id", cfg.CustomerHandler.GetByID)
+					customers.GET("/search", cfg.CustomerHandler.SearchByPhone)
+				}
+
+				adminArea.GET("/auth/me", cfg.AuthHandler.CheckMe)
 			}
-
-			// F&B MANAGEMENT
-			fnbGroup := protected.Group("/fnb")
-			{
-				fnbGroup.GET("", cfg.FnbHandler.GetMenu)
-				fnbGroup.POST("", cfg.FnbHandler.CreateItem)
-				fnbGroup.PUT("/:id", cfg.FnbHandler.UpdateItem)
-				fnbGroup.DELETE("/:id", cfg.FnbHandler.DeleteItem)
-
-				fnbGroup.POST("/upload", func(c *gin.Context) {
-					HandleSingleUpload(c, "fnb/items")
-				})
-			}
-
-			// BOOKING & POS MANAGEMENT
-			bookings := protected.Group("/bookings")
-			{
-				bookings.GET("", cfg.ReservationHandler.ListAll)
-				bookings.GET("/:id", cfg.ReservationHandler.GetDetail)
-				bookings.PUT("/:id/status", cfg.ReservationHandler.UpdateStatus)
-				bookings.POST("/manual", cfg.ReservationHandler.Create)
-
-				// --- POS SPECIFIC ROUTES ---
-				bookings.GET("/pos/active", cfg.ReservationHandler.GetActiveSessions)
-				bookings.POST("/pos/order/:id", cfg.ReservationHandler.AddOrder)
-
-				// --- POS CONTROL HUB ---
-				bookings.POST("/:id/extend", cfg.ReservationHandler.ExtendSession)
-				bookings.POST("/:id/addons", cfg.ReservationHandler.AddAddonItem)
-			}
-
-			// CUSTOMER MANAGEMENT (CRM)
-			customers := protected.Group("/customers")
-			{
-				// GET /api/v1/customers - List semua pelanggan (Tabel CRM)
-				customers.GET("", cfg.CustomerHandler.List)
-				// POST /api/v1/customers - Registrasi manual pelanggan
-				customers.POST("", cfg.CustomerHandler.Create)
-				// GET /api/v1/customers/:id - Detail profil & history (Modal Profil)
-				customers.GET("/:id", cfg.CustomerHandler.GetByID)
-				// GET /api/v1/customers/search - Cek member via phone (Guna di POS)
-				customers.GET("/search", cfg.CustomerHandler.SearchByPhone)
-			}
-
-			protected.GET("/me", cfg.AuthHandler.CheckMe)
 		}
 	}
 

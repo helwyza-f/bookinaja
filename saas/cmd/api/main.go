@@ -9,26 +9,27 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 
-	// Import semua domain
+	// Import semua domain internal
 	"github.com/helwiza/saas/internal/auth"
 	"github.com/helwiza/saas/internal/customer"
-	"github.com/helwiza/saas/internal/fnb" // Tambahkan import F&B
+	"github.com/helwiza/saas/internal/fnb"
 	"github.com/helwiza/saas/internal/reservation"
 	"github.com/helwiza/saas/internal/resource"
 	"github.com/helwiza/saas/internal/tenant"
 
+	// Platform & Infrastructure
 	"github.com/helwiza/saas/internal/platform/database"
 	"github.com/helwiza/saas/internal/platform/http"
 	"github.com/joho/godotenv"
 )
 
 func main() {
-	// Load .env untuk koneksi DB dan AWS S3 keys
+	// 0. Load Configuration (.env)
 	if err := godotenv.Load(); err != nil {
-		log.Println("Warning: .env file not found")
+		log.Println("Warning: .env file not found, using system environment variables")
 	}
 
-	// 1. Database Connection (sqlx)
+	// 1. Database Connection (Postgres via sqlx)
 	db, err := database.NewPostgres(
 		os.Getenv("DB_HOST"),
 		os.Getenv("DB_PORT"),
@@ -37,69 +38,79 @@ func main() {
 		os.Getenv("DB_NAME"),
 	)
 	if err != nil {
-		log.Fatalf("DB Connection Error: %v", err)
+		log.Fatalf("❌ DB Connection Error: %v", err)
 	}
 	defer db.Close()
 
-	// 2. Database Migration (v4)
+	// 2. Redis Connection (Redis Cloud for OTP & Cache)
+	rdb, err := database.NewRedisClient()
+	if err != nil {
+		log.Fatalf("❌ Redis Connection Error: %v", err)
+	}
+	defer rdb.Close()
+
+	// 3. Database Migration (v4)
 	runMigration(db.DB)
 
-	// 3. Dependency Injection (Wiring)
+	// 4. Dependency Injection (Wiring/Kabel Modul)
 
 	// --- AUTH DOMAIN ---
 	authSvc := auth.NewService()
 	authHdl := auth.NewHandler(authSvc)
 
+	// --- CUSTOMER DOMAIN (Inisialisasi Lebih Awal Karena Dibutuhkan Reservation) ---
+	customerRepo := customer.NewRepository(db)
+	customerSvc := customer.NewService(customerRepo, rdb) // Suntikkan Redis Client ke sini
+	customerHdl := customer.NewHandler(customerSvc)
+
 	// --- TENANT DOMAIN ---
 	tenantRepo := tenant.NewRepository(db)
-	tenantSvc := tenant.NewService(tenantRepo, authSvc) // Butuh authSvc buat Login (JWT)
+	tenantSvc := tenant.NewService(tenantRepo, authSvc)
 	tenantHdl := tenant.NewHandler(tenantSvc)
 
 	// --- RESOURCE DOMAIN ---
 	resourceRepo := resource.NewRepository(db)
 	resourceSvc := resource.NewService(resourceRepo)
 	resourceHdl := resource.NewHandler(resourceSvc)
-	
-	// --- CUSTOMER DOMAIN ---
-	customerRepo := customer.NewRepository(db)
-	customerSvc := customer.NewService(customerRepo)
-	customerHdl := customer.NewHandler(customerSvc)
 
 	// --- RESERVATION DOMAIN ---
 	reservationRepo := reservation.NewRepository(db)
-	reservationSvc := reservation.NewService(reservationRepo, resourceRepo, customerSvc) // Tambahkan customerSvc untuk integrasi Silent Register
+	// Suntikkan customerSvc agar Reservation bisa melakukan Silent Register & SyncStats CRM
+	reservationSvc := reservation.NewService(reservationRepo, resourceRepo, customerSvc)
 	reservationHdl := reservation.NewHandler(reservationSvc)
 
-
-	// --- F&B DOMAIN (BARU: Inisialisasi agar tidak NIL) ---
+	// --- F&B DOMAIN ---
 	fnbRepo := fnb.NewRepository(db)
 	fnbSvc := fnb.NewService(fnbRepo)
 	fnbHdl := fnb.NewHandler(fnbSvc)
 
-	// 4. Setup Router dengan Config Baru
+	// 5. Setup Router dengan Config Lengkap
 	routerConfig := http.Config{
 		TenantHandler:      tenantHdl,
 		ResourceHandler:    resourceHdl,
 		ReservationHandler: reservationHdl,
 		CustomerHandler:    customerHdl,
 		AuthHandler:        authHdl,
-		FnbHandler:         fnbHdl, // Masukkan handler F&B ke config
+		FnbHandler:         fnbHdl,
 	}
 
 	r := http.NewRouter(routerConfig)
 
-	// 5. Start Server
+	// 6. Start Server
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
 	log.Printf("🚀 Server bookinaja-api running on :%s", port)
+	log.Printf("🔗 Redis Cloud connected to AP-SEAST-1")
+	
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("Failed to run server: %v", err)
 	}
 }
 
+// runMigration menjalankan script SQL di folder /migrations secara otomatis
 func runMigration(db *sql.DB) {
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
