@@ -11,7 +11,15 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # --- BUILD BACKEND ---
+      # --- 1. GENERATE .ENV DARI SECRETS (RESET SETIAP DEPLOY) ---
+      - name: Create Environment Files
+        run: |
+          # Inject isi BE_ENV dari Secret ke file saas/.env
+          echo "${{ secrets.BE_ENV }}" > saas/.env
+          # Inject isi FE_ENV dari Secret ke file saas-app/.env
+          echo "${{ secrets.FE_ENV }}" > saas-app/.env
+
+      # --- 2. BUILD BACKEND ---
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -21,7 +29,7 @@ jobs:
           cd saas
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o main cmd/api/main.go
 
-      # --- BUILD FRONTEND ---
+      # --- 3. BUILD FRONTEND ---
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -30,40 +38,43 @@ jobs:
           cache-dependency-path: "saas-app/package-lock.json"
       - name: Build Frontend Standalone
         env:
+          # Next.js butuh URL API pas build time untuk fetch static
           NEXT_PUBLIC_API_URL: https://api.bookinaja.com/api/v1
         run: |
           cd saas-app
           npm install
           npm run build
 
-      # --- PRE-CLEAN EC2 (Hapus file lama agar tidak conflict) ---
-      - name: Clean Old Files on EC2
+      # --- 4. PRE-CLEAN EC2 (Hapus file dan .env lama) ---
+      - name: Reset Environment on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Hapus binary dan folder app agar fresh
+            mkdir -p ~/bookinaja/saas ~/bookinaja/saas-app
+            # Hapus binary, build lama, dan file .env lama agar tidak ada residu
             rm -f ~/bookinaja/saas/main
+            rm -f ~/bookinaja/saas/.env
+            rm -f ~/bookinaja/saas-app/.env
             rm -rf ~/bookinaja/saas-app/.next
-            # Jangan hapus seluruh folder saas karena ada .env penting di sana jika tidak di-inject ulang
 
-      # --- SEND TO EC2 ---
-      - name: Transfer Mateng ke EC2
+      # --- 5. TRANSFER FILE MATENG KE EC2 ---
+      - name: Transfer Files to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          # Pastikan seluruh folder saas/internal ikut terkirim
-          source: "saas/main,saas/migrations,saas/internal,saas/Dockerfile,saas-app/.next/standalone,saas-app/.next/static,saas-app/public,saas-app/Dockerfile,docker-compose.yml"
+          # Pastikan file .env yang baru dibuat ikut terkirim
+          source: "saas/main,saas/migrations,saas/internal,saas/Dockerfile,saas/.env,saas-app/.next/standalone,saas-app/.next/static,saas-app/public,saas-app/Dockerfile,saas-app/.env,docker-compose.yml"
           target: "~/bookinaja"
           strip_components: 0
           overwrite: true
 
-      # --- RESTART DOCKER ---
-      - name: Execute SSH Commands
+      # --- 6. RESTART DOCKER ---
+      - name: Execute Docker Commands
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -71,7 +82,9 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd ~/bookinaja
+            # Down dulu untuk membersihkan container lama
             sudo docker-compose down
-            # Gunakan --build untuk memastikan COPY internal di Dockerfile tereksekusi
+            # Build ulang agar COPY .env di Dockerfile tereksekusi dengan file baru
             sudo docker-compose up --build -d
+            # Bersihkan image sampah agar storage EC2 gak penuh
             sudo docker image prune -f
