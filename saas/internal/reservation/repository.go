@@ -279,19 +279,40 @@ func (r *Repository) FindAllByTenant(ctx context.Context, tenantID uuid.UUID, st
 // GetByToken menarik detail untuk pengecekan status tiket customer
 func (r *Repository) GetByToken(ctx context.Context, token uuid.UUID) (*BookingDetail, error) {
 	var b BookingDetail
+	// 1. Ambil data utama booking
 	query := `
-		SELECT b.*, c.name as customer_name, c.phone as customer_phone, r.name as resource_name,
-		COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) as total_resource,
-		COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_fnb
-		FROM bookings b
-		JOIN customers c ON b.customer_id = c.id
-		JOIN resources r ON b.resource_id = r.id
-		WHERE b.access_token = $1 LIMIT 1`
+        SELECT b.*, c.name as customer_name, c.phone as customer_phone, r.name as resource_name,
+        COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) as total_resource,
+        COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_fnb
+        FROM bookings b
+        JOIN customers c ON b.customer_id = c.id
+        JOIN resources r ON b.resource_id = r.id
+        WHERE b.access_token = $1 LIMIT 1`
 
 	err := r.db.GetContext(ctx, &b, query, token)
 	if err != nil {
 		return nil, err
 	}
 	b.GrandTotal = b.TotalResource + b.TotalFnb
+
+	// 2. Hydrate Options (Layanan/Unit yang dibooking)
+	b.Options = make([]BookingOptionDetail, 0)
+	_ = r.db.SelectContext(ctx, &b.Options, `
+        SELECT 
+            bo.id, ri.name as item_name, ri.item_type, 
+            bo.price_at_booking, bo.quantity, ri.price as unit_price
+        FROM booking_options bo
+        JOIN resource_items ri ON bo.resource_item_id = ri.id
+        WHERE bo.booking_id = $1`, b.ID)
+
+	// 3. Hydrate Orders (Pesanan FnB POS jika ada)
+	b.Orders = make([]OrderItem, 0)
+	_ = r.db.SelectContext(ctx, &b.Orders, `
+        SELECT oi.id, oi.booking_id, oi.fnb_item_id, f.name as item_name, oi.quantity, oi.price_at_purchase,
+        (oi.quantity * oi.price_at_purchase) as subtotal
+        FROM order_items oi
+        JOIN fnb_items f ON oi.fnb_item_id = f.id
+        WHERE oi.booking_id = $1`, b.ID)
+
 	return &b, nil
 }

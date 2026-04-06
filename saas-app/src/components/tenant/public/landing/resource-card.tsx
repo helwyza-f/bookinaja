@@ -15,7 +15,7 @@ export function ResourceCard({
 
   return (
     <Link
-      href={`/booking/${res.id}`}
+      href={`/bookings/${res.id}`}
       className="group block w-[280px] md:w-full shrink-0"
     >
       <Card className="relative h-[380px] md:h-[450px] rounded-[2.5rem] border-none bg-slate-100 dark:bg-[#111] overflow-hidden transition-all duration-500 hover:-translate-y-2 group-active:scale-95 shadow-lg">
