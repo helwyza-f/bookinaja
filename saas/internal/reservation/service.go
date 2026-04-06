@@ -7,22 +7,25 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/helwiza/saas/internal/customer"
 	"github.com/helwiza/saas/internal/resource"
 )
 
 type Service struct {
-	repo         *Repository
-	resourceRepo *resource.Repository
+	repo            *Repository
+	resourceRepo    *resource.Repository
+	customerService *customer.Service // Tambahkan dependensi ke modul customer
 }
 
-func NewService(r *Repository, resRepo *resource.Repository) *Service {
+func NewService(r *Repository, resRepo *resource.Repository, custSvc *customer.Service) *Service {
 	return &Service{
-		repo:         r,
-		resourceRepo: resRepo,
+		repo:            r,
+		resourceRepo:    resRepo,
+		customerService: custSvc,
 	}
 }
 
-// Create menangani pendaftaran reservasi baru
+// Create menangani pendaftaran reservasi baru (Silent Register Integrasi)
 func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, error) {
 	// 1. PARSE WAKTU AWAL
 	start, err := time.Parse(time.RFC3339, req.StartTime)
@@ -61,10 +64,14 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, e
 	totalMinutes := req.Duration * unitMinutes
 	end := start.Add(time.Duration(totalMinutes) * time.Minute)
 
-	// 3. SILENT REGISTER CUSTOMER
-	cID, err := s.repo.GetOrCreateCustomer(ctx, tID, req.CustomerName, req.CustomerPhone)
+	// 3. REFACTORED: SILENT REGISTER CUSTOMER (Gunakan Customer Service)
+	// Logic Upsert ada di dalam modul customer, reservation tinggal terima ID
+	cust, err := s.customerService.Register(ctx, req.TenantID, customer.RegisterReq{
+		Name:  req.CustomerName,
+		Phone: req.CustomerPhone,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("GAGAL MENGIDENTIFIKASI CUSTOMER")
+		return nil, fmt.Errorf("GAGAL MENGIDENTIFIKASI PELANGGAN: %w", err)
 	}
 
 	// 4. CEK KETERSEDIAAN
@@ -84,7 +91,7 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, e
 	newBooking := Booking{
 		ID:          uuid.New(),
 		TenantID:    tID,
-		CustomerID:  cID,
+		CustomerID:  cust.ID, // Gunakan ID dari hasil Register/Upsert
 		ResourceID:  rID,
 		StartTime:   start,
 		EndTime:     end,
@@ -93,7 +100,7 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, e
 		CreatedAt:   time.Now().UTC(),
 	}
 
-	// 6. SIMPAN KE DATABASE (Repo sekarang menangani Quantity awal)
+	// 6. SIMPAN KE DATABASE
 	if err := s.repo.CreateWithItems(ctx, newBooking, itemUUIDs, req.Duration); err != nil {
 		return nil, err
 	}
@@ -103,27 +110,21 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, e
 
 // --- POS & EXTENSION SERVICES ---
 
-// ExtendSession memperpanjang durasi booking DAN mengupdate quantity/bill secara atomic
 func (s *Service) ExtendSession(ctx context.Context, bookingID string, tenantID string, additionalDuration int) error {
 	bID, _ := uuid.Parse(bookingID)
 	tID, _ := uuid.Parse(tenantID)
 
-	// 1. Ambil data booking saat ini
 	booking, err := s.repo.FindByID(ctx, bID, tID)
 	if err != nil || booking == nil {
 		return errors.New("SESI TIDAK DITEMUKAN")
 	}
 
-	// 2. Kalkulasi End Time baru
 	unitMinutes := booking.UnitDuration
 	if unitMinutes <= 0 {
 		unitMinutes = 60
 	}
 	newEndTime := booking.EndTime.Add(time.Duration(additionalDuration*unitMinutes) * time.Minute)
 
-	// 3. Eksekusi Atomic Transaction di Repository
-	// Repository sekarang otomatis mencari item utama (main_option/console_option) 
-	// dan mengupdate quantity serta harganya tanpa perlu ID item dikirim dari sini.
 	return s.repo.ExtendSessionWithValidation(
 		ctx,
 		bID,
@@ -134,7 +135,6 @@ func (s *Service) ExtendSession(ctx context.Context, bookingID string, tenantID 
 	)
 }
 
-// AddAddonOrder menambah layanan tambahan ke billing berjalan
 func (s *Service) AddAddonOrder(ctx context.Context, bookingID string, tenantID string, itemID string) error {
 	bID, _ := uuid.Parse(bookingID)
 	tID, _ := uuid.Parse(tenantID)
@@ -152,7 +152,6 @@ func (s *Service) AddAddonOrder(ctx context.Context, bookingID string, tenantID 
 	return s.repo.AddAddonOrder(ctx, bID, iID)
 }
 
-// GetActiveSessions mengambil sesi yang sedang berlangsung untuk dashboard POS
 func (s *Service) GetActiveSessions(ctx context.Context, tenantID string) ([]BookingDetail, error) {
 	tID, err := uuid.Parse(tenantID)
 	if err != nil {
@@ -161,7 +160,6 @@ func (s *Service) GetActiveSessions(ctx context.Context, tenantID string) ([]Boo
 	return s.repo.FindActiveSessions(ctx, tID)
 }
 
-// AddFnbOrder menambahkan pesanan makanan/minuman ke dalam bill booking
 func (s *Service) AddFnbOrder(ctx context.Context, bookingID string, tenantID string, req AddOrderReq) error {
 	bID, err := uuid.Parse(bookingID)
 	tID, _ := uuid.Parse(tenantID)
@@ -180,6 +178,38 @@ func (s *Service) AddFnbOrder(ctx context.Context, bookingID string, tenantID st
 	}
 
 	return s.repo.AddFnbOrder(ctx, bID, req.FnbItemID, req.Quantity)
+}
+
+// --- CORE UPDATES ---
+
+// UpdateStatus menangani perubahan status DAN sinkronisasi statistik CRM
+func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string) error {
+	bID, _ := uuid.Parse(id)
+	tID, _ := uuid.Parse(tenantID)
+
+	// 1. Ambil detail bokingan sebelum diupdate (untuk kebutuhan CRM Stats)
+	booking, err := s.repo.FindByID(ctx, bID, tID)
+	if err != nil {
+		return err
+	}
+
+	// 2. Lakukan update status di repository
+	if err := s.repo.UpdateStatus(ctx, bID, tID, status); err != nil {
+		return err
+	}
+
+	// 3. CRM SYNC HOOK: Jika status menjadi 'completed', update stats pelanggan
+	if status == "completed" {
+		// Panggil service customer untuk increment visits dan spending secara fisik
+		totalSpent := int64(booking.GrandTotal) // Asumsikan GrandTotal sudah dihitung di level repository
+		err := s.customerService.SyncStats(ctx, booking.CustomerID, totalSpent)
+		if err != nil {
+			// Kita tidak return error agar flow checkout tidak terhenti, tapi log error-nya
+			fmt.Printf("CRM Sync Error: %v\n", err)
+		}
+	}
+
+	return nil
 }
 
 // --- EXISTING SERVICES ---
@@ -225,10 +255,4 @@ func (s *Service) GetDetailForAdmin(ctx context.Context, id, tenantID string) (*
 	bID, _ := uuid.Parse(id)
 	tID, _ := uuid.Parse(tenantID)
 	return s.repo.FindByID(ctx, bID, tID)
-}
-
-func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string) error {
-	bID, _ := uuid.Parse(id)
-	tID, _ := uuid.Parse(tenantID)
-	return s.repo.UpdateStatus(ctx, bID, tID, status)
 }

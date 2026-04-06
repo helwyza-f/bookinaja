@@ -32,17 +32,27 @@ CREATE TABLE users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 4. CUSTOMERS
+-- 4. CUSTOMERS (REFACTORED FOR CRM)
 CREATE TABLE customers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     phone VARCHAR(20) NOT NULL,
     email VARCHAR(255),
+    
+    -- CRM Fields (Physical stats for high performance)
+    tier VARCHAR(20) DEFAULT 'REGULAR', -- REGULAR, GOLD, VIP
+    total_visits INTEGER DEFAULT 0,
+    total_spent BIGINT DEFAULT 0,       -- BigInt lebih aman dan presisi untuk uang
+    last_visit TIMESTAMP WITH TIME ZONE,
+    
     loyalty_points INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(tenant_id, phone)
 );
+CREATE INDEX idx_customers_phone ON customers(phone);
+CREATE INDEX idx_customers_tenant_spent ON customers(tenant_id, total_spent DESC);
 
 -- 5. RESOURCES (Units like Studio A, Table 1, Room 101, etc)
 CREATE TABLE resources (
@@ -63,10 +73,10 @@ CREATE TABLE resource_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     resource_id UUID REFERENCES resources(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
-    price DECIMAL(12, 2) NOT NULL DEFAULT 0,
+    price BIGINT NOT NULL DEFAULT 0, 
     price_unit VARCHAR(20) DEFAULT 'hour', 
     unit_duration INTEGER DEFAULT 60, 
-    item_type VARCHAR(20) NOT NULL, 
+    item_type VARCHAR(20) NOT NULL, -- main_option, add_on
     is_default BOOLEAN DEFAULT false,
     metadata JSONB NOT NULL DEFAULT '{}'
 );
@@ -80,7 +90,7 @@ CREATE TABLE bookings (
     start_time TIMESTAMP WITH TIME ZONE NOT NULL,
     end_time TIMESTAMP WITH TIME ZONE NOT NULL,
     access_token UUID DEFAULT uuid_generate_v4(),
-    status VARCHAR(20) DEFAULT 'pending', -- pending, active, ongoing, completed, cancelled
+    status VARCHAR(20) DEFAULT 'pending', -- pending, active, completed, cancelled
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 CREATE INDEX idx_bookings_status ON bookings(status);
@@ -88,13 +98,12 @@ CREATE INDEX idx_bookings_tenant_time ON bookings(tenant_id, start_time, end_tim
 CREATE INDEX idx_bookings_access_token ON bookings(access_token);
 
 -- 8. BOOKING OPTIONS (Selected Resource Items during booking)
--- REFACTORED: Ditambahkan quantity agar sinkron dengan durasi sewa
 CREATE TABLE booking_options (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     booking_id UUID REFERENCES bookings(id) ON DELETE CASCADE,
     resource_item_id UUID REFERENCES resource_items(id),
-    quantity INTEGER NOT NULL DEFAULT 1, -- Baru: untuk menyimpan jam/sesi atau jumlah addon
-    price_at_booking DECIMAL(12, 2) NOT NULL -- Ini berfungsi sebagai SUB TOTAL (Unit Price * Quantity)
+    quantity INTEGER NOT NULL DEFAULT 1, 
+    price_at_booking BIGINT NOT NULL -- Subtotal (Unit Price * Qty) saat transaksi
 );
 CREATE INDEX idx_booking_options_booking_id ON booking_options(booking_id);
 
@@ -104,7 +113,7 @@ CREATE TABLE fnb_items (
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     description TEXT DEFAULT '',
-    price DECIMAL(12,2) NOT NULL DEFAULT 0,
+    price BIGINT NOT NULL DEFAULT 0,
     category VARCHAR(100),
     image_url TEXT,
     is_available BOOLEAN DEFAULT true,
@@ -117,7 +126,7 @@ CREATE TABLE order_items (
     booking_id UUID REFERENCES bookings(id) ON DELETE CASCADE,
     fnb_item_id UUID REFERENCES fnb_items(id),
     quantity INTEGER NOT NULL DEFAULT 1,
-    price_at_purchase DECIMAL(12, 2) NOT NULL,
+    price_at_purchase BIGINT NOT NULL,
     status VARCHAR(20) DEFAULT 'delivered', -- ordered, delivered, cancelled
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

@@ -3,9 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import {
   Zap,
-  Ticket,
   ChevronUp,
-  X,
   ShoppingCart,
   Package,
   Info,
@@ -13,7 +11,6 @@ import {
   TimerReset,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { FnBCatalogDialog } from "./fnb-catalog-dialog";
 import { ExtendSessionDialog } from "./extend-session-dialog";
 import { AddonsCatalogDialog } from "./addons-catalog-dialog";
@@ -57,19 +54,15 @@ export function POSControlHub({ session, menuItems, onRefresh, onClose }: any) {
   // --- LOGIKA GROUPING REFACTORED (Data Direct from Backend) ---
   const groupedOptions = useMemo(() => {
     if (!session?.options) return [];
-
-    // Backend sekarang sudah mengirim quantity & unit_price per baris.
-    // Kita tetap melakukan grouping hanya jika ada ID item yang sama (biasanya untuk Add-ons).
     const groups = session.options.reduce((acc: any, item: any) => {
       const key = item.item_name;
       if (!acc[key]) {
         acc[key] = {
           ...item,
-          unitPrice: item.unit_price, // Diambil langsung dari backend
+          unitPrice: item.unit_price,
           total_price: item.price_at_booking,
         };
       } else {
-        // Jika ada item sama (misal Stik Tambahan diinput 2x manual), kita akumulasi
         acc[key].quantity += item.quantity;
         acc[key].total_price += item.price_at_booking;
       }
@@ -127,7 +120,8 @@ export function POSControlHub({ session, menuItems, onRefresh, onClose }: any) {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 shrink-0 mr-8">
+            {/* mr-8 ditambahkan agar info sisa waktu tidak tertutup tombol X bawaan Sheet */}
             <div
               className={cn(
                 "flex flex-col items-end px-3 py-1.5 rounded-xl border transition-all",
@@ -153,46 +147,39 @@ export function POSControlHub({ session, menuItems, onRefresh, onClose }: any) {
                 {timeRemaining}
               </span>
             </div>
-            <Button
-              variant="ghost"
-              onClick={onClose}
-              className="rounded-xl text-slate-500 hover:text-white hover:bg-white/10 h-9 w-9 p-0"
-            >
-              <X className="w-5 h-5" />
-            </Button>
           </div>
         </div>
       </div>
 
       {/* 2. ACTIONS BAR */}
       <div className="p-3 grid grid-cols-3 gap-3 bg-slate-50 dark:bg-slate-900/50 border-b dark:border-white/5 shrink-0">
-        <Button
+        <button
           onClick={() => setFnbOpen(true)}
-          className="h-14 flex-col rounded-xl bg-white dark:bg-slate-800 border dark:border-white/5 text-slate-900 dark:text-white hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+          className="h-14 flex flex-col items-center justify-center rounded-xl bg-white dark:bg-slate-800 border dark:border-white/5 text-slate-900 dark:text-white hover:bg-blue-600 hover:text-white transition-all shadow-sm group"
         >
-          <ShoppingCart className="w-4 h-4 mb-1" />
+          <ShoppingCart className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
           <span className="text-[8px] font-black uppercase italic pr-1">
             F&B Menu
           </span>
-        </Button>
-        <Button
+        </button>
+        <button
           onClick={() => setAddonsOpen(true)}
-          className="h-14 flex-col rounded-xl bg-white dark:bg-slate-800 border dark:border-white/5 text-slate-900 dark:text-white hover:bg-orange-500 hover:text-white transition-all shadow-sm"
+          className="h-14 flex flex-col items-center justify-center rounded-xl bg-white dark:bg-slate-800 border dark:border-white/5 text-slate-900 dark:text-white hover:bg-orange-500 hover:text-white transition-all shadow-sm group"
         >
-          <Package className="w-4 h-4 mb-1" />
+          <Package className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
           <span className="text-[8px] font-black uppercase italic pr-1">
             Add-ons
           </span>
-        </Button>
-        <Button
+        </button>
+        <button
           onClick={() => setExtendOpen(true)}
-          className="h-14 flex-col rounded-xl bg-white dark:bg-slate-800 border dark:border-white/5 text-slate-900 dark:text-white hover:bg-slate-950 hover:text-white transition-all shadow-sm"
+          className="h-14 flex flex-col items-center justify-center rounded-xl bg-white dark:bg-slate-800 border dark:border-white/5 text-slate-900 dark:text-white hover:bg-slate-950 hover:text-white transition-all shadow-sm group"
         >
-          <TimerReset className="w-4 h-4 mb-1" />
+          <TimerReset className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
           <span className="text-[8px] font-black uppercase italic pr-1">
             Extend
           </span>
-        </Button>
+        </button>
       </div>
 
       {/* 3. MAIN BILLING AREA */}

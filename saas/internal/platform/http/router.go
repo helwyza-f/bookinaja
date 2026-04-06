@@ -62,7 +62,7 @@ func NewRouter(cfg Config) *gin.Engine {
 			{
 				admin.GET("/profile", cfg.TenantHandler.GetProfile)
 				admin.PUT("/profile", cfg.TenantHandler.UpdateProfile)
-				
+
 				admin.POST("/upload", func(c *gin.Context) {
 					HandleSingleUpload(c, "tenants")
 				})
@@ -73,7 +73,7 @@ func NewRouter(cfg Config) *gin.Engine {
 			{
 				resources.GET("", cfg.ResourceHandler.List)
 				resources.POST("", cfg.ResourceHandler.Create)
-				resources.PUT("/:id", cfg.ResourceHandler.Update) 
+				resources.PUT("/:id", cfg.ResourceHandler.Update)
 				resources.DELETE("/:id", cfg.ResourceHandler.Delete)
 
 				resources.POST("/upload-cover", func(c *gin.Context) {
@@ -102,7 +102,6 @@ func NewRouter(cfg Config) *gin.Engine {
 				})
 			}
 
-			
 			// BOOKING & POS MANAGEMENT
 			bookings := protected.Group("/bookings")
 			{
@@ -110,23 +109,27 @@ func NewRouter(cfg Config) *gin.Engine {
 				bookings.GET("/:id", cfg.ReservationHandler.GetDetail)
 				bookings.PUT("/:id/status", cfg.ReservationHandler.UpdateStatus)
 				bookings.POST("/manual", cfg.ReservationHandler.Create)
-				
+
 				// --- POS SPECIFIC ROUTES ---
 				bookings.GET("/pos/active", cfg.ReservationHandler.GetActiveSessions)
 				bookings.POST("/pos/order/:id", cfg.ReservationHandler.AddOrder)
 
-				// --- FITUR BARU: POS CONTROL HUB ---
-				// POST /api/v1/bookings/:id/extend (Untuk perpanjang durasi)
+				// --- POS CONTROL HUB ---
 				bookings.POST("/:id/extend", cfg.ReservationHandler.ExtendSession)
-				// POST /api/v1/bookings/:id/addons (Untuk tambah layanan/alat ekstra)
 				bookings.POST("/:id/addons", cfg.ReservationHandler.AddAddonItem)
 			}
 
-			// CUSTOMER MANAGEMENT
+			// CUSTOMER MANAGEMENT (CRM)
 			customers := protected.Group("/customers")
 			{
+				// GET /api/v1/customers - List semua pelanggan (Tabel CRM)
 				customers.GET("", cfg.CustomerHandler.List)
+				// POST /api/v1/customers - Registrasi manual pelanggan
 				customers.POST("", cfg.CustomerHandler.Create)
+				// GET /api/v1/customers/:id - Detail profil & history (Modal Profil)
+				customers.GET("/:id", cfg.CustomerHandler.GetByID)
+				// GET /api/v1/customers/search - Cek member via phone (Guna di POS)
+				customers.GET("/search", cfg.CustomerHandler.SearchByPhone)
 			}
 
 			protected.GET("/me", cfg.AuthHandler.CheckMe)

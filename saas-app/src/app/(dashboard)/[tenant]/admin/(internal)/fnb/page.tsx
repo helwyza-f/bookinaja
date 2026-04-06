@@ -35,7 +35,6 @@ import { SingleImageUpload } from "@/components/upload/single-image-upload";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
 // --- KOMPONEN SKELETON ---
 function FnbSkeleton() {
@@ -202,38 +201,39 @@ export default function FnbManagementPage() {
 
           <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 overflow-hidden border-none bg-white dark:bg-slate-950 rounded-[2.5rem] shadow-2xl ring-1 ring-black/5 dark:ring-white/10">
             <div className="flex flex-col md:flex-row w-full max-h-[90vh]">
-              {/* Left Side: Image Upload */}
-              <div className="w-full md:w-5/12 bg-slate-50 dark:bg-slate-900/50 p-10 flex flex-col border-b md:border-b-0 md:border-r border-slate-100 dark:border-white/5">
-                <div className="space-y-8">
-                  <DialogHeader className="text-left">
+              {/* Left Side: Photo Area */}
+              <div className="w-full md:w-5/12 bg-slate-50 dark:bg-slate-900/50 p-8 md:p-10 flex flex-col border-b md:border-b-0 md:border-r border-slate-100 dark:border-white/5">
+                <div className="space-y-8 flex-1 flex flex-col justify-center">
+                  <DialogHeader className="text-left shrink-0">
                     <DialogTitle className="text-3xl font-black uppercase italic tracking-tighter leading-none dark:text-white">
                       {editingId ? "Modify" : "Register"}{" "}
                       <span className="text-blue-600">Product</span>
                     </DialogTitle>
                   </DialogHeader>
-                  <div className="relative aspect-square w-full rounded-[2rem] overflow-hidden shadow-2xl ring-4 ring-white dark:ring-slate-800 bg-white dark:bg-slate-900">
-                    <SingleImageUpload
-                      value={imageUrl}
-                      onChange={setImageUrl}
-                      endpoint="/fnb/upload"
-                      label=""
-                    />
-                    {!imageUrl && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-20">
-                        <Camera size={48} className="mb-2" />
-                        <span className="text-[10px] font-black uppercase italic">
-                          Upload Thumbnail
-                        </span>
-                      </div>
-                    )}
+
+                  {/* Container Upload - Diperbaiki agar tidak nabrak */}
+                  <div className="relative aspect-square w-full rounded-[2.5rem] overflow-hidden shadow-2xl ring-4 ring-white dark:ring-slate-800 bg-slate-200 dark:bg-slate-800 group/upload flex items-center justify-center p-4">
+                    <div className="w-full h-full">
+                      <SingleImageUpload
+                        value={imageUrl}
+                        onChange={setImageUrl}
+                        endpoint="/fnb/upload"
+                        // Hilangkan label atau placeholder manual di sini jika SingleImageUpload sudah punya UI sendiri
+                      />
+                    </div>
                   </div>
+
+                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase italic tracking-tighter text-center leading-relaxed">
+                    Recommended: Square ratio (1:1) with high resolution for
+                    best terminal display.
+                  </p>
                 </div>
               </div>
 
-              {/* Right Side: Form */}
-              <div className="w-full md:w-7/12 p-10 overflow-y-auto bg-white dark:bg-slate-950">
+              {/* Right Side: Form Details */}
+              <div className="w-full md:w-7/12 p-8 md:p-12 overflow-y-auto bg-white dark:bg-slate-950">
                 <form onSubmit={handleSave} className="space-y-8">
-                  <div className="space-y-5">
+                  <div className="space-y-6">
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-600 italic tracking-widest ml-1">
                         Product Name
@@ -242,7 +242,7 @@ export default function FnbManagementPage() {
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         placeholder="EX: ICED AMERICANO"
-                        className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-black italic uppercase px-6 focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-white"
+                        className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-black italic uppercase px-6 focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-white shadow-inner"
                         required
                       />
                     </div>
@@ -256,7 +256,8 @@ export default function FnbManagementPage() {
                           onChange={(e) =>
                             setPrice(e.target.value.replace(/\D/g, ""))
                           }
-                          className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-black italic text-blue-600 dark:text-blue-400 px-6 focus-visible:ring-2 focus-visible:ring-blue-600"
+                          placeholder="0"
+                          className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-black italic text-blue-600 dark:text-blue-400 px-6 focus-visible:ring-2 focus-visible:ring-blue-600 shadow-inner"
                           required
                         />
                       </div>
@@ -265,7 +266,7 @@ export default function FnbManagementPage() {
                           Category
                         </Label>
                         <Select value={category} onValueChange={setCategory}>
-                          <SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-black italic text-[11px] uppercase px-6 focus:ring-2 focus:ring-blue-600 dark:text-white">
+                          <SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-black italic text-[11px] uppercase px-6 focus:ring-2 focus:ring-blue-600 dark:text-white shadow-inner">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="rounded-xl border-none shadow-2xl font-black uppercase italic dark:bg-slate-800">
@@ -283,14 +284,14 @@ export default function FnbManagementPage() {
                       <Textarea
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        className="rounded-2xl bg-slate-50 dark:bg-slate-900 border-none min-h-[100px] p-6 font-medium text-sm focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-white"
-                        placeholder="Optional product details..."
+                        className="rounded-2xl bg-slate-50 dark:bg-slate-900 border-none min-h-[140px] p-6 font-medium text-sm focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-white shadow-inner"
+                        placeholder="Explain ingredients, taste, or size..."
                       />
                     </div>
                   </div>
                   <Button
                     type="submit"
-                    className="w-full h-16 rounded-[1.5rem] bg-slate-950 dark:bg-blue-600 hover:bg-slate-900 dark:hover:bg-blue-500 font-black uppercase italic text-[12px] tracking-[0.2em] shadow-2xl border-b-4 border-slate-800 dark:border-blue-800 gap-3"
+                    className="w-full h-16 rounded-[1.5rem] bg-slate-950 dark:bg-blue-600 hover:bg-slate-900 dark:hover:bg-blue-500 font-black uppercase italic text-[12px] tracking-[0.2em] shadow-2xl border-b-4 border-slate-800 dark:border-blue-800 gap-3 transition-all active:scale-[0.98]"
                   >
                     {editingId ? "Update Item" : "Save to Catalog"}
                     <ChevronRight className="h-5 w-5" />

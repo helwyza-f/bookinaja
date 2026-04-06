@@ -59,16 +59,17 @@ func main() {
 	resourceRepo := resource.NewRepository(db)
 	resourceSvc := resource.NewService(resourceRepo)
 	resourceHdl := resource.NewHandler(resourceSvc)
-
-	// --- RESERVATION DOMAIN ---
-	reservationRepo := reservation.NewRepository(db)
-	reservationSvc := reservation.NewService(reservationRepo, resourceRepo)
-	reservationHdl := reservation.NewHandler(reservationSvc)
-
+	
 	// --- CUSTOMER DOMAIN ---
 	customerRepo := customer.NewRepository(db)
 	customerSvc := customer.NewService(customerRepo)
 	customerHdl := customer.NewHandler(customerSvc)
+
+	// --- RESERVATION DOMAIN ---
+	reservationRepo := reservation.NewRepository(db)
+	reservationSvc := reservation.NewService(reservationRepo, resourceRepo, customerSvc) // Tambahkan customerSvc untuk integrasi Silent Register
+	reservationHdl := reservation.NewHandler(reservationSvc)
+
 
 	// --- F&B DOMAIN (BARU: Inisialisasi agar tidak NIL) ---
 	fnbRepo := fnb.NewRepository(db)

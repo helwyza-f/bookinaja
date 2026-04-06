@@ -27,7 +27,7 @@ func (h *Handler) ValidatePhone(c *gin.Context) {
 	isValid, err := fonnte.ValidateNumber(phone)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"valid": false, 
+			"valid": false,
 			"error": "Gagal terhubung ke server WhatsApp",
 		})
 		return
@@ -39,6 +39,7 @@ func (h *Handler) ValidatePhone(c *gin.Context) {
 	})
 }
 
+// Create digunakan untuk pendaftaran manual pelanggan dari dashboard CRM
 func (h *Handler) Create(c *gin.Context) {
 	var req RegisterReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -56,6 +57,7 @@ func (h *Handler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, cust)
 }
 
+// List mengambil semua database pelanggan per tenant (untuk tabel CRM)
 func (h *Handler) List(c *gin.Context) {
 	tenantID := c.MustGet("tenantID").(string)
 	customers, err := h.service.ListByTenant(c.Request.Context(), tenantID)
@@ -65,4 +67,41 @@ func (h *Handler) List(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, customers)
+}
+
+// GetByID mengambil profil detail pelanggan untuk ditampilkan di Modal Profil Frontend
+func (h *Handler) GetByID(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID pelanggan wajib disertakan"})
+		return
+	}
+
+	cust, err := h.service.GetDetail(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Pelanggan tidak ditemukan"})
+		return
+	}
+
+	c.JSON(http.StatusOK, cust)
+}
+
+// SearchByPhone endpoint opsional untuk POS jika admin ingin cek member sebelum transaksi
+func (h *Handler) SearchByPhone(c *gin.Context) {
+	phone := c.Query("phone")
+	tenantID := c.MustGet("tenantID").(string)
+	
+	// Kita reuse logic parsing tenant di service jika perlu, 
+	// atau parsing di sini jika handler handle ID raw.
+	cust, err := h.service.Register(c.Request.Context(), tenantID, RegisterReq{
+		Phone: phone,
+		Name:  "Customer", // Placeholder jika belum ada
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, cust)
 }

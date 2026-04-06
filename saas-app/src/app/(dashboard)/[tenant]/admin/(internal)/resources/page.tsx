@@ -71,6 +71,10 @@ export default function ResourcesPage() {
       if (res.data) {
         setResources(res.data.resources || []);
         setBusinessCategory(res.data.business_category || "");
+
+        // --- PENTING: SIMPAN KE CACHE UNTUK DETAIL PAGE ---
+        // Dengan menyimpan di sini, Detail Page bisa render INSTAN tanpa skeleton
+        localStorage.setItem("cache_resources_all", JSON.stringify(res.data));
       }
     } catch (err) {
       console.error("Fetch Error:", err);
