@@ -18,7 +18,7 @@ func NewRepository(db *sqlx.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// GetOrCreateCustomer mengidentifikasi customer berdasarkan nomor HP
+// GetOrCreateCustomer mengidentifikasi customer berdasarkan nomor HP (Silent Registration)
 func (r *Repository) GetOrCreateCustomer(ctx context.Context, tenantID uuid.UUID, name, phone string) (uuid.UUID, error) {
 	var customerID uuid.UUID
 	queryFind := `SELECT id FROM customers WHERE tenant_id = $1 AND phone = $2 LIMIT 1`
@@ -35,7 +35,7 @@ func (r *Repository) GetOrCreateCustomer(ctx context.Context, tenantID uuid.UUID
 	return customerID, err
 }
 
-// CheckAvailability memastikan tidak ada irisan waktu (Public/New Booking)
+// CheckAvailability memastikan tidak ada bentrokan waktu pada resource tertentu
 func (r *Repository) CheckAvailability(ctx context.Context, resourceID uuid.UUID, start, end time.Time) (bool, error) {
 	var count int
 	query := `
@@ -49,7 +49,7 @@ func (r *Repository) CheckAvailability(ctx context.Context, resourceID uuid.UUID
 	return count == 0, err
 }
 
-// ExtendSessionWithValidation: REFACTORED untuk UPDATE Quantity paket utama
+// ExtendSessionWithValidation memperbarui Quantity durasi paket utama dan billing secara atomik
 func (r *Repository) ExtendSessionWithValidation(ctx context.Context, bID uuid.UUID, resourceID uuid.UUID, currentEnd, newEnd time.Time, additionalDuration int) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -57,7 +57,7 @@ func (r *Repository) ExtendSessionWithValidation(ctx context.Context, bID uuid.U
 	}
 	defer tx.Rollback()
 
-	// 1. Validasi ketersediaan agar tidak tabrakan
+	// 1. Validasi ketersediaan slot tambahan agar tidak menabrak booking lain
 	var count int
 	checkQuery := `
 		SELECT COUNT(*) FROM bookings 
@@ -73,14 +73,14 @@ func (r *Repository) ExtendSessionWithValidation(ctx context.Context, bID uuid.U
 		return fmt.Errorf("SLOT WAKTU SUDAH TERISI")
 	}
 
-	// 2. Update jam selesai (END_TIME)
+	// 2. Update jam selesai (END_TIME) pada tabel utama
 	updateBookingQuery := `UPDATE bookings SET end_time = $1 WHERE id = $2`
 	_, err = tx.ExecContext(ctx, updateBookingQuery, newEnd, bID)
 	if err != nil {
 		return err
 	}
 
-	// 3. REFACTORED: Update Quantity & Price pada Paket Utama (Bukan Insert Baru)
+	// 3. Update Quantity & Subtotal pada Paket Utama (Bukan Insert Baru)
 	updateOptionQuery := `
 		UPDATE booking_options 
 		SET 
@@ -99,7 +99,7 @@ func (r *Repository) ExtendSessionWithValidation(ctx context.Context, bID uuid.U
 	return tx.Commit()
 }
 
-// CreateWithItems: REFACTORED untuk menyimpan Quantity awal
+// CreateWithItems menyimpan data booking beserta pilihan item dengan Quantity dinamis
 func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []uuid.UUID, duration int) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -117,6 +117,7 @@ func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []u
 	}
 
 	if len(itemIDs) > 0 {
+		// Logic Quantity: 1 untuk Add-on, 'duration' untuk Main Option
 		queryItem := `
 			INSERT INTO booking_options (id, booking_id, resource_item_id, quantity, price_at_booking)
 			SELECT gen_random_uuid(), $1, id, 
@@ -140,7 +141,7 @@ func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []u
 	return tx.Commit()
 }
 
-// FindByID: REFACTORED untuk mengambil info Quantity & Unit Price secara proper
+// FindByID menarik detail lengkap booking untuk kebutuhan Dashboard Admin & POS
 func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*BookingDetail, error) {
 	var b BookingDetail
 	query := `
@@ -163,21 +164,17 @@ func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*Boo
 	}
 	b.GrandTotal = b.TotalResource + b.TotalFnb
 
-	// Load Options dengan Quantity & Unit Price
+	// 1. Load detail item resource (PC/Console + Addons)
 	b.Options = make([]BookingOptionDetail, 0)
 	_ = r.db.SelectContext(ctx, &b.Options, `
 		SELECT 
-			bo.id, 
-			ri.name as item_name, 
-			ri.item_type, 
-			bo.price_at_booking,
-			bo.quantity,
-			ri.price as unit_price
+			bo.id, ri.name as item_name, ri.item_type, 
+			bo.price_at_booking, bo.quantity, ri.price as unit_price
 		FROM booking_options bo
 		JOIN resource_items ri ON bo.resource_item_id = ri.id
 		WHERE bo.booking_id = $1`, b.ID)
 
-	// Load F&B Orders
+	// 2. Load detail pesanan F&B dari POS
 	b.Orders = make([]OrderItem, 0)
 	_ = r.db.SelectContext(ctx, &b.Orders, `
 		SELECT oi.id, oi.booking_id, oi.fnb_item_id, f.name as item_name, oi.quantity, oi.price_at_purchase,
@@ -186,7 +183,7 @@ func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*Boo
 		JOIN fnb_items f ON oi.fnb_item_id = f.id
 		WHERE oi.booking_id = $1`, b.ID)
 
-	// Load Addons Catalog
+	// 3. Load katalog addon untuk dropdown di POS
 	b.ResourceAddons = make([]ResourceItemSimple, 0)
 	_ = r.db.SelectContext(ctx, &b.ResourceAddons, `
 		SELECT id, name, price, item_type 
@@ -196,8 +193,7 @@ func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*Boo
 	return &b, nil
 }
 
-// --- LOGIC POS LAINNYA ---
-
+// AddFnbOrder menambahkan pesanan makanan ke dalam bill transaksi
 func (r *Repository) AddFnbOrder(ctx context.Context, bookingID uuid.UUID, fnbItemID uuid.UUID, qty int) error {
 	query := `
 		INSERT INTO order_items (id, booking_id, fnb_item_id, quantity, price_at_purchase, status)
@@ -208,6 +204,7 @@ func (r *Repository) AddFnbOrder(ctx context.Context, bookingID uuid.UUID, fnbIt
 	return err
 }
 
+// AddAddonOrder menambahkan layanan tambahan ke dalam bill transaksi
 func (r *Repository) AddAddonOrder(ctx context.Context, bookingID uuid.UUID, itemID uuid.UUID) error {
 	query := `
 		INSERT INTO booking_options (id, booking_id, resource_item_id, quantity, price_at_booking)
@@ -218,6 +215,7 @@ func (r *Repository) AddAddonOrder(ctx context.Context, bookingID uuid.UUID, ite
 	return err
 }
 
+// FindActiveSessions menarik semua bokingan Ongoing untuk Dashboard Live POS
 func (r *Repository) FindActiveSessions(ctx context.Context, tenantID uuid.UUID) ([]BookingDetail, error) {
 	var res []BookingDetail
 	query := `
@@ -241,12 +239,14 @@ func (r *Repository) FindActiveSessions(ctx context.Context, tenantID uuid.UUID)
 	return res, err
 }
 
+// UpdateStatus mengubah status transaksi (Check-in, Check-out, dll)
 func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, status string) error {
 	query := `UPDATE bookings SET status = $1 WHERE id = $2 AND tenant_id = $3`
 	_, err := r.db.ExecContext(ctx, query, status, id, tenantID)
 	return err
 }
 
+// ListUpcoming menarik data jadwal boking masa depan untuk filter kalender
 func (r *Repository) ListUpcoming(ctx context.Context, resourceID uuid.UUID, from time.Time) ([]Booking, error) {
 	var bookings []Booking
 	query := `SELECT * FROM bookings WHERE resource_id = $1 AND end_time > $2 AND status != 'cancelled' ORDER BY start_time ASC`
@@ -254,6 +254,7 @@ func (r *Repository) ListUpcoming(ctx context.Context, resourceID uuid.UUID, fro
 	return bookings, err
 }
 
+// FindAllByTenant list histori transaksi untuk tabel administrasi
 func (r *Repository) FindAllByTenant(ctx context.Context, tenantID uuid.UUID, status string) ([]BookingDetail, error) {
 	var res []BookingDetail
 	query := `
@@ -275,6 +276,7 @@ func (r *Repository) FindAllByTenant(ctx context.Context, tenantID uuid.UUID, st
 	return res, err
 }
 
+// GetByToken menarik detail untuk pengecekan status tiket customer
 func (r *Repository) GetByToken(ctx context.Context, token uuid.UUID) (*BookingDetail, error) {
 	var b BookingDetail
 	query := `

@@ -14,7 +14,7 @@ import (
 type Service struct {
 	repo            *Repository
 	resourceRepo    *resource.Repository
-	customerService *customer.Service // Tambahkan dependensi ke modul customer
+	customerService *customer.Service
 }
 
 func NewService(r *Repository, resRepo *resource.Repository, custSvc *customer.Service) *Service {
@@ -25,48 +25,51 @@ func NewService(r *Repository, resRepo *resource.Repository, custSvc *customer.S
 	}
 }
 
-// Create menangani pendaftaran reservasi baru (Silent Register Integrasi)
+// Create menangani pendaftaran reservasi baru (Auto-detect TenantID & Silent Register CRM)
 func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, error) {
-	// 1. PARSE WAKTU AWAL
+	// 1. PARSE RESOURCE ID & AMBIL DATA TENANT (KEAMANAN: TenantID dari DB, bukan JSON)
+	rID, err := uuid.Parse(req.ResourceID)
+	if err != nil {
+		return nil, errors.New("ID UNIT TIDAK VALID")
+	}
+
+	resDetail, err := s.resourceRepo.GetOneWithItems(ctx, rID)
+	if err != nil {
+		return nil, errors.New("UNIT TIDAK DITEMUKAN")
+	}
+	tID := resDetail.TenantID
+
+	// 2. PARSE WAKTU MULAI (ISO8601 atau Local Format)
 	start, err := time.Parse(time.RFC3339, req.StartTime)
 	if err != nil {
 		layout := "2006-01-02T15:04:05"
 		start, err = time.ParseInLocation(layout, req.StartTime, time.Local)
 		if err != nil {
-			return nil, errors.New("FORMAT WAKTU SALAH, GUNAKAN ISO8601 DENGAN OFFSET")
+			return nil, errors.New("FORMAT WAKTU SALAH, GUNAKAN STANDAR ISO8601")
 		}
 	}
+	start = start.UTC() // Database konsisten menggunakan UTC
 
-	// FORCE TO UTC: Agar database konsisten
-	start = start.UTC()
-
-	tID, _ := uuid.Parse(req.TenantID)
-	rID, _ := uuid.Parse(req.ResourceID)
-
-	// 2. HITUNG END TIME BERDASARKAN UNIT DURATION
+	// 3. HITUNG END TIME BERDASARKAN DURASI UNIT
 	if len(req.ItemIDs) == 0 {
-		return nil, errors.New("PILIH MINIMAL SATU PAKET/UNIT")
+		return nil, errors.New("PILIH MINIMAL SATU PAKET UTAMA")
 	}
 
 	mainItemID, _ := uuid.Parse(req.ItemIDs[0])
-	var unitMinutes int = 60
+	var unitMinutes int = 60 // Default fallback
 
-	resDetail, err := s.resourceRepo.GetOneWithItems(ctx, rID)
-	if err == nil {
-		for _, item := range resDetail.Items {
-			if item.ID == mainItemID {
-				unitMinutes = item.UnitDuration
-				break
-			}
+	for _, item := range resDetail.Items {
+		if item.ID == mainItemID {
+			unitMinutes = item.UnitDuration
+			break
 		}
 	}
 
 	totalMinutes := req.Duration * unitMinutes
 	end := start.Add(time.Duration(totalMinutes) * time.Minute)
 
-	// 3. REFACTORED: SILENT REGISTER CUSTOMER (Gunakan Customer Service)
-	// Logic Upsert ada di dalam modul customer, reservation tinggal terima ID
-	cust, err := s.customerService.Register(ctx, req.TenantID, customer.RegisterReq{
+	// 4. SILENT REGISTER / UPSERT PELANGGAN (CRM INTEGRATION)
+	cust, err := s.customerService.Register(ctx, tID.String(), customer.RegisterReq{
 		Name:  req.CustomerName,
 		Phone: req.CustomerPhone,
 	})
@@ -74,13 +77,13 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, e
 		return nil, fmt.Errorf("GAGAL MENGIDENTIFIKASI PELANGGAN: %w", err)
 	}
 
-	// 4. CEK KETERSEDIAAN
+	// 5. VALIDASI KETERSEDIAAN SLOT (MENCEGAH DOUBLE BOOKING)
 	available, err := s.repo.CheckAvailability(ctx, rID, start, end)
 	if err != nil || !available {
-		return nil, errors.New("SLOT WAKTU SUDAH TERISI")
+		return nil, errors.New("MAAF, SLOT WAKTU TERSEBUT SUDAH TERISI")
 	}
 
-	// 5. PREPARE UUIDS
+	// 6. KONVERSI ITEM IDS KE UUID
 	var itemUUIDs []uuid.UUID
 	for _, idStr := range req.ItemIDs {
 		if uID, err := uuid.Parse(idStr); err == nil {
@@ -88,10 +91,11 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, e
 		}
 	}
 
+	// 7. KONSTRUKSI MODEL BOOKING
 	newBooking := Booking{
 		ID:          uuid.New(),
 		TenantID:    tID,
-		CustomerID:  cust.ID, // Gunakan ID dari hasil Register/Upsert
+		CustomerID:  cust.ID,
 		ResourceID:  rID,
 		StartTime:   start,
 		EndTime:     end,
@@ -100,16 +104,15 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, e
 		CreatedAt:   time.Now().UTC(),
 	}
 
-	// 6. SIMPAN KE DATABASE
+	// 8. EKSEKUSI PENYIMPANAN DATA & BILLING
 	if err := s.repo.CreateWithItems(ctx, newBooking, itemUUIDs, req.Duration); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("GAGAL MENYIMPAN TRANSAKSI: %w", err)
 	}
 
 	return &newBooking, nil
 }
 
-// --- POS & EXTENSION SERVICES ---
-
+// ExtendSession menangani penambahan durasi dari Admin Panel/POS Live Dashboard
 func (s *Service) ExtendSession(ctx context.Context, bookingID string, tenantID string, additionalDuration int) error {
 	bID, _ := uuid.Parse(bookingID)
 	tID, _ := uuid.Parse(tenantID)
@@ -135,6 +138,31 @@ func (s *Service) ExtendSession(ctx context.Context, bookingID string, tenantID 
 	)
 }
 
+// UpdateStatus menangani transisi status (Ongoing, Completed, dll) & Sinkronisasi CRM Stats
+func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string) error {
+	bID, _ := uuid.Parse(id)
+	tID, _ := uuid.Parse(tenantID)
+
+	// Ambil detail sebelum update untuk mendapatkan CustomerID & Total Spending
+	booking, err := s.repo.FindByID(ctx, bID, tID)
+	if err != nil {
+		return err
+	}
+
+	if err := s.repo.UpdateStatus(ctx, bID, tID, status); err != nil {
+		return err
+	}
+
+	// CRM HOOK: Update statistik kunjungan & belanja jika status selesai
+	if status == "completed" {
+		totalSpent := int64(booking.GrandTotal)
+		_ = s.customerService.SyncStats(ctx, booking.CustomerID, totalSpent)
+	}
+
+	return nil
+}
+
+// AddAddonOrder menambahkan layanan/barang tambahan saat sesi sedang berjalan (Add-on on-the-spot)
 func (s *Service) AddAddonOrder(ctx context.Context, bookingID string, tenantID string, itemID string) error {
 	bID, _ := uuid.Parse(bookingID)
 	tID, _ := uuid.Parse(tenantID)
@@ -146,12 +174,13 @@ func (s *Service) AddAddonOrder(ctx context.Context, bookingID string, tenantID 
 	}
 
 	if booking.Status != "active" && booking.Status != "ongoing" {
-		return errors.New("HANYA BISA TAMBAH LAYANAN PADA SESI AKTIF")
+		return errors.New("ADD-ON HANYA BISA DITAMBAHKAN PADA SESI YANG SEDANG BERJALAN")
 	}
 
 	return s.repo.AddAddonOrder(ctx, bID, iID)
 }
 
+// GetActiveSessions untuk Live Monitoring Grid di Dashboard
 func (s *Service) GetActiveSessions(ctx context.Context, tenantID string) ([]BookingDetail, error) {
 	tID, err := uuid.Parse(tenantID)
 	if err != nil {
@@ -160,17 +189,14 @@ func (s *Service) GetActiveSessions(ctx context.Context, tenantID string) ([]Boo
 	return s.repo.FindActiveSessions(ctx, tID)
 }
 
+// AddFnbOrder integrasi pesanan makanan dari sistem POS ke billing reservasi
 func (s *Service) AddFnbOrder(ctx context.Context, bookingID string, tenantID string, req AddOrderReq) error {
-	bID, err := uuid.Parse(bookingID)
+	bID, _ := uuid.Parse(bookingID)
 	tID, _ := uuid.Parse(tenantID)
-
-	if err != nil {
-		return errors.New("ID BOOKING TIDAK VALID")
-	}
 
 	booking, err := s.repo.FindByID(ctx, bID, tID)
 	if err != nil || booking == nil {
-		return errors.New("SESI BOOKING TIDAK DITEMUKAN")
+		return errors.New("DATA BOOKING TIDAK DITEMUKAN")
 	}
 
 	if booking.Status != "active" && booking.Status != "ongoing" {
@@ -180,39 +206,7 @@ func (s *Service) AddFnbOrder(ctx context.Context, bookingID string, tenantID st
 	return s.repo.AddFnbOrder(ctx, bID, req.FnbItemID, req.Quantity)
 }
 
-// --- CORE UPDATES ---
-
-// UpdateStatus menangani perubahan status DAN sinkronisasi statistik CRM
-func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string) error {
-	bID, _ := uuid.Parse(id)
-	tID, _ := uuid.Parse(tenantID)
-
-	// 1. Ambil detail bokingan sebelum diupdate (untuk kebutuhan CRM Stats)
-	booking, err := s.repo.FindByID(ctx, bID, tID)
-	if err != nil {
-		return err
-	}
-
-	// 2. Lakukan update status di repository
-	if err := s.repo.UpdateStatus(ctx, bID, tID, status); err != nil {
-		return err
-	}
-
-	// 3. CRM SYNC HOOK: Jika status menjadi 'completed', update stats pelanggan
-	if status == "completed" {
-		// Panggil service customer untuk increment visits dan spending secara fisik
-		totalSpent := int64(booking.GrandTotal) // Asumsikan GrandTotal sudah dihitung di level repository
-		err := s.customerService.SyncStats(ctx, booking.CustomerID, totalSpent)
-		if err != nil {
-			// Kita tidak return error agar flow checkout tidak terhenti, tapi log error-nya
-			fmt.Printf("CRM Sync Error: %v\n", err)
-		}
-	}
-
-	return nil
-}
-
-// --- EXISTING SERVICES ---
+// --- UTILITIES & SEARCH ---
 
 func (s *Service) GetAvailability(ctx context.Context, resourceID string, date time.Time) ([]map[string]string, error) {
 	rID, err := uuid.Parse(resourceID)
@@ -220,6 +214,10 @@ func (s *Service) GetAvailability(ctx context.Context, resourceID string, date t
 		return nil, errors.New("ID RESOURCE TIDAK VALID")
 	}
 
+	// 1. Tentukan Timezone target (WIB)
+	location, _ := time.LoadLocation("Asia/Jakarta")
+
+	// 2. Ambil bokingan dari awal hari (UTC)
 	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
 	bookings, err := s.repo.ListUpcoming(ctx, rID, startOfDay)
 	if err != nil {
@@ -228,10 +226,15 @@ func (s *Service) GetAvailability(ctx context.Context, resourceID string, date t
 
 	busySlots := []map[string]string{}
 	for _, b := range bookings {
+		// --- FIX CORE LOGIC DI SINI ---
+		// Database simpan UTC (misal 02:00), kita In(location) biar balik ke +7 (jam 09:00)
+		localStart := b.StartTime.In(location)
+		localEnd := b.EndTime.In(location)
+
 		busySlots = append(busySlots, map[string]string{
 			"id":         b.ID.String(),
-			"start_time": b.StartTime.Format("15:04"),
-			"end_time":   b.EndTime.Format("15:04"),
+			"start_time": localStart.Format("15:04"), // Akan jadi 09:00
+			"end_time":   localEnd.Format("15:04"),   // Akan jadi 11:00
 		})
 	}
 
@@ -241,7 +244,7 @@ func (s *Service) GetAvailability(ctx context.Context, resourceID string, date t
 func (s *Service) GetStatusByToken(ctx context.Context, token string) (*BookingDetail, error) {
 	tkn, err := uuid.Parse(token)
 	if err != nil {
-		return nil, errors.New("FORMAT TOKEN TIDAK VALID")
+		return nil, errors.New("TOKEN AKSES TIDAK VALID")
 	}
 	return s.repo.GetByToken(ctx, tkn)
 }
