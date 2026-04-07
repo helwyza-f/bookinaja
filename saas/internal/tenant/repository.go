@@ -5,22 +5,42 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/helwiza/saas/internal/fnb"
 	"github.com/helwiza/saas/internal/resource"
 	"github.com/jmoiron/sqlx"
+	"github.com/redis/go-redis/v9"
 )
 
 type Repository struct {
-	db *sqlx.DB
+	db  *sqlx.DB
+	rdb *redis.Client
 }
 
-func NewRepository(db *sqlx.DB) *Repository {
-	return &Repository{db: db}
+func NewRepository(db *sqlx.DB, rdb *redis.Client) *Repository {
+	return &Repository{
+		db:  db,
+		rdb: rdb,
+	}
 }
 
-// CreateWithAdmin membuat Tenant dan Admin User dalam satu transaksi
+// --- REDIS HELPERS (Sinkronisasi Key) ---
+
+func (r *Repository) getIDCacheKey(slug string) string {
+	return fmt.Sprintf("tenant_id:%s", strings.ToLower(strings.TrimSpace(slug)))
+}
+
+func (r *Repository) getLandingCacheKey(slug string) string {
+	return fmt.Sprintf("landing_data:%s", strings.ToLower(strings.TrimSpace(slug)))
+}
+
+// --- CORE REPOSITORY LOGIC ---
+
+// CreateWithAdmin membuat Tenant dan Admin User dalam satu transaksi atomik
+// Sinkron dengan kolom: primary_color, tagline, features
 func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -28,159 +48,132 @@ func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) erro
 	}
 	defer tx.Rollback()
 
+	// 1. Insert Tenant (Gunakan NamedExec agar mapping struct otomatis)
 	_, err = tx.NamedExecContext(ctx, `
-		INSERT INTO tenants (id, name, slug, business_category, business_type) 
-		VALUES (:id, :name, :slug, :business_category, :business_type)`, t)
+        INSERT INTO tenants (
+            id, name, slug, business_category, business_type, 
+            slogan, tagline, about_us, features, primary_color, created_at
+        ) VALUES (
+            :id, :name, :slug, :business_category, :business_type, 
+            :slogan, :tagline, :about_us, :features, :primary_color, :created_at
+        )`, t)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to insert tenant: %w", err)
 	}
 
+	// 2. Insert Admin User
 	_, err = tx.NamedExecContext(ctx, `
-		INSERT INTO users (id, tenant_id, name, email, password, role) 
-		VALUES (:id, :tenant_id, :name, :email, :password, :role)`, u)
+        INSERT INTO users (id, tenant_id, name, email, password, role, created_at) 
+        VALUES (:id, :tenant_id, :name, :email, :password, :role, :created_at)`, u)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to insert user: %w", err)
 	}
 
 	return tx.Commit()
 }
 
-// SeedTenantData menyuntikkan data fisik awal (resources & operational items)
-func (r *Repository) SeedTenantData(ctx context.Context, tenantID uuid.UUID, resources []resource.Resource) error {
-	tx, err := r.db.BeginTxx(ctx, nil)
+// GetPublicLandingData menggunakan Redis Cache-Aside Pattern
+func (r *Repository) GetPublicLandingData(ctx context.Context, slug string) (map[string]interface{}, error) {
+	cacheKey := r.getLandingCacheKey(slug)
+
+	// 1. HIT: Cek Redis
+	val, err := r.rdb.Get(ctx, cacheKey).Result()
+	if err == nil {
+		var cachedData map[string]interface{}
+		if err := json.Unmarshal([]byte(val), &cachedData); err == nil {
+			fmt.Printf("[CACHE HIT] Serving landing from Redis: %s\n", slug)
+			return cachedData, nil
+		}
+	}
+
+	// 2. MISS: Searching Postgres
+	fmt.Printf("[CACHE MISS] Searching Database for slug: '%s'\n", slug)
+	
+	tenant, err := r.GetBySlug(ctx, slug)
 	if err != nil {
-		return err
+		fmt.Printf("[DB ERROR] GetBySlug failed: %v\n", err)
+		return nil, err
 	}
-	defer tx.Rollback()
-
-	emptyMeta := json.RawMessage("{}")
-
-	for _, res := range resources {
-		res.ID = uuid.New()
-		res.TenantID = tenantID
-		res.Status = "available"
-
-		if res.Metadata == nil {
-			res.Metadata = &emptyMeta
-		}
-
-		_, err = tx.NamedExecContext(ctx, `
-			INSERT INTO resources (id, tenant_id, name, category, description, image_url, gallery, status, metadata) 
-			VALUES (:id, :tenant_id, :name, :category, :description, :image_url, :gallery, :status, :metadata)`, res)
-		if err != nil {
-			return fmt.Errorf("failed seed resource %s: %w", res.Name, err)
-		}
-
-		for _, item := range res.Items {
-			item.ID = uuid.New()
-			item.ResourceID = res.ID
-
-			if item.Metadata == nil {
-				item.Metadata = &emptyMeta
-			}
-
-			_, err = tx.NamedExecContext(ctx, `
-				INSERT INTO resource_items (id, resource_id, name, price, price_unit, unit_duration, item_type, is_default, metadata) 
-				VALUES (:id, :resource_id, :name, :price, :price_unit, :unit_duration, :item_type, :is_default, :metadata)`, item)
-			if err != nil {
-				return fmt.Errorf("failed seed item %s: %w", item.Name, err)
-			}
-		}
+	if tenant == nil {
+		return nil, fmt.Errorf("business not found")
 	}
-	return tx.Commit()
-}
 
-// SeedFnbData menyuntikkan data katalog makanan/minuman global
-func (r *Repository) SeedFnbData(ctx context.Context, tenantID uuid.UUID, items []fnb.Item) error {
-	tx, err := r.db.BeginTxx(ctx, nil)
+	resources, err := r.ListResourcesWithItems(ctx, tenant.ID)
 	if err != nil {
-		return err
+		fmt.Printf("[DB ERROR] ListResources failed: %v\n", err)
+		return nil, err
 	}
-	defer tx.Rollback()
 
-	for _, item := range items {
-		item.ID = uuid.New()
-		item.TenantID = tenantID
-
-		_, err = tx.NamedExecContext(ctx, `
-			INSERT INTO fnb_items (id, tenant_id, name, price, category, is_available) 
-			VALUES (:id, :tenant_id, :name, :price, :category, :is_available)`, item)
-		if err != nil {
-			return fmt.Errorf("failed seed fnb item %s: %w", item.Name, err)
-		}
+	result := map[string]interface{}{
+		"profile":   tenant,
+		"resources": resources,
 	}
-	return tx.Commit()
-}
 
-func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*User, error) {
-	var u User
-	err := r.db.GetContext(ctx, &u, `SELECT * FROM users WHERE email = $1 LIMIT 1`, email)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	return &u, err
+	// 3. WRITE: Simpan ke Redis (TTL 1 Jam)
+	jsonData, _ := json.Marshal(result)
+	r.rdb.Set(ctx, cacheKey, jsonData, time.Hour)
+
+	return result, nil
 }
 
 func (r *Repository) GetBySlug(ctx context.Context, slug string) (*Tenant, error) {
 	var t Tenant
-	err := r.db.GetContext(ctx, &t, `SELECT * FROM tenants WHERE slug = $1`, slug)
+	// Proteksi LOWER dan TRIM agar query sangat akurat (Fixing Case Sensitivity)
+	query := `SELECT * FROM tenants WHERE LOWER(TRIM(slug)) = LOWER(TRIM($1)) LIMIT 1`
+	err := r.db.GetContext(ctx, &t, query, slug)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	return &t, err
 }
 
-func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Tenant, error) {
-	var t Tenant
-	err := r.db.GetContext(ctx, &t, `SELECT * FROM tenants WHERE id = $1`, id)
-	return &t, err
-}
-
 func (r *Repository) Update(ctx context.Context, t Tenant) error {
-	query := `UPDATE tenants SET 
-		name=:name, slogan=:slogan, address=:address, open_time=:open_time, 
-		close_time=:close_time, logo_url=:logo_url, banner_url=:banner_url, 
-		gallery=:gallery, business_category=:business_category WHERE id=:id`
+	query := `
+        UPDATE tenants SET 
+            name=:name, slogan=:slogan, tagline=:tagline, about_us=:about_us, 
+            features=:features, address=:address, open_time=:open_time, 
+            close_time=:close_time, logo_url=:logo_url, banner_url=:banner_url, 
+            gallery=:gallery, business_category=:business_category, primary_color=:primary_color, 
+            whatsapp_number=:whatsapp_number, instagram_url=:instagram_url, 
+            tiktok_url=:tiktok_url, map_iframe_url=:map_iframe_url, 
+            meta_title=:meta_title, meta_description=:meta_description
+        WHERE id=:id`
+
 	_, err := r.db.NamedExecContext(ctx, query, t)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// INVALIDASI CACHE: Hapus data lama agar perubahan muncul seketika
+	r.rdb.Del(ctx, r.getLandingCacheKey(t.Slug))
+	r.rdb.Del(ctx, r.getIDCacheKey(t.Slug))
+
+	return nil
 }
 
-func (r *Repository) Exists(ctx context.Context, slug, email string) (bool, bool, error) {
-	var slugExists, emailExists bool
-	err := r.db.GetContext(ctx, &slugExists, "SELECT EXISTS(SELECT 1 FROM tenants WHERE slug = $1)", slug)
-	if err != nil {
-		return false, false, err
-	}
-	err = r.db.GetContext(ctx, &emailExists, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", email)
-	if err != nil {
-		return false, false, err
-	}
-	return slugExists, emailExists, nil
-}
-
-// ListResourcesWithItems mengambil resource dan items terkait (REFACTORED: Sort order lebih rapi)
+// ListResourcesWithItems mengambil resource dan items terkait
 func (r *Repository) ListResourcesWithItems(ctx context.Context, tenantID uuid.UUID) ([]map[string]interface{}, error) {
 	query := `
-		SELECT 
-			r.id::text as id, 
-			r.name, 
-			r.category, 
-			r.status,
-			r.description,
-			r.image_url,
-			COALESCE(json_agg(json_build_object(
-				'id', i.id::text, 
-				'name', i.name,
-				'item_type', i.item_type,
-				'price', i.price,
-				'price_unit', i.price_unit,
-				'unit_duration', i.unit_duration
-			) ORDER BY i.item_type ASC, i.is_default DESC, i.price ASC) FILTER (WHERE i.id IS NOT NULL), '[]') as items
-		FROM resources r
-		LEFT JOIN resource_items i ON r.id = i.resource_id
-		WHERE r.tenant_id = $1 AND r.status != 'deleted'
-		GROUP BY r.id
-		ORDER BY r.category ASC, r.name ASC`
+        SELECT 
+            r.id::text as id, 
+            r.name, 
+            r.category, 
+            r.status,
+            r.description,
+            r.image_url,
+            COALESCE(json_agg(json_build_object(
+                'id', i.id::text, 
+                'name', i.name,
+                'item_type', i.item_type,
+                'price', i.price,
+                'price_unit', i.price_unit,
+                'unit_duration', i.unit_duration
+            ) ORDER BY i.item_type ASC, i.price ASC) FILTER (WHERE i.id IS NOT NULL), '[]') as items
+        FROM resources r
+        LEFT JOIN resource_items i ON r.id = i.resource_id
+        WHERE r.tenant_id = $1 AND r.status != 'deleted'
+        GROUP BY r.id
+        ORDER BY r.category ASC, r.name ASC`
 
 	rows, err := r.db.QueryxContext(ctx, query, tenantID)
 	if err != nil {
@@ -205,4 +198,78 @@ func (r *Repository) ListResourcesWithItems(ctx context.Context, tenantID uuid.U
 		results = append(results, res)
 	}
 	return results, nil
+}
+
+// --- SISTEM SEEDING ---
+
+func (r *Repository) SeedTenantData(ctx context.Context, tenantID uuid.UUID, resources []resource.Resource) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	emptyMeta := json.RawMessage("{}")
+	for _, res := range resources {
+		res.ID = uuid.New()
+		res.TenantID = tenantID
+		res.Status = "available"
+		if res.Metadata == nil { res.Metadata = &emptyMeta }
+
+		_, err = tx.NamedExecContext(ctx, `
+            INSERT INTO resources (id, tenant_id, name, category, description, image_url, gallery, status, metadata) 
+            VALUES (:id, :tenant_id, :name, :category, :description, :image_url, :gallery, :status, :metadata)`, res)
+		if err != nil { return err }
+
+		for _, item := range res.Items {
+			item.ID = uuid.New()
+			item.ResourceID = res.ID
+			if item.Metadata == nil { item.Metadata = &emptyMeta }
+			_, err = tx.NamedExecContext(ctx, `
+                INSERT INTO resource_items (id, resource_id, name, price, price_unit, unit_duration, item_type, is_default, metadata) 
+                VALUES (:id, :resource_id, :name, :price, :price_unit, :unit_duration, :item_type, :is_default, :metadata)`, item)
+			if err != nil { return err }
+		}
+	}
+	return tx.Commit()
+}
+
+func (r *Repository) SeedFnbData(ctx context.Context, tenantID uuid.UUID, items []fnb.Item) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	for _, item := range items {
+		item.ID = uuid.New()
+		item.TenantID = tenantID
+		_, err = tx.NamedExecContext(ctx, `
+            INSERT INTO fnb_items (id, tenant_id, name, price, category, is_available) 
+            VALUES (:id, :tenant_id, :name, :price, :category, :is_available)`, item)
+		if err != nil { return err }
+	}
+	return tx.Commit()
+}
+
+// --- BASIC GETTERS ---
+
+func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*User, error) {
+	var u User
+	err := r.db.GetContext(ctx, &u, `SELECT * FROM users WHERE email = $1 LIMIT 1`, email)
+	if err == sql.ErrNoRows { return nil, nil }
+	return &u, err
+}
+
+func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Tenant, error) {
+	var t Tenant
+	err := r.db.GetContext(ctx, &t, `SELECT * FROM tenants WHERE id = $1`, id)
+	return &t, err
+}
+
+func (r *Repository) Exists(ctx context.Context, slug, email string) (bool, bool, error) {
+	var slugExists, emailExists bool
+	r.db.GetContext(ctx, &slugExists, "SELECT EXISTS(SELECT 1 FROM tenants WHERE LOWER(slug) = LOWER($1))", slug)
+	r.db.GetContext(ctx, &emailExists, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", email)
+	return slugExists, emailExists, nil
 }

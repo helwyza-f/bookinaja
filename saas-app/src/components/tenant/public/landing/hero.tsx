@@ -1,135 +1,155 @@
 "use client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Zap, CheckCircle2 } from "lucide-react";
+import { Sparkles, Zap, MousePointer2 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-export function TenantHero({ profile, activeTheme, fallback }: any) {
-  const displayFeatures =
-    profile.features && profile.features.length > 0
-      ? profile.features
-      : fallback.features;
+export function TenantHero({ profile, content, theme }: any) {
+  const nameParts = profile.name.split(" ");
+  const firstName = nameParts[0];
+  const otherNames = nameParts.slice(1).join(" ");
 
   return (
-    <section className="relative min-h-[100dvh] flex items-center justify-center overflow-hidden bg-white dark:bg-slate-950">
-      {/* --- BACKGROUND LAYER --- */}
+    <section className="relative min-h-[100dvh] flex items-center justify-center overflow-hidden bg-white dark:bg-[#050505]">
+      {/* --- BACKGROUND SYSTEM --- */}
       <div className="absolute inset-0 z-0">
         <img
-          src={profile.banner_url || fallback.banner}
-          className="w-full h-full object-cover scale-105 motion-safe:animate-[pulse_15s_ease-in-out_infinite] opacity-100"
-          alt="Banner"
+          src={content.banner}
+          className="w-full h-full object-cover scale-110 motion-safe:animate-[pulse_20s_ease-in-out_infinite] opacity-100 transition-opacity duration-1000"
+          alt="Business Banner"
         />
 
-        {/* Adaptive Overlay: Putih di Light, Hitam di Dark. 
-            Opacity dijaga biar aset gambar tenant tetap 'nyala' */}
-        <div className="absolute inset-0 bg-white/40 dark:bg-slate-950/60 backdrop-blur-[1px]" />
+        {/* Adaptive Overlays: Tipis di pinggir, fokus kontras di tengah area teks */}
+        <div className="absolute inset-0 bg-white/20 dark:bg-black/40 backdrop-blur-[0.5px]" />
 
-        {/* Soft Gradient Overlay agar area teks punya kontras tinggi */}
+        {/* Soft Radial Gradient: Menjaga readability teks tanpa menutupi seluruh gambar */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.4)_0%,transparent_70%)] dark:bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.6)_0%,transparent_70%)]" />
+
+        {/* Dynamic Color Mesh Glow */}
         <div
-          className={cn(
-            "absolute inset-0 bg-gradient-to-b from-white/60 via-transparent to-white dark:from-slate-950/80 dark:via-transparent dark:to-slate-950",
-          )}
+          className="absolute inset-0 opacity-20 dark:opacity-30 mix-blend-overlay"
+          style={{
+            background: `radial-gradient(circle at 50% 40%, ${theme.primary} 0%, transparent 60%)`,
+          }}
         />
 
-        {/* Theme Accent Glow (Subtle) */}
-        <div
-          className={cn(
-            "absolute inset-0 opacity-10 dark:opacity-20",
-            activeTheme.gradient,
-          )}
-        />
+        {/* Bottom Vignette: Agar transisi ke section katalog mulus */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white dark:to-[#050505]" />
       </div>
 
       {/* --- CONTENT LAYER --- */}
-      <div className="relative z-20 w-full max-w-7xl mx-auto px-4 md:px-6 text-center pt-24 pb-12">
-        <div className="flex flex-col items-center gap-6 md:gap-10">
-          {/* 1. Tagline Badge - Adaptive Border */}
-          <div className="animate-in fade-in slide-in-from-top-4 duration-1000">
-            <Badge
-              className={cn(
-                "px-4 py-1.5 rounded-full font-black text-[10px] md:text-xs uppercase tracking-[0.3em] shadow-xl border border-black/10 dark:border-white/10",
-                "bg-white/80 dark:bg-black/40 text-slate-900 dark:text-white/90 backdrop-blur-md",
-              )}
-            >
-              <Sparkles className={cn("h-3 w-3 mr-2", activeTheme.primary)} />
-              {profile.tagline_short || fallback.tagline}
+      <div className="relative z-20 w-full max-w-7xl mx-auto px-6 md:px-12 text-center pt-28 pb-16">
+        <div className="flex flex-col items-center gap-8 md:gap-14">
+          {/* 1. TAGLINE BADGE */}
+          <div className="animate-in fade-in slide-in-from-top-6 duration-1000">
+            <Badge className="px-5 py-2 rounded-full font-[1000] text-[9px] md:text-xs uppercase tracking-[0.3em] shadow-xl border border-black/5 dark:border-white/10 bg-white/90 dark:bg-white/5 text-slate-900 dark:text-white backdrop-blur-2xl">
+              <Sparkles
+                className="h-3.5 w-3.5 mr-3 animate-pulse"
+                style={{ color: theme.primary }}
+              />
+              {profile.slogan || "Hub Experience"}
             </Badge>
           </div>
 
-          {/* 2. Main Heading - Dynamic Scaling with adaptive shadow */}
-          <div className="w-full overflow-visible py-4">
-            <h1 className="text-[13vw] md:text-[8.5rem] font-[950] uppercase italic tracking-tighter leading-[0.9] md:leading-[0.8] text-slate-900 dark:text-white drop-shadow-sm dark:drop-shadow-[0_15px_30px_rgba(0,0,0,0.8)]">
-              <span className="inline-block mb-1">
-                {profile.name.split(" ")[0]}
+          {/* 2. MEGA HEADING SYSTEM - Fixed px-4 agar tidak kepotong */}
+          <div className="w-full py-2 select-none px-4 overflow-visible">
+            <h1 className="text-[16vw] md:text-[9.5rem] font-[1000] uppercase italic tracking-tighter leading-[0.85] md:leading-[0.8] text-slate-950 dark:text-white drop-shadow-2xl">
+              <span className="block animate-in slide-in-from-left-10 duration-700">
+                {firstName}
               </span>
-              <br />
               <span
-                className={cn(
-                  "text-transparent bg-clip-text bg-gradient-to-b inline-block pb-4 px-5",
-                  "from-slate-900 via-slate-800 to-slate-500 dark:from-white dark:via-white/90 dark:to-white/20 px-5",
-                )}
+                className="inline-block pb-4 animate-in slide-in-from-right-10 duration-1000 delay-150"
+                style={{
+                  color: theme.primary,
+                  lineHeight: "1",
+                  // Menggunakan textShadow dengan opacity berbeda untuk Light/Dark biar tetep enak diliat
+                  textShadow: `0 0 20px ${theme.primary}88`,
+                  WebkitTextStroke: otherNames
+                    ? "1px rgba(255,255,255,0.1)"
+                    : "none",
+                }}
               >
-                {profile.name.split(" ").slice(1).join(" ") || "Experience"}
+                {otherNames || "Experience"}
               </span>
             </h1>
           </div>
 
-          {/* 3. Slogan - Adaptive Colors */}
-          <div className="max-w-xl animate-in fade-in duration-1000 delay-500">
-            <p className="flex flex-col md:flex-row items-center justify-center gap-3 text-lg md:text-2xl font-semibold italic text-slate-700 dark:text-slate-100 leading-tight tracking-tight px-4">
-              <span
-                className={cn(
-                  "hidden md:block w-10 h-[2px] shrink-0 opacity-50",
-                  activeTheme.bgPrimary,
-                )}
-              />
-              <span className="text-center">
-                "{profile.slogan || fallback.copy}"
-              </span>
-              <span
-                className={cn(
-                  "hidden md:block w-10 h-[2px] shrink-0 opacity-50",
-                  activeTheme.bgPrimary,
-                )}
-              />
+          {/* 3. DYNAMIC MARKETING COPY */}
+          <div className="max-w-4xl animate-in fade-in duration-1000 delay-500 space-y-4 px-6">
+            <h2 className="text-lg md:text-4xl font-[1000] italic text-slate-900 dark:text-slate-100 leading-tight tracking-tighter uppercase drop-shadow-sm">
+              {content.tagline}
+            </h2>
+            <p className="text-xs md:text-lg font-bold text-slate-600 dark:text-slate-400 max-w-xl mx-auto leading-relaxed opacity-90 drop-shadow-sm">
+              {content.description}
             </p>
           </div>
 
-          {/* 4. Features Grid - Adaptive Backgrounds */}
-          <div className="flex flex-wrap justify-center gap-2 md:gap-4 max-w-2xl mx-auto px-2">
-            {displayFeatures.map((f: string, i: number) => (
+          {/* 4. DYNAMIC FEATURE PILLS */}
+          <div
+            className={cn(
+              "grid gap-3 md:gap-5 px-4 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-700",
+              content.features?.length > 3
+                ? "grid-cols-2"
+                : "grid-cols-1 md:flex md:justify-center",
+            )}
+          >
+            {content.features.map((f: string, i: number) => (
               <div
                 key={i}
-                className={cn(
-                  "flex items-center gap-2 border px-4 py-2.5 rounded-xl shadow-sm transition-all active:scale-95 backdrop-blur-lg",
-                  "bg-white/40 border-black/5 text-slate-800 dark:bg-white/5 dark:border-white/10 dark:text-white/95 hover:bg-white/60 dark:hover:bg-white/10",
-                )}
+                className="flex items-center gap-3 border px-5 py-3 rounded-2xl shadow-xl backdrop-blur-3xl bg-white/70 dark:bg-white/5 border-black/5 dark:border-white/10 group transition-all hover:-translate-y-1"
               >
-                <CheckCircle2 className={cn("h-4 w-4", activeTheme.primary)} />
-                <span className="text-[9.5px] md:text-xs font-black uppercase tracking-widest">
+                <div
+                  className="h-2 w-2 rounded-full shadow-[0_0_10px_currentColor]"
+                  style={{
+                    color: theme.primary,
+                    backgroundColor: theme.primary,
+                  }}
+                />
+                <span className="text-[10px] md:text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white/90 italic">
                   {f}
                 </span>
               </div>
             ))}
           </div>
 
-          {/* 5. CTA Button - Categorized Color */}
-          <div className="pt-8 md:pt-12 w-full md:w-auto">
-            <Link href="#catalog" className="w-full inline-block group">
+          {/* 5. ELITE CTA BUTTON */}
+          <div className="pt-10 w-full md:w-auto animate-in zoom-in-95 duration-1000 delay-1000 px-6">
+            <Link
+              href="#catalog"
+              className="w-full inline-block group relative"
+            >
+              {/* Button Shadow Glow */}
+              <div
+                className="absolute inset-[-10px] blur-[30px] opacity-20 group-hover:opacity-50 transition-opacity duration-500 rounded-full"
+                style={{ backgroundColor: theme.primary }}
+              />
+
               <Button
-                className={cn(
-                  "w-full md:w-auto h-16 md:h-24 px-12 md:px-20 rounded-2xl md:rounded-[3rem] font-[950] uppercase italic text-lg md:text-2xl tracking-[0.2em] text-white border-none transition-all active:scale-90 group-hover:scale-[1.02]",
-                  "shadow-[0_20px_40px_-10px_rgba(0,0,0,0.3)]",
-                  activeTheme.bgPrimary,
-                )}
+                className="w-full md:w-auto h-18 md:h-24 px-12 md:px-24 rounded-[1.5rem] md:rounded-[3.5rem] font-[1000] uppercase italic text-xl md:text-3xl tracking-[0.2em] text-white border-none transition-all active:scale-90 group-hover:scale-[1.03] relative z-10 shadow-2xl overflow-hidden"
+                style={{
+                  backgroundColor: theme.primary,
+                  boxShadow: `0 20px 40px -10px ${theme.primary}88`,
+                }}
               >
-                Book Now
-                <Zap className="ml-4 h-6 w-6 md:h-8 md:w-8 fill-current animate-pulse" />
+                Explore Hub
+                <Zap className="ml-5 h-6 w-6 md:h-10 md:w-10 fill-current animate-bounce" />
               </Button>
+
+              <div className="mt-8 flex items-center justify-center gap-3 opacity-40 group-hover:opacity-100 transition-all duration-500">
+                <MousePointer2 size={14} className="dark:text-white" />
+                <span className="text-[9px] font-black uppercase tracking-[0.4em] dark:text-white italic">
+                  Jump to Catalog
+                </span>
+              </div>
             </Link>
           </div>
         </div>
+      </div>
+
+      {/* --- SCROLL INDICATOR --- */}
+      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 hidden md:flex flex-col items-center gap-4 opacity-20">
+        <div className="w-[1px] h-20 bg-gradient-to-b from-transparent via-slate-500 to-transparent" />
       </div>
     </section>
   );

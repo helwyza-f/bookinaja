@@ -1,9 +1,17 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, MapPin, Clock, Globe, Mail } from "lucide-react";
+import {
+  ShieldCheck,
+  MapPin,
+  Clock,
+  Globe,
+  Mail,
+  Smartphone,
+  ArrowUpRight,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Custom SVG Icons karena Lucide tidak punya brand icons
+// Custom Brand Icons
 const InstagramIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
@@ -23,7 +31,7 @@ const InstagramIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const FacebookIcon = ({ className }: { className?: string }) => (
+const TikTokIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
     xmlns="http://www.w3.org/2000/svg"
@@ -36,178 +44,232 @@ const FacebookIcon = ({ className }: { className?: string }) => (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+    <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" />
   </svg>
 );
 
-export function TenantFooter({ profile, activeTheme }: any) {
-  // Fallback links jika tenant belum setting social media
+export function TenantFooter({ profile, primaryColor = "#3b82f6" }: any) {
+  // Mapping socials dari data profil asli
   const socialLinks = [
     {
       id: "ig",
       icon: InstagramIcon,
-      href: profile.instagram_url || "https://instagram.com/bookinaja",
+      href: profile.instagram_url,
+      label: "Instagram",
     },
     {
-      id: "fb",
-      icon: FacebookIcon,
-      href: profile.facebook_url || "#",
+      id: "tiktok",
+      icon: TikTokIcon,
+      href: profile.tiktok_url,
+      label: "TikTok",
     },
-  ];
+  ].filter((link) => link.href); // Hanya tampilkan yang ada linknya
 
   return (
-    <footer className="bg-white dark:bg-[#050505] pt-32 pb-12 border-t border-slate-200 dark:border-white/5 px-6 overflow-hidden">
-      <div className="container mx-auto max-w-7xl">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:gap-8">
-          {/* --- BRAND COLUMN (Col-5) --- */}
-          <div className="lg:col-span-5 space-y-8">
-            <div className="flex items-center gap-4 animate-in fade-in duration-700">
+    <footer className="bg-white dark:bg-[#050505] pt-32 pb-12 border-t border-slate-100 dark:border-white/5 px-6 overflow-hidden relative">
+      {/* Background Decor */}
+      <div
+        className="absolute bottom-0 right-0 h-96 w-96 opacity-[0.03] blur-[100px] pointer-events-none rounded-full"
+        style={{ backgroundColor: primaryColor }}
+      />
+
+      <div className="container mx-auto max-w-7xl relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:gap-12">
+          {/* --- BRAND COLUMN --- */}
+          <div className="lg:col-span-5 space-y-10">
+            <div className="flex items-center gap-5">
               <div
-                className={cn(
-                  "h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-lg rotate-3",
-                  activeTheme.bgPrimary,
-                )}
+                className="h-14 w-14 rounded-[1.2rem] flex items-center justify-center text-white shadow-2xl rotate-3 transition-transform hover:rotate-0 duration-500"
+                style={{ backgroundColor: primaryColor }}
               >
-                <ShieldCheck size={26} strokeWidth={2.5} />
+                <ShieldCheck size={30} strokeWidth={2.5} />
               </div>
               <div className="flex flex-col">
-                <h3 className="text-3xl font-[900] italic uppercase tracking-tighter leading-none">
+                <h3 className="text-3xl md:text-4xl font-[1000] italic uppercase tracking-tighter leading-none text-slate-900 dark:text-white">
                   {profile.name}
                 </h3>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40">
-                  Authorized Partner
-                </span>
+                <div className="flex items-center gap-2 mt-1">
+                  <div
+                    className="h-1 w-3 rounded-full"
+                    style={{ backgroundColor: primaryColor }}
+                  />
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40">
+                    Verified Business Hub
+                  </span>
+                </div>
               </div>
             </div>
 
-            <p className="text-slate-500 dark:text-slate-400 max-w-md font-medium italic leading-relaxed text-sm md:text-base">
+            <p className="text-slate-500 dark:text-slate-400 max-w-md font-medium italic leading-relaxed text-sm md:text-lg">
               "
-              {profile.description ||
-                `Kami bangga melayani komunitas ${profile.name} dengan standar fasilitas terbaik dan sistem reservasi yang instan.`}
+              {profile.about_us ||
+                profile.description ||
+                `Membangun ekosistem ${profile.business_type} terbaik dengan standar kualitas tinggi untuk kepuasan pelanggan.`}
               "
             </p>
 
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-4">
               {socialLinks.map((social) => (
                 <a
                   key={social.id}
                   href={social.href}
                   target="_blank"
                   rel="noopener noreferrer"
+                  className="group/social"
                 >
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-14 w-14 rounded-2xl border-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-all active:scale-90"
+                    className="h-14 w-14 rounded-2xl border-2 border-slate-100 dark:border-white/5 bg-transparent transition-all group-hover/social:scale-110 active:scale-95"
+                    style={{ borderColor: `var(--social-border)` }}
                   >
-                    <social.icon className="h-6 w-6" />
+                    <social.icon className="h-6 w-6 transition-colors group-hover/social:text-slate-900 dark:group-hover/social:text-white" />
                   </Button>
                 </a>
               ))}
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-14 w-14 rounded-2xl border-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-all active:scale-90"
-              >
-                <Mail className="h-6 w-6" />
-              </Button>
+
+              {profile.whatsapp_number && (
+                <a
+                  href={`https://wa.me/${profile.whatsapp_number}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group/social"
+                >
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-14 w-14 rounded-2xl border-2 border-slate-100 dark:border-white/5 bg-transparent transition-all group-hover/social:scale-110 active:scale-95"
+                  >
+                    <Smartphone className="h-6 w-6 group-hover/social:text-green-500" />
+                  </Button>
+                </a>
+              )}
             </div>
           </div>
 
-          {/* --- INFO COLUMN (Col-4) --- */}
-          <div className="lg:col-span-4 space-y-8">
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-30 italic">
-              Location & Contact
+          {/* --- INFO COLUMN --- */}
+          <div className="lg:col-span-4 space-y-10">
+            <p className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-400 italic">
+              Dispatch Center
             </p>
-            <div className="space-y-6">
-              <div className="flex items-start gap-4">
-                <div
-                  className={cn(
-                    "mt-1 p-2 rounded-lg bg-slate-100 dark:bg-white/5",
-                    activeTheme.primary,
-                  )}
-                >
-                  <MapPin size={18} />
+            <div className="space-y-8">
+              <div className="flex items-start gap-5 group">
+                <div className="mt-1 p-3 rounded-2xl bg-slate-50 dark:bg-white/5 transition-colors group-hover:bg-white dark:group-hover:bg-white/10 group-hover:shadow-md">
+                  <MapPin size={20} style={{ color: primaryColor }} />
                 </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-bold uppercase tracking-tight">
-                    Main Address
+                <div className="space-y-2">
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+                    Headquarters
                   </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200 leading-relaxed">
                     {profile.address ||
-                      "Alamat belum diatur oleh pemilik bisnis."}
+                      "Location data pending synchronization."}
                   </p>
+                  {profile.map_iframe_url && (
+                    <a
+                      href={profile.map_iframe_url}
+                      target="_blank"
+                      className="inline-flex items-center gap-1 text-[10px] font-black text-blue-500 uppercase italic hover:underline"
+                    >
+                      View on Maps <ArrowUpRight size={10} />
+                    </a>
+                  )}
                 </div>
               </div>
 
-              <div className="flex items-start gap-4">
-                <div
-                  className={cn(
-                    "mt-1 p-2 rounded-lg bg-slate-100 dark:bg-white/5",
-                    activeTheme.primary,
-                  )}
-                >
-                  <Clock size={18} />
+              <div className="flex items-start gap-5 group">
+                <div className="mt-1 p-3 rounded-2xl bg-slate-50 dark:bg-white/5 transition-colors group-hover:bg-white dark:group-hover:bg-white/10 group-hover:shadow-md">
+                  <Clock size={20} style={{ color: primaryColor }} />
                 </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-bold uppercase tracking-tight">
-                    Operational
+                <div className="space-y-2">
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+                    Hub Hours
                   </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-widest">
-                    Setiap Hari: {profile.open_time} - {profile.close_time}
-                  </p>
+                  <div className="flex items-center gap-3">
+                    <span className="px-3 py-1 bg-green-500/10 text-green-500 text-[10px] font-black rounded-lg">
+                      LIVE
+                    </span>
+                    <p className="text-sm font-[1000] italic uppercase text-slate-700 dark:text-slate-100">
+                      {profile.open_time} — {profile.close_time}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* --- LINKS COLUMN (Col-3) --- */}
-          <div className="lg:col-span-3 grid grid-cols-2 lg:grid-cols-1 gap-12">
-            <div className="space-y-6">
-              <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-30 italic">
-                Quick Links
-              </p>
-              <ul className="space-y-4 font-black uppercase italic text-xs tracking-widest">
-                <li className="hover:translate-x-2 transition-transform cursor-pointer">
-                  Catalog
+          {/* --- LINKS COLUMN --- */}
+          <div className="lg:col-span-3 space-y-10">
+            <p className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-400 italic">
+              Network
+            </p>
+            <div className="grid grid-cols-1 gap-10">
+              <ul className="space-y-5 font-[1000] uppercase italic text-xs tracking-[0.2em] text-slate-800 dark:text-slate-200">
+                <li className="hover:translate-x-3 transition-transform cursor-pointer flex items-center gap-3 group">
+                  <div
+                    className="h-1 w-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ backgroundColor: primaryColor }}
+                  />
+                  Experience Catalog
                 </li>
-                <li className="hover:translate-x-2 transition-transform cursor-pointer">
-                  Member Portal
+                <li className="hover:translate-x-3 transition-transform cursor-pointer flex items-center gap-3 group">
+                  <div
+                    className="h-1 w-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ backgroundColor: primaryColor }}
+                  />
+                  Member Console
                 </li>
-                <li className="hover:translate-x-2 transition-transform cursor-pointer text-blue-500 italic">
-                  Get Help
+                <li
+                  className="hover:translate-x-3 transition-transform cursor-pointer flex items-center gap-3 group"
+                  style={{ color: primaryColor }}
+                >
+                  <div
+                    className="h-1 w-1 rounded-full opacity-100"
+                    style={{ backgroundColor: primaryColor }}
+                  />
+                  Direct Support
                 </li>
               </ul>
-            </div>
-            <div className="space-y-6">
-              <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-30 italic">
-                Safety
-              </p>
-              <ul className="space-y-4 font-black uppercase italic text-xs tracking-widest opacity-40">
-                <li>Privacy Policy</li>
-                <li>Refund Policy</li>
-              </ul>
+
+              <div className="pt-4 space-y-4 border-t border-slate-100 dark:border-white/5">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                  Legal Stack
+                </p>
+                <div className="flex gap-6 text-[10px] font-bold uppercase tracking-tighter opacity-40">
+                  <span className="hover:opacity-100 cursor-pointer transition-opacity">
+                    Privacy
+                  </span>
+                  <span className="hover:opacity-100 cursor-pointer transition-opacity">
+                    Terms
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* --- BOTTOM SECTION --- */}
-        <div className="mt-24 pt-12 border-t border-slate-200 dark:border-white/5 flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="flex items-center gap-2 opacity-30">
-            <span className="text-[10px] font-black uppercase tracking-[0.5em]">
+        {/* --- DYNAMIC BOTTOM BAR --- */}
+        <div className="mt-24 pt-10 border-t border-slate-100 dark:border-white/5 flex flex-col md:flex-row justify-between items-center gap-8">
+          <div className="flex items-center gap-3 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-500">
+            <span className="text-[10px] font-black uppercase tracking-[0.6em]">
               Powered by
             </span>
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-100 dark:bg-white/10 rounded-md">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-white/10 rounded-xl">
               <div className="h-2 w-2 bg-blue-600 rounded-full animate-pulse" />
-              <span className="text-[9px] font-black uppercase tracking-tighter">
+              <span className="text-[10px] font-[1000] uppercase italic tracking-tighter text-slate-900 dark:text-white">
                 bookinaja.com
               </span>
             </div>
           </div>
 
-          <p className="text-[9px] font-bold opacity-20 uppercase tracking-[0.2em] text-center">
-            All rights reserved &copy; 2026 {profile.name}
-          </p>
+          <div className="flex flex-col items-center md:items-end gap-1">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              &copy; 2026 {profile.name} Enterprise
+            </p>
+            <p className="text-[8px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-[0.3em]">
+              ISO 27001 Certified Infrastructure
+            </p>
+          </div>
         </div>
       </div>
     </footer>

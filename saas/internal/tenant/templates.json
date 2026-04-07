@@ -2,133 +2,209 @@
   "gaming_hub": {
     "resources": [
       {
-        "name": "MEJA 01",
+        "name": "PC STATION 01",
         "category": "REGULER",
-        "description": "Meja Reguler dengan Kursi Gaming Standard & Monitor 24 Inch"
+        "description": "RTX 3060, Ryzen 5, 16GB RAM, Monitor 144Hz"
       },
       {
-        "name": "MEJA 02",
+        "name": "PC STATION 02",
         "category": "REGULER",
-        "description": "Meja Reguler dengan Kursi Gaming Standard & Monitor 24 Inch"
+        "description": "RTX 3060, Ryzen 5, 16GB RAM, Monitor 144Hz"
       },
       {
-        "name": "MEJA 03",
+        "name": "PC STATION 03",
         "category": "REGULER",
-        "description": "Meja Reguler dengan Kursi Gaming Standard & Monitor 24 Inch"
+        "description": "RTX 3060, Ryzen 5, 16GB RAM, Monitor 144Hz"
       },
       {
-        "name": "MEJA 04",
+        "name": "PC STATION 04",
         "category": "REGULER",
-        "description": "Meja Reguler dengan Kursi Gaming Standard & Monitor 24 Inch"
+        "description": "RTX 3060, Ryzen 5, 16GB RAM, Monitor 144Hz"
       },
       {
-        "name": "MEJA 05",
+        "name": "PC STATION 05",
+        "category": "REGULER",
+        "description": "RTX 3060, Ryzen 5, 16GB RAM, Monitor 144Hz"
+      },
+      {
+        "name": "PC STATION 06",
+        "category": "REGULER",
+        "description": "RTX 3060, Ryzen 5, 16GB RAM, Monitor 144Hz"
+      },
+      {
+        "name": "PC STATION 07",
+        "category": "REGULER",
+        "description": "RTX 3060, Ryzen 5, 16GB RAM, Monitor 144Hz"
+      },
+      {
+        "name": "PC STATION 08",
+        "category": "REGULER",
+        "description": "RTX 3060, Ryzen 5, 16GB RAM, Monitor 144Hz"
+      },
+      {
+        "name": "PC VIP 01",
         "category": "VIP",
-        "description": "Private Room dengan Sofa Premium & TV 65 Inch OLED"
+        "description": "RTX 4070 Ti, Ryzen 7, 32GB RAM, Monitor 240Hz, Private Cubicle"
       },
       {
-        "name": "MEJA 06",
+        "name": "PC VIP 02",
         "category": "VIP",
-        "description": "Private Room dengan Sofa Premium & TV 65 Inch OLED"
+        "description": "RTX 4070 Ti, Ryzen 7, 32GB RAM, Monitor 240Hz, Private Cubicle"
       },
       {
-        "name": "MEJA 07",
+        "name": "PC VIP 03",
         "category": "VIP",
-        "description": "Private Room dengan Sofa Premium & TV 65 Inch OLED"
+        "description": "RTX 4070 Ti, Ryzen 7, 32GB RAM, Monitor 240Hz, Private Cubicle"
       },
       {
-        "name": "MEJA 08",
+        "name": "PC VIP 04",
         "category": "VIP",
-        "description": "Private Room dengan Sofa Premium & TV 65 Inch OLED"
+        "description": "RTX 4070 Ti, Ryzen 7, 32GB RAM, Monitor 240Hz, Private Cubicle"
       },
       {
-        "name": "MEJA 09",
-        "category": "PRO-PLAYER",
-        "description": "Dual Monitor Setup with 240Hz Refresh Rate"
+        "name": "PC PRO-PLAYER 01",
+        "category": "E-SPORTS",
+        "description": "RTX 4090, Ryzen 9, BenQ Zowie 360Hz, SecretLab Chair"
       },
       {
-        "name": "MEJA 10",
-        "category": "PRO-PLAYER",
-        "description": "Dual Monitor Setup with 240Hz Refresh Rate"
+        "name": "PC PRO-PLAYER 02",
+        "category": "E-SPORTS",
+        "description": "RTX 4090, Ryzen 9, BenQ Zowie 360Hz, SecretLab Chair"
       },
       {
-        "name": "SIMULATOR 01",
-        "category": "RACING",
-        "description": "Logitech G29 Steering Wheel & Bucket Seat Setup"
+        "name": "CONSOLE PS5 01",
+        "category": "CONSOLE",
+        "description": "PlayStation 5 Digital Edition, TV Sony 4K 55 Inch"
       },
       {
-        "name": "SIMULATOR 02",
-        "category": "RACING",
-        "description": "Logitech G29 Steering Wheel & Bucket Seat Setup"
+        "name": "CONSOLE PS5 02",
+        "category": "CONSOLE",
+        "description": "PlayStation 5 Digital Edition, TV Sony 4K 55 Inch"
+      },
+      {
+        "name": "CONSOLE PS5 03",
+        "category": "CONSOLE",
+        "description": "PlayStation 5 Disc Edition, TV Sony 4K 55 Inch"
+      },
+      {
+        "name": "CONSOLE PS5 04",
+        "category": "CONSOLE",
+        "description": "PlayStation 5 Disc Edition, TV Sony 4K 55 Inch"
+      },
+      {
+        "name": "CONSOLE PS5 05",
+        "category": "CONSOLE",
+        "description": "PlayStation 5 Disc Edition, TV Sony 4K 55 Inch"
+      },
+      {
+        "name": "STREAMING ROOM 01",
+        "category": "STUDIO",
+        "description": "Full Streaming Setup: GoXLR, Shure SM7B, Dual PC Setup"
+      },
+      {
+        "name": "SIMULATOR RACING 01",
+        "category": "SIMULATOR",
+        "description": "Logitech G29, Bucket Seat, Triple Monitor Setup"
+      },
+      {
+        "name": "SIMULATOR RACING 02",
+        "category": "SIMULATOR",
+        "description": "Fanatec DD2, Hydraulic Pedals, VR Ready"
       }
     ],
     "main_items": [
       {
-        "name": "PS5 SLIM",
-        "price": 10000,
+        "name": "MEMBER REGULER",
+        "price": 6000,
         "price_unit": "hour",
         "unit_duration": 60,
         "is_default": true
       },
       {
-        "name": "PS5 PRO",
-        "price": 15000,
+        "name": "NON-MEMBER REGULER",
+        "price": 8000,
         "price_unit": "hour",
         "unit_duration": 60,
         "is_default": false
       },
       {
-        "name": "XBOX SERIES X",
+        "name": "MEMBER VIP",
         "price": 12000,
         "price_unit": "hour",
         "unit_duration": 60,
         "is_default": false
       },
       {
-        "name": "PAKET 3 JAM",
+        "name": "NON-MEMBER VIP",
+        "price": 15000,
+        "price_unit": "hour",
+        "unit_duration": 60,
+        "is_default": false
+      },
+      {
+        "name": "PRO-PLAYER RATE",
         "price": 25000,
         "price_unit": "hour",
+        "unit_duration": 60,
+        "is_default": false
+      },
+      {
+        "name": "PAKET 3 JAM REGULER",
+        "price": 15000,
+        "price_unit": "session",
         "unit_duration": 180,
         "is_default": false
       },
       {
-        "name": "PAKET 5 JAM",
-        "price": 40000,
-        "price_unit": "hour",
+        "name": "PAKET 5 JAM REGULER",
+        "price": 25000,
+        "price_unit": "session",
         "unit_duration": 300,
         "is_default": false
       },
       {
         "name": "PAKET BEGADANG (22:00-06:00)",
-        "price": 60000,
+        "price": 45000,
         "price_unit": "session",
         "unit_duration": 480,
         "is_default": false
       },
       {
-        "name": "MEMBER RATE",
-        "price": 8000,
-        "price_unit": "hour",
-        "unit_duration": 60,
+        "name": "PAKET SULTAN 10 JAM",
+        "price": 80000,
+        "price_unit": "session",
+        "unit_duration": 600,
         "is_default": false
       }
     ],
     "unit_addons": [
       {
-        "name": "STIK TAMBAHAN",
+        "name": "STIK PS5 ORI",
         "price": 5000,
         "price_unit": "session",
         "unit_duration": 0
       },
       {
-        "name": "HEADSET RAZER",
+        "name": "HEADSET HYPERX",
+        "price": 7000,
+        "price_unit": "session",
+        "unit_duration": 0
+      },
+      {
+        "name": "MECHANICAL KEYBOARD BLUE SWITCH",
         "price": 5000,
         "price_unit": "session",
         "unit_duration": 0
       },
       {
-        "name": "VR HEADSET (30 MNT)",
-        "price": 30000,
+        "name": "GAMING MOUSE LOGITECH G502",
+        "price": 5000,
+        "price_unit": "session",
+        "unit_duration": 0
+      },
+      {
+        "name": "VR OCULUS QUEST 2 (30 MNT)",
+        "price": 35000,
         "price_unit": "session",
         "unit_duration": 30
       },
@@ -139,107 +215,143 @@
         "unit_duration": 0
       },
       {
-        "name": "ADAPTOR HEADSET",
-        "price": 2000,
+        "name": "CONTROLLER XBOX ELITE",
+        "price": 15000,
         "price_unit": "session",
         "unit_duration": 0
       }
     ],
     "fnb_catalog": [
-      { "name": "INDOMIE GORENG + TELUR", "price": 15000, "category": "Food" },
-      { "name": "INDOMIE REBUS + TELUR", "price": 15000, "category": "Food" },
-      { "name": "NASI GORENG GILA", "price": 25000, "category": "Food" },
-      { "name": "NASI GILA MATAH", "price": 27000, "category": "Food" },
+      {
+        "name": "INDOMIE GORENG DOUBLE + TELUR",
+        "price": 18000,
+        "category": "Food"
+      },
+      {
+        "name": "INDOMIE REBUS TELUR TANTE",
+        "price": 15000,
+        "category": "Food"
+      },
+      {
+        "name": "NASI GORENG GILA LEVEL 1-5",
+        "price": 25000,
+        "category": "Food"
+      },
       { "name": "NASI AYAM GEPREK", "price": 22000, "category": "Food" },
-      { "name": "RICEBOWL TERIYAKI", "price": 30000, "category": "Food" },
-      { "name": "KENTANG GORENG", "price": 12000, "category": "Snack" },
-      { "name": "SOSIS BAKAR XL", "price": 15000, "category": "Snack" },
-      { "name": "OTAK-OTAK SINGAPORE", "price": 18000, "category": "Snack" },
+      {
+        "name": "RICEBOWL CHICKEN TERIYAKI",
+        "price": 28000,
+        "category": "Food"
+      },
+      { "name": "KENTANG GORENG LARGE", "price": 15000, "category": "Snack" },
+      { "name": "SOSIS BAKAR JUMBO", "price": 12000, "category": "Snack" },
+      { "name": "NUGGET AYAM (ISI 6)", "price": 15000, "category": "Snack" },
       { "name": "CIRENG RUJAK", "price": 12000, "category": "Snack" },
-      { "name": "ES TEH MANIS", "price": 5000, "category": "Drink" },
-      { "name": "KOPI SUSU AREN", "price": 18000, "category": "Drink" },
+      { "name": "OTAK-OTAK SINGAPORE", "price": 18000, "category": "Snack" },
+      { "name": "ES TEH MANIS JUMBO", "price": 7000, "category": "Drink" },
+      { "name": "KOPI SUSU GULA AREN", "price": 18000, "category": "Drink" },
       { "name": "MILO DINOSAUR", "price": 15000, "category": "Drink" },
-      { "name": "MANGO FLOAT", "price": 20000, "category": "Drink" },
-      { "name": "AIR MINERAL 600ML", "price": 4000, "category": "Drink" },
+      { "name": "LEMON TEA ICE", "price": 10000, "category": "Drink" },
       { "name": "COCA COLA CAN", "price": 10000, "category": "Drink" },
-      { "name": "MATCHA LATTE", "price": 22000, "category": "Drink" }
+      { "name": "AIR MINERAL 600ML", "price": 5000, "category": "Drink" },
+      { "name": "MATCHA LATTE", "price": 22000, "category": "Drink" },
+      { "name": "RED VELVET LATTE", "price": 22000, "category": "Drink" },
+      { "name": "ENERGY DRINK MONSTER", "price": 35000, "category": "Drink" },
+      { "name": "KRATINGDAENG", "price": 8000, "category": "Drink" }
     ]
   },
   "creative_space": {
     "resources": [
       {
-        "name": "STUDIO FOTO A",
-        "category": "MAIN ROOM",
-        "description": "8x10m Space with Cyclorama Wall & Full Lighting Gear"
+        "name": "STUDIO A - CYCLORAMA",
+        "category": "PHOTOGRAPHY",
+        "description": "White Cyclorama Wall, 10x12m, High Ceiling, Makeup Room"
       },
       {
-        "name": "STUDIO FOTO B",
-        "category": "MAIN ROOM",
-        "description": "5x7m Space for Portrait & Product Photography"
+        "name": "STUDIO B - THEMATIC",
+        "category": "PHOTOGRAPHY",
+        "description": "European Style Living Room & Vintage Library Set"
       },
       {
-        "name": "PODCAST ROOM A",
+        "name": "STUDIO C - GREEN SCREEN",
+        "category": "VIDEO",
+        "description": "U-Shape Green Screen with Overhead Lighting Grid"
+      },
+      {
+        "name": "PODCAST SUITE 01",
         "category": "AUDIO",
-        "description": "Soundproof room for 4 People with Shure SM7B Mics"
+        "description": "Acoustic Treated for 4 People, Shure SM7B, RODECaster Pro II"
       },
       {
-        "name": "PODCAST ROOM B",
+        "name": "PODCAST SUITE 02",
         "category": "AUDIO",
-        "description": "Soundproof room for 2 People with Rode NT1Setup"
+        "description": "Cozy Setup for 2 People, Video Podcast Ready"
       },
       {
-        "name": "EDITING SUITE 01",
-        "category": "DIGITAL",
-        "description": "Mac Studio with Color Accurate Monitor (BenQ)"
+        "name": "EDITING SUITE A",
+        "category": "POST-PROD",
+        "description": "Mac Studio M2 Ultra, Pro Display XDR, DaVinci Resolve Panel"
       },
       {
-        "name": "EDITING SUITE 02",
-        "category": "DIGITAL",
-        "description": "Mac Studio with Color Accurate Monitor (BenQ)"
+        "name": "EDITING SUITE B",
+        "category": "POST-PROD",
+        "description": "iMac 24 Inch, Adobe Creative Cloud, Focusrite Interface"
       },
       {
-        "name": "MEETING ROOM",
-        "category": "BUSINESS",
-        "description": "Capacity 10 People with Projector & Glass Board"
+        "name": "DANCE STUDIO",
+        "category": "REHEARSAL",
+        "description": "Full Mirror Wall, Sound System, Vinyl Floor, AC"
       },
       {
-        "name": "WORKSPACE VIP",
-        "category": "BUSINESS",
-        "description": "Quiet individual cabin for content writers & developers"
+        "name": "VOICEOVER BOOTH",
+        "category": "AUDIO",
+        "description": "Ultra Quiet Booth, Neumann U87 Mic, Avalon Preamp"
+      },
+      {
+        "name": "MEETING ROOM CREATIVE",
+        "category": "OFFICE",
+        "description": "Glass Board, Projector, Capacity 12 People"
       }
     ],
     "main_items": [
       {
-        "name": "PAKET REGULER",
-        "price": 150000,
+        "name": "STUDIO HOURLY",
+        "price": 200000,
         "price_unit": "hour",
         "unit_duration": 60,
         "is_default": true
       },
       {
-        "name": "PAKET 3 JAM",
-        "price": 400000,
-        "price_unit": "hour",
-        "unit_duration": 180,
+        "name": "STUDIO HALF DAY (4H)",
+        "price": 700000,
+        "price_unit": "session",
+        "unit_duration": 240,
         "is_default": false
       },
       {
-        "name": "PAKET FULL-DAY",
-        "price": 1000000,
-        "price_unit": "day",
-        "unit_duration": 1440,
+        "name": "STUDIO FULL DAY (8H)",
+        "price": 1300000,
+        "price_unit": "session",
+        "unit_duration": 480,
         "is_default": false
       },
       {
-        "name": "STUDIO ONLY",
-        "price": 100000,
+        "name": "PODCAST HOURLY",
+        "price": 150000,
         "price_unit": "hour",
         "unit_duration": 60,
         "is_default": false
       },
       {
-        "name": "MEMBER SPECIAL",
-        "price": 120000,
+        "name": "EDITING HOURLY",
+        "price": 75000,
+        "price_unit": "hour",
+        "unit_duration": 60,
+        "is_default": false
+      },
+      {
+        "name": "MEMBER RATE STUDIO",
+        "price": 175000,
         "price_unit": "hour",
         "unit_duration": 60,
         "is_default": false
@@ -247,31 +359,19 @@
     ],
     "unit_addons": [
       {
-        "name": "SEWA LIGHTING EXTRA",
-        "price": 50000,
-        "price_unit": "session",
-        "unit_duration": 0
-      },
-      {
-        "name": "OPERATOR / EDITOR",
-        "price": 100000,
-        "price_unit": "hour",
-        "unit_duration": 60
-      },
-      {
-        "name": "GREEN SCREEN",
-        "price": 75000,
-        "price_unit": "session",
-        "unit_duration": 0
-      },
-      {
-        "name": "KAMERA SONY A7III",
-        "price": 250000,
+        "name": "KAMERA SONY A7IV",
+        "price": 350000,
         "price_unit": "session",
         "unit_duration": 0
       },
       {
         "name": "LENSA GM 24-70MM",
+        "price": 200000,
+        "price_unit": "session",
+        "unit_duration": 0
+      },
+      {
+        "name": "GODOX LIGHTING SET (2 LAMP)",
         "price": 150000,
         "price_unit": "session",
         "unit_duration": 0
@@ -283,100 +383,162 @@
         "unit_duration": 0
       },
       {
-        "name": "MAKEUP ARTIST",
-        "price": 300000,
+        "name": "OPERATOR KAMERA",
+        "price": 150000,
+        "price_unit": "hour",
+        "unit_duration": 60
+      },
+      {
+        "name": "TECHNICAL ASSISTANT",
+        "price": 100000,
+        "price_unit": "hour",
+        "unit_duration": 60
+      },
+      {
+        "name": "SEWA MEMORY CARD 64GB",
+        "price": 30000,
+        "price_unit": "session",
+        "unit_duration": 0
+      },
+      {
+        "name": "V-MOUNT BATTERY",
+        "price": 75000,
         "price_unit": "session",
         "unit_duration": 0
       }
     ],
     "fnb_catalog": [
-      { "name": "HOT AMERICANO", "price": 20000, "category": "Drink" },
-      { "name": "ICED LATTE", "price": 25000, "category": "Drink" },
-      { "name": "CAPPUCCINO", "price": 25000, "category": "Drink" },
-      { "name": "CARAMEL MACCHIATO", "price": 32000, "category": "Drink" },
-      { "name": "ICED LYCHEE TEA", "price": 20000, "category": "Drink" },
-      { "name": "CLUB SANDWICH", "price": 35000, "category": "Food" },
-      { "name": "CROISSANT", "price": 22000, "category": "Snack" },
-      { "name": "BEEF PASTRY", "price": 25000, "category": "Snack" },
-      { "name": "ALMOND BROWNIES", "price": 15000, "category": "Snack" },
-      { "name": "SPAGHETTI BOLOGNESE", "price": 45000, "category": "Food" }
+      { "name": "HOT AMERICANO", "price": 22000, "category": "Coffee" },
+      { "name": "ICED CAFE LATTE", "price": 28000, "category": "Coffee" },
+      { "name": "CARAMEL MACCHIATO", "price": 35000, "category": "Coffee" },
+      { "name": "CAPPUCCINO", "price": 28000, "category": "Coffee" },
+      { "name": "EARL GREY TEA", "price": 20000, "category": "Tea" },
+      { "name": "ICED LYCHEE TEA", "price": 25000, "category": "Tea" },
+      { "name": "MATCHA FRAPPE", "price": 35000, "category": "Non-Coffee" },
+      { "name": "CLUB SANDWICH", "price": 45000, "category": "Food" },
+      { "name": "SPAGHETTI BOLOGNESE", "price": 55000, "category": "Food" },
+      { "name": "CHICKEN SALAD", "price": 40000, "category": "Food" },
+      { "name": "FRENCH FRIES", "price": 25000, "category": "Snack" },
+      { "name": "CROISSANT BUTTER", "price": 22000, "category": "Snack" },
+      { "name": "ALMOND BROWNIES", "price": 18000, "category": "Snack" },
+      {
+        "name": "PLATTER SNACK (SHARING)",
+        "price": 65000,
+        "category": "Snack"
+      },
+      { "name": "INFUSED WATER 1L", "price": 15000, "category": "Drink" },
+      { "name": "SPARKLING WATER", "price": 25000, "category": "Drink" }
     ]
   },
   "sport_center": {
     "resources": [
       {
-        "name": "LAPANGAN A",
-        "category": "VINYL",
-        "description": "Premium Vinyl Floor Badminton Court with LED Lighting"
+        "name": "LAPANGAN FUTSAL A (INDOOR)",
+        "category": "FUTSAL",
+        "description": "Interlock Floor, FIFA Standard Size, Digital Scoreboard"
       },
       {
-        "name": "LAPANGAN B",
-        "category": "VINYL",
-        "description": "Premium Vinyl Floor Badminton Court with LED Lighting"
+        "name": "LAPANGAN FUTSAL B (INDOOR)",
+        "category": "FUTSAL",
+        "description": "Interlock Floor, FIFA Standard Size, Digital Scoreboard"
       },
       {
-        "name": "LAPANGAN C",
-        "category": "VINYL",
-        "description": "Premium Vinyl Floor Badminton Court with LED Lighting"
+        "name": "LAPANGAN BADMINTON 01",
+        "category": "BADMINTON",
+        "description": "Premium Li-Ning Mat, Professional Lighting"
       },
       {
-        "name": "LAPANGAN D",
-        "category": "PARQUET",
-        "description": "Standard Wood Parquet Badminton Court"
+        "name": "LAPANGAN BADMINTON 02",
+        "category": "BADMINTON",
+        "description": "Premium Li-Ning Mat, Professional Lighting"
       },
       {
-        "name": "LAPANGAN E",
-        "category": "PARQUET",
-        "description": "Standard Wood Parquet Badminton Court"
+        "name": "LAPANGAN BADMINTON 03",
+        "category": "BADMINTON",
+        "description": "Premium Li-Ning Mat, Professional Lighting"
       },
       {
-        "name": "LAPANGAN FUTSAL 01",
-        "category": "SYNTHETIC",
-        "description": "Outdoor Synthetic Grass Futsal Court"
+        "name": "LAPANGAN BADMINTON 04",
+        "category": "BADMINTON",
+        "description": "Premium Li-Ning Mat, Professional Lighting"
       },
       {
-        "name": "LAPANGAN FUTSAL 02",
-        "category": "SYNTHETIC",
-        "description": "Outdoor Synthetic Grass Futsal Court"
+        "name": "LAPANGAN BADMINTON 05",
+        "category": "BADMINTON",
+        "description": "Premium Li-Ning Mat, Professional Lighting"
       },
       {
-        "name": "STUDIO YOGA",
+        "name": "LAPANGAN BADMINTON 06",
+        "category": "BADMINTON",
+        "description": "Premium Li-Ning Mat, Professional Lighting"
+      },
+      {
+        "name": "LAPANGAN BASKET 3X3",
+        "category": "BASKETBALL",
+        "description": "Outdoor Court, Professional Ring"
+      },
+      {
+        "name": "LAPANGAN TENIS 01",
+        "category": "TENNIS",
+        "description": "Hard Court, Floodlights for Night Match"
+      },
+      {
+        "name": "LAPANGAN TENIS 02",
+        "category": "TENNIS",
+        "description": "Hard Court, Floodlights for Night Match"
+      },
+      {
+        "name": "STUDIO SENAM/YOGA",
         "category": "INDOOR",
-        "description": "Mirror wall studio for Yoga & Pilates"
+        "description": "Wooden Floor, Full Mirror, Sound System"
       }
     ],
     "main_items": [
       {
-        "name": "HARGA NORMAL",
-        "price": 50000,
+        "name": "FUTSAL PEAK HOUR (18-24)",
+        "price": 250000,
         "price_unit": "hour",
         "unit_duration": 60,
         "is_default": true
       },
       {
-        "name": "HARGA MEMBER",
+        "name": "FUTSAL OFF PEAK (08-17)",
+        "price": 150000,
+        "price_unit": "hour",
+        "unit_duration": 60,
+        "is_default": false
+      },
+      {
+        "name": "BADMINTON REGULER",
+        "price": 50000,
+        "price_unit": "hour",
+        "unit_duration": 60,
+        "is_default": false
+      },
+      {
+        "name": "BADMINTON MEMBER",
         "price": 40000,
         "price_unit": "hour",
         "unit_duration": 60,
         "is_default": false
       },
       {
-        "name": "PAKET 2 JAM",
-        "price": 90000,
-        "price_unit": "hour",
-        "unit_duration": 120,
-        "is_default": false
-      },
-      {
-        "name": "PRIME TIME (18:00-22:00)",
-        "price": 65000,
+        "name": "TENNIS HOURLY",
+        "price": 100000,
         "price_unit": "hour",
         "unit_duration": 60,
         "is_default": false
       },
       {
-        "name": "PAKET STUDIO",
-        "price": 100000,
+        "name": "PAKET FUTSAL 2 JAM",
+        "price": 450000,
+        "price_unit": "session",
+        "unit_duration": 120,
+        "is_default": false
+      },
+      {
+        "name": "SEWA STUDIO YOGA",
+        "price": 150000,
         "price_unit": "hour",
         "unit_duration": 60,
         "is_default": false
@@ -385,138 +547,175 @@
     "unit_addons": [
       {
         "name": "SEWA RAKET YONEX",
-        "price": 10000,
-        "price_unit": "pcs",
-        "unit_duration": 0
-      },
-      {
-        "name": "SHUTTLECOCK (ISI 3)",
         "price": 15000,
         "price_unit": "pcs",
         "unit_duration": 0
       },
       {
-        "name": "HANDUK SEWA",
-        "price": 5000,
-        "price_unit": "pcs",
-        "unit_duration": 0
-      },
-      {
-        "name": "SEWA SEPATU SPORT",
-        "price": 20000,
-        "price_unit": "pcs",
-        "unit_duration": 0
-      },
-      {
-        "name": "ROMPI FUTSAL (SET)",
+        "name": "SHUTTLECOCK (ISI 3)",
         "price": 25000,
-        "price_unit": "session",
+        "price_unit": "pcs",
         "unit_duration": 0
       },
       {
-        "name": "BOLA FUTSAL",
+        "name": "BOLA FUTSAL (TAMBAHAN)",
         "price": 10000,
         "price_unit": "session",
+        "unit_duration": 0
+      },
+      {
+        "name": "ROMPI FUTSAL (12 PCS)",
+        "price": 30000,
+        "price_unit": "session",
+        "unit_duration": 0
+      },
+      {
+        "name": "HANDUK MANDI",
+        "price": 10000,
+        "price_unit": "pcs",
+        "unit_duration": 0
+      },
+      {
+        "name": "SEWA SEPATU FUTSAL",
+        "price": 25000,
+        "price_unit": "pcs",
         "unit_duration": 0
       }
     ],
     "fnb_catalog": [
       { "name": "POCARI SWEAT 500ML", "price": 10000, "category": "Drink" },
+      { "name": "MIZONE ISOTONIC", "price": 8000, "category": "Drink" },
       { "name": "AIR MINERAL 600ML", "price": 5000, "category": "Drink" },
-      { "name": "PISANG GORENG (ISI 5)", "price": 15000, "category": "Snack" },
-      { "name": "MIE REBUS + TELUR", "price": 18000, "category": "Food" },
+      { "name": "GATORADE 500ML", "price": 18000, "category": "Drink" },
+      { "name": "REDBULL CAN", "price": 25000, "category": "Drink" },
       { "name": "NASI GORENG TELUR", "price": 20000, "category": "Food" },
+      { "name": "MIE REBUS TELUR KORNET", "price": 18000, "category": "Food" },
+      { "name": "NASI AYAM BAKAR", "price": 28000, "category": "Food" },
       { "name": "TELUR REBUS (ISI 2)", "price": 10000, "category": "Snack" },
-      { "name": "MIZONE", "price": 8000, "category": "Drink" },
-      { "name": "GATORADE", "price": 15000, "category": "Drink" },
-      { "name": "KOPI HITAM PANAS", "price": 8000, "category": "Drink" },
-      { "name": "TEMPE MENDOAN (ISI 5)", "price": 15000, "category": "Snack" }
+      { "name": "PISANG GORENG COKLAT", "price": 15000, "category": "Snack" },
+      { "name": "TEMPE MENDOAN (ISI 5)", "price": 15000, "category": "Snack" },
+      { "name": "KACANG REBUS", "price": 10000, "category": "Snack" },
+      { "name": "KOPI HITAM PANAS", "price": 7000, "category": "Drink" },
+      { "name": "ES JERUK PERAS", "price": 12000, "category": "Drink" }
     ]
   },
-  "professional_service": {
+  "social_space": {
     "resources": [
       {
-        "name": "PRIVATE OFFICE 01",
+        "name": "HOT-DESK ZONE A - 01",
+        "category": "COWORKING",
+        "description": "Flexible Desk in Quiet Zone, Ergonomic Chair"
+      },
+      {
+        "name": "HOT-DESK ZONE A - 02",
+        "category": "COWORKING",
+        "description": "Flexible Desk in Quiet Zone, Ergonomic Chair"
+      },
+      {
+        "name": "HOT-DESK ZONE A - 03",
+        "category": "COWORKING",
+        "description": "Flexible Desk in Quiet Zone, Ergonomic Chair"
+      },
+      {
+        "name": "HOT-DESK ZONE B - 01",
+        "category": "COWORKING",
+        "description": "Flexible Desk in Social Area, Near Coffee Station"
+      },
+      {
+        "name": "HOT-DESK ZONE B - 02",
+        "category": "COWORKING",
+        "description": "Flexible Desk in Social Area, Near Coffee Station"
+      },
+      {
+        "name": "PRIVATE OFFICE 2-PAX",
         "category": "OFFICE",
-        "description": "Personal office for 2 people with AC & Private Key"
+        "description": "Soundproof Private Room, Dual Desk, Storage"
       },
       {
-        "name": "PRIVATE OFFICE 02",
+        "name": "PRIVATE OFFICE 4-PAX",
         "category": "OFFICE",
-        "description": "Corporate office for 4 people with AC & Private Key"
+        "description": "Soundproof Private Room, Meeting Table, AC"
       },
       {
-        "name": "MEETING ROOM A",
+        "name": "MEETING ROOM SMALL",
         "category": "MEETING",
-        "description": "8 Person capacity with Smart TV & Whiteboard"
+        "description": "Capacity 4-6 People, LED TV, Whiteboard"
       },
       {
-        "name": "MEETING ROOM B",
+        "name": "MEETING ROOM LARGE",
         "category": "MEETING",
-        "description": "15 Person capacity with Sound System & Screen"
+        "description": "Capacity 12-15 People, Projector, Video Conf ready"
       },
       {
-        "name": "COWORKING HOT-DESK 01",
-        "category": "DESK",
-        "description": "Flexible desk in open area with high speed internet"
+        "name": "PHONE BOOTH 01",
+        "category": "PRIVATE",
+        "description": "Single Person Soundproof Booth for Private Calls"
       },
       {
-        "name": "COWORKING HOT-DESK 02",
-        "category": "DESK",
-        "description": "Flexible desk in open area with high speed internet"
+        "name": "PHONE BOOTH 02",
+        "category": "PRIVATE",
+        "description": "Single Person Soundproof Booth for Private Calls"
       },
       {
-        "name": "PHONE BOOTH",
-        "category": "DESK",
-        "description": "Private soundproof booth for calls & video conference"
+        "name": "EVENT HALL",
+        "category": "EVENT",
+        "description": "Capacity 50 People, Sound System, Projector, Stage"
       }
     ],
     "main_items": [
       {
-        "name": "HOT DESK DAILY",
-        "price": 75000,
+        "name": "DAILY PASS HOT-DESK",
+        "price": 100000,
         "price_unit": "day",
         "unit_duration": 1440,
         "is_default": true
       },
       {
-        "name": "HOURLY MEETING",
+        "name": "WEEKLY PASS",
+        "price": 500000,
+        "price_unit": "week",
+        "unit_duration": 10080,
+        "is_default": false
+      },
+      {
+        "name": "MONTHLY MEMBER",
+        "price": 1800000,
+        "price_unit": "month",
+        "unit_duration": 43200,
+        "is_default": false
+      },
+      {
+        "name": "MEETING HOURLY (SMALL)",
         "price": 150000,
         "price_unit": "hour",
         "unit_duration": 60,
         "is_default": false
       },
       {
-        "name": "MEMBER MONTHLY",
-        "price": 1500000,
-        "price_unit": "month",
-        "unit_duration": 43200,
+        "name": "MEETING HOURLY (LARGE)",
+        "price": 300000,
+        "price_unit": "hour",
+        "unit_duration": 60,
         "is_default": false
       },
       {
-        "name": "VIRTUAL OFFICE",
-        "price": 300000,
-        "price_unit": "month",
-        "unit_duration": 43200,
+        "name": "VIRTUAL OFFICE (YEARLY)",
+        "price": 5000000,
+        "price_unit": "year",
+        "unit_duration": 525600,
         "is_default": false
       }
     ],
     "unit_addons": [
       {
-        "name": "PRINTING BLACK/WHITE",
+        "name": "PRINTING BLACK/WHITE (PER PAGE)",
         "price": 1000,
         "price_unit": "pcs",
         "unit_duration": 0
       },
       {
-        "name": "PRINTING COLOR",
-        "price": 3000,
-        "price_unit": "pcs",
-        "unit_duration": 0
-      },
-      {
-        "name": "SCAN DOCUMENT",
-        "price": 2000,
+        "name": "PRINTING COLOR (PER PAGE)",
+        "price": 5000,
         "price_unit": "pcs",
         "unit_duration": 0
       },
@@ -527,27 +726,210 @@
         "unit_duration": 0
       },
       {
-        "name": "EXTRA POWER STRIP",
+        "name": "LOCKER DAILY RENTAL",
+        "price": 20000,
+        "price_unit": "day",
+        "unit_duration": 0
+      },
+      {
+        "name": "SCAN DOCUMENT",
+        "price": 2000,
+        "price_unit": "pcs",
+        "unit_duration": 0
+      },
+      {
+        "name": "PROJECTOR RENTAL (EXTERNAL)",
+        "price": 100000,
+        "price_unit": "hour",
+        "unit_duration": 60
+      },
+      {
+        "name": "PARKIR VALET",
+        "price": 30000,
+        "price_unit": "session",
+        "unit_duration": 0
+      }
+    ],
+    "fnb_catalog": [
+      { "name": "CAFE LATTE 12OZ", "price": 32000, "category": "Coffee" },
+      { "name": "CAPPUCCINO 12OZ", "price": 32000, "category": "Coffee" },
+      { "name": "FLAT WHITE", "price": 30000, "category": "Coffee" },
+      { "name": "AVOCADO COFFEE", "price": 38000, "category": "Coffee" },
+      { "name": "ICED SHAKEN ESPRESSO", "price": 35000, "category": "Coffee" },
+      { "name": "EARL GREY TEA HOT", "price": 25000, "category": "Tea" },
+      { "name": "CHAMOMILE TEA HOT", "price": 25000, "category": "Tea" },
+      { "name": "PASTA CARBONARA", "price": 55000, "category": "Food" },
+      { "name": "CHICKEN CORDON BLEU", "price": 65000, "category": "Food" },
+      { "name": "BEEF BURGER & FRIES", "price": 75000, "category": "Food" },
+      { "name": "DONUT GLAZED (ISI 2)", "price": 25000, "category": "Snack" },
+      { "name": "QUICHE LORRAINE", "price": 35000, "category": "Snack" },
+      { "name": "ALMOND CROISSANT", "price": 28000, "category": "Snack" },
+      { "name": "BROWNIES A LA MODE", "price": 30000, "category": "Snack" },
+      { "name": "GREEN TEA LATTE", "price": 35000, "category": "Non-Coffee" },
+      { "name": "DARK CHOCOLATE ICE", "price": 35000, "category": "Non-Coffee" }
+    ]
+  },
+  "entertainment_hub": {
+    "resources": [
+      {
+        "name": "KARAOKE ROOM SMALL 01",
+        "category": "KARAOKE",
+        "description": "Capacity 4 People, 55 Inch TV, Sound System"
+      },
+      {
+        "name": "KARAOKE ROOM SMALL 02",
+        "category": "KARAOKE",
+        "description": "Capacity 4 People, 55 Inch TV, Sound System"
+      },
+      {
+        "name": "KARAOKE ROOM MEDIUM 01",
+        "category": "KARAOKE",
+        "description": "Capacity 8 People, Dual Mic, Sofa Comfort"
+      },
+      {
+        "name": "KARAOKE ROOM MEDIUM 02",
+        "category": "KARAOKE",
+        "description": "Capacity 8 People, Dual Mic, Sofa Comfort"
+      },
+      {
+        "name": "KARAOKE ROOM LARGE (VIP)",
+        "category": "KARAOKE",
+        "description": "Capacity 15 People, Tablet Controller, Private Restroom"
+      },
+      {
+        "name": "BILLIARD TABLE 01",
+        "category": "BILLIARD",
+        "description": "9-Feet Table, Professional Slate, Tournament Grade"
+      },
+      {
+        "name": "BILLIARD TABLE 02",
+        "category": "BILLIARD",
+        "description": "9-Feet Table, Professional Slate, Tournament Grade"
+      },
+      {
+        "name": "BILLIARD TABLE 03",
+        "category": "BILLIARD",
+        "description": "9-Feet Table, Professional Slate, Tournament Grade"
+      },
+      {
+        "name": "BILLIARD TABLE 04",
+        "category": "BILLIARD",
+        "description": "9-Feet Table, Professional Slate, Tournament Grade"
+      },
+      {
+        "name": "BILLIARD TABLE VIP",
+        "category": "BILLIARD",
+        "description": "Private Room with Sofa and Personal Minibar"
+      },
+      {
+        "name": "VR BOOTH 01",
+        "category": "VR",
+        "description": "HTC Vive Pro 2 Setup, 3x3m Walking Space"
+      },
+      {
+        "name": "VR BOOTH 02",
+        "category": "VR",
+        "description": "HTC Vive Pro 2 Setup, 3x3m Walking Space"
+      }
+    ],
+    "main_items": [
+      {
+        "name": "KARAOKE SMALL HOURLY",
+        "price": 75000,
+        "price_unit": "hour",
+        "unit_duration": 60,
+        "is_default": true
+      },
+      {
+        "name": "KARAOKE MEDIUM HOURLY",
+        "price": 120000,
+        "price_unit": "hour",
+        "unit_duration": 60,
+        "is_default": false
+      },
+      {
+        "name": "KARAOKE VIP HOURLY",
+        "price": 250000,
+        "price_unit": "hour",
+        "unit_duration": 60,
+        "is_default": false
+      },
+      {
+        "name": "BILLIARD REGULER HOURLY",
+        "price": 50000,
+        "price_unit": "hour",
+        "unit_duration": 60,
+        "is_default": false
+      },
+      {
+        "name": "BILLIARD VIP HOURLY",
+        "price": 100000,
+        "price_unit": "hour",
+        "unit_duration": 60,
+        "is_default": false
+      },
+      {
+        "name": "VR 30 MINUTE SESSION",
+        "price": 60000,
+        "price_unit": "session",
+        "unit_duration": 30,
+        "is_default": false
+      },
+      {
+        "name": "PAKET KARAOKE 2 JAM + SNACK",
+        "price": 200000,
+        "price_unit": "session",
+        "unit_duration": 120,
+        "is_default": false
+      }
+    ],
+    "unit_addons": [
+      {
+        "name": "STIK BILLIARD CUSTOM",
+        "price": 20000,
+        "price_unit": "pcs",
+        "unit_duration": 0
+      },
+      {
+        "name": "MIC COVER (ISI 2)",
         "price": 5000,
+        "price_unit": "pcs",
+        "unit_duration": 0
+      },
+      {
+        "name": "EXTRA MIC",
+        "price": 20000,
         "price_unit": "session",
         "unit_duration": 0
       },
       {
-        "name": "PROJECTOR RENTAL",
-        "price": 50000,
-        "price_unit": "hour",
-        "unit_duration": 60
+        "name": "KAOS KAKI VR",
+        "price": 10000,
+        "price_unit": "pcs",
+        "unit_duration": 0
+      },
+      {
+        "name": "SARUNG TANGAN BILLIARD",
+        "price": 5000,
+        "price_unit": "pcs",
+        "unit_duration": 0
       }
     ],
     "fnb_catalog": [
-      { "name": "CAFE LATTE", "price": 28000, "category": "Drink" },
-      { "name": "CAPPUCCINO", "price": 28000, "category": "Drink" },
-      { "name": "EARL GREY TEA", "price": 22000, "category": "Drink" },
-      { "name": "PASTA CARBONARA", "price": 55000, "category": "Food" },
-      { "name": "CHICKEN SALAD", "price": 45000, "category": "Food" },
-      { "name": "DONUT GLAZED", "price": 12000, "category": "Snack" },
-      { "name": "QUICHE LORRAINE", "price": 30000, "category": "Snack" },
-      { "name": "INFUSED WATER 1L", "price": 15000, "category": "Drink" }
+      { "name": "BEER TOWER 3L", "price": 350000, "category": "Alcohol" },
+      { "name": "BINTANG CAN 330ML", "price": 45000, "category": "Alcohol" },
+      { "name": "ICED LEMON TEA TOWER", "price": 120000, "category": "Drink" },
+      { "name": "FRENCH FRIES PLATTER", "price": 45000, "category": "Snack" },
+      { "name": "CHICKEN WINGS (ISI 10)", "price": 85000, "category": "Snack" },
+      { "name": "PIZZA MARGHERITA", "price": 110000, "category": "Food" },
+      { "name": "NACHOS WITH CHEESE", "price": 55000, "category": "Snack" },
+      { "name": "MOCKTAIL VIRGIN MOJITO", "price": 45000, "category": "Drink" },
+      { "name": "JUS ALPUKAT KENTAL", "price": 25000, "category": "Drink" },
+      { "name": "NASI GORENG SPECIAL", "price": 45000, "category": "Food" },
+      { "name": "SATE AYAM (10 TUSUK)", "price": 50000, "category": "Food" },
+      { "name": "POPCORN CARAMEL", "price": 30000, "category": "Snack" },
+      { "name": "ES BUAH SEGAR", "price": 22000, "category": "Snack" },
+      { "name": "COCA COLA JUMBO", "price": 15000, "category": "Drink" }
     ]
   }
 }

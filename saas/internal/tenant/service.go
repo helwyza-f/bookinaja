@@ -13,6 +13,7 @@ import (
 	"github.com/helwiza/saas/internal/auth"
 	"github.com/helwiza/saas/internal/fnb"
 	"github.com/helwiza/saas/internal/resource"
+	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -22,10 +23,13 @@ type Service struct {
 }
 
 func NewService(r *Repository, authService *auth.Service) *Service {
-	return &Service{repo: r, authService: authService}
+	return &Service{
+		repo:        r,
+		authService: authService,
+	}
 }
 
-// Register menangani pendaftaran tenant baru dan otomatis menyuntikkan template data
+// Register menangani pendaftaran tenant baru, admin owner, dan inisialisasi branding
 func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error) {
 	slug := strings.ToLower(strings.TrimSpace(req.TenantSlug))
 
@@ -41,19 +45,57 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 		return nil, errors.New("email sudah terdaftar")
 	}
 
-	// 2. Hash Password
+	// 2. Hash Password Owner
 	hashed, err := bcrypt.GenerateFromPassword([]byte(req.AdminPass), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
 	}
 
 	tID := uuid.New()
+
+	// --- DYNAMIC DEFAULT BRANDING & COPYWRITING ---
+	// Data ini yang bakal muncul di pill-pill visual dan hero section
+	defaultColor := "#3b82f6"
+	defaultTagline := "Professional Booking System"
+	defaultSlogan := "Control your branch, grow your business"
+	defaultAbout := "Kami menyediakan layanan berkualitas dengan sistem manajemen modern untuk kenyamanan Anda."
+	var defaultFeatures pq.StringArray
+
+	switch req.BusinessCategory {
+	case "gaming_hub":
+		defaultColor = "#2563eb"
+		defaultTagline = "The Ultimate Arena for Pro Players"
+		defaultSlogan = "Experience Gaming at its Peak"
+		defaultAbout = "Pusat gaming dengan spesifikasi PC tertinggi dan koneksi internet stabil. Tempat berkumpulnya komunitas gamers sejati."
+		defaultFeatures = pq.StringArray{"RTX 4090 Ready", "Internet 1Gbps", "Pro Peripherals", "240Hz Monitor"}
+	case "creative_space":
+		defaultColor = "#e11d48"
+		defaultTagline = "Studio Creative for Unlimited Ideas"
+		defaultAbout = "Ruang estetik dengan pencahayaan profesional dan peralatan lengkap untuk mendukung proses kreatif Anda."
+		defaultFeatures = pq.StringArray{"Pro Lighting", "Set Aesthetic", "High-End Camera", "Private Studio"}
+	case "sport_center":
+		defaultColor = "#10b981"
+		defaultTagline = "World Class Sports Facility"
+		defaultAbout = "Fasilitas olahraga standar internasional dengan sistem booking yang mudah dan transparan."
+		defaultFeatures = pq.StringArray{"Vinyl Court", "Locker Room", "Standard Inter", "Training Gear"}
+	case "social_space":
+		defaultColor = "#4f46e5"
+		defaultTagline = "Elite Space for Collaboration"
+		defaultAbout = "Lingkungan produktif yang homey, sangat cocok untuk fokus bekerja atau berdiskusi santai bersama rekan."
+		defaultFeatures = pq.StringArray{"Fast Wi-Fi", "Free Coffee", "Focus Zone", "Meeting Room"}
+	}
+
 	tenant := Tenant{
 		ID:               tID,
 		Name:             req.TenantName,
 		Slug:             slug,
 		BusinessCategory: req.BusinessCategory,
 		BusinessType:     req.BusinessType,
+		Tagline:          defaultTagline,
+		Slogan:           defaultSlogan,
+		AboutUs:          defaultAbout,
+		Features:         defaultFeatures,
+		PrimaryColor:     defaultColor,
 		CreatedAt:        time.Now(),
 	}
 
@@ -67,7 +109,7 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 		CreatedAt: time.Now(),
 	}
 
-	// 3. Simpan Tenant & Admin
+	// 3. Simpan Tenant & Admin ke Database
 	if err := s.repo.CreateWithAdmin(ctx, tenant, user); err != nil {
 		return nil, err
 	}
@@ -78,16 +120,14 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 	return &tenant, nil
 }
 
-// SeedTemplate membaca file templates.json dan memasukkan data awal ke database tenant
+// SeedTemplate menyuntikkan data inventori awal (Resources, Items, FnB)
 func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category string) {
-	// 1. Baca file templates.json
 	file, err := os.ReadFile("internal/tenant/templates.json")
 	if err != nil {
 		log.Printf("[SEEDER] Gagal membaca file template: %v", err)
 		return
 	}
 
-	// 2. Struktur parsing JSON
 	var allTemplates map[string]struct {
 		Resources []struct {
 			Name        string `json:"name"`
@@ -128,7 +168,7 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 
 	emptyMeta := json.RawMessage("{}")
 
-	// 3. Mapping Resource & Unit Addons
+	// Mapping Resources
 	var resourcesToSeed []resource.Resource
 	for _, r := range tpl.Resources {
 		res := resource.Resource{
@@ -140,31 +180,27 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 			Metadata:    &emptyMeta,
 		}
 
-		// Masukkan Main Items (REFACTORED: ItemType = main_option)
 		for _, mi := range tpl.MainItems {
 			duration := mi.UnitDuration
 			if duration <= 0 {
 				duration = s.getDefaultDuration(mi.PriceUnit)
 			}
-
 			res.Items = append(res.Items, resource.ResourceItem{
 				Name:         mi.Name,
 				Price:        mi.Price,
 				PriceUnit:    mi.PriceUnit,
 				UnitDuration: duration,
-				ItemType:     "main_option", // Mengganti console_option
+				ItemType:     "main_option",
 				IsDefault:    mi.IsDefault,
 				Metadata:     &emptyMeta,
 			})
 		}
 
-		// Masukkan Unit Addons
 		for _, ua := range tpl.UnitAddons {
 			duration := ua.UnitDuration
 			if duration <= 0 {
 				duration = s.getDefaultDuration(ua.PriceUnit)
 			}
-
 			res.Items = append(res.Items, resource.ResourceItem{
 				Name:         ua.Name,
 				Price:        ua.Price,
@@ -178,7 +214,6 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 		resourcesToSeed = append(resourcesToSeed, res)
 	}
 
-	// 4. Mapping F&B Catalog
 	var fnbToSeed []fnb.Item
 	for _, f := range tpl.FnbCatalog {
 		fnbToSeed = append(fnbToSeed, fnb.Item{
@@ -189,19 +224,16 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 		})
 	}
 
-	// 5. Eksekusi Seeding melalui Repository
 	if err := s.repo.SeedTenantData(ctx, tenantID, resourcesToSeed); err != nil {
-		log.Printf("[SEEDER] Gagal seeding Resource/Items: %v", err)
+		log.Printf("[SEEDER] Error seeding resources: %v", err)
 	}
-
 	if err := s.repo.SeedFnbData(ctx, tenantID, fnbToSeed); err != nil {
-		log.Printf("[SEEDER] Gagal seeding F&B Catalog: %v", err)
+		log.Printf("[SEEDER] Error seeding fnb catalog: %v", err)
 	}
 
-	log.Printf("[SEEDER] Berhasil menyuntikkan template lengkap untuk tenant %s", tenantID)
+	log.Printf("[SEEDER] SUCCESS: Data template disuntikkan untuk tenant %s", tenantID)
 }
 
-// getDefaultDuration memberikan durasi default berdasarkan price_unit jika durasi di JSON kosong
 func (s *Service) getDefaultDuration(unit string) int {
 	switch strings.ToLower(unit) {
 	case "hour":
@@ -245,9 +277,15 @@ func (s *Service) UpdateProfile(ctx context.Context, id uuid.UUID, req Tenant) (
 	}
 
 	req.ID = id
-	req.Slug = curr.Slug // Slug bersifat read-only lewat update profile
+	req.Slug = curr.Slug
+	req.CreatedAt = curr.CreatedAt
+
 	if err := s.repo.Update(ctx, req); err != nil {
 		return nil, err
 	}
 	return &req, nil
+}
+
+func (s *Service) GetPublicLandingData(ctx context.Context, slug string) (map[string]interface{}, error) {
+	return s.repo.GetPublicLandingData(ctx, slug)
 }

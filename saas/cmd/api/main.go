@@ -25,13 +25,11 @@ import (
 
 func main() {
 	// 0. Load Configuration (.env)
-	// Penting untuk development agar environment variables terbaca
 	if err := godotenv.Load(); err != nil {
-		log.Println("Warning: .env file not found, using system environment variables")
+		log.Println("⚠️ Warning: .env file not found, using system environment variables")
 	}
 
 	// 1. Database Connection (Postgres via sqlx)
-	// Digunakan untuk persistence data utama
 	db, err := database.NewPostgres(
 		os.Getenv("DB_HOST"),
 		os.Getenv("DB_PORT"),
@@ -44,21 +42,18 @@ func main() {
 	}
 	defer db.Close()
 
-	// 2. Redis Connection (Redis Cloud)
-	// Digunakan untuk OTP, Caching Tenant ID, dan session ringan
+	// 2. Redis Connection (Redis Cloud / Local)
 	rdb, err := database.NewRedisClient()
 	if err != nil {
 		log.Fatalf("❌ Redis Connection Error: %v", err)
 	}
 	defer rdb.Close()
 
-	// 3. Database Migration (v4)
-	// Menjaga skema database tetap sinkron di semua environment
+	// 3. Database Migration
 	runMigration(db.DB)
 
 	// 4. Dependency Injection (Wiring/Kabel Modul)
-	// Kita susun dari Repository -> Service -> Handler
-
+	
 	// --- AUTH DOMAIN ---
 	authSvc := auth.NewService()
 	authHdl := auth.NewHandler(authSvc)
@@ -69,7 +64,8 @@ func main() {
 	customerHdl := customer.NewHandler(customerSvc)
 
 	// --- TENANT DOMAIN ---
-	tenantRepo := tenant.NewRepository(db)
+	// UPDATE: Tenant Repository sekarang butuh rdb untuk Caching Landing Page
+	tenantRepo := tenant.NewRepository(db, rdb) 
 	tenantSvc := tenant.NewService(tenantRepo, authSvc)
 	tenantHdl := tenant.NewHandler(tenantSvc)
 
@@ -98,7 +94,7 @@ func main() {
 		FnbHandler:         fnbHdl,
 	}
 
-	// UPDATE: Kita oper db dan rdb ke Router untuk keperluan middleware TenantIdentifier
+	// Oper db dan rdb ke Router untuk keperluan middleware TenantIdentifier & CORS
 	r := http.NewRouter(routerConfig, db, rdb)
 
 	// 6. Start Server
@@ -107,11 +103,12 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("🚀 Server bookinaja-api running on :%s", port)
-	log.Printf("🔗 Redis Cloud connected to AP-SEAST-1")
+	log.Printf("🚀 BATAM ENGINE STARTED")
+	log.Printf("📡 Listening on port :%s", port)
+	log.Printf("🧠 Redis Cache & OTP: ENABLED")
 	
 	if err := r.Run(":" + port); err != nil {
-		log.Fatalf("Failed to run server: %v", err)
+		log.Fatalf("❌ Failed to run server: %v", err)
 	}
 }
 
@@ -119,7 +116,7 @@ func main() {
 func runMigration(db *sql.DB) {
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
-		log.Fatalf("Migration driver error: %v", err)
+		log.Fatalf("❌ Migration driver error: %v", err)
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(
@@ -127,12 +124,12 @@ func runMigration(db *sql.DB) {
 		"postgres", driver,
 	)
 	if err != nil {
-		log.Fatalf("Migration init error: %v", err)
+		log.Fatalf("❌ Migration init error: %v", err)
 	}
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		log.Fatalf("Migration failed: %v", err)
+		log.Fatalf("❌ Migration failed: %v", err)
 	}
 
-	log.Println("✅ Database migration completed.")
+	log.Println("✅ Database schema is up to date.")
 }
