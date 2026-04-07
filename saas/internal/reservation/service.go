@@ -26,33 +26,33 @@ func NewService(r *Repository, resRepo *resource.Repository, custSvc *customer.S
 }
 
 // Create menangani pendaftaran reservasi baru (Auto-detect TenantID & Silent Register CRM)
-func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, error) {
+func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, *customer.Customer, error) {
 	// 1. PARSE RESOURCE ID & AMBIL DATA TENANT (KEAMANAN: TenantID dari DB, bukan JSON)
 	rID, err := uuid.Parse(req.ResourceID)
 	if err != nil {
-		return nil, errors.New("ID UNIT TIDAK VALID")
+		return nil, nil, errors.New("ID UNIT TIDAK VALID")
 	}
 
 	resDetail, err := s.resourceRepo.GetOneWithItems(ctx, rID)
 	if err != nil {
-		return nil, errors.New("UNIT TIDAK DITEMUKAN")
+		return nil, nil, errors.New("UNIT TIDAK DITEMUKAN")
 	}
 	tID := resDetail.TenantID
 
-	// 2. PARSE WAKTU MULAI (ISO8601 atau Local Format)
+	// 2. PARSE WAKTU MULAI (ISO8601)
 	start, err := time.Parse(time.RFC3339, req.StartTime)
 	if err != nil {
 		layout := "2006-01-02T15:04:05"
 		start, err = time.ParseInLocation(layout, req.StartTime, time.Local)
 		if err != nil {
-			return nil, errors.New("FORMAT WAKTU SALAH, GUNAKAN STANDAR ISO8601")
+			return nil, nil, errors.New("FORMAT WAKTU SALAH, GUNAKAN STANDAR ISO8601")
 		}
 	}
 	start = start.UTC() // Database konsisten menggunakan UTC
 
 	// 3. HITUNG END TIME BERDASARKAN DURASI UNIT
 	if len(req.ItemIDs) == 0 {
-		return nil, errors.New("PILIH MINIMAL SATU PAKET UTAMA")
+		return nil, nil, errors.New("PILIH MINIMAL SATU PAKET UTAMA")
 	}
 
 	mainItemID, _ := uuid.Parse(req.ItemIDs[0])
@@ -74,13 +74,13 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, e
 		Phone: req.CustomerPhone,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("GAGAL MENGIDENTIFIKASI PELANGGAN: %w", err)
+		return nil, nil, fmt.Errorf("GAGAL MENGIDENTIFIKASI PELANGGAN: %w", err)
 	}
 
 	// 5. VALIDASI KETERSEDIAAN SLOT (MENCEGAH DOUBLE BOOKING)
 	available, err := s.repo.CheckAvailability(ctx, rID, start, end)
 	if err != nil || !available {
-		return nil, errors.New("MAAF, SLOT WAKTU TERSEBUT SUDAH TERISI")
+		return nil, nil, errors.New("MAAF, SLOT WAKTU TERSEBUT SUDAH TERISI")
 	}
 
 	// 6. KONVERSI ITEM IDS KE UUID
@@ -106,10 +106,10 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, e
 
 	// 8. EKSEKUSI PENYIMPANAN DATA & BILLING
 	if err := s.repo.CreateWithItems(ctx, newBooking, itemUUIDs, req.Duration); err != nil {
-		return nil, fmt.Errorf("GAGAL MENYIMPAN TRANSAKSI: %w", err)
+		return nil, nil, fmt.Errorf("GAGAL MENYIMPAN TRANSAKSI: %w", err)
 	}
 
-	return &newBooking, nil
+	return &newBooking, cust, nil
 }
 
 // ExtendSession menangani penambahan durasi dari Admin Panel/POS Live Dashboard
@@ -162,7 +162,7 @@ func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string)
 	return nil
 }
 
-// AddAddonOrder menambahkan layanan/barang tambahan saat sesi sedang berjalan (Add-on on-the-spot)
+// AddAddonOrder menambahkan layanan tambahan (Add-on on-the-spot)
 func (s *Service) AddAddonOrder(ctx context.Context, bookingID string, tenantID string, itemID string) error {
 	bID, _ := uuid.Parse(bookingID)
 	tID, _ := uuid.Parse(tenantID)
@@ -211,14 +211,12 @@ func (s *Service) AddFnbOrder(ctx context.Context, bookingID string, tenantID st
 func (s *Service) GetAvailability(ctx context.Context, resourceID string, date time.Time) ([]map[string]string, error) {
 	rID, err := uuid.Parse(resourceID)
 	if err != nil {
-		return nil, errors.New("ID RESOURCE TIDAK VALID")
+		return nil, errors.New("ID UNIT TIDAK VALID")
 	}
 
-	// 1. Tentukan Timezone target (WIB)
 	location, _ := time.LoadLocation("Asia/Jakarta")
-
-	// 2. Ambil bokingan dari awal hari (UTC)
 	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	
 	bookings, err := s.repo.ListUpcoming(ctx, rID, startOfDay)
 	if err != nil {
 		return nil, err
@@ -226,15 +224,14 @@ func (s *Service) GetAvailability(ctx context.Context, resourceID string, date t
 
 	busySlots := []map[string]string{}
 	for _, b := range bookings {
-		// --- FIX CORE LOGIC DI SINI ---
-		// Database simpan UTC (misal 02:00), kita In(location) biar balik ke +7 (jam 09:00)
+		// Konversi UTC ke Local agar frontend tidak geser jamnya
 		localStart := b.StartTime.In(location)
 		localEnd := b.EndTime.In(location)
 
 		busySlots = append(busySlots, map[string]string{
 			"id":         b.ID.String(),
-			"start_time": localStart.Format("15:04"), // Akan jadi 09:00
-			"end_time":   localEnd.Format("15:04"),   // Akan jadi 11:00
+			"start_time": localStart.Format("15:04"),
+			"end_time":   localEnd.Format("15:04"),
 		})
 	}
 

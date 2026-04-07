@@ -22,11 +22,11 @@ type Config struct {
 	FnbHandler         *fnb.Handler
 }
 
-// NewRouter menginisialisasi router Gin dengan middleware multi-tenancy berbasis Redis & DB
+// NewRouter menginisialisasi router Gin dengan arsitektur Multi-Tenancy
 func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 	r := gin.Default()
 
-	// Konfigurasi Router Dasar
+	// Konfigurasi Standar
 	r.RedirectTrailingSlash = false
 	r.RedirectFixedPath = false
 
@@ -37,56 +37,60 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 
 	// Health Check
 	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{"message": "pong"})
+		c.JSON(200, gin.H{"message": "BATAM ENGINE ONLINE"})
 	})
 
-	// API Group v1
+	// API v1 Group
 	v1 := r.Group("/api/v1")
-	
-	// MIDDLEWARE KRUSIAL: Identifikasi Tenant (Subdomain/Header)
-	// Semua request di bawah grup ini wajib lolos identifikasi tenant
-	v1.Use(middleware.TenantIdentifier(db, rdb)) 
+
+	// MIDDLEWARE UTAMA: Identifikasi Tenant berdasarkan Subdomain / Header
+	v1.Use(middleware.TenantIdentifier(db, rdb))
 	{
-		// --- 1. PUBLIC ROUTES (Akses tanpa login untuk Customer/Landing) ---
+		// --- 1. PUBLIC ROUTES (Customer Landing & Public Booking) ---
 		public := v1.Group("/public")
 		{
 			public.GET("/landing", cfg.TenantHandler.GetPublicLandingData)
 			public.GET("/resources/:id", cfg.ResourceHandler.GetPublicDetail)
-			public.POST("/bookings", cfg.ReservationHandler.Create)
 			public.GET("/fnb", cfg.FnbHandler.GetMenu)
-			
-			// Customer Auth Flow (WhatsApp OTP)
+
+			// FIX: Tambahkan endpoint GET detail booking di public agar redirect portal lancar
+			public.GET("/bookings/:id", cfg.ReservationHandler.GetDetail)
+			public.POST("/bookings", cfg.ReservationHandler.Create)
+
+			// Customer Self-Auth (WhatsApp Flow)
 			public.GET("/validate-phone", cfg.CustomerHandler.ValidatePhone)
 			public.POST("/customer/login", cfg.CustomerHandler.RequestOTP)
 			public.POST("/customer/verify", cfg.CustomerHandler.VerifyOTP)
 		}
 
-		// Admin/Tenant Platform Auth (Register & Login Owner)
+		// Auth Dasar (Admin & Owner)
 		v1.POST("/register", cfg.TenantHandler.Register)
 		v1.POST("/login", cfg.TenantHandler.Login)
 
-		// --- 2. GUEST ROUTES (Akses via Magic Link / Token) ---
+		// --- 2. GUEST ROUTES (Akses via Magic Token) ---
 		guest := v1.Group("/guest")
 		{
 			guest.GET("/availability/:resource_id", cfg.ReservationHandler.Availability)
 			guest.GET("/status/:token", cfg.ReservationHandler.Status)
 		}
 
-		// --- 3. PROTECTED ROUTES (Membutuhkan Validasi JWT) ---
+		// --- 3. PROTECTED ROUTES (Butuh JWT: Customer atau Admin) ---
 		protected := v1.Group("/")
-		protected.Use(middleware.AuthMiddleware()) 
+		protected.Use(middleware.AuthMiddleware())
 		{
-			// --- CUSTOMER AREA ---
+			// --- CUSTOMER PORTAL AREA (/me) ---
 			me := protected.Group("/me")
 			{
-				me.GET("", cfg.CustomerHandler.GetMe) 
+				me.GET("", cfg.CustomerHandler.GetMe)
+				// Tetap sediakan di sini untuk akses terproteksi
+				me.GET("/bookings/:id", cfg.ReservationHandler.GetDetail)
 			}
 
-			// --- ADMIN & STAFF AREA (Internal Management) ---
+			// --- ADMIN & POS MANAGEMENT AREA (Staff Only) ---
 			adminArea := protected.Group("/")
-			adminArea.Use(middleware.AdminOnly()) 
+			adminArea.Use(middleware.AdminOnly())
 			{
-				// Business Profile
+				// Business Settings
 				admin := adminArea.Group("/admin")
 				{
 					admin.GET("/profile", cfg.TenantHandler.GetProfile)
@@ -96,7 +100,7 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 					})
 				}
 
-				// Resource & Unit Management
+				// Resource & Unit Inventory
 				resources := adminArea.Group("/resources-all")
 				{
 					resources.GET("", cfg.ResourceHandler.List)
@@ -104,32 +108,17 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 					resources.PUT("/:id", cfg.ResourceHandler.Update)
 					resources.DELETE("/:id", cfg.ResourceHandler.Delete)
 
-					resources.POST("/upload-cover", func(c *gin.Context) {
-						HandleSingleUpload(c, "resources/covers")
-					})
-					resources.POST("/upload-gallery", func(c *gin.Context) {
-						HandleBulkUpload(c, "resources/gallery")
-					})
-
 					resources.GET("/:id/items", cfg.ResourceHandler.ListItems)
 					resources.POST("/:id/items", cfg.ResourceHandler.AddItem)
 					resources.PUT("/items/:id", cfg.ResourceHandler.UpdateItem)
 					resources.DELETE("/items/:id", cfg.ResourceHandler.DeleteItem)
-				}
 
-				// Food & Beverage Management
-				fnbGroup := adminArea.Group("/fnb")
-				{
-					fnbGroup.GET("", cfg.FnbHandler.GetMenu)
-					fnbGroup.POST("", cfg.FnbHandler.CreateItem)
-					fnbGroup.PUT("/:id", cfg.FnbHandler.UpdateItem)
-					fnbGroup.DELETE("/:id", cfg.FnbHandler.DeleteItem)
-					fnbGroup.POST("/upload", func(c *gin.Context) {
-						HandleSingleUpload(c, "fnb/items")
+					resources.POST("/upload-cover", func(c *gin.Context) {
+						HandleSingleUpload(c, "resources/covers")
 					})
 				}
 
-				// Reservation & POS System
+				// POS & Reservation System
 				bookings := adminArea.Group("/bookings")
 				{
 					bookings.GET("", cfg.ReservationHandler.ListAll)
@@ -137,23 +126,30 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 					bookings.PUT("/:id/status", cfg.ReservationHandler.UpdateStatus)
 					bookings.POST("/manual", cfg.ReservationHandler.Create)
 
-					// POS Session Control
+					// POS Live Session Controls
 					bookings.GET("/pos/active", cfg.ReservationHandler.GetActiveSessions)
 					bookings.POST("/pos/order/:id", cfg.ReservationHandler.AddOrder)
 					bookings.POST("/:id/extend", cfg.ReservationHandler.ExtendSession)
 					bookings.POST("/:id/addons", cfg.ReservationHandler.AddAddonItem)
 				}
 
-				// Customer CRM Management
+				// Food & Beverage Menu
+				fnbGroup := adminArea.Group("/fnb")
+				{
+					fnbGroup.GET("", cfg.FnbHandler.GetMenu)
+					fnbGroup.POST("", cfg.FnbHandler.CreateItem)
+					fnbGroup.PUT("/:id", cfg.FnbHandler.UpdateItem)
+					fnbGroup.DELETE("/:id", cfg.FnbHandler.DeleteItem)
+				}
+
+				// CRM & Customer Analytics
 				customers := adminArea.Group("/customers")
 				{
 					customers.GET("", cfg.CustomerHandler.List)
-					customers.POST("", cfg.CustomerHandler.Create)
 					customers.GET("/:id", cfg.CustomerHandler.GetByID)
 					customers.GET("/search", cfg.CustomerHandler.SearchByPhone)
 				}
 
-				// Auth Check for UI State
 				adminArea.GET("/auth/me", cfg.AuthHandler.CheckMe)
 			}
 		}

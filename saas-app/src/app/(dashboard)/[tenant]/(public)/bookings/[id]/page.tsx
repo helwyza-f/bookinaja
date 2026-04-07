@@ -1,5 +1,5 @@
 "use client";
-
+import { setCookie } from "cookies-next"; // Pastikan import ini ada
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -214,11 +214,14 @@ export default function ResourceBookingDetail() {
   };
 
   const handleBooking = async () => {
+    // 1. Pre-validation
     if (phoneStatus !== "valid")
-      return toast.error("Nomor WhatsApp tidak valid");
+      return toast.error("Nomor WhatsApp tidak valid atau belum terverifikasi");
     if (!custName || !selectedTime)
       return toast.error("Lengkapi data formulir");
+
     setIsSubmitting(true);
+
     try {
       const fullDate = parse(selectedTime, "HH:mm", date || new Date());
       const payload = {
@@ -230,10 +233,34 @@ export default function ResourceBookingDetail() {
         start_time: formatISO(fullDate),
         duration: durationValue,
       };
+
       const res = await api.post("/public/bookings", payload);
-      router.push(res.data.redirect_url);
+
+      // --- KRUSIAL: INTEGRASI SILENT LOGIN ---
+      if (res.data.customer_token) {
+        // Simpan token untuk auth portal customer
+        setCookie("customer_auth", res.data.customer_token, {
+          maxAge: 60 * 60 * 24 * 7, // 7 Hari
+          path: "/", // Wajib "/" agar bisa diakses di /me
+        });
+
+        // Simpan Tenant ID untuk kebutuhan header X-Tenant-ID di interceptor
+        setCookie("current_tenant_id", resource.tenant_id, {
+          maxAge: 60 * 60 * 24 * 7,
+          path: "/",
+        });
+      }
+
+      toast.success("Booking Berhasil! Menyiapkan tiket Anda...");
+
+      // Berikan sedikit jeda (delay) agar browser selesai menulis cookie
+      // sebelum pindah halaman untuk menghindari 401 Unauthorized
+      setTimeout(() => {
+        router.push(res.data.redirect_url);
+      }, 800);
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Gagal booking");
+      console.error("Booking Error:", err);
+      toast.error(err.response?.data?.error || "Gagal membuat reservasi");
     } finally {
       setIsSubmitting(false);
     }

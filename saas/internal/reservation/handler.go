@@ -2,9 +2,11 @@ package reservation
 
 import (
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type Handler struct {
@@ -17,7 +19,7 @@ func NewHandler(s *Service) *Handler {
 
 // --- PUBLIC ENDPOINTS (Tanpa Auth / Customer Facing) ---
 
-// Create menangani pembuatan booking baru dari halaman publik atau admin manual
+// Create menangani pembuatan booking baru sekaligus Silent Login untuk Portal Customer
 func (h *Handler) Create(c *gin.Context) {
 	var req CreateBookingReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -25,11 +27,8 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	// Logic: TenantID sekarang bersifat opsional di JSON karena Service akan mencarinya 
-	// otomatis berdasarkan ResourceID. Namun jika Admin yang buat (via Dashboard), 
-	// kita tetap bisa ambil dari context middleware jika diperlukan.
-
-	b, err := h.service.Create(c.Request.Context(), req)
+	// Memanggil service. Hasil kembalian menyertakan data Customer untuk generate JWT
+	b, cust, err := h.service.Create(c.Request.Context(), req)
 	if err != nil {
 		// Jika terjadi bentrok jadwal, return 409 Conflict
 		if err.Error() == "MAAF, SLOT WAKTU TERSEBUT SUDAH TERISI" {
@@ -40,19 +39,38 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
+	// --- AUTO GENERATE JWT UNTUK SILENT LOGIN ---
+	// Payload disamakan dengan modul customer.Service agar portal /me mengenali user ini
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"customer_id": cust.ID.String(),
+		"tenant_id":   cust.TenantID.String(),
+		"exp":         time.Now().Add(time.Hour * 72).Unix(), // Aktif 3 hari
+	})
+
+	tokenString, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	if err != nil {
+		// Tetap biarkan booking berhasil, tapi log error JWT-nya
+		c.JSON(http.StatusCreated, gin.H{
+			"message":      "BOOKING BERHASIL (Gagal login otomatis)",
+			"booking_id":   b.ID,
+			"redirect_url": "/me/bookings/" + b.ID.String(),
+		})
+		return
+	}
+
 	c.JSON(http.StatusCreated, gin.H{
-		"message":      "BOOKING BERHASIL DIBUAT",
-		"booking_id":   b.ID,
-		"access_token": b.AccessToken,
-		"redirect_url": "/status/" + b.AccessToken.String(),
+		"message":        "BOOKING BERHASIL",
+		"booking_id":     b.ID,
+		"customer_token": tokenString,
+		"redirect_url":   "/me/bookings/" + b.ID.String(),
 	})
 }
 
+// Availability mengecek slot waktu yang sudah terisi (Busy Slots)
 func (h *Handler) Availability(c *gin.Context) {
 	resourceID := c.Param("resource_id")
-	dateStr := c.Query("date") // Format YYYY-MM-DD
+	dateStr := c.Query("date")
 
-	// Parse tanggal pencarian tanpa jam (Naive date)
 	targetDate, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
 		targetDate = time.Now()
@@ -60,14 +78,14 @@ func (h *Handler) Availability(c *gin.Context) {
 
 	busy, err := h.service.GetAvailability(c.Request.Context(), resourceID, targetDate)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "GAGAL MENGAMBIL JADWAL"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "GAGAL MENGAMBIL DATA JADWAL"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"busy_slots": busy})
 }
 
-// Status mengambil detail booking berdasarkan Access Token (Tampilan Tiket Guest)
+// Status mengambil detail booking berdasarkan Access Token (Tiket Guest)
 func (h *Handler) Status(c *gin.Context) {
 	token := c.Param("token")
 	b, err := h.service.GetStatusByToken(c.Request.Context(), token)
@@ -80,7 +98,7 @@ func (h *Handler) Status(c *gin.Context) {
 
 // --- ADMIN & POS CONTROL HUB ENDPOINTS (Protected by Middleware) ---
 
-// ListAll mengambil semua daftar booking untuk tabel Admin Panel
+// ListAll mengambil histori booking untuk tabel dashboard
 func (h *Handler) ListAll(c *gin.Context) {
 	tenantID := c.MustGet("tenantID").(string)
 	status := c.Query("status")
@@ -93,7 +111,7 @@ func (h *Handler) ListAll(c *gin.Context) {
 	c.JSON(http.StatusOK, bookings)
 }
 
-// GetActiveSessions mengambil sesi yang sedang berjalan (Active/Ongoing) untuk Dashboard POS
+// GetActiveSessions menarik grid sesi Ongoing untuk POS
 func (h *Handler) GetActiveSessions(c *gin.Context) {
 	tenantID := c.MustGet("tenantID").(string)
 
@@ -105,7 +123,7 @@ func (h *Handler) GetActiveSessions(c *gin.Context) {
 	c.JSON(http.StatusOK, sessions)
 }
 
-// AddOrder menambahkan pesanan F&B ke billing bokingan yang sedang aktif (Integrasi POS)
+// AddOrder menambah item FnB ke bill bokingan dari POS
 func (h *Handler) AddOrder(c *gin.Context) {
 	bookingID := c.Param("id")
 	tenantID := c.MustGet("tenantID").(string)
@@ -122,10 +140,10 @@ func (h *Handler) AddOrder(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "ITEM BERHASIL DITAMBAHKAN KE BILL"})
+	c.JSON(http.StatusOK, gin.H{"message": "PESANAN BERHASIL DITAMBAHKAN"})
 }
 
-// ExtendSession menangani permintaan penambahan durasi dari Dashboard POS
+// ExtendSession menambah durasi unit dari Dashboard POS
 func (h *Handler) ExtendSession(c *gin.Context) {
 	bookingID := c.Param("id")
 	tenantID := c.MustGet("tenantID").(string)
@@ -135,21 +153,20 @@ func (h *Handler) ExtendSession(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "INPUT DURASI HARUS MINIMAL 1 SESI/JAM"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "DURASI MINIMAL 1 SESI"})
 		return
 	}
 
 	err := h.service.ExtendSession(c.Request.Context(), bookingID, tenantID, req.AdditionalDuration)
 	if err != nil {
-		// Return 409 Conflict jika slot tambahan sudah dibooking orang lain
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "SESI DIPERPANJANG & BILL DIUPDATE"})
+	c.JSON(http.StatusOK, gin.H{"message": "DURASI BERHASIL DIPERPANJANG"})
 }
 
-// AddAddonItem menambahkan layanan tambahan (seperti sewa controller/VR) secara langsung
+// AddAddonItem menambah layanan resource tambahan ke billing
 func (h *Handler) AddAddonItem(c *gin.Context) {
 	bookingID := c.Param("id")
 	tenantID := c.MustGet("tenantID").(string)
@@ -159,7 +176,7 @@ func (h *Handler) AddAddonItem(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ITEM ID TIDAK BOLEH KOSONG"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ITEM ID WAJIB DIISI"})
 		return
 	}
 
@@ -169,23 +186,23 @@ func (h *Handler) AddAddonItem(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "ADD-ON BERHASIL DITAMBAHKAN"})
+	c.JSON(http.StatusOK, gin.H{"message": "LAYANAN TAMBAHAN DITAMBAHKAN"})
 }
 
-// GetDetail mengambil rincian lengkap billing untuk sidebar POS Control Hub
+// GetDetail detail lengkap untuk sidebar POS
 func (h *Handler) GetDetail(c *gin.Context) {
 	id := c.Param("id")
 	tenantID := c.MustGet("tenantID").(string)
 
 	booking, err := h.service.GetDetailForAdmin(c.Request.Context(), id, tenantID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "DATA BOOKING TIDAK DITEMUKAN"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "BOOKING TIDAK DITEMUKAN"})
 		return
 	}
 	c.JSON(http.StatusOK, booking)
 }
 
-// UpdateStatus memperbarui status booking (Check-out, Ongoing, dll)
+// UpdateStatus eksekusi transisi status (Check-out, Cancel, dll)
 func (h *Handler) UpdateStatus(c *gin.Context) {
 	id := c.Param("id")
 	tenantID := c.MustGet("tenantID").(string)
@@ -200,9 +217,9 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 
 	err := h.service.UpdateStatus(c.Request.Context(), id, tenantID, req.Status)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "GAGAL MEMPERBARUI STATUS"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "GAGAL UPDATE STATUS"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "STATUS BERHASIL DIUBAH KE " + req.Status})
+	c.JSON(http.StatusOK, gin.H{"message": "STATUS BERHASIL DIPERBARUI"})
 }

@@ -89,7 +89,7 @@ func (r *Repository) ExtendSessionWithValidation(ctx context.Context, bID uuid.U
 		FROM resource_items ri 
 		WHERE booking_options.resource_item_id = ri.id 
 		AND booking_options.booking_id = $1 
-		AND (ri.item_type = 'main_option' OR ri.item_type = 'console_option')`
+		AND (ri.item_type = 'main_option' OR ri.item_type = 'console_option' OR ri.item_type = 'main')`
 	
 	_, err = tx.ExecContext(ctx, updateOptionQuery, bID, additionalDuration)
 	if err != nil {
@@ -117,7 +117,6 @@ func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []u
 	}
 
 	if len(itemIDs) > 0 {
-		// Logic Quantity: 1 untuk Add-on, 'duration' untuk Main Option
 		queryItem := `
 			INSERT INTO booking_options (id, booking_id, resource_item_id, quantity, price_at_booking)
 			SELECT gen_random_uuid(), $1, id, 
@@ -141,112 +140,133 @@ func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []u
 	return tx.Commit()
 }
 
-// FindByID menarik detail lengkap booking untuk kebutuhan Dashboard Admin & POS
-func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*BookingDetail, error) {
-	var b BookingDetail
-	query := `
-		SELECT 
-			b.*, c.name as customer_name, c.phone as customer_phone, r.name as resource_name,
-			COALESCE(ri.price, 0) as unit_price, COALESCE(ri.unit_duration, 60) as unit_duration,
-			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) as total_resource,
-			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_fnb
-		FROM bookings b
-		JOIN customers c ON b.customer_id = c.id
-		JOIN resources r ON b.resource_id = r.id
-		LEFT JOIN booking_options bo ON bo.booking_id = b.id
-		LEFT JOIN resource_items ri ON bo.resource_item_id = ri.id AND (ri.item_type = 'main_option' OR ri.item_type = 'console_option')
-		WHERE b.id = $1 AND b.tenant_id = $2
-		LIMIT 1`
-
-	err := r.db.GetContext(ctx, &b, query, id, tenantID)
-	if err != nil {
-		return nil, err
-	}
-	b.GrandTotal = b.TotalResource + b.TotalFnb
-
-	// 1. Load detail item resource (PC/Console + Addons)
+// HydrateBooking mengisi data relasi (options & orders) ke dalam objek BookingDetail
+func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error {
+	// 1. Load Options (Layanan/Unit)
 	b.Options = make([]BookingOptionDetail, 0)
-	_ = r.db.SelectContext(ctx, &b.Options, `
+	err := r.db.SelectContext(ctx, &b.Options, `
 		SELECT 
 			bo.id, ri.name as item_name, ri.item_type, 
 			bo.price_at_booking, bo.quantity, ri.price as unit_price
 		FROM booking_options bo
 		JOIN resource_items ri ON bo.resource_item_id = ri.id
 		WHERE bo.booking_id = $1`, b.ID)
+	if err != nil { return err }
 
-	// 2. Load detail pesanan F&B dari POS
+	// 2. Load F&B Orders
 	b.Orders = make([]OrderItem, 0)
-	_ = r.db.SelectContext(ctx, &b.Orders, `
+	err = r.db.SelectContext(ctx, &b.Orders, `
 		SELECT oi.id, oi.booking_id, oi.fnb_item_id, f.name as item_name, oi.quantity, oi.price_at_purchase,
 		(oi.quantity * oi.price_at_purchase) as subtotal
 		FROM order_items oi
 		JOIN fnb_items f ON oi.fnb_item_id = f.id
 		WHERE oi.booking_id = $1`, b.ID)
+	if err != nil { return err }
 
-	// 3. Load katalog addon untuk dropdown di POS
+	// 3. Load Katalog Addons
 	b.ResourceAddons = make([]ResourceItemSimple, 0)
-	_ = r.db.SelectContext(ctx, &b.ResourceAddons, `
+	err = r.db.SelectContext(ctx, &b.ResourceAddons, `
 		SELECT id, name, price, item_type 
 		FROM resource_items 
 		WHERE resource_id = $1 AND item_type = 'add_on'`, b.ResourceID)
-
-	return &b, nil
+	
+	return err
 }
 
-// AddFnbOrder menambahkan pesanan makanan ke dalam bill transaksi
+// FindByID menarik detail lengkap booking untuk Dashboard Admin & POS
+func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*BookingDetail, error) {
+	var b BookingDetail
+	query := `
+		SELECT 
+			b.*, c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
+			COALESCE(ri.price, 0) as unit_price, COALESCE(ri.unit_duration, 60) as unit_duration,
+			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) as total_resource,
+			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_fnb
+		FROM bookings b
+		JOIN customers c ON b.customer_id = c.id
+		JOIN resources res ON b.resource_id = res.id
+		LEFT JOIN booking_options bo ON bo.booking_id = b.id
+		LEFT JOIN resource_items ri ON bo.resource_item_id = ri.id AND (ri.item_type = 'main_option' OR ri.item_type = 'console_option' OR ri.item_type = 'main')
+		WHERE b.id = $1 AND b.tenant_id = $2
+		LIMIT 1`
+
+	err := r.db.GetContext(ctx, &b, query, id, tenantID)
+	if err != nil { return nil, err }
+	
+	b.GrandTotal = b.TotalResource + b.TotalFnb
+	err = r.HydrateBooking(ctx, &b)
+	return &b, err
+}
+
+// GetByToken menarik detail untuk pengecekan status tiket customer (Hydrated)
+func (r *Repository) GetByToken(ctx context.Context, token uuid.UUID) (*BookingDetail, error) {
+	var b BookingDetail
+	query := `
+		SELECT b.*, c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
+		COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) as total_resource,
+		COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_fnb
+		FROM bookings b
+		JOIN customers c ON b.customer_id = c.id
+		JOIN resources res ON b.resource_id = res.id
+		WHERE b.access_token = $1 LIMIT 1`
+
+	err := r.db.GetContext(ctx, &b, query, token)
+	if err != nil { return nil, err }
+
+	b.GrandTotal = b.TotalResource + b.TotalFnb
+	err = r.HydrateBooking(ctx, &b)
+	return &b, err
+}
+
 func (r *Repository) AddFnbOrder(ctx context.Context, bookingID uuid.UUID, fnbItemID uuid.UUID, qty int) error {
 	query := `
 		INSERT INTO order_items (id, booking_id, fnb_item_id, quantity, price_at_purchase, status)
 		SELECT gen_random_uuid(), $1, id, $3, price, 'delivered'
 		FROM fnb_items WHERE id = $2`
-	
 	_, err := r.db.ExecContext(ctx, query, bookingID, fnbItemID, qty)
 	return err
 }
 
-// AddAddonOrder menambahkan layanan tambahan ke dalam bill transaksi
 func (r *Repository) AddAddonOrder(ctx context.Context, bookingID uuid.UUID, itemID uuid.UUID) error {
 	query := `
 		INSERT INTO booking_options (id, booking_id, resource_item_id, quantity, price_at_booking)
 		SELECT gen_random_uuid(), $1, id, 1, price
 		FROM resource_items WHERE id = $2`
-	
 	_, err := r.db.ExecContext(ctx, query, bookingID, itemID)
 	return err
 }
 
-// FindActiveSessions menarik semua bokingan Ongoing untuk Dashboard Live POS
 func (r *Repository) FindActiveSessions(ctx context.Context, tenantID uuid.UUID) ([]BookingDetail, error) {
 	var res []BookingDetail
 	query := `
 		SELECT 
-			b.*, c.name as customer_name, c.phone as customer_phone, r.name as resource_name,
+			b.*, c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
 			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) as total_resource,
 			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_fnb
 		FROM bookings b
 		JOIN customers c ON b.customer_id = c.id
-		JOIN resources r ON b.resource_id = r.id
+		JOIN resources res ON b.resource_id = res.id
 		WHERE b.tenant_id = $1 AND b.status IN ('active', 'ongoing')
 		ORDER BY b.start_time ASC`
 
 	err := r.db.SelectContext(ctx, &res, query, tenantID)
+	if err != nil { return nil, err }
+
 	for i := range res {
 		res[i].GrandTotal = res[i].TotalResource + res[i].TotalFnb
-		res[i].Options = make([]BookingOptionDetail, 0)
-		res[i].Orders = make([]OrderItem, 0)
-		res[i].ResourceAddons = make([]ResourceItemSimple, 0)
+		// Catatan: Biasanya tidak perlu Hydrate penuh untuk view list agar hemat query
+		res[i].Options = []BookingOptionDetail{}
+		res[i].Orders = []OrderItem{}
 	}
-	return res, err
+	return res, nil
 }
 
-// UpdateStatus mengubah status transaksi (Check-in, Check-out, dll)
 func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, status string) error {
 	query := `UPDATE bookings SET status = $1 WHERE id = $2 AND tenant_id = $3`
 	_, err := r.db.ExecContext(ctx, query, status, id, tenantID)
 	return err
 }
 
-// ListUpcoming menarik data jadwal boking masa depan untuk filter kalender
 func (r *Repository) ListUpcoming(ctx context.Context, resourceID uuid.UUID, from time.Time) ([]Booking, error) {
 	var bookings []Booking
 	query := `SELECT * FROM bookings WHERE resource_id = $1 AND end_time > $2 AND status != 'cancelled' ORDER BY start_time ASC`
@@ -254,65 +274,28 @@ func (r *Repository) ListUpcoming(ctx context.Context, resourceID uuid.UUID, fro
 	return bookings, err
 }
 
-// FindAllByTenant list histori transaksi untuk tabel administrasi
 func (r *Repository) FindAllByTenant(ctx context.Context, tenantID uuid.UUID, status string) ([]BookingDetail, error) {
 	var res []BookingDetail
 	query := `
-		SELECT b.*, c.name as customer_name, c.phone as customer_phone, r.name as resource_name,
+		SELECT b.*, c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
 		COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) as total_resource,
 		COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_fnb
 		FROM bookings b
 		JOIN customers c ON b.customer_id = c.id
-		JOIN resources r ON b.resource_id = r.id
+		JOIN resources res ON b.resource_id = res.id
 		WHERE b.tenant_id = $1`
 
 	if status != "" {
-		query += " AND b.status = $2 ORDER BY b.created_at DESC"
-		err := r.db.SelectContext(ctx, &res, query, tenantID, status)
+		query += " AND b.status = $2"
+		err := r.db.SelectContext(ctx, &res, query+" ORDER BY b.created_at DESC", tenantID, status)
 		return res, err
 	}
 
 	err := r.db.SelectContext(ctx, &res, query+" ORDER BY b.created_at DESC", tenantID)
-	return res, err
-}
+	if err != nil { return nil, err }
 
-// GetByToken menarik detail untuk pengecekan status tiket customer
-func (r *Repository) GetByToken(ctx context.Context, token uuid.UUID) (*BookingDetail, error) {
-	var b BookingDetail
-	// 1. Ambil data utama booking
-	query := `
-        SELECT b.*, c.name as customer_name, c.phone as customer_phone, r.name as resource_name,
-        COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) as total_resource,
-        COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_fnb
-        FROM bookings b
-        JOIN customers c ON b.customer_id = c.id
-        JOIN resources r ON b.resource_id = r.id
-        WHERE b.access_token = $1 LIMIT 1`
-
-	err := r.db.GetContext(ctx, &b, query, token)
-	if err != nil {
-		return nil, err
+	for i := range res {
+		res[i].GrandTotal = res[i].TotalResource + res[i].TotalFnb
 	}
-	b.GrandTotal = b.TotalResource + b.TotalFnb
-
-	// 2. Hydrate Options (Layanan/Unit yang dibooking)
-	b.Options = make([]BookingOptionDetail, 0)
-	_ = r.db.SelectContext(ctx, &b.Options, `
-        SELECT 
-            bo.id, ri.name as item_name, ri.item_type, 
-            bo.price_at_booking, bo.quantity, ri.price as unit_price
-        FROM booking_options bo
-        JOIN resource_items ri ON bo.resource_item_id = ri.id
-        WHERE bo.booking_id = $1`, b.ID)
-
-	// 3. Hydrate Orders (Pesanan FnB POS jika ada)
-	b.Orders = make([]OrderItem, 0)
-	_ = r.db.SelectContext(ctx, &b.Orders, `
-        SELECT oi.id, oi.booking_id, oi.fnb_item_id, f.name as item_name, oi.quantity, oi.price_at_purchase,
-        (oi.quantity * oi.price_at_purchase) as subtotal
-        FROM order_items oi
-        JOIN fnb_items f ON oi.fnb_item_id = f.id
-        WHERE oi.booking_id = $1`, b.ID)
-
-	return &b, nil
+	return res, nil
 }
