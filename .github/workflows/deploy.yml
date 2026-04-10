@@ -11,14 +11,15 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # --- 1. GENERATE .ENV DARI SECRETS (RESET SETIAP DEPLOY) ---
-      # Gunakan secret baru: BE_ENV (untuk Go) dan FE_ENV (untuk Next.js)
+      # --- 1. GENERATE .ENV DARI SECRETS ---
+      # Menghindari hardcode kredensial di repository
       - name: Create Environment Files
         run: |
           echo "${{ secrets.BE_ENV }}" > saas/.env
           echo "${{ secrets.FE_ENV }}" > saas-app/.env
 
       # --- 2. BUILD BACKEND (GO) ---
+      # Build binary di runner GitHub agar VPS tidak terbebani proses kompilasi
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -29,6 +30,7 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o main cmd/api/main.go
 
       # --- 3. BUILD FRONTEND (NEXT.JS) ---
+      # Build standalone agar image docker sangat ringan untuk RAM 2GB
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -37,14 +39,14 @@ jobs:
           cache-dependency-path: "saas-app/package-lock.json"
       - name: Build Frontend Standalone
         env:
-          # Pastikan URL API mengarah ke domain Bookinaja di VPS baru
           NEXT_PUBLIC_API_URL: https://bookinaja.com/api/v1
         run: |
           cd saas-app
           npm install
           npm run build
 
-      # --- 4. PRE-CLEAN VPS (Bersihkan residu lama) ---
+      # --- 4. PRE-CLEAN VPS ---
+      # Menghapus residu build lama agar disk 20GB tidak bengkak
       - name: Reset Environment on VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -58,7 +60,8 @@ jobs:
             rm -f ~/bookinaja/saas-app/.env
             rm -rf ~/bookinaja/saas-app/.next
 
-      # --- 5. TRANSFER FILE MATENG KE VPS ---
+      # --- 5. TRANSFER FILES (SCP) ---
+      # Mengirim source, binary, migrations, dan .env
       - name: Transfer Files to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -70,7 +73,7 @@ jobs:
           strip_components: 0
           overwrite: true
 
-      # --- 6. RESTART DOCKER (IDCLOUDHOST) ---
+      # --- 6. RESTART DOCKER ON VPS ---
       - name: Execute Docker Commands
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -79,9 +82,9 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd ~/bookinaja
-            # Down untuk memastikan volume database baru terpasang (jika ada perubahan)
+            # Membersihkan container lama sebelum rebuild
             sudo docker-compose down
-            # Build ulang dengan image baru
+            # Rebuild image lokal menggunakan binary yang sudah ditransfer
             sudo docker-compose up --build -d
-            # Bersihkan image sampah agar storage VPS (20GB) tidak penuh
+            # WAJIB: Hapus dangling images agar disk VPS tidak penuh
             sudo docker image prune -f
