@@ -1,7 +1,7 @@
 version: "3.8"
 
 services:
-  # 1. DATABASE (Postgres) - Pengganti AWS RDS
+  # 1. DATABASE (Postgres) - Port digeser ke 5433 agar tidak bentrok dengan Lapisbaja
   db:
     image: postgres:15-alpine
     container_name: bookinaja_db
@@ -11,27 +11,27 @@ services:
       POSTGRES_PASSWORD: devpassword
       POSTGRES_DB: bookinaja_db
     ports:
-      - "5432:5432"
+      - "5433:5432" # Luar: 5433, Dalam: 5432
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - bookinaja_postgres_data:/var/lib/postgresql/data
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
 
-  # 2. CACHE (Redis) - Pengganti Redis Cloud
+  # 2. CACHE (Redis) - Port digeser ke 6380
   redis:
     image: redis:alpine
     container_name: bookinaja_redis
     restart: always
     ports:
-      - "6379:6379"
+      - "6380:6379" # Luar: 6380, Dalam: 6379
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
 
-  # 3. BACKEND (Go) - Batam Engine
+  # 3. BACKEND (Go) - Port digeser ke 8081
   backend:
     build:
       context: ./saas
@@ -39,9 +39,8 @@ services:
     container_name: bookinaja_api
     restart: always
     ports:
-      - "8080:8080"
+      - "8081:8080" # Luar: 8081, Dalam: 8080
     env_file: ./saas/.env
-    # Pastikan backend menunggu db & redis menyala
     depends_on:
       - db
       - redis
@@ -50,7 +49,7 @@ services:
       options:
         max-size: "10m"
 
-  # 4. FRONTEND (Next.js)
+  # 4. FRONTEND (Next.js) - Port digeser ke 3001
   frontend:
     build:
       context: ./saas-app
@@ -58,7 +57,7 @@ services:
     container_name: bookinaja_fe
     restart: always
     ports:
-      - "3000:3000"
+      - "3001:3000" # Luar: 3001, Dalam: 3000
     env_file: ./saas-app/.env
     depends_on:
       - backend
@@ -67,6 +66,6 @@ services:
       options:
         max-size: "10m"
 
-# Volume untuk memastikan data database tidak hilang saat container mati
+# Nama volume harus dibedakan dengan proyek sebelah agar data tidak tertimpa
 volumes:
-  postgres_data:
+  bookinaja_postgres_data:
