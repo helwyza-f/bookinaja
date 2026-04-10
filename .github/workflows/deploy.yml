@@ -12,14 +12,12 @@ jobs:
         uses: actions/checkout@v4
 
       # --- 1. GENERATE .ENV DARI SECRETS ---
-      # Menghindari hardcode kredensial di repository
       - name: Create Environment Files
         run: |
           echo "${{ secrets.BE_ENV }}" > saas/.env
           echo "${{ secrets.FE_ENV }}" > saas-app/.env
 
       # --- 2. BUILD BACKEND (GO) ---
-      # Build binary di runner GitHub agar VPS tidak terbebani proses kompilasi
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -30,7 +28,6 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o main cmd/api/main.go
 
       # --- 3. BUILD FRONTEND (NEXT.JS) ---
-      # Build standalone agar image docker sangat ringan untuk RAM 2GB
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -46,7 +43,6 @@ jobs:
           npm run build
 
       # --- 4. PRE-CLEAN VPS ---
-      # Menghapus residu build lama agar disk 20GB tidak bengkak
       - name: Reset Environment on VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -61,7 +57,6 @@ jobs:
             rm -rf ~/bookinaja/saas-app/.next
 
       # --- 5. TRANSFER FILES (SCP) ---
-      # Mengirim source, binary, migrations, dan .env
       - name: Transfer Files to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -73,7 +68,7 @@ jobs:
           strip_components: 0
           overwrite: true
 
-      # --- 6. RESTART DOCKER ON VPS ---
+      # --- 6. RESTART DOCKER ON VPS (FIXED COMMAND) ---
       - name: Execute Docker Commands
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -82,9 +77,8 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd ~/bookinaja
-            # Membersihkan container lama sebelum rebuild
-            sudo docker-compose down
-            # Rebuild image lokal menggunakan binary yang sudah ditransfer
-            sudo docker-compose up --build -d
-            # WAJIB: Hapus dangling images agar disk VPS tidak penuh
+            # FIX: Gunakan 'docker compose' (spasi) bukan 'docker-compose' (strip)
+            sudo docker compose down
+            sudo docker compose up --build -d
+            # Bersihkan image sampah agar disk VPS tidak penuh
             sudo docker image prune -f
