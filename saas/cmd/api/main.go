@@ -4,10 +4,12 @@ import (
 	"database/sql"
 	"log"
 	"os"
+	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/jmoiron/sqlx"
 
 	// Import semua domain internal
 	"github.com/helwiza/saas/internal/auth"
@@ -25,24 +27,35 @@ import (
 
 func main() {
 	// 0. Load Configuration (.env)
+	// Kita tidak fatal error jika .env tidak ada, karena di Docker kita pakai ENV asli
 	if err := godotenv.Load(); err != nil {
-		log.Println("⚠️ Warning: .env file not found, using system environment variables")
+		log.Println("ℹ️ Info: .env file not found, using system environment variables")
 	}
 
-	// 1. Database Connection (Postgres via sqlx)
-	db, err := database.NewPostgres(
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_PORT"),
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PASSWORD"),
-		os.Getenv("DB_NAME"),
-	)
+	// 1. Database Connection with Retry Logic
+	// Docker Compose kadang menjalankan API lebih cepat daripada Postgres siap
+	var db *sqlx.DB
+	var err error
+	for i := 0; i < 5; i++ {
+		db, err = database.NewPostgres(
+			os.Getenv("DB_HOST"),
+			os.Getenv("DB_PORT"),
+			os.Getenv("DB_USER"),
+			os.Getenv("DB_PASSWORD"),
+			os.Getenv("DB_NAME"),
+		)
+		if err == nil {
+			break
+		}
+		log.Printf("⏳ DB not ready, retrying in 2s... (%d/5)", i+1)
+		time.Sleep(2 * time.Second)
+	}
 	if err != nil {
 		log.Fatalf("❌ DB Connection Error: %v", err)
 	}
 	defer db.Close()
 
-	// 2. Redis Connection (Redis Cloud / Local)
+	// 2. Redis Connection
 	rdb, err := database.NewRedisClient()
 	if err != nil {
 		log.Fatalf("❌ Redis Connection Error: %v", err)
@@ -52,7 +65,7 @@ func main() {
 	// 3. Database Migration
 	runMigration(db.DB)
 
-	// 4. Dependency Injection (Wiring/Kabel Modul)
+	// 4. Dependency Injection (Wiring)
 	
 	// --- AUTH DOMAIN ---
 	authSvc := auth.NewService()
@@ -64,7 +77,6 @@ func main() {
 	customerHdl := customer.NewHandler(customerSvc)
 
 	// --- TENANT DOMAIN ---
-	// UPDATE: Tenant Repository sekarang butuh rdb untuk Caching Landing Page
 	tenantRepo := tenant.NewRepository(db, rdb) 
 	tenantSvc := tenant.NewService(tenantRepo, authSvc)
 	tenantHdl := tenant.NewHandler(tenantSvc)
@@ -84,7 +96,7 @@ func main() {
 	fnbSvc := fnb.NewService(fnbRepo)
 	fnbHdl := fnb.NewHandler(fnbSvc)
 
-	// 5. Setup Router dengan Config Lengkap
+	// 5. Setup Router Config
 	routerConfig := http.Config{
 		TenantHandler:      tenantHdl,
 		ResourceHandler:    resourceHdl,
@@ -94,7 +106,6 @@ func main() {
 		FnbHandler:         fnbHdl,
 	}
 
-	// Oper db dan rdb ke Router untuk keperluan middleware TenantIdentifier & CORS
 	r := http.NewRouter(routerConfig, db, rdb)
 
 	// 6. Start Server
@@ -103,16 +114,15 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("🚀 BATAM ENGINE STARTED")
+	log.Printf("🚀 BOOKINAJA ENGINE: LIVE ON IDCLOUDHOST")
 	log.Printf("📡 Listening on port :%s", port)
-	log.Printf("🧠 Redis Cache & OTP: ENABLED")
+	log.Printf("📦 Storage: Cloudflare R2 (cdn.bookinaja.com)")
 	
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("❌ Failed to run server: %v", err)
 	}
 }
 
-// runMigration menjalankan script SQL secara otomatis dari folder /migrations
 func runMigration(db *sql.DB) {
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {

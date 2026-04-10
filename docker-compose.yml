@@ -1,7 +1,37 @@
 version: "3.8"
 
 services:
-  # BACKEND (Go) - Folder: saas
+  # 1. DATABASE (Postgres) - Pengganti AWS RDS
+  db:
+    image: postgres:15-alpine
+    container_name: bookinaja_db
+    restart: always
+    environment:
+      POSTGRES_USER: devuser
+      POSTGRES_PASSWORD: devpassword
+      POSTGRES_DB: bookinaja_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+
+  # 2. CACHE (Redis) - Pengganti Redis Cloud
+  redis:
+    image: redis:alpine
+    container_name: bookinaja_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+
+  # 3. BACKEND (Go) - Batam Engine
   backend:
     build:
       context: ./saas
@@ -11,12 +41,16 @@ services:
     ports:
       - "8080:8080"
     env_file: ./saas/.env
+    # Pastikan backend menunggu db & redis menyala
+    depends_on:
+      - db
+      - redis
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
 
-  # FRONTEND (Next.js) - Folder: saas-app
+  # 4. FRONTEND (Next.js)
   frontend:
     build:
       context: ./saas-app
@@ -26,7 +60,13 @@ services:
     ports:
       - "3000:3000"
     env_file: ./saas-app/.env
+    depends_on:
+      - backend
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
+
+# Volume untuk memastikan data database tidak hilang saat container mati
+volumes:
+  postgres_data:
