@@ -24,7 +24,7 @@ func (s *Service) CreateResource(ctx context.Context, tenantID, name, category, 
 		return nil, err
 	}
 
-	// Inisialisasi metadata kosong agar tidak NULL di database
+	// Inisialisasi metadata & gallery kosong agar tidak NULL di database (Clean JSON)
 	emptyMeta := json.RawMessage("{}")
 
 	res := Resource{
@@ -34,11 +34,17 @@ func (s *Service) CreateResource(ctx context.Context, tenantID, name, category, 
 		Category:    category,
 		Description: description,
 		ImageURL:    imageURL,
-		Gallery:     []string{}, // Inisialisasi gallery kosong [] bukan null
+		Gallery:     []string{}, // [] bukan null
 		Status:      "available",
 		Metadata:    &emptyMeta,
 	}
-	return s.repo.Create(ctx, res)
+
+	created, err := s.repo.Create(ctx, res)
+	if err == nil {
+		// INVALIDASI CACHE: Hapus landing data agar unit baru langsung muncul
+		s.repo.InvalidateTenantCache(ctx, tID)
+	}
+	return created, err
 }
 
 // UpdateResource memperbarui data utama unit (termasuk deskripsi dan foto)
@@ -48,7 +54,7 @@ func (s *Service) UpdateResource(ctx context.Context, id string, req Resource) e
 		return err
 	}
 
-	// Ambil data lama untuk memastikan tenant_id konsisten (keamanan)
+	// Ambil data lama untuk memastikan tenant_id tetap aman (Proteksi Cross-Tenant)
 	existing, err := s.repo.GetOneWithItems(ctx, resID)
 	if err != nil {
 		return err
@@ -57,15 +63,18 @@ func (s *Service) UpdateResource(ctx context.Context, id string, req Resource) e
 	req.ID = resID
 	req.TenantID = existing.TenantID // Proteksi: jangan ubah kepemilikan tenant
 
-	// Jaga agar metadata tetap aman jika request tidak mengirimkan metadata
 	if req.Metadata == nil {
 		req.Metadata = existing.Metadata
 	}
 
-	return s.repo.Update(ctx, req)
+	err = s.repo.Update(ctx, req)
+	if err == nil {
+		s.repo.InvalidateTenantCache(ctx, existing.TenantID)
+	}
+	return err
 }
 
-// ListResources mengambil semua resource milik tenant beserta items di dalamnya
+// ListResources mengambil semua resource milik tenant beserta items-nya
 func (s *Service) ListResources(ctx context.Context, tenantID string) (any, error) {
 	tID, err := uuid.Parse(tenantID)
 	if err != nil {
@@ -77,7 +86,7 @@ func (s *Service) ListResources(ctx context.Context, tenantID string) (any, erro
 		return nil, err
 	}
 
-	// Kembalikan objek gabungan untuk dashboard admin/public
+	// Kembalikan objek gabungan agar frontend dapet konteks kategori bisnisnya
 	return gin.H{
 		"business_category": category,
 		"business_type":     bType,
@@ -85,14 +94,14 @@ func (s *Service) ListResources(ctx context.Context, tenantID string) (any, erro
 	}, nil
 }
 
-// AddResourceItem menambahkan opsi barang/layanan ke dalam resource
+// AddResourceItem menambahkan opsi harga/layanan/addons ke dalam resource
 func (s *Service) AddResourceItem(ctx context.Context, resID, name string, price float64, priceUnit, iType string, isDefault bool, customDuration int) (*ResourceItem, error) {
 	rID, err := uuid.Parse(resID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Logic Otomatis Penentuan Durasi (dalam Menit)
+	// Logic Otomatis Penentuan Durasi (Menit) berdasarkan Unit
 	duration := customDuration
 	if duration <= 0 {
 		switch strings.ToLower(priceUnit) {
@@ -107,7 +116,6 @@ func (s *Service) AddResourceItem(ctx context.Context, resID, name string, price
 		}
 	}
 
-	// Inisialisasi metadata kosong
 	emptyMeta := json.RawMessage("{}")
 
 	item := ResourceItem{
@@ -122,7 +130,15 @@ func (s *Service) AddResourceItem(ctx context.Context, resID, name string, price
 		Metadata:     &emptyMeta,
 	}
 
-	return s.repo.CreateItem(ctx, item)
+	created, err := s.repo.CreateItem(ctx, item)
+	if err == nil {
+		// Ambil tenant_id dari resource induk untuk hapus cache landing
+		res, _ := s.repo.GetOneWithItems(ctx, rID)
+		if res != nil {
+			s.repo.InvalidateTenantCache(ctx, res.TenantID)
+		}
+	}
+	return created, err
 }
 
 // GetItems mengambil daftar item berdasarkan Resource ID
@@ -134,32 +150,47 @@ func (s *Service) GetItems(ctx context.Context, resourceID string) ([]ResourceIt
 	return s.repo.ListItemsByResource(ctx, rID)
 }
 
-// DeleteResource menghapus unit resource secara permanen
+// DeleteResource menghapus unit secara permanen
 func (s *Service) DeleteResource(ctx context.Context, id string) error {
 	uID, err := uuid.Parse(id)
 	if err != nil {
 		return err
 	}
-	return s.repo.Delete(ctx, uID)
+
+	// Cari tahu tenant_id sebelum dihapus buat invalidate cache
+	existing, _ := s.repo.GetOneWithItems(ctx, uID)
+	
+	err = s.repo.Delete(ctx, uID)
+	if err == nil && existing != nil {
+		s.repo.InvalidateTenantCache(ctx, existing.TenantID)
+	}
+	return err
 }
 
-// UpdateItem memperbarui detail item (Nama, Harga, Satuan, Default status)
+// UpdateItem memperbarui detail harga/opsi
 func (s *Service) UpdateItem(ctx context.Context, id string, item ResourceItem) error {
 	uID, err := uuid.Parse(id)
 	if err != nil {
 		return err
 	}
 	
-	// Pastikan metadata tidak nil sebelum masuk ke repo untuk menghindari error scan
 	if item.Metadata == nil {
 		emptyMeta := json.RawMessage("{}")
 		item.Metadata = &emptyMeta
 	}
 
-	return s.repo.UpdateItem(ctx, uID, item)
+	err = s.repo.UpdateItem(ctx, uID, item)
+	if err == nil {
+		// Cari tenant_id melalui resource_id item
+		res, _ := s.repo.GetOneWithItems(ctx, item.ResourceID)
+		if res != nil {
+			s.repo.InvalidateTenantCache(ctx, res.TenantID)
+		}
+	}
+	return err
 }
 
-// DeleteItem menghapus item dari resource
+// DeleteItem menghapus item (addons/opsi harga)
 func (s *Service) DeleteItem(ctx context.Context, id string) error {
 	uID, err := uuid.Parse(id)
 	if err != nil {
@@ -168,7 +199,7 @@ func (s *Service) DeleteItem(ctx context.Context, id string) error {
 	return s.repo.DeleteItem(ctx, uID)
 }
 
-// GetResourceDetail mengambil satu resource lengkap dengan daftar item & visual data
+// GetResourceDetail mengambil data lengkap satu unit
 func (s *Service) GetResourceDetail(ctx context.Context, id string) (*Resource, error) {
 	uID, err := uuid.Parse(id)
 	if err != nil {

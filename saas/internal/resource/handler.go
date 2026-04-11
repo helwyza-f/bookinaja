@@ -14,7 +14,39 @@ func NewHandler(s *Service) *Handler {
 	return &Handler{service: s}
 }
 
-// Create menangani pembuatan unit utama (POST /resources)
+// --- PUBLIC ENDPOINTS (No Login Required) ---
+
+// ListPublic mengambil katalog resource untuk landing page (Granular Load)
+func (h *Handler) ListPublic(c *gin.Context) {
+	// Ambil tenantID dari context (disediakan oleh middleware TenantIdentifier)
+	tenantID, exists := c.Get("tenantID")
+	if !exists || tenantID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Identitas bisnis diperlukan"})
+		return
+	}
+
+	resources, err := h.service.ListResources(c.Request.Context(), tenantID.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil katalog"})
+		return
+	}
+	c.JSON(http.StatusOK, resources)
+}
+
+// GetPublicDetail mengambil detail resource + items (Price/Addons) untuk customer
+func (h *Handler) GetPublicDetail(c *gin.Context) {
+	id := c.Param("id")
+	res, err := h.service.GetResourceDetail(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Resource tidak ditemukan"})
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
+// --- ADMIN ENDPOINTS (Auth Required) ---
+
+// Create menangani pembuatan unit utama (POST /api/v1/resources-all)
 func (h *Handler) Create(c *gin.Context) {
 	tenantID := c.MustGet("tenantID").(string)
 	
@@ -26,11 +58,10 @@ func (h *Handler) Create(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak valid: " + err.Error()})
 		return
 	}
 
-	// Memanggil service yang sudah diupdate dengan parameter marketing
 	res, err := h.service.CreateResource(
 		c.Request.Context(), 
 		tenantID, 
@@ -47,10 +78,10 @@ func (h *Handler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, res)
 }
 
-// Update menangani perubahan data utama unit (PUT /resources/:id)
+// Update menangani perubahan data utama unit (PUT /resources-all/:id)
 func (h *Handler) Update(c *gin.Context) {
 	id := c.Param("id")
-	var req Resource // Menggunakan struct model agar bisa update gallery, desc, dll
+	var req Resource 
 	
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -65,7 +96,7 @@ func (h *Handler) Update(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Unit marketing data updated successfully"})
 }
 
-// List mengambil semua resource milik tenant (GET /resources)
+// List mengambil semua resource milik tenant untuk tabel admin
 func (h *Handler) List(c *gin.Context) {
 	tenantID := c.MustGet("tenantID").(string)
 	resources, err := h.service.ListResources(c.Request.Context(), tenantID)
@@ -76,7 +107,7 @@ func (h *Handler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, resources)
 }
 
-// AddItem menambahkan item/opsi ke resource (POST /resources/:id/items)
+// AddItem menambahkan opsi harga/addons ke resource (POST /resources-all/:id/items)
 func (h *Handler) AddItem(c *gin.Context) {
 	resourceID := c.Param("id")
 	
@@ -113,7 +144,7 @@ func (h *Handler) AddItem(c *gin.Context) {
 	c.JSON(http.StatusCreated, item)
 }
 
-// ListItems mengambil daftar item dari satu resource (GET /resources/:id/items)
+// ListItems mengambil daftar item (GET /resources-all/:id/items)
 func (h *Handler) ListItems(c *gin.Context) {
 	id := c.Param("id")
 	items, err := h.service.GetItems(c.Request.Context(), id)
@@ -124,7 +155,7 @@ func (h *Handler) ListItems(c *gin.Context) {
 	c.JSON(http.StatusOK, items)
 }
 
-// Delete menghapus satu resource (DELETE /resources/:id)
+// Delete menghapus satu resource (DELETE /resources-all/:id)
 func (h *Handler) Delete(c *gin.Context) {
 	id := c.Param("id")
 	if err := h.service.DeleteResource(c.Request.Context(), id); err != nil {
@@ -159,15 +190,4 @@ func (h *Handler) DeleteItem(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Item deleted successfully"})
-}
-
-// GetPublicDetail mengambil detail resource (termasuk visual & items) untuk customer
-func (h *Handler) GetPublicDetail(c *gin.Context) {
-	id := c.Param("id")
-	res, err := h.service.GetResourceDetail(c.Request.Context(), id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Resource tidak ditemukan"})
-		return
-	}
-	c.JSON(http.StatusOK, res)
 }

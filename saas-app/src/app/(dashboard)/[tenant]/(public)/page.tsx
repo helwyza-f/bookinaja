@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import api from "@/lib/api";
-import { setCookie } from "cookies-next";
+import { useTenant } from "@/context/tenant-context"; // Custom Hook Context
 import { TenantNavbar } from "@/components/tenant/public/landing/navbar";
 import { TenantHero } from "@/components/tenant/public/landing/hero";
 import { ResourceCard } from "@/components/tenant/public/landing/resource-card";
@@ -11,6 +11,7 @@ import { TenantFooter } from "@/components/tenant/public/landing/footer";
 import { GallerySection } from "@/components/tenant/public/landing/gallery-section";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 const FALLBACK_ASSETS: Record<string, any> = {
@@ -20,8 +21,8 @@ const FALLBACK_ASSETS: Record<string, any> = {
     tagline: "Arena Pro Player",
     copy: "Hardware spesifikasi tinggi dengan koneksi ultra stabil untuk pengalaman gaming tanpa kompromi.",
     features: [
-      "Internet 1Gbps",
       "RTX 4090 Ready",
+      "Internet 1Gbps",
       "Pro Peripherals",
       "240Hz Monitor",
     ],
@@ -36,45 +37,46 @@ const FALLBACK_ASSETS: Record<string, any> = {
 };
 
 export default function TenantPublicLanding() {
-  const { tenant } = useParams();
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { tenant: tenantSlug } = useParams();
+
+  // 1. AMBIL DATA DARI CONTEXT (Instan dari Layout Server)
+  const { profile } = useTenant();
+
+  // 2. STATE GRANULAR UNTUK DATA BERAT
+  const [resources, setResources] = useState<any[]>([]);
+  const [loadingResources, setLoadingResources] = useState(true);
 
   useEffect(() => {
     // Force smooth scroll behavior
     document.documentElement.style.scrollBehavior = "smooth";
 
-    api
-      .get(`/public/landing?slug=${tenant}`)
-      .then((res) => {
-        setData(res.data);
-        if (res.data?.profile?.id) {
-          setCookie("current_tenant_id", res.data.profile.id, {
-            maxAge: 60 * 60 * 24,
-            path: "/",
-          });
-        }
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Critical error loading tenant data:", err);
-        setLoading(false);
-      });
-  }, [tenant]);
+    // 3. FETCH GRANULAR (Hanya Resources)
+    // Interceptor api.ts akan otomatis kirim X-Tenant-ID (VIP Path)
+    // karena request profile di layout sudah memicu silent lookup ID.
+    if (profile?.id) {
+      api
+        .get("/public/resources")
+        .then((res) => {
+          // Response handler backend baru lo mengembalikan { resources: [...] }
+          setResources(res.data.resources || []);
+        })
+        .catch((err) => console.error("Failed to load resources:", err))
+        .finally(() => setLoadingResources(false));
+    }
+  }, [profile]);
 
-  // 1. Dynamic Theme Logic
+  // 4. THEME LOGIC (Instant - No Loading)
   const theme = useMemo(() => {
-    const primary = data?.profile?.primary_color || "#3b82f6";
+    const primary = profile?.primary_color || "#3b82f6";
     return {
       primary: primary,
       bgPrimary: `bg-[${primary}]`,
       textPrimary: `text-[${primary}]`,
     };
-  }, [data]);
+  }, [profile]);
 
-  // 2. Adaptive Content Merging
+  // 5. CONTENT LOGIC (Instant)
   const content = useMemo(() => {
-    const profile = data?.profile;
     const cat = profile?.business_category || "gaming_hub";
     const fb = FALLBACK_ASSETS[cat] || FALLBACK_ASSETS.gaming_hub;
 
@@ -82,12 +84,9 @@ export default function TenantPublicLanding() {
       banner: profile?.banner_url || fb.banner,
       tagline: profile?.tagline || fb.tagline,
       description: profile?.about_us || fb.copy,
-      features:
-        profile?.features && profile.features.length > 0
-          ? profile.features
-          : fb.features,
+      features: profile?.features?.length > 0 ? profile.features : fb.features,
     };
-  }, [data]);
+  }, [profile]);
 
   const getBestPrice = (resource: any) => {
     const mains = resource.items?.filter(
@@ -103,23 +102,19 @@ export default function TenantPublicLanding() {
     };
   };
 
-  if (loading) return <LoadingUI />;
-  if (!data?.profile) return <NotFoundUI />;
+  // Jika profile benar-benar gagal dapet (404 dari Server)
+  if (!profile) return <NotFoundUI />;
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#050505] font-plus-jakarta transition-colors duration-500 selection:bg-blue-500/30">
-      {/* NAVIGATION */}
-      <TenantNavbar profile={data.profile} tenantSlug={tenant as string} />
+      <TenantNavbar profile={profile} tenantSlug={tenantSlug as string} />
+      <TenantHero profile={profile} content={content} theme={theme} />
 
-      {/* HERO SECTION */}
-      <TenantHero profile={data.profile} content={content} theme={theme} />
-
-      {/* CATALOG SECTION - Optimized spacing and grid */}
+      {/* CATALOG SECTION */}
       <section
         id="catalog"
         className="py-24 md:py-48 bg-slate-50 dark:bg-white/[0.01] px-6 relative overflow-hidden"
       >
-        {/* Background Decorative Element */}
         <div
           className="absolute -left-20 top-40 h-[400px] w-[400px] opacity-[0.02] blur-[100px] pointer-events-none rounded-full"
           style={{ backgroundColor: theme.primary }}
@@ -142,44 +137,37 @@ export default function TenantPublicLanding() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 px-4">
-            {data.resources.map((res: any) => (
-              <ResourceCard
-                key={res.id}
-                res={res}
-                primaryColor={theme.primary}
-                getBestPrice={getBestPrice}
-              />
-            ))}
+            {loadingResources
+              ? // SKELETON UI: Menjaga layout tetap rapi saat loading resources
+                Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="space-y-4">
+                    <Skeleton className="h-[300px] w-full rounded-[2rem]" />
+                    <Skeleton className="h-6 w-2/3" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </div>
+                ))
+              : resources.map((res: any) => (
+                  <ResourceCard
+                    key={res.id}
+                    res={res}
+                    primaryColor={theme.primary}
+                    getBestPrice={getBestPrice}
+                  />
+                ))}
           </div>
         </div>
       </section>
 
-      {/* GALLERY SECTION - New Bento Grid System */}
       <GallerySection
-        images={data.profile.gallery}
+        images={profile.gallery || []}
         primaryColor={theme.primary}
       />
-
-      {/* FOOTER */}
-      <TenantFooter profile={data.profile} primaryColor={theme.primary} />
+      <TenantFooter profile={profile} primaryColor={theme.primary} />
     </div>
   );
 }
 
-// --- SUB-COMPONENTS FOR CLEANER CODE ---
-
-function LoadingUI() {
-  return (
-    <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-      <div className="text-center space-y-4">
-        <div className="h-14 w-14 border-t-2 border-white rounded-full animate-spin mx-auto opacity-20" />
-        <p className="text-white font-black uppercase tracking-[0.4em] text-[10px] animate-pulse">
-          Establishing Uplink...
-        </p>
-      </div>
-    </div>
-  );
-}
+// --- SUB-COMPONENTS ---
 
 function NotFoundUI() {
   return (
@@ -196,15 +184,12 @@ function NotFoundUI() {
             Target business hub not found in our database.
           </p>
         </div>
-        <Link
-          href="https://bookinaja.com"
-          className="inline-block relative z-10"
-        >
+        <Link href="/" className="inline-block relative z-10">
           <Button
             variant="outline"
             className="rounded-full h-16 px-12 font-black italic uppercase tracking-widest border-white/10 hover:bg-white hover:text-black transition-all shadow-2xl"
           >
-            Abord Mission
+            Abort Mission
           </Button>
         </Link>
       </div>

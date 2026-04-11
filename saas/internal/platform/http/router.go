@@ -43,17 +43,25 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 	// API v1 Group
 	v1 := r.Group("/api/v1")
 
-	// MIDDLEWARE UTAMA: Identifikasi Tenant berdasarkan Subdomain / Header
+	// MIDDLEWARE UTAMA: Identifikasi Tenant berdasarkan Header/Subdomain/Query
 	v1.Use(middleware.TenantIdentifier(db, rdb))
 	{
-		// --- 1. PUBLIC ROUTES (Customer Landing & Public Booking) ---
+		// --- 1. PUBLIC ROUTES (Optimized & Granular) ---
 		public := v1.Group("/public")
 		{
-			public.GET("/landing", cfg.TenantHandler.GetPublicLandingData)
+			// Identifier Path
+			public.GET("/tenant-id", cfg.TenantHandler.GetIDBySlug)
+			
+			// Profile & Content (Jalur Cepat Landing)
+			public.GET("/profile", cfg.TenantHandler.GetPublicProfile) // Baru: Hanya profile & tema
+			public.GET("/landing", cfg.TenantHandler.GetPublicLandingData) // Legacy: Tetap ada jika butuh full data
+			
+			// Catalog Data (Bisa di-load paralel/lazy load)
+			public.GET("/resources", cfg.ResourceHandler.ListPublic) // Baru: List unit
 			public.GET("/resources/:id", cfg.ResourceHandler.GetPublicDetail)
 			public.GET("/fnb", cfg.FnbHandler.GetMenu)
 
-			// FIX: Tambahkan endpoint GET detail booking di public agar redirect portal lancar
+			// Reservation Flow
 			public.GET("/bookings/:id", cfg.ReservationHandler.GetDetail)
 			public.POST("/bookings", cfg.ReservationHandler.Create)
 
@@ -67,14 +75,14 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 		v1.POST("/register", cfg.TenantHandler.Register)
 		v1.POST("/login", cfg.TenantHandler.Login)
 
-		// --- 2. GUEST ROUTES (Akses via Magic Token) ---
+		// --- 2. GUEST ROUTES (Magic Token) ---
 		guest := v1.Group("/guest")
 		{
 			guest.GET("/availability/:resource_id", cfg.ReservationHandler.Availability)
 			guest.GET("/status/:token", cfg.ReservationHandler.Status)
 		}
 
-		// --- 3. PROTECTED ROUTES (Butuh JWT: Customer atau Admin) ---
+		// --- 3. PROTECTED ROUTES (Butuh JWT) ---
 		protected := v1.Group("/")
 		protected.Use(middleware.AuthMiddleware())
 		{
@@ -82,7 +90,6 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 			me := protected.Group("/me")
 			{
 				me.GET("", cfg.CustomerHandler.GetMe)
-				// Tetap sediakan di sini untuk akses terproteksi
 				me.GET("/bookings/:id", cfg.ReservationHandler.GetDetail)
 			}
 
@@ -126,7 +133,6 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 					bookings.PUT("/:id/status", cfg.ReservationHandler.UpdateStatus)
 					bookings.POST("/manual", cfg.ReservationHandler.Create)
 
-					// POS Live Session Controls
 					bookings.GET("/pos/active", cfg.ReservationHandler.GetActiveSessions)
 					bookings.POST("/pos/order/:id", cfg.ReservationHandler.AddOrder)
 					bookings.POST("/:id/extend", cfg.ReservationHandler.ExtendSession)
@@ -142,7 +148,7 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 					fnbGroup.DELETE("/:id", cfg.FnbHandler.DeleteItem)
 				}
 
-				// CRM & Customer Analytics
+				// CRM & Analytics
 				customers := adminArea.Group("/customers")
 				{
 					customers.GET("", cfg.CustomerHandler.List)

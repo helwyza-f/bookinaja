@@ -19,42 +19,80 @@ func NewHandler(s *Service) *Handler {
 	return &Handler{service: s}
 }
 
-// GetPublicLandingData mengambil profil bisnis dan daftar unit (Teroptimasi Redis)
-func (h *Handler) GetPublicLandingData(c *gin.Context) {
-	var slug string
-
-	// 1. Prioritas 1: Ambil slug dari context middleware (paling akurat dari subdomain)
-	tenantSlugRaw, exists := c.Get("tenantSlug")
-	if exists {
-		slug = tenantSlugRaw.(string)
-	} else {
-		// 2. Prioritas 2: Fallback ke query param ?slug=...
-		slugParam := c.Query("slug")
-		if slugParam == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Identitas bisnis (slug) diperlukan"})
-			return
+// GetIDBySlug adalah endpoint super ringan buat Axios Interceptor (VIP Path)
+func (h *Handler) GetIDBySlug(c *gin.Context) {
+	// Diambil dari TenantIdentifier Middleware
+	tenantID, exists := c.Get("tenantID")
+	if !exists || tenantID == "" {
+		// Jika middleware gak nemu lewat header/query, kita coba fallback query di sini
+		slug := c.Query("slug")
+		if slug != "" {
+			data, err := h.service.GetPublicProfile(c.Request.Context(), strings.ToLower(slug))
+			if err == nil {
+				c.JSON(http.StatusOK, gin.H{"id": data.ID})
+				return
+			}
 		}
-		// Bersihkan jika isinya full domain (misal: gaming.bookinaja.local -> gaming)
-		slug = strings.Split(slugParam, ".")[0]
+		c.JSON(http.StatusNotFound, gin.H{"error": "Tenant tidak ditemukan"})
+		return
 	}
 
-	// 3. Panggil Service (Sudah terintegrasi Redis Cache-Aside)
-	data, err := h.service.GetPublicLandingData(c.Request.Context(), strings.ToLower(slug))
+	c.JSON(http.StatusOK, gin.H{"id": tenantID})
+}
+
+// GetPublicProfile Baru: Khusus ambil data brand & tema (Gak pake join tabel berat)
+func (h *Handler) GetPublicProfile(c *gin.Context) {
+	slug := h.extractSlug(c)
+	if slug == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Slug bisnis diperlukan"})
+		return
+	}
+
+	// Ambil data profil saja (Cache-hit priority)
+	data, err := h.service.GetPublicProfile(c.Request.Context(), strings.ToLower(slug))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": fmt.Sprintf("Bisnis '%s' tidak ditemukan atau belum aktif", slug),
-		})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Profil bisnis tidak ditemukan"})
 		return
 	}
 
 	c.JSON(http.StatusOK, data)
 }
 
-// Register menangani pendaftaran tenant baru (Owner)
+// GetPublicLandingData mengambil full data (Legacy/Full Load)
+func (h *Handler) GetPublicLandingData(c *gin.Context) {
+	slug := h.extractSlug(c)
+	if slug == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Identitas bisnis diperlukan"})
+		return
+	}
+
+	data, err := h.service.GetPublicLandingData(c.Request.Context(), strings.ToLower(slug))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Data bisnis tidak lengkap"})
+		return
+	}
+
+	c.JSON(http.StatusOK, data)
+}
+
+// extractSlug helper biar gak nulis berkali-kali
+func (h *Handler) extractSlug(c *gin.Context) string {
+	// Cek Query Param ?slug=
+	if slug := c.Query("slug"); slug != "" {
+		return strings.Split(slug, ".")[0]
+	}
+	// Cek Context dari middleware (jika ada)
+	if slug, exists := c.Get("tenantSlug"); exists {
+		return slug.(string)
+	}
+	return ""
+}
+
+// Register menangani pendaftaran tenant baru
 func (h *Handler) Register(c *gin.Context) {
 	var req RegisterReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Data registrasi tidak lengkap atau format salah"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data registrasi tidak lengkap"})
 		return
 	}
 
@@ -64,17 +102,17 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	protocol := os.Getenv("APP_PROTOCOL") // http atau https
-	appDomain := os.Getenv("APP_DOMAIN")   // bookinaja.com
+	protocol := os.Getenv("APP_PROTOCOL")
+	appDomain := os.Getenv("APP_DOMAIN")
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message":   "Registrasi berhasil, selamat datang!",
+		"message":   "Registrasi berhasil!",
 		"tenant":    t,
 		"login_url": fmt.Sprintf("%s://%s.%s/admin/login", protocol, t.Slug, appDomain),
 	})
 }
 
-// Login menangani autentikasi Admin/Owner Dashboard
+// Login menangani autentikasi Dashboard Admin
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -91,7 +129,7 @@ func (h *Handler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-// GetProfile mengambil data profil internal tenant untuk Dashboard Admin
+// GetProfile (Dashboard Internal)
 func (h *Handler) GetProfile(c *gin.Context) {
 	tIDRaw, exists := c.Get("tenantID")
 	if !exists {
@@ -102,13 +140,13 @@ func (h *Handler) GetProfile(c *gin.Context) {
 	tID, _ := uuid.Parse(tIDRaw.(string))
 	p, err := h.service.GetProfile(c.Request.Context(), tID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Gagal mengambil profil bisnis"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Gagal mengambil profil"})
 		return
 	}
 	c.JSON(http.StatusOK, p)
 }
 
-// UpdateProfile memperbarui identitas visual, warna brand, dan kontak bisnis
+// UpdateProfile
 func (h *Handler) UpdateProfile(c *gin.Context) {
 	tIDRaw, exists := c.Get("tenantID")
 	if !exists {
@@ -117,10 +155,9 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 	}
 
 	tID, _ := uuid.Parse(tIDRaw.(string))
-
 	var req Tenant
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data update tidak valid"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data tidak valid"})
 		return
 	}
 
@@ -130,17 +167,14 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Profil berhasil diperbarui dan dipublikasikan",
-		"data":    updated,
-	})
+	c.JSON(http.StatusOK, gin.H{"message": "Profil diperbarui", "data": updated})
 }
 
-// UploadImage menangani upload logo/banner/gallery ke S3 bucket
+// UploadImage ke S3 (R2)
 func (h *Handler) UploadImage(c *gin.Context) {
 	file, err := c.FormFile("image")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "File gambar tidak ditemukan dalam request"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Gambar tidak ditemukan"})
 		return
 	}
 
@@ -153,19 +187,15 @@ func (h *Handler) UploadImage(c *gin.Context) {
 
 	s3Provider, err := storage.NewS3Client()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Layanan cloud storage bermasalah"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "S3 Client error"})
 		return
 	}
 
-	// Path: tenants/[UUID]/[filename]
 	url, err := s3Provider.UploadFile(c.Request.Context(), file, "tenants/"+tenantID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan gambar ke cloud"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Upload gagal"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Gambar berhasil diupload",
-		"url":     url,
-	})
+	c.JSON(http.StatusOK, gin.H{"url": url})
 }

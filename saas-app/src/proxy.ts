@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export default function proxy(req: NextRequest) {
+export default async function middleware(req: NextRequest) {
   const url = req.nextUrl;
   const path = url.pathname;
 
-  // 1. FILTER ASSET STATIS & INTERNAL NEXT.JS (WAJIB)
-  // Agar file .js, .css, .png, dan folder _next tidak kena rewrite ke folder tenant
+  // 1. FILTER ASSET STATIS & INTERNAL NEXT.JS
   if (
     path.startsWith("/_next") ||
     path.startsWith("/api") ||
@@ -17,14 +16,14 @@ export default function proxy(req: NextRequest) {
 
   const host = req.headers.get("host") || "";
   const hostname = host.split(":")[0];
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "bookinaja.com";
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "bookinaja.local"; // Sesuaikan env
 
   // 2. BYPASS SUBDOMAIN API
   if (hostname.startsWith("api.")) {
     return NextResponse.next();
   }
 
-  // 3. LOGIKA ROOT DOMAIN (Marketing Page)
+  // 3. LOGIKA ROOT DOMAIN (Marketing Page / Landing Utama)
   if (
     hostname === rootDomain ||
     hostname === `www.${rootDomain}` ||
@@ -34,31 +33,39 @@ export default function proxy(req: NextRequest) {
   }
 
   // 4. LOGIKA SUBDOMAIN (Tenant Page)
+  // Menangani subdomain seperti gaming-demo.bookinaja.local
   const tenantSlug = hostname.replace(`.${rootDomain}`, "").replace("www.", "");
 
   if (tenantSlug && tenantSlug !== hostname) {
-    // Debugging (Bisa kamu hapus kalau sudah oke)
-    console.log(`[Proxy] Tenant: ${tenantSlug} | Path: ${path}`);
+    // Rewrite internal ke folder tenant: /[tenantSlug]/path
+    const rewriteUrl = new URL(`/${tenantSlug}${path}${url.search}`, req.url);
+    const response = NextResponse.rewrite(rewriteUrl);
 
-    // Rewrite internal ke folder tenant: /ps/dashboard misalnya
-    return NextResponse.rewrite(
-      new URL(`/${tenantSlug}${path}${url.search}`, req.url),
-    );
+    // --- SMART TENANT IDENTIFICATION ---
+    // Cek apakah cookie slug sudah ada dan sama
+    const currentSlugCookie = req.cookies.get("current_tenant_slug")?.value;
+
+    if (currentSlugCookie !== tenantSlug) {
+      // Pasang cookie slug agar frontend bisa langsung pakai tanpa fetch ulang
+      response.cookies.set("current_tenant_slug", tenantSlug, {
+        path: "/",
+        maxAge: 60 * 60 * 24, // 24 Jam
+        httpOnly: false, // Biar bisa dibaca client-side (Axios)
+        sameSite: "lax",
+      });
+
+      // Catatan: current_tenant_id akan di-set oleh API saat fetch pertama
+      // atau bisa di-fetch di sini via Edge Function jika benar-benar butuh ID
+    }
+
+    return response;
   }
 
   return NextResponse.next();
 }
 
-// MATCHER agar Next.js tahu file ini harus menangani route apa saja
 export const config = {
   matcher: [
-    /*
-     * Match semua request path KECUALI:
-     * - api (route api nextjs)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico, dsb.
-     */
     "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
   ],
 };

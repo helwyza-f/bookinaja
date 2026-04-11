@@ -27,80 +27,77 @@ func NewRepository(db *sqlx.DB, rdb *redis.Client) *Repository {
 	}
 }
 
-// --- REDIS HELPERS (Sinkronisasi Key) ---
+// --- REDIS HELPERS (Pusat Kendali Key) ---
 
-func (r *Repository) getIDCacheKey(slug string) string {
-	return fmt.Sprintf("tenant_id:%s", strings.ToLower(strings.TrimSpace(slug)))
+func (r *Repository) getProfileCacheKey(slug string) string {
+	return fmt.Sprintf("tenant_profile:%s", strings.ToLower(strings.TrimSpace(slug)))
 }
 
 func (r *Repository) getLandingCacheKey(slug string) string {
-	return fmt.Sprintf("landing_data:%s", strings.ToLower(strings.TrimSpace(slug)))
+	return fmt.Sprintf("landing_full:%s", strings.ToLower(strings.TrimSpace(slug)))
 }
 
 // --- CORE REPOSITORY LOGIC ---
 
-// CreateWithAdmin membuat Tenant dan Admin User dalam satu transaksi atomik
-// Sinkron dengan kolom: primary_color, tagline, features
-func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) error {
-	tx, err := r.db.BeginTxx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
+// GetBySlug mengambil data profil tenant dengan pola Cache-Aside
+func (r *Repository) GetBySlug(ctx context.Context, slug string) (*Tenant, error) {
+	slug = strings.ToLower(strings.TrimSpace(slug))
+	cacheKey := r.getProfileCacheKey(slug)
 
-	// 1. Insert Tenant (Gunakan NamedExec agar mapping struct otomatis)
-	_, err = tx.NamedExecContext(ctx, `
-        INSERT INTO tenants (
-            id, name, slug, business_category, business_type, 
-            slogan, tagline, about_us, features, primary_color, created_at
-        ) VALUES (
-            :id, :name, :slug, :business_category, :business_type, 
-            :slogan, :tagline, :about_us, :features, :primary_color, :created_at
-        )`, t)
-	if err != nil {
-		return fmt.Errorf("failed to insert tenant: %w", err)
+	// 1. Cek Redis
+	val, err := r.rdb.Get(ctx, cacheKey).Result()
+	if err == nil {
+		var t Tenant
+		if err := json.Unmarshal([]byte(val), &t); err == nil {
+			fmt.Printf("[CACHE HIT] Serving profile from Redis: %s\n", slug)
+			return &t, nil
+		}
 	}
 
-	// 2. Insert Admin User
-	_, err = tx.NamedExecContext(ctx, `
-        INSERT INTO users (id, tenant_id, name, email, password, role, created_at) 
-        VALUES (:id, :tenant_id, :name, :email, :password, :role, :created_at)`, u)
+	// 2. Database Lookup
+	fmt.Printf("[CACHE MISS] Querying DB profile for slug: '%s'\n", slug)
+	var t Tenant
+	query := `SELECT * FROM tenants WHERE LOWER(TRIM(slug)) = $1 LIMIT 1`
+	err = r.db.GetContext(ctx, &t, query, slug)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
 	if err != nil {
-		return fmt.Errorf("failed to insert user: %w", err)
+		return nil, err
 	}
 
-	return tx.Commit()
+	// 3. Update Cache (TTL 24 Jam)
+	jsonData, _ := json.Marshal(t)
+	r.rdb.Set(ctx, cacheKey, jsonData, 24*time.Hour)
+
+	return &t, nil
 }
 
-// GetPublicLandingData menggunakan Redis Cache-Aside Pattern
+// GetPublicLandingData mengumpulkan Profile & Resources (Optimized)
 func (r *Repository) GetPublicLandingData(ctx context.Context, slug string) (map[string]interface{}, error) {
+	slug = strings.ToLower(strings.TrimSpace(slug))
 	cacheKey := r.getLandingCacheKey(slug)
 
-	// 1. HIT: Cek Redis
+	// 1. HIT: Cek Redis Landing Full
 	val, err := r.rdb.Get(ctx, cacheKey).Result()
 	if err == nil {
 		var cachedData map[string]interface{}
 		if err := json.Unmarshal([]byte(val), &cachedData); err == nil {
-			fmt.Printf("[CACHE HIT] Serving landing from Redis: %s\n", slug)
+			fmt.Printf("[CACHE HIT] Serving full landing for: %s\n", slug)
 			return cachedData, nil
 		}
 	}
 
 	// 2. MISS: Searching Postgres
-	fmt.Printf("[CACHE MISS] Searching Database for slug: '%s'\n", slug)
+	fmt.Printf("[CACHE MISS] Building full landing data for slug: '%s'\n", slug)
 	
 	tenant, err := r.GetBySlug(ctx, slug)
-	if err != nil {
-		fmt.Printf("[DB ERROR] GetBySlug failed: %v\n", err)
-		return nil, err
-	}
-	if tenant == nil {
+	if err != nil || tenant == nil {
 		return nil, fmt.Errorf("business not found")
 	}
 
 	resources, err := r.ListResourcesWithItems(ctx, tenant.ID)
 	if err != nil {
-		fmt.Printf("[DB ERROR] ListResources failed: %v\n", err)
 		return nil, err
 	}
 
@@ -116,78 +113,84 @@ func (r *Repository) GetPublicLandingData(ctx context.Context, slug string) (map
 	return result, nil
 }
 
-func (r *Repository) GetBySlug(ctx context.Context, slug string) (*Tenant, error) {
-	var t Tenant
-	// Proteksi LOWER dan TRIM agar query sangat akurat (Fixing Case Sensitivity)
-	query := `SELECT * FROM tenants WHERE LOWER(TRIM(slug)) = LOWER(TRIM($1)) LIMIT 1`
-	err := r.db.GetContext(ctx, &t, query, slug)
-	if err == sql.ErrNoRows {
-		return nil, nil
+// CreateWithAdmin membuat Tenant dan Admin User dalam satu transaksi
+func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
 	}
-	return &t, err
+	defer tx.Rollback()
+
+	_, err = tx.NamedExecContext(ctx, `
+		INSERT INTO tenants (
+			id, name, slug, business_category, business_type, 
+			slogan, tagline, about_us, features, primary_color, created_at
+		) VALUES (
+			:id, :name, :slug, :business_category, :business_type, 
+			:slogan, :tagline, :about_us, :features, :primary_color, :created_at
+		)`, t)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.NamedExecContext(ctx, `
+		INSERT INTO users (id, tenant_id, name, email, password, role, created_at) 
+		VALUES (:id, :tenant_id, :name, :email, :password, :role, :created_at)`, u)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (r *Repository) Update(ctx context.Context, t Tenant) error {
 	query := `
-        UPDATE tenants SET 
-            name=:name, slogan=:slogan, tagline=:tagline, about_us=:about_us, 
-            features=:features, address=:address, open_time=:open_time, 
-            close_time=:close_time, logo_url=:logo_url, banner_url=:banner_url, 
-            gallery=:gallery, business_category=:business_category, primary_color=:primary_color, 
-            whatsapp_number=:whatsapp_number, instagram_url=:instagram_url, 
-            tiktok_url=:tiktok_url, map_iframe_url=:map_iframe_url, 
-            meta_title=:meta_title, meta_description=:meta_description
-        WHERE id=:id`
+		UPDATE tenants SET 
+			name=:name, slogan=:slogan, tagline=:tagline, about_us=:about_us, 
+			features=:features, address=:address, open_time=:open_time, 
+			close_time=:close_time, logo_url=:logo_url, banner_url=:banner_url, 
+			gallery=:gallery, business_category=:business_category, primary_color=:primary_color, 
+			whatsapp_number=:whatsapp_number, instagram_url=:instagram_url, 
+			tiktok_url=:tiktok_url, map_iframe_url=:map_iframe_url, 
+			meta_title=:meta_title, meta_description=:meta_description
+		WHERE id=:id`
 
 	_, err := r.db.NamedExecContext(ctx, query, t)
 	if err != nil {
 		return err
 	}
 
-	// INVALIDASI CACHE: Hapus data lama agar perubahan muncul seketika
+	// INVALIDASI CACHE
 	r.rdb.Del(ctx, r.getLandingCacheKey(t.Slug))
-	r.rdb.Del(ctx, r.getIDCacheKey(t.Slug))
+	r.rdb.Del(ctx, r.getProfileCacheKey(t.Slug))
+	fmt.Printf("[CACHE INVALIDATED] Profile & Landing cleared for: %s\n", t.Slug)
 
 	return nil
 }
 
-// ListResourcesWithItems mengambil resource dan items terkait
+// ListResourcesWithItems (Single Query Aggregation)
 func (r *Repository) ListResourcesWithItems(ctx context.Context, tenantID uuid.UUID) ([]map[string]interface{}, error) {
 	query := `
-        SELECT 
-            r.id::text as id, 
-            r.name, 
-            r.category, 
-            r.status,
-            r.description,
-            r.image_url,
-            COALESCE(json_agg(json_build_object(
-                'id', i.id::text, 
-                'name', i.name,
-                'item_type', i.item_type,
-                'price', i.price,
-                'price_unit', i.price_unit,
-                'unit_duration', i.unit_duration
-            ) ORDER BY i.item_type ASC, i.price ASC) FILTER (WHERE i.id IS NOT NULL), '[]') as items
-        FROM resources r
-        LEFT JOIN resource_items i ON r.id = i.resource_id
-        WHERE r.tenant_id = $1 AND r.status != 'deleted'
-        GROUP BY r.id
-        ORDER BY r.category ASC, r.name ASC`
+		SELECT 
+			r.id::text as id, r.name, r.category, r.status, r.description, r.image_url,
+			COALESCE(json_agg(json_build_object(
+				'id', i.id::text, 'name', i.name, 'item_type', i.item_type,
+				'price', i.price, 'price_unit', i.price_unit, 'unit_duration', i.unit_duration
+			) ORDER BY i.item_type ASC, i.price ASC) FILTER (WHERE i.id IS NOT NULL), '[]') as items
+		FROM resources r
+		LEFT JOIN resource_items i ON r.id = i.resource_id
+		WHERE r.tenant_id = $1 AND r.status != 'deleted'
+		GROUP BY r.id
+		ORDER BY r.category ASC, r.name ASC`
 
 	rows, err := r.db.QueryxContext(ctx, query, tenantID)
-	if err != nil {
-		return nil, err
-	}
+	if err != nil { return nil, err }
 	defer rows.Close()
 
 	var results []map[string]interface{}
 	for rows.Next() {
 		res := make(map[string]interface{})
-		err := rows.MapScan(res)
-		if err != nil {
-			return nil, err
-		}
+		if err := rows.MapScan(res); err != nil { return nil, err }
 
 		if itemsBytes, ok := res["items"].([]byte); ok {
 			var itemsArray []map[string]interface{}
@@ -204,30 +207,20 @@ func (r *Repository) ListResourcesWithItems(ctx context.Context, tenantID uuid.U
 
 func (r *Repository) SeedTenantData(ctx context.Context, tenantID uuid.UUID, resources []resource.Resource) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
-	if err != nil {
-		return err
-	}
+	if err != nil { return err }
 	defer tx.Rollback()
 
-	emptyMeta := json.RawMessage("{}")
 	for _, res := range resources {
 		res.ID = uuid.New()
 		res.TenantID = tenantID
 		res.Status = "available"
-		if res.Metadata == nil { res.Metadata = &emptyMeta }
-
-		_, err = tx.NamedExecContext(ctx, `
-            INSERT INTO resources (id, tenant_id, name, category, description, image_url, gallery, status, metadata) 
-            VALUES (:id, :tenant_id, :name, :category, :description, :image_url, :gallery, :status, :metadata)`, res)
+		_, err = tx.NamedExecContext(ctx, `INSERT INTO resources (id, tenant_id, name, category, description, image_url, gallery, status, metadata) VALUES (:id, :tenant_id, :name, :category, :description, :image_url, :gallery, :status, :metadata)`, res)
 		if err != nil { return err }
 
 		for _, item := range res.Items {
 			item.ID = uuid.New()
 			item.ResourceID = res.ID
-			if item.Metadata == nil { item.Metadata = &emptyMeta }
-			_, err = tx.NamedExecContext(ctx, `
-                INSERT INTO resource_items (id, resource_id, name, price, price_unit, unit_duration, item_type, is_default, metadata) 
-                VALUES (:id, :resource_id, :name, :price, :price_unit, :unit_duration, :item_type, :is_default, :metadata)`, item)
+			_, err = tx.NamedExecContext(ctx, `INSERT INTO resource_items (id, resource_id, name, price, price_unit, unit_duration, item_type, is_default, metadata) VALUES (:id, :resource_id, :name, :price, :price_unit, :unit_duration, :item_type, :is_default, :metadata)`, item)
 			if err != nil { return err }
 		}
 	}
@@ -236,17 +229,13 @@ func (r *Repository) SeedTenantData(ctx context.Context, tenantID uuid.UUID, res
 
 func (r *Repository) SeedFnbData(ctx context.Context, tenantID uuid.UUID, items []fnb.Item) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
-	if err != nil {
-		return err
-	}
+	if err != nil { return err }
 	defer tx.Rollback()
 
 	for _, item := range items {
 		item.ID = uuid.New()
 		item.TenantID = tenantID
-		_, err = tx.NamedExecContext(ctx, `
-            INSERT INTO fnb_items (id, tenant_id, name, price, category, is_available) 
-            VALUES (:id, :tenant_id, :name, :price, :category, :is_available)`, item)
+		_, err = tx.NamedExecContext(ctx, `INSERT INTO fnb_items (id, tenant_id, name, price, category, is_available) VALUES (:id, :tenant_id, :name, :price, :category, :is_available)`, item)
 		if err != nil { return err }
 	}
 	return tx.Commit()
@@ -264,6 +253,7 @@ func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*User, e
 func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Tenant, error) {
 	var t Tenant
 	err := r.db.GetContext(ctx, &t, `SELECT * FROM tenants WHERE id = $1`, id)
+	if err == sql.ErrNoRows { return nil, nil }
 	return &t, err
 }
 

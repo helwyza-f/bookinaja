@@ -27,19 +27,20 @@ import (
 
 func main() {
 	// 0. Load Configuration (.env)
-	// Kita tidak fatal error jika .env tidak ada, karena di Docker kita pakai ENV asli
 	if err := godotenv.Load(); err != nil {
 		log.Println("ℹ️ Info: .env file not found, using system environment variables")
 	}
 
+	dbHost := os.Getenv("DB_HOST")
+	dbPort := os.Getenv("DB_PORT")
+
 	// 1. Database Connection with Retry Logic
-	// Docker Compose kadang menjalankan API lebih cepat daripada Postgres siap
 	var db *sqlx.DB
 	var err error
 	for i := 0; i < 5; i++ {
 		db, err = database.NewPostgres(
-			os.Getenv("DB_HOST"),
-			os.Getenv("DB_PORT"),
+			dbHost,
+			dbPort,
 			os.Getenv("DB_USER"),
 			os.Getenv("DB_PASSWORD"),
 			os.Getenv("DB_NAME"),
@@ -47,7 +48,7 @@ func main() {
 		if err == nil {
 			break
 		}
-		log.Printf("⏳ DB not ready, retrying in 2s... (%d/5)", i+1)
+		log.Printf("⏳ DB not ready at %s:%s, retrying in 2s... (%d/5)", dbHost, dbPort, i+1)
 		time.Sleep(2 * time.Second)
 	}
 	if err != nil {
@@ -55,7 +56,7 @@ func main() {
 	}
 	defer db.Close()
 
-	// 2. Redis Connection
+	// 2. Redis Connection (Engine Utama buat Caching & Session)
 	rdb, err := database.NewRedisClient()
 	if err != nil {
 		log.Fatalf("❌ Redis Connection Error: %v", err)
@@ -65,7 +66,7 @@ func main() {
 	// 3. Database Migration
 	runMigration(db.DB)
 
-	// 4. Dependency Injection (Wiring)
+	// 4. Dependency Injection (Wiring Batam Engine)
 	
 	// --- AUTH DOMAIN ---
 	authSvc := auth.NewService()
@@ -77,12 +78,14 @@ func main() {
 	customerHdl := customer.NewHandler(customerSvc)
 
 	// --- TENANT DOMAIN ---
-	tenantRepo := tenant.NewRepository(db, rdb) 
+	// Repo butuh rdb buat pola Cache-Aside (Profile & Landing)
+	tenantRepo := tenant.NewRepository(db, rdb)
 	tenantSvc := tenant.NewService(tenantRepo, authSvc)
 	tenantHdl := tenant.NewHandler(tenantSvc)
 
 	// --- RESOURCE DOMAIN ---
-	resourceRepo := resource.NewRepository(db)
+	// UPDATE: Repo butuh rdb buat Invalidasi Cache saat unit di-update
+	resourceRepo := resource.NewRepository(db, rdb) 
 	resourceSvc := resource.NewService(resourceRepo)
 	resourceHdl := resource.NewHandler(resourceSvc)
 
@@ -114,10 +117,15 @@ func main() {
 		port = "8080"
 	}
 
+	log.Println("--------------------------------------------------")
 	log.Printf("🚀 BOOKINAJA ENGINE: LIVE ON IDCLOUDHOST")
-	log.Printf("📡 Listening on port :%s", port)
-	log.Printf("📦 Storage: Cloudflare R2 (cdn.bookinaja.com)")
-	
+	log.Printf("📡 Environment : %s", os.Getenv("APP_ENV"))
+	log.Printf("📡 Domain      : %s", os.Getenv("APP_DOMAIN"))
+	log.Printf("📡 Port        : %s", port)
+	log.Printf("📦 Storage     : Cloudflare R2 (cdn.bookinaja.com)")
+	log.Printf("⚡ Cache Engine : Redis (7-alpine)")
+	log.Println("--------------------------------------------------")
+
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("❌ Failed to run server: %v", err)
 	}
@@ -129,8 +137,13 @@ func runMigration(db *sql.DB) {
 		log.Fatalf("❌ Migration driver error: %v", err)
 	}
 
+	mPath := os.Getenv("MIGRATION_PATH")
+	if mPath == "" {
+		mPath = "file://migrations"
+	}
+
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://migrations",
+		mPath,
 		"postgres", driver,
 	)
 	if err != nil {

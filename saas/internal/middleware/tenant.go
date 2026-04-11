@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"fmt"
-	"net/http"
+
 	"strings"
 	"time"
 
@@ -11,9 +11,10 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// TenantIdentifier mendeteksi siapa pemilik resource berdasarkan konteks request.
 func TenantIdentifier(db *sqlx.DB, rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 1. Prioritas 1: Cek Header X-Tenant-ID (Dari Axios/Next.js Cookie)
+		// 1. Cek Header (ID UUID) - Jalur paling efisien
 		tenantID := c.GetHeader("X-Tenant-ID")
 		if tenantID != "" {
 			c.Set("tenantID", tenantID)
@@ -21,49 +22,76 @@ func TenantIdentifier(db *sqlx.DB, rdb *redis.Client) gin.HandlerFunc {
 			return
 		}
 
-		// 2. Deteksi Slug dari Subdomain
-		host := c.Request.Host // Contoh: api.bookinaja.local:8080 atau optimum.bookinaja.local:3000
-		parts := strings.Split(host, ".")
-		
-		var slug string
-		if len(parts) >= 3 {
-			slug = parts[0] // Ambil bagian pertama (subdomain)
+		// 2. Cek Slug (Bisa dari Subdomain atau Query Param dari config.params frontend)
+		slug := GetSlugFromHost(c.Request.Host)
+		if slug == "" || isSystemDomain(slug) {
+			slug = c.Query("slug") 
 		}
 
-		// --- FIX BREAKING POINT DI SINI ---
-		// Jika request datang dari domain API utama, JANGAN cari tenant di DB/Redis.
-		// Biarkan lewat (Next) agar Handler bisa pakai query param ?slug=...
-		if slug == "" || slug == "api" || slug == "www" || slug == "localhost" {
+		if slug == "" {
+			c.Next() // Biarkan route system/public lewat tanpa tenantID
+			return
+		}
+
+		// 3. Redis Cache Lookup (Mapping Slug -> ID)
+		// Jalur ini cuma makan waktu ~4ms
+		ctx := c.Request.Context()
+		cacheKey := fmt.Sprintf("tenant_id_by_slug:%s", slug)
+		id, err := rdb.Get(ctx, cacheKey).Result()
+		
+		if err == nil && id != "" {
+			c.Set("tenantID", id)
 			c.Next()
 			return
 		}
 
-		// 3. Cek di Redis (Prioritas 2 - In-Memory Cache)
-		ctx := c.Request.Context() // Gunakan context request
-		cacheKey := fmt.Sprintf("tenant_id:%s", slug)
-		val, err := rdb.Get(ctx, cacheKey).Result()
-		
-		if err == nil && val != "" {
-			c.Set("tenantID", val)
+		// 4. DB Lookup (Hanya jika Cache Miss)
+		var dbID string
+		err = db.Get(&dbID, "SELECT id FROM tenants WHERE slug = $1 LIMIT 1", slug)
+		if err != nil || dbID == "" {
+			if !isPublicPath(c.Request.URL.Path) {
+				c.AbortWithStatusJSON(404, gin.H{"error": "Bisnis tidak terdaftar"})
+				return
+			}
 			c.Next()
 			return
 		}
 
-		// 4. Jika Redis Kosong, baru nanya Postgres (Last Resort)
-		var id string
-		err = db.Get(&id, "SELECT id FROM tenants WHERE slug = $1 LIMIT 1", slug)
-		if err != nil || id == "" {
-			// Jika slug tidak terdaftar di DB, kita jangan langsung abort jika ini path public landing
-			// Tapi untuk keamanan multi-tenant lainnya, kita kasih error
-			c.JSON(http.StatusNotFound, gin.H{"error": "Bisnis tidak terdaftar di sistem"})
-			c.Abort()
-			return
-		}
-
-		// 5. Simpan ke Redis (Expire 24 Jam)
-		rdb.Set(ctx, cacheKey, id, 24*time.Hour)
-
-		c.Set("tenantID", id)
+		// Sync ke Redis biar next request cuma makan 4ms
+		rdb.Set(ctx, cacheKey, dbID, 24*time.Hour)
+		c.Set("tenantID", dbID)
 		c.Next()
 	}
+}
+
+// --- HELPER FUNCTIONS ---
+
+func GetSlugFromHost(host string) string {
+	// Bersihkan port jika ada (localhost:8080 -> localhost)
+	h := strings.Split(host, ":")[0]
+	parts := strings.Split(h, ".")
+	
+	// Format: {slug}.bookinaja.local
+	if len(parts) >= 3 {
+		return parts[0]
+	}
+	return ""
+}
+
+func isSystemDomain(slug string) bool {
+	reserved := map[string]bool{
+		"":          true,
+		"api":       true,
+		"www":       true,
+		"localhost": true,
+		"admin":     true,
+	}
+	return reserved[slug]
+}
+
+func isPublicPath(path string) bool {
+	// Path yang diizinkan lewat tanpa tenantID yang valid
+	return strings.Contains(path, "/public") || 
+		   strings.Contains(path, "/register") || 
+		   strings.Contains(path, "/ping")
 }

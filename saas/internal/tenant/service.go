@@ -29,7 +29,18 @@ func NewService(r *Repository, authService *auth.Service) *Service {
 	}
 }
 
-// Register menangani pendaftaran tenant baru, admin owner, dan inisialisasi branding
+// GetPublicProfile Baru: Jalur cepat buat ambil tema & identitas (Granular)
+func (s *Service) GetPublicProfile(ctx context.Context, slug string) (*Tenant, error) {
+	// Repo ini harus sudah punya logic Cache-Aside Redis
+	return s.repo.GetBySlug(ctx, slug)
+}
+
+// GetPublicLandingData mengambil full data (Profile + Resources)
+func (s *Service) GetPublicLandingData(ctx context.Context, slug string) (map[string]interface{}, error) {
+	return s.repo.GetPublicLandingData(ctx, slug)
+}
+
+// Register menangani pendaftaran tenant baru & inisialisasi default branding
 func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error) {
 	slug := strings.ToLower(strings.TrimSpace(req.TenantSlug))
 
@@ -53,12 +64,11 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 
 	tID := uuid.New()
 
-	// --- DYNAMIC DEFAULT BRANDING & COPYWRITING ---
-	// Data ini yang bakal muncul di pill-pill visual dan hero section
+	// --- DYNAMIC DEFAULT BRANDING ---
 	defaultColor := "#3b82f6"
 	defaultTagline := "Professional Booking System"
 	defaultSlogan := "Control your branch, grow your business"
-	defaultAbout := "Kami menyediakan layanan berkualitas dengan sistem manajemen modern untuk kenyamanan Anda."
+	defaultAbout := "Kami menyediakan layanan berkualitas dengan sistem manajemen modern."
 	var defaultFeatures pq.StringArray
 
 	switch req.BusinessCategory {
@@ -66,22 +76,19 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 		defaultColor = "#2563eb"
 		defaultTagline = "The Ultimate Arena for Pro Players"
 		defaultSlogan = "Experience Gaming at its Peak"
-		defaultAbout = "Pusat gaming dengan spesifikasi PC tertinggi dan koneksi internet stabil. Tempat berkumpulnya komunitas gamers sejati."
+		defaultAbout = "Pusat gaming dengan spesifikasi PC tertinggi dan koneksi internet stabil."
 		defaultFeatures = pq.StringArray{"RTX 4090 Ready", "Internet 1Gbps", "Pro Peripherals", "240Hz Monitor"}
 	case "creative_space":
 		defaultColor = "#e11d48"
 		defaultTagline = "Studio Creative for Unlimited Ideas"
-		defaultAbout = "Ruang estetik dengan pencahayaan profesional dan peralatan lengkap untuk mendukung proses kreatif Anda."
 		defaultFeatures = pq.StringArray{"Pro Lighting", "Set Aesthetic", "High-End Camera", "Private Studio"}
 	case "sport_center":
 		defaultColor = "#10b981"
 		defaultTagline = "World Class Sports Facility"
-		defaultAbout = "Fasilitas olahraga standar internasional dengan sistem booking yang mudah dan transparan."
 		defaultFeatures = pq.StringArray{"Vinyl Court", "Locker Room", "Standard Inter", "Training Gear"}
 	case "social_space":
 		defaultColor = "#4f46e5"
 		defaultTagline = "Elite Space for Collaboration"
-		defaultAbout = "Lingkungan produktif yang homey, sangat cocok untuk fokus bekerja atau berdiskusi santai bersama rekan."
 		defaultFeatures = pq.StringArray{"Fast Wi-Fi", "Free Coffee", "Focus Zone", "Meeting Room"}
 	}
 
@@ -109,22 +116,22 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 		CreatedAt: time.Now(),
 	}
 
-	// 3. Simpan Tenant & Admin ke Database
+	// 3. Simpan ke Database
 	if err := s.repo.CreateWithAdmin(ctx, tenant, user); err != nil {
 		return nil, err
 	}
 
-	// 4. Trigger Seeding Template secara Asynchronous
+	// 4. Seeding Template Asynchronous
 	go s.SeedTemplate(context.Background(), tID, req.BusinessCategory)
 
 	return &tenant, nil
 }
 
-// SeedTemplate menyuntikkan data inventori awal (Resources, Items, FnB)
+// SeedTemplate menyuntikkan data awal berdasarkan kategori bisnis
 func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category string) {
 	file, err := os.ReadFile("internal/tenant/templates.json")
 	if err != nil {
-		log.Printf("[SEEDER] Gagal membaca file template: %v", err)
+		log.Printf("[SEEDER] Error read template file: %v", err)
 		return
 	}
 
@@ -156,19 +163,19 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 	}
 
 	if err := json.Unmarshal(file, &allTemplates); err != nil {
-		log.Printf("[SEEDER] Gagal parse JSON template: %v", err)
+		log.Printf("[SEEDER] Error unmarshal template: %v", err)
 		return
 	}
 
 	tpl, ok := allTemplates[category]
 	if !ok {
-		log.Printf("[SEEDER] Kategori %s tidak punya template", category)
+		log.Printf("[SEEDER] Category %s template not found", category)
 		return
 	}
 
 	emptyMeta := json.RawMessage("{}")
 
-	// Mapping Resources
+	// Mapping Resources & Items
 	var resourcesToSeed []resource.Resource
 	for _, r := range tpl.Resources {
 		res := resource.Resource{
@@ -214,6 +221,7 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 		resourcesToSeed = append(resourcesToSeed, res)
 	}
 
+	// Mapping FnB
 	var fnbToSeed []fnb.Item
 	for _, f := range tpl.FnbCatalog {
 		fnbToSeed = append(fnbToSeed, fnb.Item{
@@ -224,14 +232,15 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 		})
 	}
 
+	// Execute Seeding
 	if err := s.repo.SeedTenantData(ctx, tenantID, resourcesToSeed); err != nil {
-		log.Printf("[SEEDER] Error seeding resources: %v", err)
+		log.Printf("[SEEDER] DB Error resources: %v", err)
 	}
 	if err := s.repo.SeedFnbData(ctx, tenantID, fnbToSeed); err != nil {
-		log.Printf("[SEEDER] Error seeding fnb catalog: %v", err)
+		log.Printf("[SEEDER] DB Error fnb: %v", err)
 	}
 
-	log.Printf("[SEEDER] SUCCESS: Data template disuntikkan untuk tenant %s", tenantID)
+	log.Printf("[SEEDER] ✅ SUCCESS: Template %s applied for tenant %s", category, tenantID)
 }
 
 func (s *Service) getDefaultDuration(unit string) int {
@@ -247,10 +256,7 @@ func (s *Service) getDefaultDuration(unit string) int {
 
 func (s *Service) Login(ctx context.Context, email, password string) (*LoginResponse, error) {
 	u, err := s.repo.GetUserByEmail(ctx, email)
-	if err != nil {
-		return nil, err
-	}
-	if u == nil {
+	if err != nil || u == nil {
 		return nil, errors.New("email atau password salah")
 	}
 
@@ -284,8 +290,4 @@ func (s *Service) UpdateProfile(ctx context.Context, id uuid.UUID, req Tenant) (
 		return nil, err
 	}
 	return &req, nil
-}
-
-func (s *Service) GetPublicLandingData(ctx context.Context, slug string) (map[string]interface{}, error) {
-	return s.repo.GetPublicLandingData(ctx, slug)
 }
