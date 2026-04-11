@@ -1,61 +1,67 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export default async function middleware(req: NextRequest) {
+export default async function proxy(req: NextRequest) {
   const url = req.nextUrl;
   const path = url.pathname;
 
-  // 1. FILTER ASSET STATIS & INTERNAL NEXT.JS
+  // 1. HARD FILTER: Abaikan semua asset statis, API internal, dan Next.js internals
+  // Kita tambahkan pengecekan file extension yang lebih ketat agar tidak masuk ke logic Tenant
+  const isStaticFile = /\.(.*)$/.test(path);
   if (
     path.startsWith("/_next") ||
     path.startsWith("/api") ||
-    path.includes(".")
+    path === "/favicon.ico" ||
+    path === "/site.webmanifest" ||
+    isStaticFile
   ) {
     return NextResponse.next();
   }
 
   const host = req.headers.get("host") || "";
+  // Ambil Root Domain dari ENV (Pastikan di IDCloudHost isinya 'bookinaja.com')
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "bookinaja.com";
+
+  // Ambil hostname murni (tanpa port)
   const hostname = host.split(":")[0];
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "bookinaja.local"; // Sesuaikan env
 
-  // 2. BYPASS SUBDOMAIN API
-  if (hostname.startsWith("api.")) {
-    return NextResponse.next();
-  }
-
-  // 3. LOGIKA ROOT DOMAIN (Marketing Page / Landing Utama)
+  // 2. BYPASS SUBDOMAIN SISTEM
+  // Tambahkan 'www' dan 'api' ke pengecualian utama
   if (
     hostname === rootDomain ||
     hostname === `www.${rootDomain}` ||
-    hostname === "localhost"
+    hostname === "localhost" ||
+    hostname.startsWith("api.")
   ) {
     return NextResponse.next();
   }
 
-  // 4. LOGIKA SUBDOMAIN (Tenant Page)
-  // Menangani subdomain seperti gaming-demo.bookinaja.local
-  const tenantSlug = hostname.replace(`.${rootDomain}`, "").replace("www.", "");
+  // 3. LOGIKA SUBDOMAIN TENANT (Multi-tenancy)
+  // Menangani gaming-demo.bookinaja.com -> tenantSlug = gaming-demo
+  const tenantSlug = hostname.endsWith(`.${rootDomain}`)
+    ? hostname.replace(`.${rootDomain}`, "")
+    : null;
 
-  if (tenantSlug && tenantSlug !== hostname) {
-    // Rewrite internal ke folder tenant: /[tenantSlug]/path
+  if (tenantSlug) {
+    // Hindari rewrite jika slug adalah 'www'
+    if (tenantSlug === "www") return NextResponse.next();
+
+    // REWRITE INTERNAL: Mengarahkan secara diam-diam ke folder /[tenant]/path
     const rewriteUrl = new URL(`/${tenantSlug}${path}${url.search}`, req.url);
     const response = NextResponse.rewrite(rewriteUrl);
 
-    // --- SMART TENANT IDENTIFICATION ---
-    // Cek apakah cookie slug sudah ada dan sama
+    // --- SMART COOKIE SYNC ---
     const currentSlugCookie = req.cookies.get("current_tenant_slug")?.value;
 
     if (currentSlugCookie !== tenantSlug) {
-      // Pasang cookie slug agar frontend bisa langsung pakai tanpa fetch ulang
+      // Pasang cookie agar interceptor Axios di Frontend langsung dapet slug-nya
       response.cookies.set("current_tenant_slug", tenantSlug, {
         path: "/",
-        maxAge: 60 * 60 * 24, // 24 Jam
-        httpOnly: false, // Biar bisa dibaca client-side (Axios)
+        maxAge: 60 * 60 * 24 * 7, // 1 Minggu
+        httpOnly: false,
         sameSite: "lax",
+        secure: true, // Wajib TRUE di production (HTTPS)
       });
-
-      // Catatan: current_tenant_id akan di-set oleh API saat fetch pertama
-      // atau bisa di-fetch di sini via Edge Function jika benar-benar butuh ID
     }
 
     return response;
@@ -65,7 +71,8 @@ export default async function middleware(req: NextRequest) {
 }
 
 export const config = {
+  // Match semua path kecuali yang di-exclude
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|site.webmanifest|robots.txt).*)",
   ],
 };
