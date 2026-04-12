@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import useSWR from "swr";
 import api from "@/lib/api";
@@ -61,46 +61,56 @@ const FALLBACK_ASSETS: Record<string, any> = {
 export default function TenantPublicLanding() {
   const { tenant: tenantSlug } = useParams();
 
-  // 1. DATA PROFILE (Instan dari Layout Server Context)
+  // 1. Ambil profile dari Context
   const { profile } = useTenant();
 
-  // 2. FETCH RESOURCES PAKE SWR (Optimized for Production)
-  // Kita sertakan slug dalam URL agar SWR otomatis fetch ulang jika subdomain ganti
-  const { data: resourceData, isLoading: loadingResources } = useSWR(
-    profile?.id ? `/public/resources?slug=${tenantSlug}` : null,
+  // 2. FETCH PROFILE SECARA MANDIRI (Untuk Invalidation)
+  // Ini kunci biar kalau context 'stale', halaman ini tetep nge-hit API pake slug URL
+  const { data: freshProfile, mutate: mutateProfile } = useSWR(
+    tenantSlug ? `/public/profile?slug=${tenantSlug}` : null,
     fetcher,
-    {
-      revalidateOnFocus: false, // Jangan spam API saat user pindah tab
-      dedupingInterval: 5000, // Request yang sama dalam 5 detik cuma terbang 1x
-      shouldRetryOnError: true,
-      errorRetryCount: 2,
-    },
+    { revalidateOnMount: true },
+  );
+
+  // Gunakan data terbaru (prioritaskan API jika context kosong)
+  const activeProfile = profile || freshProfile;
+
+  // 3. FETCH RESOURCES
+  const { data: resourceData, isLoading: loadingResources } = useSWR(
+    activeProfile?.id ? `/public/resources?slug=${tenantSlug}` : null,
+    fetcher,
+    { dedupingInterval: 2000 },
   );
 
   const resources = resourceData?.resources || [];
 
-  // 3. THEME LOGIC
+  // --- REFRESH LOGIC ---
+  useEffect(() => {
+    // Jika di URL ada slug tapi profile masih null, coba paksa refresh data
+    if (tenantSlug && !activeProfile) {
+      const timer = setTimeout(() => mutateProfile(), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [tenantSlug, activeProfile, mutateProfile]);
+
   const theme = useMemo(() => {
-    const primary = profile?.primary_color || "#3b82f6";
-    return {
-      primary: primary,
-      bgPrimary: `bg-[${primary}]`,
-      textPrimary: `text-[${primary}]`,
-    };
-  }, [profile]);
+    const primary = activeProfile?.primary_color || "#3b82f6";
+    return { primary };
+  }, [activeProfile]);
 
-  // 4. ADAPTIVE CONTENT LOGIC
   const content = useMemo(() => {
-    const cat = profile?.business_category || "gaming_hub";
+    const cat = activeProfile?.business_category || "gaming_hub";
     const fb = FALLBACK_ASSETS[cat] || FALLBACK_ASSETS.gaming_hub;
-
     return {
-      banner: profile?.banner_url || fb.banner,
-      tagline: profile?.tagline || fb.tagline,
-      description: profile?.about_us || fb.copy,
-      features: profile?.features?.length > 0 ? profile.features : fb.features,
+      banner: activeProfile?.banner_url || fb.banner,
+      tagline: activeProfile?.tagline || fb.tagline,
+      description: activeProfile?.about_us || fb.copy,
+      features:
+        activeProfile?.features?.length > 0
+          ? activeProfile.features
+          : fb.features,
     };
-  }, [profile]);
+  }, [activeProfile]);
 
   const getBestPrice = (resource: any) => {
     const mains = resource.items?.filter(
@@ -116,48 +126,31 @@ export default function TenantPublicLanding() {
     };
   };
 
-  if (!profile) return <NotFoundUI />;
+  if (!activeProfile) return <NotFoundUI />;
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#050505] font-plus-jakarta transition-colors duration-500 selection:bg-blue-500/30">
-      <TenantNavbar profile={profile} tenantSlug={tenantSlug as string} />
+    <div className="min-h-screen bg-white dark:bg-[#050505] font-plus-jakarta transition-colors duration-500">
+      <TenantNavbar profile={activeProfile} tenantSlug={tenantSlug as string} />
+      <TenantHero profile={activeProfile} content={content} theme={theme} />
 
-      <TenantHero profile={profile} content={content} theme={theme} />
-
-      {/* CATALOG SECTION */}
       <section
         id="catalog"
         className="py-24 md:py-48 bg-slate-50 dark:bg-white/[0.01] px-6 relative overflow-hidden"
       >
-        <div
-          className="absolute -left-20 top-40 h-[400px] w-[400px] opacity-[0.02] blur-[100px] pointer-events-none rounded-full"
-          style={{ backgroundColor: theme.primary }}
-        />
-
         <div className="container mx-auto max-w-7xl">
           <div className="mb-24 space-y-6 text-center md:text-left px-4">
-            <div className="flex items-center justify-center md:justify-start gap-4">
-              <div
-                className="h-1.5 w-12 rounded-full"
-                style={{ backgroundColor: theme.primary }}
-              />
-              <span className="text-[11px] font-[1000] uppercase tracking-[0.5em] text-slate-400 italic">
-                Experience Hub
-              </span>
-            </div>
-            <h2 className="text-6xl md:text-9xl font-[1000] uppercase italic tracking-tighter leading-[0.8] text-slate-950 dark:text-white">
+            <h2 className="text-6xl md:text-9xl font-[1000] uppercase italic tracking-tighter leading-[0.8]">
               Ready to <span style={{ color: theme.primary }}>Book.</span>
             </h2>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 px-4">
             {loadingResources
-              ? Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="space-y-4">
-                    <Skeleton className="h-[300px] w-full rounded-[2rem] bg-slate-200 dark:bg-white/5" />
-                    <Skeleton className="h-6 w-2/3 bg-slate-200 dark:bg-white/5" />
-                    <Skeleton className="h-4 w-1/2 bg-slate-200 dark:bg-white/5" />
-                  </div>
+              ? Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton
+                    key={i}
+                    className="h-[300px] w-full rounded-[2rem]"
+                  />
                 ))
               : resources.map((res: any) => (
                   <ResourceCard
@@ -172,11 +165,10 @@ export default function TenantPublicLanding() {
       </section>
 
       <GallerySection
-        images={profile.gallery || []}
+        images={activeProfile.gallery || []}
         primaryColor={theme.primary}
       />
-
-      <TenantFooter profile={profile} primaryColor={theme.primary} />
+      <TenantFooter profile={activeProfile} primaryColor={theme.primary} />
     </div>
   );
 }
@@ -185,25 +177,35 @@ function NotFoundUI() {
   return (
     <div className="min-h-screen bg-[#050505] flex items-center justify-center text-white p-6">
       <div className="text-center space-y-10">
-        <h1 className="text-[15rem] font-[1000] italic opacity-5 leading-none select-none">
+        <h1 className="text-[10rem] md:text-[15rem] font-[1000] italic opacity-5 leading-none">
           404
         </h1>
-        <div className="space-y-3 relative z-10 -mt-20">
-          <p className="font-black uppercase tracking-[0.6em] text-red-500 text-sm">
+        <div className="space-y-3 relative z-10 -mt-10 md:-mt-20">
+          <p className="font-black uppercase tracking-[0.6em] text-red-500 text-sm md:text-base">
             Station Offline
           </p>
-          <p className="text-slate-500 font-bold italic text-xs uppercase tracking-widest">
-            Target business hub not found in our database.
+          <p className="text-slate-500 font-bold italic text-[10px] md:text-xs uppercase tracking-widest px-4">
+            Target business hub not found in our database or activation is in
+            progress.
           </p>
         </div>
-        <Link href="/" className="inline-block relative z-10">
+        <div className="flex flex-col items-center gap-4">
+          <Link href="/" className="inline-block relative z-10">
+            <Button
+              variant="outline"
+              className="rounded-full h-16 px-12 font-black italic uppercase border-white/10 hover:bg-white hover:text-black transition-all"
+            >
+              Abort Mission
+            </Button>
+          </Link>
           <Button
-            variant="outline"
-            className="rounded-full h-16 px-12 font-black italic uppercase tracking-widest border-white/10 hover:bg-white hover:text-black transition-all shadow-2xl"
+            onClick={() => window.location.reload()}
+            variant="ghost"
+            className="text-slate-500 text-[10px] font-black italic uppercase"
           >
-            Abort Mission
+            Force Reconnect
           </Button>
-        </Link>
+        </div>
       </div>
     </div>
   );
