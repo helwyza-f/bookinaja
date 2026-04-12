@@ -70,8 +70,9 @@ export default function TenantPublicLanding() {
     profile?.id ? "/public/resources" : null,
     fetcher,
     {
-      revalidateOnFocus: false, // Jangan fetch ulang tiap ganti tab browser
-      dedupingInterval: 10000, // Request yang sama dalam 10 detik cuma terbang 1x
+      revalidateOnFocus: true,
+      revalidateOnMount: true,
+      dedupingInterval: 0, // Matikan deduplikasi biar log muncul terus
     },
   );
 
