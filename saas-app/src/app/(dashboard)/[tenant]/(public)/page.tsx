@@ -64,15 +64,16 @@ export default function TenantPublicLanding() {
   // 1. DATA PROFILE (Instan dari Layout Server Context)
   const { profile } = useTenant();
 
-  // 2. FETCH RESOURCES PAKE SWR (Deduplication & Caching)
-  // SWR otomatis handle loading, error, dan caching di level browser
+  // 2. FETCH RESOURCES PAKE SWR (Optimized for Production)
+  // Kita sertakan slug dalam URL agar SWR otomatis fetch ulang jika subdomain ganti
   const { data: resourceData, isLoading: loadingResources } = useSWR(
-    profile?.id ? "/public/resources" : null,
+    profile?.id ? `/public/resources?slug=${tenantSlug}` : null,
     fetcher,
     {
-      revalidateOnFocus: true,
-      revalidateOnMount: true,
-      dedupingInterval: 0, // Matikan deduplikasi biar log muncul terus
+      revalidateOnFocus: false, // Jangan spam API saat user pindah tab
+      dedupingInterval: 5000, // Request yang sama dalam 5 detik cuma terbang 1x
+      shouldRetryOnError: true,
+      errorRetryCount: 2,
     },
   );
 

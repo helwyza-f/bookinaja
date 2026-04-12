@@ -10,7 +10,6 @@ const api = axios.create({
   withCredentials: true,
 });
 
-// Variable pengunci agar tidak terjadi multiple request tenant-id
 let isResolvingTenant = false;
 
 api.interceptors.request.use((config) => {
@@ -20,39 +19,36 @@ api.interceptors.request.use((config) => {
 
   if (token) config.headers.Authorization = `Bearer ${token}`;
 
-  // 1. JALUR VIP: Sudah punya Tenant ID
-  if (tenantId) {
+  // 1. JALUR VIP: Jika ID sudah valid, gunakan Header
+  if (tenantId && tenantId !== "undefined" && tenantId !== "") {
     config.headers["X-Tenant-ID"] = tenantId as string;
   }
 
-  // 2. JALUR FALLBACK: Belum punya ID, pakai Slug
-  else if (tenantSlug) {
-    // Tempelkan slug ke params (Cukup sekali di sini, jangan tulis manual di URL lagi)
-    config.params = { ...config.params, slug: tenantSlug };
+  // 2. JALUR FALLBACK: Jika ID belum ada, pakai Slug
+  if (tenantSlug) {
+    // Tempelkan slug ke params hanya untuk request GET (Biar log bersih)
+    if (config.method?.toLowerCase() === "get") {
+      config.params = { ...config.params, slug: tenantSlug };
+    }
 
-    // 3. SILENT RESOLVER (Background)
-    // Cek apakah sudah ada request tenant-id yang lagi jalan?
-    if (!isResolvingTenant) {
-      isResolvingTenant = true; // Kunci pintu!
+    // 3. SILENT RESOLVER: Ambil ID di background buat request berikutnya
+    if (!tenantId && !isResolvingTenant) {
+      isResolvingTenant = true;
 
-      // Gunakan axios instance baru biar gak kena interceptor ini (mencegah loop)
       axios
-        .get(`${baseURL}/public/tenant-id`, {
-          params: { slug: tenantSlug },
-        })
+        .get(`${baseURL}/public/tenant-id`, { params: { slug: tenantSlug } })
         .then((res) => {
           if (res.data?.id) {
             setCookie("current_tenant_id", res.data.id, {
-              maxAge: 60 * 60 * 24,
+              maxAge: 60 * 60 * 24 * 7,
               path: "/",
             });
           }
         })
         .catch(() => {
-          console.warn("Silent lookup failed, continuing with slug fallback.");
+          console.warn("[API] Silent lookup failed for:", tenantSlug);
         })
         .finally(() => {
-          // Jangan langsung buka kunci, kasih jeda biar cookie sempat ter-set
           setTimeout(() => {
             isResolvingTenant = false;
           }, 1000);

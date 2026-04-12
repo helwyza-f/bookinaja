@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export default async function middleware(req: NextRequest) {
+export default async function proxy(req: NextRequest) {
   const url = req.nextUrl;
   const path = url.pathname;
 
-  // 1. HARD FILTER: Abaikan asset statis & internal (Regex diperketat)
+  // 1. HARD FILTER: Abaikan asset statis & internal
   const isStaticFile = /\.(.*)$/.test(path);
   if (
     path.startsWith("/_next") ||
@@ -18,7 +18,6 @@ export default async function middleware(req: NextRequest) {
   }
 
   const host = req.headers.get("host") || "";
-  // Pastikan ini terambil dari ENV Prod: 'bookinaja.com'
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "bookinaja.local";
   const hostname = host.split(":")[0];
 
@@ -33,12 +32,10 @@ export default async function middleware(req: NextRequest) {
   }
 
   // 3. LOGIKA TENANT SLUG
-  // Menangani gaming-demo.bookinaja.com -> gaming-demo
   const tenantSlug = hostname.endsWith(`.${rootDomain}`)
     ? hostname.replace(`.${rootDomain}`, "")
     : null;
 
-  // List folder internal yang tidak boleh dianggap sebagai slug
   const reservedKeywords = [
     "admin",
     "me",
@@ -53,27 +50,28 @@ export default async function middleware(req: NextRequest) {
     tenantSlug !== "www" &&
     !reservedKeywords.includes(tenantSlug)
   ) {
-    // REWRITE: Diam-diam arahkan ke folder /[tenant]/path
     const rewriteUrl = new URL(`/${tenantSlug}${path}${url.search}`, req.url);
     const response = NextResponse.rewrite(rewriteUrl);
 
-    // --- COOKIE SYNC (VIP PATH) ---
+    // --- FIX: IDENTITAS TERTUKAR (Cookie Sync) ---
     const currentSlugCookie = req.cookies.get("current_tenant_slug")?.value;
 
     if (currentSlugCookie !== tenantSlug) {
       const isProd = process.env.NODE_ENV === "production";
-      // Ambil domain kuki dari ENV yang lo set di GitHub (.bookinaja.com)
       const cookieDomain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN;
 
+      // Update Slug Baru
       response.cookies.set("current_tenant_slug", tenantSlug, {
         path: "/",
-        maxAge: 60 * 60 * 24 * 7, // 1 Minggu
-        httpOnly: false, // Penting agar Axios Client bisa baca
+        maxAge: 60 * 60 * 24 * 7,
+        httpOnly: false,
         sameSite: "lax",
         secure: isProd,
-        // Gunakan domain wildcard jika di Prod agar bisa diakses api.bookinaja.com
         ...(isProd && cookieDomain ? { domain: cookieDomain } : {}),
       });
+
+      // PENTING: Hapus ID tenant lama agar tidak terjadi salah alamat data!
+      response.cookies.delete("current_tenant_id");
     }
 
     return response;
