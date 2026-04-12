@@ -5,8 +5,7 @@ export default async function proxy(req: NextRequest) {
   const url = req.nextUrl;
   const path = url.pathname;
 
-  // 1. HARD FILTER: Abaikan semua asset statis, API internal, dan Next.js internals
-  // Kita tambahkan pengecekan file extension yang lebih ketat agar tidak masuk ke logic Tenant
+  // 1. HARD FILTER: Abaikan asset statis & internal
   const isStaticFile = /\.(.*)$/.test(path);
   if (
     path.startsWith("/_next") ||
@@ -19,14 +18,10 @@ export default async function proxy(req: NextRequest) {
   }
 
   const host = req.headers.get("host") || "";
-  // Ambil Root Domain dari ENV (Pastikan di IDCloudHost isinya 'bookinaja.com')
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "bookinaja.com";
-
-  // Ambil hostname murni (tanpa port)
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "bookinaja.local";
   const hostname = host.split(":")[0];
 
-  // 2. BYPASS SUBDOMAIN SISTEM
-  // Tambahkan 'www' dan 'api' ke pengecualian utama
+  // 2. BYPASS DOMAIN UTAMA
   if (
     hostname === rootDomain ||
     hostname === `www.${rootDomain}` ||
@@ -36,31 +31,29 @@ export default async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 3. LOGIKA SUBDOMAIN TENANT (Multi-tenancy)
-  // Menangani gaming-demo.bookinaja.com -> tenantSlug = gaming-demo
+  // 3. LOGIKA TENANT SLUG
   const tenantSlug = hostname.endsWith(`.${rootDomain}`)
     ? hostname.replace(`.${rootDomain}`, "")
     : null;
 
-  if (tenantSlug) {
-    // Hindari rewrite jika slug adalah 'www'
-    if (tenantSlug === "www") return NextResponse.next();
-
-    // REWRITE INTERNAL: Mengarahkan secara diam-diam ke folder /[tenant]/path
+  if (tenantSlug && tenantSlug !== "www") {
     const rewriteUrl = new URL(`/${tenantSlug}${path}${url.search}`, req.url);
     const response = NextResponse.rewrite(rewriteUrl);
 
-    // --- SMART COOKIE SYNC ---
+    // --- FIX COOKIE GAK MUNCUL ---
     const currentSlugCookie = req.cookies.get("current_tenant_slug")?.value;
 
     if (currentSlugCookie !== tenantSlug) {
-      // Pasang cookie agar interceptor Axios di Frontend langsung dapet slug-nya
+      // Deteksi apakah ini produksi atau local dev
+      const isProd = process.env.NODE_ENV === "production";
+
       response.cookies.set("current_tenant_slug", tenantSlug, {
         path: "/",
-        maxAge: 60 * 60 * 24 * 7, // 1 Minggu
-        httpOnly: false,
+        maxAge: 60 * 60 * 24 * 7,
+        httpOnly: false, // Biar bisa dibaca Axios
         sameSite: "lax",
-        secure: true, // Wajib TRUE di production (HTTPS)
+        // PENTING: Jangan set TRUE di localhost karena bakal diblokir browser
+        secure: isProd,
       });
     }
 
@@ -71,7 +64,6 @@ export default async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  // Match semua path kecuali yang di-exclude
   matcher: [
     "/((?!api|_next/static|_next/image|favicon.ico|site.webmanifest|robots.txt).*)",
   ],

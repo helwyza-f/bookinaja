@@ -44,6 +44,21 @@ func (h *Handler) GetPublicDetail(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
+// GetByID mengambil satu detail resource untuk dashboard admin
+func (h *Handler) GetByID(c *gin.Context) {
+	id := c.Param("id")
+	
+	// Kita gunakan fungsi yang sama dengan public detail karena 
+	// strukturnya identik (Resource + Items), tapi lewat jalur admin.
+	res, err := h.service.GetResourceDetail(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Resource tidak ditemukan"})
+		return
+	}
+
+	c.JSON(http.StatusOK, res)
+}
+
 // --- ADMIN ENDPOINTS (Auth Required) ---
 
 // Create menangani pembuatan unit utama (POST /api/v1/resources-all)

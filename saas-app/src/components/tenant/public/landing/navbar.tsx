@@ -51,14 +51,14 @@ export function TenantNavbar({ profile }: any) {
                 alt="Logo"
               />
             ) : (
-              <span className="font-black italic text-lg md:text-xl">
+              <span className="font-black italic text-lg md:text-xl ">
                 {profile.name.charAt(0)}
               </span>
             )}
           </div>
 
           <div className="flex flex-col leading-none">
-            <span className="font-[1000] uppercase italic tracking-tighter text-base md:text-2xl text-slate-950 dark:text-white truncate max-w-[120px] md:max-w-none">
+            <span className="font-[1000] uppercase italic tracking-tighter text-base md:text-2xl text-slate-950 dark:text-white truncate max-w-[120px] md:max-w-none md:pr-3">
               {profile.name}
             </span>
             <div className="flex items-center gap-1.5 md:gap-2 mt-1">

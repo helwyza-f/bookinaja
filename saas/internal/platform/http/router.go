@@ -111,6 +111,7 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 				resources := adminArea.Group("/resources-all")
 				{
 					resources.GET("", cfg.ResourceHandler.List)
+					resources.GET("/:id", cfg.ResourceHandler.GetByID)
 					resources.POST("", cfg.ResourceHandler.Create)
 					resources.PUT("/:id", cfg.ResourceHandler.Update)
 					resources.DELETE("/:id", cfg.ResourceHandler.Delete)

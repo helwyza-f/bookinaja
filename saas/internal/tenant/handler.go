@@ -40,6 +40,7 @@ func (h *Handler) GetIDBySlug(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"id": tenantID})
 }
 
+
 // GetPublicProfile Baru: Khusus ambil data brand & tema (Gak pake join tabel berat)
 func (h *Handler) GetPublicProfile(c *gin.Context) {
 	slug := h.extractSlug(c)
