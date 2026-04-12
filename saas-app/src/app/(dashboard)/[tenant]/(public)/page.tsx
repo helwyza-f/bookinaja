@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useMemo } from "react";
 import { useParams } from "next/navigation";
+import useSWR from "swr";
 import api from "@/lib/api";
-import { useTenant } from "@/context/tenant-context"; // Custom Hook Context
+import { useTenant } from "@/context/tenant-context";
 import { TenantNavbar } from "@/components/tenant/public/landing/navbar";
 import { TenantHero } from "@/components/tenant/public/landing/hero";
 import { ResourceCard } from "@/components/tenant/public/landing/resource-card";
@@ -12,7 +13,9 @@ import { GallerySection } from "@/components/tenant/public/landing/gallery-secti
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+
+// Fetcher universal untuk SWR
+const fetcher = (url: string) => api.get(url).then((res) => res.data);
 
 const FALLBACK_ASSETS: Record<string, any> = {
   gaming_hub: {
@@ -27,6 +30,25 @@ const FALLBACK_ASSETS: Record<string, any> = {
       "240Hz Monitor",
     ],
   },
+  creative_space: {
+    banner:
+      "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=2070",
+    tagline: "Unlimited Creativity",
+    copy: "Ruang estetik dengan pencahayaan profesional untuk mendukung setiap karya kreatif Anda.",
+    features: [
+      "Pro Lighting",
+      "Set Aesthetic",
+      "High-End Camera",
+      "Private Studio",
+    ],
+  },
+  sport_center: {
+    banner:
+      "https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?q=80&w=2070",
+    tagline: "World Class Facility",
+    copy: "Fasilitas olahraga standar internasional dengan sistem booking yang mudah dan transparan.",
+    features: ["Vinyl Court", "Locker Room", "Standard Inter", "Training Gear"],
+  },
   social_space: {
     banner:
       "https://images.unsplash.com/photo-1527192491265-7e15c55b1ed2?q=80&w=2070",
@@ -39,33 +61,23 @@ const FALLBACK_ASSETS: Record<string, any> = {
 export default function TenantPublicLanding() {
   const { tenant: tenantSlug } = useParams();
 
-  // 1. AMBIL DATA DARI CONTEXT (Instan dari Layout Server)
+  // 1. DATA PROFILE (Instan dari Layout Server Context)
   const { profile } = useTenant();
 
-  // 2. STATE GRANULAR UNTUK DATA BERAT
-  const [resources, setResources] = useState<any[]>([]);
-  const [loadingResources, setLoadingResources] = useState(true);
+  // 2. FETCH RESOURCES PAKE SWR (Deduplication & Caching)
+  // SWR otomatis handle loading, error, dan caching di level browser
+  const { data: resourceData, isLoading: loadingResources } = useSWR(
+    profile?.id ? "/public/resources" : null,
+    fetcher,
+    {
+      revalidateOnFocus: false, // Jangan fetch ulang tiap ganti tab browser
+      dedupingInterval: 10000, // Request yang sama dalam 10 detik cuma terbang 1x
+    },
+  );
 
-  useEffect(() => {
-    // Force smooth scroll behavior
-    document.documentElement.style.scrollBehavior = "smooth";
+  const resources = resourceData?.resources || [];
 
-    // 3. FETCH GRANULAR (Hanya Resources)
-    // Interceptor api.ts akan otomatis kirim X-Tenant-ID (VIP Path)
-    // karena request profile di layout sudah memicu silent lookup ID.
-    if (profile?.id) {
-      api
-        .get("/public/resources")
-        .then((res) => {
-          // Response handler backend baru lo mengembalikan { resources: [...] }
-          setResources(res.data.resources || []);
-        })
-        .catch((err) => console.error("Failed to load resources:", err))
-        .finally(() => setLoadingResources(false));
-    }
-  }, [profile]);
-
-  // 4. THEME LOGIC (Instant - No Loading)
+  // 3. THEME LOGIC
   const theme = useMemo(() => {
     const primary = profile?.primary_color || "#3b82f6";
     return {
@@ -75,7 +87,7 @@ export default function TenantPublicLanding() {
     };
   }, [profile]);
 
-  // 5. CONTENT LOGIC (Instant)
+  // 4. ADAPTIVE CONTENT LOGIC
   const content = useMemo(() => {
     const cat = profile?.business_category || "gaming_hub";
     const fb = FALLBACK_ASSETS[cat] || FALLBACK_ASSETS.gaming_hub;
@@ -102,12 +114,12 @@ export default function TenantPublicLanding() {
     };
   };
 
-  // Jika profile benar-benar gagal dapet (404 dari Server)
   if (!profile) return <NotFoundUI />;
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#050505] font-plus-jakarta transition-colors duration-500 selection:bg-blue-500/30">
       <TenantNavbar profile={profile} tenantSlug={tenantSlug as string} />
+
       <TenantHero profile={profile} content={content} theme={theme} />
 
       {/* CATALOG SECTION */}
@@ -138,12 +150,11 @@ export default function TenantPublicLanding() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 px-4">
             {loadingResources
-              ? // SKELETON UI: Menjaga layout tetap rapi saat loading resources
-                Array.from({ length: 6 }).map((_, i) => (
+              ? Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="space-y-4">
-                    <Skeleton className="h-[300px] w-full rounded-[2rem]" />
-                    <Skeleton className="h-6 w-2/3" />
-                    <Skeleton className="h-4 w-1/2" />
+                    <Skeleton className="h-[300px] w-full rounded-[2rem] bg-slate-200 dark:bg-white/5" />
+                    <Skeleton className="h-6 w-2/3 bg-slate-200 dark:bg-white/5" />
+                    <Skeleton className="h-4 w-1/2 bg-slate-200 dark:bg-white/5" />
                   </div>
                 ))
               : resources.map((res: any) => (
@@ -162,12 +173,11 @@ export default function TenantPublicLanding() {
         images={profile.gallery || []}
         primaryColor={theme.primary}
       />
+
       <TenantFooter profile={profile} primaryColor={theme.primary} />
     </div>
   );
 }
-
-// --- SUB-COMPONENTS ---
 
 function NotFoundUI() {
   return (

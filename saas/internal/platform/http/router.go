@@ -146,6 +146,9 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 					fnbGroup.POST("", cfg.FnbHandler.CreateItem)
 					fnbGroup.PUT("/:id", cfg.FnbHandler.UpdateItem)
 					fnbGroup.DELETE("/:id", cfg.FnbHandler.DeleteItem)
+					fnbGroup.POST("/upload", func(c *gin.Context) {
+						HandleSingleUpload(c, "fnb")
+					})
 				}
 
 				// CRM & Analytics

@@ -62,7 +62,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
           isCollapsed ? "justify-center" : "justify-start bg-slate-900/40",
         )}
       >
-        <Link href="/admin/dashboard" className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 shadow-lg border-b-4 border-blue-800">
             <Zap className="h-5 w-5 text-white fill-white" />
           </div>
