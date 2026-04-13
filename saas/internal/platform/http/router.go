@@ -124,6 +124,9 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 					resources.POST("/upload-cover", func(c *gin.Context) {
 						HandleSingleUpload(c, "resources/covers")
 					})
+					resources.POST("/upload-gallery", func(c *gin.Context) {
+						HandleBulkUpload(c, "resources/gallery")
+					})
 				}
 
 				// POS & Reservation System

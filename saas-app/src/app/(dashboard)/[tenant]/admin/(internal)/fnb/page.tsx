@@ -15,7 +15,11 @@ import {
   PackageSearch,
   ChevronRight,
   Utensils,
-  Camera,
+  Coffee,
+  CheckCircle2,
+  Zap,
+  Clock,
+  Image as ImageIcon,
 } from "lucide-react";
 import {
   Dialog,
@@ -35,30 +39,22 @@ import { SingleImageUpload } from "@/components/upload/single-image-upload";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
-// --- KOMPONEN SKELETON ---
+// --- KOMPONEN SKELETON COMPACT ---
 function FnbSkeleton() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      {[1, 2, 3, 4].map((i) => (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+      {[...Array(12)].map((_, i) => (
         <Card
           key={i}
-          className="rounded-3xl border-none bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-100 dark:ring-white/5 overflow-hidden"
+          className="rounded-2xl border-none bg-white dark:bg-slate-900 shadow-sm overflow-hidden h-64"
         >
-          <Skeleton className="aspect-video w-full dark:bg-slate-800" />
-          <CardContent className="p-5 space-y-4">
-            <div className="space-y-2">
-              <Skeleton className="h-5 w-3/4 dark:bg-slate-800" />
-              <Skeleton className="h-3 w-full dark:bg-slate-800" />
-            </div>
-            <div className="flex justify-between items-center pt-2">
-              <Skeleton className="h-6 w-20 dark:bg-slate-800" />
-              <div className="flex gap-2">
-                <Skeleton className="h-8 w-8 rounded-lg dark:bg-slate-800" />
-                <Skeleton className="h-8 w-8 rounded-lg dark:bg-slate-800" />
-              </div>
-            </div>
-          </CardContent>
+          <Skeleton className="aspect-square w-full dark:bg-slate-800" />
+          <div className="p-3 space-y-2">
+            <Skeleton className="h-4 w-3/4 dark:bg-slate-800" />
+            <Skeleton className="h-3 w-1/2 dark:bg-slate-800" />
+          </div>
         </Card>
       ))}
     </div>
@@ -84,7 +80,7 @@ export default function FnbManagementPage() {
       const res = await api.get("/fnb");
       setItems(res.data || []);
     } catch (err) {
-      toast.error("GAGAL MEMUAT KATALOG");
+      toast.error("Gagal sinkronisasi katalog");
     } finally {
       setLoading(false);
     }
@@ -107,16 +103,14 @@ export default function FnbManagementPage() {
         ...item,
         is_available: !originalStatus,
       });
-      toast.success(
-        `${item.name} KINI ${!originalStatus ? "TERSEDIA" : "HABIS"}`,
-      );
+      toast.success(`${item.name} status updated`);
     } catch (err) {
       setItems((prev) =>
         prev.map((i) =>
           i.id === item.id ? { ...i, is_available: originalStatus } : i,
         ),
       );
-      toast.error("GAGAL UPDATE STATUS");
+      toast.error("Gagal update stok");
     }
   };
 
@@ -134,27 +128,27 @@ export default function FnbManagementPage() {
     try {
       if (editingId) {
         await api.put(`/fnb/${editingId}`, payload);
-        toast.success("MENU DIPERBARUI");
+        toast.success("MENU UPDATED");
       } else {
         await api.post("/fnb", payload);
-        toast.success("MENU BARU DITAMBAHKAN");
+        toast.success("NEW ITEM ADDED");
       }
       setOpen(false);
       resetForm();
       fetchMenu();
     } catch (err) {
-      toast.error("GAGAL MENYIMPAN");
+      toast.error("Gagal menyimpan data");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Hapus item ini dari katalog?")) return;
+    if (!confirm("Hapus item ini selamanya?")) return;
     try {
       await api.delete(`/fnb/${id}`);
-      toast.success("ITEM DIHAPUS");
+      toast.success("Item removed");
       fetchMenu();
     } catch (err) {
-      toast.error("GAGAL MENGHAPUS");
+      toast.error("Gagal menghapus");
     }
   };
 
@@ -171,16 +165,21 @@ export default function FnbManagementPage() {
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-10 pb-32 animate-in fade-in duration-700 font-plus-jakarta px-4 mt-10 text-slate-900 dark:text-slate-100">
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b-2 border-slate-100 dark:border-white/5 pb-10">
-        <div className="space-y-2">
-          <h1 className="text-4xl md:text-6xl font-black tracking-tighter uppercase italic pr-6 leading-none">
-            Menu <span className="text-blue-600">Library</span>
-          </h1>
-          <p className="text-slate-400 dark:text-slate-500 font-bold text-[10px] uppercase tracking-[0.3em] italic pr-2">
-            {items.length} Total Items in Catalog
-          </p>
+    <div className="max-w-[1600px] mx-auto space-y-6 pb-32 animate-in fade-in duration-500 font-plus-jakarta px-4 mt-6">
+      {/* 1. COMPACT HEADER */}
+      <div className="flex flex-row items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-6 gap-4">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-xl shadow-blue-500/20">
+            <Coffee size={20} fill="currentColor" />
+          </div>
+          <div className="flex flex-col">
+            <h1 className="text-2xl md:text-4xl font-[1000] italic uppercase tracking-tighter text-slate-950 dark:text-white leading-none">
+              Menu <span className="text-blue-600">Library.</span>
+            </h1>
+            <p className="hidden sm:block text-[8px] font-black text-slate-400 uppercase tracking-[0.4em] italic mt-1.5">
+              {items.length} Products Registered
+            </p>
+          </div>
         </div>
 
         <Dialog
@@ -191,41 +190,42 @@ export default function FnbManagementPage() {
           }}
         >
           <DialogTrigger asChild>
-            <Button className="h-14 px-8 rounded-2xl bg-slate-950 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-500 shadow-xl transition-all active:scale-95 gap-3 border-b-4 border-slate-800 dark:border-blue-800">
-              <Plus className="h-5 w-5 text-blue-400 dark:text-white stroke-[3]" />
-              <span className="font-black uppercase tracking-widest text-[11px] italic text-white pr-1">
-                Add New Item
-              </span>
+            <Button className="h-12 px-6 rounded-2xl bg-slate-950 dark:bg-blue-600 text-white font-black uppercase italic text-[10px] shadow-lg border-b-4 border-slate-800 dark:border-blue-800 gap-2 transition-all active:scale-95">
+              <Plus size={16} strokeWidth={4} /> Add Item
             </Button>
           </DialogTrigger>
 
-          <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 overflow-hidden border-none bg-white dark:bg-slate-950 rounded-[2.5rem] shadow-2xl ring-1 ring-black/5 dark:ring-white/10">
-            <div className="flex flex-col md:flex-row w-full max-h-[90vh]">
-              {/* Left Side: Photo Area */}
-              <div className="w-full md:w-5/12 bg-slate-50 dark:bg-slate-900/50 p-8 md:p-10 flex flex-col border-b md:border-b-0 md:border-r border-slate-100 dark:border-white/5">
-                <div className="space-y-8 flex-1 flex flex-col justify-center">
-                  <DialogHeader className="text-left shrink-0">
-                    <DialogTitle className="text-3xl font-black uppercase italic tracking-tighter leading-none dark:text-white">
-                      {editingId ? "Modify" : "Register"}{" "}
-                      <span className="text-blue-600">Product</span>
-                    </DialogTitle>
-                  </DialogHeader>
+          <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 overflow-hidden border-none bg-white dark:bg-slate-950 rounded-[2.5rem] shadow-2xl">
+            <VisuallyHidden.Root>
+              <DialogHeader>
+                <DialogTitle>Menu Editor</DialogTitle>
+              </DialogHeader>
+            </VisuallyHidden.Root>
 
-                  {/* Container Upload - Diperbaiki agar tidak nabrak */}
-                  <div className="relative aspect-square w-full rounded-[2.5rem] overflow-hidden shadow-2xl ring-4 ring-white dark:ring-slate-800 bg-slate-200 dark:bg-slate-800 group/upload flex items-center justify-center p-4">
-                    <div className="w-full h-full">
-                      <SingleImageUpload
-                        value={imageUrl}
-                        onChange={setImageUrl}
-                        endpoint="/fnb/upload"
-                        // Hilangkan label atau placeholder manual di sini jika SingleImageUpload sudah punya UI sendiri
-                      />
-                    </div>
+            <div className="flex flex-col md:flex-row w-full max-h-[90vh]">
+              {/* Left Side: Media Area - FIXED & CLEAN */}
+              <div className="w-full md:w-5/12 bg-slate-50 dark:bg-slate-900/50 p-8 md:p-10 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-slate-100 dark:border-white/5">
+                <div className="space-y-6 w-full max-w-[320px]">
+                  <div className="text-center md:text-left">
+                    <h2 className="text-2xl font-[1000] uppercase italic tracking-tighter dark:text-white leading-none">
+                      Product <span className="text-blue-600">Media</span>
+                    </h2>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase mt-2 tracking-widest italic">
+                      Ratio 1:1 Recommended
+                    </p>
                   </div>
 
-                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase italic tracking-tighter text-center leading-relaxed">
-                    Recommended: Square ratio (1:1) with high resolution for
-                    best terminal display.
+                  {/* Kontainer Upload - Bersih Tanpa Inner Padding Berlebih */}
+                  <div className="p-4 w-full rounded-[2.5rem] overflow-hidden bg-white dark:bg-slate-800 shadow-2xl ring-4 ring-white dark:ring-slate-900 group/upload relative">
+                    <SingleImageUpload
+                      value={imageUrl}
+                      onChange={setImageUrl}
+                      endpoint="/fnb/upload"
+                    />
+                  </div>
+
+                  <p className="text-[9px] text-center text-slate-400 font-bold uppercase italic px-4 leading-relaxed">
+                    Click the box above to upload or drag your product photo.
                   </p>
                 </div>
               </div>
@@ -241,11 +241,12 @@ export default function FnbManagementPage() {
                       <Input
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="EX: ICED AMERICANO"
+                        placeholder="EX: CHICKEN PARMESAN"
                         className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-black italic uppercase px-6 focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-white shadow-inner"
                         required
                       />
                     </div>
+
                     <div className="grid grid-cols-2 gap-5">
                       <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-600 italic tracking-widest ml-1">
@@ -257,7 +258,7 @@ export default function FnbManagementPage() {
                             setPrice(e.target.value.replace(/\D/g, ""))
                           }
                           placeholder="0"
-                          className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-black italic text-blue-600 dark:text-blue-400 px-6 focus-visible:ring-2 focus-visible:ring-blue-600 shadow-inner"
+                          className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-black italic text-blue-600 dark:text-blue-400 px-6 shadow-inner focus-visible:ring-2 focus-visible:ring-blue-600"
                           required
                         />
                       </div>
@@ -269,7 +270,7 @@ export default function FnbManagementPage() {
                           <SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-black italic text-[11px] uppercase px-6 focus:ring-2 focus:ring-blue-600 dark:text-white shadow-inner">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="rounded-xl border-none shadow-2xl font-black uppercase italic dark:bg-slate-800">
+                          <SelectContent className="rounded-xl border-none shadow-2xl font-black uppercase italic">
                             <SelectItem value="Food">Food</SelectItem>
                             <SelectItem value="Drink">Drink</SelectItem>
                             <SelectItem value="Snack">Snack</SelectItem>
@@ -277,24 +278,26 @@ export default function FnbManagementPage() {
                         </Select>
                       </div>
                     </div>
+
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-600 italic tracking-widest ml-1">
-                        Description
+                        Short Description
                       </Label>
                       <Textarea
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         className="rounded-2xl bg-slate-50 dark:bg-slate-900 border-none min-h-[140px] p-6 font-medium text-sm focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-white shadow-inner"
-                        placeholder="Explain ingredients, taste, or size..."
+                        placeholder="Explain flavor, size, or ingredients..."
                       />
                     </div>
                   </div>
+
                   <Button
                     type="submit"
-                    className="w-full h-16 rounded-[1.5rem] bg-slate-950 dark:bg-blue-600 hover:bg-slate-900 dark:hover:bg-blue-500 font-black uppercase italic text-[12px] tracking-[0.2em] shadow-2xl border-b-4 border-slate-800 dark:border-blue-800 gap-3 transition-all active:scale-[0.98]"
+                    className="w-full h-16 rounded-[1.5rem] bg-blue-600 hover:bg-blue-500 text-white font-[1000] uppercase italic text-xs tracking-[0.2em] shadow-2xl border-b-8 border-blue-800 active:border-b-0 gap-3 transition-all active:scale-[0.98]"
                   >
-                    {editingId ? "Update Item" : "Save to Catalog"}
-                    <ChevronRight className="h-5 w-5" />
+                    {editingId ? "Update Product" : "Commit to Catalog"}
+                    <ChevronRight size={18} strokeWidth={4} />
                   </Button>
                 </form>
               </div>
@@ -303,20 +306,20 @@ export default function FnbManagementPage() {
         </Dialog>
       </div>
 
-      {/* GRID AREA */}
+      {/* 2. GRID AREA - HIGH DENSITY */}
       {loading ? (
         <FnbSkeleton />
       ) : items.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 animate-in slide-in-from-bottom-2 duration-500">
           {items.map((item) => (
             <Card
               key={item.id}
               className={cn(
-                "group rounded-[2rem] border-none shadow-sm hover:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] transition-all duration-500 bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5 overflow-hidden flex flex-col relative",
-                !item.is_available && "opacity-70 grayscale-[0.4]",
+                "group rounded-2xl border-[0.5px] border-slate-200 dark:border-white/5 transition-all duration-300 bg-white dark:bg-slate-900 overflow-hidden flex flex-col relative",
+                !item.is_available && "opacity-60 grayscale-[0.5]",
               )}
             >
-              <div className="aspect-[4/3] w-full bg-slate-100 dark:bg-slate-800 relative overflow-hidden">
+              <div className="aspect-square w-full bg-slate-100 dark:bg-slate-800 relative overflow-hidden">
                 {item.image_url ? (
                   <img
                     src={item.image_url}
@@ -324,67 +327,54 @@ export default function FnbManagementPage() {
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-200 dark:text-slate-700">
-                    <Utensils className="h-12 w-12 opacity-20" />
+                  <div className="w-full h-full flex items-center justify-center opacity-10">
+                    <Utensils size={40} />
                   </div>
                 )}
 
-                {/* Stock Toggle Overlay */}
-                <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/60 backdrop-blur-md p-2 px-3 rounded-xl shadow-2xl border border-white/10">
-                  <span className="text-[9px] font-black text-white uppercase italic tracking-tighter pr-1">
-                    {item.is_available ? "Ready" : "Sold Out"}
+                <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-black/70 backdrop-blur-md p-1.5 px-2.5 rounded-lg border border-white/10 shadow-2xl">
+                  <span className="text-[7px] font-black text-white uppercase italic tracking-widest">
+                    {item.is_available ? "Ready" : "Empty"}
                   </span>
                   <button
                     onClick={() => handleToggleAvailable(item)}
                     className={cn(
-                      "w-9 h-5 rounded-full relative transition-all duration-300 shadow-inner",
+                      "w-7 h-4 rounded-full relative transition-all shadow-inner",
                       item.is_available ? "bg-emerald-500" : "bg-slate-500",
                     )}
                   >
                     <div
                       className={cn(
-                        "absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm",
-                        item.is_available ? "translate-x-5" : "translate-x-1",
+                        "absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all shadow-sm",
+                        item.is_available
+                          ? "translate-x-3.5"
+                          : "translate-x-0.5",
                       )}
                     />
                   </button>
                 </div>
-
-                <Badge
-                  className={cn(
-                    "absolute top-4 left-4 border-none px-4 py-1 rounded-lg font-black uppercase text-[9px] italic shadow-xl pr-3",
-                    item.is_available
-                      ? "bg-emerald-500/90 text-white"
-                      : "bg-red-500/90 text-white",
-                  )}
-                >
-                  {item.category}
-                </Badge>
               </div>
 
-              <CardContent className="p-6 flex flex-col flex-1 space-y-4">
-                <div className="space-y-1.5 flex-1">
-                  <h3 className="text-base font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-tight pr-4 line-clamp-1 group-hover:text-blue-600 transition-colors">
+              <CardContent className="p-3 flex flex-col flex-1">
+                <div className="flex-1 min-h-[40px] mb-3">
+                  <h3 className="text-[11px] font-[1000] text-slate-900 dark:text-white uppercase italic tracking-tight leading-tight group-hover:text-blue-600 transition-colors line-clamp-2">
                     {item.name}
                   </h3>
-                  <p className="text-slate-400 dark:text-slate-500 text-[11px] leading-relaxed italic line-clamp-2 min-h-[2.5rem] pr-2">
-                    {item.description || "-"}
+                  <p className="text-[8px] font-black text-slate-400 uppercase mt-1 tracking-widest">
+                    {item.category}
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between pt-4 border-t border-slate-50 dark:border-white/5">
+                <div className="flex items-center justify-between pt-3 border-t border-slate-50 dark:border-white/5">
                   <div className="flex flex-col">
-                    <span className="text-[8px] font-black text-slate-400 uppercase italic leading-none mb-1">
-                      Price Unit
+                    <span className="text-[7px] font-black text-slate-400 uppercase italic mb-0.5">
+                      Price
                     </span>
-                    <p className="text-xl font-black text-slate-950 dark:text-blue-400 italic tracking-tighter leading-none pr-1">
-                      <span className="text-[10px] mr-0.5 text-blue-600 dark:text-blue-500">
-                        Rp
-                      </span>
-                      {formatIDR(item.price)}
-                    </p>
+                    <span className="text-sm font-[1000] italic text-blue-600 dark:text-blue-400 tracking-tighter">
+                      Rp{formatIDR(item.price)}
+                    </span>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1">
                     <Button
                       variant="ghost"
                       size="icon"
@@ -398,17 +388,17 @@ export default function FnbManagementPage() {
                         setAvailable(item.is_available);
                         setOpen(true);
                       }}
-                      className="h-10 w-10 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all"
+                      className="h-8 w-8 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-600 transition-all shadow-sm"
                     >
-                      <Edit3 className="h-4 w-4" />
+                      <Edit3 size={14} />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => handleDelete(item.id)}
-                      className="h-10 w-10 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-600 dark:hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
+                      className="h-8 w-8 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 transition-all shadow-sm"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 size={14} />
                     </Button>
                   </div>
                 </div>
@@ -417,23 +407,21 @@ export default function FnbManagementPage() {
           ))}
         </div>
       ) : (
-        /* EMPTY STATE */
-        <div className="py-32 text-center bg-slate-50/50 dark:bg-slate-900/50 rounded-[4rem] border-4 border-dashed border-slate-100 dark:border-white/5 animate-in zoom-in-95 duration-700">
-          <div className="relative h-24 w-24 bg-white dark:bg-slate-800 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl ring-1 ring-slate-100 dark:ring-white/10">
-            <PackageSearch className="h-12 w-12 text-slate-200 dark:text-slate-700" />
+        <div className="h-[50vh] flex flex-col items-center justify-center bg-white dark:bg-slate-950 rounded-[3rem] border border-dashed border-slate-200 dark:border-white/10 p-12 text-center">
+          <div className="h-20 w-20 bg-slate-50 dark:bg-slate-900 rounded-[2rem] flex items-center justify-center mb-6 shadow-inner">
+            <PackageSearch size={32} className="text-slate-200" />
           </div>
-          <h3 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter italic pr-6 mb-3">
-            Menu Catalog Empty
+          <h3 className="text-2xl font-[1000] italic uppercase text-slate-900 dark:text-white tracking-tighter">
+            Library Empty
           </h3>
-          <p className="text-slate-400 dark:text-slate-500 font-bold text-xs mb-10 uppercase tracking-widest italic pr-4 max-w-sm mx-auto leading-relaxed">
-            Start adding products to your digital library to begin selling at
-            the terminal.
+          <p className="text-xs font-bold text-slate-400 uppercase italic mt-2 mb-8 tracking-widest">
+            Register your products for the terminal display
           </p>
           <Button
             onClick={() => setOpen(true)}
-            className="h-12 px-10 rounded-xl bg-blue-600 font-black uppercase italic text-[11px] tracking-widest shadow-lg shadow-blue-500/20"
+            className="h-12 px-8 rounded-2xl bg-blue-600 text-white font-black italic uppercase text-[10px] tracking-widest"
           >
-            Create First Item
+            Register Product
           </Button>
         </div>
       )}

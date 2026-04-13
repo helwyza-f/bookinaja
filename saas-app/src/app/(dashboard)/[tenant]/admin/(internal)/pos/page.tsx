@@ -7,13 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import {
   Zap,
   Clock,
-  Loader2,
   MonitorPlay,
   ChevronRight,
-  Timer,
   User as UserIcon,
-  CreditCard,
   Hash,
+  Lock,
+  History,
+  Activity,
 } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
@@ -30,17 +30,17 @@ import { format, differenceInMinutes } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
-// --- KOMPONEN SKELETON (Lebih Compact) ---
+// --- KOMPONEN SKELETON COMPACT ---
 function POSControlSkeleton() {
   return (
     <div className="w-full h-full bg-white dark:bg-slate-950 flex flex-col overflow-hidden font-plus-jakarta animate-in fade-in duration-300">
       <VisuallyHidden.Root>
         <SheetHeader>
-          <SheetTitle>Loading Session</SheetTitle>
-          <SheetDescription>Preparing data...</SheetDescription>
+          <SheetTitle>Loading</SheetTitle>
+          <SheetDescription>Data sync...</SheetDescription>
         </SheetHeader>
       </VisuallyHidden.Root>
-      <div className="px-6 py-8 bg-slate-900 shrink-0 space-y-4">
+      <div className="px-6 py-6 bg-slate-900 shrink-0 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Skeleton className="w-10 h-10 rounded-xl bg-slate-800" />
@@ -49,23 +49,17 @@ function POSControlSkeleton() {
               <Skeleton className="h-2 w-20 bg-slate-800" />
             </div>
           </div>
-          <Skeleton className="h-9 w-9 rounded-xl bg-slate-800" />
         </div>
       </div>
       <div className="p-4 space-y-6">
-        <div className="grid grid-cols-3 gap-3">
-          <Skeleton className="h-12 rounded-xl dark:bg-slate-900" />
-          <Skeleton className="h-12 rounded-xl dark:bg-slate-900" />
-          <Skeleton className="h-12 rounded-xl dark:bg-slate-900" />
-        </div>
-        <Skeleton className="h-32 w-full rounded-2xl dark:bg-slate-900" />
-        <Skeleton className="h-32 w-full rounded-2xl dark:bg-slate-900" />
+        <Skeleton className="h-40 w-full rounded-2xl dark:bg-slate-900" />
+        <Skeleton className="h-40 w-full rounded-2xl dark:bg-slate-900" />
       </div>
     </div>
   );
 }
 
-// --- KOMPONEN CARD SESI (Compact & Padat Info) ---
+// --- SESSION CARD PREMIUM ---
 function SessionCard({ session, onClick, isActiveParam }: any) {
   const [now, setNow] = useState(new Date());
 
@@ -102,14 +96,16 @@ function SessionCard({ session, onClick, isActiveParam }: any) {
     <Card
       onClick={onClick}
       className={cn(
-        "group cursor-pointer rounded-[1.5rem] border-none transition-all duration-300 relative bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5 hover:ring-blue-500/50 hover:shadow-xl active:scale-[0.98]",
-        isActiveParam && "ring-2 ring-blue-500 shadow-blue-500/10",
-        timeInfo.isUrgent && "ring-red-500/30",
+        "group cursor-pointer rounded-[1.2rem] border-[0.5px] border-slate-200 dark:border-white/5 transition-all duration-300 bg-white dark:bg-slate-900 hover:border-blue-500/50 hover:shadow-xl active:scale-[0.97]",
+        isActiveParam &&
+          "ring-2 ring-blue-500 border-transparent shadow-lg shadow-blue-500/10",
+        timeInfo.isUrgent &&
+          "ring-1 ring-red-500/50 border-transparent shadow-red-500/5",
       )}
     >
       <CardContent className="p-0 flex flex-col">
-        {/* Progress Bar Atas (Subtle) */}
-        <div className="h-1.5 w-full bg-slate-50 dark:bg-white/5 overflow-hidden">
+        {/* Subtle Mini Progress */}
+        <div className="h-1 w-full bg-slate-50 dark:bg-white/5 overflow-hidden">
           <div
             className={cn(
               "h-full transition-all duration-1000",
@@ -124,58 +120,60 @@ function SessionCard({ session, onClick, isActiveParam }: any) {
         </div>
 
         <div className="p-4 space-y-4">
-          {/* Header Row: Unit & Badge */}
-          <div className="flex items-center justify-between gap-2">
+          {/* Top Row: Unit ID & Status */}
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div
                 className={cn(
-                  "w-7 h-7 rounded-lg flex items-center justify-center transition-colors",
+                  "w-6 h-6 rounded-lg flex items-center justify-center",
                   timeInfo.isUrgent
                     ? "bg-red-100 dark:bg-red-900/40 text-red-600"
                     : "bg-blue-50 dark:bg-blue-900/30 text-blue-600",
                 )}
               >
-                <Hash className="w-3.5 h-3.5 stroke-[3]" />
+                <Hash className="w-3 h-3 stroke-[3]" />
               </div>
-              <span className="text-[11px] font-black uppercase italic tracking-tight text-slate-900 dark:text-white pr-1">
+              <span className="text-xs font-[1000] uppercase italic tracking-tighter text-slate-950 dark:text-white">
                 {session.resource_name}
               </span>
             </div>
-            {timeInfo.isUrgent && (
-              <Badge className="bg-red-500 text-white text-[7px] font-black px-1.5 py-0 rounded-md animate-pulse border-none pr-1">
-                URGENT
-              </Badge>
+            {timeInfo.isUrgent ? (
+              <div className="flex items-center gap-1 text-[8px] font-black text-red-500 uppercase italic animate-pulse">
+                <History size={10} strokeWidth={3} /> Expiring
+              </div>
+            ) : (
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             )}
           </div>
 
-          {/* Customer Row */}
+          {/* Center: Customer */}
           <div className="space-y-0.5">
-            <h3 className="text-sm font-black uppercase italic truncate text-slate-800 dark:text-slate-200 pr-2">
+            <h3 className="text-sm font-[1000] uppercase italic truncate text-slate-900 dark:text-slate-100 pr-2 leading-tight group-hover:text-blue-600 transition-colors">
               {session.customer_name}
             </h3>
-            <p className="text-[9px] font-bold text-slate-400 italic flex items-center gap-1">
-              <Clock className="w-2.5 h-2.5" />
-              Starts {format(new Date(session.start_time), "HH:mm")}
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic flex items-center gap-1 opacity-70">
+              <Clock size={10} />{" "}
+              {format(new Date(session.start_time), "HH:mm")} -{" "}
+              {format(new Date(session.end_time), "HH:mm")}
             </p>
           </div>
 
-          {/* Compact Bento Info Row */}
+          {/* Bottom Grid: Info Bento */}
           <div className="grid grid-cols-2 gap-2">
-            {/* Time Left */}
             <div
               className={cn(
-                "p-2 rounded-xl flex flex-col gap-0.5 border",
+                "px-2.5 py-1.5 rounded-xl flex flex-col border-[0.5px]",
                 timeInfo.isUrgent
                   ? "bg-red-50 dark:bg-red-950/20 border-red-100 dark:border-red-900/30"
-                  : "bg-slate-50 dark:bg-white/5 border-transparent",
+                  : "bg-slate-50 dark:bg-slate-800/30 border-transparent",
               )}
             >
               <span className="text-[7px] font-black uppercase text-slate-400">
-                Sisa Waktu
+                Remaining
               </span>
               <span
                 className={cn(
-                  "text-[11px] font-black italic tracking-tighter pr-1",
+                  "text-[11px] font-[1000] italic leading-tight",
                   timeInfo.isUrgent
                     ? "text-red-600"
                     : timeInfo.isOver
@@ -186,23 +184,25 @@ function SessionCard({ session, onClick, isActiveParam }: any) {
                 {timeInfo.remaining}
               </span>
             </div>
-            {/* Live Bill */}
-            <div className="p-2 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 flex flex-col gap-0.5 border border-transparent">
+            <div className="px-2.5 py-1.5 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 flex flex-col border-[0.5px] border-transparent">
               <span className="text-[7px] font-black uppercase text-blue-400">
-                Tagihan
+                Total Bill
               </span>
-              <span className="text-[11px] font-black italic text-blue-600 dark:text-blue-400 tracking-tighter pr-1">
+              <span className="text-[11px] font-[1000] italic text-blue-600 dark:text-blue-400 leading-tight">
                 Rp{new Intl.NumberFormat("id-ID").format(session.grand_total)}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Footer: Action Hint */}
-        <div className="px-4 py-2 border-t border-slate-50 dark:border-white/5 flex justify-end group-hover:bg-blue-600 transition-colors duration-300">
+        {/* Action Bar */}
+        <div className="px-4 py-2 border-t-[0.5px] border-slate-50 dark:border-white/5 flex justify-between items-center group-hover:bg-blue-600 transition-all duration-300">
+          <span className="text-[8px] font-black uppercase text-slate-300 group-hover:text-blue-100 italic transition-all tracking-widest">
+            Open Hub
+          </span>
           <ChevronRight
-            size={14}
-            className="text-slate-300 group-hover:text-white transition-all"
+            size={12}
+            className="text-slate-200 group-hover:text-white transition-all translate-x-[-4px] group-hover:translate-x-0"
           />
         </div>
       </CardContent>
@@ -286,69 +286,71 @@ export default function POSPage() {
   };
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-700 font-plus-jakarta pb-20 mt-10 px-4 md:px-8">
-      {/* HEADER SECTION (CLEAN) */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between border-b-2 border-slate-100 dark:border-white/5 pb-8 gap-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-600 rounded-xl shadow-lg shadow-blue-500/20 text-white">
-              <Zap className="w-5 h-5 fill-current" />
-            </div>
-            <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter leading-none dark:text-white pr-4">
-              POS <span className="text-blue-600">Terminal</span>
-            </h1>
+    <div className="max-w-[1600px] mx-auto space-y-6 animate-in fade-in duration-500 font-plus-jakarta pb-20 mt-6 px-4">
+      {/* 1. ULTRA COMPACT HEADER */}
+      <div className="flex flex-row items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-6 gap-4">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-xl shadow-blue-500/20">
+            <Zap size={20} fill="currentColor" />
           </div>
-          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.4em] italic mt-2 pr-2">
-            Real-time management for active sessions
-          </p>
+          <div className="flex flex-col">
+            <h1 className="text-2xl md:text-3xl font-[1000] italic uppercase tracking-tighter text-slate-950 dark:text-white leading-none">
+              POS <span className="text-blue-600">Terminal.</span>
+            </h1>
+            <p className="hidden sm:block text-[8px] font-black text-slate-400 uppercase tracking-[0.4em] italic mt-1.5">
+              Active Session Monitor
+            </p>
+          </div>
         </div>
 
-        <Badge className="bg-emerald-500 text-white border-none font-black px-5 py-2 rounded-2xl italic shadow-xl shadow-emerald-500/20 text-base pr-3 h-12 flex items-center gap-2">
-          {activeSessions.length}{" "}
-          <span className="text-[10px] opacity-80 not-italic tracking-widest font-black uppercase">
-            Units Active
-          </span>
-        </Badge>
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col items-end leading-none mr-2 hidden md:flex">
+            <span className="text-[8px] font-black text-slate-400 uppercase italic mb-1">
+              Live Status
+            </span>
+            <div className="flex items-center gap-1.5 text-emerald-500 font-black text-[10px] uppercase italic">
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />{" "}
+              Connected
+            </div>
+          </div>
+          <Badge className="h-12 px-5 bg-slate-950 dark:bg-white text-white dark:text-slate-950 rounded-2xl font-[1000] italic border-none shadow-lg gap-2 text-base">
+            {activeSessions.length}{" "}
+            <span className="text-[10px] opacity-60 uppercase not-italic tracking-tighter">
+              Units
+            </span>
+          </Badge>
+        </div>
       </div>
 
-      {/* GRID CONTENT */}
+      {/* 2. GRID CONTENT - HIGH DENSITY */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-5">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+          {[...Array(12)].map((_, i) => (
             <Card
               key={i}
-              className="rounded-[1.5rem] border-none bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5 overflow-hidden"
+              className="rounded-[1.2rem] border-none bg-white dark:bg-slate-900 ring-1 ring-slate-100 overflow-hidden h-44"
             >
-              <Skeleton className="h-1.5 w-full" />
+              <Skeleton className="h-1 w-full" />
               <div className="p-4 space-y-4">
-                <div className="flex justify-between">
-                  <Skeleton className="h-7 w-20 rounded-lg dark:bg-slate-800" />
-                  <Skeleton className="h-5 w-5 rounded-md dark:bg-slate-800" />
-                </div>
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-3/4 dark:bg-slate-800" />
-                  <Skeleton className="h-3 w-1/2 dark:bg-slate-800" />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Skeleton className="h-10 rounded-xl dark:bg-slate-800" />
-                  <Skeleton className="h-10 rounded-xl dark:bg-slate-800" />
-                </div>
+                <Skeleton className="h-6 w-1/2" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-12 w-full" />
               </div>
             </Card>
           ))}
         </div>
       ) : activeSessions.length === 0 ? (
-        <div className="h-[40vh] flex flex-col items-center justify-center text-center gap-4 bg-slate-50/50 dark:bg-slate-900/50 rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-white/5">
+        <div className="h-96 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900/50 rounded-[3rem] border border-dashed border-slate-200 dark:border-white/5 gap-3">
           <MonitorPlay
-            size={48}
+            size={40}
             className="text-slate-200 dark:text-slate-800"
           />
-          <h3 className="text-lg font-black italic uppercase text-slate-400 pr-2">
-            No Active Sessions
+          <h3 className="text-sm font-black italic uppercase text-slate-400 tracking-widest">
+            No Active Terminal
           </h3>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-5 animate-in slide-in-from-bottom-2 duration-500">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 animate-in slide-in-from-bottom-2 duration-500">
           {activeSessions.map((session) => (
             <SessionCard
               key={session.id}
@@ -360,9 +362,18 @@ export default function POSPage() {
         </div>
       )}
 
-      {/* DETAIL SESSION SHEET */}
+      {/* 3. DETAIL SESSION SHEET */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent className="p-0 border-none bg-transparent sm:max-w-[460px] w-full">
+        <SheetContent className="p-0 border-none bg-transparent sm:max-w-[460px] w-full shadow-none">
+          <VisuallyHidden.Root>
+            <SheetHeader>
+              <SheetTitle>Session Management</SheetTitle>
+              <SheetDescription>
+                Control unit session and orders
+              </SheetDescription>
+            </SheetHeader>
+          </VisuallyHidden.Root>
+
           {isSheetLoading ? (
             <POSControlSkeleton />
           ) : selectedSession ? (

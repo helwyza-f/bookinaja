@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
+import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -15,12 +16,15 @@ import {
   ChevronLeft,
   ChevronRight,
   Utensils,
+  Moon,
+  Sun,
 } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -30,6 +34,8 @@ interface SidebarProps {
 export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   const pathname = usePathname();
   const params = useParams();
+  const { theme, setTheme } = useTheme();
+
   const tenant = (params.tenant as string) || "HUB";
 
   const routes = [
@@ -79,11 +85,10 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
         </Link>
       </div>
 
-      {/* NAVIGATION ROUTES */}
+      {/* MAIN NAVIGATION */}
       <div className="flex flex-col flex-1 gap-2 p-3 pt-8 overflow-y-auto scrollbar-hide">
         {routes.map((route) => {
           const isActive = pathname.includes(route.href);
-
           return (
             <Tooltip key={route.href}>
               <TooltipTrigger asChild>
@@ -126,8 +131,54 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
         })}
       </div>
 
-      {/* FOOTER ACTIONS */}
-      <div className="p-3 border-t border-white/5 space-y-2 pb-8 bg-slate-900/20">
+      {/* FOOTER ACTIONS (Pusat Kontrol Tanpa Header) */}
+      <div className="p-3 border-t border-white/5 space-y-4 pb-8 bg-slate-900/20">
+        {/* THEME TOGGLE */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className={cn(
+                "flex items-center transition-all w-full",
+                isCollapsed
+                  ? "h-12 w-12 justify-center mx-auto rounded-2xl"
+                  : "rounded-2xl px-5 py-4 gap-4",
+                "text-slate-500 hover:bg-white/5 hover:text-white",
+              )}
+            >
+              {theme === "dark" ? (
+                <Sun
+                  className={cn(
+                    "shrink-0 text-amber-500",
+                    isCollapsed ? "h-5 w-5" : "h-4 w-4",
+                  )}
+                />
+              ) : (
+                <Moon
+                  className={cn(
+                    "shrink-0 text-blue-400",
+                    isCollapsed ? "h-5 w-5" : "h-4 w-4",
+                  )}
+                />
+              )}
+              {!isCollapsed && (
+                <span className="text-[10px] font-black uppercase italic tracking-widest animate-in fade-in">
+                  {theme === "dark" ? "Light Mode" : "Dark Mode"}
+                </span>
+              )}
+            </button>
+          </TooltipTrigger>
+          {isCollapsed && (
+            <TooltipContent
+              side="right"
+              className="bg-slate-800 border-none text-[9px] font-black italic uppercase text-white ml-2"
+            >
+              Toggle Theme
+            </TooltipContent>
+          )}
+        </Tooltip>
+
+        {/* SETTINGS */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Link
@@ -162,6 +213,29 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
           )}
         </Tooltip>
 
+        {/* USER PROFILE BUBBLE */}
+        <div
+          className={cn(
+            "flex items-center transition-all overflow-hidden",
+            isCollapsed ? "justify-center" : "px-2 py-2 gap-3",
+          )}
+        >
+          <div className="h-10 w-10 shrink-0 rounded-2xl bg-blue-600 flex items-center justify-center font-[1000] text-white shadow-lg italic border-b-4 border-blue-800 transition-transform active:scale-95">
+            HF
+          </div>
+          {!isCollapsed && (
+            <div className="flex flex-col animate-in fade-in slide-in-from-left-2">
+              <span className="text-[10px] font-black uppercase italic text-white leading-none truncate w-32">
+                Helwiza Fahry
+              </span>
+              <span className="text-[7px] font-bold text-blue-500 uppercase tracking-widest mt-1">
+                Super Admin
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* LOGOUT */}
         <button
           onClick={() => {
             document.cookie =

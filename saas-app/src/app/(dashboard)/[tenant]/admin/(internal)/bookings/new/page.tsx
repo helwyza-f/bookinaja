@@ -22,13 +22,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   CalendarIcon,
   Clock,
   User,
@@ -42,7 +35,10 @@ import {
   Layers,
   History,
   Lock,
-  LayoutGrid,
+  Box,
+  CheckCircle2,
+  Plus,
+  Minus,
 } from "lucide-react";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -67,11 +63,21 @@ export default function NewManualBookingPage() {
   const [duration, setDuration] = useState(1);
   const [selectedMainId, setSelectedMainId] = useState("");
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
-  const [status, setStatus] = useState("confirmed");
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    api
+      .get("/resources-all")
+      .then((res) => {
+        const data = res.data.resources || res.data;
+        setResources(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch(() => toast.error("Gagal memuat daftar unit"));
   }, []);
 
   const currentResource = useMemo(
@@ -88,36 +94,16 @@ export default function NewManualBookingPage() {
   );
 
   useEffect(() => {
-    api
-      .get("/resources-all")
-      .then((res) => {
-        const data = res.data.resources || res.data;
-        setResources(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch(() => toast.error("Gagal memuat daftar unit"));
-  }, []);
-
-  useEffect(() => {
     if (selectedResourceId && date) {
       api
         .get(
           `/guest/availability/${selectedResourceId}?date=${format(date, "yyyy-MM-dd")}`,
         )
         .then((res) => {
-          const normalized = (res.data.busy_slots || []).map((slot: any) => {
-            const start = new Date(
-              `${format(date, "yyyy-MM-dd")}T${slot.start_time}:00Z`,
-            );
-            const end = new Date(
-              `${format(date, "yyyy-MM-dd")}T${slot.end_time}:00Z`,
-            );
-            return {
-              start_time: format(start, "HH:mm"),
-              end_time: format(end, "HH:mm"),
-              raw_start: slot.start_time,
-            };
-          });
+          const normalized = (res.data.busy_slots || []).map((slot: any) => ({
+            start_time: slot.start_time,
+            end_time: slot.end_time,
+          }));
           setBusySlots(normalized);
         });
     }
@@ -132,48 +118,19 @@ export default function NewManualBookingPage() {
   };
 
   const isTimeBusy = (timeStr: string) => {
-    const targetMinutes =
-      parse(timeStr, "HH:mm", new Date()).getHours() * 60 +
-      parse(timeStr, "HH:mm", new Date()).getMinutes();
+    const [h, m] = timeStr.split(":").map(Number);
+    const targetMin = h * 60 + m;
     return busySlots.some((slot) => {
       const [sh, sm] = slot.start_time.split(":").map(Number);
       const [eh, em] = slot.end_time.split(":").map(Number);
-      return targetMinutes >= sh * 60 + sm && targetMinutes < eh * 60 + em;
+      return targetMin >= sh * 60 + sm && targetMin < eh * 60 + em;
     });
   };
-
-  const maxAvailableDuration = useMemo(() => {
-    if (!selectedTime || !selectedItem) return 1;
-    if (selectedItem.price_unit === "day") return 1;
-
-    const [startH, startM] = selectedTime.split(":").map(Number);
-    const startTotalMinutes = startH * 60 + startM;
-    const unitMinutes = selectedItem.unit_duration || 60;
-
-    const nextBusyMinutes = busySlots
-      .map((s) => {
-        const [h, m] = s.start_time.split(":").map(Number);
-        return h * 60 + m;
-      })
-      .filter((m) => m > startTotalMinutes)
-      .sort((a, b) => a - b)[0];
-
-    const storeCloseMinutes = 23 * 60 + 59;
-    const limitMinutes = nextBusyMinutes || storeCloseMinutes;
-    const availableMinutes = limitMinutes - startTotalMinutes;
-    const calculatedMax = Math.floor(availableMinutes / unitMinutes);
-
-    return calculatedMax > 0 ? calculatedMax : 1;
-  }, [selectedTime, busySlots, selectedItem]);
-
-  useEffect(() => {
-    if (duration > maxAvailableDuration) setDuration(1);
-  }, [selectedTime, maxAvailableDuration]);
 
   const availableSlots = useMemo(() => {
     if (!selectedItem) return [];
     const slots = [];
-    let current = parse("09:00", "HH:mm", new Date());
+    let current = parse("08:00", "HH:mm", new Date());
     const end = parse("23:30", "HH:mm", new Date());
     const interval = selectedItem.unit_duration || 60;
     while (isBefore(current, end)) {
@@ -183,13 +140,34 @@ export default function NewManualBookingPage() {
     return slots;
   }, [selectedItem]);
 
+  const maxAvailableDuration = useMemo(() => {
+    if (!selectedTime || !selectedItem) return 1;
+    const [startH, startM] = selectedTime.split(":").map(Number);
+    const startTotal = startH * 60 + startM;
+    const nextBusy = busySlots
+      .map((s) => {
+        const [h, m] = s.start_time.split(":").map(Number);
+        return h * 60 + m;
+      })
+      .filter((m) => m > startTotal)
+      .sort((a, b) => a - b)[0];
+
+    const limit = nextBusy || 23 * 60 + 59;
+    return (
+      Math.floor((limit - startTotal) / (selectedItem.unit_duration || 60)) || 1
+    );
+  }, [selectedTime, busySlots, selectedItem]);
+
+  useEffect(() => {
+    if (duration > maxAvailableDuration) setDuration(1);
+  }, [selectedTime, maxAvailableDuration]);
+
   const calculateTotal = () => {
     if (!selectedItem) return 0;
-    const mainPrice = (selectedItem.price || 0) * duration;
     const addonsPrice = (currentResource?.items || [])
       .filter((i: any) => selectedAddons.includes(i.id))
       .reduce((acc: number, curr: any) => acc + (curr.price || 0), 0);
-    return mainPrice + addonsPrice;
+    return selectedItem.price * duration + addonsPrice;
   };
 
   const handleSave = async () => {
@@ -198,7 +176,7 @@ export default function NewManualBookingPage() {
     setIsSubmitting(true);
     try {
       const fullDate = parse(selectedTime, "HH:mm", date || new Date());
-      const payload = {
+      await api.post("/bookings/manual", {
         tenant_id: currentResource.tenant_id,
         resource_id: selectedResourceId,
         customer_name: custName.toUpperCase(),
@@ -206,13 +184,12 @@ export default function NewManualBookingPage() {
         item_ids: [selectedMainId, ...selectedAddons],
         start_time: formatISO(fullDate),
         duration: duration,
-        status: status,
-      };
-      await api.post("/bookings/manual", payload);
-      toast.success("Reservasi Berhasil Dibuat");
+        status: "confirmed",
+      });
+      toast.success("Reservasi Berhasil");
       router.push("/admin/bookings");
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Gagal menyimpan reservasi");
+      toast.error(err.response?.data?.error || "Gagal menyimpan");
     } finally {
       setIsSubmitting(false);
     }
@@ -220,251 +197,257 @@ export default function NewManualBookingPage() {
 
   if (loading)
     return (
-      <div className="h-screen flex items-center justify-center bg-white dark:bg-slate-950">
+      <div className="h-screen flex items-center justify-center dark:bg-slate-950">
         <Loader2 className="animate-spin text-blue-600 w-10 h-10" />
       </div>
     );
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 font-plus-jakarta pb-20">
-      <div className="max-w-[1500px] mx-auto p-4 lg:p-10 space-y-10">
-        <header className="flex items-center justify-between">
-          <div className="space-y-1">
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 font-plus-jakarta pb-20 -mt-4">
+      <div className="max-w-[1500px] mx-auto p-4 lg:p-6 space-y-6">
+        {/* COMPACT HEADER */}
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-0.5">
             <Button
               variant="ghost"
               onClick={() => router.push("/admin/bookings")}
-              className="h-8 px-0 text-slate-400 hover:text-slate-950 dark:hover:text-white font-black text-[10px] uppercase tracking-widest italic flex items-center gap-2 pr-2 transition-all"
+              className="h-6 px-0 text-slate-400 hover:text-blue-600 font-black text-[9px] uppercase tracking-widest italic flex items-center gap-2 transition-all"
             >
-              <ArrowLeft className="w-3 h-3 stroke-[4]" /> KEMBALI KE DAFTAR
+              <ArrowLeft className="w-2.5 h-2.5 stroke-[4]" /> Back to List
             </Button>
-            <h1 className="text-3xl lg:text-6xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none pr-2">
-              Input <span className="text-blue-600">Reservasi</span>
+            <h1 className="text-4xl lg:text-5xl font-[1000] italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none pr-4">
+              Manual <span className="text-blue-600">Entry.</span>
             </h1>
           </div>
-          <div className="hidden md:flex items-center gap-3 bg-blue-600/10 px-5 py-3 rounded-2xl border border-blue-600/20">
-            <div className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse" />
-            <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase italic tracking-widest leading-none pr-1">
-              Admin Manual Booking Panel
-            </p>
-          </div>
+          <Badge className="w-fit bg-blue-600 text-white border-none font-black italic text-[9px] px-3 py-1 rounded-lg uppercase tracking-tighter shadow-lg shadow-blue-500/20">
+            Admin Handshake Mode
+          </Badge>
         </header>
 
-        <div className="flex flex-col xl:flex-row gap-10 items-start">
-          <div className="w-full xl:flex-1 space-y-8">
-            {/* STEP 01: Resource Selection */}
-            <Card className="rounded-[3rem] border-none shadow-xl shadow-slate-200/40 dark:shadow-none p-8 lg:p-12 bg-white dark:bg-slate-900 space-y-10 ring-1 ring-slate-100 dark:ring-white/5 overflow-hidden">
-              <div className="flex items-center gap-4 border-b border-slate-50 dark:border-white/5 pb-8">
-                <div className="w-12 h-12 rounded-2xl bg-slate-950 dark:bg-slate-800 flex items-center justify-center text-white shadow-xl">
-                  <MapPin size={24} />
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+          <div className="xl:col-span-8 space-y-6">
+            {/* 01. RESOURCE PICKER */}
+            <Card className="rounded-[2.5rem] border-none shadow-sm p-8 bg-white dark:bg-slate-900 ring-1 ring-slate-200/50 dark:ring-white/5">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="h-10 w-10 rounded-xl bg-slate-950 dark:bg-blue-600 flex items-center justify-center text-white shadow-lg">
+                  <Box size={22} />
                 </div>
-                <h2 className="text-2xl font-black italic uppercase tracking-tight dark:text-white pr-2">
-                  01.{" "}
-                  <span className="text-slate-300 dark:text-slate-600">
-                    Pilih Resource
-                  </span>
+                <h2 className="text-xl font-black uppercase italic tracking-tight dark:text-white">
+                  01. Select Resource
                 </h2>
               </div>
 
-              <div className="space-y-10">
-                <div className="max-w-md space-y-4">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 italic ml-2 tracking-widest pr-2">
-                    Katalog Unit Tersedia
-                  </Label>
-                  <Select
-                    value={selectedResourceId}
-                    onValueChange={(v) => {
-                      setSelectedResourceId(v);
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {resources.map((r) => (
+                  <button
+                    key={r.id}
+                    onClick={() => {
+                      setSelectedResourceId(r.id);
                       setSelectedMainId("");
                       setSelectedTime("");
                     }}
+                    className={cn(
+                      "p-6 rounded-[2rem] border-4 text-left transition-all relative overflow-hidden",
+                      selectedResourceId === r.id
+                        ? "border-blue-600 bg-blue-50/30 dark:bg-blue-600/10 shadow-md scale-[1.02]"
+                        : "border-slate-50 dark:border-white/5 bg-slate-50/50 dark:bg-transparent hover:border-slate-200",
+                    )}
                   >
-                    <SelectTrigger className="h-20 rounded-[1.5rem] border-none bg-slate-50 dark:bg-slate-800 font-black italic uppercase px-8 text-xl shadow-inner dark:text-white pr-2 focus:ring-0">
-                      <SelectValue placeholder="PILIH UNIT" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-2xl font-bold uppercase italic border-none shadow-2xl p-2 dark:bg-slate-800 dark:text-white">
-                      {resources.map((r) => (
-                        <SelectItem
-                          key={r.id}
-                          value={r.id}
-                          className="rounded-xl h-14 pr-2 italic"
-                        >
-                          {r.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {currentResource && (
-                  <div className="space-y-4 animate-in slide-in-from-top-4 duration-500">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 italic ml-2 tracking-widest pr-2">
-                      Pilih Paket Layanan
-                    </Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                      {currentResource.items
-                        ?.filter(
-                          (i: any) =>
-                            i.item_type === "main_option" ||
-                            i.item_type === "main" ||
-                            i.item_type === "console_option",
-                        )
-                        .map((item: any) => (
-                          <button
-                            key={item.id}
-                            onClick={() => {
-                              setSelectedMainId(item.id);
-                              setSelectedTime("");
-                            }}
-                            className={cn(
-                              "h-28 px-8 rounded-[2rem] border-4 text-left transition-all flex justify-between items-center group",
-                              selectedMainId === item.id
-                                ? "border-blue-600 bg-white dark:bg-slate-800 shadow-2xl scale-[1.03]"
-                                : "border-transparent bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700",
-                            )}
-                          >
-                            <div className="flex flex-col">
-                              <span
-                                className={cn(
-                                  "text-base font-black uppercase italic pr-2",
-                                  selectedMainId === item.id
-                                    ? "text-blue-600"
-                                    : "text-slate-500 dark:text-slate-400",
-                                )}
-                              >
-                                {item.name}
-                              </span>
-                              <span className="text-[11px] font-bold text-slate-400 uppercase italic">
-                                /{" "}
-                                {item.price_unit === "day"
-                                  ? "Harian"
-                                  : `${item.unit_duration} Menit`}
-                              </span>
-                            </div>
-                            <span className="text-2xl font-black italic text-slate-950 dark:text-white tracking-tighter pr-2">
-                              Rp{item.price.toLocaleString()}
-                            </span>
-                          </button>
-                        ))}
-                    </div>
-                  </div>
-                )}
+                    <p
+                      className={cn(
+                        "text-lg md:text-xl font-[1000] uppercase italic tracking-tighter truncate leading-tight",
+                        selectedResourceId === r.id
+                          ? "text-blue-600"
+                          : "text-slate-900 dark:text-slate-200",
+                      )}
+                    >
+                      {r.name}
+                    </p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase mt-1.5 tracking-[0.2em]">
+                      {r.category}
+                    </p>
+                    {selectedResourceId === r.id && (
+                      <div className="absolute top-3 right-3 h-6 w-6 rounded-full bg-blue-600 flex items-center justify-center shadow-lg animate-in zoom-in duration-300">
+                        <CheckCircle2 className="w-4 h-4 text-white" />
+                      </div>
+                    )}
+                  </button>
+                ))}
               </div>
+
+              {currentResource && (
+                <div className="mt-8 pt-8 border-t border-slate-100 dark:border-white/5 animate-in fade-in slide-in-from-top-2">
+                  <p className="text-[10px] font-black uppercase text-slate-400 italic mb-5 tracking-[0.3em]">
+                    Configure Package
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    {currentResource.items
+                      ?.filter((i: any) =>
+                        ["main_option", "main"].includes(i.item_type),
+                      )
+                      .map((item: any) => (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            setSelectedMainId(item.id);
+                            setSelectedTime("");
+                          }}
+                          className={cn(
+                            "px-8 py-4 rounded-2xl border-2 font-[1000] uppercase italic text-xs transition-all",
+                            selectedMainId === item.id
+                              ? "bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-transparent shadow-xl scale-105"
+                              : "border-slate-100 dark:border-white/10 text-slate-400 hover:text-slate-900 dark:hover:text-white",
+                          )}
+                        >
+                          {item.name} • Rp{item.price.toLocaleString()}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
             </Card>
 
-            {/* STEP 02: Schedule Selection */}
+            {/* 02. SCHEDULE PICKER */}
             <Card
               className={cn(
-                "rounded-[3rem] border-none shadow-xl shadow-slate-200/40 dark:shadow-none p-8 lg:p-12 bg-white dark:bg-slate-900 space-y-10 transition-all duration-700 ring-1 ring-slate-100 dark:ring-white/5",
-                !selectedMainId && "opacity-20 pointer-events-none blur-[2px]",
+                "rounded-[2.5rem] border-none shadow-sm p-8 bg-white dark:bg-slate-900 ring-1 ring-slate-200/50 dark:ring-white/5 transition-all duration-500",
+                !selectedMainId && "opacity-30 blur-[1px] pointer-events-none",
               )}
             >
-              <div className="flex items-center gap-4 border-b border-slate-50 dark:border-white/5 pb-8">
-                <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-xl shadow-blue-200 dark:shadow-none">
-                  <Clock size={24} />
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg">
+                    <Clock size={22} />
+                  </div>
+                  <h2 className="text-xl font-black uppercase italic tracking-tight dark:text-white">
+                    02. Schedule Control
+                  </h2>
                 </div>
-                <h2 className="text-2xl font-black italic uppercase tracking-tight dark:text-white pr-2">
-                  02.{" "}
-                  <span className="text-slate-300 dark:text-slate-600">
-                    Durasi & Slot Waktu
-                  </span>
-                </h2>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="h-14 w-full md:w-[320px] rounded-2xl border-slate-200 dark:border-white/10 font-[1000] italic text-xs uppercase gap-4 justify-start px-6 shadow-sm bg-slate-50 dark:bg-slate-800/50 hover:bg-white"
+                    >
+                      <CalendarIcon className="w-5 h-5 text-blue-600" />
+                      <div className="flex flex-col items-start leading-tight">
+                        <span className="text-[9px] text-slate-400 font-black tracking-widest">
+                          SELECTED DATE
+                        </span>
+                        <span className="mt-0.5">
+                          {date
+                            ? format(date, "EEEE, dd MMMM yyyy", {
+                                locale: idLocale,
+                              })
+                            : "Select Date"}
+                        </span>
+                      </div>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-80 p-0 border-none rounded-[2rem] overflow-hidden shadow-2xl shadow-blue-500/10"
+                    align="end"
+                  >
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={setDate}
+                      disabled={(d) => d < startOfToday()}
+                      className="w-full"
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-                <div className="lg:col-span-4 space-y-10">
-                  <div className="space-y-4">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 italic ml-2 tracking-widest pr-2">
-                      Tentukan Tanggal
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                {/* DURATION CONTROL - SESSIONS */}
+                <div className="lg:col-span-3">
+                  <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-[2rem] border border-slate-100 dark:border-white/5 flex flex-col items-center shadow-inner">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 italic mb-6 tracking-widest text-center">
+                      Total Sessions
                     </Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full h-20 rounded-[1.5rem] border-none bg-slate-50 dark:bg-slate-800 font-black italic justify-start px-8 text-xl shadow-inner dark:text-white pr-2"
-                        >
-                          <CalendarIcon className="mr-4 h-6 w-6 text-blue-600" />
-                          {date
-                            ? format(date, "dd MMM yyyy", { locale: idLocale })
-                            : "PILIH TANGGAL"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0 rounded-3xl border-none shadow-2xl overflow-hidden dark:bg-slate-900">
-                        <Calendar
-                          mode="single"
-                          selected={date}
-                          onSelect={setDate}
-                          disabled={(d) => d < startOfToday()}
-                          className="p-4"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
 
-                  <div className="space-y-4">
-                    <div className="flex justify-between px-2 items-end">
-                      <Label className="text-[10px] font-black uppercase text-slate-400 italic tracking-widest pr-2 leading-none">
-                        Jumlah Durasi
-                      </Label>
-                      <Badge className="bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400 font-black italic text-[10px] px-3 py-1 rounded-full border-none">
-                        MAX: {maxAvailableDuration}
-                      </Badge>
+                    <div className="flex items-center gap-6 mb-6">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled={duration <= 1}
+                        onClick={() => setDuration((d) => d - 1)}
+                        className="h-12 w-12 rounded-full bg-white dark:bg-slate-700 shadow-md text-slate-400 hover:text-red-500 border border-slate-100 dark:border-white/5 transition-all active:scale-90"
+                      >
+                        <Minus size={20} strokeWidth={4} />
+                      </Button>
+
+                      <div className="flex flex-col items-center min-w-[60px]">
+                        <span className="text-6xl font-[1000] italic text-blue-600 leading-none tabular-nums">
+                          {duration}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className="mt-3 text-[9px] font-black italic border-blue-100 dark:border-blue-900 text-blue-400 uppercase"
+                        >
+                          Limit: {maxAvailableDuration}
+                        </Badge>
+                      </div>
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled={duration >= maxAvailableDuration}
+                        onClick={() => setDuration((d) => d + 1)}
+                        className="h-12 w-12 rounded-full bg-white dark:bg-slate-700 shadow-md text-slate-400 hover:text-blue-600 border border-slate-100 dark:border-white/5 transition-all active:scale-90"
+                      >
+                        <Plus size={20} strokeWidth={4} />
+                      </Button>
                     </div>
-                    <div className="relative">
-                      <Input
-                        type="number"
-                        value={duration}
-                        onChange={(e) =>
-                          setDuration(
-                            Math.min(
-                              parseInt(e.target.value) || 1,
-                              maxAvailableDuration,
-                            ),
-                          )
-                        }
-                        className="h-24 rounded-[2rem] border-none bg-slate-50 dark:bg-slate-800 font-black italic text-6xl text-center text-blue-600 shadow-inner pr-2 focus-visible:ring-0"
-                      />
-                      <Layers className="absolute right-10 top-1/2 -translate-y-1/2 w-8 h-8 text-slate-100 dark:text-white/5" />
+
+                    <div className="w-full pt-4 border-t border-slate-200 dark:border-white/5">
+                      <p className="text-[10px] text-center font-black text-slate-400 uppercase italic leading-relaxed">
+                        Total usage:{" "}
+                        <span className="text-blue-600 dark:text-blue-400">
+                          {selectedItem?.unit_duration * duration} Mins
+                        </span>
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="lg:col-span-8 space-y-4">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 italic ml-2 tracking-widest pr-2">
-                    Slot Waktu (Klik Jam Mulai)
-                  </Label>
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 p-6 bg-slate-50 dark:bg-slate-800 rounded-[2.5rem] shadow-inner max-h-[420px] overflow-y-auto scrollbar-hide border border-slate-100 dark:border-white/5">
+                {/* TIME SLOTS - FULL HEIGHT NO SCROLL */}
+                <div className="lg:col-span-9">
+                  <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2.5">
                     {availableSlots.map((t) => {
                       const busy = isTimeBusy(t);
                       const passed = isTimePassed(t);
-                      const selected = selectedTime === t;
-                      const isDisabled = busy || passed;
-
+                      const sel = selectedTime === t;
                       return (
                         <button
                           key={t}
-                          disabled={isDisabled}
+                          disabled={busy || passed}
                           onClick={() => setSelectedTime(t)}
                           className={cn(
-                            "h-20 rounded-2xl text-base font-black italic border-2 transition-all flex flex-col items-center justify-center relative pr-1",
-                            selected
-                              ? "bg-blue-600 border-blue-600 text-white shadow-2xl scale-110 z-10"
+                            "h-16 rounded-2xl text-xs font-black italic border-2 transition-all flex items-center justify-center relative pr-0.5",
+                            sel
+                              ? "bg-blue-600 border-blue-600 text-white shadow-xl scale-110 z-20"
                               : passed
-                                ? "bg-white dark:bg-slate-950 border-transparent text-slate-200 dark:text-slate-800 cursor-not-allowed opacity-40"
+                                ? "bg-slate-100 dark:bg-slate-900 border-transparent text-slate-300 dark:text-slate-800 opacity-40 grayscale cursor-not-allowed"
                                 : busy
-                                  ? "bg-red-50 dark:bg-red-950/20 border-transparent text-red-300 dark:text-red-900 cursor-not-allowed"
-                                  : "bg-white dark:bg-slate-900 border-white dark:border-transparent text-slate-700 dark:text-slate-400 hover:border-blue-600 shadow-sm",
+                                  ? "bg-red-50/50 dark:bg-red-950/20 text-red-300 dark:text-red-900 border-transparent cursor-not-allowed"
+                                  : "bg-white dark:bg-slate-800 border-slate-50 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:border-blue-600 shadow-sm",
                           )}
                         >
-                          <span>{t}</span>
-                          {passed ? (
-                            <History size={12} className="mt-1 opacity-50" />
-                          ) : busy ? (
-                            <Lock size={12} className="mt-1 opacity-50" />
-                          ) : null}
-                          {isDisabled && (
-                            <span className="text-[7px] absolute bottom-1.5 font-black uppercase tracking-tighter opacity-80">
-                              {passed ? "Lalu" : "Penuh"}
-                            </span>
+                          {t}
+                          {busy && (
+                            <Lock
+                              size={12}
+                              className="absolute top-1.5 right-1.5 opacity-40"
+                            />
+                          )}
+                          {passed && (
+                            <History
+                              size={12}
+                              className="absolute top-1.5 right-1.5 opacity-40"
+                            />
                           )}
                         </button>
                       );
@@ -475,79 +458,52 @@ export default function NewManualBookingPage() {
             </Card>
           </div>
 
-          {/* SIDEBAR: Admin Controls */}
+          {/* RIGHT COLUMN */}
           <div
             className={cn(
-              "w-full xl:w-[420px] space-y-6 sticky top-8 transition-all duration-700",
-              !selectedTime && "opacity-20 blur-[1px] pointer-events-none",
+              "xl:col-span-4 space-y-6 transition-all duration-700",
+              !selectedTime && "opacity-30 blur-[2px] pointer-events-none",
             )}
           >
-            <Card className="rounded-[3rem] border-none shadow-xl p-8 lg:p-10 bg-white dark:bg-slate-900 space-y-8 ring-1 ring-slate-100 dark:ring-white/5">
+            <Card className="rounded-[2.5rem] border-none shadow-xl p-10 bg-white dark:bg-slate-900 ring-1 ring-slate-200/50 dark:ring-white/5 space-y-8">
               <div className="flex items-center justify-between border-b border-slate-50 dark:border-white/5 pb-5">
-                <h3 className="text-xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none pr-2">
-                  Info <span className="text-blue-600">Pelanggan</span>
+                <h3 className="text-sm font-black italic uppercase tracking-[0.2em] text-slate-900 dark:text-white leading-none">
+                  Customer Profile
                 </h3>
-                <User className="w-5 h-5 text-slate-300" />
+                <User size={18} className="text-blue-600" />
               </div>
+
               <div className="space-y-4">
                 <div className="relative group">
                   <User className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
                   <Input
-                    placeholder="NAMA LENGKAP"
+                    placeholder="CLIENT FULL NAME"
                     value={custName}
                     onChange={(e) => setCustName(e.target.value.toUpperCase())}
-                    className="h-16 pl-12 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none font-black italic focus:ring-4 focus:ring-blue-500/5 transition-all text-xs uppercase pr-2 shadow-inner dark:text-white focus-visible:ring-0"
+                    className="h-14 pl-12 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none font-black italic text-xs shadow-inner focus-visible:ring-2 focus-visible:ring-blue-600/20"
                   />
                 </div>
                 <div className="relative group">
                   <Phone className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
                   <Input
-                    placeholder="NOMOR WHATSAPP"
+                    placeholder="WHATSAPP (08...)"
                     value={custPhone}
                     onChange={(e) =>
-                      setCustPhone(e.target.value.replace(/[^0-9]/g, ""))
+                      setCustPhone(e.target.value.replace(/\D/g, ""))
                     }
-                    className="h-16 pl-12 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none font-black italic focus:ring-4 focus:ring-blue-500/5 transition-all text-xs pr-2 shadow-inner dark:text-white focus-visible:ring-0"
+                    className="h-14 pl-12 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none font-black italic text-xs shadow-inner focus-visible:ring-2 focus-visible:ring-blue-600/20"
                   />
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <Label className="text-[10px] font-black uppercase text-slate-400 italic ml-2 tracking-widest pr-2 leading-none">
-                  Aktivasi Status
-                </Label>
-                <div className="flex gap-2 p-2 bg-slate-50 dark:bg-slate-800 rounded-2xl shadow-inner border border-slate-100 dark:border-white/5">
-                  {["pending", "confirmed", "active"].map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => setStatus(s)}
-                      className={cn(
-                        "flex-1 h-12 rounded-xl text-[9px] font-black uppercase italic transition-all pr-1",
-                        status === s
-                          ? "bg-slate-900 dark:bg-blue-600 text-white shadow-xl"
-                          : "text-slate-400 hover:text-slate-600 dark:text-slate-500",
-                      )}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </Card>
-
-            <Card className="rounded-[3rem] border-none shadow-xl p-8 lg:p-10 bg-white dark:bg-slate-900 space-y-8 ring-1 ring-slate-100 dark:ring-white/5">
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 border-b border-slate-50 dark:border-white/5 pb-3">
-                  <LayoutGrid className="w-4 h-4 text-blue-600" />
-                  <h3 className="text-[10px] font-black italic uppercase tracking-widest text-slate-900 dark:text-white pr-2">
-                    Add-ons Opsional
-                  </h3>
-                </div>
-                <div className="grid grid-cols-1 gap-2.5">
+              <div className="space-y-4 pt-4">
+                <p className="text-[10px] font-black uppercase text-slate-400 italic ml-1 tracking-widest">
+                  Selectable Add-ons
+                </p>
+                <div className="flex flex-wrap gap-2.5">
                   {currentResource?.items
-                    ?.filter(
-                      (i: any) =>
-                        i.item_type === "add_on" || i.item_type === "addon",
+                    ?.filter((i: any) =>
+                      ["add_on", "addon"].includes(i.item_type),
                     )
                     .map((addon: any) => {
                       const active = selectedAddons.includes(addon.id);
@@ -562,85 +518,80 @@ export default function NewManualBookingPage() {
                             )
                           }
                           className={cn(
-                            "px-6 py-4 rounded-2xl border-2 font-black uppercase italic transition-all text-[10px] flex justify-between items-center group",
+                            "px-5 py-3 rounded-xl border-2 font-black italic text-[10px] uppercase transition-all",
                             active
-                              ? "border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 shadow-sm"
-                              : "border-slate-50 dark:border-transparent bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:border-slate-200",
+                              ? "bg-blue-600 border-blue-600 text-white shadow-md scale-105"
+                              : "bg-slate-50 dark:bg-slate-800 text-slate-400 border-transparent hover:border-slate-200",
                           )}
                         >
-                          <span className="truncate pr-1">{addon.name}</span>
-                          <span className="font-bold whitespace-nowrap opacity-60 text-[9px] pr-1">
-                            Rp{addon.price.toLocaleString()}
-                          </span>
+                          {addon.name}
                         </button>
                       );
                     })}
                 </div>
               </div>
+            </Card>
 
-              <div className="pt-4 border-t-2 border-slate-50 dark:border-white/5 flex flex-col gap-6">
-                <div className="bg-slate-950 p-8 rounded-[3rem] text-white space-y-8 relative overflow-hidden shadow-2xl">
-                  <div className="relative z-10 space-y-2">
-                    <div className="flex items-center gap-3 opacity-50">
-                      <Ticket className="w-5 h-5 text-blue-400" />
-                      <span className="text-[10px] font-black uppercase tracking-[0.3em] italic pr-2">
-                        Grand Total Bill
-                      </span>
-                    </div>
-                    <p className="text-6xl font-black italic tracking-tighter leading-none flex items-start py-4 pr-6">
-                      <span className="text-2xl mr-2 mt-1.5 text-blue-500 font-bold not-italic">
-                        Rp
-                      </span>
-                      {calculateTotal().toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="pt-6 border-t border-white/10 flex justify-between items-center relative z-10">
-                    <div className="flex flex-col leading-tight">
-                      <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1 italic pr-1">
-                        Start At
-                      </span>
-                      <span className="text-sm font-black italic text-blue-400 pr-1">
-                        {selectedTime || "--:--"}
-                      </span>
-                    </div>
-                    <div className="flex flex-col text-right leading-tight">
-                      <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1 italic pr-1">
-                        Booked Time
-                      </span>
-                      <span className="text-sm font-black italic text-white uppercase pr-1">
-                        {duration}{" "}
-                        {selectedItem?.price_unit === "hour" ? "Jam" : "Sesi"}
-                      </span>
-                    </div>
-                  </div>
-                  <Calculator
-                    size={160}
-                    className="absolute -right-12 -top-12 opacity-[0.03] rotate-12"
-                  />
+            {/* CHECKOUT CARD */}
+            <Card className="rounded-[3rem] border-none bg-slate-950 p-10 text-white space-y-8 relative overflow-hidden shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)]">
+              <Calculator
+                size={180}
+                className="absolute -right-20 -top-20 opacity-[0.03] rotate-12"
+              />
+              <div className="relative z-10 space-y-6">
+                <div className="flex items-center gap-3 opacity-40">
+                  <Ticket size={18} className="text-blue-400" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] italic">
+                    Handshake Terminal
+                  </span>
                 </div>
 
-                <Button
-                  onClick={handleSave}
-                  disabled={
-                    isSubmitting ||
-                    !selectedTime ||
-                    !custName ||
-                    !selectedMainId
-                  }
-                  className="w-full h-20 rounded-[2.5rem] bg-blue-600 text-white hover:bg-blue-500 transition-all shadow-2xl shadow-blue-500/30 active:scale-95 group border-b-8 border-blue-800 dark:border-blue-900 gap-4 pr-3"
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="animate-spin text-white" />
-                  ) : (
-                    <>
-                      <span className="font-black uppercase italic tracking-[0.3em] text-base pr-1">
-                        Finalize Booking
-                      </span>
-                      <ChevronRight className="w-6 h-6 group-hover:translate-x-1.5 transition-transform stroke-[4]" />
-                    </>
-                  )}
-                </Button>
+                <div className="space-y-1">
+                  <p className="text-xs font-black italic text-blue-500 uppercase tracking-widest">
+                    Grand Total Bill
+                  </p>
+                  <p className="text-7xl font-[1000] italic tracking-tighter text-white leading-none tabular-nums">
+                    <span className="text-2xl text-blue-600 mr-2 font-bold not-italic">
+                      Rp
+                    </span>
+                    {calculateTotal().toLocaleString()}
+                  </p>
+                </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-6 pt-8 border-t border-white/10 relative z-10">
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">
+                    START TIME
+                  </span>
+                  <span className="text-sm font-black italic text-blue-400 uppercase tracking-tighter">
+                    {selectedTime || "--:--"}
+                  </span>
+                </div>
+                <div className="flex flex-col text-right">
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">
+                    UNIT USAGE
+                  </span>
+                  <span className="text-sm font-black italic text-white uppercase tracking-tighter">
+                    {duration}{" "}
+                    {selectedItem?.price_unit === "hour" ? "Hours" : "Sessions"}
+                  </span>
+                </div>
+              </div>
+
+              <Button
+                onClick={handleSave}
+                disabled={isSubmitting || !selectedTime || !custName}
+                className="w-full h-20 rounded-[2rem] bg-blue-600 hover:bg-blue-500 text-white font-[1000] uppercase italic tracking-widest text-base border-b-8 border-blue-800 shadow-2xl transition-all active:scale-95 gap-4"
+              >
+                {isSubmitting ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  <>
+                    FINALIZE ENTRY <ChevronRight size={22} strokeWidth={4} />
+                  </>
+                )}
+              </Button>
             </Card>
           </div>
         </div>

@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft,
@@ -13,21 +12,18 @@ import {
   Trash2,
   Edit3,
   Star,
-  MapPin,
   Clock,
-  Package,
   Gamepad2,
   Trophy,
   Camera,
   Briefcase,
   Loader2,
-  Save,
-  Sparkles,
   Settings2,
-  LayoutDashboard,
   CheckCircle2,
   Image as ImageIcon,
   X,
+  Sparkles,
+  LayoutGrid,
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
@@ -56,17 +52,13 @@ export default function ResourceDetailPage() {
   const [imageUrl, setImageUrl] = useState("");
   const [gallery, setGallery] = useState<string[]>([]);
 
-  /**
-   * CORE LOGIC: Fetch with Caching Strategy
-   */
   const fetchData = useCallback(
     async (useCache = true) => {
       try {
-        // 1. Coba ambil dari Cache (localStorage) untuk Instant UI
         if (useCache) {
-          const cachedData = localStorage.getItem("cache_resources_all");
-          if (cachedData) {
-            const parsed = JSON.parse(cachedData);
+          const cachedAll = localStorage.getItem("cache_resources_all");
+          if (cachedAll) {
+            const parsed = JSON.parse(cachedAll);
             const found = parsed.resources?.find(
               (r: any) => r.id === params.id,
             );
@@ -76,35 +68,22 @@ export default function ResourceDetailPage() {
               setDescription(found.description || "");
               setImageUrl(found.image_url || "");
               setGallery(found.gallery || []);
-              setLoading(false); // Stop loading jika data cache ditemukan
+              setLoading(false);
             }
           }
         }
 
-        // 2. Background Fetch / Fallback Fetch (Selalu ambil data terbaru dari server)
-        const res = await api.get(`/resources-all`);
-        const allData = res.data;
-
-        // Update Cache terbaru
-        localStorage.setItem("cache_resources_all", JSON.stringify(allData));
-
-        const currentRes = allData.resources?.find(
-          (r: any) => r.id === params.id,
-        );
-
-        if (currentRes) {
-          setResource(currentRes);
-          setBusinessCategory(allData.business_category || "");
-          setDescription(currentRes.description || "");
-          setImageUrl(currentRes.image_url || "");
-          setGallery(currentRes.gallery || []);
-        } else {
-          toast.error("Unit tidak ditemukan");
+        const res = await api.get(`/resources-all/${params.id}`);
+        const data = res.data;
+        setResource(data);
+        setDescription(data.description || "");
+        setImageUrl(data.image_url || "");
+        setGallery(data.gallery || []);
+      } catch (err: any) {
+        if (err.response?.status === 404) {
+          toast.error("Unit not found");
           router.push("/admin/resources");
         }
-      } catch (err) {
-        console.error("Sync Error:", err);
-        if (loading) toast.error("Gagal sinkronisasi data server");
       } finally {
         setLoading(false);
       }
@@ -116,9 +95,6 @@ export default function ResourceDetailPage() {
     fetchData();
   }, [fetchData]);
 
-  /**
-   * MEMOIZED ITEMS: Memisahkan Main vs Addons dari array terpadu
-   */
   const { mainItems, addonItems } = useMemo(() => {
     const allItems = resource?.items || [];
     return {
@@ -142,11 +118,11 @@ export default function ResourceDetailPage() {
         image_url: imageUrl,
         gallery,
       });
-      toast.success("Marketing Content Updated!");
+      toast.success("Visual Data Updated");
       setIsEditMode(false);
-      fetchData(false); // Refresh tanpa cache setelah update
+      fetchData(false);
     } catch (err) {
-      toast.error("Gagal menyimpan perubahan");
+      toast.error("Update failed");
     } finally {
       setIsUpdatingResource(false);
     }
@@ -158,114 +134,116 @@ export default function ResourceDetailPage() {
         ...item,
         is_default: true,
       });
-      toast.success("Paket Utama Diperbarui");
+      toast.success("Main package updated");
       fetchData(false);
     } catch (err) {
-      toast.error("Gagal update status");
+      toast.error("Status update failed");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Hapus item ini secara permanen?")) return;
+    if (!confirm("Delete this item permanently?")) return;
     try {
       await api.delete(`/resources-all/items/${id}`);
-      toast.success("Item Dihapus");
+      toast.success("Item deleted");
       fetchData(false);
     } catch (err) {
-      toast.error("Gagal menghapus");
+      toast.error("Delete failed");
     }
   };
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
 
-  // Kebutuhan Label Dinamis
   const configMeta = {
     gaming_hub: {
-      label: "Konfigurasi Unit",
-      icon: <Gamepad2 className="h-6 w-6 text-blue-500" />,
+      label: "Gaming Rates",
+      icon: <Gamepad2 size={16} className="text-blue-500" />,
     },
     creative_space: {
-      label: "Paket Ruangan",
-      icon: <Camera className="h-6 w-6 text-rose-500" />,
+      label: "Studio Rates",
+      icon: <Camera size={16} className="text-rose-500" />,
     },
     sport_center: {
-      label: "Opsi Fasilitas",
-      icon: <Trophy className="h-6 w-6 text-emerald-500" />,
+      label: "Court Rates",
+      icon: <Trophy size={16} className="text-emerald-500" />,
     },
     social_space: {
-      label: "Tipe Ruang",
-      icon: <Briefcase className="h-6 w-6 text-indigo-500" />,
+      label: "Room Rates",
+      icon: <Briefcase size={16} className="text-indigo-500" />,
     },
   }[businessCategory] || {
-    label: "Pilihan Utama",
-    icon: <Clock className="h-6 w-6 text-slate-500" />,
+    label: "Rates Configuration",
+    icon: <Clock size={16} />,
   };
 
   if (loading && !resource) return <ResourceDetailLoading />;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-12 pb-24 animate-in fade-in duration-700 px-4 font-plus-jakarta mt-10">
-      {/* --- HEADER --- */}
-      <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 border-b-2 border-slate-100 dark:border-white/5 pb-10">
-        <div className="space-y-4">
+    <div className="max-w-[1600px] mx-auto space-y-6 pb-20 animate-in fade-in duration-500 px-4 mt-6 font-plus-jakarta">
+      {/* 1. ULTRA COMPACT HEADER */}
+      <header className="flex flex-row items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-6 gap-4">
+        <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             onClick={() => router.push("/admin/resources")}
-            className="h-8 px-0 text-slate-400 hover:text-blue-600 font-black text-[10px] uppercase tracking-widest italic flex items-center gap-2"
+            className="h-10 w-10 p-0 rounded-xl bg-slate-50 dark:bg-slate-900 border-[0.5px] border-slate-200 dark:border-white/10 hover:bg-blue-600 hover:text-white transition-all"
           >
-            <ArrowLeft className="h-3 w-3 stroke-[4]" /> KEMBALI KE LIST
+            <ArrowLeft size={18} strokeWidth={3} />
           </Button>
-          <div className="space-y-2">
-            <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none pr-4">
-              {resource?.name}
-            </h1>
-            <Badge
-              variant="secondary"
-              className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-none font-black italic text-[10px] px-3 py-1 rounded-lg uppercase pr-2"
-            >
-              Category: {resource?.category || "Umum"}
-            </Badge>
+          <div className="flex flex-col leading-none">
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl md:text-4xl font-[1000] italic uppercase tracking-tighter text-slate-950 dark:text-white leading-none">
+                {resource?.name}
+              </h1>
+              <Badge className="bg-blue-600 text-white font-black italic text-[8px] px-2 py-0.5 rounded-md uppercase">
+                {resource?.category || "General"}
+              </Badge>
+            </div>
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.4em] italic mt-1.5">
+              Asset & Configuration Hub
+            </p>
           </div>
         </div>
+
         <Button
           onClick={() => {
             setEditingItem(null);
             setDialogOpen(true);
           }}
-          className="h-14 px-8 rounded-2xl bg-blue-600 text-white font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-blue-500/20 hover:bg-blue-700 transition-all border-b-4 border-blue-800"
+          className="h-12 px-5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[10px] shadow-lg border-b-4 border-blue-800 gap-2 transition-all active:scale-95"
         >
-          <Plus className="mr-2 h-4 w-4 stroke-[3]" /> Tambah Konfigurasi
+          <Plus size={16} strokeWidth={4} /> New Config
         </Button>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-        {/* --- LEFT: SHOWCASE --- */}
-        <div className="lg:col-span-5 space-y-8">
-          <Card className="rounded-[3rem] border-none shadow-2xl bg-white dark:bg-slate-900 overflow-hidden ring-1 ring-slate-100 dark:ring-white/5 p-8 relative">
-            <div className="absolute top-6 right-6 z-20">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* LEFT: VISUAL (Fixed Width, Compact) */}
+        <div className="lg:col-span-4 space-y-6">
+          <Card className="rounded-[2.5rem] border-[0.5px] border-slate-200 dark:border-white/5 shadow-sm p-6 bg-white dark:bg-slate-900 relative">
+            <div className="absolute top-4 right-4 z-20">
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => setIsEditMode(!isEditMode)}
-                className="rounded-full font-black text-[9px] uppercase tracking-widest shadow-xl h-9 px-4 bg-white/90 dark:bg-slate-800/90 backdrop-blur"
+                className="rounded-full font-black text-[8px] uppercase tracking-widest h-8 px-3 bg-white/90 dark:bg-slate-800/90 backdrop-blur shadow-sm border-[0.5px]"
               >
                 {isEditMode ? (
                   <>
-                    <X className="mr-1.5 h-3.5 w-3.5 text-red-500" /> Batal
+                    <X size={12} className="mr-1 text-red-500" /> Cancel
                   </>
                 ) : (
                   <>
-                    <Settings2 className="mr-1.5 h-3.5 w-3.5 text-blue-600" />{" "}
-                    Edit Visual
+                    <Settings2 size={12} className="mr-1 text-blue-600" />{" "}
+                    Visuals
                   </>
                 )}
               </Button>
             </div>
 
             {isEditMode ? (
-              <div className="space-y-8 animate-in slide-in-from-top-4">
+              <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
                 <SingleImageUpload
-                  label="Banner Utama"
+                  label="Banner"
                   value={imageUrl}
                   onChange={setImageUrl}
                   endpoint="/resources-all/upload-cover"
@@ -273,8 +251,8 @@ export default function ResourceDetailPage() {
                 <Textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="min-h-[160px] rounded-[1.5rem] bg-slate-50 dark:bg-slate-800 border-none p-6 text-sm"
-                  placeholder="Deskripsi unit..."
+                  className="min-h-[100px] rounded-2xl bg-slate-50 dark:bg-slate-800/50 border-none p-4 text-[11px] font-medium leading-relaxed"
+                  placeholder="Unit description..."
                 />
                 <BulkImageUpload
                   values={gallery}
@@ -284,48 +262,51 @@ export default function ResourceDetailPage() {
                 <Button
                   onClick={handleUpdateMarketing}
                   disabled={isUpdatingResource}
-                  className="w-full h-16 rounded-[2rem] bg-slate-950 dark:bg-blue-600 text-white font-black uppercase text-[11px] tracking-[0.3em] border-b-8 border-slate-800 dark:border-blue-800"
+                  className="w-full h-12 rounded-2xl bg-slate-950 dark:bg-blue-600 text-white font-black uppercase text-[10px] tracking-widest border-b-4 border-slate-800 dark:border-blue-800"
                 >
                   {isUpdatingResource ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <Loader2 size={16} className="animate-spin" />
                   ) : (
-                    "Simpan Perubahan"
+                    "Save Visuals"
                   )}
                 </Button>
               </div>
             ) : (
-              <div className="space-y-10 animate-in fade-in">
-                <div className="aspect-video rounded-[2.5rem] overflow-hidden shadow-2xl bg-slate-100 dark:bg-slate-800">
+              <div className="space-y-6 animate-in fade-in duration-500">
+                <div className="aspect-[16/10] rounded-[2rem] overflow-hidden shadow-inner bg-slate-100 dark:bg-slate-800">
                   {imageUrl ? (
                     <img
                       src={imageUrl}
                       className="w-full h-full object-cover"
-                      alt="Cover"
+                      alt="Unit"
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full opacity-10">
-                      <ImageIcon size={64} />
+                      <ImageIcon size={48} />
                     </div>
                   )}
                 </div>
-                <div className="space-y-4">
-                  <h3 className="text-3xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white pr-2 leading-none">
-                    Deskripsi Unit
-                  </h3>
-                  <p className="text-slate-500 dark:text-slate-400 italic leading-relaxed border-l-4 border-blue-500 pl-6 pr-4">
-                    {description || "Belum ada deskripsi."}
+                <div className="px-2 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={14} className="text-blue-500" />
+                    <h3 className="text-xs font-[1000] uppercase italic tracking-widest dark:text-white">
+                      Marketing Copy
+                    </h3>
+                  </div>
+                  <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 leading-relaxed border-l-[3px] border-blue-500/30 pl-4">
+                    {description || "No description set for this asset."}
                   </p>
                 </div>
                 {gallery.length > 0 && (
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-4 gap-2 px-2">
                     {gallery.slice(0, 4).map((img, i) => (
                       <div
                         key={i}
-                        className="aspect-square rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800"
+                        className="aspect-square rounded-xl overflow-hidden border-[0.5px] border-slate-100 dark:border-white/5"
                       >
                         <img
                           src={img}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover opacity-80 hover:opacity-100 transition-opacity"
                           alt="gallery"
                         />
                       </div>
@@ -337,56 +318,60 @@ export default function ResourceDetailPage() {
           </Card>
         </div>
 
-        {/* --- RIGHT: OPERATIONS --- */}
-        <div className="lg:col-span-7 space-y-16">
-          <section className="space-y-8">
-            <div className="flex items-center gap-4 px-2">
-              <div className="h-12 w-12 rounded-2xl bg-slate-900 dark:bg-white flex items-center justify-center text-white dark:text-slate-900 shadow-xl font-black italic">
-                1.0
-              </div>
-              <div>
-                <h2 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none">
-                  {configMeta.label}
-                </h2>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic mt-1">
-                  Tarif & Paket Sewa
-                </p>
+        {/* RIGHT: CONFIGURATION (High Density Grid) */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* MAIN RATES */}
+          <section className="space-y-4">
+            <div className="flex items-center justify-between px-2">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-lg bg-slate-950 dark:bg-blue-600 flex items-center justify-center text-white shadow-md">
+                  <LayoutGrid size={16} />
+                </div>
+                <div>
+                  <h2 className="text-sm font-[1000] uppercase italic tracking-widest text-slate-900 dark:text-white leading-none">
+                    {configMeta.label}
+                  </h2>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mt-1">
+                    Primary Rental Packages
+                  </p>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {mainItems.map((item: any) => (
                 <Card
                   key={item.id}
                   className={cn(
-                    "group rounded-[2.5rem] border-none p-8 transition-all bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5",
-                    item.is_default &&
-                      "ring-4 ring-blue-600/20 shadow-2xl scale-[1.02]",
+                    "group rounded-2xl border-[0.5px] p-5 transition-all bg-white dark:bg-slate-900",
+                    item.is_default
+                      ? "border-blue-600/50 shadow-lg shadow-blue-500/5 ring-1 ring-blue-500/10"
+                      : "border-slate-200 dark:border-white/5 opacity-80 hover:opacity-100",
                   )}
                 >
-                  <div className="flex justify-between items-start mb-8">
+                  <div className="flex justify-between items-start mb-4">
                     <div
                       className={cn(
-                        "h-14 w-14 rounded-2xl flex items-center justify-center shadow-inner",
+                        "h-8 w-8 rounded-lg flex items-center justify-center shadow-inner",
                         item.is_default
                           ? "bg-blue-600 text-white"
                           : "bg-slate-50 dark:bg-slate-800 text-slate-400",
                       )}
                     >
                       {item.is_default ? (
-                        <CheckCircle2 className="h-7 w-7" />
+                        <CheckCircle2 size={16} strokeWidth={3} />
                       ) : (
                         configMeta.icon
                       )}
                     </div>
-                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
                       {!item.is_default && (
                         <Button
                           onClick={() => handleSetDefault(item)}
                           variant="ghost"
-                          className="h-9 w-9 p-0 bg-slate-50 dark:bg-slate-800 rounded-xl"
+                          className="h-7 w-7 p-0 bg-slate-50 dark:bg-slate-800 hover:text-blue-600 rounded-lg"
                         >
-                          <Star size={16} />
+                          <Star size={12} />
                         </Button>
                       )}
                       <Button
@@ -395,63 +380,75 @@ export default function ResourceDetailPage() {
                           setDialogOpen(true);
                         }}
                         variant="ghost"
-                        className="h-9 w-9 p-0 bg-slate-50 dark:bg-slate-800 rounded-xl"
+                        className="h-7 w-7 p-0 bg-slate-50 dark:bg-slate-800 hover:text-blue-600 rounded-lg"
                       >
-                        <Edit3 size={16} />
+                        <Edit3 size={12} />
                       </Button>
                       <Button
                         onClick={() => handleDelete(item.id)}
                         variant="ghost"
-                        className="h-9 w-9 p-0 bg-slate-50 dark:bg-slate-800 text-red-500 rounded-xl"
+                        className="h-7 w-7 p-0 bg-slate-50 dark:bg-slate-800 text-red-300 hover:text-red-500 rounded-lg"
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={12} />
                       </Button>
                     </div>
                   </div>
-                  <h4 className="text-2xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none mb-2">
+                  <h4 className="text-sm font-[1000] uppercase italic tracking-tight text-slate-900 dark:text-white leading-none mb-2">
                     {item.name}
                   </h4>
-                  <p className="text-2xl font-black text-blue-600 italic leading-none">
-                    Rp {formatIDR(item.price)}{" "}
-                    <span className="text-[10px] text-slate-400 uppercase tracking-widest not-italic">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-[10px] font-black text-blue-600 italic">
+                      Rp
+                    </span>
+                    <span className="text-xl font-[1000] text-blue-600 italic tracking-tighter">
+                      {formatIDR(item.price)}
+                    </span>
+                    <span className="text-[8px] text-slate-400 font-black uppercase ml-1">
                       / {item.price_unit}
                     </span>
-                  </p>
+                  </div>
                   {item.unit_duration > 0 && (
-                    <p className="text-[10px] font-bold text-slate-400 uppercase italic mt-4">
-                      <Clock className="inline h-3 w-3 mr-1" />{" "}
-                      {item.unit_duration} MENIT
-                    </p>
+                    <div className="mt-3 flex items-center gap-1 text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                      <Clock size={10} className="text-blue-500/50" />{" "}
+                      {item.unit_duration} MINS DURATION
+                    </div>
                   )}
                 </Card>
               ))}
             </div>
           </section>
 
-          <section className="space-y-8">
-            <div className="flex items-center gap-4 px-2">
-              <div className="h-12 w-12 rounded-2xl bg-orange-500 flex items-center justify-center text-white shadow-xl font-black italic">
-                2.0
+          {/* ADD-ONS */}
+          <section className="space-y-4">
+            <div className="flex items-center gap-3 px-2">
+              <div className="h-8 w-8 rounded-lg bg-orange-500 flex items-center justify-center text-white shadow-md">
+                <Plus size={16} strokeWidth={4} />
               </div>
-              <h2 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none">
-                Layanan Tambahan (Add-ons)
-              </h2>
+              <div>
+                <h2 className="text-sm font-[1000] uppercase italic tracking-widest text-slate-900 dark:text-white leading-none">
+                  Add-ons Catalog
+                </h2>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mt-1">
+                  Optional Extras & Gear
+                </p>
+              </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {addonItems.map((item: any) => (
                 <div
                   key={item.id}
-                  className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-900/50 flex justify-between items-center group border border-transparent hover:border-blue-500/20 transition-all"
+                  className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/30 border-[0.5px] border-slate-200 dark:border-white/5 flex justify-between items-center group hover:border-blue-500/30 transition-all"
                 >
-                  <div>
-                    <h5 className="font-black uppercase italic text-sm pr-2 dark:text-white">
+                  <div className="flex flex-col leading-none">
+                    <h5 className="font-[1000] uppercase italic text-[11px] text-slate-800 dark:text-slate-200 tracking-tight">
                       {item.name}
                     </h5>
-                    <p className="text-blue-600 font-black text-xs italic">
+                    <p className="text-blue-600 font-[1000] text-[10px] italic mt-1.5">
                       Rp {formatIDR(item.price)}
                     </p>
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex gap-0.5">
                     <Button
                       onClick={() => {
                         setEditingItem(item);
@@ -459,17 +456,17 @@ export default function ResourceDetailPage() {
                       }}
                       size="icon"
                       variant="ghost"
-                      className="h-8 w-8 text-slate-400 hover:text-blue-600"
+                      className="h-7 w-7 text-slate-400 hover:text-blue-600 transition-colors"
                     >
-                      <Edit3 size={14} />
+                      <Edit3 size={12} />
                     </Button>
                     <Button
                       onClick={() => handleDelete(item.id)}
                       size="icon"
                       variant="ghost"
-                      className="h-8 w-8 text-slate-400 hover:text-red-500"
+                      className="h-7 w-7 text-slate-400 hover:text-red-500 transition-colors"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={12} />
                     </Button>
                   </div>
                 </div>
