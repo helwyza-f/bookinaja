@@ -2,114 +2,40 @@
   "gaming_hub": {
     "resources": [
       {
-        "name": "PC STATION 01",
+        "name": "PC REGULER",
         "category": "REGULER",
-        "description": "RTX 3060, Ryzen 5, 16GB RAM, Monitor 144Hz"
+        "description": "RTX 3060, Ryzen 5, 16GB RAM, Monitor 144Hz",
+        "image_url": "https://images.unsplash.com/photo-1593640408182-31c228b29976?w=800&q=80"
       },
       {
-        "name": "PC STATION 02",
-        "category": "REGULER",
-        "description": "RTX 3060, Ryzen 5, 16GB RAM, Monitor 144Hz"
-      },
-      {
-        "name": "PC STATION 03",
-        "category": "REGULER",
-        "description": "RTX 3060, Ryzen 5, 16GB RAM, Monitor 144Hz"
-      },
-      {
-        "name": "PC STATION 04",
-        "category": "REGULER",
-        "description": "RTX 3060, Ryzen 5, 16GB RAM, Monitor 144Hz"
-      },
-      {
-        "name": "PC STATION 05",
-        "category": "REGULER",
-        "description": "RTX 3060, Ryzen 5, 16GB RAM, Monitor 144Hz"
-      },
-      {
-        "name": "PC STATION 06",
-        "category": "REGULER",
-        "description": "RTX 3060, Ryzen 5, 16GB RAM, Monitor 144Hz"
-      },
-      {
-        "name": "PC STATION 07",
-        "category": "REGULER",
-        "description": "RTX 3060, Ryzen 5, 16GB RAM, Monitor 144Hz"
-      },
-      {
-        "name": "PC STATION 08",
-        "category": "REGULER",
-        "description": "RTX 3060, Ryzen 5, 16GB RAM, Monitor 144Hz"
-      },
-      {
-        "name": "PC VIP 01",
+        "name": "PC VIP",
         "category": "VIP",
-        "description": "RTX 4070 Ti, Ryzen 7, 32GB RAM, Monitor 240Hz, Private Cubicle"
+        "description": "RTX 4070 Ti, Ryzen 7, 32GB RAM, Monitor 240Hz, Private Cubicle",
+        "image_url": "https://images.unsplash.com/photo-1547394765-185e1e68f34e?w=800&q=80"
       },
       {
-        "name": "PC VIP 02",
-        "category": "VIP",
-        "description": "RTX 4070 Ti, Ryzen 7, 32GB RAM, Monitor 240Hz, Private Cubicle"
-      },
-      {
-        "name": "PC VIP 03",
-        "category": "VIP",
-        "description": "RTX 4070 Ti, Ryzen 7, 32GB RAM, Monitor 240Hz, Private Cubicle"
-      },
-      {
-        "name": "PC VIP 04",
-        "category": "VIP",
-        "description": "RTX 4070 Ti, Ryzen 7, 32GB RAM, Monitor 240Hz, Private Cubicle"
-      },
-      {
-        "name": "PC PRO-PLAYER 01",
+        "name": "PC E-SPORTS",
         "category": "E-SPORTS",
-        "description": "RTX 4090, Ryzen 9, BenQ Zowie 360Hz, SecretLab Chair"
+        "description": "RTX 4090, Ryzen 9, BenQ Zowie 360Hz, SecretLab Chair",
+        "image_url": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&q=80"
       },
       {
-        "name": "PC PRO-PLAYER 02",
-        "category": "E-SPORTS",
-        "description": "RTX 4090, Ryzen 9, BenQ Zowie 360Hz, SecretLab Chair"
-      },
-      {
-        "name": "CONSOLE PS5 01",
+        "name": "CONSOLE PS5",
         "category": "CONSOLE",
-        "description": "PlayStation 5 Digital Edition, TV Sony 4K 55 Inch"
+        "description": "PlayStation 5, TV Sony 4K 55 Inch",
+        "image_url": "https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=800&q=80"
       },
       {
-        "name": "CONSOLE PS5 02",
-        "category": "CONSOLE",
-        "description": "PlayStation 5 Digital Edition, TV Sony 4K 55 Inch"
-      },
-      {
-        "name": "CONSOLE PS5 03",
-        "category": "CONSOLE",
-        "description": "PlayStation 5 Disc Edition, TV Sony 4K 55 Inch"
-      },
-      {
-        "name": "CONSOLE PS5 04",
-        "category": "CONSOLE",
-        "description": "PlayStation 5 Disc Edition, TV Sony 4K 55 Inch"
-      },
-      {
-        "name": "CONSOLE PS5 05",
-        "category": "CONSOLE",
-        "description": "PlayStation 5 Disc Edition, TV Sony 4K 55 Inch"
-      },
-      {
-        "name": "STREAMING ROOM 01",
+        "name": "STREAMING ROOM",
         "category": "STUDIO",
-        "description": "Full Streaming Setup: GoXLR, Shure SM7B, Dual PC Setup"
+        "description": "GoXLR, Shure SM7B, Dual PC Setup",
+        "image_url": "https://images.unsplash.com/photo-1598550476439-6847785fcea6?w=800&q=80"
       },
       {
-        "name": "SIMULATOR RACING 01",
+        "name": "SIMULATOR RACING",
         "category": "SIMULATOR",
-        "description": "Logitech G29, Bucket Seat, Triple Monitor Setup"
-      },
-      {
-        "name": "SIMULATOR RACING 02",
-        "category": "SIMULATOR",
-        "description": "Fanatec DD2, Hydraulic Pedals, VR Ready"
+        "description": "Fanatec DD2, Hydraulic Pedals, Triple Monitor",
+        "image_url": "https://images.unsplash.com/photo-1636622433525-127afdf3662d?w=800&q=80"
       }
     ],
     "main_items": [
@@ -149,17 +75,10 @@
         "is_default": false
       },
       {
-        "name": "PAKET 3 JAM REGULER",
+        "name": "PAKET 3 JAM",
         "price": 15000,
         "price_unit": "session",
         "unit_duration": 180,
-        "is_default": false
-      },
-      {
-        "name": "PAKET 5 JAM REGULER",
-        "price": 25000,
-        "price_unit": "session",
-        "unit_duration": 300,
         "is_default": false
       },
       {
@@ -167,13 +86,6 @@
         "price": 45000,
         "price_unit": "session",
         "unit_duration": 480,
-        "is_default": false
-      },
-      {
-        "name": "PAKET SULTAN 10 JAM",
-        "price": 80000,
-        "price_unit": "session",
-        "unit_duration": 600,
         "is_default": false
       }
     ],
@@ -191,13 +103,7 @@
         "unit_duration": 0
       },
       {
-        "name": "MECHANICAL KEYBOARD BLUE SWITCH",
-        "price": 5000,
-        "price_unit": "session",
-        "unit_duration": 0
-      },
-      {
-        "name": "GAMING MOUSE LOGITECH G502",
+        "name": "MECHANICAL KEYBOARD",
         "price": 5000,
         "price_unit": "session",
         "unit_duration": 0
@@ -207,110 +113,84 @@
         "price": 35000,
         "price_unit": "session",
         "unit_duration": 30
-      },
-      {
-        "name": "CHARGER CONTROLLER",
-        "price": 2000,
-        "price_unit": "session",
-        "unit_duration": 0
-      },
-      {
-        "name": "CONTROLLER XBOX ELITE",
-        "price": 15000,
-        "price_unit": "session",
-        "unit_duration": 0
       }
     ],
     "fnb_catalog": [
       {
-        "name": "INDOMIE GORENG DOUBLE + TELUR",
-        "price": 18000,
-        "category": "Food"
-      },
-      {
-        "name": "INDOMIE REBUS TELUR TANTE",
+        "name": "INDOMIE GORENG + TELUR",
         "price": 15000,
-        "category": "Food"
+        "category": "Food",
+        "image_url": "https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?w=400&q=80"
       },
       {
-        "name": "NASI GORENG GILA LEVEL 1-5",
+        "name": "NASI GORENG GILA",
         "price": 25000,
-        "category": "Food"
+        "category": "Food",
+        "image_url": "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=400&q=80"
       },
-      { "name": "NASI AYAM GEPREK", "price": 22000, "category": "Food" },
       {
-        "name": "RICEBOWL CHICKEN TERIYAKI",
-        "price": 28000,
-        "category": "Food"
+        "name": "KENTANG GORENG",
+        "price": 15000,
+        "category": "Snack",
+        "image_url": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=400&q=80"
       },
-      { "name": "KENTANG GORENG LARGE", "price": 15000, "category": "Snack" },
-      { "name": "SOSIS BAKAR JUMBO", "price": 12000, "category": "Snack" },
-      { "name": "NUGGET AYAM (ISI 6)", "price": 15000, "category": "Snack" },
-      { "name": "CIRENG RUJAK", "price": 12000, "category": "Snack" },
-      { "name": "OTAK-OTAK SINGAPORE", "price": 18000, "category": "Snack" },
-      { "name": "ES TEH MANIS JUMBO", "price": 7000, "category": "Drink" },
-      { "name": "KOPI SUSU GULA AREN", "price": 18000, "category": "Drink" },
-      { "name": "MILO DINOSAUR", "price": 15000, "category": "Drink" },
-      { "name": "LEMON TEA ICE", "price": 10000, "category": "Drink" },
-      { "name": "COCA COLA CAN", "price": 10000, "category": "Drink" },
-      { "name": "AIR MINERAL 600ML", "price": 5000, "category": "Drink" },
-      { "name": "MATCHA LATTE", "price": 22000, "category": "Drink" },
-      { "name": "RED VELVET LATTE", "price": 22000, "category": "Drink" },
-      { "name": "ENERGY DRINK MONSTER", "price": 35000, "category": "Drink" },
-      { "name": "KRATINGDAENG", "price": 8000, "category": "Drink" }
+      {
+        "name": "ES TEH MANIS JUMBO",
+        "price": 7000,
+        "category": "Drink",
+        "image_url": "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&q=80"
+      },
+      {
+        "name": "KOPI SUSU GULA AREN",
+        "price": 18000,
+        "category": "Drink",
+        "image_url": "https://images.unsplash.com/photo-1612528443702-f6741f70a049?w=400&q=80"
+      },
+      {
+        "name": "ENERGY DRINK MONSTER",
+        "price": 35000,
+        "category": "Drink",
+        "image_url": "https://images.unsplash.com/photo-1622543925917-763c34d1a86e?w=400&q=80"
+      }
     ]
   },
   "creative_space": {
     "resources": [
       {
-        "name": "STUDIO A - CYCLORAMA",
+        "name": "STUDIO CYCLORAMA",
         "category": "PHOTOGRAPHY",
-        "description": "White Cyclorama Wall, 10x12m, High Ceiling, Makeup Room"
+        "description": "White Cyclorama Wall, 10x12m, High Ceiling, Makeup Room",
+        "image_url": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&q=80"
       },
       {
-        "name": "STUDIO B - THEMATIC",
+        "name": "STUDIO THEMATIC",
         "category": "PHOTOGRAPHY",
-        "description": "European Style Living Room & Vintage Library Set"
+        "description": "European Style Living Room & Vintage Library Set",
+        "image_url": "https://images.unsplash.com/photo-1554080353-a576cf803bda?w=800&q=80"
       },
       {
-        "name": "STUDIO C - GREEN SCREEN",
+        "name": "STUDIO GREEN SCREEN",
         "category": "VIDEO",
-        "description": "U-Shape Green Screen with Overhead Lighting Grid"
+        "description": "U-Shape Green Screen with Overhead Lighting Grid",
+        "image_url": "https://images.unsplash.com/photo-1598899134739-24c46f58b8c0?w=800&q=80"
       },
       {
-        "name": "PODCAST SUITE 01",
+        "name": "PODCAST SUITE",
         "category": "AUDIO",
-        "description": "Acoustic Treated for 4 People, Shure SM7B, RODECaster Pro II"
+        "description": "Acoustic Treated, Shure SM7B, RODECaster Pro II",
+        "image_url": "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=800&q=80"
       },
       {
-        "name": "PODCAST SUITE 02",
-        "category": "AUDIO",
-        "description": "Cozy Setup for 2 People, Video Podcast Ready"
-      },
-      {
-        "name": "EDITING SUITE A",
+        "name": "EDITING SUITE",
         "category": "POST-PROD",
-        "description": "Mac Studio M2 Ultra, Pro Display XDR, DaVinci Resolve Panel"
-      },
-      {
-        "name": "EDITING SUITE B",
-        "category": "POST-PROD",
-        "description": "iMac 24 Inch, Adobe Creative Cloud, Focusrite Interface"
+        "description": "Mac Studio M2 Ultra, Pro Display XDR, DaVinci Resolve",
+        "image_url": "https://images.unsplash.com/photo-1547082299-de196ea013d6?w=800&q=80"
       },
       {
         "name": "DANCE STUDIO",
         "category": "REHEARSAL",
-        "description": "Full Mirror Wall, Sound System, Vinyl Floor, AC"
-      },
-      {
-        "name": "VOICEOVER BOOTH",
-        "category": "AUDIO",
-        "description": "Ultra Quiet Booth, Neumann U87 Mic, Avalon Preamp"
-      },
-      {
-        "name": "MEETING ROOM CREATIVE",
-        "category": "OFFICE",
-        "description": "Glass Board, Projector, Capacity 12 People"
+        "description": "Full Mirror Wall, Sound System, Vinyl Floor",
+        "image_url": "https://images.unsplash.com/photo-1524594152303-9fd13543fe6e?w=800&q=80"
       }
     ],
     "main_items": [
@@ -350,7 +230,7 @@
         "is_default": false
       },
       {
-        "name": "MEMBER RATE STUDIO",
+        "name": "MEMBER RATE",
         "price": 175000,
         "price_unit": "hour",
         "unit_duration": 60,
@@ -371,14 +251,8 @@
         "unit_duration": 0
       },
       {
-        "name": "GODOX LIGHTING SET (2 LAMP)",
+        "name": "GODOX LIGHTING SET",
         "price": 150000,
-        "price_unit": "session",
-        "unit_duration": 0
-      },
-      {
-        "name": "SMOKE MACHINE",
-        "price": 50000,
         "price_unit": "session",
         "unit_duration": 0
       },
@@ -387,110 +261,78 @@
         "price": 150000,
         "price_unit": "hour",
         "unit_duration": 60
-      },
-      {
-        "name": "TECHNICAL ASSISTANT",
-        "price": 100000,
-        "price_unit": "hour",
-        "unit_duration": 60
-      },
-      {
-        "name": "SEWA MEMORY CARD 64GB",
-        "price": 30000,
-        "price_unit": "session",
-        "unit_duration": 0
-      },
-      {
-        "name": "V-MOUNT BATTERY",
-        "price": 75000,
-        "price_unit": "session",
-        "unit_duration": 0
       }
     ],
     "fnb_catalog": [
-      { "name": "HOT AMERICANO", "price": 22000, "category": "Coffee" },
-      { "name": "ICED CAFE LATTE", "price": 28000, "category": "Coffee" },
-      { "name": "CARAMEL MACCHIATO", "price": 35000, "category": "Coffee" },
-      { "name": "CAPPUCCINO", "price": 28000, "category": "Coffee" },
-      { "name": "EARL GREY TEA", "price": 20000, "category": "Tea" },
-      { "name": "ICED LYCHEE TEA", "price": 25000, "category": "Tea" },
-      { "name": "MATCHA FRAPPE", "price": 35000, "category": "Non-Coffee" },
-      { "name": "CLUB SANDWICH", "price": 45000, "category": "Food" },
-      { "name": "SPAGHETTI BOLOGNESE", "price": 55000, "category": "Food" },
-      { "name": "CHICKEN SALAD", "price": 40000, "category": "Food" },
-      { "name": "FRENCH FRIES", "price": 25000, "category": "Snack" },
-      { "name": "CROISSANT BUTTER", "price": 22000, "category": "Snack" },
-      { "name": "ALMOND BROWNIES", "price": 18000, "category": "Snack" },
       {
-        "name": "PLATTER SNACK (SHARING)",
-        "price": 65000,
-        "category": "Snack"
+        "name": "ICED CAFE LATTE",
+        "price": 28000,
+        "category": "Coffee",
+        "image_url": "https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=400&q=80"
       },
-      { "name": "INFUSED WATER 1L", "price": 15000, "category": "Drink" },
-      { "name": "SPARKLING WATER", "price": 25000, "category": "Drink" }
+      {
+        "name": "CARAMEL MACCHIATO",
+        "price": 35000,
+        "category": "Coffee",
+        "image_url": "https://images.unsplash.com/photo-1485808191679-5f86510bd9d4?w=400&q=80"
+      },
+      {
+        "name": "CLUB SANDWICH",
+        "price": 45000,
+        "category": "Food",
+        "image_url": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=400&q=80"
+      },
+      {
+        "name": "SPAGHETTI BOLOGNESE",
+        "price": 55000,
+        "category": "Food",
+        "image_url": "https://images.unsplash.com/photo-1598866594230-a7c12756260f?w=400&q=80"
+      },
+      {
+        "name": "CROISSANT BUTTER",
+        "price": 22000,
+        "category": "Snack",
+        "image_url": "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400&q=80"
+      },
+      {
+        "name": "SPARKLING WATER",
+        "price": 25000,
+        "category": "Drink",
+        "image_url": "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&q=80"
+      }
     ]
   },
   "sport_center": {
     "resources": [
       {
-        "name": "LAPANGAN FUTSAL A (INDOOR)",
+        "name": "LAPANGAN FUTSAL",
         "category": "FUTSAL",
-        "description": "Interlock Floor, FIFA Standard Size, Digital Scoreboard"
+        "description": "Interlock Floor, FIFA Standard Size, Digital Scoreboard",
+        "image_url": "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&q=80"
       },
       {
-        "name": "LAPANGAN FUTSAL B (INDOOR)",
-        "category": "FUTSAL",
-        "description": "Interlock Floor, FIFA Standard Size, Digital Scoreboard"
-      },
-      {
-        "name": "LAPANGAN BADMINTON 01",
+        "name": "LAPANGAN BADMINTON",
         "category": "BADMINTON",
-        "description": "Premium Li-Ning Mat, Professional Lighting"
-      },
-      {
-        "name": "LAPANGAN BADMINTON 02",
-        "category": "BADMINTON",
-        "description": "Premium Li-Ning Mat, Professional Lighting"
-      },
-      {
-        "name": "LAPANGAN BADMINTON 03",
-        "category": "BADMINTON",
-        "description": "Premium Li-Ning Mat, Professional Lighting"
-      },
-      {
-        "name": "LAPANGAN BADMINTON 04",
-        "category": "BADMINTON",
-        "description": "Premium Li-Ning Mat, Professional Lighting"
-      },
-      {
-        "name": "LAPANGAN BADMINTON 05",
-        "category": "BADMINTON",
-        "description": "Premium Li-Ning Mat, Professional Lighting"
-      },
-      {
-        "name": "LAPANGAN BADMINTON 06",
-        "category": "BADMINTON",
-        "description": "Premium Li-Ning Mat, Professional Lighting"
+        "description": "Premium Li-Ning Mat, Professional Lighting",
+        "image_url": "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=800&q=80"
       },
       {
         "name": "LAPANGAN BASKET 3X3",
         "category": "BASKETBALL",
-        "description": "Outdoor Court, Professional Ring"
+        "description": "Outdoor Court, Professional Ring",
+        "image_url": "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800&q=80"
       },
       {
-        "name": "LAPANGAN TENIS 01",
+        "name": "LAPANGAN TENIS",
         "category": "TENNIS",
-        "description": "Hard Court, Floodlights for Night Match"
+        "description": "Hard Court, Floodlights for Night Match",
+        "image_url": "https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800&q=80"
       },
       {
-        "name": "LAPANGAN TENIS 02",
-        "category": "TENNIS",
-        "description": "Hard Court, Floodlights for Night Match"
-      },
-      {
-        "name": "STUDIO SENAM/YOGA",
+        "name": "STUDIO SENAM / YOGA",
         "category": "INDOOR",
-        "description": "Wooden Floor, Full Mirror, Sound System"
+        "description": "Wooden Floor, Full Mirror, Sound System",
+        "image_url": "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800&q=80"
       }
     ],
     "main_items": [
@@ -535,13 +377,6 @@
         "price_unit": "session",
         "unit_duration": 120,
         "is_default": false
-      },
-      {
-        "name": "SEWA STUDIO YOGA",
-        "price": 150000,
-        "price_unit": "hour",
-        "unit_duration": 60,
-        "is_default": false
       }
     ],
     "unit_addons": [
@@ -558,21 +393,9 @@
         "unit_duration": 0
       },
       {
-        "name": "BOLA FUTSAL (TAMBAHAN)",
-        "price": 10000,
-        "price_unit": "session",
-        "unit_duration": 0
-      },
-      {
         "name": "ROMPI FUTSAL (12 PCS)",
         "price": 30000,
         "price_unit": "session",
-        "unit_duration": 0
-      },
-      {
-        "name": "HANDUK MANDI",
-        "price": 10000,
-        "price_unit": "pcs",
         "unit_duration": 0
       },
       {
@@ -583,83 +406,81 @@
       }
     ],
     "fnb_catalog": [
-      { "name": "POCARI SWEAT 500ML", "price": 10000, "category": "Drink" },
-      { "name": "MIZONE ISOTONIC", "price": 8000, "category": "Drink" },
-      { "name": "AIR MINERAL 600ML", "price": 5000, "category": "Drink" },
-      { "name": "GATORADE 500ML", "price": 18000, "category": "Drink" },
-      { "name": "REDBULL CAN", "price": 25000, "category": "Drink" },
-      { "name": "NASI GORENG TELUR", "price": 20000, "category": "Food" },
-      { "name": "MIE REBUS TELUR KORNET", "price": 18000, "category": "Food" },
-      { "name": "NASI AYAM BAKAR", "price": 28000, "category": "Food" },
-      { "name": "TELUR REBUS (ISI 2)", "price": 10000, "category": "Snack" },
-      { "name": "PISANG GORENG COKLAT", "price": 15000, "category": "Snack" },
-      { "name": "TEMPE MENDOAN (ISI 5)", "price": 15000, "category": "Snack" },
-      { "name": "KACANG REBUS", "price": 10000, "category": "Snack" },
-      { "name": "KOPI HITAM PANAS", "price": 7000, "category": "Drink" },
-      { "name": "ES JERUK PERAS", "price": 12000, "category": "Drink" }
+      {
+        "name": "POCARI SWEAT 500ML",
+        "price": 10000,
+        "category": "Drink",
+        "image_url": "https://images.unsplash.com/photo-1622543925917-763c34d1a86e?w=400&q=80"
+      },
+      {
+        "name": "GATORADE 500ML",
+        "price": 18000,
+        "category": "Drink",
+        "image_url": "https://images.unsplash.com/photo-1581009137042-c552e485697a?w=400&q=80"
+      },
+      {
+        "name": "NASI AYAM BAKAR",
+        "price": 28000,
+        "category": "Food",
+        "image_url": "https://images.unsplash.com/photo-1632778149955-e80f8ceca2e8?w=400&q=80"
+      },
+      {
+        "name": "NASI GORENG TELUR",
+        "price": 20000,
+        "category": "Food",
+        "image_url": "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=400&q=80"
+      },
+      {
+        "name": "PISANG GORENG COKLAT",
+        "price": 15000,
+        "category": "Snack",
+        "image_url": "https://images.unsplash.com/photo-1606756790138-261d2b21cd75?w=400&q=80"
+      },
+      {
+        "name": "ES JERUK PERAS",
+        "price": 12000,
+        "category": "Drink",
+        "image_url": "https://images.unsplash.com/photo-1534353436294-0dbd4bdac845?w=400&q=80"
+      }
     ]
   },
   "social_space": {
     "resources": [
       {
-        "name": "HOT-DESK ZONE A - 01",
+        "name": "HOT-DESK (QUIET ZONE)",
         "category": "COWORKING",
-        "description": "Flexible Desk in Quiet Zone, Ergonomic Chair"
+        "description": "Flexible Desk, Ergonomic Chair, Near Power Outlet",
+        "image_url": "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80"
       },
       {
-        "name": "HOT-DESK ZONE A - 02",
+        "name": "HOT-DESK (SOCIAL AREA)",
         "category": "COWORKING",
-        "description": "Flexible Desk in Quiet Zone, Ergonomic Chair"
+        "description": "Collaborative Zone, Near Coffee Station",
+        "image_url": "https://images.unsplash.com/photo-1556761175-4b46a572b786?w=800&q=80"
       },
       {
-        "name": "HOT-DESK ZONE A - 03",
-        "category": "COWORKING",
-        "description": "Flexible Desk in Quiet Zone, Ergonomic Chair"
-      },
-      {
-        "name": "HOT-DESK ZONE B - 01",
-        "category": "COWORKING",
-        "description": "Flexible Desk in Social Area, Near Coffee Station"
-      },
-      {
-        "name": "HOT-DESK ZONE B - 02",
-        "category": "COWORKING",
-        "description": "Flexible Desk in Social Area, Near Coffee Station"
-      },
-      {
-        "name": "PRIVATE OFFICE 2-PAX",
+        "name": "PRIVATE OFFICE",
         "category": "OFFICE",
-        "description": "Soundproof Private Room, Dual Desk, Storage"
+        "description": "Soundproof Private Room, Dual Desk, Storage",
+        "image_url": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?w=800&q=80"
       },
       {
-        "name": "PRIVATE OFFICE 4-PAX",
-        "category": "OFFICE",
-        "description": "Soundproof Private Room, Meeting Table, AC"
-      },
-      {
-        "name": "MEETING ROOM SMALL",
+        "name": "MEETING ROOM",
         "category": "MEETING",
-        "description": "Capacity 4-6 People, LED TV, Whiteboard"
+        "description": "Capacity 12-15 People, Projector, Video Conf Ready",
+        "image_url": "https://images.unsplash.com/photo-1517502884422-41eaead166d4?w=800&q=80"
       },
       {
-        "name": "MEETING ROOM LARGE",
-        "category": "MEETING",
-        "description": "Capacity 12-15 People, Projector, Video Conf ready"
-      },
-      {
-        "name": "PHONE BOOTH 01",
+        "name": "PHONE BOOTH",
         "category": "PRIVATE",
-        "description": "Single Person Soundproof Booth for Private Calls"
-      },
-      {
-        "name": "PHONE BOOTH 02",
-        "category": "PRIVATE",
-        "description": "Single Person Soundproof Booth for Private Calls"
+        "description": "Single Person Soundproof Booth for Private Calls",
+        "image_url": "https://images.unsplash.com/photo-1588196749597-9ff075ee6b5b?w=800&q=80"
       },
       {
         "name": "EVENT HALL",
         "category": "EVENT",
-        "description": "Capacity 50 People, Sound System, Projector, Stage"
+        "description": "Capacity 50 People, Sound System, Projector, Stage",
+        "image_url": "https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&q=80"
       }
     ],
     "main_items": [
@@ -708,7 +529,7 @@
     ],
     "unit_addons": [
       {
-        "name": "PRINTING BLACK/WHITE (PER PAGE)",
+        "name": "PRINTING B/W (PER PAGE)",
         "price": 1000,
         "price_unit": "pcs",
         "unit_duration": 0
@@ -730,106 +551,84 @@
         "price": 20000,
         "price_unit": "day",
         "unit_duration": 0
-      },
-      {
-        "name": "SCAN DOCUMENT",
-        "price": 2000,
-        "price_unit": "pcs",
-        "unit_duration": 0
-      },
-      {
-        "name": "PROJECTOR RENTAL (EXTERNAL)",
-        "price": 100000,
-        "price_unit": "hour",
-        "unit_duration": 60
-      },
-      {
-        "name": "PARKIR VALET",
-        "price": 30000,
-        "price_unit": "session",
-        "unit_duration": 0
       }
     ],
     "fnb_catalog": [
-      { "name": "CAFE LATTE 12OZ", "price": 32000, "category": "Coffee" },
-      { "name": "CAPPUCCINO 12OZ", "price": 32000, "category": "Coffee" },
-      { "name": "FLAT WHITE", "price": 30000, "category": "Coffee" },
-      { "name": "AVOCADO COFFEE", "price": 38000, "category": "Coffee" },
-      { "name": "ICED SHAKEN ESPRESSO", "price": 35000, "category": "Coffee" },
-      { "name": "EARL GREY TEA HOT", "price": 25000, "category": "Tea" },
-      { "name": "CHAMOMILE TEA HOT", "price": 25000, "category": "Tea" },
-      { "name": "PASTA CARBONARA", "price": 55000, "category": "Food" },
-      { "name": "CHICKEN CORDON BLEU", "price": 65000, "category": "Food" },
-      { "name": "BEEF BURGER & FRIES", "price": 75000, "category": "Food" },
-      { "name": "DONUT GLAZED (ISI 2)", "price": 25000, "category": "Snack" },
-      { "name": "QUICHE LORRAINE", "price": 35000, "category": "Snack" },
-      { "name": "ALMOND CROISSANT", "price": 28000, "category": "Snack" },
-      { "name": "BROWNIES A LA MODE", "price": 30000, "category": "Snack" },
-      { "name": "GREEN TEA LATTE", "price": 35000, "category": "Non-Coffee" },
-      { "name": "DARK CHOCOLATE ICE", "price": 35000, "category": "Non-Coffee" }
+      {
+        "name": "CAFE LATTE 12OZ",
+        "price": 32000,
+        "category": "Coffee",
+        "image_url": "https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=400&q=80"
+      },
+      {
+        "name": "FLAT WHITE",
+        "price": 30000,
+        "category": "Coffee",
+        "image_url": "https://images.unsplash.com/photo-1534040385115-33dcb3acba5b?w=400&q=80"
+      },
+      {
+        "name": "PASTA CARBONARA",
+        "price": 55000,
+        "category": "Food",
+        "image_url": "https://images.unsplash.com/photo-1612874742237-6526221588e3?w=400&q=80"
+      },
+      {
+        "name": "BEEF BURGER & FRIES",
+        "price": 75000,
+        "category": "Food",
+        "image_url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80"
+      },
+      {
+        "name": "ALMOND CROISSANT",
+        "price": 28000,
+        "category": "Snack",
+        "image_url": "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400&q=80"
+      },
+      {
+        "name": "EARL GREY TEA HOT",
+        "price": 25000,
+        "category": "Tea",
+        "image_url": "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&q=80"
+      }
     ]
   },
   "entertainment_hub": {
     "resources": [
       {
-        "name": "KARAOKE ROOM SMALL 01",
+        "name": "KARAOKE ROOM SMALL",
         "category": "KARAOKE",
-        "description": "Capacity 4 People, 55 Inch TV, Sound System"
+        "description": "Capacity 4 People, 55 Inch TV, Sound System",
+        "image_url": "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800&q=80"
       },
       {
-        "name": "KARAOKE ROOM SMALL 02",
+        "name": "KARAOKE ROOM MEDIUM",
         "category": "KARAOKE",
-        "description": "Capacity 4 People, 55 Inch TV, Sound System"
+        "description": "Capacity 8 People, Dual Mic, Sofa Comfort",
+        "image_url": "https://images.unsplash.com/photo-1598387993441-a364f854cffd?w=800&q=80"
       },
       {
-        "name": "KARAOKE ROOM MEDIUM 01",
+        "name": "KARAOKE ROOM VIP",
         "category": "KARAOKE",
-        "description": "Capacity 8 People, Dual Mic, Sofa Comfort"
+        "description": "Capacity 15 People, Tablet Controller, Private Restroom",
+        "image_url": "https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=800&q=80"
       },
       {
-        "name": "KARAOKE ROOM MEDIUM 02",
-        "category": "KARAOKE",
-        "description": "Capacity 8 People, Dual Mic, Sofa Comfort"
-      },
-      {
-        "name": "KARAOKE ROOM LARGE (VIP)",
-        "category": "KARAOKE",
-        "description": "Capacity 15 People, Tablet Controller, Private Restroom"
-      },
-      {
-        "name": "BILLIARD TABLE 01",
+        "name": "BILLIARD TABLE",
         "category": "BILLIARD",
-        "description": "9-Feet Table, Professional Slate, Tournament Grade"
+        "description": "9-Feet Table, Professional Slate, Tournament Grade",
+        "image_url": "https://images.unsplash.com/photo-1615542578965-958786aab89c?w=800&q=80"
       },
       {
-        "name": "BILLIARD TABLE 02",
+        "name": "BILLIARD VIP",
         "category": "BILLIARD",
-        "description": "9-Feet Table, Professional Slate, Tournament Grade"
+        "description": "Private Room with Sofa and Personal Minibar",
+        "image_url": "https://images.unsplash.com/photo-1542751110-97427bbecf20?w=800&q=80"
       },
       {
-        "name": "BILLIARD TABLE 03",
-        "category": "BILLIARD",
-        "description": "9-Feet Table, Professional Slate, Tournament Grade"
-      },
-      {
-        "name": "BILLIARD TABLE 04",
-        "category": "BILLIARD",
-        "description": "9-Feet Table, Professional Slate, Tournament Grade"
-      },
-      {
-        "name": "BILLIARD TABLE VIP",
-        "category": "BILLIARD",
-        "description": "Private Room with Sofa and Personal Minibar"
-      },
-      {
-        "name": "VR BOOTH 01",
+        "name": "VR BOOTH",
         "category": "VR",
-        "description": "HTC Vive Pro 2 Setup, 3x3m Walking Space"
-      },
-      {
-        "name": "VR BOOTH 02",
-        "category": "VR",
-        "description": "HTC Vive Pro 2 Setup, 3x3m Walking Space"
+        "description": "HTC Vive Pro 2 Setup, 3x3m Walking Space",
+        "image_url": "https://images.unsplash.com/photo-1622979135225-d2ba269cf1ac?w=800&q=80"
       }
     ],
     "main_items": [
@@ -885,21 +684,15 @@
     ],
     "unit_addons": [
       {
-        "name": "STIK BILLIARD CUSTOM",
-        "price": 20000,
-        "price_unit": "pcs",
-        "unit_duration": 0
-      },
-      {
-        "name": "MIC COVER (ISI 2)",
-        "price": 5000,
-        "price_unit": "pcs",
-        "unit_duration": 0
-      },
-      {
         "name": "EXTRA MIC",
         "price": 20000,
         "price_unit": "session",
+        "unit_duration": 0
+      },
+      {
+        "name": "STIK BILLIARD CUSTOM",
+        "price": 20000,
+        "price_unit": "pcs",
         "unit_duration": 0
       },
       {
@@ -909,27 +702,49 @@
         "unit_duration": 0
       },
       {
-        "name": "SARUNG TANGAN BILLIARD",
+        "name": "MIC COVER (ISI 2)",
         "price": 5000,
         "price_unit": "pcs",
         "unit_duration": 0
       }
     ],
     "fnb_catalog": [
-      { "name": "BEER TOWER 3L", "price": 350000, "category": "Alcohol" },
-      { "name": "BINTANG CAN 330ML", "price": 45000, "category": "Alcohol" },
-      { "name": "ICED LEMON TEA TOWER", "price": 120000, "category": "Drink" },
-      { "name": "FRENCH FRIES PLATTER", "price": 45000, "category": "Snack" },
-      { "name": "CHICKEN WINGS (ISI 10)", "price": 85000, "category": "Snack" },
-      { "name": "PIZZA MARGHERITA", "price": 110000, "category": "Food" },
-      { "name": "NACHOS WITH CHEESE", "price": 55000, "category": "Snack" },
-      { "name": "MOCKTAIL VIRGIN MOJITO", "price": 45000, "category": "Drink" },
-      { "name": "JUS ALPUKAT KENTAL", "price": 25000, "category": "Drink" },
-      { "name": "NASI GORENG SPECIAL", "price": 45000, "category": "Food" },
-      { "name": "SATE AYAM (10 TUSUK)", "price": 50000, "category": "Food" },
-      { "name": "POPCORN CARAMEL", "price": 30000, "category": "Snack" },
-      { "name": "ES BUAH SEGAR", "price": 22000, "category": "Snack" },
-      { "name": "COCA COLA JUMBO", "price": 15000, "category": "Drink" }
+      {
+        "name": "CHICKEN WINGS (ISI 10)",
+        "price": 85000,
+        "category": "Snack",
+        "image_url": "https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=400&q=80"
+      },
+      {
+        "name": "PIZZA MARGHERITA",
+        "price": 110000,
+        "category": "Food",
+        "image_url": "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&q=80"
+      },
+      {
+        "name": "NACHOS WITH CHEESE",
+        "price": 55000,
+        "category": "Snack",
+        "image_url": "https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?w=400&q=80"
+      },
+      {
+        "name": "MOCKTAIL VIRGIN MOJITO",
+        "price": 45000,
+        "category": "Drink",
+        "image_url": "https://images.unsplash.com/photo-1544145945-f90425340c7e?w=400&q=80"
+      },
+      {
+        "name": "NASI GORENG SPECIAL",
+        "price": 45000,
+        "category": "Food",
+        "image_url": "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=400&q=80"
+      },
+      {
+        "name": "POPCORN CARAMEL",
+        "price": 30000,
+        "category": "Snack",
+        "image_url": "https://images.unsplash.com/photo-1585647347384-2593bc35786b?w=400&q=80"
+      }
     ]
   }
 }

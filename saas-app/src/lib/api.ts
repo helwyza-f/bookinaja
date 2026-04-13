@@ -1,3 +1,4 @@
+// src/lib/api.ts
 import axios from "axios";
 import { getCookie, setCookie, deleteCookie } from "cookies-next";
 

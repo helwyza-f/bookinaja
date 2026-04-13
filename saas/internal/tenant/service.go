@@ -128,6 +128,7 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 }
 
 // SeedTemplate menyuntikkan data awal berdasarkan kategori bisnis
+// SeedTemplate menyuntikkan data awal berdasarkan kategori bisnis
 func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category string) {
 	file, err := os.ReadFile("internal/tenant/templates.json")
 	if err != nil {
@@ -159,6 +160,7 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 			Name     string  `json:"name"`
 			Price    float64 `json:"price"`
 			Category string  `json:"category"`
+			ImageURL string  `json:"image_url"`
 		} `json:"fnb_catalog"`
 	}
 
@@ -175,7 +177,6 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 
 	emptyMeta := json.RawMessage("{}")
 
-	// Mapping Resources & Items
 	var resourcesToSeed []resource.Resource
 	for _, r := range tpl.Resources {
 		res := resource.Resource{
@@ -221,18 +222,18 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 		resourcesToSeed = append(resourcesToSeed, res)
 	}
 
-	// Mapping FnB
 	var fnbToSeed []fnb.Item
 	for _, f := range tpl.FnbCatalog {
+		imgURL := f.ImageURL
 		fnbToSeed = append(fnbToSeed, fnb.Item{
 			Name:        f.Name,
 			Price:       f.Price,
 			Category:    f.Category,
+			ImageURL:    &imgURL,
 			IsAvailable: true,
 		})
 	}
 
-	// Execute Seeding
 	if err := s.repo.SeedTenantData(ctx, tenantID, resourcesToSeed); err != nil {
 		log.Printf("[SEEDER] DB Error resources: %v", err)
 	}

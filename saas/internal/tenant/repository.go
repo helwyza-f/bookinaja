@@ -235,7 +235,7 @@ func (r *Repository) SeedFnbData(ctx context.Context, tenantID uuid.UUID, items 
 	for _, item := range items {
 		item.ID = uuid.New()
 		item.TenantID = tenantID
-		_, err = tx.NamedExecContext(ctx, `INSERT INTO fnb_items (id, tenant_id, name, price, category, is_available) VALUES (:id, :tenant_id, :name, :price, :category, :is_available)`, item)
+		_, err = tx.NamedExecContext(ctx, `INSERT INTO fnb_items (id, tenant_id, name, price, category, image_url, is_available) VALUES (:id, :tenant_id, :name, :price, :category, :image_url, :is_available)`, item)
 		if err != nil { return err }
 	}
 	return tx.Commit()
