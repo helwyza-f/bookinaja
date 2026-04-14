@@ -93,7 +93,7 @@ export default function CustomerLoginPage() {
         code: otp,
       });
 
-      setCookie("auth_token", res.data.token, { maxAge: 60 * 60 * 72 });
+      setCookie("customer_token", res.data.token, { maxAge: 60 * 60 * 72 });
       toast.success(`Selamat datang kembali, ${res.data.customer.name}!`);
 
       // Redirect ke /me (Subdomain routing handled by proxy.ts)

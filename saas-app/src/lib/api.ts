@@ -14,7 +14,7 @@ const api = axios.create({
 let isResolvingTenant = false;
 
 api.interceptors.request.use((config) => {
-  const token = getCookie("auth_token") || getCookie("customer_auth");
+  const token = getCookie("auth_token") || getCookie("customer_token");
   const tenantId = getCookie("current_tenant_id");
   const tenantSlug = getCookie("current_tenant_slug");
 

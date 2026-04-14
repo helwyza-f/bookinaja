@@ -22,36 +22,45 @@ func AuthMiddleware() gin.HandlerFunc {
 		// 2. Parse JWT
 		token, err := parseJWT(tokenString)
 		if err != nil {
-			abortUnauthorized(c, "Token tidak valid atau kadaluarsa")
+			abortUnauthorized(c, "Sesi kedaluwarsa, silakan login kembali")
 			return
 		}
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok || !token.Valid {
-			abortUnauthorized(c, "Gagal memproses kredensial")
+			abortUnauthorized(c, "Kredensial tidak valid")
 			return
 		}
 
-		// 3. MULTI-TENANCY CROSS-CHECK (The Game Changer)
-		// Kita ambil tenantID yang dideteksi oleh TenantIdentifier (Subdomain/Header)
+		// 3. MULTI-TENANCY CROSS-CHECK (CRITICAL FIX)
 		activeTenantID := c.GetString("tenantID")
 		tokenTenantID := fmt.Sprintf("%v", claims["tenant_id"])
 
-		// Jika request masuk ke tenant tertentu, token HARUS berasal dari tenant yang sama
+		// FIX: Jika subdomain mendeteksi tenantID, tapi beda sama di token -> BLOKIR.
+		// Tapi jika subdomain/header tidak mengirim tenantID (kosong), 
+		// kita TRUST tenantID yang ada di dalam token.
 		if activeTenantID != "" && activeTenantID != tokenTenantID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Akses ditolak: Token tidak valid untuk bisnis ini"})
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "Akses ditolak: Token ini terdaftar untuk bisnis lain",
+				"hint":  "Pastikan Anda login di subdomain yang benar",
+			})
 			c.Abort()
 			return
 		}
 
-		// 4. Injeksi Identitas ke Context (Type Safe)
+		// Jika context tenantID kosong (fallback), isi pake data dari token
+		if activeTenantID == "" {
+			c.Set("tenantID", tokenTenantID)
+		}
+
+		// 4. Injeksi Identitas ke Context
 		setAuthContext(c, claims)
 
 		c.Next()
 	}
 }
 
-// --- HELPERS ---
+// --- HELPERS (Tetap Sama) ---
 
 func extractBearerToken(c *gin.Context) (string, error) {
 	authHeader := c.GetHeader("Authorization")
@@ -60,7 +69,7 @@ func extractBearerToken(c *gin.Context) (string, error) {
 	}
 	parts := strings.Split(authHeader, " ")
 	if len(parts) != 2 || parts[0] != "Bearer" {
-		return "", fmt.Errorf("format header authorization salah")
+		return "", fmt.Errorf("format header salah")
 	}
 	return parts[1], nil
 }
@@ -75,11 +84,6 @@ func parseJWT(tokenString string) (*jwt.Token, error) {
 }
 
 func setAuthContext(c *gin.Context, claims jwt.MapClaims) {
-	// Simpan Tenant ID dari token sebagai cadangan jika identifier kosong
-	if c.GetString("tenantID") == "" {
-		c.Set("tenantID", fmt.Sprintf("%v", claims["tenant_id"]))
-	}
-
 	if userID, ok := claims["user_id"]; ok && userID != nil {
 		c.Set("userID", userID)
 		c.Set("userRole", claims["role"])
@@ -95,7 +99,6 @@ func abortUnauthorized(c *gin.Context, msg string) {
 	c.Abort()
 }
 
-// AdminOnly Guard
 func AdminOnly() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.GetString("authType") != "admin" {
