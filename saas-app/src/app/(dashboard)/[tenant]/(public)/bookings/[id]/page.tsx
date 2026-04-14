@@ -62,6 +62,8 @@ export default function ResourceBookingDetail() {
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // UI States
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [phoneStatus, setPhoneStatus] = useState<
     "idle" | "validating" | "valid" | "invalid"
   >("idle");
@@ -128,7 +130,7 @@ export default function ResourceBookingDetail() {
           setIsReturning(true);
           setCustName(resExist.data.name);
           setPhoneStatus("valid");
-          toast.success(`Welcome back, ${resExist.data.name}!`);
+          toast.success(`Senang melihatmu kembali, ${resExist.data.name}!`);
         } else {
           setIsReturning(false);
           const resVal = await api.get(
@@ -228,7 +230,7 @@ export default function ResourceBookingDetail() {
     if (phoneStatus !== "valid")
       return toast.error("Nomor WhatsApp tidak valid");
     if (!custName || !selectedTime)
-      return toast.error("Lengkapi data formulir");
+      return toast.error("Lengkapi formulir boking");
 
     setIsSubmitting(true);
     try {
@@ -250,7 +252,7 @@ export default function ResourceBookingDetail() {
           path: "/",
         });
       }
-      toast.success("Booking Berhasil!");
+      toast.success("Boking Berhasil Dibuat!");
       setTimeout(() => router.push(res.data.redirect_url), 800);
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Gagal membuat reservasi");
@@ -283,7 +285,7 @@ export default function ResourceBookingDetail() {
             size="sm"
             className="h-8 rounded-full bg-black/30 backdrop-blur-md text-white border border-white/10 px-3 hover:bg-black/50 text-[10px] font-bold"
           >
-            <ArrowLeft size={14} className="mr-1.5" /> Back
+            <ArrowLeft size={14} className="mr-1.5" /> Kembali
           </Button>
         </div>
         <div className="absolute bottom-6 left-5 right-5 z-30 space-y-1">
@@ -298,14 +300,14 @@ export default function ResourceBookingDetail() {
 
       <main className="max-w-4xl mx-auto px-3 -translate-y-4 relative z-40 space-y-4">
         <Card className="rounded-[2rem] md:rounded-[3rem] border-none shadow-2xl p-5 md:p-10 bg-white dark:bg-[#0a0a0a] ring-1 ring-black/5 dark:ring-white/5 space-y-8">
-          {/* STEP 1: PAKET - COMPACT */}
+          {/* STEP 1: PAKET */}
           <section className="space-y-4">
             <div className="flex items-center gap-2 px-1">
               <span className="bg-slate-950 dark:bg-blue-600 text-white h-6 w-6 rounded-lg flex items-center justify-center text-[10px] font-black italic">
                 01
               </span>
               <h2 className="text-sm font-[950] uppercase italic dark:text-white">
-                Pilih Paket
+                Pilih Paket Sesi
               </h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -350,7 +352,7 @@ export default function ResourceBookingDetail() {
             </div>
           </section>
 
-          {/* STEP 2: WAKTU - IMPROVED CALENDAR */}
+          {/* STEP 2: WAKTU - IMPROVED MOBILE POPUP */}
           <section className="space-y-4 pt-4 border-t border-slate-100 dark:border-white/5">
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
@@ -358,7 +360,7 @@ export default function ResourceBookingDetail() {
                   02
                 </span>
                 <h2 className="text-sm font-[950] uppercase italic dark:text-white">
-                  Mulai Boking
+                  Waktu Boking
                 </h2>
               </div>
               <Badge
@@ -369,7 +371,7 @@ export default function ResourceBookingDetail() {
               </Badge>
             </div>
 
-            <Popover>
+            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -382,15 +384,18 @@ export default function ResourceBookingDetail() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                className="w-[340px] p-0 border-none rounded-[2rem] overflow-hidden shadow-2xl bg-white dark:bg-slate-900"
+                className="w-[310px] md:w-[340px] p-2 border-none rounded-[2rem] overflow-hidden shadow-2xl bg-white dark:bg-slate-900"
                 align="center"
               >
                 <Calendar
                   mode="single"
                   selected={date}
-                  onSelect={setDate}
+                  onSelect={(d) => {
+                    setDate(d);
+                    setIsCalendarOpen(false);
+                  }}
                   disabled={(d) => d < startOfToday()}
-                  className="p-4 w-full"
+                  className="w-full"
                 />
               </PopoverContent>
             </Popover>
@@ -412,7 +417,7 @@ export default function ResourceBookingDetail() {
                           : isPast
                             ? "opacity-10 cursor-not-allowed grayscale"
                             : isBusy
-                              ? "border-red-500/10 bg-red-50/30 text-red-500/30 cursor-not-allowed"
+                              ? "border-red-500/20 bg-red-50/30 text-red-500/30 cursor-not-allowed"
                               : "bg-white dark:bg-[#111] border-slate-100 dark:border-white/5 text-slate-900 dark:text-white",
                       )}
                     >
@@ -424,7 +429,7 @@ export default function ResourceBookingDetail() {
             )}
           </section>
 
-          {/* STEP 3: DURATION - COMPACT SESI */}
+          {/* STEP 3: DURATION */}
           {selectedTime && (
             <div className="space-y-6 pt-4 border-t border-slate-100 dark:border-white/5 animate-in fade-in slide-in-from-bottom-2">
               <div className="space-y-4">
@@ -438,7 +443,7 @@ export default function ResourceBookingDetail() {
                     </h2>
                   </div>
                   <Badge className="bg-emerald-500/10 text-emerald-500 border-none font-black italic rounded-full text-[8px]">
-                    {maxAvailableSessions} Slot Available
+                    {maxAvailableSessions} Slot Tersedia
                   </Badge>
                 </div>
                 <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar snap-x px-1">
@@ -466,10 +471,10 @@ export default function ResourceBookingDetail() {
                 <div className="flex items-center gap-2 p-3 bg-blue-50/50 dark:bg-blue-500/5 rounded-xl border border-blue-100 dark:border-blue-500/20">
                   <Info className="text-blue-500 h-4 w-4" />
                   <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase italic">
-                    Duration:{" "}
+                    Durasi Total:{" "}
                     {selectedItem.unit_duration * durationValue >= 60
-                      ? `${(selectedItem.unit_duration * durationValue) / 60}h`
-                      : `${selectedItem.unit_duration * durationValue}m`}
+                      ? `${(selectedItem.unit_duration * durationValue) / 60} Jam`
+                      : `${selectedItem.unit_duration * durationValue} Menit`}
                     <span className="ml-1.5 opacity-60">
                       ({selectedTime} -{" "}
                       {format(
@@ -485,11 +490,11 @@ export default function ResourceBookingDetail() {
                 </div>
               </div>
 
-              {/* ADDONS - SLIMMER */}
+              {/* ADDONS */}
               <div className="space-y-4">
                 <h2 className="text-[11px] font-black uppercase italic flex items-center gap-2 dark:text-white px-1">
-                  <Plus className="text-orange-500 h-3.5 w-3.5" /> Additional
-                  (Optional)
+                  <Plus className="text-orange-500 h-3.5 w-3.5" /> Layanan
+                  Tambahan
                 </h2>
                 <div className="grid grid-cols-1 gap-2 px-1">
                   {resource.items
@@ -541,21 +546,21 @@ export default function ResourceBookingDetail() {
                 </div>
               </div>
 
-              {/* CUSTOMER FORM - COMPACT */}
+              {/* CUSTOMER FORM */}
               <div className="space-y-6 pt-8 border-t-4 border-slate-50 dark:border-white/5">
                 <div className="space-y-1">
                   <h2 className="text-xl font-[1000] italic uppercase tracking-tighter dark:text-white leading-none">
-                    Ticket <span className="text-blue-600">Confirmation</span>
+                    Konfirmasi <span className="text-blue-600">Pesanan</span>
                   </h2>
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic opacity-60">
-                    Ticket sent to your WhatsApp
+                    E-Ticket akan dikirim via WhatsApp
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-1.5">
                     <Label className="text-[9px] font-black uppercase text-slate-400 ml-1">
-                      WhatsApp Number
+                      Nomor WhatsApp
                     </Label>
                     <div className="relative">
                       <Input
@@ -590,11 +595,11 @@ export default function ResourceBookingDetail() {
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between px-1">
                       <Label className="text-[9px] font-black uppercase text-slate-400">
-                        Full Name (KTP)
+                        Nama Lengkap (KTP)
                       </Label>
                       {isReturning && (
                         <span className="text-[7px] font-black text-emerald-500 uppercase italic">
-                          Registered Account
+                          Identitas Terdaftar
                         </span>
                       )}
                     </div>
@@ -604,7 +609,7 @@ export default function ResourceBookingDetail() {
                         setCustName(e.target.value.toUpperCase())
                       }
                       className="h-14 rounded-xl bg-slate-50 dark:bg-black border-none font-black px-6 text-lg shadow-inner"
-                      placeholder="INPUT NAME"
+                      placeholder="NAMA LENGKAP"
                     />
                   </div>
                 </div>
@@ -614,12 +619,12 @@ export default function ResourceBookingDetail() {
         </Card>
       </main>
 
-      {/* STICKY BILLING - COMPACT & HIGH CONTRAST */}
+      {/* STICKY BILLING */}
       <div className="fixed bottom-0 left-0 right-0 p-3 bg-white/80 dark:bg-black/90 backdrop-blur-2xl border-t border-slate-100 dark:border-white/5 z-50 animate-in slide-in-from-bottom-full duration-500">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
           <div className="flex-1 flex-col pl-2">
             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest italic opacity-60">
-              Estimation
+              Estimasi Total
             </span>
             <div className="flex items-baseline gap-0.5">
               <span className="text-blue-600 text-sm font-bold">Rp</span>
@@ -642,7 +647,7 @@ export default function ResourceBookingDetail() {
               <Loader2 className="animate-spin size-5" />
             ) : (
               <>
-                BOOKING <ChevronRight strokeWidth={4} size={18} />
+                AMANKAN SLOT <ChevronRight strokeWidth={4} size={18} />
               </>
             )}
           </Button>
@@ -651,30 +656,6 @@ export default function ResourceBookingDetail() {
     </div>
   );
 }
-
-const XCircle = ({
-  className,
-  size,
-}: {
-  className?: string;
-  size?: number;
-}) => (
-  <svg
-    className={className}
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="3"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <circle cx="12" cy="12" r="10" />
-    <path d="m15 9-6 6" />
-    <path d="m9 9 6 6" />
-  </svg>
-);
 
 function BookingSkeleton() {
   return (
