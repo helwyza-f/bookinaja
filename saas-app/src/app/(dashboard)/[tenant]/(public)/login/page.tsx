@@ -93,10 +93,21 @@ export default function CustomerLoginPage() {
         code: otp,
       });
 
-      setCookie("customer_token", res.data.token, { maxAge: 60 * 60 * 72 });
-      toast.success(`Selamat datang kembali, ${res.data.customer.name}!`);
+      // --- FIX: Ganti nama kuki jadi customer_auth agar sesuai interceptor ---
+      setCookie("customer_auth", res.data.token, {
+        maxAge: 60 * 60 * 72,
+        path: "/", // WAJIB: biar bisa dibaca di domain mana aja (terutama /me)
+      });
 
-      // Redirect ke /me (Subdomain routing handled by proxy.ts)
+      // Simpan juga tenant_id dari response login biar request berikutnya langsung tembus header X-Tenant-ID
+      if (res.data.customer?.tenant_id) {
+        setCookie("current_tenant_id", res.data.customer.tenant_id, {
+          maxAge: 60 * 60 * 24 * 7,
+          path: "/",
+        });
+      }
+
+      toast.success(`Selamat datang kembali, ${res.data.customer.name}!`);
       router.push("/me");
     } catch (err: any) {
       toast.error(err.response?.data?.error || "OTP Salah");

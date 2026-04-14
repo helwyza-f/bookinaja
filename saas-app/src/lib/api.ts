@@ -1,4 +1,3 @@
-// src/lib/api.ts
 import axios from "axios";
 import { getCookie, setCookie, deleteCookie } from "cookies-next";
 
@@ -14,28 +13,27 @@ const api = axios.create({
 let isResolvingTenant = false;
 
 api.interceptors.request.use((config) => {
-  const token = getCookie("auth_token") || getCookie("customer_token");
+  // --- FIX 1: Sinkronisasi Nama Kuki ---
+  const token = getCookie("auth_token") || getCookie("customer_auth");
   const tenantId = getCookie("current_tenant_id");
   const tenantSlug = getCookie("current_tenant_slug");
 
   if (token) config.headers.Authorization = `Bearer ${token}`;
 
-  // 1. JALUR VIP: Jika ID sudah valid, gunakan Header
+  // 1. JALUR VIP: Jika ID sudah valid, gunakan Header (Menghindari 403 di Middleware Go)
   if (tenantId && tenantId !== "undefined" && tenantId !== "") {
     config.headers["X-Tenant-ID"] = tenantId as string;
   }
 
-  // 2. JALUR FALLBACK: Jika ID belum ada, pakai Slug
+  // 2. JALUR FALLBACK: Jika ID belum ada, pakai Slug di params
   if (tenantSlug) {
-    // Tempelkan slug ke params hanya untuk request GET (Biar log bersih)
     if (config.method?.toLowerCase() === "get") {
       config.params = { ...config.params, slug: tenantSlug };
     }
 
-    // 3. SILENT RESOLVER: Ambil ID di background buat request berikutnya
+    // 3. SILENT RESOLVER: Sync ID tenant ke kuki jika belum ada
     if (!tenantId && !isResolvingTenant) {
       isResolvingTenant = true;
-
       axios
         .get(`${baseURL}/public/tenant-id`, { params: { slug: tenantSlug } })
         .then((res) => {
@@ -45,9 +43,6 @@ api.interceptors.request.use((config) => {
               path: "/",
             });
           }
-        })
-        .catch(() => {
-          console.warn("[API] Silent lookup failed for:", tenantSlug);
         })
         .finally(() => {
           setTimeout(() => {
@@ -63,10 +58,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401 && !err.config._retry) {
-      err.config._retry = true;
+    // --- FIX 2: Hapus kuki yang bener pas 401 ---
+    if (err.response?.status === 401) {
       deleteCookie("auth_token");
       deleteCookie("customer_auth");
+      // Jangan redirect paksa di sini biar gak looping, biarkan page yang handle
     }
     return Promise.reject(err);
   },
