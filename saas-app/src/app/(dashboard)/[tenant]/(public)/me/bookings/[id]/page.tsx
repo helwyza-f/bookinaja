@@ -1,3 +1,4 @@
+// src/app/(dashboard)/[tenant]/(public)/me/bookings/[id]/page.tsx
 "use client";
 
 import { useEffect, useState, useMemo } from "react";

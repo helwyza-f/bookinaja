@@ -29,7 +29,6 @@ func (h *Handler) RequestOTP(c *gin.Context) {
 		return
 	}
 
-	// Ambil tenantID dari context (disuntikkan oleh TenantIdentifier middleware)
 	tenantIDStr, exists := c.Get("tenantID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Identitas bisnis tidak ditemukan"})
@@ -57,14 +56,13 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 	tenantIDStr := c.MustGet("tenantID").(string)
 	tID, _ := uuid.Parse(tenantIDStr)
 
-	// 1. Verifikasi kode via service (Redis check)
 	cust, err := h.service.VerifyOTP(c.Request.Context(), tID, req.Phone, req.Code)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
-	// 2. Generate JWT khusus Customer (Berlaku 3 Hari)
+	// Generate JWT khusus Customer (Berlaku 3 Hari)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"customer_id": cust.ID.String(),
 		"tenant_id":   cust.TenantID.String(),
@@ -83,11 +81,44 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 	})
 }
 
+// --- BOOKING FLOW VALIDATION (PUBLIC) ---
+
+// ValidateCustomer mengecek nomor HP di public boking page sebelum checkout.
+// Jika ketemu, balikin profil ringkas. Jika tidak, balikin null.
+func (h *Handler) ValidateCustomer(c *gin.Context) {
+	phone := c.Query("phone")
+	if phone == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nomor HP diperlukan"})
+		return
+	}
+
+	tenantIDStr := c.MustGet("tenantID").(string)
+	tID, _ := uuid.Parse(tenantIDStr)
+
+	cust, err := h.service.CheckExistence(c.Request.Context(), tID, phone)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal melakukan validasi data"})
+		return
+	}
+
+	if cust == nil {
+		c.JSON(http.StatusOK, nil) // Frontend akan tahu ini customer baru
+		return
+	}
+
+	// Balikin data krusial untuk konfirmasi identitas di UI
+	c.JSON(http.StatusOK, gin.H{
+		"id":             cust.ID,
+		"name":           cust.Name,
+		"tier":           cust.Tier,
+		"loyalty_points": cust.LoyaltyPoints,
+	})
+}
+
 // --- PORTAL & CRM ENDPOINTS (PROTECTED) ---
 
 // GetMe mengambil data dashboard lengkap (Active Bookings & History)
 func (h *Handler) GetMe(c *gin.Context) {
-	// Diambil dari AuthMiddleware (customer_id)
 	customerIDStr, exists := c.Get("customerID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid, silakan login kembali"})
@@ -100,7 +131,6 @@ func (h *Handler) GetMe(c *gin.Context) {
 		return
 	}
 
-	// Service sekarang mengembalikan data yang sudah dipisah (Active vs Past)
 	data, err := h.service.GetDashboardData(c.Request.Context(), custID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -110,7 +140,7 @@ func (h *Handler) GetMe(c *gin.Context) {
 	c.JSON(http.StatusOK, data)
 }
 
-// ValidatePhone untuk live validation nomor WA via Fonnte
+// ValidatePhone untuk live validation nomor WA via Fonnte API (Cek aktif/enggak)
 func (h *Handler) ValidatePhone(c *gin.Context) {
 	phone := c.Query("phone")
 	if phone == "" {
@@ -129,6 +159,8 @@ func (h *Handler) ValidatePhone(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"valid": isValid, "phone": phone})
 }
+
+// --- ADMIN CRM ENDPOINTS ---
 
 // Create pendaftaran manual oleh Admin dari Dashboard CRM
 func (h *Handler) Create(c *gin.Context) {
@@ -172,7 +204,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 	c.JSON(http.StatusOK, cust)
 }
 
-// SearchByPhone pencarian atau registrasi otomatis di Point of Sale (POS)
+// SearchByPhone digunakan untuk pencarian instan di POS kasir
 func (h *Handler) SearchByPhone(c *gin.Context) {
 	phone := c.Query("phone")
 	if phone == "" {
@@ -180,14 +212,18 @@ func (h *Handler) SearchByPhone(c *gin.Context) {
 		return
 	}
 
-	tenantID := c.MustGet("tenantID").(string)
-	cust, err := h.service.Register(c.Request.Context(), tenantID, RegisterReq{
-		Phone: phone,
-		Name:  "Customer", // Default name untuk silent registration
-	})
+	tenantIDStr := c.MustGet("tenantID").(string)
+	tID, _ := uuid.Parse(tenantIDStr)
 
+	// Cek apakah user sudah ada
+	cust, err := h.service.GetByPhone(c.Request.Context(), tID, phone)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if cust == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Customer belum terdaftar"})
 		return
 	}
 

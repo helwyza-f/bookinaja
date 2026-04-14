@@ -49,7 +49,7 @@ func (s *Service) RequestOTP(ctx context.Context, tenantID uuid.UUID, phone stri
 		cust.Name,
 		otpCode,
 	)
-	
+
 	success, err := fonnte.SendMessage(phone, msg)
 	if err != nil || !success {
 		return fmt.Errorf("gagal mengirim kode ke WhatsApp: %v", err)
@@ -80,6 +80,17 @@ func (s *Service) VerifyOTP(ctx context.Context, tenantID uuid.UUID, phone, code
 }
 
 // --- CORE CUSTOMER LOGIC ---
+
+// CheckExistence mengecek keberadaan customer berdasarkan nomor HP.
+// Digunakan di frontend booking untuk mendeteksi pelanggan lama (Returning Customer).
+func (s *Service) CheckExistence(ctx context.Context, tenantID uuid.UUID, phone string) (*Customer, error) {
+	cust, err := s.repo.FindByPhone(ctx, tenantID, phone)
+	if err != nil {
+		return nil, fmt.Errorf("service: gagal cek keberadaan pelanggan: %w", err)
+	}
+	// Mengembalikan pointer customer (bisa nil jika tidak ditemukan)
+	return cust, nil
+}
 
 // Register menangani pendaftaran via Booking (Silent) atau manual Admin.
 func (s *Service) Register(ctx context.Context, tenantID string, req RegisterReq) (*Customer, error) {

@@ -17,7 +17,7 @@ func NewRepository(db *sqlx.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// Upsert menangani Silent Register: Insert jika nomor HP baru, Update nama jika sudah ada.
+// Upsert menangani Silent Register: Insert jika HP baru, Update nama sesuai request.
 func (r *Repository) Upsert(ctx context.Context, c Customer) (uuid.UUID, error) {
 	query := `
 		INSERT INTO customers (
@@ -47,7 +47,22 @@ func (r *Repository) Upsert(ctx context.Context, c Customer) (uuid.UUID, error) 
 	return id, nil
 }
 
-// IncrementStats memperbarui data fisik CRM saat bokingan selesai (completed).
+// FindByPhone digunakan untuk validasi awal sebelum booking & login OTP.
+func (r *Repository) FindByPhone(ctx context.Context, tenantID uuid.UUID, phone string) (*Customer, error) {
+	var c Customer
+	query := `SELECT * FROM customers WHERE tenant_id = $1 AND phone = $2 LIMIT 1`
+	err := r.db.GetContext(ctx, &c, query, tenantID, phone)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &c, nil
+}
+
+// --- FUNGSI LAINNYA ---
+
 func (r *Repository) IncrementStats(ctx context.Context, id uuid.UUID, amount int64) error {
 	query := `
 		UPDATE customers SET 
@@ -63,13 +78,9 @@ func (r *Repository) IncrementStats(ctx context.Context, id uuid.UUID, amount in
 		WHERE id = $1`
 
 	_, err := r.db.ExecContext(ctx, query, id, amount)
-	if err != nil {
-		return fmt.Errorf("repo: gagal update stats customer: %w", err)
-	}
-	return nil
+	return err
 }
 
-// FindByTenant untuk list besar di dashboard Admin CRM.
 func (r *Repository) FindByTenant(ctx context.Context, tenantID uuid.UUID) ([]Customer, error) {
 	var customers []Customer
 	query := `SELECT * FROM customers WHERE tenant_id = $1 ORDER BY total_spent DESC`
@@ -77,89 +88,40 @@ func (r *Repository) FindByTenant(ctx context.Context, tenantID uuid.UUID) ([]Cu
 	return customers, err
 }
 
-// FindByID untuk detail profil.
 func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*Customer, error) {
 	var c Customer
 	query := `SELECT * FROM customers WHERE id = $1 LIMIT 1`
 	err := r.db.GetContext(ctx, &c, query, id)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &c, nil
+	if err == sql.ErrNoRows { return nil, nil }
+	return &c, err
 }
 
-// FindByPhone digunakan saat proses login.
-func (r *Repository) FindByPhone(ctx context.Context, tenantID uuid.UUID, phone string) (*Customer, error) {
-	var c Customer
-	query := `SELECT * FROM customers WHERE tenant_id = $1 AND phone = $2 LIMIT 1`
-	err := r.db.GetContext(ctx, &c, query, tenantID, phone)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &c, nil
-}
-
-// --- CORE DASHBOARD LOGIC (ACTIVE VS HISTORY) ---
-
-// GetActiveBookings mengambil bokingan yang sedang jalan atau akan datang.
 func (r *Repository) GetActiveBookings(ctx context.Context, customerID uuid.UUID) ([]RecentHistoryDTO, error) {
 	var bookings []RecentHistoryDTO
 	query := `
 		SELECT 
-			b.id, 
-			res.name as resource, 
-			b.start_time as date, 
-			b.status,
+			b.id, res.name as resource, b.start_time as date, b.status,
 			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) +
 			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_spent
 		FROM bookings b
 		JOIN resources res ON b.resource_id = res.id
-		WHERE b.customer_id = $1 
-		AND b.status IN ('confirmed', 'pending', 'in_progress')
-		AND b.start_time >= NOW() - INTERVAL '6 hours'
+		WHERE b.customer_id = $1 AND b.status IN ('confirmed', 'pending', 'active')
 		ORDER BY b.start_time ASC`
-
 	err := r.db.SelectContext(ctx, &bookings, query, customerID)
-	if err != nil {
-		return nil, fmt.Errorf("repo: gagal ambil active bookings: %w", err)
-	}
-	return bookings, nil
+	return bookings, err
 }
 
-// GetPastHistory mengambil riwayat bokingan yang sudah selesai atau batal.
 func (r *Repository) GetPastHistory(ctx context.Context, customerID uuid.UUID, limit int) ([]RecentHistoryDTO, error) {
 	var history []RecentHistoryDTO
 	query := `
 		SELECT 
-			b.id, 
-			res.name as resource, 
-			b.start_time as date, 
-			b.status,
+			b.id, res.name as resource, b.start_time as date, b.status,
 			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) +
 			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_spent
 		FROM bookings b
 		JOIN resources res ON b.resource_id = res.id
-		WHERE b.customer_id = $1 
-		AND (b.status IN ('completed', 'cancelled') OR b.start_time < NOW() - INTERVAL '6 hours')
-		ORDER BY b.start_time DESC
-		LIMIT $2`
-
+		WHERE b.customer_id = $1 AND b.status IN ('completed', 'cancelled')
+		ORDER BY b.start_time DESC LIMIT $2`
 	err := r.db.SelectContext(ctx, &history, query, customerID, limit)
-	if err != nil {
-		return nil, fmt.Errorf("repo: gagal ambil past history: %w", err)
-	}
-	return history, nil
-}
-
-// UpdateTier manual jika admin ingin override level pelanggan.
-func (r *Repository) UpdateTier(ctx context.Context, id uuid.UUID, newTier string) error {
-	query := `UPDATE customers SET tier = $1, updated_at = NOW() WHERE id = $2`
-	_, err := r.db.ExecContext(ctx, query, newTier, id)
-	return err
+	return history, err
 }
