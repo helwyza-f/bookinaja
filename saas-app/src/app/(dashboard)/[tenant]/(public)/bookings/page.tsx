@@ -13,53 +13,38 @@ import {
   PlusCircle,
   Search,
   Filter,
+  ArrowRight,
+  Star,
+  Layers,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import Link from "next/link";
+import { Skeleton } from "@/components/ui/skeleton";
 
-// --- THEME ENGINE ---
 const THEMES: Record<string, any> = {
-  gaming_hub: {
-    primary: "text-blue-500",
-    bgPrimary: "bg-blue-600",
-    accent: "bg-blue-600/10",
-  },
-  creative_space: {
-    primary: "text-rose-500",
-    bgPrimary: "bg-rose-600",
-    accent: "bg-rose-600/10",
-  },
-  sport_center: {
-    primary: "text-emerald-500",
-    bgPrimary: "bg-emerald-600",
-    accent: "bg-emerald-600/10",
-  },
-  social_space: {
-    primary: "text-indigo-500",
-    bgPrimary: "bg-indigo-600",
-    accent: "bg-indigo-600/10",
-  },
+  gaming_hub: { primary: "#3b82f6", bg: "bg-blue-600" },
+  creative_space: { primary: "#f43f5e", bg: "bg-rose-600" },
+  sport_center: { primary: "#10b981", bg: "bg-emerald-600" },
+  social_space: { primary: "#6366f1", bg: "bg-indigo-600" },
 };
 
 export default function PublicResourceCatalog() {
   const params = useParams();
+  const tenantSlug = params.tenant as string;
+
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const tenantSlug = params.tenant as string;
-
   useEffect(() => {
     const fetchCatalog = async () => {
       try {
-        // Mengambil data landing yang berisi profile & resources
         const res = await api.get(`/public/landing?slug=${tenantSlug}`);
         setData(res.data);
       } catch (err) {
-        console.error(err);
         toast.error("Gagal memuat katalog unit");
       } finally {
         setLoading(false);
@@ -69,8 +54,8 @@ export default function PublicResourceCatalog() {
   }, [tenantSlug]);
 
   const activeTheme = useMemo(() => {
-    const cat = data?.profile?.business_category || "gaming_hub";
-    return THEMES[cat] || THEMES.gaming_hub;
+    const cat = data?.profile?.business_category || "social_space";
+    return THEMES[cat] || THEMES.social_space;
   }, [data]);
 
   const filteredResources = useMemo(() => {
@@ -82,242 +67,209 @@ export default function PublicResourceCatalog() {
     );
   }, [data, searchQuery]);
 
-  // Logic: Ambil harga paling rendah dari item tipe main_option atau main
-  const getCheapestPrice = (resource: any) => {
-    if (!resource.items || resource.items.length === 0) return 0;
-    const mains = resource.items.filter(
+  const getBestPrice = (resource: any) => {
+    const mains = resource.items?.filter(
       (i: any) => i.item_type === "main_option" || i.item_type === "main",
     );
-    const targetList = mains.length > 0 ? mains : resource.items;
-    return Math.min(...targetList.map((i: any) => i.price || 0));
+    if (!mains || mains.length === 0) return null;
+    const lowest = mains.reduce((prev: any, curr: any) =>
+      prev.price < curr.price ? prev : curr,
+    );
+    return {
+      value: lowest.price,
+      unit: lowest.price_unit === "hour" ? "Jam" : "Sesi",
+    };
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (loading) return <CatalogSkeleton />;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#050505] font-plus-jakarta pb-20 selection:bg-blue-600/30">
-      {/* --- DYNAMIC HEADER --- */}
-      <div
-        className={cn(
-          "pt-20 pb-32 px-6 rounded-b-[3.5rem] md:rounded-b-[5rem] text-white relative overflow-hidden shadow-2xl transition-all duration-700",
-          activeTheme.bgPrimary,
-        )}
-      >
-        <Zap className="absolute -right-20 -top-20 h-96 w-96 opacity-10 rotate-12" />
-        <div className="max-w-6xl mx-auto relative z-10 text-center space-y-6">
-          <Badge className="bg-white/20 backdrop-blur-md text-white border-white/20 px-6 py-1.5 rounded-full font-black italic uppercase text-[10px] tracking-[0.3em]">
-            Booking Catalog
-          </Badge>
-          <h1 className="text-5xl md:text-8xl font-[950] italic uppercase tracking-tighter leading-none drop-shadow-xl">
-            PILIH <span className="opacity-50 text-white">UNIT</span> <br />
-            ANDALANMU
+    <div className="min-h-screen bg-white dark:bg-[#050505] font-plus-jakarta pb-24 transition-colors duration-500">
+      {/* COMPACT MINIMALIST HEADER */}
+      <header className="relative pt-12 pb-20 px-6 overflow-hidden">
+        <div
+          className={cn(
+            "absolute inset-0 opacity-10 dark:opacity-20",
+            activeTheme.bg,
+          )}
+          style={{ clipPath: "polygon(0 0, 100% 0, 100% 85%, 0% 100%)" }}
+        />
+
+        <div className="max-w-7xl mx-auto relative z-10 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className={cn("h-1 w-8 rounded-full", activeTheme.bg)} />
+            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 italic">
+              Available Units
+            </span>
+          </div>
+          <h1 className="text-4xl md:text-7xl font-[1000] uppercase italic tracking-tighter leading-[0.85] dark:text-white">
+            READY TO <br />
+            <span style={{ color: activeTheme.primary }}>EXPLORE.</span>
           </h1>
         </div>
-      </div>
+      </header>
 
-      {/* --- SEARCH BAR --- */}
-      <div className="max-w-4xl mx-auto px-6 -translate-y-10 relative z-30">
-        <div className="bg-white dark:bg-[#111] p-2 rounded-[2rem] shadow-2xl border border-slate-200 dark:border-white/5 flex items-center gap-2">
-          <div className="pl-6 text-slate-400">
-            <Search size={20} />
+      {/* STICKY SEARCH & FILTER BAR */}
+      <div className="max-w-7xl mx-auto px-6 -mt-8 relative z-30">
+        <div className="bg-white dark:bg-[#0c0c0c] p-2 rounded-2xl md:rounded-3xl shadow-2xl border border-slate-100 dark:border-white/5 flex items-center gap-2">
+          <div className="pl-4 text-slate-400">
+            <Search size={18} />
           </div>
           <input
             type="text"
-            placeholder="Cari unit..."
-            className="flex-1 bg-transparent border-none focus:ring-0 font-bold uppercase italic text-sm tracking-tight h-14 outline-none text-slate-900 dark:text-white"
+            placeholder="Cari unit atau kategori..."
+            className="flex-1 bg-transparent border-none focus:ring-0 font-bold uppercase italic text-xs tracking-tight h-12 outline-none dark:text-white"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           <Button
-            className={cn(
-              "rounded-2xl h-12 w-12 p-0 shadow-lg shrink-0 text-white border-none",
-              activeTheme.bgPrimary,
-            )}
+            variant="ghost"
+            size="icon"
+            className="rounded-xl h-10 w-10 text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5"
           >
-            <Filter size={20} />
+            <Filter size={18} />
           </Button>
         </div>
       </div>
 
-      {/* --- GRID KATALOG --- */}
-      <main className="max-w-7xl mx-auto px-6 py-10">
+      {/* GRID CATALOG */}
+      <main className="max-w-7xl mx-auto px-6 py-12">
         {filteredResources.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
-            {filteredResources.map((res: any) => {
-              const mainItems =
-                res.items?.filter(
-                  (i: any) =>
-                    i.item_type === "main_option" || i.item_type === "main",
-                ) || [];
-              const addonItems =
-                res.items?.filter((i: any) => i.item_type === "add_on") || [];
-
-              return (
-                /* FIX: URL mengarah ke /booking/[id] karena proxy sudah menghandle tenant slug */
-                <Link
-                  key={res.id}
-                  href={`/bookings/${res.id}`}
-                  className="group block h-full"
-                >
-                  <Card className="h-full rounded-[3rem] border-none bg-white dark:bg-[#111] shadow-xl hover:shadow-[0_40px_80px_-15px_rgba(0,0,0,0.1)] transition-all duration-500 hover:-translate-y-3 overflow-hidden flex flex-col ring-1 ring-slate-100 dark:ring-white/5">
-                    {/* Visual Preview */}
-                    <div className="h-44 bg-slate-100 dark:bg-white/5 relative overflow-hidden flex items-center justify-center">
-                      {res.image_url ? (
-                        <img
-                          src={res.image_url}
-                          alt={res.name}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                        />
-                      ) : (
-                        <Gamepad2 className="h-16 w-16 text-slate-300 group-hover:text-blue-500 transition-colors" />
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-[#111] via-transparent to-transparent opacity-60" />
-                      <Badge
-                        className={cn(
-                          "absolute top-6 left-6 font-[900] italic text-[9px] uppercase tracking-widest px-4 py-1.5 rounded-xl border-none shadow-lg text-white",
-                          activeTheme.bgPrimary,
-                        )}
-                      >
-                        {res.category}
-                      </Badge>
-                    </div>
-
-                    {/* Content Section */}
-                    <div className="p-8 flex-1 flex flex-col space-y-6">
-                      <div className="space-y-2">
-                        <h2 className="text-3xl font-[950] italic uppercase tracking-tighter leading-none text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">
-                          {res.name}
-                        </h2>
-                        <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-relaxed line-clamp-2">
-                          {res.description ||
-                            "High-performance setup for your best experience."}
-                        </p>
-                      </div>
-
-                      {/* Hardware / Main Specs */}
-                      <div className="flex flex-wrap gap-2">
-                        {mainItems.slice(0, 2).map((item: any) => (
-                          <div
-                            key={item.id}
-                            className="flex items-center gap-2 bg-slate-50 dark:bg-white/5 px-3 py-1.5 rounded-xl border border-slate-100 dark:border-white/5"
-                          >
-                            <div
-                              className={cn(
-                                "h-1.5 w-1.5 rounded-full animate-pulse",
-                                activeTheme.bgPrimary,
-                              )}
-                            />
-                            <span className="text-[9px] font-black uppercase italic tracking-tighter">
-                              {item.name}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Addon Preview */}
-                      <div className="space-y-3 flex-1 pt-2 border-t border-slate-50 dark:border-white/5">
-                        <p className="text-[9px] font-black uppercase tracking-widest opacity-30 flex items-center gap-2 italic">
-                          <PlusCircle size={10} /> Add-ons available
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {addonItems.length > 0 ? (
-                            addonItems.slice(0, 3).map((item: any) => (
-                              <span
-                                key={item.id}
-                                className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase italic"
-                              >
-                                • {item.name}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-[9px] font-bold text-slate-300 uppercase italic opacity-50">
-                              Standard Pack
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Footer Info */}
-                      <div className="pt-6 border-t border-slate-50 dark:border-white/5 flex items-center justify-between">
-                        <div>
-                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] leading-none mb-1 italic">
-                            Best Price
-                          </p>
-                          <p
-                            className={cn(
-                              "text-2xl font-[950] italic tracking-tighter leading-none",
-                              activeTheme.primary,
-                            )}
-                          >
-                            Rp {getCheapestPrice(res).toLocaleString()}
-                            <span className="text-[10px] font-bold text-slate-400 lowercase italic opacity-50">
-                              {" "}
-                              /hr
-                            </span>
-                          </p>
-                        </div>
-                        <div
-                          className={cn(
-                            "h-14 w-14 rounded-2xl flex items-center justify-center text-white shadow-xl transition-all duration-300 group-hover:rotate-12 group-hover:scale-110",
-                            activeTheme.bgPrimary,
-                          )}
-                        >
-                          <ChevronRight className="h-6 w-6 stroke-[3]" />
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                </Link>
-              );
-            })}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10">
+            {filteredResources.map((res: any) => (
+              <ResourceCard
+                key={res.id}
+                res={res}
+                primaryColor={activeTheme.primary}
+                getBestPrice={getBestPrice}
+              />
+            ))}
           </div>
         ) : (
-          <EmptyState activeTheme={activeTheme} />
+          <div className="py-40 text-center space-y-6">
+            <LayoutGrid size={64} className="mx-auto opacity-10" />
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-30 italic">
+              No units found for your search
+            </p>
+          </div>
         )}
       </main>
     </div>
   );
 }
 
-// --- LOADING SPINNER ---
-function LoadingSpinner() {
+// REFACTORED RESOURCE CARD (From your concept)
+function ResourceCard({ res, primaryColor, getBestPrice }: any) {
+  const bestRate = getBestPrice(res);
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#050505]">
-      <div className="flex flex-col items-center gap-6">
-        <div className="relative">
-          <div className="h-20 w-20 rounded-full border-t-4 border-blue-600 animate-spin" />
-          <Zap className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-blue-600 h-8 w-8 animate-pulse" />
+    <Link
+      href={`/bookings/${res.id}`}
+      className="group block w-full outline-none focus:ring-0"
+    >
+      <Card className="relative h-[360px] md:h-[440px] rounded-[2.5rem] border-none bg-white dark:bg-[#0a0a0a] overflow-hidden transition-all duration-500 hover:-translate-y-2 group-active:scale-[0.98] shadow-lg hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.15)] ring-1 ring-black/5 dark:ring-white/5">
+        {/* Visual Preview (55%) */}
+        <div className="relative h-[55%] w-full overflow-hidden bg-slate-100 dark:bg-white/5">
+          {res.image_url ? (
+            <img
+              src={res.image_url}
+              className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+              alt={res.name}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center opacity-20">
+              <Zap size={40} />
+            </div>
+          )}
+
+          <div className="absolute top-5 left-5 z-20">
+            <Badge className="bg-black/60 backdrop-blur-xl text-white border border-white/10 text-[8px] font-black uppercase italic tracking-[0.2em] px-3 py-1.5 rounded-lg">
+              {res.category}
+            </Badge>
+          </div>
+
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
+
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-500 transform translate-y-4 group-hover:translate-y-0 z-30">
+            <div className="bg-white text-black px-6 py-2.5 rounded-full font-black italic uppercase text-[10px] tracking-widest flex items-center gap-2 shadow-2xl">
+              Select Unit <ArrowRight size={14} strokeWidth={3} />
+            </div>
+          </div>
         </div>
-        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-400 italic animate-pulse">
-          Establishing Connection...
-        </p>
-      </div>
-    </div>
+
+        {/* Info Section (45%) */}
+        <div className="p-6 md:p-8 flex flex-col justify-between h-[45%] relative">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-xl md:text-2xl font-[1000] uppercase italic tracking-tighter leading-none text-slate-900 dark:text-white truncate pr-2">
+                {res.name}
+              </h3>
+              <div className="flex items-center gap-1 bg-slate-50 dark:bg-white/5 px-2 py-1 rounded-lg">
+                <Star className="h-2.5 w-2.5 fill-yellow-400 text-yellow-400" />
+                <span className="text-[9px] font-black text-slate-400">
+                  4.9
+                </span>
+              </div>
+            </div>
+            <p className="text-[10px] font-bold text-slate-400 line-clamp-2 italic uppercase tracking-tight leading-relaxed">
+              {res.description ||
+                "Premium asset configured for high-performance use cases."}
+            </p>
+          </div>
+
+          <div className="flex items-end justify-between border-t border-slate-50 dark:border-white/5 pt-5">
+            <div className="space-y-1">
+              <p className="text-[8px] font-[1000] uppercase tracking-[0.3em] text-slate-400 italic leading-none">
+                Starting from
+              </p>
+              {bestRate ? (
+                <div className="flex items-baseline gap-1">
+                  <span
+                    className="text-2xl font-[1000] italic leading-none tracking-tighter"
+                    style={{ color: primaryColor }}
+                  >
+                    Rp{bestRate.value.toLocaleString()}
+                  </span>
+                  <span className="text-[9px] opacity-30 font-black uppercase italic">
+                    /{bestRate.unit}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-[10px] font-black opacity-30 italic uppercase">
+                  Contact Staff
+                </span>
+              )}
+            </div>
+
+            <div
+              className="h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-xl transition-all duration-500 group-hover:rotate-12"
+              style={{
+                backgroundColor: primaryColor,
+                boxShadow: `0 12px 24px -8px ${primaryColor}88`,
+              }}
+            >
+              <Zap size={20} fill="currentColor" strokeWidth={0} />
+            </div>
+          </div>
+        </div>
+      </Card>
+    </Link>
   );
 }
 
-// --- EMPTY STATE ---
-function EmptyState({ activeTheme }: any) {
+function CatalogSkeleton() {
   return (
-    <div className="py-40 text-center space-y-6 bg-white dark:bg-white/5 rounded-[4rem] border-4 border-dashed border-slate-100 dark:border-white/5 animate-in fade-in zoom-in duration-700">
-      <div className="flex justify-center opacity-10">
-        <LayoutGrid size={100} strokeWidth={1} />
+    <div className="min-h-screen bg-white dark:bg-black p-6 md:p-12 space-y-12">
+      <div className="space-y-4">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-16 w-full max-w-lg" />
       </div>
-      <div className="space-y-2">
-        <h3 className="text-2xl font-[950] uppercase italic tracking-tighter">
-          No Spot Available
-        </h3>
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-          Coba cari dengan kata kunci lain atau cek kategori berbeda.
-        </p>
+      <Skeleton className="h-14 w-full max-w-4xl rounded-3xl" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-12">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-[400px] rounded-[2.5rem]" />
+        ))}
       </div>
-      <Button
-        variant="outline"
-        onClick={() => window.location.reload()}
-        className="rounded-full font-black uppercase italic tracking-widest text-[10px] px-8 py-6 h-auto"
-      >
-        Refresh Catalog
-      </Button>
     </div>
   );
 }

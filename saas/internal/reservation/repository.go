@@ -140,46 +140,16 @@ func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []u
 	return tx.Commit()
 }
 
-// HydrateBooking mengisi data relasi (options & orders) ke dalam objek BookingDetail
-func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error {
-	// 1. Load Options (Layanan/Unit)
-	b.Options = make([]BookingOptionDetail, 0)
-	err := r.db.SelectContext(ctx, &b.Options, `
-		SELECT 
-			bo.id, ri.name as item_name, ri.item_type, 
-			bo.price_at_booking, bo.quantity, ri.price as unit_price
-		FROM booking_options bo
-		JOIN resource_items ri ON bo.resource_item_id = ri.id
-		WHERE bo.booking_id = $1`, b.ID)
-	if err != nil { return err }
-
-	// 2. Load F&B Orders
-	b.Orders = make([]OrderItem, 0)
-	err = r.db.SelectContext(ctx, &b.Orders, `
-		SELECT oi.id, oi.booking_id, oi.fnb_item_id, f.name as item_name, oi.quantity, oi.price_at_purchase,
-		(oi.quantity * oi.price_at_purchase) as subtotal
-		FROM order_items oi
-		JOIN fnb_items f ON oi.fnb_item_id = f.id
-		WHERE oi.booking_id = $1`, b.ID)
-	if err != nil { return err }
-
-	// 3. Load Katalog Addons
-	b.ResourceAddons = make([]ResourceItemSimple, 0)
-	err = r.db.SelectContext(ctx, &b.ResourceAddons, `
-		SELECT id, name, price, item_type 
-		FROM resource_items 
-		WHERE resource_id = $1 AND item_type = 'add_on'`, b.ResourceID)
-	
-	return err
-}
-
 // FindByID menarik detail lengkap booking untuk Dashboard Admin & POS
 func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*BookingDetail, error) {
 	var b BookingDetail
+	// Kita pake versi asli lo yang stabil, tapi kita lock DISTINCT biar gak duplikat item
 	query := `
 		SELECT 
 			b.*, c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
-			COALESCE(ri.price, 0) as unit_price, COALESCE(ri.unit_duration, 60) as unit_duration,
+			COALESCE(ri.price, 0) as unit_price, 
+			COALESCE(ri.unit_duration, 60) as unit_duration,
+			-- Subquery tetap yang paling akurat buat totalan biaya
 			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) as total_resource,
 			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_fnb
 		FROM bookings b
@@ -191,11 +161,52 @@ func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*Boo
 		LIMIT 1`
 
 	err := r.db.GetContext(ctx, &b, query, id, tenantID)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	
+	// Kalkulasi Grand Total langsung di level Repo
 	b.GrandTotal = b.TotalResource + b.TotalFnb
+	
+	// Hydrate data relasi
 	err = r.HydrateBooking(ctx, &b)
 	return &b, err
+}
+
+// HydrateBooking mengisi data relasi (options & orders) ke dalam objek BookingDetail
+func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error {
+	// 1. Load Options (Layanan/Unit)
+	b.Options = make([]BookingOptionDetail, 0)
+	err := r.db.SelectContext(ctx, &b.Options, `
+		SELECT 
+			bo.id, ri.name as item_name, ri.item_type, 
+			bo.price_at_booking, bo.quantity, ri.price as unit_price
+		FROM booking_options bo
+		JOIN resource_items ri ON bo.resource_item_id = ri.id
+		WHERE bo.booking_id = $1
+		ORDER BY bo.price_at_booking DESC`, b.ID)
+	if err != nil { return err }
+
+	// 2. Load F&B Orders
+	b.Orders = make([]OrderItem, 0)
+	err = r.db.SelectContext(ctx, &b.Orders, `
+		SELECT oi.id, oi.booking_id, oi.fnb_item_id, f.name as item_name, oi.quantity, oi.price_at_purchase,
+		(oi.quantity * oi.price_at_purchase) as subtotal
+		FROM order_items oi
+		JOIN fnb_items f ON oi.fnb_item_id = f.id
+		WHERE oi.booking_id = $1
+		ORDER BY oi.created_at DESC`, b.ID)
+	if err != nil { return err }
+
+	// 3. Load Katalog Addons
+	b.ResourceAddons = make([]ResourceItemSimple, 0)
+	err = r.db.SelectContext(ctx, &b.ResourceAddons, `
+		SELECT id, name, price, item_type 
+		FROM resource_items 
+		WHERE resource_id = $1 AND item_type = 'add_on'
+		ORDER BY name ASC`, b.ResourceID)
+	
+	return err
 }
 
 // GetByToken menarik detail untuk pengecekan status tiket customer (Hydrated)

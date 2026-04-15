@@ -1,4 +1,3 @@
-// saas-app/src/app/%28dashboard%29/%5Btenant%5D/%28public%29/login/page.tsx
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -17,32 +16,38 @@ import {
   ChevronRight,
   Sparkles,
   ShieldCheck,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** * Mapping tema yang sama dengan Landing Page
- * agar portal login terasa seperti bagian dari brand tenant.
- */
 const THEMES: Record<string, any> = {
   gaming_hub: {
     primary: "text-blue-500",
     bgPrimary: "bg-blue-600",
     glow: "shadow-blue-500/20",
+    ring: "focus-visible:ring-blue-500",
+    accent: "bg-blue-500/10",
   },
   creative_space: {
     primary: "text-rose-500",
     bgPrimary: "bg-rose-600",
     glow: "shadow-rose-500/20",
+    ring: "focus-visible:ring-rose-500",
+    accent: "bg-rose-500/10",
   },
   sport_center: {
     primary: "text-emerald-500",
     bgPrimary: "bg-emerald-600",
     glow: "shadow-emerald-500/20",
+    ring: "focus-visible:ring-emerald-500",
+    accent: "bg-emerald-500/10",
   },
   social_space: {
     primary: "text-indigo-500",
     bgPrimary: "bg-indigo-600",
     glow: "shadow-indigo-500/20",
+    ring: "focus-visible:ring-indigo-500",
+    accent: "bg-indigo-500/10",
   },
 };
 
@@ -57,7 +62,6 @@ export default function CustomerLoginPage() {
   const [loading, setLoading] = useState(false);
   const [tenantData, setTenantData] = useState<any>(null);
 
-  // Fetch data tenant untuk ambil kategori bisnis (Tema)
   useEffect(() => {
     api
       .get(`/public/landing?slug=${tenantSlug}`)
@@ -65,18 +69,21 @@ export default function CustomerLoginPage() {
       .catch(() => console.error("Failed to load tenant theme"));
   }, [tenantSlug]);
 
-  const activeTheme = useMemo(() => {
+  const theme = useMemo(() => {
     const cat = tenantData?.profile?.business_category || "social_space";
     return THEMES[cat] || THEMES.social_space;
   }, [tenantData]);
 
   const handleRequestOtp = async () => {
-    if (!phone) return toast.error("Masukkan nomor WhatsApp");
+    if (!phone || phone.length < 9)
+      return toast.error("Nomor WhatsApp tidak valid");
     setLoading(true);
     try {
       await api.post("/public/customer/login", { phone });
       setStep("otp");
-      toast.success("Kode OTP terkirim ke WhatsApp!");
+      toast.success("OTP Berhasil Dikirim", {
+        description: "Silakan cek WhatsApp Anda.",
+      });
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Gagal mengirim OTP");
     } finally {
@@ -93,13 +100,11 @@ export default function CustomerLoginPage() {
         code: otp,
       });
 
-      // --- FIX: Ganti nama kuki jadi customer_auth agar sesuai interceptor ---
       setCookie("customer_auth", res.data.token, {
         maxAge: 60 * 60 * 72,
-        path: "/", // WAJIB: biar bisa dibaca di domain mana aja (terutama /me)
+        path: "/",
       });
 
-      // Simpan juga tenant_id dari response login biar request berikutnya langsung tembus header X-Tenant-ID
       if (res.data.customer?.tenant_id) {
         setCookie("current_tenant_id", res.data.customer.tenant_id, {
           maxAge: 60 * 60 * 24 * 7,
@@ -107,160 +112,191 @@ export default function CustomerLoginPage() {
         });
       }
 
-      toast.success(`Selamat datang kembali, ${res.data.customer.name}!`);
+      toast.success(`Selamat Datang, ${res.data.customer.name}!`);
       router.push("/me");
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "OTP Salah");
+      toast.error("Kode OTP Salah atau Kadaluarsa");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-white dark:bg-[#050505] font-plus-jakarta">
-      {/* Background Decor */}
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-white dark:bg-[#050505] font-plus-jakarta overflow-hidden">
+      {/* Background Decor - Slim & Modern */}
       <div
-        className={cn("fixed top-0 left-0 w-full h-1", activeTheme.bgPrimary)}
+        className={cn("fixed top-0 left-0 w-full h-1 z-50", theme.bgPrimary)}
       />
-      <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-20" />
+      <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px] opacity-10" />
 
-      <div className="w-full max-w-[400px] z-10 space-y-8">
-        {/* Header Section */}
-        <div className="text-center space-y-2">
+      <div className="w-full max-w-[420px] z-10 space-y-10 animate-in fade-in zoom-in-95 duration-700">
+        {/* Header Branding */}
+        <div className="text-center relative">
+          <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-5 scale-150 pointer-events-none">
+            <Zap size={120} className={theme.primary} fill="currentColor" />
+          </div>
+
           <div
             className={cn(
-              "inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 dark:bg-white/5 text-[10px] font-black uppercase tracking-[0.2em]",
-              activeTheme.primary,
+              "inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6 text-[10px] font-black uppercase tracking-[0.2em] ring-1 ring-inset transition-all",
+              theme.accent,
+              theme.primary,
+              "ring-current/20",
             )}
           >
-            <ShieldCheck className="h-3 w-3" /> Secure Access
+            <ShieldCheck className="h-3.5 w-3.5" /> Secure Customer Portal
           </div>
-          <h1 className="text-4xl font-black uppercase italic tracking-tighter">
-            {tenantData?.profile?.name || "Bookinaja"} <br />
-            <span className="opacity-20 stroke-text">Customer</span>
+
+          <h1 className="text-5xl font-[1000] uppercase italic tracking-tighter leading-none dark:text-white">
+            {tenantData?.profile?.name || "Bookinaja"}
+            <span className="block text-2xl opacity-20 mt-1">
+              Sultan Access
+            </span>
           </h1>
         </div>
 
-        <Card className="border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.08)] dark:shadow-none dark:bg-[#111] rounded-[2.5rem] overflow-hidden">
-          <CardContent className="p-8 md:p-10">
+        <Card className="border-none shadow-2xl dark:shadow-none bg-white/50 dark:bg-[#0c0c0c] backdrop-blur-xl rounded-[2.5rem] ring-1 ring-black/5 dark:ring-white/5 overflow-hidden">
+          <CardContent className="p-8 md:p-12">
             {step === "phone" ? (
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <h3 className="text-xl font-black italic uppercase tracking-tight">
-                    Welcome Back
+              <div className="space-y-8">
+                <div className="space-y-2 text-center">
+                  <h3 className="text-2xl font-black italic uppercase tracking-tighter dark:text-white">
+                    Welcome
                   </h3>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                    Masukkan nomor WA untuk masuk
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+                    Masuk dengan nomor WhatsApp
                   </p>
                 </div>
 
-                <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                    <Phone
+                <div className="space-y-4">
+                  <div className="relative group">
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2 z-20">
+                      <Phone
+                        className={cn(
+                          "h-5 w-5 transition-colors",
+                          theme.primary,
+                        )}
+                      />
+                    </div>
+                    <Input
+                      type="tel"
+                      placeholder="08..."
                       className={cn(
-                        "h-5 w-5 transition-colors",
-                        activeTheme.primary,
+                        "h-16 pl-14 rounded-2xl bg-slate-50 dark:bg-black border-none font-black text-xl shadow-inner focus-visible:ring-2 focus-visible:ring-offset-0 transition-all",
+                        theme.ring,
                       )}
+                      value={phone}
+                      onChange={(e) =>
+                        setPhone(e.target.value.replace(/\D/g, ""))
+                      }
                     />
                   </div>
-                  <Input
-                    type="tel"
-                    placeholder="08123456789"
-                    className="h-16 pl-12 rounded-2xl bg-slate-50 dark:bg-white/5 border-none font-bold text-lg focus-visible:ring-2 focus-visible:ring-offset-0"
-                    style={
-                      { "--tw-ring-color": "var(--active-primary)" } as any
-                    }
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                  />
-                </div>
 
-                <Button
-                  className={cn(
-                    "w-full h-16 rounded-2xl font-black uppercase italic tracking-widest text-white transition-all hover:scale-[1.02] active:scale-95 shadow-xl",
-                    activeTheme.bgPrimary,
-                    activeTheme.glow,
-                  )}
-                  onClick={handleRequestOtp}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <>
-                      Kirim Kode OTP <ChevronRight className="ml-2 h-5 w-5" />
-                    </>
-                  )}
-                </Button>
+                  <Button
+                    className={cn(
+                      "w-full h-16 rounded-2xl font-black uppercase italic tracking-widest text-white transition-all hover:scale-[1.02] active:scale-95 shadow-xl flex items-center justify-center gap-3",
+                      theme.bgPrimary,
+                      theme.glow,
+                    )}
+                    onClick={handleRequestOtp}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    ) : (
+                      <>
+                        Masuk Sekarang{" "}
+                        <ChevronRight size={20} strokeWidth={3} />
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
                 <button
                   onClick={() => setStep("phone")}
-                  className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity"
+                  className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 transition-all group"
                 >
-                  <ArrowLeft className="h-3 w-3" /> Ganti Nomor
+                  <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-1 transition-transform" />{" "}
+                  Kembali
                 </button>
 
-                <div className="space-y-2">
-                  <h3 className="text-xl font-black italic uppercase tracking-tight">
+                <div className="space-y-2 text-center">
+                  <h3 className="text-2xl font-black italic uppercase tracking-tighter dark:text-white">
                     Verifikasi
                   </h3>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
                     Kode dikirim ke{" "}
-                    <span className="text-foreground">{phone}</span>
+                    <span className="text-blue-500">{phone}</span>
                   </p>
                 </div>
 
-                <div className="relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                    <KeyRound className={cn("h-5 w-5", activeTheme.primary)} />
+                <div className="space-y-6">
+                  <div className="relative">
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2 z-20">
+                      <KeyRound className={cn("h-5 w-5", theme.primary)} />
+                    </div>
+                    <Input
+                      placeholder="• • • • • •"
+                      className={cn(
+                        "h-16 pl-14 rounded-2xl bg-slate-50 dark:bg-black border-none font-black text-3xl tracking-[0.3em] text-center focus-visible:ring-2 focus-visible:ring-offset-0",
+                        theme.ring,
+                      )}
+                      maxLength={6}
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                    />
                   </div>
-                  <Input
-                    placeholder="6 DIGIT"
-                    className="h-16 pl-12 rounded-2xl bg-slate-50 dark:bg-white/5 border-none font-black text-2xl tracking-[0.5em] text-center"
-                    maxLength={6}
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                  />
+
+                  <Button
+                    className={cn(
+                      "w-full h-16 rounded-2xl font-black uppercase italic tracking-widest text-white transition-all hover:scale-[1.02] shadow-xl flex items-center justify-center",
+                      theme.bgPrimary,
+                      theme.glow,
+                    )}
+                    onClick={handleVerifyOtp}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    ) : (
+                      "Verifikasi & Lanjut"
+                    )}
+                  </Button>
+
+                  <div className="text-center">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                      Tidak terima kode?
+                    </p>
+                    <button
+                      className={cn(
+                        "mt-1 text-[10px] font-black uppercase tracking-widest underline underline-offset-4",
+                        theme.primary,
+                      )}
+                    >
+                      Kirim Ulang
+                    </button>
+                  </div>
                 </div>
-
-                <Button
-                  className={cn(
-                    "w-full h-16 rounded-2xl font-black uppercase italic tracking-widest text-white transition-all hover:scale-[1.02] shadow-xl",
-                    activeTheme.bgPrimary,
-                    activeTheme.glow,
-                  )}
-                  onClick={handleVerifyOtp}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    "Verifikasi & Masuk"
-                  )}
-                </Button>
-
-                <p className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
-                  Tidak menerima kode?{" "}
-                  <button className={cn("ml-1 underline", activeTheme.primary)}>
-                    Kirim Ulang
-                  </button>
-                </p>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Footer info */}
-        <div className="text-center space-y-4">
-          <p className="text-[9px] font-black uppercase tracking-[0.3em] opacity-20">
-            Powered by Bookinaja standardized security
-          </p>
-          <div className="flex justify-center gap-4 opacity-30">
-            <Sparkles className="h-4 w-4" />
-            <ShieldCheck className="h-4 w-4" />
+        {/* Branding Footer */}
+        <div className="text-center space-y-6">
+          <div className="flex items-center justify-center gap-6 opacity-20">
+            <div className="h-[1px] w-12 bg-current" />
+            <Sparkles size={16} />
+            <div className="h-[1px] w-12 bg-current" />
           </div>
+          <p className="text-[9px] font-black uppercase tracking-[0.4em] opacity-30 dark:text-white leading-loose">
+            Infrastructure Powered by <br />
+            <span className="text-blue-600 opacity-100">
+              Standardized Bookinaja Engine
+            </span>
+          </p>
         </div>
       </div>
     </div>

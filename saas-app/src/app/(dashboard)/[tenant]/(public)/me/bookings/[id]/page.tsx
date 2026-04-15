@@ -1,4 +1,3 @@
-// src/app/(dashboard)/[tenant]/(public)/me/bookings/[id]/page.tsx
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -8,425 +7,522 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   ChevronLeft,
-  Clock,
   MapPin,
   Gamepad2,
   Zap,
-  ArrowRight,
   ReceiptText,
   CalendarDays,
   UtensilsCrossed,
   PlusCircle,
   MessageSquare,
+  Copy,
+  CheckCircle2,
+  Share2,
+  Timer,
+  Coffee,
+  ArrowUpRight,
+  Clock,
 } from "lucide-react";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { format, differenceInMinutes, parseISO } from "date-fns";
+import { format, differenceInSeconds, parseISO } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
+import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CustomerBookingDetail() {
   const params = useParams();
   const router = useRouter();
   const [booking, setBooking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const [now, setNow] = useState(new Date());
+
+  const fetchDetail = async () => {
+    try {
+      const res = await api.get(`/public/bookings/${params.id}`);
+      setBooking(res.data);
+    } catch (err) {
+      console.error("Gagal memuat data", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!params.id) return;
-    // Menggunakan endpoint public agar user yang baru booking bisa langsung akses
-    // meskipun cookies JWT sedang dalam proses sinkronisasi oleh browser
-    api
-      .get(`/public/bookings/${params.id}`)
-      .then((res) => {
-        setBooking(res.data);
-      })
-      .catch((err) => {
-        console.error("Gagal memuat detail reservasi", err);
-      })
-      .finally(() => setLoading(false));
+    fetchDetail();
+    const interval = setInterval(fetchDetail, 30000);
+    const clock = setInterval(() => setNow(new Date()), 1000);
+    return () => {
+      clearInterval(interval);
+      clearInterval(clock);
+    };
   }, [params.id]);
 
-  // Logika kalkulasi durasi berdasarkan jam local (setelah konversi dari ISO/UTC)
-  const sessionStats = useMemo(() => {
-    if (!booking) return { minutes: 0, hours: 0 };
+  const isActiveStatus = useMemo(
+    () => booking?.status === "active" || booking?.status === "ongoing",
+    [booking],
+  );
+
+  const countdownData = useMemo(() => {
+    if (!booking) return null;
     const start = parseISO(booking.start_time);
     const end = parseISO(booking.end_time);
-    const diff = differenceInMinutes(end, start);
-    return {
-      minutes: diff,
-      hours: (diff / 60).toFixed(1).replace(".0", ""),
-    };
-  }, [booking]);
 
-  if (loading)
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white dark:bg-[#050505] p-6 text-center">
-        <Loader2 className="h-12 w-12 animate-spin text-blue-600 mb-4" />
-        <p className="font-black italic uppercase text-[10px] tracking-[0.3em] text-slate-400">
-          Syncing Ticket Data...
-        </p>
-      </div>
-    );
+    if (
+      isActiveStatus ||
+      (now >= start &&
+        now < end &&
+        !["completed", "cancelled"].includes(booking.status))
+    ) {
+      const diff = differenceInSeconds(end, now);
+      return {
+        type: "LIVE",
+        label: "Sisa Waktu Sesi",
+        h: String(Math.max(0, Math.floor(diff / 3600))).padStart(2, "0"),
+        m: String(Math.max(0, Math.floor((diff % 3600) / 60))).padStart(2, "0"),
+        s: String(Math.max(0, diff % 60)).padStart(2, "0"),
+        isCritical: diff < 300,
+      };
+    }
 
-  if (!booking)
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-slate-50 dark:bg-[#050505]">
-        <Zap className="h-16 w-16 text-slate-200 dark:text-slate-800 mb-4" />
-        <h1 className="text-2xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">
-          TIKET GHAIB
-        </h1>
-        <p className="text-slate-500 text-sm mt-2">
-          Maaf, data reservasi ini tidak ditemukan atau sudah dihapus.
-        </p>
-        <Button
-          onClick={() => router.push("/")}
-          className="mt-8 rounded-2xl px-8 h-14 bg-blue-600 font-black italic uppercase tracking-widest"
-        >
-          Balik ke Beranda
-        </Button>
-      </div>
-    );
+    if (
+      now < start &&
+      !["completed", "cancelled", "active", "ongoing"].includes(booking.status)
+    ) {
+      const diff = differenceInSeconds(start, now);
+      return {
+        type: "WAITING",
+        label: "Sesi Dimulai Dalam",
+        h: String(Math.floor(diff / 3600)).padStart(2, "0"),
+        m: String(Math.floor((diff % 3600) / 60)).padStart(2, "0"),
+        s: String(diff % 60).padStart(2, "0"),
+      };
+    }
+    return null;
+  }, [booking, now, isActiveStatus]);
 
-  const isPending = booking.status === "pending";
+  const copyMagicLink = () => {
+    const url = window.location.href;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url);
+      setCopied(true);
+      toast.success("Tautan Berhasil Disalin", {
+        description: "Simpan tautan ini untuk akses instan ke e-tiket Anda.",
+      });
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  // Helper untuk menentukan label unit (Jam vs Sesi)
+  const getUnitLabel = (duration: number) => {
+    if (duration === 60) return "Jam";
+    return "Sesi";
+  };
+
+  if (loading) return <TicketSkeleton />;
+
+  const isPending = booking?.status === "pending";
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#050505] font-plus-jakarta pb-24 transition-colors duration-500">
-      {/* HEADER NAVBAR */}
-      <nav className="p-4 flex items-center justify-between bg-white/80 dark:bg-black/50 backdrop-blur-xl sticky top-0 z-50 border-b border-slate-100 dark:border-white/5">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-xl hover:bg-slate-100 dark:hover:bg-white/5"
-            onClick={() => router.push("/me")}
-          >
-            <ChevronLeft size={22} className="dark:text-white" />
-          </Button>
-          <h1 className="text-[11px] font-[1000] uppercase italic tracking-[0.2em] dark:text-white">
-            E-Ticket Details
-          </h1>
-        </div>
-        <Badge
-          variant="outline"
-          className="border-blue-500/30 text-blue-600 font-black italic text-[9px] px-3"
+    <div className="min-h-screen bg-slate-50 dark:bg-[#050505] font-plus-jakarta pb-24 transition-colors overflow-x-hidden">
+      <nav className="h-16 flex items-center justify-between px-4 sticky top-0 z-50 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b dark:border-white/5">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="rounded-full"
+          onClick={() => router.push("/me")}
         >
-          #{booking.id.slice(0, 8).toUpperCase()}
-        </Badge>
+          <ChevronLeft size={20} />
+        </Button>
+        <div className="flex flex-col items-center">
+          <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 italic leading-none">
+            E-Tiket Digital
+          </span>
+          <span className="text-[9px] font-bold text-slate-400 uppercase mt-1 leading-none">
+            REF: {booking.id.slice(0, 8)}
+          </span>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="rounded-full"
+          onClick={copyMagicLink}
+        >
+          {copied ? (
+            <CheckCircle2 size={18} className="text-emerald-500" />
+          ) : (
+            <Copy size={18} className="text-slate-400" />
+          )}
+        </Button>
       </nav>
 
-      <main className="max-w-xl mx-auto p-4 space-y-6 mt-4">
-        {/* STATUS CARD */}
-        <div
-          className={cn(
-            "p-10 rounded-[2.5rem] text-white flex justify-between items-center overflow-hidden relative shadow-2xl transition-all duration-700",
-            isPending
-              ? "bg-blue-600 shadow-blue-500/20"
-              : booking.status === "completed"
-                ? "bg-slate-900 shadow-xl"
-                : "bg-emerald-600 shadow-emerald-500/20",
-          )}
-        >
-          <Zap className="absolute -right-4 -top-4 h-32 w-32 opacity-10 rotate-12" />
-          <div className="space-y-1 z-10">
-            <p className="text-[10px] font-black uppercase opacity-70 tracking-[0.2em]">
-              Live Session Status
-            </p>
-            <h2 className="text-4xl font-[1000] italic uppercase leading-none tracking-tighter">
-              {booking.status}
-            </h2>
-          </div>
-          <div className="h-16 w-16 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md ring-8 ring-white/5 z-10">
-            {isPending ? (
-              <Clock size={32} strokeWidth={3} className="animate-pulse" />
-            ) : (
-              <Zap
-                size={32}
-                strokeWidth={3}
-                fill="white"
-                className="animate-bounce"
-              />
+      <main className="max-w-xl mx-auto p-4 space-y-4">
+        {/* TIMER CONTROLLER */}
+        {countdownData && (
+          <Card
+            className={cn(
+              "border-none rounded-[2rem] overflow-hidden shadow-2xl p-6 text-white transition-all duration-500",
+              countdownData.type === "LIVE" ? "bg-slate-950" : "bg-blue-600",
             )}
-          </div>
-        </div>
-
-        {/* INFO UNIT CARD */}
-        <Card className="rounded-[3rem] p-8 border-none bg-white dark:bg-[#0a0a0a] shadow-xl ring-1 ring-black/5 dark:ring-white/5 space-y-10">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-4 text-left">
-              <div className="h-14 w-14 rounded-2xl bg-blue-600/10 dark:bg-blue-600/20 flex items-center justify-center text-blue-600 shadow-inner">
-                <MapPin size={28} />
+          >
+            <div className="flex justify-between items-start mb-6">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-widest opacity-60">
+                  {countdownData.label}
+                </span>
+                <div className="flex items-baseline gap-1.5">
+                  <span
+                    className={cn(
+                      "text-4xl font-[1000] italic tabular-nums tracking-tighter leading-none",
+                      countdownData.type === "LIVE" &&
+                        countdownData.isCritical &&
+                        "text-red-500 animate-pulse",
+                    )}
+                  >
+                    {countdownData.h}:{countdownData.m}:{countdownData.s}
+                  </span>
+                </div>
               </div>
-              <div>
-                <p className="text-[10px] font-[900] text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">
-                  Spot / Unit
-                </p>
-                <h3 className="font-[1000] text-2xl italic uppercase dark:text-white leading-none tracking-tighter">
+              <Badge
+                className={cn(
+                  "text-[8px] font-black uppercase italic border-none px-3 py-1",
+                  countdownData.type === "LIVE"
+                    ? "bg-blue-600 animate-pulse"
+                    : "bg-white text-blue-600 shadow-xl",
+                )}
+              >
+                {countdownData.type === "LIVE"
+                  ? "Sesi Berjalan"
+                  : "Masa Tunggu"}
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                disabled={countdownData.type === "WAITING"}
+                className={cn(
+                  "h-12 rounded-xl font-black uppercase italic text-[10px] gap-2 transition-all shadow-lg",
+                  countdownData.type === "LIVE"
+                    ? "bg-white text-black hover:bg-slate-100"
+                    : "bg-white/10 text-white/40",
+                )}
+              >
+                <Timer
+                  size={14}
+                  className={
+                    countdownData.type === "LIVE"
+                      ? "text-blue-600"
+                      : "text-white/20"
+                  }
+                />{" "}
+                Tambah Jam
+              </Button>
+              <Button
+                disabled={countdownData.type === "WAITING"}
+                className={cn(
+                  "h-12 rounded-xl font-black uppercase italic text-[10px] gap-2 transition-all shadow-lg",
+                  countdownData.type === "LIVE"
+                    ? "bg-white/10 text-white hover:bg-white/20"
+                    : "bg-white/10 text-white/40",
+                )}
+              >
+                <Coffee
+                  size={14}
+                  className={
+                    countdownData.type === "LIVE"
+                      ? "text-orange-400"
+                      : "text-white/20"
+                  }
+                />{" "}
+                Pesan Makan
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* UNIFIED INFO CARD */}
+        <Card className="rounded-[2rem] p-0 overflow-hidden border-none shadow-sm ring-1 ring-black/5 dark:ring-white/5 bg-white dark:bg-[#0c0c0c]">
+          <div className="p-6 space-y-6">
+            <div className="flex items-start justify-between text-left leading-none">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-blue-600 mb-1">
+                  <MapPin size={14} />
+                  <span className="text-[10px] font-black uppercase tracking-widest italic">
+                    Detail Unit
+                  </span>
+                </div>
+                <h3 className="text-2xl font-[1000] uppercase dark:text-white italic tracking-tighter">
                   {booking.resource_name}
                 </h3>
+                <div className="flex items-center gap-2 pt-2">
+                  <Badge
+                    className={cn(
+                      "rounded-lg border-none font-black italic text-[9px] px-3 py-1 uppercase shadow-sm",
+                      isPending
+                        ? "bg-blue-600 text-white"
+                        : booking.status === "completed"
+                          ? "bg-slate-800 text-slate-400"
+                          : "bg-emerald-600 text-white",
+                    )}
+                  >
+                    {booking.status}
+                  </Badge>
+                  {isPending && (
+                    <span className="text-[8px] font-black text-orange-500 uppercase italic animate-pulse">
+                      Menunggu Pembayaran
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="bg-emerald-500/10 px-4 py-2 rounded-2xl text-right border border-emerald-500/20">
+                <span className="block text-[8px] font-black text-emerald-600 uppercase italic leading-none mb-1">
+                  Poin Sultan
+                </span>
+                <span className="text-lg font-[1000] italic text-emerald-500">
+                  +{Math.floor(booking.grand_total / 1000)}
+                </span>
               </div>
             </div>
-            <div className="bg-emerald-500/10 p-3 rounded-2xl text-right flex flex-col items-end">
-              <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest leading-none mb-1">
-                Points Earned
-              </p>
-              <span className="text-lg font-[1000] italic text-emerald-500 leading-none">
-                +{Math.floor(booking.grand_total / 1000)}
-              </span>
-            </div>
-          </div>
 
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 px-1">
-              <CalendarDays size={14} />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] italic">
-                {format(parseISO(booking.start_time), "EEEE, dd MMMM yyyy", {
-                  locale: idLocale,
-                })}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 py-8 px-8 bg-slate-50 dark:bg-white/[0.02] rounded-[2rem] border border-slate-100 dark:border-white/5 shadow-inner">
-              <div className="space-y-2">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest opacity-60">
-                  START
-                </p>
-                <p className="text-3xl font-[1000] italic dark:text-white leading-none">
-                  {format(parseISO(booking.start_time), "HH:mm")}
+            <div className="grid grid-cols-2 gap-4 pt-6 border-t dark:border-white/5">
+              <div className="space-y-1 text-left leading-none">
+                <div className="flex items-center gap-1.5 opacity-40 mb-1">
+                  <CalendarDays size={12} />
+                  <span className="text-[9px] font-black uppercase italic tracking-widest">
+                    Tanggal
+                  </span>
+                </div>
+                <p className="text-xs font-black dark:text-white uppercase italic">
+                  {format(parseISO(booking.start_time), "dd MMMM yyyy", {
+                    locale: idLocale,
+                  })}
                 </p>
               </div>
-              <div className="space-y-2 text-right border-l border-slate-200 dark:border-white/10 pl-8">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest opacity-60">
-                  FINISH
-                </p>
-                <p className="text-3xl font-[1000] italic text-blue-600 leading-none">
+              <div className="space-y-1 border-l dark:border-white/5 pl-4 text-left leading-none">
+                <div className="flex items-center gap-1.5 opacity-40 mb-1">
+                  <Clock size={12} />
+                  <span className="text-[9px] font-black uppercase italic tracking-widest">
+                    Waktu Sesi
+                  </span>
+                </div>
+                <p className="text-xs font-black dark:text-white uppercase italic">
+                  {format(parseISO(booking.start_time), "HH:mm")} —{" "}
                   {format(parseISO(booking.end_time), "HH:mm")}
                 </p>
               </div>
             </div>
           </div>
-
-          <div className="flex items-center gap-4 text-slate-500 dark:text-slate-400 bg-slate-100/50 dark:bg-white/5 p-5 rounded-2xl border border-dashed border-slate-300 dark:border-white/10">
-            <Clock size={20} className="text-blue-500" />
-            <p className="text-[11px] font-bold uppercase italic tracking-tight leading-tight">
-              Total durasi boking adalah{" "}
-              <span className="text-slate-900 dark:text-white font-[1000]">
-                {sessionStats.hours} Jam
-              </span>{" "}
-              ({sessionStats.minutes} Menit).
-            </p>
-          </div>
         </Card>
 
-        {/* ORDER DETAILS SECTION */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between px-2">
+        {/* RINCIAN PEMBAYARAN */}
+        <Card className="rounded-[2rem] p-0 overflow-hidden border-none shadow-xl ring-1 ring-black/5 dark:ring-white/5 bg-white dark:bg-[#0c0c0c]">
+          <div className="p-5 border-b dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02] flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <ReceiptText className="h-4 w-4 text-blue-600" />
-              <h4 className="text-[11px] font-[1000] uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 italic">
-                Bill Summaries
-              </h4>
+              <ReceiptText size={16} className="text-blue-600" />
+              <span className="text-[10px] font-[1000] uppercase tracking-[0.2em] dark:text-white italic">
+                Rincian Pembayaran
+              </span>
             </div>
-            <Badge className="bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-400 border-none font-black text-[8px] tracking-widest">
-              VERIFIED
-            </Badge>
+            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+              IDR Currency
+            </span>
           </div>
 
-          <div className="space-y-2.5">
-            {/* RESERVATION OPTIONS */}
+          <div className="p-4 space-y-4">
             {booking.options?.map((opt: any) => (
               <div
                 key={opt.id}
-                className="flex justify-between items-center bg-white dark:bg-white/[0.03] p-5 rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm"
+                className="flex justify-between items-start group"
               >
-                <div className="flex items-center gap-4">
-                  <div
-                    className={cn(
-                      "h-10 w-10 rounded-xl flex items-center justify-center text-white shadow-lg",
-                      opt.item_type === "main" ||
-                        opt.item_type === "main_option"
-                        ? "bg-slate-900"
-                        : "bg-blue-600",
-                    )}
-                  >
-                    {opt.item_type === "main" ||
-                    opt.item_type === "main_option" ? (
-                      <Gamepad2 size={20} />
+                <div className="flex items-start gap-3 text-left leading-none">
+                  <div className="h-8 w-8 rounded-lg bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400 mt-0.5">
+                    {opt.item_type.includes("main") ? (
+                      <Gamepad2 size={14} />
                     ) : (
-                      <PlusCircle size={20} />
+                      <PlusCircle size={14} />
                     )}
                   </div>
-                  <div className="text-left">
-                    <p className="font-[900] italic text-[12px] text-slate-900 dark:text-white uppercase leading-none">
+                  <div>
+                    <p className="font-black text-[11px] dark:text-white uppercase leading-none italic tracking-tight">
                       {opt.item_name}
                     </p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase mt-1.5 tracking-widest">
-                      QTY: {opt.quantity}{" "}
-                      {opt.item_type === "main" ||
-                      opt.item_type === "main_option"
-                        ? "SESSIONS"
-                        : "UNITS"}
-                    </p>
+                    <div className="flex flex-col gap-1 mt-2">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">
+                          {opt.quantity}{" "}
+                          {opt.item_type.includes("main")
+                            ? getUnitLabel(booking.unit_duration)
+                            : "Unit"}
+                        </p>
+                        <span className="text-[8px] text-slate-300">×</span>
+                        <p className="text-[9px] font-bold text-blue-600/70">
+                          Rp {opt.unit_price?.toLocaleString()}
+                        </p>
+                      </div>
+                      {opt.item_type.includes("main") &&
+                        booking.unit_duration !== 60 && (
+                          <span className="text-[7px] font-bold text-slate-400/60 uppercase italic tracking-widest leading-none">
+                            * 1 {getUnitLabel(booking.unit_duration)} ={" "}
+                            {booking.unit_duration} Menit
+                          </span>
+                        )}
+                    </div>
                   </div>
                 </div>
-                <span className="font-black italic text-sm dark:text-white">
+                <span className="text-xs font-[1000] dark:text-white italic pt-1">
                   Rp {opt.price_at_booking.toLocaleString()}
                 </span>
               </div>
             ))}
 
-            {/* F&B ORDERS FROM POS */}
             {booking.orders?.map((order: any) => (
               <div
                 key={order.id}
-                className="flex justify-between items-center bg-orange-50/30 dark:bg-orange-500/5 p-5 rounded-3xl border border-orange-100/50 dark:border-orange-500/10"
+                className="flex justify-between items-start p-3 rounded-xl bg-orange-50/20 dark:bg-orange-500/[0.03] border border-orange-500/10"
               >
-                <div className="flex items-center gap-4 text-left">
-                  <div className="h-10 w-10 rounded-xl bg-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/20">
-                    <UtensilsCrossed size={20} />
+                <div className="flex items-start gap-3 text-left leading-none">
+                  <div className="h-8 w-8 rounded-lg bg-orange-100 dark:bg-orange-500/10 flex items-center justify-center text-orange-500 mt-0.5">
+                    <UtensilsCrossed size={14} />
                   </div>
                   <div>
-                    <p className="font-[900] italic text-[12px] text-slate-900 dark:text-white uppercase leading-none">
+                    <p className="font-black text-[11px] dark:text-white uppercase leading-none italic tracking-tight">
                       {order.item_name}
                     </p>
-                    <p className="text-[9px] font-bold text-orange-600 dark:text-orange-400 uppercase mt-1.5 tracking-widest">
-                      POS ORDER • QTY: {order.quantity}
-                    </p>
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <p className="text-[9px] font-bold text-orange-600/60 uppercase">
+                        {order.quantity} Porsi
+                      </p>
+                      <span className="text-[8px] text-orange-300">×</span>
+                      <p className="text-[9px] font-bold text-orange-600/60">
+                        Rp {order.price_at_purchase?.toLocaleString()}
+                      </p>
+                    </div>
                   </div>
                 </div>
-                <span className="font-black italic text-sm dark:text-white text-orange-600">
+                <span className="text-xs font-[1000] text-orange-600 italic pt-1">
                   Rp {order.subtotal.toLocaleString()}
                 </span>
               </div>
             ))}
           </div>
 
-          {/* TOTAL BILL AREA */}
-          <div className="bg-slate-950 dark:bg-blue-600 p-8 rounded-[2.8rem] flex justify-between items-center text-white shadow-2xl relative overflow-hidden group">
-            <Zap className="absolute right-0 bottom-0 h-32 w-32 bg-white/5 -rotate-12 translate-x-4 translate-y-4 transition-transform group-hover:scale-110 duration-1000" />
-            <div className="z-10 text-left">
-              <span className="text-[10px] font-black uppercase italic opacity-60 tracking-[0.3em] mb-2 block leading-none">
-                GRAND TOTAL BILL
+          <div className="p-6 bg-slate-950 text-white flex justify-between items-center relative overflow-hidden">
+            <Zap className="absolute right-0 bottom-0 size-24 opacity-5 -rotate-12 translate-x-4 translate-y-4" />
+            <div className="leading-none text-left z-10">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block italic">
+                Grand Total Bill
               </span>
-              <span className="text-4xl font-[1000] italic tracking-tighter leading-none uppercase">
+              <span className="text-3xl font-[1000] italic leading-none tracking-tighter">
                 Rp {booking.grand_total.toLocaleString()}
               </span>
             </div>
-            <div className="z-10 flex flex-col items-end gap-2">
-              <Badge className="bg-white/20 backdrop-blur-md text-white border-none py-1.5 px-4 rounded-full font-[900] italic text-[10px] uppercase shadow-lg">
-                {booking.status === "completed" ? "PAID" : "DUE"}
+            <div className="flex flex-col items-end gap-2 z-10">
+              <Badge
+                className={cn(
+                  "rounded-full border-none px-4 py-1 font-black italic text-[9px] uppercase shadow-lg",
+                  booking.status === "completed"
+                    ? "bg-emerald-500 text-white"
+                    : "bg-white/20 text-white",
+                )}
+              >
+                {booking.status === "completed" ? "Lunas" : "Tertunda"}
               </Badge>
               {isPending && (
-                <p className="text-[8px] font-bold text-blue-300 dark:text-white/60 uppercase italic tracking-tighter">
-                  Please pay at counter
+                <p className="text-[8px] font-black text-blue-400 uppercase italic animate-pulse text-right">
+                  Selesaikan di Kasir
                 </p>
               )}
             </div>
           </div>
-        </div>
+        </Card>
 
-        {/* BOTTOM ACTION BUTTONS */}
-        <div className="grid grid-cols-2 gap-4 pt-4">
-          <Button className="h-16 rounded-[1.8rem] bg-slate-900 dark:bg-white dark:text-black hover:bg-black font-[1000] uppercase italic tracking-[0.2em] text-[10px] gap-3 border-b-4 border-slate-700 dark:border-slate-300 active:translate-y-1 active:border-b-0 transition-all shadow-xl">
-            <MessageSquare className="h-4 w-4 fill-current" /> HELP DESK
+        {/* BOTTOM ACTIONS */}
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            variant="outline"
+            className="h-12 rounded-xl border-slate-200 dark:border-white/10 dark:text-white text-[10px] font-black uppercase italic gap-2 tracking-widest hover:bg-slate-100 transition-all"
+          >
+            <MessageSquare size={16} fill="currentColor" /> Bantuan
           </Button>
           <Button
             variant="outline"
-            className="h-16 rounded-[1.8rem] border-2 border-slate-200 dark:border-white/10 bg-white dark:bg-transparent dark:text-white hover:bg-slate-50 font-[1000] uppercase italic tracking-[0.2em] text-[10px] gap-3 active:scale-95 transition-all shadow-sm"
-            onClick={() => typeof window !== "undefined" && window.print()}
+            className="h-12 rounded-xl border-slate-200 dark:border-white/10 dark:text-white text-[10px] font-black uppercase italic gap-2 tracking-widest hover:bg-slate-100 transition-all"
+            onClick={() => window.print()}
           >
-            <Share2 size={16} /> SAVE TICKET
+            <Share2 size={16} /> Simpan PDF
           </Button>
         </div>
 
-        {/* DASHBOARD LINK BOX */}
         <button
-          className="w-full bg-white dark:bg-[#111] p-6 rounded-[2.8rem] border border-blue-500/20 shadow-lg group active:scale-[0.98] transition-all flex items-center justify-between mt-4"
           onClick={() => router.push("/me")}
+          className="w-full flex items-center justify-between p-5 bg-white dark:bg-[#0c0c0c] border dark:border-white/5 rounded-[2rem] group transition-all active:scale-[0.98] shadow-sm"
         >
-          <div className="flex items-center gap-4 text-left">
-            <div className="h-14 w-14 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-blue-500/30 shadow-lg group-hover:rotate-6 transition-transform">
-              <User size={28} />
+          <div className="flex items-center gap-4">
+            <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-600 group-hover:scale-110 transition-transform">
+              <LayoutDashboard size={20} />
             </div>
-            <div>
-              <h5 className="font-[1000] italic uppercase leading-none dark:text-white text-sm">
-                Customer Portal
-              </h5>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1.5 italic font-bold">
-                Manage Points & Bookings
+            <div className="text-left leading-none">
+              <span className="text-[10px] font-black uppercase dark:text-white italic tracking-widest block mb-1.5">
+                Portal Sultan
+              </span>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+                Kelola Bokingan Lainnya
               </p>
             </div>
           </div>
-          <ArrowRight
-            className="text-blue-600 group-hover:translate-x-2 transition-transform"
-            strokeWidth={3}
+          <ArrowUpRight
+            size={18}
+            className="text-slate-300 group-hover:text-blue-500 transition-all"
           />
         </button>
-
-        <p className="text-center text-[9px] font-black uppercase tracking-[0.5em] text-slate-400 dark:text-slate-600 italic pt-10 opacity-50">
-          {booking.tenant_id.slice(0, 8).toUpperCase()} PORTAL INFRASTRUCTURE
-        </p>
       </main>
     </div>
   );
 }
 
-// --- ICON COMPONENTS ---
-function Loader2({ className, ...props }: any) {
+function TicketSkeleton() {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={cn("animate-spin", className)}
-      {...props}
-    >
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </svg>
+    <div className="min-h-screen bg-slate-50 dark:bg-[#050505] p-4 space-y-6">
+      <div className="max-w-xl mx-auto space-y-4">
+        <div className="flex justify-between items-center">
+          <Skeleton className="h-8 w-8 rounded-full bg-slate-200 dark:bg-white/5" />
+          <Skeleton className="h-6 w-32 rounded-lg bg-slate-200 dark:bg-white/5" />
+          <Skeleton className="h-8 w-8 rounded-full bg-slate-200 dark:bg-white/5" />
+        </div>
+        <Skeleton className="h-64 w-full rounded-[2rem] bg-slate-200 dark:bg-white/5" />
+        <Skeleton className="h-64 w-full rounded-[2rem] bg-slate-200 dark:bg-white/5" />
+        <Skeleton className="h-48 w-full rounded-[2rem] bg-slate-200 dark:bg-white/5" />
+      </div>
+    </div>
   );
 }
 
-function Share2({ ...props }: any) {
+function LayoutDashboard({
+  className,
+  size,
+}: {
+  className?: string;
+  size?: number;
+}) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
+      width={size}
+      height={size}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
       strokeWidth="2.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      {...props}
+      className={className}
     >
-      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-      <polyline points="16 6 12 2 8 6" />
-      <line x1="12" x2="12" y1="2" y2="15" />
-    </svg>
-  );
-}
-
-function User({ ...props }: any) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
+      <rect width="7" height="9" x="3" y="3" rx="1" />
+      <rect width="7" height="5" x="14" y="3" rx="1" />
+      <rect width="7" height="9" x="14" y="12" rx="1" />
+      <rect width="7" height="5" x="3" y="15" rx="1" />
     </svg>
   );
 }
