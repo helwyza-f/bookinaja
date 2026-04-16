@@ -1,5 +1,6 @@
-const ROOT_DOMAIN =
-  process.env.NEXT_PUBLIC_ROOT_DOMAIN || "bookinaja.local";
+const ROOT_DOMAIN = (process.env.NEXT_PUBLIC_ROOT_DOMAIN || "bookinaja.local")
+  .replace(/(^"|"$)/g, "")
+  .trim();
 
 const RESERVED_SLUGS = new Set([
   "",
@@ -21,15 +22,17 @@ export function getTenantSlugFromHostname(hostname?: string | null) {
   const host = normalizeSlug(hostname);
   if (!host) return null;
 
-  if (host === ROOT_DOMAIN || host === `www.${ROOT_DOMAIN}` || host === "localhost") {
+  const rootDomain = resolveRootDomainForHost(host, ROOT_DOMAIN);
+
+  if (host === rootDomain || host === `www.${rootDomain}` || host === "localhost") {
     return null;
   }
 
-  if (!host.endsWith(`.${ROOT_DOMAIN}`)) {
+  if (!host.endsWith(`.${rootDomain}`)) {
     return null;
   }
 
-  const slug = normalizeSlug(host.slice(0, -(`.${ROOT_DOMAIN}`.length)));
+  const slug = normalizeSlug(host.slice(0, -(`.${rootDomain}`.length)));
   if (!slug || RESERVED_SLUGS.has(slug)) {
     return null;
   }
@@ -42,3 +45,18 @@ export function getTenantSlugFromBrowser() {
   return getTenantSlugFromHostname(window.location.hostname);
 }
 
+function resolveRootDomainForHost(host: string, configuredRootDomain: string) {
+  const configured = configuredRootDomain?.trim();
+  if (configured) {
+    if (host === configured || host.endsWith(`.${configured}`)) {
+      return configured;
+    }
+  }
+
+  const parts = host.split(".").filter(Boolean);
+  if (parts.length >= 2) {
+    return parts.slice(-2).join(".");
+  }
+
+  return configured || "bookinaja.local";
+}

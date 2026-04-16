@@ -21,8 +21,8 @@ export default async function proxy(req: NextRequest) {
   }
 
   const host = req.headers.get("host") || "";
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "bookinaja.local";
   const hostname = host.split(":")[0];
+  const rootDomain = resolveRootDomain(hostname);
 
   // 2. BYPASS DOMAIN UTAMA & SISTEM
   if (
@@ -90,6 +90,22 @@ export default async function proxy(req: NextRequest) {
   }
 
   return NextResponse.next();
+}
+
+function resolveRootDomain(hostname: string) {
+  const configured = (process.env.NEXT_PUBLIC_ROOT_DOMAIN || "").replace(/(^"|"$)/g, "").trim();
+  if (configured && hostname) {
+    if (hostname === configured || hostname.endsWith(`.${configured}`)) {
+      return configured;
+    }
+  }
+
+  // Fallback: infer from host (e.g. gaming-demo.bookinaja.com -> bookinaja.com)
+  const parts = (hostname || "").split(".").filter(Boolean);
+  if (parts.length >= 2) {
+    return parts.slice(-2).join(".");
+  }
+  return configured || "bookinaja.local";
 }
 
 function resolveTenantRedirect(
