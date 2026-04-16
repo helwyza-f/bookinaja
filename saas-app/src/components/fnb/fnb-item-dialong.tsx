@@ -1,6 +1,8 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import {
+  Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -16,205 +18,230 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ChevronRight, Utensils, X } from "lucide-react";
 import { SingleImageUpload } from "@/components/upload/single-image-upload";
-import { PackageSearch, ChevronRight, Info, Utensils } from "lucide-react";
+import api from "@/lib/api";
+import { toast } from "sonner";
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { cn } from "@/lib/utils";
 
 interface FnbItemDialogProps {
-  editingId: string | null;
-  onSubmit: (e: React.FormEvent) => void;
-  formState: {
-    name: string;
-    setName: (v: string) => void;
-    description: string;
-    setDescription: (v: string) => void;
-    price: string;
-    setPrice: (v: string) => void;
-    category: string;
-    setCategory: (v: string) => void;
-    imageUrl: string;
-    setImageUrl: (v: string) => void;
-    available: boolean;
-    setAvailable: (v: boolean) => void;
-  };
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  editingItem: any | null;
+  onSuccess: () => void;
 }
 
 export function FnbItemDialog({
-  editingId,
-  onSubmit,
-  formState,
+  open,
+  onOpenChange,
+  editingItem,
+  onSuccess,
 }: FnbItemDialogProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [price, setPrice] = useState("");
+  const [category, setCategory] = useState("Food");
+  const [imageUrl, setImageUrl] = useState("");
+
+  // Sync data saat mode EDIT
+  useEffect(() => {
+    if (editingItem) {
+      setName(editingItem.name || "");
+      setDescription(editingItem.description || "");
+      setPrice(editingItem.price?.toString() || "");
+      setCategory(editingItem.category || "Food");
+      setImageUrl(editingItem.image_url || "");
+    } else {
+      resetForm();
+    }
+  }, [editingItem, open]);
+
+  const resetForm = () => {
+    setName("");
+    setDescription("");
+    setPrice("");
+    setCategory("Food");
+    setImageUrl("");
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !price) return toast.error("Name and Price are required");
+
+    setIsSubmitting(true);
+    const payload = {
+      name: name.toUpperCase(),
+      description,
+      price: parseInt(price.replace(/\D/g, "")),
+      category,
+      image_url: imageUrl || null,
+      is_available: editingItem ? editingItem.is_available : true,
+    };
+
+    try {
+      if (editingItem) {
+        await api.put(`/fnb/${editingItem.id}`, payload);
+        toast.success("PRODUCT UPDATED");
+      } else {
+        await api.post("/fnb", payload);
+        toast.success("NEW PRODUCT SAVED");
+      }
+      onSuccess();
+      onOpenChange(false);
+    } catch (err) {
+      toast.error("Failed to save product");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none bg-white rounded-[2rem] md:rounded-[3rem] shadow-2xl">
-      <div className="flex flex-col md:flex-row min-h-[500px] max-h-[90vh]">
-        {/* LEFT SIDE: Media & Tips */}
-        <div className="w-full md:w-[350px] bg-slate-50/80 p-8 md:p-10 flex flex-col border-b md:border-b-0 md:border-r border-slate-100">
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <Badge
-                variant="outline"
-                className="border-blue-200 text-blue-600 bg-blue-50 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest italic"
-              >
-                {editingId ? "Update Mode" : "New Entry"}
-              </Badge>
-              <DialogTitle className="text-3xl font-black uppercase italic tracking-tighter leading-none text-slate-900">
-                {editingId ? "Modify" : "Register"} <br />
-                <span className="text-blue-600">Product</span>
-              </DialogTitle>
-            </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 overflow-hidden border-none bg-white dark:bg-slate-950 rounded-[2.5rem] shadow-2xl">
+        <VisuallyHidden.Root>
+          <DialogHeader>
+            <DialogTitle>F&B Item Editor</DialogTitle>
+          </DialogHeader>
+        </VisuallyHidden.Root>
 
-            <div className="relative aspect-square w-full max-w-[250px] mx-auto md:max-w-none rounded-[2rem] overflow-hidden shadow-xl ring-4 ring-white bg-white">
-              <SingleImageUpload
-                value={formState.imageUrl}
-                onChange={formState.setImageUrl}
-                endpoint="/fnb/upload"
-                label=""
-              />
-            </div>
-
-            <div className="hidden md:flex p-5 bg-blue-600 rounded-[2rem] text-white flex-col gap-2 shadow-lg shadow-blue-100">
-              <div className="flex items-center gap-2 opacity-80">
-                <Info className="w-3 h-3" />
-                <span className="text-[9px] font-black uppercase tracking-[0.2em]">
-                  Visual Guide
-                </span>
+        <div className="flex flex-col md:flex-row w-full max-h-[90vh]">
+          {/* LEFT: MEDIA SIDE */}
+          <div className="w-full md:w-5/12 bg-slate-50 dark:bg-slate-900/50 p-8 md:p-10 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-slate-100 dark:border-white/5">
+            <div className="space-y-6 w-full">
+              <div className="text-center md:text-left">
+                <h2 className="text-2xl font-[1000] uppercase italic tracking-tighter dark:text-white">
+                  Product <span className="text-blue-600">Media</span>
+                </h2>
+                <p className="text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-widest italic leading-none">
+                  Ratio 1:1 Recommended
+                </p>
               </div>
-              <p className="text-[10px] font-bold leading-relaxed italic">
-                Foto yang cerah meningkatkan nafsu makan customer hingga 40%.
-                Gunakan rasio 1:1.
-              </p>
+
+              {/* IMAGE UPLOAD CONTAINER */}
+              <div className="aspect-square w-full rounded-[2rem] overflow-hidden bg-white dark:bg-slate-800 shadow-2xl ring-4 ring-white dark:ring-slate-900 group/upload relative">
+                <SingleImageUpload
+                  value={imageUrl}
+                  onChange={setImageUrl}
+                  endpoint="/fnb/upload"
+                />
+                {!imageUrl && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-20">
+                    <Utensils size={48} />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* RIGHT SIDE: Form Inputs */}
-        <div className="flex-1 p-8 md:p-12 overflow-y-auto">
-          <form onSubmit={onSubmit} className="space-y-8">
-            <div className="space-y-6">
-              {/* Product Identity */}
-              <div className="space-y-3">
-                <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1 italic">
-                  Product Name
-                </Label>
-                <Input
-                  value={formState.name}
-                  onChange={(e) => formState.setName(e.target.value)}
-                  placeholder="Ex: Salted Caramel Latte"
-                  className="h-14 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-blue-600/20 font-bold text-base px-6"
-                  required
-                />
-              </div>
-
-              {/* Price & Category Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1 italic">
-                    Price (IDR)
+          {/* RIGHT: FORM DETAILS */}
+          <div className="w-full md:w-7/12 p-8 md:p-12 overflow-y-auto bg-white dark:bg-slate-950">
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <div className="space-y-6">
+                {/* NAME */}
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-600 italic tracking-widest ml-1">
+                    Product Name
                   </Label>
-                  <div className="relative">
-                    <div className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-slate-300 italic text-sm">
-                      Rp
-                    </div>
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="EX: CHICKEN PARMESAN"
+                    className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-black italic uppercase px-6 focus-visible:ring-2 focus-visible:ring-blue-600 shadow-inner"
+                    required
+                  />
+                </div>
+
+                {/* PRICE & CATEGORY */}
+                <div className="grid grid-cols-2 gap-5">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-600 italic tracking-widest ml-1">
+                      Price (IDR)
+                    </Label>
                     <Input
-                      value={formState.price}
+                      value={price}
                       onChange={(e) =>
-                        formState.setPrice(e.target.value.replace(/\D/g, ""))
+                        setPrice(e.target.value.replace(/\D/g, ""))
                       }
-                      className="h-14 rounded-2xl bg-slate-50 border-none pl-12 font-black text-blue-600 text-lg"
+                      placeholder="0"
+                      className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-black italic text-blue-600 dark:text-blue-400 px-6 shadow-inner focus-visible:ring-2 focus-visible:ring-blue-600"
                       required
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-600 italic tracking-widest ml-1">
+                      Category
+                    </Label>
+                    <Select value={category} onValueChange={setCategory}>
+                      <SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-black italic text-[11px] uppercase px-6 focus:ring-2 focus:ring-blue-600 shadow-inner">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border-none shadow-2xl font-black uppercase italic dark:bg-slate-800">
+                        <SelectItem value="Food">Food</SelectItem>
+                        <SelectItem value="Drink">Drink</SelectItem>
+                        <SelectItem value="Snack">Snack</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1 italic">
-                    Category
+
+                {/* DESCRIPTION */}
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-600 italic tracking-widest ml-1">
+                    Short Description
                   </Label>
-                  <Select
-                    value={formState.category}
-                    onValueChange={formState.setCategory}
-                  >
-                    <SelectTrigger className="h-14 rounded-2xl bg-slate-50 border-none font-bold uppercase italic text-xs px-6">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-2xl border-none p-2 shadow-2xl font-bold uppercase italic">
-                      <SelectItem value="Food">Food</SelectItem>
-                      <SelectItem value="Drink">Drink</SelectItem>
-                      <SelectItem value="Snack">Snack</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="rounded-2xl bg-slate-50 dark:bg-slate-900 border-none min-h-[140px] p-6 font-medium text-sm focus-visible:ring-2 focus-visible:ring-blue-600 shadow-inner"
+                    placeholder="Describe flavor, size, or ingredients..."
+                  />
                 </div>
               </div>
 
-              {/* Narrative */}
-              <div className="space-y-3">
-                <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1 italic">
-                  Description
-                </Label>
-                <Textarea
-                  value={formState.description}
-                  onChange={(e) => formState.setDescription(e.target.value)}
-                  placeholder="Describe the taste profile..."
-                  className="rounded-2xl bg-slate-50 border-none min-h-[100px] p-6 font-medium resize-none"
-                />
-              </div>
-
-              {/* Availability Switch */}
-              <div className="flex items-center justify-between p-5 rounded-[1.5rem] bg-slate-50 border border-slate-100">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
-                      formState.available
-                        ? "bg-blue-600 text-white"
-                        : "bg-slate-200 text-slate-400",
-                    )}
-                  >
-                    <Utensils className="w-5 h-5" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase italic tracking-widest text-slate-800">
-                      Available
-                    </span>
-                    <span className="text-[9px] text-slate-400 font-bold uppercase italic">
-                      Tampilkan di menu
-                    </span>
-                  </div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={formState.available}
-                  onChange={(e) => formState.setAvailable(e.target.checked)}
-                  className="h-6 w-12 rounded-full appearance-none bg-slate-200 checked:bg-blue-600 transition-all cursor-pointer relative after:content-[''] after:absolute after:top-1 after:left-1 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all checked:after:translate-x-6"
-                />
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full h-16 rounded-2xl bg-slate-900 text-white hover:bg-blue-600 transition-all shadow-xl"
-            >
-              <div className="flex items-center gap-2 font-black uppercase italic tracking-widest text-[11px]">
-                <span>{editingId ? "Update Product" : "Finalize & Save"}</span>
-                <ChevronRight className="w-4 h-4" />
-              </div>
-            </Button>
-          </form>
+              {/* SUBMIT BUTTON */}
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full h-16 rounded-[1.5rem] bg-blue-600 hover:bg-blue-500 text-white font-[1000] uppercase italic text-xs tracking-[0.2em] shadow-2xl border-b-8 border-blue-800 active:border-b-0 gap-3 transition-all active:scale-[0.98]"
+              >
+                {isSubmitting ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  <>
+                    {editingItem ? "Update Item" : "Commit to Catalog"}
+                    <ChevronRight size={18} strokeWidth={4} />
+                  </>
+                )}
+              </Button>
+            </form>
+          </div>
         </div>
-      </div>
-    </DialogContent>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-// Helper Badge internal
-function Badge({ children, className, variant }: any) {
-  return (
-    <div
-      className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
-}
+const Loader2 = ({ className }: { className?: string }) => (
+  <svg
+    className={cn("animate-spin h-5 w-5", className)}
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+  >
+    <circle
+      className="opacity-25"
+      cx="12"
+      cy="12"
+      r="10"
+      stroke="currentColor"
+      strokeWidth="4"
+    ></circle>
+    <path
+      className="opacity-75"
+      fill="currentColor"
+      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+    ></path>
+  </svg>
+);
