@@ -53,6 +53,23 @@ func (r *Repository) GetOrderByOrderID(ctx context.Context, orderID string) (Bil
 	return o, err
 }
 
+func (r *Repository) ListOrdersByTenant(ctx context.Context, tenantID uuid.UUID, limit int) ([]BillingOrder, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	var orders []BillingOrder
+	err := r.db.SelectContext(ctx, &orders, `
+		SELECT *
+		FROM billing_orders
+		WHERE tenant_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2`,
+		tenantID, limit,
+	)
+	return orders, err
+}
+
 func (r *Repository) GetSubscriptionInfo(ctx context.Context, tenantID uuid.UUID) (SubscriptionInfo, error) {
 	var info SubscriptionInfo
 	info.TenantID = tenantID

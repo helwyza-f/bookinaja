@@ -144,6 +144,10 @@ func (s *Service) GetSubscription(ctx context.Context, tenantID uuid.UUID) (Subs
 	return s.repo.GetSubscriptionInfo(ctx, tenantID)
 }
 
+func (s *Service) ListOrders(ctx context.Context, tenantID uuid.UUID, limit int) ([]BillingOrder, error) {
+	return s.repo.ListOrdersByTenant(ctx, tenantID, limit)
+}
+
 func (s *Service) withTx(ctx context.Context, fn func(tx *sqlx.Tx) error) error {
 	tx, err := s.db.BeginTxx(ctx, &sql.TxOptions{})
 	if err != nil {
