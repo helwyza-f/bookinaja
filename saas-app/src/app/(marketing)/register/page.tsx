@@ -65,6 +65,8 @@ function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get("category");
+  const planParam = searchParams.get("plan");
+  const intervalParam = searchParams.get("interval");
 
   // Inisialisasi category dari URL jika ada, jika tidak default ke gaming_hub
   const [selectedCategory, setSelectedCategory] = useState(
@@ -102,7 +104,10 @@ function RegisterForm() {
     toast.promise(promise, {
       loading: "Membangun infrastruktur cloud bisnis Anda...",
       success: (res) => {
-        setTimeout(() => (window.location.href = res.data.login_url), 1500);
+        const loginURL = new URL(res.data.login_url);
+        if (planParam) loginURL.searchParams.set("plan", planParam);
+        if (intervalParam) loginURL.searchParams.set("interval", intervalParam);
+        setTimeout(() => (window.location.href = loginURL.toString()), 1500);
         return `Registrasi Berhasil! Mengalihkan...`;
       },
       error: (err) => err.response?.data?.error || "Gagal mendaftar.",

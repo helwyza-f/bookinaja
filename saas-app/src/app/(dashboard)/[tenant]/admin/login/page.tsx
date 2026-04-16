@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { setCookie } from "cookies-next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ export default function TenantLoginPage() {
   const [loading, setLoading] = useState(false);
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { register, handleSubmit } = useForm();
 
   const tenantSlug = params.tenant as string;
@@ -44,8 +45,16 @@ export default function TenantLoginPage() {
 
       toast.success("Login Berhasil!");
 
-      // REDIRECT KE PATH KHUSUS DASHBOARD
-      router.push(`/admin/dashboard`);
+      const plan = searchParams.get("plan");
+      const interval = searchParams.get("interval");
+      if (plan || interval) {
+        const qp = new URLSearchParams();
+        if (plan) qp.set("plan", plan);
+        if (interval) qp.set("interval", interval);
+        router.push(`/admin/billing?${qp.toString()}`);
+      } else {
+        router.push(`/admin/dashboard`);
+      }
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Login Gagal.");
     } finally {

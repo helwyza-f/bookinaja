@@ -32,9 +32,9 @@ export default function PricingPage() {
   const plans = [
     {
       name: "Starter",
-      effectiveMonthly: isAnnual ? "79.000" : "99.000",
-      originalMonthly: "149.000",
-      annualTotal: "948.000",
+      effectiveMonthly: isAnnual ? "120.000" : "150.000",
+      originalMonthly: "150.000",
+      annualTotal: "1.440.000",
       desc: "Digitalisasi dasar untuk operasional bisnis persewaan tunggal.",
       features: [
         "1 Akun Utama (Owner Only)",
@@ -48,10 +48,10 @@ export default function PricingPage() {
       popular: false,
     },
     {
-      name: "Professional",
-      effectiveMonthly: isAnnual ? "159.000" : "199.000",
-      originalMonthly: "299.000",
-      annualTotal: "1.908.000",
+      name: "Pro",
+      effectiveMonthly: isAnnual ? "240.000" : "300.000",
+      originalMonthly: "300.000",
+      annualTotal: "2.880.000",
       desc: "Fitur lengkap untuk bisnis dengan tim dan trafik tinggi.",
       features: [
         "Akses Akun Staff/Karyawan",
@@ -62,7 +62,7 @@ export default function PricingPage() {
         "WhatsApp Reminder Otomatis",
         "Prioritas Support 24/7",
       ],
-      cta: "Pilih Professional",
+      cta: "Pilih Pro",
       popular: true,
     },
     {
@@ -225,7 +225,14 @@ export default function PricingPage() {
                 </ul>
               </div>
 
-              <Link href="/register" className="w-full group">
+              <Link
+                href={
+                  plan.name === "Enterprise"
+                    ? "/register"
+                    : `/register?plan=${plan.name === "Starter" ? "starter" : "pro"}&interval=${isAnnual ? "annual" : "monthly"}`
+                }
+                className="w-full group"
+              >
                 <Button
                   className={cn(
                     "w-full h-16 text-lg font-black rounded-2xl transition-all active:scale-95",

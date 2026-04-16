@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Utensils,
+  CreditCard,
   Moon,
   Sun,
 } from "lucide-react";
@@ -46,6 +47,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
     { label: "Resources", icon: Box, href: "/admin/resources" },
     { label: "F&B / Menu", icon: Utensils, href: "/admin/fnb" },
     { label: "Customers", icon: Users, href: "/admin/customers" },
+    { label: "Subscription", icon: CreditCard, href: "/admin/billing" },
   ];
 
   return (

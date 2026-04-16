@@ -1,0 +1,281 @@
+package billing
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha512"
+	"database/sql"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
+)
+
+type Service struct {
+	db   *sqlx.DB
+	repo *Repository
+	http *http.Client
+}
+
+func NewService(db *sqlx.DB, repo *Repository) *Service {
+	return &Service{
+		db:   db,
+		repo: repo,
+		http: &http.Client{Timeout: 20 * time.Second},
+	}
+}
+
+func (s *Service) Checkout(ctx context.Context, tenantID uuid.UUID, tenantSlug string, req CheckoutReq) (CheckoutRes, error) {
+	plan := strings.ToLower(strings.TrimSpace(req.Plan))
+	interval := strings.ToLower(strings.TrimSpace(req.Interval))
+
+	amount, display, err := priceFor(plan, interval)
+	if err != nil {
+		return CheckoutRes{}, err
+	}
+
+	orderID := fmt.Sprintf("sub-%s-%d", tenantSlug, time.Now().UnixNano())
+
+	snapToken, redirectURL, err := s.createSnapTransaction(ctx, orderID, amount, display)
+	if err != nil {
+		return CheckoutRes{}, err
+	}
+
+	rawInit := map[string]any{
+		"snap_token":   snapToken,
+		"redirect_url": redirectURL,
+	}
+	rawBytes, _ := json.Marshal(rawInit)
+
+	if err := s.repo.CreateOrder(ctx, s.db, BillingOrder{
+		TenantID:        tenantID,
+		OrderID:         orderID,
+		Plan:            plan,
+		BillingInterval: interval,
+		Amount:          amount,
+		Currency:        "IDR",
+		Status:          "pending",
+		MidtransRaw:     rawBytes,
+	}); err != nil {
+		return CheckoutRes{}, err
+	}
+
+	return CheckoutRes{
+		OrderID:      orderID,
+		SnapToken:    snapToken,
+		RedirectURL:  redirectURL,
+		Amount:       amount,
+		Currency:     "IDR",
+		Plan:         plan,
+		Interval:     interval,
+		DisplayLabel: display,
+	}, nil
+}
+
+func (s *Service) HandleMidtransNotification(ctx context.Context, payload map[string]any) error {
+	orderID, _ := payload["order_id"].(string)
+	statusCode := fmt.Sprintf("%v", payload["status_code"])
+	grossAmount := fmt.Sprintf("%v", payload["gross_amount"])
+	signatureKey, _ := payload["signature_key"].(string)
+
+	if orderID == "" || statusCode == "" || grossAmount == "" || signatureKey == "" {
+		return errors.New("invalid midtrans payload")
+	}
+
+	if !verifyMidtransSignature(orderID, statusCode, grossAmount, signatureKey, os.Getenv("MIDTRANS_SERVER_KEY")) {
+		return errors.New("invalid midtrans signature")
+	}
+
+	transactionStatus := strings.ToLower(fmt.Sprintf("%v", payload["transaction_status"]))
+	fraudStatus := strings.ToLower(fmt.Sprintf("%v", payload["fraud_status"]))
+	paymentType := strings.TrimSpace(fmt.Sprintf("%v", payload["payment_type"]))
+	transactionID := strings.TrimSpace(fmt.Sprintf("%v", payload["transaction_id"]))
+	if paymentType == "<nil>" {
+		paymentType = ""
+	}
+	if transactionID == "<nil>" {
+		transactionID = ""
+	}
+
+	newStatus := mapMidtransStatus(transactionStatus, fraudStatus)
+
+	var txIDPtr *string
+	if transactionID != "" && transactionID != "<nil>" {
+		txIDPtr = &transactionID
+	}
+	var paymentTypePtr *string
+	if paymentType != "" && paymentType != "<nil>" {
+		paymentTypePtr = &paymentType
+	}
+
+	return s.withTx(ctx, func(tx *sqlx.Tx) error {
+		updated, err := s.repo.UpdateOrderFromMidtrans(ctx, tx, orderID, newStatus, txIDPtr, paymentTypePtr, payload)
+		if err != nil {
+			return err
+		}
+
+		if updated.Status != "paid" {
+			return nil
+		}
+
+		now := time.Now().UTC()
+		start := now
+		var currentEnd sql.NullTime
+		_ = tx.GetContext(ctx, &currentEnd, `SELECT subscription_current_period_end FROM tenants WHERE id = $1`, updated.TenantID)
+		if currentEnd.Valid && currentEnd.Time.After(now) {
+			start = currentEnd.Time
+		}
+		end := addInterval(start, updated.BillingInterval)
+		if err := s.repo.ActivateSubscriptionExec(ctx, tx, updated.TenantID, updated.Plan, start, end); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (s *Service) GetSubscription(ctx context.Context, tenantID uuid.UUID) (SubscriptionInfo, error) {
+	return s.repo.GetSubscriptionInfo(ctx, tenantID)
+}
+
+func (s *Service) withTx(ctx context.Context, fn func(tx *sqlx.Tx) error) error {
+	tx, err := s.db.BeginTxx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if err := fn(tx); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Service) createSnapTransaction(ctx context.Context, orderID string, amount int64, itemName string) (string, string, error) {
+	serverKey := strings.TrimSpace(os.Getenv("MIDTRANS_SERVER_KEY"))
+	if serverKey == "" {
+		return "", "", errors.New("MIDTRANS_SERVER_KEY is required")
+	}
+
+	baseURL := "https://app.sandbox.midtrans.com"
+	if strings.ToLower(strings.TrimSpace(os.Getenv("MIDTRANS_IS_PRODUCTION"))) == "true" {
+		baseURL = "https://app.midtrans.com"
+	}
+
+	body := map[string]any{
+		"transaction_details": map[string]any{
+			"order_id":     orderID,
+			"gross_amount": amount,
+		},
+		"item_details": []map[string]any{
+			{
+				"id":       "subscription",
+				"price":    amount,
+				"quantity": 1,
+				"name":     itemName,
+			},
+		},
+		"credit_card": map[string]any{
+			"secure": true,
+		},
+	}
+
+	b, _ := json.Marshal(body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/snap/v1/transactions", bytes.NewReader(b))
+	if err != nil {
+		return "", "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.SetBasicAuth(serverKey, "")
+
+	resp, err := s.http.Do(req)
+	if err != nil {
+		return "", "", err
+	}
+	defer resp.Body.Close()
+
+	var out struct {
+		Token       string `json:"token"`
+		RedirectURL string `json:"redirect_url"`
+		ErrorMsgs   any    `json:"error_messages"`
+		StatusMsg   string `json:"status_message"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return "", "", err
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 || out.Token == "" {
+		if out.StatusMsg != "" {
+			return "", "", fmt.Errorf("midtrans snap error: %s", out.StatusMsg)
+		}
+		return "", "", fmt.Errorf("midtrans snap error: http %d", resp.StatusCode)
+	}
+
+	return out.Token, out.RedirectURL, nil
+}
+
+func verifyMidtransSignature(orderID, statusCode, grossAmount, signatureKey, serverKey string) bool {
+	serverKey = strings.TrimSpace(serverKey)
+	if serverKey == "" {
+		return false
+	}
+	sum := sha512.Sum512([]byte(orderID + statusCode + grossAmount + serverKey))
+	expected := hex.EncodeToString(sum[:])
+	return strings.EqualFold(expected, signatureKey)
+}
+
+func mapMidtransStatus(transactionStatus string, fraudStatus string) string {
+	switch transactionStatus {
+	case "capture":
+		if fraudStatus == "challenge" {
+			return "pending"
+		}
+		return "paid"
+	case "settlement":
+		return "paid"
+	case "pending":
+		return "pending"
+	case "deny":
+		return "denied"
+	case "cancel":
+		return "cancelled"
+	case "expire":
+		return "expired"
+	case "refund", "partial_refund", "chargeback", "partial_chargeback":
+		return "failed"
+	default:
+		return "pending"
+	}
+}
+
+func addInterval(start time.Time, interval string) time.Time {
+	switch strings.ToLower(strings.TrimSpace(interval)) {
+	case "annual", "yearly", "year":
+		return start.AddDate(1, 0, 0)
+	default:
+		return start.AddDate(0, 1, 0)
+	}
+}
+
+func priceFor(plan string, interval string) (int64, string, error) {
+	switch plan {
+	case "starter":
+		if interval == "annual" {
+			return 1440000, "Bookinaja Starter (Tahunan)", nil
+		}
+		return 150000, "Bookinaja Starter (Bulanan)", nil
+	case "pro":
+		if interval == "annual" {
+			return 2880000, "Bookinaja Pro (Tahunan)", nil
+		}
+		return 300000, "Bookinaja Pro (Bulanan)", nil
+	default:
+		return 0, "", errors.New("plan must be starter or pro")
+	}
+}
