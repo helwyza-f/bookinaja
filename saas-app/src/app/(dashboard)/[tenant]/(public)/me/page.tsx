@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { deleteCookie } from "cookies-next";
 import { useRouter, useParams } from "next/navigation";
 import api from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,6 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { format, parseISO, isValid } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
 
 const THEMES: Record<string, any> = {
   gaming_hub: {
@@ -66,6 +66,9 @@ export default function CustomerDashboardPage() {
         const res = await api.get("/me");
         setData(res.data);
       } catch (err) {
+        if (isTenantAuthError(err)) {
+          clearTenantSession({ keepTenantSlug: true });
+        }
         router.push(`/login`);
       } finally {
         setLoading(false);
@@ -80,8 +83,7 @@ export default function CustomerDashboardPage() {
   }, [data]);
 
   const handleLogout = () => {
-    deleteCookie("customer_auth");
-    deleteCookie("auth_token");
+    clearTenantSession({ keepTenantSlug: true });
     window.location.href = `/login`;
   };
 

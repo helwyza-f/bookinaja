@@ -5,6 +5,8 @@ import type { NextRequest } from "next/server";
 export default async function proxy(req: NextRequest) {
   const url = req.nextUrl;
   const path = url.pathname;
+  const adminToken = req.cookies.get("auth_token")?.value;
+  const customerToken = req.cookies.get("customer_auth")?.value;
 
   // 1. HARD FILTER: Abaikan asset statis & internal
   const isStaticFile = /\.(.*)$/.test(path);
@@ -51,6 +53,15 @@ export default async function proxy(req: NextRequest) {
     tenantSlug !== "www" &&
     !reservedKeywords.includes(tenantSlug)
   ) {
+    const redirectTarget = resolveTenantRedirect(path, {
+      hasAdminToken: Boolean(adminToken),
+      hasCustomerToken: Boolean(customerToken),
+    });
+
+    if (redirectTarget) {
+      return NextResponse.redirect(new URL(redirectTarget, req.url));
+    }
+
     const rewriteUrl = new URL(`/${tenantSlug}${path}${url.search}`, req.url);
     const response = NextResponse.rewrite(rewriteUrl);
 
@@ -79,6 +90,58 @@ export default async function proxy(req: NextRequest) {
   }
 
   return NextResponse.next();
+}
+
+function resolveTenantRedirect(
+  path: string,
+  auth: { hasAdminToken: boolean; hasCustomerToken: boolean },
+) {
+  const isAdminLogin = path === "/admin/login";
+  const isAdminArea = path === "/admin" || path.startsWith("/admin/");
+  const isCustomerLogin = path === "/login";
+  const isCustomerArea = path === "/me" || path.startsWith("/me/");
+
+  if (isAdminLogin) {
+    if (auth.hasAdminToken) {
+      return "/admin/dashboard";
+    }
+    if (auth.hasCustomerToken) {
+      return "/me";
+    }
+    return null;
+  }
+
+  if (isAdminArea) {
+    if (auth.hasAdminToken) {
+      return null;
+    }
+    if (auth.hasCustomerToken) {
+      return "/me";
+    }
+    return "/admin/login";
+  }
+
+  if (isCustomerLogin) {
+    if (auth.hasCustomerToken) {
+      return "/me";
+    }
+    if (auth.hasAdminToken) {
+      return "/admin/dashboard";
+    }
+    return null;
+  }
+
+  if (isCustomerArea) {
+    if (auth.hasCustomerToken) {
+      return null;
+    }
+    if (auth.hasAdminToken) {
+      return "/admin/dashboard";
+    }
+    return "/login";
+  }
+
+  return null;
 }
 
 export const config = {

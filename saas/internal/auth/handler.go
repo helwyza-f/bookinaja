@@ -18,7 +18,7 @@ func NewHandler(s *Service) *Handler {
 func (h *Handler) CheckMe(c *gin.Context) {
 	userID, _ := c.Get("userID")
 	tenantID, _ := c.Get("tenantID")
-	role, _ := c.Get("role")
+	role, _ := c.Get("userRole")
 
 	c.JSON(http.StatusOK, gin.H{
 		"user_id":   userID,

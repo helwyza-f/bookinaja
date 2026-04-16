@@ -255,8 +255,17 @@ func (s *Service) getDefaultDuration(unit string) int {
 	}
 }
 
-func (s *Service) Login(ctx context.Context, email, password string) (*LoginResponse, error) {
-	u, err := s.repo.GetUserByEmail(ctx, email)
+func (s *Service) Login(ctx context.Context, email, password, tenantSlug string) (*LoginResponse, error) {
+	var (
+		u   *User
+		err error
+	)
+
+	if strings.TrimSpace(tenantSlug) != "" {
+		u, err = s.repo.GetUserByEmailAndSlug(ctx, email, tenantSlug)
+	} else {
+		u, err = s.repo.GetUserByEmail(ctx, email)
+	}
 	if err != nil || u == nil {
 		return nil, errors.New("email atau password salah")
 	}

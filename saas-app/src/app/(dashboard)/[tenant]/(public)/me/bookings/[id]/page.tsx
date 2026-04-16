@@ -29,6 +29,7 @@ import { format, differenceInSeconds, parseISO } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
 
 export default function CustomerBookingDetail() {
   const params = useParams();
@@ -40,10 +41,16 @@ export default function CustomerBookingDetail() {
 
   const fetchDetail = async () => {
     try {
-      const res = await api.get(`/public/bookings/${params.id}`);
+      const res = await api.get(`/me/bookings/${params.id}`);
       setBooking(res.data);
     } catch (err) {
-      console.error("Gagal memuat data", err);
+      if (isTenantAuthError(err)) {
+        clearTenantSession({ keepTenantSlug: true });
+        router.replace("/login");
+        return;
+      }
+      toast.error("Gagal memuat tiket booking");
+      router.replace("/me");
     } finally {
       setLoading(false);
     }

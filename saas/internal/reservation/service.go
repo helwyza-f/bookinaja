@@ -216,7 +216,7 @@ func (s *Service) GetAvailability(ctx context.Context, resourceID string, date t
 
 	location, _ := time.LoadLocation("Asia/Jakarta")
 	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
-	
+
 	bookings, err := s.repo.ListUpcoming(ctx, rID, startOfDay)
 	if err != nil {
 		return nil, err
@@ -244,6 +244,25 @@ func (s *Service) GetStatusByToken(ctx context.Context, token string) (*BookingD
 		return nil, errors.New("TOKEN AKSES TIDAK VALID")
 	}
 	return s.repo.GetByToken(ctx, tkn)
+}
+
+func (s *Service) GetDetailForCustomer(ctx context.Context, id, tenantID, customerID string) (*BookingDetail, error) {
+	bID, err := uuid.Parse(id)
+	if err != nil {
+		return nil, errors.New("ID BOOKING TIDAK VALID")
+	}
+
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, errors.New("ID TENANT TIDAK VALID")
+	}
+
+	cID, err := uuid.Parse(customerID)
+	if err != nil {
+		return nil, errors.New("ID CUSTOMER TIDAK VALID")
+	}
+
+	return s.repo.FindByIDForCustomer(ctx, bID, tID, cID)
 }
 
 func (s *Service) ListByTenant(ctx context.Context, tenantID, status string) ([]BookingDetail, error) {

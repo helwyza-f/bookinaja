@@ -47,6 +47,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTenant } from "@/context/tenant-context";
+import { syncTenantCookies } from "@/lib/tenant-session";
 
 export default function ResourceBookingDetail() {
   const params = useParams();
@@ -316,6 +317,7 @@ export default function ResourceBookingDetail() {
           maxAge: 60 * 60 * 24 * 7,
           path: "/",
         });
+      syncTenantCookies(params.tenant as string, resource?.tenant_id);
       toast.success("Boking Berhasil Dibuat!");
       setTimeout(() => router.push(res.data.redirect_url), 800);
     } catch (err: any) {

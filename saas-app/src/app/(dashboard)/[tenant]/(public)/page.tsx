@@ -67,7 +67,7 @@ export default function TenantPublicLanding() {
   // 2. FETCH PROFILE SECARA MANDIRI (Untuk Invalidation)
   // Ini kunci biar kalau context 'stale', halaman ini tetep nge-hit API pake slug URL
   const { data: freshProfile, mutate: mutateProfile } = useSWR(
-    tenantSlug ? `/public/profile?slug=${tenantSlug}` : null,
+    tenantSlug ? "/public/profile" : null,
     fetcher,
     { revalidateOnMount: true },
   );
@@ -77,7 +77,7 @@ export default function TenantPublicLanding() {
 
   // 3. FETCH RESOURCES
   const { data: resourceData, isLoading: loadingResources } = useSWR(
-    activeProfile?.id ? `/public/resources?slug=${tenantSlug}` : null,
+    activeProfile?.id ? "/public/resources" : null,
     fetcher,
     { dedupingInterval: 2000 },
   );

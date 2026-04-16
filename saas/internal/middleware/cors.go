@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"log"
 	"net/http"
 	"strings"
 
@@ -14,9 +15,9 @@ func CORSMiddleware() gin.HandlerFunc {
 		// 1. Logika Dinamis Origin
 		if origin != "" {
 			// Kita buat pengecekan yang lebih aman untuk prod dan dev
-			if strings.Contains(origin, "localhost") || 
-			   strings.HasSuffix(origin, ".local:3000") || 
-			   strings.HasSuffix(origin, "bookinaja.com") {
+			if strings.Contains(origin, "localhost") ||
+				strings.HasSuffix(origin, ".local:3000") ||
+				strings.HasSuffix(origin, "bookinaja.com") {
 				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
 			} else {
 				// Fallback tetap aman tapi fleksibel
@@ -40,8 +41,10 @@ func CORSMiddleware() gin.HandlerFunc {
 			"Cache-Control",
 			"X-Requested-With",
 			"X-Tenant-ID",
+			"X-Tenant-Slug",
 		}
 		c.Writer.Header().Set("Access-Control-Allow-Headers", strings.Join(allowedHeaders, ", "))
+		c.Writer.Header().Set("Vary", "Origin, Access-Control-Request-Method, Access-Control-Request-Headers")
 
 		// 4. ELIMINASI OPTIONS BERULANG (The Magic Key)
 		// Browser akan menyimpan hasil preflight di cache selama waktu yang ditentukan (dalam detik).
@@ -50,6 +53,7 @@ func CORSMiddleware() gin.HandlerFunc {
 
 		// 5. Handle Preflight Request
 		if c.Request.Method == "OPTIONS" {
+			log.Printf("[CORS] Preflight origin=%q path=%s req_headers=%q", origin, c.Request.URL.String(), c.GetHeader("Access-Control-Request-Headers"))
 			// Kasih tau browser kalau preflight ini sukses dan bisa di-cache
 			c.AbortWithStatus(http.StatusNoContent)
 			return

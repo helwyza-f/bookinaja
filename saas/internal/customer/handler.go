@@ -2,13 +2,13 @@ package customer
 
 import (
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/helwiza/saas/internal/platform/fonnte"
+	"github.com/helwiza/saas/internal/platform/security"
 )
 
 type Handler struct {
@@ -69,7 +69,7 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 		"exp":         time.Now().Add(time.Hour * 72).Unix(),
 	})
 
-	tokenString, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	tokenString, err := token.SignedString([]byte(security.JWTSecret()))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat sesi login"})
 		return
@@ -195,7 +195,8 @@ func (h *Handler) List(c *gin.Context) {
 // GetByID detail untuk Modal di Admin
 func (h *Handler) GetByID(c *gin.Context) {
 	id := c.Param("id")
-	cust, err := h.service.GetDetail(c.Request.Context(), id)
+	tenantID := c.MustGet("tenantID").(string)
+	cust, err := h.service.GetDetail(c.Request.Context(), id, tenantID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Pelanggan tidak ditemukan"})
 		return

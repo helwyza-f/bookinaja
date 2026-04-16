@@ -1,17 +1,59 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import api from "@/lib/api";
+import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
 
 export default function DashboardInternalLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // DEFAULT: Collapsed (true) biar space maksimal dari awal
+  const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    const checkSession = async () => {
+      try {
+        await api.get("/auth/me");
+        if (active) {
+          setCheckingSession(false);
+        }
+      } catch (error) {
+        if (active && isTenantAuthError(error)) {
+          clearTenantSession({ keepTenantSlug: true });
+          router.replace("/admin/login");
+          return;
+        }
+
+        if (active) {
+          setCheckingSession(false);
+        }
+      }
+    };
+
+    checkSession();
+    return () => {
+      active = false;
+    };
+  }, [router]);
+
+  if (checkingSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <div className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+          Checking Session
+        </div>
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider delayDuration={0} skipDelayDuration={0}>

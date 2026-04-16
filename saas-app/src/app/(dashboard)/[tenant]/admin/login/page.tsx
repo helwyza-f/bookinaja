@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/card";
 import { Lock, Mail, ArrowRight } from "lucide-react";
 import api from "@/lib/api";
+import { syncTenantCookies } from "@/lib/tenant-session";
 
 export default function TenantLoginPage() {
   const [loading, setLoading] = useState(false);
@@ -39,6 +40,7 @@ export default function TenantLoginPage() {
         maxAge: 60 * 60 * 24 * 7,
         path: "/",
       });
+      syncTenantCookies(tenantSlug, res.data.user?.tenant_id);
 
       toast.success("Login Berhasil!");
 

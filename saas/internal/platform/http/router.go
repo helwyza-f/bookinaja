@@ -54,7 +54,7 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 			public.GET("/tenant-id", cfg.TenantHandler.GetIDBySlug)
 			public.GET("/profile", cfg.TenantHandler.GetPublicProfile)
 			public.GET("/landing", cfg.TenantHandler.GetPublicLandingData)
-			
+
 			// Catalog & Discovery
 			public.GET("/resources", cfg.ResourceHandler.ListPublic)
 			public.GET("/resources/:id", cfg.ResourceHandler.GetPublicDetail)
@@ -63,7 +63,7 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 			// Fast Boking Flow & Validation
 			public.GET("/validate-phone", cfg.CustomerHandler.ValidatePhone)
 			public.GET("/validate-customer", cfg.CustomerHandler.ValidateCustomer) // Baru: Check if returning customer
-			public.GET("/bookings/:id", cfg.ReservationHandler.GetDetail)
+			public.GET("/bookings/:id", cfg.ReservationHandler.GetPublicDetailByToken)
 			public.POST("/bookings", cfg.ReservationHandler.Create)
 
 			// Customer Self-Auth (WhatsApp OTP)
@@ -91,7 +91,7 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 			me := protected.Group("/me")
 			{
 				me.GET("", cfg.CustomerHandler.GetMe)
-				me.GET("/bookings/:id", cfg.ReservationHandler.GetDetail)
+				me.GET("/bookings/:id", cfg.ReservationHandler.GetMyDetail)
 			}
 
 			// --- ADMIN & POS MANAGEMENT AREA (Staff Only) ---

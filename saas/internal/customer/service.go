@@ -159,10 +159,14 @@ func (s *Service) GetByPhone(ctx context.Context, tenantID uuid.UUID, phone stri
 	return s.repo.FindByPhone(ctx, tenantID, phone)
 }
 
-func (s *Service) GetDetail(ctx context.Context, id string) (*Customer, error) {
+func (s *Service) GetDetail(ctx context.Context, id, tenantID string) (*Customer, error) {
 	cID, err := uuid.Parse(id)
 	if err != nil {
 		return nil, fmt.Errorf("id customer tidak valid")
 	}
-	return s.repo.FindByID(ctx, cID)
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("id tenant tidak valid")
+	}
+	return s.repo.FindByIDForTenant(ctx, cID, tID)
 }
