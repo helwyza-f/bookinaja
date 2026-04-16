@@ -110,6 +110,7 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 				billingGroup := adminArea.Group("/billing")
 				{
 					billingGroup.GET("/subscription", cfg.BillingHandler.GetSubscription)
+					billingGroup.GET("/orders", cfg.BillingHandler.ListOrders)
 					billingGroup.POST("/checkout", cfg.BillingHandler.Checkout)
 				}
 
