@@ -3,6 +3,7 @@ package http
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/helwiza/saas/internal/auth"
+	"github.com/helwiza/saas/internal/billing"
 	"github.com/helwiza/saas/internal/customer"
 	"github.com/helwiza/saas/internal/fnb"
 	"github.com/helwiza/saas/internal/middleware"
@@ -20,6 +21,7 @@ type Config struct {
 	CustomerHandler    *customer.Handler
 	AuthHandler        *auth.Handler
 	FnbHandler         *fnb.Handler
+	BillingHandler     *billing.Handler
 }
 
 // NewRouter menginisialisasi router Gin dengan arsitektur Multi-Tenancy yang tajam.
@@ -39,6 +41,9 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "BATAM ENGINE ONLINE"})
 	})
+
+	// Webhooks (no auth)
+	r.POST("/api/webhooks/midtrans", cfg.BillingHandler.MidtransWebhook)
 
 	// API v1 Group
 	v1 := r.Group("/api/v1")
@@ -100,6 +105,13 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 			{
 				// Core Admin Pulse
 				adminArea.GET("/auth/me", cfg.AuthHandler.CheckMe)
+
+				// Subscription & Billing
+				billingGroup := adminArea.Group("/billing")
+				{
+					billingGroup.GET("/subscription", cfg.BillingHandler.GetSubscription)
+					billingGroup.POST("/checkout", cfg.BillingHandler.Checkout)
+				}
 
 				// Business Profile Settings
 				admin := adminArea.Group("/admin")

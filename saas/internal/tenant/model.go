@@ -50,6 +50,12 @@ type Tenant struct {
 	BusinessCategory string    `db:"business_category" json:"business_category"`
 	BusinessType     string    `db:"business_type" json:"business_type"`
 
+	// --- SUBSCRIPTION (SaaS Billing) ---
+	Plan                         string     `db:"plan" json:"plan"`
+	SubscriptionStatus           string     `db:"subscription_status" json:"subscription_status"`
+	SubscriptionCurrentPeriodStart *time.Time `db:"subscription_current_period_start" json:"subscription_current_period_start"`
+	SubscriptionCurrentPeriodEnd   *time.Time `db:"subscription_current_period_end" json:"subscription_current_period_end"`
+
 	// --- CONTENT & COPYWRITING ---
 	Slogan   string         `db:"slogan" json:"slogan"`     // Teks kecil di bawah logo/nama
 	Tagline  string         `db:"tagline" json:"tagline"`   // Judul BESAR di Hero Section

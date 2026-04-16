@@ -13,6 +13,7 @@ import (
 
 	// Import semua domain internal
 	"github.com/helwiza/saas/internal/auth"
+	"github.com/helwiza/saas/internal/billing"
 	"github.com/helwiza/saas/internal/customer"
 	"github.com/helwiza/saas/internal/fnb"
 	"github.com/helwiza/saas/internal/reservation"
@@ -99,6 +100,11 @@ func main() {
 	fnbSvc := fnb.NewService(fnbRepo)
 	fnbHdl := fnb.NewHandler(fnbSvc)
 
+	// --- BILLING DOMAIN (Midtrans) ---
+	billingRepo := billing.NewRepository(db)
+	billingSvc := billing.NewService(db, billingRepo)
+	billingHdl := billing.NewHandler(billingSvc)
+
 	// 5. Setup Router Config
 	routerConfig := http.Config{
 		TenantHandler:      tenantHdl,
@@ -107,6 +113,7 @@ func main() {
 		CustomerHandler:    customerHdl,
 		AuthHandler:        authHdl,
 		FnbHandler:         fnbHdl,
+		BillingHandler:     billingHdl,
 	}
 
 	r := http.NewRouter(routerConfig, db, rdb)
