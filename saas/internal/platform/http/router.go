@@ -7,6 +7,7 @@ import (
 	"github.com/helwiza/saas/internal/customer"
 	"github.com/helwiza/saas/internal/fnb"
 	"github.com/helwiza/saas/internal/middleware"
+	"github.com/helwiza/saas/internal/platformadmin"
 	"github.com/helwiza/saas/internal/reservation"
 	"github.com/helwiza/saas/internal/resource"
 	"github.com/helwiza/saas/internal/tenant"
@@ -15,13 +16,14 @@ import (
 )
 
 type Config struct {
-	TenantHandler      *tenant.Handler
-	ResourceHandler    *resource.Handler
-	ReservationHandler *reservation.Handler
-	CustomerHandler    *customer.Handler
-	AuthHandler        *auth.Handler
-	FnbHandler         *fnb.Handler
-	BillingHandler     *billing.Handler
+	TenantHandler        *tenant.Handler
+	ResourceHandler      *resource.Handler
+	ReservationHandler   *reservation.Handler
+	CustomerHandler      *customer.Handler
+	AuthHandler          *auth.Handler
+	FnbHandler           *fnb.Handler
+	BillingHandler       *billing.Handler
+	PlatformAdminHandler *platformadmin.Handler
 }
 
 // NewRouter menginisialisasi router Gin dengan arsitektur Multi-Tenancy yang tajam.
@@ -44,6 +46,21 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 
 	// Webhooks (no auth)
 	r.POST("/api/webhooks/midtrans", cfg.BillingHandler.MidtransWebhook)
+
+	// Platform admin routes (root admin bookinaja)
+	platform := r.Group("/api/v1/platform")
+	{
+		platform.POST("/login", cfg.PlatformAdminHandler.Login)
+		protectedPlatform := platform.Group("/")
+		protectedPlatform.Use(middleware.AuthMiddleware())
+		protectedPlatform.Use(middleware.AdminOnly())
+		{
+			protectedPlatform.GET("/me", cfg.PlatformAdminHandler.Me)
+			protectedPlatform.GET("/tenants", cfg.PlatformAdminHandler.ListTenants)
+			protectedPlatform.GET("/customers", cfg.PlatformAdminHandler.ListCustomers)
+			protectedPlatform.GET("/billing/orders", cfg.PlatformAdminHandler.ListBillingOrders)
+		}
+	}
 
 	// API v1 Group
 	v1 := r.Group("/api/v1")

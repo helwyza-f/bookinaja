@@ -31,9 +31,14 @@ import { clearTenantSession } from "@/lib/tenant-session";
 interface SidebarProps {
   isCollapsed: boolean;
   setIsCollapsed: (v: boolean) => void;
+  basePath?: string;
 }
 
-export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
+export function Sidebar({
+  isCollapsed,
+  setIsCollapsed,
+  basePath = "/admin",
+}: SidebarProps) {
   const pathname = usePathname();
   const params = useParams();
   const { theme, setTheme } = useTheme();
@@ -41,13 +46,13 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   const tenant = (params.tenant as string) || "HUB";
 
   const routes = [
-    { label: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
-    { label: "Bookings", icon: CalendarDays, href: "/admin/bookings" },
-    { label: "POS / Kasir", icon: MonitorPlay, href: "/admin/pos" },
-    { label: "Resources", icon: Box, href: "/admin/resources" },
-    { label: "F&B / Menu", icon: Utensils, href: "/admin/fnb" },
-    { label: "Customers", icon: Users, href: "/admin/customers" },
-    { label: "Subscription", icon: CreditCard, href: "/admin/billing" },
+    { label: "Dashboard", icon: LayoutDashboard, href: `${basePath}/dashboard` },
+    { label: "Bookings", icon: CalendarDays, href: `${basePath}/bookings` },
+    { label: "POS / Kasir", icon: MonitorPlay, href: `${basePath}/pos` },
+    { label: "Resources", icon: Box, href: `${basePath}/resources` },
+    { label: "F&B / Menu", icon: Utensils, href: `${basePath}/fnb` },
+    { label: "Customers", icon: Users, href: `${basePath}/customers` },
+    { label: "Subscription", icon: CreditCard, href: `${basePath}/billing` },
   ];
 
   return (
@@ -185,13 +190,13 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
         <Tooltip>
           <TooltipTrigger asChild>
             <Link
-              href="/admin/settings"
+              href={`${basePath}/settings`}
               className={cn(
                 "flex items-center transition-all",
                 isCollapsed
                   ? "h-12 w-12 justify-center mx-auto rounded-2xl"
                   : "rounded-2xl px-5 py-4 gap-4",
-                pathname.includes("/admin/settings")
+                pathname.includes(`${basePath}/settings`)
                   ? "bg-slate-800 text-white shadow-lg"
                   : "text-slate-500 hover:bg-white/5 hover:text-white",
               )}

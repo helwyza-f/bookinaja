@@ -16,6 +16,7 @@ import (
 	"github.com/helwiza/saas/internal/billing"
 	"github.com/helwiza/saas/internal/customer"
 	"github.com/helwiza/saas/internal/fnb"
+	"github.com/helwiza/saas/internal/platformadmin"
 	"github.com/helwiza/saas/internal/reservation"
 	"github.com/helwiza/saas/internal/resource"
 	"github.com/helwiza/saas/internal/tenant"
@@ -68,7 +69,7 @@ func main() {
 	runMigration(db.DB)
 
 	// 4. Dependency Injection (Wiring Batam Engine)
-	
+
 	// --- AUTH DOMAIN ---
 	authSvc := auth.NewService()
 	authHdl := auth.NewHandler(authSvc)
@@ -86,7 +87,7 @@ func main() {
 
 	// --- RESOURCE DOMAIN ---
 	// UPDATE: Repo butuh rdb buat Invalidasi Cache saat unit di-update
-	resourceRepo := resource.NewRepository(db, rdb) 
+	resourceRepo := resource.NewRepository(db, rdb)
 	resourceSvc := resource.NewService(resourceRepo)
 	resourceHdl := resource.NewHandler(resourceSvc)
 
@@ -105,15 +106,21 @@ func main() {
 	billingSvc := billing.NewService(db, billingRepo)
 	billingHdl := billing.NewHandler(billingSvc)
 
+	// --- PLATFORM ADMIN DOMAIN ---
+	platformAdminRepo := platformadmin.NewRepository(db)
+	platformAdminSvc := platformadmin.NewService(platformAdminRepo)
+	platformAdminHdl := platformadmin.NewHandler(platformAdminSvc)
+
 	// 5. Setup Router Config
 	routerConfig := http.Config{
-		TenantHandler:      tenantHdl,
-		ResourceHandler:    resourceHdl,
-		ReservationHandler: reservationHdl,
-		CustomerHandler:    customerHdl,
-		AuthHandler:        authHdl,
-		FnbHandler:         fnbHdl,
-		BillingHandler:     billingHdl,
+		TenantHandler:        tenantHdl,
+		ResourceHandler:      resourceHdl,
+		ReservationHandler:   reservationHdl,
+		CustomerHandler:      customerHdl,
+		AuthHandler:          authHdl,
+		FnbHandler:           fnbHdl,
+		BillingHandler:       billingHdl,
+		PlatformAdminHandler: platformAdminHdl,
 	}
 
 	r := http.NewRouter(routerConfig, db, rdb)
