@@ -25,6 +25,8 @@ export default function MarketingLayout({
     { name: "Industries", href: "/#industries" },
     { name: "Fitur", href: "/#features" },
     { name: "Pricing", href: "/pricing" },
+    { name: "Demos", href: "/demos" },
+    { name: "Docs", href: "/documentation" },
     { name: "FAQ", href: "/faq" },
   ];
 
@@ -202,6 +204,30 @@ export default function MarketingLayout({
                     className="hover:text-blue-500 transition-colors"
                   >
                     Pricing Paket (IDR)
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/demos"
+                    className="hover:text-blue-500 transition-colors"
+                  >
+                    Live Demos
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/documentation"
+                    className="hover:text-blue-500 transition-colors"
+                  >
+                    Documentation
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/faq"
+                    className="hover:text-blue-500 transition-colors"
+                  >
+                    FAQ
                   </Link>
                 </li>
                 <li>
