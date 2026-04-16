@@ -163,10 +163,12 @@ export default function BillingPage() {
       const token = res.data?.snap_token as string;
       if (!token) throw new Error("Snap token kosong");
 
+      setShowPlanSelector(false);
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+
       window.snap.pay(token, {
         onSuccess: () => {
           toast.success("Pembayaran sukses. Subscription diaktifkan.");
-          setShowPlanSelector(false);
           refresh();
         },
         onPending: () =>
