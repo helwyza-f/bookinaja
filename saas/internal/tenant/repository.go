@@ -90,7 +90,7 @@ func (r *Repository) GetPublicLandingData(ctx context.Context, slug string) (map
 
 	// 2. MISS: Searching Postgres
 	fmt.Printf("[CACHE MISS] Building full landing data for slug: '%s'\n", slug)
-	
+
 	tenant, err := r.GetBySlug(ctx, slug)
 	if err != nil || tenant == nil {
 		return nil, fmt.Errorf("business not found")
@@ -184,13 +184,17 @@ func (r *Repository) ListResourcesWithItems(ctx context.Context, tenantID uuid.U
 		ORDER BY r.category ASC, r.name ASC`
 
 	rows, err := r.db.QueryxContext(ctx, query, tenantID)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	defer rows.Close()
 
 	var results []map[string]interface{}
 	for rows.Next() {
 		res := make(map[string]interface{})
-		if err := rows.MapScan(res); err != nil { return nil, err }
+		if err := rows.MapScan(res); err != nil {
+			return nil, err
+		}
 
 		if itemsBytes, ok := res["items"].([]byte); ok {
 			var itemsArray []map[string]interface{}
@@ -207,7 +211,9 @@ func (r *Repository) ListResourcesWithItems(ctx context.Context, tenantID uuid.U
 
 func (r *Repository) SeedTenantData(ctx context.Context, tenantID uuid.UUID, resources []resource.Resource) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer tx.Rollback()
 
 	for _, res := range resources {
@@ -215,13 +221,17 @@ func (r *Repository) SeedTenantData(ctx context.Context, tenantID uuid.UUID, res
 		res.TenantID = tenantID
 		res.Status = "available"
 		_, err = tx.NamedExecContext(ctx, `INSERT INTO resources (id, tenant_id, name, category, description, image_url, gallery, status, metadata) VALUES (:id, :tenant_id, :name, :category, :description, :image_url, :gallery, :status, :metadata)`, res)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 
 		for _, item := range res.Items {
 			item.ID = uuid.New()
 			item.ResourceID = res.ID
 			_, err = tx.NamedExecContext(ctx, `INSERT INTO resource_items (id, resource_id, name, price, price_unit, unit_duration, item_type, is_default, metadata) VALUES (:id, :resource_id, :name, :price, :price_unit, :unit_duration, :item_type, :is_default, :metadata)`, item)
-			if err != nil { return err }
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return tx.Commit()
@@ -229,14 +239,18 @@ func (r *Repository) SeedTenantData(ctx context.Context, tenantID uuid.UUID, res
 
 func (r *Repository) SeedFnbData(ctx context.Context, tenantID uuid.UUID, items []fnb.Item) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer tx.Rollback()
 
 	for _, item := range items {
 		item.ID = uuid.New()
 		item.TenantID = tenantID
 		_, err = tx.NamedExecContext(ctx, `INSERT INTO fnb_items (id, tenant_id, name, price, category, image_url, is_available) VALUES (:id, :tenant_id, :name, :price, :category, :image_url, :is_available)`, item)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 	}
 	return tx.Commit()
 }
@@ -246,14 +260,33 @@ func (r *Repository) SeedFnbData(ctx context.Context, tenantID uuid.UUID, items 
 func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*User, error) {
 	var u User
 	err := r.db.GetContext(ctx, &u, `SELECT * FROM users WHERE email = $1 LIMIT 1`, email)
-	if err == sql.ErrNoRows { return nil, nil }
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return &u, err
+}
+
+func (r *Repository) GetUserByEmailAndSlug(ctx context.Context, email, slug string) (*User, error) {
+	var u User
+	query := `
+		SELECT u.*
+		FROM users u
+		JOIN tenants t ON t.id = u.tenant_id
+		WHERE u.email = $1 AND LOWER(TRIM(t.slug)) = LOWER(TRIM($2))
+		LIMIT 1`
+	err := r.db.GetContext(ctx, &u, query, email, slug)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
 	return &u, err
 }
 
 func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Tenant, error) {
 	var t Tenant
 	err := r.db.GetContext(ctx, &t, `SELECT * FROM tenants WHERE id = $1`, id)
-	if err == sql.ErrNoRows { return nil, nil }
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
 	return &t, err
 }
 

@@ -92,7 +92,19 @@ func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*Customer, err
 	var c Customer
 	query := `SELECT * FROM customers WHERE id = $1 LIMIT 1`
 	err := r.db.GetContext(ctx, &c, query, id)
-	if err == sql.ErrNoRows { return nil, nil }
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return &c, err
+}
+
+func (r *Repository) FindByIDForTenant(ctx context.Context, id, tenantID uuid.UUID) (*Customer, error) {
+	var c Customer
+	query := `SELECT * FROM customers WHERE id = $1 AND tenant_id = $2 LIMIT 1`
+	err := r.db.GetContext(ctx, &c, query, id, tenantID)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
 	return &c, err
 }
 

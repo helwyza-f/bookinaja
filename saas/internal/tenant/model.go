@@ -20,8 +20,9 @@ type RegisterReq struct {
 
 // LoginReq digunakan untuk autentikasi Admin/Owner ke dashboard
 type LoginReq struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
+	Email      string `json:"email" binding:"required,email"`
+	Password   string `json:"password" binding:"required"`
+	TenantSlug string `json:"tenant_slug"`
 }
 
 // LoginResponse mengembalikan token akses dan profil singkat user
@@ -43,11 +44,11 @@ type User struct {
 
 // Tenant adalah jantung dari sistem Multi-Tenant lo, menyimpan data branding dan konfigurasi publik
 type Tenant struct {
-	ID               uuid.UUID      `db:"id" json:"id"`
-	Name             string         `db:"name" json:"name"`
-	Slug             string         `db:"slug" json:"slug"`
-	BusinessCategory string         `db:"business_category" json:"business_category"`
-	BusinessType     string         `db:"business_type" json:"business_type"`
+	ID               uuid.UUID `db:"id" json:"id"`
+	Name             string    `db:"name" json:"name"`
+	Slug             string    `db:"slug" json:"slug"`
+	BusinessCategory string    `db:"business_category" json:"business_category"`
+	BusinessType     string    `db:"business_type" json:"business_type"`
 
 	// --- CONTENT & COPYWRITING ---
 	Slogan   string         `db:"slogan" json:"slogan"`     // Teks kecil di bawah logo/nama

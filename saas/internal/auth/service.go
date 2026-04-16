@@ -2,11 +2,11 @@ package auth
 
 import (
 	"errors"
-	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/helwiza/saas/internal/platform/security"
 )
 
 type Service struct {
@@ -14,10 +14,7 @@ type Service struct {
 }
 
 func NewService() *Service {
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		secret = "batam-dev-secret-key-2026"
-	}
+	secret := security.JWTSecret()
 	return &Service{secret: secret}
 }
 

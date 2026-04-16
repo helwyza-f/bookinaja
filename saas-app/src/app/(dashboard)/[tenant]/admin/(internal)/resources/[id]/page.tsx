@@ -36,6 +36,7 @@ import ResourceDetailLoading from "./loading";
 export default function ResourceDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const tenantSlug = params.tenant as string;
 
   const [resource, setResource] = useState<any>(null);
   const [businessCategory, setBusinessCategory] = useState<string>("");
@@ -56,7 +57,9 @@ export default function ResourceDetailPage() {
     async (useCache = true) => {
       try {
         if (useCache) {
-          const cachedAll = localStorage.getItem("cache_resources_all");
+          const cachedAll = localStorage.getItem(
+            `cache_resources_all:${tenantSlug}`,
+          );
           if (cachedAll) {
             const parsed = JSON.parse(cachedAll);
             const found = parsed.resources?.find(
@@ -88,7 +91,7 @@ export default function ResourceDetailPage() {
         setLoading(false);
       }
     },
-    [params.id, router],
+    [params.id, router, tenantSlug],
   );
 
   useEffect(() => {

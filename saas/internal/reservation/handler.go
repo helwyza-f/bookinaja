@@ -2,11 +2,12 @@ package reservation
 
 import (
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+	"github.com/helwiza/saas/internal/platform/security"
 )
 
 type Handler struct {
@@ -47,7 +48,7 @@ func (h *Handler) Create(c *gin.Context) {
 		"exp":         time.Now().Add(time.Hour * 72).Unix(), // Aktif 3 hari
 	})
 
-	tokenString, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	tokenString, err := token.SignedString([]byte(security.JWTSecret()))
 	if err != nil {
 		// Tetap biarkan booking berhasil, tapi log error JWT-nya
 		c.JSON(http.StatusCreated, gin.H{
@@ -197,6 +198,44 @@ func (h *Handler) GetDetail(c *gin.Context) {
 	booking, err := h.service.GetDetailForAdmin(c.Request.Context(), id, tenantID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "BOOKING TIDAK DITEMUKAN"})
+		return
+	}
+	c.JSON(http.StatusOK, booking)
+}
+
+func (h *Handler) GetMyDetail(c *gin.Context) {
+	id := c.Param("id")
+	tenantID := c.MustGet("tenantID").(string)
+	customerIDValue, exists := c.Get("customerID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+
+	customerID, ok := customerIDValue.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+
+	booking, err := h.service.GetDetailForCustomer(c.Request.Context(), id, tenantID, customerID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "BOOKING TIDAK DITEMUKAN"})
+		return
+	}
+	c.JSON(http.StatusOK, booking)
+}
+
+func (h *Handler) GetPublicDetailByToken(c *gin.Context) {
+	token := c.Param("id")
+	if _, err := uuid.Parse(token); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "TOKEN AKSES TIDAK VALID"})
+		return
+	}
+
+	booking, err := h.service.GetStatusByToken(c.Request.Context(), token)
+	if err != nil || booking == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "RESERVASI TIDAK DITEMUKAN"})
 		return
 	}
 	c.JSON(http.StatusOK, booking)

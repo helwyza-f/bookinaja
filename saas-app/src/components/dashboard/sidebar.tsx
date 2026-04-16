@@ -25,6 +25,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import { clearTenantSession } from "@/lib/tenant-session";
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -238,8 +239,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
         {/* LOGOUT */}
         <button
           onClick={() => {
-            document.cookie =
-              "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+            clearTenantSession({ keepTenantSlug: true });
             window.location.href = "/admin/login";
           }}
           className={cn(

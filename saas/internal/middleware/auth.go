@@ -3,11 +3,11 @@ package middleware
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/helwiza/saas/internal/platform/security"
 )
 
 func AuthMiddleware() gin.HandlerFunc {
@@ -37,7 +37,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		tokenTenantID := fmt.Sprintf("%v", claims["tenant_id"])
 
 		// FIX: Jika subdomain mendeteksi tenantID, tapi beda sama di token -> BLOKIR.
-		// Tapi jika subdomain/header tidak mengirim tenantID (kosong), 
+		// Tapi jika subdomain/header tidak mengirim tenantID (kosong),
 		// kita TRUST tenantID yang ada di dalam token.
 		if activeTenantID != "" && activeTenantID != tokenTenantID {
 			c.JSON(http.StatusForbidden, gin.H{
@@ -79,7 +79,7 @@ func parseJWT(tokenString string) (*jwt.Token, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("metode enkripsi tidak sesuai")
 		}
-		return []byte(os.Getenv("JWT_SECRET")), nil
+		return []byte(security.JWTSecret()), nil
 	})
 }
 

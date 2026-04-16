@@ -40,7 +40,6 @@ func (h *Handler) GetIDBySlug(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"id": tenantID})
 }
 
-
 // GetPublicProfile Baru: Khusus ambil data brand & tema (Gak pake join tabel berat)
 func (h *Handler) GetPublicProfile(c *gin.Context) {
 	slug := h.extractSlug(c)
@@ -121,7 +120,14 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.Login(c.Request.Context(), req.Email, req.Password)
+	tenantSlug := strings.TrimSpace(strings.ToLower(req.TenantSlug))
+	if tenantSlug == "" {
+		if slug, exists := c.Get("tenantSlug"); exists {
+			tenantSlug, _ = slug.(string)
+		}
+	}
+
+	resp, err := h.service.Login(c.Request.Context(), req.Email, req.Password, tenantSlug)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email atau password salah"})
 		return

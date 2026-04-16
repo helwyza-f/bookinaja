@@ -42,7 +42,7 @@ export default function PublicResourceCatalog() {
   useEffect(() => {
     const fetchCatalog = async () => {
       try {
-        const res = await api.get(`/public/landing?slug=${tenantSlug}`);
+        const res = await api.get("/public/landing");
         setData(res.data);
       } catch (err) {
         toast.error("Gagal memuat katalog unit");

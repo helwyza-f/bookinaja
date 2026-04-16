@@ -19,6 +19,7 @@ import {
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { syncTenantCookies } from "@/lib/tenant-session";
 
 const THEMES: Record<string, any> = {
   gaming_hub: {
@@ -64,7 +65,7 @@ export default function CustomerLoginPage() {
 
   useEffect(() => {
     api
-      .get(`/public/landing?slug=${tenantSlug}`)
+      .get("/public/landing")
       .then((res) => setTenantData(res.data))
       .catch(() => console.error("Failed to load tenant theme"));
   }, [tenantSlug]);
@@ -104,13 +105,7 @@ export default function CustomerLoginPage() {
         maxAge: 60 * 60 * 72,
         path: "/",
       });
-
-      if (res.data.customer?.tenant_id) {
-        setCookie("current_tenant_id", res.data.customer.tenant_id, {
-          maxAge: 60 * 60 * 24 * 7,
-          path: "/",
-        });
-      }
+      syncTenantCookies(tenantSlug, res.data.customer?.tenant_id);
 
       toast.success(`Selamat Datang, ${res.data.customer.name}!`);
       router.push("/me");

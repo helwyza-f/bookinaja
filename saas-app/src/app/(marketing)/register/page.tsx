@@ -436,10 +436,10 @@ export default function RegisterPage() {
                 <p className="text-sm text-muted-foreground font-bold italic uppercase tracking-[0.1em]">
                   Sudah memiliki lisensi?{" "}
                   <Link
-                    href="/login"
+                    href="/demos"
                     className="text-blue-500 hover:text-blue-600 hover:underline underline-offset-8 decoration-2 transition-all"
                   >
-                    Akses Dashboard
+                    Lihat Demo Login
                   </Link>
                 </p>
                 <div className="flex flex-wrap justify-center gap-6 opacity-40 grayscale pointer-events-none">

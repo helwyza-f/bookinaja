@@ -64,7 +64,7 @@ func (r *Repository) ExtendSessionWithValidation(ctx context.Context, bID uuid.U
 		WHERE resource_id = $1 AND id != $2 
 		AND status NOT IN ('cancelled', 'rejected')
 		AND start_time < $4 AND end_time > $3`
-	
+
 	err = tx.GetContext(ctx, &count, checkQuery, resourceID, bID, currentEnd, newEnd)
 	if err != nil {
 		return err
@@ -90,7 +90,7 @@ func (r *Repository) ExtendSessionWithValidation(ctx context.Context, bID uuid.U
 		WHERE booking_options.resource_item_id = ri.id 
 		AND booking_options.booking_id = $1 
 		AND (ri.item_type = 'main_option' OR ri.item_type = 'console_option' OR ri.item_type = 'main')`
-	
+
 	_, err = tx.ExecContext(ctx, updateOptionQuery, bID, additionalDuration)
 	if err != nil {
 		return fmt.Errorf("gagal memperbarui durasi dan billing: %w", err)
@@ -164,10 +164,10 @@ func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*Boo
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Kalkulasi Grand Total langsung di level Repo
 	b.GrandTotal = b.TotalResource + b.TotalFnb
-	
+
 	// Hydrate data relasi
 	err = r.HydrateBooking(ctx, &b)
 	return &b, err
@@ -185,7 +185,9 @@ func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error
 		JOIN resource_items ri ON bo.resource_item_id = ri.id
 		WHERE bo.booking_id = $1
 		ORDER BY bo.price_at_booking DESC`, b.ID)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	// 2. Load F&B Orders
 	b.Orders = make([]OrderItem, 0)
@@ -196,7 +198,9 @@ func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error
 		JOIN fnb_items f ON oi.fnb_item_id = f.id
 		WHERE oi.booking_id = $1
 		ORDER BY oi.created_at DESC`, b.ID)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	// 3. Load Katalog Addons
 	b.ResourceAddons = make([]ResourceItemSimple, 0)
@@ -205,7 +209,7 @@ func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error
 		FROM resource_items 
 		WHERE resource_id = $1 AND item_type = 'add_on'
 		ORDER BY name ASC`, b.ResourceID)
-	
+
 	return err
 }
 
@@ -222,7 +226,36 @@ func (r *Repository) GetByToken(ctx context.Context, token uuid.UUID) (*BookingD
 		WHERE b.access_token = $1 LIMIT 1`
 
 	err := r.db.GetContext(ctx, &b, query, token)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
+
+	b.GrandTotal = b.TotalResource + b.TotalFnb
+	err = r.HydrateBooking(ctx, &b)
+	return &b, err
+}
+
+func (r *Repository) FindByIDForCustomer(ctx context.Context, id, tenantID, customerID uuid.UUID) (*BookingDetail, error) {
+	var b BookingDetail
+	query := `
+		SELECT 
+			b.*, c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
+			COALESCE(ri.price, 0) as unit_price, 
+			COALESCE(ri.unit_duration, 60) as unit_duration,
+			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) as total_resource,
+			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_fnb
+		FROM bookings b
+		JOIN customers c ON b.customer_id = c.id
+		JOIN resources res ON b.resource_id = res.id
+		LEFT JOIN booking_options bo ON bo.booking_id = b.id
+		LEFT JOIN resource_items ri ON bo.resource_item_id = ri.id AND (ri.item_type = 'main_option' OR ri.item_type = 'console_option' OR ri.item_type = 'main')
+		WHERE b.id = $1 AND b.tenant_id = $2 AND b.customer_id = $3
+		LIMIT 1`
+
+	err := r.db.GetContext(ctx, &b, query, id, tenantID, customerID)
+	if err != nil {
+		return nil, err
+	}
 
 	b.GrandTotal = b.TotalResource + b.TotalFnb
 	err = r.HydrateBooking(ctx, &b)
@@ -232,18 +265,42 @@ func (r *Repository) GetByToken(ctx context.Context, token uuid.UUID) (*BookingD
 func (r *Repository) AddFnbOrder(ctx context.Context, bookingID uuid.UUID, fnbItemID uuid.UUID, qty int) error {
 	query := `
 		INSERT INTO order_items (id, booking_id, fnb_item_id, quantity, price_at_purchase, status)
-		SELECT gen_random_uuid(), $1, id, $3, price, 'delivered'
-		FROM fnb_items WHERE id = $2`
-	_, err := r.db.ExecContext(ctx, query, bookingID, fnbItemID, qty)
+		SELECT gen_random_uuid(), b.id, f.id, $3, f.price, 'delivered'
+		FROM bookings b
+		JOIN fnb_items f ON f.id = $2 AND f.tenant_id = b.tenant_id
+		WHERE b.id = $1`
+	result, err := r.db.ExecContext(ctx, query, bookingID, fnbItemID, qty)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("ITEM FNB TIDAK VALID UNTUK TENANT INI")
+	}
 	return err
 }
 
 func (r *Repository) AddAddonOrder(ctx context.Context, bookingID uuid.UUID, itemID uuid.UUID) error {
 	query := `
 		INSERT INTO booking_options (id, booking_id, resource_item_id, quantity, price_at_booking)
-		SELECT gen_random_uuid(), $1, id, 1, price
-		FROM resource_items WHERE id = $2`
-	_, err := r.db.ExecContext(ctx, query, bookingID, itemID)
+		SELECT gen_random_uuid(), b.id, ri.id, 1, ri.price
+		FROM bookings b
+		JOIN resource_items ri ON ri.id = $2 AND ri.resource_id = b.resource_id AND ri.item_type = 'add_on'
+		WHERE b.id = $1`
+	result, err := r.db.ExecContext(ctx, query, bookingID, itemID)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("ADD-ON TIDAK VALID UNTUK RESOURCE INI")
+	}
 	return err
 }
 
@@ -261,7 +318,9 @@ func (r *Repository) FindActiveSessions(ctx context.Context, tenantID uuid.UUID)
 		ORDER BY b.start_time ASC`
 
 	err := r.db.SelectContext(ctx, &res, query, tenantID)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 
 	for i := range res {
 		res[i].GrandTotal = res[i].TotalResource + res[i].TotalFnb
@@ -303,7 +362,9 @@ func (r *Repository) FindAllByTenant(ctx context.Context, tenantID uuid.UUID, st
 	}
 
 	err := r.db.SelectContext(ctx, &res, query+" ORDER BY b.created_at DESC", tenantID)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 
 	for i := range res {
 		res[i].GrandTotal = res[i].TotalResource + res[i].TotalFnb
