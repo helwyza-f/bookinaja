@@ -1,3 +1,4 @@
+// src/app/(dashboard)/[tenant]/(public)/page.tsx
 "use client";
 
 import { useEffect, useMemo } from "react";

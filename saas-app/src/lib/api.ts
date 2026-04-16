@@ -1,5 +1,5 @@
 import axios from "axios";
-import { getCookie, deleteCookie } from "cookies-next";
+import { getCookie, setCookie, deleteCookie } from "cookies-next";
 import { getTenantSlugFromBrowser } from "@/lib/tenant";
 
 const baseURL =
@@ -10,6 +10,8 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
   withCredentials: true,
 });
+
+let isResolvingTenant = false;
 
 api.interceptors.request.use((config) => {
   const token = getCookie("auth_token") || getCookie("customer_auth");
@@ -27,8 +29,30 @@ api.interceptors.request.use((config) => {
     config.headers["X-Tenant-ID"] = tenantId as string;
   }
 
-  if (tenantSlug && config.method?.toLowerCase() === "get") {
-    config.params = { ...config.params, slug: tenantSlug };
+  if (tenantSlug) {
+    if (config.method?.toLowerCase() === "get") {
+      config.params = { ...config.params, slug: tenantSlug };
+    }
+
+    // Silent resolver: sync tenant ID ke cookie biar backend middleware tidak 403
+    if (!tenantId && !isResolvingTenant) {
+      isResolvingTenant = true;
+      axios
+        .get(`${baseURL}/public/tenant-id`, { params: { slug: tenantSlug } })
+        .then((res) => {
+          if (res.data?.id) {
+            setCookie("current_tenant_id", res.data.id, {
+              maxAge: 60 * 60 * 24 * 7,
+              path: "/",
+            });
+          }
+        })
+        .finally(() => {
+          setTimeout(() => {
+            isResolvingTenant = false;
+          }, 1000);
+        });
+    }
   }
 
   return config;
