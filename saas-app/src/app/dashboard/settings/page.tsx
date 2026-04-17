@@ -20,7 +20,6 @@ export default function SettingsPage() {
           </div>
           <p className="mt-3 text-sm leading-7 text-slate-600">
             Root domain hanya untuk platform admin. Tenant slug tetap dipakai untuk
-            {" "}
             <span className="font-mono">https://{"{tenant}"}.bookinaja.com</span> dan
             tidak boleh dipakai di <span className="font-mono">bookinaja.com</span>.
           </p>

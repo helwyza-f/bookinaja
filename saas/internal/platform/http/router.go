@@ -101,11 +101,12 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 			platformProtected := protected.Group("/platform")
 			platformProtected.Use(middleware.PlatformOnly())
 			{
-				platformProtected.GET("/me", cfg.PlatformHandler.Me)
-				platformProtected.GET("/summary", cfg.PlatformHandler.Summary)
-				platformProtected.GET("/tenants", cfg.PlatformHandler.Tenants)
-				platformProtected.GET("/customers", cfg.PlatformHandler.Customers)
-				platformProtected.GET("/transactions", cfg.PlatformHandler.Transactions)
+			platformProtected.GET("/me", cfg.PlatformHandler.Me)
+			platformProtected.GET("/summary", cfg.PlatformHandler.Summary)
+			platformProtected.GET("/revenue", cfg.PlatformHandler.Revenue)
+			platformProtected.GET("/tenants", cfg.PlatformHandler.Tenants)
+			platformProtected.GET("/customers", cfg.PlatformHandler.Customers)
+			platformProtected.GET("/transactions", cfg.PlatformHandler.Transactions)
 			}
 
 			// --- CUSTOMER PORTAL AREA (/me) ---

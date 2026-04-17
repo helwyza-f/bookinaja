@@ -2,6 +2,7 @@ package platformadmin
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -86,3 +87,26 @@ func (h *Handler) Transactions(c *gin.Context) {
 	c.JSON(http.StatusOK, data)
 }
 
+func (h *Handler) Revenue(c *gin.Context) {
+	tenantSlug := strings.TrimSpace(c.Query("tenant"))
+	start, _ := parseTimePtr(c.Query("from"))
+	end, _ := parseTimePtr(c.Query("to"))
+
+	data, err := h.repo.RevenueReport(c.Request.Context(), tenantSlug, start, end)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
+
+func parseTimePtr(raw string) (*time.Time, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	parsed, err := time.Parse("2006-01-02", raw)
+	if err != nil {
+		return nil, err
+	}
+	return &parsed, nil
+}
