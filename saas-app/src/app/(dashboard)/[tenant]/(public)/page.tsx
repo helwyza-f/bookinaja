@@ -12,6 +12,7 @@ import { GallerySection } from "@/components/tenant/public/landing/gallery-secti
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { clearTenantSession } from "@/lib/tenant-session";
 
 const fetcher = (url: string) => api.get(url).then((res) => res.data);
 
@@ -60,7 +61,7 @@ export default function TenantPublicLanding() {
   const { tenant: tenantSlug } = useParams();
   const { mutate } = useSWRConfig();
 
-  // 1. FETCH PROFILE (Pembeda antara Loading, Error, dan Data)
+  // 1. FETCH PROFILE (Guard logic)
   const {
     data: freshProfile,
     error: profileError,
@@ -128,15 +129,19 @@ export default function TenantPublicLanding() {
     };
   };
 
-  // --- LOGIC RENDER CONDITION ---
+  // --- RENDERING CONDITIONS ---
 
-  // 1. Jika masih loading awal (freshProfile belum ada & belum error)
-  if (loadingProfile && !freshProfile) return <FullPageSkeleton />;
+  // Loading State: Tampilkan Skeleton agar UX mulus
+  if (loadingProfile && !freshProfile) {
+    return <FullPageSkeleton />;
+  }
 
-  // 2. Jika benar-benar error 404 (Atau error dari backend)
-  if (profileError || !freshProfile) return <NotFoundUI />;
+  // Error State: Data 404 atau Error Koneksi
+  if (profileError || !freshProfile) {
+    return <NotFoundUI />;
+  }
 
-  // 3. Render Normal
+  // Success State: Data Siap
   return (
     <div className="min-h-screen bg-white dark:bg-[#050505] font-plus-jakarta transition-colors duration-500">
       <TenantNavbar profile={freshProfile} tenantSlug={tenantSlug as string} />
@@ -182,11 +187,11 @@ export default function TenantPublicLanding() {
   );
 }
 
-// Komponen Skeleton Full Page biar transisi halus
+// --- INTERNAL HELPERS ---
+
 function FullPageSkeleton() {
   return (
     <div className="min-h-screen bg-white dark:bg-[#050505] space-y-0">
-      {/* Navbar Skeleton */}
       <div className="h-20 w-full px-6 flex items-center justify-between border-b dark:border-white/5">
         <Skeleton className="h-10 w-32 rounded-xl bg-slate-100 dark:bg-white/5" />
         <div className="flex gap-4">
@@ -194,30 +199,39 @@ function FullPageSkeleton() {
           <Skeleton className="h-10 w-10 rounded-full bg-slate-100 dark:bg-white/5" />
         </div>
       </div>
-      {/* Hero Skeleton */}
       <div className="h-[70vh] w-full p-6 md:p-12 flex flex-col justify-end space-y-6">
         <Skeleton className="h-4 w-40 bg-slate-100 dark:bg-white/5" />
         <Skeleton className="h-24 md:h-48 w-full md:w-3/4 bg-slate-100 dark:bg-white/5" />
         <Skeleton className="h-16 w-64 rounded-full bg-slate-100 dark:bg-white/5" />
-      </div>
-      {/* Catalog Skeleton */}
-      <div className="p-12 grid grid-cols-1 md:grid-cols-3 gap-8">
-        {[1, 2, 3].map((i) => (
-          <Skeleton
-            key={i}
-            className="h-[400px] rounded-[2.5rem] bg-slate-100 dark:bg-white/5"
-          />
-        ))}
       </div>
     </div>
   );
 }
 
 function NotFoundUI() {
+  const { cache, mutate } = useSWRConfig();
+
+  const handleForceReconnect = async () => {
+    // 1. Bersihkan Cookies (Auth, Tenant ID, Tenant Slug)
+    clearTenantSession();
+
+    // 2. Bersihkan Cache SWR secara brutal
+    // Kita panggil mutate dengan undefined untuk semua key yang kita pakai
+    mutate("/public/profile", undefined, { revalidate: false });
+    mutate("/public/resources", undefined, { revalidate: false });
+
+    // 3. Optional: Bersihkan semua cache SWR yang tersimpan di memori
+    // (Bisa dilakukan jika ingin bener-bener nuklir semua state)
+    if (cache instanceof Map) cache.clear();
+
+    // 4. Paksa Browser reload ke root untuk inisialisasi ulang interceptor API
+    window.location.reload();
+  };
+
   return (
     <div className="min-h-screen bg-[#050505] flex items-center justify-center text-white p-6">
       <div className="text-center space-y-10 animate-in fade-in zoom-in duration-500">
-        <h1 className="text-[10rem] md:text-[15rem] font-[1000] italic opacity-5 leading-none tracking-tighter">
+        <h1 className="text-[10rem] md:text-[15rem] font-[1000] italic opacity-5 leading-none tracking-tighter select-none">
           404
         </h1>
         <div className="space-y-3 relative z-10 -mt-10 md:-mt-20">
@@ -225,7 +239,8 @@ function NotFoundUI() {
             Station Offline
           </p>
           <p className="text-slate-500 font-bold italic text-[10px] md:text-xs uppercase tracking-widest px-4 max-w-xs mx-auto">
-            Target business hub not found in Batam Engine database.
+            Target business hub not found in Batam Engine database or your
+            session is out of sync.
           </p>
         </div>
         <div className="flex flex-col items-center gap-4 relative z-10">
@@ -238,10 +253,13 @@ function NotFoundUI() {
             </Button>
           </Link>
           <button
-            onClick={() => window.location.reload()}
-            className="text-slate-500 text-[10px] font-black uppercase italic tracking-[0.3em] hover:text-white transition-colors"
+            onClick={handleForceReconnect}
+            className="group flex flex-col items-center gap-2 text-slate-500 hover:text-white transition-colors"
           >
-            Force Reconnect
+            <span className="text-[10px] font-black uppercase italic tracking-[0.3em]">
+              Force Reconnect
+            </span>
+            <div className="h-0.5 w-8 bg-blue-600 group-hover:w-24 transition-all duration-500" />
           </button>
         </div>
       </div>
