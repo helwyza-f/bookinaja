@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
+import { ManualBookingSkeleton } from "@/components/dashboard/booking-manual-skeleton";
 import {
   Popover,
   PopoverContent,
@@ -213,7 +214,7 @@ export default function NewManualBookingPage() {
     setIsSubmitting(true);
     try {
       const fullDate = parse(selectedTime, "HH:mm", date || new Date());
-      await api.post("/bookings", {
+      await api.post("/bookings/manual", {
         tenant_id: currentResource.tenant_id,
         resource_id: selectedResourceId,
         customer_name: custName.toUpperCase(),
@@ -232,12 +233,10 @@ export default function NewManualBookingPage() {
     }
   };
 
-  if (loading)
-    return (
-      <div className="h-screen flex items-center justify-center bg-white dark:bg-[#050505]">
-        <Loader2 className="animate-spin text-blue-600 w-10 h-10" />
-      </div>
-    );
+  // 2. Ganti blok loading lama dengan ini:
+  if (loading) {
+    return <ManualBookingSkeleton />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#050505] font-plus-jakarta pb-20 -mt-6">
