@@ -16,6 +16,7 @@ import (
 	"github.com/helwiza/saas/internal/billing"
 	"github.com/helwiza/saas/internal/customer"
 	"github.com/helwiza/saas/internal/fnb"
+	"github.com/helwiza/saas/internal/platformadmin"
 	"github.com/helwiza/saas/internal/reservation"
 	"github.com/helwiza/saas/internal/resource"
 	"github.com/helwiza/saas/internal/tenant"
@@ -105,6 +106,11 @@ func main() {
 	billingSvc := billing.NewService(db, billingRepo)
 	billingHdl := billing.NewHandler(billingSvc)
 
+	// --- PLATFORM ADMIN DOMAIN ---
+	platformRepo := platformadmin.NewRepository(db)
+	platformSvc := platformadmin.NewService()
+	platformHdl := platformadmin.NewHandler(platformSvc, platformRepo)
+
 	// 5. Setup Router Config
 	routerConfig := http.Config{
 		TenantHandler:      tenantHdl,
@@ -114,6 +120,7 @@ func main() {
 		AuthHandler:        authHdl,
 		FnbHandler:         fnbHdl,
 		BillingHandler:     billingHdl,
+		PlatformHandler:    platformHdl,
 	}
 
 	r := http.NewRouter(routerConfig, db, rdb)

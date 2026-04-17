@@ -87,11 +87,30 @@ func extractTenantSlug(c *gin.Context) string {
 
 	for _, slug := range candidates {
 		slug = normalizeSlug(slug)
-		if slug != "" && !isSystemDomain(slug) {
+		if slug != "" && !isSystemDomain(slug) && !isRootDomain(c.Request.Host, slug) {
 			return slug
 		}
 	}
 	return ""
+}
+
+func isRootDomain(host, slug string) bool {
+	h := normalizeHost(host)
+	if h == "" {
+		return false
+	}
+	rootLike := map[string]bool{
+		"bookinaja.com":   true,
+		"bookinaja.local": true,
+	}
+	if rootLike[h] {
+		return true
+	}
+	parts := strings.Split(h, ".")
+	if len(parts) == 2 && parts[0] == slug {
+		return true
+	}
+	return false
 }
 
 // --- HELPER FUNCTIONS ---

@@ -16,20 +16,22 @@ let isResolvingTenant = false;
 api.interceptors.request.use((config) => {
   const token = getCookie("auth_token") || getCookie("customer_auth");
   const tenantId = getCookie("current_tenant_id");
-  const tenantSlug =
-    getTenantSlugFromBrowser() || (getCookie("current_tenant_slug") as string);
+  const browserTenantSlug = getTenantSlugFromBrowser();
+  const tenantSlug = browserTenantSlug
+    ? browserTenantSlug
+    : (getCookie("current_tenant_slug") as string);
 
   if (token) config.headers.Authorization = `Bearer ${token}`;
 
-  if (tenantSlug) {
+  if (browserTenantSlug && tenantSlug) {
     config.headers["X-Tenant-Slug"] = tenantSlug;
   }
 
-  if (tenantId && tenantId !== "undefined" && tenantId !== "") {
+  if (browserTenantSlug && tenantId && tenantId !== "undefined" && tenantId !== "") {
     config.headers["X-Tenant-ID"] = tenantId as string;
   }
 
-  if (tenantSlug) {
+  if (browserTenantSlug && tenantSlug) {
     if (config.method?.toLowerCase() === "get") {
       config.params = { ...config.params, slug: tenantSlug };
     }

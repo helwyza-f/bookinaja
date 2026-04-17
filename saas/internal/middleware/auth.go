@@ -109,3 +109,14 @@ func AdminOnly() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func PlatformOnly() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.GetString("userRole") != "platform_admin" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya platform admin yang diizinkan"})
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
