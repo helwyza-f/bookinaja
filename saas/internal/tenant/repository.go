@@ -150,28 +150,57 @@ func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) erro
 }
 
 func (r *Repository) Update(ctx context.Context, t Tenant) error {
-	query := `
-		UPDATE tenants SET 
-			name=:name, slogan=:slogan, tagline=:tagline, about_us=:about_us, 
-			features=:features, address=:address, open_time=:open_time, 
-			close_time=:close_time, logo_url=:logo_url, banner_url=:banner_url, 
-			gallery=:gallery, business_category=:business_category, primary_color=:primary_color, 
-			whatsapp_number=:whatsapp_number, instagram_url=:instagram_url, 
-			tiktok_url=:tiktok_url, map_iframe_url=:map_iframe_url, 
-			meta_title=:meta_title, meta_description=:meta_description
-		WHERE id=:id`
+    // 1. Database Update
+    query := `
+        UPDATE tenants SET 
+            name=:name, slogan=:slogan, tagline=:tagline, about_us=:about_us, 
+            features=:features, address=:address, open_time=:open_time, 
+            close_time=:close_time, logo_url=:logo_url, banner_url=:banner_url, 
+            gallery=:gallery, business_category=:business_category, primary_color=:primary_color, 
+            whatsapp_number=:whatsapp_number, instagram_url=:instagram_url, 
+            tiktok_url=:tiktok_url, map_iframe_url=:map_iframe_url, 
+            meta_title=:meta_title, meta_description=:meta_description
+        WHERE id=:id`
 
-	_, err := r.db.NamedExecContext(ctx, query, t)
-	if err != nil {
-		return err
-	}
+    _, err := r.db.NamedExecContext(ctx, query, t)
+    if err != nil {
+        return err
+    }
 
-	// SMART INVALIDATION: Hapus semua cache terkait tenant ini
-	r.rdb.Del(ctx, r.getLandingCacheKey(t.Slug))
-	r.rdb.Del(ctx, r.getProfileCacheKey(t.Slug))
-	r.rdb.Del(ctx, r.getProfileByIDCacheKey(t.ID.String()))
+    // 2. SMART INVALIDATION (Total Purge)
+    // Kita kumpulin semua key yang mungkin mengandung data tenant ini
+    keysToDel := []string{
+        r.getLandingCacheKey(t.Slug),           // Cache Landing Page
+        r.getProfileCacheKey(t.Slug),           // Cache Profile by Slug
+        r.getProfileByIDCacheKey(t.ID.String()), // Cache Profile by ID
+    }
 
-	return nil
+    // 3. CRITICAL: Kita juga harus hapus cache USER!
+    // Karena di GetUserByID kita simpan LogoURL, kalau logo diupdate, 
+    // cache user harus dibuang biar sidebar admin berubah.
+    // Kita cari semua admin/owner dari tenant ini.
+    var userIDs []string
+    err = r.db.SelectContext(ctx, &userIDs, `SELECT id::text FROM users WHERE tenant_id = $1`, t.ID)
+    if err == nil {
+        for _, uID := range userIDs {
+            keysToDel = append(keysToDel, r.getUserCacheKey(uID))
+        }
+    }
+
+    // 4. Eksekusi Delete di Redis
+    if len(keysToDel) > 0 {
+        errDel := r.rdb.Del(ctx, keysToDel...).Err()
+        if errDel != nil {
+            fmt.Printf("⚠️  [REDIS] CACHE PURGE FAILED: %v\n", errDel)
+        } else {
+            fmt.Printf("🧹 [REDIS] CACHE PURGED for Tenant: %s (Slug: %s)\n", t.ID.String(), t.Slug)
+            for _, k := range keysToDel {
+                fmt.Printf("   -> Deleted: %s\n", k)
+            }
+        }
+    }
+
+    return nil
 }
 
 func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Tenant, error) {
@@ -206,7 +235,7 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Tenant, error)
 func (r *Repository) GetUserByID(ctx context.Context, id uuid.UUID) (*User, string, error) {
 	cacheKey := r.getUserCacheKey(id.String())
 
-	// 1. Try Cache (Format: JSON string berisi User + Logo)
+	// 1. Try Cache
 	val, err := r.rdb.Get(ctx, cacheKey).Result()
 	if err == nil {
 		var cached struct {
@@ -214,11 +243,16 @@ func (r *Repository) GetUserByID(ctx context.Context, id uuid.UUID) (*User, stri
 			Logo string `json:"logo"`
 		}
 		if err := json.Unmarshal([]byte(val), &cached); err == nil {
+			// LOG HIT: Data ada di Redis
+			fmt.Printf("⚡ [REDIS] CACHE HIT: user_profile:%s\n", id.String())
 			return &cached.User, cached.Logo, nil
 		}
 	}
 
-	// 2. DB
+	// 2. DB Lookup
+	// LOG MISS: Redis zonk, terpaksa ngetok pintu Postgres
+	fmt.Printf("🗄️  [DB] CACHE MISS: user_profile:%s (Querying Postgres...)\n", id.String())
+	
 	var u struct {
 		User
 		TenantLogo string `db:"logo_url"`
@@ -240,13 +274,18 @@ func (r *Repository) GetUserByID(ctx context.Context, id uuid.UUID) (*User, stri
 		return nil, "", err
 	}
 
-	// 3. Set Cache
+	// 3. Set Cache (TTL 6 Jam)
 	cachedData := struct {
 		User User   `json:"user"`
 		Logo string `json:"logo"`
 	}{User: u.User, Logo: u.TenantLogo}
+	
 	jsonData, _ := json.Marshal(cachedData)
-	r.rdb.Set(ctx, cacheKey, jsonData, 6*time.Hour) // User profile cache lebih pendek (6 jam)
+	if err := r.rdb.Set(ctx, cacheKey, jsonData, 6*time.Hour).Err(); err != nil {
+		fmt.Printf("⚠️  [REDIS] FAILED TO SET CACHE: %v\n", err)
+	} else {
+		fmt.Printf("💾 [REDIS] CACHE STORED: user_profile:%s (TTL: 6h)\n", id.String())
+	}
 
 	return &u.User, u.TenantLogo, nil
 }
