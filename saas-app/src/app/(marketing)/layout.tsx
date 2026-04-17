@@ -14,41 +14,47 @@ export default function MarketingLayout({
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
 
-  // Mencegah hydration mismatch untuk toggle theme
+  // Mencegah hydration mismatch
   useEffect(() => {
     setMounted(true);
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Navigasi Link Data (Path Absolut agar jalan di semua halaman)
   const navLinks = [
-    { name: "Industries", href: "/#industries" },
-    { name: "Fitur", href: "/#features" },
-    { name: "Pricing", href: "/pricing" },
-    { name: "Demos", href: "/demos" },
     { name: "Docs", href: "/documentation" },
+    { name: "Demos", href: "/demos" },
+    { name: "Pricing", href: "/pricing" },
     { name: "FAQ", href: "/faq" },
   ];
 
   return (
-    <div className="flex min-h-screen flex-col selection:bg-blue-600/30 font-plus-jakarta transition-colors duration-300">
-      {/* --- HEADER --- */}
-      <header className="sticky top-0 z-[100] w-full px-4 pt-4 md:pt-6">
+    <div className="flex min-h-screen flex-col selection:bg-blue-600/30 font-plus-jakarta transition-colors duration-300 relative">
+      {/* --- HEADER (MELAYANG / FIXED) --- */}
+      {/* Kita pakai fixed agar Hero naik ke paling atas layar */}
+      <header className="fixed top-0 left-0 right-0 z-[100] w-full px-4 py-4 md:py-6 transition-all duration-300">
         <div className="container mx-auto max-w-7xl">
-          <div className="flex h-16 md:h-22 items-center justify-between rounded-[1.5rem] md:rounded-[2rem] border border-border/50 dark:border-white/10 bg-background/60 dark:bg-[#07070d]/60 px-5 md:px-8 shadow-xl dark:shadow-[0_0_20px_-5px_rgba(59,130,246,0.2)] backdrop-blur-2xl transition-all">
+          <div
+            className={cn(
+              "flex h-16 md:h-20 items-center justify-between rounded-[1rem] md:rounded-[1rem] border px-5 md:px-8 transition-all duration-500",
+              // Efek Glassmorphism yang menyesuaikan scroll
+              isScrolled
+                ? "border-border/50 dark:border-white/10 bg-background/80 dark:bg-[#07070d]/80 shadow-2xl backdrop-blur-2xl py-2"
+                : "border-transparent bg-transparent py-4 shadow-none backdrop-blur-none",
+            )}
+          >
             {/* Logo */}
             <Link
               href="/"
               className="group flex items-center gap-3 md:gap-4 shrink-0"
             >
-              <div className="flex h-10 w-10 md:h-14 md:w-14 items-center justify-center rounded-2xl bg-[#0f1f4a] shadow-lg transition-transform group-hover:rotate-6">
-                <svg
-                  width="32"
-                  height="32"
-                  viewBox="0 0 64 64"
-                  fill="none"
-                  className="md:w-10 md:h-10"
-                >
+              <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-2xl bg-[#0f1f4a] shadow-lg transition-transform group-hover:rotate-6">
+                <svg width="28" height="28" viewBox="0 0 64 64" fill="none">
                   <rect
                     x="10"
                     y="18"
@@ -67,18 +73,18 @@ export default function MarketingLayout({
                   />
                 </svg>
               </div>
-              <span className="text-2xl md:text-3xl font-black tracking-tighter text-foreground">
+              <span className="text-xl md:text-2xl font-[1000] tracking-tighter text-foreground italic uppercase">
                 <span className="text-blue-500">book</span>inaja
               </span>
             </Link>
 
             {/* Navigation - Desktop */}
-            <nav className="hidden lg:flex items-center gap-10">
+            <nav className="hidden lg:flex items-center gap-8">
               {navLinks.map((link) => (
                 <Link
                   key={link.name}
                   href={link.href}
-                  className="text-sm font-bold uppercase tracking-[0.2em] text-foreground hover:text-blue-500 transition-colors"
+                  className="text-[14px] font-black uppercase tracking-[0.25em] text-foreground/70 hover:text-blue-500 transition-colors italic"
                 >
                   {link.name}
                 </Link>
@@ -92,7 +98,7 @@ export default function MarketingLayout({
                   variant="ghost"
                   size="icon"
                   onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                  className="rounded-xl hidden md:flex hover:bg-secondary/80"
+                  className="rounded-xl hidden md:flex hover:bg-secondary/80 text-foreground"
                 >
                   <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
                   <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
@@ -100,7 +106,7 @@ export default function MarketingLayout({
               )}
 
               <Link href="/register" className="hidden sm:block">
-                <Button className="rounded-xl md:rounded-2xl bg-blue-600 px-6 md:px-10 h-11 md:h-14 font-bold text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all text-sm md:text-base uppercase tracking-wider">
+                <Button className="rounded-xl md:rounded-2xl bg-blue-600 px-6 md:px-8 h-10 md:h-12 font-black text-white hover:bg-blue-700 shadow-xl shadow-blue-500/20 active:scale-95 transition-all text-[10px] md:text-xs uppercase italic tracking-widest border-b-4 border-blue-800 active:border-b-0">
                   Mulai Bisnis
                 </Button>
               </Link>
@@ -109,7 +115,7 @@ export default function MarketingLayout({
               <Button
                 variant="ghost"
                 size="icon"
-                className="lg:hidden rounded-xl"
+                className="lg:hidden rounded-xl text-foreground"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               >
                 {isMobileMenuOpen ? <X /> : <Menu />}
@@ -121,10 +127,10 @@ export default function MarketingLayout({
         {/* Mobile Menu Dropdown */}
         <div
           className={cn(
-            "lg:hidden absolute top-24 left-4 right-4 bg-background border border-border rounded-3xl p-6 shadow-2xl transition-all duration-300 origin-top",
+            "lg:hidden absolute top-24 left-4 right-4 bg-background/95 border border-border rounded-[2.5rem] p-8 shadow-2xl transition-all duration-500 origin-top backdrop-blur-xl",
             isMobileMenuOpen
-              ? "scale-y-100 opacity-100 visible"
-              : "scale-y-95 opacity-0 invisible",
+              ? "scale-y-100 opacity-100 visible translate-y-0"
+              : "scale-y-95 opacity-0 invisible -translate-y-4",
           )}
         >
           <nav className="flex flex-col gap-6">
@@ -133,19 +139,23 @@ export default function MarketingLayout({
                 key={link.name}
                 href={link.href}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="text-lg font-bold uppercase tracking-widest text-foreground py-2 border-b border-border/50"
+                className="text-xs font-black uppercase tracking-[0.3em] text-foreground/80 py-4 border-b border-border/50 italic"
               >
                 {link.name}
               </Link>
             ))}
             <Link href="/register" onClick={() => setIsMobileMenuOpen(false)}>
-              <Button className="w-full h-14 rounded-2xl bg-blue-600 font-bold text-white uppercase tracking-widest">
+              <Button className="w-full h-16 rounded-[1.5rem] bg-blue-600 font-black text-white uppercase italic tracking-[0.2em] shadow-xl shadow-blue-500/20 border-b-4 border-blue-800">
                 Mulai Bisnis Sekarang
               </Button>
             </Link>
           </nav>
         </div>
       </header>
+
+      {/* --- MAIN CONTENT --- */}
+      {/* Karena header fixed, main content akan otomatis naik ke atas (0,0) */}
+      <main className="flex-1 w-full bg-background">{children}</main>
 
       {/* --- FLOATING THEME TOGGLE (MOBILE ONLY) --- */}
       {mounted && (
@@ -161,21 +171,18 @@ export default function MarketingLayout({
         </button>
       )}
 
-      <main className="flex-1 w-full bg-background">{children}</main>
-
       {/* --- FOOTER --- */}
-      <footer className="relative z-10 border-t border-border/50 bg-secondary/20 pt-24 pb-12 backdrop-blur-md">
+      <footer className="relative z-10 border-t border-border/50 bg-secondary/10 pt-24 pb-12 backdrop-blur-md">
         <div className="container mx-auto max-w-7xl px-6">
           <div className="grid gap-16 md:grid-cols-2 lg:grid-cols-4 text-sm">
-            {/* Brand Column */}
             <div className="space-y-8">
-              <div className="text-3xl font-black text-foreground tracking-tighter">
+              <div className="text-2xl font-[1000] text-foreground tracking-tighter uppercase italic">
                 <span className="text-blue-500">book</span>inaja
               </div>
               <div className="space-y-4 text-muted-foreground font-medium">
                 <p className="flex items-start gap-4">
                   <MapPin className="h-5 w-5 text-blue-500 shrink-0 mt-1" />
-                  <span className="leading-relaxed">
+                  <span className="leading-relaxed text-[11px] font-bold uppercase tracking-wider">
                     Kec. Batam Kota, Kota Batam,
                     <br />
                     Kepulauan Riau 29464
@@ -183,27 +190,31 @@ export default function MarketingLayout({
                 </p>
                 <p className="flex items-center gap-4">
                   <Mail className="h-5 w-5 text-blue-500" />
-                  <span>support@bookinaja.com</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider">
+                    support@bookinaja.com
+                  </span>
                 </p>
                 <p className="flex items-center gap-4">
                   <Phone className="h-5 w-5 text-blue-500" />
-                  <span>+62 812-xxxx-xxxx</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider">
+                    +62 812-xxxx-xxxx
+                  </span>
                 </p>
               </div>
             </div>
 
-            {/* Services */}
+            {/* Rest of the footer links... */}
             <div>
-              <h4 className="mb-8 font-syne text-[10px] font-bold uppercase tracking-[0.3em] text-blue-500">
+              <h4 className="mb-8 font-black text-[10px] font-bold uppercase tracking-[0.3em] text-blue-500">
                 Layanan
               </h4>
-              <ul className="space-y-5 text-muted-foreground font-semibold">
+              <ul className="space-y-5 text-muted-foreground font-bold text-[10px] uppercase tracking-widest italic">
                 <li>
                   <Link
                     href="/pricing"
                     className="hover:text-blue-500 transition-colors"
                   >
-                    Pricing Paket (IDR)
+                    Pricing Paket
                   </Link>
                 </li>
                 <li>
@@ -230,31 +241,14 @@ export default function MarketingLayout({
                     FAQ
                   </Link>
                 </li>
-                <li>
-                  <Link
-                    href="/#features"
-                    className="hover:text-blue-500 transition-colors"
-                  >
-                    Digitalisasi AI
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/#features"
-                    className="hover:text-blue-500 transition-colors"
-                  >
-                    Publisitas Bisnis
-                  </Link>
-                </li>
               </ul>
             </div>
 
-            {/* Policies */}
             <div>
-              <h4 className="mb-8 font-syne text-[10px] font-bold uppercase tracking-[0.3em] text-blue-500">
+              <h4 className="mb-8 font-black text-[10px] font-bold uppercase tracking-[0.3em] text-blue-500">
                 Kebijakan
               </h4>
-              <ul className="space-y-5 text-muted-foreground font-semibold">
+              <ul className="space-y-5 text-muted-foreground font-bold text-[10px] uppercase tracking-widest italic">
                 <li>
                   <Link
                     href="/terms"
@@ -282,17 +276,15 @@ export default function MarketingLayout({
               </ul>
             </div>
 
-            {/* Social - Menggunakan SVG Manual */}
             <div className="space-y-8">
-              <h4 className="font-syne text-[10px] font-bold uppercase tracking-[0.3em] text-blue-500">
+              <h4 className="font-black text-[10px] font-bold uppercase tracking-[0.3em] text-blue-500">
                 Connect
               </h4>
               <div className="flex gap-4">
-                {/* Instagram SVG */}
                 <Link
                   href="https://instagram.com/bookinaja"
                   target="_blank"
-                  className="p-3 rounded-2xl bg-background border border-border/50 hover:bg-blue-500 hover:text-white transition-all hover:-translate-y-1 shadow-sm"
+                  className="p-3 rounded-2xl bg-background border border-border/50 hover:bg-blue-500 hover:text-white transition-all hover:-translate-y-1"
                 >
                   <svg
                     width="20"
@@ -309,11 +301,10 @@ export default function MarketingLayout({
                     <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
                   </svg>
                 </Link>
-                {/* LinkedIn SVG */}
                 <Link
-                  href="https://linkedin.com/company/bookinaja"
+                  href="https://linkedin.com"
                   target="_blank"
-                  className="p-3 rounded-2xl bg-background border border-border/50 hover:bg-blue-500 hover:text-white transition-all hover:-translate-y-1 shadow-sm"
+                  className="p-3 rounded-2xl bg-background border border-border/50 hover:bg-blue-500 hover:text-white transition-all hover:-translate-y-1"
                 >
                   <svg
                     width="20"
@@ -335,12 +326,12 @@ export default function MarketingLayout({
           </div>
 
           <div className="mt-24 border-t border-border/50 pt-10 flex flex-col md:flex-row justify-between items-center gap-6 text-center md:text-left">
-            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
-              © 2026 bookinaja.com · Batam, Indonesia 🇮🇩
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 italic">
+              © 2026 bookinaja.com · Batam Engine Project 🇮🇩
             </div>
-            <div className="flex items-center gap-8 text-[9px] font-black uppercase tracking-widest text-muted-foreground/40">
+            <div className="flex items-center gap-8 text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 italic">
               <span>Security Verified</span>
-              <span>Cloud Infrastructure</span>
+              <span>IDCloudHost Infrastructure</span>
             </div>
           </div>
         </div>
