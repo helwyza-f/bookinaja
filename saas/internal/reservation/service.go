@@ -91,7 +91,15 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, *
 		}
 	}
 
-	// 7. KONSTRUKSI MODEL BOOKING
+	// 7. TENTUKAN STATUS (SMART LOGIC)
+	// Jika status dikirim dari request (Walk-in/Manual Admin), pakai itu.
+	// Jika kosong (Public Booking), otomatis 'pending'.
+	bookingStatus := "pending"
+	if req.Status != "" {
+		bookingStatus = req.Status
+	}
+
+	// 8. KONSTRUKSI MODEL BOOKING
 	newBooking := Booking{
 		ID:          uuid.New(),
 		TenantID:    tID,
@@ -100,11 +108,11 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, *
 		StartTime:   start,
 		EndTime:     end,
 		AccessToken: uuid.New(),
-		Status:      "pending",
+		Status:      bookingStatus, // Gunakan status hasil seleksi
 		CreatedAt:   time.Now().UTC(),
 	}
 
-	// 8. EKSEKUSI PENYIMPANAN DATA & BILLING
+	// 9. EKSEKUSI PENYIMPANAN
 	if err := s.repo.CreateWithItems(ctx, newBooking, itemUUIDs, req.Duration); err != nil {
 		return nil, nil, fmt.Errorf("GAGAL MENYIMPAN TRANSAKSI: %w", err)
 	}

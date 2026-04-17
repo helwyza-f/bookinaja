@@ -33,6 +33,7 @@ type CreateBookingReq struct {
 	ItemIDs       []string `json:"item_ids"`
 	StartTime     string   `json:"start_time" binding:"required"`
 	Duration      int      `json:"duration" binding:"required,min=1"`
+	Status        string   `json:"status"` // Tambahkan ini: opsional (pending, active, confirmed)
 }
 
 type OrderItem struct {

@@ -27,35 +27,40 @@ func NewRepository(db *sqlx.DB, rdb *redis.Client) *Repository {
 	}
 }
 
-// --- REDIS HELPERS (Pusat Kendali Key) ---
+// --- REDIS KEY HELPERS ---
 
 func (r *Repository) getProfileCacheKey(slug string) string {
-	return fmt.Sprintf("tenant_profile:%s", strings.ToLower(strings.TrimSpace(slug)))
+	return fmt.Sprintf("tenant:profile:slug:%s", strings.ToLower(strings.TrimSpace(slug)))
+}
+
+func (r *Repository) getProfileByIDCacheKey(id string) string {
+	return fmt.Sprintf("tenant:profile:id:%s", id)
 }
 
 func (r *Repository) getLandingCacheKey(slug string) string {
-	return fmt.Sprintf("landing_full:%s", strings.ToLower(strings.TrimSpace(slug)))
+	return fmt.Sprintf("landing:full:%s", strings.ToLower(strings.TrimSpace(slug)))
+}
+
+func (r *Repository) getUserCacheKey(id string) string {
+	return fmt.Sprintf("user:profile:%s", id)
 }
 
 // --- CORE REPOSITORY LOGIC ---
 
-// GetBySlug mengambil data profil tenant dengan pola Cache-Aside
 func (r *Repository) GetBySlug(ctx context.Context, slug string) (*Tenant, error) {
 	slug = strings.ToLower(strings.TrimSpace(slug))
 	cacheKey := r.getProfileCacheKey(slug)
 
-	// 1. Cek Redis
+	// 1. Try Redis
 	val, err := r.rdb.Get(ctx, cacheKey).Result()
 	if err == nil {
 		var t Tenant
 		if err := json.Unmarshal([]byte(val), &t); err == nil {
-			fmt.Printf("[CACHE HIT] Serving profile from Redis: %s\n", slug)
 			return &t, nil
 		}
 	}
 
 	// 2. Database Lookup
-	fmt.Printf("[CACHE MISS] Querying DB profile for slug: '%s'\n", slug)
 	var t Tenant
 	query := `SELECT * FROM tenants WHERE LOWER(TRIM(slug)) = $1 LIMIT 1`
 	err = r.db.GetContext(ctx, &t, query, slug)
@@ -66,31 +71,27 @@ func (r *Repository) GetBySlug(ctx context.Context, slug string) (*Tenant, error
 		return nil, err
 	}
 
-	// 3. Update Cache (TTL 24 Jam)
+	// 3. Set Cache (TTL 24 Jam)
 	jsonData, _ := json.Marshal(t)
 	r.rdb.Set(ctx, cacheKey, jsonData, 24*time.Hour)
 
 	return &t, nil
 }
 
-// GetPublicLandingData mengumpulkan Profile & Resources (Optimized)
 func (r *Repository) GetPublicLandingData(ctx context.Context, slug string) (map[string]interface{}, error) {
 	slug = strings.ToLower(strings.TrimSpace(slug))
 	cacheKey := r.getLandingCacheKey(slug)
 
-	// 1. HIT: Cek Redis Landing Full
+	// 1. Try Redis
 	val, err := r.rdb.Get(ctx, cacheKey).Result()
 	if err == nil {
 		var cachedData map[string]interface{}
 		if err := json.Unmarshal([]byte(val), &cachedData); err == nil {
-			fmt.Printf("[CACHE HIT] Serving full landing for: %s\n", slug)
 			return cachedData, nil
 		}
 	}
 
-	// 2. MISS: Searching Postgres
-	fmt.Printf("[CACHE MISS] Building full landing data for slug: '%s'\n", slug)
-
+	// 2. DB Miss: Build Data
 	tenant, err := r.GetBySlug(ctx, slug)
 	if err != nil || tenant == nil {
 		return nil, fmt.Errorf("business not found")
@@ -106,14 +107,13 @@ func (r *Repository) GetPublicLandingData(ctx context.Context, slug string) (map
 		"resources": resources,
 	}
 
-	// 3. WRITE: Simpan ke Redis (TTL 1 Jam)
+	// 3. Cache it (TTL 1 Jam - Karena resources sering berubah)
 	jsonData, _ := json.Marshal(result)
 	r.rdb.Set(ctx, cacheKey, jsonData, time.Hour)
 
 	return result, nil
 }
 
-// CreateWithAdmin membuat Tenant dan Admin User dalam satu transaksi
 func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -140,7 +140,13 @@ func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) erro
 		return err
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	// Clear potential negative cache or pre-warm if necessary
+	r.rdb.Del(ctx, r.getProfileCacheKey(t.Slug))
+	return nil
 }
 
 func (r *Repository) Update(ctx context.Context, t Tenant) error {
@@ -160,16 +166,127 @@ func (r *Repository) Update(ctx context.Context, t Tenant) error {
 		return err
 	}
 
-	// INVALIDASI CACHE
+	// SMART INVALIDATION: Hapus semua cache terkait tenant ini
 	r.rdb.Del(ctx, r.getLandingCacheKey(t.Slug))
 	r.rdb.Del(ctx, r.getProfileCacheKey(t.Slug))
-	fmt.Printf("[CACHE INVALIDATED] Profile & Landing cleared for: %s\n", t.Slug)
+	r.rdb.Del(ctx, r.getProfileByIDCacheKey(t.ID.String()))
 
 	return nil
 }
 
-// ListResourcesWithItems (Single Query Aggregation)
+func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Tenant, error) {
+	cacheKey := r.getProfileByIDCacheKey(id.String())
+
+	// 1. Try Redis
+	val, err := r.rdb.Get(ctx, cacheKey).Result()
+	if err == nil {
+		var t Tenant
+		if err := json.Unmarshal([]byte(val), &t); err == nil {
+			return &t, nil
+		}
+	}
+
+	// 2. DB
+	var t Tenant
+	err = r.db.GetContext(ctx, &t, `SELECT * FROM tenants WHERE id = $1`, id)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Update Cache
+	jsonData, _ := json.Marshal(t)
+	r.rdb.Set(ctx, cacheKey, jsonData, 24*time.Hour)
+
+	return &t, nil
+}
+
+func (r *Repository) GetUserByID(ctx context.Context, id uuid.UUID) (*User, string, error) {
+	cacheKey := r.getUserCacheKey(id.String())
+
+	// 1. Try Cache (Format: JSON string berisi User + Logo)
+	val, err := r.rdb.Get(ctx, cacheKey).Result()
+	if err == nil {
+		var cached struct {
+			User User   `json:"user"`
+			Logo string `json:"logo"`
+		}
+		if err := json.Unmarshal([]byte(val), &cached); err == nil {
+			return &cached.User, cached.Logo, nil
+		}
+	}
+
+	// 2. DB
+	var u struct {
+		User
+		TenantLogo string `db:"logo_url"`
+	}
+
+	query := `
+		SELECT 
+			u.id, u.tenant_id, u.name, u.email, u.role, u.created_at,
+			COALESCE(t.logo_url, '') as logo_url
+		FROM users u
+		JOIN tenants t ON t.id = u.tenant_id
+		WHERE u.id = $1 LIMIT 1`
+
+	err = r.db.GetContext(ctx, &u, query, id)
+	if err == sql.ErrNoRows {
+		return nil, "", nil
+	}
+	if err != nil {
+		return nil, "", err
+	}
+
+	// 3. Set Cache
+	cachedData := struct {
+		User User   `json:"user"`
+		Logo string `json:"logo"`
+	}{User: u.User, Logo: u.TenantLogo}
+	jsonData, _ := json.Marshal(cachedData)
+	r.rdb.Set(ctx, cacheKey, jsonData, 6*time.Hour) // User profile cache lebih pendek (6 jam)
+
+	return &u.User, u.TenantLogo, nil
+}
+
+// --- REMAINING GETTERS (Always Fresh / Low Frequency) ---
+
+func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*User, error) {
+	var u User
+	err := r.db.GetContext(ctx, &u, `SELECT * FROM users WHERE email = $1 LIMIT 1`, email)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return &u, err
+}
+
+func (r *Repository) GetUserByEmailAndSlug(ctx context.Context, email, slug string) (*User, error) {
+	var u User
+	query := `
+		SELECT u.*
+		FROM users u
+		JOIN tenants t ON t.id = u.tenant_id
+		WHERE u.email = $1 AND LOWER(TRIM(t.slug)) = LOWER(TRIM($2))
+		LIMIT 1`
+	err := r.db.GetContext(ctx, &u, query, email, slug)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return &u, err
+}
+
+func (r *Repository) Exists(ctx context.Context, slug, email string) (bool, bool, error) {
+	var slugExists, emailExists bool
+	r.db.GetContext(ctx, &slugExists, "SELECT EXISTS(SELECT 1 FROM tenants WHERE LOWER(slug) = LOWER($1))", slug)
+	r.db.GetContext(ctx, &emailExists, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", email)
+	return slugExists, emailExists, nil
+}
+
 func (r *Repository) ListResourcesWithItems(ctx context.Context, tenantID uuid.UUID) ([]map[string]interface{}, error) {
+	// Query Aggregation ini biarkan ke DB karena transaksinya kompleks, 
+	// tapi hasilnya sudah di-cache oleh GetPublicLandingData di atas.
 	query := `
 		SELECT 
 			r.id::text as id, r.name, r.category, r.status, r.description, r.image_url,
@@ -207,8 +324,7 @@ func (r *Repository) ListResourcesWithItems(ctx context.Context, tenantID uuid.U
 	return results, nil
 }
 
-// --- SISTEM SEEDING ---
-
+// --- SEEDING LOGIC ---
 func (r *Repository) SeedTenantData(ctx context.Context, tenantID uuid.UUID, resources []resource.Resource) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -253,72 +369,4 @@ func (r *Repository) SeedFnbData(ctx context.Context, tenantID uuid.UUID, items 
 		}
 	}
 	return tx.Commit()
-}
-
-// --- BASIC GETTERS ---
-
-func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*User, error) {
-	var u User
-	err := r.db.GetContext(ctx, &u, `SELECT * FROM users WHERE email = $1 LIMIT 1`, email)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	return &u, err
-}
-
-func (r *Repository) GetUserByEmailAndSlug(ctx context.Context, email, slug string) (*User, error) {
-	var u User
-	query := `
-		SELECT u.*
-		FROM users u
-		JOIN tenants t ON t.id = u.tenant_id
-		WHERE u.email = $1 AND LOWER(TRIM(t.slug)) = LOWER(TRIM($2))
-		LIMIT 1`
-	err := r.db.GetContext(ctx, &u, query, email, slug)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	return &u, err
-}
-
-func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Tenant, error) {
-	var t Tenant
-	err := r.db.GetContext(ctx, &t, `SELECT * FROM tenants WHERE id = $1`, id)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	return &t, err
-}
-
-func (r *Repository) Exists(ctx context.Context, slug, email string) (bool, bool, error) {
-	var slugExists, emailExists bool
-	r.db.GetContext(ctx, &slugExists, "SELECT EXISTS(SELECT 1 FROM tenants WHERE LOWER(slug) = LOWER($1))", slug)
-	r.db.GetContext(ctx, &emailExists, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", email)
-	return slugExists, emailExists, nil
-}
-
-func (r *Repository) GetUserByID(ctx context.Context, id uuid.UUID) (*User, string, error) {
-	var u struct {
-		User
-		TenantLogo string `db:"logo_url"`
-	}
-
-	// Query dengan JOIN untuk ambil logo dari tabel tenants
-	query := `
-		SELECT 
-			u.id, u.tenant_id, u.name, u.email, u.role, u.created_at,
-			COALESCE(t.logo_url, '') as logo_url
-		FROM users u
-		JOIN tenants t ON t.id = u.tenant_id
-		WHERE u.id = $1 LIMIT 1`
-
-	err := r.db.GetContext(ctx, &u, query, id)
-	if err == sql.ErrNoRows {
-		return nil, "", nil
-	}
-	if err != nil {
-		return nil, "", err
-	}
-
-	return &u.User, u.TenantLogo, nil
 }
