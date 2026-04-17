@@ -59,6 +59,24 @@ export type PlatformTransaction = {
   updated_at?: string;
 };
 
+export type PlatformRevenueBreakdown = {
+  tenant_id: string;
+  tenant_slug: string;
+  tenant_name: string;
+  owner_name: string;
+  owner_email: string;
+  revenue: number;
+  paid_orders: number;
+  pending_orders: number;
+};
+
+export type PlatformRevenuePoint = {
+  period: string;
+  revenue: number;
+  cashflow: number;
+  orders: number;
+};
+
 const mockTenants: PlatformTenant[] = [
   {
     id: "tenant_001",
@@ -149,4 +167,35 @@ export function getPlatformRevenue(params?: { tenant?: string; from?: string; to
     paid_transactions: 0,
     pending_transactions: 0,
   });
+}
+
+export function getPlatformRevenueBreakdown(params?: { from?: string; to?: string }) {
+  const search = new URLSearchParams();
+  if (params?.from) search.set("from", params.from);
+  if (params?.to) search.set("to", params.to);
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  return safeGet<PlatformRevenueBreakdown[]>(`/platform/revenue/breakdown${suffix}`, []);
+}
+
+export function getPlatformRevenueTimeseries(params?: {
+  tenant?: string;
+  interval?: "week" | "month";
+  from?: string;
+  to?: string;
+}) {
+  const search = new URLSearchParams();
+  if (params?.tenant) search.set("tenant", params.tenant);
+  if (params?.interval) search.set("interval", params.interval);
+  if (params?.from) search.set("from", params.from);
+  if (params?.to) search.set("to", params.to);
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  return safeGet<PlatformRevenuePoint[]>(`/platform/revenue/timeseries${suffix}`, []);
+}
+
+export function getPlatformRevenueCSVUrl(params?: { tenant?: string; from?: string; to?: string }) {
+  const search = new URLSearchParams();
+  if (params?.tenant) search.set("tenant", params.tenant);
+  if (params?.from) search.set("from", params.from);
+  if (params?.to) search.set("to", params.to);
+  return `/platform/revenue/export${search.toString() ? `?${search.toString()}` : ""}`;
 }
