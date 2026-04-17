@@ -47,7 +47,7 @@ export function TenantNavbar({ profile }: any) {
             {profile.logo_url ? (
               <img
                 src={profile.logo_url}
-                className="w-full h-full object-contain p-1.5 md:p-2 bg-white/5"
+                className="w-full h-full object-cover p-1.5 md:p-2 bg-white/5"
                 alt="Logo"
               />
             ) : (

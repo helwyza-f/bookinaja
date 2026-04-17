@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
-import useSWR, { useSWRConfig } from "swr"; // Tambahkan useSWRConfig
+import useSWR, { useSWRConfig } from "swr";
 import api from "@/lib/api";
-import { useTenant } from "@/context/tenant-context";
 import { TenantNavbar } from "@/components/tenant/public/landing/navbar";
 import { TenantHero } from "@/components/tenant/public/landing/hero";
 import { ResourceCard } from "@/components/tenant/public/landing/resource-card";
@@ -59,43 +58,36 @@ const FALLBACK_ASSETS: Record<string, any> = {
 
 export default function TenantPublicLanding() {
   const { tenant: tenantSlug } = useParams();
-  const { mutate } = useSWRConfig(); // Hook untuk mutate global
+  const { mutate } = useSWRConfig();
 
-  // 1. FETCH PROFILE (Agresif Revalidation)
-  const { data: freshProfile, mutate: mutateProfile } = useSWR(
-    tenantSlug ? "/public/profile" : null,
-    fetcher,
-    {
-      revalidateOnFocus: true, // Refetch otomatis saat tab dibuka kembali
-      revalidateOnMount: true,
-      dedupingInterval: 1000, // Biarkan refetch setiap 1 detik jika dipanggil berulang
-      refreshInterval: 30000, // Sync otomatis setiap 30 detik (Background Sync)
-    },
-  );
-
-  // 2. FETCH RESOURCES
+  // 1. FETCH PROFILE (Pembeda antara Loading, Error, dan Data)
   const {
-    data: resourceData,
-    isLoading: loadingResources,
-    mutate: mutateResources,
-  } = useSWR(freshProfile?.id ? "/public/resources" : null, fetcher, {
+    data: freshProfile,
+    error: profileError,
+    isLoading: loadingProfile,
+  } = useSWR(tenantSlug ? "/public/profile" : null, fetcher, {
     revalidateOnFocus: true,
+    revalidateOnMount: true,
     dedupingInterval: 1000,
   });
 
+  // 2. FETCH RESOURCES
+  const { data: resourceData, isLoading: loadingResources } = useSWR(
+    freshProfile?.id ? "/public/resources" : null,
+    fetcher,
+    { dedupingInterval: 1000 },
+  );
+
   const resources = resourceData?.resources || [];
 
-  // --- AUTO REFRESH TRIGGER ---
+  // Re-sync saat tab kembali aktif
   useEffect(() => {
-    // Polling cerdas: jika data baru saja diupdate di backend (Redis Purged),
-    // SWR biasanya akan hit tapi jika browser cache nyangkut, kita paksa global mutate.
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         mutate("/public/profile");
         mutate("/public/resources");
       }
     };
-
     window.addEventListener("visibilitychange", handleVisibilityChange);
     return () =>
       window.removeEventListener("visibilitychange", handleVisibilityChange);
@@ -136,8 +128,15 @@ export default function TenantPublicLanding() {
     };
   };
 
-  if (!freshProfile) return <NotFoundUI />;
+  // --- LOGIC RENDER CONDITION ---
 
+  // 1. Jika masih loading awal (freshProfile belum ada & belum error)
+  if (loadingProfile && !freshProfile) return <FullPageSkeleton />;
+
+  // 2. Jika benar-benar error 404 (Atau error dari backend)
+  if (profileError || !freshProfile) return <NotFoundUI />;
+
+  // 3. Render Normal
   return (
     <div className="min-h-screen bg-white dark:bg-[#050505] font-plus-jakarta transition-colors duration-500">
       <TenantNavbar profile={freshProfile} tenantSlug={tenantSlug as string} />
@@ -159,7 +158,7 @@ export default function TenantPublicLanding() {
               ? Array.from({ length: 3 }).map((_, i) => (
                   <Skeleton
                     key={i}
-                    className="h-[300px] w-full rounded-[2rem] bg-slate-100 dark:bg-white/5"
+                    className="h-[400px] w-full rounded-[2.5rem] bg-slate-200 dark:bg-white/5"
                   />
                 ))
               : resources.map((res: any) => (
@@ -183,33 +182,64 @@ export default function TenantPublicLanding() {
   );
 }
 
+// Komponen Skeleton Full Page biar transisi halus
+function FullPageSkeleton() {
+  return (
+    <div className="min-h-screen bg-white dark:bg-[#050505] space-y-0">
+      {/* Navbar Skeleton */}
+      <div className="h-20 w-full px-6 flex items-center justify-between border-b dark:border-white/5">
+        <Skeleton className="h-10 w-32 rounded-xl bg-slate-100 dark:bg-white/5" />
+        <div className="flex gap-4">
+          <Skeleton className="h-10 w-24 rounded-full bg-slate-100 dark:bg-white/5" />
+          <Skeleton className="h-10 w-10 rounded-full bg-slate-100 dark:bg-white/5" />
+        </div>
+      </div>
+      {/* Hero Skeleton */}
+      <div className="h-[70vh] w-full p-6 md:p-12 flex flex-col justify-end space-y-6">
+        <Skeleton className="h-4 w-40 bg-slate-100 dark:bg-white/5" />
+        <Skeleton className="h-24 md:h-48 w-full md:w-3/4 bg-slate-100 dark:bg-white/5" />
+        <Skeleton className="h-16 w-64 rounded-full bg-slate-100 dark:bg-white/5" />
+      </div>
+      {/* Catalog Skeleton */}
+      <div className="p-12 grid grid-cols-1 md:grid-cols-3 gap-8">
+        {[1, 2, 3].map((i) => (
+          <Skeleton
+            key={i}
+            className="h-[400px] rounded-[2.5rem] bg-slate-100 dark:bg-white/5"
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function NotFoundUI() {
   return (
     <div className="min-h-screen bg-[#050505] flex items-center justify-center text-white p-6">
-      <div className="text-center space-y-10">
+      <div className="text-center space-y-10 animate-in fade-in zoom-in duration-500">
         <h1 className="text-[10rem] md:text-[15rem] font-[1000] italic opacity-5 leading-none tracking-tighter">
           404
         </h1>
         <div className="space-y-3 relative z-10 -mt-10 md:-mt-20">
-          <p className="font-black uppercase tracking-[0.6em] text-blue-600 text-sm md:text-base">
+          <p className="font-black uppercase tracking-[0.6em] text-blue-600 text-sm md:text-base italic">
             Station Offline
           </p>
           <p className="text-slate-500 font-bold italic text-[10px] md:text-xs uppercase tracking-widest px-4 max-w-xs mx-auto">
-            Target business hub not found or session expired.
+            Target business hub not found in Batam Engine database.
           </p>
         </div>
         <div className="flex flex-col items-center gap-4 relative z-10">
           <Link href="/">
             <Button
               variant="outline"
-              className="rounded-full h-16 px-12 font-black uppercase border-white/10 hover:bg-white hover:text-black transition-all italic"
+              className="rounded-full h-16 px-12 font-black uppercase border-white/10 hover:bg-white hover:text-black transition-all italic tracking-widest"
             >
               Abort Mission
             </Button>
           </Link>
           <button
             onClick={() => window.location.reload()}
-            className="text-slate-500 text-[10px] font-black uppercase italic tracking-widest"
+            className="text-slate-500 text-[10px] font-black uppercase italic tracking-[0.3em] hover:text-white transition-colors"
           >
             Force Reconnect
           </button>
