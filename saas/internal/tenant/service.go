@@ -301,3 +301,25 @@ func (s *Service) UpdateProfile(ctx context.Context, id uuid.UUID, req Tenant) (
 	}
 	return &req, nil
 }
+
+// GetUserByID sekarang me-return DTO yang diminta oleh auth handler
+// Gunakan alias atau mapping manual
+func (s *Service) GetUserByID(ctx context.Context, id uuid.UUID) (*auth.CheckMeUserResponse, error) {
+	u, logo, err := s.repo.GetUserByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if u == nil {
+		return nil, nil
+	}
+
+	// Mapping data termasuk LogoURL
+	return &auth.CheckMeUserResponse{
+		ID:       u.ID,
+		TenantID: u.TenantID,
+		Name:     u.Name,
+		Email:    u.Email,
+		Role:     u.Role,
+		LogoURL:  logo, // Data hasil JOIN tadi
+	}, nil
+}

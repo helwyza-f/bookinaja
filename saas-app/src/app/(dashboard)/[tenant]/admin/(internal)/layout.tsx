@@ -6,7 +6,12 @@ import { Sidebar } from "@/components/dashboard/sidebar";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import api from "@/lib/api";
-import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
+import {
+  clearTenantSession,
+  isTenantAuthError,
+  syncTenantCookies,
+} from "@/lib/tenant-session";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function DashboardInternalLayout({
   children,
@@ -22,8 +27,13 @@ export default function DashboardInternalLayout({
 
     const checkSession = async () => {
       try {
-        await api.get("/auth/me");
+        const res = await api.get("/auth/me");
+
         if (active) {
+          // Sinkronkan data tenant ke cookie untuk interoperabilitas header API
+          const userData = res.data.user;
+          syncTenantCookies(null, userData.tenant_id);
+
           setCheckingSession(false);
         }
       } catch (error) {
@@ -46,19 +56,13 @@ export default function DashboardInternalLayout({
   }, [router]);
 
   if (checkingSession) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
-          Checking Session
-        </div>
-      </div>
-    );
+    return <DashboardLayoutSkeleton isCollapsed={isCollapsed} />;
   }
 
   return (
     <TooltipProvider delayDuration={0} skipDelayDuration={0}>
-      <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 selection:bg-blue-500/30">
-        {/* SIDEBAR: Sekarang jadi satu-satunya pusat kontrol */}
+      <div className="flex min-h-screen bg-slate-50 dark:bg-[#050505] selection:bg-blue-500/30">
+        {/* SIDEBAR */}
         <aside
           className={cn(
             "hidden md:flex flex-col fixed inset-y-0 z-50 transition-all duration-300 ease-in-out border-r border-slate-200 dark:border-white/5 bg-white dark:bg-[#0a0a0a]",
@@ -68,7 +72,7 @@ export default function DashboardInternalLayout({
           <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
         </aside>
 
-        {/* MAIN CONTENT: Pepet ke kiri mengikuti sidebar */}
+        {/* MAIN CONTENT */}
         <div
           className={cn(
             "flex flex-1 flex-col transition-all duration-300 ease-in-out",
@@ -83,5 +87,49 @@ export default function DashboardInternalLayout({
         </div>
       </div>
     </TooltipProvider>
+  );
+}
+
+// --- LOADING SKELETON COMPONENT ---
+function DashboardLayoutSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
+  return (
+    <div className="flex min-h-screen bg-slate-50 dark:bg-[#050505]">
+      {/* Sidebar Shadow Skeleton */}
+      <div
+        className={cn(
+          "hidden md:flex flex-col border-r border-slate-200 dark:border-white/5 bg-white dark:bg-[#0a0a0a] p-4 transition-all duration-300",
+          isCollapsed ? "w-20" : "w-72",
+        )}
+      >
+        <Skeleton className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-white/5" />
+        <div className="mt-12 space-y-6">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex items-center gap-4">
+              <Skeleton className="h-6 w-6 rounded bg-slate-100 dark:bg-white/5" />
+              {!isCollapsed && (
+                <Skeleton className="h-4 w-32 bg-slate-100 dark:bg-white/5" />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Content Skeleton */}
+      <div className="flex-1 p-6 md:p-10 space-y-8">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-32 bg-slate-100 dark:bg-white/5" />
+            <Skeleton className="h-10 w-64 bg-slate-100 dark:bg-white/5" />
+          </div>
+          <Skeleton className="h-10 w-10 rounded-full bg-slate-100 dark:bg-white/5" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Skeleton className="h-32 rounded-3xl bg-slate-100 dark:bg-white/5 shadow-sm" />
+          <Skeleton className="h-32 rounded-3xl bg-slate-100 dark:bg-white/5 shadow-sm" />
+          <Skeleton className="h-32 rounded-3xl bg-slate-100 dark:bg-white/5 shadow-sm" />
+        </div>
+        <Skeleton className="h-[400px] w-full rounded-3xl bg-slate-100 dark:bg-white/5" />
+      </div>
+    </div>
   );
 }

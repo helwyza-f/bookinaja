@@ -30,7 +30,7 @@ import (
 func main() {
 	// 0. Load Configuration (.env)
 	if err := godotenv.Load(); err != nil {
-		log.Println("ℹ️ Info: .env file not found, using system environment variables")
+		log.Println("ℹ️ Info: .env file not found, menggunakan environment variables sistem")
 	}
 
 	dbHost := os.Getenv("DB_HOST")
@@ -50,7 +50,7 @@ func main() {
 		if err == nil {
 			break
 		}
-		log.Printf("⏳ DB not ready at %s:%s, retrying in 2s... (%d/5)", dbHost, dbPort, i+1)
+		log.Printf("⏳ DB belum siap di %s:%s, mencoba ulang dalam 2 detik... (%d/5)", dbHost, dbPort, i+1)
 		time.Sleep(2 * time.Second)
 	}
 	if err != nil {
@@ -58,7 +58,7 @@ func main() {
 	}
 	defer db.Close()
 
-	// 2. Redis Connection (Engine Utama buat Caching & Session)
+	// 2. Redis Connection
 	rdb, err := database.NewRedisClient()
 	if err != nil {
 		log.Fatalf("❌ Redis Connection Error: %v", err)
@@ -68,47 +68,40 @@ func main() {
 	// 3. Database Migration
 	runMigration(db.DB)
 
-	// 4. Dependency Injection (Wiring Batam Engine)
-	
-	// --- AUTH DOMAIN ---
-	authSvc := auth.NewService()
-	authHdl := auth.NewHandler(authSvc)
-
-	// --- CUSTOMER DOMAIN ---
-	customerRepo := customer.NewRepository(db)
-	customerSvc := customer.NewService(customerRepo, rdb)
-	customerHdl := customer.NewHandler(customerSvc)
-
-	// --- TENANT DOMAIN ---
-	// Repo butuh rdb buat pola Cache-Aside (Profile & Landing)
+	// 4. DEPENDENCY INJECTION (Wiring Batam Engine)
+	// STEP A: Inisialisasi Semua Repository
 	tenantRepo := tenant.NewRepository(db, rdb)
-	tenantSvc := tenant.NewService(tenantRepo, authSvc)
-	tenantHdl := tenant.NewHandler(tenantSvc)
-
-	// --- RESOURCE DOMAIN ---
-	// UPDATE: Repo butuh rdb buat Invalidasi Cache saat unit di-update
-	resourceRepo := resource.NewRepository(db, rdb) 
-	resourceSvc := resource.NewService(resourceRepo)
-	resourceHdl := resource.NewHandler(resourceSvc)
-
-	// --- RESERVATION DOMAIN ---
+	customerRepo := customer.NewRepository(db)
+	resourceRepo := resource.NewRepository(db, rdb)
 	reservationRepo := reservation.NewRepository(db)
-	reservationSvc := reservation.NewService(reservationRepo, resourceRepo, customerSvc)
-	reservationHdl := reservation.NewHandler(reservationSvc)
-
-	// --- F&B DOMAIN ---
 	fnbRepo := fnb.NewRepository(db)
-	fnbSvc := fnb.NewService(fnbRepo)
-	fnbHdl := fnb.NewHandler(fnbSvc)
-
-	// --- BILLING DOMAIN (Midtrans) ---
 	billingRepo := billing.NewRepository(db)
-	billingSvc := billing.NewService(db, billingRepo)
-	billingHdl := billing.NewHandler(billingSvc)
-
-	// --- PLATFORM ADMIN DOMAIN ---
 	platformRepo := platformadmin.NewRepository(db)
+
+	// STEP B: Inisialisasi Semua Service (Urutan Berpengaruh)
+	// AuthSvc berdiri sendiri
+	authSvc := auth.NewService()
+
+	// TenantSvc butuh AuthSvc
+	tenantSvc := tenant.NewService(tenantRepo, authSvc)
+
+	// Domain lainnya
+	customerSvc := customer.NewService(customerRepo, rdb)
+	resourceSvc := resource.NewService(resourceRepo)
+	reservationSvc := reservation.NewService(reservationRepo, resourceRepo, customerSvc)
+	fnbSvc := fnb.NewService(fnbRepo)
+	billingSvc := billing.NewService(db, billingRepo)
 	platformSvc := platformadmin.NewService()
+
+	// STEP C: Inisialisasi Semua Handler
+	// Sekarang tenantSvc sudah terdefinisi, aman buat authHdl
+	authHdl := auth.NewHandler(authSvc, tenantSvc)
+	customerHdl := customer.NewHandler(customerSvc)
+	tenantHdl := tenant.NewHandler(tenantSvc)
+	resourceHdl := resource.NewHandler(resourceSvc)
+	reservationHdl := reservation.NewHandler(reservationSvc)
+	fnbHdl := fnb.NewHandler(fnbSvc)
+	billingHdl := billing.NewHandler(billingSvc)
 	platformHdl := platformadmin.NewHandler(platformSvc, platformRepo)
 
 	// 5. Setup Router Config
@@ -141,7 +134,7 @@ func main() {
 	log.Println("--------------------------------------------------")
 
 	if err := r.Run(":" + port); err != nil {
-		log.Fatalf("❌ Failed to run server: %v", err)
+		log.Fatalf("❌ Gagal menjalankan server: %v", err)
 	}
 }
 

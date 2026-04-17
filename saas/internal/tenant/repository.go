@@ -296,3 +296,29 @@ func (r *Repository) Exists(ctx context.Context, slug, email string) (bool, bool
 	r.db.GetContext(ctx, &emailExists, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", email)
 	return slugExists, emailExists, nil
 }
+
+func (r *Repository) GetUserByID(ctx context.Context, id uuid.UUID) (*User, string, error) {
+	var u struct {
+		User
+		TenantLogo string `db:"logo_url"`
+	}
+
+	// Query dengan JOIN untuk ambil logo dari tabel tenants
+	query := `
+		SELECT 
+			u.id, u.tenant_id, u.name, u.email, u.role, u.created_at,
+			COALESCE(t.logo_url, '') as logo_url
+		FROM users u
+		JOIN tenants t ON t.id = u.tenant_id
+		WHERE u.id = $1 LIMIT 1`
+
+	err := r.db.GetContext(ctx, &u, query, id)
+	if err == sql.ErrNoRows {
+		return nil, "", nil
+	}
+	if err != nil {
+		return nil, "", err
+	}
+
+	return &u.User, u.TenantLogo, nil
+}
