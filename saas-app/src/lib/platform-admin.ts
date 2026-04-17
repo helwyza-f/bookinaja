@@ -4,6 +4,21 @@ export type PlatformTenant = {
   id: string;
   name: string;
   slug: string;
+  business_category?: string;
+  business_type?: string;
+  plan?: string;
+  subscription_status?: string;
+  subscription_current_period_start?: string;
+  subscription_current_period_end?: string;
+  address?: string;
+  whatsapp_number?: string;
+  instagram_url?: string;
+  tiktok_url?: string;
+  meta_title?: string;
+  meta_description?: string;
+  open_time?: string;
+  close_time?: string;
+  owner_name?: string;
   owner_email?: string;
   status?: "active" | "inactive" | "trial" | "suspended";
   customers_count?: number;
@@ -15,20 +30,33 @@ export type PlatformTenant = {
 export type PlatformCustomer = {
   id: string;
   tenant_slug: string;
+  tenant_name?: string;
+  tenant_id?: string;
   name: string;
   phone?: string;
+  email?: string;
+  tier?: string;
   visits?: number;
   spend?: number;
   last_booking?: string;
+  last_visit?: string;
+  updated_at?: string;
 };
 
 export type PlatformTransaction = {
+  db_id?: string;
   id: string;
+  tenant_id?: string;
   tenant_slug: string;
+  tenant_name?: string;
   code: string;
+  plan?: string;
+  billing_interval?: string;
   amount: number;
+  currency?: string;
   status: string;
   created_at: string;
+  updated_at?: string;
 };
 
 const mockTenants: PlatformTenant[] = [
@@ -106,4 +134,19 @@ export function getPlatformCustomers() {
 
 export function getPlatformTransactions() {
   return safeGet<PlatformTransaction[]>("/platform/transactions", mockTransactions);
+}
+
+export function getPlatformRevenue(params?: { tenant?: string; from?: string; to?: string }) {
+  const search = new URLSearchParams();
+  if (params?.tenant) search.set("tenant", params.tenant);
+  if (params?.from) search.set("from", params.from);
+  if (params?.to) search.set("to", params.to);
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  return safeGet<Record<string, number>>(`/platform/revenue${suffix}`, {
+    revenue: 0,
+    pending_cashflow: 0,
+    transactions: 0,
+    paid_transactions: 0,
+    pending_transactions: 0,
+  });
 }

@@ -85,9 +85,24 @@ export default function OverviewPage() {
               <div key={tenant.id} className="flex items-center justify-between rounded-2xl border border-slate-200 p-4">
                 <div>
                   <div className="font-black">{tenant.name}</div>
-                  <div className="text-sm text-slate-500">{tenant.slug} • {tenant.owner_email}</div>
+                  <div className="text-sm text-slate-500">
+                    {tenant.slug} • {tenant.owner_name || "-"} • {tenant.owner_email || "-"}
+                  </div>
+                  <div className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-400">
+                    {tenant.business_category || "-"} • {tenant.business_type || "-"}
+                  </div>
+                  <div className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-400">
+                    {tenant.subscription_status || "inactive"} • {tenant.plan || "-"}
+                  </div>
                 </div>
-                <Badge variant="outline" className="rounded-full uppercase">{tenant.status || "unknown"}</Badge>
+                <div className="text-right">
+                  <Badge variant="outline" className="rounded-full uppercase">
+                    {tenant.subscription_status || "unknown"}
+                  </Badge>
+                  <div className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-400">
+                    Rp {(tenant.revenue || 0).toLocaleString("id-ID")}
+                  </div>
+                </div>
               </div>
             ))}
           </div>

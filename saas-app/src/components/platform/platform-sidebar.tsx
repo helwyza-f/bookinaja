@@ -8,6 +8,7 @@ import {
   Building2,
   Users,
   ReceiptText,
+  ChartColumn,
   ShieldCheck,
   LogOut,
   ChevronRight,
@@ -16,6 +17,7 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/dashboard/overview", label: "Overview", icon: LayoutDashboard },
+  { href: "/dashboard/revenue", label: "Revenue", icon: ChartColumn },
   { href: "/dashboard/tenants", label: "Tenants", icon: Building2 },
   { href: "/dashboard/customers", label: "Customers", icon: Users },
   { href: "/dashboard/transactions", label: "Transactions", icon: ReceiptText },
@@ -81,4 +83,3 @@ export function PlatformSidebar() {
     </aside>
   );
 }
-
