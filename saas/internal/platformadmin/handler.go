@@ -100,6 +100,52 @@ func (h *Handler) Revenue(c *gin.Context) {
 	c.JSON(http.StatusOK, data)
 }
 
+func (h *Handler) RevenueBreakdown(c *gin.Context) {
+	start, _ := parseTimePtr(c.Query("from"))
+	end, _ := parseTimePtr(c.Query("to"))
+
+	data, err := h.repo.RevenueByTenant(c.Request.Context(), start, end)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
+
+func (h *Handler) RevenueTimeseries(c *gin.Context) {
+	tenantSlug := strings.TrimSpace(c.Query("tenant"))
+	interval := strings.TrimSpace(c.Query("interval"))
+	start, _ := parseTimePtr(c.Query("from"))
+	end, _ := parseTimePtr(c.Query("to"))
+
+	data, err := h.repo.RevenueTimeseries(c.Request.Context(), tenantSlug, interval, start, end)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
+
+func (h *Handler) RevenueCSV(c *gin.Context) {
+	tenantSlug := strings.TrimSpace(c.Query("tenant"))
+	start, _ := parseTimePtr(c.Query("from"))
+	end, _ := parseTimePtr(c.Query("to"))
+
+	csvData, err := h.repo.RevenueCSV(c.Request.Context(), tenantSlug, start, end)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	filename := "revenue-report.csv"
+	if tenantSlug != "" {
+		filename = "revenue-" + sanitizeFilename(tenantSlug) + ".csv"
+	}
+	c.Header("Content-Type", "text/csv")
+	c.Header("Content-Disposition", `attachment; filename="`+filename+`"`)
+	_, _ = c.Writer.WriteString(csvData)
+}
+
 func parseTimePtr(raw string) (*time.Time, error) {
 	if strings.TrimSpace(raw) == "" {
 		return nil, nil
@@ -109,4 +155,26 @@ func parseTimePtr(raw string) (*time.Time, error) {
 		return nil, err
 	}
 	return &parsed, nil
+}
+
+func sanitizeFilename(value string) string {
+	safe := strings.TrimSpace(strings.ToLower(value))
+	safe = strings.ReplaceAll(safe, " ", "-")
+	safe = strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z':
+			return r
+		case r >= '0' && r <= '9':
+			return r
+		case r == '-', r == '_':
+			return r
+		default:
+			return '-'
+		}
+	}, safe)
+	safe = strings.Trim(safe, "-_")
+	if safe == "" {
+		return "report"
+	}
+	return safe
 }
