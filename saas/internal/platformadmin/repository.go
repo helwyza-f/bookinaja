@@ -25,49 +25,56 @@ type revenueReportRow struct {
 func NewRepository(db *sqlx.DB) *Repository { return &Repository{db: db} }
 
 func (r *Repository) ListTenants(ctx context.Context) ([]map[string]any, error) {
-	rows, err := r.db.QueryxContext(ctx, `
-		SELECT
-			t.id::text,
-			t.name,
-			t.slug,
-			t.business_category,
-			t.business_type,
-			t.plan,
-			t.subscription_status,
-			t.subscription_current_period_start,
-			t.subscription_current_period_end,
-			t.address,
-			t.whatsapp_number,
-			t.instagram_url,
-			t.tiktok_url,
-			t.meta_title,
-			t.meta_description,
-			t.open_time,
-			t.close_time,
-			t.created_at,
-			u.name AS owner_name,
-			u.email AS owner_email,
-			(SELECT COUNT(*) FROM customers c WHERE c.tenant_id = t.id) AS customers_count,
-			(SELECT COUNT(*) FROM bookings b WHERE b.tenant_id = t.id) AS bookings_count,
-			COALESCE((SELECT SUM(COALESCE(bo.amount,0)) FROM billing_orders bo WHERE bo.tenant_id = t.id AND bo.status IN ('settlement','capture','paid')), 0) AS revenue,
-			COALESCE((SELECT COUNT(*) FROM billing_orders bo WHERE bo.tenant_id = t.id), 0) AS transactions_count
-		FROM tenants t
-		LEFT JOIN users u ON u.tenant_id = t.id AND u.role = 'owner'
-		ORDER BY t.created_at DESC`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+    rows, err := r.db.QueryxContext(ctx, `
+        SELECT
+            t.id::text,
+            t.name,
+            t.slug,
+            t.business_category,
+            t.business_type,
+            t.plan,
+            t.subscription_status,
+            t.subscription_current_period_start,
+            t.subscription_current_period_end,
+            -- Logic Status Otomatis untuk Platform Admin
+            CASE 
+                WHEN t.subscription_status = 'active' AND t.subscription_current_period_end > NOW() THEN 'active'
+                WHEN t.subscription_status = 'trial' AND t.subscription_current_period_end > NOW() THEN 'trial'
+                WHEN t.subscription_status = 'suspended' THEN 'suspended'
+                ELSE 'inactive'
+            END as status,
+            t.address,
+            t.whatsapp_number,
+            t.instagram_url,
+            t.tiktok_url,
+            t.meta_title,
+            t.meta_description,
+            t.open_time,
+            t.close_time,
+            t.created_at,
+            u.name AS owner_name,
+            u.email AS owner_email,
+            (SELECT COUNT(*) FROM customers c WHERE c.tenant_id = t.id) AS customers_count,
+            (SELECT COUNT(*) FROM bookings b WHERE b.tenant_id = t.id) AS bookings_count,
+            COALESCE((SELECT SUM(COALESCE(bo.amount,0)) FROM billing_orders bo WHERE bo.tenant_id = t.id AND bo.status IN ('settlement','capture','paid')), 0) AS revenue,
+            COALESCE((SELECT COUNT(*) FROM billing_orders bo WHERE bo.tenant_id = t.id), 0) AS transactions_count
+        FROM tenants t
+        LEFT JOIN users u ON u.tenant_id = t.id AND u.role = 'owner'
+        ORDER BY t.created_at DESC`)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
 
-	var result []map[string]any
-	for rows.Next() {
-		row := map[string]any{}
-		if err := rows.MapScan(row); err != nil {
-			return nil, err
-		}
-		result = append(result, normalizeRow(row))
-	}
-	return result, nil
+    var result []map[string]any
+    for rows.Next() {
+        row := map[string]any{}
+        if err := rows.MapScan(row); err != nil {
+            return nil, err
+        }
+        result = append(result, normalizeRow(row))
+    }
+    return result, nil
 }
 
 func (r *Repository) ListCustomers(ctx context.Context) ([]map[string]any, error) {
