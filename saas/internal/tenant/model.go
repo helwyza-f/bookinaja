@@ -52,9 +52,11 @@ type Tenant struct {
 
 	// --- SUBSCRIPTION (SaaS Billing) ---
 	Plan                         string     `db:"plan" json:"plan"`
-	SubscriptionStatus           string     `db:"subscription_status" json:"subscription_status"`
-	SubscriptionCurrentPeriodStart *time.Time `db:"subscription_current_period_start" json:"subscription_current_period_start"`
-	SubscriptionCurrentPeriodEnd   *time.Time `db:"subscription_current_period_end" json:"subscription_current_period_end"`
+    SubscriptionStatus           string     `db:"subscription_status" json:"subscription_status"`
+    // Tambahkan ini untuk mempermudah handling di internal logic
+    Status                       string     `db:"status" json:"status,omitempty"` 
+    SubscriptionCurrentPeriodStart *time.Time `db:"subscription_current_period_start" json:"subscription_current_period_start"`
+    SubscriptionCurrentPeriodEnd   *time.Time `db:"subscription_current_period_end" json:"subscription_current_period_end"`
 
 	// --- CONTENT & COPYWRITING ---
 	Slogan   string         `db:"slogan" json:"slogan"`     // Teks kecil di bawah logo/nama
