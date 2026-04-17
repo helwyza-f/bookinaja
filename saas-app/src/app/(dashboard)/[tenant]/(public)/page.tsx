@@ -1,9 +1,8 @@
-// src/app/(dashboard)/[tenant]/(public)/page.tsx
 "use client";
 
 import { useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr"; // Tambahkan useSWRConfig
 import api from "@/lib/api";
 import { useTenant } from "@/context/tenant-context";
 import { TenantNavbar } from "@/components/tenant/public/landing/navbar";
@@ -15,7 +14,6 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Fetcher universal untuk SWR
 const fetcher = (url: string) => api.get(url).then((res) => res.data);
 
 const FALLBACK_ASSETS: Record<string, any> = {
@@ -23,7 +21,7 @@ const FALLBACK_ASSETS: Record<string, any> = {
     banner:
       "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=2070",
     tagline: "Arena Pro Player",
-    copy: "Hardware spesifikasi tinggi dengan koneksi ultra stabil untuk pengalaman gaming tanpa kompromi.",
+    copy: "Hardware spesifikasi tinggi dengan koneksi ultra stabil.",
     features: [
       "RTX 4090 Ready",
       "Internet 1Gbps",
@@ -35,7 +33,7 @@ const FALLBACK_ASSETS: Record<string, any> = {
     banner:
       "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=2070",
     tagline: "Unlimited Creativity",
-    copy: "Ruang estetik dengan pencahayaan profesional untuk mendukung setiap karya kreatif Anda.",
+    copy: "Ruang estetik dengan pencahayaan profesional.",
     features: [
       "Pro Lighting",
       "Set Aesthetic",
@@ -47,71 +45,82 @@ const FALLBACK_ASSETS: Record<string, any> = {
     banner:
       "https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?q=80&w=2070",
     tagline: "World Class Facility",
-    copy: "Fasilitas olahraga standar internasional dengan sistem booking yang mudah dan transparan.",
+    copy: "Fasilitas olahraga standar internasional.",
     features: ["Vinyl Court", "Locker Room", "Standard Inter", "Training Gear"],
   },
   social_space: {
     banner:
       "https://images.unsplash.com/photo-1527192491265-7e15c55b1ed2?q=80&w=2070",
     tagline: "Elite Collaboration",
-    copy: "Lingkungan produktif yang homey, sangat cocok untuk fokus bekerja atau berdiskusi santai.",
+    copy: "Lingkungan produktif yang homey dan nyaman.",
     features: ["Fast Wi-Fi", "Free Coffee", "Focus Zone", "Meeting Room"],
   },
 };
 
 export default function TenantPublicLanding() {
   const { tenant: tenantSlug } = useParams();
+  const { mutate } = useSWRConfig(); // Hook untuk mutate global
 
-  // 1. Ambil profile dari Context
-  const { profile } = useTenant();
-
-  // 2. FETCH PROFILE SECARA MANDIRI (Untuk Invalidation)
-  // Ini kunci biar kalau context 'stale', halaman ini tetep nge-hit API pake slug URL
+  // 1. FETCH PROFILE (Agresif Revalidation)
   const { data: freshProfile, mutate: mutateProfile } = useSWR(
     tenantSlug ? "/public/profile" : null,
     fetcher,
-    { revalidateOnMount: true },
+    {
+      revalidateOnFocus: true, // Refetch otomatis saat tab dibuka kembali
+      revalidateOnMount: true,
+      dedupingInterval: 1000, // Biarkan refetch setiap 1 detik jika dipanggil berulang
+      refreshInterval: 30000, // Sync otomatis setiap 30 detik (Background Sync)
+    },
   );
 
-  // Gunakan data terbaru (prioritaskan API jika context kosong)
-  const activeProfile = profile || freshProfile;
-
-  // 3. FETCH RESOURCES
-  const { data: resourceData, isLoading: loadingResources } = useSWR(
-    activeProfile?.id ? "/public/resources" : null,
-    fetcher,
-    { dedupingInterval: 2000 },
-  );
+  // 2. FETCH RESOURCES
+  const {
+    data: resourceData,
+    isLoading: loadingResources,
+    mutate: mutateResources,
+  } = useSWR(freshProfile?.id ? "/public/resources" : null, fetcher, {
+    revalidateOnFocus: true,
+    dedupingInterval: 1000,
+  });
 
   const resources = resourceData?.resources || [];
 
-  // --- REFRESH LOGIC ---
+  // --- AUTO REFRESH TRIGGER ---
   useEffect(() => {
-    // Jika di URL ada slug tapi profile masih null, coba paksa refresh data
-    if (tenantSlug && !activeProfile) {
-      const timer = setTimeout(() => mutateProfile(), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [tenantSlug, activeProfile, mutateProfile]);
+    // Polling cerdas: jika data baru saja diupdate di backend (Redis Purged),
+    // SWR biasanya akan hit tapi jika browser cache nyangkut, kita paksa global mutate.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        mutate("/public/profile");
+        mutate("/public/resources");
+      }
+    };
 
-  const theme = useMemo(() => {
-    const primary = activeProfile?.primary_color || "#3b82f6";
-    return { primary };
-  }, [activeProfile]);
+    window.addEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      window.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [mutate]);
+
+  const theme = useMemo(
+    () => ({
+      primary: freshProfile?.primary_color || "#3b82f6",
+    }),
+    [freshProfile],
+  );
 
   const content = useMemo(() => {
-    const cat = activeProfile?.business_category || "gaming_hub";
+    const cat = freshProfile?.business_category || "gaming_hub";
     const fb = FALLBACK_ASSETS[cat] || FALLBACK_ASSETS.gaming_hub;
     return {
-      banner: activeProfile?.banner_url || fb.banner,
-      tagline: activeProfile?.tagline || fb.tagline,
-      description: activeProfile?.about_us || fb.copy,
+      banner: freshProfile?.banner_url || fb.banner,
+      tagline: freshProfile?.tagline || fb.tagline,
+      description: freshProfile?.about_us || fb.copy,
       features:
-        activeProfile?.features?.length > 0
-          ? activeProfile.features
+        freshProfile?.features?.length > 0
+          ? freshProfile.features
           : fb.features,
     };
-  }, [activeProfile]);
+  }, [freshProfile]);
 
   const getBestPrice = (resource: any) => {
     const mains = resource.items?.filter(
@@ -127,12 +136,12 @@ export default function TenantPublicLanding() {
     };
   };
 
-  if (!activeProfile) return <NotFoundUI />;
+  if (!freshProfile) return <NotFoundUI />;
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#050505] font-plus-jakarta transition-colors duration-500">
-      <TenantNavbar profile={activeProfile} tenantSlug={tenantSlug as string} />
-      <TenantHero profile={activeProfile} content={content} theme={theme} />
+      <TenantNavbar profile={freshProfile} tenantSlug={tenantSlug as string} />
+      <TenantHero profile={freshProfile} content={content} theme={theme} />
 
       <section
         id="catalog"
@@ -150,7 +159,7 @@ export default function TenantPublicLanding() {
               ? Array.from({ length: 3 }).map((_, i) => (
                   <Skeleton
                     key={i}
-                    className="h-[300px] w-full rounded-[2rem]"
+                    className="h-[300px] w-full rounded-[2rem] bg-slate-100 dark:bg-white/5"
                   />
                 ))
               : resources.map((res: any) => (
@@ -166,10 +175,10 @@ export default function TenantPublicLanding() {
       </section>
 
       <GallerySection
-        images={activeProfile.gallery || []}
+        images={freshProfile.gallery || []}
         primaryColor={theme.primary}
       />
-      <TenantFooter profile={activeProfile} primaryColor={theme.primary} />
+      <TenantFooter profile={freshProfile} primaryColor={theme.primary} />
     </div>
   );
 }
@@ -178,34 +187,32 @@ function NotFoundUI() {
   return (
     <div className="min-h-screen bg-[#050505] flex items-center justify-center text-white p-6">
       <div className="text-center space-y-10">
-        <h1 className="text-[10rem] md:text-[15rem] font-[1000] italic opacity-5 leading-none">
+        <h1 className="text-[10rem] md:text-[15rem] font-[1000] italic opacity-5 leading-none tracking-tighter">
           404
         </h1>
         <div className="space-y-3 relative z-10 -mt-10 md:-mt-20">
-          <p className="font-black uppercase tracking-[0.6em] text-red-500 text-sm md:text-base">
+          <p className="font-black uppercase tracking-[0.6em] text-blue-600 text-sm md:text-base">
             Station Offline
           </p>
-          <p className="text-slate-500 font-bold italic text-[10px] md:text-xs uppercase tracking-widest px-4">
-            Target business hub not found in our database or activation is in
-            progress.
+          <p className="text-slate-500 font-bold italic text-[10px] md:text-xs uppercase tracking-widest px-4 max-w-xs mx-auto">
+            Target business hub not found or session expired.
           </p>
         </div>
-        <div className="flex flex-col items-center gap-4">
-          <Link href="/" className="inline-block relative z-10">
+        <div className="flex flex-col items-center gap-4 relative z-10">
+          <Link href="/">
             <Button
               variant="outline"
-              className="rounded-full h-16 px-12 font-black italic uppercase border-white/10 hover:bg-white hover:text-black transition-all"
+              className="rounded-full h-16 px-12 font-black uppercase border-white/10 hover:bg-white hover:text-black transition-all italic"
             >
               Abort Mission
             </Button>
           </Link>
-          <Button
+          <button
             onClick={() => window.location.reload()}
-            variant="ghost"
-            className="text-slate-500 text-[10px] font-black italic uppercase"
+            className="text-slate-500 text-[10px] font-black uppercase italic tracking-widest"
           >
             Force Reconnect
-          </Button>
+          </button>
         </div>
       </div>
     </div>
