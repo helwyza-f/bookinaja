@@ -44,6 +44,7 @@ export default async function proxy(req: NextRequest) {
     "me",
     "login",
     "register",
+    "dashboard",
     "public",
     "api",
   ];
@@ -118,6 +119,9 @@ function resolveTenantRedirect(
   const isCustomerArea = path === "/me" || path.startsWith("/me/");
 
   if (isAdminLogin) {
+    if (path === "/admin/login") {
+      return auth.hasAdminToken ? "/admin/dashboard" : null;
+    }
     if (auth.hasAdminToken) {
       return "/admin/dashboard";
     }
@@ -128,6 +132,15 @@ function resolveTenantRedirect(
   }
 
   if (isAdminArea) {
+    if (path.startsWith("/admin/dashboard")) {
+      if (auth.hasAdminToken) {
+        return null;
+      }
+      if (auth.hasCustomerToken) {
+        return "/me";
+      }
+      return "/admin/login";
+    }
     if (auth.hasAdminToken) {
       return null;
     }
