@@ -122,3 +122,41 @@ func (r *Repository) ActivateSubscriptionExec(ctx context.Context, exec sqlx.Ext
 	)
 	return err
 }
+
+func (r *Repository) GetBookingForPayment(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID, tenantID uuid.UUID) (BookingPaymentSnapshot, error) {
+	var booking BookingPaymentSnapshot
+	err := sqlx.GetContext(ctx, exec, &booking, `
+		SELECT id, tenant_id, grand_total, deposit_amount, paid_amount, balance_due, payment_status, status
+		FROM bookings
+		WHERE id = $1 AND tenant_id = $2
+		LIMIT 1`,
+		bookingID, tenantID,
+	)
+	return booking, err
+}
+
+func (r *Repository) UpdateBookingPaymentFromMidtrans(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID, status string, transactionID *string, paymentType *string, raw map[string]any) error {
+	_, err := exec.ExecContext(ctx, `
+		UPDATE bookings
+		SET payment_status = CASE
+				WHEN $2 IN ('paid', 'settled') AND balance_due > 0 THEN 'partial_paid'
+				WHEN $2 IN ('paid', 'settled') THEN 'settled'
+				ELSE $2
+			END,
+			payment_method = COALESCE($3, payment_method),
+			paid_amount = CASE
+				WHEN $2 IN ('paid', 'settled') AND balance_due > 0 THEN deposit_amount
+				WHEN $2 IN ('paid', 'settled') THEN grand_total
+				WHEN $2 = 'partial_paid' THEN deposit_amount
+				ELSE paid_amount
+			END,
+			balance_due = CASE
+				WHEN $2 = 'paid' OR $2 = 'settled' THEN 0
+				WHEN $2 = 'partial_paid' THEN GREATEST(grand_total - deposit_amount, 0)
+				ELSE balance_due
+			END
+		WHERE id = $1`,
+		bookingID, status, paymentType,
+	)
+	return err
+}

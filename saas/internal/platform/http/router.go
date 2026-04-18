@@ -77,6 +77,7 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 			public.GET("/validate-customer", cfg.CustomerHandler.ValidateCustomer) // Baru: Check if returning customer
 			public.GET("/bookings/:id", cfg.ReservationHandler.GetPublicDetailByToken)
 			public.POST("/bookings", cfg.ReservationHandler.Create)
+			public.POST("/bookings/:id/checkout", cfg.BillingHandler.BookingCheckout)
 
 			// Customer Self-Auth (WhatsApp OTP)
 			public.POST("/customer/login", cfg.CustomerHandler.RequestOTP)
@@ -101,15 +102,15 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 			platformProtected := protected.Group("/platform")
 			platformProtected.Use(middleware.PlatformOnly())
 			{
-			platformProtected.GET("/me", cfg.PlatformHandler.Me)
-			platformProtected.GET("/summary", cfg.PlatformHandler.Summary)
-			platformProtected.GET("/revenue", cfg.PlatformHandler.Revenue)
-			platformProtected.GET("/revenue/breakdown", cfg.PlatformHandler.RevenueBreakdown)
-			platformProtected.GET("/revenue/timeseries", cfg.PlatformHandler.RevenueTimeseries)
-			platformProtected.GET("/revenue/export", cfg.PlatformHandler.RevenueCSV)
-			platformProtected.GET("/tenants", cfg.PlatformHandler.Tenants)
-			platformProtected.GET("/customers", cfg.PlatformHandler.Customers)
-			platformProtected.GET("/transactions", cfg.PlatformHandler.Transactions)
+				platformProtected.GET("/me", cfg.PlatformHandler.Me)
+				platformProtected.GET("/summary", cfg.PlatformHandler.Summary)
+				platformProtected.GET("/revenue", cfg.PlatformHandler.Revenue)
+				platformProtected.GET("/revenue/breakdown", cfg.PlatformHandler.RevenueBreakdown)
+				platformProtected.GET("/revenue/timeseries", cfg.PlatformHandler.RevenueTimeseries)
+				platformProtected.GET("/revenue/export", cfg.PlatformHandler.RevenueCSV)
+				platformProtected.GET("/tenants", cfg.PlatformHandler.Tenants)
+				platformProtected.GET("/customers", cfg.PlatformHandler.Customers)
+				platformProtected.GET("/transactions", cfg.PlatformHandler.Transactions)
 			}
 
 			// --- CUSTOMER PORTAL AREA (/me) ---
@@ -133,6 +134,7 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 					billingGroup.GET("/subscription", cfg.BillingHandler.GetSubscription)
 					billingGroup.GET("/orders", cfg.BillingHandler.ListOrders)
 					billingGroup.POST("/checkout", cfg.BillingHandler.Checkout)
+					billingGroup.POST("/bookings/checkout", cfg.BillingHandler.BookingCheckout)
 				}
 
 				// Business Profile Settings

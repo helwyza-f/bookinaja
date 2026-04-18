@@ -62,6 +62,7 @@ func (h *Handler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"message":        "BOOKING BERHASIL",
 		"booking_id":     b.ID,
+		"booking":        b,
 		"customer_token": tokenString,
 		"redirect_url":   "/me/bookings/" + b.ID.String(),
 	})

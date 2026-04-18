@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -57,11 +58,26 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, *
 
 	mainItemID, _ := uuid.Parse(req.ItemIDs[0])
 	var unitMinutes int = 60 // Default fallback
+	var grandTotal float64
 
 	for _, item := range resDetail.Items {
 		if item.ID == mainItemID {
 			unitMinutes = item.UnitDuration
+			grandTotal += item.Price * float64(req.Duration)
 			break
+		}
+	}
+
+	for _, idStr := range req.ItemIDs[1:] {
+		itemID, err := uuid.Parse(idStr)
+		if err != nil {
+			continue
+		}
+		for _, item := range resDetail.Items {
+			if item.ID == itemID && item.ItemType == "add_on" {
+				grandTotal += item.Price
+				break
+			}
 		}
 	}
 
@@ -99,17 +115,38 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, *
 		bookingStatus = req.Status
 	}
 
+	depositAmount := calculateDepositAmount(grandTotal, bookingStatus)
+	if bookingStatus == "active" {
+		depositAmount = 0
+	}
+	paidAmount := float64(0)
+	balanceDue := grandTotal
+	if depositAmount > 0 {
+		balanceDue = grandTotal - depositAmount
+		if balanceDue < 0 {
+			balanceDue = 0
+		}
+	}
+	paymentStatus := "pending"
+	paymentMethod := ""
+
 	// 8. KONSTRUKSI MODEL BOOKING
 	newBooking := Booking{
-		ID:          uuid.New(),
-		TenantID:    tID,
-		CustomerID:  cust.ID,
-		ResourceID:  rID,
-		StartTime:   start,
-		EndTime:     end,
-		AccessToken: uuid.New(),
-		Status:      bookingStatus, // Gunakan status hasil seleksi
-		CreatedAt:   time.Now().UTC(),
+		ID:            uuid.New(),
+		TenantID:      tID,
+		CustomerID:    cust.ID,
+		ResourceID:    rID,
+		StartTime:     start,
+		EndTime:       end,
+		AccessToken:   uuid.New(),
+		Status:        bookingStatus, // Gunakan status hasil seleksi
+		GrandTotal:    grandTotal,
+		DepositAmount: depositAmount,
+		PaidAmount:    paidAmount,
+		BalanceDue:    balanceDue,
+		PaymentStatus: paymentStatus,
+		PaymentMethod: paymentMethod,
+		CreatedAt:     time.Now().UTC(),
 	}
 
 	// 9. EKSEKUSI PENYIMPANAN
@@ -282,4 +319,19 @@ func (s *Service) GetDetailForAdmin(ctx context.Context, id, tenantID string) (*
 	bID, _ := uuid.Parse(id)
 	tID, _ := uuid.Parse(tenantID)
 	return s.repo.FindByID(ctx, bID, tID)
+}
+
+func calculateDepositAmount(grandTotal float64, bookingStatus string) float64 {
+	if bookingStatus == "active" {
+		return grandTotal
+	}
+
+	dp := math.Round(grandTotal * 0.2)
+	if dp < 10000 {
+		dp = 10000
+	}
+	if dp > grandTotal {
+		dp = grandTotal
+	}
+	return dp
 }
