@@ -156,9 +156,6 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, *
 		return nil, nil, fmt.Errorf("GAGAL MENYIMPAN TRANSAKSI: %w", err)
 	}
 
-	tenantSlug, _ := s.repo.GetTenantSlug(ctx, tID)
-	_ = s.sendBookingConfirmation(ctx, &newBooking, cust, tenantSlug)
-
 	return &newBooking, cust, nil
 }
 
@@ -358,12 +355,12 @@ func (s *Service) SyncSessionState(ctx context.Context, bookingID, tenantID stri
 	return booking, nil
 }
 
-func (s *Service) sendBookingConfirmation(ctx context.Context, booking *Booking, cust *customer.Customer, tenantSlug string) error {
+func (s *Service) SendBookingConfirmation(ctx context.Context, booking *Booking, cust *customer.Customer, tenantSlug, sessionToken string) error {
 	if cust == nil {
 		return nil
 	}
 
-	detailURL := bookingDetailURL(tenantSlug, booking.ID.String(), booking.AccessToken.String())
+	detailURL := bookingDetailURL(tenantSlug, booking.ID.String(), sessionToken)
 	paymentLine := "Tidak ada DP, silakan lihat detail booking."
 	if booking.DepositAmount > 0 {
 		paymentLine = fmt.Sprintf("DP booking: Rp %s. Sisa bayar: Rp %s.", formatMoney(booking.DepositAmount), formatMoney(booking.BalanceDue))
