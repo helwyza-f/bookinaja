@@ -190,3 +190,31 @@ func (r *Repository) UpdateBookingSettlementFromMidtrans(ctx context.Context, ex
 	)
 	return err
 }
+
+func (r *Repository) GetBookingNotificationContext(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID) (BookingNotificationContext, error) {
+	var ctxData BookingNotificationContext
+	err := sqlx.GetContext(ctx, exec, &ctxData, `
+		SELECT
+			b.id AS booking_id,
+			b.tenant_id,
+			b.customer_id,
+			c.name AS customer_name,
+			c.phone AS customer_phone,
+			t.slug AS tenant_slug,
+			res.name AS resource_name,
+			b.grand_total,
+			b.deposit_amount,
+			b.paid_amount,
+			b.balance_due,
+			b.payment_status,
+			b.status
+		FROM bookings b
+		JOIN customers c ON c.id = b.customer_id
+		JOIN tenants t ON t.id = b.tenant_id
+		JOIN resources res ON res.id = b.resource_id
+		WHERE b.id = $1
+		LIMIT 1`,
+		bookingID,
+	)
+	return ctxData, err
+}

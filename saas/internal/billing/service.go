@@ -15,8 +15,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/helwiza/saas/internal/platform/fonnte"
+	"github.com/helwiza/saas/internal/platform/security"
 )
 
 type Service struct {
@@ -116,7 +119,10 @@ func (s *Service) HandleMidtransNotification(ctx context.Context, payload map[st
 		paymentTypePtr = &paymentType
 	}
 
-	return s.withTx(ctx, func(tx *sqlx.Tx) error {
+	var notify *BookingNotificationContext
+	var notifyMode string
+
+	err := s.withTx(ctx, func(tx *sqlx.Tx) error {
 		if strings.HasPrefix(orderID, "sub-") {
 			updated, err := s.repo.UpdateOrderFromMidtrans(ctx, tx, orderID, newStatus, txIDPtr, paymentTypePtr, payload)
 			if err != nil {
@@ -150,13 +156,75 @@ func (s *Service) HandleMidtransNotification(ctx context.Context, payload map[st
 			if err != nil {
 				return err
 			}
-			if isSettlement {
-				return s.repo.UpdateBookingSettlementFromMidtrans(ctx, tx, bookingID, newStatus, txIDPtr, paymentTypePtr, payload)
+			bookingInfo, err := s.repo.GetBookingNotificationContext(ctx, tx, bookingID)
+			if err != nil {
+				return err
 			}
-			return s.repo.UpdateBookingPaymentFromMidtrans(ctx, tx, bookingID, newStatus, txIDPtr, paymentTypePtr, payload)
+			if isSettlement {
+				if err := s.repo.UpdateBookingSettlementFromMidtrans(ctx, tx, bookingID, newStatus, txIDPtr, paymentTypePtr, payload); err != nil {
+					return err
+				}
+				if shouldNotifyBookingPayment(bookingInfo.PaymentStatus, newStatus) {
+					notify = &bookingInfo
+					notifyMode = "settlement"
+				}
+				return nil
+			}
+			if err := s.repo.UpdateBookingPaymentFromMidtrans(ctx, tx, bookingID, newStatus, txIDPtr, paymentTypePtr, payload); err != nil {
+				return err
+			}
+			if shouldNotifyBookingPayment(bookingInfo.PaymentStatus, newStatus) {
+				notify = &bookingInfo
+				notifyMode = "deposit"
+			}
+			return nil
 		}
 		return nil
 	})
+
+	if err != nil {
+		return err
+	}
+	if notify != nil {
+		_ = s.sendBookingPaymentWhatsApp(ctx, *notify, notifyMode)
+	}
+	return nil
+}
+
+func (s *Service) sendBookingPaymentWhatsApp(ctx context.Context, info BookingNotificationContext, mode string) error {
+	if info.CustomerPhone == "" {
+		return nil
+	}
+
+	token, err := generateCustomerSessionToken(info.CustomerID.String(), info.TenantID.String())
+	if err != nil {
+		return err
+	}
+
+	url := bookingDetailURL(info.TenantSlug, info.BookingID.String(), token)
+	paymentNote := "DP booking kamu sudah diterima."
+	if mode == "settlement" {
+		paymentNote = "Pelunasan booking kamu sudah diterima."
+	}
+
+	remaining := info.BalanceDue
+	if remaining < 0 {
+		remaining = 0
+	}
+	msg := fmt.Sprintf(
+		"Halo %s, %s\n\nBooking: %s\nUnit: %s\nTotal: Rp %s\nDP: Rp %s\nSudah dibayar: Rp %s\nSisa: Rp %s\n\nBuka detail booking:\n%s",
+		info.CustomerName,
+		paymentNote,
+		info.BookingID.String(),
+		info.ResourceName,
+		formatMoney(info.GrandTotal),
+		formatMoney(info.DepositAmount),
+		formatMoney(info.PaidAmount),
+		formatMoney(remaining),
+		url,
+	)
+	_, _ = fonnte.SendMessage(info.CustomerPhone, msg)
+	return nil
 }
 
 func (s *Service) CheckoutBookingPayment(ctx context.Context, tenantID uuid.UUID, tenantSlug string, bookingID uuid.UUID, mode string) (BookingCheckoutRes, error) {
@@ -297,6 +365,15 @@ func (s *Service) createSnapTransaction(ctx context.Context, orderID string, amo
 	return out.Token, out.RedirectURL, nil
 }
 
+func shouldNotifyBookingPayment(previousStatus, newStatus string) bool {
+	previousStatus = strings.ToLower(strings.TrimSpace(previousStatus))
+	newStatus = strings.ToLower(strings.TrimSpace(newStatus))
+	if newStatus != "paid" && newStatus != "settled" {
+		return false
+	}
+	return previousStatus != "partial_paid" && previousStatus != "settled"
+}
+
 func verifyMidtransSignature(orderID, statusCode, grossAmount, signatureKey, serverKey string) bool {
 	serverKey = strings.TrimSpace(serverKey)
 	if serverKey == "" {
@@ -338,6 +415,27 @@ func addInterval(start time.Time, interval string) time.Time {
 	default:
 		return start.AddDate(0, 1, 0)
 	}
+}
+
+func bookingDetailURL(tenantSlug, bookingID, token string) string {
+	slug := strings.TrimSpace(tenantSlug)
+	if slug == "" {
+		slug = "tenant"
+	}
+	return fmt.Sprintf("https://%s.bookinaja.com/me/bookings/%s?token=%s", slug, bookingID, token)
+}
+
+func generateCustomerSessionToken(customerID, tenantID string) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"customer_id": customerID,
+		"tenant_id":   tenantID,
+		"exp":         time.Now().Add(time.Hour * 72).Unix(),
+	})
+	return token.SignedString([]byte(security.JWTSecret()))
+}
+
+func formatMoney(v float64) string {
+	return fmt.Sprintf("%d", int64(v+0.5))
 }
 
 func priceFor(plan string, interval string) (int64, string, error) {

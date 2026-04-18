@@ -71,3 +71,19 @@ type BookingPaymentSnapshot struct {
 	PaymentStatus string    `db:"payment_status"`
 	Status        string    `db:"status"`
 }
+
+type BookingNotificationContext struct {
+	BookingID     uuid.UUID `db:"booking_id"`
+	TenantID      uuid.UUID `db:"tenant_id"`
+	CustomerID    uuid.UUID `db:"customer_id"`
+	CustomerName  string    `db:"customer_name"`
+	CustomerPhone string    `db:"customer_phone"`
+	TenantSlug    string    `db:"tenant_slug"`
+	ResourceName  string    `db:"resource_name"`
+	GrandTotal    float64   `db:"grand_total"`
+	DepositAmount float64   `db:"deposit_amount"`
+	PaidAmount    float64   `db:"paid_amount"`
+	BalanceDue    float64   `db:"balance_due"`
+	PaymentStatus string    `db:"payment_status"`
+	Status        string    `db:"status"`
+}
