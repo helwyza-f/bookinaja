@@ -85,12 +85,40 @@ func (h *Handler) TenantDetail(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "tenant_id wajib diisi"})
 		return
 	}
-	data, err := h.repo.GetTenantDetail(c.Request.Context(), tenantID)
+	detail, err := h.repo.GetTenantDetail(c.Request.Context(), tenantID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, data)
+	insights, err := h.repo.GetTenantInsights(c.Request.Context(), tenantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	balance, err := h.repo.GetTenantBalance(c.Request.Context(), tenantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"tenant": detail,
+		"summary": gin.H{
+			"subscription_summary": gin.H{
+				"revenue":               insights["subscription_revenue"],
+				"transactions":          insights["subscription_transactions"],
+				"status":                detail["subscription_status"],
+				"current_period_start":   detail["subscription_current_period_start"],
+				"current_period_end":     detail["subscription_current_period_end"],
+			},
+			"booking_summary": gin.H{
+				"balance":       balance["balance"],
+				"transactions":  insights["booking_transactions"],
+				"customers":     insights["customers_count"],
+				"bookings":      insights["bookings_count"],
+				"midtrans_logs": insights["midtrans_logs"],
+			},
+		},
+	})
 }
 
 func (h *Handler) TenantCustomers(c *gin.Context) {
@@ -122,12 +150,13 @@ func (h *Handler) TenantTransactions(c *gin.Context) {
 }
 
 func (h *Handler) Transactions(c *gin.Context) {
-	data, err := h.repo.ListTransactions(c.Request.Context())
+	page, pageSize := parsePageParams(c)
+	data, total, err := h.repo.ListTransactions(c.Request.Context(), page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, data)
+	c.JSON(http.StatusOK, gin.H{"items": data, "page": page, "page_size": pageSize, "total": total})
 }
 
 func (h *Handler) TenantBalances(c *gin.Context) {
@@ -155,18 +184,13 @@ func (h *Handler) TenantBalanceDetail(c *gin.Context) {
 
 func (h *Handler) MidtransNotifications(c *gin.Context) {
 	tenantSlug := strings.TrimSpace(c.Query("tenant"))
-	limit := 100
-	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
-		if parsed, err := strconv.Atoi(raw); err == nil {
-			limit = parsed
-		}
-	}
-	data, err := h.repo.ListMidtransNotificationLogs(c.Request.Context(), limit, tenantSlug)
+	page, pageSize := parsePageParams(c)
+	data, total, err := h.repo.ListMidtransNotificationLogs(c.Request.Context(), page, pageSize, tenantSlug)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, data)
+	c.JSON(http.StatusOK, gin.H{"items": data, "page": page, "page_size": pageSize, "total": total})
 }
 
 func (h *Handler) TenantMidtransNotifications(c *gin.Context) {
@@ -175,18 +199,13 @@ func (h *Handler) TenantMidtransNotifications(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "tenant_id wajib diisi"})
 		return
 	}
-	limit := 100
-	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
-		if parsed, err := strconv.Atoi(raw); err == nil {
-			limit = parsed
-		}
-	}
-	data, err := h.repo.ListMidtransNotificationLogsByTenantID(c.Request.Context(), tenantID, limit)
+	page, pageSize := parsePageParams(c)
+	data, total, err := h.repo.ListMidtransNotificationLogsByTenantID(c.Request.Context(), tenantID, page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, data)
+	c.JSON(http.StatusOK, gin.H{"items": data, "page": page, "page_size": pageSize, "total": total})
 }
 
 func (h *Handler) Revenue(c *gin.Context) {
@@ -257,6 +276,22 @@ func parseTimePtr(raw string) (*time.Time, error) {
 		return nil, err
 	}
 	return &parsed, nil
+}
+
+func parsePageParams(c *gin.Context) (int, int) {
+	page := 1
+	pageSize := 25
+	if raw := strings.TrimSpace(c.Query("page")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+	if raw := strings.TrimSpace(c.Query("page_size")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			pageSize = parsed
+		}
+	}
+	return page, pageSize
 }
 
 func sanitizeFilename(value string) string {
