@@ -141,12 +141,13 @@ func (h *Handler) TenantTransactions(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "tenant_id wajib diisi"})
 		return
 	}
-	data, err := h.repo.ListTransactionsByTenant(c.Request.Context(), tenantID)
+	page, pageSize := parsePageParams(c)
+	data, total, err := h.repo.ListTransactionsByTenant(c.Request.Context(), tenantID, page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, data)
+	c.JSON(http.StatusOK, gin.H{"items": data, "page": page, "page_size": pageSize, "total": total})
 }
 
 func (h *Handler) Transactions(c *gin.Context) {
