@@ -99,6 +99,29 @@ export default function CustomerDashboardPage() {
   const pastBookings = data?.past_history || [];
   const currentList = activeTab === "active" ? activeBookings : pastBookings;
 
+  const getPaymentMeta = (booking: any) => {
+    const status = (booking?.payment_status || "").toLowerCase();
+    const depositAmount = Number(booking?.deposit_amount || 0);
+    const balanceDue = Number(booking?.balance_due || 0);
+
+    if (status === "settled" || (status === "paid" && balanceDue === 0)) {
+      return { label: "Lunas", className: "bg-emerald-500 text-white" };
+    }
+    if (status === "partial_paid" || (status === "paid" && depositAmount > 0)) {
+      return { label: "DP Masuk", className: "bg-blue-600 text-white" };
+    }
+    if (status === "pending") {
+      return { label: depositAmount > 0 ? "Menunggu DP" : "Bayar Nanti", className: "bg-orange-500 text-white" };
+    }
+    if (status === "expired") {
+      return { label: "DP Kadaluarsa", className: "bg-red-500 text-white" };
+    }
+    if (status === "failed") {
+      return { label: "Gagal Bayar", className: "bg-red-500 text-white" };
+    }
+    return { label: "Belum Dibayar", className: "bg-slate-500 text-white" };
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#050505] font-plus-jakarta pb-32 lg:pb-10 transition-colors duration-500 overflow-x-hidden">
       {/* Decorative Sidebar for Desktop */}
@@ -270,9 +293,19 @@ export default function CustomerDashboardPage() {
                   </div>
 
                   <div className="pt-4 border-t dark:border-white/5 flex items-center justify-between">
-                    <span className="text-[8px] font-black uppercase text-slate-300 dark:text-slate-600 italic tracking-widest group-hover:text-blue-500 transition-colors">
-                      Lihat E-Tiket Digital
-                    </span>
+                    <div className="flex flex-col gap-2">
+                      <Badge
+                        className={cn(
+                          "w-fit rounded-full px-3 py-1 text-[8px] uppercase font-black tracking-widest border-none",
+                          getPaymentMeta(booking).className,
+                        )}
+                      >
+                        bayar: {getPaymentMeta(booking).label}
+                      </Badge>
+                      <span className="text-[8px] font-black uppercase text-slate-300 dark:text-slate-600 italic tracking-widest group-hover:text-blue-500 transition-colors">
+                        Lihat E-Tiket Digital
+                      </span>
+                    </div>
                     <ArrowRight
                       size={16}
                       className={cn(

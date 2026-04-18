@@ -153,10 +153,14 @@ func (s *Service) CheckoutBookingDeposit(ctx context.Context, tenantID uuid.UUID
 		return BookingCheckoutRes{}, err
 	}
 
-	amount := booking.DepositAmount
-	if amount <= 0 {
-		amount = 10000
+	if booking.DepositAmount <= 0 {
+		return BookingCheckoutRes{}, errors.New("booking ini tidak memiliki DP yang perlu dibayar")
 	}
+	if booking.PaymentStatus == "settled" || (booking.BalanceDue <= 0 && booking.PaymentStatus == "paid") {
+		return BookingCheckoutRes{}, errors.New("booking ini sudah lunas")
+	}
+
+	amount := booking.DepositAmount
 
 	orderID := fmt.Sprintf("book-%s-dp", bookingID.String())
 	display := fmt.Sprintf("DP Booking %s", tenantSlug)
