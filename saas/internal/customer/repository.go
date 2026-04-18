@@ -83,14 +83,46 @@ func (r *Repository) IncrementStats(ctx context.Context, id uuid.UUID, amount in
 
 func (r *Repository) FindByTenant(ctx context.Context, tenantID uuid.UUID) ([]Customer, error) {
 	var customers []Customer
-	query := `SELECT * FROM customers WHERE tenant_id = $1 ORDER BY total_spent DESC`
+	query := `
+		SELECT
+			c.*,
+			COALESCE(stats.total_visits, 0) AS total_visits,
+			COALESCE(stats.total_spent, 0) AS total_spent,
+			stats.last_visit AS last_visit
+		FROM customers c
+		LEFT JOIN LATERAL (
+			SELECT
+				COUNT(*) FILTER (WHERE b.status IN ('confirmed', 'pending', 'active', 'ongoing', 'completed')) AS total_visits,
+				COALESCE(SUM(CASE WHEN b.payment_status IN ('settled', 'partial_paid', 'paid') THEN b.grand_total ELSE 0 END), 0) AS total_spent,
+				MAX(b.end_time) FILTER (WHERE b.status IN ('completed', 'active', 'ongoing', 'confirmed', 'pending')) AS last_visit
+			FROM bookings b
+			WHERE b.customer_id = c.id
+		) stats ON TRUE
+		WHERE c.tenant_id = $1
+		ORDER BY COALESCE(stats.total_spent, 0) DESC, c.updated_at DESC`
 	err := r.db.SelectContext(ctx, &customers, query, tenantID)
 	return customers, err
 }
 
 func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*Customer, error) {
 	var c Customer
-	query := `SELECT * FROM customers WHERE id = $1 LIMIT 1`
+	query := `
+		SELECT
+			c.*,
+			COALESCE(stats.total_visits, 0) AS total_visits,
+			COALESCE(stats.total_spent, 0) AS total_spent,
+			stats.last_visit AS last_visit
+		FROM customers c
+		LEFT JOIN LATERAL (
+			SELECT
+				COUNT(*) FILTER (WHERE b.status IN ('confirmed', 'pending', 'active', 'ongoing', 'completed')) AS total_visits,
+				COALESCE(SUM(CASE WHEN b.payment_status IN ('settled', 'partial_paid', 'paid') THEN b.grand_total ELSE 0 END), 0) AS total_spent,
+				MAX(b.end_time) FILTER (WHERE b.status IN ('completed', 'active', 'ongoing', 'confirmed', 'pending')) AS last_visit
+			FROM bookings b
+			WHERE b.customer_id = c.id
+		) stats ON TRUE
+		WHERE c.id = $1
+		LIMIT 1`
 	err := r.db.GetContext(ctx, &c, query, id)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -100,7 +132,23 @@ func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*Customer, err
 
 func (r *Repository) FindByIDForTenant(ctx context.Context, id, tenantID uuid.UUID) (*Customer, error) {
 	var c Customer
-	query := `SELECT * FROM customers WHERE id = $1 AND tenant_id = $2 LIMIT 1`
+	query := `
+		SELECT
+			c.*,
+			COALESCE(stats.total_visits, 0) AS total_visits,
+			COALESCE(stats.total_spent, 0) AS total_spent,
+			stats.last_visit AS last_visit
+		FROM customers c
+		LEFT JOIN LATERAL (
+			SELECT
+				COUNT(*) FILTER (WHERE b.status IN ('confirmed', 'pending', 'active', 'ongoing', 'completed')) AS total_visits,
+				COALESCE(SUM(CASE WHEN b.payment_status IN ('settled', 'partial_paid', 'paid') THEN b.grand_total ELSE 0 END), 0) AS total_spent,
+				MAX(b.end_time) FILTER (WHERE b.status IN ('completed', 'active', 'ongoing', 'confirmed', 'pending')) AS last_visit
+			FROM bookings b
+			WHERE b.customer_id = c.id
+		) stats ON TRUE
+		WHERE c.id = $1 AND c.tenant_id = $2
+		LIMIT 1`
 	err := r.db.GetContext(ctx, &c, query, id, tenantID)
 	if err == sql.ErrNoRows {
 		return nil, nil
