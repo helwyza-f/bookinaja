@@ -3,6 +3,7 @@
 import { setCookie } from "cookies-next";
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import Script from "next/script";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,9 @@ export default function CustomerBookingDetail() {
   const [copied, setCopied] = useState(false);
   const [now, setNow] = useState(new Date());
   const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
+  const [liveNotice, setLiveNotice] = useState<string | null>(null);
   const [menuItems, setMenuItems] = useState<any[]>([]);
+  const [midtransReady, setMidtransReady] = useState(false);
 
   const fetchDetail = async () => {
     try {
@@ -76,19 +79,28 @@ export default function CustomerBookingDetail() {
 
   const fetchMenuItems = async () => {
     try {
-      const [menuRes, contextRes] = await Promise.all([
-        api.get("/customer/fnb"),
-        api.get(`/customer/bookings/${params.id}/context`),
-      ]);
+      const menuRes = await api.get("/customer/fnb");
       setMenuItems(menuRes.data || []);
-      if (contextRes.data?.booking) {
-        setBooking((prev: any) => ({
-          ...(prev || {}),
-          ...contextRes.data.booking,
-        }));
-      }
     } catch {
       setMenuItems([]);
+    }
+  };
+
+  const fetchLiveContext = async () => {
+    try {
+      const res = await api.get(`/customer/bookings/${params.id}/context`);
+      if (res.data?.booking) {
+        setBooking((prev: any) => ({
+          ...(prev || {}),
+          ...res.data.booking,
+        }));
+      }
+      setLiveNotice(null);
+    } catch (err: any) {
+      const message = String(err?.response?.data?.error || "");
+      if (message) {
+        setLiveNotice(message);
+      }
     }
   };
 
@@ -106,15 +118,24 @@ export default function CustomerBookingDetail() {
     }
     fetchDetail();
     fetchMenuItems();
+    fetchLiveContext();
     const interval = setInterval(fetchDetail, 30000);
+    const liveInterval = setInterval(fetchLiveContext, 45000);
     const syncInterval = setInterval(syncSession, 60000);
     const clock = setInterval(() => setNow(new Date()), 1000);
     return () => {
       clearInterval(interval);
+      clearInterval(liveInterval);
       clearInterval(syncInterval);
       clearInterval(clock);
     };
   }, [params.id, searchParams]);
+
+  useEffect(() => {
+    if (window.snap) {
+      setMidtransReady(true);
+    }
+  }, []);
 
   const isActiveStatus = useMemo(
     () => booking?.status === "active" || booking?.status === "ongoing",
@@ -205,11 +226,8 @@ export default function CustomerBookingDetail() {
   const handlePayDeposit = async () => {
     try {
       const res = await api.post(`/public/bookings/${params.id}/checkout`);
-      const snap = (window as any).snap;
-      if (!snap) {
-        toast.error("Midtrans belum siap. Coba refresh halaman.");
-        return;
-      }
+      const snap = await waitForSnap();
+      if (!snap) return;
       snap.pay(res.data.snap_token, {
         onSuccess: () => {
           setPaymentNotice(
@@ -233,6 +251,48 @@ export default function CustomerBookingDetail() {
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Gagal membuka pembayaran DP");
     }
+  };
+
+  const waitForSnap = async () => {
+    if (window.snap) return window.snap;
+    const started = Date.now();
+    while (Date.now() - started < 5000) {
+      if (window.snap) return window.snap;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    const injected = await loadMidtransSnap();
+    if (injected) return injected;
+    toast.error("Midtrans belum siap. Coba tunggu sebentar lalu ulangi.");
+    return null;
+  };
+
+  const loadMidtransSnap = async () => {
+    if (window.snap) return window.snap;
+    if (typeof window === "undefined") return null;
+
+    const existing = (window as any).__midtransSnapPromise as Promise<any> | undefined;
+    if (existing) return existing;
+
+    const promise = new Promise<any>((resolve) => {
+      const script = document.createElement("script");
+      script.src =
+        (
+          process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION || ""
+        ).toLowerCase() === "true"
+          ? "https://app.midtrans.com/snap/snap.js"
+          : "https://app.sandbox.midtrans.com/snap/snap.js";
+      script.setAttribute(
+        "data-client-key",
+        process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "",
+      );
+      script.async = true;
+      script.onload = () => resolve(window.snap || null);
+      script.onerror = () => resolve(null);
+      document.head.appendChild(script);
+    });
+
+    (window as any).__midtransSnapPromise = promise;
+    return promise;
   };
 
   const handleAddFnb = async (cartItems: any[]) => {
@@ -272,6 +332,19 @@ export default function CustomerBookingDetail() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#050505] font-plus-jakarta pb-24 transition-colors overflow-x-hidden">
+      <Script
+        src={
+          (
+            process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION || ""
+          ).toLowerCase() === "true"
+            ? "https://app.midtrans.com/snap/snap.js"
+            : "https://app.sandbox.midtrans.com/snap/snap.js"
+        }
+        data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
+        strategy="afterInteractive"
+        onLoad={() => setMidtransReady(true)}
+        onError={() => setMidtransReady(false)}
+      />
       <nav className="h-16 flex items-center justify-between px-4 sticky top-0 z-50 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b dark:border-white/5">
         <Button
           variant="ghost"
@@ -347,6 +420,11 @@ export default function CustomerBookingDetail() {
         )}
 
         <div className="rounded-[2rem] bg-white dark:bg-[#0c0c0c] border dark:border-white/5 shadow-sm p-4">
+          {liveNotice && (
+            <div className="mb-3 rounded-2xl border border-amber-500/15 bg-amber-500/10 px-4 py-3 text-[10px] font-black uppercase italic tracking-[0.2em] text-amber-700 dark:text-amber-200">
+              {liveNotice}
+            </div>
+          )}
           <BookingLiveController
             active={isLiveSession}
             booking={booking}
@@ -432,9 +510,14 @@ export default function CustomerBookingDetail() {
           <div className="p-5 border-b dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02] flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ReceiptText size={16} className="text-blue-600" />
-              <span className="text-[10px] font-[1000] uppercase tracking-[0.2em] dark:text-white italic">
-                Ringkasan Pembayaran
-              </span>
+              <div>
+                <span className="block text-[10px] font-[1000] uppercase tracking-[0.2em] dark:text-white italic">
+                  Ringkasan Pembayaran
+                </span>
+                <span className="block text-[9px] font-bold text-slate-400 uppercase italic tracking-[0.18em]">
+                  Pantau DP, sisa bayar, dan status transaksi
+                </span>
+              </div>
             </div>
           </div>
 
@@ -473,6 +556,9 @@ export default function CustomerBookingDetail() {
                   <p className="mt-2 text-sm font-[1000] italic text-emerald-600 leading-none">
                     Rp {depositAmount.toLocaleString()}
                   </p>
+                  <p className="mt-2 text-[9px] font-bold text-emerald-600/70 uppercase italic">
+                    Dibayar via Midtrans
+                  </p>
                 </div>
 
                 <div className="rounded-2xl bg-blue-500/5 border border-blue-500/10 p-3">
@@ -482,22 +568,79 @@ export default function CustomerBookingDetail() {
                   <p className="mt-2 text-sm font-[1000] italic text-blue-600 leading-none">
                     Rp {balanceDue.toLocaleString()}
                   </p>
+                  <p className="mt-2 text-[9px] font-bold text-blue-600/70 uppercase italic">
+                    Dibayar saat checkout / selesai
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-slate-900 text-white border border-slate-800 p-3">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
+                    Status
+                  </p>
+                  <p className="mt-2 text-sm font-[1000] italic leading-none">
+                    {paymentLabel}
+                  </p>
+                  <p className="mt-2 text-[9px] font-bold text-slate-400 uppercase italic">
+                    {paymentStatus || "n/a"}
+                  </p>
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-white dark:bg-black/30 border border-slate-100 dark:border-white/5 p-4 text-[11px] font-bold italic text-slate-600 dark:text-slate-300 leading-relaxed">
-                {depositAmount > 0
-                  ? `Total booking Rp ${Number(booking.grand_total || 0).toLocaleString()}. DP yang sudah dibayar Rp ${depositAmount.toLocaleString()}. Sisa yang harus dibayar Rp ${balanceDue.toLocaleString()}.`
-                  : `Total booking Rp ${Number(booking.grand_total || 0).toLocaleString()}. Booking ini tanpa DP, jadi seluruh tagihan berjalan mengikuti pemakaian.`}
+              <div className="rounded-2xl bg-gradient-to-br from-blue-500/10 via-white to-emerald-500/10 dark:from-blue-500/10 dark:via-white/5 dark:to-emerald-500/10 border border-slate-100 dark:border-white/5 p-4 text-[11px] font-bold italic text-slate-600 dark:text-slate-300 leading-relaxed space-y-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 not-italic">
+                      Status ringkas
+                    </p>
+                    <p className="mt-1 text-sm text-slate-700 dark:text-slate-200 not-italic">
+                      {depositAmount > 0
+                        ? "Booking ini memakai DP dan sisanya masih harus dilunasi."
+                        : "Booking ini tanpa DP dan berjalan dengan tagihan penuh saat sesi selesai."}
+                    </p>
+                  </div>
+                  <Badge className="rounded-full bg-slate-900 text-white border-none px-3 py-1 text-[8px] uppercase font-black">
+                    {paymentStatus === "pending" && depositAmount > 0
+                      ? "Menunggu DP"
+                      : paymentLabel}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[10px] not-italic">
+                  <div className="rounded-2xl bg-white/80 dark:bg-black/20 border border-white/50 dark:border-white/5 p-3">
+                    <p className="font-black uppercase tracking-widest text-slate-400">
+                      DP
+                    </p>
+                    <p className="mt-1 text-base font-[1000] text-emerald-600">
+                      Rp {depositAmount.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-white/80 dark:bg-black/20 border border-white/50 dark:border-white/5 p-3">
+                    <p className="font-black uppercase tracking-widest text-slate-400">
+                      Total
+                    </p>
+                    <p className="mt-1 text-base font-[1000] text-slate-900 dark:text-white">
+                      Rp {Number(booking.grand_total || 0).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                {depositAmount > 0 ? (
+                  <p className="text-slate-600 dark:text-slate-300 not-italic">
+                    Setelah DP dibayar, sisa Rp {balanceDue.toLocaleString()} akan tetap muncul sebagai due.
+                  </p>
+                ) : (
+                  <p className="text-slate-600 dark:text-slate-300 not-italic">
+                    Tidak ada DP untuk booking ini, jadi pembayaran mengikuti pemakaian sesi.
+                  </p>
+                )}
               </div>
 
               {paymentStatus === "pending" && depositAmount > 0 && (
                 <Button
                   onClick={handlePayDeposit}
-                  className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-[1000] uppercase italic tracking-widest text-sm shadow-lg gap-2"
+                  disabled={!midtransReady}
+                  className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-300 disabled:text-slate-600 text-white font-[1000] uppercase italic tracking-widest text-sm shadow-lg gap-2"
                 >
                   <CreditCard size={16} />
-                  Bayar DP Booking
+                  {midtransReady ? "Bayar DP Booking" : "Menyiapkan Midtrans..."}
                 </Button>
               )}
 
