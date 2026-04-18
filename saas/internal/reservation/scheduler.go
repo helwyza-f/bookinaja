@@ -30,8 +30,6 @@ type sessionJob struct {
 	EndTime           time.Time  `db:"end_time"`
 	AccessToken       string     `db:"access_token"`
 	Status            string     `db:"status"`
-	Reminder20MSentAt *time.Time `db:"reminder_20m_sent_at"`
-	Reminder5MSentAt  *time.Time `db:"reminder_5m_sent_at"`
 }
 
 func NewScheduler(db *sqlx.DB, repo *Repository) *Scheduler {
@@ -69,7 +67,7 @@ func (s *Scheduler) runOnce(ctx context.Context) {
 	err := s.db.SelectContext(ctx, &jobs, `
 		SELECT b.id, b.tenant_id, c.name AS customer_name, c.phone AS customer_phone,
 			b.customer_id, res.name AS resource_name, b.start_time, b.end_time, b.access_token,
-			b.status, b.reminder_20m_sent_at, b.reminder_5m_sent_at
+			b.status
 		FROM bookings b
 		JOIN customers c ON c.id = b.customer_id
 		JOIN resources res ON res.id = b.resource_id
@@ -103,13 +101,11 @@ func (s *Scheduler) runOnce(ctx context.Context) {
 			continue
 		}
 
-		if startIn <= 20*time.Minute && startIn > 19*time.Minute && job.Reminder20MSentAt == nil {
+		if startIn <= 20*time.Minute && startIn > 19*time.Minute {
 			_ = s.sendReminder(job, 20)
-			_ = s.repo.MarkReminderSent(ctx, mustParseUUID(job.ID), mustParseUUID(job.TenantID), "reminder_20m_sent_at")
 		}
-		if startIn <= 5*time.Minute && startIn > 4*time.Minute && job.Reminder5MSentAt == nil {
+		if startIn <= 5*time.Minute && startIn > 4*time.Minute {
 			_ = s.sendReminder(job, 5)
-			_ = s.repo.MarkReminderSent(ctx, mustParseUUID(job.ID), mustParseUUID(job.TenantID), "reminder_5m_sent_at")
 		}
 	}
 }

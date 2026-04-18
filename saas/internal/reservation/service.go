@@ -239,7 +239,37 @@ func (s *Service) SettleCash(ctx context.Context, id, tenantID string) error {
 	if err != nil {
 		return errors.New("ID TENANT TIDAK VALID")
 	}
-	return s.repo.SettlePaymentCash(ctx, bID, tID, nil, nil)
+	if err := s.repo.SettlePaymentCash(ctx, bID, tID, nil, nil); err != nil {
+		return err
+	}
+
+	detail, err := s.repo.FindByID(ctx, bID, tID)
+	if err != nil || detail == nil {
+		return nil
+	}
+
+	tenantSlug, err := s.repo.GetTenantSlug(ctx, tID)
+	if err != nil {
+		return nil
+	}
+
+	token, err := generateCustomerSessionToken(detail.CustomerID.String(), detail.TenantID.String())
+	if err != nil {
+		return nil
+	}
+
+	msg := fmt.Sprintf(
+		"Halo %s, pelunasan cash untuk booking kamu sudah diterima.\n\nNomor booking: %s\nUnit: %s\nTotal: Rp %s\nSudah dibayar: Rp %s\nSisa: Rp %s\n\nBuka detail booking:\n%s",
+		detail.CustomerName,
+		detail.ID.String(),
+		detail.ResourceName,
+		formatMoney(detail.GrandTotal),
+		formatMoney(detail.PaidAmount),
+		formatMoney(detail.BalanceDue),
+		bookingDetailURL(tenantSlug, detail.ID.String(), token),
+	)
+	_, _ = fonnte.SendMessage(detail.CustomerPhone, msg)
+	return nil
 }
 
 // AddAddonOrder menambahkan layanan tambahan (Add-on on-the-spot)
@@ -532,7 +562,7 @@ func (s *Service) sendSessionStarted(ctx context.Context, booking *BookingDetail
 		"Halo %s, sesi booking kamu untuk %s sekarang sudah aktif.\n\nBuka detail booking:\n%s",
 		cust,
 		booking.ResourceName,
-		bookingDetailURL(tenantSlug, booking.ID.String(), booking.AccessToken.String()),
+		bookingDetailURL(tenantSlug, booking.ID.String(), safeCustomerSessionToken(booking.CustomerID.String(), booking.TenantID.String())),
 	)
 	_, _ = fonnte.SendMessage(phone, msg)
 	return nil
@@ -556,7 +586,7 @@ func (s *Service) sendSessionReminders(ctx context.Context, booking *BookingDeta
 			booking.CustomerName,
 			booking.ResourceName,
 			booking.StartTime.In(time.Local).Format("02 Jan 2006 15:04"),
-			bookingDetailURL(tenantSlug, booking.ID.String(), booking.AccessToken.String()),
+			bookingDetailURL(tenantSlug, booking.ID.String(), safeCustomerSessionToken(booking.CustomerID.String(), booking.TenantID.String())),
 		)
 		_, _ = fonnte.SendMessage(phone, msg)
 		_ = s.repo.MarkReminderSent(ctx, booking.ID, booking.TenantID, "reminder_20m_sent_at")
@@ -567,7 +597,7 @@ func (s *Service) sendSessionReminders(ctx context.Context, booking *BookingDeta
 			"Halo %s, sesi booking kamu untuk %s mulai 5 menit lagi.\n\nDetail booking:\n%s",
 			booking.CustomerName,
 			booking.ResourceName,
-			bookingDetailURL(tenantSlug, booking.ID.String(), booking.AccessToken.String()),
+			bookingDetailURL(tenantSlug, booking.ID.String(), safeCustomerSessionToken(booking.CustomerID.String(), booking.TenantID.String())),
 		)
 		_, _ = fonnte.SendMessage(phone, msg)
 		_ = s.repo.MarkReminderSent(ctx, booking.ID, booking.TenantID, "reminder_5m_sent_at")
