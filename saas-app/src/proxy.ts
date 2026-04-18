@@ -23,6 +23,8 @@ export default async function proxy(req: NextRequest) {
   const host = req.headers.get("host") || "";
   const hostname = host.split(":")[0];
   const rootDomain = resolveRootDomain(hostname);
+  const hasBookingTokenQuery =
+    url.pathname.startsWith("/me/bookings/") && url.searchParams.has("token");
 
   // 2. BYPASS DOMAIN UTAMA & SISTEM
   if (
@@ -57,6 +59,7 @@ export default async function proxy(req: NextRequest) {
     const redirectTarget = resolveTenantRedirect(path, {
       hasAdminToken: Boolean(adminToken),
       hasCustomerToken: Boolean(customerToken),
+      hasBookingTokenQuery,
     });
 
     if (redirectTarget) {
@@ -111,7 +114,11 @@ function resolveRootDomain(hostname: string) {
 
 function resolveTenantRedirect(
   path: string,
-  auth: { hasAdminToken: boolean; hasCustomerToken: boolean },
+  auth: {
+    hasAdminToken: boolean;
+    hasCustomerToken: boolean;
+    hasBookingTokenQuery?: boolean;
+  },
 ) {
   const isAdminLogin = path === "/admin/login";
   const isAdminArea = path === "/admin" || path.startsWith("/admin/");
@@ -161,6 +168,9 @@ function resolveTenantRedirect(
   }
 
   if (isCustomerArea) {
+    if (auth.hasBookingTokenQuery) {
+      return null;
+    }
     if (auth.hasCustomerToken) {
       return null;
     }

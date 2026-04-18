@@ -44,6 +44,7 @@ export default function CustomerBookingDetail() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [now, setNow] = useState(new Date());
+  const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
 
   const fetchDetail = async () => {
     try {
@@ -80,7 +81,8 @@ export default function CustomerBookingDetail() {
         path: "/",
       });
       const cleanUrl = `${window.location.pathname}${window.location.hash}`;
-      window.history.replaceState({}, "", cleanUrl);
+      router.replace(cleanUrl);
+      return;
     }
     fetchDetail();
     const interval = setInterval(fetchDetail, 30000);
@@ -187,14 +189,20 @@ export default function CustomerBookingDetail() {
       }
       snap.pay(res.data.snap_token, {
         onSuccess: () => {
+          setPaymentNotice("DP sudah dibayar. Sistem sedang memperbarui status booking.");
           toast.success("DP berhasil dibayar");
           fetchDetail();
+          setTimeout(fetchDetail, 4000);
         },
         onPending: () => {
+          setPaymentNotice("Pembayaran DP masih menunggu konfirmasi Midtrans.");
           toast.message("Pembayaran DP tertunda");
           fetchDetail();
         },
-        onError: () => toast.error("Pembayaran DP gagal"),
+        onError: () => {
+          setPaymentNotice("Pembayaran DP gagal atau dibatalkan.");
+          toast.error("Pembayaran DP gagal");
+        },
         onClose: () => fetchDetail(),
       });
     } catch (err: any) {
@@ -482,14 +490,31 @@ export default function CustomerBookingDetail() {
                   : "Booking ini tidak memakai DP, jadi pembayaran diselesaikan saat sesi berakhir."}
               </div>
 
+              {paymentNotice && (
+                <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/15 p-4 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 italic">
+                  {paymentNotice}
+                </div>
+              )}
+
               {paymentStatus === "pending" && depositAmount > 0 && (
-                <Button
-                  onClick={handlePayDeposit}
-                  className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-[1000] uppercase italic tracking-widest text-sm shadow-lg gap-2"
-                >
-                  <CreditCard size={16} />
-                  Bayar DP Sekarang
-                </Button>
+                <div className="space-y-3">
+                  <div className="rounded-2xl bg-orange-500/10 border border-orange-500/15 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-600 italic">
+                      DP belum dibayar
+                    </p>
+                    <p className="mt-2 text-xs font-bold italic text-slate-700 dark:text-slate-200 leading-relaxed">
+                      Klik tombol di bawah untuk membayar <span className="font-black text-blue-600">DP booking</span>.
+                      Setelah DP masuk, sisa tagihan tetap bisa dilunasi setelah sesi selesai.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handlePayDeposit}
+                    className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-[1000] uppercase italic tracking-widest text-sm shadow-lg gap-2"
+                  >
+                    <CreditCard size={16} />
+                    Bayar DP Booking Sekarang
+                  </Button>
+                </div>
               )}
             </div>
 

@@ -74,6 +74,29 @@ export default function BookingsPage() {
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
 
+  const getPaymentMeta = (booking: any) => {
+    const status = (booking?.payment_status || "").toLowerCase();
+    const depositAmount = Number(booking?.deposit_amount || 0);
+    const balanceDue = Number(booking?.balance_due || 0);
+
+    if (status === "settled" || (status === "paid" && balanceDue === 0)) {
+      return { label: "Lunas", className: "bg-emerald-500 text-white" };
+    }
+    if (status === "partial_paid" || (status === "paid" && depositAmount > 0)) {
+      return { label: "DP Masuk", className: "bg-blue-600 text-white" };
+    }
+    if (status === "pending") {
+      return { label: depositAmount > 0 ? "Menunggu DP" : "Bayar Nanti", className: "bg-orange-500 text-white" };
+    }
+    if (status === "expired") {
+      return { label: "DP Kadaluarsa", className: "bg-red-500 text-white" };
+    }
+    if (status === "failed") {
+      return { label: "Gagal Bayar", className: "bg-red-500 text-white" };
+    }
+    return { label: "Belum Dibayar", className: "bg-slate-500 text-white" };
+  };
+
   const resetFilters = () => {
     setSearchQuery("");
     setFilterStatus("all");
@@ -408,6 +431,16 @@ export default function BookingsPage() {
                             {b.status}
                           </Badge>
                         </TableCell>
+                        <TableCell className="w-[15%]">
+                          <Badge
+                            className={cn(
+                              "font-black italic text-[9px] uppercase px-4 py-1.5 rounded-full border-none shadow-sm",
+                              getPaymentMeta(b).className,
+                            )}
+                          >
+                            {getPaymentMeta(b).label}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="text-right pr-10">
                           <div className="flex flex-col items-end">
                             <span className="text-[10px] font-black text-slate-400 uppercase italic mb-1">
@@ -463,6 +496,16 @@ export default function BookingsPage() {
                         size={18}
                         className="text-slate-200 group-hover:text-blue-600 transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
                       />
+                    </div>
+                    <div className="mb-4">
+                      <Badge
+                        className={cn(
+                          "font-black italic text-[9px] uppercase px-3 py-1 rounded-full border-none shadow-sm",
+                          getPaymentMeta(b).className,
+                        )}
+                      >
+                        bayar: {getPaymentMeta(b).label}
+                      </Badge>
                     </div>
 
                     <div className="space-y-1 mb-6">
