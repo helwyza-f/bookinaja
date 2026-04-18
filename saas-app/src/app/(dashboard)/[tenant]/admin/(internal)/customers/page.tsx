@@ -33,6 +33,8 @@ import {
   Users,
   TrendingUp,
   Star,
+  ReceiptText,
+  CalendarClock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -98,6 +100,8 @@ export default function CustomersPage() {
   }, [customers]);
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
+  const formatDateTime = (value: string | Date) =>
+    format(new Date(value), "dd MMM yyyy, HH:mm");
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-6 pb-20 animate-in fade-in duration-500 px-4 mt-6 font-plus-jakarta">
@@ -415,6 +419,131 @@ export default function CustomersPage() {
                           ? "High-value client. Prioritize terminal availability and offer premium FnB complimentary deals."
                           : "Growing loyalty detected. Encourage long-duration bookings to elevate tier status to VIP."}
                       </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-8 space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400 italic">
+                          Transaction History
+                        </p>
+                        <h3 className="text-lg font-[1000] italic uppercase tracking-tight text-slate-900 dark:text-white">
+                          Riwayat Transaksi Customer
+                        </h3>
+                      </div>
+                      <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-500 border-none font-black italic text-[9px] uppercase px-3 py-1">
+                        {customerDetail.transaction_history?.length || 0} record
+                      </Badge>
+                    </div>
+
+                    <div className="rounded-[1.5rem] border border-slate-200/70 dark:border-white/10 overflow-hidden">
+                      <div className="max-h-[340px] overflow-auto">
+                        <Table>
+                          <TableHeader className="sticky top-0 z-10 bg-white dark:bg-slate-950">
+                            <TableRow className="border-slate-100 dark:border-white/5">
+                              <TableHead className="pl-5 text-[8px] uppercase font-black italic tracking-widest text-slate-400">
+                                Booking
+                              </TableHead>
+                              <TableHead className="text-[8px] uppercase font-black italic tracking-widest text-slate-400">
+                                Date
+                              </TableHead>
+                              <TableHead className="text-[8px] uppercase font-black italic tracking-widest text-slate-400">
+                                Status
+                              </TableHead>
+                              <TableHead className="text-[8px] uppercase font-black italic tracking-widest text-slate-400">
+                                Payment
+                              </TableHead>
+                              <TableHead className="text-[8px] uppercase font-black italic tracking-widest text-slate-400 text-right pr-5">
+                                Nominal
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {(customerDetail.transaction_history || []).length === 0 ? (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={5}
+                                  className="py-10 text-center text-slate-400 font-black italic uppercase tracking-widest"
+                                >
+                                  Belum ada histori transaksi
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              customerDetail.transaction_history.map((tx: any) => (
+                                <TableRow
+                                  key={tx.id}
+                                  className="border-slate-100 dark:border-white/5"
+                                >
+                                  <TableCell className="pl-5 py-4">
+                                    <div className="flex flex-col">
+                                      <span className="font-[1000] text-sm italic text-slate-900 dark:text-white leading-none">
+                                        {tx.resource}
+                                      </span>
+                                      <span className="text-[10px] font-bold uppercase italic text-slate-400 mt-1 flex items-center gap-1">
+                                        <ReceiptText size={10} />
+                                        {String(tx.id).slice(0, 8)}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-col">
+                                      <span className="font-black italic text-slate-900 dark:text-white text-sm leading-none flex items-center gap-1">
+                                        <CalendarClock size={10} />
+                                        {formatDateTime(tx.date)}
+                                      </span>
+                                      {tx.end_date ? (
+                                        <span className="text-[10px] font-bold uppercase italic text-slate-400 mt-1">
+                                          Selesai {formatDateTime(tx.end_date)}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge
+                                      className={cn(
+                                        "font-black italic text-[8px] uppercase px-3 py-0.5 rounded-lg border-none shadow-sm",
+                                        tx.status === "completed"
+                                          ? "bg-emerald-500 text-white"
+                                          : tx.status === "active" || tx.status === "ongoing"
+                                            ? "bg-blue-600 text-white"
+                                            : tx.status === "cancelled"
+                                              ? "bg-rose-500 text-white"
+                                              : "bg-slate-100 dark:bg-slate-800 text-slate-500",
+                                      )}
+                                    >
+                                      {tx.status}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-col gap-1">
+                                      <Badge className="w-fit bg-slate-100 dark:bg-slate-800 text-slate-500 border-none font-black italic text-[8px] uppercase px-2 py-0.5">
+                                        {tx.payment_status || "unpaid"}
+                                      </Badge>
+                                      <span className="text-[10px] font-bold uppercase italic text-slate-400">
+                                        {tx.payment_method || "none"}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="pr-5 text-right">
+                                    <div className="flex flex-col items-end">
+                                      <span className="text-sm font-[1000] italic text-emerald-500">
+                                        Rp {formatIDR(tx.grand_total || tx.total_spent || 0)}
+                                      </span>
+                                      <span className="text-[10px] font-bold uppercase italic text-slate-400">
+                                        DP {formatIDR(tx.deposit_amount || 0)} | Bayar {formatIDR(tx.paid_amount || 0)}
+                                      </span>
+                                      <span className="text-[10px] font-bold uppercase italic text-slate-400">
+                                        Sisa {formatIDR(tx.balance_due || 0)}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
                     </div>
                   </div>
                 </div>
