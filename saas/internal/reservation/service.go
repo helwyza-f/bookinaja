@@ -258,16 +258,7 @@ func (s *Service) SettleCash(ctx context.Context, id, tenantID string) error {
 		return nil
 	}
 
-	msg := fmt.Sprintf(
-		"Halo %s, pelunasan cash untuk booking kamu sudah diterima.\n\nNomor booking: %s\nUnit: %s\nTotal: Rp %s\nSudah dibayar: Rp %s\nSisa: Rp %s\n\nBuka detail booking:\n%s",
-		detail.CustomerName,
-		detail.ID.String(),
-		detail.ResourceName,
-		formatMoney(detail.GrandTotal),
-		formatMoney(detail.PaidAmount),
-		formatMoney(detail.BalanceDue),
-		bookingDetailURL(tenantSlug, detail.ID.String(), token),
-	)
+	msg := waPaymentReceivedMessage(detail.CustomerName, "pelunasan cash", detail.ID.String(), detail.ResourceName, detail.GrandTotal, detail.DepositAmount, detail.PaidAmount, detail.BalanceDue, bookingDetailURL(tenantSlug, detail.ID.String(), token))
 	_, _ = fonnte.SendMessage(detail.CustomerPhone, msg)
 	return nil
 }
@@ -509,20 +500,7 @@ func (s *Service) SendBookingConfirmation(ctx context.Context, booking *Booking,
 	}
 
 	detailURL := bookingDetailURL(tenantSlug, booking.ID.String(), sessionToken)
-	paymentLine := "Tidak ada DP, silakan lihat detail booking."
-	if booking.DepositAmount > 0 {
-		paymentLine = fmt.Sprintf("DP booking: Rp %s. Sisa bayar: Rp %s.", formatMoney(booking.DepositAmount), formatMoney(booking.BalanceDue))
-	}
-
-	msg := fmt.Sprintf(
-		"Halo %s, booking kamu sudah berhasil.\n\nNomor booking: %s\nMulai: %s\nSelesai: %s\n%s\n\nBuka detail booking di sini:\n%s",
-		cust.Name,
-		booking.ID.String(),
-		booking.StartTime.In(time.Local).Format("02 Jan 2006 15:04"),
-		booking.EndTime.In(time.Local).Format("02 Jan 2006 15:04"),
-		paymentLine,
-		detailURL,
-	)
+	msg := waBookingCreatedMessage(cust.Name, booking.ID.String(), booking.StartTime, booking.EndTime, booking.DepositAmount, booking.BalanceDue, detailURL)
 	_, _ = fonnte.SendMessage(cust.Phone, msg)
 	return nil
 }
@@ -558,12 +536,7 @@ func (s *Service) sendSessionStarted(ctx context.Context, booking *BookingDetail
 		return nil
 	}
 	tenantSlug, _ := s.repo.GetTenantSlug(ctx, booking.TenantID)
-	msg := fmt.Sprintf(
-		"Halo %s, sesi booking kamu untuk %s sekarang sudah aktif.\n\nBuka detail booking:\n%s",
-		cust,
-		booking.ResourceName,
-		bookingDetailURL(tenantSlug, booking.ID.String(), safeCustomerSessionToken(booking.CustomerID.String(), booking.TenantID.String())),
-	)
+	msg := waSessionStartedMessage(cust, booking.ResourceName, bookingDetailURL(tenantSlug, booking.ID.String(), safeCustomerSessionToken(booking.CustomerID.String(), booking.TenantID.String())))
 	_, _ = fonnte.SendMessage(phone, msg)
 	return nil
 }
@@ -581,28 +554,53 @@ func (s *Service) sendSessionReminders(ctx context.Context, booking *BookingDeta
 	tenantSlug, _ := s.repo.GetTenantSlug(ctx, booking.TenantID)
 
 	if due <= 20*time.Minute && due > 19*time.Minute && booking.Reminder20MSentAt == nil {
-		msg := fmt.Sprintf(
-			"Halo %s, sesi booking kamu untuk %s mulai 20 menit lagi pada %s.\n\nDetail booking:\n%s",
-			booking.CustomerName,
-			booking.ResourceName,
-			booking.StartTime.In(time.Local).Format("02 Jan 2006 15:04"),
-			bookingDetailURL(tenantSlug, booking.ID.String(), safeCustomerSessionToken(booking.CustomerID.String(), booking.TenantID.String())),
-		)
+		msg := waSessionReminderMessage(booking.CustomerName, booking.ResourceName, 20, booking.StartTime, bookingDetailURL(tenantSlug, booking.ID.String(), safeCustomerSessionToken(booking.CustomerID.String(), booking.TenantID.String())))
 		_, _ = fonnte.SendMessage(phone, msg)
 		_ = s.repo.MarkReminderSent(ctx, booking.ID, booking.TenantID, "reminder_20m_sent_at")
 	}
 
 	if due <= 5*time.Minute && due > 4*time.Minute && booking.Reminder5MSentAt == nil {
-		msg := fmt.Sprintf(
-			"Halo %s, sesi booking kamu untuk %s mulai 5 menit lagi.\n\nDetail booking:\n%s",
-			booking.CustomerName,
-			booking.ResourceName,
-			bookingDetailURL(tenantSlug, booking.ID.String(), safeCustomerSessionToken(booking.CustomerID.String(), booking.TenantID.String())),
-		)
+		msg := waSessionReminderMessage(booking.CustomerName, booking.ResourceName, 5, booking.StartTime, bookingDetailURL(tenantSlug, booking.ID.String(), safeCustomerSessionToken(booking.CustomerID.String(), booking.TenantID.String())))
 		_, _ = fonnte.SendMessage(phone, msg)
 		_ = s.repo.MarkReminderSent(ctx, booking.ID, booking.TenantID, "reminder_5m_sent_at")
 	}
 	return nil
+}
+
+func waBookingCreatedMessage(name, bookingID string, startTime, endTime time.Time, depositAmount, balanceDue float64, detailURL string) string {
+	paymentLine := "Booking tanpa DP. Detail booking bisa dibuka di bawah."
+	if depositAmount > 0 {
+		paymentLine = fmt.Sprintf("DP booking: Rp %s. Sisa bayar: Rp %s.", formatMoney(depositAmount), formatMoney(balanceDue))
+	}
+	return fmt.Sprintf(
+		"Halo %s, booking kamu sudah berhasil.\n\nNomor booking: %s\nMulai: %s\nSelesai: %s\n%s\n\nBuka detail booking di sini:\n%s",
+		name,
+		bookingID,
+		startTime.In(time.Local).Format("02 Jan 2006 15:04"),
+		endTime.In(time.Local).Format("02 Jan 2006 15:04"),
+		paymentLine,
+		detailURL,
+	)
+}
+
+func waSessionStartedMessage(name, resourceName, detailURL string) string {
+	return fmt.Sprintf(
+		"Halo %s, sesi booking kamu untuk %s sekarang sudah aktif.\n\nBuka detail booking di sini:\n%s",
+		name,
+		resourceName,
+		detailURL,
+	)
+}
+
+func waSessionReminderMessage(name, resourceName string, minutes int, startTime time.Time, detailURL string) string {
+	return fmt.Sprintf(
+		"Halo %s, sesi booking kamu untuk %s mulai %d menit lagi pada %s.\n\nBuka detail booking di sini:\n%s",
+		name,
+		resourceName,
+		minutes,
+		startTime.In(time.Local).Format("02 Jan 2006 15:04"),
+		detailURL,
+	)
 }
 
 func calculateDepositAmount(grandTotal float64, bookingStatus string) float64 {
@@ -618,4 +616,23 @@ func calculateDepositAmount(grandTotal float64, bookingStatus string) float64 {
 		dp = grandTotal
 	}
 	return dp
+}
+
+func waPaymentReceivedMessage(name, note, bookingID, resourceName string, grandTotal, depositAmount, paidAmount, balanceDue float64, detailURL string) string {
+	remaining := balanceDue
+	if remaining < 0 {
+		remaining = 0
+	}
+	return fmt.Sprintf(
+		"Halo %s, %s\n\nNomor booking: %s\nUnit: %s\nTotal: Rp %s\nDP: Rp %s\nSudah dibayar: Rp %s\nSisa: Rp %s\n\nBuka detail booking di sini:\n%s",
+		name,
+		note,
+		bookingID,
+		resourceName,
+		formatMoney(grandTotal),
+		formatMoney(depositAmount),
+		formatMoney(paidAmount),
+		formatMoney(remaining),
+		detailURL,
+	)
 }

@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -111,39 +109,43 @@ func (s *Scheduler) runOnce(ctx context.Context) {
 }
 
 func (s *Scheduler) sendReminder(job sessionJob, minutes int) error {
-	base := strings.TrimRight(strings.TrimSpace(os.Getenv("NEXT_PUBLIC_APP_URL")), "/")
-	if base == "" {
-		base = "http://localhost:3000"
+	tenantSlug, err := s.repo.GetTenantSlug(context.Background(), mustParseUUID(job.TenantID))
+	if err != nil {
+		tenantSlug = "tenant"
 	}
+	token := safeCustomerSessionToken(job.CustomerID, job.TenantID)
 	msg := fmt.Sprintf(
-		"Halo %s, sesi booking kamu untuk %s mulai %d menit lagi pada %s.\n\nBuka detail booking:\n%s/me/bookings/%s?token=%s",
+		"Halo %s, sesi booking kamu untuk %s mulai %d menit lagi pada %s.\n\nBuka detail booking di https://%s.bookinaja.com:\nhttps://%s.bookinaja.com/me/bookings/%s?token=%s",
 		job.CustomerName,
 		job.ResourceName,
 		minutes,
 		job.StartTime.In(time.Local).Format("02 Jan 2006 15:04"),
-		base,
+		tenantSlug,
+		tenantSlug,
 		job.ID,
-		safeCustomerSessionToken(job.CustomerID, job.TenantID),
+		token,
 	)
-	_, err := fonnte.SendMessage(job.CustomerPhone, msg)
-	return err
+	_, sendErr := fonnte.SendMessage(job.CustomerPhone, msg)
+	return sendErr
 }
 
 func (s *Scheduler) sendSessionStarted(job sessionJob) error {
-	base := strings.TrimRight(strings.TrimSpace(os.Getenv("NEXT_PUBLIC_APP_URL")), "/")
-	if base == "" {
-		base = "http://localhost:3000"
+	tenantSlug, err := s.repo.GetTenantSlug(context.Background(), mustParseUUID(job.TenantID))
+	if err != nil {
+		tenantSlug = "tenant"
 	}
+	token := safeCustomerSessionToken(job.CustomerID, job.TenantID)
 	msg := fmt.Sprintf(
-		"Halo %s, sesi booking kamu untuk %s sekarang sudah aktif.\n\nBuka detail booking:\n%s/me/bookings/%s?token=%s",
+		"Halo %s, sesi booking kamu untuk %s sekarang sudah aktif.\n\nBuka detail booking di %s.bookinaja.com:\nhttps://%s.bookinaja.com/me/bookings/%s?token=%s",
 		job.CustomerName,
 		job.ResourceName,
-		base,
+		tenantSlug,
+		tenantSlug,
 		job.ID,
-		safeCustomerSessionToken(job.CustomerID, job.TenantID),
+		token,
 	)
-	_, err := fonnte.SendMessage(job.CustomerPhone, msg)
-	return err
+	_, sendErr := fonnte.SendMessage(job.CustomerPhone, msg)
+	return sendErr
 }
 
 func mustParseUUID(v string) uuid.UUID {
