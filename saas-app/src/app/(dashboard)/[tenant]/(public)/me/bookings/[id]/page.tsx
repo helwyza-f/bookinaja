@@ -1,7 +1,8 @@
 "use client";
 
+import { setCookie } from "cookies-next";
 import { useEffect, useState, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import {
   Wallet,
   BadgeCheck,
   Hourglass,
+  CreditCard,
 } from "lucide-react";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -37,6 +39,7 @@ import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
 export default function CustomerBookingDetail() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [booking, setBooking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -59,16 +62,34 @@ export default function CustomerBookingDetail() {
     }
   };
 
+  const syncSession = async () => {
+    try {
+      await api.post(`/public/bookings/${params.id}/sync`);
+      await fetchDetail();
+    } catch {
+      // ignore sync errors, UI still loads from booking detail
+    }
+  };
+
   useEffect(() => {
     if (!params.id) return;
+    const token = searchParams.get("token");
+    if (token) {
+      setCookie("customer_auth", token, {
+        maxAge: 60 * 60 * 24 * 7,
+        path: "/",
+      });
+    }
     fetchDetail();
     const interval = setInterval(fetchDetail, 30000);
+    const syncInterval = setInterval(syncSession, 60000);
     const clock = setInterval(() => setNow(new Date()), 1000);
     return () => {
       clearInterval(interval);
+      clearInterval(syncInterval);
       clearInterval(clock);
     };
-  }, [params.id]);
+  }, [params.id, searchParams]);
 
   const isActiveStatus = useMemo(
     () => booking?.status === "active" || booking?.status === "ongoing",
@@ -152,6 +173,31 @@ export default function CustomerBookingDetail() {
   const getUnitLabel = (duration: number) => {
     if (duration === 60) return "Jam";
     return "Sesi";
+  };
+
+  const handlePayDeposit = async () => {
+    try {
+      const res = await api.post(`/public/bookings/${params.id}/checkout`);
+      const snap = (window as any).snap;
+      if (!snap) {
+        toast.error("Midtrans belum siap. Coba refresh halaman.");
+        return;
+      }
+      snap.pay(res.data.snap_token, {
+        onSuccess: () => {
+          toast.success("DP berhasil dibayar");
+          fetchDetail();
+        },
+        onPending: () => {
+          toast.message("Pembayaran DP tertunda");
+          fetchDetail();
+        },
+        onError: () => toast.error("Pembayaran DP gagal"),
+        onClose: () => fetchDetail(),
+      });
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Gagal membuka pembayaran DP");
+    }
   };
 
   if (loading) return <TicketSkeleton />;
@@ -433,6 +479,16 @@ export default function CustomerBookingDetail() {
                   ? `Customer sudah membayar DP Rp ${depositAmount.toLocaleString()} dari total booking. Sisa Rp ${balanceDue.toLocaleString()} akan diselesaikan setelah sesi selesai.`
                   : "Booking ini tidak memakai DP, jadi pembayaran diselesaikan saat sesi berakhir."}
               </div>
+
+              {paymentStatus === "pending" && depositAmount > 0 && (
+                <Button
+                  onClick={handlePayDeposit}
+                  className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-[1000] uppercase italic tracking-widest text-sm shadow-lg gap-2"
+                >
+                  <CreditCard size={16} />
+                  Bayar DP Sekarang
+                </Button>
+              )}
             </div>
 
             {booking.options?.map((opt: any) => (

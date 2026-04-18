@@ -374,6 +374,25 @@ func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, s
 	return err
 }
 
+func (r *Repository) UpdateSessionActivatedAt(ctx context.Context, id, tenantID uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE bookings
+		SET session_activated_at = NOW()
+		WHERE id = $1 AND tenant_id = $2 AND session_activated_at IS NULL`,
+		id, tenantID,
+	)
+	return err
+}
+
+func (r *Repository) MarkReminderSent(ctx context.Context, id, tenantID uuid.UUID, field string) error {
+	if field != "reminder_20m_sent_at" && field != "reminder_5m_sent_at" {
+		return fmt.Errorf("invalid reminder field")
+	}
+	query := fmt.Sprintf(`UPDATE bookings SET %s = NOW() WHERE id = $1 AND tenant_id = $2 AND %s IS NULL`, field, field)
+	_, err := r.db.ExecContext(ctx, query, id, tenantID)
+	return err
+}
+
 func (r *Repository) ListUpcoming(ctx context.Context, resourceID uuid.UUID, from time.Time) ([]Booking, error) {
 	var bookings []Booking
 	query := `SELECT * FROM bookings WHERE resource_id = $1 AND end_time > $2 AND status != 'cancelled' ORDER BY start_time ASC`
