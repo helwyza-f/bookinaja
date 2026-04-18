@@ -8,9 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/helwiza/saas/internal/customer"
+	"github.com/helwiza/saas/internal/fnb"
 	"github.com/helwiza/saas/internal/platform/fonnte"
+	"github.com/helwiza/saas/internal/platform/security"
 	"github.com/helwiza/saas/internal/resource"
 )
 
@@ -18,13 +21,15 @@ type Service struct {
 	repo            *Repository
 	resourceRepo    *resource.Repository
 	customerService *customer.Service
+	fnbService      *fnb.Service
 }
 
-func NewService(r *Repository, resRepo *resource.Repository, custSvc *customer.Service) *Service {
+func NewService(r *Repository, resRepo *resource.Repository, custSvc *customer.Service, fnbSvc *fnb.Service) *Service {
 	return &Service{
 		repo:            r,
 		resourceRepo:    resRepo,
 		customerService: custSvc,
+		fnbService:      fnbSvc,
 	}
 }
 
@@ -175,6 +180,17 @@ func (s *Service) ExtendSession(ctx context.Context, bookingID string, tenantID 
 	}
 	newEndTime := booking.EndTime.Add(time.Duration(additionalDuration*unitMinutes) * time.Minute)
 
+	maxEnd := time.Date(
+		booking.EndTime.Year(),
+		booking.EndTime.Month(),
+		booking.EndTime.Day(),
+		23, 59, 59, 0,
+		booking.EndTime.Location(),
+	)
+	if newEndTime.After(maxEnd) {
+		return errors.New("MAX EXTENSION SESSION TERCAPAI")
+	}
+
 	return s.repo.ExtendSessionWithValidation(
 		ctx,
 		bID,
@@ -312,6 +328,77 @@ func (s *Service) GetDetailForCustomer(ctx context.Context, id, tenantID, custom
 	return s.repo.FindByIDForCustomer(ctx, bID, tID, cID)
 }
 
+func (s *Service) GetCustomerResources(ctx context.Context, tenantID string) (any, error) {
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, errors.New("ID TENANT TIDAK VALID")
+	}
+	resources, category, bType, err := s.resourceRepo.ListByTenant(ctx, tID)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"business_category": category,
+		"business_type":     bType,
+		"resources":         resources,
+	}, nil
+}
+
+func (s *Service) GetCustomerFnbMenu(ctx context.Context, tenantID string, search string) ([]fnb.Item, error) {
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, errors.New("ID TENANT TIDAK VALID")
+	}
+	if s.fnbService == nil {
+		return nil, errors.New("layanan fnb tidak tersedia")
+	}
+	return s.fnbService.GetMenu(ctx, tID, search)
+}
+
+func (s *Service) GetCustomerAvailabilityByBooking(ctx context.Context, bookingID, tenantID, customerID string, date time.Time) ([]map[string]string, error) {
+	detail, err := s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID)
+	if err != nil {
+		return nil, err
+	}
+	return s.GetAvailability(ctx, detail.ResourceID.String(), date)
+}
+
+func (s *Service) GetCustomerLiveSnapshot(ctx context.Context, bookingID, tenantID, customerID string, date time.Time) (map[string]any, error) {
+	detail, err := s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID)
+	if err != nil {
+		return nil, err
+	}
+	busySlots, err := s.GetAvailability(ctx, detail.ResourceID.String(), date)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"booking":    detail,
+		"busy_slots": busySlots,
+	}, nil
+}
+
+func (s *Service) CustomerExtendSession(ctx context.Context, bookingID, tenantID, customerID string, additionalDuration int) error {
+	if _, err := s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID); err != nil {
+		return err
+	}
+	return s.ExtendSession(ctx, bookingID, tenantID, additionalDuration)
+}
+
+func (s *Service) CustomerAddFnbOrder(ctx context.Context, bookingID, tenantID, customerID string, req AddOrderReq) error {
+	if _, err := s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID); err != nil {
+		return err
+	}
+	return s.AddFnbOrder(ctx, bookingID, tenantID, req)
+}
+
+func (s *Service) CustomerAddAddonOrder(ctx context.Context, bookingID, tenantID, customerID, itemID string) error {
+	if _, err := s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID); err != nil {
+		return err
+	}
+	return s.AddAddonOrder(ctx, bookingID, tenantID, itemID)
+}
+
 func (s *Service) ListByTenant(ctx context.Context, tenantID, status string) ([]BookingDetail, error) {
 	tID, _ := uuid.Parse(tenantID)
 	return s.repo.FindAllByTenant(ctx, tID, status)
@@ -339,7 +426,7 @@ func (s *Service) SyncSessionState(ctx context.Context, bookingID, tenantID stri
 	}
 
 	now := time.Now().UTC()
-	if booking.Status == "pending" && !now.Before(booking.StartTime) {
+	if (booking.Status == "pending" || booking.Status == "confirmed") && !now.Before(booking.StartTime) {
 		if err := s.repo.UpdateStatus(ctx, bID, tID, "active"); err != nil {
 			return nil, err
 		}
@@ -385,6 +472,15 @@ func bookingDetailURL(tenantSlug, bookingID, token string) string {
 		slug = "tenant"
 	}
 	return fmt.Sprintf("https://%s.bookinaja.com/me/bookings/%s?token=%s", slug, bookingID, token)
+}
+
+func generateCustomerSessionToken(customerID, tenantID string) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"customer_id": customerID,
+		"tenant_id":   tenantID,
+		"exp":         time.Now().Add(time.Hour * 72).Unix(),
+	})
+	return token.SignedString([]byte(security.JWTSecret()))
 }
 
 func formatMoney(v float64) string {
@@ -453,7 +549,7 @@ func calculateDepositAmount(grandTotal float64, bookingStatus string) float64 {
 		return grandTotal
 	}
 
-	dp := math.Round(grandTotal * 0.2)
+	dp := math.Round(grandTotal * 0.4)
 	if dp < 10000 {
 		dp = 10000
 	}

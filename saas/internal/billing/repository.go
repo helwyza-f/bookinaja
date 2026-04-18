@@ -143,6 +143,10 @@ func (r *Repository) UpdateBookingPaymentFromMidtrans(ctx context.Context, exec 
 				WHEN $2 IN ('paid', 'settled') THEN 'settled'
 				ELSE $2
 			END,
+			status = CASE
+				WHEN status = 'pending' AND $2 IN ('paid', 'settled') THEN 'confirmed'
+				ELSE status
+			END,
 			payment_method = COALESCE($3, payment_method),
 			paid_amount = CASE
 				WHEN $2 IN ('paid', 'settled') AND balance_due > 0 THEN deposit_amount

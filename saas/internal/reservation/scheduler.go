@@ -22,6 +22,7 @@ type Scheduler struct {
 type sessionJob struct {
 	ID                string     `db:"id"`
 	TenantID          string     `db:"tenant_id"`
+	CustomerID        string     `db:"customer_id"`
 	CustomerName      string     `db:"customer_name"`
 	CustomerPhone     string     `db:"customer_phone"`
 	ResourceName      string     `db:"resource_name"`
@@ -67,7 +68,7 @@ func (s *Scheduler) runOnce(ctx context.Context) {
 	var jobs []sessionJob
 	err := s.db.SelectContext(ctx, &jobs, `
 		SELECT b.id, b.tenant_id, c.name AS customer_name, c.phone AS customer_phone,
-			res.name AS resource_name, b.start_time, b.end_time, b.access_token,
+			b.customer_id, res.name AS resource_name, b.start_time, b.end_time, b.access_token,
 			b.status, b.reminder_20m_sent_at, b.reminder_5m_sent_at
 		FROM bookings b
 		JOIN customers c ON c.id = b.customer_id
@@ -86,7 +87,7 @@ func (s *Scheduler) runOnce(ctx context.Context) {
 	for _, job := range jobs {
 		startIn := job.StartTime.Sub(now)
 
-		if job.Status == "pending" && !now.Before(job.StartTime) {
+		if (job.Status == "pending" || job.Status == "confirmed") && !now.Before(job.StartTime) {
 			bID := mustParseUUID(job.ID)
 			tID := mustParseUUID(job.TenantID)
 			if err := s.repo.UpdateStatus(ctx, bID, tID, "active"); err != nil {
@@ -98,7 +99,7 @@ func (s *Scheduler) runOnce(ctx context.Context) {
 			continue
 		}
 
-		if job.Status != "pending" {
+		if job.Status != "pending" && job.Status != "confirmed" {
 			continue
 		}
 
@@ -126,7 +127,7 @@ func (s *Scheduler) sendReminder(job sessionJob, minutes int) error {
 		job.StartTime.In(time.Local).Format("02 Jan 2006 15:04"),
 		base,
 		job.ID,
-		job.AccessToken,
+		safeCustomerSessionToken(job.CustomerID, job.TenantID),
 	)
 	_, err := fonnte.SendMessage(job.CustomerPhone, msg)
 	return err
@@ -143,7 +144,7 @@ func (s *Scheduler) sendSessionStarted(job sessionJob) error {
 		job.ResourceName,
 		base,
 		job.ID,
-		job.AccessToken,
+		safeCustomerSessionToken(job.CustomerID, job.TenantID),
 	)
 	_, err := fonnte.SendMessage(job.CustomerPhone, msg)
 	return err
@@ -155,4 +156,12 @@ func mustParseUUID(v string) uuid.UUID {
 		return uuid.Nil
 	}
 	return id
+}
+
+func safeCustomerSessionToken(customerID, tenantID string) string {
+	token, err := generateCustomerSessionToken(customerID, tenantID)
+	if err != nil {
+		return ""
+	}
+	return token
 }

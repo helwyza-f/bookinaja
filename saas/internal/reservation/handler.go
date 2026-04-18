@@ -5,9 +5,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/helwiza/saas/internal/platform/security"
 )
 
 type Handler struct {
@@ -41,14 +39,7 @@ func (h *Handler) Create(c *gin.Context) {
 	}
 
 	// --- AUTO GENERATE JWT UNTUK SILENT LOGIN ---
-	// Payload disamakan dengan modul customer.Service agar portal /me mengenali user ini
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"customer_id": cust.ID.String(),
-		"tenant_id":   cust.TenantID.String(),
-		"exp":         time.Now().Add(time.Hour * 72).Unix(), // Aktif 3 hari
-	})
-
-	tokenString, err := token.SignedString([]byte(security.JWTSecret()))
+	tokenString, err := generateCustomerSessionToken(cust.ID.String(), cust.TenantID.String())
 	if err != nil {
 		// Tetap biarkan booking berhasil, tapi log error JWT-nya
 		c.JSON(http.StatusCreated, gin.H{
@@ -229,6 +220,162 @@ func (h *Handler) GetMyDetail(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, booking)
+}
+
+func (h *Handler) GetCustomerResources(c *gin.Context) {
+	tenantID := c.MustGet("tenantID").(string)
+	data, err := h.service.GetCustomerResources(c.Request.Context(), tenantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "GAGAL MENGAMBIL KATALOG"})
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
+
+func (h *Handler) GetCustomerFnb(c *gin.Context) {
+	tenantID := c.MustGet("tenantID").(string)
+	search := c.Query("q")
+	items, err := h.service.GetCustomerFnbMenu(c.Request.Context(), tenantID, search)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "GAGAL MENGAMBIL MENU"})
+		return
+	}
+	c.JSON(http.StatusOK, items)
+}
+
+func (h *Handler) CustomerBookingAvailability(c *gin.Context) {
+	tenantID := c.MustGet("tenantID").(string)
+	bookingID := c.Param("id")
+	dateStr := c.Query("date")
+	targetDate, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		targetDate = time.Now()
+	}
+	customerIDValue, exists := c.Get("customerID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	customerID, ok := customerIDValue.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	busy, err := h.service.GetCustomerAvailabilityByBooking(c.Request.Context(), bookingID, tenantID, customerID, targetDate)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "GAGAL MENGAMBIL DATA JADWAL"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"busy_slots": busy})
+}
+
+func (h *Handler) GetCustomerLiveSnapshot(c *gin.Context) {
+	tenantID := c.MustGet("tenantID").(string)
+	customerIDValue, exists := c.Get("customerID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	customerID, ok := customerIDValue.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	bookingID := c.Param("id")
+	date := time.Now()
+	if dateStr := c.Query("date"); dateStr != "" {
+		if parsed, err := time.Parse("2006-01-02", dateStr); err == nil {
+			date = parsed
+		}
+	}
+	snapshot, err := h.service.GetCustomerLiveSnapshot(c.Request.Context(), bookingID, tenantID, customerID, date)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "GAGAL MENGAMBIL SNAPSHOT BOOKING"})
+		return
+	}
+	c.JSON(http.StatusOK, snapshot)
+}
+
+func (h *Handler) CustomerExtendSession(c *gin.Context) {
+	bookingID := c.Param("id")
+	tenantID := c.MustGet("tenantID").(string)
+	customerIDValue, exists := c.Get("customerID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	customerID, ok := customerIDValue.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+
+	var req struct {
+		AdditionalDuration int `json:"additional_duration" binding:"required,min=1"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "DURASI MINIMAL 1 SESI"})
+		return
+	}
+	if err := h.service.CustomerExtendSession(c.Request.Context(), bookingID, tenantID, customerID, req.AdditionalDuration); err != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "DURASI BERHASIL DIPERPANJANG"})
+}
+
+func (h *Handler) CustomerAddOrder(c *gin.Context) {
+	bookingID := c.Param("id")
+	tenantID := c.MustGet("tenantID").(string)
+	customerIDValue, exists := c.Get("customerID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	customerID, ok := customerIDValue.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+
+	var req AddOrderReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "DATA PESANAN TIDAK VALID"})
+		return
+	}
+	if err := h.service.CustomerAddFnbOrder(c.Request.Context(), bookingID, tenantID, customerID, req); err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "PESANAN BERHASIL DITAMBAHKAN"})
+}
+
+func (h *Handler) CustomerAddAddonItem(c *gin.Context) {
+	bookingID := c.Param("id")
+	tenantID := c.MustGet("tenantID").(string)
+	customerIDValue, exists := c.Get("customerID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	customerID, ok := customerIDValue.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+
+	var req struct {
+		ItemID string `json:"item_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ITEM ID WAJIB DIISI"})
+		return
+	}
+	if err := h.service.CustomerAddAddonOrder(c.Request.Context(), bookingID, tenantID, customerID, req.ItemID); err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "LAYANAN TAMBAHAN DITAMBAHKAN"})
 }
 
 func (h *Handler) GetPublicDetailByToken(c *gin.Context) {
