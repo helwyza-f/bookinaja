@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -136,7 +137,10 @@ func (s *Service) HandleMidtransNotification(ctx context.Context, payload map[st
 		}
 		if strings.HasPrefix(orderID, "book-") {
 			bookingIDStr := strings.TrimPrefix(orderID, "book-")
-			bookingIDStr = strings.TrimSuffix(bookingIDStr, "-dp")
+			bookingIDStr, _, found := strings.Cut(bookingIDStr, "-dp-")
+			if !found {
+				bookingIDStr = strings.TrimSuffix(bookingIDStr, "-dp")
+			}
 			bookingID, err := uuid.Parse(bookingIDStr)
 			if err != nil {
 				return err
@@ -163,7 +167,7 @@ func (s *Service) CheckoutBookingDeposit(ctx context.Context, tenantID uuid.UUID
 	amount := booking.DepositAmount
 
 	orderID := fmt.Sprintf("book-%s-dp", bookingID.String())
-	display := fmt.Sprintf("DP Booking %s", tenantSlug)
+	display := "DP"
 	snapToken, redirectURL, err := s.createSnapTransaction(ctx, orderID, int64(amount), display)
 	if err != nil {
 		return BookingCheckoutRes{}, err
@@ -221,9 +225,12 @@ func (s *Service) createSnapTransaction(ctx context.Context, orderID string, amo
 			"order_id":     orderID,
 			"gross_amount": amount,
 		},
+		"customer_details": map[string]any{
+			"first_name": "Bookinaja",
+		},
 		"item_details": []map[string]any{
 			{
-				"id":       "subscription",
+				"id":       orderID,
 				"price":    amount,
 				"quantity": 1,
 				"name":     itemName,
@@ -254,11 +261,15 @@ func (s *Service) createSnapTransaction(ctx context.Context, orderID string, amo
 		ErrorMsgs   any    `json:"error_messages"`
 		StatusMsg   string `json:"status_message"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+	rawResp, _ := io.ReadAll(resp.Body)
+	if err := json.Unmarshal(rawResp, &out); err != nil {
 		return "", "", err
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 || out.Token == "" {
+		if len(rawResp) > 0 {
+			return "", "", fmt.Errorf("midtrans snap error: http %d: %s", resp.StatusCode, strings.TrimSpace(string(rawResp)))
+		}
 		if out.StatusMsg != "" {
 			return "", "", fmt.Errorf("midtrans snap error: %s", out.StatusMsg)
 		}

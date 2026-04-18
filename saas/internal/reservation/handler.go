@@ -292,6 +292,10 @@ func (h *Handler) GetCustomerLiveSnapshot(c *gin.Context) {
 	}
 	snapshot, err := h.service.GetCustomerLiveSnapshot(c.Request.Context(), bookingID, tenantID, customerID, date)
 	if err != nil {
+		if err.Error() == "LIVE CONTROLLER HANYA BISA DIAKSES SAAT SESI AKTIF" {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "GAGAL MENGAMBIL SNAPSHOT BOOKING"})
 		return
 	}
