@@ -81,11 +81,8 @@ export default function TenantsPage() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Link href={`/dashboard/customers?tenant=${tenant.slug}`} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold">
-                  Customers
-                </Link>
-                <Link href={`/dashboard/transactions?tenant=${tenant.slug}`} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold">
-                  Transactions
+                <Link href={`/dashboard/tenants/${tenant.id}`} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold">
+                  Open detail
                 </Link>
               </div>
             </div>

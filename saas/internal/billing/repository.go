@@ -218,3 +218,48 @@ func (r *Repository) GetBookingNotificationContext(ctx context.Context, exec sql
 	)
 	return ctxData, err
 }
+
+func (r *Repository) CreateMidtransNotificationLog(ctx context.Context, exec sqlx.ExtContext, log MidtransNotificationLog) error {
+	_, err := exec.ExecContext(ctx, `
+		INSERT INTO midtrans_notification_logs (
+			tenant_id, booking_id, order_id, transaction_id, transaction_status, fraud_status,
+			payment_type, gross_amount, signature_valid, processing_status, error_message,
+			raw_payload, received_at, processed_at
+		) VALUES (
+			$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,COALESCE($13, NOW()), $14
+		)`,
+		log.TenantID, log.BookingID, log.OrderID, log.TransactionID, log.TransactionStatus, log.FraudStatus,
+		log.PaymentType, log.GrossAmount, log.SignatureValid, log.ProcessingStatus, log.ErrorMessage,
+		log.RawPayload, log.ReceivedAt, log.ProcessedAt,
+	)
+	return err
+}
+
+func (r *Repository) CreateLedgerEntry(ctx context.Context, exec sqlx.ExtContext, entry TenantLedgerEntry) error {
+	_, err := exec.ExecContext(ctx, `
+		INSERT INTO tenant_ledger_entries (
+			tenant_id, source_type, source_id, source_ref, midtrans_order_id, midtrans_transaction_id,
+			transaction_status, payment_type, direction, gross_amount, platform_fee, net_amount,
+			balance_after, status, dedupe_key, raw_payload, created_at, updated_at
+		) VALUES (
+			$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,COALESCE($17, NOW()), COALESCE($18, NOW())
+		)
+		ON CONFLICT (dedupe_key) DO NOTHING`,
+		entry.TenantID, entry.SourceType, entry.SourceID, entry.SourceRef, entry.MidtransOrderID, entry.MidtransTransactionID,
+		entry.TransactionStatus, entry.PaymentType, entry.Direction, entry.GrossAmount, entry.PlatformFee, entry.NetAmount,
+		entry.BalanceAfter, entry.Status, entry.DedupeKey, entry.RawPayload, entry.CreatedAt, entry.UpdatedAt,
+	)
+	return err
+}
+
+func (r *Repository) CurrentTenantBalance(ctx context.Context, exec sqlx.ExtContext, tenantID uuid.UUID) (int64, error) {
+	var balance int64
+	err := sqlx.GetContext(ctx, exec, &balance, `
+		SELECT COALESCE(SUM(CASE WHEN status = 'settled' AND direction = 'credit' THEN net_amount ELSE 0 END), 0)
+		     - COALESCE(SUM(CASE WHEN status = 'settled' AND direction = 'debit' THEN net_amount ELSE 0 END), 0) AS balance
+		FROM tenant_ledger_entries
+		WHERE tenant_id = $1`,
+		tenantID,
+	)
+	return balance, err
+}

@@ -2,11 +2,12 @@ package platformadmin
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/helwiza/saas/internal/platform/security"
 )
 
@@ -35,7 +36,7 @@ func (h *Handler) Login(c *gin.Context) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id":   "platform-admin",
-		"tenant_id":  "",
+		"tenant_id": "",
 		"role":      "platform_admin",
 		"exp":       time.Now().Add(time.Hour * 168).Unix(),
 	})
@@ -78,8 +79,109 @@ func (h *Handler) Customers(c *gin.Context) {
 	c.JSON(http.StatusOK, data)
 }
 
+func (h *Handler) TenantDetail(c *gin.Context) {
+	tenantID := strings.TrimSpace(c.Param("tenant_id"))
+	if tenantID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenant_id wajib diisi"})
+		return
+	}
+	data, err := h.repo.GetTenantDetail(c.Request.Context(), tenantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
+
+func (h *Handler) TenantCustomers(c *gin.Context) {
+	tenantID := strings.TrimSpace(c.Param("tenant_id"))
+	if tenantID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenant_id wajib diisi"})
+		return
+	}
+	data, err := h.repo.ListCustomersByTenant(c.Request.Context(), tenantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
+
+func (h *Handler) TenantTransactions(c *gin.Context) {
+	tenantID := strings.TrimSpace(c.Param("tenant_id"))
+	if tenantID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenant_id wajib diisi"})
+		return
+	}
+	data, err := h.repo.ListTransactionsByTenant(c.Request.Context(), tenantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
+
 func (h *Handler) Transactions(c *gin.Context) {
 	data, err := h.repo.ListTransactions(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
+
+func (h *Handler) TenantBalances(c *gin.Context) {
+	data, err := h.repo.ListTenantBalances(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
+
+func (h *Handler) TenantBalanceDetail(c *gin.Context) {
+	tenantID := strings.TrimSpace(c.Param("tenant_id"))
+	if tenantID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenant_id wajib diisi"})
+		return
+	}
+	data, err := h.repo.GetTenantBalance(c.Request.Context(), tenantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
+
+func (h *Handler) MidtransNotifications(c *gin.Context) {
+	tenantSlug := strings.TrimSpace(c.Query("tenant"))
+	limit := 100
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = parsed
+		}
+	}
+	data, err := h.repo.ListMidtransNotificationLogs(c.Request.Context(), limit, tenantSlug)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
+
+func (h *Handler) TenantMidtransNotifications(c *gin.Context) {
+	tenantID := strings.TrimSpace(c.Param("tenant_id"))
+	if tenantID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenant_id wajib diisi"})
+		return
+	}
+	limit := 100
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = parsed
+		}
+	}
+	data, err := h.repo.ListMidtransNotificationLogsByTenantID(c.Request.Context(), tenantID, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
