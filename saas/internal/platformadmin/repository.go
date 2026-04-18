@@ -147,7 +147,14 @@ func (r *Repository) ListCustomersByTenant(ctx context.Context, tenantID string)
 	return result, nil
 }
 
-func (r *Repository) ListTransactions(ctx context.Context) ([]map[string]any, error) {
+func (r *Repository) ListTransactions(ctx context.Context, page, pageSize int) ([]map[string]any, int, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 200 {
+		pageSize = 25
+	}
+	offset := (page - 1) * pageSize
 	rows, err := r.db.QueryxContext(ctx, `
 		SELECT
 			bo.id::text,
@@ -165,9 +172,9 @@ func (r *Repository) ListTransactions(ctx context.Context) ([]map[string]any, er
 		FROM billing_orders bo
 		JOIN tenants t ON t.id = bo.tenant_id
 		ORDER BY bo.created_at DESC
-		LIMIT 500`)
+		LIMIT $1 OFFSET $2`, pageSize, offset)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -179,31 +186,89 @@ func (r *Repository) ListTransactions(ctx context.Context) ([]map[string]any, er
 		}
 		result = append(result, normalizeRow(row))
 	}
-	return result, nil
+	var total int
+	if err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM billing_orders`); err != nil {
+		return nil, 0, err
+	}
+	return result, total, nil
 }
 
-func (r *Repository) ListTransactionsByTenant(ctx context.Context, tenantID string) ([]map[string]any, error) {
+func (r *Repository) ListTransactionsByTenant(ctx context.Context, tenantID string, page, pageSize int) ([]map[string]any, int, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 200 {
+		pageSize = 25
+	}
+	offset := (page - 1) * pageSize
 	rows, err := r.db.QueryxContext(ctx, `
 		SELECT
-			bo.id::text,
-			bo.order_id,
-			bo.plan,
-			bo.billing_interval,
-			bo.amount,
-			bo.currency,
-			bo.status,
-			bo.created_at,
-			bo.updated_at,
-			t.slug AS tenant_slug,
-			t.name AS tenant_name,
-			t.id::text AS tenant_id
-		FROM billing_orders bo
-		JOIN tenants t ON t.id = bo.tenant_id
-		WHERE t.id::text = $1
-		ORDER BY bo.created_at DESC
-		LIMIT 500`, tenantID)
+			id,
+			source_type,
+			order_id,
+			plan,
+			billing_interval,
+			amount,
+			currency,
+			status,
+			transaction_status,
+			created_at,
+			updated_at,
+			tenant_slug,
+			tenant_name,
+			tenant_id
+		FROM (
+			SELECT
+				bo.id::text AS id,
+				'subscription'::text AS source_type,
+				bo.order_id,
+				bo.plan,
+				bo.billing_interval,
+				bo.amount,
+				bo.currency,
+				bo.status,
+				bo.status AS transaction_status,
+				bo.created_at,
+				bo.updated_at,
+				t.slug AS tenant_slug,
+				t.name AS tenant_name,
+				t.id::text AS tenant_id
+			FROM billing_orders bo
+			JOIN tenants t ON t.id = bo.tenant_id
+			WHERE t.id::text = $1
+
+			UNION ALL
+
+			SELECT
+				l.id::text AS id,
+				'booking'::text AS source_type,
+				l.midtrans_order_id AS order_id,
+				CASE
+					WHEN l.source_ref IS NOT NULL THEN l.source_ref
+					ELSE l.source_type
+				END AS plan,
+				CASE
+					WHEN l.source_type = 'booking_payment' THEN 'booking'
+					ELSE 'booking'
+				END AS billing_interval,
+				l.net_amount AS amount,
+				'IDR'::text AS currency,
+				l.status,
+				l.transaction_status,
+				l.created_at,
+				l.updated_at,
+				t.slug AS tenant_slug,
+				t.name AS tenant_name,
+				t.id::text AS tenant_id
+			FROM tenant_ledger_entries l
+			JOIN tenants t ON t.id = l.tenant_id
+			WHERE t.id::text = $1
+			  AND l.source_type = 'booking_payment'
+		) x
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3`, tenantID, pageSize, offset)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 	var result []map[string]any
@@ -214,7 +279,15 @@ func (r *Repository) ListTransactionsByTenant(ctx context.Context, tenantID stri
 		}
 		result = append(result, normalizeRow(row))
 	}
-	return result, nil
+	var total int
+	if err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM billing_orders bo JOIN tenants t ON t.id = bo.tenant_id WHERE t.id::text = $1`, tenantID); err != nil {
+		return nil, 0, err
+	}
+	bookingCount := 0
+	if err := r.db.GetContext(ctx, &bookingCount, `SELECT COUNT(*) FROM tenant_ledger_entries l WHERE l.tenant_id::text = $1 AND l.source_type = 'booking_payment'`, tenantID); err != nil {
+		return nil, 0, err
+	}
+	return result, total + bookingCount, nil
 }
 
 func (r *Repository) ListTenantBalances(ctx context.Context) ([]map[string]any, error) {
@@ -286,14 +359,18 @@ func (r *Repository) GetTenantBalance(ctx context.Context, tenantID string) (map
 	return normalizeRow(row), nil
 }
 
-func (r *Repository) ListMidtransNotificationLogs(ctx context.Context, limit int, tenantSlug string) ([]map[string]any, error) {
-	if limit <= 0 || limit > 500 {
-		limit = 100
+func (r *Repository) ListMidtransNotificationLogs(ctx context.Context, page, pageSize int, tenantSlug string) ([]map[string]any, int, error) {
+	if page <= 0 {
+		page = 1
 	}
-	args := []any{limit}
+	if pageSize <= 0 || pageSize > 200 {
+		pageSize = 25
+	}
+	offset := (page - 1) * pageSize
+	args := []any{pageSize, offset}
 	where := ""
 	if tenantSlug != "" {
-		where = "WHERE t.slug = $2"
+		where = "WHERE t.slug = $3"
 		args = append(args, tenantSlug)
 	}
 	query := fmt.Sprintf(`
@@ -318,10 +395,10 @@ func (r *Repository) ListMidtransNotificationLogs(ctx context.Context, limit int
 		LEFT JOIN tenants t ON t.id = l.tenant_id
 		%s
 		ORDER BY l.received_at DESC
-		LIMIT $1`, where)
+		LIMIT $1 OFFSET $2`, where)
 	rows, err := r.db.QueryxContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 	var result []map[string]any
@@ -332,16 +409,39 @@ func (r *Repository) ListMidtransNotificationLogs(ctx context.Context, limit int
 		}
 		result = append(result, normalizeRow(row))
 	}
-	return result, nil
+	var total int
+	if tenantSlug != "" {
+		if err := r.db.GetContext(ctx, &total, `
+			SELECT COUNT(*)
+			FROM midtrans_notification_logs l
+			LEFT JOIN tenants t ON t.id = l.tenant_id
+			WHERE t.slug = $1`, tenantSlug); err != nil {
+			return nil, 0, err
+		}
+	} else {
+		if err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM midtrans_notification_logs`); err != nil {
+			return nil, 0, err
+		}
+	}
+	return result, total, nil
 }
 
-func (r *Repository) ListMidtransNotificationLogsByTenantID(ctx context.Context, tenantID string, limit int) ([]map[string]any, error) {
-	if limit <= 0 || limit > 500 {
-		limit = 100
+func (r *Repository) ListMidtransNotificationLogsByTenantID(ctx context.Context, tenantID string, page, pageSize int) ([]map[string]any, int, error) {
+	if page <= 0 {
+		page = 1
 	}
+	if pageSize <= 0 || pageSize > 200 {
+		pageSize = 25
+	}
+	offset := (page - 1) * pageSize
 	rows, err := r.db.QueryxContext(ctx, `
 		SELECT
 			l.id::text,
+			CASE
+				WHEN l.order_id LIKE 'sub-%' THEN 'subscription'
+				WHEN l.order_id LIKE 'book-%' THEN 'booking'
+				ELSE 'unknown'
+			END AS source_type,
 			l.received_at,
 			l.processed_at,
 			l.order_id,
@@ -361,9 +461,9 @@ func (r *Repository) ListMidtransNotificationLogsByTenantID(ctx context.Context,
 		LEFT JOIN tenants t ON t.id = l.tenant_id
 		WHERE t.id::text = $1
 		ORDER BY l.received_at DESC
-		LIMIT $2`, tenantID, limit)
+		LIMIT $2 OFFSET $3`, tenantID, pageSize, offset)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 	var result []map[string]any
@@ -374,7 +474,11 @@ func (r *Repository) ListMidtransNotificationLogsByTenantID(ctx context.Context,
 		}
 		result = append(result, normalizeRow(row))
 	}
-	return result, nil
+	var total int
+	if err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM midtrans_notification_logs WHERE tenant_id::text = $1`, tenantID); err != nil {
+		return nil, 0, err
+	}
+	return result, total, nil
 }
 
 func (r *Repository) GetTenantDetail(ctx context.Context, tenantID string) (map[string]any, error) {
@@ -402,8 +506,44 @@ func (r *Repository) GetTenantDetail(ctx context.Context, tenantID string) (map[
 			u.email AS owner_email,
 			COALESCE((SELECT COUNT(*) FROM customers c WHERE c.tenant_id = t.id), 0) AS customers_count,
 			COALESCE((SELECT COUNT(*) FROM bookings b WHERE b.tenant_id = t.id), 0) AS bookings_count,
-			COALESCE((SELECT SUM(COALESCE(bo.amount,0)) FROM billing_orders bo WHERE bo.tenant_id = t.id AND bo.status IN ('settlement','capture','paid')), 0) AS revenue,
-			COALESCE((SELECT COUNT(*) FROM billing_orders bo WHERE bo.tenant_id = t.id), 0) AS transactions_count
+			COALESCE((SELECT SUM(COALESCE(bo.amount,0)) FROM billing_orders bo WHERE bo.tenant_id = t.id AND bo.status IN ('settlement','capture','paid')), 0) AS subscription_revenue,
+			COALESCE((SELECT COUNT(*) FROM billing_orders bo WHERE bo.tenant_id = t.id), 0) AS subscription_transactions_count,
+			COALESCE((SELECT SUM(CASE WHEN l.status = 'settled' AND l.direction = 'credit' THEN l.net_amount ELSE 0 END) FROM tenant_ledger_entries l WHERE l.tenant_id = t.id AND l.source_type = 'booking_payment'), 0) AS booking_revenue,
+			COALESCE((SELECT SUM(CASE WHEN l.status = 'settled' AND l.direction = 'debit' THEN l.net_amount ELSE 0 END) FROM tenant_ledger_entries l WHERE l.tenant_id = t.id AND l.source_type = 'booking_payment'), 0) AS booking_deductions,
+			COALESCE((SELECT COUNT(*) FROM tenant_ledger_entries l WHERE l.tenant_id = t.id AND l.source_type = 'booking_payment'), 0) AS booking_transactions_count
+		FROM tenants t
+		LEFT JOIN users u ON u.tenant_id = t.id AND u.role = 'owner'
+		WHERE t.id::text = $1
+		LIMIT 1`, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return map[string]any{}, nil
+	}
+	row := map[string]any{}
+	if err := rows.MapScan(row); err != nil {
+		return nil, err
+	}
+	return normalizeRow(row), nil
+}
+
+func (r *Repository) GetTenantInsights(ctx context.Context, tenantID string) (map[string]any, error) {
+	rows, err := r.db.QueryxContext(ctx, `
+		SELECT
+			t.id::text AS tenant_id,
+			t.slug AS tenant_slug,
+			t.name AS tenant_name,
+			COALESCE(u.name, '-') AS owner_name,
+			COALESCE(u.email, '-') AS owner_email,
+			COALESCE((SELECT SUM(COALESCE(bo.amount,0)) FROM billing_orders bo WHERE bo.tenant_id = t.id AND bo.status IN ('settlement','capture','paid')), 0) AS subscription_revenue,
+			COALESCE((SELECT COUNT(*) FROM billing_orders bo WHERE bo.tenant_id = t.id), 0) AS subscription_transactions,
+			COALESCE((SELECT SUM(CASE WHEN l.status = 'settled' AND l.direction = 'credit' THEN l.net_amount ELSE 0 END) FROM tenant_ledger_entries l WHERE l.tenant_id = t.id AND l.source_type = 'booking_payment'), 0) AS booking_balance,
+			COALESCE((SELECT COUNT(*) FROM tenant_ledger_entries l WHERE l.tenant_id = t.id AND l.source_type = 'booking_payment'), 0) AS booking_transactions,
+			COALESCE((SELECT COUNT(*) FROM midtrans_notification_logs l WHERE l.tenant_id = t.id), 0) AS midtrans_logs,
+			COALESCE((SELECT COUNT(*) FROM customers c WHERE c.tenant_id = t.id), 0) AS customers_count,
+			COALESCE((SELECT COUNT(*) FROM bookings b WHERE b.tenant_id = t.id), 0) AS bookings_count
 		FROM tenants t
 		LEFT JOIN users u ON u.tenant_id = t.id AND u.role = 'owner'
 		WHERE t.id::text = $1

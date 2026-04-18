@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, CircleDot } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getPlatformTenants, type PlatformTenant } from "@/lib/platform-admin";
 
 export default function TenantsPage() {
@@ -19,7 +20,7 @@ export default function TenantsPage() {
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
     return tenants.filter((tenant) =>
-      [tenant.name, tenant.slug, tenant.owner_email, tenant.status].some((v) =>
+      [tenant.name, tenant.slug, tenant.owner_email, tenant.status, tenant.plan].some((v) =>
         (v || "").toLowerCase().includes(q),
       ),
     );
@@ -57,39 +58,49 @@ export default function TenantsPage() {
         </div>
       </Card>
 
-      <div className="grid gap-4">
-        {filtered.map((tenant) => (
-          <Card key={tenant.id} className="rounded-[2rem] p-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-xl font-black">{tenant.name}</h2>
-                  <Badge variant="outline" className="rounded-full uppercase">
-                    {tenant.status || "unknown"}
-                  </Badge>
-                </div>
-                <div className="text-sm text-slate-500">
-                  {tenant.slug} • {tenant.owner_email}
-                </div>
-                <div className="flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  <span className="inline-flex items-center gap-1">
-                    <CircleDot className="h-3 w-3 text-emerald-500" />
-                    {tenant.customers_count || 0} customers
-                  </span>
-                  <span>{tenant.transactions_count || 0} transactions</span>
-                  <span>Rp {(tenant.revenue || 0).toLocaleString("id-ID")}</span>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Link href={`/dashboard/tenants/${tenant.id}`} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold">
-                  Open detail
-                </Link>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+      <Card className="rounded-[2rem] p-3">
+        <div className="overflow-hidden rounded-[1.5rem] border border-slate-200">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tenant</TableHead>
+                <TableHead>Plan</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Customers</TableHead>
+                <TableHead className="text-right">Transactions</TableHead>
+                <TableHead className="text-right">Revenue</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((tenant) => (
+                <TableRow key={tenant.id}>
+                  <TableCell>
+                    <div className="font-black">{tenant.name}</div>
+                    <div className="text-xs text-slate-500">{tenant.slug} • {tenant.owner_email || "-"}</div>
+                  </TableCell>
+                  <TableCell>{tenant.plan || "-"}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="rounded-full uppercase">
+                      {tenant.status || "unknown"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">{tenant.customers_count || 0}</TableCell>
+                  <TableCell className="text-right">{tenant.transactions_count || 0}</TableCell>
+                  <TableCell className="text-right font-black">
+                    Rp {(tenant.revenue || 0).toLocaleString("id-ID")}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Link href={`/dashboard/tenants/${tenant.id}`} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold">
+                      Open detail
+                    </Link>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
     </main>
   );
 }
-

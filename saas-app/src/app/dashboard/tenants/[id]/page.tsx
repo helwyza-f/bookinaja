@@ -13,11 +13,11 @@ import {
   getPlatformTenantDetail,
   getPlatformTenantNotifications,
   getPlatformTenantTransactions,
+  type MidtransNotificationLog,
   type PlatformCustomer,
+  type PlatformTenantBalance,
   type PlatformTenantDetail,
   type PlatformTransaction,
-  type MidtransNotificationLog,
-  type PlatformTenantBalance,
 } from "@/lib/platform-admin";
 
 export default function TenantDetailPage() {
@@ -32,6 +32,7 @@ export default function TenantDetailPage() {
   const [customerQuery, setCustomerQuery] = useState("");
   const [customerTier, setCustomerTier] = useState("all");
   const [transactionQuery, setTransactionQuery] = useState("");
+  const [transactionType, setTransactionType] = useState("all");
   const [transactionStatus, setTransactionStatus] = useState("all");
   const [transactionFrom, setTransactionFrom] = useState("");
   const [transactionTo, setTransactionTo] = useState("");
@@ -51,13 +52,14 @@ export default function TenantDetailPage() {
 
   const filteredCustomers = useMemo(() => {
     const q = customerQuery.toLowerCase();
-    return customers.filter(
-      (item) =>
-        (customerTier === "all" || (item.tier || "").toLowerCase() === customerTier) &&
-        [item.name, item.phone, item.email, item.tier].some((v) =>
-          String(v || "").toLowerCase().includes(q),
-        ),
-    );
+    return customers.filter((item) => {
+      const tierOk =
+        customerTier === "all" || (item.tier || "").toLowerCase() === customerTier;
+      const queryOk = [item.name, item.phone, item.email, item.tier, item.tenant_name].some((v) =>
+        String(v || "").toLowerCase().includes(q),
+      );
+      return tierOk && queryOk;
+    });
   }, [customerQuery, customerTier, customers]);
 
   const filteredTransactions = useMemo(() => {
@@ -67,14 +69,17 @@ export default function TenantDetailPage() {
       const passDate =
         (!transactionFrom || !created || !isBefore(created, parseISO(`${transactionFrom}T00:00:00`))) &&
         (!transactionTo || !created || !isAfter(created, parseISO(`${transactionTo}T23:59:59`)));
+      const passType =
+        transactionType === "all" || (item.source_type || "unknown") === transactionType;
       const passStatus =
-        transactionStatus === "all" || (item.status || "").toLowerCase() === transactionStatus;
-      const passQuery = [item.order_id, item.status, item.plan, item.billing_interval].some((v) =>
+        transactionStatus === "all" ||
+        (item.transaction_status || item.status || "").toLowerCase() === transactionStatus;
+      const passQuery = [item.order_id, item.plan, item.billing_interval, item.source_type].some((v) =>
         String(v || "").toLowerCase().includes(q),
       );
-      return passDate && passStatus && passQuery;
+      return passDate && passType && passStatus && passQuery;
     });
-  }, [transactionFrom, transactionQuery, transactionStatus, transactionTo, transactions]);
+  }, [transactionFrom, transactionQuery, transactionStatus, transactionTo, transactionType, transactions]);
 
   const filteredNotifications = useMemo(() => {
     const q = logQuery.toLowerCase();
@@ -85,20 +90,12 @@ export default function TenantDetailPage() {
         (!logTo || !received || !isAfter(received, parseISO(`${logTo}T23:59:59`)));
       const passStatus =
         logStatus === "all" || (item.processing_status || "").toLowerCase() === logStatus;
-      const passQuery = [item.order_id, item.transaction_id, item.processing_status, item.transaction_status].some((v) =>
-        String(v || "").toLowerCase().includes(q),
+      const passQuery = [item.order_id, item.transaction_id, item.transaction_status, item.source_type].some(
+        (v) => String(v || "").toLowerCase().includes(q),
       );
       return passDate && passStatus && passQuery;
     });
   }, [logFrom, logQuery, logStatus, logTo, notifications]);
-
-  const getBookingIdFromOrderId = (orderId?: string) => {
-    if (!orderId?.startsWith("book-")) return "";
-    const trimmed = orderId.replace(/^book-/, "");
-    const [idPart] = trimmed.split("-dp");
-    const [duePart] = idPart.split("-due");
-    return duePart;
-  };
 
   if (!detail) {
     return (
@@ -107,6 +104,10 @@ export default function TenantDetailPage() {
       </main>
     );
   }
+
+  const subscriptionRevenue = Number(detail.subscription_revenue || 0);
+  const bookingBalance = Number(balance?.balance ?? detail.booking_revenue ?? 0);
+  const bookingTransactions = Number(detail.booking_transactions_count || 0);
 
   return (
     <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 md:px-8">
@@ -130,39 +131,63 @@ export default function TenantDetailPage() {
 
       <Tabs
         overview={
-          <Card className="space-y-4 rounded-[2rem] p-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-black uppercase tracking-tight">Overview</h2>
-              <Badge variant="outline" className="rounded-full uppercase">
-                Snapshot
-              </Badge>
-            </div>
-            <Input
-              value={overviewQuery}
-              onChange={(e) => setOverviewQuery(e.target.value)}
-              placeholder="Search overview fields..."
-              className="h-12 rounded-2xl"
-            />
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {[
-                ["Balance", `Rp ${(balance?.balance ?? detail.revenue ?? 0).toLocaleString("id-ID")}`],
-                ["Customers", String(detail.customers_count || 0)],
-                ["Transactions", String(detail.transactions_count || 0)],
-                ["Bookings", String(detail.bookings_count || 0)],
-              ]
-                .filter(([label, value]) =>
-                  `${label} ${value}`.toLowerCase().includes(overviewQuery.toLowerCase()),
-                )
-                .map(([label, value]) => (
-                  <div key={label} className="rounded-2xl border border-slate-200 p-4">
-                    <div className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
-                      {label}
+          <section className="space-y-4">
+            <Card className="space-y-4 rounded-[2rem] p-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-black uppercase tracking-tight">Overview</h2>
+                <Badge variant="outline" className="rounded-full uppercase">
+                  Snapshot
+                </Badge>
+              </div>
+              <Input
+                value={overviewQuery}
+                onChange={(e) => setOverviewQuery(e.target.value)}
+                placeholder="Search summary..."
+                className="h-12 rounded-2xl"
+              />
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {[
+                  ["Subscription Revenue", `Rp ${subscriptionRevenue.toLocaleString("id-ID")}`],
+                  ["Booking Balance", `Rp ${bookingBalance.toLocaleString("id-ID")}`],
+                  ["Customers", String(detail.customers_count || 0)],
+                  ["Booking Tx", String(bookingTransactions)],
+                ]
+                  .filter(([label, value]) =>
+                    `${label} ${value}`.toLowerCase().includes(overviewQuery.toLowerCase()),
+                  )
+                  .map(([label, value]) => (
+                    <div key={label} className="rounded-2xl border border-slate-200 p-4">
+                      <div className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+                        {label}
+                      </div>
+                      <div className="mt-2 text-xl font-black">{value}</div>
                     </div>
-                    <div className="mt-2 text-xl font-black">{value}</div>
+                  ))}
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 p-4">
+                  <div className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+                    Subscription
                   </div>
-                ))}
-            </div>
-          </Card>
+                  <div className="mt-2 text-xl font-black">{detail.subscription_status || "-"}</div>
+                  <div className="mt-1 text-sm text-slate-500">
+                    Plan: {detail.plan || "-"}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 p-4">
+                  <div className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+                    Booking balance
+                  </div>
+                  <div className="mt-2 text-xl font-black">
+                    Rp {bookingBalance.toLocaleString("id-ID")}
+                  </div>
+                  <div className="mt-1 text-sm text-slate-500">
+                    Saldo tenant yang masih tersimpan di Bookinaja.
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </section>
         }
         customers={
           <section className="space-y-3">
@@ -200,6 +225,9 @@ export default function TenantDetailPage() {
                     <div className="text-sm text-slate-500">
                       {item.phone || "-"} • {item.email || "-"}
                     </div>
+                    <div className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-400">
+                      {item.tier || "unknown"} • {item.tenant_name || detail.name}
+                    </div>
                   </div>
                   <div className="text-right text-sm text-slate-500">
                     <div>Visits: {item.visits || 0}</div>
@@ -219,7 +247,7 @@ export default function TenantDetailPage() {
                   {filteredTransactions.length}
                 </Badge>
               </div>
-              <div className="grid gap-3 md:grid-cols-4">
+              <div className="grid gap-3 md:grid-cols-5">
                 <Input
                   value={transactionQuery}
                   onChange={(e) => setTransactionQuery(e.target.value)}
@@ -227,63 +255,54 @@ export default function TenantDetailPage() {
                   className="h-12 rounded-2xl"
                 />
                 <select
+                  value={transactionType}
+                  onChange={(e) => setTransactionType(e.target.value)}
+                  className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm"
+                >
+                  <option value="all">All source</option>
+                  <option value="subscription">Subscription</option>
+                  <option value="booking">Booking</option>
+                </select>
+                <select
                   value={transactionStatus}
                   onChange={(e) => setTransactionStatus(e.target.value)}
                   className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm"
                 >
                   <option value="all">All status</option>
                   <option value="pending">Pending</option>
-                  <option value="paid">Paid</option>
                   <option value="settlement">Settlement</option>
                   <option value="capture">Capture</option>
+                  <option value="paid">Paid</option>
                   <option value="failed">Failed</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
-                <Input
-                  value={transactionFrom}
-                  onChange={(e) => setTransactionFrom(e.target.value)}
-                  type="date"
-                  className="h-12 rounded-2xl"
-                />
-                <Input
-                  value={transactionTo}
-                  onChange={(e) => setTransactionTo(e.target.value)}
-                  type="date"
-                  className="h-12 rounded-2xl"
-                />
+                <Input value={transactionFrom} onChange={(e) => setTransactionFrom(e.target.value)} type="date" className="h-12 rounded-2xl" />
+                <Input value={transactionTo} onChange={(e) => setTransactionTo(e.target.value)} type="date" className="h-12 rounded-2xl" />
               </div>
             </Card>
-            {filteredTransactions.map((item) => {
-              const bookingId = getBookingIdFromOrderId(item.order_id);
-              return (
-                <Card key={`${item.id}-${item.created_at}`} className="rounded-[2rem] p-5">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <div className="font-black">{item.order_id}</div>
-                      <div className="text-sm text-slate-500">
-                        {item.plan || "-"} • {item.billing_interval || "-"} • {item.created_at}
-                      </div>
+            {filteredTransactions.map((item) => (
+              <Card key={`${item.id}-${item.created_at}`} className="rounded-[2rem] p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="font-black">{item.order_id}</div>
+                    <div className="text-sm text-slate-500">
+                      {(item.source_type || "unknown").toUpperCase()} • {item.plan || item.billing_interval || "-"} • {item.created_at}
                     </div>
-                    <div className="flex items-center gap-3">
-                      <Badge variant="outline" className="rounded-full uppercase">
-                        {item.status}
-                      </Badge>
-                      {bookingId ? (
-                        <Link
-                          href={`/${detail.slug}/admin/bookings/${bookingId}`}
-                          className="rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold"
-                        >
-                          Booking detail
-                        </Link>
-                      ) : null}
-                      <div className="font-black">
-                        Rp {(item.amount || 0).toLocaleString("id-ID")}
-                      </div>
+                    <div className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                      {item.transaction_status || item.status || "-"}
                     </div>
                   </div>
-                </Card>
-              );
-            })}
+                  <div className="text-right">
+                    <Badge variant="outline" className="rounded-full uppercase">
+                      {item.source_type || "unknown"}
+                    </Badge>
+                    <div className="mt-2 font-black">
+                      Rp {(item.amount || 0).toLocaleString("id-ID")}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
           </section>
         }
         logs={
@@ -313,62 +332,41 @@ export default function TenantDetailPage() {
                   <option value="ignored">Ignored</option>
                   <option value="failed">Failed</option>
                 </select>
-                <Input
-                  value={logFrom}
-                  onChange={(e) => setLogFrom(e.target.value)}
-                  type="date"
-                  className="h-12 rounded-2xl"
-                />
-                <Input
-                  value={logTo}
-                  onChange={(e) => setLogTo(e.target.value)}
-                  type="date"
-                  className="h-12 rounded-2xl"
-                />
+                <Input value={logFrom} onChange={(e) => setLogFrom(e.target.value)} type="date" className="h-12 rounded-2xl" />
+                <Input value={logTo} onChange={(e) => setLogTo(e.target.value)} type="date" className="h-12 rounded-2xl" />
               </div>
             </Card>
-            {filteredNotifications.map((item) => {
-              const bookingId = item.booking_id || getBookingIdFromOrderId(item.order_id);
-              return (
-                <Card key={item.id} className="rounded-[2rem] p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="font-black">{item.order_id}</div>
-                      <div className="text-sm text-slate-500">
-                        {item.received_at} • {item.transaction_status || "-"} • {item.payment_type || "-"}
-                      </div>
-                      <div className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                        {item.transaction_id || "-"} • {item.fraud_status || "-"}
-                      </div>
+            {filteredNotifications.map((item) => (
+              <Card key={item.id} className="rounded-[2rem] p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="font-black">{item.order_id}</div>
+                    <div className="text-sm text-slate-500">
+                      {item.received_at} • {item.transaction_status || "-"} • {item.payment_type || "-"}
                     </div>
-                    <div className="text-right">
-                      <Badge
-                        variant={item.signature_valid ? "default" : "destructive"}
-                        className="rounded-full uppercase"
-                      >
-                        {item.processing_status}
-                      </Badge>
-                      <div className="mt-2 font-black">
-                        Rp {(item.gross_amount || 0).toLocaleString("id-ID")}
-                      </div>
-                      {bookingId ? (
-                        <Link
-                          href={`/${detail.slug}/admin/bookings/${bookingId}`}
-                          className="mt-2 inline-flex rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold"
-                        >
-                          Booking detail
-                        </Link>
-                      ) : null}
+                    <div className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                      {item.transaction_id || "-"} • {item.fraud_status || "-"} • {item.source_type || "unknown"}
                     </div>
                   </div>
-                  {item.error_message ? (
-                    <div className="mt-4 rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">
-                      {item.error_message}
+                  <div className="text-right">
+                    <Badge
+                      variant={item.signature_valid ? "default" : "destructive"}
+                      className="rounded-full uppercase"
+                    >
+                      {item.processing_status}
+                    </Badge>
+                    <div className="mt-2 font-black">
+                      Rp {(item.gross_amount || 0).toLocaleString("id-ID")}
                     </div>
-                  ) : null}
-                </Card>
-              );
-            })}
+                  </div>
+                </div>
+                {item.error_message ? (
+                  <div className="mt-4 rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">
+                    {item.error_message}
+                  </div>
+                ) : null}
+              </Card>
+            ))}
           </section>
         }
       />
@@ -417,4 +415,3 @@ function Tabs({
     </div>
   );
 }
-
