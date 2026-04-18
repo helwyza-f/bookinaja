@@ -87,3 +87,43 @@ type BookingNotificationContext struct {
 	PaymentStatus string    `db:"payment_status"`
 	Status        string    `db:"status"`
 }
+
+type TenantLedgerEntry struct {
+	ID                    uuid.UUID  `db:"id" json:"id"`
+	TenantID              uuid.UUID  `db:"tenant_id" json:"tenant_id"`
+	SourceType            string     `db:"source_type" json:"source_type"`
+	SourceID              *uuid.UUID `db:"source_id" json:"source_id"`
+	SourceRef             string     `db:"source_ref" json:"source_ref"`
+	MidtransOrderID       string     `db:"midtrans_order_id" json:"midtrans_order_id"`
+	MidtransTransactionID string     `db:"midtrans_transaction_id" json:"midtrans_transaction_id"`
+	TransactionStatus     string     `db:"transaction_status" json:"transaction_status"`
+	PaymentType           string     `db:"payment_type" json:"payment_type"`
+	Direction             string     `db:"direction" json:"direction"`
+	GrossAmount           int64      `db:"gross_amount" json:"gross_amount"`
+	PlatformFee           int64      `db:"platform_fee" json:"platform_fee"`
+	NetAmount             int64      `db:"net_amount" json:"net_amount"`
+	BalanceAfter          int64      `db:"balance_after" json:"balance_after"`
+	Status                string     `db:"status" json:"status"`
+	DedupeKey             string     `db:"dedupe_key" json:"dedupe_key"`
+	RawPayload            []byte     `db:"raw_payload" json:"raw_payload"`
+	CreatedAt             time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt             time.Time  `db:"updated_at" json:"updated_at"`
+}
+
+type MidtransNotificationLog struct {
+	ID                uuid.UUID  `db:"id" json:"id"`
+	TenantID          *uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	BookingID         *uuid.UUID `db:"booking_id" json:"booking_id"`
+	OrderID           string     `db:"order_id" json:"order_id"`
+	TransactionID     string     `db:"transaction_id" json:"transaction_id"`
+	TransactionStatus string     `db:"transaction_status" json:"transaction_status"`
+	FraudStatus       string     `db:"fraud_status" json:"fraud_status"`
+	PaymentType       string     `db:"payment_type" json:"payment_type"`
+	GrossAmount       int64      `db:"gross_amount" json:"gross_amount"`
+	SignatureValid    bool       `db:"signature_valid" json:"signature_valid"`
+	ProcessingStatus  string     `db:"processing_status" json:"processing_status"`
+	ErrorMessage      string     `db:"error_message" json:"error_message"`
+	RawPayload        []byte     `db:"raw_payload" json:"raw_payload"`
+	ReceivedAt        time.Time  `db:"received_at" json:"received_at"`
+	ProcessedAt       *time.Time `db:"processed_at" json:"processed_at"`
+}

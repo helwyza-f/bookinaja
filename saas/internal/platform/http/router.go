@@ -110,8 +110,14 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 				platformProtected.GET("/revenue/timeseries", cfg.PlatformHandler.RevenueTimeseries)
 				platformProtected.GET("/revenue/export", cfg.PlatformHandler.RevenueCSV)
 				platformProtected.GET("/tenants", cfg.PlatformHandler.Tenants)
+				platformProtected.GET("/tenants/:tenant_id", cfg.PlatformHandler.TenantDetail)
+				platformProtected.GET("/tenants/:tenant_id/customers", cfg.PlatformHandler.TenantCustomers)
+				platformProtected.GET("/tenants/:tenant_id/transactions", cfg.PlatformHandler.TenantTransactions)
+				platformProtected.GET("/tenants/:tenant_id/balance", cfg.PlatformHandler.TenantBalanceDetail)
+				platformProtected.GET("/tenants/:tenant_id/notif-history", cfg.PlatformHandler.TenantMidtransNotifications)
 				platformProtected.GET("/customers", cfg.PlatformHandler.Customers)
 				platformProtected.GET("/transactions", cfg.PlatformHandler.Transactions)
+				platformProtected.GET("/midtrans-notifications", cfg.PlatformHandler.MidtransNotifications)
 			}
 
 			// --- CUSTOMER PORTAL AREA (/me) ---

@@ -27,6 +27,12 @@ export type PlatformTenant = {
   last_activity?: string;
 };
 
+export type PlatformTenantDetail = PlatformTenant & {
+  bookings_count?: number;
+  subscription_current_period_start?: string;
+  subscription_current_period_end?: string;
+};
+
 export type PlatformCustomer = {
   id: string;
   tenant_slug: string;
@@ -50,6 +56,7 @@ export type PlatformTransaction = {
   tenant_slug: string;
   tenant_name?: string;
   code: string;
+  order_id?: string;
   plan?: string;
   billing_interval?: string;
   amount: number;
@@ -57,6 +64,38 @@ export type PlatformTransaction = {
   status: string;
   created_at: string;
   updated_at?: string;
+};
+
+export type PlatformTenantBalance = {
+  tenant_id: string;
+  tenant_slug: string;
+  tenant_name: string;
+  owner_name: string;
+  owner_email: string;
+  balance: number;
+  pending_credit: number;
+  pending_debit: number;
+  ledger_entries: number;
+  last_ledger_at?: string;
+};
+
+export type MidtransNotificationLog = {
+  id: string;
+  tenant_id?: string;
+  booking_id?: string;
+  tenant_slug?: string;
+  tenant_name?: string;
+  order_id: string;
+  transaction_id?: string;
+  transaction_status?: string;
+  fraud_status?: string;
+  payment_type?: string;
+  gross_amount: number;
+  signature_valid: boolean;
+  processing_status: string;
+  error_message?: string;
+  received_at: string;
+  processed_at?: string;
 };
 
 export type PlatformRevenueBreakdown = {
@@ -146,6 +185,29 @@ export function getPlatformTenants() {
   return safeGet<PlatformTenant[]>("/platform/tenants", mockTenants);
 }
 
+export function getPlatformTenantDetail(tenantId: string) {
+  return safeGet<PlatformTenantDetail>(`/platform/tenants/${tenantId}`, {
+    id: tenantId,
+    name: "",
+    slug: "",
+  });
+}
+
+export function getPlatformTenantCustomers(tenantId: string) {
+  return safeGet<PlatformCustomer[]>(`/platform/tenants/${tenantId}/customers`, []);
+}
+
+export function getPlatformTenantTransactions(tenantId: string) {
+  return safeGet<PlatformTransaction[]>(`/platform/tenants/${tenantId}/transactions`, []);
+}
+
+export function getPlatformTenantNotifications(tenantId: string, limit = 100) {
+  return safeGet<MidtransNotificationLog[]>(
+    `/platform/tenants/${tenantId}/notif-history?limit=${limit}`,
+    [],
+  );
+}
+
 export function getPlatformCustomers() {
   return safeGet<PlatformCustomer[]>("/platform/customers", mockCustomers);
 }
@@ -198,4 +260,30 @@ export function getPlatformRevenueCSVUrl(params?: { tenant?: string; from?: stri
   if (params?.from) search.set("from", params.from);
   if (params?.to) search.set("to", params.to);
   return `/platform/revenue/export${search.toString() ? `?${search.toString()}` : ""}`;
+}
+
+export function getPlatformTenantBalances() {
+  return safeGet<PlatformTenantBalance[]>("/platform/tenants/balances", []);
+}
+
+export function getPlatformTenantBalance(tenantId: string) {
+  return safeGet<PlatformTenantBalance>(`/platform/tenants/${tenantId}/balance`, {
+    tenant_id: tenantId,
+    tenant_slug: "",
+    tenant_name: "",
+    owner_name: "",
+    owner_email: "",
+    balance: 0,
+    pending_credit: 0,
+    pending_debit: 0,
+    ledger_entries: 0,
+  });
+}
+
+export function getMidtransNotificationLogs(params?: { tenant?: string; limit?: number }) {
+  const search = new URLSearchParams();
+  if (params?.tenant) search.set("tenant", params.tenant);
+  if (params?.limit) search.set("limit", String(params.limit));
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  return safeGet<MidtransNotificationLog[]>(`/platform/midtrans-notifications${suffix}`, []);
 }

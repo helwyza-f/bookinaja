@@ -12,14 +12,15 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/helwiza/saas/internal/platform/fonnte"
 	"github.com/helwiza/saas/internal/platform/security"
+	"github.com/jmoiron/sqlx"
 )
 
 type Service struct {
@@ -121,11 +122,62 @@ func (s *Service) HandleMidtransNotification(ctx context.Context, payload map[st
 
 	var notify *BookingNotificationContext
 	var notifyMode string
-
 	err := s.withTx(ctx, func(tx *sqlx.Tx) error {
+		receivedAt := time.Now().UTC()
+		logCommon := MidtransNotificationLog{
+			OrderID:           orderID,
+			TransactionID:     transactionID,
+			TransactionStatus: transactionStatus,
+			FraudStatus:       fraudStatus,
+			PaymentType:       paymentType,
+			GrossAmount:       parseMidtransAmount(grossAmount),
+			SignatureValid:    true,
+			ProcessingStatus:  "received",
+			RawPayload:        mustJSON(payload),
+			ReceivedAt:        receivedAt,
+		}
+
 		if strings.HasPrefix(orderID, "sub-") {
 			updated, err := s.repo.UpdateOrderFromMidtrans(ctx, tx, orderID, newStatus, txIDPtr, paymentTypePtr, payload)
 			if err != nil {
+				logCommon.ProcessingStatus = "failed"
+				logCommon.ErrorMessage = err.Error()
+				return s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon)
+			}
+			logCommon.ProcessingStatus = "processed"
+			logCommon.TenantID = &updated.TenantID
+			if err := s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon); err != nil {
+				return err
+			}
+			ledgerStatus := "pending"
+			if updated.Status == "paid" {
+				ledgerStatus = "settled"
+			}
+			currentBalance, _ := s.repo.CurrentTenantBalance(ctx, tx, updated.TenantID)
+			netAmount := parseMidtransAmount(grossAmount)
+			nextBalance := currentBalance
+			if ledgerStatus == "settled" {
+				nextBalance += netAmount
+			}
+			dedupe := buildLedgerDedupeKey("subscription", orderID, transactionID, newStatus, paymentType)
+			if err := s.repo.CreateLedgerEntry(ctx, tx, TenantLedgerEntry{
+				TenantID:              updated.TenantID,
+				SourceType:            "subscription",
+				SourceRef:             orderID,
+				MidtransOrderID:       orderID,
+				MidtransTransactionID: transactionID,
+				TransactionStatus:     newStatus,
+				PaymentType:           paymentType,
+				Direction:             "credit",
+				GrossAmount:           netAmount,
+				NetAmount:             netAmount,
+				BalanceAfter:          nextBalance,
+				Status:                ledgerStatus,
+				DedupeKey:             dedupe,
+				RawPayload:            mustJSON(payload),
+				CreatedAt:             receivedAt,
+				UpdatedAt:             receivedAt,
+			}); err != nil {
 				return err
 			}
 			if updated.Status != "paid" {
@@ -158,10 +210,43 @@ func (s *Service) HandleMidtransNotification(ctx context.Context, payload map[st
 			}
 			bookingInfo, err := s.repo.GetBookingNotificationContext(ctx, tx, bookingID)
 			if err != nil {
-				return err
+				logCommon.ProcessingStatus = "failed"
+				logCommon.ErrorMessage = err.Error()
+				return s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon)
 			}
+			logCommon.TenantID = &bookingInfo.TenantID
+			logCommon.ProcessingStatus = "processed"
 			if isSettlement {
 				if err := s.repo.UpdateBookingSettlementFromMidtrans(ctx, tx, bookingID, newStatus, txIDPtr, paymentTypePtr, payload); err != nil {
+					logCommon.ProcessingStatus = "failed"
+					logCommon.ErrorMessage = err.Error()
+					return s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon)
+				}
+				if err := s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon); err != nil {
+					return err
+				}
+				currentBalance, _ := s.repo.CurrentTenantBalance(ctx, tx, bookingInfo.TenantID)
+				netAmount := parseMidtransAmount(grossAmount)
+				nextBalance := currentBalance + netAmount
+				if err := s.repo.CreateLedgerEntry(ctx, tx, TenantLedgerEntry{
+					TenantID:              bookingInfo.TenantID,
+					SourceType:            "booking_payment",
+					SourceID:              &bookingID,
+					SourceRef:             orderID,
+					MidtransOrderID:       orderID,
+					MidtransTransactionID: transactionID,
+					TransactionStatus:     newStatus,
+					PaymentType:           paymentType,
+					Direction:             "credit",
+					GrossAmount:           netAmount,
+					NetAmount:             netAmount,
+					BalanceAfter:          nextBalance,
+					Status:                "settled",
+					DedupeKey:             buildLedgerDedupeKey("booking_payment", orderID, transactionID, newStatus, paymentType),
+					RawPayload:            mustJSON(payload),
+					CreatedAt:             receivedAt,
+					UpdatedAt:             receivedAt,
+				}); err != nil {
 					return err
 				}
 				if shouldNotifyBookingPayment(bookingInfo.PaymentStatus, newStatus) {
@@ -171,6 +256,35 @@ func (s *Service) HandleMidtransNotification(ctx context.Context, payload map[st
 				return nil
 			}
 			if err := s.repo.UpdateBookingPaymentFromMidtrans(ctx, tx, bookingID, newStatus, txIDPtr, paymentTypePtr, payload); err != nil {
+				logCommon.ProcessingStatus = "failed"
+				logCommon.ErrorMessage = err.Error()
+				return s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon)
+			}
+			if err := s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon); err != nil {
+				return err
+			}
+			currentBalance, _ := s.repo.CurrentTenantBalance(ctx, tx, bookingInfo.TenantID)
+			netAmount := parseMidtransAmount(grossAmount)
+			nextBalance := currentBalance + netAmount
+			if err := s.repo.CreateLedgerEntry(ctx, tx, TenantLedgerEntry{
+				TenantID:              bookingInfo.TenantID,
+				SourceType:            "booking_payment",
+				SourceID:              &bookingID,
+				SourceRef:             orderID,
+				MidtransOrderID:       orderID,
+				MidtransTransactionID: transactionID,
+				TransactionStatus:     newStatus,
+				PaymentType:           paymentType,
+				Direction:             "credit",
+				GrossAmount:           netAmount,
+				NetAmount:             netAmount,
+				BalanceAfter:          nextBalance,
+				Status:                "settled",
+				DedupeKey:             buildLedgerDedupeKey("booking_payment", orderID, transactionID, newStatus, paymentType),
+				RawPayload:            mustJSON(payload),
+				CreatedAt:             receivedAt,
+				UpdatedAt:             receivedAt,
+			}); err != nil {
 				return err
 			}
 			if shouldNotifyBookingPayment(bookingInfo.PaymentStatus, newStatus) {
@@ -178,6 +292,10 @@ func (s *Service) HandleMidtransNotification(ctx context.Context, payload map[st
 				notifyMode = "deposit"
 			}
 			return nil
+		}
+		logCommon.ProcessingStatus = "ignored"
+		if err := s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon); err != nil {
+			return err
 		}
 		return nil
 	})
@@ -367,6 +485,24 @@ func verifyMidtransSignature(orderID, statusCode, grossAmount, signatureKey, ser
 	sum := sha512.Sum512([]byte(orderID + statusCode + grossAmount + serverKey))
 	expected := hex.EncodeToString(sum[:])
 	return strings.EqualFold(expected, signatureKey)
+}
+
+func parseMidtransAmount(raw string) int64 {
+	value, _ := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	return value
+}
+
+func mustJSON(v any) []byte {
+	b, _ := json.Marshal(v)
+	return b
+}
+
+func buildLedgerDedupeKey(sourceType, orderID, transactionID, status, paymentType string) string {
+	return strings.ToLower(strings.TrimSpace(sourceType)) + ":" +
+		strings.TrimSpace(orderID) + ":" +
+		strings.TrimSpace(transactionID) + ":" +
+		strings.ToLower(strings.TrimSpace(status)) + ":" +
+		strings.ToLower(strings.TrimSpace(paymentType))
 }
 
 func mapMidtransStatus(transactionStatus string, fraudStatus string) string {
