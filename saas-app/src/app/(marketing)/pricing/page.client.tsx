@@ -40,9 +40,10 @@ export default function PricingPage() {
   const plans = [
     {
       name: "Starter",
-      effectiveMonthly: isAnnual ? "120.000" : "150.000",
-      originalMonthly: "150.000",
-      annualTotal: "1.440.000",
+      effectiveMonthly: isAnnual ? "149.000" : "149.000",
+      originalMonthly: "189.000",
+      originalAnnualTotal: "2.268.000",
+      annualTotal: "1.788.000",
       desc: "Digitalisasi dasar untuk operasional bisnis persewaan tunggal.",
       features: [
         "1 Akun Utama (Owner Only)",
@@ -57,9 +58,10 @@ export default function PricingPage() {
     },
     {
       name: "Pro",
-      effectiveMonthly: isAnnual ? "240.000" : "300.000",
-      originalMonthly: "300.000",
-      annualTotal: "2.880.000",
+      effectiveMonthly: isAnnual ? "299.000" : "299.000",
+      originalMonthly: "399.000",
+      originalAnnualTotal: "4.788.000",
+      annualTotal: "3.588.000",
       desc: "Fitur lengkap untuk bisnis dengan tim dan trafik tinggi.",
       features: [
         "Akses Akun Staff/Karyawan",
@@ -182,7 +184,6 @@ export default function PricingPage() {
               </div>
 
               <div className="mb-10 flex flex-col items-center lg:items-start">
-                {/* Markup Harga Coret (Original Monthly) */}
                 {plan.name !== "Enterprise" && (
                   <div className="text-sm font-bold text-muted-foreground/40 line-through mb-1 italic">
                     IDR {plan.originalMonthly}
@@ -206,8 +207,13 @@ export default function PricingPage() {
                 </div>
 
                 {plan.name !== "Enterprise" && isAnnual && (
-                  <div className="text-[11px] font-black text-blue-500 mt-2 uppercase tracking-widest bg-blue-500/5 px-3 py-1 rounded-full border border-blue-500/10">
-                    Tagihan tahunan IDR {plan.annualTotal}
+                  <div className="mt-2 space-y-1.5">
+                    <div className="text-[11px] font-bold text-muted-foreground/40 line-through uppercase tracking-widest">
+                      IDR {plan.originalAnnualTotal}
+                    </div>
+                    <div className="text-[11px] font-black text-blue-500 uppercase tracking-widest bg-blue-500/5 px-3 py-1 rounded-full border border-blue-500/10 inline-flex">
+                      Tagihan tahunan IDR {plan.annualTotal}
+                    </div>
                   </div>
                 )}
               </div>
