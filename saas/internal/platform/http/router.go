@@ -122,6 +122,18 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 				me.GET("/bookings/:id", cfg.ReservationHandler.GetMyDetail)
 			}
 
+			customerArea := protected.Group("/customer")
+			{
+				customerArea.GET("/resources", cfg.ReservationHandler.GetCustomerResources)
+				customerArea.GET("/fnb", cfg.ReservationHandler.GetCustomerFnb)
+				customerArea.GET("/bookings/:id", cfg.ReservationHandler.GetMyDetail)
+				customerArea.GET("/bookings/:id/context", cfg.ReservationHandler.GetCustomerLiveSnapshot)
+				customerArea.GET("/bookings/:id/availability", cfg.ReservationHandler.CustomerBookingAvailability)
+				customerArea.POST("/bookings/:id/extend", cfg.ReservationHandler.CustomerExtendSession)
+				customerArea.POST("/bookings/:id/orders", cfg.ReservationHandler.CustomerAddOrder)
+				customerArea.POST("/bookings/:id/addons", cfg.ReservationHandler.CustomerAddAddonItem)
+			}
+
 			// --- ADMIN & POS MANAGEMENT AREA (Staff Only) ---
 			adminArea := protected.Group("/")
 			adminArea.Use(middleware.AdminOnly())

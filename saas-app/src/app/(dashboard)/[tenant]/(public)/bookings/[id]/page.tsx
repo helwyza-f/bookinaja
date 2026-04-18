@@ -303,7 +303,7 @@ export default function ResourceBookingDetail() {
     if (["day", "week", "month", "year"].includes(selectedItem.price_unit)) {
       return 0;
     }
-    return Math.min(total, Math.max(10000, Math.round(total * 0.2)));
+    return Math.min(total, Math.max(10000, Math.round(total * 0.4)));
   };
 
   const estimateBalance = () =>
@@ -374,8 +374,9 @@ export default function ResourceBookingDetail() {
     <div className="min-h-screen bg-white dark:bg-[#050505] font-plus-jakarta pb-40 transition-colors duration-500 overflow-x-hidden">
       <Script
         src={
-          (process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION || "").toLowerCase() ===
-          "true"
+          (
+            process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION || ""
+          ).toLowerCase() === "true"
             ? "https://app.midtrans.com/snap/snap.js"
             : "https://app.sandbox.midtrans.com/snap/snap.js"
         }

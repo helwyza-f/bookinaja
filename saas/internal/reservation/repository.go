@@ -105,6 +105,10 @@ func (r *Repository) ExtendSessionWithValidation(ctx context.Context, bID uuid.U
 		return fmt.Errorf("gagal memperbarui durasi dan billing: %w", err)
 	}
 
+	if err := r.recalculateBookingTotalsTx(ctx, tx, bID); err != nil {
+		return err
+	}
+
 	return tx.Commit()
 }
 
@@ -158,6 +162,9 @@ func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []u
 // FindByID menarik detail lengkap booking untuk Dashboard Admin & POS
 func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*BookingDetail, error) {
 	var b BookingDetail
+	if err := r.recalculateBookingTotalsTx(ctx, r.db, id); err != nil {
+		return nil, err
+	}
 	// Kita pake versi asli lo yang stabil, tapi kita lock DISTINCT biar gak duplikat item
 	query := `
 		SELECT 
@@ -267,6 +274,9 @@ func (r *Repository) GetByToken(ctx context.Context, token uuid.UUID) (*BookingD
 
 func (r *Repository) FindByIDForCustomer(ctx context.Context, id, tenantID, customerID uuid.UUID) (*BookingDetail, error) {
 	var b BookingDetail
+	if err := r.recalculateBookingTotalsTx(ctx, r.db, id); err != nil {
+		return nil, err
+	}
 	query := `
 		SELECT 
 			b.*, c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
@@ -301,13 +311,19 @@ func (r *Repository) FindByIDForCustomer(ctx context.Context, id, tenantID, cust
 }
 
 func (r *Repository) AddFnbOrder(ctx context.Context, bookingID uuid.UUID, fnbItemID uuid.UUID, qty int) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
 	query := `
 		INSERT INTO order_items (id, booking_id, fnb_item_id, quantity, price_at_purchase, status)
 		SELECT gen_random_uuid(), b.id, f.id, $3, f.price, 'delivered'
 		FROM bookings b
 		JOIN fnb_items f ON f.id = $2 AND f.tenant_id = b.tenant_id
 		WHERE b.id = $1`
-	result, err := r.db.ExecContext(ctx, query, bookingID, fnbItemID, qty)
+	result, err := tx.ExecContext(ctx, query, bookingID, fnbItemID, qty)
 	if err != nil {
 		return err
 	}
@@ -318,17 +334,26 @@ func (r *Repository) AddFnbOrder(ctx context.Context, bookingID uuid.UUID, fnbIt
 	if rows == 0 {
 		return fmt.Errorf("ITEM FNB TIDAK VALID UNTUK TENANT INI")
 	}
-	return err
+	if err := r.recalculateBookingTotalsTx(ctx, tx, bookingID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (r *Repository) AddAddonOrder(ctx context.Context, bookingID uuid.UUID, itemID uuid.UUID) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
 	query := `
 		INSERT INTO booking_options (id, booking_id, resource_item_id, quantity, price_at_booking)
 		SELECT gen_random_uuid(), b.id, ri.id, 1, ri.price
 		FROM bookings b
 		JOIN resource_items ri ON ri.id = $2 AND ri.resource_id = b.resource_id AND ri.item_type = 'add_on'
 		WHERE b.id = $1`
-	result, err := r.db.ExecContext(ctx, query, bookingID, itemID)
+	result, err := tx.ExecContext(ctx, query, bookingID, itemID)
 	if err != nil {
 		return err
 	}
@@ -339,6 +364,31 @@ func (r *Repository) AddAddonOrder(ctx context.Context, bookingID uuid.UUID, ite
 	if rows == 0 {
 		return fmt.Errorf("ADD-ON TIDAK VALID UNTUK RESOURCE INI")
 	}
+	if err := r.recalculateBookingTotalsTx(ctx, tx, bookingID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (r *Repository) recalculateBookingTotalsTx(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID) error {
+	_, err := exec.ExecContext(ctx, `
+		UPDATE bookings
+		SET
+			grand_total = COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = $1), 0)
+				+ COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = $1), 0),
+			paid_amount = CASE
+				WHEN payment_status IN ('partial_paid', 'paid', 'settled') THEN GREATEST(paid_amount, deposit_amount)
+				ELSE paid_amount
+			END,
+			balance_due = GREATEST(
+				COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = $1), 0)
+				+ COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = $1), 0)
+				- paid_amount,
+				0
+			)
+		WHERE id = $1`,
+		bookingID,
+	)
 	return err
 }
 

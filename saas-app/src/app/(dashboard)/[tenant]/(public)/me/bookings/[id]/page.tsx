@@ -35,6 +35,7 @@ import { id as idLocale } from "date-fns/locale";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
+import { BookingLiveController } from "@/components/customer/booking-live-controller";
 
 export default function CustomerBookingDetail() {
   const params = useParams();
@@ -45,6 +46,7 @@ export default function CustomerBookingDetail() {
   const [copied, setCopied] = useState(false);
   const [now, setNow] = useState(new Date());
   const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
+  const [menuItems, setMenuItems] = useState<any[]>([]);
 
   const fetchDetail = async () => {
     try {
@@ -72,6 +74,21 @@ export default function CustomerBookingDetail() {
     }
   };
 
+  const fetchMenuItems = async () => {
+    try {
+      const [menuRes, contextRes] = await Promise.all([
+        api.get("/customer/fnb"),
+        api.get(`/customer/bookings/${params.id}/context`),
+      ]);
+      setMenuItems(menuRes.data || []);
+      if (contextRes.data?.booking) {
+        setBooking((prev: any) => ({ ...(prev || {}), ...contextRes.data.booking }));
+      }
+    } catch {
+      setMenuItems([]);
+    }
+  };
+
   useEffect(() => {
     if (!params.id) return;
     const token = searchParams.get("token");
@@ -85,6 +102,7 @@ export default function CustomerBookingDetail() {
       return;
     }
     fetchDetail();
+    fetchMenuItems();
     const interval = setInterval(fetchDetail, 30000);
     const syncInterval = setInterval(syncSession, 60000);
     const clock = setInterval(() => setNow(new Date()), 1000);
@@ -210,6 +228,37 @@ export default function CustomerBookingDetail() {
     }
   };
 
+  const handleAddFnb = async (cartItems: any[]) => {
+    for (const item of cartItems) {
+      await api.post(`/customer/bookings/${params.id}/orders`, {
+        fnb_item_id: item.id,
+        quantity: item.quantity,
+      });
+    }
+    toast.success("Pesanan FnB ditambahkan");
+    await fetchDetail();
+  };
+
+  const handleAddons = async (cartItems: any[]) => {
+    for (const item of cartItems) {
+      for (let i = 0; i < item.quantity; i++) {
+        await api.post(`/customer/bookings/${params.id}/addons`, {
+          item_id: item.id,
+        });
+      }
+    }
+    toast.success("Addon ditambahkan");
+    await fetchDetail();
+  };
+
+  const handleExtend = async (count: number) => {
+    await api.post(`/customer/bookings/${params.id}/extend`, {
+      additional_duration: count,
+    });
+    toast.success("Session diperpanjang");
+    await fetchDetail();
+  };
+
   if (loading) return <TicketSkeleton />;
 
   const isPending = sessionStatus === "pending";
@@ -288,45 +337,20 @@ export default function CustomerBookingDetail() {
               </Badge>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                disabled={countdownData.type === "WAITING"}
-                className={cn(
-                  "h-12 rounded-xl font-black uppercase italic text-[10px] gap-2 transition-all shadow-lg",
-                  countdownData.type === "LIVE"
-                    ? "bg-white text-black hover:bg-slate-100"
-                    : "bg-white/10 text-white/40",
-                )}
-              >
-                <Timer
-                  size={14}
-                  className={
-                    countdownData.type === "LIVE"
-                      ? "text-blue-600"
-                      : "text-white/20"
-                  }
-                />{" "}
-                Tambah Jam
-              </Button>
-              <Button
-                disabled={countdownData.type === "WAITING"}
-                className={cn(
-                  "h-12 rounded-xl font-black uppercase italic text-[10px] gap-2 transition-all shadow-lg",
-                  countdownData.type === "LIVE"
-                    ? "bg-white/10 text-white hover:bg-white/20"
-                    : "bg-white/10 text-white/40",
-                )}
-              >
-                <Coffee
-                  size={14}
-                  className={
-                    countdownData.type === "LIVE"
-                      ? "text-orange-400"
-                      : "text-white/20"
-                  }
-                />{" "}
-                Pesan Makan
-              </Button>
+            <div className="rounded-2xl bg-white/10 border border-white/10 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-60">
+                    Customer Live Controller
+                  </p>
+                  <p className="text-xs font-bold italic opacity-90">
+                    Tombol aksi sekarang pindah ke panel mobile di bawah timer.
+                  </p>
+                </div>
+                <Badge className="rounded-full bg-white text-slate-950 border-none px-3 py-1 text-[8px] uppercase font-black">
+                  mobile first
+                </Badge>
+              </div>
             </div>
           </Card>
         )}
@@ -334,18 +358,18 @@ export default function CustomerBookingDetail() {
         {/* UNIFIED INFO CARD */}
         <Card className="rounded-[2rem] p-0 overflow-hidden border-none shadow-sm ring-1 ring-black/5 dark:ring-white/5 bg-white dark:bg-[#0c0c0c]">
           <div className="p-6 space-y-6">
-            <div className="flex items-start justify-between text-left leading-none">
-              <div className="space-y-1">
+            <div className="flex items-start justify-between text-left leading-none gap-4">
+              <div className="space-y-1 min-w-0">
                 <div className="flex items-center gap-2 text-blue-600 mb-1">
                   <MapPin size={14} />
                   <span className="text-[10px] font-black uppercase tracking-widest italic">
-                    Detail Unit
+                    Booking Detail
                   </span>
                 </div>
-                <h3 className="text-2xl font-[1000] uppercase dark:text-white italic tracking-tighter">
+                <h3 className="text-2xl font-[1000] uppercase dark:text-white italic tracking-tighter line-clamp-2">
                   {booking.resource_name}
                 </h3>
-                <div className="flex items-center gap-2 pt-2">
+                <div className="flex flex-wrap items-center gap-2 pt-2">
                   <Badge
                     className={cn(
                       "rounded-lg border-none font-black italic text-[9px] px-3 py-1 uppercase shadow-sm",
@@ -367,14 +391,6 @@ export default function CustomerBookingDetail() {
                     bayar: {paymentLabel}
                   </Badge>
                 </div>
-              </div>
-              <div className="bg-emerald-500/10 px-4 py-2 rounded-2xl text-right border border-emerald-500/20">
-                <span className="block text-[8px] font-black text-emerald-600 uppercase italic leading-none mb-1">
-                  Poin Sultan
-                </span>
-                <span className="text-lg font-[1000] italic text-emerald-500">
-                  +{Math.floor(booking.grand_total / 1000)}
-                </span>
               </div>
             </div>
 
@@ -451,43 +467,10 @@ export default function CustomerBookingDetail() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 text-blue-600">
-                <BadgeCheck size={14} />
-                <span className="text-[10px] font-black uppercase tracking-widest italic">
-                  Alur Pembayaran
-                </span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <div className="rounded-2xl bg-white dark:bg-black/40 px-4 py-3 border border-slate-100 dark:border-white/5">
-                  <p className="text-[8px] uppercase tracking-widest text-slate-400 font-black italic">
-                    1. Awal
-                  </p>
-                  <p className="text-xs font-black italic text-slate-900 dark:text-white mt-1">
-                    {depositAmount > 0 ? "Bayar DP via Midtrans" : "Tanpa DP"}
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-white dark:bg-black/40 px-4 py-3 border border-slate-100 dark:border-white/5">
-                  <p className="text-[8px] uppercase tracking-widest text-slate-400 font-black italic">
-                    2. Saat Sesi
-                  </p>
-                  <p className="text-xs font-black italic text-slate-900 dark:text-white mt-1">
-                    FnB / addon / extend menambah tagihan
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-white dark:bg-black/40 px-4 py-3 border border-slate-100 dark:border-white/5">
-                  <p className="text-[8px] uppercase tracking-widest text-slate-400 font-black italic">
-                    3. Akhir
-                  </p>
-                  <p className="text-xs font-black italic text-slate-900 dark:text-white mt-1">
-                    {balanceDue > 0 ? "Lunasi sisa tagihan" : "Sudah lunas"}
-                  </p>
-                </div>
-              </div>
-
               <div className="rounded-2xl bg-blue-500/10 border border-blue-500/10 p-4 text-[10px] font-bold italic text-blue-700 dark:text-blue-100 leading-relaxed">
                 {depositAmount > 0
-                  ? `Customer sudah membayar DP Rp ${depositAmount.toLocaleString()} dari total booking. Sisa Rp ${balanceDue.toLocaleString()} akan diselesaikan setelah sesi selesai.`
-                  : "Booking ini tidak memakai DP, jadi pembayaran diselesaikan saat sesi berakhir."}
+                  ? `DP Rp ${depositAmount.toLocaleString()} sudah dibayar. Due saat ini Rp ${balanceDue.toLocaleString()}.`
+                  : "Booking ini tidak memakai DP, jadi due akan dihitung saat sesi selesai."}
               </div>
 
               {paymentNotice && (
@@ -595,67 +578,82 @@ export default function CustomerBookingDetail() {
             ))}
           </div>
 
-          <div className="p-6 bg-slate-950 text-white flex justify-between items-center relative overflow-hidden">
-            <Zap className="absolute right-0 bottom-0 size-24 opacity-5 -rotate-12 translate-x-4 translate-y-4" />
-            <div className="leading-none text-left z-10">
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block italic">
-                Total Setelah DP
-              </span>
-              <span className="text-3xl font-[1000] italic leading-none tracking-tighter">
-                Rp {balanceDue.toLocaleString()}
-              </span>
-            </div>
-            <div className="flex flex-col items-end gap-2 z-10">
-              <Badge className={cn("rounded-full border-none px-4 py-1 font-black italic text-[9px] uppercase shadow-lg", paymentStateTone)}>
-                {paymentLabel}
-              </Badge>
-              <p className="text-[8px] font-black text-slate-400 uppercase italic text-right">
-                Paid Rp {paidAmount.toLocaleString()} • Due Rp {balanceDue.toLocaleString()}
-              </p>
+          <div className="p-5 bg-slate-950 text-white relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
+            <div className="relative z-10 space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="leading-none text-left">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block italic">
+                    Rekap Akhir
+                  </span>
+                  <span className="text-3xl font-[1000] italic leading-none tracking-tighter">
+                    Rp {balanceDue.toLocaleString()}
+                  </span>
+                </div>
+                <Badge className={cn("rounded-full border-none px-4 py-1 font-black italic text-[9px] uppercase shadow-lg", paymentStateTone)}>
+                  {paymentLabel}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-left">
+                <div className="rounded-2xl bg-white/5 border border-white/5 p-3">
+                  <p className="text-[8px] uppercase tracking-widest text-slate-400 font-black italic">
+                    Grand Total
+                  </p>
+                  <p className="mt-2 text-sm font-black italic">
+                    Rp {Number(booking.grand_total || 0).toLocaleString()}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-white/5 border border-white/5 p-3">
+                  <p className="text-[8px] uppercase tracking-widest text-slate-400 font-black italic">
+                    DP
+                  </p>
+                  <p className="mt-2 text-sm font-black italic text-emerald-300">
+                    - Rp {depositAmount.toLocaleString()}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-white/5 border border-white/5 p-3">
+                  <p className="text-[8px] uppercase tracking-widest text-slate-400 font-black italic">
+                    Due
+                  </p>
+                  <p className="mt-2 text-sm font-black italic text-blue-300">
+                    Rp {balanceDue.toLocaleString()}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </Card>
 
         {/* BOTTOM ACTIONS */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-[2rem] bg-white dark:bg-[#0c0c0c] border dark:border-white/5 shadow-sm px-5 py-4 flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <span className="block text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic mb-1">
+              Quick Actions
+            </span>
+            <p className="text-xs font-bold italic text-slate-700 dark:text-slate-200 leading-relaxed">
+              PDF tetap tersedia dari halaman ini.
+            </p>
+          </div>
           <Button
             variant="outline"
-            className="h-12 rounded-xl border-slate-200 dark:border-white/10 dark:text-white text-[10px] font-black uppercase italic gap-2 tracking-widest hover:bg-slate-100 transition-all"
-          >
-            <MessageSquare size={16} fill="currentColor" /> Bantuan
-          </Button>
-          <Button
-            variant="outline"
-            className="h-12 rounded-xl border-slate-200 dark:border-white/10 dark:text-white text-[10px] font-black uppercase italic gap-2 tracking-widest hover:bg-slate-100 transition-all"
+            className="h-11 rounded-xl border-slate-200 dark:border-white/10 dark:text-white text-[10px] font-black uppercase italic gap-2 tracking-widest hover:bg-slate-100 transition-all"
             onClick={() => window.print()}
           >
-            <Share2 size={16} /> Simpan PDF
+            <Share2 size={16} /> PDF
           </Button>
         </div>
-
-        <button
-          onClick={() => router.push("/me")}
-          className="w-full flex items-center justify-between p-5 bg-white dark:bg-[#0c0c0c] border dark:border-white/5 rounded-[2rem] group transition-all active:scale-[0.98] shadow-sm"
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-600 group-hover:scale-110 transition-transform">
-              <LayoutDashboard size={20} />
-            </div>
-            <div className="text-left leading-none">
-              <span className="text-[10px] font-black uppercase dark:text-white italic tracking-widest block mb-1.5">
-                Portal Sultan
-              </span>
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
-                Kelola Bokingan Lainnya
-              </p>
-            </div>
-          </div>
-          <ArrowUpRight
-            size={18}
-            className="text-slate-300 group-hover:text-blue-500 transition-all"
-          />
-        </button>
       </main>
+
+      <BookingLiveController
+        active={Boolean(countdownData)}
+        booking={booking}
+        menuItems={menuItems}
+        addonItems={booking?.resource_addons || []}
+        onExtend={handleExtend}
+        onOrderFnb={handleAddFnb}
+        onOrderAddon={handleAddons}
+      />
     </div>
   );
 }
@@ -704,3 +702,4 @@ function LayoutDashboard({
     </svg>
   );
 }
+

@@ -88,9 +88,9 @@ func main() {
 	// Domain lainnya
 	customerSvc := customer.NewService(customerRepo, rdb)
 	resourceSvc := resource.NewService(resourceRepo)
-	reservationSvc := reservation.NewService(reservationRepo, resourceRepo, customerSvc)
-	scheduler := reservation.NewScheduler(db, reservationRepo)
 	fnbSvc := fnb.NewService(fnbRepo)
+	reservationSvc := reservation.NewService(reservationRepo, resourceRepo, customerSvc, fnbSvc)
+	scheduler := reservation.NewScheduler(db, reservationRepo)
 	billingSvc := billing.NewService(db, billingRepo)
 	platformSvc := platformadmin.NewService()
 
