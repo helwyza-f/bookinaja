@@ -182,7 +182,7 @@ func (r *Repository) ListTransactions(ctx context.Context, page, pageSize int) (
 	for rows.Next() {
 		row := map[string]any{}
 		if err := rows.MapScan(row); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		result = append(result, normalizeRow(row))
 	}
@@ -275,7 +275,7 @@ func (r *Repository) ListTransactionsByTenant(ctx context.Context, tenantID stri
 	for rows.Next() {
 		row := map[string]any{}
 		if err := rows.MapScan(row); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		result = append(result, normalizeRow(row))
 	}
@@ -405,7 +405,7 @@ func (r *Repository) ListMidtransNotificationLogs(ctx context.Context, page, pag
 	for rows.Next() {
 		row := map[string]any{}
 		if err := rows.MapScan(row); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		result = append(result, normalizeRow(row))
 	}
@@ -470,7 +470,7 @@ func (r *Repository) ListMidtransNotificationLogsByTenantID(ctx context.Context,
 	for rows.Next() {
 		row := map[string]any{}
 		if err := rows.MapScan(row); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		result = append(result, normalizeRow(row))
 	}
