@@ -82,7 +82,10 @@ export default function CustomerBookingDetail() {
       ]);
       setMenuItems(menuRes.data || []);
       if (contextRes.data?.booking) {
-        setBooking((prev: any) => ({ ...(prev || {}), ...contextRes.data.booking }));
+        setBooking((prev: any) => ({
+          ...(prev || {}),
+          ...contextRes.data.booking,
+        }));
       }
     } catch {
       setMenuItems([]);
@@ -133,7 +136,8 @@ export default function CustomerBookingDetail() {
     return "Belum Dibayar";
   }, [paymentStatus, balanceDue]);
   const paymentStateTone =
-    paymentStatus === "settled" || (paymentStatus === "paid" && balanceDue === 0)
+    paymentStatus === "settled" ||
+    (paymentStatus === "paid" && balanceDue === 0)
       ? "bg-emerald-500 text-white"
       : paymentStatus === "partial_paid" || paymentStatus === "paid"
         ? "bg-blue-600 text-white"
@@ -178,6 +182,7 @@ export default function CustomerBookingDetail() {
     }
     return null;
   }, [booking, now, isActiveStatus]);
+  const isLiveSession = countdownData?.type === "LIVE";
 
   const copyMagicLink = () => {
     const url = window.location.href;
@@ -207,7 +212,9 @@ export default function CustomerBookingDetail() {
       }
       snap.pay(res.data.snap_token, {
         onSuccess: () => {
-          setPaymentNotice("DP sudah dibayar. Sistem sedang memperbarui status booking.");
+          setPaymentNotice(
+            "DP sudah dibayar. Sistem sedang memperbarui status booking.",
+          );
           toast.success("DP berhasil dibayar");
           fetchDetail();
           setTimeout(fetchDetail, 4000);
@@ -305,7 +312,7 @@ export default function CustomerBookingDetail() {
               countdownData.type === "LIVE" ? "bg-slate-950" : "bg-blue-600",
             )}
           >
-            <div className="flex justify-between items-start mb-6">
+            <div className="flex justify-between items-start ">
               <div className="space-y-1">
                 <span className="text-[10px] font-black uppercase tracking-widest opacity-60">
                   {countdownData.label}
@@ -336,24 +343,20 @@ export default function CustomerBookingDetail() {
                   : "Masa Tunggu"}
               </Badge>
             </div>
-
-            <div className="rounded-2xl bg-white/10 border border-white/10 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-60">
-                    Customer Live Controller
-                  </p>
-                  <p className="text-xs font-bold italic opacity-90">
-                    Tombol aksi sekarang pindah ke panel mobile di bawah timer.
-                  </p>
-                </div>
-                <Badge className="rounded-full bg-white text-slate-950 border-none px-3 py-1 text-[8px] uppercase font-black">
-                  mobile first
-                </Badge>
-              </div>
-            </div>
           </Card>
         )}
+
+        <div className="rounded-[2rem] bg-white dark:bg-[#0c0c0c] border dark:border-white/5 shadow-sm p-4">
+          <BookingLiveController
+            active={isLiveSession}
+            booking={booking}
+            menuItems={menuItems}
+            addonItems={booking?.resource_addons || []}
+            onExtend={handleExtend}
+            onOrderFnb={handleAddFnb}
+            onOrderAddon={handleAddons}
+          />
+        </div>
 
         {/* UNIFIED INFO CARD */}
         <Card className="rounded-[2rem] p-0 overflow-hidden border-none shadow-sm ring-1 ring-black/5 dark:ring-white/5 bg-white dark:bg-[#0c0c0c]">
@@ -430,73 +433,77 @@ export default function CustomerBookingDetail() {
             <div className="flex items-center gap-2">
               <ReceiptText size={16} className="text-blue-600" />
               <span className="text-[10px] font-[1000] uppercase tracking-[0.2em] dark:text-white italic">
-                Rincian Pembayaran
+                Ringkasan Pembayaran
               </span>
             </div>
-            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
-              IDR Currency
-            </span>
           </div>
 
           <div className="p-4 space-y-4">
-            <div className="rounded-[1.5rem] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 p-4 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-[1.5rem] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 p-4 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-2xl bg-white dark:bg-black/40 border border-slate-100 dark:border-white/5 p-4">
                   <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
                     Total Booking
                   </p>
-                  <p className="mt-2 text-xl font-[1000] italic text-slate-950 dark:text-white leading-none">
+                  <p className="mt-2 text-lg font-[1000] italic text-slate-950 dark:text-white leading-none">
                     Rp {Number(booking.grand_total || 0).toLocaleString()}
+                  </p>
+                  <p className="mt-2 text-[10px] font-bold text-slate-400 uppercase italic">
+                    Nilai total booking
                   </p>
                 </div>
                 <div className="rounded-2xl bg-white dark:bg-black/40 border border-slate-100 dark:border-white/5 p-4">
                   <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
+                    Sudah Dibayar
+                  </p>
+                  <p className="mt-2 text-lg font-[1000] italic text-blue-600 leading-none">
+                    Rp {paidAmount.toLocaleString()}
+                  </p>
+                  <p className="mt-2 text-[10px] font-bold text-slate-400 uppercase italic">
+                    Termasuk DP dan transaksi tambahan
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-2xl bg-emerald-500/5 border border-emerald-500/10 p-3">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-emerald-500 italic">
                     DP Dibayar
                   </p>
-                  <p className="mt-2 text-xl font-[1000] italic text-emerald-600 leading-none">
+                  <p className="mt-2 text-sm font-[1000] italic text-emerald-600 leading-none">
                     Rp {depositAmount.toLocaleString()}
                   </p>
                 </div>
-                <div className="rounded-2xl bg-white dark:bg-black/40 border border-slate-100 dark:border-white/5 p-4">
-                  <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
-                    Total Setelah DP
+
+                <div className="rounded-2xl bg-blue-500/5 border border-blue-500/10 p-3">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-blue-500 italic">
+                    Sisa
                   </p>
-                  <p className="mt-2 text-xl font-[1000] italic text-blue-600 leading-none">
+                  <p className="mt-2 text-sm font-[1000] italic text-blue-600 leading-none">
                     Rp {balanceDue.toLocaleString()}
                   </p>
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-blue-500/10 border border-blue-500/10 p-4 text-[10px] font-bold italic text-blue-700 dark:text-blue-100 leading-relaxed">
+              <div className="rounded-2xl bg-white dark:bg-black/30 border border-slate-100 dark:border-white/5 p-4 text-[11px] font-bold italic text-slate-600 dark:text-slate-300 leading-relaxed">
                 {depositAmount > 0
-                  ? `DP Rp ${depositAmount.toLocaleString()} sudah dibayar. Due saat ini Rp ${balanceDue.toLocaleString()}.`
-                  : "Booking ini tidak memakai DP, jadi due akan dihitung saat sesi selesai."}
+                  ? `Total booking Rp ${Number(booking.grand_total || 0).toLocaleString()}. DP yang sudah dibayar Rp ${depositAmount.toLocaleString()}. Sisa yang harus dibayar Rp ${balanceDue.toLocaleString()}.`
+                  : `Total booking Rp ${Number(booking.grand_total || 0).toLocaleString()}. Booking ini tanpa DP, jadi seluruh tagihan berjalan mengikuti pemakaian.`}
               </div>
 
-              {paymentNotice && (
-                <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/15 p-4 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 italic">
-                  {paymentNotice}
-                </div>
+              {paymentStatus === "pending" && depositAmount > 0 && (
+                <Button
+                  onClick={handlePayDeposit}
+                  className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-[1000] uppercase italic tracking-widest text-sm shadow-lg gap-2"
+                >
+                  <CreditCard size={16} />
+                  Bayar DP Booking
+                </Button>
               )}
 
-              {paymentStatus === "pending" && depositAmount > 0 && (
-                <div className="space-y-3">
-                  <div className="rounded-2xl bg-orange-500/10 border border-orange-500/15 p-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-600 italic">
-                      DP belum dibayar
-                    </p>
-                    <p className="mt-2 text-xs font-bold italic text-slate-700 dark:text-slate-200 leading-relaxed">
-                      Klik tombol di bawah untuk membayar <span className="font-black text-blue-600">DP booking</span>.
-                      Setelah DP masuk, sisa tagihan tetap bisa dilunasi setelah sesi selesai.
-                    </p>
-                  </div>
-                  <Button
-                    onClick={handlePayDeposit}
-                    className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-[1000] uppercase italic tracking-widest text-sm shadow-lg gap-2"
-                  >
-                    <CreditCard size={16} />
-                    Bayar DP Booking Sekarang
-                  </Button>
+              {paymentNotice && (
+                <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/15 px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 italic">
+                  {paymentNotice}
                 </div>
               )}
             </div>
@@ -590,7 +597,12 @@ export default function CustomerBookingDetail() {
                     Rp {balanceDue.toLocaleString()}
                   </span>
                 </div>
-                <Badge className={cn("rounded-full border-none px-4 py-1 font-black italic text-[9px] uppercase shadow-lg", paymentStateTone)}>
+                <Badge
+                  className={cn(
+                    "rounded-full border-none px-4 py-1 font-black italic text-[9px] uppercase shadow-lg",
+                    paymentStateTone,
+                  )}
+                >
                   {paymentLabel}
                 </Badge>
               </div>
@@ -644,16 +656,6 @@ export default function CustomerBookingDetail() {
           </Button>
         </div>
       </main>
-
-      <BookingLiveController
-        active={Boolean(countdownData)}
-        booking={booking}
-        menuItems={menuItems}
-        addonItems={booking?.resource_addons || []}
-        onExtend={handleExtend}
-        onOrderFnb={handleAddFnb}
-        onOrderAddon={handleAddons}
-      />
     </div>
   );
 }
@@ -702,4 +704,3 @@ function LayoutDashboard({
     </svg>
   );
 }
-

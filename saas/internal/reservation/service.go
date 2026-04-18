@@ -34,7 +34,7 @@ func NewService(r *Repository, resRepo *resource.Repository, custSvc *customer.S
 }
 
 // Create menangani pendaftaran reservasi baru (Auto-detect TenantID & Silent Register CRM)
-func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, *customer.Customer, error) {
+func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalkIn bool) (*Booking, *customer.Customer, error) {
 	// 1. PARSE RESOURCE ID & AMBIL DATA TENANT (KEAMANAN: TenantID dari DB, bukan JSON)
 	rID, err := uuid.Parse(req.ResourceID)
 	if err != nil {
@@ -114,16 +114,21 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, *
 		}
 	}
 
-	// 7. TENTUKAN STATUS (SMART LOGIC)
-	// Jika status dikirim dari request (Walk-in/Manual Admin), pakai itu.
-	// Jika kosong (Public Booking), otomatis 'pending'.
+	// 7. TENTUKAN STATUS BERDASARKAN JALUR CREATE
+	// Manual walk-in boleh langsung active tanpa DP.
+	// Booking non-manual tetap dimulai dari pending supaya DP diverifikasi dulu.
 	bookingStatus := "pending"
-	if req.Status != "" {
-		bookingStatus = req.Status
+	if isManualWalkIn {
+		bookingStatus = "active"
+	} else if req.Status != "" {
+		bookingStatus = strings.ToLower(strings.TrimSpace(req.Status))
+		if bookingStatus == "active" {
+			bookingStatus = "pending"
+		}
 	}
 
 	depositAmount := calculateDepositAmount(grandTotal, bookingStatus)
-	if bookingStatus == "active" {
+	if isManualWalkIn {
 		depositAmount = 0
 	}
 	paidAmount := float64(0)
@@ -243,6 +248,20 @@ func (s *Service) AddAddonOrder(ctx context.Context, bookingID string, tenantID 
 	return s.repo.AddAddonOrder(ctx, bID, iID)
 }
 
+func (s *Service) ensureCustomerLiveSessionAccessible(ctx context.Context, bookingID, tenantID, customerID string) (*BookingDetail, error) {
+	detail, err := s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID)
+	if err != nil {
+		return nil, err
+	}
+
+	status := strings.ToLower(strings.TrimSpace(detail.Status))
+	if status != "active" && status != "ongoing" {
+		return nil, errors.New("LIVE CONTROLLER HANYA BISA DIAKSES SAAT SESI AKTIF")
+	}
+
+	return detail, nil
+}
+
 // GetActiveSessions untuk Live Monitoring Grid di Dashboard
 func (s *Service) GetActiveSessions(ctx context.Context, tenantID string) ([]BookingDetail, error) {
 	tID, err := uuid.Parse(tenantID)
@@ -356,7 +375,7 @@ func (s *Service) GetCustomerFnbMenu(ctx context.Context, tenantID string, searc
 }
 
 func (s *Service) GetCustomerAvailabilityByBooking(ctx context.Context, bookingID, tenantID, customerID string, date time.Time) ([]map[string]string, error) {
-	detail, err := s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID)
+	detail, err := s.ensureCustomerLiveSessionAccessible(ctx, bookingID, tenantID, customerID)
 	if err != nil {
 		return nil, err
 	}
@@ -364,7 +383,7 @@ func (s *Service) GetCustomerAvailabilityByBooking(ctx context.Context, bookingI
 }
 
 func (s *Service) GetCustomerLiveSnapshot(ctx context.Context, bookingID, tenantID, customerID string, date time.Time) (map[string]any, error) {
-	detail, err := s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID)
+	detail, err := s.ensureCustomerLiveSessionAccessible(ctx, bookingID, tenantID, customerID)
 	if err != nil {
 		return nil, err
 	}
@@ -379,21 +398,21 @@ func (s *Service) GetCustomerLiveSnapshot(ctx context.Context, bookingID, tenant
 }
 
 func (s *Service) CustomerExtendSession(ctx context.Context, bookingID, tenantID, customerID string, additionalDuration int) error {
-	if _, err := s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID); err != nil {
+	if _, err := s.ensureCustomerLiveSessionAccessible(ctx, bookingID, tenantID, customerID); err != nil {
 		return err
 	}
 	return s.ExtendSession(ctx, bookingID, tenantID, additionalDuration)
 }
 
 func (s *Service) CustomerAddFnbOrder(ctx context.Context, bookingID, tenantID, customerID string, req AddOrderReq) error {
-	if _, err := s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID); err != nil {
+	if _, err := s.ensureCustomerLiveSessionAccessible(ctx, bookingID, tenantID, customerID); err != nil {
 		return err
 	}
 	return s.AddFnbOrder(ctx, bookingID, tenantID, req)
 }
 
 func (s *Service) CustomerAddAddonOrder(ctx context.Context, bookingID, tenantID, customerID, itemID string) error {
-	if _, err := s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID); err != nil {
+	if _, err := s.ensureCustomerLiveSessionAccessible(ctx, bookingID, tenantID, customerID); err != nil {
 		return err
 	}
 	return s.AddAddonOrder(ctx, bookingID, tenantID, itemID)
