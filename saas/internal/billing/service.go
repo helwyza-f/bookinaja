@@ -10,9 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
+	"math/big"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -495,8 +496,16 @@ func verifyMidtransSignature(orderID, statusCode, grossAmount, signatureKey, ser
 }
 
 func parseMidtransAmount(raw string) int64 {
-	value, _ := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
-	return value
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0
+	}
+	dec, _, err := big.ParseFloat(raw, 10, 64, big.ToNearestEven)
+	if err != nil {
+		return 0
+	}
+	f, _ := dec.Float64()
+	return int64(math.Round(f))
 }
 
 func amountFromPayloadOrFallback(payloadAmount int64, fallback int64) int64 {
