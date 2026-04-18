@@ -58,7 +58,7 @@ func (h *Handler) Summary(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, data)
+	respondData(c, data)
 }
 
 func (h *Handler) Tenants(c *gin.Context) {
@@ -67,7 +67,7 @@ func (h *Handler) Tenants(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, data)
+	respondData(c, data)
 }
 
 func (h *Handler) Customers(c *gin.Context) {
@@ -76,7 +76,7 @@ func (h *Handler) Customers(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, data)
+	respondData(c, data)
 }
 
 func (h *Handler) TenantDetail(c *gin.Context) {
@@ -100,7 +100,7 @@ func (h *Handler) TenantDetail(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
+	respondData(c, gin.H{
 		"tenant": detail,
 		"summary": gin.H{
 			"subscription_summary": gin.H{
@@ -132,7 +132,7 @@ func (h *Handler) TenantCustomers(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, data)
+	respondData(c, data)
 }
 
 func (h *Handler) TenantTransactions(c *gin.Context) {
@@ -147,7 +147,7 @@ func (h *Handler) TenantTransactions(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": data, "page": page, "page_size": pageSize, "total": total})
+	respondPage(c, data, page, pageSize, total)
 }
 
 func (h *Handler) Transactions(c *gin.Context) {
@@ -157,7 +157,7 @@ func (h *Handler) Transactions(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": data, "page": page, "page_size": pageSize, "total": total})
+	respondPage(c, data, page, pageSize, total)
 }
 
 func (h *Handler) TenantBalances(c *gin.Context) {
@@ -166,7 +166,7 @@ func (h *Handler) TenantBalances(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, data)
+	respondData(c, data)
 }
 
 func (h *Handler) TenantBalanceDetail(c *gin.Context) {
@@ -180,7 +180,7 @@ func (h *Handler) TenantBalanceDetail(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, data)
+	respondData(c, data)
 }
 
 func (h *Handler) MidtransNotifications(c *gin.Context) {
@@ -191,7 +191,7 @@ func (h *Handler) MidtransNotifications(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": data, "page": page, "page_size": pageSize, "total": total})
+	respondPage(c, data, page, pageSize, total)
 }
 
 func (h *Handler) TenantMidtransNotifications(c *gin.Context) {
@@ -206,7 +206,7 @@ func (h *Handler) TenantMidtransNotifications(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": data, "page": page, "page_size": pageSize, "total": total})
+	respondPage(c, data, page, pageSize, total)
 }
 
 func (h *Handler) Revenue(c *gin.Context) {
@@ -219,7 +219,7 @@ func (h *Handler) Revenue(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, data)
+	respondData(c, data)
 }
 
 func (h *Handler) RevenueBreakdown(c *gin.Context) {
@@ -231,7 +231,7 @@ func (h *Handler) RevenueBreakdown(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, data)
+	respondData(c, data)
 }
 
 func (h *Handler) RevenueTimeseries(c *gin.Context) {
@@ -245,7 +245,7 @@ func (h *Handler) RevenueTimeseries(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, data)
+	respondData(c, data)
 }
 
 func (h *Handler) RevenueCSV(c *gin.Context) {
@@ -293,6 +293,21 @@ func parsePageParams(c *gin.Context) (int, int) {
 		}
 	}
 	return page, pageSize
+}
+
+func respondData(c *gin.Context, data any) {
+	c.JSON(http.StatusOK, gin.H{"data": data})
+}
+
+func respondPage(c *gin.Context, items any, page, pageSize, total int) {
+	c.JSON(http.StatusOK, gin.H{
+		"data": items,
+		"meta": gin.H{
+			"page":      page,
+			"page_size": pageSize,
+			"total":     total,
+		},
+	})
 }
 
 func sanitizeFilename(value string) string {

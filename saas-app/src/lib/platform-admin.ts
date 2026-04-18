@@ -65,6 +65,8 @@ export type PlatformCustomer = {
   tier?: string;
   visits?: number;
   spend?: number;
+  total_visits?: number;
+  total_spent?: number;
   last_booking?: string;
   last_visit?: string;
   updated_at?: string;
@@ -191,6 +193,28 @@ async function safeGet<T>(url: string, fallback: T): Promise<T> {
   }
 }
 
+async function safeGetPage<T>(url: string, fallback: PaginatedResponse<T>): Promise<PaginatedResponse<T>> {
+  try {
+    const res = await api.get(url);
+    const payload = res.data?.data ?? res.data ?? {};
+    const meta = res.data?.meta ?? {};
+    if (Array.isArray(payload)) {
+      return {
+        items: payload as T[],
+        page: Number(meta.page || fallback.page),
+        page_size: Number(meta.page_size || fallback.page_size),
+        total: Number(meta.total || fallback.total),
+      };
+    }
+    if (payload && typeof payload === "object" && "items" in payload) {
+      return payload as PaginatedResponse<T>;
+    }
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export async function getPlatformSummary() {
   const [tenants, customers, transactions] = await Promise.all([
     getPlatformTenants(),
@@ -257,7 +281,7 @@ export function getPlatformTenantTransactionsPage(tenantId: string, page = 1, pa
   const search = new URLSearchParams();
   search.set("page", String(page));
   search.set("page_size", String(pageSize));
-  return safeGet<PaginatedResponse<PlatformTransaction>>(
+  return safeGetPage<PlatformTransaction>(
     `/platform/tenants/${tenantId}/transactions?${search.toString()}`,
     { items: [], page, page_size: pageSize, total: 0 },
   );
@@ -274,14 +298,20 @@ export function getPlatformTenantNotificationsPage(tenantId: string, page = 1, p
   const search = new URLSearchParams();
   search.set("page", String(page));
   search.set("page_size", String(pageSize));
-  return safeGet<PaginatedResponse<MidtransNotificationLog>>(
+  return safeGetPage<MidtransNotificationLog>(
     `/platform/tenants/${tenantId}/notif-history?${search.toString()}`,
     { items: [], page, page_size: pageSize, total: 0 },
   );
 }
 
 export function getPlatformCustomers() {
-  return safeGet<PlatformCustomer[]>("/platform/customers", mockCustomers);
+  return safeGet<PlatformCustomer[]>("/platform/customers", mockCustomers).then((items: any) =>
+    (Array.isArray(items) ? items : []).map((item) => ({
+      ...item,
+      visits: item.visits ?? item.total_visits ?? 0,
+      spend: item.spend ?? item.total_spent ?? 0,
+    })),
+  );
 }
 
 export function getPlatformTransactions() {
@@ -297,7 +327,7 @@ export function getPlatformTransactionsPage(page = 1, pageSize = 25) {
   const search = new URLSearchParams();
   search.set("page", String(page));
   search.set("page_size", String(pageSize));
-  return safeGet<PaginatedResponse<PlatformTransaction>>(
+  return safeGetPage<PlatformTransaction>(
     `/platform/transactions?${search.toString()}`,
     { items: mockTransactions, page, page_size: pageSize, total: mockTransactions.length },
   );
