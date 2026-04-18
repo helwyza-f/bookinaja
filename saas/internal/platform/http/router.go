@@ -216,8 +216,9 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 				customers := adminArea.Group("/customers")
 				{
 					customers.GET("", cfg.CustomerHandler.List)
-					customers.GET("/:id", cfg.CustomerHandler.GetByID)
 					customers.GET("/search", cfg.CustomerHandler.SearchByPhone)
+					customers.GET("/:id/history", cfg.CustomerHandler.GetHistory)
+					customers.GET("/:id", cfg.CustomerHandler.GetByID)
 				}
 			}
 		}
