@@ -170,3 +170,20 @@ func (s *Service) GetDetail(ctx context.Context, id, tenantID string) (*Customer
 	}
 	return s.repo.FindByIDForTenant(ctx, cID, tID)
 }
+
+func (s *Service) GetDetailWithHistory(ctx context.Context, id, tenantID string) (*CustomerDetailWithHistory, error) {
+	cust, err := s.GetDetail(ctx, id, tenantID)
+	if err != nil || cust == nil {
+		return nil, err
+	}
+
+	history, err := s.repo.GetTransactionHistory(ctx, cust.ID, 20)
+	if err != nil {
+		return nil, fmt.Errorf("gagal memuat histori transaksi: %w", err)
+	}
+
+	return &CustomerDetailWithHistory{
+		Customer:           *cust,
+		TransactionHistory: history,
+	}, nil
+}

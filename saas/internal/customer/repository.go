@@ -128,14 +128,33 @@ func (r *Repository) GetPastHistory(ctx context.Context, customerID uuid.UUID, l
 	var history []RecentHistoryDTO
 	query := `
 		SELECT 
-			b.id, res.name as resource, b.start_time as date, b.status,
-			b.payment_status,
+			b.id, res.name as resource, b.start_time as date, b.end_time as end_date,
+			b.grand_total, b.deposit_amount, b.paid_amount, b.balance_due,
+			b.status, b.payment_status, b.payment_method,
 			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) +
 			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_spent
 		FROM bookings b
 		JOIN resources res ON b.resource_id = res.id
 		WHERE b.customer_id = $1 AND b.status IN ('completed', 'cancelled')
 		ORDER BY b.start_time DESC LIMIT $2`
+	err := r.db.SelectContext(ctx, &history, query, customerID, limit)
+	return history, err
+}
+
+func (r *Repository) GetTransactionHistory(ctx context.Context, customerID uuid.UUID, limit int) ([]RecentHistoryDTO, error) {
+	var history []RecentHistoryDTO
+	query := `
+		SELECT 
+			b.id, res.name as resource, b.start_time as date, b.end_time as end_date,
+			b.grand_total, b.deposit_amount, b.paid_amount, b.balance_due,
+			b.status, b.payment_status, b.payment_method,
+			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) +
+			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_spent
+		FROM bookings b
+		JOIN resources res ON b.resource_id = res.id
+		WHERE b.customer_id = $1
+		ORDER BY b.start_time DESC
+		LIMIT $2`
 	err := r.db.SelectContext(ctx, &history, query, customerID, limit)
 	return history, err
 }

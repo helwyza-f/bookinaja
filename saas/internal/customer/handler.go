@@ -196,7 +196,7 @@ func (h *Handler) List(c *gin.Context) {
 func (h *Handler) GetByID(c *gin.Context) {
 	id := c.Param("id")
 	tenantID := c.MustGet("tenantID").(string)
-	cust, err := h.service.GetDetail(c.Request.Context(), id, tenantID)
+	cust, err := h.service.GetDetailWithHistory(c.Request.Context(), id, tenantID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Pelanggan tidak ditemukan"})
 		return
