@@ -155,7 +155,11 @@ func (h *Handler) BookingCheckout(c *gin.Context) {
 		return
 	}
 
-	res, err := h.svc.CheckoutBookingDeposit(c.Request.Context(), tenantID, tenantSlug, bID)
+	mode := c.Query("mode")
+	if mode == "" {
+		mode = c.Query("type")
+	}
+	res, err := h.svc.CheckoutBookingPayment(c.Request.Context(), tenantID, tenantSlug, bID, mode)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

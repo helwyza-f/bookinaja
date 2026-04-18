@@ -433,6 +433,18 @@ func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, s
 	return err
 }
 
+func (r *Repository) SettlePaymentCash(ctx context.Context, id, tenantID uuid.UUID, cashReceived *float64, notes *string) error {
+	query := `
+		UPDATE bookings
+		SET payment_status = 'settled',
+			payment_method = 'cash',
+			paid_amount = grand_total,
+			balance_due = 0
+		WHERE id = $1 AND tenant_id = $2`
+	_, err := r.db.ExecContext(ctx, query, id, tenantID)
+	return err
+}
+
 func (r *Repository) UpdateSessionActivatedAt(ctx context.Context, id, tenantID uuid.UUID) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE bookings

@@ -190,6 +190,7 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 					bookings.GET("", cfg.ReservationHandler.ListAll)
 					bookings.GET("/:id", cfg.ReservationHandler.GetDetail)
 					bookings.PUT("/:id/status", cfg.ReservationHandler.UpdateStatus)
+					bookings.POST("/:id/settle-cash", cfg.ReservationHandler.SettleCash)
 					bookings.POST("/manual", cfg.ReservationHandler.Create)
 
 					// POS Engine Endpoints

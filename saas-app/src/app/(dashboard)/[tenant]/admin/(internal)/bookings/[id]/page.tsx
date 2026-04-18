@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Script from "next/script";
 import { format } from "date-fns";
 import { id as localeID } from "date-fns/locale";
 import {
@@ -23,6 +24,7 @@ import {
   Trash2,
   AlertCircle,
   Hash,
+  MoreHorizontal,
 } from "lucide-react";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -45,6 +47,8 @@ export default function BookingDetailPage() {
   const [booking, setBooking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [midtransReady, setMidtransReady] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
 
   const fetchDetail = async () => {
     try {
@@ -62,6 +66,10 @@ export default function BookingDetailPage() {
     window.addEventListener("focus", fetchDetail);
     return () => window.removeEventListener("focus", fetchDetail);
   }, [params.id]);
+
+  useEffect(() => {
+    if (window.snap) setMidtransReady(true);
+  }, []);
 
   const groupedOptions = useMemo(() => {
     if (!booking?.options) return [];
@@ -101,6 +109,55 @@ export default function BookingDetailPage() {
   };
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
+  const isPaymentSettled =
+    booking.payment_status === "settled" ||
+    (booking.payment_status === "paid" && Number(booking.balance_due || 0) === 0);
+
+  const waitForSnap = async () => {
+    if (window.snap) return window.snap;
+    const started = Date.now();
+    while (Date.now() - started < 5000) {
+      if (window.snap) return window.snap;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    return null;
+  };
+
+  const handlePayment = async (mode: "settlement") => {
+    try {
+      const snap = await waitForSnap();
+      if (!snap) {
+        toast.error("Midtrans belum siap");
+        return;
+      }
+      const res = await api.post(
+        `/billing/bookings/checkout?mode=${mode}`,
+        { booking_id: booking.id },
+      );
+      snap.pay(res.data.snap_token, {
+        onSuccess: () => {
+          toast.success("Pelunasan berhasil");
+          fetchDetail();
+        },
+        onPending: () => toast.message("Pembayaran menunggu konfirmasi"),
+        onError: () => toast.error("Pembayaran gagal"),
+        onClose: () => fetchDetail(),
+      });
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Gagal membuka pembayaran");
+    }
+  };
+
+  const handleCashSettlement = async () => {
+    try {
+      await api.post(`/bookings/${params.id}/settle-cash`);
+      toast.success("Pelunasan cash berhasil");
+      setPayOpen(false);
+      fetchDetail();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Gagal memproses cash settlement");
+    }
+  };
 
   if (loading) return <BookingDetailSkeleton />;
 
@@ -121,6 +178,19 @@ export default function BookingDetailPage() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 lg:p-6 space-y-6 animate-in fade-in duration-500 font-plus-jakarta pb-20 mt-4">
+      <Script
+        src={
+          (
+            process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION || ""
+          ).toLowerCase() === "true"
+            ? "https://app.midtrans.com/snap/snap.js"
+            : "https://app.sandbox.midtrans.com/snap/snap.js"
+        }
+        data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
+        strategy="afterInteractive"
+        onLoad={() => setMidtransReady(true)}
+        onError={() => setMidtransReady(false)}
+      />
       {/* 1. COMPACT HEADER AREA */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-0.5">
@@ -152,6 +222,57 @@ export default function BookingDetailPage() {
 
         <div className="flex flex-wrap items-center gap-2">
           {/* VIP ACTIONS */}
+          {(booking.balance_due > 0 || booking.payment_status === "partial_paid") && (
+            <div className="relative">
+              <Button
+                onClick={() => setPayOpen((prev) => !prev)}
+                disabled={updating}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[9px] h-12 px-6 rounded-xl shadow-lg border-b-4 border-blue-800 gap-2"
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                Process Payment
+              </Button>
+
+              {payOpen && (
+                <div className="absolute right-0 mt-3 w-72 rounded-2xl border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900 shadow-2xl p-3 z-50">
+                  <div className="space-y-3">
+                    <div className="rounded-xl bg-slate-50 dark:bg-white/5 p-3">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
+                        Ringkasan Pelunasan
+                      </p>
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-[10px]">
+                        <div>
+                          <p className="text-slate-400 uppercase font-black italic">Total</p>
+                          <p className="text-slate-900 dark:text-white font-black">Rp{formatIDR(booking.grand_total || 0)}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-400 uppercase font-black italic">Sisa</p>
+                          <p className="text-blue-600 font-black">Rp{formatIDR(booking.balance_due || 0)}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        setPayOpen(false);
+                        handlePayment("settlement");
+                      }}
+                      disabled={!midtransReady}
+                      className="w-full rounded-xl bg-slate-950 hover:bg-slate-800 text-white font-black uppercase italic text-[10px] h-11"
+                    >
+                      {midtransReady ? "Bayar via Midtrans" : "Menyiapkan Midtrans"}
+                    </Button>
+                    <Button
+                      onClick={handleCashSettlement}
+                      className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase italic text-[10px] h-11"
+                    >
+                      Bayar Cash
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {(booking.status === "active" || booking.status === "ongoing") && (
             <Button
               onClick={() => router.push(`/admin/pos?active=${booking.id}`)}
@@ -184,11 +305,17 @@ export default function BookingDetailPage() {
 
           {(booking.status === "active" || booking.status === "ongoing") && (
             <Button
-              onClick={() => handleUpdateStatus("completed")}
-              disabled={updating}
+              onClick={() => {
+                if (!isPaymentSettled) {
+                  toast.error("Checkout final hanya bisa dilakukan jika pembayaran sudah lunas");
+                  return;
+                }
+                handleUpdateStatus("completed");
+              }}
+              disabled={updating || !isPaymentSettled}
               className="bg-slate-900 dark:bg-blue-600 text-white font-black uppercase italic text-[9px] h-12 px-6 rounded-xl shadow-lg border-b-4 border-slate-700 dark:border-blue-800"
             >
-              Checkout Final
+              {isPaymentSettled ? "Checkout Final" : "Belum Lunas"}
             </Button>
           )}
 
@@ -410,52 +537,60 @@ export default function BookingDetailPage() {
           </Card>
 
           {/* TOTAL BILL CARD - THE GRAND FINALE */}
-          <Card className="rounded-[3rem] border-none bg-slate-950 p-10 text-white space-y-8 relative overflow-hidden shadow-2xl">
+          <Card className="rounded-[3rem] border-none bg-slate-950 p-8 text-white space-y-5 relative overflow-hidden shadow-2xl">
             <Receipt
               size={160}
               className="absolute -right-12 -bottom-12 opacity-[0.03] rotate-12"
             />
 
-            <div className="relative z-10 space-y-6">
-              <div className="space-y-3">
-                <div className="flex justify-between items-center opacity-50">
-                  <span className="text-[9px] font-black uppercase tracking-widest italic">
-                    Unit Total
-                  </span>
-                  <span className="font-black italic text-sm">
-                    Rp{formatIDR(booking.total_resource || 0)}
-                  </span>
+            <div className="relative z-10 space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black uppercase tracking-widest italic text-slate-500">
+                    Payment Snapshot
+                  </p>
+                  <p className="text-sm font-bold text-slate-300 italic">
+                    Tombol aksi ada di kanan atas
+                  </p>
                 </div>
-                <div className="flex justify-between items-center opacity-50">
-                  <span className="text-[9px] font-black uppercase tracking-widest italic">
-                    F&B Total
-                  </span>
-                  <span className="font-black italic text-sm">
-                    Rp{formatIDR(booking.total_fnb || 0)}
-                  </span>
+                <Badge className="rounded-full bg-blue-600 text-white border-none px-3 py-1 text-[8px] uppercase font-black">
+                  {booking.payment_status || "pending"}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-left">
+                <div className="rounded-2xl bg-white/5 border border-white/5 p-3">
+                  <p className="text-[8px] uppercase tracking-widest text-slate-400 font-black italic">
+                    Total
+                  </p>
+                  <p className="mt-2 text-sm font-black italic">
+                    Rp{formatIDR(booking.grand_total || 0)}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-white/5 border border-white/5 p-3">
+                  <p className="text-[8px] uppercase tracking-widest text-slate-400 font-black italic">
+                    Dibayar
+                  </p>
+                  <p className="mt-2 text-sm font-black italic text-emerald-300">
+                    Rp{formatIDR(booking.paid_amount || 0)}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-white/5 border border-white/5 p-3">
+                  <p className="text-[8px] uppercase tracking-widest text-slate-400 font-black italic">
+                    Sisa
+                  </p>
+                  <p className="mt-2 text-sm font-black italic text-blue-300">
+                    Rp{formatIDR(booking.balance_due || 0)}
+                  </p>
                 </div>
               </div>
 
-              <Separator className="bg-white/10" />
-
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-blue-400">
-                  <Ticket size={16} />
-                  <span className="text-[11px] font-black uppercase tracking-[0.3em] italic">
-                    Total Due
-                  </span>
+              {!isPaymentSettled && (
+                <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-[10px] font-bold italic text-amber-100 leading-relaxed">
+                  Booking belum lunas. Silakan gunakan tombol Process Payment di
+                  kanan atas untuk pelunasan via Midtrans atau cash.
                 </div>
-                <p className="text-6xl font-[1000] italic tracking-tighter leading-none py-2">
-                  <span className="text-xl text-blue-600 mr-2 font-bold not-italic">
-                    Rp
-                  </span>
-                  {formatIDR(booking.grand_total || 0)}
-                </p>
-              </div>
-
-              <Button className="w-full h-16 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-[1000] uppercase italic tracking-widest text-xs border-b-4 border-blue-800 shadow-xl transition-all active:scale-95 gap-3">
-                <CreditCard size={18} strokeWidth={3} /> Process Payment
-              </Button>
+              )}
             </div>
           </Card>
         </div>

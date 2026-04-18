@@ -164,3 +164,29 @@ func (r *Repository) UpdateBookingPaymentFromMidtrans(ctx context.Context, exec 
 	)
 	return err
 }
+
+func (r *Repository) UpdateBookingSettlementFromMidtrans(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID, status string, transactionID *string, paymentType *string, raw map[string]any) error {
+	_, err := exec.ExecContext(ctx, `
+		UPDATE bookings
+		SET payment_status = CASE
+				WHEN $2 IN ('paid', 'settled') THEN 'settled'
+				ELSE $2
+			END,
+			status = CASE
+				WHEN status IN ('pending', 'confirmed', 'active') AND $2 IN ('paid', 'settled') THEN 'completed'
+				ELSE status
+			END,
+			payment_method = COALESCE($3, payment_method),
+			paid_amount = CASE
+				WHEN $2 IN ('paid', 'settled') THEN grand_total
+				ELSE paid_amount
+			END,
+			balance_due = CASE
+				WHEN $2 IN ('paid', 'settled') THEN 0
+				ELSE balance_due
+			END
+		WHERE id = $1`,
+		bookingID, status, paymentType,
+	)
+	return err
+}
