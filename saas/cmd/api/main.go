@@ -89,6 +89,7 @@ func main() {
 	customerSvc := customer.NewService(customerRepo, rdb)
 	resourceSvc := resource.NewService(resourceRepo)
 	reservationSvc := reservation.NewService(reservationRepo, resourceRepo, customerSvc)
+	scheduler := reservation.NewScheduler(db, reservationRepo)
 	fnbSvc := fnb.NewService(fnbRepo)
 	billingSvc := billing.NewService(db, billingRepo)
 	platformSvc := platformadmin.NewService()
@@ -117,6 +118,8 @@ func main() {
 	}
 
 	r := http.NewRouter(routerConfig, db, rdb)
+
+	scheduler.Start()
 
 	// 6. Start Server
 	port := os.Getenv("PORT")

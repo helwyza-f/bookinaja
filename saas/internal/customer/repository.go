@@ -113,6 +113,7 @@ func (r *Repository) GetActiveBookings(ctx context.Context, customerID uuid.UUID
 	query := `
 		SELECT 
 			b.id, res.name as resource, b.start_time as date, b.status,
+			b.payment_status,
 			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) +
 			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_spent
 		FROM bookings b
@@ -128,6 +129,7 @@ func (r *Repository) GetPastHistory(ctx context.Context, customerID uuid.UUID, l
 	query := `
 		SELECT 
 			b.id, res.name as resource, b.start_time as date, b.status,
+			b.payment_status,
 			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) +
 			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_spent
 		FROM bookings b

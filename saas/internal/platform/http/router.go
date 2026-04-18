@@ -78,6 +78,7 @@ func NewRouter(cfg Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 			public.GET("/bookings/:id", cfg.ReservationHandler.GetPublicDetailByToken)
 			public.POST("/bookings", cfg.ReservationHandler.Create)
 			public.POST("/bookings/:id/checkout", cfg.BillingHandler.BookingCheckout)
+			public.POST("/bookings/:id/sync", cfg.ReservationHandler.SyncSession)
 
 			// Customer Self-Auth (WhatsApp OTP)
 			public.POST("/customer/login", cfg.CustomerHandler.RequestOTP)

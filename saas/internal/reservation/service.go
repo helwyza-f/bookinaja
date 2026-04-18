@@ -5,10 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/helwiza/saas/internal/customer"
+	"github.com/helwiza/saas/internal/platform/fonnte"
 	"github.com/helwiza/saas/internal/resource"
 )
 
@@ -153,6 +156,8 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, *
 	if err := s.repo.CreateWithItems(ctx, newBooking, itemUUIDs, req.Duration); err != nil {
 		return nil, nil, fmt.Errorf("GAGAL MENYIMPAN TRANSAKSI: %w", err)
 	}
+
+	_ = s.sendBookingConfirmation(ctx, &newBooking, cust)
 
 	return &newBooking, cust, nil
 }
@@ -319,6 +324,135 @@ func (s *Service) GetDetailForAdmin(ctx context.Context, id, tenantID string) (*
 	bID, _ := uuid.Parse(id)
 	tID, _ := uuid.Parse(tenantID)
 	return s.repo.FindByID(ctx, bID, tID)
+}
+
+func (s *Service) SyncSessionState(ctx context.Context, bookingID, tenantID string) (*BookingDetail, error) {
+	bID, err := uuid.Parse(bookingID)
+	if err != nil {
+		return nil, errors.New("ID BOOKING TIDAK VALID")
+	}
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, errors.New("ID TENANT TIDAK VALID")
+	}
+
+	booking, err := s.repo.FindByID(ctx, bID, tID)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now().UTC()
+	if booking.Status == "pending" && !now.Before(booking.StartTime) {
+		if err := s.repo.UpdateStatus(ctx, bID, tID, "active"); err != nil {
+			return nil, err
+		}
+		_ = s.repo.UpdateSessionActivatedAt(ctx, bID, tID)
+		booking, err = s.repo.FindByID(ctx, bID, tID)
+		if err != nil {
+			return nil, err
+		}
+		_ = s.sendSessionStarted(ctx, booking)
+	}
+
+	_ = s.sendSessionReminders(ctx, booking)
+	return booking, nil
+}
+
+func (s *Service) sendBookingConfirmation(ctx context.Context, booking *Booking, cust *customer.Customer) error {
+	if cust == nil {
+		return nil
+	}
+
+	detailURL := fmt.Sprintf("%s/me/bookings/%s?token=%s", publicBaseURL(), booking.ID.String(), booking.AccessToken.String())
+	paymentLine := "Tidak ada DP, silakan lihat detail booking."
+	if booking.DepositAmount > 0 {
+		paymentLine = fmt.Sprintf("DP booking: Rp %s. Sisa bayar: Rp %s.", formatMoney(booking.DepositAmount), formatMoney(booking.BalanceDue))
+	}
+
+	msg := fmt.Sprintf(
+		"Halo %s, booking kamu sudah berhasil.\n\nNomor booking: %s\nMulai: %s\nSelesai: %s\n%s\n\nBuka detail booking di sini:\n%s",
+		cust.Name,
+		booking.ID.String(),
+		booking.StartTime.In(time.Local).Format("02 Jan 2006 15:04"),
+		booking.EndTime.In(time.Local).Format("02 Jan 2006 15:04"),
+		paymentLine,
+		detailURL,
+	)
+	_, _ = fonnte.SendMessage(cust.Phone, msg)
+	return nil
+}
+
+func publicBaseURL() string {
+	base := strings.TrimSpace(os.Getenv("NEXT_PUBLIC_APP_URL"))
+	if base == "" {
+		base = "http://localhost:3000"
+	}
+	return strings.TrimRight(base, "/")
+}
+
+func formatMoney(v float64) string {
+	return fmt.Sprintf("%d", int64(math.Round(v)))
+}
+
+func (s *Service) sendSessionStarted(ctx context.Context, booking *BookingDetail) error {
+	if booking == nil {
+		return nil
+	}
+	cust := booking.CustomerName
+	phone := booking.CustomerPhone
+	if phone == "" {
+		return nil
+	}
+	msg := fmt.Sprintf(
+		"Halo %s, sesi booking kamu untuk %s sekarang sudah aktif.\n\nBuka detail booking:\n%s/me/bookings/%s?token=%s",
+		cust,
+		booking.ResourceName,
+		publicBaseURL(),
+		booking.ID.String(),
+		booking.AccessToken.String(),
+	)
+	_, _ = fonnte.SendMessage(phone, msg)
+	return nil
+}
+
+func (s *Service) sendSessionReminders(ctx context.Context, booking *BookingDetail) error {
+	if booking == nil {
+		return nil
+	}
+	phone := booking.CustomerPhone
+	if phone == "" {
+		return nil
+	}
+	now := time.Now().UTC()
+	due := booking.StartTime.Sub(now)
+
+	if due <= 20*time.Minute && due > 19*time.Minute && booking.Reminder20MSentAt == nil {
+		msg := fmt.Sprintf(
+			"Halo %s, sesi booking kamu untuk %s mulai 20 menit lagi pada %s.\n\nDetail booking:\n%s/me/bookings/%s?token=%s",
+			booking.CustomerName,
+			booking.ResourceName,
+			booking.StartTime.In(time.Local).Format("02 Jan 2006 15:04"),
+			publicBaseURL(),
+			booking.ID.String(),
+			booking.AccessToken.String(),
+		)
+		_, _ = fonnte.SendMessage(phone, msg)
+		_ = s.repo.MarkReminderSent(ctx, booking.ID, booking.TenantID, "reminder_20m_sent_at")
+	}
+
+	if due <= 5*time.Minute && due > 4*time.Minute && booking.Reminder5MSentAt == nil {
+		msg := fmt.Sprintf(
+			"Halo %s, sesi booking kamu untuk %s mulai 5 menit lagi.\n\nDetail booking:\n%s/me/bookings/%s?token=%s",
+			booking.CustomerName,
+			booking.ResourceName,
+			publicBaseURL(),
+			booking.ID.String(),
+			booking.AccessToken.String(),
+		)
+		_, _ = fonnte.SendMessage(phone, msg)
+		_ = s.repo.MarkReminderSent(ctx, booking.ID, booking.TenantID, "reminder_5m_sent_at")
+	}
+	return nil
 }
 
 func calculateDepositAmount(grandTotal float64, bookingStatus string) float64 {

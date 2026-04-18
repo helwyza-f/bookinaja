@@ -242,6 +242,17 @@ func (h *Handler) GetPublicDetailByToken(c *gin.Context) {
 	c.JSON(http.StatusOK, booking)
 }
 
+func (h *Handler) SyncSession(c *gin.Context) {
+	bookingID := c.Param("id")
+	tenantID := c.MustGet("tenantID").(string)
+	booking, err := h.service.SyncSessionState(c.Request.Context(), bookingID, tenantID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, booking)
+}
+
 // UpdateStatus eksekusi transisi status (Check-out, Cancel, dll)
 func (h *Handler) UpdateStatus(c *gin.Context) {
 	id := c.Param("id")
