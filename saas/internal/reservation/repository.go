@@ -18,6 +18,15 @@ func NewRepository(db *sqlx.DB) *Repository {
 	return &Repository{db: db}
 }
 
+func (r *Repository) GetTenantSlug(ctx context.Context, tenantID uuid.UUID) (string, error) {
+	var slug string
+	err := r.db.GetContext(ctx, &slug, `SELECT slug FROM tenants WHERE id = $1 LIMIT 1`, tenantID)
+	if err != nil {
+		return "", err
+	}
+	return slug, nil
+}
+
 // GetOrCreateCustomer mengidentifikasi customer berdasarkan nomor HP (Silent Registration)
 func (r *Repository) GetOrCreateCustomer(ctx context.Context, tenantID uuid.UUID, name, phone string) (uuid.UUID, error) {
 	var customerID uuid.UUID

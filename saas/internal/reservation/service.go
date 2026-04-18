@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
 	"strings"
 	"time"
 
@@ -157,7 +156,8 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq) (*Booking, *
 		return nil, nil, fmt.Errorf("GAGAL MENYIMPAN TRANSAKSI: %w", err)
 	}
 
-	_ = s.sendBookingConfirmation(ctx, &newBooking, cust)
+	tenantSlug, _ := s.repo.GetTenantSlug(ctx, tID)
+	_ = s.sendBookingConfirmation(ctx, &newBooking, cust, tenantSlug)
 
 	return &newBooking, cust, nil
 }
@@ -358,12 +358,12 @@ func (s *Service) SyncSessionState(ctx context.Context, bookingID, tenantID stri
 	return booking, nil
 }
 
-func (s *Service) sendBookingConfirmation(ctx context.Context, booking *Booking, cust *customer.Customer) error {
+func (s *Service) sendBookingConfirmation(ctx context.Context, booking *Booking, cust *customer.Customer, tenantSlug string) error {
 	if cust == nil {
 		return nil
 	}
 
-	detailURL := fmt.Sprintf("%s/me/bookings/%s?token=%s", publicBaseURL(), booking.ID.String(), booking.AccessToken.String())
+	detailURL := bookingDetailURL(tenantSlug, booking.ID.String(), booking.AccessToken.String())
 	paymentLine := "Tidak ada DP, silakan lihat detail booking."
 	if booking.DepositAmount > 0 {
 		paymentLine = fmt.Sprintf("DP booking: Rp %s. Sisa bayar: Rp %s.", formatMoney(booking.DepositAmount), formatMoney(booking.BalanceDue))
@@ -382,12 +382,12 @@ func (s *Service) sendBookingConfirmation(ctx context.Context, booking *Booking,
 	return nil
 }
 
-func publicBaseURL() string {
-	base := strings.TrimSpace(os.Getenv("NEXT_PUBLIC_APP_URL"))
-	if base == "" {
-		base = "http://localhost:3000"
+func bookingDetailURL(tenantSlug, bookingID, token string) string {
+	slug := strings.TrimSpace(tenantSlug)
+	if slug == "" {
+		slug = "tenant"
 	}
-	return strings.TrimRight(base, "/")
+	return fmt.Sprintf("https://%s.bookinaja.com/me/bookings/%s?token=%s", slug, bookingID, token)
 }
 
 func formatMoney(v float64) string {
@@ -403,13 +403,12 @@ func (s *Service) sendSessionStarted(ctx context.Context, booking *BookingDetail
 	if phone == "" {
 		return nil
 	}
+	tenantSlug, _ := s.repo.GetTenantSlug(ctx, booking.TenantID)
 	msg := fmt.Sprintf(
-		"Halo %s, sesi booking kamu untuk %s sekarang sudah aktif.\n\nBuka detail booking:\n%s/me/bookings/%s?token=%s",
+		"Halo %s, sesi booking kamu untuk %s sekarang sudah aktif.\n\nBuka detail booking:\n%s",
 		cust,
 		booking.ResourceName,
-		publicBaseURL(),
-		booking.ID.String(),
-		booking.AccessToken.String(),
+		bookingDetailURL(tenantSlug, booking.ID.String(), booking.AccessToken.String()),
 	)
 	_, _ = fonnte.SendMessage(phone, msg)
 	return nil
@@ -425,16 +424,15 @@ func (s *Service) sendSessionReminders(ctx context.Context, booking *BookingDeta
 	}
 	now := time.Now().UTC()
 	due := booking.StartTime.Sub(now)
+	tenantSlug, _ := s.repo.GetTenantSlug(ctx, booking.TenantID)
 
 	if due <= 20*time.Minute && due > 19*time.Minute && booking.Reminder20MSentAt == nil {
 		msg := fmt.Sprintf(
-			"Halo %s, sesi booking kamu untuk %s mulai 20 menit lagi pada %s.\n\nDetail booking:\n%s/me/bookings/%s?token=%s",
+			"Halo %s, sesi booking kamu untuk %s mulai 20 menit lagi pada %s.\n\nDetail booking:\n%s",
 			booking.CustomerName,
 			booking.ResourceName,
 			booking.StartTime.In(time.Local).Format("02 Jan 2006 15:04"),
-			publicBaseURL(),
-			booking.ID.String(),
-			booking.AccessToken.String(),
+			bookingDetailURL(tenantSlug, booking.ID.String(), booking.AccessToken.String()),
 		)
 		_, _ = fonnte.SendMessage(phone, msg)
 		_ = s.repo.MarkReminderSent(ctx, booking.ID, booking.TenantID, "reminder_20m_sent_at")
@@ -442,12 +440,10 @@ func (s *Service) sendSessionReminders(ctx context.Context, booking *BookingDeta
 
 	if due <= 5*time.Minute && due > 4*time.Minute && booking.Reminder5MSentAt == nil {
 		msg := fmt.Sprintf(
-			"Halo %s, sesi booking kamu untuk %s mulai 5 menit lagi.\n\nDetail booking:\n%s/me/bookings/%s?token=%s",
+			"Halo %s, sesi booking kamu untuk %s mulai 5 menit lagi.\n\nDetail booking:\n%s",
 			booking.CustomerName,
 			booking.ResourceName,
-			publicBaseURL(),
-			booking.ID.String(),
-			booking.AccessToken.String(),
+			bookingDetailURL(tenantSlug, booking.ID.String(), booking.AccessToken.String()),
 		)
 		_, _ = fonnte.SendMessage(phone, msg)
 		_ = s.repo.MarkReminderSent(ctx, booking.ID, booking.TenantID, "reminder_5m_sent_at")

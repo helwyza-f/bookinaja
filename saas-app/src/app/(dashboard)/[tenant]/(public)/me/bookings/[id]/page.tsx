@@ -79,6 +79,8 @@ export default function CustomerBookingDetail() {
         maxAge: 60 * 60 * 24 * 7,
         path: "/",
       });
+      const cleanUrl = `${window.location.pathname}${window.location.hash}`;
+      window.history.replaceState({}, "", cleanUrl);
     }
     fetchDetail();
     const interval = setInterval(fetchDetail, 30000);
