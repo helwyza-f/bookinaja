@@ -207,22 +207,7 @@ func (s *Service) sendBookingPaymentWhatsApp(ctx context.Context, info BookingNo
 		paymentNote = "Pelunasan booking kamu sudah diterima."
 	}
 
-	remaining := info.BalanceDue
-	if remaining < 0 {
-		remaining = 0
-	}
-	msg := fmt.Sprintf(
-		"Halo %s, %s\n\nBooking: %s\nUnit: %s\nTotal: Rp %s\nDP: Rp %s\nSudah dibayar: Rp %s\nSisa: Rp %s\n\nBuka detail booking:\n%s",
-		info.CustomerName,
-		paymentNote,
-		info.BookingID.String(),
-		info.ResourceName,
-		formatMoney(info.GrandTotal),
-		formatMoney(info.DepositAmount),
-		formatMoney(info.PaidAmount),
-		formatMoney(remaining),
-		url,
-	)
+	msg := waPaymentReceivedMessage(info.CustomerName, paymentNote, info.BookingID.String(), info.ResourceName, info.GrandTotal, info.DepositAmount, info.PaidAmount, info.BalanceDue, url)
 	_, _ = fonnte.SendMessage(info.CustomerPhone, msg)
 	return nil
 }
@@ -436,6 +421,25 @@ func generateCustomerSessionToken(customerID, tenantID string) (string, error) {
 
 func formatMoney(v float64) string {
 	return fmt.Sprintf("%d", int64(v+0.5))
+}
+
+func waPaymentReceivedMessage(name, note, bookingID, resourceName string, grandTotal, depositAmount, paidAmount, balanceDue float64, detailURL string) string {
+	remaining := balanceDue
+	if remaining < 0 {
+		remaining = 0
+	}
+	return fmt.Sprintf(
+		"Halo %s, %s\n\nNomor booking: %s\nUnit: %s\nTotal: Rp %s\nDP: Rp %s\nSudah dibayar: Rp %s\nSisa: Rp %s\n\nBuka detail booking di sini:\n%s",
+		name,
+		note,
+		bookingID,
+		resourceName,
+		formatMoney(grandTotal),
+		formatMoney(depositAmount),
+		formatMoney(paidAmount),
+		formatMoney(remaining),
+		detailURL,
+	)
 }
 
 func priceFor(plan string, interval string) (int64, string, error) {
