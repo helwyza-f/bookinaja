@@ -66,6 +66,10 @@ func (h *Handler) Create(c *gin.Context) {
 		"customer_token": tokenString,
 		"redirect_url":   "/me/bookings/" + b.ID.String(),
 	})
+
+	tenantSlugVal, _ := c.Get("tenantSlug")
+	tenantSlug, _ := tenantSlugVal.(string)
+	_ = h.service.SendBookingConfirmation(c.Request.Context(), b, cust, tenantSlug, tokenString)
 }
 
 // Availability mengecek slot waktu yang sudah terisi (Busy Slots)
