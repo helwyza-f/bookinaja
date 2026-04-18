@@ -110,8 +110,8 @@ export default function BookingDetailPage() {
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
   const isPaymentSettled =
-    booking.payment_status === "settled" ||
-    (booking.payment_status === "paid" && Number(booking.balance_due || 0) === 0);
+    booking?.payment_status === "settled" ||
+    (booking?.payment_status === "paid" && Number(booking?.balance_due || 0) === 0);
 
   const waitForSnap = async () => {
     if (window.snap) return window.snap;
