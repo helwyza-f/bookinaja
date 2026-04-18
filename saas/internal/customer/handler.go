@@ -2,6 +2,7 @@ package customer
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -196,13 +197,32 @@ func (h *Handler) List(c *gin.Context) {
 func (h *Handler) GetByID(c *gin.Context) {
 	id := c.Param("id")
 	tenantID := c.MustGet("tenantID").(string)
-	cust, err := h.service.GetDetailWithHistory(c.Request.Context(), id, tenantID)
+	cust, err := h.service.GetDetail(c.Request.Context(), id, tenantID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Pelanggan tidak ditemukan"})
 		return
 	}
 
 	c.JSON(http.StatusOK, cust)
+}
+
+func (h *Handler) GetHistory(c *gin.Context) {
+	id := c.Param("id")
+	tenantID := c.MustGet("tenantID").(string)
+	limit := 20
+	if raw := c.Query("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = parsed
+		}
+	}
+
+	history, err := h.service.GetTransactionHistory(c.Request.Context(), id, tenantID, limit)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Riwayat transaksi tidak ditemukan"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"items": history})
 }
 
 // SearchByPhone digunakan untuk pencarian instan di POS kasir

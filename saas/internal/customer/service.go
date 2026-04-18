@@ -171,19 +171,23 @@ func (s *Service) GetDetail(ctx context.Context, id, tenantID string) (*Customer
 	return s.repo.FindByIDForTenant(ctx, cID, tID)
 }
 
-func (s *Service) GetDetailWithHistory(ctx context.Context, id, tenantID string) (*CustomerDetailWithHistory, error) {
-	cust, err := s.GetDetail(ctx, id, tenantID)
-	if err != nil || cust == nil {
-		return nil, err
-	}
-
-	history, err := s.repo.GetTransactionHistory(ctx, cust.ID, 20)
+func (s *Service) GetTransactionHistory(ctx context.Context, id, tenantID string, limit int) ([]RecentHistoryDTO, error) {
+	cID, err := uuid.Parse(id)
 	if err != nil {
-		return nil, fmt.Errorf("gagal memuat histori transaksi: %w", err)
+		return nil, fmt.Errorf("id customer tidak valid")
+	}
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("id tenant tidak valid")
 	}
 
-	return &CustomerDetailWithHistory{
-		Customer:           *cust,
-		TransactionHistory: history,
-	}, nil
+	cust, err := s.repo.FindByIDForTenant(ctx, cID, tID)
+	if err != nil || cust == nil {
+		return nil, fmt.Errorf("customer tidak ditemukan")
+	}
+
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	return s.repo.GetTransactionHistory(ctx, cust.ID, limit)
 }
