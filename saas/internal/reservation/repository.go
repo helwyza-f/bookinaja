@@ -108,8 +108,14 @@ func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []u
 	defer tx.Rollback()
 
 	queryBooking := `
-		INSERT INTO bookings (id, tenant_id, customer_id, resource_id, start_time, end_time, access_token, status, created_at)
-		VALUES (:id, :tenant_id, :customer_id, :resource_id, :start_time, :end_time, :access_token, :status, :created_at)`
+		INSERT INTO bookings (
+			id, tenant_id, customer_id, resource_id, start_time, end_time, access_token,
+			status, grand_total, deposit_amount, paid_amount, balance_due, payment_status, payment_method, created_at
+		)
+		VALUES (
+			:id, :tenant_id, :customer_id, :resource_id, :start_time, :end_time, :access_token,
+			:status, :grand_total, :deposit_amount, :paid_amount, :balance_due, :payment_status, :payment_method, :created_at
+		)`
 
 	_, err = tx.NamedExecContext(ctx, queryBooking, b)
 	if err != nil {
@@ -165,8 +171,15 @@ func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*Boo
 		return nil, err
 	}
 
-	// Kalkulasi Grand Total langsung di level Repo
-	b.GrandTotal = b.TotalResource + b.TotalFnb
+	if b.GrandTotal <= 0 {
+		b.GrandTotal = b.TotalResource + b.TotalFnb
+	}
+	if b.BalanceDue <= 0 && b.GrandTotal > 0 {
+		b.BalanceDue = b.GrandTotal - b.PaidAmount
+		if b.BalanceDue < 0 {
+			b.BalanceDue = 0
+		}
+	}
 
 	// Hydrate data relasi
 	err = r.HydrateBooking(ctx, &b)
@@ -230,7 +243,15 @@ func (r *Repository) GetByToken(ctx context.Context, token uuid.UUID) (*BookingD
 		return nil, err
 	}
 
-	b.GrandTotal = b.TotalResource + b.TotalFnb
+	if b.GrandTotal <= 0 {
+		b.GrandTotal = b.TotalResource + b.TotalFnb
+	}
+	if b.BalanceDue <= 0 && b.GrandTotal > 0 {
+		b.BalanceDue = b.GrandTotal - b.PaidAmount
+		if b.BalanceDue < 0 {
+			b.BalanceDue = 0
+		}
+	}
 	err = r.HydrateBooking(ctx, &b)
 	return &b, err
 }
@@ -257,7 +278,15 @@ func (r *Repository) FindByIDForCustomer(ctx context.Context, id, tenantID, cust
 		return nil, err
 	}
 
-	b.GrandTotal = b.TotalResource + b.TotalFnb
+	if b.GrandTotal <= 0 {
+		b.GrandTotal = b.TotalResource + b.TotalFnb
+	}
+	if b.BalanceDue <= 0 && b.GrandTotal > 0 {
+		b.BalanceDue = b.GrandTotal - b.PaidAmount
+		if b.BalanceDue < 0 {
+			b.BalanceDue = 0
+		}
+	}
 	err = r.HydrateBooking(ctx, &b)
 	return &b, err
 }
@@ -323,7 +352,15 @@ func (r *Repository) FindActiveSessions(ctx context.Context, tenantID uuid.UUID)
 	}
 
 	for i := range res {
-		res[i].GrandTotal = res[i].TotalResource + res[i].TotalFnb
+		if res[i].GrandTotal <= 0 {
+			res[i].GrandTotal = res[i].TotalResource + res[i].TotalFnb
+		}
+		if res[i].BalanceDue <= 0 && res[i].GrandTotal > 0 {
+			res[i].BalanceDue = res[i].GrandTotal - res[i].PaidAmount
+			if res[i].BalanceDue < 0 {
+				res[i].BalanceDue = 0
+			}
+		}
 		// Catatan: Biasanya tidak perlu Hydrate penuh untuk view list agar hemat query
 		res[i].Options = []BookingOptionDetail{}
 		res[i].Orders = []OrderItem{}
@@ -367,7 +404,15 @@ func (r *Repository) FindAllByTenant(ctx context.Context, tenantID uuid.UUID, st
 	}
 
 	for i := range res {
-		res[i].GrandTotal = res[i].TotalResource + res[i].TotalFnb
+		if res[i].GrandTotal <= 0 {
+			res[i].GrandTotal = res[i].TotalResource + res[i].TotalFnb
+		}
+		if res[i].BalanceDue <= 0 && res[i].GrandTotal > 0 {
+			res[i].BalanceDue = res[i].GrandTotal - res[i].PaidAmount
+			if res[i].BalanceDue < 0 {
+				res[i].BalanceDue = 0
+			}
+		}
 	}
 	return res, nil
 }

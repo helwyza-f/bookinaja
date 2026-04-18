@@ -2,6 +2,7 @@
 import { setCookie } from "cookies-next";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Script from "next/script";
 import {
   format,
   isBefore,
@@ -39,6 +40,9 @@ import {
   Timer,
   Clock,
   Zap,
+  ReceiptText,
+  Wallet,
+  BadgeCheck,
 } from "lucide-react";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -292,6 +296,19 @@ export default function ResourceBookingDetail() {
     return mainPrice + addonsPrice;
   };
 
+  const estimateDeposit = () => {
+    const total = calculateTotal();
+    if (!total) return 0;
+    if (!selectedItem) return 0;
+    if (["day", "week", "month", "year"].includes(selectedItem.price_unit)) {
+      return 0;
+    }
+    return Math.min(total, Math.max(10000, Math.round(total * 0.2)));
+  };
+
+  const estimateBalance = () =>
+    Math.max(0, calculateTotal() - estimateDeposit());
+
   const handleBooking = async () => {
     if (phoneStatus !== "valid")
       return toast.error("Nomor WhatsApp tidak valid");
@@ -312,12 +329,36 @@ export default function ResourceBookingDetail() {
       };
 
       const res = await api.post("/public/bookings", payload);
+      const booking = res.data.booking || {};
       if (res.data.customer_token)
         setCookie("customer_auth", res.data.customer_token, {
           maxAge: 60 * 60 * 24 * 7,
           path: "/",
         });
       syncTenantCookies(params.tenant as string, resource?.tenant_id);
+      if ((booking.deposit_amount || 0) > 0) {
+        const checkout = await api.post(
+          `/public/bookings/${res.data.booking_id}/checkout`,
+        );
+        const snap = (window as any).snap;
+        if (!snap) {
+          toast.error("Midtrans belum siap. Coba refresh halaman.");
+          return;
+        }
+        snap.pay(checkout.data.snap_token, {
+          onSuccess: () => {
+            toast.success("DP berhasil dibayar");
+            router.push(res.data.redirect_url);
+          },
+          onPending: () => {
+            toast.message("Pembayaran DP tertunda");
+            router.push(res.data.redirect_url);
+          },
+          onError: () => toast.error("Pembayaran DP gagal"),
+          onClose: () => router.push(res.data.redirect_url),
+        });
+        return;
+      }
       toast.success("Boking Berhasil Dibuat!");
       setTimeout(() => router.push(res.data.redirect_url), 800);
     } catch (err: any) {
@@ -331,6 +372,16 @@ export default function ResourceBookingDetail() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#050505] font-plus-jakarta pb-40 transition-colors duration-500 overflow-x-hidden">
+      <Script
+        src={
+          (process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION || "").toLowerCase() ===
+          "true"
+            ? "https://app.midtrans.com/snap/snap.js"
+            : "https://app.sandbox.midtrans.com/snap/snap.js"
+        }
+        data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
+        strategy="afterInteractive"
+      />
       {/* Header Visual */}
       <div className="relative h-[30vh] md:h-[40vh] w-full bg-slate-900">
         {resource?.image_url ? (
@@ -734,7 +785,7 @@ export default function ResourceBookingDetail() {
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
           <div className="flex-1 flex-col pl-2">
             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest italic opacity-60">
-              Estimasi Tagihan
+              Estimasi Total Booking
             </span>
             <div className="flex items-baseline gap-0.5">
               <span className="text-blue-600 text-sm font-bold tracking-tighter">
@@ -743,6 +794,18 @@ export default function ResourceBookingDetail() {
               <h3 className="text-xl md:text-3xl font-[1000] italic text-slate-950 dark:text-white tracking-tighter leading-none">
                 {calculateTotal().toLocaleString()}
               </h3>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Badge className="rounded-full bg-emerald-500 text-white text-[8px] font-black uppercase italic px-3 py-1 border-none">
+                Bayar Sekarang Rp{estimateDeposit().toLocaleString()}
+              </Badge>
+              <Badge className="rounded-full bg-blue-600/10 text-blue-600 text-[8px] font-black uppercase italic px-3 py-1 border-none">
+                Sisa Rp{estimateBalance().toLocaleString()}
+              </Badge>
+            </div>
+            <div className="mt-3 rounded-2xl bg-white/60 dark:bg-white/5 border border-white/20 dark:border-white/5 p-3 text-[10px] font-bold text-slate-500 dark:text-slate-400 italic leading-relaxed">
+              Customer bayar DP dulu via Midtrans. Sisa tagihan tetap tampil di
+              tiket dan bisa dilunasi setelah sesi selesai.
             </div>
           </div>
           <Button
@@ -759,7 +822,8 @@ export default function ResourceBookingDetail() {
               <Loader2 className="animate-spin size-5" />
             ) : (
               <>
-                AMANKAN SLOT <ChevronRight strokeWidth={4} size={18} />
+                {estimateDeposit() > 0 ? "SIMPAN & BAYAR DP" : "SIMPAN BOOKING"}{" "}
+                <ChevronRight strokeWidth={4} size={18} />
               </>
             )}
           </Button>

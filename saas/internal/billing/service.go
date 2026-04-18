@@ -116,28 +116,68 @@ func (s *Service) HandleMidtransNotification(ctx context.Context, payload map[st
 	}
 
 	return s.withTx(ctx, func(tx *sqlx.Tx) error {
-		updated, err := s.repo.UpdateOrderFromMidtrans(ctx, tx, orderID, newStatus, txIDPtr, paymentTypePtr, payload)
-		if err != nil {
-			return err
+		if strings.HasPrefix(orderID, "sub-") {
+			updated, err := s.repo.UpdateOrderFromMidtrans(ctx, tx, orderID, newStatus, txIDPtr, paymentTypePtr, payload)
+			if err != nil {
+				return err
+			}
+			if updated.Status != "paid" {
+				return nil
+			}
+			now := time.Now().UTC()
+			start := now
+			var currentEnd sql.NullTime
+			_ = tx.GetContext(ctx, &currentEnd, `SELECT subscription_current_period_end FROM tenants WHERE id = $1`, updated.TenantID)
+			if currentEnd.Valid && currentEnd.Time.After(now) {
+				start = currentEnd.Time
+			}
+			end := addInterval(start, updated.BillingInterval)
+			return s.repo.ActivateSubscriptionExec(ctx, tx, updated.TenantID, updated.Plan, start, end)
 		}
-
-		if updated.Status != "paid" {
-			return nil
-		}
-
-		now := time.Now().UTC()
-		start := now
-		var currentEnd sql.NullTime
-		_ = tx.GetContext(ctx, &currentEnd, `SELECT subscription_current_period_end FROM tenants WHERE id = $1`, updated.TenantID)
-		if currentEnd.Valid && currentEnd.Time.After(now) {
-			start = currentEnd.Time
-		}
-		end := addInterval(start, updated.BillingInterval)
-		if err := s.repo.ActivateSubscriptionExec(ctx, tx, updated.TenantID, updated.Plan, start, end); err != nil {
-			return err
+		if strings.HasPrefix(orderID, "book-") {
+			bookingIDStr := strings.TrimPrefix(orderID, "book-")
+			bookingIDStr = strings.TrimSuffix(bookingIDStr, "-dp")
+			bookingID, err := uuid.Parse(bookingIDStr)
+			if err != nil {
+				return err
+			}
+			return s.repo.UpdateBookingPaymentFromMidtrans(ctx, tx, bookingID, newStatus, txIDPtr, paymentTypePtr, payload)
 		}
 		return nil
 	})
+}
+
+func (s *Service) CheckoutBookingDeposit(ctx context.Context, tenantID uuid.UUID, tenantSlug string, bookingID uuid.UUID) (BookingCheckoutRes, error) {
+	booking, err := s.repo.GetBookingForPayment(ctx, s.db, bookingID, tenantID)
+	if err != nil {
+		return BookingCheckoutRes{}, err
+	}
+
+	amount := booking.DepositAmount
+	if amount <= 0 {
+		amount = 10000
+	}
+
+	orderID := fmt.Sprintf("book-%s-dp", bookingID.String())
+	display := fmt.Sprintf("DP Booking %s", tenantSlug)
+	snapToken, redirectURL, err := s.createSnapTransaction(ctx, orderID, int64(amount), display)
+	if err != nil {
+		return BookingCheckoutRes{}, err
+	}
+
+	rawInit := map[string]any{"snap_token": snapToken, "redirect_url": redirectURL}
+	rawBytes, _ := json.Marshal(rawInit)
+	_ = rawBytes
+
+	return BookingCheckoutRes{
+		OrderID:      orderID,
+		SnapToken:    snapToken,
+		RedirectURL:  redirectURL,
+		Amount:       amount,
+		Currency:     "IDR",
+		BookingID:    bookingID.String(),
+		DisplayLabel: display,
+	}, nil
 }
 
 func (s *Service) GetSubscription(ctx context.Context, tenantID uuid.UUID) (SubscriptionInfo, error) {

@@ -115,6 +115,54 @@ func (h *Handler) ListOrders(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"orders": orders})
 }
 
+// POST /api/v1/billing/bookings/checkout
+func (h *Handler) BookingCheckout(c *gin.Context) {
+	tenantIDVal, ok := c.Get("tenantID")
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID missing"})
+		return
+	}
+	tenantIDStr, ok := tenantIDVal.(string)
+	if !ok || tenantIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID invalid"})
+		return
+	}
+	tenantID, err := uuid.Parse(tenantIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID invalid"})
+		return
+	}
+
+	tenantSlugVal, _ := c.Get("tenantSlug")
+	tenantSlug, _ := tenantSlugVal.(string)
+	if tenantSlug == "" {
+		tenantSlug = "tenant"
+	}
+
+	bookingID := c.Param("id")
+	if bookingID == "" {
+		var req BookingCheckoutReq
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "payload invalid"})
+			return
+		}
+		bookingID = req.BookingID
+	}
+
+	bID, err := uuid.Parse(bookingID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bookingID invalid"})
+		return
+	}
+
+	res, err := h.svc.CheckoutBookingDeposit(c.Request.Context(), tenantID, tenantSlug, bID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
 // POST /api/webhooks/midtrans (no auth; signature verified)
 func (h *Handler) MidtransWebhook(c *gin.Context) {
 	var payload map[string]any

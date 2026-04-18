@@ -22,6 +22,9 @@ import {
   Coffee,
   ArrowUpRight,
   Clock,
+  Wallet,
+  BadgeCheck,
+  Hourglass,
 } from "lucide-react";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -71,6 +74,29 @@ export default function CustomerBookingDetail() {
     () => booking?.status === "active" || booking?.status === "ongoing",
     [booking],
   );
+
+  const depositAmount = Number(booking?.deposit_amount || 0);
+  const balanceDue = Number(booking?.balance_due || 0);
+  const paidAmount = Number(booking?.paid_amount || 0);
+  const paymentStatus = (booking?.payment_status || "").toLowerCase();
+  const sessionStatus = (booking?.status || "").toLowerCase();
+  const paymentLabel = useMemo(() => {
+    if (paymentStatus === "settled") return "Lunas";
+    if (paymentStatus === "partial_paid") return "DP Masuk";
+    if (paymentStatus === "paid") return balanceDue > 0 ? "DP Masuk" : "Lunas";
+    if (paymentStatus === "pending") return "Menunggu DP";
+    if (paymentStatus === "expired") return "DP Kadaluarsa";
+    if (paymentStatus === "failed") return "Gagal Bayar";
+    return "Belum Dibayar";
+  }, [paymentStatus, balanceDue]);
+  const paymentStateTone =
+    paymentStatus === "settled" || (paymentStatus === "paid" && balanceDue === 0)
+      ? "bg-emerald-500 text-white"
+      : paymentStatus === "partial_paid" || paymentStatus === "paid"
+        ? "bg-blue-600 text-white"
+        : paymentStatus === "expired" || paymentStatus === "failed"
+          ? "bg-red-500 text-white"
+          : "bg-orange-500 text-white";
 
   const countdownData = useMemo(() => {
     if (!booking) return null;
@@ -130,7 +156,7 @@ export default function CustomerBookingDetail() {
 
   if (loading) return <TicketSkeleton />;
 
-  const isPending = booking?.status === "pending";
+  const isPending = sessionStatus === "pending";
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#050505] font-plus-jakarta pb-24 transition-colors overflow-x-hidden">
@@ -269,18 +295,21 @@ export default function CustomerBookingDetail() {
                       "rounded-lg border-none font-black italic text-[9px] px-3 py-1 uppercase shadow-sm",
                       isPending
                         ? "bg-blue-600 text-white"
-                        : booking.status === "completed"
+                        : sessionStatus === "completed"
                           ? "bg-slate-800 text-slate-400"
                           : "bg-emerald-600 text-white",
                     )}
                   >
-                    {booking.status}
+                    sesi: {booking.status}
                   </Badge>
-                  {isPending && (
-                    <span className="text-[8px] font-black text-orange-500 uppercase italic animate-pulse">
-                      Menunggu Pembayaran
-                    </span>
-                  )}
+                  <Badge
+                    className={cn(
+                      "rounded-lg border-none font-black italic text-[9px] px-3 py-1 uppercase shadow-sm",
+                      paymentStateTone,
+                    )}
+                  >
+                    bayar: {paymentLabel}
+                  </Badge>
                 </div>
               </div>
               <div className="bg-emerald-500/10 px-4 py-2 rounded-2xl text-right border border-emerald-500/20">
@@ -338,6 +367,74 @@ export default function CustomerBookingDetail() {
           </div>
 
           <div className="p-4 space-y-4">
+            <div className="rounded-[1.5rem] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 p-4 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="rounded-2xl bg-white dark:bg-black/40 border border-slate-100 dark:border-white/5 p-4">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
+                    Total Booking
+                  </p>
+                  <p className="mt-2 text-xl font-[1000] italic text-slate-950 dark:text-white leading-none">
+                    Rp {Number(booking.grand_total || 0).toLocaleString()}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-white dark:bg-black/40 border border-slate-100 dark:border-white/5 p-4">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
+                    DP Dibayar
+                  </p>
+                  <p className="mt-2 text-xl font-[1000] italic text-emerald-600 leading-none">
+                    Rp {depositAmount.toLocaleString()}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-white dark:bg-black/40 border border-slate-100 dark:border-white/5 p-4">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
+                    Total Setelah DP
+                  </p>
+                  <p className="mt-2 text-xl font-[1000] italic text-blue-600 leading-none">
+                    Rp {balanceDue.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-blue-600">
+                <BadgeCheck size={14} />
+                <span className="text-[10px] font-black uppercase tracking-widest italic">
+                  Alur Pembayaran
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="rounded-2xl bg-white dark:bg-black/40 px-4 py-3 border border-slate-100 dark:border-white/5">
+                  <p className="text-[8px] uppercase tracking-widest text-slate-400 font-black italic">
+                    1. Awal
+                  </p>
+                  <p className="text-xs font-black italic text-slate-900 dark:text-white mt-1">
+                    {depositAmount > 0 ? "Bayar DP via Midtrans" : "Tanpa DP"}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-white dark:bg-black/40 px-4 py-3 border border-slate-100 dark:border-white/5">
+                  <p className="text-[8px] uppercase tracking-widest text-slate-400 font-black italic">
+                    2. Saat Sesi
+                  </p>
+                  <p className="text-xs font-black italic text-slate-900 dark:text-white mt-1">
+                    FnB / addon / extend menambah tagihan
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-white dark:bg-black/40 px-4 py-3 border border-slate-100 dark:border-white/5">
+                  <p className="text-[8px] uppercase tracking-widest text-slate-400 font-black italic">
+                    3. Akhir
+                  </p>
+                  <p className="text-xs font-black italic text-slate-900 dark:text-white mt-1">
+                    {balanceDue > 0 ? "Lunasi sisa tagihan" : "Sudah lunas"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-blue-500/10 border border-blue-500/10 p-4 text-[10px] font-bold italic text-blue-700 dark:text-blue-100 leading-relaxed">
+                {depositAmount > 0
+                  ? `Customer sudah membayar DP Rp ${depositAmount.toLocaleString()} dari total booking. Sisa Rp ${balanceDue.toLocaleString()} akan diselesaikan setelah sesi selesai.`
+                  : "Booking ini tidak memakai DP, jadi pembayaran diselesaikan saat sesi berakhir."}
+              </div>
+            </div>
+
             {booking.options?.map((opt: any) => (
               <div
                 key={opt.id}
@@ -419,28 +516,19 @@ export default function CustomerBookingDetail() {
             <Zap className="absolute right-0 bottom-0 size-24 opacity-5 -rotate-12 translate-x-4 translate-y-4" />
             <div className="leading-none text-left z-10">
               <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block italic">
-                Grand Total Bill
+                Total Setelah DP
               </span>
               <span className="text-3xl font-[1000] italic leading-none tracking-tighter">
-                Rp {booking.grand_total.toLocaleString()}
+                Rp {balanceDue.toLocaleString()}
               </span>
             </div>
             <div className="flex flex-col items-end gap-2 z-10">
-              <Badge
-                className={cn(
-                  "rounded-full border-none px-4 py-1 font-black italic text-[9px] uppercase shadow-lg",
-                  booking.status === "completed"
-                    ? "bg-emerald-500 text-white"
-                    : "bg-white/20 text-white",
-                )}
-              >
-                {booking.status === "completed" ? "Lunas" : "Tertunda"}
+              <Badge className={cn("rounded-full border-none px-4 py-1 font-black italic text-[9px] uppercase shadow-lg", paymentStateTone)}>
+                {paymentLabel}
               </Badge>
-              {isPending && (
-                <p className="text-[8px] font-black text-blue-400 uppercase italic animate-pulse text-right">
-                  Selesaikan di Kasir
-                </p>
-              )}
+              <p className="text-[8px] font-black text-slate-400 uppercase italic text-right">
+                Paid Rp {paidAmount.toLocaleString()} • Due Rp {balanceDue.toLocaleString()}
+              </p>
             </div>
           </div>
         </Card>
