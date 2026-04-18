@@ -252,8 +252,7 @@ func (r *Repository) ListTenantBalances(ctx context.Context) ([]map[string]any, 
 }
 
 func (r *Repository) GetTenantBalance(ctx context.Context, tenantID string) (map[string]any, error) {
-	var row map[string]any
-	err := r.db.GetContext(ctx, &row, `
+	rows, err := r.db.QueryxContext(ctx, `
 		SELECT
 			t.id::text AS tenant_id,
 			t.slug AS tenant_slug,
@@ -274,6 +273,14 @@ func (r *Repository) GetTenantBalance(ctx context.Context, tenantID string) (map
 		tenantID,
 	)
 	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return map[string]any{}, nil
+	}
+	row := map[string]any{}
+	if err := rows.MapScan(row); err != nil {
 		return nil, err
 	}
 	return normalizeRow(row), nil
@@ -371,8 +378,7 @@ func (r *Repository) ListMidtransNotificationLogsByTenantID(ctx context.Context,
 }
 
 func (r *Repository) GetTenantDetail(ctx context.Context, tenantID string) (map[string]any, error) {
-	var row map[string]any
-	err := r.db.GetContext(ctx, &row, `
+	rows, err := r.db.QueryxContext(ctx, `
 		SELECT
 			t.id::text AS tenant_id,
 			t.slug AS tenant_slug,
@@ -403,6 +409,14 @@ func (r *Repository) GetTenantDetail(ctx context.Context, tenantID string) (map[
 		WHERE t.id::text = $1
 		LIMIT 1`, tenantID)
 	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return map[string]any{}, nil
+	}
+	row := map[string]any{}
+	if err := rows.MapScan(row); err != nil {
 		return nil, err
 	}
 	return normalizeRow(row), nil
