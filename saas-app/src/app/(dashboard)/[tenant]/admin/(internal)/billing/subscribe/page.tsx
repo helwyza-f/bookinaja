@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Script from "next/script";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -11,6 +11,9 @@ import {
   Zap,
   Loader2,
   ArrowDown,
+  Info,
+  Crown,
+  ShieldCheck,
 } from "lucide-react";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -58,11 +61,31 @@ export default function SubscribePage() {
   const router = useRouter();
   const [isAnnual, setIsAnnual] = useState(true);
   const [paying, setPaying] = useState(false);
+  const [currentPlan, setCurrentPlan] = useState<string | null>(null);
+  const [currentStatus, setCurrentStatus] = useState<string | null>(null);
 
   const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY;
   const isProd =
     (process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION || "").toLowerCase() ===
     "true";
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.get("/billing/subscription");
+        setCurrentPlan((res.data?.plan || "").toLowerCase() || null);
+        setCurrentStatus((res.data?.status || "").toLowerCase() || null);
+      } catch {
+        setCurrentPlan(null);
+        setCurrentStatus(null);
+      }
+    })();
+  }, []);
+
+  const activePlanLabel = useMemo(() => {
+    if (!currentPlan) return "Belum ada paket aktif";
+    return `${currentPlan.toUpperCase()}${currentStatus ? ` • ${currentStatus.toUpperCase()}` : ""}`;
+  }, [currentPlan, currentStatus]);
 
   const handleCheckout = async (plan: string) => {
     const snap = (window as any).snap;
@@ -94,6 +117,12 @@ export default function SubscribePage() {
   const formatPrice = (val: number) =>
     new Intl.NumberFormat("id-ID").format(val);
 
+  const getPlanRank = (plan: string) => {
+    if (plan === "starter") return 1;
+    if (plan === "pro") return 2;
+    return 0;
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-12 pb-20 px-4 animate-in fade-in duration-700">
       <Script
@@ -124,6 +153,31 @@ export default function SubscribePage() {
         <p className="text-slate-400 font-bold text-[10px] md:text-xs uppercase tracking-widest max-w-lg">
           Pilih paket yang sesuai dengan skala operasional Anda.
         </p>
+      </div>
+
+      <div className="rounded-[2rem] border border-blue-500/15 bg-blue-500/5 p-4 md:p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 h-9 w-9 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center">
+            <ShieldCheck className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-blue-600">
+              Paket aktif saat ini
+            </p>
+            <p className="text-sm font-bold text-foreground">
+              {activePlanLabel}
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Kartu aktif akan ditandai jelas. Upgrade hanya muncul ke paket yang lebih tinggi.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Info className="h-4 w-4 text-blue-600" />
+          <span className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+            Starter ke Pro = upgrade, Pro adalah level tertinggi
+          </span>
+        </div>
       </div>
 
       {/* Toggle Interval */}
@@ -174,22 +228,42 @@ export default function SubscribePage() {
           const savingsAmount = isAnnual
             ? (plan.priceMonthlyPromo - plan.priceAnnualPerMonth) * 12
             : plan.priceMonthlyNormal - plan.priceMonthlyPromo;
+          const isCurrentPlan = currentPlan === plan.key;
+          const isDowngrade = Boolean(
+            currentPlan && getPlanRank(plan.key) < getPlanRank(currentPlan),
+          );
+          const isUpgrade = Boolean(
+            currentPlan && getPlanRank(plan.key) > getPlanRank(currentPlan),
+          );
+          const actionLabel = isCurrentPlan
+            ? "Paket Aktif"
+            : isUpgrade
+              ? `Upgrade ke ${plan.name}`
+              : `Pilih ${plan.name}`;
 
           return (
             <div
               key={plan.key}
               className={cn(
                 "relative flex flex-col rounded-[2.5rem] border p-8 md:p-10 transition-all duration-500",
-                plan.popular
-                  ? "border-blue-600 bg-white dark:bg-[#080808] shadow-2xl ring-1 ring-blue-600/20 scale-[1.02] z-10"
-                  : "border-slate-200 dark:border-white/5 bg-white/50 dark:bg-white/[0.02]",
+                isCurrentPlan
+                  ? "border-emerald-500 bg-emerald-500/5 shadow-2xl ring-1 ring-emerald-500/20 scale-[1.02] z-10"
+                  : plan.popular
+                    ? "border-blue-600 bg-white dark:bg-[#080808] shadow-2xl ring-1 ring-blue-600/20 scale-[1.02] z-10"
+                    : "border-slate-200 dark:border-white/5 bg-white/50 dark:bg-white/[0.02]",
               )}
             >
-              {plan.popular && (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-blue-600 px-5 py-1.5 text-[9px] font-black uppercase italic text-white rounded-full flex items-center gap-2 shadow-lg tracking-widest leading-none border-b-2 border-blue-800">
-                  <Sparkles className="h-3 w-3 fill-white" /> Rekomendasi
-                </div>
-              )}
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 flex items-center gap-2">
+                {isCurrentPlan ? (
+                  <div className="bg-emerald-600 px-5 py-1.5 text-[9px] font-black uppercase italic text-white rounded-full flex items-center gap-2 shadow-lg tracking-widest leading-none border-b-2 border-emerald-800">
+                    <Crown className="h-3 w-3 fill-white" /> Paket Aktif
+                  </div>
+                ) : plan.popular ? (
+                  <div className="bg-blue-600 px-5 py-1.5 text-[9px] font-black uppercase italic text-white rounded-full flex items-center gap-2 shadow-lg tracking-widest leading-none border-b-2 border-blue-800">
+                    <Sparkles className="h-3 w-3 fill-white" /> Rekomendasi
+                  </div>
+                ) : null}
+              </div>
 
               <div className="space-y-1">
                 <h3 className="text-2xl font-[1000] uppercase italic tracking-tighter dark:text-white leading-none">
@@ -210,7 +284,13 @@ export default function SubscribePage() {
                     variant="outline"
                     className="text-[8px] font-[1000] text-emerald-500 border-emerald-500/30 uppercase italic"
                   >
-                    {isAnnual ? "HEMAT 20%" : "DISKON KHUSUS"}
+                    {isCurrentPlan
+                      ? "SEDANG DIPAKAI"
+                      : isUpgrade
+                        ? "UPGRADE"
+                        : isAnnual
+                          ? "HEMAT 20%"
+                          : "DISKON KHUSUS"}
                   </Badge>
                 </div>
 
@@ -255,12 +335,14 @@ export default function SubscribePage() {
 
               <Button
                 onClick={() => handleCheckout(plan.key)}
-                disabled={paying}
+                disabled={paying || isCurrentPlan || isDowngrade}
                 className={cn(
                   "w-full h-14 font-black uppercase italic rounded-2xl text-xs shadow-xl transition-all active:scale-95 border-b-4",
-                  plan.popular
-                    ? "bg-blue-600 hover:bg-blue-500 border-blue-800 text-white"
-                    : "bg-slate-900 hover:bg-black border-slate-700 text-white",
+                  isCurrentPlan
+                    ? "bg-emerald-600 hover:bg-emerald-600 border-emerald-800 text-white cursor-default"
+                    : plan.popular
+                      ? "bg-blue-600 hover:bg-blue-500 border-blue-800 text-white"
+                      : "bg-slate-900 hover:bg-black border-slate-700 text-white",
                 )}
               >
                 {paying ? (
@@ -268,8 +350,12 @@ export default function SubscribePage() {
                     <Loader2 className="h-4 w-4 animate-spin" /> Sedang
                     Memproses...
                   </div>
+                ) : isCurrentPlan ? (
+                  "Paket Ini Sedang Aktif"
+                ) : isDowngrade ? (
+                  "Downgrade Tidak Tersedia"
                 ) : (
-                  `Upgrade ke ${plan.name}`
+                  actionLabel
                 )}
               </Button>
             </div>

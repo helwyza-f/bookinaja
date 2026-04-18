@@ -89,12 +89,6 @@ export default function ResourceBookingDetail() {
       try {
         const resDetail = await api.get(`/public/resources/${params.id}`);
         setResource(resDetail.data);
-        const def = resDetail.data.items?.find(
-          (i: any) =>
-            i.is_default &&
-            (i.item_type === "main_option" || i.item_type === "main"),
-        );
-        if (def) setSelectedMainId(def.id);
       } catch (err) {
         toast.error("Gagal memuat data unit");
       } finally {
@@ -379,7 +373,7 @@ export default function ResourceBookingDetail() {
   if (loading) return <BookingSkeleton />;
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#050505] font-plus-jakarta pb-40 transition-colors duration-500 overflow-x-hidden">
+    <div className="min-h-screen bg-white dark:bg-[#050505] font-plus-jakarta pb-[18rem] md:pb-40 transition-colors duration-500 overflow-x-hidden">
       <Script
         src={
           (
@@ -800,52 +794,55 @@ export default function ResourceBookingDetail() {
       </main>
 
       {/* STICKY BILLING */}
-      <div className="fixed bottom-0 left-0 right-0 p-3 bg-white/80 dark:bg-black/90 backdrop-blur-2xl border-t border-slate-100 dark:border-white/5 z-50 animate-in slide-in-from-bottom-full duration-500">
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
-          <div className="flex-1 flex-col pl-2">
-            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest italic opacity-60">
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-100/80 bg-white/90 backdrop-blur-2xl dark:border-white/5 dark:bg-black/90 animate-in slide-in-from-bottom-full duration-500">
+        <div className="mx-auto max-w-4xl px-3 py-3 md:px-4 md:py-4">
+          <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+            <div className="space-y-2">
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest italic opacity-60">
               Estimasi Total Booking
-            </span>
-            <div className="flex items-baseline gap-0.5">
-              <span className="text-blue-600 text-sm font-bold tracking-tighter">
-                Rp
               </span>
-              <h3 className="text-xl md:text-3xl font-[1000] italic text-slate-950 dark:text-white tracking-tighter leading-none">
-                {calculateTotal().toLocaleString()}
-              </h3>
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="flex items-baseline gap-0.5">
+                  <span className="text-blue-600 text-sm font-bold tracking-tighter">
+                    Rp
+                  </span>
+                  <h3 className="text-2xl md:text-3xl font-[1000] italic text-slate-950 dark:text-white tracking-tighter leading-none">
+                    {calculateTotal().toLocaleString()}
+                  </h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge className="rounded-full bg-emerald-500 text-white text-[8px] font-black uppercase italic px-3 py-1 border-none">
+                    DP Rp{estimateDeposit().toLocaleString()}
+                  </Badge>
+                  <Badge className="rounded-full bg-blue-600/10 text-blue-600 text-[8px] font-black uppercase italic px-3 py-1 border-none">
+                    Sisa Rp{estimateBalance().toLocaleString()}
+                  </Badge>
+                </div>
+              </div>
+              <p className="max-w-md text-[10px] font-bold text-slate-500 dark:text-slate-400 italic leading-relaxed">
+                Customer bayar DP dulu via Midtrans. Sisa tagihan tetap tampil di tiket dan bisa dilunasi setelah sesi selesai.
+              </p>
             </div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <Badge className="rounded-full bg-emerald-500 text-white text-[8px] font-black uppercase italic px-3 py-1 border-none">
-                Bayar Sekarang Rp{estimateDeposit().toLocaleString()}
-              </Badge>
-              <Badge className="rounded-full bg-blue-600/10 text-blue-600 text-[8px] font-black uppercase italic px-3 py-1 border-none">
-                Sisa Rp{estimateBalance().toLocaleString()}
-              </Badge>
-            </div>
-            <div className="mt-3 rounded-2xl bg-white/60 dark:bg-white/5 border border-white/20 dark:border-white/5 p-3 text-[10px] font-bold text-slate-500 dark:text-slate-400 italic leading-relaxed">
-              Customer bayar DP dulu via Midtrans. Sisa tagihan tetap tampil di
-              tiket dan bisa dilunasi setelah sesi selesai.
-            </div>
+            <Button
+              disabled={
+                phoneStatus !== "valid" ||
+                !selectedTime ||
+                isSubmitting ||
+                !custName
+              }
+              onClick={handleBooking}
+              className="h-14 md:h-16 w-full md:w-auto md:px-10 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-[1000] uppercase italic text-sm shadow-xl transition-all active:scale-95 gap-2 border-b-4 border-blue-800 active:border-b-0"
+            >
+              {isSubmitting ? (
+                <Loader2 className="animate-spin size-5" />
+              ) : (
+                <>
+                  {estimateDeposit() > 0 ? "SIMPAN & BAYAR DP" : "SIMPAN BOOKING"}{" "}
+                  <ChevronRight strokeWidth={4} size={18} />
+                </>
+              )}
+            </Button>
           </div>
-          <Button
-            disabled={
-              phoneStatus !== "valid" ||
-              !selectedTime ||
-              isSubmitting ||
-              !custName
-            }
-            onClick={handleBooking}
-            className="h-14 flex-1 md:flex-none md:px-12 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-[1000] uppercase italic text-sm shadow-xl transition-all active:scale-95 gap-2 border-b-4 border-blue-800 active:border-b-0"
-          >
-            {isSubmitting ? (
-              <Loader2 className="animate-spin size-5" />
-            ) : (
-              <>
-                {estimateDeposit() > 0 ? "SIMPAN & BAYAR DP" : "SIMPAN BOOKING"}{" "}
-                <ChevronRight strokeWidth={4} size={18} />
-              </>
-            )}
-          </Button>
         </div>
       </div>
     </div>
