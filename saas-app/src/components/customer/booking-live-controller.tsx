@@ -5,7 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { X, Timer, Coffee, PlusCircle, Search, Minus, Plus } from "lucide-react";
+import {
+  X,
+  Timer,
+  Coffee,
+  PlusCircle,
+  Search,
+  Minus,
+  Plus,
+} from "lucide-react";
+import { toast } from "sonner";
 
 type ControllerProps = {
   active: boolean;
@@ -41,11 +50,18 @@ function MobileSheet({
               {title}
             </h3>
           </div>
-          <Button variant="ghost" size="icon" className="rounded-full" onClick={onClose}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full"
+            onClick={onClose}
+          >
             <X size={18} />
           </Button>
         </div>
-        <div className="max-h-[calc(92vh-72px)] overflow-y-auto">{children}</div>
+        <div className="max-h-[calc(92vh-72px)] overflow-y-auto">
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -77,6 +93,16 @@ export function BookingLiveController({
     }
   }, [active]);
 
+  useEffect(() => {
+    if (!extendError) return;
+    toast.error(extendError, {
+      description:
+        extendError === "MAX SESSION REACHED"
+          ? "Sesi booking sudah mencapai batas maksimal pada hari ini."
+          : "Coba lagi atau hubungi admin tenant jika masalah berlanjut.",
+    });
+  }, [extendError]);
+
   const add = (item: any) => {
     setCart((prev) => ({
       ...prev,
@@ -98,7 +124,9 @@ export function BookingLiveController({
 
   const filteredMenu = useMemo(() => {
     return menuItems.filter((item) =>
-      `${item.name} ${item.category || ""}`.toLowerCase().includes(search.toLowerCase()),
+      `${item.name} ${item.category || ""}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
     );
   }, [menuItems, search]);
 
@@ -140,24 +168,15 @@ export function BookingLiveController({
         </Button>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Badge className="rounded-full px-3 py-1 border-none bg-blue-600 text-white text-[9px] uppercase italic">
-          billing live
-        </Badge>
-        <Badge className="rounded-full px-3 py-1 border-none bg-slate-100 text-slate-500 text-[9px] uppercase italic">
-          customer mode
-        </Badge>
-        {extendError && (
-          <Badge className="rounded-full px-3 py-1 border-none bg-amber-500 text-white text-[9px] uppercase italic">
-            {extendError}
-          </Badge>
-        )}
-      </div>
-
-      <MobileSheet open={extendOpen} onClose={() => setExtendOpen(false)} title="Tambah Jam">
+      <MobileSheet
+        open={extendOpen}
+        onClose={() => setExtendOpen(false)}
+        title="Tambah Jam"
+      >
         <div className="p-4 space-y-4">
           <div className="rounded-2xl bg-blue-500/10 border border-blue-500/10 p-4 text-xs font-bold italic text-blue-700 dark:text-blue-100">
-            Pilih tambahan durasi. Sistem akan menambah billing booking customer.
+            Pilih tambahan durasi. Sistem akan menambah billing booking
+            customer.
           </div>
           <div className="grid grid-cols-2 gap-3">
             {extOptions.map((count) => {
@@ -191,7 +210,9 @@ export function BookingLiveController({
                 setExtendError(null);
                 setExtendOpen(false);
               } catch (err: any) {
-                const message = String(err?.response?.data?.error || err?.message || "");
+                const message = String(
+                  err?.response?.data?.error || err?.message || "",
+                );
                 if (message.toLowerCase().includes("max extension")) {
                   setExtendError("MAX SESSION REACHED");
                 } else {
@@ -205,7 +226,11 @@ export function BookingLiveController({
         </div>
       </MobileSheet>
 
-      <MobileSheet open={fnbOpen} onClose={() => setFnbOpen(false)} title="Pesan Makan">
+      <MobileSheet
+        open={fnbOpen}
+        onClose={() => setFnbOpen(false)}
+        title="Pesan Makan"
+      >
         <div className="p-4 space-y-4">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -218,19 +243,42 @@ export function BookingLiveController({
           </div>
           <div className="space-y-3">
             {filteredMenu.map((item) => (
-              <div key={item.id} className="p-4 rounded-2xl border border-slate-100 dark:border-white/5 bg-white dark:bg-slate-900">
+              <div
+                key={item.id}
+                className="p-4 rounded-2xl border border-slate-100 dark:border-white/5 bg-white dark:bg-slate-900"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-black uppercase italic text-sm dark:text-white">{item.name}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">{item.category}</p>
+                    <p className="font-black uppercase italic text-sm dark:text-white">
+                      {item.name}
+                    </p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">
+                      {item.category}
+                    </p>
                   </div>
-                  <p className="font-black italic text-blue-600">Rp {Number(item.price || 0).toLocaleString()}</p>
+                  <p className="font-black italic text-blue-600">
+                    Rp {Number(item.price || 0).toLocaleString()}
+                  </p>
                 </div>
                 <div className="mt-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => remove(item.id)} className="h-8 w-8 rounded-xl border border-slate-200 dark:border-white/5"> <Minus className="mx-auto w-4 h-4" /> </button>
-                    <span className="w-8 text-center font-black">{cart[item.id]?.quantity || 0}</span>
-                    <button onClick={() => add(item)} className="h-8 w-8 rounded-xl bg-blue-600 text-white"> <Plus className="mx-auto w-4 h-4" /> </button>
+                    <button
+                      onClick={() => remove(item.id)}
+                      className="h-8 w-8 rounded-xl border border-slate-200 dark:border-white/5"
+                    >
+                      {" "}
+                      <Minus className="mx-auto w-4 h-4" />{" "}
+                    </button>
+                    <span className="w-8 text-center font-black">
+                      {cart[item.id]?.quantity || 0}
+                    </span>
+                    <button
+                      onClick={() => add(item)}
+                      className="h-8 w-8 rounded-xl bg-blue-600 text-white"
+                    >
+                      {" "}
+                      <Plus className="mx-auto w-4 h-4" />{" "}
+                    </button>
                   </div>
                   <Badge className="rounded-full bg-orange-500 text-white border-none">
                     live billing
@@ -253,7 +301,11 @@ export function BookingLiveController({
         </div>
       </MobileSheet>
 
-      <MobileSheet open={addonOpen} onClose={() => setAddonOpen(false)} title="Add-on">
+      <MobileSheet
+        open={addonOpen}
+        onClose={() => setAddonOpen(false)}
+        title="Add-on"
+      >
         <div className="p-4 space-y-4">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -266,23 +318,43 @@ export function BookingLiveController({
           </div>
           <div className="space-y-3">
             {filteredAddons.map((item) => (
-              <div key={item.id} className="p-4 rounded-2xl border border-slate-100 dark:border-white/5 bg-white dark:bg-slate-900">
+              <div
+                key={item.id}
+                className="p-4 rounded-2xl border border-slate-100 dark:border-white/5 bg-white dark:bg-slate-900"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-black uppercase italic text-sm dark:text-white">{item.name}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">addon resource</p>
+                    <p className="font-black uppercase italic text-sm dark:text-white">
+                      {item.name}
+                    </p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">
+                      addon resource
+                    </p>
                   </div>
-                  <p className="font-black italic text-emerald-600">Rp {Number(item.price || 0).toLocaleString()}</p>
+                  <p className="font-black italic text-emerald-600">
+                    Rp {Number(item.price || 0).toLocaleString()}
+                  </p>
                 </div>
                 <div className="mt-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => remove(item.id)} className="h-8 w-8 rounded-xl border border-slate-200 dark:border-white/5"> <Minus className="mx-auto w-4 h-4" /> </button>
-                    <span className="w-8 text-center font-black">{cart[item.id]?.quantity || 0}</span>
-                    <button onClick={() => add(item)} className="h-8 w-8 rounded-xl bg-emerald-600 text-white"> <Plus className="mx-auto w-4 h-4" /> </button>
+                    <button
+                      onClick={() => remove(item.id)}
+                      className="h-8 w-8 rounded-xl border border-slate-200 dark:border-white/5"
+                    >
+                      {" "}
+                      <Minus className="mx-auto w-4 h-4" />{" "}
+                    </button>
+                    <span className="w-8 text-center font-black">
+                      {cart[item.id]?.quantity || 0}
+                    </span>
+                    <button
+                      onClick={() => add(item)}
+                      className="h-8 w-8 rounded-xl bg-emerald-600 text-white"
+                    >
+                      {" "}
+                      <Plus className="mx-auto w-4 h-4" />{" "}
+                    </button>
                   </div>
-                  <Badge className="rounded-full bg-emerald-500 text-white border-none">
-                    billing live
-                  </Badge>
                 </div>
               </div>
             ))}

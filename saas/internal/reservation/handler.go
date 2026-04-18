@@ -26,8 +26,10 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
+	isManualWalkIn := c.FullPath() == "/api/v1/bookings/manual"
+
 	// Memanggil service. Hasil kembalian menyertakan data Customer untuk generate JWT
-	b, cust, err := h.service.Create(c.Request.Context(), req)
+	b, cust, err := h.service.Create(c.Request.Context(), req, isManualWalkIn)
 	if err != nil {
 		// Jika terjadi bentrok jadwal, return 409 Conflict
 		if err.Error() == "MAAF, SLOT WAKTU TERSEBUT SUDAH TERISI" {
