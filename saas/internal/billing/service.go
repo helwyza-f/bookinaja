@@ -122,6 +122,7 @@ func (s *Service) HandleMidtransNotification(ctx context.Context, payload map[st
 
 	var notify *BookingNotificationContext
 	var notifyMode string
+	isFinalStatus := transactionStatus == "settlement" || transactionStatus == "capture"
 	err := s.withTx(ctx, func(tx *sqlx.Tx) error {
 		receivedAt := time.Now().UTC()
 		logCommon := MidtransNotificationLog{
@@ -146,19 +147,19 @@ func (s *Service) HandleMidtransNotification(ctx context.Context, payload map[st
 			}
 			logCommon.ProcessingStatus = "processed"
 			logCommon.TenantID = &updated.TenantID
+			logCommon.GrossAmount = updated.Amount
 			if err := s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon); err != nil {
 				return err
 			}
-			ledgerStatus := "pending"
-			if updated.Status == "paid" {
-				ledgerStatus = "settled"
+			if updated.Status != "paid" {
+				return nil
+			}
+			if !isFinalStatus {
+				return nil
 			}
 			currentBalance, _ := s.repo.CurrentTenantBalance(ctx, tx, updated.TenantID)
-			netAmount := parseMidtransAmount(grossAmount)
-			nextBalance := currentBalance
-			if ledgerStatus == "settled" {
-				nextBalance += netAmount
-			}
+			netAmount := amountFromPayloadOrFallback(parseMidtransAmount(grossAmount), updated.Amount)
+			nextBalance := currentBalance + netAmount
 			dedupe := buildLedgerDedupeKey("subscription", orderID, transactionID, newStatus, paymentType)
 			if err := s.repo.CreateLedgerEntry(ctx, tx, TenantLedgerEntry{
 				TenantID:              updated.TenantID,
@@ -172,16 +173,13 @@ func (s *Service) HandleMidtransNotification(ctx context.Context, payload map[st
 				GrossAmount:           netAmount,
 				NetAmount:             netAmount,
 				BalanceAfter:          nextBalance,
-				Status:                ledgerStatus,
+				Status:                "settled",
 				DedupeKey:             dedupe,
 				RawPayload:            mustJSON(payload),
 				CreatedAt:             receivedAt,
 				UpdatedAt:             receivedAt,
 			}); err != nil {
 				return err
-			}
-			if updated.Status != "paid" {
-				return nil
 			}
 			now := time.Now().UTC()
 			start := now
@@ -214,6 +212,7 @@ func (s *Service) HandleMidtransNotification(ctx context.Context, payload map[st
 				logCommon.ErrorMessage = err.Error()
 				return s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon)
 			}
+			logCommon.BookingID = &bookingID
 			logCommon.TenantID = &bookingInfo.TenantID
 			logCommon.ProcessingStatus = "processed"
 			if isSettlement {
@@ -222,11 +221,15 @@ func (s *Service) HandleMidtransNotification(ctx context.Context, payload map[st
 					logCommon.ErrorMessage = err.Error()
 					return s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon)
 				}
+				logCommon.GrossAmount = int64(bookingInfo.GrandTotal)
 				if err := s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon); err != nil {
 					return err
 				}
+				if !isFinalStatus {
+					return nil
+				}
 				currentBalance, _ := s.repo.CurrentTenantBalance(ctx, tx, bookingInfo.TenantID)
-				netAmount := parseMidtransAmount(grossAmount)
+				netAmount := amountFromPayloadOrFallback(parseMidtransAmount(grossAmount), int64(bookingInfo.GrandTotal))
 				nextBalance := currentBalance + netAmount
 				if err := s.repo.CreateLedgerEntry(ctx, tx, TenantLedgerEntry{
 					TenantID:              bookingInfo.TenantID,
@@ -260,11 +263,15 @@ func (s *Service) HandleMidtransNotification(ctx context.Context, payload map[st
 				logCommon.ErrorMessage = err.Error()
 				return s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon)
 			}
+			logCommon.GrossAmount = int64(bookingInfo.DepositAmount)
 			if err := s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon); err != nil {
 				return err
 			}
+			if !isFinalStatus {
+				return nil
+			}
 			currentBalance, _ := s.repo.CurrentTenantBalance(ctx, tx, bookingInfo.TenantID)
-			netAmount := parseMidtransAmount(grossAmount)
+			netAmount := amountFromPayloadOrFallback(parseMidtransAmount(grossAmount), int64(bookingInfo.DepositAmount))
 			nextBalance := currentBalance + netAmount
 			if err := s.repo.CreateLedgerEntry(ctx, tx, TenantLedgerEntry{
 				TenantID:              bookingInfo.TenantID,
@@ -490,6 +497,13 @@ func verifyMidtransSignature(orderID, statusCode, grossAmount, signatureKey, ser
 func parseMidtransAmount(raw string) int64 {
 	value, _ := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
 	return value
+}
+
+func amountFromPayloadOrFallback(payloadAmount int64, fallback int64) int64 {
+	if payloadAmount > 0 {
+		return payloadAmount
+	}
+	return fallback
 }
 
 func mustJSON(v any) []byte {
