@@ -329,8 +329,13 @@ func (s *Service) GetAvailability(ctx context.Context, resourceID string, date t
 		return nil, errors.New("ID UNIT TIDAK VALID")
 	}
 
-	location, _ := time.LoadLocation("Asia/Jakarta")
-	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	location, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		location = time.FixedZone("WIB", 7*60*60)
+	}
+	localDate := date.In(location)
+	startOfDay := time.Date(localDate.Year(), localDate.Month(), localDate.Day(), 0, 0, 0, 0, location)
+	endOfDay := startOfDay.Add(24 * time.Hour)
 
 	bookings, err := s.repo.ListUpcoming(ctx, rID, startOfDay)
 	if err != nil {
@@ -342,6 +347,9 @@ func (s *Service) GetAvailability(ctx context.Context, resourceID string, date t
 		// Konversi UTC ke Local agar frontend tidak geser jamnya
 		localStart := b.StartTime.In(location)
 		localEnd := b.EndTime.In(location)
+		if localEnd.Before(startOfDay) || localStart.After(endOfDay) {
+			continue
+		}
 
 		busySlots = append(busySlots, map[string]string{
 			"id":         b.ID.String(),
