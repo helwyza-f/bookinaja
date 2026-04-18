@@ -431,3 +431,13 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "STATUS BERHASIL DIPERBARUI"})
 }
+
+func (h *Handler) SettleCash(c *gin.Context) {
+	id := c.Param("id")
+	tenantID := c.MustGet("tenantID").(string)
+	if err := h.service.SettleCash(c.Request.Context(), id, tenantID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "PEMBAYARAN CASH BERHASIL DILUNASI"})
+}

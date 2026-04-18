@@ -223,9 +223,11 @@ export default function CustomerBookingDetail() {
     return "Sesi";
   };
 
-  const handlePayDeposit = async () => {
+  const handlePayBooking = async (mode: "dp" | "settlement") => {
     try {
-      const res = await api.post(`/public/bookings/${params.id}/checkout`);
+      const res = await api.post(
+        `/public/bookings/${params.id}/checkout?mode=${mode}`,
+      );
       const snap = await waitForSnap();
       if (!snap) return;
       snap.pay(res.data.snap_token, {
@@ -635,12 +637,23 @@ export default function CustomerBookingDetail() {
 
               {paymentStatus === "pending" && depositAmount > 0 && (
                 <Button
-                  onClick={handlePayDeposit}
+                  onClick={() => handlePayBooking("dp")}
                   disabled={!midtransReady}
                   className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-300 disabled:text-slate-600 text-white font-[1000] uppercase italic tracking-widest text-sm shadow-lg gap-2"
                 >
                   <CreditCard size={16} />
                   {midtransReady ? "Bayar DP Booking" : "Menyiapkan Midtrans..."}
+                </Button>
+              )}
+              {(paymentStatus === "partial_paid" ||
+                (paymentStatus === "paid" && balanceDue > 0)) && (
+                <Button
+                  onClick={() => handlePayBooking("settlement")}
+                  disabled={!midtransReady}
+                  className="w-full h-14 rounded-2xl bg-slate-950 hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-600 text-white font-[1000] uppercase italic tracking-widest text-sm shadow-lg gap-2"
+                >
+                  <CreditCard size={16} />
+                  {midtransReady ? "Bayar Sisa Booking" : "Menyiapkan Midtrans..."}
                 </Button>
               )}
 

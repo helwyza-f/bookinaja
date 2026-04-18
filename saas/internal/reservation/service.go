@@ -230,6 +230,18 @@ func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string)
 	return nil
 }
 
+func (s *Service) SettleCash(ctx context.Context, id, tenantID string) error {
+	bID, err := uuid.Parse(id)
+	if err != nil {
+		return errors.New("ID BOOKING TIDAK VALID")
+	}
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return errors.New("ID TENANT TIDAK VALID")
+	}
+	return s.repo.SettlePaymentCash(ctx, bID, tID, nil, nil)
+}
+
 // AddAddonOrder menambahkan layanan tambahan (Add-on on-the-spot)
 func (s *Service) AddAddonOrder(ctx context.Context, bookingID string, tenantID string, itemID string) error {
 	bID, _ := uuid.Parse(bookingID)

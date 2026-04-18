@@ -13,6 +13,7 @@ type CheckoutReq struct {
 
 type BookingCheckoutReq struct {
 	BookingID string `json:"booking_id" binding:"required"`
+	Mode      string `json:"mode"`
 }
 
 type CheckoutRes struct {

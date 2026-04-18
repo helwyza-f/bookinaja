@@ -137,13 +137,21 @@ func (s *Service) HandleMidtransNotification(ctx context.Context, payload map[st
 		}
 		if strings.HasPrefix(orderID, "book-") {
 			bookingIDStr := strings.TrimPrefix(orderID, "book-")
+			isSettlement := strings.Contains(orderID, "-due")
 			bookingIDStr, _, found := strings.Cut(bookingIDStr, "-dp-")
 			if !found {
-				bookingIDStr = strings.TrimSuffix(bookingIDStr, "-dp")
+				bookingIDStr, _, found = strings.Cut(bookingIDStr, "-due-")
+				if !found {
+					bookingIDStr = strings.TrimSuffix(bookingIDStr, "-dp")
+					bookingIDStr = strings.TrimSuffix(bookingIDStr, "-due")
+				}
 			}
 			bookingID, err := uuid.Parse(bookingIDStr)
 			if err != nil {
 				return err
+			}
+			if isSettlement {
+				return s.repo.UpdateBookingSettlementFromMidtrans(ctx, tx, bookingID, newStatus, txIDPtr, paymentTypePtr, payload)
 			}
 			return s.repo.UpdateBookingPaymentFromMidtrans(ctx, tx, bookingID, newStatus, txIDPtr, paymentTypePtr, payload)
 		}
@@ -151,23 +159,33 @@ func (s *Service) HandleMidtransNotification(ctx context.Context, payload map[st
 	})
 }
 
-func (s *Service) CheckoutBookingDeposit(ctx context.Context, tenantID uuid.UUID, tenantSlug string, bookingID uuid.UUID) (BookingCheckoutRes, error) {
+func (s *Service) CheckoutBookingPayment(ctx context.Context, tenantID uuid.UUID, tenantSlug string, bookingID uuid.UUID, mode string) (BookingCheckoutRes, error) {
 	booking, err := s.repo.GetBookingForPayment(ctx, s.db, bookingID, tenantID)
 	if err != nil {
 		return BookingCheckoutRes{}, err
 	}
 
-	if booking.DepositAmount <= 0 {
-		return BookingCheckoutRes{}, errors.New("booking ini tidak memiliki DP yang perlu dibayar")
-	}
-	if booking.PaymentStatus == "settled" || (booking.BalanceDue <= 0 && booking.PaymentStatus == "paid") {
-		return BookingCheckoutRes{}, errors.New("booking ini sudah lunas")
-	}
-
+	mode = strings.ToLower(strings.TrimSpace(mode))
 	amount := booking.DepositAmount
-
 	orderID := fmt.Sprintf("book-%s-dp", bookingID.String())
 	display := "DP"
+
+	if mode == "settlement" || mode == "due" || mode == "balance" || booking.PaymentStatus == "partial_paid" {
+		amount = booking.BalanceDue
+		orderID = fmt.Sprintf("book-%s-due", bookingID.String())
+		display = "Pelunasan"
+		if amount <= 0 {
+			return BookingCheckoutRes{}, errors.New("booking ini sudah lunas")
+		}
+	} else {
+		if booking.DepositAmount <= 0 {
+			return BookingCheckoutRes{}, errors.New("booking ini tidak memiliki DP yang perlu dibayar")
+		}
+		if booking.PaymentStatus == "settled" || (booking.BalanceDue <= 0 && booking.PaymentStatus == "paid") {
+			return BookingCheckoutRes{}, errors.New("booking ini sudah lunas")
+		}
+	}
+
 	snapToken, redirectURL, err := s.createSnapTransaction(ctx, orderID, int64(amount), display)
 	if err != nil {
 		return BookingCheckoutRes{}, err
