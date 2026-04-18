@@ -114,6 +114,9 @@ export default function ResourceBookingDetail() {
     return ["day", "week", "month", "year"].includes(selectedItem.price_unit);
   }, [selectedItem]);
 
+  const wibNow = useMemo(() => getWIBDate(new Date()), []);
+  const todayWIB = useMemo(() => startOfWIBDay(new Date()), []);
+
   // Smooth Scroll Trigger
   useEffect(() => {
     if (selectedMainId && !loading) {
@@ -221,6 +224,11 @@ export default function ResourceBookingDetail() {
     }
     return slots;
   }, [selectedItem, date, profile, isInterday]);
+
+  const formattedSelectedDate = useMemo(() => {
+    if (!date) return "";
+    return formatInWIB(date, "EEEE, dd MMM yyyy");
+  }, [date]);
 
   const maxAvailableSessions = useMemo(() => {
     if (!selectedTime || !selectedItem || !profile) return 1;
@@ -497,7 +505,7 @@ export default function ResourceBookingDetail() {
                 >
                   <CalendarIcon className="mr-2 h-4 w-4 text-blue-600" />
                   {date
-                    ? format(date, "EEEE, dd MMM yyyy", { locale: idLocale })
+                    ? formattedSelectedDate
                     : "PILIH TANGGAL"}
                 </Button>
               </PopoverTrigger>
@@ -509,27 +517,35 @@ export default function ResourceBookingDetail() {
                   mode="single"
                   selected={date}
                   onSelect={(d) => {
-                    setDate(d);
+                    setDate(d ? startOfWIBDay(d) : d);
                     setIsCalendarOpen(false);
                   }}
-                  disabled={(d) => d < startOfToday()}
+                  disabled={(d) => startOfWIBDay(d) < todayWIB}
                   className="w-full"
                 />
               </PopoverContent>
             </Popover>
 
             {date && selectedMainId && !isInterday && (
-              <div className="grid grid-cols-4 gap-1.5 p-2.5 bg-slate-50/30 dark:bg-white/[0.02] rounded-[1.5rem] border border-slate-100 dark:border-white/5 animate-in fade-in duration-500">
-                {availableSlots.map((time) => {
+              <div className="space-y-3">
+                <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">
+                  Zona waktu WIB
+                </div>
+                {availableSlots.length === 0 ? (
+                  <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50/30 p-6 text-center text-sm text-slate-500">
+                    Slot tidak tersedia untuk tanggal ini.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-4 gap-1.5 p-2.5 bg-slate-50/30 dark:bg-white/[0.02] rounded-[1.5rem] border border-slate-100 dark:border-white/5 animate-in fade-in duration-500">
+                    {availableSlots.map((time) => {
                   const { isPast, isBusy } = ((timeStr: string) => {
                     const [h, m] = timeStr.split(":").map(Number);
                     const totalMin = h * 60 + m;
                     let past = false;
-                    if (date && isSameDay(date, new Date())) {
-                      const nowTime = new Date();
+                    if (date && isSameDay(date, wibNow)) {
                       if (
                         totalMin <=
-                        nowTime.getHours() * 60 + nowTime.getMinutes()
+                        wibNow.getHours() * 60 + wibNow.getMinutes()
                       )
                         past = true;
                     }
@@ -559,7 +575,9 @@ export default function ResourceBookingDetail() {
                       {time}
                     </button>
                   );
-                })}
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
@@ -849,6 +867,31 @@ function BookingSkeleton() {
       </div>
     </div>
   );
+}
+
+function getWIBDate(date: Date) {
+  return new Date(date.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+}
+
+function startOfWIBDay(date: Date) {
+  const wib = getWIBDate(date);
+  return new Date(wib.getFullYear(), wib.getMonth(), wib.getDate(), 0, 0, 0, 0);
+}
+
+function formatInWIB(date: Date, pattern: string) {
+  const wib = getWIBDate(date);
+  if (pattern === "EEEE, dd MMM yyyy") {
+    return new Intl.DateTimeFormat("id-ID", {
+      timeZone: "Asia/Jakarta",
+      weekday: "long",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    })
+      .format(wib)
+      .replace(",", "");
+  }
+  return format(wib, pattern);
 }
 
 function Smartphone({
