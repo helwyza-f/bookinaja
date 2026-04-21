@@ -20,6 +20,11 @@ const nextConfig: NextConfig = {
         hostname: "cdn-test.bookinaja.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        pathname: "/**",
+      },
     ],
   },
 
