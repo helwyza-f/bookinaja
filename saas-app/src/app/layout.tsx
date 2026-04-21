@@ -71,11 +71,12 @@ export default function RootLayout({
   return (
     <html lang="id" suppressHydrationWarning>
       <body
+        suppressHydrationWarning
         className={`${inter.variable} ${plusJakarta.variable} ${syne.variable} font-sans antialiased bg-background text-foreground transition-colors duration-300`}
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="light"
+          defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >

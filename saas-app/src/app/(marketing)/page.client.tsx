@@ -1,3 +1,4 @@
+// src/app/(marketing)/page.client.tsx
 "use client";
 
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useTheme } from "next-themes";
 
 /* ─────────────────────────────────────────────
    HOOK: Intersection Observer for scroll reveals
@@ -90,15 +92,37 @@ function AnimatedCounter({
 /* ─────────────────────────────────────────────
    FLOATING PARTICLE FIELD
 ───────────────────────────────────────────── */
+function getThemeClasses(isDark: boolean) {
+  return {
+    sectionHeadingClass: isDark ? "text-white" : "text-slate-950",
+    mutedClass: isDark ? "text-white/40" : "text-slate-600",
+    cardClass: isDark
+      ? "bg-white/[0.03] border-white/10"
+      : "bg-white border-slate-200",
+    subtleCardClass: isDark
+      ? "bg-white/[0.02] border-white/10"
+      : "bg-slate-50 border-slate-200",
+    innerPanelClass: isDark ? "bg-slate-900" : "bg-slate-100",
+  };
+}
+
 function ParticleField() {
-  const particles = Array.from({ length: 30 }, (_, i) => ({
-    id: i,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    size: Math.random() * 3 + 1,
-    delay: Math.random() * 8,
-    duration: Math.random() * 10 + 8,
-  }));
+  const [particles, setParticles] = useState<any[]>([]);
+
+  useEffect(() => {
+    // Generate partikel hanya di client
+    const generated = Array.from({ length: 30 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 3 + 1,
+      delay: Math.random() * 8,
+      duration: Math.random() * 10 + 8,
+    }));
+    setParticles(generated);
+  }, []);
+
+  if (particles.length === 0) return null; // Cegah mismatch saat SSR
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
       {particles.map((p) => (
@@ -218,6 +242,10 @@ function ParticleField() {
    MOCK DASHBOARD WIDGET
 ───────────────────────────────────────────── */
 function DashboardWidget() {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+  const { sectionHeadingClass, subtleCardClass, cardClass } =
+    getThemeClasses(isDark);
   const slots = [
     { id: "PS-01", status: "busy", time: "2h 15m", customer: "Rafi A." },
     { id: "PS-02", status: "free", time: "—", customer: "—" },
@@ -227,15 +255,21 @@ function DashboardWidget() {
     { id: "PC-03", status: "busy", time: "3h 00m", customer: "Andi P." },
   ];
   return (
-    <div className="bg-slate-950 rounded-[2rem] border border-white/10 overflow-hidden shadow-2xl">
+    <div
+      className={`rounded-[2rem] border overflow-hidden shadow-2xl ${cardClass}`}
+    >
       {/* Header */}
-      <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+      <div
+        className={`px-6 py-4 border-b flex items-center justify-between ${isDark ? "border-white/5" : "border-slate-200"}`}
+      >
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-xl bg-blue-600 flex items-center justify-center">
             <Activity size={14} className="text-white" />
           </div>
           <div>
-            <p className="text-white text-xs font-black uppercase tracking-widest">
+            <p
+              className={`text-xs font-black uppercase tracking-widest ${sectionHeadingClass}`}
+            >
               Live Monitor
             </p>
             <p className="text-green-400 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1">
@@ -245,7 +279,9 @@ function DashboardWidget() {
           </div>
         </div>
         <div className="text-right">
-          <p className="text-white text-lg font-black italic">Rp 847.000</p>
+          <p className={`text-lg font-black italic ${sectionHeadingClass}`}>
+            Rp 847.000
+          </p>
           <p className="text-blue-400 text-[9px] font-bold uppercase tracking-widest">
             Cuan Hari Ini
           </p>
@@ -259,28 +295,34 @@ function DashboardWidget() {
             className={`rounded-xl p-3 border transition-all duration-300 ${
               slot.status === "busy"
                 ? "bg-blue-600/10 border-blue-500/30"
-                : "bg-white/5 border-white/10"
+                : subtleCardClass
             }`}
           >
             <div className="flex items-center justify-between mb-1">
-              <span className="text-white text-[10px] font-black uppercase">
+              <span
+                className={`text-[10px] font-black uppercase ${sectionHeadingClass}`}
+              >
                 {slot.id}
               </span>
               <span
                 className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full ${
                   slot.status === "busy"
                     ? "bg-blue-500/20 text-blue-400"
-                    : "bg-white/10 text-white/40"
+                    : isDark
+                      ? "bg-white/10 text-white/40"
+                      : "bg-slate-200 text-slate-500"
                 }`}
               >
                 {slot.status === "busy" ? "Terisi" : "Kosong"}
               </span>
             </div>
-            <p className="text-white/60 text-[9px] font-semibold">
+            <p
+              className={`text-[9px] font-semibold ${isDark ? "text-white/60" : "text-slate-500"}`}
+            >
               {slot.customer}
             </p>
             <p
-              className={`text-[10px] font-black ${slot.status === "busy" ? "text-orange-400" : "text-white/20"}`}
+              className={`text-[10px] font-black ${slot.status === "busy" ? "text-orange-400" : isDark ? "text-white/20" : "text-slate-300"}`}
             >
               {slot.time}
             </p>
@@ -289,12 +331,18 @@ function DashboardWidget() {
       </div>
       {/* Footer bar */}
       <div className="px-4 pb-4">
-        <div className="bg-white/5 rounded-xl px-4 py-3 flex items-center justify-between">
-          <span className="text-white/50 text-[9px] font-bold uppercase tracking-widest">
+        <div
+          className={`rounded-xl px-4 py-3 flex items-center justify-between ${isDark ? "bg-white/5" : "bg-slate-50"}`}
+        >
+          <span
+            className={`text-[9px] font-bold uppercase tracking-widest ${isDark ? "text-white/50" : "text-slate-500"}`}
+          >
             Occupancy
           </span>
           <div className="flex items-center gap-2">
-            <div className="w-24 h-1.5 bg-white/10 rounded-full overflow-hidden">
+            <div
+              className={`w-24 h-1.5 rounded-full overflow-hidden ${isDark ? "bg-white/10" : "bg-slate-200"}`}
+            >
               <div
                 className="h-full bg-blue-500 rounded-full"
                 style={{ width: "67%" }}
@@ -313,6 +361,15 @@ function DashboardWidget() {
 ───────────────────────────────────────────── */
 export default function LandingPage() {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+  const {
+    sectionHeadingClass,
+    mutedClass,
+    cardClass,
+    subtleCardClass,
+    innerPanelClass,
+  } = getThemeClasses(isDark);
 
   useEffect(() => {
     const handleMouse = (e: MouseEvent) => {
@@ -335,21 +392,47 @@ export default function LandingPage() {
   const ctaReveal = useReveal(0.15);
 
   return (
-    <div className="relative flex flex-col items-center selection:bg-blue-600/30 overflow-x-hidden bg-[#050810] font-sans transition-colors duration-500">
+    <div
+      className={`relative flex flex-col items-center selection:bg-blue-600/30 overflow-x-hidden font-sans transition-colors duration-500 ${
+        isDark ? "bg-[#050810] text-white" : "bg-slate-50 text-slate-950"
+      }`}
+    >
       {/* ── BACKGROUND SYSTEM ── */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute inset-0 bg-[#050810]" />
         <div
-          className="absolute w-[600px] h-[600px] rounded-full blur-[150px] opacity-20 transition-all duration-1000"
+          className={`absolute inset-0 ${isDark ? "bg-[#050810]" : "bg-slate-50"}`}
+        />
+        <div
+          className={`absolute w-[600px] h-[600px] rounded-full blur-[150px] transition-all duration-1000 ${
+            isDark ? "opacity-20" : "opacity-30"
+          }`}
           style={{
-            background: "radial-gradient(circle, #3b82f6, #1d4ed8)",
+            background: isDark
+              ? "radial-gradient(circle, #3b82f6, #1d4ed8)"
+              : "radial-gradient(circle, rgba(59,130,246,0.18), rgba(29,78,216,0.08))",
             left: `${mousePos.x * 100 - 30}%`,
             top: `${mousePos.y * 100 - 30}%`,
           }}
         />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[900px] bg-[radial-gradient(ellipse_at_50%_0%,rgba(59,130,246,0.12)_0%,transparent_70%)]" />
-        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full blur-[120px] opacity-10 bg-blue-800" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:60px_60px]" />
+        <div
+          className={`absolute top-0 left-1/2 -translate-x-1/2 w-full h-[900px] ${
+            isDark
+              ? "bg-[radial-gradient(ellipse_at_50%_0%,rgba(59,130,246,0.12)_0%,transparent_70%)]"
+              : "bg-[radial-gradient(ellipse_at_50%_0%,rgba(59,130,246,0.08)_0%,transparent_70%)]"
+          }`}
+        />
+        <div
+          className={`absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full blur-[120px] ${
+            isDark ? "opacity-10 bg-blue-800" : "opacity-20 bg-blue-200"
+          }`}
+        />
+        <div
+          className={`absolute inset-0 ${
+            isDark
+              ? "bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)]"
+              : "bg-[linear-gradient(to_right,#0f172a0a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a0a_1px,transparent_1px)]"
+          } bg-[size:60px_60px]`}
+        />
         <ParticleField />
       </div>
 
@@ -391,7 +474,11 @@ export default function LandingPage() {
                 : "none",
             }}
           >
-            <h1 className="max-w-5xl mx-auto text-5xl sm:text-7xl md:text-8xl lg:text-[96px] font-black tracking-[-0.04em] text-white leading-[0.88]">
+            <h1
+              className={`max-w-5xl mx-auto text-5xl sm:text-7xl md:text-8xl lg:text-[96px] font-black tracking-[-0.04em] leading-[0.88] ${
+                isDark ? "text-white" : "text-slate-950"
+              }`}
+            >
               Ubah Slot Waktu
               <br />
               <span className="shimmer-text">Jadi Profit.</span>
@@ -406,7 +493,11 @@ export default function LandingPage() {
                 : "none",
             }}
           >
-            <p className="max-w-xl mx-auto text-base md:text-lg text-white/40 font-medium leading-relaxed">
+            <p
+              className={`max-w-xl mx-auto text-base md:text-lg font-medium leading-relaxed ${
+                isDark ? "text-white/40" : "text-slate-600"
+              }`}
+            >
               Satu platform pintar untuk monitor unit, terima pembayaran
               digital, dan kendalikan seluruh tim — dari mana saja, kapan saja.
             </p>
@@ -429,7 +520,11 @@ export default function LandingPage() {
             <Link href="/demo">
               <Button
                 variant="ghost"
-                className="h-14 px-10 text-xs font-black uppercase tracking-[0.2em] rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white italic backdrop-blur-sm transition-all hover:scale-105"
+                className={`h-14 px-10 text-xs font-black uppercase tracking-[0.2em] rounded-2xl border italic backdrop-blur-sm transition-all hover:scale-105 ${
+                  isDark
+                    ? "border-white/10 bg-white/5 hover:bg-white/10 text-white"
+                    : "border-slate-200 bg-white hover:bg-slate-50 text-slate-900"
+                }`}
               >
                 <Play className="mr-2 h-3 w-3 fill-current" /> Lihat Demo
               </Button>
@@ -455,17 +550,33 @@ export default function LandingPage() {
               ].map((c, i) => (
                 <div
                   key={i}
-                  className={`w-7 h-7 rounded-full border-2 border-[#050810] ${c} flex items-center justify-center`}
+                  className={`w-7 h-7 rounded-full border-2 ${
+                    isDark ? "border-[#050810]" : "border-white"
+                  } ${c} flex items-center justify-center`}
                 >
-                  <span className="text-[8px] font-black text-white">
+                  <span
+                    className={`text-[8px] font-black ${
+                      isDark ? "text-white" : "text-slate-950"
+                    }`}
+                  >
                     {String.fromCharCode(65 + i)}
                   </span>
                 </div>
               ))}
             </div>
-            <p className="text-white/40 text-[11px] font-semibold">
-              <span className="text-white font-black">2.400+</span> bisnis aktif
-              menggunakan Bookinaja
+            <p
+              className={`text-[11px] font-semibold ${
+                isDark ? "text-white/40" : "text-slate-600"
+              }`}
+            >
+              <span
+                className={
+                  isDark ? "text-white font-black" : "text-slate-950 font-black"
+                }
+              >
+                2.400+
+              </span>{" "}
+              bisnis aktif menggunakan Bookinaja
             </p>
           </div>
         </div>
@@ -483,9 +594,23 @@ export default function LandingPage() {
           <div className="absolute inset-0 rounded-[3rem] bg-blue-600/10 blur-3xl scale-105" />
 
           {/* Main dashboard frame */}
-          <div className="relative rounded-[2.5rem] border border-white/10 bg-white/5 p-2 backdrop-blur-xl shadow-2xl">
-            <div className="overflow-hidden rounded-[2rem] border border-white/5">
-              <div className="relative bg-slate-950 h-[340px] md:h-[480px] overflow-hidden">
+          <div
+            className={`relative rounded-[2.5rem] border p-2 backdrop-blur-xl shadow-2xl ${
+              isDark
+                ? "border-white/10 bg-white/5"
+                : "border-slate-200 bg-white/80"
+            }`}
+          >
+            <div
+              className={`overflow-hidden rounded-[2rem] ${
+                isDark ? "border border-white/5" : "border border-slate-200"
+              }`}
+            >
+              <div
+                className={`relative h-[340px] md:h-[480px] overflow-hidden ${
+                  isDark ? "bg-slate-950" : "bg-slate-50"
+                }`}
+              >
                 {/* Fake dashboard UI */}
                 <div className="absolute inset-0 p-6 grid grid-cols-12 grid-rows-6 gap-3">
                   {/* Sidebar */}
@@ -623,7 +748,9 @@ export default function LandingPage() {
       {/* ══════════════════════════════════════
           MARQUEE LOGOS
       ══════════════════════════════════════ */}
-      <div className="relative z-10 w-full py-8 border-y border-white/5 overflow-hidden">
+      <div
+        className={`relative z-10 w-full py-8 overflow-hidden border-y ${isDark ? "border-white/5" : "border-slate-200"}`}
+      >
         <div className="flex gap-16 marquee-track">
           {[...Array(2)].map((_, rep) =>
             [
@@ -641,7 +768,9 @@ export default function LandingPage() {
                 className="flex items-center gap-3 flex-shrink-0"
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-blue-500/60" />
-                <span className="text-white/30 text-sm font-black uppercase tracking-widest">
+                <span
+                  className={`text-sm font-black uppercase tracking-widest ${isDark ? "text-white/30" : "text-slate-500"}`}
+                >
                   {name}
                 </span>
               </div>
@@ -656,7 +785,7 @@ export default function LandingPage() {
       <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-24">
         <div
           ref={statsReveal.ref}
-          className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5 rounded-[2.5rem] overflow-hidden border border-white/5"
+          className={`grid grid-cols-2 md:grid-cols-4 gap-px rounded-[2.5rem] overflow-hidden border ${isDark ? "bg-white/5 border-white/5" : "bg-slate-200 border-slate-200"}`}
           style={{
             opacity: statsReveal.visible ? 1 : 0,
             transform: statsReveal.visible ? "none" : "translateY(40px)",
@@ -691,15 +820,19 @@ export default function LandingPage() {
           ].map((s, i) => (
             <div
               key={i}
-              className="bg-white/[0.02] p-10 text-center group hover:bg-blue-600/5 transition-colors duration-500"
+              className={`p-10 text-center group hover:bg-blue-600/5 transition-colors duration-500 ${isDark ? "bg-white/[0.02]" : "bg-white"}`}
             >
               <p className="text-4xl md:text-5xl font-black number-gradient mb-2 tabular-nums">
                 <AnimatedCounter target={s.val} suffix={s.suffix} />
               </p>
-              <p className="text-white text-sm font-black uppercase tracking-wider">
+              <p
+                className={`text-sm font-black uppercase tracking-wider ${sectionHeadingClass}`}
+              >
                 {s.label}
               </p>
-              <p className="text-white/30 text-xs font-semibold mt-1">
+              <p
+                className={`text-xs font-semibold mt-1 ${isDark ? "text-white/30" : "text-slate-500"}`}
+              >
                 {s.desc}
               </p>
             </div>
@@ -724,21 +857,25 @@ export default function LandingPage() {
             <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400">
               <Zap className="h-3 w-3 fill-current" /> Fitur Unggulan
             </span>
-            <h2 className="text-4xl md:text-6xl font-black tracking-[-0.04em] text-white leading-none">
+            <h2
+              className={`text-4xl md:text-6xl font-black tracking-[-0.04em] leading-none ${sectionHeadingClass}`}
+            >
               Semua yang Kamu
               <br />
               <span className="shimmer-text">Butuhkan.</span>
             </h2>
-            <p className="text-white/40 max-w-lg mx-auto font-medium">
+            <p className={`max-w-lg mx-auto font-medium ${mutedClass}`}>
               Dirancang untuk owner yang ingin fokus mengembangkan bisnis, bukan
               tenggelam dalam urusan administrasi.
             </p>
           </div>
 
           {/* Bento Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Large card: Live Monitor */}
-            <div className="lg:col-span-2 bento-hover card-tilt bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-8 overflow-hidden relative group">
+            <div
+              className={`md:col-span-2 lg:col-span-2 bento-hover card-tilt rounded-[2.5rem] p-8 overflow-hidden relative group ${cardClass}`}
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <div className="absolute top-0 right-0 w-40 h-40 bg-blue-600/10 rounded-full blur-3xl" />
               <div className="relative">
@@ -750,10 +887,14 @@ export default function LandingPage() {
                     Live
                   </span>
                 </div>
-                <h3 className="text-2xl font-black text-white tracking-tight mb-3">
+                <h3
+                  className={`text-2xl font-black tracking-tight mb-3 ${sectionHeadingClass}`}
+                >
                   Monitoring Slot Realtime
                 </h3>
-                <p className="text-white/40 text-sm font-medium leading-relaxed mb-8">
+                <p
+                  className={`text-sm font-medium leading-relaxed mb-8 ${mutedClass}`}
+                >
                   Pantau semua unit dari HP. Tau persis mana yang kosong, siapa
                   yang pakai, dan berapa sisa waktu — tanpa nelpon kasir.
                 </p>
@@ -762,22 +903,30 @@ export default function LandingPage() {
             </div>
 
             {/* Website Otomatis */}
-            <div className="bento-hover card-tilt bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-8 relative group overflow-hidden">
+            <div
+              className={`bento-hover card-tilt rounded-[2.5rem] p-8 relative group overflow-hidden ${cardClass}`}
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-purple-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <div className="h-10 w-10 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center mb-6">
                 <Globe size={18} className="text-purple-400" />
               </div>
-              <h3 className="text-xl font-black text-white tracking-tight mb-3">
+              <h3
+                className={`text-xl font-black tracking-tight mb-3 ${sectionHeadingClass}`}
+              >
                 Website Booking Otomatis
               </h3>
-              <p className="text-white/40 text-sm font-medium leading-relaxed mb-6">
+              <p
+                className={`text-sm font-medium leading-relaxed mb-6 ${mutedClass}`}
+              >
                 Portal profesional{" "}
                 <span className="text-white/70 font-black">
                   namabisnis.bookinaja.com
                 </span>{" "}
                 langsung aktif saat daftar. Siap terima booking 24 jam.
               </p>
-              <div className="bg-slate-900 rounded-2xl border border-white/5 p-4">
+              <div
+                className={`rounded-2xl border p-4 ${innerPanelClass} ${isDark ? "border-white/5" : "border-slate-200"}`}
+              >
                 <div className="flex items-center gap-2 mb-3">
                   <div className="flex gap-1">
                     {["bg-red-500", "bg-yellow-500", "bg-green-500"].map(
@@ -786,30 +935,52 @@ export default function LandingPage() {
                       ),
                     )}
                   </div>
-                  <div className="flex-1 bg-white/5 rounded-md h-5 flex items-center px-2">
-                    <span className="text-white/30 text-[9px] font-mono">
+                  <div
+                    className={`flex-1 rounded-md h-5 flex items-center px-2 ${isDark ? "bg-white/5" : "bg-slate-100"}`}
+                  >
+                    <span
+                      className={`text-[9px] font-mono ${isDark ? "text-white/30" : "text-slate-500"}`}
+                    >
                       gaminghub.bookinaja.com
                     </span>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <div className="h-3 bg-white/10 rounded w-3/4" />
-                  <div className="h-3 bg-white/5 rounded w-1/2" />
+                  <div
+                    className={
+                      isDark
+                        ? "h-3 bg-white/10 rounded w-3/4"
+                        : "h-3 bg-slate-200 rounded w-3/4"
+                    }
+                  />
+                  <div
+                    className={
+                      isDark
+                        ? "h-3 bg-white/5 rounded w-1/2"
+                        : "h-3 bg-slate-100 rounded w-1/2"
+                    }
+                  />
                   <div className="h-8 bg-blue-600/30 border border-blue-500/30 rounded-lg mt-4" />
                 </div>
               </div>
             </div>
 
             {/* Payment */}
-            <div className="bento-hover card-tilt bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-8 relative group overflow-hidden">
+            <div
+              className={`bento-hover card-tilt rounded-[2.5rem] p-8 relative group overflow-hidden ${cardClass}`}
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <div className="h-10 w-10 rounded-2xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center mb-6">
                 <Wallet size={18} className="text-emerald-400" />
               </div>
-              <h3 className="text-xl font-black text-white tracking-tight mb-3">
+              <h3
+                className={`text-xl font-black tracking-tight mb-3 ${sectionHeadingClass}`}
+              >
                 Pembayaran Digital
               </h3>
-              <p className="text-white/40 text-sm font-medium leading-relaxed mb-6">
+              <p
+                className={`text-sm font-medium leading-relaxed mb-6 ${mutedClass}`}
+              >
                 QRIS, transfer bank, dan dompet digital. Semua tercatat otomatis
                 tanpa rekap manual.
               </p>
@@ -818,9 +989,11 @@ export default function LandingPage() {
                   (p, i) => (
                     <div
                       key={i}
-                      className="bg-white/5 border border-white/5 rounded-xl py-2 text-center"
+                      className={`rounded-xl py-2 text-center ${isDark ? "bg-white/5 border border-white/5" : "bg-slate-50 border border-slate-200"}`}
                     >
-                      <span className="text-white/50 text-[9px] font-black uppercase">
+                      <span
+                        className={`text-[9px] font-black uppercase ${isDark ? "text-white/50" : "text-slate-500"}`}
+                      >
                         {p}
                       </span>
                     </div>
@@ -830,15 +1003,21 @@ export default function LandingPage() {
             </div>
 
             {/* Reports */}
-            <div className="bento-hover card-tilt bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-8 relative group overflow-hidden">
+            <div
+              className={`bento-hover card-tilt rounded-[2.5rem] p-8 relative group overflow-hidden ${cardClass}`}
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-orange-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <div className="h-10 w-10 rounded-2xl bg-orange-600/20 border border-orange-500/30 flex items-center justify-center mb-6">
                 <BarChart3 size={18} className="text-orange-400" />
               </div>
-              <h3 className="text-xl font-black text-white tracking-tight mb-3">
+              <h3
+                className={`text-xl font-black tracking-tight mb-3 ${sectionHeadingClass}`}
+              >
                 Laporan & Analitik
               </h3>
-              <p className="text-white/40 text-sm font-medium leading-relaxed mb-6">
+              <p
+                className={`text-sm font-medium leading-relaxed mb-6 ${mutedClass}`}
+              >
                 Lihat tren pendapatan, unit terpopuler, dan jam sibuk — semua
                 dalam satu dashboard eksekutif.
               </p>
@@ -854,15 +1033,21 @@ export default function LandingPage() {
             </div>
 
             {/* Security */}
-            <div className="bento-hover card-tilt bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-8 relative group overflow-hidden">
+            <div
+              className={`bento-hover card-tilt rounded-[2.5rem] p-8 relative group overflow-hidden ${cardClass}`}
+            >
               <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <div className="h-10 w-10 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center mb-6">
                 <ShieldCheck size={18} className="text-blue-400" />
               </div>
-              <h3 className="text-xl font-black text-white tracking-tight mb-3">
+              <h3
+                className={`text-xl font-black tracking-tight mb-3 ${sectionHeadingClass}`}
+              >
                 Isolasi Data Bisnis
               </h3>
-              <p className="text-white/40 text-sm font-medium leading-relaxed mb-4">
+              <p
+                className={`text-sm font-medium leading-relaxed mb-4 ${mutedClass}`}
+              >
                 Setiap tenant mendapat database terisolasi. Data kamu tidak
                 pernah campur dengan bisnis lain.
               </p>
@@ -896,12 +1081,14 @@ export default function LandingPage() {
             <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400">
               <Globe className="h-3 w-3" /> Sektor Usaha
             </span>
-            <h2 className="text-4xl md:text-6xl font-black tracking-[-0.04em] text-white leading-none">
+            <h2
+              className={`text-4xl md:text-6xl font-black tracking-[-0.04em] leading-none ${sectionHeadingClass}`}
+            >
               Satu Sistem.
               <br />
               <span className="shimmer-text">Apapun Bisnisnya.</span>
             </h2>
-            <p className="text-white/40 max-w-md mx-auto font-medium">
+            <p className={`max-w-md mx-auto font-medium ${mutedClass}`}>
               Dirancang fleksibel untuk berbagai model persewaan slot & unit di
               seluruh Indonesia.
             </p>
@@ -950,7 +1137,7 @@ export default function LandingPage() {
               return (
                 <div
                   key={i}
-                  className="group bento-hover bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-8 relative overflow-hidden hover:border-white/20 transition-all duration-500"
+                  className={`group bento-hover rounded-[2.5rem] p-8 relative overflow-hidden hover:border-white/20 transition-all duration-500 ${cardClass}`}
                   style={{ transitionDelay: `${i * 0.1}s` }}
                 >
                   <div
@@ -958,17 +1145,21 @@ export default function LandingPage() {
                   >
                     {item.icon}
                   </div>
-                  <h4 className="text-lg font-black text-white tracking-tight mb-3">
+                  <h4
+                    className={`text-lg font-black tracking-tight mb-3 ${sectionHeadingClass}`}
+                  >
                     {item.title}
                   </h4>
-                  <p className="text-white/40 text-sm font-medium leading-relaxed mb-6">
+                  <p
+                    className={`text-sm font-medium leading-relaxed mb-6 ${mutedClass}`}
+                  >
                     {item.desc}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {item.industries.map((tag, j) => (
                       <span
                         key={j}
-                        className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-white/5 text-white/30"
+                        className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${isDark ? "bg-white/5 text-white/30" : "bg-slate-100 text-slate-500"}`}
                       >
                         {tag}
                       </span>
@@ -993,7 +1184,9 @@ export default function LandingPage() {
           <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400">
             <Clock className="h-3 w-3" /> Cara Kerja
           </span>
-          <h2 className="text-4xl md:text-6xl font-black tracking-[-0.04em] text-white leading-none">
+          <h2
+            className={`text-4xl md:text-6xl font-black tracking-[-0.04em] leading-none ${sectionHeadingClass}`}
+          >
             Online dalam
             <br />
             <span className="shimmer-text">5 Menit.</span>
@@ -1024,20 +1217,26 @@ export default function LandingPage() {
           ].map((s, i) => (
             <div
               key={i}
-              className="group relative bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-8 bento-hover hover:border-blue-500/30 transition-all duration-500"
+              className={`group relative rounded-[2.5rem] p-8 bento-hover hover:border-blue-500/30 transition-all duration-500 ${cardClass}`}
             >
               <div className="flex items-center gap-4 mb-6">
-                <span className="text-5xl font-black text-white/5 leading-none">
+                <span
+                  className={`text-5xl font-black leading-none ${isDark ? "text-white/5" : "text-slate-200"}`}
+                >
                   {s.step}
                 </span>
                 <div className="h-10 w-10 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-all duration-500">
                   {s.icon}
                 </div>
               </div>
-              <h3 className="text-xl font-black text-white tracking-tight mb-3">
+              <h3
+                className={`text-xl font-black tracking-tight mb-3 ${sectionHeadingClass}`}
+              >
                 {s.title}
               </h3>
-              <p className="text-white/40 font-medium leading-relaxed text-sm">
+              <p
+                className={`font-medium leading-relaxed text-sm ${mutedClass}`}
+              >
                 {s.desc}
               </p>
             </div>
@@ -1051,7 +1250,7 @@ export default function LandingPage() {
       <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-12">
         <div
           ref={staffReveal.ref}
-          className="relative overflow-hidden rounded-[3rem] border border-white/10 bg-white/[0.02] p-10 md:p-16"
+          className={`relative overflow-hidden rounded-[3rem] p-10 md:p-16 ${isDark ? "border border-white/10 bg-white/[0.02]" : "border border-slate-200 bg-white"}`}
           style={{
             opacity: staffReveal.visible ? 1 : 0,
             transform: staffReveal.visible ? "none" : "translateY(50px)",
@@ -1067,12 +1266,16 @@ export default function LandingPage() {
               <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400">
                 <Lock className="h-3 w-3" /> Kontrol Staff
               </span>
-              <h2 className="text-4xl md:text-6xl font-black tracking-[-0.04em] text-white leading-none">
+              <h2
+                className={`text-4xl md:text-6xl font-black tracking-[-0.04em] leading-none ${sectionHeadingClass}`}
+              >
                 Tim Hebat,
                 <br />
                 <span className="shimmer-text">Kontrol Penuh.</span>
               </h2>
-              <p className="text-white/40 font-medium leading-relaxed text-base">
+              <p
+                className={`font-medium leading-relaxed text-base ${mutedClass}`}
+              >
                 Buat akun kasir dengan akses terbatas. Mereka bisa kelola
                 booking dan terima bayaran — tapi tidak bisa lihat total cuan
                 atau laporan rahasia kamu.
@@ -1094,14 +1297,16 @@ export default function LandingPage() {
                 ].map((item) => (
                   <div
                     key={item.label}
-                    className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-blue-500/20 transition-colors"
+                    className={`flex items-start gap-4 p-4 rounded-2xl hover:border-blue-500/20 transition-colors ${isDark ? "bg-white/5 border border-white/5" : "bg-slate-50 border border-slate-200"}`}
                   >
                     <CheckCircle2 className="text-blue-500 w-5 h-5 mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="text-white text-sm font-black uppercase tracking-wide">
+                      <p
+                        className={`text-sm font-black uppercase tracking-wide ${sectionHeadingClass}`}
+                      >
                         {item.label}
                       </p>
-                      <p className="text-white/40 text-xs font-medium mt-0.5">
+                      <p className={`text-xs font-medium mt-0.5 ${mutedClass}`}>
                         {item.desc}
                       </p>
                     </div>
@@ -1113,13 +1318,17 @@ export default function LandingPage() {
             {/* Role Cards Visual */}
             <div className="relative h-72 md:h-80">
               {/* Owner card */}
-              <div className="absolute top-0 right-0 left-10 bg-slate-900 rounded-[2rem] p-6 border border-white/10 shadow-2xl">
+              <div
+                className={`absolute top-0 right-0 left-10 rounded-[2rem] p-6 border shadow-2xl ${isDark ? "bg-slate-900 border-white/10" : "bg-slate-50 border-slate-200"}`}
+              >
                 <div className="flex items-center gap-4 mb-4">
                   <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center font-black text-white text-sm">
                     OW
                   </div>
                   <div>
-                    <p className="font-black text-white uppercase text-sm leading-none">
+                    <p
+                      className={`font-black uppercase text-sm leading-none ${sectionHeadingClass}`}
+                    >
                       Owner Admin
                     </p>
                     <p className="text-blue-400 text-[9px] font-bold uppercase tracking-widest mt-1">
@@ -1158,13 +1367,17 @@ export default function LandingPage() {
               </div>
 
               {/* Kasir card */}
-              <div className="absolute bottom-0 left-0 right-10 bg-slate-900 rounded-[2rem] p-6 border border-white/10 shadow-2xl rotate-1 group hover:rotate-0 transition-transform duration-500">
+              <div
+                className={`absolute bottom-0 left-0 right-10 rounded-[2rem] p-6 border shadow-2xl rotate-1 group hover:rotate-0 transition-transform duration-500 ${isDark ? "bg-slate-900 border-white/10" : "bg-slate-50 border-slate-200"}`}
+              >
                 <div className="flex items-center gap-4 mb-4">
                   <div className="h-10 w-10 rounded-xl bg-slate-700 flex items-center justify-center font-black text-white text-sm">
                     KS
                   </div>
                   <div>
-                    <p className="font-black text-white uppercase text-sm leading-none">
+                    <p
+                      className={`font-black uppercase text-sm leading-none ${sectionHeadingClass}`}
+                    >
                       Kasir
                     </p>
                     <p className="text-orange-400 text-[9px] font-bold uppercase tracking-widest mt-1">
@@ -1185,10 +1398,10 @@ export default function LandingPage() {
                   ].map((f, i) => (
                     <div
                       key={i}
-                      className={`rounded-lg py-1 text-center border ${f.active ? "bg-emerald-600/20 border-emerald-500/20" : "bg-white/5 border-white/5 opacity-40"}`}
+                      className={`rounded-lg py-1 text-center border ${f.active ? "bg-emerald-600/20 border-emerald-500/20" : isDark ? "bg-white/5 border-white/5 opacity-40" : "bg-slate-100 border-slate-200 opacity-60"}`}
                     >
                       <span
-                        className={`text-[8px] font-black uppercase ${f.active ? "text-emerald-400" : "text-white/30"}`}
+                        className={`text-[8px] font-black uppercase ${f.active ? "text-emerald-400" : isDark ? "text-white/30" : "text-slate-500"}`}
                       >
                         {f.label}
                       </span>
@@ -1217,7 +1430,9 @@ export default function LandingPage() {
             <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400">
               <Star className="h-3 w-3 fill-current" /> Testimoni
             </span>
-            <h2 className="text-4xl md:text-6xl font-black tracking-[-0.04em] text-white leading-none">
+            <h2
+              className={`text-4xl md:text-6xl font-black tracking-[-0.04em] leading-none ${sectionHeadingClass}`}
+            >
               Kata Mereka
               <br />
               <span className="shimmer-text">yang Pakai.</span>
@@ -1253,7 +1468,7 @@ export default function LandingPage() {
             ].map((t, i) => (
               <div
                 key={i}
-                className="group bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-8 bento-hover hover:border-white/20 transition-all duration-500"
+                className={`group rounded-[2.5rem] p-8 bento-hover hover:border-white/20 transition-all duration-500 ${cardClass}`}
                 style={{ transitionDelay: `${i * 0.1}s` }}
               >
                 <div className="flex gap-1 mb-6">
@@ -1265,7 +1480,9 @@ export default function LandingPage() {
                     />
                   ))}
                 </div>
-                <p className="text-white/60 text-sm font-medium leading-relaxed mb-8 italic">
+                <p
+                  className={`text-sm font-medium leading-relaxed mb-8 italic ${isDark ? "text-white/60" : "text-slate-600"}`}
+                >
                   "{t.text}"
                 </p>
                 <div className="flex items-center gap-4">
@@ -1275,8 +1492,10 @@ export default function LandingPage() {
                     {t.avatar}
                   </div>
                   <div>
-                    <p className="text-white text-sm font-black">{t.name}</p>
-                    <p className="text-white/40 text-xs font-medium">
+                    <p className={`text-sm font-black ${sectionHeadingClass}`}>
+                      {t.name}
+                    </p>
+                    <p className={`text-xs font-medium ${mutedClass}`}>
                       {t.role}
                     </p>
                   </div>
@@ -1303,7 +1522,9 @@ export default function LandingPage() {
             <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400">
               <Wallet className="h-3 w-3" /> Harga Paket
             </span>
-            <h2 className="text-4xl md:text-6xl font-black tracking-[-0.04em] text-white leading-none">
+            <h2
+              className={`text-4xl md:text-6xl font-black tracking-[-0.04em] leading-none ${sectionHeadingClass}`}
+            >
               Investasi Kecil,
               <br />
               <span className="shimmer-text">Cuan Berlipat.</span>
@@ -1316,45 +1537,47 @@ export default function LandingPage() {
                 name: "Starter",
                 price: "149K",
                 period: "/bulan",
-                desc: "Cocok untuk bisnis baru yang mau mulai rapi dari awal.",
+                desc: "Digitalisasi dasar untuk operasional bisnis persewaan tunggal.",
                 features: [
-                  "5 Unit aktif",
-                  "1 Kasir",
-                  "Booking online",
-                  "Laporan dasar",
-                  "QRIS Payment",
+                  "1 Akun Utama (Owner Only)",
+                  "Akses Full Dashboard Admin",
+                  "Website Booking (Subdomain)",
+                  "Manajemen 1-5 Unit/Resource",
+                  "Laporan Pendapatan Bulanan",
+                  "Email & Chat Support",
                 ],
-                cta: "Mulai Gratis 14 Hari",
+                cta: "Pilih Starter",
                 highlight: false,
               },
               {
-                name: "Growth",
-                price: "349K",
+                name: "Pro",
+                price: "299K",
                 period: "/bulan",
-                desc: "Untuk bisnis berkembang yang butuh fitur lebih lengkap.",
+                desc: "Fitur lengkap untuk bisnis dengan tim dan trafik tinggi.",
                 features: [
-                  "25 Unit aktif",
-                  "5 Kasir",
-                  "Website custom",
-                  "Analitik advanced",
-                  "Priority support",
-                  "Notifikasi WA",
+                  "Akses Akun Staff/Karyawan",
+                  "Role-Based Access (Admin/Kasir)",
+                  "Unit & Resource Tanpa Batas",
+                  "Dashboard Status Live Real-time",
+                  "Sistem Harga Khusus Weekend",
+                  "WhatsApp Reminder Otomatis",
+                  "Prioritas Support 24/7",
                 ],
-                cta: "Pilih Growth",
+                cta: "Pilih Pro",
                 highlight: true,
               },
               {
                 name: "Enterprise",
-                price: "749K",
+                price: "Custom",
                 period: "/bulan",
-                desc: "Untuk bisnis besar dengan banyak cabang dan tim besar.",
+                desc: "Dukungan eksklusif untuk jaringan bisnis skala nasional.",
                 features: [
-                  "Unlimited Unit",
-                  "Unlimited Staff",
-                  "Multi-cabang",
-                  "API Access",
-                  "Dedicated support",
-                  "Custom domain",
+                  "Custom Domain (bisnisanda.com)",
+                  "Hapus Logo & Branding Bookinaja",
+                  "Unlimited Multi-User Roles",
+                  "Analitik Data Konsumen Lanjutan",
+                  "SLA & Akun Manajer Khusus",
+                  "Setup Dibantu Tim Ahli",
                 ],
                 cta: "Hubungi Kami",
                 highlight: false,
@@ -1364,8 +1587,8 @@ export default function LandingPage() {
                 key={i}
                 className={`rounded-[2.5rem] p-8 border relative overflow-hidden transition-all duration-500 bento-hover ${
                   plan.highlight
-                    ? "bg-blue-600 border-blue-500 shadow-2xl shadow-blue-500/25 scale-105"
-                    : "bg-white/[0.03] border-white/10 hover:border-white/20"
+                    ? "bg-blue-600 border-blue-500 shadow-2xl shadow-blue-500/25 scale-105 text-white"
+                    : cardClass + " hover:border-white/20"
                 }`}
               >
                 {plan.highlight && (
@@ -1376,24 +1599,24 @@ export default function LandingPage() {
                   </div>
                 )}
                 <p
-                  className={`text-sm font-black uppercase tracking-widest mb-2 ${plan.highlight ? "text-blue-200" : "text-white/40"}`}
+                  className={`text-sm font-black uppercase tracking-widest mb-2 ${plan.highlight ? "text-blue-200" : mutedClass}`}
                 >
                   {plan.name}
                 </p>
                 <div className="flex items-end gap-1 mb-4">
                   <span
-                    className={`text-5xl font-black ${plan.highlight ? "text-white" : "text-white"}`}
+                    className={`text-5xl font-black ${sectionHeadingClass}`}
                   >
                     Rp {plan.price}
                   </span>
                   <span
-                    className={`text-sm font-bold mb-2 ${plan.highlight ? "text-blue-200" : "text-white/40"}`}
+                    className={`text-sm font-bold mb-2 ${plan.highlight ? "text-blue-200" : mutedClass}`}
                   >
                     {plan.period}
                   </span>
                 </div>
                 <p
-                  className={`text-sm font-medium leading-relaxed mb-8 ${plan.highlight ? "text-blue-100" : "text-white/40"}`}
+                  className={`text-sm font-medium leading-relaxed mb-8 ${plan.highlight ? "text-blue-100" : mutedClass}`}
                 >
                   {plan.desc}
                 </p>
@@ -1407,7 +1630,7 @@ export default function LandingPage() {
                         }
                       />
                       <span
-                        className={`text-sm font-semibold ${plan.highlight ? "text-white" : "text-white/60"}`}
+                        className={`text-sm font-semibold ${plan.highlight ? "text-white" : isDark ? "text-white/60" : "text-slate-600"}`}
                       >
                         {f}
                       </span>
@@ -1443,21 +1666,31 @@ export default function LandingPage() {
             transition: "all 0.9s cubic-bezier(0.16,1,0.3,1)",
           }}
         >
-          <div className="relative overflow-hidden rounded-[3rem] border border-white/10 bg-slate-950 px-8 py-24 md:py-36 text-center">
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_100%,rgba(59,130,246,0.25)_0%,transparent_60%)]" />
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(59,130,246,0.08)_0%,transparent_60%)]" />
+          <div
+            className={`relative overflow-hidden rounded-[3rem] border px-8 py-24 md:py-36 text-center ${isDark ? "border-white/10 bg-slate-950" : "border-slate-200 bg-white"}`}
+          >
+            <div
+              className={`absolute inset-0 ${isDark ? "bg-[radial-gradient(ellipse_at_50%_100%,rgba(59,130,246,0.25)_0%,transparent_60%)]" : "bg-[radial-gradient(ellipse_at_50%_100%,rgba(59,130,246,0.10)_0%,transparent_60%)]"}`}
+            />
+            <div
+              className={`absolute inset-0 ${isDark ? "bg-[radial-gradient(ellipse_at_50%_0%,rgba(59,130,246,0.08)_0%,transparent_60%)]" : "bg-[radial-gradient(ellipse_at_50%_0%,rgba(59,130,246,0.05)_0%,transparent_60%)]"}`}
+            />
             <ParticleField />
 
             <div className="relative z-10 max-w-4xl mx-auto space-y-10">
               <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400">
                 <Rocket className="h-3 w-3" /> Mulai Hari Ini
               </span>
-              <h2 className="text-5xl md:text-8xl font-black text-white tracking-[-0.04em] leading-[0.88] uppercase">
+              <h2
+                className={`text-5xl md:text-8xl font-black tracking-[-0.04em] leading-[0.88] uppercase ${sectionHeadingClass}`}
+              >
                 Bisnis Kamu
                 <br />
                 <span className="shimmer-text">Bisa Autopilot.</span>
               </h2>
-              <p className="text-white/40 font-medium text-base max-w-lg mx-auto">
+              <p
+                className={`font-medium text-base max-w-lg mx-auto ${mutedClass}`}
+              >
                 Bergabung dengan 2.400+ bisnis Indonesia yang sudah membuktikan.
                 Gratis 14 hari, tanpa kartu kredit.
               </p>
@@ -1471,7 +1704,7 @@ export default function LandingPage() {
                 </Link>
                 <Link
                   href="/pricing"
-                  className="text-white/40 hover:text-white transition-colors text-[10px] font-black uppercase tracking-[0.4em] underline underline-offset-8 decoration-blue-500/50"
+                  className={`transition-colors text-[10px] font-black uppercase tracking-[0.4em] underline underline-offset-8 decoration-blue-500/50 ${isDark ? "text-white/40 hover:text-white" : "text-slate-500 hover:text-slate-950"}`}
                 >
                   Lihat Semua Paket →
                 </Link>
@@ -1485,7 +1718,10 @@ export default function LandingPage() {
                   "✓ Setup 5 menit",
                   "✓ Batalkan kapanpun",
                 ].map((f) => (
-                  <span key={f} className="text-white/30 text-xs font-semibold">
+                  <span
+                    key={f}
+                    className={`text-xs font-semibold ${isDark ? "text-white/30" : "text-slate-500"}`}
+                  >
                     {f}
                   </span>
                 ))}
