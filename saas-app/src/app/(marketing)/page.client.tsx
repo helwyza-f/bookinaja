@@ -106,6 +106,14 @@ function getThemeClasses(isDark: boolean) {
   };
 }
 
+function sectionRevealStyle(visible: boolean, delay = 0) {
+  return {
+    opacity: visible ? 1 : 0,
+    transform: visible ? "translateY(0)" : "translateY(18px)",
+    transition: `opacity 0.7s ease ${delay}s, transform 0.7s ease ${delay}s`,
+  } as const;
+}
+
 function ParticleField() {
   const [particles, setParticles] = useState<any[]>([]);
 
@@ -186,12 +194,20 @@ function ParticleField() {
         .reveal-up { animation: slideUp 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
         .reveal-right { animation: slideRight 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
         .reveal-fade { animation: fadeIn 1s ease forwards; }
+        .section-reveal { will-change: opacity, transform; }
         .shimmer-text {
           background: linear-gradient(90deg, #3b82f6, #60a5fa, #93c5fd, #3b82f6);
           background-size: 200% auto;
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
-          animation: shimmer 3s linear infinite;
+          animation: shimmer 14s linear infinite;
+        }
+        .heading-accent {
+          background: linear-gradient(90deg, #2563eb, #06b6d4, #8b5cf6, #2563eb);
+          background-size: 200% auto;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: shimmer 16s linear infinite;
         }
         .card-tilt {
           transition: transform 0.5s cubic-bezier(0.23,1,0.32,1), box-shadow 0.5s;
@@ -200,7 +216,7 @@ function ParticleField() {
           transform: perspective(1000px) rotateX(-3deg) rotateY(5deg) translateY(-8px);
           box-shadow: 20px 30px 60px rgba(0,0,0,0.3), 0 0 40px rgba(59,130,246,0.1);
         }
-        .glow-pulse { animation: pulse-glow 3s ease-in-out infinite; }
+        .glow-pulse { animation: pulse-glow 5s ease-in-out infinite; }
         .marquee-track {
           display: flex;
           gap: 3rem;
@@ -242,10 +258,14 @@ function ParticleField() {
    MOCK DASHBOARD WIDGET
 ───────────────────────────────────────────── */
 function DashboardWidget() {
+  const [mounted, setMounted] = useState(false);
   const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
+  const isDark = mounted ? resolvedTheme === "dark" : false;
   const { sectionHeadingClass, subtleCardClass, cardClass } =
     getThemeClasses(isDark);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const slots = [
     { id: "PS-01", status: "busy", time: "2h 15m", customer: "Rafi A." },
     { id: "PS-02", status: "free", time: "—", customer: "—" },
@@ -360,9 +380,9 @@ function DashboardWidget() {
    MAIN PAGE
 ───────────────────────────────────────────── */
 export default function LandingPage() {
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [mounted, setMounted] = useState(false);
   const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
+  const isDark = mounted ? resolvedTheme === "dark" : false;
   const {
     sectionHeadingClass,
     mutedClass,
@@ -370,16 +390,8 @@ export default function LandingPage() {
     subtleCardClass,
     innerPanelClass,
   } = getThemeClasses(isDark);
-
   useEffect(() => {
-    const handleMouse = (e: MouseEvent) => {
-      setMousePos({
-        x: e.clientX / window.innerWidth,
-        y: e.clientY / window.innerHeight,
-      });
-    };
-    window.addEventListener("mousemove", handleMouse);
-    return () => window.removeEventListener("mousemove", handleMouse);
+    setMounted(true);
   }, []);
 
   const heroReveal = useReveal(0.05);
@@ -403,16 +415,9 @@ export default function LandingPage() {
           className={`absolute inset-0 ${isDark ? "bg-[#050810]" : "bg-slate-50"}`}
         />
         <div
-          className={`absolute w-[600px] h-[600px] rounded-full blur-[150px] transition-all duration-1000 ${
-            isDark ? "opacity-20" : "opacity-30"
+          className={`absolute left-[10%] top-[8%] h-[22rem] w-[22rem] rounded-full blur-[90px] ${
+            isDark ? "opacity-20 bg-blue-600/30" : "opacity-20 bg-blue-300/40"
           }`}
-          style={{
-            background: isDark
-              ? "radial-gradient(circle, #3b82f6, #1d4ed8)"
-              : "radial-gradient(circle, rgba(59,130,246,0.18), rgba(29,78,216,0.08))",
-            left: `${mousePos.x * 100 - 30}%`,
-            top: `${mousePos.y * 100 - 30}%`,
-          }}
         />
         <div
           className={`absolute top-0 left-1/2 -translate-x-1/2 w-full h-[900px] ${
@@ -422,7 +427,7 @@ export default function LandingPage() {
           }`}
         />
         <div
-          className={`absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full blur-[120px] ${
+          className={`absolute bottom-0 right-0 w-[320px] h-[320px] rounded-full blur-[90px] ${
             isDark ? "opacity-10 bg-blue-800" : "opacity-20 bg-blue-200"
           }`}
         />
@@ -433,66 +438,50 @@ export default function LandingPage() {
               : "bg-[linear-gradient(to_right,#0f172a0a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a0a_1px,transparent_1px)]"
           } bg-[size:60px_60px]`}
         />
-        <ParticleField />
       </div>
 
       {/* ══════════════════════════════════════
           HERO
       ══════════════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 pt-24 md:pt-36 pb-20 text-center">
+      <section className="section-reveal relative z-10 w-full max-w-screen-xl mx-auto px-6 pt-24 md:pt-36 pb-20 text-center">
         <div
           ref={heroReveal.ref}
           className="space-y-8"
-          style={{
-            opacity: heroReveal.visible ? 1 : 0,
-            transition: "opacity 0.1s",
-          }}
+          style={sectionRevealStyle(heroReveal.visible, 0)}
         >
           {/* Badge */}
           <div
             className="flex justify-center"
-            style={{
-              animation: heroReveal.visible
-                ? "slideUp 0.7s 0.1s cubic-bezier(0.16,1,0.3,1) both"
-                : "none",
-            }}
+            style={sectionRevealStyle(heroReveal.visible, 0.08)}
           >
-            <div className="hero-badge-glow inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/5 px-5 py-2 backdrop-blur-md">
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-5 py-2">
               <Sparkles className="h-3 w-3 text-blue-400 fill-current" />
               <span className="text-[9px] font-black uppercase tracking-[0.35em] text-blue-400">
-                Platform Booking SaaS No.1 Indonesia
+                Platform Booking No.1 Indonesia
               </span>
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
             </div>
           </div>
 
           {/* Headline */}
-          <div
-            style={{
-              animation: heroReveal.visible
-                ? "slideUp 0.9s 0.2s cubic-bezier(0.16,1,0.3,1) both"
-                : "none",
-            }}
-          >
+          <div style={sectionRevealStyle(heroReveal.visible, 0.16)}>
             <h1
-              className={`max-w-5xl mx-auto text-5xl sm:text-7xl md:text-8xl lg:text-[96px] font-black tracking-[-0.04em] leading-[0.88] ${
-                isDark ? "text-white" : "text-slate-950"
+              className={`max-w-5xl mx-auto text-5xl sm:text-7xl md:text-8xl lg:text-[96px] font-black tracking-[-0.07em] leading-[0.84] uppercase heading-accent ${
+                isDark ? "text-blue-500" : "text-blue-700"
               }`}
             >
               Ubah Slot Waktu
               <br />
-              <span className="shimmer-text">Jadi Profit.</span>
+              <span
+                className={`shimmer-text ${isDark ? "text-white" : "text-slate-950"}`}
+              >
+                Jadi Profit.
+              </span>
             </h1>
           </div>
 
           {/* Sub */}
-          <div
-            style={{
-              animation: heroReveal.visible
-                ? "slideUp 0.9s 0.35s cubic-bezier(0.16,1,0.3,1) both"
-                : "none",
-            }}
-          >
+          <div style={sectionRevealStyle(heroReveal.visible, 0.24)}>
             <p
               className={`max-w-xl mx-auto text-base md:text-lg font-medium leading-relaxed ${
                 isDark ? "text-white/40" : "text-slate-600"
@@ -506,21 +495,17 @@ export default function LandingPage() {
           {/* CTA Buttons */}
           <div
             className="flex flex-col sm:flex-row justify-center items-center gap-4"
-            style={{
-              animation: heroReveal.visible
-                ? "slideUp 0.9s 0.45s cubic-bezier(0.16,1,0.3,1) both"
-                : "none",
-            }}
+            style={sectionRevealStyle(heroReveal.visible, 0.32)}
           >
             <Link href="/register">
-              <Button className="h-14 px-10 text-xs font-black uppercase tracking-[0.2em] rounded-2xl bg-blue-600 hover:bg-blue-500 hover:scale-105 active:scale-95 transition-all glow-pulse italic text-white border-0">
+              <Button className="h-14 px-10 text-xs font-black uppercase tracking-[0.2em] rounded-2xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition-colors italic text-white border-0">
                 Mulai Gratis <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
-            <Link href="/demo">
+            <Link href="/demos">
               <Button
                 variant="ghost"
-                className={`h-14 px-10 text-xs font-black uppercase tracking-[0.2em] rounded-2xl border italic backdrop-blur-sm transition-all hover:scale-105 ${
+                className={`h-14 px-10 text-xs font-black uppercase tracking-[0.2em] rounded-2xl border italic transition-colors ${
                   isDark
                     ? "border-white/10 bg-white/5 hover:bg-white/10 text-white"
                     : "border-slate-200 bg-white hover:bg-slate-50 text-slate-900"
@@ -534,11 +519,7 @@ export default function LandingPage() {
           {/* Trust signals */}
           <div
             className="flex justify-center items-center gap-6 pt-2"
-            style={{
-              animation: heroReveal.visible
-                ? "slideUp 0.9s 0.55s cubic-bezier(0.16,1,0.3,1) both"
-                : "none",
-            }}
+            style={sectionRevealStyle(heroReveal.visible, 0.4)}
           >
             <div className="flex -space-x-2">
               {[
@@ -584,21 +565,17 @@ export default function LandingPage() {
         {/* ── HERO VISUAL ── */}
         <div
           className="relative mt-20 mx-auto max-w-5xl"
-          style={{
-            animation: heroReveal.visible
-              ? "slideUp 1s 0.6s cubic-bezier(0.16,1,0.3,1) both"
-              : "none",
-          }}
+          style={sectionRevealStyle(heroReveal.visible, 0.48)}
         >
           {/* Glow ring */}
-          <div className="absolute inset-0 rounded-[3rem] bg-blue-600/10 blur-3xl scale-105" />
+          <div className="absolute inset-0 rounded-[3rem] bg-blue-600/10 blur-2xl scale-100" />
 
           {/* Main dashboard frame */}
           <div
-            className={`relative rounded-[2.5rem] border p-2 backdrop-blur-xl shadow-2xl ${
+            className={`relative rounded-[2.5rem] border p-2 shadow-xl ${
               isDark
                 ? "border-white/10 bg-white/5"
-                : "border-slate-200 bg-white/80"
+                : "border-slate-200 bg-white"
             }`}
           >
             <div
@@ -719,7 +696,7 @@ export default function LandingPage() {
           </div>
 
           {/* Floating badge 1: Cuan */}
-          <div className="absolute -bottom-5 -left-4 hidden md:flex bg-slate-900 border border-white/10 p-4 rounded-2xl shadow-2xl flex-col items-start gap-1 -rotate-2 hover:rotate-0 transition-transform duration-500">
+          <div className="absolute -bottom-5 -left-4 hidden md:flex bg-slate-900 border border-white/10 p-4 rounded-2xl shadow-xl flex-col items-start gap-1 -rotate-2">
             <div className="flex items-center gap-2 mb-1">
               <TrendingUp size={14} className="text-emerald-400" />
               <span className="text-emerald-400 text-[9px] font-black uppercase tracking-widest">
@@ -733,7 +710,7 @@ export default function LandingPage() {
           </div>
 
           {/* Floating badge 2: Notification */}
-          <div className="absolute -top-4 -right-4 hidden md:flex bg-blue-600 p-4 rounded-2xl shadow-2xl flex-col items-start gap-1 rotate-2 hover:rotate-0 transition-transform duration-500">
+          <div className="absolute -top-4 -right-4 hidden md:flex bg-blue-600 p-4 rounded-2xl shadow-xl flex-col items-start gap-1 rotate-2">
             <Bell size={14} className="text-white mb-1" />
             <p className="text-white text-[10px] font-black uppercase tracking-widest leading-none">
               Booking Baru!
@@ -782,15 +759,14 @@ export default function LandingPage() {
       {/* ══════════════════════════════════════
           STATS
       ══════════════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-24">
+      <section
+        className="section-reveal relative z-10 w-full max-w-screen-xl mx-auto px-6 py-24"
+        style={sectionRevealStyle(statsReveal.visible, 0.05)}
+      >
         <div
           ref={statsReveal.ref}
           className={`grid grid-cols-2 md:grid-cols-4 gap-px rounded-[2.5rem] overflow-hidden border ${isDark ? "bg-white/5 border-white/5" : "bg-slate-200 border-slate-200"}`}
-          style={{
-            opacity: statsReveal.visible ? 1 : 0,
-            transform: statsReveal.visible ? "none" : "translateY(40px)",
-            transition: "all 0.8s cubic-bezier(0.16,1,0.3,1)",
-          }}
+          style={sectionRevealStyle(statsReveal.visible, 0.05)}
         >
           {[
             {
@@ -843,14 +819,13 @@ export default function LandingPage() {
       {/* ══════════════════════════════════════
           FEATURES — BENTO GRID
       ══════════════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-12">
+      <section
+        className="section-reveal relative z-10 w-full max-w-screen-xl mx-auto px-6 py-12"
+        style={sectionRevealStyle(featReveal.visible, 0.06)}
+      >
         <div
           ref={featReveal.ref}
-          style={{
-            opacity: featReveal.visible ? 1 : 0,
-            transform: featReveal.visible ? "none" : "translateY(50px)",
-            transition: "all 0.9s cubic-bezier(0.16,1,0.3,1)",
-          }}
+          style={sectionRevealStyle(featReveal.visible, 0.06)}
         >
           {/* Section label */}
           <div className="text-center mb-16 space-y-4">
@@ -858,7 +833,7 @@ export default function LandingPage() {
               <Zap className="h-3 w-3 fill-current" /> Fitur Unggulan
             </span>
             <h2
-              className={`text-4xl md:text-6xl font-black tracking-[-0.04em] leading-none ${sectionHeadingClass}`}
+              className={`text-4xl md:text-6xl font-black tracking-[-0.07em] leading-[0.92] uppercase heading-accent ${sectionHeadingClass} ${isDark ? "text-white" : "text-foreground"} `}
             >
               Semua yang Kamu
               <br />
@@ -888,7 +863,7 @@ export default function LandingPage() {
                   </span>
                 </div>
                 <h3
-                  className={`text-2xl font-black tracking-tight mb-3 ${sectionHeadingClass}`}
+                  className={`text-2xl font-black tracking-tight mb-3 heading-accent ${sectionHeadingClass}`}
                 >
                   Monitoring Slot Realtime
                 </h3>
@@ -911,7 +886,7 @@ export default function LandingPage() {
                 <Globe size={18} className="text-purple-400" />
               </div>
               <h3
-                className={`text-xl font-black tracking-tight mb-3 ${sectionHeadingClass}`}
+                className={`text-xl font-black tracking-tight mb-3 heading-accent ${sectionHeadingClass}`}
               >
                 Website Booking Otomatis
               </h3>
@@ -974,7 +949,7 @@ export default function LandingPage() {
                 <Wallet size={18} className="text-emerald-400" />
               </div>
               <h3
-                className={`text-xl font-black tracking-tight mb-3 ${sectionHeadingClass}`}
+                className={`text-xl font-black tracking-tight mb-3 heading-accent ${sectionHeadingClass}`}
               >
                 Pembayaran Digital
               </h3>
@@ -1011,7 +986,7 @@ export default function LandingPage() {
                 <BarChart3 size={18} className="text-orange-400" />
               </div>
               <h3
-                className={`text-xl font-black tracking-tight mb-3 ${sectionHeadingClass}`}
+                className={`text-xl font-black tracking-tight mb-3 heading-accent ${sectionHeadingClass}`}
               >
                 Laporan & Analitik
               </h3>
@@ -1041,7 +1016,7 @@ export default function LandingPage() {
                 <ShieldCheck size={18} className="text-blue-400" />
               </div>
               <h3
-                className={`text-xl font-black tracking-tight mb-3 ${sectionHeadingClass}`}
+                className={`text-xl font-black tracking-tight mb-3 heading-accent ${sectionHeadingClass}`}
               >
                 Isolasi Data Bisnis
               </h3>
@@ -1067,24 +1042,21 @@ export default function LandingPage() {
       ══════════════════════════════════════ */}
       <section
         id="industries"
-        className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-24"
+        className="section-reveal relative z-10 w-full max-w-screen-xl mx-auto px-6 py-24"
+        style={sectionRevealStyle(indReveal.visible, 0.06)}
       >
         <div
           ref={indReveal.ref}
-          style={{
-            opacity: indReveal.visible ? 1 : 0,
-            transform: indReveal.visible ? "none" : "translateY(50px)",
-            transition: "all 0.9s cubic-bezier(0.16,1,0.3,1)",
-          }}
+          style={sectionRevealStyle(indReveal.visible, 0.06)}
         >
           <div className="text-center mb-16 space-y-4">
             <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400">
               <Globe className="h-3 w-3" /> Sektor Usaha
             </span>
             <h2
-              className={`text-4xl md:text-6xl font-black tracking-[-0.04em] leading-none ${sectionHeadingClass}`}
+              className={`text-4xl md:text-6xl font-black tracking-[-0.04em] leading-none heading-accent ${sectionHeadingClass}`}
             >
-              Satu Sistem.
+              <span className="text-blue-500">Satu Sistem.</span>
               <br />
               <span className="shimmer-text">Apapun Bisnisnya.</span>
             </h2>
@@ -1146,7 +1118,7 @@ export default function LandingPage() {
                     {item.icon}
                   </div>
                   <h4
-                    className={`text-lg font-black tracking-tight mb-3 ${sectionHeadingClass}`}
+                    className={`text-lg font-black tracking-tight mb-3 heading-accent ${sectionHeadingClass}`}
                   >
                     {item.title}
                   </h4>
@@ -1185,9 +1157,9 @@ export default function LandingPage() {
             <Clock className="h-3 w-3" /> Cara Kerja
           </span>
           <h2
-            className={`text-4xl md:text-6xl font-black tracking-[-0.04em] leading-none ${sectionHeadingClass}`}
+            className={`text-4xl md:text-6xl font-black tracking-[-0.07em] leading-[0.92] uppercase heading-accent ${sectionHeadingClass}`}
           >
-            Online dalam
+            <span className="text-blue-500">Online</span> dalam
             <br />
             <span className="shimmer-text">5 Menit.</span>
           </h2>
@@ -1230,7 +1202,7 @@ export default function LandingPage() {
                 </div>
               </div>
               <h3
-                className={`text-xl font-black tracking-tight mb-3 ${sectionHeadingClass}`}
+                className={`text-xl font-black tracking-tight mb-3 heading-accent ${sectionHeadingClass}`}
               >
                 {s.title}
               </h3>
@@ -1247,15 +1219,14 @@ export default function LandingPage() {
       {/* ══════════════════════════════════════
           STAFF MANAGEMENT
       ══════════════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-12">
+      <section
+        className="section-reveal relative z-10 w-full max-w-screen-xl mx-auto px-6 py-12"
+        style={sectionRevealStyle(staffReveal.visible, 0.06)}
+      >
         <div
           ref={staffReveal.ref}
           className={`relative overflow-hidden rounded-[3rem] p-10 md:p-16 ${isDark ? "border border-white/10 bg-white/[0.02]" : "border border-slate-200 bg-white"}`}
-          style={{
-            opacity: staffReveal.visible ? 1 : 0,
-            transform: staffReveal.visible ? "none" : "translateY(50px)",
-            transition: "all 0.9s cubic-bezier(0.16,1,0.3,1)",
-          }}
+          style={sectionRevealStyle(staffReveal.visible, 0.06)}
         >
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_100%_0%,rgba(59,130,246,0.08),transparent_60%)]" />
           <div className="absolute top-0 right-0 p-12 opacity-[0.03] pointer-events-none">
@@ -1267,9 +1238,9 @@ export default function LandingPage() {
                 <Lock className="h-3 w-3" /> Kontrol Staff
               </span>
               <h2
-                className={`text-4xl md:text-6xl font-black tracking-[-0.04em] leading-none ${sectionHeadingClass}`}
+                className={`text-4xl md:text-6xl font-black tracking-[-0.07em] leading-[0.92] uppercase heading-accent ${sectionHeadingClass}`}
               >
-                Tim Hebat,
+                <span className="text-blue-500">Tim Hebat</span>,
                 <br />
                 <span className="shimmer-text">Kontrol Penuh.</span>
               </h2>
@@ -1302,7 +1273,7 @@ export default function LandingPage() {
                     <CheckCircle2 className="text-blue-500 w-5 h-5 mt-0.5 flex-shrink-0" />
                     <div>
                       <p
-                        className={`text-sm font-black uppercase tracking-wide ${sectionHeadingClass}`}
+                        className={`text-sm font-black uppercase tracking-wide heading-accent ${sectionHeadingClass}`}
                       >
                         {item.label}
                       </p>
@@ -1327,7 +1298,7 @@ export default function LandingPage() {
                   </div>
                   <div>
                     <p
-                      className={`font-black uppercase text-sm leading-none ${sectionHeadingClass}`}
+                      className={`font-black uppercase text-sm leading-none heading-accent ${sectionHeadingClass}`}
                     >
                       Owner Admin
                     </p>
@@ -1376,7 +1347,7 @@ export default function LandingPage() {
                   </div>
                   <div>
                     <p
-                      className={`font-black uppercase text-sm leading-none ${sectionHeadingClass}`}
+                      className={`font-black uppercase text-sm leading-none heading-accent ${sectionHeadingClass}`}
                     >
                       Kasir
                     </p>
@@ -1417,21 +1388,20 @@ export default function LandingPage() {
       {/* ══════════════════════════════════════
           TESTIMONIALS
       ══════════════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-24">
+      <section
+        className="section-reveal relative z-10 w-full max-w-screen-xl mx-auto px-6 py-24"
+        style={sectionRevealStyle(testimReveal.visible, 0.06)}
+      >
         <div
           ref={testimReveal.ref}
-          style={{
-            opacity: testimReveal.visible ? 1 : 0,
-            transform: testimReveal.visible ? "none" : "translateY(50px)",
-            transition: "all 0.9s cubic-bezier(0.16,1,0.3,1)",
-          }}
+          style={sectionRevealStyle(testimReveal.visible, 0.06)}
         >
           <div className="text-center mb-16 space-y-4">
             <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400">
               <Star className="h-3 w-3 fill-current" /> Testimoni
             </span>
             <h2
-              className={`text-4xl md:text-6xl font-black tracking-[-0.04em] leading-none ${sectionHeadingClass}`}
+              className={`text-4xl md:text-6xl font-black tracking-[-0.07em] leading-[0.92] uppercase heading-accent ${sectionHeadingClass}`}
             >
               Kata Mereka
               <br />
@@ -1509,23 +1479,22 @@ export default function LandingPage() {
       {/* ══════════════════════════════════════
           PRICING
       ══════════════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-24">
+      <section
+        className="section-reveal relative z-10 w-full max-w-screen-xl mx-auto px-6 py-24"
+        style={sectionRevealStyle(pricingReveal.visible, 0.06)}
+      >
         <div
           ref={pricingReveal.ref}
-          style={{
-            opacity: pricingReveal.visible ? 1 : 0,
-            transform: pricingReveal.visible ? "none" : "translateY(50px)",
-            transition: "all 0.9s cubic-bezier(0.16,1,0.3,1)",
-          }}
+          style={sectionRevealStyle(pricingReveal.visible, 0.06)}
         >
           <div className="text-center mb-16 space-y-4">
             <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400">
               <Wallet className="h-3 w-3" /> Harga Paket
             </span>
             <h2
-              className={`text-4xl md:text-6xl font-black tracking-[-0.04em] leading-none ${sectionHeadingClass}`}
+              className={`text-4xl md:text-6xl font-black tracking-[-0.07em] leading-[0.92] uppercase heading-accent ${sectionHeadingClass}`}
             >
-              Investasi Kecil,
+              <span className="text-blue-500">Investasi Kecil</span>,
               <br />
               <span className="shimmer-text">Cuan Berlipat.</span>
             </h2>
@@ -1657,34 +1626,32 @@ export default function LandingPage() {
       {/* ══════════════════════════════════════
           FINAL CTA
       ══════════════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 pb-24">
+      <section
+        className="section-reveal relative z-10 w-full max-w-screen-xl mx-auto px-6 pb-24"
+        style={sectionRevealStyle(ctaReveal.visible, 0.06)}
+      >
         <div
           ref={ctaReveal.ref}
-          style={{
-            opacity: ctaReveal.visible ? 1 : 0,
-            transform: ctaReveal.visible ? "none" : "translateY(50px)",
-            transition: "all 0.9s cubic-bezier(0.16,1,0.3,1)",
-          }}
+          style={sectionRevealStyle(ctaReveal.visible, 0.06)}
         >
           <div
             className={`relative overflow-hidden rounded-[3rem] border px-8 py-24 md:py-36 text-center ${isDark ? "border-white/10 bg-slate-950" : "border-slate-200 bg-white"}`}
           >
             <div
-              className={`absolute inset-0 ${isDark ? "bg-[radial-gradient(ellipse_at_50%_100%,rgba(59,130,246,0.25)_0%,transparent_60%)]" : "bg-[radial-gradient(ellipse_at_50%_100%,rgba(59,130,246,0.10)_0%,transparent_60%)]"}`}
+              className={`absolute inset-0 ${isDark ? "bg-[radial-gradient(ellipse_at_50%_100%,rgba(59,130,246,0.18)_0%,transparent_60%)]" : "bg-[radial-gradient(ellipse_at_50%_100%,rgba(59,130,246,0.08)_0%,transparent_60%)]"}`}
             />
             <div
-              className={`absolute inset-0 ${isDark ? "bg-[radial-gradient(ellipse_at_50%_0%,rgba(59,130,246,0.08)_0%,transparent_60%)]" : "bg-[radial-gradient(ellipse_at_50%_0%,rgba(59,130,246,0.05)_0%,transparent_60%)]"}`}
+              className={`absolute inset-0 ${isDark ? "bg-[radial-gradient(ellipse_at_50%_0%,rgba(59,130,246,0.05)_0%,transparent_60%)]" : "bg-[radial-gradient(ellipse_at_50%_0%,rgba(59,130,246,0.03)_0%,transparent_60%)]"}`}
             />
-            <ParticleField />
 
             <div className="relative z-10 max-w-4xl mx-auto space-y-10">
               <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400">
                 <Rocket className="h-3 w-3" /> Mulai Hari Ini
               </span>
               <h2
-                className={`text-5xl md:text-8xl font-black tracking-[-0.04em] leading-[0.88] uppercase ${sectionHeadingClass}`}
+                className={`text-5xl md:text-8xl font-black tracking-[-0.08em] leading-[0.82] uppercase heading-accent ${sectionHeadingClass}`}
               >
-                Bisnis Kamu
+                <span className="text-blue-500">Bisnis Kamu</span>
                 <br />
                 <span className="shimmer-text">Bisa Autopilot.</span>
               </h2>

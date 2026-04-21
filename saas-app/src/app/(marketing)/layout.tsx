@@ -27,8 +27,8 @@ export default function MarketingLayout({
   }, []);
 
   const navLinks = [
-    { name: "Docs", href: "/documentation" },
-    { name: "Demos", href: "/demos" },
+    { name: "About", href: "/documentation" },
+    { name: "Demo", href: "/demos" },
     { name: "Pricing", href: "/pricing" },
     { name: "FAQ", href: "/faq" },
   ];
