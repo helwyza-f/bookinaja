@@ -1,7 +1,6 @@
 // src/app/(marketing)/page.client.tsx
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Zap,
@@ -12,10 +11,8 @@ import {
   Monitor,
   Camera,
   Briefcase,
-  ChevronRight,
   TrendingUp,
   Lock,
-  Search,
   CheckCircle2,
   ArrowUpRight,
   Star,
@@ -32,9 +29,9 @@ import { useEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 
 /* ─────────────────────────────────────────────
-   HOOK: Intersection Observer for scroll reveals
+   HOOK: Lightweight scroll reveal (CSS-only transition)
 ───────────────────────────────────────────── */
-function useReveal(threshold = 0.15) {
+function useReveal(threshold = 0.12) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   useEffect(() => {
@@ -55,6 +52,14 @@ function useReveal(threshold = 0.15) {
   return { ref, visible };
 }
 
+function revealStyle(visible: boolean, delay = 0): React.CSSProperties {
+  return {
+    opacity: visible ? 1 : 0,
+    transform: visible ? "translateY(0)" : "translateY(24px)",
+    transition: `opacity 0.6s ease ${delay}s, transform 0.6s ease ${delay}s`,
+  };
+}
+
 /* ─────────────────────────────────────────────
    ANIMATED COUNTER
 ───────────────────────────────────────────── */
@@ -70,8 +75,7 @@ function AnimatedCounter({
   useEffect(() => {
     if (!visible) return;
     let start = 0;
-    const duration = 2000;
-    const step = target / (duration / 16);
+    const step = target / (1600 / 16);
     const timer = setInterval(() => {
       start += step;
       if (start >= target) {
@@ -90,182 +94,36 @@ function AnimatedCounter({
 }
 
 /* ─────────────────────────────────────────────
-   FLOATING PARTICLE FIELD
+   THEME HELPERS
 ───────────────────────────────────────────── */
-function getThemeClasses(isDark: boolean) {
+function useThemeClasses() {
+  const [mounted, setMounted] = useState(false);
+  const { resolvedTheme } = useTheme();
+  useEffect(() => setMounted(true), []);
+  const isDark = mounted ? resolvedTheme === "dark" : false;
   return {
-    sectionHeadingClass: isDark ? "text-white" : "text-slate-950",
-    mutedClass: isDark ? "text-white/40" : "text-slate-600",
-    cardClass: isDark
-      ? "bg-white/[0.03] border-white/10"
+    isDark,
+    bg: isDark ? "bg-[#06080f]" : "bg-slate-50",
+    heading: isDark ? "text-white" : "text-slate-950",
+    muted: isDark ? "text-white/40" : "text-slate-500",
+    card: isDark
+      ? "bg-white/[0.035] border-white/[0.08]"
       : "bg-white border-slate-200",
-    subtleCardClass: isDark
-      ? "bg-white/[0.02] border-white/10"
-      : "bg-slate-50 border-slate-200",
-    innerPanelClass: isDark ? "bg-slate-900" : "bg-slate-100",
+    panel: isDark
+      ? "bg-slate-900 border-white/[0.06]"
+      : "bg-slate-100 border-slate-200",
+    gridLine: isDark
+      ? "bg-[linear-gradient(to_right,#ffffff07_1px,transparent_1px),linear-gradient(to_bottom,#ffffff07_1px,transparent_1px)]"
+      : "bg-[linear-gradient(to_right,#0f172a09_1px,transparent_1px),linear-gradient(to_bottom,#0f172a09_1px,transparent_1px)]",
+    divider: isDark ? "border-white/[0.06]" : "border-slate-200",
   };
 }
 
-function sectionRevealStyle(visible: boolean, delay = 0) {
-  return {
-    opacity: visible ? 1 : 0,
-    transform: visible ? "translateY(0)" : "translateY(18px)",
-    transition: `opacity 0.7s ease ${delay}s, transform 0.7s ease ${delay}s`,
-  } as const;
-}
-
-function ParticleField() {
-  const [particles, setParticles] = useState<any[]>([]);
-
-  useEffect(() => {
-    // Generate partikel hanya di client
-    const generated = Array.from({ length: 30 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      size: Math.random() * 3 + 1,
-      delay: Math.random() * 8,
-      duration: Math.random() * 10 + 8,
-    }));
-    setParticles(generated);
-  }, []);
-
-  if (particles.length === 0) return null; // Cegah mismatch saat SSR
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {particles.map((p) => (
-        <div
-          key={p.id}
-          className="absolute rounded-full bg-blue-500/20"
-          style={{
-            left: `${p.x}%`,
-            top: `${p.y}%`,
-            width: p.size,
-            height: p.size,
-            animation: `floatParticle ${p.duration}s ${p.delay}s infinite ease-in-out alternate`,
-          }}
-        />
-      ))}
-      <style>{`
-        @keyframes floatParticle {
-          0% { transform: translateY(0px) translateX(0px) scale(1); opacity: 0.3; }
-          100% { transform: translateY(-40px) translateX(20px) scale(1.5); opacity: 0.8; }
-        }
-        @keyframes gradientShift {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-        }
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(60px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes slideRight {
-          from { opacity: 0; transform: translateX(-40px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes pulse-glow {
-          0%, 100% { box-shadow: 0 0 20px rgba(59,130,246,0.3); }
-          50% { box-shadow: 0 0 60px rgba(59,130,246,0.6), 0 0 100px rgba(59,130,246,0.2); }
-        }
-        @keyframes orbit {
-          from { transform: rotate(0deg) translateX(120px) rotate(0deg); }
-          to { transform: rotate(360deg) translateX(120px) rotate(-360deg); }
-        }
-        @keyframes orbit2 {
-          from { transform: rotate(120deg) translateX(180px) rotate(-120deg); }
-          to { transform: rotate(480deg) translateX(180px) rotate(-480deg); }
-        }
-        @keyframes orbit3 {
-          from { transform: rotate(240deg) translateX(150px) rotate(-240deg); }
-          to { transform: rotate(600deg) translateX(150px) rotate(-600deg); }
-        }
-        @keyframes typing {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0; }
-        }
-        @keyframes shimmer {
-          0% { background-position: -200% center; }
-          100% { background-position: 200% center; }
-        }
-        .reveal-up { animation: slideUp 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
-        .reveal-right { animation: slideRight 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
-        .reveal-fade { animation: fadeIn 1s ease forwards; }
-        .section-reveal { will-change: opacity, transform; }
-        .shimmer-text {
-          background: linear-gradient(90deg, #3b82f6, #60a5fa, #93c5fd, #3b82f6);
-          background-size: 200% auto;
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          animation: shimmer 14s linear infinite;
-        }
-        .heading-accent {
-          background: linear-gradient(90deg, #2563eb, #06b6d4, #8b5cf6, #2563eb);
-          background-size: 200% auto;
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          animation: shimmer 16s linear infinite;
-        }
-        .card-tilt {
-          transition: transform 0.5s cubic-bezier(0.23,1,0.32,1), box-shadow 0.5s;
-        }
-        .card-tilt:hover {
-          transform: perspective(1000px) rotateX(-3deg) rotateY(5deg) translateY(-8px);
-          box-shadow: 20px 30px 60px rgba(0,0,0,0.3), 0 0 40px rgba(59,130,246,0.1);
-        }
-        .glow-pulse { animation: pulse-glow 5s ease-in-out infinite; }
-        .marquee-track {
-          display: flex;
-          gap: 3rem;
-          animation: marquee 25s linear infinite;
-          white-space: nowrap;
-        }
-        @keyframes marquee {
-          from { transform: translateX(0); }
-          to { transform: translateX(-50%); }
-        }
-        .number-gradient {
-          background: linear-gradient(135deg, #3b82f6, #60a5fa);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-        .hero-badge-glow {
-          box-shadow: 0 0 30px rgba(59,130,246,0.2), inset 0 0 30px rgba(59,130,246,0.05);
-        }
-        .bento-hover {
-          transition: all 0.4s cubic-bezier(0.23,1,0.32,1);
-        }
-        .bento-hover:hover {
-          transform: translateY(-4px) scale(1.01);
-        }
-        .line-draw {
-          stroke-dasharray: 1000;
-          stroke-dashoffset: 1000;
-          animation: drawLine 2s ease forwards;
-        }
-        @keyframes drawLine {
-          to { stroke-dashoffset: 0; }
-        }
-      `}</style>
-    </div>
-  );
-}
-
 /* ─────────────────────────────────────────────
-   MOCK DASHBOARD WIDGET
+   DASHBOARD WIDGET
 ───────────────────────────────────────────── */
 function DashboardWidget() {
-  const [mounted, setMounted] = useState(false);
-  const { resolvedTheme } = useTheme();
-  const isDark = mounted ? resolvedTheme === "dark" : false;
-  const { sectionHeadingClass, subtleCardClass, cardClass } =
-    getThemeClasses(isDark);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const { isDark, heading, panel, divider } = useThemeClasses();
   const slots = [
     { id: "PS-01", status: "busy", time: "2h 15m", customer: "Rafi A." },
     { id: "PS-02", status: "free", time: "—", customer: "—" },
@@ -276,99 +134,85 @@ function DashboardWidget() {
   ];
   return (
     <div
-      className={`rounded-[2rem] border overflow-hidden shadow-2xl ${cardClass}`}
+      className={`rounded-[1.75rem] border overflow-hidden ${panel} ${divider}`}
     >
-      {/* Header */}
       <div
-        className={`px-6 py-4 border-b flex items-center justify-between ${isDark ? "border-white/5" : "border-slate-200"}`}
+        className={`px-5 py-4 border-b flex items-center justify-between ${divider}`}
       >
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-xl bg-blue-600 flex items-center justify-center">
-            <Activity size={14} className="text-white" />
+            <Activity size={13} className="text-white" />
           </div>
           <div>
             <p
-              className={`text-xs font-black uppercase tracking-widest ${sectionHeadingClass}`}
+              className={`text-[10px] font-black uppercase tracking-widest ${heading}`}
             >
               Live Monitor
             </p>
             <p className="text-green-400 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+              <span
+                className="inline-block w-1.5 h-1.5 rounded-full bg-green-400"
+                style={{ animation: "pulse 2s ease-in-out infinite" }}
+              />
               Realtime
             </p>
           </div>
         </div>
         <div className="text-right">
-          <p className={`text-lg font-black italic ${sectionHeadingClass}`}>
-            Rp 847.000
-          </p>
+          <p className={`text-base font-black italic ${heading}`}>Rp 847.000</p>
           <p className="text-blue-400 text-[9px] font-bold uppercase tracking-widest">
             Cuan Hari Ini
           </p>
         </div>
       </div>
-      {/* Slot Grid */}
-      <div className="p-4 grid grid-cols-2 gap-2">
+      <div className="p-3 grid grid-cols-2 gap-2">
         {slots.map((slot) => (
           <div
             key={slot.id}
-            className={`rounded-xl p-3 border transition-all duration-300 ${
-              slot.status === "busy"
-                ? "bg-blue-600/10 border-blue-500/30"
-                : subtleCardClass
-            }`}
+            className={`rounded-xl p-3 border transition-colors duration-200 ${slot.status === "busy" ? "bg-blue-600/10 border-blue-500/25" : isDark ? "bg-white/[0.03] border-white/[0.06]" : "bg-slate-50 border-slate-200"}`}
           >
             <div className="flex items-center justify-between mb-1">
-              <span
-                className={`text-[10px] font-black uppercase ${sectionHeadingClass}`}
-              >
+              <span className={`text-[10px] font-black uppercase ${heading}`}>
                 {slot.id}
               </span>
               <span
-                className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full ${
-                  slot.status === "busy"
-                    ? "bg-blue-500/20 text-blue-400"
-                    : isDark
-                      ? "bg-white/10 text-white/40"
-                      : "bg-slate-200 text-slate-500"
-                }`}
+                className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full ${slot.status === "busy" ? "bg-blue-500/20 text-blue-400" : isDark ? "bg-white/10 text-white/30" : "bg-slate-200 text-slate-400"}`}
               >
                 {slot.status === "busy" ? "Terisi" : "Kosong"}
               </span>
             </div>
             <p
-              className={`text-[9px] font-semibold ${isDark ? "text-white/60" : "text-slate-500"}`}
+              className={`text-[9px] font-medium ${isDark ? "text-white/50" : "text-slate-500"}`}
             >
               {slot.customer}
             </p>
             <p
-              className={`text-[10px] font-black ${slot.status === "busy" ? "text-orange-400" : isDark ? "text-white/20" : "text-slate-300"}`}
+              className={`text-[10px] font-black ${slot.status === "busy" ? "text-orange-400" : isDark ? "text-white/15" : "text-slate-300"}`}
             >
               {slot.time}
             </p>
           </div>
         ))}
       </div>
-      {/* Footer bar */}
-      <div className="px-4 pb-4">
+      <div className="px-3 pb-3">
         <div
-          className={`rounded-xl px-4 py-3 flex items-center justify-between ${isDark ? "bg-white/5" : "bg-slate-50"}`}
+          className={`rounded-xl px-4 py-2.5 flex items-center justify-between ${isDark ? "bg-white/[0.03]" : "bg-slate-100"}`}
         >
           <span
-            className={`text-[9px] font-bold uppercase tracking-widest ${isDark ? "text-white/50" : "text-slate-500"}`}
+            className={`text-[9px] font-bold uppercase tracking-widest ${isDark ? "text-white/40" : "text-slate-400"}`}
           >
             Occupancy
           </span>
           <div className="flex items-center gap-2">
             <div
-              className={`w-24 h-1.5 rounded-full overflow-hidden ${isDark ? "bg-white/10" : "bg-slate-200"}`}
+              className={`w-20 h-1.5 rounded-full overflow-hidden ${isDark ? "bg-white/10" : "bg-slate-200"}`}
             >
               <div
                 className="h-full bg-blue-500 rounded-full"
                 style={{ width: "67%" }}
               />
             </div>
-            <span className="text-blue-400 text-xs font-black">67%</span>
+            <span className="text-blue-400 text-[11px] font-black">67%</span>
           </div>
         </div>
       </div>
@@ -380,146 +224,155 @@ function DashboardWidget() {
    MAIN PAGE
 ───────────────────────────────────────────── */
 export default function LandingPage() {
-  const [mounted, setMounted] = useState(false);
-  const { resolvedTheme } = useTheme();
-  const isDark = mounted ? resolvedTheme === "dark" : false;
-  const {
-    sectionHeadingClass,
-    mutedClass,
-    cardClass,
-    subtleCardClass,
-    innerPanelClass,
-  } = getThemeClasses(isDark);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const { isDark, bg, heading, muted, card, panel, gridLine, divider } =
+    useThemeClasses();
 
-  const heroReveal = useReveal(0.05);
-  const statsReveal = useReveal(0.2);
-  const featReveal = useReveal(0.15);
-  const indReveal = useReveal(0.15);
-  const staffReveal = useReveal(0.15);
-  const testimReveal = useReveal(0.15);
-  const pricingReveal = useReveal(0.15);
-  const ctaReveal = useReveal(0.15);
+  const hero = useReveal(0.05);
+  const stats = useReveal(0.15);
+  const feat = useReveal(0.1);
+  const ind = useReveal(0.1);
+  const how = useReveal(0.1);
+  const staff = useReveal(0.1);
+  const testim = useReveal(0.1);
+  const pricing = useReveal(0.1);
+  const cta = useReveal(0.1);
 
   return (
     <div
-      className={`relative flex flex-col items-center selection:bg-blue-600/30 overflow-x-hidden font-sans transition-colors duration-500 ${
-        isDark ? "bg-[#050810] text-white" : "bg-slate-50 text-slate-950"
-      }`}
+      className={`relative flex flex-col items-center overflow-x-hidden font-sans ${bg}`}
     >
-      {/* ── BACKGROUND SYSTEM ── */}
-      <div className="fixed inset-0 pointer-events-none z-0">
+      {/* CSS-only keyframes — no JS animation loops */}
+      <style>{`
+        @keyframes shimmer {
+          0%   { background-position: -300% center; }
+          100% { background-position: 300% center; }
+        }
+        @keyframes marquee {
+          from { transform: translateX(0); }
+          to   { transform: translateX(-50%); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        .shimmer-text {
+          background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 30%, #93c5fd 50%, #60a5fa 70%, #3b82f6 100%);
+          background-size: 300% auto;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          animation: shimmer 6s linear infinite;
+        }
+        .accent-text {
+          background: linear-gradient(120deg, #2563eb, #3b82f6);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .marquee-track {
+          display: flex;
+          gap: 3rem;
+          animation: marquee 28s linear infinite;
+          white-space: nowrap;
+          will-change: transform;
+        }
+        .hover-lift {
+          transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+        }
+        .hover-lift:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+        }
+        .icon-btn {
+          transition: background 0.2s ease, color 0.2s ease;
+        }
+        .group:hover .icon-btn {
+          background: #2563eb;
+          color: white;
+        }
+      `}</style>
+
+      {/* ── STATIC BACKGROUND (no JS, no repaints) ── */}
+      <div className="fixed inset-0 pointer-events-none z-0" aria-hidden>
+        <div className={`absolute inset-0 ${bg}`} />
+        <div className={`absolute inset-0 ${gridLine} bg-[size:56px_56px]`} />
         <div
-          className={`absolute inset-0 ${isDark ? "bg-[#050810]" : "bg-slate-50"}`}
+          className={`absolute top-0 inset-x-0 h-[600px] ${isDark ? "bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(59,130,246,0.10)_0%,transparent_100%)]" : "bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(59,130,246,0.06)_0%,transparent_100%)]"}`}
         />
         <div
-          className={`absolute left-[10%] top-[8%] h-[22rem] w-[22rem] rounded-full blur-[90px] ${
-            isDark ? "opacity-20 bg-blue-600/30" : "opacity-20 bg-blue-300/40"
-          }`}
-        />
-        <div
-          className={`absolute top-0 left-1/2 -translate-x-1/2 w-full h-[900px] ${
-            isDark
-              ? "bg-[radial-gradient(ellipse_at_50%_0%,rgba(59,130,246,0.12)_0%,transparent_70%)]"
-              : "bg-[radial-gradient(ellipse_at_50%_0%,rgba(59,130,246,0.08)_0%,transparent_70%)]"
-          }`}
-        />
-        <div
-          className={`absolute bottom-0 right-0 w-[320px] h-[320px] rounded-full blur-[90px] ${
-            isDark ? "opacity-10 bg-blue-800" : "opacity-20 bg-blue-200"
-          }`}
-        />
-        <div
-          className={`absolute inset-0 ${
-            isDark
-              ? "bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)]"
-              : "bg-[linear-gradient(to_right,#0f172a0a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a0a_1px,transparent_1px)]"
-          } bg-[size:60px_60px]`}
+          className={`absolute bottom-0 right-0 w-80 h-80 rounded-full blur-[80px] ${isDark ? "bg-blue-800/15" : "bg-blue-200/30"}`}
         />
       </div>
 
-      {/* ══════════════════════════════════════
+      {/* ════════════════════════════
           HERO
-      ══════════════════════════════════════ */}
-      <section className="section-reveal relative z-10 w-full max-w-screen-xl mx-auto px-6 pt-24 md:pt-36 pb-20 text-center">
-        <div
-          ref={heroReveal.ref}
-          className="space-y-8"
-          style={sectionRevealStyle(heroReveal.visible, 0)}
-        >
+      ════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 pt-20 md:pt-32 pb-16 text-center">
+        <div ref={hero.ref} className="space-y-7">
           {/* Badge */}
           <div
             className="flex justify-center"
-            style={sectionRevealStyle(heroReveal.visible, 0.08)}
+            style={revealStyle(hero.visible, 0.05)}
           >
-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-5 py-2">
-              <Sparkles className="h-3 w-3 text-blue-400 fill-current" />
-              <span className="text-[9px] font-black uppercase tracking-[0.35em] text-blue-400">
-                Platform Booking No.1 Indonesia
+            <div
+              className={`inline-flex items-center gap-2 rounded-full border px-5 py-2 ${isDark ? "border-blue-500/20 bg-blue-500/[0.07]" : "border-blue-300/50 bg-blue-50"}`}
+            >
+              <Sparkles className="h-3 w-3 text-blue-500 fill-current" />
+              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-blue-500">
+                Platform Booking SaaS No.1 Indonesia
               </span>
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+              <span
+                className="h-1.5 w-1.5 rounded-full bg-blue-500"
+                style={{ animation: "pulse 2s ease-in-out infinite" }}
+              />
             </div>
           </div>
 
           {/* Headline */}
-          <div style={sectionRevealStyle(heroReveal.visible, 0.16)}>
+          <div style={revealStyle(hero.visible, 0.12)}>
             <h1
-              className={`max-w-5xl mx-auto text-5xl sm:text-7xl md:text-8xl lg:text-[96px] font-black tracking-[-0.07em] leading-[0.84] uppercase heading-accent ${
-                isDark ? "text-blue-500" : "text-blue-700"
-              }`}
+              className={`max-w-4xl mx-auto text-5xl sm:text-7xl md:text-8xl font-black tracking-[-0.05em] leading-[0.86] uppercase ${heading}`}
             >
               Ubah Slot Waktu
               <br />
-              <span
-                className={`shimmer-text ${isDark ? "text-white" : "text-slate-950"}`}
-              >
-                Jadi Profit.
-              </span>
+              <span className="shimmer-text">Jadi Profit.</span>
             </h1>
           </div>
 
-          {/* Sub */}
-          <div style={sectionRevealStyle(heroReveal.visible, 0.24)}>
+          {/* Subheading */}
+          <div style={revealStyle(hero.visible, 0.18)}>
             <p
-              className={`max-w-xl mx-auto text-base md:text-lg font-medium leading-relaxed ${
-                isDark ? "text-white/40" : "text-slate-600"
-              }`}
+              className={`max-w-xl mx-auto text-base md:text-lg font-medium leading-relaxed ${muted}`}
             >
-              Satu platform pintar untuk monitor unit, terima pembayaran
-              digital, dan kendalikan seluruh tim — dari mana saja, kapan saja.
+              Platform pintar untuk monitor unit, terima pembayaran digital, dan
+              kendalikan seluruh tim — dari mana saja, kapan saja.
             </p>
           </div>
 
-          {/* CTA Buttons */}
+          {/* CTA */}
           <div
-            className="flex flex-col sm:flex-row justify-center items-center gap-4"
-            style={sectionRevealStyle(heroReveal.visible, 0.32)}
+            className="flex flex-col sm:flex-row justify-center items-center gap-3"
+            style={revealStyle(hero.visible, 0.24)}
           >
             <Link href="/register">
-              <Button className="h-14 px-10 text-xs font-black uppercase tracking-[0.2em] rounded-2xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition-colors italic text-white border-0">
-                Mulai Gratis <ArrowRight className="ml-2 h-4 w-4" />
+              <Button className="h-13 px-9 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl bg-blue-600 hover:bg-blue-500 text-white border-0 transition-colors duration-200 shadow-lg shadow-blue-600/20">
+                Mulai Gratis <ArrowRight className="ml-2 h-3.5 w-3.5" />
               </Button>
             </Link>
             <Link href="/demos">
               <Button
                 variant="ghost"
-                className={`h-14 px-10 text-xs font-black uppercase tracking-[0.2em] rounded-2xl border italic transition-colors ${
-                  isDark
-                    ? "border-white/10 bg-white/5 hover:bg-white/10 text-white"
-                    : "border-slate-200 bg-white hover:bg-slate-50 text-slate-900"
-                }`}
+                className={`h-13 px-9 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl border transition-colors duration-200 ${isDark ? "border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-white" : "border-slate-200 bg-white hover:bg-slate-50 text-slate-800"}`}
               >
                 <Play className="mr-2 h-3 w-3 fill-current" /> Lihat Demo
               </Button>
             </Link>
           </div>
 
-          {/* Trust signals */}
+          {/* Social proof */}
           <div
-            className="flex justify-center items-center gap-6 pt-2"
-            style={sectionRevealStyle(heroReveal.visible, 0.4)}
+            className="flex justify-center items-center gap-5 pt-1"
+            style={revealStyle(hero.visible, 0.3)}
           >
             <div className="flex -space-x-2">
               {[
@@ -531,161 +384,124 @@ export default function LandingPage() {
               ].map((c, i) => (
                 <div
                   key={i}
-                  className={`w-7 h-7 rounded-full border-2 ${
-                    isDark ? "border-[#050810]" : "border-white"
-                  } ${c} flex items-center justify-center`}
+                  className={`w-7 h-7 rounded-full border-2 ${isDark ? "border-[#06080f]" : "border-white"} ${c} flex items-center justify-center`}
                 >
-                  <span
-                    className={`text-[8px] font-black ${
-                      isDark ? "text-white" : "text-slate-950"
-                    }`}
-                  >
+                  <span className="text-[8px] font-black text-white">
                     {String.fromCharCode(65 + i)}
                   </span>
                 </div>
               ))}
             </div>
-            <p
-              className={`text-[11px] font-semibold ${
-                isDark ? "text-white/40" : "text-slate-600"
-              }`}
-            >
-              <span
-                className={
-                  isDark ? "text-white font-black" : "text-slate-950 font-black"
-                }
-              >
-                2.400+
-              </span>{" "}
-              bisnis aktif menggunakan Bookinaja
+            <p className={`text-[11px] font-medium ${muted}`}>
+              <span className={`font-black ${heading}`}>2.400+</span> bisnis
+              aktif menggunakan Bookinaja
             </p>
           </div>
         </div>
 
-        {/* ── HERO VISUAL ── */}
+        {/* Dashboard preview */}
         <div
-          className="relative mt-20 mx-auto max-w-5xl"
-          style={sectionRevealStyle(heroReveal.visible, 0.48)}
+          className="relative mt-16 mx-auto max-w-5xl"
+          style={revealStyle(hero.visible, 0.36)}
         >
-          {/* Glow ring */}
-          <div className="absolute inset-0 rounded-[3rem] bg-blue-600/10 blur-2xl scale-100" />
-
-          {/* Main dashboard frame */}
           <div
-            className={`relative rounded-[2.5rem] border p-2 shadow-xl ${
-              isDark
-                ? "border-white/10 bg-white/5"
-                : "border-slate-200 bg-white"
-            }`}
+            className={`absolute inset-0 rounded-[2.5rem] blur-2xl ${isDark ? "bg-blue-600/8" : "bg-blue-400/8"}`}
+          />
+          <div
+            className={`relative rounded-[2rem] border p-1.5 ${isDark ? "border-white/[0.08] bg-white/[0.03]" : "border-slate-200 bg-white"}`}
           >
             <div
-              className={`overflow-hidden rounded-[2rem] ${
-                isDark ? "border border-white/5" : "border border-slate-200"
-              }`}
+              className={`overflow-hidden rounded-[1.5rem] ${isDark ? "border border-white/[0.04]" : "border border-slate-100"}`}
             >
               <div
-                className={`relative h-[340px] md:h-[480px] overflow-hidden ${
-                  isDark ? "bg-slate-950" : "bg-slate-50"
-                }`}
+                className={`relative h-[300px] md:h-[440px] overflow-hidden ${isDark ? "bg-slate-950" : "bg-slate-100"}`}
               >
-                {/* Fake dashboard UI */}
-                <div className="absolute inset-0 p-6 grid grid-cols-12 grid-rows-6 gap-3">
+                <div className="absolute inset-0 p-5 grid grid-cols-12 grid-rows-6 gap-2.5">
                   {/* Sidebar */}
-                  <div className="col-span-2 row-span-6 bg-white/5 rounded-2xl border border-white/5 p-3 flex flex-col gap-2">
-                    <div className="h-6 w-6 rounded-lg bg-blue-600 mx-auto mb-3" />
+                  <div
+                    className={`col-span-2 row-span-6 rounded-2xl border p-3 flex flex-col gap-2 ${isDark ? "bg-white/[0.03] border-white/[0.05]" : "bg-white border-slate-200"}`}
+                  >
+                    <div className="h-6 w-6 rounded-lg bg-blue-600 mx-auto mb-2" />
                     {[...Array(6)].map((_, i) => (
                       <div
                         key={i}
-                        className={`h-8 rounded-xl ${i === 1 ? "bg-blue-600/30 border border-blue-500/30" : "bg-white/5"}`}
+                        className={`h-7 rounded-xl ${i === 1 ? "bg-blue-600/25 border border-blue-500/25" : isDark ? "bg-white/[0.04]" : "bg-slate-100"}`}
                       />
                     ))}
                   </div>
-
-                  {/* Stats row */}
+                  {/* Stat cards */}
                   {[
-                    {
-                      label: "Total Booking",
-                      val: "1,284",
-                      color: "text-white",
-                    },
-                    {
-                      label: "Pendapatan",
-                      val: "Rp 28.4jt",
-                      color: "text-emerald-400",
-                    },
-                    {
-                      label: "Unit Aktif",
-                      val: "18/24",
-                      color: "text-blue-400",
-                    },
-                    { label: "Rating", val: "4.9★", color: "text-yellow-400" },
+                    { l: "Booking", v: "1,284", c: "text-white" },
+                    { l: "Pendapatan", v: "Rp 28.4jt", c: "text-emerald-400" },
+                    { l: "Unit Aktif", v: "18/24", c: "text-blue-400" },
+                    { l: "Rating", v: "4.9★", c: "text-yellow-400" },
                   ].map((s, i) => (
                     <div
                       key={i}
-                      className="col-span-2 row-span-1 bg-white/5 rounded-xl border border-white/5 p-2 flex flex-col justify-between"
+                      className={`col-span-2 row-span-1 rounded-xl border p-2 flex flex-col justify-between ${isDark ? "bg-white/[0.04] border-white/[0.05]" : "bg-white border-slate-200"}`}
                     >
-                      <span className="text-white/30 text-[8px] font-bold uppercase">
-                        {s.label}
+                      <span
+                        className={`text-[8px] font-bold uppercase ${isDark ? "text-white/30" : "text-slate-400"}`}
+                      >
+                        {s.l}
                       </span>
-                      <span className={`text-sm font-black ${s.color}`}>
-                        {s.val}
-                      </span>
+                      <span className={`text-sm font-black ${s.c}`}>{s.v}</span>
                     </div>
                   ))}
-
-                  {/* Chart area */}
-                  <div className="col-span-7 row-span-3 bg-white/5 rounded-2xl border border-white/5 p-4">
-                    <div className="flex items-end gap-1 h-full">
+                  {/* Chart */}
+                  <div
+                    className={`col-span-7 row-span-3 rounded-2xl border p-3 ${isDark ? "bg-white/[0.03] border-white/[0.05]" : "bg-white border-slate-200"}`}
+                  >
+                    <div className="flex items-end gap-1 h-full pb-1">
                       {[40, 65, 45, 80, 95, 70, 85, 60, 90, 75, 100, 88].map(
                         (h, i) => (
                           <div
                             key={i}
-                            className="flex-1 rounded-t-md bg-blue-600/30 border-t border-blue-500/50 transition-all"
-                            style={{
-                              height: `${h}%`,
-                              animationDelay: `${i * 0.1}s`,
-                            }}
+                            className="flex-1 rounded-t bg-blue-600/30 border-t border-blue-500/40"
+                            style={{ height: `${h}%` }}
                           />
                         ),
                       )}
                     </div>
                   </div>
-
-                  {/* Recent activity */}
-                  <div className="col-span-3 row-span-3 bg-white/5 rounded-2xl border border-white/5 p-3">
+                  {/* Activity */}
+                  <div
+                    className={`col-span-3 row-span-3 rounded-2xl border p-3 ${isDark ? "bg-white/[0.03] border-white/[0.05]" : "bg-white border-slate-200"}`}
+                  >
                     {[...Array(4)].map((_, i) => (
                       <div key={i} className="flex items-center gap-2 mb-2">
                         <div
-                          className={`h-6 w-6 rounded-lg flex-shrink-0 ${["bg-blue-600/40", "bg-emerald-500/40", "bg-orange-500/40", "bg-purple-500/40"][i]}`}
+                          className={`h-5 w-5 rounded-lg flex-shrink-0 ${["bg-blue-600/40", "bg-emerald-500/40", "bg-orange-500/40", "bg-purple-500/40"][i]}`}
                         />
                         <div className="flex-1 space-y-1">
-                          <div className="h-2 bg-white/20 rounded-full w-full" />
-                          <div className="h-1.5 bg-white/10 rounded-full w-2/3" />
+                          <div
+                            className={`h-2 rounded-full w-full ${isDark ? "bg-white/15" : "bg-slate-200"}`}
+                          />
+                          <div
+                            className={`h-1.5 rounded-full w-2/3 ${isDark ? "bg-white/8" : "bg-slate-100"}`}
+                          />
                         </div>
                       </div>
                     ))}
                   </div>
-
-                  {/* Bottom row */}
-                  <div className="col-span-10 row-span-2 bg-white/5 rounded-2xl border border-white/5 p-3">
+                  {/* Slots */}
+                  <div
+                    className={`col-span-10 row-span-2 rounded-2xl border p-2.5 ${isDark ? "bg-white/[0.03] border-white/[0.05]" : "bg-white border-slate-200"}`}
+                  >
                     <div className="grid grid-cols-6 gap-2 h-full">
                       {[
-                        "PS-01 •",
-                        "PS-02 ○",
-                        "PS-03 •",
-                        "PC-01 •",
-                        "PC-02 ○",
-                        "VIP •",
-                      ].map((slot, i) => (
+                        "PS-01•",
+                        "PS-02○",
+                        "PS-03•",
+                        "PC-01•",
+                        "PC-02○",
+                        "VIP•",
+                      ].map((s, i) => (
                         <div
                           key={i}
-                          className={`rounded-xl flex items-center justify-center text-[8px] font-black uppercase ${
-                            slot.includes("○")
-                              ? "bg-white/5 text-white/30"
-                              : "bg-blue-600/20 border border-blue-500/30 text-blue-400"
-                          }`}
+                          className={`rounded-xl flex items-center justify-center text-[8px] font-black uppercase ${s.includes("○") ? (isDark ? "bg-white/[0.04] text-white/20" : "bg-slate-100 text-slate-400") : "bg-blue-600/20 border border-blue-500/25 text-blue-400"}`}
                         >
-                          {slot.replace(" •", "").replace(" ○", "")}
+                          {s.replace("•", "").replace("○", "")}
                         </div>
                       ))}
                     </div>
@@ -695,40 +511,38 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Floating badge 1: Cuan */}
-          <div className="absolute -bottom-5 -left-4 hidden md:flex bg-slate-900 border border-white/10 p-4 rounded-2xl shadow-xl flex-col items-start gap-1 -rotate-2">
+          {/* Floating badges */}
+          <div
+            className={`absolute -bottom-5 -left-3 hidden md:flex p-4 rounded-2xl shadow-xl flex-col items-start gap-1 -rotate-1 border ${isDark ? "bg-slate-900 border-white/[0.08]" : "bg-white border-slate-200 shadow-slate-200/80"}`}
+          >
             <div className="flex items-center gap-2 mb-1">
-              <TrendingUp size={14} className="text-emerald-400" />
+              <TrendingUp size={13} className="text-emerald-400" />
               <span className="text-emerald-400 text-[9px] font-black uppercase tracking-widest">
                 Cuan Hari Ini
               </span>
             </div>
-            <p className="text-white text-xl font-black italic">+124%</p>
-            <p className="text-white/40 text-[8px] font-semibold">
-              vs bulan lalu
-            </p>
+            <p className={`text-xl font-black italic ${heading}`}>+124%</p>
+            <p className={`text-[8px] font-medium ${muted}`}>vs bulan lalu</p>
           </div>
-
-          {/* Floating badge 2: Notification */}
-          <div className="absolute -top-4 -right-4 hidden md:flex bg-blue-600 p-4 rounded-2xl shadow-xl flex-col items-start gap-1 rotate-2">
-            <Bell size={14} className="text-white mb-1" />
+          <div className="absolute -top-4 -right-3 hidden md:flex bg-blue-600 p-4 rounded-2xl shadow-xl shadow-blue-600/20 flex-col items-start gap-1 rotate-1">
+            <Bell size={13} className="text-white mb-0.5" />
             <p className="text-white text-[10px] font-black uppercase tracking-widest leading-none">
               Booking Baru!
             </p>
-            <p className="text-blue-200 text-[9px] font-semibold">
-              Ahmad — PS-03 • 2 jam
+            <p className="text-blue-200 text-[9px] font-medium mt-0.5">
+              Ahmad — PS-03 · 2 jam
             </p>
           </div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          MARQUEE LOGOS
-      ══════════════════════════════════════ */}
+      {/* ════════════════════════════
+          MARQUEE
+      ════════════════════════════ */}
       <div
-        className={`relative z-10 w-full py-8 overflow-hidden border-y ${isDark ? "border-white/5" : "border-slate-200"}`}
+        className={`relative z-10 w-full py-6 overflow-hidden border-y ${divider}`}
       >
-        <div className="flex gap-16 marquee-track">
+        <div className="marquee-track">
           {[...Array(2)].map((_, rep) =>
             [
               "Gaming Hub",
@@ -744,9 +558,9 @@ export default function LandingPage() {
                 key={`${rep}-${i}`}
                 className="flex items-center gap-3 flex-shrink-0"
               >
-                <span className="h-1.5 w-1.5 rounded-full bg-blue-500/60" />
+                <span className="h-1 w-1 rounded-full bg-blue-500/50" />
                 <span
-                  className={`text-sm font-black uppercase tracking-widest ${isDark ? "text-white/30" : "text-slate-500"}`}
+                  className={`text-[11px] font-black uppercase tracking-[0.25em] ${muted}`}
                 >
                   {name}
                 </span>
@@ -756,17 +570,14 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* ══════════════════════════════════════
+      {/* ════════════════════════════
           STATS
-      ══════════════════════════════════════ */}
-      <section
-        className="section-reveal relative z-10 w-full max-w-screen-xl mx-auto px-6 py-24"
-        style={sectionRevealStyle(statsReveal.visible, 0.05)}
-      >
+      ════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-20">
         <div
-          ref={statsReveal.ref}
-          className={`grid grid-cols-2 md:grid-cols-4 gap-px rounded-[2.5rem] overflow-hidden border ${isDark ? "bg-white/5 border-white/5" : "bg-slate-200 border-slate-200"}`}
-          style={sectionRevealStyle(statsReveal.visible, 0.05)}
+          ref={stats.ref}
+          className={`grid grid-cols-2 md:grid-cols-4 gap-px rounded-[2rem] overflow-hidden border ${divider} ${isDark ? "bg-white/[0.05]" : "bg-slate-200"}`}
+          style={revealStyle(stats.visible)}
         >
           {[
             {
@@ -796,178 +607,151 @@ export default function LandingPage() {
           ].map((s, i) => (
             <div
               key={i}
-              className={`p-10 text-center group hover:bg-blue-600/5 transition-colors duration-500 ${isDark ? "bg-white/[0.02]" : "bg-white"}`}
+              className={`p-9 text-center transition-colors duration-200 hover:bg-blue-600/[0.04] ${isDark ? "bg-white/[0.02]" : "bg-white"}`}
             >
-              <p className="text-4xl md:text-5xl font-black number-gradient mb-2 tabular-nums">
+              <p className="text-4xl md:text-5xl font-black mb-2 tabular-nums accent-text">
                 <AnimatedCounter target={s.val} suffix={s.suffix} />
               </p>
               <p
-                className={`text-sm font-black uppercase tracking-wider ${sectionHeadingClass}`}
+                className={`text-[11px] font-black uppercase tracking-wider ${heading}`}
               >
                 {s.label}
               </p>
-              <p
-                className={`text-xs font-semibold mt-1 ${isDark ? "text-white/30" : "text-slate-500"}`}
-              >
-                {s.desc}
-              </p>
+              <p className={`text-xs mt-1 ${muted}`}>{s.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          FEATURES — BENTO GRID
-      ══════════════════════════════════════ */}
-      <section
-        className="section-reveal relative z-10 w-full max-w-screen-xl mx-auto px-6 py-12"
-        style={sectionRevealStyle(featReveal.visible, 0.06)}
-      >
-        <div
-          ref={featReveal.ref}
-          style={sectionRevealStyle(featReveal.visible, 0.06)}
-        >
-          {/* Section label */}
-          <div className="text-center mb-16 space-y-4">
-            <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400">
-              <Zap className="h-3 w-3 fill-current" /> Fitur Unggulan
-            </span>
+      {/* ════════════════════════════
+          FEATURES — BENTO
+      ════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-8">
+        <div ref={feat.ref} style={revealStyle(feat.visible)}>
+          <div className="text-center mb-14 space-y-4">
+            <SectionBadge
+              icon={<Zap className="h-3 w-3 fill-current" />}
+              label="Fitur Unggulan"
+            />
             <h2
-              className={`text-4xl md:text-6xl font-black tracking-[-0.07em] leading-[0.92] uppercase heading-accent ${sectionHeadingClass} ${isDark ? "text-white" : "text-foreground"} `}
+              className={`text-4xl md:text-[56px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
             >
               Semua yang Kamu
               <br />
               <span className="shimmer-text">Butuhkan.</span>
             </h2>
-            <p className={`max-w-lg mx-auto font-medium ${mutedClass}`}>
-              Dirancang untuk owner yang ingin fokus mengembangkan bisnis, bukan
-              tenggelam dalam urusan administrasi.
+            <p className={`max-w-lg mx-auto font-medium ${muted}`}>
+              Dirancang untuk owner yang ingin fokus tumbuh, bukan tenggelam
+              dalam administrasi.
             </p>
           </div>
 
-          {/* Bento Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Large card: Live Monitor */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {/* Large: Live Monitor */}
             <div
-              className={`md:col-span-2 lg:col-span-2 bento-hover card-tilt rounded-[2.5rem] p-8 overflow-hidden relative group ${cardClass}`}
+              className={`lg:col-span-2 hover-lift group rounded-[2rem] border p-8 overflow-hidden relative ${card}`}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="absolute top-0 right-0 w-40 h-40 bg-blue-600/10 rounded-full blur-3xl" />
-              <div className="relative">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="h-10 w-10 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center">
-                    <Activity size={18} className="text-blue-400" />
-                  </div>
-                  <span className="text-[9px] font-black uppercase tracking-[0.3em] text-blue-400 border border-blue-500/20 rounded-full px-3 py-1">
-                    Live
-                  </span>
+              <div className="absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl bg-blue-600/[0.06] pointer-events-none" />
+              <div className="flex items-center gap-3 mb-5">
+                <div className="h-10 w-10 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center icon-btn">
+                  <Activity size={17} className="text-blue-400" />
                 </div>
-                <h3
-                  className={`text-2xl font-black tracking-tight mb-3 heading-accent ${sectionHeadingClass}`}
-                >
-                  Monitoring Slot Realtime
-                </h3>
-                <p
-                  className={`text-sm font-medium leading-relaxed mb-8 ${mutedClass}`}
-                >
-                  Pantau semua unit dari HP. Tau persis mana yang kosong, siapa
-                  yang pakai, dan berapa sisa waktu — tanpa nelpon kasir.
-                </p>
-                <DashboardWidget />
-              </div>
-            </div>
-
-            {/* Website Otomatis */}
-            <div
-              className={`bento-hover card-tilt rounded-[2.5rem] p-8 relative group overflow-hidden ${cardClass}`}
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="h-10 w-10 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center mb-6">
-                <Globe size={18} className="text-purple-400" />
+                <span className="text-[9px] font-black uppercase tracking-[0.25em] text-blue-400 border border-blue-500/20 rounded-full px-3 py-1">
+                  Live
+                </span>
               </div>
               <h3
-                className={`text-xl font-black tracking-tight mb-3 heading-accent ${sectionHeadingClass}`}
+                className={`text-xl font-black tracking-tight mb-2 ${heading}`}
+              >
+                Monitoring Slot Realtime
+              </h3>
+              <p
+                className={`text-sm font-medium leading-relaxed mb-6 ${muted}`}
+              >
+                Pantau semua unit dari HP. Tau persis mana kosong, siapa yang
+                pakai, dan berapa sisa waktu — tanpa nelpon kasir.
+              </p>
+              <DashboardWidget />
+            </div>
+
+            {/* Website */}
+            <div
+              className={`hover-lift group rounded-[2rem] border p-8 relative overflow-hidden ${card}`}
+            >
+              <div className="h-10 w-10 rounded-2xl bg-purple-600/15 border border-purple-500/20 flex items-center justify-center mb-5 icon-btn">
+                <Globe size={17} className="text-purple-400" />
+              </div>
+              <h3
+                className={`text-lg font-black tracking-tight mb-2 ${heading}`}
               >
                 Website Booking Otomatis
               </h3>
               <p
-                className={`text-sm font-medium leading-relaxed mb-6 ${mutedClass}`}
+                className={`text-sm font-medium leading-relaxed mb-5 ${muted}`}
               >
                 Portal profesional{" "}
-                <span className="text-white/70 font-black">
+                <span className={`font-black ${heading}`}>
                   namabisnis.bookinaja.com
                 </span>{" "}
-                langsung aktif saat daftar. Siap terima booking 24 jam.
+                langsung aktif saat daftar.
               </p>
               <div
-                className={`rounded-2xl border p-4 ${innerPanelClass} ${isDark ? "border-white/5" : "border-slate-200"}`}
+                className={`rounded-xl border p-4 ${isDark ? "bg-slate-900 border-white/[0.06]" : "bg-slate-50 border-slate-200"}`}
               >
                 <div className="flex items-center gap-2 mb-3">
                   <div className="flex gap-1">
-                    {["bg-red-500", "bg-yellow-500", "bg-green-500"].map(
+                    {["bg-red-400", "bg-yellow-400", "bg-green-400"].map(
                       (c, i) => (
                         <div key={i} className={`w-2 h-2 rounded-full ${c}`} />
                       ),
                     )}
                   </div>
                   <div
-                    className={`flex-1 rounded-md h-5 flex items-center px-2 ${isDark ? "bg-white/5" : "bg-slate-100"}`}
+                    className={`flex-1 rounded-md h-5 flex items-center px-2 ${isDark ? "bg-white/[0.05]" : "bg-white border border-slate-200"}`}
                   >
-                    <span
-                      className={`text-[9px] font-mono ${isDark ? "text-white/30" : "text-slate-500"}`}
-                    >
+                    <span className={`text-[9px] font-mono ${muted}`}>
                       gaminghub.bookinaja.com
                     </span>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <div
-                    className={
-                      isDark
-                        ? "h-3 bg-white/10 rounded w-3/4"
-                        : "h-3 bg-slate-200 rounded w-3/4"
-                    }
+                    className={`h-2.5 rounded w-3/4 ${isDark ? "bg-white/10" : "bg-slate-200"}`}
                   />
                   <div
-                    className={
-                      isDark
-                        ? "h-3 bg-white/5 rounded w-1/2"
-                        : "h-3 bg-slate-100 rounded w-1/2"
-                    }
+                    className={`h-2.5 rounded w-1/2 ${isDark ? "bg-white/[0.06]" : "bg-slate-100"}`}
                   />
-                  <div className="h-8 bg-blue-600/30 border border-blue-500/30 rounded-lg mt-4" />
+                  <div className="h-8 bg-blue-600/25 border border-blue-500/25 rounded-lg mt-3" />
                 </div>
               </div>
             </div>
 
             {/* Payment */}
             <div
-              className={`bento-hover card-tilt rounded-[2.5rem] p-8 relative group overflow-hidden ${cardClass}`}
+              className={`hover-lift group rounded-[2rem] border p-8 relative overflow-hidden ${card}`}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="h-10 w-10 rounded-2xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center mb-6">
-                <Wallet size={18} className="text-emerald-400" />
+              <div className="h-10 w-10 rounded-2xl bg-emerald-600/15 border border-emerald-500/20 flex items-center justify-center mb-5 icon-btn">
+                <Wallet size={17} className="text-emerald-400" />
               </div>
               <h3
-                className={`text-xl font-black tracking-tight mb-3 heading-accent ${sectionHeadingClass}`}
+                className={`text-lg font-black tracking-tight mb-2 ${heading}`}
               >
                 Pembayaran Digital
               </h3>
               <p
-                className={`text-sm font-medium leading-relaxed mb-6 ${mutedClass}`}
+                className={`text-sm font-medium leading-relaxed mb-5 ${muted}`}
               >
-                QRIS, transfer bank, dan dompet digital. Semua tercatat otomatis
-                tanpa rekap manual.
+                QRIS, transfer bank, dompet digital. Semua tercatat otomatis.
               </p>
               <div className="grid grid-cols-3 gap-2">
                 {["QRIS", "Bank", "OVO", "GoPay", "Dana", "ShopeePay"].map(
                   (p, i) => (
                     <div
                       key={i}
-                      className={`rounded-xl py-2 text-center ${isDark ? "bg-white/5 border border-white/5" : "bg-slate-50 border border-slate-200"}`}
+                      className={`rounded-xl py-2 text-center border ${isDark ? "bg-white/[0.04] border-white/[0.06]" : "bg-slate-50 border-slate-200"}`}
                     >
                       <span
-                        className={`text-[9px] font-black uppercase ${isDark ? "text-white/50" : "text-slate-500"}`}
+                        className={`text-[9px] font-black uppercase ${muted}`}
                       >
                         {p}
                       </span>
@@ -979,28 +763,27 @@ export default function LandingPage() {
 
             {/* Reports */}
             <div
-              className={`bento-hover card-tilt rounded-[2.5rem] p-8 relative group overflow-hidden ${cardClass}`}
+              className={`hover-lift group rounded-[2rem] border p-8 relative overflow-hidden ${card}`}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="h-10 w-10 rounded-2xl bg-orange-600/20 border border-orange-500/30 flex items-center justify-center mb-6">
-                <BarChart3 size={18} className="text-orange-400" />
+              <div className="h-10 w-10 rounded-2xl bg-orange-600/15 border border-orange-500/20 flex items-center justify-center mb-5 icon-btn">
+                <BarChart3 size={17} className="text-orange-400" />
               </div>
               <h3
-                className={`text-xl font-black tracking-tight mb-3 heading-accent ${sectionHeadingClass}`}
+                className={`text-lg font-black tracking-tight mb-2 ${heading}`}
               >
                 Laporan & Analitik
               </h3>
               <p
-                className={`text-sm font-medium leading-relaxed mb-6 ${mutedClass}`}
+                className={`text-sm font-medium leading-relaxed mb-5 ${muted}`}
               >
-                Lihat tren pendapatan, unit terpopuler, dan jam sibuk — semua
-                dalam satu dashboard eksekutif.
+                Tren pendapatan, unit terpopuler, jam sibuk — dalam satu
+                dashboard.
               </p>
-              <div className="flex items-end gap-1 h-16">
+              <div className="flex items-end gap-1 h-14">
                 {[30, 55, 40, 80, 65, 90, 75].map((h, i) => (
                   <div
                     key={i}
-                    className="flex-1 rounded-t-sm bg-orange-500/30 border-t border-orange-500/50"
+                    className="flex-1 rounded-t-sm bg-orange-500/25 border-t border-orange-500/40"
                     style={{ height: `${h}%` }}
                   />
                 ))}
@@ -1009,25 +792,24 @@ export default function LandingPage() {
 
             {/* Security */}
             <div
-              className={`bento-hover card-tilt rounded-[2.5rem] p-8 relative group overflow-hidden ${cardClass}`}
+              className={`hover-lift group rounded-[2rem] border p-8 relative overflow-hidden ${card}`}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="h-10 w-10 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center mb-6">
-                <ShieldCheck size={18} className="text-blue-400" />
+              <div className="h-10 w-10 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center mb-5 icon-btn">
+                <ShieldCheck size={17} className="text-blue-400" />
               </div>
               <h3
-                className={`text-xl font-black tracking-tight mb-3 heading-accent ${sectionHeadingClass}`}
+                className={`text-lg font-black tracking-tight mb-2 ${heading}`}
               >
                 Isolasi Data Bisnis
               </h3>
               <p
-                className={`text-sm font-medium leading-relaxed mb-4 ${mutedClass}`}
+                className={`text-sm font-medium leading-relaxed mb-4 ${muted}`}
               >
                 Setiap tenant mendapat database terisolasi. Data kamu tidak
                 pernah campur dengan bisnis lain.
               </p>
               <div className="flex items-center gap-2">
-                <ShieldCheck size={14} className="text-blue-400" />
+                <ShieldCheck size={13} className="text-blue-400" />
                 <span className="text-blue-400 text-[10px] font-black uppercase tracking-widest">
                   Enterprise-grade Encryption
                 </span>
@@ -1037,109 +819,104 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
+      {/* ════════════════════════════
           INDUSTRIES
-      ══════════════════════════════════════ */}
+      ════════════════════════════ */}
       <section
         id="industries"
-        className="section-reveal relative z-10 w-full max-w-screen-xl mx-auto px-6 py-24"
-        style={sectionRevealStyle(indReveal.visible, 0.06)}
+        className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-20"
       >
-        <div
-          ref={indReveal.ref}
-          style={sectionRevealStyle(indReveal.visible, 0.06)}
-        >
-          <div className="text-center mb-16 space-y-4">
-            <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400">
-              <Globe className="h-3 w-3" /> Sektor Usaha
-            </span>
+        <div ref={ind.ref} style={revealStyle(ind.visible)}>
+          <div className="text-center mb-14 space-y-4">
+            <SectionBadge
+              icon={<Globe className="h-3 w-3" />}
+              label="Sektor Usaha"
+            />
             <h2
-              className={`text-4xl md:text-6xl font-black tracking-[-0.04em] leading-none heading-accent ${sectionHeadingClass}`}
+              className={`text-4xl md:text-[56px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
             >
-              <span className="text-blue-500">Satu Sistem.</span>
+              <span className="accent-text">Satu Sistem.</span>
               <br />
               <span className="shimmer-text">Apapun Bisnisnya.</span>
             </h2>
-            <p className={`max-w-md mx-auto font-medium ${mutedClass}`}>
+            <p className={`max-w-md mx-auto font-medium ${muted}`}>
               Dirancang fleksibel untuk berbagai model persewaan slot & unit di
               seluruh Indonesia.
             </p>
           </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               {
-                icon: <Monitor size={24} />,
+                icon: <Monitor size={22} />,
                 title: "Gaming Hub",
                 desc: "Rental PS, PC, & Game Center. Billing per jam otomatis.",
                 accent: "blue",
-                industries: ["PS5", "Xbox", "PC Gaming", "VR"],
+                tags: ["PS5", "Xbox", "PC", "VR"],
               },
               {
-                icon: <Camera size={24} />,
+                icon: <Camera size={22} />,
                 title: "Studio Kreatif",
                 desc: "Studio Foto, Podcast, & Musik. Kelola sesi dan paket alat.",
                 accent: "purple",
-                industries: ["Foto", "Video", "Podcast", "Musik"],
+                tags: ["Foto", "Video", "Podcast", "Musik"],
               },
               {
-                icon: <Zap size={24} />,
+                icon: <Zap size={22} />,
                 title: "Arena Olahraga",
                 desc: "Futsal, Badminton, Gym. Cek slot langsung dari HP.",
                 accent: "emerald",
-                industries: ["Futsal", "Badminton", "Gym", "Renang"],
+                tags: ["Futsal", "Badminton", "Gym", "Renang"],
               },
               {
-                icon: <Briefcase size={24} />,
+                icon: <Briefcase size={22} />,
                 title: "Office Space",
-                desc: "Coworking, Meeting Room. Kelola akses harian atau bulanan.",
+                desc: "Coworking & Meeting Room. Kelola akses harian atau bulanan.",
                 accent: "orange",
-                industries: ["Cowork", "Meeting", "Private", "Virtual"],
+                tags: ["Cowork", "Meeting", "Private", "Virtual"],
               },
             ].map((item, i) => {
-              const accents: Record<string, string> = {
-                blue: "bg-blue-600/15 border-blue-500/20 text-blue-400 group-hover:bg-blue-600",
+              const iconCls: Record<string, string> = {
+                blue: "bg-blue-600/12 border-blue-500/20 text-blue-400 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600",
                 purple:
-                  "bg-purple-600/15 border-purple-500/20 text-purple-400 group-hover:bg-purple-600",
+                  "bg-purple-600/12 border-purple-500/20 text-purple-400 group-hover:bg-purple-600 group-hover:text-white group-hover:border-purple-600",
                 emerald:
-                  "bg-emerald-600/15 border-emerald-500/20 text-emerald-400 group-hover:bg-emerald-600",
+                  "bg-emerald-600/12 border-emerald-500/20 text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white group-hover:border-emerald-600",
                 orange:
-                  "bg-orange-600/15 border-orange-500/20 text-orange-400 group-hover:bg-orange-600",
+                  "bg-orange-600/12 border-orange-500/20 text-orange-400 group-hover:bg-orange-600 group-hover:text-white group-hover:border-orange-600",
               };
               return (
                 <div
                   key={i}
-                  className={`group bento-hover rounded-[2.5rem] p-8 relative overflow-hidden hover:border-white/20 transition-all duration-500 ${cardClass}`}
-                  style={{ transitionDelay: `${i * 0.1}s` }}
+                  className={`group hover-lift rounded-[2rem] border p-7 relative overflow-hidden ${card}`}
                 >
                   <div
-                    className={`h-12 w-12 rounded-2xl border flex items-center justify-center mb-6 transition-all duration-500 ${accents[item.accent]} group-hover:text-white`}
+                    className={`h-11 w-11 rounded-2xl border flex items-center justify-center mb-5 transition-all duration-200 ${iconCls[item.accent]}`}
                   >
                     {item.icon}
                   </div>
                   <h4
-                    className={`text-lg font-black tracking-tight mb-3 heading-accent ${sectionHeadingClass}`}
+                    className={`text-base font-black tracking-tight mb-2 ${heading}`}
                   >
                     {item.title}
                   </h4>
                   <p
-                    className={`text-sm font-medium leading-relaxed mb-6 ${mutedClass}`}
+                    className={`text-sm font-medium leading-relaxed mb-5 ${muted}`}
                   >
                     {item.desc}
                   </p>
-                  <div className="flex flex-wrap gap-2">
-                    {item.industries.map((tag, j) => (
+                  <div className="flex flex-wrap gap-1.5">
+                    {item.tags.map((t, j) => (
                       <span
                         key={j}
-                        className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${isDark ? "bg-white/5 text-white/30" : "bg-slate-100 text-slate-500"}`}
+                        className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${isDark ? "bg-white/[0.05] text-white/25" : "bg-slate-100 text-slate-400"}`}
                       >
-                        {tag}
+                        {t}
                       </span>
                     ))}
                   </div>
                   <ArrowUpRight
-                    size={32}
-                    className="absolute top-6 right-6 text-white/5 group-hover:text-white/10 transition-colors"
+                    size={28}
+                    className={`absolute top-5 right-5 opacity-0 group-hover:opacity-20 transition-opacity duration-200 ${heading}`}
                   />
                 </div>
               );
@@ -1148,110 +925,106 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
+      {/* ════════════════════════════
           HOW IT WORKS
-      ══════════════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-24">
-        <div className="text-center mb-16 space-y-4">
-          <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400">
-            <Clock className="h-3 w-3" /> Cara Kerja
-          </span>
-          <h2
-            className={`text-4xl md:text-6xl font-black tracking-[-0.07em] leading-[0.92] uppercase heading-accent ${sectionHeadingClass}`}
-          >
-            <span className="text-blue-500">Online</span> dalam
-            <br />
-            <span className="shimmer-text">5 Menit.</span>
-          </h2>
-        </div>
-        <div className="relative grid md:grid-cols-3 gap-4">
-          {/* Connecting line */}
-          <div className="hidden md:block absolute top-12 left-1/6 right-1/6 h-px bg-gradient-to-r from-transparent via-blue-500/30 to-transparent" />
-          {[
-            {
-              step: "01",
-              title: "Daftar Bisnis",
-              desc: "Isi nama bisnis, pilih tipe unit, dan atur jam operasional. Selesai dalam 2 menit.",
-              icon: <Users size={20} />,
-            },
-            {
-              step: "02",
-              title: "Setup Unit & Harga",
-              desc: "Tambahkan unit PS, meja, lapangan, atau apapun. Tentukan tarif per jam atau per sesi.",
-              icon: <Clock size={20} />,
-            },
-            {
-              step: "03",
-              title: "Terima Booking",
-              desc: "Portal langsung aktif. Customer bisa booking online, bayar digital, dan dapat notifikasi otomatis.",
-              icon: <CheckCircle2 size={20} />,
-            },
-          ].map((s, i) => (
-            <div
-              key={i}
-              className={`group relative rounded-[2.5rem] p-8 bento-hover hover:border-blue-500/30 transition-all duration-500 ${cardClass}`}
+      ════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-20">
+        <div ref={how.ref} style={revealStyle(how.visible)}>
+          <div className="text-center mb-14 space-y-4">
+            <SectionBadge
+              icon={<Clock className="h-3 w-3" />}
+              label="Cara Kerja"
+            />
+            <h2
+              className={`text-4xl md:text-[56px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
             >
-              <div className="flex items-center gap-4 mb-6">
-                <span
-                  className={`text-5xl font-black leading-none ${isDark ? "text-white/5" : "text-slate-200"}`}
-                >
-                  {s.step}
-                </span>
-                <div className="h-10 w-10 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-all duration-500">
-                  {s.icon}
+              <span className="accent-text">Online</span> dalam
+              <br />
+              <span className="shimmer-text">5 Menit.</span>
+            </h2>
+          </div>
+          <div className="grid md:grid-cols-3 gap-4">
+            {[
+              {
+                step: "01",
+                title: "Daftar Bisnis",
+                desc: "Isi nama bisnis, pilih tipe unit, dan atur jam operasional. Selesai dalam 2 menit.",
+                icon: <Users size={18} />,
+              },
+              {
+                step: "02",
+                title: "Setup Unit & Harga",
+                desc: "Tambahkan unit PS, meja, atau lapangan. Tentukan tarif per jam atau per sesi.",
+                icon: <Clock size={18} />,
+              },
+              {
+                step: "03",
+                title: "Terima Booking",
+                desc: "Portal langsung aktif. Customer booking online, bayar digital, dapat notifikasi.",
+                icon: <CheckCircle2 size={18} />,
+              },
+            ].map((s, i) => (
+              <div
+                key={i}
+                className={`group hover-lift rounded-[2rem] border p-8 transition-colors duration-200 hover:border-blue-500/30 ${card}`}
+              >
+                <div className="flex items-center gap-4 mb-5">
+                  <span
+                    className={`text-4xl font-black leading-none ${isDark ? "text-white/[0.06]" : "text-slate-200"}`}
+                  >
+                    {s.step}
+                  </span>
+                  <div className="h-9 w-9 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center text-blue-400 transition-all duration-200 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600">
+                    {s.icon}
+                  </div>
                 </div>
+                <h3
+                  className={`text-lg font-black tracking-tight mb-2 ${heading}`}
+                >
+                  {s.title}
+                </h3>
+                <p className={`text-sm font-medium leading-relaxed ${muted}`}>
+                  {s.desc}
+                </p>
               </div>
-              <h3
-                className={`text-xl font-black tracking-tight mb-3 heading-accent ${sectionHeadingClass}`}
-              >
-                {s.title}
-              </h3>
-              <p
-                className={`font-medium leading-relaxed text-sm ${mutedClass}`}
-              >
-                {s.desc}
-              </p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
+      {/* ════════════════════════════
           STAFF MANAGEMENT
-      ══════════════════════════════════════ */}
-      <section
-        className="section-reveal relative z-10 w-full max-w-screen-xl mx-auto px-6 py-12"
-        style={sectionRevealStyle(staffReveal.visible, 0.06)}
-      >
+      ════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-8">
         <div
-          ref={staffReveal.ref}
-          className={`relative overflow-hidden rounded-[3rem] p-10 md:p-16 ${isDark ? "border border-white/10 bg-white/[0.02]" : "border border-slate-200 bg-white"}`}
-          style={sectionRevealStyle(staffReveal.visible, 0.06)}
+          ref={staff.ref}
+          className={`relative overflow-hidden rounded-[2.5rem] border p-10 md:p-16 ${isDark ? "bg-white/[0.02] border-white/[0.07]" : "bg-white border-slate-200"}`}
+          style={revealStyle(staff.visible)}
         >
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_100%_0%,rgba(59,130,246,0.08),transparent_60%)]" />
-          <div className="absolute top-0 right-0 p-12 opacity-[0.03] pointer-events-none">
-            <Lock size={400} strokeWidth={0.5} className="text-blue-400" />
+          <div
+            className={`absolute inset-0 pointer-events-none ${isDark ? "bg-[radial-gradient(circle_at_100%_0%,rgba(59,130,246,0.06),transparent_55%)]" : "bg-[radial-gradient(circle_at_100%_0%,rgba(59,130,246,0.04),transparent_55%)]"}`}
+          />
+          <div className="absolute top-0 right-0 p-10 opacity-[0.025] pointer-events-none text-blue-400">
+            <Lock size={360} strokeWidth={0.5} />
           </div>
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <div className="space-y-6">
-              <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400">
-                <Lock className="h-3 w-3" /> Kontrol Staff
-              </span>
+          <div className="grid lg:grid-cols-2 gap-14 items-center">
+            <div className="space-y-5">
+              <SectionBadge
+                icon={<Lock className="h-3 w-3" />}
+                label="Kontrol Staff"
+              />
               <h2
-                className={`text-4xl md:text-6xl font-black tracking-[-0.07em] leading-[0.92] uppercase heading-accent ${sectionHeadingClass}`}
+                className={`text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
               >
-                <span className="text-blue-500">Tim Hebat</span>,
-                <br />
+                <span className="accent-text">Tim Hebat</span>,<br />
                 <span className="shimmer-text">Kontrol Penuh.</span>
               </h2>
-              <p
-                className={`font-medium leading-relaxed text-base ${mutedClass}`}
-              >
+              <p className={`font-medium leading-relaxed ${muted}`}>
                 Buat akun kasir dengan akses terbatas. Mereka bisa kelola
-                booking dan terima bayaran — tapi tidak bisa lihat total cuan
-                atau laporan rahasia kamu.
+                booking dan terima bayaran — tapi tidak bisa lihat laporan
+                keuangan kamu.
               </p>
-              <div className="space-y-3 pt-4">
+              <div className="space-y-2.5 pt-2">
                 {[
                   {
                     label: "Akses Kasir Terbatas",
@@ -1268,41 +1041,37 @@ export default function LandingPage() {
                 ].map((item) => (
                   <div
                     key={item.label}
-                    className={`flex items-start gap-4 p-4 rounded-2xl hover:border-blue-500/20 transition-colors ${isDark ? "bg-white/5 border border-white/5" : "bg-slate-50 border border-slate-200"}`}
+                    className={`flex items-start gap-4 p-4 rounded-2xl border transition-colors duration-200 hover:border-blue-500/25 ${isDark ? "bg-white/[0.03] border-white/[0.06]" : "bg-slate-50 border-slate-200"}`}
                   >
-                    <CheckCircle2 className="text-blue-500 w-5 h-5 mt-0.5 flex-shrink-0" />
+                    <CheckCircle2 className="text-blue-500 w-4 h-4 mt-0.5 flex-shrink-0" />
                     <div>
                       <p
-                        className={`text-sm font-black uppercase tracking-wide heading-accent ${sectionHeadingClass}`}
+                        className={`text-sm font-black uppercase tracking-wide ${heading}`}
                       >
                         {item.label}
                       </p>
-                      <p className={`text-xs font-medium mt-0.5 ${mutedClass}`}>
-                        {item.desc}
-                      </p>
+                      <p className={`text-xs mt-0.5 ${muted}`}>{item.desc}</p>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-
-            {/* Role Cards Visual */}
-            <div className="relative h-72 md:h-80">
-              {/* Owner card */}
+            {/* Role cards */}
+            <div className="relative h-68 md:h-76">
               <div
-                className={`absolute top-0 right-0 left-10 rounded-[2rem] p-6 border shadow-2xl ${isDark ? "bg-slate-900 border-white/10" : "bg-slate-50 border-slate-200"}`}
+                className={`absolute top-0 right-0 left-8 rounded-[1.75rem] p-5 border shadow-lg ${panel} ${divider}`}
               >
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center font-black text-white text-sm">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center font-black text-white text-sm">
                     OW
                   </div>
                   <div>
                     <p
-                      className={`font-black uppercase text-sm leading-none heading-accent ${sectionHeadingClass}`}
+                      className={`font-black uppercase text-sm leading-none ${heading}`}
                     >
                       Owner Admin
                     </p>
-                    <p className="text-blue-400 text-[9px] font-bold uppercase tracking-widest mt-1">
+                    <p className="text-blue-400 text-[9px] font-bold uppercase tracking-widest mt-0.5">
                       Full Access
                     </p>
                   </div>
@@ -1314,7 +1083,7 @@ export default function LandingPage() {
                     )}
                   </div>
                 </div>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-4 gap-1.5">
                   {[
                     "Booking",
                     "Laporan",
@@ -1336,45 +1105,43 @@ export default function LandingPage() {
                   ))}
                 </div>
               </div>
-
-              {/* Kasir card */}
               <div
-                className={`absolute bottom-0 left-0 right-10 rounded-[2rem] p-6 border shadow-2xl rotate-1 group hover:rotate-0 transition-transform duration-500 ${isDark ? "bg-slate-900 border-white/10" : "bg-slate-50 border-slate-200"}`}
+                className={`absolute bottom-0 left-0 right-8 rounded-[1.75rem] p-5 border shadow-lg rotate-1 hover:rotate-0 transition-transform duration-300 ${panel} ${divider}`}
               >
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="h-10 w-10 rounded-xl bg-slate-700 flex items-center justify-center font-black text-white text-sm">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-9 w-9 rounded-xl bg-slate-600 flex items-center justify-center font-black text-white text-sm">
                     KS
                   </div>
                   <div>
                     <p
-                      className={`font-black uppercase text-sm leading-none heading-accent ${sectionHeadingClass}`}
+                      className={`font-black uppercase text-sm leading-none ${heading}`}
                     >
                       Kasir
                     </p>
-                    <p className="text-orange-400 text-[9px] font-bold uppercase tracking-widest mt-1">
+                    <p className="text-orange-400 text-[9px] font-bold uppercase tracking-widest mt-0.5">
                       Limited Access
                     </p>
                   </div>
                 </div>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-4 gap-1.5">
                   {[
-                    { label: "Booking", active: true },
-                    { label: "Laporan", active: false },
-                    { label: "Keuangan", active: false },
-                    { label: "Staff", active: false },
-                    { label: "Setting", active: false },
-                    { label: "Unit", active: true },
-                    { label: "Analitik", active: false },
-                    { label: "Export", active: false },
+                    { l: "Booking", a: true },
+                    { l: "Laporan", a: false },
+                    { l: "Keuangan", a: false },
+                    { l: "Staff", a: false },
+                    { l: "Setting", a: false },
+                    { l: "Unit", a: true },
+                    { l: "Analitik", a: false },
+                    { l: "Export", a: false },
                   ].map((f, i) => (
                     <div
                       key={i}
-                      className={`rounded-lg py-1 text-center border ${f.active ? "bg-emerald-600/20 border-emerald-500/20" : isDark ? "bg-white/5 border-white/5 opacity-40" : "bg-slate-100 border-slate-200 opacity-60"}`}
+                      className={`rounded-lg py-1 text-center border ${f.a ? "bg-emerald-600/20 border-emerald-500/20" : isDark ? "bg-white/[0.03] border-white/[0.05] opacity-40" : "bg-slate-200 border-slate-200 opacity-50"}`}
                     >
                       <span
-                        className={`text-[8px] font-black uppercase ${f.active ? "text-emerald-400" : isDark ? "text-white/30" : "text-slate-500"}`}
+                        className={`text-[8px] font-black uppercase ${f.a ? "text-emerald-400" : isDark ? "text-white/25" : "text-slate-400"}`}
                       >
-                        {f.label}
+                        {f.l}
                       </span>
                     </div>
                   ))}
@@ -1385,89 +1152,79 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
+      {/* ════════════════════════════
           TESTIMONIALS
-      ══════════════════════════════════════ */}
-      <section
-        className="section-reveal relative z-10 w-full max-w-screen-xl mx-auto px-6 py-24"
-        style={sectionRevealStyle(testimReveal.visible, 0.06)}
-      >
-        <div
-          ref={testimReveal.ref}
-          style={sectionRevealStyle(testimReveal.visible, 0.06)}
-        >
-          <div className="text-center mb-16 space-y-4">
-            <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400">
-              <Star className="h-3 w-3 fill-current" /> Testimoni
-            </span>
+      ════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-20">
+        <div ref={testim.ref} style={revealStyle(testim.visible)}>
+          <div className="text-center mb-14 space-y-4">
+            <SectionBadge
+              icon={<Star className="h-3 w-3 fill-current" />}
+              label="Testimoni"
+            />
             <h2
-              className={`text-4xl md:text-6xl font-black tracking-[-0.07em] leading-[0.92] uppercase heading-accent ${sectionHeadingClass}`}
+              className={`text-4xl md:text-[56px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
             >
               Kata Mereka
               <br />
               <span className="shimmer-text">yang Pakai.</span>
             </h2>
           </div>
-
           <div className="grid md:grid-cols-3 gap-4">
             {[
               {
                 name: "Rizky Firmansyah",
                 role: "Owner Gaming Hub Surabaya",
-                text: "Sebelum pakai Bookinaja, kasir saya nulis di buku. Sekarang semua otomatis, saya bisa pantau dari rumah sambil santai. Pendapatan naik 40% karena nggak ada lagi 'lupa catat'.",
+                text: "Sebelum pakai Bookinaja, kasir saya nulis di buku. Sekarang semua otomatis, saya bisa pantau dari rumah. Pendapatan naik 40%.",
                 stars: 5,
-                avatar: "RF",
+                av: "RF",
                 color: "bg-blue-600",
               },
               {
                 name: "Siti Rahayu",
                 role: "Owner Studio Foto Jakarta",
-                text: "Booking online-nya bikin customer saya lebih happy. Mereka bisa pilih slot sendiri, bayar lewat QRIS, dan langsung dapat konfirmasi. Saya nggak perlu lagi balas WA satu-satu.",
+                text: "Booking online-nya bikin customer lebih happy. Mereka pilih slot sendiri, bayar QRIS, dapat konfirmasi. Saya nggak perlu balas WA satu-satu.",
                 stars: 5,
-                avatar: "SR",
+                av: "SR",
                 color: "bg-purple-600",
               },
               {
                 name: "Budi Santoso",
                 role: "Owner Lapangan Futsal Bandung",
-                text: "Fitur laporan keuangannya detail banget. Saya bisa lihat hari apa paling ramai, jam berapa paling sepi, dan unit mana yang paling cuan. Strategi bisnis jadi lebih tajam.",
+                text: "Laporan keuangannya detail banget. Bisa lihat hari apa paling ramai, jam berapa paling sepi, unit mana paling cuan.",
                 stars: 5,
-                avatar: "BS",
+                av: "BS",
                 color: "bg-emerald-600",
               },
             ].map((t, i) => (
               <div
                 key={i}
-                className={`group rounded-[2.5rem] p-8 bento-hover hover:border-white/20 transition-all duration-500 ${cardClass}`}
-                style={{ transitionDelay: `${i * 0.1}s` }}
+                className={`hover-lift rounded-[2rem] border p-8 ${card}`}
+                style={{ transitionDelay: `${i * 0.06}s` }}
               >
-                <div className="flex gap-1 mb-6">
+                <div className="flex gap-1 mb-5">
                   {[...Array(t.stars)].map((_, j) => (
                     <Star
                       key={j}
-                      size={14}
+                      size={13}
                       className="fill-yellow-400 text-yellow-400"
                     />
                   ))}
                 </div>
                 <p
-                  className={`text-sm font-medium leading-relaxed mb-8 italic ${isDark ? "text-white/60" : "text-slate-600"}`}
+                  className={`text-sm font-medium leading-relaxed mb-7 italic ${isDark ? "text-white/55" : "text-slate-600"}`}
                 >
                   "{t.text}"
                 </p>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                   <div
-                    className={`h-10 w-10 rounded-2xl ${t.color} flex items-center justify-center font-black text-white text-sm flex-shrink-0`}
+                    className={`h-9 w-9 rounded-2xl ${t.color} flex items-center justify-center font-black text-white text-sm flex-shrink-0`}
                   >
-                    {t.avatar}
+                    {t.av}
                   </div>
                   <div>
-                    <p className={`text-sm font-black ${sectionHeadingClass}`}>
-                      {t.name}
-                    </p>
-                    <p className={`text-xs font-medium ${mutedClass}`}>
-                      {t.role}
-                    </p>
+                    <p className={`text-sm font-black ${heading}`}>{t.name}</p>
+                    <p className={`text-xs ${muted}`}>{t.role}</p>
                   </div>
                 </div>
               </div>
@@ -1476,130 +1233,113 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
+      {/* ════════════════════════════
           PRICING
-      ══════════════════════════════════════ */}
-      <section
-        className="section-reveal relative z-10 w-full max-w-screen-xl mx-auto px-6 py-24"
-        style={sectionRevealStyle(pricingReveal.visible, 0.06)}
-      >
-        <div
-          ref={pricingReveal.ref}
-          style={sectionRevealStyle(pricingReveal.visible, 0.06)}
-        >
-          <div className="text-center mb-16 space-y-4">
-            <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400">
-              <Wallet className="h-3 w-3" /> Harga Paket
-            </span>
+      ════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-20">
+        <div ref={pricing.ref} style={revealStyle(pricing.visible)}>
+          <div className="text-center mb-14 space-y-4">
+            <SectionBadge
+              icon={<Wallet className="h-3 w-3" />}
+              label="Harga Paket"
+            />
             <h2
-              className={`text-4xl md:text-6xl font-black tracking-[-0.07em] leading-[0.92] uppercase heading-accent ${sectionHeadingClass}`}
+              className={`text-4xl md:text-[56px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
             >
-              <span className="text-blue-500">Investasi Kecil</span>,
-              <br />
+              <span className="accent-text">Investasi Kecil</span>,<br />
               <span className="shimmer-text">Cuan Berlipat.</span>
             </h2>
           </div>
-
           <div className="grid md:grid-cols-3 gap-4 items-start">
             {[
               {
                 name: "Starter",
                 price: "149K",
                 period: "/bulan",
-                desc: "Digitalisasi dasar untuk operasional bisnis persewaan tunggal.",
+                desc: "Digitalisasi dasar untuk bisnis persewaan tunggal.",
+                highlight: false,
                 features: [
-                  "1 Akun Utama (Owner Only)",
-                  "Akses Full Dashboard Admin",
-                  "Website Booking (Subdomain)",
-                  "Manajemen 1-5 Unit/Resource",
-                  "Laporan Pendapatan Bulanan",
+                  "1 Akun Utama (Owner)",
+                  "Website Booking Subdomain",
+                  "Kelola 1–5 Unit",
+                  "Laporan Bulanan",
                   "Email & Chat Support",
                 ],
-                cta: "Pilih Starter",
-                highlight: false,
               },
               {
                 name: "Pro",
                 price: "299K",
                 period: "/bulan",
                 desc: "Fitur lengkap untuk bisnis dengan tim dan trafik tinggi.",
-                features: [
-                  "Akses Akun Staff/Karyawan",
-                  "Role-Based Access (Admin/Kasir)",
-                  "Unit & Resource Tanpa Batas",
-                  "Dashboard Status Live Real-time",
-                  "Sistem Harga Khusus Weekend",
-                  "WhatsApp Reminder Otomatis",
-                  "Prioritas Support 24/7",
-                ],
-                cta: "Pilih Pro",
                 highlight: true,
+                features: [
+                  "Akun Staff / Karyawan",
+                  "Role-Based Access",
+                  "Unit Tanpa Batas",
+                  "Dashboard Live Realtime",
+                  "Harga Weekend Khusus",
+                  "WA Reminder Otomatis",
+                  "Support 24/7",
+                ],
               },
               {
                 name: "Enterprise",
                 price: "Custom",
                 period: "/bulan",
-                desc: "Dukungan eksklusif untuk jaringan bisnis skala nasional.",
-                features: [
-                  "Custom Domain (bisnisanda.com)",
-                  "Hapus Logo & Branding Bookinaja",
-                  "Unlimited Multi-User Roles",
-                  "Analitik Data Konsumen Lanjutan",
-                  "SLA & Akun Manajer Khusus",
-                  "Setup Dibantu Tim Ahli",
-                ],
-                cta: "Hubungi Kami",
+                desc: "Dukungan eksklusif untuk jaringan skala nasional.",
                 highlight: false,
+                features: [
+                  "Custom Domain",
+                  "Hapus Branding Bookinaja",
+                  "Unlimited Multi-User",
+                  "Analitik Lanjutan",
+                  "SLA & Manajer Khusus",
+                  "Setup oleh Tim Ahli",
+                ],
               },
             ].map((plan, i) => (
               <div
                 key={i}
-                className={`rounded-[2.5rem] p-8 border relative overflow-hidden transition-all duration-500 bento-hover ${
-                  plan.highlight
-                    ? "bg-blue-600 border-blue-500 shadow-2xl shadow-blue-500/25 scale-105 text-white"
-                    : cardClass + " hover:border-white/20"
-                }`}
+                className={`rounded-[2rem] border p-8 relative overflow-hidden hover-lift ${plan.highlight ? "bg-blue-600 border-blue-500 shadow-xl shadow-blue-600/20 md:scale-[1.03]" : `${card} hover:border-blue-500/25`}`}
               >
                 {plan.highlight && (
-                  <div className="absolute top-6 right-6">
-                    <span className="text-[9px] font-black uppercase tracking-widest bg-white/20 px-3 py-1 rounded-full text-white">
-                      Terpopuler
-                    </span>
-                  </div>
+                  <span className="absolute top-5 right-5 text-[9px] font-black uppercase tracking-widest bg-white/20 px-3 py-1 rounded-full text-white">
+                    Terpopuler
+                  </span>
                 )}
                 <p
-                  className={`text-sm font-black uppercase tracking-widest mb-2 ${plan.highlight ? "text-blue-200" : mutedClass}`}
+                  className={`text-[11px] font-black uppercase tracking-widest mb-2 ${plan.highlight ? "text-blue-200" : muted}`}
                 >
                   {plan.name}
                 </p>
-                <div className="flex items-end gap-1 mb-4">
+                <div className="flex items-end gap-1 mb-3">
                   <span
-                    className={`text-5xl font-black ${sectionHeadingClass}`}
+                    className={`text-4xl font-black ${plan.highlight ? "text-white" : heading}`}
                   >
                     Rp {plan.price}
                   </span>
                   <span
-                    className={`text-sm font-bold mb-2 ${plan.highlight ? "text-blue-200" : mutedClass}`}
+                    className={`text-sm font-bold mb-1 ${plan.highlight ? "text-blue-200" : muted}`}
                   >
                     {plan.period}
                   </span>
                 </div>
                 <p
-                  className={`text-sm font-medium leading-relaxed mb-8 ${plan.highlight ? "text-blue-100" : mutedClass}`}
+                  className={`text-sm font-medium leading-relaxed mb-7 ${plan.highlight ? "text-blue-100" : muted}`}
                 >
                   {plan.desc}
                 </p>
-                <div className="space-y-3 mb-8">
+                <div className="space-y-2.5 mb-7">
                   {plan.features.map((f, j) => (
-                    <div key={j} className="flex items-center gap-3">
+                    <div key={j} className="flex items-center gap-2.5">
                       <CheckCircle2
-                        size={16}
+                        size={15}
                         className={
                           plan.highlight ? "text-white" : "text-blue-400"
                         }
                       />
                       <span
-                        className={`text-sm font-semibold ${plan.highlight ? "text-white" : isDark ? "text-white/60" : "text-slate-600"}`}
+                        className={`text-sm font-medium ${plan.highlight ? "text-white" : isDark ? "text-white/60" : "text-slate-600"}`}
                       >
                         {f}
                       </span>
@@ -1608,13 +1348,11 @@ export default function LandingPage() {
                 </div>
                 <Link href="/register">
                   <Button
-                    className={`w-full h-12 text-xs font-black uppercase tracking-[0.2em] rounded-2xl transition-all hover:scale-105 ${
-                      plan.highlight
-                        ? "bg-white text-blue-600 hover:bg-blue-50"
-                        : "bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:bg-blue-600 hover:text-white"
-                    }`}
+                    className={`w-full h-11 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl transition-colors duration-200 ${plan.highlight ? "bg-white text-blue-600 hover:bg-blue-50" : "bg-blue-600/15 border border-blue-500/25 text-blue-400 hover:bg-blue-600 hover:text-white hover:border-blue-600"}`}
                   >
-                    {plan.cta}
+                    {plan.name === "Enterprise"
+                      ? "Hubungi Kami"
+                      : `Pilih ${plan.name}`}
                   </Button>
                 </Link>
               </div>
@@ -1623,72 +1361,55 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          FINAL CTA
-      ══════════════════════════════════════ */}
-      <section
-        className="section-reveal relative z-10 w-full max-w-screen-xl mx-auto px-6 pb-24"
-        style={sectionRevealStyle(ctaReveal.visible, 0.06)}
-      >
-        <div
-          ref={ctaReveal.ref}
-          style={sectionRevealStyle(ctaReveal.visible, 0.06)}
-        >
+      {/* ════════════════════════════
+          CTA
+      ════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 pb-24">
+        <div ref={cta.ref} style={revealStyle(cta.visible)}>
           <div
-            className={`relative overflow-hidden rounded-[3rem] border px-8 py-24 md:py-36 text-center ${isDark ? "border-white/10 bg-slate-950" : "border-slate-200 bg-white"}`}
+            className={`relative overflow-hidden rounded-[2.5rem] border px-8 py-24 md:py-32 text-center ${isDark ? "bg-slate-950 border-white/[0.07]" : "bg-white border-slate-200"}`}
           >
             <div
-              className={`absolute inset-0 ${isDark ? "bg-[radial-gradient(ellipse_at_50%_100%,rgba(59,130,246,0.18)_0%,transparent_60%)]" : "bg-[radial-gradient(ellipse_at_50%_100%,rgba(59,130,246,0.08)_0%,transparent_60%)]"}`}
+              className={`absolute inset-0 pointer-events-none ${isDark ? "bg-[radial-gradient(ellipse_70%_50%_at_50%_110%,rgba(59,130,246,0.15),transparent)]" : "bg-[radial-gradient(ellipse_70%_50%_at_50%_110%,rgba(59,130,246,0.07),transparent)]"}`}
             />
-            <div
-              className={`absolute inset-0 ${isDark ? "bg-[radial-gradient(ellipse_at_50%_0%,rgba(59,130,246,0.05)_0%,transparent_60%)]" : "bg-[radial-gradient(ellipse_at_50%_0%,rgba(59,130,246,0.03)_0%,transparent_60%)]"}`}
-            />
-
-            <div className="relative z-10 max-w-4xl mx-auto space-y-10">
-              <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400">
-                <Rocket className="h-3 w-3" /> Mulai Hari Ini
-              </span>
+            <div className="relative z-10 max-w-3xl mx-auto space-y-8">
+              <SectionBadge
+                icon={<Rocket className="h-3 w-3" />}
+                label="Mulai Hari Ini"
+              />
               <h2
-                className={`text-5xl md:text-8xl font-black tracking-[-0.08em] leading-[0.82] uppercase heading-accent ${sectionHeadingClass}`}
+                className={`text-5xl md:text-7xl font-black tracking-[-0.06em] leading-[0.86] uppercase ${heading}`}
               >
-                <span className="text-blue-500">Bisnis Kamu</span>
+                <span className="accent-text">Bisnis Kamu</span>
                 <br />
                 <span className="shimmer-text">Bisa Autopilot.</span>
               </h2>
-              <p
-                className={`font-medium text-base max-w-lg mx-auto ${mutedClass}`}
-              >
+              <p className={`font-medium text-base max-w-md mx-auto ${muted}`}>
                 Bergabung dengan 2.400+ bisnis Indonesia yang sudah membuktikan.
                 Gratis 14 hari, tanpa kartu kredit.
               </p>
-
-              <div className="flex flex-col sm:flex-row justify-center items-center gap-6">
+              <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
                 <Link href="/register">
-                  <Button className="h-16 md:h-20 px-12 text-xs font-black uppercase tracking-[0.2em] rounded-2xl bg-blue-600 hover:bg-blue-500 hover:scale-105 active:scale-95 transition-all text-white border-0 shadow-2xl shadow-blue-500/30">
+                  <Button className="h-14 md:h-16 px-10 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl bg-blue-600 hover:bg-blue-500 text-white border-0 transition-colors duration-200 shadow-lg shadow-blue-600/20">
                     Daftar Gratis Sekarang{" "}
                     <ArrowUpRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
                 <Link
                   href="/pricing"
-                  className={`transition-colors text-[10px] font-black uppercase tracking-[0.4em] underline underline-offset-8 decoration-blue-500/50 ${isDark ? "text-white/40 hover:text-white" : "text-slate-500 hover:text-slate-950"}`}
+                  className={`text-[10px] font-black uppercase tracking-[0.3em] underline underline-offset-8 decoration-blue-500/40 transition-colors duration-200 ${muted} hover:text-blue-500`}
                 >
                   Lihat Semua Paket →
                 </Link>
               </div>
-
-              {/* Feature bullets */}
-              <div className="flex flex-wrap justify-center items-center gap-6 pt-4">
+              <div className="flex flex-wrap justify-center gap-6 pt-2">
                 {[
                   "✓ Gratis 14 hari",
                   "✓ Tanpa kartu kredit",
                   "✓ Setup 5 menit",
                   "✓ Batalkan kapanpun",
                 ].map((f) => (
-                  <span
-                    key={f}
-                    className={`text-xs font-semibold ${isDark ? "text-white/30" : "text-slate-500"}`}
-                  >
+                  <span key={f} className={`text-xs font-medium ${muted}`}>
                     {f}
                   </span>
                 ))}
@@ -1702,7 +1423,24 @@ export default function LandingPage() {
 }
 
 /* ─────────────────────────────────────────────
-   (unused imports kept for compatibility)
+   SHARED: Section Badge
+───────────────────────────────────────────── */
+function SectionBadge({
+  icon,
+  label,
+}: {
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/[0.07] px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.28em] text-blue-500">
+      {icon} {label}
+    </span>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   Rocket icon (inline SVG)
 ───────────────────────────────────────────── */
 function Rocket({ className, size }: { className?: string; size?: number }) {
   return (
