@@ -1,8 +1,23 @@
 // src/app/(dashboard)/[tenant]/layout.tsx
 import { TenantProvider } from "@/context/tenant-context";
+import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+const RESERVED_TENANT_SLUGS = new Set([
+  "",
+  "www",
+  "api",
+  "admin",
+  "login",
+  "register",
+  "public",
+  "me",
+  "dashboard",
+  "site.webmanifest",
+  "favicon.ico",
+]);
 
 export default async function TenantRootLayout({
   children,
@@ -14,6 +29,14 @@ export default async function TenantRootLayout({
   // 2. UNWRAP si params pake await
   const resolvedParams = await params;
   const tenantSlug = resolvedParams.tenant;
+
+  if (
+    !tenantSlug ||
+    tenantSlug.includes(".") ||
+    RESERVED_TENANT_SLUGS.has(tenantSlug.toLowerCase())
+  ) {
+    notFound();
+  }
 
   let initialProfile = null;
   try {
