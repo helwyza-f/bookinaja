@@ -28,7 +28,7 @@ func NewRouter(cfg routecfg.Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine 
 		c.JSON(200, gin.H{"message": "BATAM ENGINE ONLINE"})
 	})
 
-	r.POST("/api/webhooks/midtrans", cfg.BillingHandler.MidtransWebhook)
+	r.POST("/api/webhooks/midtrans", cfg.MidtransHandler.Webhook)
 	platformrouter.RegisterPlatformRoutes(r, cfg)
 
 	v1 := r.Group("/api/v1")
