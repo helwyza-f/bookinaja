@@ -113,17 +113,14 @@ func (s *Scheduler) sendReminder(job sessionJob, minutes int) error {
 	if err != nil {
 		tenantSlug = "tenant"
 	}
-	token := safeCustomerSessionToken(job.CustomerID, job.TenantID)
 	msg := fmt.Sprintf(
-		"Halo %s, sesi booking kamu untuk %s mulai %d menit lagi pada %s.\n\nBuka detail booking di https://%s.bookinaja.com:\nhttps://%s.bookinaja.com/me/bookings/%s?token=%s",
+		"Halo %s, sesi booking kamu untuk %s mulai %d menit lagi pada %s.\n\nBuka detail booking di https://%s.bookinaja.com:\n%s",
 		job.CustomerName,
 		job.ResourceName,
 		minutes,
 		job.StartTime.In(time.Local).Format("02 Jan 2006 15:04"),
 		tenantSlug,
-		tenantSlug,
-		job.ID,
-		token,
+		bookingVerifyURL(tenantSlug, job.AccessToken),
 	)
 	_, sendErr := fonnte.SendMessage(job.CustomerPhone, msg)
 	return sendErr
@@ -134,15 +131,12 @@ func (s *Scheduler) sendSessionStarted(job sessionJob) error {
 	if err != nil {
 		tenantSlug = "tenant"
 	}
-	token := safeCustomerSessionToken(job.CustomerID, job.TenantID)
 	msg := fmt.Sprintf(
-		"Halo %s, sesi booking kamu untuk %s sekarang sudah aktif.\n\nBuka detail booking di %s.bookinaja.com:\nhttps://%s.bookinaja.com/me/bookings/%s?token=%s",
+		"Halo %s, sesi booking kamu untuk %s sekarang sudah aktif.\n\nBuka detail booking di %s.bookinaja.com:\n%s",
 		job.CustomerName,
 		job.ResourceName,
 		tenantSlug,
-		tenantSlug,
-		job.ID,
-		token,
+		bookingVerifyURL(tenantSlug, job.AccessToken),
 	)
 	_, sendErr := fonnte.SendMessage(job.CustomerPhone, msg)
 	return sendErr
@@ -154,12 +148,4 @@ func mustParseUUID(v string) uuid.UUID {
 		return uuid.Nil
 	}
 	return id
-}
-
-func safeCustomerSessionToken(customerID, tenantID string) string {
-	token, err := generateCustomerSessionToken(customerID, tenantID)
-	if err != nil {
-		return ""
-	}
-	return token
 }

@@ -198,6 +198,7 @@ func (r *Repository) GetBookingNotificationContext(ctx context.Context, exec sql
 			b.id AS booking_id,
 			b.tenant_id,
 			b.customer_id,
+			b.access_token,
 			c.name AS customer_name,
 			c.phone AS customer_phone,
 			t.slug AS tenant_slug,

@@ -1,6 +1,5 @@
 "use client";
 
-import { setCookie } from "cookies-next";
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Script from "next/script";
@@ -108,12 +107,7 @@ export default function CustomerBookingDetail() {
     if (!params.id) return;
     const token = searchParams.get("token");
     if (token) {
-      setCookie("customer_auth", token, {
-        maxAge: 60 * 60 * 24 * 7,
-        path: "/",
-      });
-      const cleanUrl = `${window.location.pathname}${window.location.hash}`;
-      router.replace(cleanUrl);
+      router.replace(`/verify?code=${encodeURIComponent(token)}`);
       return;
     }
     fetchDetail();

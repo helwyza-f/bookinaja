@@ -76,6 +76,7 @@ type BookingNotificationContext struct {
 	BookingID     uuid.UUID `db:"booking_id"`
 	TenantID      uuid.UUID `db:"tenant_id"`
 	CustomerID    uuid.UUID `db:"customer_id"`
+	AccessToken   uuid.UUID `db:"access_token"`
 	CustomerName  string    `db:"customer_name"`
 	CustomerPhone string    `db:"customer_phone"`
 	TenantSlug    string    `db:"tenant_slug"`
