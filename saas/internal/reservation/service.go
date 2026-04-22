@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/helwiza/saas/internal/customer"
 	"github.com/helwiza/saas/internal/fnb"
+	"github.com/helwiza/saas/internal/platform/env"
 	"github.com/helwiza/saas/internal/platform/fonnte"
 	"github.com/helwiza/saas/internal/platform/security"
 	"github.com/helwiza/saas/internal/resource"
@@ -528,16 +530,15 @@ func (s *Service) SendBookingConfirmation(ctx context.Context, booking *Booking,
 
 	detailURL := bookingVerifyURL(tenantSlug, booking.AccessToken.String())
 	msg := waBookingCreatedMessage(cust.Name, booking.ID.String(), booking.StartTime, booking.EndTime, booking.DepositAmount, booking.BalanceDue, detailURL)
+	if strings.ToLower(strings.TrimSpace(os.Getenv("GIN_MODE"))) != "release" {
+		fmt.Printf("[WA BOOKING] event=booking_created tenant=%s booking=%s phone=%s message_len=%d url=%s\n", tenantSlug, booking.ID.String(), cust.Phone, len(msg), detailURL)
+	}
 	_, _ = fonnte.SendMessage(cust.Phone, msg)
 	return nil
 }
 
 func bookingVerifyURL(tenantSlug, accessToken string) string {
-	slug := strings.TrimSpace(tenantSlug)
-	if slug == "" {
-		slug = "tenant"
-	}
-	return fmt.Sprintf("https://%s.bookinaja.com/verify?code=%s", slug, accessToken)
+	return env.TenantURL(tenantSlug, fmt.Sprintf("/verify?code=%s", accessToken))
 }
 
 func generateCustomerSessionToken(customerID, tenantID string) (string, error) {

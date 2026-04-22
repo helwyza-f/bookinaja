@@ -1,4 +1,4 @@
-package http
+package upload
 
 import (
 	"net/http"
@@ -23,7 +23,6 @@ func HandleSingleUpload(c *gin.Context, folderPrefix string) {
 		return
 	}
 
-	// Simpan di path: {folderPrefix}/{tenantID}/uuid-name.jpg
 	url, err := s3.UploadFile(c.Request.Context(), file, folderPrefix+"/"+tenantID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal upload ke storage"})

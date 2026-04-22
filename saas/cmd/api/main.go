@@ -24,6 +24,7 @@ import (
 	// Platform & Infrastructure
 	"github.com/helwiza/saas/internal/platform/database"
 	"github.com/helwiza/saas/internal/platform/http"
+	"github.com/helwiza/saas/internal/platform/http/routecfg"
 	"github.com/joho/godotenv"
 )
 
@@ -106,7 +107,7 @@ func main() {
 	platformHdl := platformadmin.NewHandler(platformSvc, platformRepo)
 
 	// 5. Setup Router Config
-	routerConfig := http.Config{
+	routerConfig := routecfg.Config{
 		TenantHandler:      tenantHdl,
 		ResourceHandler:    resourceHdl,
 		ReservationHandler: reservationHdl,
