@@ -1,6 +1,4 @@
 "use client";
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Script from "next/script";
@@ -497,9 +495,7 @@ export default function ResourceBookingDetail() {
                   className="h-14 w-full justify-start rounded-xl bg-slate-50/50 dark:bg-white/5 border-none font-black italic px-5 text-sm shadow-inner transition-all hover:bg-slate-100"
                 >
                   <CalendarIcon className="mr-2 h-4 w-4 text-blue-600" />
-                  {date
-                    ? formattedSelectedDate
-                    : "PILIH TANGGAL"}
+                  {date ? formattedSelectedDate : "PILIH TANGGAL"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent
@@ -531,43 +527,44 @@ export default function ResourceBookingDetail() {
                 ) : (
                   <div className="grid grid-cols-4 gap-1.5 p-2.5 bg-slate-50/30 dark:bg-white/[0.02] rounded-[1.5rem] border border-slate-100 dark:border-white/5 animate-in fade-in duration-500">
                     {availableSlots.map((time) => {
-                  const { isPast, isBusy } = ((timeStr: string) => {
-                    const [h, m] = timeStr.split(":").map(Number);
-                    const totalMin = h * 60 + m;
-                    let past = false;
-                    if (date && isSameDay(date, wibNow)) {
-                      if (
-                        totalMin <=
-                        wibNow.getHours() * 60 + wibNow.getMinutes()
-                      )
-                        past = true;
-                    }
-                    const busy = busySlots.some(
-                      (s) => totalMin >= s.start_min && totalMin < s.end_min,
-                    );
-                    return { isPast: past, isBusy: busy };
-                  })(time);
+                      const { isPast, isBusy } = ((timeStr: string) => {
+                        const [h, m] = timeStr.split(":").map(Number);
+                        const totalMin = h * 60 + m;
+                        let past = false;
+                        if (date && isSameDay(date, wibNow)) {
+                          if (
+                            totalMin <=
+                            wibNow.getHours() * 60 + wibNow.getMinutes()
+                          )
+                            past = true;
+                        }
+                        const busy = busySlots.some(
+                          (s) =>
+                            totalMin >= s.start_min && totalMin < s.end_min,
+                        );
+                        return { isPast: past, isBusy: busy };
+                      })(time);
 
-                  const isSel = selectedTime === time;
-                  return (
-                    <button
-                      key={time}
-                      disabled={isPast || isBusy}
-                      onClick={() => setSelectedTime(time)}
-                      className={cn(
-                        "h-10 rounded-lg border-2 font-black transition-all text-[11px] uppercase italic relative overflow-hidden",
-                        isSel
-                          ? "border-blue-600 bg-blue-600 text-white shadow-lg"
-                          : isPast
-                            ? "opacity-10 cursor-not-allowed grayscale"
-                            : isBusy
-                              ? "border-red-500/20 bg-red-50/30 text-red-500/30 cursor-not-allowed"
-                              : "bg-white dark:bg-[#111] border-slate-100 dark:border-white/5 text-slate-900 dark:text-white",
-                      )}
-                    >
-                      {time}
-                    </button>
-                  );
+                      const isSel = selectedTime === time;
+                      return (
+                        <button
+                          key={time}
+                          disabled={isPast || isBusy}
+                          onClick={() => setSelectedTime(time)}
+                          className={cn(
+                            "h-10 rounded-lg border-2 font-black transition-all text-[11px] uppercase italic relative overflow-hidden",
+                            isSel
+                              ? "border-blue-600 bg-blue-600 text-white shadow-lg"
+                              : isPast
+                                ? "opacity-10 cursor-not-allowed grayscale"
+                                : isBusy
+                                  ? "border-red-500/20 bg-red-50/30 text-red-500/30 cursor-not-allowed"
+                                  : "bg-white dark:bg-[#111] border-slate-100 dark:border-white/5 text-slate-900 dark:text-white",
+                          )}
+                        >
+                          {time}
+                        </button>
+                      );
                     })}
                   </div>
                 )}
@@ -798,7 +795,7 @@ export default function ResourceBookingDetail() {
           <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
             <div className="space-y-2">
               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest italic opacity-60">
-              Estimasi Total Booking
+                Estimasi Total Booking
               </span>
               <div className="flex flex-wrap items-end gap-2">
                 <div className="flex items-baseline gap-0.5">
@@ -819,7 +816,8 @@ export default function ResourceBookingDetail() {
                 </div>
               </div>
               <p className="max-w-md text-[10px] font-bold text-slate-500 dark:text-slate-400 italic leading-relaxed">
-                Customer bayar DP dulu via Midtrans. Sisa tagihan tetap tampil di tiket dan bisa dilunasi setelah sesi selesai.
+                Customer bayar DP dulu via Midtrans. Sisa tagihan tetap tampil
+                di tiket dan bisa dilunasi setelah sesi selesai.
               </p>
             </div>
             <Button
@@ -836,7 +834,9 @@ export default function ResourceBookingDetail() {
                 <Loader2 className="animate-spin size-5" />
               ) : (
                 <>
-                  {estimateDeposit() > 0 ? "SIMPAN & BAYAR DP" : "SIMPAN BOOKING"}{" "}
+                  {estimateDeposit() > 0
+                    ? "SIMPAN & BAYAR DP"
+                    : "SIMPAN BOOKING"}{" "}
                   <ChevronRight strokeWidth={4} size={18} />
                 </>
               )}
