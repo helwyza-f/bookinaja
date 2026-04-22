@@ -39,6 +39,7 @@ jobs:
           NEXT_PUBLIC_API_URL: https://bookinaja.com/api/v1
         run: |
           cd saas-app
+          rm -rf .next
           npm install
           npm run build
 
