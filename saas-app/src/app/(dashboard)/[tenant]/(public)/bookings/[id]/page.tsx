@@ -1,4 +1,6 @@
 "use client";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Script from "next/script";

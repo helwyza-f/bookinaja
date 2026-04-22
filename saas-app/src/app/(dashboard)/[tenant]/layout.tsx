@@ -1,6 +1,9 @@
 // src/app/(dashboard)/[tenant]/layout.tsx
 import { TenantProvider } from "@/context/tenant-context";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function TenantRootLayout({
   children,
   params,
@@ -16,7 +19,7 @@ export default async function TenantRootLayout({
   try {
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/public/profile?slug=${tenantSlug}`,
-      { next: { revalidate: 3600 } },
+      { cache: "no-store" },
     );
 
     if (res.ok) {
