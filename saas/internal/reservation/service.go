@@ -253,14 +253,33 @@ func (s *Service) SettleCash(ctx context.Context, id, tenantID string) error {
 		return nil
 	}
 
-	token, err := generateCustomerSessionToken(detail.CustomerID.String(), detail.TenantID.String())
-	if err != nil {
-		return nil
-	}
-
-	msg := waPaymentReceivedMessage(detail.CustomerName, "pelunasan cash", detail.ID.String(), detail.ResourceName, detail.GrandTotal, detail.DepositAmount, detail.PaidAmount, detail.BalanceDue, bookingDetailURL(tenantSlug, detail.ID.String(), token))
+	msg := waPaymentReceivedMessage(detail.CustomerName, "pelunasan cash", detail.ID.String(), detail.ResourceName, detail.GrandTotal, detail.DepositAmount, detail.PaidAmount, detail.BalanceDue, bookingVerifyURL(tenantSlug, detail.AccessToken.String()))
 	_, _ = fonnte.SendMessage(detail.CustomerPhone, msg)
 	return nil
+}
+
+func (s *Service) ExchangeAccessToken(ctx context.Context, accessToken string) (*BookingDetail, *customer.Customer, string, error) {
+	tokenUUID, err := uuid.Parse(accessToken)
+	if err != nil {
+		return nil, nil, "", errors.New("LINK SUDAH KADALUARSA ATAU TIDAK VALID")
+	}
+
+	booking, err := s.repo.GetByToken(ctx, tokenUUID)
+	if err != nil || booking == nil {
+		return nil, nil, "", errors.New("LINK SUDAH KADALUARSA ATAU TIDAK VALID")
+	}
+
+	cust, err := s.customerService.GetDetail(ctx, booking.CustomerID.String(), booking.TenantID.String())
+	if err != nil || cust == nil {
+		return nil, nil, "", errors.New("DATA PELANGGAN TIDAK DITEMUKAN")
+	}
+
+	sessionToken, err := generateCustomerSessionToken(cust.ID.String(), cust.TenantID.String())
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("GAGAL MENUKAR AKSES: %w", err)
+	}
+
+	return booking, cust, sessionToken, nil
 }
 
 // AddAddonOrder menambahkan layanan tambahan (Add-on on-the-spot)
@@ -502,23 +521,23 @@ func (s *Service) SyncSessionState(ctx context.Context, bookingID, tenantID stri
 	return booking, nil
 }
 
-func (s *Service) SendBookingConfirmation(ctx context.Context, booking *Booking, cust *customer.Customer, tenantSlug, sessionToken string) error {
+func (s *Service) SendBookingConfirmation(ctx context.Context, booking *Booking, cust *customer.Customer, tenantSlug string) error {
 	if cust == nil {
 		return nil
 	}
 
-	detailURL := bookingDetailURL(tenantSlug, booking.ID.String(), sessionToken)
+	detailURL := bookingVerifyURL(tenantSlug, booking.AccessToken.String())
 	msg := waBookingCreatedMessage(cust.Name, booking.ID.String(), booking.StartTime, booking.EndTime, booking.DepositAmount, booking.BalanceDue, detailURL)
 	_, _ = fonnte.SendMessage(cust.Phone, msg)
 	return nil
 }
 
-func bookingDetailURL(tenantSlug, bookingID, token string) string {
+func bookingVerifyURL(tenantSlug, accessToken string) string {
 	slug := strings.TrimSpace(tenantSlug)
 	if slug == "" {
 		slug = "tenant"
 	}
-	return fmt.Sprintf("https://%s.bookinaja.com/me/bookings/%s?token=%s", slug, bookingID, token)
+	return fmt.Sprintf("https://%s.bookinaja.com/verify?code=%s", slug, accessToken)
 }
 
 func generateCustomerSessionToken(customerID, tenantID string) (string, error) {
@@ -544,7 +563,7 @@ func (s *Service) sendSessionStarted(ctx context.Context, booking *BookingDetail
 		return nil
 	}
 	tenantSlug, _ := s.repo.GetTenantSlug(ctx, booking.TenantID)
-	msg := waSessionStartedMessage(cust, booking.ResourceName, bookingDetailURL(tenantSlug, booking.ID.String(), safeCustomerSessionToken(booking.CustomerID.String(), booking.TenantID.String())))
+	msg := waSessionStartedMessage(cust, booking.ResourceName, bookingVerifyURL(tenantSlug, booking.AccessToken.String()))
 	_, _ = fonnte.SendMessage(phone, msg)
 	return nil
 }
@@ -562,13 +581,13 @@ func (s *Service) sendSessionReminders(ctx context.Context, booking *BookingDeta
 	tenantSlug, _ := s.repo.GetTenantSlug(ctx, booking.TenantID)
 
 	if due <= 20*time.Minute && due > 19*time.Minute && booking.Reminder20MSentAt == nil {
-		msg := waSessionReminderMessage(booking.CustomerName, booking.ResourceName, 20, booking.StartTime, bookingDetailURL(tenantSlug, booking.ID.String(), safeCustomerSessionToken(booking.CustomerID.String(), booking.TenantID.String())))
+		msg := waSessionReminderMessage(booking.CustomerName, booking.ResourceName, 20, booking.StartTime, bookingVerifyURL(tenantSlug, booking.AccessToken.String()))
 		_, _ = fonnte.SendMessage(phone, msg)
 		_ = s.repo.MarkReminderSent(ctx, booking.ID, booking.TenantID, "reminder_20m_sent_at")
 	}
 
 	if due <= 5*time.Minute && due > 4*time.Minute && booking.Reminder5MSentAt == nil {
-		msg := waSessionReminderMessage(booking.CustomerName, booking.ResourceName, 5, booking.StartTime, bookingDetailURL(tenantSlug, booking.ID.String(), safeCustomerSessionToken(booking.CustomerID.String(), booking.TenantID.String())))
+		msg := waSessionReminderMessage(booking.CustomerName, booking.ResourceName, 5, booking.StartTime, bookingVerifyURL(tenantSlug, booking.AccessToken.String()))
 		_, _ = fonnte.SendMessage(phone, msg)
 		_ = s.repo.MarkReminderSent(ctx, booking.ID, booking.TenantID, "reminder_5m_sent_at")
 	}

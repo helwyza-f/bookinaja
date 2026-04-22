@@ -40,29 +40,43 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	// --- AUTO GENERATE JWT UNTUK SILENT LOGIN ---
-	tokenString, err := generateCustomerSessionToken(cust.ID.String(), cust.TenantID.String())
-	if err != nil {
-		// Tetap biarkan booking berhasil, tapi log error JWT-nya
-		c.JSON(http.StatusCreated, gin.H{
-			"message":      "BOOKING BERHASIL (Gagal login otomatis)",
-			"booking_id":   b.ID,
-			"redirect_url": "/me/bookings/" + b.ID.String(),
-		})
+	tenantSlugVal, _ := c.Get("tenantSlug")
+	tenantSlug, _ := tenantSlugVal.(string)
+	redirectURL := bookingVerifyURL(tenantSlug, b.AccessToken.String())
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message":      "BOOKING BERHASIL",
+		"booking_id":   b.ID,
+		"booking":      b,
+		"customer":     cust,
+		"redirect_url": redirectURL,
+	})
+
+	_ = h.service.SendBookingConfirmation(c.Request.Context(), b, cust, tenantSlug)
+}
+
+func (h *Handler) ExchangeAccessToken(c *gin.Context) {
+	var req struct {
+		Code string `json:"code" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "KODE AKSES TIDAK VALID"})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"message":        "BOOKING BERHASIL",
-		"booking_id":     b.ID,
-		"booking":        b,
-		"customer_token": tokenString,
-		"redirect_url":   "/me/bookings/" + b.ID.String(),
-	})
+	booking, cust, sessionToken, err := h.service.ExchangeAccessToken(c.Request.Context(), req.Code)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
 
-	tenantSlugVal, _ := c.Get("tenantSlug")
-	tenantSlug, _ := tenantSlugVal.(string)
-	_ = h.service.SendBookingConfirmation(c.Request.Context(), b, cust, tenantSlug, tokenString)
+	c.JSON(http.StatusOK, gin.H{
+		"message":        "AKSES BERHASIL DITUKAR",
+		"booking_id":     booking.ID,
+		"redirect_url":   "/me/bookings/" + booking.ID.String(),
+		"customer_token": sessionToken,
+		"customer":      cust,
+	})
 }
 
 // Availability mengecek slot waktu yang sudah terisi (Busy Slots)

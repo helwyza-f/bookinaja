@@ -17,10 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/helwiza/saas/internal/platform/fonnte"
-	"github.com/helwiza/saas/internal/platform/security"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -322,12 +320,7 @@ func (s *Service) sendBookingPaymentWhatsApp(ctx context.Context, info BookingNo
 		return nil
 	}
 
-	token, err := generateCustomerSessionToken(info.CustomerID.String(), info.TenantID.String())
-	if err != nil {
-		return err
-	}
-
-	url := bookingDetailURL(info.TenantSlug, info.BookingID.String(), token)
+	url := bookingDetailURL(info.TenantSlug, info.AccessToken.String())
 	paymentNote := "DP booking kamu sudah diterima."
 	if mode == "settlement" {
 		paymentNote = "Pelunasan booking kamu sudah diterima."
@@ -561,21 +554,12 @@ func addInterval(start time.Time, interval string) time.Time {
 	}
 }
 
-func bookingDetailURL(tenantSlug, bookingID, token string) string {
+func bookingDetailURL(tenantSlug, accessToken string) string {
 	slug := strings.TrimSpace(tenantSlug)
 	if slug == "" {
 		slug = "tenant"
 	}
-	return fmt.Sprintf("https://%s.bookinaja.com/me/bookings/%s?token=%s", slug, bookingID, token)
-}
-
-func generateCustomerSessionToken(customerID, tenantID string) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"customer_id": customerID,
-		"tenant_id":   tenantID,
-		"exp":         time.Now().Add(time.Hour * 72).Unix(),
-	})
-	return token.SignedString([]byte(security.JWTSecret()))
+	return fmt.Sprintf("https://%s.bookinaja.com/verify?code=%s", slug, accessToken)
 }
 
 func formatMoney(v float64) string {

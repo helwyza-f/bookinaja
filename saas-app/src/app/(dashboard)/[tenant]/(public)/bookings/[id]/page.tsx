@@ -1,5 +1,4 @@
 "use client";
-import { setCookie } from "cookies-next";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Script from "next/script";
@@ -332,12 +331,10 @@ export default function ResourceBookingDetail() {
 
       const res = await api.post("/public/bookings", payload);
       const booking = res.data.booking || {};
-      if (res.data.customer_token)
-        setCookie("customer_auth", res.data.customer_token, {
-          maxAge: 60 * 60 * 24 * 7,
-          path: "/",
-        });
       syncTenantCookies(params.tenant as string, resource?.tenant_id);
+      const verifyRedirect =
+        res.data.redirect_url ||
+        `/verify?code=${encodeURIComponent(booking.access_token || "")}`;
       if ((booking.deposit_amount || 0) > 0) {
         const checkout = await api.post(
           `/public/bookings/${res.data.booking_id}/checkout`,
@@ -350,19 +347,19 @@ export default function ResourceBookingDetail() {
         snap.pay(checkout.data.snap_token, {
           onSuccess: () => {
             toast.success("DP berhasil dibayar");
-            router.push(res.data.redirect_url);
+            router.push(verifyRedirect);
           },
           onPending: () => {
             toast.message("Pembayaran DP tertunda");
-            router.push(res.data.redirect_url);
+            router.push(verifyRedirect);
           },
           onError: () => toast.error("Pembayaran DP gagal"),
-          onClose: () => router.push(res.data.redirect_url),
+          onClose: () => router.push(verifyRedirect),
         });
         return;
       }
       toast.success("Boking Berhasil Dibuat!");
-      setTimeout(() => router.push(res.data.redirect_url), 800);
+      setTimeout(() => router.push(verifyRedirect), 800);
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Gagal membuat reservasi");
     } finally {
