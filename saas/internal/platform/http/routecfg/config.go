@@ -5,6 +5,7 @@ import (
 	"github.com/helwiza/saas/internal/billing"
 	"github.com/helwiza/saas/internal/customer"
 	"github.com/helwiza/saas/internal/fnb"
+	midtranssvc "github.com/helwiza/saas/internal/platform/midtrans"
 	"github.com/helwiza/saas/internal/platformadmin"
 	"github.com/helwiza/saas/internal/reservation"
 	"github.com/helwiza/saas/internal/resource"
@@ -20,4 +21,5 @@ type Config struct {
 	FnbHandler         *fnb.Handler
 	BillingHandler     *billing.Handler
 	PlatformHandler    *platformadmin.Handler
+	MidtransHandler    *midtranssvc.Handler
 }

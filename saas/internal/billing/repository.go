@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/helwiza/saas/internal/platform/midtrans"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -29,10 +30,10 @@ func (r *Repository) CreateOrder(ctx context.Context, exec sqlx.ExtContext, orde
 	return err
 }
 
-func (r *Repository) UpdateOrderFromMidtrans(ctx context.Context, exec sqlx.ExtContext, orderID string, status string, transactionID *string, paymentType *string, raw map[string]any) (BillingOrder, error) {
+func (r *Repository) UpdateOrderFromMidtrans(ctx context.Context, exec sqlx.ExtContext, orderID string, status string, transactionID *string, paymentType *string, raw map[string]any) (midtrans.SubscriptionOrder, error) {
 	rawBytes, _ := json.Marshal(raw)
 
-	var updated BillingOrder
+	var updated midtrans.SubscriptionOrder
 	err := sqlx.GetContext(ctx, exec, &updated, `
 		UPDATE billing_orders
 		SET status = $2,
@@ -191,8 +192,8 @@ func (r *Repository) UpdateBookingSettlementFromMidtrans(ctx context.Context, ex
 	return err
 }
 
-func (r *Repository) GetBookingNotificationContext(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID) (BookingNotificationContext, error) {
-	var ctxData BookingNotificationContext
+func (r *Repository) GetBookingNotificationContext(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID) (midtrans.BookingNotificationContext, error) {
+	var ctxData midtrans.BookingNotificationContext
 	err := sqlx.GetContext(ctx, exec, &ctxData, `
 		SELECT
 			b.id AS booking_id,
@@ -220,7 +221,7 @@ func (r *Repository) GetBookingNotificationContext(ctx context.Context, exec sql
 	return ctxData, err
 }
 
-func (r *Repository) CreateMidtransNotificationLog(ctx context.Context, exec sqlx.ExtContext, log MidtransNotificationLog) error {
+func (r *Repository) CreateMidtransNotificationLog(ctx context.Context, exec sqlx.ExtContext, log midtrans.MidtransNotificationLog) error {
 	_, err := exec.ExecContext(ctx, `
 		INSERT INTO midtrans_notification_logs (
 			tenant_id, booking_id, order_id, transaction_id, transaction_status, fraud_status,
@@ -236,7 +237,7 @@ func (r *Repository) CreateMidtransNotificationLog(ctx context.Context, exec sql
 	return err
 }
 
-func (r *Repository) CreateLedgerEntry(ctx context.Context, exec sqlx.ExtContext, entry TenantLedgerEntry) error {
+func (r *Repository) CreateLedgerEntry(ctx context.Context, exec sqlx.ExtContext, entry midtrans.TenantLedgerEntry) error {
 	_, err := exec.ExecContext(ctx, `
 		INSERT INTO tenant_ledger_entries (
 			tenant_id, source_type, source_id, source_ref, midtrans_order_id, midtrans_transaction_id,

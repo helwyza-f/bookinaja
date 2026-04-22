@@ -167,18 +167,3 @@ func (h *Handler) BookingCheckout(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
-// POST /api/webhooks/midtrans (no auth; signature verified)
-func (h *Handler) MidtransWebhook(c *gin.Context) {
-	var payload map[string]any
-	if err := c.ShouldBindJSON(&payload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "payload invalid"})
-		return
-	}
-
-	if err := h.svc.HandleMidtransNotification(c.Request.Context(), payload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"ok": true})
-}

@@ -25,6 +25,7 @@ import (
 	"github.com/helwiza/saas/internal/platform/database"
 	"github.com/helwiza/saas/internal/platform/http"
 	"github.com/helwiza/saas/internal/platform/http/routecfg"
+	midtranssvc "github.com/helwiza/saas/internal/platform/midtrans"
 	"github.com/joho/godotenv"
 )
 
@@ -105,6 +106,8 @@ func main() {
 	fnbHdl := fnb.NewHandler(fnbSvc)
 	billingHdl := billing.NewHandler(billingSvc)
 	platformHdl := platformadmin.NewHandler(platformSvc, platformRepo)
+	midtransSvc := midtranssvc.NewService(db, billingRepo)
+	midtransHdl := midtranssvc.NewHandler(midtransSvc)
 
 	// 5. Setup Router Config
 	routerConfig := routecfg.Config{
@@ -116,6 +119,7 @@ func main() {
 		FnbHandler:         fnbHdl,
 		BillingHandler:     billingHdl,
 		PlatformHandler:    platformHdl,
+		MidtransHandler:    midtransHdl,
 	}
 
 	r := http.NewRouter(routerConfig, db, rdb)

@@ -3,10 +3,7 @@ package billing
 import (
 	"bytes"
 	"context"
-	"crypto/sha512"
 	"database/sql"
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/helwiza/saas/internal/platform/env"
 	"github.com/helwiza/saas/internal/platform/fonnte"
+	"github.com/helwiza/saas/internal/platform/midtrans"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -85,233 +83,6 @@ func (s *Service) Checkout(ctx context.Context, tenantID uuid.UUID, tenantSlug s
 	}, nil
 }
 
-func (s *Service) HandleMidtransNotification(ctx context.Context, payload map[string]any) error {
-	orderID, _ := payload["order_id"].(string)
-	statusCode := fmt.Sprintf("%v", payload["status_code"])
-	grossAmount := fmt.Sprintf("%v", payload["gross_amount"])
-	signatureKey, _ := payload["signature_key"].(string)
-
-	if orderID == "" || statusCode == "" || grossAmount == "" || signatureKey == "" {
-		return errors.New("invalid midtrans payload")
-	}
-
-	if !verifyMidtransSignature(orderID, statusCode, grossAmount, signatureKey, os.Getenv("MIDTRANS_SERVER_KEY")) {
-		return errors.New("invalid midtrans signature")
-	}
-
-	transactionStatus := strings.ToLower(fmt.Sprintf("%v", payload["transaction_status"]))
-	fraudStatus := strings.ToLower(fmt.Sprintf("%v", payload["fraud_status"]))
-	paymentType := strings.TrimSpace(fmt.Sprintf("%v", payload["payment_type"]))
-	transactionID := strings.TrimSpace(fmt.Sprintf("%v", payload["transaction_id"]))
-	if paymentType == "<nil>" {
-		paymentType = ""
-	}
-	if transactionID == "<nil>" {
-		transactionID = ""
-	}
-
-	newStatus := mapMidtransStatus(transactionStatus, fraudStatus)
-
-	var txIDPtr *string
-	if transactionID != "" && transactionID != "<nil>" {
-		txIDPtr = &transactionID
-	}
-	var paymentTypePtr *string
-	if paymentType != "" && paymentType != "<nil>" {
-		paymentTypePtr = &paymentType
-	}
-
-	var notify *BookingNotificationContext
-	var notifyMode string
-	isFinalStatus := transactionStatus == "settlement" || transactionStatus == "capture"
-	err := s.withTx(ctx, func(tx *sqlx.Tx) error {
-		receivedAt := time.Now().UTC()
-		logCommon := MidtransNotificationLog{
-			OrderID:           orderID,
-			TransactionID:     transactionID,
-			TransactionStatus: transactionStatus,
-			FraudStatus:       fraudStatus,
-			PaymentType:       paymentType,
-			GrossAmount:       parseMidtransAmount(grossAmount),
-			SignatureValid:    true,
-			ProcessingStatus:  "received",
-			RawPayload:        mustJSON(payload),
-			ReceivedAt:        receivedAt,
-		}
-
-		if strings.HasPrefix(orderID, "sub-") {
-			updated, err := s.repo.UpdateOrderFromMidtrans(ctx, tx, orderID, newStatus, txIDPtr, paymentTypePtr, payload)
-			if err != nil {
-				logCommon.ProcessingStatus = "failed"
-				logCommon.ErrorMessage = err.Error()
-				return s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon)
-			}
-			logCommon.ProcessingStatus = "processed"
-			logCommon.TenantID = &updated.TenantID
-			logCommon.GrossAmount = updated.Amount
-			if err := s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon); err != nil {
-				return err
-			}
-			if updated.Status != "paid" {
-				return nil
-			}
-			if !isFinalStatus {
-				return nil
-			}
-			currentBalance, _ := s.repo.CurrentTenantBalance(ctx, tx, updated.TenantID)
-			netAmount := amountFromPayloadOrFallback(parseMidtransAmount(grossAmount), updated.Amount)
-			nextBalance := currentBalance + netAmount
-			dedupe := buildLedgerDedupeKey("subscription", orderID, transactionID, newStatus, paymentType)
-			if err := s.repo.CreateLedgerEntry(ctx, tx, TenantLedgerEntry{
-				TenantID:              updated.TenantID,
-				SourceType:            "subscription",
-				SourceRef:             orderID,
-				MidtransOrderID:       orderID,
-				MidtransTransactionID: transactionID,
-				TransactionStatus:     newStatus,
-				PaymentType:           paymentType,
-				Direction:             "credit",
-				GrossAmount:           netAmount,
-				NetAmount:             netAmount,
-				BalanceAfter:          nextBalance,
-				Status:                "settled",
-				DedupeKey:             dedupe,
-				RawPayload:            mustJSON(payload),
-				CreatedAt:             receivedAt,
-				UpdatedAt:             receivedAt,
-			}); err != nil {
-				return err
-			}
-			now := time.Now().UTC()
-			start := now
-			var currentEnd sql.NullTime
-			_ = tx.GetContext(ctx, &currentEnd, `SELECT subscription_current_period_end FROM tenants WHERE id = $1`, updated.TenantID)
-			if currentEnd.Valid && currentEnd.Time.After(now) {
-				start = currentEnd.Time
-			}
-			end := addInterval(start, updated.BillingInterval)
-			return s.repo.ActivateSubscriptionExec(ctx, tx, updated.TenantID, updated.Plan, start, end)
-		}
-		if strings.HasPrefix(orderID, "bk-") {
-			bookingIDStr, paymentKind, err := parseBookingOrderID(orderID)
-			if err != nil {
-				return err
-			}
-			isSettlement := paymentKind == "due"
-			bookingID, err := uuid.Parse(bookingIDStr)
-			if err != nil {
-				return err
-			}
-			bookingInfo, err := s.repo.GetBookingNotificationContext(ctx, tx, bookingID)
-			if err != nil {
-				logCommon.ProcessingStatus = "failed"
-				logCommon.ErrorMessage = err.Error()
-				return s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon)
-			}
-			logCommon.BookingID = &bookingID
-			logCommon.TenantID = &bookingInfo.TenantID
-			logCommon.ProcessingStatus = "processed"
-			if isSettlement {
-				if err := s.repo.UpdateBookingSettlementFromMidtrans(ctx, tx, bookingID, newStatus, txIDPtr, paymentTypePtr, payload); err != nil {
-					logCommon.ProcessingStatus = "failed"
-					logCommon.ErrorMessage = err.Error()
-					return s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon)
-				}
-				logCommon.GrossAmount = int64(bookingInfo.GrandTotal)
-				if err := s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon); err != nil {
-					return err
-				}
-				if !isFinalStatus {
-					return nil
-				}
-				currentBalance, _ := s.repo.CurrentTenantBalance(ctx, tx, bookingInfo.TenantID)
-				netAmount := amountFromPayloadOrFallback(parseMidtransAmount(grossAmount), int64(bookingInfo.GrandTotal))
-				nextBalance := currentBalance + netAmount
-				if err := s.repo.CreateLedgerEntry(ctx, tx, TenantLedgerEntry{
-					TenantID:              bookingInfo.TenantID,
-					SourceType:            "booking_payment",
-					SourceID:              &bookingID,
-					SourceRef:             orderID,
-					MidtransOrderID:       orderID,
-					MidtransTransactionID: transactionID,
-					TransactionStatus:     newStatus,
-					PaymentType:           paymentType,
-					Direction:             "credit",
-					GrossAmount:           netAmount,
-					NetAmount:             netAmount,
-					BalanceAfter:          nextBalance,
-					Status:                "settled",
-					DedupeKey:             buildLedgerDedupeKey("booking_payment", orderID, transactionID, newStatus, paymentType),
-					RawPayload:            mustJSON(payload),
-					CreatedAt:             receivedAt,
-					UpdatedAt:             receivedAt,
-				}); err != nil {
-					return err
-				}
-				if shouldNotifyBookingPayment(bookingInfo.PaymentStatus, newStatus) {
-					notify = &bookingInfo
-					notifyMode = "settlement"
-				}
-				return nil
-			}
-			if err := s.repo.UpdateBookingPaymentFromMidtrans(ctx, tx, bookingID, newStatus, txIDPtr, paymentTypePtr, payload); err != nil {
-				logCommon.ProcessingStatus = "failed"
-				logCommon.ErrorMessage = err.Error()
-				return s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon)
-			}
-			logCommon.GrossAmount = int64(bookingInfo.DepositAmount)
-			if err := s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon); err != nil {
-				return err
-			}
-			if !isFinalStatus {
-				return nil
-			}
-			currentBalance, _ := s.repo.CurrentTenantBalance(ctx, tx, bookingInfo.TenantID)
-			netAmount := amountFromPayloadOrFallback(parseMidtransAmount(grossAmount), int64(bookingInfo.DepositAmount))
-			nextBalance := currentBalance + netAmount
-			if err := s.repo.CreateLedgerEntry(ctx, tx, TenantLedgerEntry{
-				TenantID:              bookingInfo.TenantID,
-				SourceType:            "booking_payment",
-				SourceID:              &bookingID,
-				SourceRef:             orderID,
-				MidtransOrderID:       orderID,
-				MidtransTransactionID: transactionID,
-				TransactionStatus:     newStatus,
-				PaymentType:           paymentType,
-				Direction:             "credit",
-				GrossAmount:           netAmount,
-				NetAmount:             netAmount,
-				BalanceAfter:          nextBalance,
-				Status:                "settled",
-				DedupeKey:             buildLedgerDedupeKey("booking_payment", orderID, transactionID, newStatus, paymentType),
-				RawPayload:            mustJSON(payload),
-				CreatedAt:             receivedAt,
-				UpdatedAt:             receivedAt,
-			}); err != nil {
-				return err
-			}
-			if shouldNotifyBookingPayment(bookingInfo.PaymentStatus, newStatus) {
-				notify = &bookingInfo
-				notifyMode = "deposit"
-			}
-			return nil
-		}
-		logCommon.ProcessingStatus = "ignored"
-		if err := s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon); err != nil {
-			return err
-		}
-		return nil
-	})
-
-	if err != nil {
-		return err
-	}
-	if notify != nil {
-		_ = s.sendBookingPaymentWhatsApp(ctx, *notify, notifyMode)
-	}
-	return nil
-}
-
 func (s *Service) sendBookingPaymentWhatsApp(ctx context.Context, info BookingNotificationContext, mode string) error {
 	if info.CustomerPhone == "" {
 		return nil
@@ -339,12 +110,12 @@ func (s *Service) CheckoutBookingPayment(ctx context.Context, tenantID uuid.UUID
 
 	mode = strings.ToLower(strings.TrimSpace(mode))
 	amount := booking.DepositAmount
-	orderID := bookingPaymentOrderID(bookingID, "dp")
+	orderID := midtrans.BookingOrderID(bookingID, "dp")
 	display := "DP"
 
 	if mode == "settlement" || mode == "due" || mode == "balance" || booking.PaymentStatus == "partial_paid" {
 		amount = booking.BalanceDue
-		orderID = bookingPaymentOrderID(bookingID, "due")
+		orderID = midtrans.BookingOrderID(bookingID, "due")
 		display = "Pelunasan"
 		if amount <= 0 {
 			return BookingCheckoutRes{}, errors.New("booking ini sudah lunas")
@@ -478,16 +249,6 @@ func shouldNotifyBookingPayment(previousStatus, newStatus string) bool {
 	return previousStatus != "partial_paid" && previousStatus != "settled"
 }
 
-func verifyMidtransSignature(orderID, statusCode, grossAmount, signatureKey, serverKey string) bool {
-	serverKey = strings.TrimSpace(serverKey)
-	if serverKey == "" {
-		return false
-	}
-	sum := sha512.Sum512([]byte(orderID + statusCode + grossAmount + serverKey))
-	expected := hex.EncodeToString(sum[:])
-	return strings.EqualFold(expected, signatureKey)
-}
-
 func parseMidtransAmount(raw string) int64 {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -552,45 +313,6 @@ func addInterval(start time.Time, interval string) time.Time {
 	default:
 		return start.AddDate(0, 1, 0)
 	}
-}
-
-func bookingPaymentOrderID(bookingID uuid.UUID, kind string) string {
-	return fmt.Sprintf("bk-%s-%s-%s", encodeUUIDShort(bookingID), kind, shortNonce())
-}
-
-func parseBookingOrderID(orderID string) (bookingID string, kind string, err error) {
-	if !strings.HasPrefix(orderID, "bk-") {
-		return "", "", fmt.Errorf("invalid booking order id")
-	}
-	rest := strings.TrimPrefix(orderID, "bk-")
-	parts := strings.Split(rest, "-")
-	if len(parts) < 3 {
-		return "", "", fmt.Errorf("invalid booking order id")
-	}
-
-	decoded, err := decodeUUIDShort(parts[0])
-	if err != nil {
-		return "", "", err
-	}
-	bookingID = decoded.String()
-	kind = parts[1]
-	return bookingID, kind, nil
-}
-
-func encodeUUIDShort(id uuid.UUID) string {
-	return base64.RawURLEncoding.EncodeToString(id[:])
-}
-
-func decodeUUIDShort(value string) (uuid.UUID, error) {
-	raw, err := base64.RawURLEncoding.DecodeString(value)
-	if err != nil {
-		return uuid.UUID{}, err
-	}
-	return uuid.FromBytes(raw)
-}
-
-func shortNonce() string {
-	return fmt.Sprintf("%06x", time.Now().UnixNano()&0xffffff)
 }
 
 func bookingDetailURL(tenantSlug, accessToken string) string {
