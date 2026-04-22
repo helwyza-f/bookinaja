@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha512"
 	"database/sql"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/helwiza/saas/internal/platform/env"
 	"github.com/helwiza/saas/internal/platform/fonnte"
 	"github.com/jmoiron/sqlx"
 )
@@ -190,17 +192,12 @@ func (s *Service) HandleMidtransNotification(ctx context.Context, payload map[st
 			end := addInterval(start, updated.BillingInterval)
 			return s.repo.ActivateSubscriptionExec(ctx, tx, updated.TenantID, updated.Plan, start, end)
 		}
-		if strings.HasPrefix(orderID, "book-") {
-			bookingIDStr := strings.TrimPrefix(orderID, "book-")
-			isSettlement := strings.Contains(orderID, "-due")
-			bookingIDStr, _, found := strings.Cut(bookingIDStr, "-dp-")
-			if !found {
-				bookingIDStr, _, found = strings.Cut(bookingIDStr, "-due-")
-				if !found {
-					bookingIDStr = strings.TrimSuffix(bookingIDStr, "-dp")
-					bookingIDStr = strings.TrimSuffix(bookingIDStr, "-due")
-				}
+		if strings.HasPrefix(orderID, "bk-") {
+			bookingIDStr, paymentKind, err := parseBookingOrderID(orderID)
+			if err != nil {
+				return err
 			}
+			isSettlement := paymentKind == "due"
 			bookingID, err := uuid.Parse(bookingIDStr)
 			if err != nil {
 				return err
@@ -327,6 +324,9 @@ func (s *Service) sendBookingPaymentWhatsApp(ctx context.Context, info BookingNo
 	}
 
 	msg := waPaymentReceivedMessage(info.CustomerName, paymentNote, info.BookingID.String(), info.ResourceName, info.GrandTotal, info.DepositAmount, info.PaidAmount, info.BalanceDue, url)
+	if strings.ToLower(strings.TrimSpace(os.Getenv("GIN_MODE"))) != "release" {
+		fmt.Printf("[WA PAYMENT] event=booking_payment tenant=%s booking=%s phone=%s mode=%s message_len=%d url=%s\n", info.TenantSlug, info.BookingID.String(), info.CustomerPhone, mode, len(msg), url)
+	}
 	_, _ = fonnte.SendMessage(info.CustomerPhone, msg)
 	return nil
 }
@@ -339,12 +339,12 @@ func (s *Service) CheckoutBookingPayment(ctx context.Context, tenantID uuid.UUID
 
 	mode = strings.ToLower(strings.TrimSpace(mode))
 	amount := booking.DepositAmount
-	orderID := fmt.Sprintf("book-%s-dp", bookingID.String())
+	orderID := bookingPaymentOrderID(bookingID, "dp")
 	display := "DP"
 
 	if mode == "settlement" || mode == "due" || mode == "balance" || booking.PaymentStatus == "partial_paid" {
 		amount = booking.BalanceDue
-		orderID = fmt.Sprintf("book-%s-due", bookingID.String())
+		orderID = bookingPaymentOrderID(bookingID, "due")
 		display = "Pelunasan"
 		if amount <= 0 {
 			return BookingCheckoutRes{}, errors.New("booking ini sudah lunas")
@@ -554,12 +554,47 @@ func addInterval(start time.Time, interval string) time.Time {
 	}
 }
 
-func bookingDetailURL(tenantSlug, accessToken string) string {
-	slug := strings.TrimSpace(tenantSlug)
-	if slug == "" {
-		slug = "tenant"
+func bookingPaymentOrderID(bookingID uuid.UUID, kind string) string {
+	return fmt.Sprintf("bk-%s-%s-%s", encodeUUIDShort(bookingID), kind, shortNonce())
+}
+
+func parseBookingOrderID(orderID string) (bookingID string, kind string, err error) {
+	if !strings.HasPrefix(orderID, "bk-") {
+		return "", "", fmt.Errorf("invalid booking order id")
 	}
-	return fmt.Sprintf("https://%s.bookinaja.com/verify?code=%s", slug, accessToken)
+	rest := strings.TrimPrefix(orderID, "bk-")
+	parts := strings.Split(rest, "-")
+	if len(parts) < 3 {
+		return "", "", fmt.Errorf("invalid booking order id")
+	}
+
+	decoded, err := decodeUUIDShort(parts[0])
+	if err != nil {
+		return "", "", err
+	}
+	bookingID = decoded.String()
+	kind = parts[1]
+	return bookingID, kind, nil
+}
+
+func encodeUUIDShort(id uuid.UUID) string {
+	return base64.RawURLEncoding.EncodeToString(id[:])
+}
+
+func decodeUUIDShort(value string) (uuid.UUID, error) {
+	raw, err := base64.RawURLEncoding.DecodeString(value)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	return uuid.FromBytes(raw)
+}
+
+func shortNonce() string {
+	return fmt.Sprintf("%06x", time.Now().UnixNano()&0xffffff)
+}
+
+func bookingDetailURL(tenantSlug, accessToken string) string {
+	return env.TenantURL(tenantSlug, fmt.Sprintf("/verify?code=%s", accessToken))
 }
 
 func formatMoney(v float64) string {

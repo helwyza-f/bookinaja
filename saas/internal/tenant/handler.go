@@ -1,13 +1,12 @@
 package tenant
 
 import (
-	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/helwiza/saas/internal/platform/env"
 	"github.com/helwiza/saas/internal/platform/storage"
 )
 
@@ -102,13 +101,10 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	protocol := os.Getenv("APP_PROTOCOL")
-	appDomain := os.Getenv("APP_DOMAIN")
-
 	c.JSON(http.StatusCreated, gin.H{
 		"message":   "Registrasi berhasil!",
 		"tenant":    t,
-		"login_url": fmt.Sprintf("%s://%s.%s/admin/login", protocol, t.Slug, appDomain),
+		"login_url": env.TenantURL(t.Slug, "/admin/login"),
 	})
 }
 

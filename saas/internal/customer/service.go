@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -50,9 +52,20 @@ func (s *Service) RequestOTP(ctx context.Context, tenantID uuid.UUID, phone stri
 		otpCode,
 	)
 
+	if strings.ToLower(strings.TrimSpace(os.Getenv("GIN_MODE"))) != "release" {
+		fmt.Printf("[WA OTP] tenant=%s phone=%s message_len=%d\n", tenantID.String(), phone, len(msg))
+	}
+
 	success, err := fonnte.SendMessage(phone, msg)
 	if err != nil || !success {
+		if strings.ToLower(strings.TrimSpace(os.Getenv("GIN_MODE"))) != "release" {
+			fmt.Printf("[WA OTP] send_failed tenant=%s phone=%s err=%v\n", tenantID.String(), phone, err)
+		}
 		return fmt.Errorf("gagal mengirim kode ke WhatsApp: %v", err)
+	}
+
+	if strings.ToLower(strings.TrimSpace(os.Getenv("GIN_MODE"))) != "release" {
+		fmt.Printf("[WA OTP] send_success tenant=%s phone=%s\n", tenantID.String(), phone)
 	}
 
 	fmt.Printf("[AUTH] OTP Request Success: %s -> %s\n", phone, otpCode)

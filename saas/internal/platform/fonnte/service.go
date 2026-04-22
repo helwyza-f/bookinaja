@@ -7,13 +7,13 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
 
-// Ganti dengan API Key Fonnte kamu (Atau ambil dari os.Getenv)
 const (
-	apiKey = "ysYJ1Z8fuEveo6qJsSwZ"
+	apiKey  = "ysYJ1Z8fuEveo6qJsSwZ"
 	baseURL = "https://api.fonnte.com"
 )
 
@@ -29,26 +29,28 @@ type ValidateResponse struct {
 	Reason     string   `json:"reason"`
 }
 
-// SendMessage mengirim pesan teks ke nomor WhatsApp tujuan
 func SendMessage(target, message string) (bool, error) {
 	apiUrl := fmt.Sprintf("%s/send", baseURL)
 
-	// 1. Normalisasi nomor ke format 62 (Fonnte lebih suka ini untuk Send)
 	cleanTarget := strings.ReplaceAll(target, " ", "")
 	cleanTarget = strings.ReplaceAll(cleanTarget, "-", "")
 	if strings.HasPrefix(cleanTarget, "0") {
 		cleanTarget = "62" + cleanTarget[1:]
 	}
 
-	// 2. Build Multipart Body
+	logWA("send.start", map[string]any{
+		"target":      cleanTarget,
+		"message_len": len(message),
+		"api_url":     apiUrl,
+	})
+
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	_ = writer.WriteField("target", cleanTarget)
 	_ = writer.WriteField("message", message)
-	_ = writer.WriteField("countryCode", "62") // Default Indonesia
+	_ = writer.WriteField("countryCode", "62")
 	_ = writer.Close()
 
-	// 3. Request
 	req, _ := http.NewRequest("POST", apiUrl, body)
 	req.Header.Set("Authorization", apiKey)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
@@ -56,26 +58,44 @@ func SendMessage(target, message string) (bool, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
+		logWA("send.error", map[string]any{
+			"target": cleanTarget,
+			"error":  err.Error(),
+		})
 		return false, fmt.Errorf("fonnte: connection error: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// 4. Decode Response
 	var result CommonResponse
 	bodyBytes, _ := io.ReadAll(resp.Body)
 	if err := json.Unmarshal(bodyBytes, &result); err != nil {
+		logWA("send.decode_error", map[string]any{
+			"target":      cleanTarget,
+			"status_code": resp.StatusCode,
+			"body":        string(bodyBytes),
+			"error":       err.Error(),
+		})
 		return false, fmt.Errorf("fonnte: failed to decode response: %w", err)
 	}
 
 	if !result.Status {
+		logWA("send.failed", map[string]any{
+			"target":      cleanTarget,
+			"status_code": resp.StatusCode,
+			"reason":      result.Reason,
+			"detail":      result.Detail,
+			"body":        string(bodyBytes),
+		})
 		return false, fmt.Errorf("fonnte error: %s", result.Reason)
 	}
 
-	fmt.Printf("[FONNTE SEND] Target: %s | Status: Success 🚀\n", cleanTarget)
+	logWA("send.success", map[string]any{
+		"target":      cleanTarget,
+		"status_code": resp.StatusCode,
+	})
 	return true, nil
 }
 
-// ValidateNumber mengecek apakah nomor HP terdaftar di WhatsApp
 func ValidateNumber(target string) (bool, error) {
 	apiUrl := fmt.Sprintf("%s/validate", baseURL)
 
@@ -104,11 +124,22 @@ func ValidateNumber(target string) (bool, error) {
 		return false, err
 	}
 
-	fmt.Printf("[FONNTE VALIDATE] Sent: %s | Status: %v | Registered: %v\n", cleanTarget, result.Status, result.Registered)
+	logWA("validate", map[string]any{
+		"target":     cleanTarget,
+		"status":     result.Status,
+		"registered": result.Registered,
+	})
 
 	if result.Status && len(result.Registered) > 0 {
 		return true, nil
 	}
 
 	return false, nil
+}
+
+func logWA(event string, fields map[string]any) {
+	if strings.ToLower(strings.TrimSpace(os.Getenv("GIN_MODE"))) == "release" {
+		return
+	}
+	fmt.Printf("[FONNTE %s] %v\n", strings.ToUpper(event), fields)
 }
