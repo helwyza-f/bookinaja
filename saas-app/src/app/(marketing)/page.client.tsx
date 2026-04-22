@@ -29,9 +29,9 @@ import { useEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 
 /* ─────────────────────────────────────────────
-   HOOK: Lightweight scroll reveal (CSS-only transition)
+   HOOK: Scroll reveal
 ───────────────────────────────────────────── */
-function useReveal(threshold = 0.12) {
+function useReveal(threshold = 0.08) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   useEffect(() => {
@@ -55,8 +55,8 @@ function useReveal(threshold = 0.12) {
 function revealStyle(visible: boolean, delay = 0): React.CSSProperties {
   return {
     opacity: visible ? 1 : 0,
-    transform: visible ? "translateY(0)" : "translateY(24px)",
-    transition: `opacity 0.6s ease ${delay}s, transform 0.6s ease ${delay}s`,
+    transform: visible ? "translateY(0)" : "translateY(20px)",
+    transition: `opacity 0.55s ease ${delay}s, transform 0.55s ease ${delay}s`,
   };
 }
 
@@ -120,10 +120,52 @@ function useThemeClasses() {
 }
 
 /* ─────────────────────────────────────────────
+   SECTION BADGE
+───────────────────────────────────────────── */
+function SectionBadge({
+  icon,
+  label,
+}: {
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/[0.07] px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.28em] text-blue-500">
+      {icon} {label}
+    </span>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   ROCKET ICON
+───────────────────────────────────────────── */
+function Rocket({ className, size }: { className?: string; size?: number }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size ?? 24}
+      height={size ?? 24}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
+      <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+      <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
+      <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+    </svg>
+  );
+}
+
+/* ─────────────────────────────────────────────
    DASHBOARD WIDGET
 ───────────────────────────────────────────── */
 function DashboardWidget() {
-  const { isDark, heading, panel, divider } = useThemeClasses();
+  const { isDark, heading, panel, divider, muted } = useThemeClasses();
   const slots = [
     { id: "PS-01", status: "busy", time: "2h 15m", customer: "Rafi A." },
     { id: "PS-02", status: "free", time: "—", customer: "—" },
@@ -134,85 +176,96 @@ function DashboardWidget() {
   ];
   return (
     <div
-      className={`rounded-[1.75rem] border overflow-hidden ${panel} ${divider}`}
+      className={`rounded-[1.5rem] border overflow-hidden ${panel} ${divider}`}
     >
+      {/* Header */}
       <div
-        className={`px-5 py-4 border-b flex items-center justify-between ${divider}`}
+        className={`px-4 py-3 border-b flex items-center justify-between ${divider}`}
       >
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-xl bg-blue-600 flex items-center justify-center">
-            <Activity size={13} className="text-white" />
+        <div className="flex items-center gap-2.5">
+          <div className="h-7 w-7 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
+            <Activity size={12} className="text-white" />
           </div>
           <div>
             <p
-              className={`text-[10px] font-black uppercase tracking-widest ${heading}`}
+              className={`text-[10px] font-black uppercase tracking-widest leading-none ${heading}`}
             >
               Live Monitor
             </p>
-            <p className="text-green-400 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1">
+            <p className="text-green-400 text-[8px] font-bold uppercase tracking-widest flex items-center gap-1 mt-0.5">
               <span
-                className="inline-block w-1.5 h-1.5 rounded-full bg-green-400"
-                style={{ animation: "pulse 2s ease-in-out infinite" }}
+                className="inline-block w-1 h-1 rounded-full bg-green-400"
+                style={{ animation: "pulse-dot 2s ease-in-out infinite" }}
               />
               Realtime
             </p>
           </div>
         </div>
         <div className="text-right">
-          <p className={`text-base font-black italic ${heading}`}>Rp 847.000</p>
-          <p className="text-blue-400 text-[9px] font-bold uppercase tracking-widest">
+          <p className={`text-sm font-black italic ${heading}`}>Rp 847.000</p>
+          <p className="text-blue-400 text-[8px] font-bold uppercase tracking-widest">
             Cuan Hari Ini
           </p>
         </div>
       </div>
+      {/* Slots */}
       <div className="p-3 grid grid-cols-2 gap-2">
         {slots.map((slot) => (
           <div
             key={slot.id}
-            className={`rounded-xl p-3 border transition-colors duration-200 ${slot.status === "busy" ? "bg-blue-600/10 border-blue-500/25" : isDark ? "bg-white/[0.03] border-white/[0.06]" : "bg-slate-50 border-slate-200"}`}
+            className={`rounded-xl p-2.5 border transition-colors duration-200 ${
+              slot.status === "busy"
+                ? "bg-blue-600/10 border-blue-500/25"
+                : isDark
+                  ? "bg-white/[0.03] border-white/[0.06]"
+                  : "bg-white border-slate-200"
+            }`}
           >
             <div className="flex items-center justify-between mb-1">
-              <span className={`text-[10px] font-black uppercase ${heading}`}>
+              <span className={`text-[9px] font-black uppercase ${heading}`}>
                 {slot.id}
               </span>
               <span
-                className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full ${slot.status === "busy" ? "bg-blue-500/20 text-blue-400" : isDark ? "bg-white/10 text-white/30" : "bg-slate-200 text-slate-400"}`}
+                className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded-full ${
+                  slot.status === "busy"
+                    ? "bg-blue-500/20 text-blue-400"
+                    : isDark
+                      ? "bg-white/10 text-white/30"
+                      : "bg-slate-200 text-slate-400"
+                }`}
               >
                 {slot.status === "busy" ? "Terisi" : "Kosong"}
               </span>
             </div>
+            <p className={`text-[8px] font-medium ${muted}`}>{slot.customer}</p>
             <p
-              className={`text-[9px] font-medium ${isDark ? "text-white/50" : "text-slate-500"}`}
-            >
-              {slot.customer}
-            </p>
-            <p
-              className={`text-[10px] font-black ${slot.status === "busy" ? "text-orange-400" : isDark ? "text-white/15" : "text-slate-300"}`}
+              className={`text-[9px] font-black ${slot.status === "busy" ? "text-orange-400" : isDark ? "text-white/15" : "text-slate-300"}`}
             >
               {slot.time}
             </p>
           </div>
         ))}
       </div>
+      {/* Footer */}
       <div className="px-3 pb-3">
         <div
-          className={`rounded-xl px-4 py-2.5 flex items-center justify-between ${isDark ? "bg-white/[0.03]" : "bg-slate-100"}`}
+          className={`rounded-xl px-3 py-2 flex items-center justify-between ${isDark ? "bg-white/[0.03]" : "bg-slate-200/60"}`}
         >
           <span
-            className={`text-[9px] font-bold uppercase tracking-widest ${isDark ? "text-white/40" : "text-slate-400"}`}
+            className={`text-[8px] font-bold uppercase tracking-widest ${muted}`}
           >
             Occupancy
           </span>
           <div className="flex items-center gap-2">
             <div
-              className={`w-20 h-1.5 rounded-full overflow-hidden ${isDark ? "bg-white/10" : "bg-slate-200"}`}
+              className={`w-16 h-1 rounded-full overflow-hidden ${isDark ? "bg-white/10" : "bg-slate-300"}`}
             >
               <div
                 className="h-full bg-blue-500 rounded-full"
                 style={{ width: "67%" }}
               />
             </div>
-            <span className="text-blue-400 text-[11px] font-black">67%</span>
+            <span className="text-blue-400 text-[10px] font-black">67%</span>
           </div>
         </div>
       </div>
@@ -227,33 +280,31 @@ export default function LandingPage() {
   const { isDark, bg, heading, muted, card, panel, gridLine, divider } =
     useThemeClasses();
 
-  const hero = useReveal(0.05);
-  const stats = useReveal(0.15);
-  const feat = useReveal(0.1);
-  const ind = useReveal(0.1);
-  const how = useReveal(0.1);
-  const staff = useReveal(0.1);
-  const testim = useReveal(0.1);
-  const pricing = useReveal(0.1);
-  const cta = useReveal(0.1);
+  const hero = useReveal(0.04);
+  const stats = useReveal(0.08);
+  const feat = useReveal(0.06);
+  const ind = useReveal(0.06);
+  const how = useReveal(0.06);
+  const staff = useReveal(0.06);
+  const testim = useReveal(0.06);
+  const cta = useReveal(0.06);
 
   return (
     <div
       className={`relative flex flex-col items-center overflow-x-hidden font-sans ${bg}`}
     >
-      {/* CSS-only keyframes — no JS animation loops */}
       <style>{`
         @keyframes shimmer {
           0%   { background-position: -300% center; }
-          100% { background-position: 300% center; }
+          100% { background-position:  300% center; }
         }
         @keyframes marquee {
           from { transform: translateX(0); }
           to   { transform: translateX(-50%); }
         }
-        @keyframes pulse {
+        @keyframes pulse-dot {
           0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
+          50%       { opacity: 0.35; }
         }
         .shimmer-text {
           background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 30%, #93c5fd 50%, #60a5fa 70%, #3b82f6 100%);
@@ -271,67 +322,68 @@ export default function LandingPage() {
         }
         .marquee-track {
           display: flex;
-          gap: 3rem;
+          gap: 2.5rem;
           animation: marquee 28s linear infinite;
           white-space: nowrap;
           will-change: transform;
         }
         .hover-lift {
-          transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+          transition: transform 0.22s ease, border-color 0.22s ease;
         }
-        .hover-lift:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 12px 40px rgba(0,0,0,0.12);
-        }
-        .icon-btn {
-          transition: background 0.2s ease, color 0.2s ease;
-        }
+        .hover-lift:hover { transform: translateY(-3px); }
         .group:hover .icon-btn {
-          background: #2563eb;
-          color: white;
+          background: #2563eb !important;
+          color: white !important;
+          border-color: #2563eb !important;
         }
       `}</style>
 
-      {/* ── STATIC BACKGROUND (no JS, no repaints) ── */}
+      {/* ── BACKGROUND ── */}
       <div className="fixed inset-0 pointer-events-none z-0" aria-hidden>
         <div className={`absolute inset-0 ${bg}`} />
-        <div className={`absolute inset-0 ${gridLine} bg-[size:56px_56px]`} />
         <div
-          className={`absolute top-0 inset-x-0 h-[600px] ${isDark ? "bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(59,130,246,0.10)_0%,transparent_100%)]" : "bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(59,130,246,0.06)_0%,transparent_100%)]"}`}
+          className={`absolute inset-0 ${gridLine} bg-[size:48px_48px] sm:bg-[size:56px_56px]`}
         />
         <div
-          className={`absolute bottom-0 right-0 w-80 h-80 rounded-full blur-[80px] ${isDark ? "bg-blue-800/15" : "bg-blue-200/30"}`}
+          className={`absolute top-0 inset-x-0 h-[500px] ${
+            isDark
+              ? "bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(59,130,246,0.10)_0%,transparent_100%)]"
+              : "bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(59,130,246,0.06)_0%,transparent_100%)]"
+          }`}
+        />
+        <div
+          className={`absolute bottom-0 right-0 w-64 h-64 rounded-full blur-[70px] ${isDark ? "bg-blue-800/15" : "bg-blue-200/30"}`}
         />
       </div>
 
-      {/* ════════════════════════════
+      {/* ══════════════════════════════
           HERO
-      ════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 pt-20 md:pt-32 pb-16 text-center">
-        <div ref={hero.ref} className="space-y-7">
+      ══════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 pt-14 sm:pt-24 md:pt-32 pb-10 sm:pb-14 text-center">
+        <div ref={hero.ref} className="space-y-5 sm:space-y-6">
           {/* Badge */}
           <div
             className="flex justify-center"
             style={revealStyle(hero.visible, 0.05)}
           >
             <div
-              className={`inline-flex items-center gap-2 rounded-full border px-5 py-2 ${isDark ? "border-blue-500/20 bg-blue-500/[0.07]" : "border-blue-300/50 bg-blue-50"}`}
+              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 ${isDark ? "border-blue-500/20 bg-blue-500/[0.07]" : "border-blue-300/50 bg-blue-50"}`}
             >
-              <Sparkles className="h-3 w-3 text-blue-500 fill-current" />
-              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-blue-500">
+              <Sparkles className="h-3 w-3 text-blue-500 fill-current flex-shrink-0" />
+              <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.22em] sm:tracking-[0.28em] text-blue-500">
                 Platform Booking SaaS No.1 Indonesia
               </span>
               <span
-                className="h-1.5 w-1.5 rounded-full bg-blue-500"
-                style={{ animation: "pulse 2s ease-in-out infinite" }}
+                className="h-1.5 w-1.5 rounded-full bg-blue-500 flex-shrink-0"
+                style={{ animation: "pulse-dot 2s ease-in-out infinite" }}
               />
             </div>
           </div>
 
           {/* Headline */}
-          <div style={revealStyle(hero.visible, 0.12)}>
+          <div style={revealStyle(hero.visible, 0.1)}>
             <h1
-              className={`max-w-4xl mx-auto text-5xl sm:text-7xl md:text-8xl font-black tracking-[-0.05em] leading-[0.86] uppercase ${heading}`}
+              className={`mx-auto text-[40px] sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-[-0.05em] leading-[0.88] uppercase ${heading}`}
             >
               Ubah Slot Waktu
               <br />
@@ -339,30 +391,30 @@ export default function LandingPage() {
             </h1>
           </div>
 
-          {/* Subheading */}
-          <div style={revealStyle(hero.visible, 0.18)}>
+          {/* Sub */}
+          <div style={revealStyle(hero.visible, 0.16)}>
             <p
-              className={`max-w-xl mx-auto text-base md:text-lg font-medium leading-relaxed ${muted}`}
+              className={`max-w-sm sm:max-w-xl mx-auto text-sm sm:text-base md:text-lg font-medium leading-relaxed ${muted}`}
             >
               Platform pintar untuk monitor unit, terima pembayaran digital, dan
               kendalikan seluruh tim — dari mana saja, kapan saja.
             </p>
           </div>
 
-          {/* CTA */}
+          {/* CTAs */}
           <div
             className="flex flex-col sm:flex-row justify-center items-center gap-3"
-            style={revealStyle(hero.visible, 0.24)}
+            style={revealStyle(hero.visible, 0.22)}
           >
-            <Link href="/register">
-              <Button className="h-13 px-9 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl bg-blue-600 hover:bg-blue-500 text-white border-0 transition-colors duration-200 shadow-lg shadow-blue-600/20">
+            <Link href="/register" className="w-full sm:w-auto">
+              <Button className="w-full sm:w-auto h-12 px-8 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl bg-blue-600 hover:bg-blue-500 text-white border-0 transition-colors duration-200 shadow-lg shadow-blue-600/20">
                 Mulai Gratis <ArrowRight className="ml-2 h-3.5 w-3.5" />
               </Button>
             </Link>
-            <Link href="/demos">
+            <Link href="/demos" className="w-full sm:w-auto">
               <Button
                 variant="ghost"
-                className={`h-13 px-9 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl border transition-colors duration-200 ${isDark ? "border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-white" : "border-slate-200 bg-white hover:bg-slate-50 text-slate-800"}`}
+                className={`w-full sm:w-auto h-12 px-8 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl border transition-colors duration-200 ${isDark ? "border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-white" : "border-slate-200 bg-white hover:bg-slate-50 text-slate-800"}`}
               >
                 <Play className="mr-2 h-3 w-3 fill-current" /> Lihat Demo
               </Button>
@@ -371,8 +423,8 @@ export default function LandingPage() {
 
           {/* Social proof */}
           <div
-            className="flex justify-center items-center gap-5 pt-1"
-            style={revealStyle(hero.visible, 0.3)}
+            className="flex justify-center items-center gap-4"
+            style={revealStyle(hero.visible, 0.28)}
           >
             <div className="flex -space-x-2">
               {[
@@ -384,48 +436,52 @@ export default function LandingPage() {
               ].map((c, i) => (
                 <div
                   key={i}
-                  className={`w-7 h-7 rounded-full border-2 ${isDark ? "border-[#06080f]" : "border-white"} ${c} flex items-center justify-center`}
+                  className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 ${isDark ? "border-[#06080f]" : "border-white"} ${c} flex items-center justify-center`}
                 >
-                  <span className="text-[8px] font-black text-white">
+                  <span className="text-[7px] sm:text-[8px] font-black text-white">
                     {String.fromCharCode(65 + i)}
                   </span>
                 </div>
               ))}
             </div>
-            <p className={`text-[11px] font-medium ${muted}`}>
+            <p className={`text-[10px] sm:text-[11px] font-medium ${muted}`}>
               <span className={`font-black ${heading}`}>2.400+</span> bisnis
-              aktif menggunakan Bookinaja
+              aktif
             </p>
           </div>
         </div>
 
-        {/* Dashboard preview */}
+        {/* ── DASHBOARD PREVIEW ── */}
         <div
-          className="relative mt-16 mx-auto max-w-5xl"
-          style={revealStyle(hero.visible, 0.36)}
+          className="relative mt-10 sm:mt-14 mx-auto max-w-5xl"
+          style={revealStyle(hero.visible, 0.34)}
         >
+          {/* Glow */}
           <div
-            className={`absolute inset-0 rounded-[2.5rem] blur-2xl ${isDark ? "bg-blue-600/8" : "bg-blue-400/8"}`}
+            className={`absolute inset-0 rounded-[2rem] blur-2xl ${isDark ? "bg-blue-600/8" : "bg-blue-400/8"}`}
           />
+
+          {/* Frame */}
           <div
-            className={`relative rounded-[2rem] border p-1.5 ${isDark ? "border-white/[0.08] bg-white/[0.03]" : "border-slate-200 bg-white"}`}
+            className={`relative rounded-[1.25rem] sm:rounded-[2rem] border p-1 sm:p-1.5 ${isDark ? "border-white/[0.08] bg-white/[0.03]" : "border-slate-200 bg-white"}`}
           >
             <div
-              className={`overflow-hidden rounded-[1.5rem] ${isDark ? "border border-white/[0.04]" : "border border-slate-100"}`}
+              className={`overflow-hidden rounded-[0.875rem] sm:rounded-[1.5rem] ${isDark ? "border border-white/[0.04]" : "border border-slate-100"}`}
             >
               <div
-                className={`relative h-[300px] md:h-[440px] overflow-hidden ${isDark ? "bg-slate-950" : "bg-slate-100"}`}
+                className={`relative overflow-hidden ${isDark ? "bg-slate-950" : "bg-slate-100"}`}
+                style={{ height: "clamp(200px, 42vw, 440px)" }}
               >
-                <div className="absolute inset-0 p-5 grid grid-cols-12 grid-rows-6 gap-2.5">
+                <div className="absolute inset-0 p-3 sm:p-5 grid grid-cols-12 grid-rows-6 gap-1.5 sm:gap-2">
                   {/* Sidebar */}
                   <div
-                    className={`col-span-2 row-span-6 rounded-2xl border p-3 flex flex-col gap-2 ${isDark ? "bg-white/[0.03] border-white/[0.05]" : "bg-white border-slate-200"}`}
+                    className={`col-span-2 row-span-6 rounded-xl border p-1.5 sm:p-2 flex flex-col gap-1.5 ${isDark ? "bg-white/[0.03] border-white/[0.05]" : "bg-white border-slate-200"}`}
                   >
-                    <div className="h-6 w-6 rounded-lg bg-blue-600 mx-auto mb-2" />
+                    <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-lg bg-blue-600 mx-auto mb-1.5" />
                     {[...Array(6)].map((_, i) => (
                       <div
                         key={i}
-                        className={`h-7 rounded-xl ${i === 1 ? "bg-blue-600/25 border border-blue-500/25" : isDark ? "bg-white/[0.04]" : "bg-slate-100"}`}
+                        className={`h-5 sm:h-6 rounded-lg ${i === 1 ? "bg-blue-600/25 border border-blue-500/25" : isDark ? "bg-white/[0.04]" : "bg-slate-100"}`}
                       />
                     ))}
                   </div>
@@ -438,21 +494,25 @@ export default function LandingPage() {
                   ].map((s, i) => (
                     <div
                       key={i}
-                      className={`col-span-2 row-span-1 rounded-xl border p-2 flex flex-col justify-between ${isDark ? "bg-white/[0.04] border-white/[0.05]" : "bg-white border-slate-200"}`}
+                      className={`col-span-2 row-span-1 rounded-xl border p-1.5 flex flex-col justify-between ${isDark ? "bg-white/[0.04] border-white/[0.05]" : "bg-white border-slate-200"}`}
                     >
                       <span
-                        className={`text-[8px] font-bold uppercase ${isDark ? "text-white/30" : "text-slate-400"}`}
+                        className={`text-[6px] sm:text-[7px] font-bold uppercase truncate ${isDark ? "text-white/30" : "text-slate-400"}`}
                       >
                         {s.l}
                       </span>
-                      <span className={`text-sm font-black ${s.c}`}>{s.v}</span>
+                      <span
+                        className={`text-[10px] sm:text-xs font-black ${s.c}`}
+                      >
+                        {s.v}
+                      </span>
                     </div>
                   ))}
                   {/* Chart */}
                   <div
-                    className={`col-span-7 row-span-3 rounded-2xl border p-3 ${isDark ? "bg-white/[0.03] border-white/[0.05]" : "bg-white border-slate-200"}`}
+                    className={`col-span-7 row-span-3 rounded-xl border p-2 ${isDark ? "bg-white/[0.03] border-white/[0.05]" : "bg-white border-slate-200"}`}
                   >
-                    <div className="flex items-end gap-1 h-full pb-1">
+                    <div className="flex items-end gap-0.5 h-full pb-1">
                       {[40, 65, 45, 80, 95, 70, 85, 60, 90, 75, 100, 88].map(
                         (h, i) => (
                           <div
@@ -466,19 +526,22 @@ export default function LandingPage() {
                   </div>
                   {/* Activity */}
                   <div
-                    className={`col-span-3 row-span-3 rounded-2xl border p-3 ${isDark ? "bg-white/[0.03] border-white/[0.05]" : "bg-white border-slate-200"}`}
+                    className={`col-span-3 row-span-3 rounded-xl border p-2 ${isDark ? "bg-white/[0.03] border-white/[0.05]" : "bg-white border-slate-200"}`}
                   >
                     {[...Array(4)].map((_, i) => (
-                      <div key={i} className="flex items-center gap-2 mb-2">
+                      <div
+                        key={i}
+                        className="flex items-center gap-1 sm:gap-1.5 mb-1.5 sm:mb-2"
+                      >
                         <div
-                          className={`h-5 w-5 rounded-lg flex-shrink-0 ${["bg-blue-600/40", "bg-emerald-500/40", "bg-orange-500/40", "bg-purple-500/40"][i]}`}
+                          className={`h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-lg flex-shrink-0 ${["bg-blue-600/40", "bg-emerald-500/40", "bg-orange-500/40", "bg-purple-500/40"][i]}`}
                         />
                         <div className="flex-1 space-y-1">
                           <div
-                            className={`h-2 rounded-full w-full ${isDark ? "bg-white/15" : "bg-slate-200"}`}
+                            className={`h-1.5 rounded-full w-full ${isDark ? "bg-white/15" : "bg-slate-200"}`}
                           />
                           <div
-                            className={`h-1.5 rounded-full w-2/3 ${isDark ? "bg-white/8" : "bg-slate-100"}`}
+                            className={`h-1 rounded-full w-2/3 ${isDark ? "bg-white/8" : "bg-slate-100"}`}
                           />
                         </div>
                       </div>
@@ -486,9 +549,9 @@ export default function LandingPage() {
                   </div>
                   {/* Slots */}
                   <div
-                    className={`col-span-10 row-span-2 rounded-2xl border p-2.5 ${isDark ? "bg-white/[0.03] border-white/[0.05]" : "bg-white border-slate-200"}`}
+                    className={`col-span-10 row-span-2 rounded-xl border p-1.5 sm:p-2 ${isDark ? "bg-white/[0.03] border-white/[0.05]" : "bg-white border-slate-200"}`}
                   >
-                    <div className="grid grid-cols-6 gap-2 h-full">
+                    <div className="grid grid-cols-6 gap-1 sm:gap-1.5 h-full">
                       {[
                         "PS-01•",
                         "PS-02○",
@@ -499,7 +562,7 @@ export default function LandingPage() {
                       ].map((s, i) => (
                         <div
                           key={i}
-                          className={`rounded-xl flex items-center justify-center text-[8px] font-black uppercase ${s.includes("○") ? (isDark ? "bg-white/[0.04] text-white/20" : "bg-slate-100 text-slate-400") : "bg-blue-600/20 border border-blue-500/25 text-blue-400"}`}
+                          className={`rounded-lg flex items-center justify-center text-[6px] sm:text-[7px] font-black uppercase ${s.includes("○") ? (isDark ? "bg-white/[0.04] text-white/20" : "bg-slate-100 text-slate-400") : "bg-blue-600/20 border border-blue-500/25 text-blue-400"}`}
                         >
                           {s.replace("•", "").replace("○", "")}
                         </div>
@@ -511,36 +574,44 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Floating badges */}
+          {/* Floating badge: Cuan — inside frame on mobile to avoid overflow */}
           <div
-            className={`absolute -bottom-5 -left-3 hidden md:flex p-4 rounded-2xl shadow-xl flex-col items-start gap-1 -rotate-1 border ${isDark ? "bg-slate-900 border-white/[0.08]" : "bg-white border-slate-200 shadow-slate-200/80"}`}
+            className={`absolute -bottom-4 left-3 sm:-bottom-5 sm:-left-3 flex p-3 sm:p-4 rounded-2xl shadow-xl flex-col items-start -rotate-1 border ${isDark ? "bg-slate-900 border-white/[0.08]" : "bg-white border-slate-200 shadow-slate-200/60"}`}
           >
-            <div className="flex items-center gap-2 mb-1">
-              <TrendingUp size={13} className="text-emerald-400" />
-              <span className="text-emerald-400 text-[9px] font-black uppercase tracking-widest">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <TrendingUp size={11} className="text-emerald-400" />
+              <span className="text-emerald-400 text-[8px] font-black uppercase tracking-widest">
                 Cuan Hari Ini
               </span>
             </div>
-            <p className={`text-xl font-black italic ${heading}`}>+124%</p>
-            <p className={`text-[8px] font-medium ${muted}`}>vs bulan lalu</p>
+            <p
+              className={`text-lg sm:text-xl font-black italic leading-none ${heading}`}
+            >
+              +124%
+            </p>
+            <p className={`text-[8px] font-medium mt-0.5 ${muted}`}>
+              vs bulan lalu
+            </p>
           </div>
-          <div className="absolute -top-4 -right-3 hidden md:flex bg-blue-600 p-4 rounded-2xl shadow-xl shadow-blue-600/20 flex-col items-start gap-1 rotate-1">
-            <Bell size={13} className="text-white mb-0.5" />
-            <p className="text-white text-[10px] font-black uppercase tracking-widest leading-none">
+
+          {/* Floating badge: Notification */}
+          <div className="absolute -top-3 right-3 sm:-top-4 sm:-right-3 flex bg-blue-600 p-3 sm:p-4 rounded-2xl shadow-xl shadow-blue-600/20 flex-col items-start rotate-1">
+            <Bell size={12} className="text-white mb-0.5" />
+            <p className="text-white text-[9px] font-black uppercase tracking-widest leading-none">
               Booking Baru!
             </p>
-            <p className="text-blue-200 text-[9px] font-medium mt-0.5">
+            <p className="text-blue-200 text-[8px] font-medium mt-0.5">
               Ahmad — PS-03 · 2 jam
             </p>
           </div>
         </div>
       </section>
 
-      {/* ════════════════════════════
+      {/* ══════════════════════════════
           MARQUEE
-      ════════════════════════════ */}
+      ══════════════════════════════ */}
       <div
-        className={`relative z-10 w-full py-6 overflow-hidden border-y ${divider}`}
+        className={`relative z-10 w-full py-5 overflow-hidden border-y ${divider}`}
       >
         <div className="marquee-track">
           {[...Array(2)].map((_, rep) =>
@@ -556,11 +627,11 @@ export default function LandingPage() {
             ].map((name, i) => (
               <div
                 key={`${rep}-${i}`}
-                className="flex items-center gap-3 flex-shrink-0"
+                className="flex items-center gap-2.5 flex-shrink-0"
               >
                 <span className="h-1 w-1 rounded-full bg-blue-500/50" />
                 <span
-                  className={`text-[11px] font-black uppercase tracking-[0.25em] ${muted}`}
+                  className={`text-[10px] font-black uppercase tracking-[0.22em] ${muted}`}
                 >
                   {name}
                 </span>
@@ -570,13 +641,13 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* ════════════════════════════
+      {/* ══════════════════════════════
           STATS
-      ════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-20">
+      ══════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
         <div
           ref={stats.ref}
-          className={`grid grid-cols-2 md:grid-cols-4 gap-px rounded-[2rem] overflow-hidden border ${divider} ${isDark ? "bg-white/[0.05]" : "bg-slate-200"}`}
+          className={`grid grid-cols-2 md:grid-cols-4 gap-px rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden border ${divider} ${isDark ? "bg-white/[0.05]" : "bg-slate-200"}`}
           style={revealStyle(stats.visible)}
         >
           {[
@@ -607,79 +678,83 @@ export default function LandingPage() {
           ].map((s, i) => (
             <div
               key={i}
-              className={`p-9 text-center transition-colors duration-200 hover:bg-blue-600/[0.04] ${isDark ? "bg-white/[0.02]" : "bg-white"}`}
+              className={`p-6 sm:p-9 text-center transition-colors duration-200 hover:bg-blue-600/[0.04] ${isDark ? "bg-white/[0.02]" : "bg-white"}`}
             >
-              <p className="text-4xl md:text-5xl font-black mb-2 tabular-nums accent-text">
+              <p className="text-3xl sm:text-4xl md:text-5xl font-black mb-1.5 tabular-nums accent-text">
                 <AnimatedCounter target={s.val} suffix={s.suffix} />
               </p>
               <p
-                className={`text-[11px] font-black uppercase tracking-wider ${heading}`}
+                className={`text-[10px] sm:text-[11px] font-black uppercase tracking-wider ${heading}`}
               >
                 {s.label}
               </p>
-              <p className={`text-xs mt-1 ${muted}`}>{s.desc}</p>
+              <p className={`text-[10px] sm:text-xs mt-0.5 ${muted}`}>
+                {s.desc}
+              </p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ════════════════════════════
+      {/* ══════════════════════════════
           FEATURES — BENTO
-      ════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-8">
+      ══════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 pb-8">
         <div ref={feat.ref} style={revealStyle(feat.visible)}>
-          <div className="text-center mb-14 space-y-4">
+          <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
             <SectionBadge
               icon={<Zap className="h-3 w-3 fill-current" />}
               label="Fitur Unggulan"
             />
             <h2
-              className={`text-4xl md:text-[56px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
+              className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
             >
               Semua yang Kamu
               <br />
               <span className="shimmer-text">Butuhkan.</span>
             </h2>
-            <p className={`max-w-lg mx-auto font-medium ${muted}`}>
+            <p
+              className={`max-w-sm sm:max-w-lg mx-auto text-sm font-medium ${muted}`}
+            >
               Dirancang untuk owner yang ingin fokus tumbuh, bukan tenggelam
               dalam administrasi.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {/* Large: Live Monitor */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Large: Live Monitor — full width on mobile, 2-col on sm+ */}
             <div
-              className={`lg:col-span-2 hover-lift group rounded-[2rem] border p-8 overflow-hidden relative ${card}`}
+              className={`sm:col-span-2 hover-lift group rounded-[1.75rem] border p-6 sm:p-8 overflow-hidden relative ${card}`}
             >
-              <div className="absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl bg-blue-600/[0.06] pointer-events-none" />
-              <div className="flex items-center gap-3 mb-5">
-                <div className="h-10 w-10 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center icon-btn">
-                  <Activity size={17} className="text-blue-400" />
+              <div className="absolute top-0 right-0 w-36 h-36 sm:w-48 sm:h-48 rounded-full blur-3xl bg-blue-600/[0.06] pointer-events-none" />
+              <div className="flex items-center gap-3 mb-4 sm:mb-5">
+                <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center icon-btn transition-all duration-200 flex-shrink-0">
+                  <Activity size={16} className="text-blue-400" />
                 </div>
-                <span className="text-[9px] font-black uppercase tracking-[0.25em] text-blue-400 border border-blue-500/20 rounded-full px-3 py-1">
+                <span className="text-[8px] font-black uppercase tracking-[0.22em] text-blue-400 border border-blue-500/20 rounded-full px-3 py-1">
                   Live
                 </span>
               </div>
               <h3
-                className={`text-xl font-black tracking-tight mb-2 ${heading}`}
+                className={`text-lg sm:text-xl font-black tracking-tight mb-2 ${heading}`}
               >
                 Monitoring Slot Realtime
               </h3>
               <p
-                className={`text-sm font-medium leading-relaxed mb-6 ${muted}`}
+                className={`text-sm font-medium leading-relaxed mb-5 ${muted}`}
               >
                 Pantau semua unit dari HP. Tau persis mana kosong, siapa yang
-                pakai, dan berapa sisa waktu — tanpa nelpon kasir.
+                pakai, berapa sisa waktu — tanpa nelpon kasir.
               </p>
               <DashboardWidget />
             </div>
 
             {/* Website */}
             <div
-              className={`hover-lift group rounded-[2rem] border p-8 relative overflow-hidden ${card}`}
+              className={`hover-lift group rounded-[1.75rem] border p-6 sm:p-8 relative overflow-hidden ${card}`}
             >
-              <div className="h-10 w-10 rounded-2xl bg-purple-600/15 border border-purple-500/20 flex items-center justify-center mb-5 icon-btn">
-                <Globe size={17} className="text-purple-400" />
+              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-purple-600/15 border border-purple-500/20 flex items-center justify-center mb-4 sm:mb-5 icon-btn transition-all duration-200">
+                <Globe size={16} className="text-purple-400" />
               </div>
               <h3
                 className={`text-lg font-black tracking-tight mb-2 ${heading}`}
@@ -687,7 +762,7 @@ export default function LandingPage() {
                 Website Booking Otomatis
               </h3>
               <p
-                className={`text-sm font-medium leading-relaxed mb-5 ${muted}`}
+                className={`text-sm font-medium leading-relaxed mb-4 ${muted}`}
               >
                 Portal profesional{" "}
                 <span className={`font-black ${heading}`}>
@@ -696,10 +771,10 @@ export default function LandingPage() {
                 langsung aktif saat daftar.
               </p>
               <div
-                className={`rounded-xl border p-4 ${isDark ? "bg-slate-900 border-white/[0.06]" : "bg-slate-50 border-slate-200"}`}
+                className={`rounded-xl border p-3.5 ${isDark ? "bg-slate-900 border-white/[0.06]" : "bg-slate-50 border-slate-200"}`}
               >
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 flex-shrink-0">
                     {["bg-red-400", "bg-yellow-400", "bg-green-400"].map(
                       (c, i) => (
                         <div key={i} className={`w-2 h-2 rounded-full ${c}`} />
@@ -707,9 +782,9 @@ export default function LandingPage() {
                     )}
                   </div>
                   <div
-                    className={`flex-1 rounded-md h-5 flex items-center px-2 ${isDark ? "bg-white/[0.05]" : "bg-white border border-slate-200"}`}
+                    className={`flex-1 min-w-0 rounded-md h-5 flex items-center px-2 ${isDark ? "bg-white/[0.05]" : "bg-white border border-slate-200"}`}
                   >
-                    <span className={`text-[9px] font-mono ${muted}`}>
+                    <span className={`text-[9px] font-mono truncate ${muted}`}>
                       gaminghub.bookinaja.com
                     </span>
                   </div>
@@ -721,17 +796,17 @@ export default function LandingPage() {
                   <div
                     className={`h-2.5 rounded w-1/2 ${isDark ? "bg-white/[0.06]" : "bg-slate-100"}`}
                   />
-                  <div className="h-8 bg-blue-600/25 border border-blue-500/25 rounded-lg mt-3" />
+                  <div className="h-7 bg-blue-600/25 border border-blue-500/25 rounded-lg mt-3" />
                 </div>
               </div>
             </div>
 
             {/* Payment */}
             <div
-              className={`hover-lift group rounded-[2rem] border p-8 relative overflow-hidden ${card}`}
+              className={`hover-lift group rounded-[1.75rem] border p-6 sm:p-8 relative overflow-hidden ${card}`}
             >
-              <div className="h-10 w-10 rounded-2xl bg-emerald-600/15 border border-emerald-500/20 flex items-center justify-center mb-5 icon-btn">
-                <Wallet size={17} className="text-emerald-400" />
+              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-emerald-600/15 border border-emerald-500/20 flex items-center justify-center mb-4 sm:mb-5 icon-btn transition-all duration-200">
+                <Wallet size={16} className="text-emerald-400" />
               </div>
               <h3
                 className={`text-lg font-black tracking-tight mb-2 ${heading}`}
@@ -739,7 +814,7 @@ export default function LandingPage() {
                 Pembayaran Digital
               </h3>
               <p
-                className={`text-sm font-medium leading-relaxed mb-5 ${muted}`}
+                className={`text-sm font-medium leading-relaxed mb-4 ${muted}`}
               >
                 QRIS, transfer bank, dompet digital. Semua tercatat otomatis.
               </p>
@@ -763,10 +838,10 @@ export default function LandingPage() {
 
             {/* Reports */}
             <div
-              className={`hover-lift group rounded-[2rem] border p-8 relative overflow-hidden ${card}`}
+              className={`hover-lift group rounded-[1.75rem] border p-6 sm:p-8 relative overflow-hidden ${card}`}
             >
-              <div className="h-10 w-10 rounded-2xl bg-orange-600/15 border border-orange-500/20 flex items-center justify-center mb-5 icon-btn">
-                <BarChart3 size={17} className="text-orange-400" />
+              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-orange-600/15 border border-orange-500/20 flex items-center justify-center mb-4 sm:mb-5 icon-btn transition-all duration-200">
+                <BarChart3 size={16} className="text-orange-400" />
               </div>
               <h3
                 className={`text-lg font-black tracking-tight mb-2 ${heading}`}
@@ -774,12 +849,12 @@ export default function LandingPage() {
                 Laporan & Analitik
               </h3>
               <p
-                className={`text-sm font-medium leading-relaxed mb-5 ${muted}`}
+                className={`text-sm font-medium leading-relaxed mb-4 ${muted}`}
               >
                 Tren pendapatan, unit terpopuler, jam sibuk — dalam satu
                 dashboard.
               </p>
-              <div className="flex items-end gap-1 h-14">
+              <div className="flex items-end gap-1 h-12">
                 {[30, 55, 40, 80, 65, 90, 75].map((h, i) => (
                   <div
                     key={i}
@@ -792,10 +867,10 @@ export default function LandingPage() {
 
             {/* Security */}
             <div
-              className={`hover-lift group rounded-[2rem] border p-8 relative overflow-hidden ${card}`}
+              className={`hover-lift group rounded-[1.75rem] border p-6 sm:p-8 relative overflow-hidden ${card}`}
             >
-              <div className="h-10 w-10 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center mb-5 icon-btn">
-                <ShieldCheck size={17} className="text-blue-400" />
+              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center mb-4 sm:mb-5 icon-btn transition-all duration-200">
+                <ShieldCheck size={16} className="text-blue-400" />
               </div>
               <h3
                 className={`text-lg font-black tracking-tight mb-2 ${heading}`}
@@ -809,7 +884,10 @@ export default function LandingPage() {
                 pernah campur dengan bisnis lain.
               </p>
               <div className="flex items-center gap-2">
-                <ShieldCheck size={13} className="text-blue-400" />
+                <ShieldCheck
+                  size={13}
+                  className="text-blue-400 flex-shrink-0"
+                />
                 <span className="text-blue-400 text-[10px] font-black uppercase tracking-widest">
                   Enterprise-grade Encryption
                 </span>
@@ -819,56 +897,57 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ════════════════════════════
+      {/* ══════════════════════════════
           INDUSTRIES
-      ════════════════════════════ */}
+      ══════════════════════════════ */}
       <section
         id="industries"
-        className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-20"
+        className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20"
       >
         <div ref={ind.ref} style={revealStyle(ind.visible)}>
-          <div className="text-center mb-14 space-y-4">
+          <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
             <SectionBadge
               icon={<Globe className="h-3 w-3" />}
               label="Sektor Usaha"
             />
             <h2
-              className={`text-4xl md:text-[56px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
+              className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
             >
               <span className="accent-text">Satu Sistem.</span>
               <br />
               <span className="shimmer-text">Apapun Bisnisnya.</span>
             </h2>
-            <p className={`max-w-md mx-auto font-medium ${muted}`}>
-              Dirancang fleksibel untuk berbagai model persewaan slot & unit di
-              seluruh Indonesia.
+            <p
+              className={`max-w-sm sm:max-w-md mx-auto text-sm font-medium ${muted}`}
+            >
+              Dirancang fleksibel untuk berbagai model persewaan slot & unit.
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               {
-                icon: <Monitor size={22} />,
+                icon: <Monitor size={20} />,
                 title: "Gaming Hub",
                 desc: "Rental PS, PC, & Game Center. Billing per jam otomatis.",
                 accent: "blue",
                 tags: ["PS5", "Xbox", "PC", "VR"],
               },
               {
-                icon: <Camera size={22} />,
+                icon: <Camera size={20} />,
                 title: "Studio Kreatif",
                 desc: "Studio Foto, Podcast, & Musik. Kelola sesi dan paket alat.",
                 accent: "purple",
                 tags: ["Foto", "Video", "Podcast", "Musik"],
               },
               {
-                icon: <Zap size={22} />,
+                icon: <Zap size={20} />,
                 title: "Arena Olahraga",
                 desc: "Futsal, Badminton, Gym. Cek slot langsung dari HP.",
                 accent: "emerald",
                 tags: ["Futsal", "Badminton", "Gym", "Renang"],
               },
               {
-                icon: <Briefcase size={22} />,
+                icon: <Briefcase size={20} />,
                 title: "Office Space",
                 desc: "Coworking & Meeting Room. Kelola akses harian atau bulanan.",
                 accent: "orange",
@@ -887,10 +966,10 @@ export default function LandingPage() {
               return (
                 <div
                   key={i}
-                  className={`group hover-lift rounded-[2rem] border p-7 relative overflow-hidden ${card}`}
+                  className={`group hover-lift rounded-[1.75rem] border p-6 sm:p-7 relative overflow-hidden ${card}`}
                 >
                   <div
-                    className={`h-11 w-11 rounded-2xl border flex items-center justify-center mb-5 transition-all duration-200 ${iconCls[item.accent]}`}
+                    className={`h-10 w-10 sm:h-11 sm:w-11 rounded-2xl border flex items-center justify-center mb-4 sm:mb-5 transition-all duration-200 ${iconCls[item.accent]}`}
                   >
                     {item.icon}
                   </div>
@@ -900,7 +979,7 @@ export default function LandingPage() {
                     {item.title}
                   </h4>
                   <p
-                    className={`text-sm font-medium leading-relaxed mb-5 ${muted}`}
+                    className={`text-sm font-medium leading-relaxed mb-4 ${muted}`}
                   >
                     {item.desc}
                   </p>
@@ -915,8 +994,8 @@ export default function LandingPage() {
                     ))}
                   </div>
                   <ArrowUpRight
-                    size={28}
-                    className={`absolute top-5 right-5 opacity-0 group-hover:opacity-20 transition-opacity duration-200 ${heading}`}
+                    size={22}
+                    className={`absolute top-5 right-5 opacity-0 group-hover:opacity-15 transition-opacity duration-200 ${heading}`}
                   />
                 </div>
               );
@@ -925,56 +1004,56 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ════════════════════════════
+      {/* ══════════════════════════════
           HOW IT WORKS
-      ════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-20">
+      ══════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
         <div ref={how.ref} style={revealStyle(how.visible)}>
-          <div className="text-center mb-14 space-y-4">
+          <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
             <SectionBadge
               icon={<Clock className="h-3 w-3" />}
               label="Cara Kerja"
             />
             <h2
-              className={`text-4xl md:text-[56px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
+              className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
             >
               <span className="accent-text">Online</span> dalam
               <br />
               <span className="shimmer-text">5 Menit.</span>
             </h2>
           </div>
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               {
                 step: "01",
                 title: "Daftar Bisnis",
                 desc: "Isi nama bisnis, pilih tipe unit, dan atur jam operasional. Selesai dalam 2 menit.",
-                icon: <Users size={18} />,
+                icon: <Users size={17} />,
               },
               {
                 step: "02",
                 title: "Setup Unit & Harga",
                 desc: "Tambahkan unit PS, meja, atau lapangan. Tentukan tarif per jam atau per sesi.",
-                icon: <Clock size={18} />,
+                icon: <Clock size={17} />,
               },
               {
                 step: "03",
                 title: "Terima Booking",
                 desc: "Portal langsung aktif. Customer booking online, bayar digital, dapat notifikasi.",
-                icon: <CheckCircle2 size={18} />,
+                icon: <CheckCircle2 size={17} />,
               },
             ].map((s, i) => (
               <div
                 key={i}
-                className={`group hover-lift rounded-[2rem] border p-8 transition-colors duration-200 hover:border-blue-500/30 ${card}`}
+                className={`group hover-lift rounded-[1.75rem] border p-6 sm:p-8 transition-colors duration-200 hover:border-blue-500/30 ${card}`}
               >
-                <div className="flex items-center gap-4 mb-5">
+                <div className="flex items-center gap-3 mb-4 sm:mb-5">
                   <span
                     className={`text-4xl font-black leading-none ${isDark ? "text-white/[0.06]" : "text-slate-200"}`}
                   >
                     {s.step}
                   </span>
-                  <div className="h-9 w-9 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center text-blue-400 transition-all duration-200 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600">
+                  <div className="h-9 w-9 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center text-blue-400 transition-all duration-200 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 flex-shrink-0">
                     {s.icon}
                   </div>
                 </div>
@@ -992,39 +1071,44 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ════════════════════════════
+      {/* ══════════════════════════════
           STAFF MANAGEMENT
-      ════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-8">
+      ══════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         <div
           ref={staff.ref}
-          className={`relative overflow-hidden rounded-[2.5rem] border p-10 md:p-16 ${isDark ? "bg-white/[0.02] border-white/[0.07]" : "bg-white border-slate-200"}`}
+          className={`relative overflow-hidden rounded-[2rem] border p-6 sm:p-10 md:p-16 ${isDark ? "bg-white/[0.02] border-white/[0.07]" : "bg-white border-slate-200"}`}
           style={revealStyle(staff.visible)}
         >
           <div
             className={`absolute inset-0 pointer-events-none ${isDark ? "bg-[radial-gradient(circle_at_100%_0%,rgba(59,130,246,0.06),transparent_55%)]" : "bg-[radial-gradient(circle_at_100%_0%,rgba(59,130,246,0.04),transparent_55%)]"}`}
           />
-          <div className="absolute top-0 right-0 p-10 opacity-[0.025] pointer-events-none text-blue-400">
-            <Lock size={360} strokeWidth={0.5} />
+          <div className="absolute top-0 right-0 p-4 sm:p-8 opacity-[0.025] pointer-events-none text-blue-400">
+            <Lock size={120} strokeWidth={0.5} className="block sm:hidden" />
+            <Lock size={280} strokeWidth={0.5} className="hidden sm:block" />
           </div>
-          <div className="grid lg:grid-cols-2 gap-14 items-center">
-            <div className="space-y-5">
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 lg:gap-14 items-start lg:items-center">
+            {/* Text */}
+            <div className="space-y-4 sm:space-y-5">
               <SectionBadge
                 icon={<Lock className="h-3 w-3" />}
                 label="Kontrol Staff"
               />
               <h2
-                className={`text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
+                className={`text-3xl sm:text-4xl md:text-[48px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
               >
                 <span className="accent-text">Tim Hebat</span>,<br />
                 <span className="shimmer-text">Kontrol Penuh.</span>
               </h2>
-              <p className={`font-medium leading-relaxed ${muted}`}>
+              <p
+                className={`text-sm sm:text-base font-medium leading-relaxed ${muted}`}
+              >
                 Buat akun kasir dengan akses terbatas. Mereka bisa kelola
                 booking dan terima bayaran — tapi tidak bisa lihat laporan
                 keuangan kamu.
               </p>
-              <div className="space-y-2.5 pt-2">
+              <div className="space-y-2.5">
                 {[
                   {
                     label: "Akses Kasir Terbatas",
@@ -1041,7 +1125,7 @@ export default function LandingPage() {
                 ].map((item) => (
                   <div
                     key={item.label}
-                    className={`flex items-start gap-4 p-4 rounded-2xl border transition-colors duration-200 hover:border-blue-500/25 ${isDark ? "bg-white/[0.03] border-white/[0.06]" : "bg-slate-50 border-slate-200"}`}
+                    className={`flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl border transition-colors duration-200 hover:border-blue-500/25 ${isDark ? "bg-white/[0.03] border-white/[0.06]" : "bg-slate-50 border-slate-200"}`}
                   >
                     <CheckCircle2 className="text-blue-500 w-4 h-4 mt-0.5 flex-shrink-0" />
                     <div>
@@ -1056,16 +1140,18 @@ export default function LandingPage() {
                 ))}
               </div>
             </div>
+
             {/* Role cards */}
-            <div className="relative h-68 md:h-76">
+            <div className="flex flex-col gap-3 lg:block lg:relative lg:h-72">
+              {/* Owner card */}
               <div
-                className={`absolute top-0 right-0 left-8 rounded-[1.75rem] p-5 border shadow-lg ${panel} ${divider}`}
+                className={`lg:absolute lg:top-0 lg:right-0 lg:left-8 rounded-[1.5rem] p-5 border shadow-lg ${panel} ${divider}`}
               >
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center font-black text-white text-sm">
+                  <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center font-black text-white text-sm flex-shrink-0">
                     OW
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p
                       className={`font-black uppercase text-sm leading-none ${heading}`}
                     >
@@ -1075,7 +1161,7 @@ export default function LandingPage() {
                       Full Access
                     </p>
                   </div>
-                  <div className="ml-auto flex gap-1">
+                  <div className="flex gap-1 flex-shrink-0">
                     {["bg-emerald-500", "bg-blue-500", "bg-purple-500"].map(
                       (c, i) => (
                         <div key={i} className={`h-2 w-2 rounded-full ${c}`} />
@@ -1105,11 +1191,13 @@ export default function LandingPage() {
                   ))}
                 </div>
               </div>
+
+              {/* Kasir card */}
               <div
-                className={`absolute bottom-0 left-0 right-8 rounded-[1.75rem] p-5 border shadow-lg rotate-1 hover:rotate-0 transition-transform duration-300 ${panel} ${divider}`}
+                className={`lg:absolute lg:bottom-0 lg:left-0 lg:right-8 rounded-[1.5rem] p-5 border shadow-lg lg:rotate-1 hover:rotate-0 transition-transform duration-300 ${panel} ${divider}`}
               >
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="h-9 w-9 rounded-xl bg-slate-600 flex items-center justify-center font-black text-white text-sm">
+                  <div className="h-9 w-9 rounded-xl bg-slate-600 flex items-center justify-center font-black text-white text-sm flex-shrink-0">
                     KS
                   </div>
                   <div>
@@ -1152,30 +1240,30 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ════════════════════════════
+      {/* ══════════════════════════════
           TESTIMONIALS
-      ════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-20">
+      ══════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
         <div ref={testim.ref} style={revealStyle(testim.visible)}>
-          <div className="text-center mb-14 space-y-4">
+          <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
             <SectionBadge
               icon={<Star className="h-3 w-3 fill-current" />}
               label="Testimoni"
             />
             <h2
-              className={`text-4xl md:text-[56px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
+              className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
             >
               Kata Mereka
               <br />
               <span className="shimmer-text">yang Pakai.</span>
             </h2>
           </div>
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               {
                 name: "Rizky Firmansyah",
                 role: "Owner Gaming Hub Surabaya",
-                text: "Sebelum pakai Bookinaja, kasir saya nulis di buku. Sekarang semua otomatis, saya bisa pantau dari rumah. Pendapatan naik 40%.",
+                text: "Sebelum pakai Bookinaja, kasir saya nulis di buku. Sekarang semua otomatis, bisa pantau dari rumah. Pendapatan naik 40%.",
                 stars: 5,
                 av: "RF",
                 color: "bg-blue-600",
@@ -1183,7 +1271,7 @@ export default function LandingPage() {
               {
                 name: "Siti Rahayu",
                 role: "Owner Studio Foto Jakarta",
-                text: "Booking online-nya bikin customer lebih happy. Mereka pilih slot sendiri, bayar QRIS, dapat konfirmasi. Saya nggak perlu balas WA satu-satu.",
+                text: "Booking online-nya bikin customer lebih happy. Mereka pilih slot sendiri, bayar QRIS, dapat konfirmasi. Nggak perlu balas WA satu-satu.",
                 stars: 5,
                 av: "SR",
                 color: "bg-purple-600",
@@ -1191,7 +1279,7 @@ export default function LandingPage() {
               {
                 name: "Budi Santoso",
                 role: "Owner Lapangan Futsal Bandung",
-                text: "Laporan keuangannya detail banget. Bisa lihat hari apa paling ramai, jam berapa paling sepi, unit mana paling cuan.",
+                text: "Laporan keuangannya detail banget. Bisa lihat hari apa paling ramai, jam paling sepi, unit mana paling cuan. Strategi bisnis jadi lebih tajam.",
                 stars: 5,
                 av: "BS",
                 color: "bg-emerald-600",
@@ -1199,20 +1287,19 @@ export default function LandingPage() {
             ].map((t, i) => (
               <div
                 key={i}
-                className={`hover-lift rounded-[2rem] border p-8 ${card}`}
-                style={{ transitionDelay: `${i * 0.06}s` }}
+                className={`hover-lift rounded-[1.75rem] border p-6 sm:p-8 ${card}`}
               >
-                <div className="flex gap-1 mb-5">
+                <div className="flex gap-1 mb-4">
                   {[...Array(t.stars)].map((_, j) => (
                     <Star
                       key={j}
-                      size={13}
+                      size={12}
                       className="fill-yellow-400 text-yellow-400"
                     />
                   ))}
                 </div>
                 <p
-                  className={`text-sm font-medium leading-relaxed mb-7 italic ${isDark ? "text-white/55" : "text-slate-600"}`}
+                  className={`text-sm font-medium leading-relaxed mb-6 italic ${isDark ? "text-white/55" : "text-slate-600"}`}
                 >
                   "{t.text}"
                 </p>
@@ -1222,9 +1309,11 @@ export default function LandingPage() {
                   >
                     {t.av}
                   </div>
-                  <div>
-                    <p className={`text-sm font-black ${heading}`}>{t.name}</p>
-                    <p className={`text-xs ${muted}`}>{t.role}</p>
+                  <div className="min-w-0">
+                    <p className={`text-sm font-black truncate ${heading}`}>
+                      {t.name}
+                    </p>
+                    <p className={`text-xs truncate ${muted}`}>{t.role}</p>
                   </div>
                 </div>
               </div>
@@ -1233,164 +1322,42 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ════════════════════════════
-          PRICING
-      ════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 py-20">
-        <div ref={pricing.ref} style={revealStyle(pricing.visible)}>
-          <div className="text-center mb-14 space-y-4">
-            <SectionBadge
-              icon={<Wallet className="h-3 w-3" />}
-              label="Harga Paket"
-            />
-            <h2
-              className={`text-4xl md:text-[56px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
-            >
-              <span className="accent-text">Investasi Kecil</span>,<br />
-              <span className="shimmer-text">Cuan Berlipat.</span>
-            </h2>
-          </div>
-          <div className="grid md:grid-cols-3 gap-4 items-start">
-            {[
-              {
-                name: "Starter",
-                price: "149K",
-                period: "/bulan",
-                desc: "Digitalisasi dasar untuk bisnis persewaan tunggal.",
-                highlight: false,
-                features: [
-                  "1 Akun Utama (Owner)",
-                  "Website Booking Subdomain",
-                  "Kelola 1–5 Unit",
-                  "Laporan Bulanan",
-                  "Email & Chat Support",
-                ],
-              },
-              {
-                name: "Pro",
-                price: "299K",
-                period: "/bulan",
-                desc: "Fitur lengkap untuk bisnis dengan tim dan trafik tinggi.",
-                highlight: true,
-                features: [
-                  "Akun Staff / Karyawan",
-                  "Role-Based Access",
-                  "Unit Tanpa Batas",
-                  "Dashboard Live Realtime",
-                  "Harga Weekend Khusus",
-                  "WA Reminder Otomatis",
-                  "Support 24/7",
-                ],
-              },
-              {
-                name: "Enterprise",
-                price: "Custom",
-                period: "/bulan",
-                desc: "Dukungan eksklusif untuk jaringan skala nasional.",
-                highlight: false,
-                features: [
-                  "Custom Domain",
-                  "Hapus Branding Bookinaja",
-                  "Unlimited Multi-User",
-                  "Analitik Lanjutan",
-                  "SLA & Manajer Khusus",
-                  "Setup oleh Tim Ahli",
-                ],
-              },
-            ].map((plan, i) => (
-              <div
-                key={i}
-                className={`rounded-[2rem] border p-8 relative overflow-hidden hover-lift ${plan.highlight ? "bg-blue-600 border-blue-500 shadow-xl shadow-blue-600/20 md:scale-[1.03]" : `${card} hover:border-blue-500/25`}`}
-              >
-                {plan.highlight && (
-                  <span className="absolute top-5 right-5 text-[9px] font-black uppercase tracking-widest bg-white/20 px-3 py-1 rounded-full text-white">
-                    Terpopuler
-                  </span>
-                )}
-                <p
-                  className={`text-[11px] font-black uppercase tracking-widest mb-2 ${plan.highlight ? "text-blue-200" : muted}`}
-                >
-                  {plan.name}
-                </p>
-                <div className="flex items-end gap-1 mb-3">
-                  <span
-                    className={`text-4xl font-black ${plan.highlight ? "text-white" : heading}`}
-                  >
-                    Rp {plan.price}
-                  </span>
-                  <span
-                    className={`text-sm font-bold mb-1 ${plan.highlight ? "text-blue-200" : muted}`}
-                  >
-                    {plan.period}
-                  </span>
-                </div>
-                <p
-                  className={`text-sm font-medium leading-relaxed mb-7 ${plan.highlight ? "text-blue-100" : muted}`}
-                >
-                  {plan.desc}
-                </p>
-                <div className="space-y-2.5 mb-7">
-                  {plan.features.map((f, j) => (
-                    <div key={j} className="flex items-center gap-2.5">
-                      <CheckCircle2
-                        size={15}
-                        className={
-                          plan.highlight ? "text-white" : "text-blue-400"
-                        }
-                      />
-                      <span
-                        className={`text-sm font-medium ${plan.highlight ? "text-white" : isDark ? "text-white/60" : "text-slate-600"}`}
-                      >
-                        {f}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <Link href="/register">
-                  <Button
-                    className={`w-full h-11 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl transition-colors duration-200 ${plan.highlight ? "bg-white text-blue-600 hover:bg-blue-50" : "bg-blue-600/15 border border-blue-500/25 text-blue-400 hover:bg-blue-600 hover:text-white hover:border-blue-600"}`}
-                  >
-                    {plan.name === "Enterprise"
-                      ? "Hubungi Kami"
-                      : `Pilih ${plan.name}`}
-                  </Button>
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ════════════════════════════
+      {/* ══════════════════════════════
           CTA
-      ════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-6 pb-24">
+      ══════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 pb-14 sm:pb-24">
         <div ref={cta.ref} style={revealStyle(cta.visible)}>
           <div
-            className={`relative overflow-hidden rounded-[2.5rem] border px-8 py-24 md:py-32 text-center ${isDark ? "bg-slate-950 border-white/[0.07]" : "bg-white border-slate-200"}`}
+            className={`relative overflow-hidden rounded-[2rem] border px-6 sm:px-10 py-14 sm:py-24 md:py-32 text-center ${isDark ? "bg-slate-950 border-white/[0.07]" : "bg-white border-slate-200"}`}
           >
             <div
-              className={`absolute inset-0 pointer-events-none ${isDark ? "bg-[radial-gradient(ellipse_70%_50%_at_50%_110%,rgba(59,130,246,0.15),transparent)]" : "bg-[radial-gradient(ellipse_70%_50%_at_50%_110%,rgba(59,130,246,0.07),transparent)]"}`}
+              className={`absolute inset-0 pointer-events-none ${
+                isDark
+                  ? "bg-[radial-gradient(ellipse_70%_50%_at_50%_110%,rgba(59,130,246,0.15),transparent)]"
+                  : "bg-[radial-gradient(ellipse_70%_50%_at_50%_110%,rgba(59,130,246,0.07),transparent)]"
+              }`}
             />
-            <div className="relative z-10 max-w-3xl mx-auto space-y-8">
+            <div className="relative z-10 max-w-sm sm:max-w-2xl md:max-w-3xl mx-auto space-y-6 sm:space-y-8">
               <SectionBadge
                 icon={<Rocket className="h-3 w-3" />}
                 label="Mulai Hari Ini"
               />
               <h2
-                className={`text-5xl md:text-7xl font-black tracking-[-0.06em] leading-[0.86] uppercase ${heading}`}
+                className={`text-4xl sm:text-5xl md:text-7xl font-black tracking-[-0.06em] leading-[0.86] uppercase ${heading}`}
               >
                 <span className="accent-text">Bisnis Kamu</span>
                 <br />
                 <span className="shimmer-text">Bisa Autopilot.</span>
               </h2>
-              <p className={`font-medium text-base max-w-md mx-auto ${muted}`}>
+              <p
+                className={`text-sm sm:text-base font-medium max-w-xs sm:max-w-md mx-auto ${muted}`}
+              >
                 Bergabung dengan 2.400+ bisnis Indonesia yang sudah membuktikan.
                 Gratis 14 hari, tanpa kartu kredit.
               </p>
-              <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
-                <Link href="/register">
-                  <Button className="h-14 md:h-16 px-10 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl bg-blue-600 hover:bg-blue-500 text-white border-0 transition-colors duration-200 shadow-lg shadow-blue-600/20">
+              <div className="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4">
+                <Link href="/register" className="w-full sm:w-auto">
+                  <Button className="w-full sm:w-auto h-12 sm:h-14 md:h-16 px-8 sm:px-10 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl bg-blue-600 hover:bg-blue-500 text-white border-0 transition-colors duration-200 shadow-lg shadow-blue-600/20">
                     Daftar Gratis Sekarang{" "}
                     <ArrowUpRight className="ml-2 h-4 w-4" />
                   </Button>
@@ -1402,14 +1369,17 @@ export default function LandingPage() {
                   Lihat Semua Paket →
                 </Link>
               </div>
-              <div className="flex flex-wrap justify-center gap-6 pt-2">
+              <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
                 {[
                   "✓ Gratis 14 hari",
                   "✓ Tanpa kartu kredit",
                   "✓ Setup 5 menit",
                   "✓ Batalkan kapanpun",
                 ].map((f) => (
-                  <span key={f} className={`text-xs font-medium ${muted}`}>
+                  <span
+                    key={f}
+                    className={`text-[11px] sm:text-xs font-medium ${muted}`}
+                  >
                     {f}
                   </span>
                 ))}
@@ -1419,47 +1389,5 @@ export default function LandingPage() {
         </div>
       </section>
     </div>
-  );
-}
-
-/* ─────────────────────────────────────────────
-   SHARED: Section Badge
-───────────────────────────────────────────── */
-function SectionBadge({
-  icon,
-  label,
-}: {
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/[0.07] px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.28em] text-blue-500">
-      {icon} {label}
-    </span>
-  );
-}
-
-/* ─────────────────────────────────────────────
-   Rocket icon (inline SVG)
-───────────────────────────────────────────── */
-function Rocket({ className, size }: { className?: string; size?: number }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width={size ?? 24}
-      height={size ?? 24}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
-      <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
-      <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
-      <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
-    </svg>
   );
 }
