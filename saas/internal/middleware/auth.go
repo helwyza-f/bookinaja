@@ -110,6 +110,17 @@ func AdminOnly() gin.HandlerFunc {
 	}
 }
 
+func OwnerOnly() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.GetString("userRole") != "owner" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya owner yang diizinkan"})
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+
 func PlatformOnly() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.GetString("userRole") != "platform_admin" {

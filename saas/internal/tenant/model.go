@@ -1,6 +1,7 @@
 package tenant
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -40,6 +41,36 @@ type User struct {
 	Password  string    `db:"password" json:"-"`
 	Role      string    `db:"role" json:"role"`
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
+}
+
+type StaffCreateReq struct {
+	Name     string `json:"name" binding:"required"`
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required,min=6"`
+}
+
+type AuditLog struct {
+	ID           uuid.UUID       `db:"id" json:"id"`
+	TenantID     uuid.UUID       `db:"tenant_id" json:"tenant_id"`
+	ActorUserID  *uuid.UUID      `db:"actor_user_id" json:"actor_user_id"`
+	Action       string          `db:"action" json:"action"`
+	ResourceType string          `db:"resource_type" json:"resource_type"`
+	ResourceID   *uuid.UUID      `db:"resource_id" json:"resource_id"`
+	Metadata     json.RawMessage `db:"metadata" json:"metadata"`
+	CreatedAt    time.Time       `db:"created_at" json:"created_at"`
+}
+
+type AuditLogEntry struct {
+	ID           uuid.UUID       `db:"id" json:"id"`
+	TenantID     uuid.UUID       `db:"tenant_id" json:"tenant_id"`
+	ActorUserID  *uuid.UUID      `db:"actor_user_id" json:"actor_user_id"`
+	ActorName    string          `db:"actor_name" json:"actor_name"`
+	ActorEmail   string          `db:"actor_email" json:"actor_email"`
+	Action       string          `db:"action" json:"action"`
+	ResourceType string          `db:"resource_type" json:"resource_type"`
+	ResourceID   *uuid.UUID      `db:"resource_id" json:"resource_id"`
+	Metadata     json.RawMessage `db:"metadata" json:"metadata"`
+	CreatedAt    time.Time       `db:"created_at" json:"created_at"`
 }
 
 // Tenant adalah jantung dari sistem Multi-Tenant lo, menyimpan data branding dan konfigurasi publik

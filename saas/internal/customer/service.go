@@ -178,7 +178,7 @@ func canCreateNewCustomer(plan, status string, periodEnd *time.Time) bool {
 	}
 }
 
-func (s *Service) BlastAnnouncement(ctx context.Context, tenantID string, req BroadcastAnnouncementReq) (*BroadcastResult, error) {
+func (s *Service) BlastAnnouncement(ctx context.Context, actorUserID uuid.UUID, tenantID string, req BroadcastAnnouncementReq) (*BroadcastResult, error) {
 	tID, err := uuid.Parse(tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("service: id tenant tidak valid")
@@ -234,6 +234,15 @@ func (s *Service) BlastAnnouncement(ctx context.Context, tenantID string, req Br
 	}
 
 	result.Skipped = result.Total - result.Sent - result.Failed
+	_ = s.repo.CreateAuditLog(ctx, tID, &actorUserID, "customer_blast", "customer", nil, map[string]any{
+		"message":          message,
+		"total":            result.Total,
+		"sent":             result.Sent,
+		"failed":           result.Failed,
+		"skipped":          result.Skipped,
+		"default_message":  result.DefaultMsg,
+		"broadcast_target": "all_customers",
+	})
 	return result, nil
 }
 

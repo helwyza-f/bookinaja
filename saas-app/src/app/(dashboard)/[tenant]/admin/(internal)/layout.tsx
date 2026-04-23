@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/sidebar";
+import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import api from "@/lib/api";
@@ -21,6 +22,7 @@ export default function DashboardInternalLayout({
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [role, setRole] = useState<string>("staff");
 
   useEffect(() => {
     let active = true;
@@ -32,6 +34,7 @@ export default function DashboardInternalLayout({
         if (active) {
           // Sinkronkan data tenant ke cookie untuk interoperabilitas header API
           const userData = res.data.user;
+          setRole(userData?.role || "staff");
           syncTenantCookies(null, userData.tenant_id);
 
           setCheckingSession(false);
@@ -61,7 +64,7 @@ export default function DashboardInternalLayout({
 
   return (
     <TooltipProvider delayDuration={0} skipDelayDuration={0}>
-      <div className="flex min-h-screen bg-slate-50 dark:bg-[#050505] selection:bg-blue-500/30">
+      <div className="tenant-admin-shell flex min-h-screen bg-slate-50 dark:bg-[#050505] selection:bg-blue-500/30">
         {/* SIDEBAR */}
         <aside
           className={cn(
@@ -75,16 +78,17 @@ export default function DashboardInternalLayout({
         {/* MAIN CONTENT */}
         <div
           className={cn(
-            "flex flex-1 flex-col transition-all duration-300 ease-in-out",
+            "tenant-admin-content flex flex-1 flex-col transition-all duration-300 ease-in-out pb-24 md:pb-0",
             isCollapsed ? "md:pl-20" : "md:pl-72",
           )}
         >
-          <main className="p-4 md:p-10 min-h-screen">
+          <main className="min-h-screen p-4 md:p-10">
             <div className="max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-2 duration-700">
               {children}
             </div>
           </main>
         </div>
+        <MobileNav mode="operational" role={role} />
       </div>
     </TooltipProvider>
   );
@@ -93,7 +97,7 @@ export default function DashboardInternalLayout({
 // --- LOADING SKELETON COMPONENT ---
 function DashboardLayoutSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-[#050505]">
+    <div className="tenant-admin-shell flex min-h-screen bg-slate-50 dark:bg-[#050505]">
       {/* Sidebar Shadow Skeleton */}
       <div
         className={cn(

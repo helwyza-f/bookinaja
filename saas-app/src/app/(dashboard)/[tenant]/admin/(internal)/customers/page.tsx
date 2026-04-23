@@ -4,7 +4,6 @@ import { useEffect, useState, useMemo } from "react";
 import api from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -74,10 +73,6 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [blastMessage, setBlastMessage] = useState(
-    "Halo {nama pelanggan}, sekarang kami sudah pakai Bookinaja untuk booking dan update pelanggan. Simpan nomor ini untuk notifikasi jadwal, promo, dan info penting lainnya.",
-  );
-  const [blasting, setBlasting] = useState(false);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [customerDetail, setCustomerDetail] = useState<CustomerDetail | null>(null);
@@ -138,29 +133,6 @@ export default function CustomersPage() {
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
 
-  const handleBlast = async () => {
-    setBlasting(true);
-    try {
-      const res = await api.post("/customers/blast", {
-        message: blastMessage,
-      });
-      toast.success(
-        `Blast terkirim ke ${res.data?.sent || 0} pelanggan dari ${res.data?.total || 0} target.`,
-      );
-    } catch (error) {
-      const message =
-        typeof error === "object" &&
-        error !== null &&
-        "response" in error &&
-        typeof (error as { response?: { data?: { error?: string } } }).response?.data?.error === "string"
-          ? (error as { response?: { data?: { error?: string } } }).response?.data?.error
-          : "Gagal mengirim blast pelanggan";
-      toast.error(message);
-    } finally {
-      setBlasting(false);
-    }
-  };
-
   return (
     <div className="max-w-[1600px] mx-auto space-y-6 pb-20 animate-in fade-in duration-500 px-4 mt-6 font-plus-jakarta">
       {/* 1. COMPACT ANALYTICS BAR */}
@@ -217,10 +189,10 @@ export default function CustomersPage() {
           </div>
           <div className="flex flex-col">
             <h1 className="text-2xl md:text-3xl font-[1000] italic uppercase tracking-tighter leading-none dark:text-white">
-              CRM <span className="text-blue-600">Terminal.</span>
+              Customers <span className="text-blue-600">Hub.</span>
             </h1>
             <p className="hidden sm:block text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] italic mt-1.5">
-              Loyalty Management & Spend Tracking
+              Member Database & Loyalty Tracking
             </p>
           </div>
         </div>
@@ -236,64 +208,84 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      <Card className="rounded-[2rem] border border-blue-500/10 bg-blue-50/40 dark:bg-blue-500/5 p-6 md:p-8 shadow-sm">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-3 max-w-3xl">
-            <Badge className="w-fit bg-blue-600 text-white border-none font-black uppercase tracking-widest text-[9px] px-3 py-1">
-              Migrasi Pelanggan
-            </Badge>
-            <div className="space-y-2">
-              <h2 className="text-2xl md:text-3xl font-[1000] italic uppercase tracking-tighter dark:text-white">
-                Blast semua pelanggan lama.
-              </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400 font-medium max-w-3xl">
-                Pakai fitur ini untuk announce ke database pelanggan yang sudah
-                ada, supaya mereka tahu tenant ini sekarang berjalan di
-                Bookinaja.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 px-4 py-3 shadow-sm">
-            <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">
-              WhatsApp broadcast ready
-            </span>
-          </div>
-        </div>
-
-        <div className="mt-6 grid gap-4">
-          <Textarea
-            value={blastMessage}
-            onChange={(e) => setBlastMessage(e.target.value)}
-            className="min-h-40 rounded-[1.5rem] bg-white dark:bg-slate-950 border-slate-200 dark:border-white/5 font-medium text-sm leading-relaxed"
-            placeholder="Tulis pesan announcement..."
-          />
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">
-              Gunakan placeholder <span className="text-blue-600">{`{nama pelanggan}`}</span>{" "}
-              untuk personalisasi otomatis.
-            </p>
-            <Button
-              onClick={handleBlast}
-              disabled={blasting}
-              className="h-12 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black uppercase italic tracking-[0.2em] text-[10px] shadow-xl shadow-blue-600/20 px-6"
+      {/* 3. MOBILE CARDS */}
+      <div className="grid gap-3 md:hidden">
+        {loading ? (
+          [...Array(4)].map((_, i) => (
+            <Card
+              key={i}
+              className="rounded-[1.5rem] border-none shadow-sm bg-white dark:bg-slate-900 p-4"
             >
-              {blasting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Mengirim...
-                </>
-              ) : (
-                "Blast ke Semua Pelanggan"
-              )}
-            </Button>
-          </div>
-        </div>
-      </Card>
+              <Skeleton className="h-20 rounded-[1rem] bg-slate-100 dark:bg-white/5" />
+            </Card>
+          ))
+        ) : filteredCustomers.length === 0 ? (
+          <Card className="rounded-[1.5rem] border-none shadow-sm bg-white dark:bg-slate-900 p-6 text-center text-slate-300 font-black uppercase italic tracking-widest">
+            Database Empty
+          </Card>
+        ) : (
+          filteredCustomers.map((c) => (
+            <Card
+              key={c.id}
+              className="rounded-[1.5rem] border-none shadow-sm bg-white dark:bg-slate-900 p-4 ring-1 ring-slate-100 dark:ring-white/5"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 font-black italic">
+                      {c.name.charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-black italic uppercase tracking-tight dark:text-white">
+                        {c.name}
+                      </div>
+                      <div className="mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        {c.phone}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <Badge
+                  className={cn(
+                    "shrink-0 font-black italic text-[8px] uppercase px-3 py-0.5 rounded-lg border-none shadow-sm",
+                    c.tier === "VIP"
+                      ? "bg-purple-600 text-white animate-pulse"
+                      : c.tier === "GOLD"
+                        ? "bg-orange-500 text-white"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-500",
+                  )}
+                >
+                  {c.tier}
+                </Badge>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3">
+                  <div>Visits</div>
+                  <div className="mt-1 text-sm font-black italic text-slate-900 dark:text-white">
+                    {c.total_visits}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 text-right">
+                  <div>Spend</div>
+                  <div className="mt-1 text-sm font-black italic text-emerald-500">
+                    Rp {formatIDR(c.total_spent)}
+                  </div>
+                </div>
+              </div>
+              <Button
+                onClick={() => fetchDetail(c.id)}
+                variant="outline"
+                className="mt-4 h-11 w-full rounded-xl border-slate-200 dark:border-white/10 hover:bg-blue-600 hover:text-white font-black text-[9px] uppercase italic tracking-widest gap-2"
+              >
+                Profile <ArrowUpRight size={14} />
+              </Button>
+            </Card>
+          ))
+        )}
+      </div>
 
       {/* 3. TABLE AREA */}
-      <Card className="rounded-[2.5rem] border-none shadow-xl bg-white dark:bg-slate-900 overflow-hidden ring-1 ring-slate-100 dark:ring-white/5">
+      <Card className="hidden md:block rounded-[2.5rem] border-none shadow-xl bg-white dark:bg-slate-900 overflow-hidden ring-1 ring-slate-100 dark:ring-white/5">
         <Table>
           <TableHeader className="bg-slate-50/50 dark:bg-slate-800/50">
             <TableRow className="border-none h-14 hover:bg-transparent">

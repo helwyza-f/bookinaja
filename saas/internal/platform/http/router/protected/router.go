@@ -54,21 +54,34 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 		{
 			adminArea.GET("/auth/me", cfg.AuthHandler.CheckMe)
 
-			billingGroup := adminArea.Group("/billing")
+			ownerArea := adminArea.Group("/")
+			ownerArea.Use(middleware.OwnerOnly())
 			{
-				billingGroup.GET("/subscription", cfg.BillingHandler.GetSubscription)
-				billingGroup.GET("/orders", cfg.BillingHandler.ListOrders)
-				billingGroup.POST("/checkout", cfg.BillingHandler.Checkout)
-				billingGroup.POST("/bookings/checkout", cfg.BillingHandler.BookingCheckout)
-			}
+				ownerAdmin := ownerArea.Group("/admin")
+				{
+					ownerAdmin.GET("/profile", cfg.TenantHandler.GetProfile)
+					ownerAdmin.PUT("/profile", cfg.TenantHandler.UpdateProfile)
+					ownerAdmin.POST("/upload", func(c *gin.Context) {
+						upload.HandleSingleUpload(c, "tenants")
+					})
+				}
 
-			admin := adminArea.Group("/admin")
-			{
-				admin.GET("/profile", cfg.TenantHandler.GetProfile)
-				admin.PUT("/profile", cfg.TenantHandler.UpdateProfile)
-				admin.POST("/upload", func(c *gin.Context) {
-					upload.HandleSingleUpload(c, "tenants")
-				})
+				billingGroup := ownerArea.Group("/billing")
+				{
+					billingGroup.GET("/subscription", cfg.BillingHandler.GetSubscription)
+					billingGroup.GET("/orders", cfg.BillingHandler.ListOrders)
+					billingGroup.POST("/checkout", cfg.BillingHandler.Checkout)
+					billingGroup.POST("/bookings/checkout", cfg.BillingHandler.BookingCheckout)
+				}
+
+				settingsGroup := ownerArea.Group("/admin/settings")
+				{
+					settingsGroup.GET("/staff", cfg.TenantHandler.ListStaff)
+					settingsGroup.POST("/staff", cfg.TenantHandler.CreateStaff)
+					settingsGroup.DELETE("/staff/:id", cfg.TenantHandler.DeleteStaff)
+					settingsGroup.GET("/activity", cfg.TenantHandler.ListActivity)
+					settingsGroup.POST("/customers/blast", cfg.CustomerHandler.BlastAnnouncement)
+				}
 			}
 
 			resources := adminArea.Group("/resources-all")
@@ -117,7 +130,6 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			customers := adminArea.Group("/customers")
 			{
 				customers.GET("", cfg.CustomerHandler.List)
-				customers.POST("/blast", cfg.CustomerHandler.BlastAnnouncement)
 				customers.GET("/search", cfg.CustomerHandler.SearchByPhone)
 				customers.GET("/:id/history", cfg.CustomerHandler.GetHistory)
 				customers.GET("/:id", cfg.CustomerHandler.GetByID)

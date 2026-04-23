@@ -165,15 +165,15 @@ export default function FnbManagementPage() {
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-6 pb-32 animate-in fade-in duration-500 font-plus-jakarta px-4 mt-6">
+    <div className="max-w-[1600px] mx-auto space-y-5 md:space-y-6 pb-32 animate-in fade-in duration-500 font-plus-jakarta px-3 md:px-4 mt-4 md:mt-6">
       {/* 1. COMPACT HEADER */}
-      <div className="flex flex-row items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-6 gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-5 md:pb-6 gap-4">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-xl shadow-blue-500/20">
             <Coffee size={20} fill="currentColor" />
           </div>
           <div className="flex flex-col">
-            <h1 className="text-2xl md:text-4xl font-[1000] italic uppercase tracking-tighter text-slate-950 dark:text-white leading-none">
+            <h1 className="text-xl md:text-4xl font-[1000] italic uppercase tracking-tighter text-slate-950 dark:text-white leading-none">
               Menu <span className="text-blue-600">Library.</span>
             </h1>
             <p className="hidden sm:block text-[8px] font-black text-slate-400 uppercase tracking-[0.4em] italic mt-1.5">
@@ -190,7 +190,7 @@ export default function FnbManagementPage() {
           }}
         >
           <DialogTrigger asChild>
-            <Button className="h-12 px-6 rounded-2xl bg-slate-950 dark:bg-blue-600 text-white font-black uppercase italic text-[10px] shadow-lg border-b-4 border-slate-800 dark:border-blue-800 gap-2 transition-all active:scale-95">
+            <Button className="h-12 px-4 md:px-6 rounded-2xl bg-slate-950 dark:bg-blue-600 text-white font-black uppercase italic text-[10px] shadow-lg border-b-4 border-slate-800 dark:border-blue-800 gap-2 transition-all active:scale-95 w-full sm:w-auto">
               <Plus size={16} strokeWidth={4} /> Add Item
             </Button>
           </DialogTrigger>
@@ -204,7 +204,7 @@ export default function FnbManagementPage() {
 
             <div className="flex flex-col md:flex-row w-full max-h-[90vh]">
               {/* Left Side: Media Area - FIXED & CLEAN */}
-              <div className="w-full md:w-5/12 bg-slate-50 dark:bg-slate-900/50 p-8 md:p-10 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-slate-100 dark:border-white/5">
+              <div className="w-full md:w-5/12 bg-slate-50 dark:bg-slate-900/50 p-5 md:p-10 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-slate-100 dark:border-white/5">
                 <div className="space-y-6 w-full max-w-[320px]">
                   <div className="text-center md:text-left">
                     <h2 className="text-2xl font-[1000] uppercase italic tracking-tighter dark:text-white leading-none">
@@ -231,7 +231,7 @@ export default function FnbManagementPage() {
               </div>
 
               {/* Right Side: Form Details */}
-              <div className="w-full md:w-7/12 p-8 md:p-12 overflow-y-auto bg-white dark:bg-slate-950">
+              <div className="w-full md:w-7/12 p-5 md:p-12 overflow-y-auto bg-white dark:bg-slate-950">
                 <form onSubmit={handleSave} className="space-y-8">
                   <div className="space-y-6">
                     <div className="space-y-2">
@@ -247,7 +247,7 @@ export default function FnbManagementPage() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-600 italic tracking-widest ml-1">
                           Price (IDR)
@@ -310,7 +310,7 @@ export default function FnbManagementPage() {
       {loading ? (
         <FnbSkeleton />
       ) : items.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 animate-in slide-in-from-bottom-2 duration-500">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 animate-in slide-in-from-bottom-2 duration-500">
           {items.map((item) => (
             <Card
               key={item.id}
@@ -407,7 +407,7 @@ export default function FnbManagementPage() {
           ))}
         </div>
       ) : (
-        <div className="h-[50vh] flex flex-col items-center justify-center bg-white dark:bg-slate-950 rounded-[3rem] border border-dashed border-slate-200 dark:border-white/10 p-12 text-center">
+        <div className="h-[50vh] flex flex-col items-center justify-center bg-white dark:bg-slate-950 rounded-[1.75rem] md:rounded-[3rem] border border-dashed border-slate-200 dark:border-white/10 p-8 md:p-12 text-center">
           <div className="h-20 w-20 bg-slate-50 dark:bg-slate-900 rounded-[2rem] flex items-center justify-center mb-6 shadow-inner">
             <PackageSearch size={32} className="text-slate-200" />
           </div>

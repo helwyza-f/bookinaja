@@ -240,9 +240,9 @@ export default function NewManualBookingPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#050505] font-plus-jakarta pb-20 -mt-6">
-      <div className="max-w-[1600px] mx-auto p-4 lg:p-6 space-y-6">
+      <div className="max-w-[1600px] mx-auto p-3 md:p-4 lg:p-6 space-y-5 md:space-y-6">
         {/* COMPACT HEADER */}
-        <header className="flex items-center gap-4">
+        <header className="flex items-center gap-3">
           <Button
             variant="ghost"
             size="icon"
@@ -265,7 +265,7 @@ export default function NewManualBookingPage() {
           {/* LEFT: SELECTION FLOW */}
           <div className="lg:col-span-8 space-y-6">
             {/* 01. PILIH UNIT & PAKET */}
-            <Card className="rounded-[2rem] border-none bg-white dark:bg-[#0c0c0c] p-6 shadow-sm ring-1 ring-black/5 dark:ring-white/5">
+            <Card className="rounded-[1.5rem] md:rounded-[2rem] border-none bg-white dark:bg-[#0c0c0c] p-5 md:p-6 shadow-sm ring-1 ring-black/5 dark:ring-white/5">
               <div className="flex items-center gap-3 mb-6">
                 <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">
                   <Box size={18} />
@@ -347,7 +347,7 @@ export default function NewManualBookingPage() {
                 !selectedMainId && "opacity-20 pointer-events-none",
               )}
             >
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-10">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-emerald-500 flex items-center justify-center text-white shadow-lg">
                     <Clock size={22} />
@@ -383,7 +383,7 @@ export default function NewManualBookingPage() {
                 </Popover>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-10">
                 <div className="lg:col-span-4 flex flex-col items-center justify-center border-r border-slate-100 dark:border-white/5 pr-4 md:pr-10">
                   <span className="text-[10px] font-black uppercase text-slate-400 italic mb-6 tracking-[0.2em] leading-none text-center">
                     Jumlah Unit / Sesi
@@ -399,7 +399,7 @@ export default function NewManualBookingPage() {
                     >
                       -
                     </Button>
-                    <span className="text-7xl font-[1000] italic text-blue-600 tabular-nums leading-none tracking-tighter">
+                    <span className="text-4xl md:text-7xl font-[1000] italic text-blue-600 tabular-nums leading-none tracking-tighter">
                       {durationValue}
                     </span>
                     <Button
@@ -425,7 +425,7 @@ export default function NewManualBookingPage() {
 
                 <div className="lg:col-span-8">
                   {!isInterday ? (
-                    <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2.5">
+                    <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2.5">
                       {availableSlots.map((t) => {
                         const isBusy = busySlots.some((s) => {
                           const [h, m] = t.split(":").map(Number);
@@ -457,7 +457,7 @@ export default function NewManualBookingPage() {
                       })}
                     </div>
                   ) : (
-                    <div className="h-full flex items-center p-8 bg-blue-500/5 rounded-[2rem] border border-blue-500/10 gap-5">
+                    <div className="h-full flex items-center p-5 md:p-8 bg-blue-500/5 rounded-[1.5rem] md:rounded-[2rem] border border-blue-500/10 gap-4 md:gap-5">
                       <ShieldCheck className="text-blue-500 h-10 w-10 shrink-0" />
                       <p className="text-xs font-black text-blue-600 uppercase italic leading-relaxed tracking-wide">
                         Logic Antar Hari Aktif: Boking dimulai otomatis pukul
@@ -477,7 +477,7 @@ export default function NewManualBookingPage() {
               !selectedTime && "opacity-20 pointer-events-none",
             )}
           >
-            <Card className="rounded-[2.5rem] border-none bg-slate-950 p-8 text-white shadow-2xl space-y-8 ring-1 ring-white/5">
+            <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-none bg-slate-950 p-5 md:p-8 text-white shadow-2xl space-y-6 md:space-y-8 ring-1 ring-white/5">
               {/* CUSTOMER INFO */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-white/5 pb-4">
@@ -589,7 +589,7 @@ export default function NewManualBookingPage() {
                   <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 italic leading-none">
                     Estimasi Tagihan
                   </p>
-                  <p className="text-5xl font-[1000] italic tracking-tighter text-white leading-none">
+                  <p className="text-3xl md:text-5xl font-[1000] italic tracking-tighter text-white leading-none">
                     Rp{calculateTotal().toLocaleString()}
                   </p>
                 </div>
@@ -619,7 +619,7 @@ export default function NewManualBookingPage() {
               <Button
                 onClick={handleSave}
                 disabled={isSubmitting || !selectedTime || !custName}
-                className="w-full h-20 rounded-[2rem] bg-blue-600 hover:bg-blue-500 text-white font-[1000] uppercase italic tracking-widest text-base border-b-8 border-blue-800 shadow-2xl transition-all active:scale-95 gap-4"
+                className="w-full h-14 md:h-20 rounded-[1.5rem] md:rounded-[2rem] bg-blue-600 hover:bg-blue-500 text-white font-[1000] uppercase italic tracking-widest text-sm md:text-base border-b-8 border-blue-800 shadow-2xl transition-all active:scale-95 gap-4"
               >
                 {isSubmitting ? (
                   <Loader2 className="animate-spin" />

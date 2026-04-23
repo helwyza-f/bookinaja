@@ -13,14 +13,13 @@ import {
   MonitorPlay,
   Settings,
   LogOut,
-  Zap,
   ChevronLeft,
   ChevronRight,
   Utensils,
-  CreditCard,
   Moon,
   Sun,
   ChevronsUpDown,
+  ShieldCheck,
 } from "lucide-react";
 import {
   Tooltip,
@@ -47,23 +46,50 @@ interface SidebarProps {
 
 const FALLBACK_LOGO = "https://cdn.bookinaja.com/tenants/logo_frameless.png";
 
+type SidebarUser = {
+  name?: string;
+  email?: string;
+  role?: string;
+  logo_url?: string;
+  initials?: string;
+};
+
 export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   const pathname = usePathname();
   const params = useParams();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
 
-  const [userData, setUserData] = useState<any>(null);
+  const [userData, setUserData] = useState<SidebarUser | null>(null);
+  const [tenantName, setTenantName] = useState<string>(String(params.tenant || "HUB"));
 
   useEffect(() => {
+    let active = true;
+
     api
       .get("/auth/me")
-      .then((res) => setUserData(res.data.user))
-      .catch(() => {});
-  }, []);
+      .then(async (res) => {
+        if (!active) return;
+        setUserData(res.data.user);
 
-  const tenantName =
-    userData?.tenant_name || (params.tenant as string) || "HUB";
+        try {
+          const profileRes = await api.get("/admin/profile");
+          if (active) {
+            setTenantName(profileRes.data?.name || String(params.tenant || "HUB"));
+          }
+        } catch {
+          if (active) {
+            setTenantName(String(params.tenant || "HUB"));
+          }
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, [params.tenant]);
+
   // Logic Fallback Logo
   const tenantLogo =
     userData?.logo_url && userData.logo_url !== ""
@@ -77,7 +103,6 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
     { label: "Resources", icon: Box, href: "/admin/resources" },
     { label: "F&B / Menu", icon: Utensils, href: "/admin/fnb" },
     { label: "Customers", icon: Users, href: "/admin/customers" },
-    { label: "Subscription", icon: CreditCard, href: "/admin/billing" },
   ];
 
   const handleLogout = () => {
@@ -108,13 +133,11 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       >
         <Link href="/admin/dashboard" className="flex items-center gap-3 group">
           <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-white/5 shadow-inner ring-1 ring-black/5 dark:ring-white/10">
-            <img
-              src={tenantLogo}
-              alt="Logo"
-              className="h-full w-full object-cover transition-transform group-hover:scale-110 duration-500"
-              onError={(e: any) => {
-                e.target.src = FALLBACK_LOGO;
-              }}
+            <div
+              className="h-full w-full bg-cover bg-center transition-transform group-hover:scale-110 duration-500"
+              style={{ backgroundImage: `url(${tenantLogo})` }}
+              role="img"
+              aria-label="Tenant logo"
             />
           </div>
           {!isCollapsed && (
@@ -188,10 +211,11 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
             >
               <div className="h-9 w-9 shrink-0 rounded-xl bg-blue-600 flex items-center justify-center font-[1000] text-white shadow-lg italic border-b-2 border-blue-800 uppercase overflow-hidden">
                 {userData?.logo_url && userData.logo_url !== "" ? (
-                  <img
-                    src={userData.logo_url}
-                    className="h-full w-full object-cover"
-                    alt="User"
+                  <div
+                    className="h-full w-full bg-cover bg-center"
+                    style={{ backgroundImage: `url(${userData.logo_url})` }}
+                    role="img"
+                    aria-label="User avatar"
                   />
                 ) : (
                   userData?.initials || "U"
@@ -221,33 +245,53 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
             sideOffset={12}
           >
             <DropdownMenuLabel className="p-4">
-              <div className="flex flex-col space-y-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-[10px] font-[1000] uppercase italic dark:text-white leading-none">
-                    Personal Profil
-                  </p>
-                  <Badge className="bg-blue-600/10 text-blue-600 border-none text-[7px] px-1.5 py-0 uppercase font-black italic">
-                    {userData?.role}
+              <div className="rounded-[1.25rem] bg-slate-950 text-white p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="space-y-1 min-w-0">
+                    <div className="text-[10px] font-[1000] uppercase italic leading-none tracking-widest">
+                      {tenantName}
+                    </div>
+                    <div className="text-[8px] font-bold uppercase tracking-[0.3em] text-slate-300">
+                      Command Center
+                    </div>
+                  </div>
+                  <Badge className="bg-white/10 text-white border-none text-[7px] px-2 py-0 uppercase font-black italic">
+                    {String(userData?.role || "staff").toUpperCase()}
                   </Badge>
                 </div>
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">
-                  SaaS Management Account
-                </p>
+                <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.25em] text-blue-200">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  {userData?.role === "owner" ? "Owner Console" : "Staff Console"}
+                </div>
               </div>
             </DropdownMenuLabel>
 
             <DropdownMenuSeparator className="bg-slate-100 dark:bg-white/5 mx-2" />
 
             <DropdownMenuGroup className="p-1 space-y-0.5">
-              <DropdownMenuItem
-                onClick={() => router.push("/admin/settings")}
-                className="rounded-xl px-3 py-3 cursor-pointer text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 focus:bg-slate-100 dark:focus:bg-white/5 focus:text-blue-600 dark:focus:text-white transition-all"
-              >
-                <Settings className="mr-3 h-4 w-4" />
-                <span className="text-[10px] font-black uppercase tracking-widest italic">
-                  Konfigurasi Bisnis
-                </span>
-              </DropdownMenuItem>
+              {userData?.role === "owner" && (
+                <DropdownMenuItem
+                  onClick={() => router.push("/admin/owner")}
+                  className="rounded-xl px-3 py-3 cursor-pointer text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 focus:bg-slate-100 dark:focus:bg-white/5 focus:text-blue-600 dark:focus:text-white transition-all"
+                >
+                  <ShieldCheck className="mr-3 h-4 w-4" />
+                  <span className="text-[10px] font-black uppercase tracking-widest italic">
+                    Owner Command
+                  </span>
+                </DropdownMenuItem>
+              )}
+
+              {userData?.role === "owner" && (
+                <DropdownMenuItem
+                  onClick={() => router.push("/admin/settings")}
+                  className="rounded-xl px-3 py-3 cursor-pointer text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 focus:bg-slate-100 dark:focus:bg-white/5 focus:text-blue-600 dark:focus:text-white transition-all"
+                >
+                  <Settings className="mr-3 h-4 w-4" />
+                  <span className="text-[10px] font-black uppercase tracking-widest italic">
+                    Konfigurasi Bisnis
+                  </span>
+                </DropdownMenuItem>
+              )}
 
               <DropdownMenuItem
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}

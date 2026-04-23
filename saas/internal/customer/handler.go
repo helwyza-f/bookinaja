@@ -189,7 +189,8 @@ func (h *Handler) BlastAnnouncement(c *gin.Context) {
 	}
 
 	tenantID := c.MustGet("tenantID").(string)
-	result, err := h.service.BlastAnnouncement(c.Request.Context(), tenantID, req)
+	actorID, _ := uuid.Parse(c.GetString("userID"))
+	result, err := h.service.BlastAnnouncement(c.Request.Context(), actorID, tenantID, req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

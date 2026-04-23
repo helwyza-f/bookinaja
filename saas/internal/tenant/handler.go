@@ -156,21 +156,104 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
 		return
 	}
+	actorRaw := c.GetString("userID")
 
 	tID, _ := uuid.Parse(tIDRaw.(string))
+	actorID, _ := uuid.Parse(actorRaw)
 	var req Tenant
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data tidak valid"})
 		return
 	}
 
-	updated, err := h.service.UpdateProfile(c.Request.Context(), tID, req)
+	updated, err := h.service.UpdateProfile(c.Request.Context(), actorID, tID, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Profil diperbarui", "data": updated})
+}
+
+func (h *Handler) ListStaff(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, _ := uuid.Parse(tIDRaw.(string))
+
+	items, err := h.service.ListStaff(c.Request.Context(), tID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
+func (h *Handler) CreateStaff(c *gin.Context) {
+	var req StaffCreateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data staff tidak lengkap"})
+		return
+	}
+
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, _ := uuid.Parse(tIDRaw.(string))
+
+	actorID, _ := uuid.Parse(c.GetString("userID"))
+	staff, err := h.service.CreateStaff(c.Request.Context(), actorID, tID, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, staff)
+}
+
+func (h *Handler) DeleteStaff(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	actorID, _ := uuid.Parse(c.GetString("userID"))
+	staffID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID pegawai tidak valid"})
+		return
+	}
+
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	if err := h.service.DeleteStaff(c.Request.Context(), actorID, tID, staffID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Pegawai berhasil dihapus"})
+}
+
+func (h *Handler) ListActivity(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, _ := uuid.Parse(tIDRaw.(string))
+
+	limit := 20
+	items, err := h.service.ListActivity(c.Request.Context(), tID, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"items": items})
 }
 
 // UploadImage ke S3 (R2)
