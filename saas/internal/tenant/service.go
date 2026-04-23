@@ -17,6 +17,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+const freeTrialDuration = 30 * 24 * time.Hour
+
 type Service struct {
 	repo        *Repository
 	authService *auth.Service
@@ -63,6 +65,7 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 	}
 
 	tID := uuid.New()
+	now := time.Now().UTC()
 
 	// --- DYNAMIC DEFAULT BRANDING ---
 	defaultColor := "#3b82f6"
@@ -93,17 +96,21 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 	}
 
 	tenant := Tenant{
-		ID:               tID,
-		Name:             req.TenantName,
-		Slug:             slug,
-		BusinessCategory: req.BusinessCategory,
-		BusinessType:     req.BusinessType,
-		Tagline:          defaultTagline,
-		Slogan:           defaultSlogan,
-		AboutUs:          defaultAbout,
-		Features:         defaultFeatures,
-		PrimaryColor:     defaultColor,
-		CreatedAt:        time.Now(),
+		ID:                             tID,
+		Name:                           req.TenantName,
+		Slug:                           slug,
+		BusinessCategory:               req.BusinessCategory,
+		BusinessType:                   req.BusinessType,
+		Plan:                           "starter",
+		SubscriptionStatus:             "trial",
+		SubscriptionCurrentPeriodStart: ptrTime(now),
+		SubscriptionCurrentPeriodEnd:   ptrTime(now.Add(freeTrialDuration)),
+		Tagline:                        defaultTagline,
+		Slogan:                         defaultSlogan,
+		AboutUs:                        defaultAbout,
+		Features:                       defaultFeatures,
+		PrimaryColor:                   defaultColor,
+		CreatedAt:                      now,
 	}
 
 	user := User{
@@ -125,6 +132,11 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 	go s.SeedTemplate(context.Background(), tID, req.BusinessCategory)
 
 	return &tenant, nil
+}
+
+func ptrTime(t time.Time) *time.Time {
+	v := t
+	return &v
 }
 
 // SeedTemplate menyuntikkan data awal berdasarkan kategori bisnis

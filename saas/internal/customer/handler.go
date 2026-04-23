@@ -181,6 +181,23 @@ func (h *Handler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, cust)
 }
 
+func (h *Handler) BlastAnnouncement(c *gin.Context) {
+	var req BroadcastAnnouncementReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format pesan blast tidak valid"})
+		return
+	}
+
+	tenantID := c.MustGet("tenantID").(string)
+	result, err := h.service.BlastAnnouncement(c.Request.Context(), tenantID, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
 // List database pelanggan untuk Admin CRM (Sorted by Spending)
 func (h *Handler) List(c *gin.Context) {
 	tenantID := c.MustGet("tenantID").(string)

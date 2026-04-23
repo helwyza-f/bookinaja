@@ -18,6 +18,8 @@ type Service struct {
 	redis *redis.Client // Redis untuk OTP & Caching
 }
 
+const starterCustomerLimit = 10
+
 func NewService(r *Repository, rdb *redis.Client) *Service {
 	return &Service{
 		repo:  r,
@@ -112,6 +114,32 @@ func (s *Service) Register(ctx context.Context, tenantID string, req RegisterReq
 		return nil, fmt.Errorf("service: id tenant tidak valid")
 	}
 
+	existing, err := s.repo.FindByPhone(ctx, tID, req.Phone)
+	if err != nil {
+		return nil, fmt.Errorf("service: gagal cek pelanggan existing: %w", err)
+	}
+
+	if existing == nil {
+		plan, status, _, periodEnd, err := s.repo.GetTenantBillingState(ctx, tID)
+		if err != nil {
+			return nil, fmt.Errorf("service: gagal membaca status subscription: %w", err)
+		}
+
+		if !canCreateNewCustomer(plan, status, periodEnd) {
+			return nil, fmt.Errorf("tenant ini perlu upgrade paket untuk menambah pelanggan baru")
+		}
+
+		if strings.ToLower(strings.TrimSpace(status)) != "trial" && strings.ToLower(strings.TrimSpace(plan)) == "starter" {
+			total, err := s.repo.CountByTenant(ctx, tID)
+			if err != nil {
+				return nil, fmt.Errorf("service: gagal menghitung pelanggan: %w", err)
+			}
+			if total >= starterCustomerLimit {
+				return nil, fmt.Errorf("paket starter hanya mendukung %d pelanggan. upgrade ke pro untuk unlimited", starterCustomerLimit)
+			}
+		}
+	}
+
 	cust := Customer{
 		ID:            uuid.New(),
 		TenantID:      tID,
@@ -130,6 +158,83 @@ func (s *Service) Register(ctx context.Context, tenantID string, req RegisterReq
 	}
 
 	return s.repo.FindByID(ctx, id)
+}
+
+func canCreateNewCustomer(plan, status string, periodEnd *time.Time) bool {
+	plan = strings.ToLower(strings.TrimSpace(plan))
+	status = strings.ToLower(strings.TrimSpace(status))
+	now := time.Now().UTC()
+
+	switch status {
+	case "trial":
+		return periodEnd == nil || periodEnd.After(now)
+	case "active":
+		if periodEnd != nil && periodEnd.Before(now) {
+			return false
+		}
+		return plan == "starter" || plan == "pro"
+	default:
+		return false
+	}
+}
+
+func (s *Service) BlastAnnouncement(ctx context.Context, tenantID string, req BroadcastAnnouncementReq) (*BroadcastResult, error) {
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("service: id tenant tidak valid")
+	}
+
+	plan, status, _, periodEnd, err := s.repo.GetTenantBillingState(ctx, tID)
+	if err != nil {
+		return nil, fmt.Errorf("service: gagal membaca status subscription: %w", err)
+	}
+
+	if !canCreateNewCustomer(plan, status, periodEnd) {
+		return nil, fmt.Errorf("tenant ini tidak aktif untuk blast pelanggan")
+	}
+
+	targets, err := s.repo.ListBroadcastTargets(ctx, tID)
+	if err != nil {
+		return nil, fmt.Errorf("service: gagal mengambil daftar pelanggan: %w", err)
+	}
+
+	tenantName, _ := s.repo.GetTenantName(ctx, tID)
+	tenantName = strings.TrimSpace(tenantName)
+	if tenantName == "" {
+		tenantName = "tenant kamu"
+	}
+	message := strings.TrimSpace(req.Message)
+	if message == "" {
+		message = fmt.Sprintf(
+			"Halo %s, sekarang %s sudah resmi pakai Bookinaja.\n\nKamu tetap bisa booking dan dapat info terbaru langsung dari WhatsApp ini. Simpan nomor ini agar tidak ketinggalan update.",
+			"{nama pelanggan}",
+			tenantName,
+		)
+	}
+
+	result := &BroadcastResult{TenantID: tID, Total: len(targets), DefaultMsg: strings.TrimSpace(req.Message) == ""}
+	for _, target := range targets {
+		recipientName := strings.TrimSpace(target.Name)
+		if recipientName == "" {
+			recipientName = "Pelanggan"
+		}
+
+		msg := strings.ReplaceAll(message, "{nama pelanggan}", recipientName)
+		if strings.TrimSpace(msg) == "" {
+			result.Skipped++
+			continue
+		}
+
+		ok, sendErr := fonnte.SendMessage(target.Phone, msg)
+		if sendErr != nil || !ok {
+			result.Failed++
+			continue
+		}
+		result.Sent++
+	}
+
+	result.Skipped = result.Total - result.Sent - result.Failed
+	return result, nil
 }
 
 // SyncStats memperbarui total visits dan total spent (CRM logic).

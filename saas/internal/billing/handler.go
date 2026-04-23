@@ -166,4 +166,3 @@ func (h *Handler) BookingCheckout(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, res)
 }
-

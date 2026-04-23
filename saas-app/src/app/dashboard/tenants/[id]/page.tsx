@@ -169,7 +169,9 @@ export default function TenantDetailPage() {
                   <div className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
                     Subscription
                   </div>
-                  <div className="mt-2 text-xl font-black">{detail.subscription_status || "-"}</div>
+                  <div className="mt-2 text-xl font-black">
+                    {detail.status || detail.subscription_status || "-"}
+                  </div>
                   <div className="mt-1 text-sm text-slate-500">
                     Plan: {detail.plan || "-"}
                   </div>

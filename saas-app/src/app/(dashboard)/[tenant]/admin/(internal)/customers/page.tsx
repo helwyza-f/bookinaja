@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import api from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,28 +33,62 @@ import {
   Medal,
   Users,
   TrendingUp,
-  Star,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
+type CustomerRow = {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  tier?: string;
+  total_visits: number;
+  total_spent: number;
+  last_visit?: string;
+  updated_at?: string;
+};
+
+type CustomerDetail = CustomerRow & {
+  loyalty_points?: number;
+};
+
+type CustomerHistoryItem = {
+  id: string;
+  resource: string;
+  date: string;
+  end_date?: string;
+  grand_total?: number;
+  deposit_amount?: number;
+  paid_amount?: number;
+  balance_due?: number;
+  status?: string;
+  payment_status?: string;
+  payment_method?: string;
+  total_spent?: number;
+};
+
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [blastMessage, setBlastMessage] = useState(
+    "Halo {nama pelanggan}, sekarang kami sudah pakai Bookinaja untuk booking dan update pelanggan. Simpan nomor ini untuk notifikasi jadwal, promo, dan info penting lainnya.",
+  );
+  const [blasting, setBlasting] = useState(false);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [customerDetail, setCustomerDetail] = useState<any>(null);
-  const [customerHistory, setCustomerHistory] = useState<any[]>([]);
+  const [customerDetail, setCustomerDetail] = useState<CustomerDetail | null>(null);
+  const [customerHistory, setCustomerHistory] = useState<CustomerHistoryItem[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   const fetchCustomers = async () => {
     try {
       const res = await api.get("/customers");
       setCustomers(res.data || []);
-    } catch (err) {
+    } catch {
       toast.error("Gagal sinkronisasi database pelanggan");
     } finally {
       setLoading(false);
@@ -68,7 +103,7 @@ export default function CustomersPage() {
       setCustomerDetail(res.data);
       const historyRes = await api.get(`/customers/${id}/history?limit=8`);
       setCustomerHistory(historyRes.data?.items || []);
-    } catch (err) {
+    } catch {
       toast.error("Gagal memuat profil");
       setSelectedId(null);
       setCustomerHistory([]);
@@ -102,6 +137,29 @@ export default function CustomersPage() {
   }, [customers]);
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
+
+  const handleBlast = async () => {
+    setBlasting(true);
+    try {
+      const res = await api.post("/customers/blast", {
+        message: blastMessage,
+      });
+      toast.success(
+        `Blast terkirim ke ${res.data?.sent || 0} pelanggan dari ${res.data?.total || 0} target.`,
+      );
+    } catch (error) {
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        typeof (error as { response?: { data?: { error?: string } } }).response?.data?.error === "string"
+          ? (error as { response?: { data?: { error?: string } } }).response?.data?.error
+          : "Gagal mengirim blast pelanggan";
+      toast.error(message);
+    } finally {
+      setBlasting(false);
+    }
+  };
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-6 pb-20 animate-in fade-in duration-500 px-4 mt-6 font-plus-jakarta">
@@ -177,6 +235,62 @@ export default function CustomersPage() {
           />
         </div>
       </div>
+
+      <Card className="rounded-[2rem] border border-blue-500/10 bg-blue-50/40 dark:bg-blue-500/5 p-6 md:p-8 shadow-sm">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-3 max-w-3xl">
+            <Badge className="w-fit bg-blue-600 text-white border-none font-black uppercase tracking-widest text-[9px] px-3 py-1">
+              Migrasi Pelanggan
+            </Badge>
+            <div className="space-y-2">
+              <h2 className="text-2xl md:text-3xl font-[1000] italic uppercase tracking-tighter dark:text-white">
+                Blast semua pelanggan lama.
+              </h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 font-medium max-w-3xl">
+                Pakai fitur ini untuk announce ke database pelanggan yang sudah
+                ada, supaya mereka tahu tenant ini sekarang berjalan di
+                Bookinaja.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 px-4 py-3 shadow-sm">
+            <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">
+              WhatsApp broadcast ready
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-4">
+          <Textarea
+            value={blastMessage}
+            onChange={(e) => setBlastMessage(e.target.value)}
+            className="min-h-40 rounded-[1.5rem] bg-white dark:bg-slate-950 border-slate-200 dark:border-white/5 font-medium text-sm leading-relaxed"
+            placeholder="Tulis pesan announcement..."
+          />
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">
+              Gunakan placeholder <span className="text-blue-600">{`{nama pelanggan}`}</span>{" "}
+              untuk personalisasi otomatis.
+            </p>
+            <Button
+              onClick={handleBlast}
+              disabled={blasting}
+              className="h-12 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black uppercase italic tracking-[0.2em] text-[10px] shadow-xl shadow-blue-600/20 px-6"
+            >
+              {blasting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Mengirim...
+                </>
+              ) : (
+                "Blast ke Semua Pelanggan"
+              )}
+            </Button>
+          </div>
+        </div>
+      </Card>
 
       {/* 3. TABLE AREA */}
       <Card className="rounded-[2.5rem] border-none shadow-xl bg-white dark:bg-slate-900 overflow-hidden ring-1 ring-slate-100 dark:ring-white/5">

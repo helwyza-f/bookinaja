@@ -10,7 +10,6 @@ import {
   ShieldCheck,
   Zap,
   ChevronRight,
-  Users2,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -30,11 +29,9 @@ import {
  */
 export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(true);
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-    setMounted(true);
   }, []);
 
   const plans = [
@@ -44,12 +41,13 @@ export default function PricingPage() {
       originalMonthly: "189.000",
       originalAnnualTotal: "2.268.000",
       annualTotal: "1.788.000",
-      desc: "Digitalisasi dasar untuk operasional bisnis persewaan tunggal.",
+      desc: "Cocok buat tenant yang baru mulai dan ingin fokus validasi pelanggan.",
       features: [
+        "Free trial 30 hari",
         "1 Akun Utama (Owner Only)",
         "Akses Full Dashboard Admin",
         "Website Booking (Subdomain)",
-        "Manajemen 1-5 Unit/Resource",
+        "Sampai 10 pelanggan aktif",
         "Laporan Pendapatan Bulanan",
         "Email & Chat Support",
       ],
@@ -62,11 +60,12 @@ export default function PricingPage() {
       originalMonthly: "399.000",
       originalAnnualTotal: "4.788.000",
       annualTotal: "3.588.000",
-      desc: "Fitur lengkap untuk bisnis dengan tim dan trafik tinggi.",
+      desc: "Untuk tenant yang ingin scale, repeat order, dan database pelanggan lebih besar.",
       features: [
         "Akses Akun Staff/Karyawan",
         "Role-Based Access (Admin/Kasir)",
-        "Unit & Resource Tanpa Batas",
+        "Unlimited pelanggan",
+        "Blast WhatsApp ke semua pelanggan",
         "Dashboard Status Live Real-time",
         "Sistem Harga Khusus Weekend",
         "WhatsApp Reminder Otomatis",
@@ -92,8 +91,6 @@ export default function PricingPage() {
     },
   ];
 
-  if (!mounted) return null;
-
   return (
     <section className="relative flex-1 flex flex-col items-center py-24 md:py-32 overflow-hidden selection:bg-blue-600/30">
       {/* --- DYNAMIC BACKGROUND SYSTEM --- */}
@@ -113,16 +110,27 @@ export default function PricingPage() {
             variant="outline"
             className="border-blue-500/20 bg-blue-500/5 text-blue-500 px-5 py-1.5 font-syne text-[10px] font-bold uppercase tracking-widest"
           >
-            Pilihan Investasi
+            30 Hari Free Trial
           </Badge>
           <h1 className="text-5xl font-black tracking-tighter sm:text-7xl text-foreground leading-[0.9]">
-            Pilih Paket untuk <br />
-            <span className="text-blue-500 italic">Pertumbuhan Cuan.</span>
+            Fokus ke <br />
+            <span className="text-blue-500 italic">Pelanggan yang Balik Lagi.</span>
           </h1>
           <p className="max-w-[32rem] text-lg md:text-xl text-muted-foreground font-medium">
-            Tinggalkan cara manual. Digitalisasi operasional Anda dengan sistem
-            yang transparan dan aman.
+            Free trial 30 hari, lalu lanjut ke paket yang paling sesuai dengan
+            jumlah pelanggan dan kebutuhan operasional tenant Anda.
           </p>
+          <div className="flex flex-wrap items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+            <span className="rounded-full border border-blue-500/15 bg-blue-500/5 px-3 py-1 text-blue-600">
+              Starter: 10 pelanggan
+            </span>
+            <span className="rounded-full border border-emerald-500/15 bg-emerald-500/5 px-3 py-1 text-emerald-600">
+              Pro: unlimited pelanggan
+            </span>
+            <span className="rounded-full border border-slate-200 bg-white/60 px-3 py-1">
+              Blast WhatsApp tersedia
+            </span>
+          </div>
 
           {/* Billing Switcher */}
           <div className="flex items-center gap-5 mt-8 p-1.5 bg-secondary/30 backdrop-blur-md rounded-2xl border border-border">

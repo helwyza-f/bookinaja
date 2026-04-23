@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -45,6 +46,47 @@ func (r *Repository) Upsert(ctx context.Context, c Customer) (uuid.UUID, error) 
 		return uuid.Nil, fmt.Errorf("repo: gagal upsert customer: %w", err)
 	}
 	return id, nil
+}
+
+func (r *Repository) CountByTenant(ctx context.Context, tenantID uuid.UUID) (int, error) {
+	var total int
+	err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM customers WHERE tenant_id = $1`, tenantID)
+	return total, err
+}
+
+func (r *Repository) GetTenantBillingState(ctx context.Context, tenantID uuid.UUID) (string, string, *time.Time, *time.Time, error) {
+	type row struct {
+		Plan   string     `db:"plan"`
+		Status string     `db:"subscription_status"`
+		Start  *time.Time `db:"subscription_current_period_start"`
+		End    *time.Time `db:"subscription_current_period_end"`
+	}
+
+	var rrow row
+	if err := r.db.GetContext(ctx, &rrow, `
+		SELECT plan, subscription_status, subscription_current_period_start, subscription_current_period_end
+		FROM tenants
+		WHERE id = $1
+		LIMIT 1`, tenantID); err != nil {
+		return "", "", nil, nil, err
+	}
+	return rrow.Plan, rrow.Status, rrow.Start, rrow.End, nil
+}
+
+func (r *Repository) GetTenantName(ctx context.Context, tenantID uuid.UUID) (string, error) {
+	var name string
+	err := r.db.GetContext(ctx, &name, `SELECT name FROM tenants WHERE id = $1 LIMIT 1`, tenantID)
+	return name, err
+}
+
+func (r *Repository) ListBroadcastTargets(ctx context.Context, tenantID uuid.UUID) ([]BroadcastTarget, error) {
+	var targets []BroadcastTarget
+	err := r.db.SelectContext(ctx, &targets, `
+		SELECT id, name, phone
+		FROM customers
+		WHERE tenant_id = $1 AND COALESCE(phone, '') <> ''
+		ORDER BY updated_at DESC, created_at DESC`, tenantID)
+	return targets, err
 }
 
 // FindByPhone digunakan untuk validasi awal sebelum booking & login OTP.
