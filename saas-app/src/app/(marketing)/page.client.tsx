@@ -23,6 +23,12 @@ import {
   Wallet,
   Bell,
   Activity,
+  X,
+  ChevronDown,
+  MessageCircle,
+  AlertTriangle,
+  Heart,
+  Smartphone,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -167,18 +173,17 @@ function Rocket({ className, size }: { className?: string; size?: number }) {
 function DashboardWidget() {
   const { isDark, heading, panel, divider, muted } = useThemeClasses();
   const slots = [
-    { id: "PS-01", status: "busy", time: "2h 15m", customer: "Rafi A." },
+    { id: "PS-01", status: "busy", time: "2j 15m", customer: "Rafi A." },
     { id: "PS-02", status: "free", time: "—", customer: "—" },
-    { id: "PS-03", status: "busy", time: "0h 45m", customer: "Dimas K." },
-    { id: "PC-01", status: "busy", time: "1h 30m", customer: "Sari W." },
+    { id: "PS-03", status: "busy", time: "0j 45m", customer: "Dimas K." },
+    { id: "PC-01", status: "busy", time: "1j 30m", customer: "Sari W." },
     { id: "PC-02", status: "free", time: "—", customer: "—" },
-    { id: "PC-03", status: "busy", time: "3h 00m", customer: "Andi P." },
+    { id: "PC-03", status: "busy", time: "3j 00m", customer: "Andi P." },
   ];
   return (
     <div
       className={`rounded-[1.5rem] border overflow-hidden ${panel} ${divider}`}
     >
-      {/* Header */}
       <div
         className={`px-4 py-3 border-b flex items-center justify-between ${divider}`}
       >
@@ -208,7 +213,6 @@ function DashboardWidget() {
           </p>
         </div>
       </div>
-      {/* Slots */}
       <div className="p-3 grid grid-cols-2 gap-2">
         {slots.map((slot) => (
           <div
@@ -246,7 +250,6 @@ function DashboardWidget() {
           </div>
         ))}
       </div>
-      {/* Footer */}
       <div className="px-3 pb-3">
         <div
           className={`rounded-xl px-3 py-2 flex items-center justify-between ${isDark ? "bg-white/[0.03]" : "bg-slate-200/60"}`}
@@ -279,14 +282,21 @@ function DashboardWidget() {
 export default function LandingPage() {
   const { isDark, bg, heading, muted, card, panel, gridLine, divider } =
     useThemeClasses();
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [openPersona, setOpenPersona] = useState<number | null>(0);
 
   const hero = useReveal(0.04);
-  const stats = useReveal(0.08);
+  const pain = useReveal(0.06);
+  const solution = useReveal(0.06);
+  const compare = useReveal(0.06);
   const feat = useReveal(0.06);
-  const ind = useReveal(0.06);
+  const persona = useReveal(0.06);
   const how = useReveal(0.06);
+  const ind = useReveal(0.06);
   const staff = useReveal(0.06);
+  const founder = useReveal(0.06);
   const testim = useReveal(0.06);
+  const faq = useReveal(0.06);
   const cta = useReveal(0.06);
 
   return (
@@ -336,6 +346,17 @@ export default function LandingPage() {
           color: white !important;
           border-color: #2563eb !important;
         }
+        .pain-card-before {
+          position: relative;
+        }
+        .pain-card-before::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          background: linear-gradient(135deg, rgba(239,68,68,0.04), transparent);
+          pointer-events: none;
+        }
       `}</style>
 
       {/* ── BACKGROUND ── */}
@@ -357,11 +378,10 @@ export default function LandingPage() {
       </div>
 
       {/* ══════════════════════════════
-          HERO
+          1. HERO
       ══════════════════════════════ */}
       <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 pt-14 sm:pt-24 md:pt-32 pb-10 sm:pb-14 text-center">
         <div ref={hero.ref} className="space-y-5 sm:space-y-6">
-          {/* Badge */}
           <div
             className="flex justify-center"
             style={revealStyle(hero.visible, 0.05)}
@@ -370,8 +390,8 @@ export default function LandingPage() {
               className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 ${isDark ? "border-blue-500/20 bg-blue-500/[0.07]" : "border-blue-300/50 bg-blue-50"}`}
             >
               <Sparkles className="h-3 w-3 text-blue-500 fill-current flex-shrink-0" />
-              <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.22em] sm:tracking-[0.28em] text-blue-500">
-                Platform Booking SaaS No.1 Indonesia
+              <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.22em] text-blue-500">
+                Sistem Manajemen Booking untuk Bisnis Rental Indonesia
               </span>
               <span
                 className="h-1.5 w-1.5 rounded-full bg-blue-500 flex-shrink-0"
@@ -380,35 +400,33 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Headline */}
           <div style={revealStyle(hero.visible, 0.1)}>
             <h1
-              className={`mx-auto text-[40px] sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-[-0.05em] leading-[0.88] uppercase ${heading}`}
+              className={`mx-auto text-[38px] sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-[-0.05em] leading-[0.88] uppercase ${heading}`}
             >
-              Ubah Slot Waktu
+              Bisnis Rental Kamu
               <br />
-              <span className="shimmer-text">Jadi Profit.</span>
+              <span className="shimmer-text">Jalan Otomatis.</span>
             </h1>
           </div>
 
-          {/* Sub */}
           <div style={revealStyle(hero.visible, 0.16)}>
             <p
               className={`max-w-sm sm:max-w-xl mx-auto text-sm sm:text-base md:text-lg font-medium leading-relaxed ${muted}`}
             >
-              Platform pintar untuk monitor unit, terima pembayaran digital, dan
-              kendalikan seluruh tim — dari mana saja, kapan saja.
+              Bookinaja adalah platform booking & manajemen slot untuk owner
+              rental — gaming, studio, lapangan, coworking, dan lebih. Tanpa
+              catatan manual. Tanpa khawatir kasir curang.
             </p>
           </div>
 
-          {/* CTAs */}
           <div
             className="flex flex-col sm:flex-row justify-center items-center gap-3"
             style={revealStyle(hero.visible, 0.22)}
           >
             <Link href="/register" className="w-full sm:w-auto">
               <Button className="w-full sm:w-auto h-12 px-8 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl bg-blue-600 hover:bg-blue-500 text-white border-0 transition-colors duration-200 shadow-lg shadow-blue-600/20">
-                Mulai Gratis <ArrowRight className="ml-2 h-3.5 w-3.5" />
+                Coba Gratis 14 Hari <ArrowRight className="ml-2 h-3.5 w-3.5" />
               </Button>
             </Link>
             <Link href="/demos" className="w-full sm:w-auto">
@@ -421,10 +439,26 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          {/* Social proof */}
+          {/* Trust micro-copy */}
+          <div
+            className="flex flex-wrap justify-center gap-4 sm:gap-6"
+            style={revealStyle(hero.visible, 0.27)}
+          >
+            {[
+              "✓ Tanpa kartu kredit",
+              "✓ Setup 5 menit",
+              "✓ Batalkan kapanpun",
+            ].map((f) => (
+              <span key={f} className={`text-[11px] font-medium ${muted}`}>
+                {f}
+              </span>
+            ))}
+          </div>
+
+          {/* Social proof avatars */}
           <div
             className="flex justify-center items-center gap-4"
-            style={revealStyle(hero.visible, 0.28)}
+            style={revealStyle(hero.visible, 0.32)}
           >
             <div className="flex -space-x-2">
               {[
@@ -446,22 +480,19 @@ export default function LandingPage() {
             </div>
             <p className={`text-[10px] sm:text-[11px] font-medium ${muted}`}>
               <span className={`font-black ${heading}`}>2.400+</span> bisnis
-              aktif
+              aktif di Indonesia
             </p>
           </div>
         </div>
 
-        {/* ── DASHBOARD PREVIEW ── */}
+        {/* Dashboard preview */}
         <div
           className="relative mt-10 sm:mt-14 mx-auto max-w-5xl"
-          style={revealStyle(hero.visible, 0.34)}
+          style={revealStyle(hero.visible, 0.38)}
         >
-          {/* Glow */}
           <div
             className={`absolute inset-0 rounded-[2rem] blur-2xl ${isDark ? "bg-blue-600/8" : "bg-blue-400/8"}`}
           />
-
-          {/* Frame */}
           <div
             className={`relative rounded-[1.25rem] sm:rounded-[2rem] border p-1 sm:p-1.5 ${isDark ? "border-white/[0.08] bg-white/[0.03]" : "border-slate-200 bg-white"}`}
           >
@@ -473,7 +504,6 @@ export default function LandingPage() {
                 style={{ height: "clamp(200px, 42vw, 440px)" }}
               >
                 <div className="absolute inset-0 p-3 sm:p-5 grid grid-cols-12 grid-rows-6 gap-1.5 sm:gap-2">
-                  {/* Sidebar */}
                   <div
                     className={`col-span-2 row-span-6 rounded-xl border p-1.5 sm:p-2 flex flex-col gap-1.5 ${isDark ? "bg-white/[0.03] border-white/[0.05]" : "bg-white border-slate-200"}`}
                   >
@@ -485,7 +515,6 @@ export default function LandingPage() {
                       />
                     ))}
                   </div>
-                  {/* Stat cards */}
                   {[
                     { l: "Booking", v: "1,284", c: "text-white" },
                     { l: "Pendapatan", v: "Rp 28.4jt", c: "text-emerald-400" },
@@ -508,7 +537,6 @@ export default function LandingPage() {
                       </span>
                     </div>
                   ))}
-                  {/* Chart */}
                   <div
                     className={`col-span-7 row-span-3 rounded-xl border p-2 ${isDark ? "bg-white/[0.03] border-white/[0.05]" : "bg-white border-slate-200"}`}
                   >
@@ -524,7 +552,6 @@ export default function LandingPage() {
                       )}
                     </div>
                   </div>
-                  {/* Activity */}
                   <div
                     className={`col-span-3 row-span-3 rounded-xl border p-2 ${isDark ? "bg-white/[0.03] border-white/[0.05]" : "bg-white border-slate-200"}`}
                   >
@@ -547,7 +574,6 @@ export default function LandingPage() {
                       </div>
                     ))}
                   </div>
-                  {/* Slots */}
                   <div
                     className={`col-span-10 row-span-2 rounded-xl border p-1.5 sm:p-2 ${isDark ? "bg-white/[0.03] border-white/[0.05]" : "bg-white border-slate-200"}`}
                   >
@@ -573,8 +599,6 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
-
-          {/* Floating badge: Cuan — inside frame on mobile to avoid overflow */}
           <div
             className={`absolute -bottom-4 left-3 sm:-bottom-5 sm:-left-3 flex p-3 sm:p-4 rounded-2xl shadow-xl flex-col items-start -rotate-1 border ${isDark ? "bg-slate-900 border-white/[0.08]" : "bg-white border-slate-200 shadow-slate-200/60"}`}
           >
@@ -593,8 +617,6 @@ export default function LandingPage() {
               vs bulan lalu
             </p>
           </div>
-
-          {/* Floating badge: Notification */}
           <div className="absolute -top-3 right-3 sm:-top-4 sm:-right-3 flex bg-blue-600 p-3 sm:p-4 rounded-2xl shadow-xl shadow-blue-600/20 flex-col items-start rotate-1">
             <Bell size={12} className="text-white mb-0.5" />
             <p className="text-white text-[9px] font-black uppercase tracking-widest leading-none">
@@ -622,7 +644,7 @@ export default function LandingPage() {
               "Coworking",
               "Barbershop",
               "Kolam Renang",
-              "Mini Golf",
+              "VR Arena",
               "Mesin Arcade",
             ].map((name, i) => (
               <div
@@ -642,13 +664,507 @@ export default function LandingPage() {
       </div>
 
       {/* ══════════════════════════════
-          STATS
+          2. PAIN SECTION — "Masih Begini?"
+      ══════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
+        <div ref={pain.ref} style={revealStyle(pain.visible)}>
+          <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
+            <SectionBadge
+              icon={<AlertTriangle className="h-3 w-3" />}
+              label="Kenali Masalahnya"
+            />
+            <h2
+              className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
+            >
+              Bisnis kamu masih
+              <br />
+              <span className="text-red-500">begini?</span>
+            </h2>
+            <p
+              className={`max-w-sm sm:max-w-lg mx-auto text-sm font-medium ${muted}`}
+            >
+              Kalau ada satu yang nyambung, kamu butuh Bookinaja.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              {
+                emoji: "📓",
+                title: "Masih nulis di buku",
+                desc: "Booking dicatat manual, mudah hilang, susah dilacak. Kalau penuh pun kasir sering lupa.",
+                color: "red",
+              },
+              {
+                emoji: "📱",
+                title: "Terima booking via WA",
+                desc: "Customer WA satu-satu, kamu atau kasir harus balas manual tiap hari. Nggak ada waktu lain?",
+                color: "orange",
+              },
+              {
+                emoji: "💸",
+                title: "Nggak tau uang masuk berapa",
+                desc: "Akhir hari hitung manual. Sering beda. Entah salah hitung atau ada yang 'nyantol' di tangan kasir.",
+                color: "red",
+              },
+              {
+                emoji: "😤",
+                title: "Slot sering double-booked",
+                desc: "Customer datang, ternyata sudah ada orang. Malu, refund, kehilangan pelanggan seumur hidup.",
+                color: "orange",
+              },
+              {
+                emoji: "🤷",
+                title: "Nggak bisa pantau dari jauh",
+                desc: "Mau lihat bisnis lagi ramai apa nggak, harus telepon kasir dulu. Padahal kamu lagi di luar.",
+                color: "red",
+              },
+              {
+                emoji: "🔒",
+                title: "Kasir susah dikontrol",
+                desc: "Kamu nggak tahu transaksi mana yang benar-benar terjadi. Kepercayaan itu mahal tapi rapuh.",
+                color: "orange",
+              },
+            ].map((item, i) => (
+              <div
+                key={i}
+                className={`pain-card-before hover-lift rounded-[1.75rem] border p-6 relative overflow-hidden ${isDark ? "bg-white/[0.03] border-red-500/10" : "bg-white border-red-100"}`}
+              >
+                <div
+                  className={`h-10 w-10 rounded-2xl flex items-center justify-center text-xl mb-4 ${isDark ? "bg-red-500/10" : "bg-red-50"}`}
+                >
+                  {item.emoji}
+                </div>
+                <h3 className={`text-base font-black mb-2 ${heading}`}>
+                  {item.title}
+                </h3>
+                <p className={`text-sm font-medium leading-relaxed ${muted}`}>
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-10 text-center">
+            <p className={`text-sm font-medium mb-4 ${muted}`}>
+              Kalau iya, kamu bukan sendiri. Ribuan owner rental pernah di
+              posisi yang sama.
+            </p>
+            <Link href="/register">
+              <Button className="h-12 px-8 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl bg-blue-600 hover:bg-blue-500 text-white border-0 transition-colors duration-200">
+                Selesaikan Sekarang <ArrowRight className="ml-2 h-3.5 w-3.5" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════
+          3. SOLUTION INTRO
+      ══════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+        <div ref={solution.ref} style={revealStyle(solution.visible)}>
+          <div
+            className={`relative overflow-hidden rounded-[2rem] border px-6 sm:px-12 py-12 sm:py-16 text-center ${isDark ? "bg-blue-600/[0.07] border-blue-500/20" : "bg-blue-50 border-blue-100"}`}
+          >
+            <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_60%_50%_at_50%_0%,rgba(59,130,246,0.12),transparent)]" />
+            <div className="relative max-w-2xl mx-auto space-y-5">
+              <div className="text-4xl sm:text-5xl mb-2">⚡</div>
+              <h2
+                className={`text-2xl sm:text-3xl md:text-4xl font-black tracking-[-0.04em] leading-tight ${heading}`}
+              >
+                Bookinaja hadir untuk satu tujuan:
+              </h2>
+              <p
+                className={`text-base sm:text-lg font-medium leading-relaxed ${muted}`}
+              >
+                Mengubah bisnis rental yang masih jalan manual jadi operasional
+                yang{" "}
+                <span className={`font-black ${heading}`}>
+                  terorganisir, terpantau, dan menghasilkan lebih banyak
+                </span>{" "}
+                — tanpa kamu harus ada di sana terus.
+              </p>
+              <div className="flex flex-wrap justify-center gap-3 pt-2">
+                {[
+                  "Booking otomatis 24/7",
+                  "Pembayaran digital",
+                  "Laporan real-time",
+                  "Kontrol staff penuh",
+                ].map((t) => (
+                  <span
+                    key={t}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-blue-500 bg-blue-500/10 border border-blue-500/20 px-3 py-1.5 rounded-full"
+                  >
+                    <CheckCircle2 size={11} /> {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════
+          4. COMPARISON TABLE
+      ══════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
+        <div ref={compare.ref} style={revealStyle(compare.visible)}>
+          <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
+            <SectionBadge
+              icon={<CheckCircle2 className="h-3 w-3" />}
+              label="Perbandingan"
+            />
+            <h2
+              className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
+            >
+              Bookinaja vs
+              <br />
+              <span className="text-red-500">Cara Lama.</span>
+            </h2>
+            <p
+              className={`max-w-sm sm:max-w-md mx-auto text-sm font-medium ${muted}`}
+            >
+              Lihat sendiri bedanya.
+            </p>
+          </div>
+
+          <div className={`rounded-[2rem] border overflow-hidden ${card}`}>
+            {/* Header */}
+            <div
+              className={`grid grid-cols-3 gap-px ${isDark ? "bg-white/[0.05]" : "bg-slate-200"}`}
+            >
+              <div
+                className={`p-4 sm:p-5 ${isDark ? "bg-white/[0.02]" : "bg-slate-50"}`}
+              >
+                <p
+                  className={`text-[10px] sm:text-xs font-black uppercase tracking-wider ${muted}`}
+                >
+                  Fitur
+                </p>
+              </div>
+              <div className="p-4 sm:p-5 bg-blue-600 text-center">
+                <p className="text-white text-[10px] sm:text-xs font-black uppercase tracking-wider">
+                  Bookinaja ✓
+                </p>
+              </div>
+              <div
+                className={`p-4 sm:p-5 text-center ${isDark ? "bg-white/[0.02]" : "bg-slate-50"}`}
+              >
+                <p
+                  className={`text-[10px] sm:text-xs font-black uppercase tracking-wider ${muted}`}
+                >
+                  Cara Manual ✗
+                </p>
+              </div>
+            </div>
+
+            {/* Rows */}
+            {[
+              {
+                feature: "Booking online 24/7",
+                us: true,
+                them: false,
+                note: "Customer booking langsung, tanpa WA",
+              },
+              {
+                feature: "Pembayaran digital otomatis",
+                us: true,
+                them: false,
+                note: "QRIS, transfer, dompet digital",
+              },
+              {
+                feature: "Monitor slot real-time",
+                us: true,
+                them: false,
+                note: "Dari HP, kapan saja",
+              },
+              {
+                feature: "Laporan keuangan otomatis",
+                us: true,
+                them: false,
+                note: "Harian, mingguan, bulanan",
+              },
+              {
+                feature: "Kontrol akses staff",
+                us: true,
+                them: false,
+                note: "Kasir hanya lihat yang perlu",
+              },
+              {
+                feature: "Notifikasi & reminder",
+                us: true,
+                them: false,
+                note: "WA otomatis ke customer",
+              },
+              {
+                feature: "Website booking profesional",
+                us: true,
+                them: false,
+                note: "Subdomain langsung aktif",
+              },
+              {
+                feature: "Audit log transaksi",
+                us: true,
+                them: false,
+                note: "Setiap aksi tercatat",
+              },
+            ].map((row, i) => (
+              <div
+                key={i}
+                className={`grid grid-cols-3 gap-px ${isDark ? "bg-white/[0.05]" : "bg-slate-200"}`}
+              >
+                <div
+                  className={`p-4 sm:p-5 flex flex-col justify-center ${isDark ? "bg-[#06080f]" : "bg-white"}`}
+                >
+                  <p className={`text-xs sm:text-sm font-black ${heading}`}>
+                    {row.feature}
+                  </p>
+                  <p
+                    className={`text-[10px] sm:text-xs mt-0.5 hidden sm:block ${muted}`}
+                  >
+                    {row.note}
+                  </p>
+                </div>
+                <div
+                  className={`p-4 sm:p-5 flex items-center justify-center ${isDark ? "bg-blue-600/[0.08]" : "bg-blue-50"}`}
+                >
+                  <div className="h-6 w-6 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                    <CheckCircle2 size={13} className="text-white" />
+                  </div>
+                </div>
+                <div
+                  className={`p-4 sm:p-5 flex items-center justify-center ${isDark ? "bg-white/[0.01]" : "bg-white"}`}
+                >
+                  <div
+                    className={`h-6 w-6 rounded-full flex items-center justify-center flex-shrink-0 ${isDark ? "bg-white/10" : "bg-red-50"}`}
+                  >
+                    <X size={13} className="text-red-400" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════
+          5. FEATURES BENTO
+      ══════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-8">
+        <div ref={feat.ref} style={revealStyle(feat.visible)}>
+          <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
+            <SectionBadge
+              icon={<Zap className="h-3 w-3 fill-current" />}
+              label="Fitur Unggulan"
+            />
+            <h2
+              className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
+            >
+              Semua yang Kamu
+              <br />
+              <span className="shimmer-text">Butuhkan.</span>
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Live Monitor — large */}
+            <div
+              className={`sm:col-span-2 hover-lift group rounded-[1.75rem] border p-6 sm:p-8 overflow-hidden relative ${card}`}
+            >
+              <div className="absolute top-0 right-0 w-36 h-36 rounded-full blur-3xl bg-blue-600/[0.06] pointer-events-none" />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center icon-btn transition-all duration-200 flex-shrink-0">
+                  <Activity size={16} className="text-blue-400" />
+                </div>
+                <span className="text-[8px] font-black uppercase tracking-[0.22em] text-blue-400 border border-blue-500/20 rounded-full px-3 py-1">
+                  Live
+                </span>
+              </div>
+              <h3
+                className={`text-lg sm:text-xl font-black tracking-tight mb-2 ${heading}`}
+              >
+                Monitor Slot Real-time
+              </h3>
+              <p
+                className={`text-sm font-medium leading-relaxed mb-2 ${muted}`}
+              >
+                Pantau semua unit dari HP — mana yang kosong, siapa yang pakai,
+                berapa sisa waktu.
+              </p>
+              <p className="text-blue-500 text-xs font-black mb-5">
+                → Nggak perlu telepon kasir lagi.
+              </p>
+              <DashboardWidget />
+            </div>
+
+            {/* Website */}
+            <div
+              className={`hover-lift group rounded-[1.75rem] border p-6 sm:p-8 relative overflow-hidden ${card}`}
+            >
+              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-purple-600/15 border border-purple-500/20 flex items-center justify-center mb-4 icon-btn transition-all duration-200">
+                <Globe size={16} className="text-purple-400" />
+              </div>
+              <h3
+                className={`text-lg font-black tracking-tight mb-2 ${heading}`}
+              >
+                Website Booking Otomatis
+              </h3>
+              <p
+                className={`text-sm font-medium leading-relaxed mb-2 ${muted}`}
+              >
+                Portal booking profesional{" "}
+                <span className={`font-black ${heading}`}>
+                  namakamu.bookinaja.com
+                </span>{" "}
+                langsung aktif saat daftar.
+              </p>
+              <p className="text-purple-500 text-xs font-black mb-4">
+                → Customer bisa booking sendiri, 24 jam.
+              </p>
+              <div
+                className={`rounded-xl border p-3.5 ${isDark ? "bg-slate-900 border-white/[0.06]" : "bg-slate-50 border-slate-200"}`}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex gap-1 flex-shrink-0">
+                    {["bg-red-400", "bg-yellow-400", "bg-green-400"].map(
+                      (c, i) => (
+                        <div key={i} className={`w-2 h-2 rounded-full ${c}`} />
+                      ),
+                    )}
+                  </div>
+                  <div
+                    className={`flex-1 min-w-0 rounded-md h-5 flex items-center px-2 ${isDark ? "bg-white/[0.05]" : "bg-white border border-slate-200"}`}
+                  >
+                    <span className={`text-[9px] font-mono truncate ${muted}`}>
+                      gaminghub.bookinaja.com
+                    </span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div
+                    className={`h-2.5 rounded w-3/4 ${isDark ? "bg-white/10" : "bg-slate-200"}`}
+                  />
+                  <div
+                    className={`h-2.5 rounded w-1/2 ${isDark ? "bg-white/[0.06]" : "bg-slate-100"}`}
+                  />
+                  <div className="h-7 bg-blue-600/25 border border-blue-500/25 rounded-lg mt-3" />
+                </div>
+              </div>
+            </div>
+
+            {/* Payment */}
+            <div
+              className={`hover-lift group rounded-[1.75rem] border p-6 sm:p-8 relative overflow-hidden ${card}`}
+            >
+              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-emerald-600/15 border border-emerald-500/20 flex items-center justify-center mb-4 icon-btn transition-all duration-200">
+                <Wallet size={16} className="text-emerald-400" />
+              </div>
+              <h3
+                className={`text-lg font-black tracking-tight mb-2 ${heading}`}
+              >
+                Pembayaran Digital
+              </h3>
+              <p
+                className={`text-sm font-medium leading-relaxed mb-2 ${muted}`}
+              >
+                QRIS, transfer bank, GoPay, OVO, Dana — semua tercatat otomatis
+                tanpa rekap manual.
+              </p>
+              <p className="text-emerald-500 text-xs font-black mb-4">
+                → Nggak ada lagi "bayar nanti ya".
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {["QRIS", "Bank", "OVO", "GoPay", "Dana", "ShopeePay"].map(
+                  (p, i) => (
+                    <div
+                      key={i}
+                      className={`rounded-xl py-2 text-center border ${isDark ? "bg-white/[0.04] border-white/[0.06]" : "bg-slate-50 border-slate-200"}`}
+                    >
+                      <span
+                        className={`text-[9px] font-black uppercase ${muted}`}
+                      >
+                        {p}
+                      </span>
+                    </div>
+                  ),
+                )}
+              </div>
+            </div>
+
+            {/* Reports */}
+            <div
+              className={`hover-lift group rounded-[1.75rem] border p-6 sm:p-8 relative overflow-hidden ${card}`}
+            >
+              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-orange-600/15 border border-orange-500/20 flex items-center justify-center mb-4 icon-btn transition-all duration-200">
+                <BarChart3 size={16} className="text-orange-400" />
+              </div>
+              <h3
+                className={`text-lg font-black tracking-tight mb-2 ${heading}`}
+              >
+                Laporan & Analitik
+              </h3>
+              <p
+                className={`text-sm font-medium leading-relaxed mb-2 ${muted}`}
+              >
+                Tren pendapatan, unit terpopuler, jam paling ramai — semua
+                tersaji otomatis.
+              </p>
+              <p className="text-orange-500 text-xs font-black mb-4">
+                → Ambil keputusan bisnis pakai data, bukan feeling.
+              </p>
+              <div className="flex items-end gap-1 h-12">
+                {[30, 55, 40, 80, 65, 90, 75].map((h, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 rounded-t-sm bg-orange-500/25 border-t border-orange-500/40"
+                    style={{ height: `${h}%` }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Security */}
+            <div
+              className={`hover-lift group rounded-[1.75rem] border p-6 sm:p-8 relative overflow-hidden ${card}`}
+            >
+              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center mb-4 icon-btn transition-all duration-200">
+                <ShieldCheck size={16} className="text-blue-400" />
+              </div>
+              <h3
+                className={`text-lg font-black tracking-tight mb-2 ${heading}`}
+              >
+                Data Terisolasi 100%
+              </h3>
+              <p
+                className={`text-sm font-medium leading-relaxed mb-2 ${muted}`}
+              >
+                Setiap bisnis punya database terpisah. Data kamu tidak pernah
+                campur dengan bisnis lain.
+              </p>
+              <p className="text-blue-500 text-xs font-black mb-4">
+                → Privasi & keamanan adalah standar, bukan fitur tambahan.
+              </p>
+              <div className="flex items-center gap-2">
+                <ShieldCheck
+                  size={13}
+                  className="text-blue-400 flex-shrink-0"
+                />
+                <span className="text-blue-400 text-[10px] font-black uppercase tracking-widest">
+                  Enterprise-grade Encryption
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════
+          6. STATS
       ══════════════════════════════ */}
       <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
         <div
-          ref={stats.ref}
           className={`grid grid-cols-2 md:grid-cols-4 gap-px rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden border ${divider} ${isDark ? "bg-white/[0.05]" : "bg-slate-200"}`}
-          style={revealStyle(stats.visible)}
         >
           {[
             {
@@ -697,212 +1213,169 @@ export default function LandingPage() {
       </section>
 
       {/* ══════════════════════════════
-          FEATURES — BENTO
+          7. PERSONA — "Cocok Untuk Kamu Yang..."
       ══════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 pb-8">
-        <div ref={feat.ref} style={revealStyle(feat.visible)}>
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+        <div ref={persona.ref} style={revealStyle(persona.visible)}>
           <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
             <SectionBadge
-              icon={<Zap className="h-3 w-3 fill-current" />}
-              label="Fitur Unggulan"
+              icon={<Users className="h-3 w-3" />}
+              label="Untuk Siapa"
             />
             <h2
               className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
             >
-              Semua yang Kamu
+              Cocok untuk kamu
               <br />
-              <span className="shimmer-text">Butuhkan.</span>
+              <span className="shimmer-text">yang ingin...</span>
             </h2>
-            <p
-              className={`max-w-sm sm:max-w-lg mx-auto text-sm font-medium ${muted}`}
-            >
-              Dirancang untuk owner yang ingin fokus tumbuh, bukan tenggelam
-              dalam administrasi.
-            </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Large: Live Monitor — full width on mobile, 2-col on sm+ */}
-            <div
-              className={`sm:col-span-2 hover-lift group rounded-[1.75rem] border p-6 sm:p-8 overflow-hidden relative ${card}`}
-            >
-              <div className="absolute top-0 right-0 w-36 h-36 sm:w-48 sm:h-48 rounded-full blur-3xl bg-blue-600/[0.06] pointer-events-none" />
-              <div className="flex items-center gap-3 mb-4 sm:mb-5">
-                <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center icon-btn transition-all duration-200 flex-shrink-0">
-                  <Activity size={16} className="text-blue-400" />
-                </div>
-                <span className="text-[8px] font-black uppercase tracking-[0.22em] text-blue-400 border border-blue-500/20 rounded-full px-3 py-1">
-                  Live
-                </span>
-              </div>
-              <h3
-                className={`text-lg sm:text-xl font-black tracking-tight mb-2 ${heading}`}
-              >
-                Monitoring Slot Realtime
-              </h3>
-              <p
-                className={`text-sm font-medium leading-relaxed mb-5 ${muted}`}
-              >
-                Pantau semua unit dari HP. Tau persis mana kosong, siapa yang
-                pakai, berapa sisa waktu — tanpa nelpon kasir.
-              </p>
-              <DashboardWidget />
-            </div>
-
-            {/* Website */}
-            <div
-              className={`hover-lift group rounded-[1.75rem] border p-6 sm:p-8 relative overflow-hidden ${card}`}
-            >
-              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-purple-600/15 border border-purple-500/20 flex items-center justify-center mb-4 sm:mb-5 icon-btn transition-all duration-200">
-                <Globe size={16} className="text-purple-400" />
-              </div>
-              <h3
-                className={`text-lg font-black tracking-tight mb-2 ${heading}`}
-              >
-                Website Booking Otomatis
-              </h3>
-              <p
-                className={`text-sm font-medium leading-relaxed mb-4 ${muted}`}
-              >
-                Portal profesional{" "}
-                <span className={`font-black ${heading}`}>
-                  namabisnis.bookinaja.com
-                </span>{" "}
-                langsung aktif saat daftar.
-              </p>
+          <div className="max-w-3xl mx-auto space-y-3">
+            {[
+              {
+                icon: "🏠",
+                title: "Tidak harus ada di tempat terus",
+                desc: "Kamu bisa pantau semua booking, cek pendapatan hari ini, dan lihat unit mana yang terisi — dari HP, dari rumah, dari manapun. Bisnis jalan, kamu bebas.",
+              },
+              {
+                icon: "💰",
+                title: "Tidak ada lagi uang yang 'hilang'",
+                desc: "Setiap transaksi tercatat otomatis dan real-time. Kamu tau persis berapa yang masuk, dari unit mana, dan kapan — tanpa perlu percaya 100% pada laporan kasir.",
+              },
+              {
+                icon: "📈",
+                title: "Bisnis tumbuh tanpa chaos operasional",
+                desc: "Tambah unit baru, buka cabang baru, atau rekrut kasir baru — sistem Bookinaja scale bersama bisnis kamu. Tidak ada yang perlu diubah, tinggal tambah.",
+              },
+              {
+                icon: "😌",
+                title: "Tenang karena semuanya terkontrol",
+                desc: "Kasir hanya bisa akses apa yang kamu izinkan. Laporan keuangan hanya kamu yang lihat. Tidak ada lagi was-was atau curiga — hanya fokus tumbuh.",
+              },
+            ].map((item, i) => (
               <div
-                className={`rounded-xl border p-3.5 ${isDark ? "bg-slate-900 border-white/[0.06]" : "bg-slate-50 border-slate-200"}`}
+                key={i}
+                className={`rounded-[1.5rem] border overflow-hidden transition-all duration-200 ${card}`}
               >
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="flex gap-1 flex-shrink-0">
-                    {["bg-red-400", "bg-yellow-400", "bg-green-400"].map(
-                      (c, i) => (
-                        <div key={i} className={`w-2 h-2 rounded-full ${c}`} />
-                      ),
-                    )}
-                  </div>
-                  <div
-                    className={`flex-1 min-w-0 rounded-md h-5 flex items-center px-2 ${isDark ? "bg-white/[0.05]" : "bg-white border border-slate-200"}`}
+                <button
+                  className="w-full flex items-center gap-4 p-5 sm:p-6 text-left"
+                  onClick={() => setOpenPersona(openPersona === i ? null : i)}
+                >
+                  <span className="text-2xl flex-shrink-0">{item.icon}</span>
+                  <span
+                    className={`font-black text-sm sm:text-base flex-1 ${heading}`}
                   >
-                    <span className={`text-[9px] font-mono truncate ${muted}`}>
-                      gaminghub.bookinaja.com
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div
-                    className={`h-2.5 rounded w-3/4 ${isDark ? "bg-white/10" : "bg-slate-200"}`}
+                    {item.title}
+                  </span>
+                  <ChevronDown
+                    size={18}
+                    className={`flex-shrink-0 transition-transform duration-200 ${muted} ${openPersona === i ? "rotate-180" : ""}`}
                   />
+                </button>
+                {openPersona === i && (
                   <div
-                    className={`h-2.5 rounded w-1/2 ${isDark ? "bg-white/[0.06]" : "bg-slate-100"}`}
-                  />
-                  <div className="h-7 bg-blue-600/25 border border-blue-500/25 rounded-lg mt-3" />
-                </div>
-              </div>
-            </div>
-
-            {/* Payment */}
-            <div
-              className={`hover-lift group rounded-[1.75rem] border p-6 sm:p-8 relative overflow-hidden ${card}`}
-            >
-              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-emerald-600/15 border border-emerald-500/20 flex items-center justify-center mb-4 sm:mb-5 icon-btn transition-all duration-200">
-                <Wallet size={16} className="text-emerald-400" />
-              </div>
-              <h3
-                className={`text-lg font-black tracking-tight mb-2 ${heading}`}
-              >
-                Pembayaran Digital
-              </h3>
-              <p
-                className={`text-sm font-medium leading-relaxed mb-4 ${muted}`}
-              >
-                QRIS, transfer bank, dompet digital. Semua tercatat otomatis.
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                {["QRIS", "Bank", "OVO", "GoPay", "Dana", "ShopeePay"].map(
-                  (p, i) => (
-                    <div
-                      key={i}
-                      className={`rounded-xl py-2 text-center border ${isDark ? "bg-white/[0.04] border-white/[0.06]" : "bg-slate-50 border-slate-200"}`}
+                    className={`px-5 sm:px-6 pb-5 sm:pb-6 pt-0 border-t ${divider}`}
+                  >
+                    <p
+                      className={`text-sm font-medium leading-relaxed pt-4 ${muted}`}
                     >
-                      <span
-                        className={`text-[9px] font-black uppercase ${muted}`}
-                      >
-                        {p}
-                      </span>
-                    </div>
-                  ),
+                      {item.desc}
+                    </p>
+                  </div>
                 )}
               </div>
-            </div>
-
-            {/* Reports */}
-            <div
-              className={`hover-lift group rounded-[1.75rem] border p-6 sm:p-8 relative overflow-hidden ${card}`}
-            >
-              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-orange-600/15 border border-orange-500/20 flex items-center justify-center mb-4 sm:mb-5 icon-btn transition-all duration-200">
-                <BarChart3 size={16} className="text-orange-400" />
-              </div>
-              <h3
-                className={`text-lg font-black tracking-tight mb-2 ${heading}`}
-              >
-                Laporan & Analitik
-              </h3>
-              <p
-                className={`text-sm font-medium leading-relaxed mb-4 ${muted}`}
-              >
-                Tren pendapatan, unit terpopuler, jam sibuk — dalam satu
-                dashboard.
-              </p>
-              <div className="flex items-end gap-1 h-12">
-                {[30, 55, 40, 80, 65, 90, 75].map((h, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 rounded-t-sm bg-orange-500/25 border-t border-orange-500/40"
-                    style={{ height: `${h}%` }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Security */}
-            <div
-              className={`hover-lift group rounded-[1.75rem] border p-6 sm:p-8 relative overflow-hidden ${card}`}
-            >
-              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center mb-4 sm:mb-5 icon-btn transition-all duration-200">
-                <ShieldCheck size={16} className="text-blue-400" />
-              </div>
-              <h3
-                className={`text-lg font-black tracking-tight mb-2 ${heading}`}
-              >
-                Isolasi Data Bisnis
-              </h3>
-              <p
-                className={`text-sm font-medium leading-relaxed mb-4 ${muted}`}
-              >
-                Setiap tenant mendapat database terisolasi. Data kamu tidak
-                pernah campur dengan bisnis lain.
-              </p>
-              <div className="flex items-center gap-2">
-                <ShieldCheck
-                  size={13}
-                  className="text-blue-400 flex-shrink-0"
-                />
-                <span className="text-blue-400 text-[10px] font-black uppercase tracking-widest">
-                  Enterprise-grade Encryption
-                </span>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* ══════════════════════════════
-          INDUSTRIES
+          8. HOW IT WORKS
+      ══════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
+        <div ref={how.ref} style={revealStyle(how.visible)}>
+          <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
+            <SectionBadge
+              icon={<Clock className="h-3 w-3" />}
+              label="Cara Kerja"
+            />
+            <h2
+              className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
+            >
+              Live dalam
+              <br />
+              <span className="shimmer-text">5 menit.</span>
+            </h2>
+            <p
+              className={`max-w-sm sm:max-w-md mx-auto text-sm font-medium ${muted}`}
+            >
+              Tanpa install apapun. Buka browser, isi form, langsung live.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              {
+                step: "01",
+                title: "Daftar & isi profil bisnis",
+                desc: "Masukkan nama bisnis, jenis usaha, dan jam operasional kamu. Selesai dalam 2 menit, tanpa perlu download apapun.",
+                icon: <Users size={17} />,
+                outcome: "Akun kamu langsung aktif.",
+              },
+              {
+                step: "02",
+                title: "Tambah unit & tentukan harga",
+                desc: "Tambahkan unit satu per satu — PS5, meja podcast, lapangan badminton, apapun. Set harga per jam atau per sesi.",
+                icon: <Clock size={17} />,
+                outcome: "Portal booking kamu siap.",
+              },
+              {
+                step: "03",
+                title: "Mulai terima booking & bayaran",
+                desc: "Customer buka link kamu, pilih waktu, bayar digital — masuk ke dashboard kamu seketika. Tidak ada lagi WA manual.",
+                icon: <CheckCircle2 size={17} />,
+                outcome: "Bisnis kamu autopilot.",
+              },
+            ].map((s, i) => (
+              <div
+                key={i}
+                className={`group hover-lift rounded-[1.75rem] border p-6 sm:p-8 transition-colors duration-200 hover:border-blue-500/30 ${card}`}
+              >
+                <div className="flex items-center gap-3 mb-4 sm:mb-5">
+                  <span
+                    className={`text-4xl font-black leading-none ${isDark ? "text-white/[0.06]" : "text-slate-200"}`}
+                  >
+                    {s.step}
+                  </span>
+                  <div className="h-9 w-9 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center text-blue-400 transition-all duration-200 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 flex-shrink-0">
+                    {s.icon}
+                  </div>
+                </div>
+                <h3
+                  className={`text-lg font-black tracking-tight mb-2 ${heading}`}
+                >
+                  {s.title}
+                </h3>
+                <p
+                  className={`text-sm font-medium leading-relaxed mb-3 ${muted}`}
+                >
+                  {s.desc}
+                </p>
+                <p className="text-blue-500 text-xs font-black">
+                  → {s.outcome}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════
+          9. INDUSTRIES
       ══════════════════════════════ */}
       <section
         id="industries"
-        className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20"
+        className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-8 sm:py-12"
       >
         <div ref={ind.ref} style={revealStyle(ind.visible)}>
           <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
@@ -913,14 +1386,15 @@ export default function LandingPage() {
             <h2
               className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
             >
-              <span className="accent-text">Satu Sistem.</span>
+              <span className="accent-text">Satu platform.</span>
               <br />
-              <span className="shimmer-text">Apapun Bisnisnya.</span>
+              <span className="shimmer-text">Semua bisnis rental.</span>
             </h2>
             <p
               className={`max-w-sm sm:max-w-md mx-auto text-sm font-medium ${muted}`}
             >
-              Dirancang fleksibel untuk berbagai model persewaan slot & unit.
+              Kalau bisnismu punya slot waktu yang bisa dipesan — Bookinaja
+              dibuat untuk itu.
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -928,30 +1402,30 @@ export default function LandingPage() {
               {
                 icon: <Monitor size={20} />,
                 title: "Gaming Hub",
-                desc: "Rental PS, PC, & Game Center. Billing per jam otomatis.",
+                desc: "Rental PS, PC, & VR. Billing per jam otomatis tanpa stopwatch manual.",
                 accent: "blue",
                 tags: ["PS5", "Xbox", "PC", "VR"],
               },
               {
                 icon: <Camera size={20} />,
                 title: "Studio Kreatif",
-                desc: "Studio Foto, Podcast, & Musik. Kelola sesi dan paket alat.",
+                desc: "Studio foto, podcast, & rekaman. Atur sesi dan paket alat dalam satu layar.",
                 accent: "purple",
                 tags: ["Foto", "Video", "Podcast", "Musik"],
               },
               {
                 icon: <Zap size={20} />,
                 title: "Arena Olahraga",
-                desc: "Futsal, Badminton, Gym. Cek slot langsung dari HP.",
+                desc: "Futsal, badminton, gym, renang. Customer cek slot langsung dari HP mereka.",
                 accent: "emerald",
                 tags: ["Futsal", "Badminton", "Gym", "Renang"],
               },
               {
                 icon: <Briefcase size={20} />,
                 title: "Office Space",
-                desc: "Coworking & Meeting Room. Kelola akses harian atau bulanan.",
+                desc: "Coworking, meeting room, private office. Kelola akses harian atau bulanan.",
                 accent: "orange",
-                tags: ["Cowork", "Meeting", "Private", "Virtual"],
+                tags: ["Cowork", "Meeting", "Private", "Hot Desk"],
               },
             ].map((item, i) => {
               const iconCls: Record<string, string> = {
@@ -1005,74 +1479,7 @@ export default function LandingPage() {
       </section>
 
       {/* ══════════════════════════════
-          HOW IT WORKS
-      ══════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
-        <div ref={how.ref} style={revealStyle(how.visible)}>
-          <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
-            <SectionBadge
-              icon={<Clock className="h-3 w-3" />}
-              label="Cara Kerja"
-            />
-            <h2
-              className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
-            >
-              <span className="accent-text">Online</span> dalam
-              <br />
-              <span className="shimmer-text">5 Menit.</span>
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[
-              {
-                step: "01",
-                title: "Daftar Bisnis",
-                desc: "Isi nama bisnis, pilih tipe unit, dan atur jam operasional. Selesai dalam 2 menit.",
-                icon: <Users size={17} />,
-              },
-              {
-                step: "02",
-                title: "Setup Unit & Harga",
-                desc: "Tambahkan unit PS, meja, atau lapangan. Tentukan tarif per jam atau per sesi.",
-                icon: <Clock size={17} />,
-              },
-              {
-                step: "03",
-                title: "Terima Booking",
-                desc: "Portal langsung aktif. Customer booking online, bayar digital, dapat notifikasi.",
-                icon: <CheckCircle2 size={17} />,
-              },
-            ].map((s, i) => (
-              <div
-                key={i}
-                className={`group hover-lift rounded-[1.75rem] border p-6 sm:p-8 transition-colors duration-200 hover:border-blue-500/30 ${card}`}
-              >
-                <div className="flex items-center gap-3 mb-4 sm:mb-5">
-                  <span
-                    className={`text-4xl font-black leading-none ${isDark ? "text-white/[0.06]" : "text-slate-200"}`}
-                  >
-                    {s.step}
-                  </span>
-                  <div className="h-9 w-9 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center text-blue-400 transition-all duration-200 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 flex-shrink-0">
-                    {s.icon}
-                  </div>
-                </div>
-                <h3
-                  className={`text-lg font-black tracking-tight mb-2 ${heading}`}
-                >
-                  {s.title}
-                </h3>
-                <p className={`text-sm font-medium leading-relaxed ${muted}`}>
-                  {s.desc}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════
-          STAFF MANAGEMENT
+          10. STAFF MANAGEMENT
       ══════════════════════════════ */}
       <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         <div
@@ -1087,9 +1494,7 @@ export default function LandingPage() {
             <Lock size={120} strokeWidth={0.5} className="block sm:hidden" />
             <Lock size={280} strokeWidth={0.5} className="hidden sm:block" />
           </div>
-
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 lg:gap-14 items-start lg:items-center">
-            {/* Text */}
             <div className="space-y-4 sm:space-y-5">
               <SectionBadge
                 icon={<Lock className="h-3 w-3" />}
@@ -1098,29 +1503,34 @@ export default function LandingPage() {
               <h2
                 className={`text-3xl sm:text-4xl md:text-[48px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
               >
-                <span className="accent-text">Tim Hebat</span>,<br />
-                <span className="shimmer-text">Kontrol Penuh.</span>
+                <span className="accent-text">Tim kamu bekerja.</span>
+                <br />
+                <span className="shimmer-text">Kamu yang pegang kendali.</span>
               </h2>
               <p
                 className={`text-sm sm:text-base font-medium leading-relaxed ${muted}`}
               >
-                Buat akun kasir dengan akses terbatas. Mereka bisa kelola
-                booking dan terima bayaran — tapi tidak bisa lihat laporan
-                keuangan kamu.
+                Buat akun kasir yang bisa terima booking dan pembayaran — tapi
+                tidak bisa melihat total pendapatan, mengubah harga, atau ekspor
+                laporan. Batas akses, bukan batas kepercayaan.
               </p>
               <div className="space-y-2.5">
                 {[
                   {
-                    label: "Akses Kasir Terbatas",
-                    desc: "Kasir hanya bisa lihat booking aktif",
+                    label: "Akses kasir terbatas",
+                    desc: "Kasir hanya lihat booking aktif yang relevan",
                   },
                   {
-                    label: "Cegah Fraud Transaksi",
-                    desc: "Setiap transaksi tercatat dengan timestamp",
+                    label: "Cegah fraud transaksi",
+                    desc: "Setiap pembayaran tercatat dengan timestamp & ID",
                   },
                   {
-                    label: "Log Aktivitas Realtime",
-                    desc: "Audit trail lengkap untuk setiap aksi",
+                    label: "Log aktivitas real-time",
+                    desc: "Audit trail lengkap — kamu tau siapa lakukan apa",
+                  },
+                  {
+                    label: "Laporan khusus owner",
+                    desc: "Data keuangan hanya bisa diakses akunmu",
                   },
                 ].map((item) => (
                   <div
@@ -1140,10 +1550,7 @@ export default function LandingPage() {
                 ))}
               </div>
             </div>
-
-            {/* Role cards */}
             <div className="flex flex-col gap-3 lg:block lg:relative lg:h-72">
-              {/* Owner card */}
               <div
                 className={`lg:absolute lg:top-0 lg:right-0 lg:left-8 rounded-[1.5rem] p-5 border shadow-lg ${panel} ${divider}`}
               >
@@ -1191,8 +1598,6 @@ export default function LandingPage() {
                   ))}
                 </div>
               </div>
-
-              {/* Kasir card */}
               <div
                 className={`lg:absolute lg:bottom-0 lg:left-0 lg:right-8 rounded-[1.5rem] p-5 border shadow-lg lg:rotate-1 hover:rotate-0 transition-transform duration-300 ${panel} ${divider}`}
               >
@@ -1241,45 +1646,156 @@ export default function LandingPage() {
       </section>
 
       {/* ══════════════════════════════
-          TESTIMONIALS
+          11. FOUNDER STORY
       ══════════════════════════════ */}
       <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
+        <div ref={founder.ref} style={revealStyle(founder.visible)}>
+          <div
+            className={`relative overflow-hidden rounded-[2rem] border p-6 sm:p-10 md:p-14 ${isDark ? "bg-white/[0.02] border-white/[0.07]" : "bg-white border-slate-200"}`}
+          >
+            <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_50%_60%_at_0%_50%,rgba(59,130,246,0.05),transparent)]" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+              {/* Visual — abstract founder block */}
+              <div className="order-2 lg:order-1">
+                <div
+                  className={`rounded-[1.75rem] border p-8 relative overflow-hidden ${panel} ${divider}`}
+                >
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="h-14 w-14 rounded-2xl bg-blue-600 flex items-center justify-center font-black text-white text-xl flex-shrink-0">
+                      B
+                    </div>
+                    <div>
+                      <p
+                        className={`font-black text-lg leading-none ${heading}`}
+                      >
+                        Tim Bookinaja
+                      </p>
+                      <p className={`text-sm mt-1 ${muted}`}>
+                        Bandung, Indonesia · 2022
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    className={`space-y-3 text-sm font-medium leading-relaxed ${muted}`}
+                  >
+                    <p>
+                      "Kami sendiri pernah punya bisnis rental gaming kecil di
+                      Bandung. Booking via WA, catat di buku, hitung uang akhir
+                      hari — capek, sering salah, nggak bisa scale."
+                    </p>
+                    <p>
+                      "Kami cari solusinya, tapi yang ada mahal atau terlalu
+                      ribet buat bisnis kecil. Akhirnya kami bikin sendiri —
+                      Bookinaja lahir dari masalah nyata yang kami rasakan
+                      sendiri."
+                    </p>
+                  </div>
+                  <div className="mt-6 pt-5 border-t grid grid-cols-3 gap-3 border-white/10">
+                    {[
+                      { n: "2022", l: "Tahun berdiri" },
+                      { n: "2.4K+", l: "Bisnis aktif" },
+                      { n: "99.9%", l: "Uptime" },
+                    ].map((s, i) => (
+                      <div key={i} className="text-center">
+                        <p className={`text-lg font-black accent-text`}>
+                          {s.n}
+                        </p>
+                        <p className={`text-[10px] font-bold ${muted}`}>
+                          {s.l}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              {/* Text */}
+              <div className="order-1 lg:order-2 space-y-5">
+                <SectionBadge
+                  icon={<Heart className="h-3 w-3" />}
+                  label="Kenapa Kami Bikin Ini"
+                />
+                <h2
+                  className={`text-3xl sm:text-4xl md:text-[44px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
+                >
+                  Dibangun oleh owner,
+                  <br />
+                  <span className="shimmer-text">untuk owner.</span>
+                </h2>
+                <p
+                  className={`text-sm sm:text-base font-medium leading-relaxed ${muted}`}
+                >
+                  Bookinaja tidak dibuat oleh korporat yang belum pernah jaga
+                  kasir atau buka tutup bisnis sendiri. Kami paham betul rasa
+                  frustrasi booking manual, kasir yang susah dipercaya, dan
+                  laporan yang tidak pernah akurat.
+                </p>
+                <p
+                  className={`text-sm sm:text-base font-medium leading-relaxed ${muted}`}
+                >
+                  Itulah mengapa setiap fitur Bookinaja dirancang untuk
+                  menyelesaikan masalah nyata — bukan menambah kerumitan baru.
+                  Sederhana untuk kasir, powerful untuk owner.
+                </p>
+                <div
+                  className={`flex items-center gap-3 p-4 rounded-2xl border ${isDark ? "bg-blue-600/[0.08] border-blue-500/20" : "bg-blue-50 border-blue-100"}`}
+                >
+                  <div className="h-8 w-8 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
+                    <MessageCircle size={14} className="text-white" />
+                  </div>
+                  <p className={`text-sm font-medium italic ${muted}`}>
+                    "Kami tidak sukses kalau kamu tidak sukses. Setiap bisnis
+                    yang bergabung, kami anggap sebagai mitra."
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════
+          12. TESTIMONIALS
+      ══════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <div ref={testim.ref} style={revealStyle(testim.visible)}>
           <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
             <SectionBadge
               icon={<Star className="h-3 w-3 fill-current" />}
-              label="Testimoni"
+              label="Testimoni Nyata"
             />
             <h2
               className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
             >
-              Kata Mereka
+              Kata owner yang
               <br />
-              <span className="shimmer-text">yang Pakai.</span>
+              <span className="shimmer-text">sudah pakai.</span>
             </h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               {
                 name: "Rizky Firmansyah",
-                role: "Owner Gaming Hub Surabaya",
-                text: "Sebelum pakai Bookinaja, kasir saya nulis di buku. Sekarang semua otomatis, bisa pantau dari rumah. Pendapatan naik 40%.",
+                role: "Owner Gaming Hub · Surabaya",
+                text: "Sebelum Bookinaja, kasir saya nulis di buku dan sering salah hitung. Sekarang semua otomatis — saya bisa pantau dari rumah. Pendapatan naik 40% dalam 2 bulan karena nggak ada lagi slot yang 'lupa' dicatat.",
+                result: "↑ 40% pendapatan",
                 stars: 5,
                 av: "RF",
                 color: "bg-blue-600",
               },
               {
                 name: "Siti Rahayu",
-                role: "Owner Studio Foto Jakarta",
-                text: "Booking online-nya bikin customer lebih happy. Mereka pilih slot sendiri, bayar QRIS, dapat konfirmasi. Nggak perlu balas WA satu-satu.",
+                role: "Owner Studio Foto · Jakarta",
+                text: "Dulu saya balas WA booking seharian penuh. Sekarang customer bisa pilih slot, bayar QRIS, dapat konfirmasi otomatis. Saya tinggal lihat dashboard. Waktu luang saya balik, stres hilang.",
+                result: "0 WA booking manual",
                 stars: 5,
                 av: "SR",
                 color: "bg-purple-600",
               },
               {
                 name: "Budi Santoso",
-                role: "Owner Lapangan Futsal Bandung",
-                text: "Laporan keuangannya detail banget. Bisa lihat hari apa paling ramai, jam paling sepi, unit mana paling cuan. Strategi bisnis jadi lebih tajam.",
+                role: "Owner Lapangan Futsal · Bandung",
+                text: "Laporan keuangannya bikin saya shock — ternyata selama ini ada selisih yang lumayan tiap bulan. Sekarang semua tercatat, saya bisa tidur tenang. Bookinaja balik modal dalam minggu pertama.",
+                result: "Selisih kas = 0",
                 stars: 5,
                 av: "BS",
                 color: "bg-emerald-600",
@@ -1287,7 +1803,7 @@ export default function LandingPage() {
             ].map((t, i) => (
               <div
                 key={i}
-                className={`hover-lift rounded-[1.75rem] border p-6 sm:p-8 ${card}`}
+                className={`hover-lift rounded-[1.75rem] border p-6 sm:p-8 flex flex-col ${card}`}
               >
                 <div className="flex gap-1 mb-4">
                   {[...Array(t.stars)].map((_, j) => (
@@ -1299,11 +1815,16 @@ export default function LandingPage() {
                   ))}
                 </div>
                 <p
-                  className={`text-sm font-medium leading-relaxed mb-6 italic ${isDark ? "text-white/55" : "text-slate-600"}`}
+                  className={`text-sm font-medium leading-relaxed mb-4 italic flex-1 ${isDark ? "text-white/55" : "text-slate-600"}`}
                 >
                   "{t.text}"
                 </p>
-                <div className="flex items-center gap-3">
+                <div
+                  className={`text-xs font-black px-3 py-1.5 rounded-full mb-5 inline-flex self-start ${isDark ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" : "bg-emerald-50 text-emerald-600 border border-emerald-200"}`}
+                >
+                  {t.result}
+                </div>
+                <div className="flex items-center gap-3 pt-4 border-t border-white/5">
                   <div
                     className={`h-9 w-9 rounded-2xl ${t.color} flex items-center justify-center font-black text-white text-sm flex-shrink-0`}
                   >
@@ -1323,7 +1844,87 @@ export default function LandingPage() {
       </section>
 
       {/* ══════════════════════════════
-          CTA
+          13. FAQ
+      ══════════════════════════════ */}
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
+        <div ref={faq.ref} style={revealStyle(faq.visible)}>
+          <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
+            <SectionBadge
+              icon={<MessageCircle className="h-3 w-3" />}
+              label="Pertanyaan Umum"
+            />
+            <h2
+              className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
+            >
+              Sebelum kamu
+              <br />
+              <span className="shimmer-text">bertanya-tanya.</span>
+            </h2>
+          </div>
+          <div className="max-w-3xl mx-auto space-y-3">
+            {[
+              {
+                q: "Apakah saya butuh keahlian teknis untuk setup?",
+                a: "Tidak sama sekali. Bookinaja dirancang untuk owner bisnis, bukan programmer. Kalau kamu bisa pakai WhatsApp, kamu bisa setup Bookinaja. Rata-rata bisnis bisa live dalam 5–10 menit pertama.",
+              },
+              {
+                q: "Apakah ada biaya tersembunyi?",
+                a: "Tidak ada. Harga yang tertera sudah all-inclusive — hosting, domain subdomain, update fitur, dan support. Tidak ada biaya per transaksi, tidak ada biaya setup, tidak ada kejutan di tagihan bulanan.",
+              },
+              {
+                q: "Bagaimana kalau bisnis saya punya banyak unit atau cabang?",
+                a: "Bookinaja scale bersama bisnis kamu. Kamu bisa tambah unit baru kapan saja. Untuk multi-cabang, tersedia di paket Pro ke atas dengan dashboard terpusat satu tampilan untuk semua lokasi.",
+              },
+              {
+                q: "Apakah data saya aman?",
+                a: "Data setiap bisnis disimpan dalam database yang sepenuhnya terisolasi. Data bisnis kamu tidak pernah bercampur dengan bisnis lain. Kami menggunakan enkripsi standar enterprise dan backup otomatis harian.",
+              },
+              {
+                q: "Bagaimana kalau saya ingin berhenti berlangganan?",
+                a: "Kamu bisa batalkan kapan saja, tidak ada kontrak jangka panjang. Data kamu bisa diexport sebelum berhenti. Masa trial 14 hari juga tidak memerlukan kartu kredit sama sekali.",
+              },
+              {
+                q: "Apakah ada support kalau saya butuh bantuan?",
+                a: "Ya. Semua paket mendapat akses ke tim support kami via chat dan email. Paket Pro ke atas mendapat priority support dengan response time lebih cepat dan dedicated onboarding call gratis.",
+              },
+            ].map((item, i) => (
+              <div
+                key={i}
+                className={`rounded-[1.5rem] border overflow-hidden transition-all duration-200 ${card}`}
+              >
+                <button
+                  className="w-full flex items-start gap-4 p-5 sm:p-6 text-left"
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                >
+                  <span
+                    className={`font-black text-sm sm:text-base flex-1 leading-snug ${heading}`}
+                  >
+                    {item.q}
+                  </span>
+                  <ChevronDown
+                    size={18}
+                    className={`flex-shrink-0 mt-0.5 transition-transform duration-200 ${muted} ${openFaq === i ? "rotate-180" : ""}`}
+                  />
+                </button>
+                {openFaq === i && (
+                  <div
+                    className={`px-5 sm:px-6 pb-5 sm:pb-6 pt-0 border-t ${divider}`}
+                  >
+                    <p
+                      className={`text-sm font-medium leading-relaxed pt-4 ${muted}`}
+                    >
+                      {item.a}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════
+          14. FINAL CTA
       ══════════════════════════════ */}
       <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 pb-14 sm:pb-24">
         <div ref={cta.ref} style={revealStyle(cta.visible)}>
@@ -1340,41 +1941,43 @@ export default function LandingPage() {
             <div className="relative z-10 max-w-sm sm:max-w-2xl md:max-w-3xl mx-auto space-y-6 sm:space-y-8">
               <SectionBadge
                 icon={<Rocket className="h-3 w-3" />}
-                label="Mulai Hari Ini"
+                label="Mulai Sekarang"
               />
               <h2
                 className={`text-4xl sm:text-5xl md:text-7xl font-black tracking-[-0.06em] leading-[0.86] uppercase ${heading}`}
               >
-                <span className="accent-text">Bisnis Kamu</span>
+                Bisnis kamu layak
                 <br />
-                <span className="shimmer-text">Bisa Autopilot.</span>
+                <span className="shimmer-text">lebih dari ini.</span>
               </h2>
               <p
                 className={`text-sm sm:text-base font-medium max-w-xs sm:max-w-md mx-auto ${muted}`}
               >
-                Bergabung dengan 2.400+ bisnis Indonesia yang sudah membuktikan.
-                Gratis 14 hari, tanpa kartu kredit.
+                Bergabung dengan 2.400+ bisnis Indonesia yang sudah berhenti
+                buang waktu untuk hal-hal yang bisa diotomasi. Coba gratis 14
+                hari — tanpa kartu kredit, tanpa komitmen.
               </p>
               <div className="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4">
                 <Link href="/register" className="w-full sm:w-auto">
                   <Button className="w-full sm:w-auto h-12 sm:h-14 md:h-16 px-8 sm:px-10 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl bg-blue-600 hover:bg-blue-500 text-white border-0 transition-colors duration-200 shadow-lg shadow-blue-600/20">
-                    Daftar Gratis Sekarang{" "}
+                    Coba Gratis 14 Hari{" "}
                     <ArrowUpRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
                 <Link
-                  href="/pricing"
+                  href="/demos"
                   className={`text-[10px] font-black uppercase tracking-[0.3em] underline underline-offset-8 decoration-blue-500/40 transition-colors duration-200 ${muted} hover:text-blue-500`}
                 >
-                  Lihat Semua Paket →
+                  Lihat Demo Dulu →
                 </Link>
               </div>
               <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
                 {[
                   "✓ Gratis 14 hari",
                   "✓ Tanpa kartu kredit",
-                  "✓ Setup 5 menit",
+                  "✓ Live dalam 5 menit",
                   "✓ Batalkan kapanpun",
+                  "✓ Support tersedia",
                 ].map((f) => (
                   <span
                     key={f}
