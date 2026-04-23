@@ -58,21 +58,40 @@ type CustomerDashboardData struct {
 
 // RecentHistoryDTO digunakan untuk list bokingan di dashboard customer
 type RecentHistoryDTO struct {
-	ID            uuid.UUID `json:"id" db:"id"`
-	Resource      string    `json:"resource" db:"resource"`
-	Date          time.Time `json:"date" db:"date"`
+	ID            uuid.UUID  `json:"id" db:"id"`
+	Resource      string     `json:"resource" db:"resource"`
+	Date          time.Time  `json:"date" db:"date"`
 	EndDate       *time.Time `json:"end_date" db:"end_date"`
-	GrandTotal    int64     `json:"grand_total" db:"grand_total"`
-	DepositAmount int64     `json:"deposit_amount" db:"deposit_amount"`
-	TotalSpent    int64     `json:"total_spent" db:"total_spent"`
-	PaidAmount    int64     `json:"paid_amount" db:"paid_amount"`
-	BalanceDue    int64     `json:"balance_due" db:"balance_due"`
-	Status        string    `json:"status" db:"status"`
-	PaymentStatus string    `json:"payment_status" db:"payment_status"`
-	PaymentMethod string    `json:"payment_method" db:"payment_method"`
+	GrandTotal    int64      `json:"grand_total" db:"grand_total"`
+	DepositAmount int64      `json:"deposit_amount" db:"deposit_amount"`
+	TotalSpent    int64      `json:"total_spent" db:"total_spent"`
+	PaidAmount    int64      `json:"paid_amount" db:"paid_amount"`
+	BalanceDue    int64      `json:"balance_due" db:"balance_due"`
+	Status        string     `json:"status" db:"status"`
+	PaymentStatus string     `json:"payment_status" db:"payment_status"`
+	PaymentMethod string     `json:"payment_method" db:"payment_method"`
 }
 
 type CustomerDetailWithHistory struct {
 	Customer
 	TransactionHistory []RecentHistoryDTO `json:"transaction_history"`
+}
+
+type BroadcastAnnouncementReq struct {
+	Message string `json:"message"`
+}
+
+type BroadcastTarget struct {
+	ID    uuid.UUID `db:"id" json:"id"`
+	Name  string    `db:"name" json:"name"`
+	Phone string    `db:"phone" json:"phone"`
+}
+
+type BroadcastResult struct {
+	TenantID   uuid.UUID `json:"tenant_id"`
+	Total      int       `json:"total"`
+	Sent       int       `json:"sent"`
+	Skipped    int       `json:"skipped"`
+	Failed     int       `json:"failed"`
+	DefaultMsg bool      `json:"default_message"`
 }

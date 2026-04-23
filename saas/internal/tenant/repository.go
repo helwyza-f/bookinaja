@@ -124,9 +124,11 @@ func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) erro
 	_, err = tx.NamedExecContext(ctx, `
 		INSERT INTO tenants (
 			id, name, slug, business_category, business_type, 
+			plan, subscription_status, subscription_current_period_start, subscription_current_period_end,
 			slogan, tagline, about_us, features, primary_color, created_at
 		) VALUES (
 			:id, :name, :slug, :business_category, :business_type, 
+			:plan, :subscription_status, :subscription_current_period_start, :subscription_current_period_end,
 			:slogan, :tagline, :about_us, :features, :primary_color, :created_at
 		)`, t)
 	if err != nil {
@@ -150,8 +152,8 @@ func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) erro
 }
 
 func (r *Repository) Update(ctx context.Context, t Tenant) error {
-    // 1. Database Update
-    query := `
+	// 1. Database Update
+	query := `
         UPDATE tenants SET 
             name=:name, slogan=:slogan, tagline=:tagline, about_us=:about_us, 
             features=:features, address=:address, open_time=:open_time, 
@@ -162,45 +164,45 @@ func (r *Repository) Update(ctx context.Context, t Tenant) error {
             meta_title=:meta_title, meta_description=:meta_description
         WHERE id=:id`
 
-    _, err := r.db.NamedExecContext(ctx, query, t)
-    if err != nil {
-        return err
-    }
+	_, err := r.db.NamedExecContext(ctx, query, t)
+	if err != nil {
+		return err
+	}
 
-    // 2. SMART INVALIDATION (Total Purge)
-    // Kita kumpulin semua key yang mungkin mengandung data tenant ini
-    keysToDel := []string{
-        r.getLandingCacheKey(t.Slug),           // Cache Landing Page
-        r.getProfileCacheKey(t.Slug),           // Cache Profile by Slug
-        r.getProfileByIDCacheKey(t.ID.String()), // Cache Profile by ID
-    }
+	// 2. SMART INVALIDATION (Total Purge)
+	// Kita kumpulin semua key yang mungkin mengandung data tenant ini
+	keysToDel := []string{
+		r.getLandingCacheKey(t.Slug),            // Cache Landing Page
+		r.getProfileCacheKey(t.Slug),            // Cache Profile by Slug
+		r.getProfileByIDCacheKey(t.ID.String()), // Cache Profile by ID
+	}
 
-    // 3. CRITICAL: Kita juga harus hapus cache USER!
-    // Karena di GetUserByID kita simpan LogoURL, kalau logo diupdate, 
-    // cache user harus dibuang biar sidebar admin berubah.
-    // Kita cari semua admin/owner dari tenant ini.
-    var userIDs []string
-    err = r.db.SelectContext(ctx, &userIDs, `SELECT id::text FROM users WHERE tenant_id = $1`, t.ID)
-    if err == nil {
-        for _, uID := range userIDs {
-            keysToDel = append(keysToDel, r.getUserCacheKey(uID))
-        }
-    }
+	// 3. CRITICAL: Kita juga harus hapus cache USER!
+	// Karena di GetUserByID kita simpan LogoURL, kalau logo diupdate,
+	// cache user harus dibuang biar sidebar admin berubah.
+	// Kita cari semua admin/owner dari tenant ini.
+	var userIDs []string
+	err = r.db.SelectContext(ctx, &userIDs, `SELECT id::text FROM users WHERE tenant_id = $1`, t.ID)
+	if err == nil {
+		for _, uID := range userIDs {
+			keysToDel = append(keysToDel, r.getUserCacheKey(uID))
+		}
+	}
 
-    // 4. Eksekusi Delete di Redis
-    if len(keysToDel) > 0 {
-        errDel := r.rdb.Del(ctx, keysToDel...).Err()
-        if errDel != nil {
-            fmt.Printf("⚠️  [REDIS] CACHE PURGE FAILED: %v\n", errDel)
-        } else {
-            fmt.Printf("🧹 [REDIS] CACHE PURGED for Tenant: %s (Slug: %s)\n", t.ID.String(), t.Slug)
-            for _, k := range keysToDel {
-                fmt.Printf("   -> Deleted: %s\n", k)
-            }
-        }
-    }
+	// 4. Eksekusi Delete di Redis
+	if len(keysToDel) > 0 {
+		errDel := r.rdb.Del(ctx, keysToDel...).Err()
+		if errDel != nil {
+			fmt.Printf("⚠️  [REDIS] CACHE PURGE FAILED: %v\n", errDel)
+		} else {
+			fmt.Printf("🧹 [REDIS] CACHE PURGED for Tenant: %s (Slug: %s)\n", t.ID.String(), t.Slug)
+			for _, k := range keysToDel {
+				fmt.Printf("   -> Deleted: %s\n", k)
+			}
+		}
+	}
 
-    return nil
+	return nil
 }
 
 func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Tenant, error) {
@@ -252,7 +254,7 @@ func (r *Repository) GetUserByID(ctx context.Context, id uuid.UUID) (*User, stri
 	// 2. DB Lookup
 	// LOG MISS: Redis zonk, terpaksa ngetok pintu Postgres
 	fmt.Printf("🗄️  [DB] CACHE MISS: user_profile:%s (Querying Postgres...)\n", id.String())
-	
+
 	var u struct {
 		User
 		TenantLogo string `db:"logo_url"`
@@ -279,7 +281,7 @@ func (r *Repository) GetUserByID(ctx context.Context, id uuid.UUID) (*User, stri
 		User User   `json:"user"`
 		Logo string `json:"logo"`
 	}{User: u.User, Logo: u.TenantLogo}
-	
+
 	jsonData, _ := json.Marshal(cachedData)
 	if err := r.rdb.Set(ctx, cacheKey, jsonData, 6*time.Hour).Err(); err != nil {
 		fmt.Printf("⚠️  [REDIS] FAILED TO SET CACHE: %v\n", err)
@@ -324,7 +326,7 @@ func (r *Repository) Exists(ctx context.Context, slug, email string) (bool, bool
 }
 
 func (r *Repository) ListResourcesWithItems(ctx context.Context, tenantID uuid.UUID) ([]map[string]interface{}, error) {
-	// Query Aggregation ini biarkan ke DB karena transaksinya kompleks, 
+	// Query Aggregation ini biarkan ke DB karena transaksinya kompleks,
 	// tapi hasilnya sudah di-cache oleh GetPublicLandingData di atas.
 	query := `
 		SELECT 

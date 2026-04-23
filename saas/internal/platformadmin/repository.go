@@ -493,6 +493,12 @@ func (r *Repository) GetTenantDetail(ctx context.Context, tenantID string) (map[
 			t.subscription_status,
 			t.subscription_current_period_start,
 			t.subscription_current_period_end,
+			CASE
+				WHEN t.subscription_status = 'active' AND t.subscription_current_period_end > NOW() THEN 'active'
+				WHEN t.subscription_status = 'trial' AND t.subscription_current_period_end > NOW() THEN 'trial'
+				WHEN t.subscription_status = 'suspended' THEN 'suspended'
+				ELSE 'inactive'
+			END AS status,
 			t.address,
 			t.whatsapp_number,
 			t.instagram_url,
@@ -582,7 +588,7 @@ func (r *Repository) Summary(ctx context.Context) (map[string]any, error) {
 	if err := r.db.GetContext(ctx, &totalTenants, `SELECT COUNT(*) FROM tenants`); err != nil {
 		return nil, err
 	}
-	if err := r.db.GetContext(ctx, &activeTenants, `SELECT COUNT(*) FROM tenants WHERE COALESCE(subscription_status, '') = 'active'`); err != nil {
+	if err := r.db.GetContext(ctx, &activeTenants, `SELECT COUNT(*) FROM tenants WHERE COALESCE(subscription_status, '') IN ('active', 'trial')`); err != nil {
 		return nil, err
 	}
 	if err := r.db.GetContext(ctx, &totalCustomers, `SELECT COUNT(*) FROM customers`); err != nil {

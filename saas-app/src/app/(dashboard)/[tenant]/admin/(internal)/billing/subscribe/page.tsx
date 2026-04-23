@@ -28,11 +28,12 @@ const PLANS = [
     priceMonthlyPromo: 149000, // Harga jual bulanan
     priceAnnualPerMonth: 119000, // Harga per bulan jika tahunan
     totalAnnual: 1428000,
-    desc: "Digitalisasi operasional untuk bisnis persewaan tunggal.",
+    desc: "Cocok buat tenant baru yang fokus validasi pelanggan.",
     features: [
+      "Free trial 30 hari",
       "Akses Full Dashboard Admin",
       "Website Booking (Subdomain)",
-      "Kapasitas 1-5 Unit",
+      "Sampai 10 pelanggan aktif",
       "Laporan Pendapatan Bulanan",
       "Email & Chat Support",
     ],
@@ -45,10 +46,11 @@ const PLANS = [
     priceMonthlyPromo: 299000, // Harga jual bulanan
     priceAnnualPerMonth: 239000, // Harga per bulan jika tahunan
     totalAnnual: 2868000,
-    desc: "Fitur lengkap untuk bisnis dengan tim dan trafik tinggi.",
+    desc: "Untuk tenant yang butuh unlimited pelanggan dan blast WA.",
     features: [
       "Akses Akun Staff/Kasir",
-      "Unit & Resource Tanpa Batas",
+      "Unlimited pelanggan",
+      "Blast WhatsApp ke semua pelanggan",
       "Dashboard Live Real-time",
       "Sistem Harga Khusus (Weekend)",
       "Prioritas Support 24/7",
@@ -56,6 +58,12 @@ const PLANS = [
     popular: true,
   },
 ];
+
+type SnapWindow = Window & {
+  snap?: {
+    pay: (token: string, options?: Record<string, unknown>) => void;
+  };
+};
 
 export default function SubscribePage() {
   const router = useRouter();
@@ -84,11 +92,17 @@ export default function SubscribePage() {
 
   const activePlanLabel = useMemo(() => {
     if (!currentPlan) return "Belum ada paket aktif";
-    return `${currentPlan.toUpperCase()}${currentStatus ? ` • ${currentStatus.toUpperCase()}` : ""}`;
+    const statusLabel =
+      currentStatus === "trial"
+        ? "FREE TRIAL 30 HARI"
+        : currentStatus
+          ? currentStatus.toUpperCase()
+          : "";
+    return `${currentPlan.toUpperCase()}${statusLabel ? ` • ${statusLabel}` : ""}`;
   }, [currentPlan, currentStatus]);
 
   const handleCheckout = async (plan: string) => {
-    const snap = (window as any).snap;
+    const snap = (window as SnapWindow).snap;
     if (!snap) return toast.error("Midtrans belum siap. Coba refresh halaman.");
 
     setPaying(true);
@@ -107,8 +121,15 @@ export default function SubscribePage() {
         onError: () => toast.error("Pembayaran Gagal"),
         onClose: () => toast.info("Checkout dibatalkan"),
       });
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Gagal melakukan checkout.");
+    } catch (error) {
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        typeof (error as { response?: { data?: { error?: string } } }).response?.data?.error === "string"
+          ? (error as { response?: { data?: { error?: string } } }).response?.data?.error
+          : "Gagal melakukan checkout.";
+      toast.error(message);
     } finally {
       setPaying(false);
     }
@@ -167,15 +188,15 @@ export default function SubscribePage() {
             <p className="text-sm font-bold text-foreground">
               {activePlanLabel}
             </p>
-            <p className="text-[11px] text-muted-foreground">
-              Kartu aktif akan ditandai jelas. Upgrade hanya muncul ke paket yang lebih tinggi.
-            </p>
+              <p className="text-[11px] text-muted-foreground">
+              Free trial akan otomatis aktif selama 30 hari setelah registrasi.
+              </p>
+            </div>
           </div>
-        </div>
         <div className="flex items-center gap-2">
           <Info className="h-4 w-4 text-blue-600" />
           <span className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
-            Starter ke Pro = upgrade, Pro adalah level tertinggi
+            Starter = 10 pelanggan, Pro = unlimited pelanggan
           </span>
         </div>
       </div>

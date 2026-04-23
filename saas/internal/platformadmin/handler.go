@@ -104,11 +104,11 @@ func (h *Handler) TenantDetail(c *gin.Context) {
 		"tenant": detail,
 		"summary": gin.H{
 			"subscription_summary": gin.H{
-				"revenue":               insights["subscription_revenue"],
-				"transactions":          insights["subscription_transactions"],
-				"status":                detail["subscription_status"],
-				"current_period_start":   detail["subscription_current_period_start"],
-				"current_period_end":     detail["subscription_current_period_end"],
+				"revenue":              insights["subscription_revenue"],
+				"transactions":         insights["subscription_transactions"],
+				"status":               detail["status"],
+				"current_period_start": detail["subscription_current_period_start"],
+				"current_period_end":   detail["subscription_current_period_end"],
 			},
 			"booking_summary": gin.H{
 				"balance":       balance["balance"],

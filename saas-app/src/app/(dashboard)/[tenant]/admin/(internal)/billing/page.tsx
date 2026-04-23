@@ -48,7 +48,7 @@ export default function BillingHistoryPage() {
       ]);
       setSub(subRes.data);
       setOrders(ordersRes.data?.orders || []);
-    } catch (err: any) {
+    } catch {
       toast.error("Gagal sinkronisasi data billing.");
     } finally {
       setLoading(false);
@@ -60,6 +60,7 @@ export default function BillingHistoryPage() {
   }, []);
 
   const isActive = sub?.status === "active";
+  const isTrial = sub?.status === "trial";
 
   if (loading) return <BillingSkeleton />;
 
@@ -90,7 +91,11 @@ export default function BillingHistoryPage() {
 
             <div className="space-y-1">
               <h1 className="text-4xl md:text-5xl font-[1000] italic uppercase tracking-tighter leading-none dark:text-white">
-                {isActive ? sub?.plan || "PRO" : "PAKET TIDAK AKTIF"}
+                {isActive
+                  ? sub?.plan || "PRO"
+                  : isTrial
+                    ? `${sub?.plan || "STARTER"} • FREE TRIAL`
+                    : "PAKET TIDAK AKTIF"}
               </h1>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                 Kelola langganan dan akses fitur premium Bookinaja
@@ -117,7 +122,7 @@ export default function BillingHistoryPage() {
                   Masa Penagihan
                 </span>
                 <span className="font-bold text-sm text-blue-600 uppercase italic">
-                  {isActive ? "Auto-Renewal" : "Manual Payment"}
+                  {isActive ? "Auto-Renewal" : isTrial ? "Trial Mode" : "Manual Payment"}
                 </span>
               </div>
             </div>
