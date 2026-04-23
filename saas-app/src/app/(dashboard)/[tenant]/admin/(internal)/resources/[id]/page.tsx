@@ -182,27 +182,27 @@ export default function ResourceDetailPage() {
   if (loading && !resource) return <ResourceDetailLoading />;
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-6 pb-20 animate-in fade-in duration-500 px-4 mt-6 font-plus-jakarta">
+    <div className="max-w-[1600px] mx-auto space-y-5 md:space-y-6 pb-20 animate-in fade-in duration-500 px-3 md:px-4 mt-4 md:mt-6 font-plus-jakarta">
       {/* 1. ULTRA COMPACT HEADER */}
-      <header className="flex flex-row items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-6 gap-4">
-        <div className="flex items-center gap-4">
+      <header className="flex flex-col md:flex-row md:items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-5 md:pb-6 gap-4">
+        <div className="flex items-center gap-3 md:gap-4">
           <Button
             variant="ghost"
             onClick={() => router.push("/admin/resources")}
-            className="h-10 w-10 p-0 rounded-xl bg-slate-50 dark:bg-slate-900 border-[0.5px] border-slate-200 dark:border-white/10 hover:bg-blue-600 hover:text-white transition-all"
+            className="h-10 w-10 p-0 rounded-xl bg-slate-50 dark:bg-slate-900 border-[0.5px] border-slate-200 dark:border-white/10 hover:bg-blue-600 hover:text-white transition-all shrink-0"
           >
             <ArrowLeft size={18} strokeWidth={3} />
           </Button>
           <div className="flex flex-col leading-none">
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl md:text-4xl font-[1000] italic uppercase tracking-tighter text-slate-950 dark:text-white leading-none">
+              <h1 className="text-xl md:text-4xl font-[1000] italic uppercase tracking-tighter text-slate-950 dark:text-white leading-none">
                 {resource?.name}
               </h1>
               <Badge className="bg-blue-600 text-white font-black italic text-[8px] px-2 py-0.5 rounded-md uppercase">
                 {resource?.category || "General"}
               </Badge>
             </div>
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.4em] italic mt-1.5">
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] md:tracking-[0.4em] italic mt-1.5">
               Asset & Configuration Hub
             </p>
           </div>
@@ -213,16 +213,16 @@ export default function ResourceDetailPage() {
             setEditingItem(null);
             setDialogOpen(true);
           }}
-          className="h-12 px-5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[10px] shadow-lg border-b-4 border-blue-800 gap-2 transition-all active:scale-95"
+          className="h-12 px-4 md:px-5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[10px] shadow-lg border-b-4 border-blue-800 gap-2 transition-all active:scale-95 w-full md:w-auto"
         >
           <Plus size={16} strokeWidth={4} /> New Config
         </Button>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 md:gap-6 items-start">
         {/* LEFT: VISUAL (Fixed Width, Compact) */}
         <div className="lg:col-span-4 space-y-6">
-          <Card className="rounded-[2.5rem] border-[0.5px] border-slate-200 dark:border-white/5 shadow-sm p-6 bg-white dark:bg-slate-900 relative">
+          <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-[0.5px] border-slate-200 dark:border-white/5 shadow-sm p-4 md:p-6 bg-white dark:bg-slate-900 relative">
             <div className="absolute top-4 right-4 z-20">
               <Button
                 variant="secondary"
@@ -244,7 +244,7 @@ export default function ResourceDetailPage() {
             </div>
 
             {isEditMode ? (
-              <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+                <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
                 <SingleImageUpload
                   label="Banner"
                   value={imageUrl}
@@ -275,7 +275,7 @@ export default function ResourceDetailPage() {
                 </Button>
               </div>
             ) : (
-              <div className="space-y-6 animate-in fade-in duration-500">
+                <div className="space-y-5 md:space-y-6 animate-in fade-in duration-500">
                 <div className="aspect-[16/10] rounded-[2rem] overflow-hidden shadow-inner bg-slate-100 dark:bg-slate-800">
                   {imageUrl ? (
                     <img
@@ -301,7 +301,7 @@ export default function ResourceDetailPage() {
                   </p>
                 </div>
                 {gallery.length > 0 && (
-                  <div className="grid grid-cols-4 gap-2 px-2">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 px-2">
                     {gallery.slice(0, 4).map((img, i) => (
                       <div
                         key={i}
@@ -322,7 +322,7 @@ export default function ResourceDetailPage() {
         </div>
 
         {/* RIGHT: CONFIGURATION (High Density Grid) */}
-        <div className="lg:col-span-8 space-y-6">
+        <div className="lg:col-span-8 space-y-5 md:space-y-6">
           {/* MAIN RATES */}
           <section className="space-y-4">
             <div className="flex items-center justify-between px-2">

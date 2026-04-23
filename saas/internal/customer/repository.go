@@ -3,6 +3,7 @@ package customer
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -87,6 +88,19 @@ func (r *Repository) ListBroadcastTargets(ctx context.Context, tenantID uuid.UUI
 		WHERE tenant_id = $1 AND COALESCE(phone, '') <> ''
 		ORDER BY updated_at DESC, created_at DESC`, tenantID)
 	return targets, err
+}
+
+func (r *Repository) CreateAuditLog(ctx context.Context, tenantID uuid.UUID, actorUserID *uuid.UUID, action, resourceType string, resourceID *uuid.UUID, metadata map[string]any) error {
+	rawMetadata, _ := json.Marshal(metadata)
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO tenant_audit_logs (
+			id, tenant_id, actor_user_id, action, resource_type, resource_id, metadata, created_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, NOW()
+		)`,
+		uuid.New(), tenantID, actorUserID, action, resourceType, resourceID, rawMetadata,
+	)
+	return err
 }
 
 // FindByPhone digunakan untuk validasi awal sebelum booking & login OTP.

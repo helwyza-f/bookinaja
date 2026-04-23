@@ -298,7 +298,7 @@ func (s *Service) GetProfile(ctx context.Context, id uuid.UUID) (*Tenant, error)
 	return s.repo.GetByID(ctx, id)
 }
 
-func (s *Service) UpdateProfile(ctx context.Context, id uuid.UUID, req Tenant) (*Tenant, error) {
+func (s *Service) UpdateProfile(ctx context.Context, actorUserID uuid.UUID, id uuid.UUID, req Tenant) (*Tenant, error) {
 	curr, err := s.repo.GetByID(ctx, id)
 	if err != nil || curr == nil {
 		return nil, errors.New("tenant tidak ditemukan")
@@ -311,7 +311,97 @@ func (s *Service) UpdateProfile(ctx context.Context, id uuid.UUID, req Tenant) (
 	if err := s.repo.Update(ctx, req); err != nil {
 		return nil, err
 	}
+
+	metadata, _ := json.Marshal(map[string]any{
+		"tenant_name": req.Name,
+		"tenant_slug": req.Slug,
+	})
+	_ = s.repo.CreateAuditLog(ctx, AuditLog{
+		ID:           uuid.New(),
+		TenantID:     id,
+		ActorUserID:  &actorUserID,
+		Action:       "update_business_profile",
+		ResourceType: "tenant",
+		ResourceID:   &id,
+		Metadata:     metadata,
+		CreatedAt:    time.Now().UTC(),
+	})
+
 	return &req, nil
+}
+
+func (s *Service) ListStaff(ctx context.Context, tenantID uuid.UUID) ([]User, error) {
+	return s.repo.ListUsersByTenant(ctx, tenantID)
+}
+
+func (s *Service) CreateStaff(ctx context.Context, actorUserID uuid.UUID, tenantID uuid.UUID, req StaffCreateReq) (*User, error) {
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	staff, err := s.repo.CreateStaff(ctx, tenantID, req.Name, req.Email, string(hashed))
+	if err != nil {
+		return nil, err
+	}
+
+	metadata, _ := json.Marshal(map[string]any{
+		"name":  req.Name,
+		"email": req.Email,
+		"role":  "staff",
+	})
+	_ = s.repo.CreateAuditLog(ctx, AuditLog{
+		ID:           uuid.New(),
+		TenantID:     tenantID,
+		ActorUserID:  &actorUserID,
+		Action:       "create_staff",
+		ResourceType: "user",
+		ResourceID:   &staff.ID,
+		Metadata:     metadata,
+		CreatedAt:    time.Now().UTC(),
+	})
+
+	return staff, nil
+}
+
+func (s *Service) DeleteStaff(ctx context.Context, actorUserID uuid.UUID, tenantID, staffID uuid.UUID) error {
+	if actorUserID == staffID {
+		return errors.New("akun sendiri tidak bisa dihapus")
+	}
+
+	target, _, err := s.repo.GetUserByID(ctx, staffID)
+	if err != nil {
+		return err
+	}
+	if target == nil || target.TenantID != tenantID || target.Role != "staff" {
+		return errors.New("pegawai tidak ditemukan")
+	}
+
+	if err := s.repo.DeleteStaff(ctx, tenantID, staffID); err != nil {
+		return err
+	}
+
+	metadata, _ := json.Marshal(map[string]any{
+		"name":  target.Name,
+		"email": target.Email,
+		"role":  target.Role,
+	})
+	_ = s.repo.CreateAuditLog(ctx, AuditLog{
+		ID:           uuid.New(),
+		TenantID:     tenantID,
+		ActorUserID:  &actorUserID,
+		Action:       "delete_staff",
+		ResourceType: "user",
+		ResourceID:   &staffID,
+		Metadata:     metadata,
+		CreatedAt:    time.Now().UTC(),
+	})
+
+	return nil
+}
+
+func (s *Service) ListActivity(ctx context.Context, tenantID uuid.UUID, limit int) ([]AuditLogEntry, error) {
+	return s.repo.ListAuditLogsByTenant(ctx, tenantID, limit)
 }
 
 // GetUserByID sekarang me-return DTO yang diminta oleh auth handler

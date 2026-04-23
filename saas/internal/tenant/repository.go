@@ -318,6 +318,80 @@ func (r *Repository) GetUserByEmailAndSlug(ctx context.Context, email, slug stri
 	return &u, err
 }
 
+func (r *Repository) ListUsersByTenant(ctx context.Context, tenantID uuid.UUID) ([]User, error) {
+	var users []User
+	err := r.db.SelectContext(ctx, &users, `
+		SELECT id, tenant_id, name, email, role, created_at
+		FROM users
+		WHERE tenant_id = $1 AND role = 'staff'
+		ORDER BY role ASC, created_at ASC`, tenantID)
+	return users, err
+}
+
+func (r *Repository) CreateStaff(ctx context.Context, tenantID uuid.UUID, name, email, password string) (*User, error) {
+	query := `
+		INSERT INTO users (id, tenant_id, name, email, password, role, created_at)
+		VALUES ($1, $2, $3, $4, $5, 'staff', NOW())
+		RETURNING id, tenant_id, name, email, role, created_at`
+	var u User
+	if err := r.db.GetContext(ctx, &u, query, uuid.New(), tenantID, name, email, password); err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+func (r *Repository) DeleteStaff(ctx context.Context, tenantID, staffID uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, `
+		DELETE FROM users
+		WHERE id = $1 AND tenant_id = $2 AND role = 'staff'`,
+		staffID, tenantID,
+	)
+	if err != nil {
+		return err
+	}
+
+	r.rdb.Del(ctx, r.getUserCacheKey(staffID.String()))
+	return nil
+}
+
+func (r *Repository) CreateAuditLog(ctx context.Context, logEntry AuditLog) error {
+	_, err := r.db.NamedExecContext(ctx, `
+		INSERT INTO tenant_audit_logs (
+			id, tenant_id, actor_user_id, action, resource_type, resource_id, metadata, created_at
+		) VALUES (
+			:id, :tenant_id, :actor_user_id, :action, :resource_type, :resource_id, :metadata, :created_at
+	)`, logEntry)
+	return err
+}
+
+func (r *Repository) ListAuditLogsByTenant(ctx context.Context, tenantID uuid.UUID, limit int) ([]AuditLogEntry, error) {
+	if limit <= 0 {
+		limit = 25
+	}
+
+	var logs []AuditLogEntry
+	err := r.db.SelectContext(ctx, &logs, `
+		SELECT
+			l.id,
+			l.tenant_id,
+			l.actor_user_id,
+			COALESCE(u.name, 'System') AS actor_name,
+			COALESCE(u.email, '') AS actor_email,
+			l.action,
+			l.resource_type,
+			l.resource_id,
+			l.metadata,
+			l.created_at
+		FROM tenant_audit_logs l
+		LEFT JOIN users u ON u.id = l.actor_user_id
+		WHERE l.tenant_id = $1
+		ORDER BY l.created_at DESC
+		LIMIT $2`,
+		tenantID, limit,
+	)
+	return logs, err
+}
+
 func (r *Repository) Exists(ctx context.Context, slug, email string) (bool, bool, error) {
 	var slugExists, emailExists bool
 	r.db.GetContext(ctx, &slugExists, "SELECT EXISTS(SELECT 1 FROM tenants WHERE LOWER(slug) = LOWER($1))", slug)

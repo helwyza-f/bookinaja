@@ -177,7 +177,7 @@ export default function BookingDetailPage() {
     );
 
   return (
-    <div className="max-w-7xl mx-auto p-4 lg:p-6 space-y-6 animate-in fade-in duration-500 font-plus-jakarta pb-20 mt-4">
+    <div className="max-w-7xl mx-auto p-3 md:p-4 lg:p-6 space-y-5 md:space-y-6 animate-in fade-in duration-500 font-plus-jakarta pb-20 mt-3 md:mt-4">
       <Script
         src={
           (
@@ -201,8 +201,8 @@ export default function BookingDetailPage() {
           >
             <ArrowLeft className="w-2.5 h-2.5 stroke-[4]" /> Back to List
           </Button>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl lg:text-5xl font-[1000] italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl md:text-4xl lg:text-5xl font-[1000] italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
               Billing <span className="text-blue-600">Details.</span>
             </h1>
             <Badge
@@ -220,21 +220,21 @@ export default function BookingDetailPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           {/* VIP ACTIONS */}
           {(booking.balance_due > 0 || booking.payment_status === "partial_paid") && (
             <div className="relative">
               <Button
                 onClick={() => setPayOpen((prev) => !prev)}
                 disabled={updating}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[9px] h-12 px-6 rounded-xl shadow-lg border-b-4 border-blue-800 gap-2"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[9px] h-12 px-4 sm:px-6 rounded-xl shadow-lg border-b-4 border-blue-800 gap-2 w-full sm:w-auto"
               >
                 <CreditCard className="w-3.5 h-3.5" />
                 Process Payment
               </Button>
 
               {payOpen && (
-                <div className="absolute right-0 mt-3 w-72 rounded-2xl border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900 shadow-2xl p-3 z-50">
+                <div className="absolute right-0 mt-3 w-[92vw] sm:w-72 rounded-2xl border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900 shadow-2xl p-3 z-50">
                   <div className="space-y-3">
                     <div className="rounded-xl bg-slate-50 dark:bg-white/5 p-3">
                       <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
@@ -277,7 +277,7 @@ export default function BookingDetailPage() {
             <Button
               onClick={() => router.push(`/admin/pos?active=${booking.id}`)}
               variant="outline"
-              className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 text-blue-600 font-black uppercase italic text-[9px] h-12 px-5 rounded-xl shadow-sm hover:bg-blue-600 hover:text-white transition-all gap-2"
+              className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 text-blue-600 font-black uppercase italic text-[9px] h-12 px-4 sm:px-5 rounded-xl shadow-sm hover:bg-blue-600 hover:text-white transition-all gap-2 w-full sm:w-auto"
             >
               <Zap className="w-3.5 h-3.5 fill-current" /> POS Hub
             </Button>
@@ -287,7 +287,7 @@ export default function BookingDetailPage() {
             <Button
               onClick={() => handleUpdateStatus("confirmed")}
               disabled={updating}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[9px] h-12 px-6 rounded-xl shadow-lg border-b-4 border-blue-800"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[9px] h-12 px-4 sm:px-6 rounded-xl shadow-lg border-b-4 border-blue-800 w-full sm:w-auto"
             >
               Confirm Booking
             </Button>
@@ -297,7 +297,7 @@ export default function BookingDetailPage() {
             <Button
               onClick={() => handleUpdateStatus("active")}
               disabled={updating}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase italic text-[9px] h-12 px-6 rounded-xl shadow-lg border-b-4 border-emerald-800"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase italic text-[9px] h-12 px-4 sm:px-6 rounded-xl shadow-lg border-b-4 border-emerald-800 w-full sm:w-auto"
             >
               Check-in Session
             </Button>
@@ -313,7 +313,7 @@ export default function BookingDetailPage() {
                 handleUpdateStatus("completed");
               }}
               disabled={updating || !isPaymentSettled}
-              className="bg-slate-900 dark:bg-blue-600 text-white font-black uppercase italic text-[9px] h-12 px-6 rounded-xl shadow-lg border-b-4 border-slate-700 dark:border-blue-800"
+              className="bg-slate-900 dark:bg-blue-600 text-white font-black uppercase italic text-[9px] h-12 px-4 sm:px-6 rounded-xl shadow-lg border-b-4 border-slate-700 dark:border-blue-800 w-full sm:w-auto"
             >
               {isPaymentSettled ? "Checkout Final" : "Belum Lunas"}
             </Button>
@@ -324,7 +324,7 @@ export default function BookingDetailPage() {
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
-                className="w-12 h-12 rounded-xl border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900 p-0 shadow-sm hover:bg-slate-50 transition-all"
+                className="w-11 h-11 md:w-12 md:h-12 rounded-xl border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900 p-0 shadow-sm hover:bg-slate-50 transition-all"
               >
                 <MoreVertical className="w-4 h-4 text-slate-400" />
               </Button>
@@ -351,18 +351,18 @@ export default function BookingDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* LEFT COLUMN: CUSTOMER & SCHEDULE */}
         <div className="lg:col-span-7 space-y-6">
-          <Card className="rounded-[2.5rem] border-none shadow-sm p-8 bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5 overflow-hidden relative">
+          <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-none shadow-sm p-5 md:p-8 bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5 overflow-hidden relative">
             <div className="absolute -top-6 -right-6 opacity-[0.03] dark:opacity-[0.05] pointer-events-none">
               <User size={180} />
             </div>
 
-            <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8">
               <div className="space-y-6">
                 <div className="space-y-1">
                   <p className="text-[8px] font-black text-blue-600 uppercase tracking-widest italic leading-none">
                     Customer Profile
                   </p>
-                  <h2 className="text-2xl lg:text-3xl font-[1000] italic text-slate-950 dark:text-white uppercase tracking-tighter truncate">
+                  <h2 className="text-xl md:text-2xl lg:text-3xl font-[1000] italic text-slate-950 dark:text-white uppercase tracking-tighter truncate">
                     {booking.customer_name}
                   </h2>
                   <div className="flex items-center gap-2 text-slate-400 font-bold italic text-sm mt-2">
@@ -425,7 +425,7 @@ export default function BookingDetailPage() {
           </Card>
 
           {/* RENTAL OPTIONS */}
-          <Card className="rounded-[2.5rem] border-none shadow-sm p-8 bg-white dark:bg-slate-900 space-y-6 ring-1 ring-slate-100 dark:ring-white/5">
+          <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-none shadow-sm p-5 md:p-8 bg-white dark:bg-slate-900 space-y-6 ring-1 ring-slate-100 dark:ring-white/5">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
               <div className="flex items-center gap-2">
                 <Layers className="w-4 h-4 text-blue-600" />
@@ -471,7 +471,7 @@ export default function BookingDetailPage() {
         {/* RIGHT COLUMN: F&B + TOTAL */}
         <div className="lg:col-span-5 space-y-6">
           {/* FnB SECTION */}
-          <Card className="rounded-[2.5rem] border-none shadow-sm p-8 bg-white dark:bg-slate-900 flex flex-col ring-1 ring-slate-100 dark:ring-white/5 min-h-[300px]">
+          <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-none shadow-sm p-5 md:p-8 bg-white dark:bg-slate-900 flex flex-col ring-1 ring-slate-100 dark:ring-white/5 min-h-[300px]">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4 mb-6">
               <div className="flex items-center gap-2">
                 <Utensils className="w-4 h-4 text-orange-500" />
@@ -537,7 +537,7 @@ export default function BookingDetailPage() {
           </Card>
 
           {/* TOTAL BILL CARD - THE GRAND FINALE */}
-          <Card className="rounded-[3rem] border-none bg-slate-950 p-8 text-white space-y-5 relative overflow-hidden shadow-2xl">
+          <Card className="rounded-[1.75rem] md:rounded-[3rem] border-none bg-slate-950 p-5 md:p-8 text-white space-y-5 relative overflow-hidden shadow-2xl">
             <Receipt
               size={160}
               className="absolute -right-12 -bottom-12 opacity-[0.03] rotate-12"
@@ -558,7 +558,7 @@ export default function BookingDetailPage() {
                 </Badge>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 text-left">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-left">
                 <div className="rounded-2xl bg-white/5 border border-white/5 p-3">
                   <p className="text-[8px] uppercase tracking-widest text-slate-400 font-black italic">
                     Total
@@ -586,7 +586,7 @@ export default function BookingDetailPage() {
               </div>
 
               {!isPaymentSettled && (
-                <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-[10px] font-bold italic text-amber-100 leading-relaxed">
+                <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3 md:p-4 text-[10px] font-bold italic text-amber-100 leading-relaxed">
                   Booking belum lunas. Silakan gunakan tombol Process Payment di
                   kanan atas untuk pelunasan via Midtrans atau cash.
                 </div>

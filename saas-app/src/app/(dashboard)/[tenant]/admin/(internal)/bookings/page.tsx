@@ -46,7 +46,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function BookingsPage() {
   const router = useRouter();
-  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -70,6 +70,12 @@ export default function BookingsPage() {
 
   useEffect(() => {
     fetchBookings();
+  }, []);
+
+  useEffect(() => {
+    if (window.matchMedia("(min-width: 1024px)").matches) {
+      setViewMode("list");
+    }
   }, []);
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
@@ -154,11 +160,11 @@ export default function BookingsPage() {
   }, [filteredBookings]);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-500 px-4 mt-6 font-plus-jakarta">
+    <div className="max-w-7xl mx-auto space-y-5 md:space-y-6 pb-20 animate-in fade-in duration-500 px-3 md:px-4 mt-4 md:mt-6 font-plus-jakarta">
       {/* 1. TOP HEADER SECTION */}
-      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-        <div className="space-y-1">
-          <h1 className="text-3xl md:text-5xl font-[1000] tracking-tighter uppercase italic text-slate-900 dark:text-white leading-none pr-4">
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 md:gap-6">
+        <div className="space-y-1 max-w-2xl">
+          <h1 className="text-2xl md:text-5xl font-[1000] tracking-tighter uppercase italic text-slate-900 dark:text-white leading-none pr-0 md:pr-4">
             Master <span className="text-blue-600">Bookings.</span>
           </h1>
           <div className="flex items-center gap-2 text-slate-400 font-bold italic text-[10px] uppercase tracking-widest">
@@ -167,8 +173,8 @@ export default function BookingsPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
-          <div className="flex items-center gap-3 bg-slate-950 dark:bg-white p-1.5 pl-4 rounded-2xl shadow-xl border-b-4 border-slate-800 dark:border-slate-300">
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch gap-3 w-full lg:w-auto">
+          <div className="flex items-center gap-3 bg-slate-950 dark:bg-white p-1.5 pl-4 rounded-2xl shadow-xl border-b-4 border-slate-800 dark:border-slate-300 w-full sm:w-auto">
             <div className="flex flex-col">
               <span className="text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase leading-none mb-0.5">
                 Total Revenue
@@ -182,7 +188,7 @@ export default function BookingsPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 bg-white dark:bg-slate-900 p-1.5 pl-4 rounded-2xl shadow-md border border-slate-100 dark:border-white/5">
+          <div className="flex items-center gap-3 bg-white dark:bg-slate-900 p-1.5 pl-4 rounded-2xl shadow-md border border-slate-100 dark:border-white/5 w-full sm:w-auto">
             <div className="flex flex-col">
               <span className="text-[8px] font-black text-slate-400 uppercase leading-none mb-0.5">
                 Active Slot
@@ -198,7 +204,7 @@ export default function BookingsPage() {
 
           <Button
             onClick={() => router.push(`/admin/bookings/new`)}
-            className="h-14 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[11px] shadow-2xl border-b-4 border-blue-800 gap-2 transition-all active:scale-95 ml-auto lg:ml-0"
+            className="h-12 md:h-14 px-5 md:px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[11px] shadow-2xl border-b-4 border-blue-800 gap-2 transition-all active:scale-95 ml-auto lg:ml-0 w-full sm:w-auto"
           >
             <Plus size={16} strokeWidth={4} /> New Booking
           </Button>
@@ -206,8 +212,8 @@ export default function BookingsPage() {
       </div>
 
       {/* 2. ENHANCED SEARCH & FILTER BAR */}
-      <Card className="p-5 rounded-[2.5rem] bg-white dark:bg-slate-900 border-none shadow-sm ring-1 ring-slate-100 dark:ring-white/5">
-        <div className="flex flex-col lg:flex-row gap-5">
+      <Card className="p-4 md:p-5 rounded-[1.75rem] md:rounded-[2.5rem] bg-white dark:bg-slate-900 border-none shadow-sm ring-1 ring-slate-100 dark:ring-white/5">
+        <div className="flex flex-col lg:flex-row gap-4 md:gap-5">
           {/* Main Search */}
           <div className="relative flex-1">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -215,17 +221,17 @@ export default function BookingsPage() {
               placeholder="Search customer name or phone..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 h-14 rounded-2xl border-none bg-slate-50 dark:bg-slate-800/50 font-black italic text-xs shadow-inner focus:ring-2 focus:ring-blue-600/20"
+              className="pl-12 h-12 md:h-14 rounded-2xl border-none bg-slate-50 dark:bg-slate-800/50 font-black italic text-xs shadow-inner focus:ring-2 focus:ring-blue-600/20"
             />
           </div>
 
           {/* Expanded Filters */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className="h-12 px-5 rounded-xl border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-800 font-[1000] italic text-xs gap-3 uppercase shadow-sm"
+                  className="h-11 md:h-12 px-4 md:px-5 rounded-xl border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-800 font-[1000] italic text-xs gap-3 uppercase shadow-sm w-full sm:w-auto"
                 >
                   <CalendarIcon className="h-4 w-4 text-blue-600" />
                   {selectedDate
@@ -234,7 +240,7 @@ export default function BookingsPage() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                className="w-80 p-0 border-none rounded-3xl overflow-hidden shadow-2xl"
+              className="w-[92vw] sm:w-80 p-0 border-none rounded-3xl overflow-hidden shadow-2xl"
                 align="end"
               >
                 <Calendar
@@ -247,7 +253,7 @@ export default function BookingsPage() {
             </Popover>
 
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[160px] min-h-[45px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-[1000] italic text-xs uppercase focus:ring-0 shadow-sm ">
+            <SelectTrigger className="w-full sm:w-[160px] min-h-[45px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-[1000] italic text-xs uppercase focus:ring-0 shadow-sm ">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-none shadow-2xl p-2">
@@ -276,7 +282,7 @@ export default function BookingsPage() {
             </Select>
 
             <Select value={filterResource} onValueChange={setFilterResource}>
-              <SelectTrigger className="w-[180px] min-h-[45px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-[1000] italic text-xs uppercase focus:ring-0 shadow-sm">
+            <SelectTrigger className="w-full sm:w-[180px] min-h-[45px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-[1000] italic text-xs uppercase focus:ring-0 shadow-sm">
                 <SelectValue placeholder="Resource" />
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-none shadow-2xl p-2">
@@ -302,7 +308,7 @@ export default function BookingsPage() {
               <Button
                 onClick={resetFilters}
                 variant="ghost"
-                className="h-14 px-4 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 font-black italic text-[10px] uppercase gap-2 rounded-2xl"
+                className="h-12 px-4 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 font-black italic text-[10px] uppercase gap-2 rounded-2xl w-full sm:w-auto"
               >
                 <XCircle size={16} /> Clear
               </Button>
@@ -310,7 +316,7 @@ export default function BookingsPage() {
 
             <div className="h-10 w-[1px] bg-slate-100 dark:bg-white/5 hidden xl:block mx-1" />
 
-            <div className="flex gap-1.5 bg-slate-50 dark:bg-slate-800 p-1.5 rounded-2xl">
+            <div className="flex gap-1.5 bg-slate-50 dark:bg-slate-800 p-1.5 rounded-2xl w-full sm:w-auto">
               <Button
                 variant={viewMode === "list" ? "secondary" : "ghost"}
                 size="sm"
@@ -379,8 +385,9 @@ export default function BookingsPage() {
                 </Badge>
               </div>
 
-              <Card className="rounded-[2.5rem] border-none shadow-lg overflow-hidden bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5">
-                <Table>
+              <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-none shadow-lg overflow-hidden bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5">
+                <div className="overflow-x-auto">
+                <Table className="min-w-[920px]">
                   <TableBody>
                     {sessions.map((b) => (
                       <TableRow
@@ -455,6 +462,7 @@ export default function BookingsPage() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               </Card>
             </div>
           ))}
@@ -475,7 +483,7 @@ export default function BookingsPage() {
                   <Card
                     key={b.id}
                     onClick={() => router.push(`/admin/bookings/${b.id}`)}
-                    className="p-6 rounded-[2.5rem] border-none shadow-md hover:shadow-xl transition-all cursor-pointer group relative overflow-hidden bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5"
+                    className="p-4 md:p-6 rounded-[1.75rem] md:rounded-[2.5rem] border-none shadow-md hover:shadow-xl transition-all cursor-pointer group relative overflow-hidden bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5"
                   >
                     {b.status === "active" && (
                       <div className="absolute top-0 left-0 w-full h-1.5 bg-emerald-500 animate-pulse" />

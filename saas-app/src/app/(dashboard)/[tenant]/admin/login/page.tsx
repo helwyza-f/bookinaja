@@ -17,19 +17,33 @@ import {
 } from "@/components/ui/card";
 import { Lock, Mail, ArrowRight } from "lucide-react";
 import api from "@/lib/api";
+import { syncTenantCookies } from "@/lib/tenant-session";
+
+type LoginForm = {
+  email: string;
+  password: string;
+};
+
+type LoginResponse = {
+  token: string;
+  user?: {
+    role?: string;
+    tenant_id?: string;
+  };
+};
 
 export default function TenantLoginPage() {
   const [loading, setLoading] = useState(false);
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { register, handleSubmit } = useForm();
+  const { register, handleSubmit } = useForm<LoginForm>();
   const tenantSlug = params.tenant as string;
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: LoginForm) => {
     setLoading(true);
     try {
-      const res = await api.post("/login", {
+      const res = await api.post<LoginResponse>("/login", {
         email: data.email,
         password: data.password,
         tenant_slug: tenantSlug,
@@ -39,6 +53,7 @@ export default function TenantLoginPage() {
         maxAge: 60 * 60 * 24 * 7,
         path: "/",
       });
+      syncTenantCookies(tenantSlug, res.data.user?.tenant_id);
       toast.success("Login Berhasil!");
 
       const plan = searchParams.get("plan");
@@ -49,10 +64,28 @@ export default function TenantLoginPage() {
         if (interval) qp.set("interval", interval);
         router.push(`/admin/billing?${qp.toString()}`);
       } else {
-        router.push(`/admin/dashboard`);
+        const isMobile =
+          typeof window !== "undefined" &&
+          window.matchMedia("(max-width: 767px)").matches;
+        const isOwner = res.data?.user?.role === "owner";
+
+        if (isOwner && isMobile) {
+          router.push("/admin/owner");
+        } else if (isOwner) {
+          router.push("/admin/dashboard");
+        } else {
+          router.push("/admin/dashboard");
+        }
       }
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Login Gagal.");
+    } catch (error: unknown) {
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        typeof (error as { response?: { data?: { error?: string } } }).response?.data?.error === "string"
+          ? (error as { response?: { data?: { error?: string } } }).response?.data?.error
+          : "Login Gagal.";
+      toast.error(message);
     } finally {
       setLoading(false);
     }

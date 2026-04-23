@@ -286,15 +286,15 @@ export default function POSPage() {
   };
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-6 animate-in fade-in duration-500 font-plus-jakarta pb-20 mt-6 px-4">
+    <div className="max-w-[1600px] mx-auto space-y-5 md:space-y-6 animate-in fade-in duration-500 font-plus-jakarta pb-20 mt-4 md:mt-6 px-3 md:px-4">
       {/* 1. ULTRA COMPACT HEADER */}
-      <div className="flex flex-row items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-6 gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-5 md:pb-6 gap-4">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-xl shadow-blue-500/20">
             <Zap size={20} fill="currentColor" />
           </div>
           <div className="flex flex-col">
-            <h1 className="text-2xl md:text-3xl font-[1000] italic uppercase tracking-tighter text-slate-950 dark:text-white leading-none">
+            <h1 className="text-xl md:text-3xl font-[1000] italic uppercase tracking-tighter text-slate-950 dark:text-white leading-none">
               POS <span className="text-blue-600">Terminal.</span>
             </h1>
             <p className="hidden sm:block text-[8px] font-black text-slate-400 uppercase tracking-[0.4em] italic mt-1.5">
@@ -340,7 +340,7 @@ export default function POSPage() {
           ))}
         </div>
       ) : activeSessions.length === 0 ? (
-        <div className="h-96 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900/50 rounded-[3rem] border border-dashed border-slate-200 dark:border-white/5 gap-3">
+        <div className="h-72 md:h-96 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900/50 rounded-[1.75rem] md:rounded-[3rem] border border-dashed border-slate-200 dark:border-white/5 gap-3">
           <MonitorPlay
             size={40}
             className="text-slate-200 dark:text-slate-800"

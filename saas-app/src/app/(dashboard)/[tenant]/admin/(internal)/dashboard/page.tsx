@@ -56,11 +56,11 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-10 pb-20 font-plus-jakarta">
+    <div className="space-y-8 md:space-y-10 pb-20 px-4 md:px-0 font-plus-jakarta">
       {/* 1. WELCOME SECTION */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6">
         <div className="space-y-2">
-          <h1 className="text-5xl md:text-7xl font-[1000] italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
+          <h1 className="text-3xl md:text-7xl font-[1000] italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
             Dashboard <span className="text-blue-600">Hub.</span>
           </h1>
           <p className="text-slate-500 dark:text-slate-400 font-bold italic text-xs uppercase tracking-[0.3em] flex items-center gap-2">
@@ -68,14 +68,14 @@ export default function DashboardPage() {
             Live system performance overview
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full md:w-auto">
           <Button
             variant="outline"
-            className="rounded-2xl h-14 px-6 font-black italic uppercase text-[10px] tracking-widest border-2"
+            className="rounded-2xl h-12 md:h-14 px-4 md:px-6 font-black italic uppercase text-[10px] tracking-widest border-2 w-full"
           >
             Export Report
           </Button>
-          <Button className="rounded-2xl h-14 px-8 bg-blue-600 font-black italic uppercase text-[10px] tracking-widest shadow-xl shadow-blue-500/20 border-b-4 border-blue-800">
+          <Button className="rounded-2xl h-12 md:h-14 px-4 md:px-8 bg-blue-600 font-black italic uppercase text-[10px] tracking-widest shadow-xl shadow-blue-500/20 border-b-4 border-blue-800 w-full">
             View Live POS
           </Button>
         </div>
@@ -86,7 +86,7 @@ export default function DashboardPage() {
         {stats.map((item, i) => (
           <Card
             key={i}
-            className="rounded-[2.5rem] border-none p-8 bg-white dark:bg-slate-900/50 shadow-xl ring-1 ring-slate-100 dark:ring-white/5 group hover:ring-blue-500/30 transition-all"
+          className="rounded-[2rem] md:rounded-[2.5rem] border-none p-5 md:p-8 bg-white dark:bg-slate-900/50 shadow-xl ring-1 ring-slate-100 dark:ring-white/5 group hover:ring-blue-500/30 transition-all"
           >
             <div className="flex justify-between items-start mb-6">
               <div
@@ -127,14 +127,14 @@ export default function DashboardPage() {
       {/* 3. BENTO SECTION: LIVE MONITOR & RECENT ACTIVITY */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* LIVE UNIT STATUS (Bento 8 Columns) */}
-        <Card className="lg:col-span-8 rounded-[3rem] border-none p-10 bg-slate-950 text-white shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-10 opacity-10">
+        <Card className="lg:col-span-8 rounded-[2rem] md:rounded-[3rem] border-none p-5 md:p-10 bg-slate-950 text-white shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 md:p-10 opacity-10">
             <Monitor size={120} strokeWidth={1} />
           </div>
-          <div className="relative z-10 space-y-8">
-            <div className="flex items-center justify-between">
+          <div className="relative z-10 space-y-6 md:space-y-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-1">
-                <h2 className="text-3xl font-black italic uppercase tracking-tight">
+                <h2 className="text-xl md:text-3xl font-black italic uppercase tracking-tight">
                   Resource Status
                 </h2>
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">
@@ -149,7 +149,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3 md:gap-4">
               {Array.from({ length: 10 }).map((_, i) => (
                 <div
                   key={i}
@@ -180,28 +180,28 @@ export default function DashboardPage() {
         </Card>
 
         {/* RECENT BOOKINGS (Bento 4 Columns) */}
-        <Card className="lg:col-span-4 rounded-[3rem] border-none p-10 bg-white dark:bg-slate-900 shadow-xl ring-1 ring-slate-100 dark:ring-white/5 space-y-8">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-black italic uppercase tracking-tight dark:text-white">
+        <Card className="lg:col-span-4 rounded-[2rem] md:rounded-[3rem] border-none p-5 md:p-10 bg-white dark:bg-slate-900 shadow-xl ring-1 ring-slate-100 dark:ring-white/5 space-y-6 md:space-y-8">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base md:text-xl font-black italic uppercase tracking-tight dark:text-white">
               Recent Activity
             </h2>
             <Clock size={20} className="text-blue-600" />
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             {[1, 2, 3, 4, 5].map((item) => (
               <div
                 key={item}
-                className="flex items-center gap-4 group cursor-pointer"
+                className="flex items-center gap-3 group cursor-pointer"
               >
-                <div className="h-12 w-12 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center font-black text-xs italic group-hover:bg-blue-600 group-hover:text-white transition-all">
+                <div className="h-10 w-10 md:h-12 md:w-12 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center font-black text-xs italic group-hover:bg-blue-600 group-hover:text-white transition-all">
                   HF
                 </div>
                 <div className="flex-1 space-y-1">
-                  <p className="text-[11px] font-black uppercase italic leading-none dark:text-white">
+                  <p className="text-[10px] md:text-[11px] font-black uppercase italic leading-none dark:text-white">
                     Customer #{item}24
                   </p>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">
+                  <p className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase tracking-tight">
                     Booked PC-08 • 2 Hours
                   </p>
                 </div>
