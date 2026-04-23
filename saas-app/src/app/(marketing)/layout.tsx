@@ -282,7 +282,7 @@ export default function MarketingLayout({
               </h4>
               <div className="flex gap-4">
                 <Link
-                  href="https://instagram.com/bookinaja"
+                  href="https://instagram.com/bookinajacom"
                   target="_blank"
                   className="p-3 rounded-2xl bg-background border border-border/50 hover:bg-blue-500 hover:text-white transition-all hover:-translate-y-1"
                 >
@@ -327,7 +327,7 @@ export default function MarketingLayout({
 
           <div className="mt-24 border-t border-border/50 pt-10 flex flex-col md:flex-row justify-between items-center gap-6 text-center md:text-left">
             <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 italic">
-              © 2026 bookinaja.com · Batam Engine Project 🇮🇩
+              © 2026 bookinaja.com · Indonesia 🇮🇩
             </div>
             <div className="flex items-center gap-8 text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 italic">
               <span>Security Verified</span>
