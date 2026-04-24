@@ -380,7 +380,7 @@ export default function LandingPage() {
       {/* ══════════════════════════════
           1. HERO
       ══════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 pt-14 sm:pt-24 md:pt-32 pb-10 sm:pb-14 text-center">
+      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 pt-24 sm:pt-24 md:pt-32 pb-10 sm:pb-14 text-center">
         <div ref={hero.ref} className="space-y-5 sm:space-y-6">
           <div
             className="flex justify-center"
