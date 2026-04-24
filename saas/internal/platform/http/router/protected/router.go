@@ -44,6 +44,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			customerArea.GET("/bookings/:id", cfg.ReservationHandler.GetMyDetail)
 			customerArea.GET("/bookings/:id/context", cfg.ReservationHandler.GetCustomerLiveSnapshot)
 			customerArea.GET("/bookings/:id/availability", cfg.ReservationHandler.CustomerBookingAvailability)
+			customerArea.POST("/bookings/:id/activate", cfg.ReservationHandler.CustomerActivate)
 			customerArea.POST("/bookings/:id/extend", cfg.ReservationHandler.CustomerExtendSession)
 			customerArea.POST("/bookings/:id/orders", cfg.ReservationHandler.CustomerAddOrder)
 			customerArea.POST("/bookings/:id/addons", cfg.ReservationHandler.CustomerAddAddonItem)

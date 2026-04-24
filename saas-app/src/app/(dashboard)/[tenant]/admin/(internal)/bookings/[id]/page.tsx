@@ -16,21 +16,16 @@ import {
   Receipt,
   CreditCard,
   ShieldCheck,
-  Info,
   Layers,
-  Ticket,
   Zap,
   MoreVertical,
   Trash2,
   AlertCircle,
-  Hash,
-  MoreHorizontal,
 } from "lucide-react";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -73,22 +68,36 @@ export default function BookingDetailPage() {
 
   const groupedOptions = useMemo(() => {
     if (!booking?.options) return [];
-    return booking.options.map((item: any) => ({
+    const groups = booking.options.reduce((acc: any, item: any) => {
+      const key = `${String(item.item_name || "").trim().toLowerCase()}::${item.item_type || ""}`;
+      if (!acc[key]) {
+        acc[key] = {
+          ...item,
+          quantity: Number(item.quantity || 0),
+          totalPrice: Number(item.price_at_booking || 0),
+        };
+      } else {
+        acc[key].quantity += Number(item.quantity || 0);
+        acc[key].totalPrice += Number(item.price_at_booking || 0);
+      }
+      return acc;
+    }, {});
+
+    return Object.values(groups).map((item: any) => ({
       ...item,
       displayUnitPrice:
-        item.unit_price || item.price_at_booking / (item.quantity || 1),
-      totalPrice: item.price_at_booking,
+        item.unit_price || item.totalPrice / Math.max(item.quantity || 1, 1),
     }));
   }, [booking?.options]);
 
   const groupedOrders = useMemo(() => {
     if (!booking?.orders) return [];
     const groups = booking.orders.reduce((acc: any, item: any) => {
-      const id = item.fnb_item_id;
-      if (!acc[id]) acc[id] = { ...item };
+      const key = String(item.item_name || "").trim().toLowerCase();
+      if (!acc[key]) acc[key] = { ...item };
       else {
-        acc[id].quantity += item.quantity;
-        acc[id].subtotal += item.subtotal;
+        acc[key].quantity += item.quantity;
+        acc[key].subtotal += item.subtotal;
       }
       return acc;
     }, {});
@@ -283,6 +292,16 @@ export default function BookingDetailPage() {
             </Button>
           )}
 
+          {(booking.status === "pending" || booking.status === "confirmed") && (
+            <Button
+              onClick={() => handleUpdateStatus("active")}
+              disabled={updating}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase italic text-[9px] h-12 px-4 sm:px-6 rounded-xl shadow-lg border-b-4 border-emerald-800 w-full sm:w-auto"
+            >
+              Activate Session
+            </Button>
+          )}
+
           {booking.status === "pending" && (
             <Button
               onClick={() => handleUpdateStatus("confirmed")}
@@ -290,16 +309,6 @@ export default function BookingDetailPage() {
               className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[9px] h-12 px-4 sm:px-6 rounded-xl shadow-lg border-b-4 border-blue-800 w-full sm:w-auto"
             >
               Confirm Booking
-            </Button>
-          )}
-
-          {booking.status === "confirmed" && (
-            <Button
-              onClick={() => handleUpdateStatus("active")}
-              disabled={updating}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase italic text-[9px] h-12 px-4 sm:px-6 rounded-xl shadow-lg border-b-4 border-emerald-800 w-full sm:w-auto"
-            >
-              Check-in Session
             </Button>
           )}
 

@@ -300,10 +300,6 @@ export default function ResourceBookingDetail() {
   const estimateDeposit = () => {
     const total = calculateTotal();
     if (!total) return 0;
-    if (!selectedItem) return 0;
-    if (["day", "week", "month", "year"].includes(selectedItem.price_unit)) {
-      return 0;
-    }
     return Math.min(total, Math.max(10000, Math.round(total * 0.4)));
   };
 

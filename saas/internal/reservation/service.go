@@ -116,23 +116,12 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 		}
 	}
 
-	// 7. TENTUKAN STATUS BERDASARKAN JALUR CREATE
-	// Manual walk-in boleh langsung active tanpa DP.
-	// Booking non-manual tetap dimulai dari pending supaya DP diverifikasi dulu.
+	// 7. SEMUA BOOKING SELALU DIMULAI DARI PENDING.
+	// Aktivasi sesi dilakukan manual oleh customer/admin saat memang sudah siap masuk.
+	_ = isManualWalkIn
 	bookingStatus := "pending"
-	if isManualWalkIn {
-		bookingStatus = "active"
-	} else if req.Status != "" {
-		bookingStatus = strings.ToLower(strings.TrimSpace(req.Status))
-		if bookingStatus == "active" {
-			bookingStatus = "pending"
-		}
-	}
 
-	depositAmount := calculateDepositAmount(grandTotal, bookingStatus)
-	if isManualWalkIn {
-		depositAmount = 0
-	}
+	depositAmount := calculateDepositAmount(grandTotal)
 	paidAmount := float64(0)
 	balanceDue := grandTotal
 	if depositAmount > 0 {
@@ -223,6 +212,13 @@ func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string)
 		return err
 	}
 
+	if status == "active" || status == "ongoing" {
+		updated, findErr := s.repo.FindByID(ctx, bID, tID)
+		if findErr == nil {
+			_ = s.sendSessionStarted(ctx, updated)
+		}
+	}
+
 	// CRM HOOK: Update statistik kunjungan & belanja jika status selesai
 	if status == "completed" {
 		totalSpent := int64(booking.GrandTotal)
@@ -230,6 +226,26 @@ func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string)
 	}
 
 	return nil
+}
+
+func (s *Service) ActivateForCustomer(ctx context.Context, bookingID, tenantID, customerID string) (*BookingDetail, error) {
+	detail, err := s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID)
+	if err != nil {
+		return nil, err
+	}
+
+	status := strings.ToLower(strings.TrimSpace(detail.Status))
+	if status == "active" || status == "ongoing" {
+		return detail, nil
+	}
+	if status == "completed" || status == "cancelled" {
+		return nil, errors.New("SESI SUDAH TIDAK BISA DIAKTIFKAN")
+	}
+
+	if err := s.UpdateStatus(ctx, bookingID, tenantID, "active"); err != nil {
+		return nil, err
+	}
+	return s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID)
 }
 
 func (s *Service) SettleCash(ctx context.Context, id, tenantID string) error {
@@ -506,19 +522,6 @@ func (s *Service) SyncSessionState(ctx context.Context, bookingID, tenantID stri
 		return nil, err
 	}
 
-	now := time.Now().UTC()
-	if (booking.Status == "pending" || booking.Status == "confirmed") && !now.Before(booking.StartTime) {
-		if err := s.repo.UpdateStatus(ctx, bID, tID, "active"); err != nil {
-			return nil, err
-		}
-		_ = s.repo.UpdateSessionActivatedAt(ctx, bID, tID)
-		booking, err = s.repo.FindByID(ctx, bID, tID)
-		if err != nil {
-			return nil, err
-		}
-		_ = s.sendSessionStarted(ctx, booking)
-	}
-
 	_ = s.sendSessionReminders(ctx, booking)
 	return booking, nil
 }
@@ -631,11 +634,7 @@ func waSessionReminderMessage(name, resourceName string, minutes int, startTime 
 	)
 }
 
-func calculateDepositAmount(grandTotal float64, bookingStatus string) float64 {
-	if bookingStatus == "active" {
-		return grandTotal
-	}
-
+func calculateDepositAmount(grandTotal float64) float64 {
 	dp := math.Round(grandTotal * 0.4)
 	if dp < 10000 {
 		dp = 10000

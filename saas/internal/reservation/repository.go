@@ -428,7 +428,15 @@ func (r *Repository) FindActiveSessions(ctx context.Context, tenantID uuid.UUID)
 }
 
 func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, status string) error {
-	query := `UPDATE bookings SET status = $1 WHERE id = $2 AND tenant_id = $3`
+	query := `
+		UPDATE bookings
+		SET
+			status = $1::text,
+			session_activated_at = CASE
+				WHEN $1::text IN ('active', 'ongoing') AND session_activated_at IS NULL THEN NOW()
+				ELSE session_activated_at
+			END
+		WHERE id = $2 AND tenant_id = $3`
 	_, err := r.db.ExecContext(ctx, query, status, id, tenantID)
 	return err
 }

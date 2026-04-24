@@ -9,23 +9,15 @@ import { Button } from "@/components/ui/button";
 import {
   ChevronLeft,
   MapPin,
-  Gamepad2,
   Zap,
   ReceiptText,
   CalendarDays,
   UtensilsCrossed,
   PlusCircle,
-  MessageSquare,
   Copy,
   CheckCircle2,
   Share2,
-  Timer,
-  Coffee,
-  ArrowUpRight,
   Clock,
-  Wallet,
-  BadgeCheck,
-  Hourglass,
   CreditCard,
 } from "lucide-react";
 import api from "@/lib/api";
@@ -49,6 +41,7 @@ export default function CustomerBookingDetail() {
   const [liveNotice, setLiveNotice] = useState<string | null>(null);
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [midtransReady, setMidtransReady] = useState(false);
+  const [activating, setActivating] = useState(false);
 
   const fetchDetail = async () => {
     try {
@@ -198,6 +191,49 @@ export default function CustomerBookingDetail() {
     return null;
   }, [booking, now, isActiveStatus]);
   const isLiveSession = countdownData?.type === "LIVE";
+  const groupedOptions = useMemo(() => {
+    if (!booking?.options) return [];
+    const groups = booking.options.reduce((acc: any, item: any) => {
+      const key = `${String(item.item_name || "").trim().toLowerCase()}::${item.item_type || ""}`;
+      if (!acc[key]) {
+        acc[key] = {
+          ...item,
+          quantity: Number(item.quantity || 0),
+          totalPrice: Number(item.price_at_booking || 0),
+        };
+      } else {
+        acc[key].quantity += Number(item.quantity || 0);
+        acc[key].totalPrice += Number(item.price_at_booking || 0);
+      }
+      return acc;
+    }, {});
+
+    return Object.values(groups).map((item: any) => ({
+      ...item,
+      unitPrice:
+        Number(item.unit_price || 0) ||
+        Number(item.totalPrice || 0) / Math.max(Number(item.quantity || 1), 1),
+    }));
+  }, [booking?.options]);
+
+  const groupedOrders = useMemo(() => {
+    if (!booking?.orders) return [];
+    const groups = booking.orders.reduce((acc: any, item: any) => {
+      const key = String(item.item_name || "").trim().toLowerCase();
+      if (!acc[key]) {
+        acc[key] = {
+          ...item,
+          quantity: Number(item.quantity || 0),
+          subtotal: Number(item.subtotal || 0),
+        };
+      } else {
+        acc[key].quantity += Number(item.quantity || 0);
+        acc[key].subtotal += Number(item.subtotal || 0);
+      }
+      return acc;
+    }, {});
+    return Object.values(groups);
+  }, [booking?.orders]);
 
   const copyMagicLink = () => {
     const url = window.location.href;
@@ -246,6 +282,21 @@ export default function CustomerBookingDetail() {
       });
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Gagal membuka pembayaran DP");
+    }
+  };
+
+  const handleActivateSession = async () => {
+    setActivating(true);
+    try {
+      await api.post(`/customer/bookings/${params.id}/activate`);
+      setPaymentNotice("Sesi berhasil diaktifkan manual.");
+      toast.success("Sesi berhasil diaktifkan");
+      await fetchDetail();
+      await fetchLiveContext();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Gagal mengaktifkan sesi");
+    } finally {
+      setActivating(false);
     }
   };
 
@@ -415,12 +466,48 @@ export default function CustomerBookingDetail() {
           </Card>
         )}
 
-        <div className="rounded-[2rem] bg-white dark:bg-[#0c0c0c] border dark:border-white/5 shadow-sm p-4">
-          {liveNotice && (
-            <div className="mb-3 rounded-2xl border border-amber-500/15 bg-amber-500/10 px-4 py-3 text-[10px] font-black uppercase italic tracking-[0.2em] text-amber-700 dark:text-amber-200">
+        <Card className="rounded-[2rem] border-none shadow-sm ring-1 ring-black/5 dark:ring-white/5 bg-white dark:bg-[#0c0c0c] p-4 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
+                Live Controller
+              </p>
+              <p className="mt-1 text-sm font-[1000] italic text-slate-900 dark:text-white">
+                Kontrol sesi aktif, F&B, dan add-on
+              </p>
+            </div>
+            <Badge
+              className={cn(
+                "border-none px-3 py-1 text-[8px] font-black uppercase italic",
+                isLiveSession ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-200",
+              )}
+            >
+              {isLiveSession ? "aktif" : "belum aktif"}
+            </Badge>
+          </div>
+
+          {!isLiveSession && (
+            <div className="rounded-2xl border border-blue-500/15 bg-blue-500/10 p-4 space-y-3">
+              <p className="text-[11px] font-bold leading-relaxed text-slate-700 dark:text-slate-200">
+                Sesi tidak aktif otomatis. Aktifkan manual saat customer memang sudah siap masuk, atau minta admin aktifkan dari detail booking.
+              </p>
+              <Button
+                onClick={handleActivateSession}
+                disabled={activating || sessionStatus === "completed" || sessionStatus === "cancelled"}
+                className="h-12 w-full rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-[1000] uppercase italic tracking-widest text-xs gap-2"
+              >
+                <Zap size={15} />
+                {activating ? "Mengaktifkan..." : "Aktifkan Sesi Sekarang"}
+              </Button>
+            </div>
+          )}
+
+          {liveNotice && !isLiveSession && (
+            <div className="rounded-2xl border border-amber-500/15 bg-amber-500/10 px-4 py-3 text-[11px] font-bold text-amber-700 dark:text-amber-200">
               {liveNotice}
             </div>
           )}
+
           <BookingLiveController
             active={isLiveSession}
             booking={booking}
@@ -430,7 +517,7 @@ export default function CustomerBookingDetail() {
             onOrderFnb={handleAddFnb}
             onOrderAddon={handleAddons}
           />
-        </div>
+        </Card>
 
         {/* UNIFIED INFO CARD */}
         <Card className="rounded-[2rem] p-0 overflow-hidden border-none shadow-sm ring-1 ring-black/5 dark:ring-white/5 bg-white dark:bg-[#0c0c0c]">
@@ -501,289 +588,201 @@ export default function CustomerBookingDetail() {
           </div>
         </Card>
 
-        {/* RINCIAN PEMBAYARAN */}
-        <Card className="rounded-[2rem] p-0 overflow-hidden border-none shadow-xl ring-1 ring-black/5 dark:ring-white/5 bg-white dark:bg-[#0c0c0c]">
-          <div className="p-5 border-b dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ReceiptText size={16} className="text-blue-600" />
-              <div>
-                <span className="block text-[10px] font-[1000] uppercase tracking-[0.2em] dark:text-white italic">
-                  Ringkasan Pembayaran
-                </span>
-                <span className="block text-[9px] font-bold text-slate-400 uppercase italic tracking-[0.18em]">
-                  Pantau DP, sisa bayar, dan status transaksi
-                </span>
-              </div>
+        <Card className="rounded-[2rem] border-none shadow-sm ring-1 ring-black/5 dark:ring-white/5 bg-white dark:bg-[#0c0c0c] p-4 space-y-4">
+          <div className="flex items-center gap-2">
+            <ReceiptText size={16} className="text-blue-600" />
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
+                Pembayaran Booking
+              </p>
+              <p className="mt-1 text-sm font-[1000] italic text-slate-900 dark:text-white">
+                DP tetap dipakai untuk semua booking
+              </p>
             </div>
           </div>
 
-          <div className="p-4 space-y-4">
-            <div className="rounded-[1.5rem] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 p-4 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-white dark:bg-black/40 border border-slate-100 dark:border-white/5 p-4">
-                  <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
-                    Total Booking
-                  </p>
-                  <p className="mt-2 text-lg font-[1000] italic text-slate-950 dark:text-white leading-none">
-                    Rp {Number(booking.grand_total || 0).toLocaleString()}
-                  </p>
-                  <p className="mt-2 text-[10px] font-bold text-slate-400 uppercase italic">
-                    Nilai total booking
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-white dark:bg-black/40 border border-slate-100 dark:border-white/5 p-4">
-                  <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
-                    Sudah Dibayar
-                  </p>
-                  <p className="mt-2 text-lg font-[1000] italic text-blue-600 leading-none">
-                    Rp {paidAmount.toLocaleString()}
-                  </p>
-                  <p className="mt-2 text-[10px] font-bold text-slate-400 uppercase italic">
-                    Termasuk DP dan transaksi tambahan
-                  </p>
-                </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 p-4">
+              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
+                Total
+              </p>
+              <p className="mt-2 text-sm font-[1000] italic text-slate-950 dark:text-white">
+                Rp {Number(booking.grand_total || 0).toLocaleString()}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-emerald-500/5 border border-emerald-500/10 p-4">
+              <p className="text-[8px] font-black uppercase tracking-widest text-emerald-600 italic">
+                DP
+              </p>
+              <p className="mt-2 text-sm font-[1000] italic text-emerald-600">
+                Rp {depositAmount.toLocaleString()}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-slate-950 text-white border border-slate-800 p-4">
+              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
+                Status
+              </p>
+              <p className="mt-2 text-sm font-[1000] italic">
+                {paymentLabel}
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50/80 dark:bg-white/5 px-4 py-3 text-[11px] font-bold leading-relaxed text-slate-700 dark:text-slate-200">
+            {paymentStatus === "pending"
+              ? `Bayar DP dulu sebesar Rp ${depositAmount.toLocaleString()} supaya status pembayaran booking sinkron.`
+              : `DP sudah tercatat. Sisa pembayaran akan muncul terpisah di bagian pelunasan setelah rincian item.`}
+          </div>
+
+          {paymentStatus === "pending" && depositAmount > 0 && (
+            <Button
+              onClick={() => handlePayBooking("dp")}
+              disabled={!midtransReady}
+              className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-300 disabled:text-slate-600 text-white font-[1000] uppercase italic tracking-widest text-sm shadow-lg gap-2"
+            >
+              <CreditCard size={16} />
+              {midtransReady ? "Bayar DP Booking" : "Menyiapkan Midtrans..."}
+            </Button>
+          )}
+
+          {paymentNotice && (
+            <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/15 px-4 py-3 text-[11px] font-bold text-emerald-700 dark:text-emerald-200">
+              {paymentNotice}
+            </div>
+          )}
+        </Card>
+
+        <Card className="rounded-[2rem] border-none shadow-sm ring-1 ring-black/5 dark:ring-white/5 bg-white dark:bg-[#0c0c0c] p-4 space-y-5">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <PlusCircle size={16} className="text-blue-600" />
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
+                  Rental & Add-ons
+                </p>
               </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-2xl bg-emerald-500/5 border border-emerald-500/10 p-3">
-                  <p className="text-[8px] font-black uppercase tracking-widest text-emerald-500 italic">
-                    DP Dibayar
-                  </p>
-                  <p className="mt-2 text-sm font-[1000] italic text-emerald-600 leading-none">
-                    Rp {depositAmount.toLocaleString()}
-                  </p>
-                  <p className="mt-2 text-[9px] font-bold text-emerald-600/70 uppercase italic">
-                    Dibayar via Midtrans
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-blue-500/5 border border-blue-500/10 p-3">
-                  <p className="text-[8px] font-black uppercase tracking-widest text-blue-500 italic">
-                    Sisa
-                  </p>
-                  <p className="mt-2 text-sm font-[1000] italic text-blue-600 leading-none">
-                    Rp {balanceDue.toLocaleString()}
-                  </p>
-                  <p className="mt-2 text-[9px] font-bold text-blue-600/70 uppercase italic">
-                    Dibayar saat checkout / selesai
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-slate-900 text-white border border-slate-800 p-3">
-                  <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
-                    Status
-                  </p>
-                  <p className="mt-2 text-sm font-[1000] italic leading-none">
-                    {paymentLabel}
-                  </p>
-                  <p className="mt-2 text-[9px] font-bold text-slate-400 uppercase italic">
-                    {paymentStatus || "n/a"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="rounded-2xl bg-gradient-to-br from-blue-500/10 via-white to-emerald-500/10 dark:from-blue-500/10 dark:via-white/5 dark:to-emerald-500/10 border border-slate-100 dark:border-white/5 p-4 text-[11px] font-bold italic text-slate-600 dark:text-slate-300 leading-relaxed space-y-3">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 not-italic">
-                      Status ringkas
-                    </p>
-                    <p className="mt-1 text-sm text-slate-700 dark:text-slate-200 not-italic">
-                      {depositAmount > 0
-                        ? "Booking ini memakai DP dan sisanya masih harus dilunasi."
-                        : "Booking ini tanpa DP dan berjalan dengan tagihan penuh saat sesi selesai."}
-                    </p>
-                  </div>
-                  <Badge className="rounded-full bg-slate-900 text-white border-none px-3 py-1 text-[8px] uppercase font-black">
-                    {paymentStatus === "pending" && depositAmount > 0
-                      ? "Menunggu DP"
-                      : paymentLabel}
-                  </Badge>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-[10px] not-italic">
-                  <div className="rounded-2xl bg-white/80 dark:bg-black/20 border border-white/50 dark:border-white/5 p-3">
-                    <p className="font-black uppercase tracking-widest text-slate-400">
-                      DP
-                    </p>
-                    <p className="mt-1 text-base font-[1000] text-emerald-600">
-                      Rp {depositAmount.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl bg-white/80 dark:bg-black/20 border border-white/50 dark:border-white/5 p-3">
-                    <p className="font-black uppercase tracking-widest text-slate-400">
-                      Total
-                    </p>
-                    <p className="mt-1 text-base font-[1000] text-slate-900 dark:text-white">
-                      Rp {Number(booking.grand_total || 0).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-                {depositAmount > 0 ? (
-                  <p className="text-slate-600 dark:text-slate-300 not-italic">
-                    Setelah DP dibayar, sisa Rp {balanceDue.toLocaleString()} akan tetap muncul sebagai due.
-                  </p>
-                ) : (
-                  <p className="text-slate-600 dark:text-slate-300 not-italic">
-                    Tidak ada DP untuk booking ini, jadi pembayaran mengikuti pemakaian sesi.
-                  </p>
-                )}
-              </div>
-
-              {paymentStatus === "pending" && depositAmount > 0 && (
-                <Button
-                  onClick={() => handlePayBooking("dp")}
-                  disabled={!midtransReady}
-                  className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-300 disabled:text-slate-600 text-white font-[1000] uppercase italic tracking-widest text-sm shadow-lg gap-2"
-                >
-                  <CreditCard size={16} />
-                  {midtransReady ? "Bayar DP Booking" : "Menyiapkan Midtrans..."}
-                </Button>
-              )}
-              {(paymentStatus === "partial_paid" ||
-                (paymentStatus === "paid" && balanceDue > 0)) && (
-                <Button
-                  onClick={() => handlePayBooking("settlement")}
-                  disabled={!midtransReady}
-                  className="w-full h-14 rounded-2xl bg-slate-950 hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-600 text-white font-[1000] uppercase italic tracking-widest text-sm shadow-lg gap-2"
-                >
-                  <CreditCard size={16} />
-                  {midtransReady ? "Bayar Sisa Booking" : "Menyiapkan Midtrans..."}
-                </Button>
-              )}
-
-              {paymentNotice && (
-                <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/15 px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 italic">
-                  {paymentNotice}
-                </div>
-              )}
+              <Badge className="border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200 text-[8px] font-black uppercase italic">
+                {groupedOptions.length} item
+              </Badge>
             </div>
 
-            {booking.options?.map((opt: any) => (
+            {groupedOptions.map((opt: any) => (
               <div
-                key={opt.id}
-                className="flex justify-between items-start group"
+                key={`${opt.item_name}-${opt.item_type}`}
+                className="flex justify-between items-start gap-4 rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50/60 dark:bg-white/[0.03] p-4"
               >
-                <div className="flex items-start gap-3 text-left leading-none">
-                  <div className="h-8 w-8 rounded-lg bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400 mt-0.5">
-                    {opt.item_type.includes("main") ? (
-                      <Gamepad2 size={14} />
-                    ) : (
-                      <PlusCircle size={14} />
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-black text-[11px] dark:text-white uppercase leading-none italic tracking-tight">
-                      {opt.item_name}
-                    </p>
-                    <div className="flex flex-col gap-1 mt-2">
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">
-                          {opt.quantity}{" "}
-                          {opt.item_type.includes("main")
-                            ? getUnitLabel(booking.unit_duration)
-                            : "Unit"}
-                        </p>
-                        <span className="text-[8px] text-slate-300">×</span>
-                        <p className="text-[9px] font-bold text-blue-600/70">
-                          Rp {opt.unit_price?.toLocaleString()}
-                        </p>
-                      </div>
-                      {opt.item_type.includes("main") &&
-                        booking.unit_duration !== 60 && (
-                          <span className="text-[7px] font-bold text-slate-400/60 uppercase italic tracking-widest leading-none">
-                            * 1 {getUnitLabel(booking.unit_duration)} ={" "}
-                            {booking.unit_duration} Menit
-                          </span>
-                        )}
-                    </div>
-                  </div>
+                <div className="min-w-0">
+                  <p className="font-black text-[11px] dark:text-white uppercase leading-none italic tracking-tight">
+                    {opt.item_name}
+                  </p>
+                  <p className="mt-2 text-[10px] font-bold text-slate-400 uppercase">
+                    {opt.quantity} {opt.item_type.includes("main") ? getUnitLabel(booking.unit_duration) : "unit"} x Rp {Number(opt.unitPrice || 0).toLocaleString()}
+                  </p>
                 </div>
-                <span className="text-xs font-[1000] dark:text-white italic pt-1">
-                  Rp {opt.price_at_booking.toLocaleString()}
+                <span className="text-xs font-[1000] dark:text-white italic pt-1 whitespace-nowrap">
+                  Rp {Number(opt.totalPrice || 0).toLocaleString()}
                 </span>
               </div>
             ))}
+          </div>
 
-            {booking.orders?.map((order: any) => (
-              <div
-                key={order.id}
-                className="flex justify-between items-start p-3 rounded-xl bg-orange-50/20 dark:bg-orange-500/[0.03] border border-orange-500/10"
-              >
-                <div className="flex items-start gap-3 text-left leading-none">
-                  <div className="h-8 w-8 rounded-lg bg-orange-100 dark:bg-orange-500/10 flex items-center justify-center text-orange-500 mt-0.5">
-                    <UtensilsCrossed size={14} />
-                  </div>
-                  <div>
+          <div className="space-y-3 border-t dark:border-white/5 pt-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <UtensilsCrossed size={16} className="text-orange-500" />
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
+                  Rental F&B
+                </p>
+              </div>
+              <Badge className="border-none bg-orange-100 text-orange-700 dark:bg-orange-500/10 dark:text-orange-200 text-[8px] font-black uppercase italic">
+                {groupedOrders.length} item
+              </Badge>
+            </div>
+
+            {groupedOrders.length > 0 ? (
+              groupedOrders.map((order: any) => (
+                <div
+                  key={String(order.item_name || "").toLowerCase()}
+                  className="flex justify-between items-start gap-4 rounded-2xl border border-orange-500/10 bg-orange-50/40 dark:bg-orange-500/[0.03] p-4"
+                >
+                  <div className="min-w-0">
                     <p className="font-black text-[11px] dark:text-white uppercase leading-none italic tracking-tight">
                       {order.item_name}
                     </p>
-                    <div className="flex items-center gap-1.5 mt-2">
-                      <p className="text-[9px] font-bold text-orange-600/60 uppercase">
-                        {order.quantity} Porsi
-                      </p>
-                      <span className="text-[8px] text-orange-300">×</span>
-                      <p className="text-[9px] font-bold text-orange-600/60">
-                        Rp {order.price_at_purchase?.toLocaleString()}
-                      </p>
-                    </div>
+                    <p className="mt-2 text-[10px] font-bold text-orange-600/70 uppercase">
+                      {order.quantity} porsi x Rp {Number(order.price_at_purchase || 0).toLocaleString()}
+                    </p>
                   </div>
+                  <span className="text-xs font-[1000] text-orange-600 italic pt-1 whitespace-nowrap">
+                    Rp {Number(order.subtotal || 0).toLocaleString()}
+                  </span>
                 </div>
-                <span className="text-xs font-[1000] text-orange-600 italic pt-1">
-                  Rp {order.subtotal.toLocaleString()}
-                </span>
+              ))
+            ) : (
+              <div className="rounded-2xl border border-dashed border-slate-200 dark:border-white/10 px-4 py-6 text-center text-[11px] font-bold text-slate-400">
+                Belum ada pesanan F&B
               </div>
-            ))}
+            )}
           </div>
 
-          <div className="p-5 bg-slate-950 text-white relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
-            <div className="relative z-10 space-y-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="leading-none text-left">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block italic">
-                    Rekap Akhir
-                  </span>
-                  <span className="text-3xl font-[1000] italic leading-none tracking-tighter">
-                    Rp {balanceDue.toLocaleString()}
-                  </span>
-                </div>
-                <Badge
-                  className={cn(
-                    "rounded-full border-none px-4 py-1 font-black italic text-[9px] uppercase shadow-lg",
-                    paymentStateTone,
-                  )}
-                >
-                  {paymentLabel}
-                </Badge>
+          <div className="space-y-4 border-t dark:border-white/5 pt-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
+                  Pelunasan Sesi
+                </p>
+                <p className="mt-1 text-sm font-[1000] italic text-slate-900 dark:text-white">
+                  Bayar settlement di bagian paling bawah
+                </p>
               </div>
+              <Badge className={cn("border-none px-3 py-1 text-[8px] font-black uppercase italic", paymentStateTone)}>
+                {paymentLabel}
+              </Badge>
+            </div>
 
-              <div className="grid grid-cols-3 gap-2 text-left">
-                <div className="rounded-2xl bg-white/5 border border-white/5 p-3">
-                  <p className="text-[8px] uppercase tracking-widest text-slate-400 font-black italic">
-                    Grand Total
-                  </p>
-                  <p className="mt-2 text-sm font-black italic">
-                    Rp {Number(booking.grand_total || 0).toLocaleString()}
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-white/5 border border-white/5 p-3">
-                  <p className="text-[8px] uppercase tracking-widest text-slate-400 font-black italic">
-                    DP
-                  </p>
-                  <p className="mt-2 text-sm font-black italic text-emerald-300">
-                    - Rp {depositAmount.toLocaleString()}
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-white/5 border border-white/5 p-3">
-                  <p className="text-[8px] uppercase tracking-widest text-slate-400 font-black italic">
-                    Due
-                  </p>
-                  <p className="mt-2 text-sm font-black italic text-blue-300">
-                    Rp {balanceDue.toLocaleString()}
-                  </p>
-                </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 p-4">
+                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
+                  Dibayar
+                </p>
+                <p className="mt-2 text-sm font-[1000] italic text-slate-950 dark:text-white">
+                  Rp {paidAmount.toLocaleString()}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-blue-500/5 border border-blue-500/10 p-4">
+                <p className="text-[8px] font-black uppercase tracking-widest text-blue-600 italic">
+                  Sisa
+                </p>
+                <p className="mt-2 text-sm font-[1000] italic text-blue-600">
+                  Rp {balanceDue.toLocaleString()}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-slate-950 text-white border border-slate-800 p-4">
+                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
+                  Total
+                </p>
+                <p className="mt-2 text-sm font-[1000] italic">
+                  Rp {Number(booking.grand_total || 0).toLocaleString()}
+                </p>
               </div>
             </div>
+
+            {(paymentStatus === "partial_paid" || (paymentStatus === "paid" && balanceDue > 0)) ? (
+              <Button
+                onClick={() => handlePayBooking("settlement")}
+                disabled={!midtransReady}
+                className="w-full h-14 rounded-2xl bg-slate-950 hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-600 text-white font-[1000] uppercase italic tracking-widest text-sm shadow-lg gap-2"
+              >
+                <CreditCard size={16} />
+                {midtransReady ? "Bayar Settlement" : "Menyiapkan Midtrans..."}
+              </Button>
+            ) : (
+              <div className="rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50/80 dark:bg-white/5 px-4 py-3 text-[11px] font-bold leading-relaxed text-slate-700 dark:text-slate-200">
+                {balanceDue > 0
+                  ? "Settlement akan tersedia setelah DP tercatat."
+                  : "Tidak ada sisa pembayaran untuk sesi ini."}
+              </div>
+            )}
           </div>
         </Card>
 
@@ -824,33 +823,5 @@ function TicketSkeleton() {
         <Skeleton className="h-48 w-full rounded-[2rem] bg-slate-200 dark:bg-white/5" />
       </div>
     </div>
-  );
-}
-
-function LayoutDashboard({
-  className,
-  size,
-}: {
-  className?: string;
-  size?: number;
-}) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <rect width="7" height="9" x="3" y="3" rx="1" />
-      <rect width="7" height="5" x="14" y="3" rx="1" />
-      <rect width="7" height="9" x="14" y="12" rx="1" />
-      <rect width="7" height="5" x="3" y="15" rx="1" />
-    </svg>
   );
 }

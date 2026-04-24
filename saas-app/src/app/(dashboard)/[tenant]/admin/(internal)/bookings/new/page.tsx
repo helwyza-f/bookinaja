@@ -18,7 +18,6 @@ import {
 import { id as idLocale } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { ManualBookingSkeleton } from "@/components/dashboard/booking-manual-skeleton";
 import {
@@ -36,7 +35,6 @@ import {
   ArrowLeft,
   Zap,
   Box,
-  CheckCircle2,
   ShieldCheck,
   Smartphone,
 } from "lucide-react";
@@ -63,9 +61,6 @@ export default function NewManualBookingPage() {
   const [durationValue, setDurationValue] = useState(1);
   const [selectedMainId, setSelectedMainId] = useState("");
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
-  const [bookingStatus, setBookingStatus] = useState<"active" | "pending">(
-    "pending",
-  );
 
   // 1. Fetch Resources
   useEffect(() => {
@@ -222,7 +217,6 @@ export default function NewManualBookingPage() {
         item_ids: [selectedMainId, ...selectedAddons],
         start_time: formatISO(fullDate),
         duration: durationValue,
-        status: bookingStatus,
       });
       toast.success("Reservasi Berhasil Disimpan");
       router.push("/admin/bookings");
@@ -517,35 +511,29 @@ export default function NewManualBookingPage() {
                 </div>
               </div>
 
-              {/* STATUS & ADDONS */}
+              {/* FLOW & ADDONS */}
               <div className="space-y-6 pt-4 border-t border-white/5">
                 <div className="space-y-3">
                   <p className="text-[10px] font-black uppercase italic tracking-widest text-slate-500 leading-none">
-                    Status Awal Boking
+                    Flow Booking
                   </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => setBookingStatus("pending")}
-                      className={cn(
-                        "py-3 rounded-xl text-[9px] font-black uppercase italic border-2 transition-all",
-                        bookingStatus === "pending"
-                          ? "bg-orange-600 border-orange-600 text-white shadow-lg"
-                          : "bg-white/5 border-transparent text-slate-500",
-                      )}
-                    >
-                      Reserve (Pending)
-                    </button>
-                    <button
-                      onClick={() => setBookingStatus("active")}
-                      className={cn(
-                        "py-3 rounded-xl text-[9px] font-black uppercase italic border-2 transition-all",
-                        bookingStatus === "active"
-                          ? "bg-emerald-600 border-emerald-600 text-white shadow-lg"
-                          : "bg-white/5 border-transparent text-slate-500",
-                      )}
-                    >
-                      Walk-in (Aktif)
-                    </button>
+                  <div className="rounded-2xl border border-orange-500/15 bg-orange-500/10 px-4 py-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[9px] font-black uppercase tracking-widest text-orange-200">
+                          Status awal otomatis
+                        </p>
+                        <p className="mt-2 text-sm font-[1000] italic text-white">
+                          Pending, belum aktif
+                        </p>
+                      </div>
+                      <Badge className="border-none bg-orange-600 text-white text-[8px] font-black uppercase italic shadow-lg">
+                        pending
+                      </Badge>
+                    </div>
+                    <p className="mt-3 text-[11px] font-bold leading-relaxed text-orange-50/85">
+                      Semua booking manual tetap mengikuti flow DP. Jika unit sedang kosong dan customer langsung masuk, sesi bisa diaktifkan manual nanti dari detail booking atau oleh admin.
+                    </p>
                   </div>
                 </div>
 
@@ -603,14 +591,9 @@ export default function NewManualBookingPage() {
                     </span>
                   </div>
                   <Badge
-                    className={cn(
-                      "font-[1000] italic text-[9px] uppercase shadow-lg px-3 py-1 border-none",
-                      bookingStatus === "active"
-                        ? "bg-emerald-600"
-                        : "bg-orange-600",
-                    )}
+                    className="font-[1000] italic text-[9px] uppercase shadow-lg px-3 py-1 border-none bg-orange-600"
                   >
-                    {bookingStatus}
+                    pending
                   </Badge>
                 </div>
                 <Zap className="absolute right-[-15px] top-[-15px] size-24 opacity-5 text-white -rotate-12" />
