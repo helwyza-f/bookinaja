@@ -18,16 +18,16 @@ type Scheduler struct {
 }
 
 type sessionJob struct {
-	ID                string     `db:"id"`
-	TenantID          string     `db:"tenant_id"`
-	CustomerID        string     `db:"customer_id"`
-	CustomerName      string     `db:"customer_name"`
-	CustomerPhone     string     `db:"customer_phone"`
-	ResourceName      string     `db:"resource_name"`
-	StartTime         time.Time  `db:"start_time"`
-	EndTime           time.Time  `db:"end_time"`
-	AccessToken       string     `db:"access_token"`
-	Status            string     `db:"status"`
+	ID            string    `db:"id"`
+	TenantID      string    `db:"tenant_id"`
+	CustomerID    string    `db:"customer_id"`
+	CustomerName  string    `db:"customer_name"`
+	CustomerPhone string    `db:"customer_phone"`
+	ResourceName  string    `db:"resource_name"`
+	StartTime     time.Time `db:"start_time"`
+	EndTime       time.Time `db:"end_time"`
+	AccessToken   string    `db:"access_token"`
+	Status        string    `db:"status"`
 }
 
 func NewScheduler(db *sqlx.DB, repo *Repository) *Scheduler {
@@ -83,18 +83,6 @@ func (s *Scheduler) runOnce(ctx context.Context) {
 	for _, job := range jobs {
 		startIn := job.StartTime.Sub(now)
 
-		if (job.Status == "pending" || job.Status == "confirmed") && !now.Before(job.StartTime) {
-			bID := mustParseUUID(job.ID)
-			tID := mustParseUUID(job.TenantID)
-			if err := s.repo.UpdateStatus(ctx, bID, tID, "active"); err != nil {
-				log.Printf("[SCHEDULER] activate failed booking=%s: %v", job.ID, err)
-				continue
-			}
-			_ = s.repo.UpdateSessionActivatedAt(ctx, bID, tID)
-			_ = s.sendSessionStarted(job)
-			continue
-		}
-
 		if job.Status != "pending" && job.Status != "confirmed" {
 			continue
 		}
@@ -119,22 +107,6 @@ func (s *Scheduler) sendReminder(job sessionJob, minutes int) error {
 		job.ResourceName,
 		minutes,
 		job.StartTime.In(time.Local).Format("02 Jan 2006 15:04"),
-		tenantSlug,
-		bookingVerifyURL(tenantSlug, job.AccessToken),
-	)
-	_, sendErr := fonnte.SendMessage(job.CustomerPhone, msg)
-	return sendErr
-}
-
-func (s *Scheduler) sendSessionStarted(job sessionJob) error {
-	tenantSlug, err := s.repo.GetTenantSlug(context.Background(), mustParseUUID(job.TenantID))
-	if err != nil {
-		tenantSlug = "tenant"
-	}
-	msg := fmt.Sprintf(
-		"Halo %s, sesi booking kamu untuk %s sekarang sudah aktif.\n\nBuka detail booking di %s.bookinaja.com:\n%s",
-		job.CustomerName,
-		job.ResourceName,
 		tenantSlug,
 		bookingVerifyURL(tenantSlug, job.AccessToken),
 	)

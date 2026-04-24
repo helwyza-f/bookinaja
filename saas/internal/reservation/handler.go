@@ -75,7 +75,7 @@ func (h *Handler) ExchangeAccessToken(c *gin.Context) {
 		"booking_id":     booking.ID,
 		"redirect_url":   "/me/bookings/" + booking.ID.String(),
 		"customer_token": sessionToken,
-		"customer":      cust,
+		"customer":       cust,
 	})
 }
 
@@ -396,6 +396,28 @@ func (h *Handler) CustomerAddAddonItem(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "LAYANAN TAMBAHAN DITAMBAHKAN"})
+}
+
+func (h *Handler) CustomerActivate(c *gin.Context) {
+	bookingID := c.Param("id")
+	tenantID := c.MustGet("tenantID").(string)
+	customerIDValue, exists := c.Get("customerID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	customerID, ok := customerIDValue.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+
+	booking, err := h.service.ActivateForCustomer(c.Request.Context(), bookingID, tenantID, customerID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, booking)
 }
 
 func (h *Handler) GetPublicDetailByToken(c *gin.Context) {
