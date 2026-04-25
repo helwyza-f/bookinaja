@@ -64,18 +64,7 @@ export default function TenantLoginPage() {
         if (interval) qp.set("interval", interval);
         router.push(`/admin/billing?${qp.toString()}`);
       } else {
-        const isMobile =
-          typeof window !== "undefined" &&
-          window.matchMedia("(max-width: 767px)").matches;
-        const isOwner = res.data?.user?.role === "owner";
-
-        if (isOwner && isMobile) {
-          router.push("/admin/owner");
-        } else if (isOwner) {
-          router.push("/admin/dashboard");
-        } else {
-          router.push("/admin/dashboard");
-        }
+        router.push("/admin/dashboard");
       }
     } catch (error: unknown) {
       const message =

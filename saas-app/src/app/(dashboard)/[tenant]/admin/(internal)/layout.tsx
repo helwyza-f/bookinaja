@@ -23,7 +23,6 @@ export default function DashboardInternalLayout({
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [checkingSession, setCheckingSession] = useState(true);
-  const [role, setRole] = useState<string>("staff");
 
   useEffect(() => {
     let active = true;
@@ -35,7 +34,6 @@ export default function DashboardInternalLayout({
         if (active) {
           // Sinkronkan data tenant ke cookie untuk interoperabilitas header API
           const userData = res.data.user;
-          setRole(userData?.role || "staff");
           syncTenantCookies(null, userData.tenant_id);
 
           setCheckingSession(false);
@@ -77,8 +75,8 @@ export default function DashboardInternalLayout({
         return "Customers";
       case "fnb":
         return "F&B";
-      case "owner":
-        return "Owner";
+      case "expenses":
+        return "Expenses";
       case "settings":
         return "Settings";
       case "pos":
@@ -122,7 +120,6 @@ export default function DashboardInternalLayout({
               </div>
               <MobileNav
                 mode="operational"
-                role={role}
                 triggerClassName="relative left-auto bottom-auto z-auto h-11 w-11 rounded-2xl border border-slate-200 bg-slate-950 text-white shadow-lg shadow-slate-950/15 hover:bg-slate-900"
               />
             </div>

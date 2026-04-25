@@ -7,10 +7,9 @@ import {
   LayoutDashboard,
   Megaphone,
   MonitorPlay,
-  Settings,
-  ShieldCheck,
   Users,
   UsersRound,
+  Banknote,
   Utensils,
   type LucideIcon,
 } from "lucide-react";
@@ -28,15 +27,8 @@ export const operationalNavItems: AdminNavItem[] = [
   { label: "POS / Kasir", icon: MonitorPlay, href: "/admin/pos" },
   { label: "Resources", icon: Grid2x2, href: "/admin/resources" },
   { label: "F&B / Menu", icon: Utensils, href: "/admin/fnb" },
+  { label: "Pengeluaran", icon: Banknote, href: "/admin/expenses" },
   { label: "Customers", icon: Users, href: "/admin/customers" },
-];
-
-export const ownerNavItems: AdminNavItem[] = [
-  { label: "Owner", href: "/admin/owner", icon: ShieldCheck },
-  { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-  { label: "Bookings", href: "/admin/bookings", icon: CalendarDays },
-  { label: "Reports", href: "/admin/settings/analytics", icon: BarChart3 },
-  { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
 export const settingsNavItems: AdminNavItem[] = [

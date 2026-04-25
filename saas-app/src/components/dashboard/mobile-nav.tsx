@@ -7,10 +7,9 @@ import { useTheme } from "next-themes";
 import {
   Menu,
   Moon,
-  ShieldCheck,
   Sun,
   LogOut,
-  Settings,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -27,15 +26,13 @@ import api from "@/lib/api";
 import { clearTenantSession } from "@/lib/tenant-session";
 import {
   operationalNavItems,
-  ownerNavItems,
   type AdminNavItem,
 } from "./admin-nav-config";
 
-type MobileNavMode = "operational" | "owner" | "settings";
+type MobileNavMode = "operational" | "settings";
 
 type MobileNavProps = {
   mode: MobileNavMode;
-  role?: string;
   triggerClassName?: string;
 };
 
@@ -49,7 +46,7 @@ type MobileUser = {
 
 const FALLBACK_LOGO = "https://cdn.bookinaja.com/tenants/logo_frameless.png";
 
-export function MobileNav({ mode, role, triggerClassName }: MobileNavProps) {
+export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
   const pathname = usePathname();
   const params = useParams();
   const { theme, setTheme } = useTheme();
@@ -87,23 +84,8 @@ export function MobileNav({ mode, role, triggerClassName }: MobileNavProps) {
   }, [params.tenant]);
 
   const items = useMemo<AdminNavItem[]>(() => {
-    if (mode === "owner") {
-      return ownerNavItems;
-    }
-
-    if (String(role || userData?.role || "").toLowerCase() === "owner") {
-      return [
-        ...operationalNavItems,
-        ownerNavItems.find((item) => item.label === "Settings") || {
-          label: "Settings",
-          href: "/admin/settings",
-          icon: Settings,
-        },
-      ];
-    }
-
     return operationalNavItems;
-  }, [mode, role, userData?.role]);
+  }, []);
 
   const tenantLogo =
     userData?.logo_url && userData.logo_url !== ""
@@ -145,9 +127,7 @@ export function MobileNav({ mode, role, triggerClassName }: MobileNavProps) {
                 <SheetDescription className="text-sm font-semibold text-slate-500 dark:text-slate-400">
                   {mode === "settings"
                     ? "Settings navigation"
-                    : mode === "owner"
-                      ? "Owner command center"
-                      : "Operational navigation"}
+                    : "Operational navigation"}
                 </SheetDescription>
               </div>
               <div className="h-11 w-11 shrink-0 overflow-hidden rounded-2xl bg-slate-100 ring-1 ring-slate-200 dark:bg-white/5 dark:ring-white/10">
@@ -173,7 +153,7 @@ export function MobileNav({ mode, role, triggerClassName }: MobileNavProps) {
                   {userData?.email || "syncing..."}
                 </div>
                 <Badge className="border-none bg-white/10 text-[7px] font-black uppercase italic tracking-[0.25em] text-white">
-                  {String(role || userData?.role || "staff").toUpperCase()}
+                  {String(userData?.role || "staff").toUpperCase()}
                 </Badge>
               </div>
             </div>

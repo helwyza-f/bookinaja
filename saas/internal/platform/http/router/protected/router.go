@@ -104,6 +104,19 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				})
 			}
 
+			expenses := adminArea.Group("/expenses")
+			{
+				expenses.GET("", cfg.ExpenseHandler.List)
+				expenses.GET("/summary", cfg.ExpenseHandler.Summary)
+				expenses.GET("/:id", cfg.ExpenseHandler.GetByID)
+				expenses.POST("", cfg.ExpenseHandler.Create)
+				expenses.PUT("/:id", cfg.ExpenseHandler.Update)
+				expenses.DELETE("/:id", cfg.ExpenseHandler.Delete)
+				expenses.POST("/upload-receipt", func(c *gin.Context) {
+					upload.HandleSingleUpload(c, "expenses/receipts")
+				})
+			}
+
 			bookings := adminArea.Group("/bookings")
 			{
 				bookings.GET("", cfg.ReservationHandler.ListAll)

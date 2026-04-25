@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SettingsSidebar } from "@/components/dashboard/settings-sidebar";
-import { SettingsMobileNav } from "@/components/dashboard/settings-mobile-nav";
+import { SettingsHeader } from "@/components/dashboard/settings-header";
 
 type MeResponse = {
   user?: {
@@ -24,7 +23,6 @@ export default function SettingsLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<MeResponse["user"] | null>(null);
   const [tenantName, setTenantName] = useState<string>("");
@@ -78,20 +76,10 @@ export default function SettingsLayout({
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-[#050505]">
-      <div className="mx-auto grid min-h-screen max-w-[1800px] gap-0 lg:grid-cols-[340px_minmax(0,1fr)] pb-6 md:pb-0">
-        <div className="hidden lg:block">
-          <SettingsSidebar
-            tenantName={tenantName || user?.name}
-            role={user?.role}
-            pathname={pathname}
-          />
-        </div>
+      <div className="mx-auto min-h-screen max-w-[1800px] pb-6 md:pb-0">
+        <SettingsHeader tenantName={tenantName || user?.name} role={user?.role} />
 
         <main className="space-y-4 px-4 py-4 md:space-y-6 md:px-6 lg:px-10 lg:py-8">
-          <SettingsMobileNav
-            tenantName={tenantName || user?.name}
-            role={user?.role}
-          />
           <div className="mx-auto max-w-[1400px]">{children}</div>
         </main>
       </div>
@@ -102,12 +90,10 @@ export default function SettingsLayout({
 function SettingsLayoutSkeleton() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#050505] p-4 md:p-6">
-      <div className="mx-auto grid max-w-[1800px] gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
-        <Skeleton className="hidden lg:block h-[720px] rounded-[2rem] bg-white dark:bg-white/5" />
-        <div className="space-y-6">
-          <Skeleton className="h-44 rounded-[2rem] bg-white dark:bg-white/5" />
-          <Skeleton className="h-[560px] rounded-[2rem] bg-white dark:bg-white/5" />
-        </div>
+      <div className="mx-auto max-w-[1800px] space-y-6">
+        <Skeleton className="h-28 rounded-[2rem] bg-white dark:bg-white/5" />
+        <Skeleton className="h-44 rounded-[2rem] bg-white dark:bg-white/5" />
+        <Skeleton className="h-[560px] rounded-[2rem] bg-white dark:bg-white/5" />
       </div>
     </div>
   );

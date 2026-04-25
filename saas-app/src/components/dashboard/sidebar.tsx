@@ -257,18 +257,6 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
             <DropdownMenuGroup className="p-1 space-y-0.5">
               {userData?.role === "owner" && (
                 <DropdownMenuItem
-                  onClick={() => router.push("/admin/owner")}
-                  className="rounded-xl px-3 py-3 cursor-pointer text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 focus:bg-slate-100 dark:focus:bg-white/5 focus:text-blue-600 dark:focus:text-white transition-all"
-                >
-                  <ShieldCheck className="mr-3 h-4 w-4" />
-                  <span className="text-[10px] font-black uppercase tracking-widest italic">
-                    Owner Command
-                  </span>
-                </DropdownMenuItem>
-              )}
-
-              {userData?.role === "owner" && (
-                <DropdownMenuItem
                   onClick={() => router.push("/admin/settings")}
                   className="rounded-xl px-3 py-3 cursor-pointer text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 focus:bg-slate-100 dark:focus:bg-white/5 focus:text-blue-600 dark:focus:text-white transition-all"
                 >

@@ -15,6 +15,7 @@ import (
 	"github.com/helwiza/saas/internal/auth"
 	"github.com/helwiza/saas/internal/billing"
 	"github.com/helwiza/saas/internal/customer"
+	"github.com/helwiza/saas/internal/expense"
 	"github.com/helwiza/saas/internal/fnb"
 	"github.com/helwiza/saas/internal/platformadmin"
 	"github.com/helwiza/saas/internal/reservation"
@@ -74,6 +75,7 @@ func main() {
 	// STEP A: Inisialisasi Semua Repository
 	tenantRepo := tenant.NewRepository(db, rdb)
 	customerRepo := customer.NewRepository(db)
+	expenseRepo := expense.NewRepository(db)
 	resourceRepo := resource.NewRepository(db, rdb)
 	reservationRepo := reservation.NewRepository(db)
 	fnbRepo := fnb.NewRepository(db)
@@ -89,6 +91,7 @@ func main() {
 
 	// Domain lainnya
 	customerSvc := customer.NewService(customerRepo, rdb)
+	expenseSvc := expense.NewService(expenseRepo)
 	resourceSvc := resource.NewService(resourceRepo)
 	fnbSvc := fnb.NewService(fnbRepo)
 	reservationSvc := reservation.NewService(reservationRepo, resourceRepo, customerSvc, fnbSvc)
@@ -100,6 +103,7 @@ func main() {
 	// Sekarang tenantSvc sudah terdefinisi, aman buat authHdl
 	authHdl := auth.NewHandler(authSvc, tenantSvc)
 	customerHdl := customer.NewHandler(customerSvc)
+	expenseHdl := expense.NewHandler(expenseSvc)
 	tenantHdl := tenant.NewHandler(tenantSvc)
 	resourceHdl := resource.NewHandler(resourceSvc)
 	reservationHdl := reservation.NewHandler(reservationSvc)
@@ -117,6 +121,7 @@ func main() {
 		CustomerHandler:    customerHdl,
 		AuthHandler:        authHdl,
 		FnbHandler:         fnbHdl,
+		ExpenseHandler:     expenseHdl,
 		BillingHandler:     billingHdl,
 		PlatformHandler:    platformHdl,
 		MidtransHandler:    midtransHdl,
