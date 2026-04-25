@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -12,21 +11,32 @@ import {
   Trash2,
   Inbox,
   AlertCircle,
-  Zap,
-  Package,
   Gamepad2,
   Camera,
   Trophy,
   Briefcase,
-  Plus,
   Check,
-  Clock,
-  ArrowUpRight,
 } from "lucide-react";
 import { AddResourceDialog } from "@/components/resources/add-resources-dialog";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+type ResourceItem = {
+  id: string;
+  name: string;
+  item_type: string;
+  price: number;
+  is_default?: boolean;
+};
+
+type ResourceRow = {
+  id: string;
+  name: string;
+  category?: string;
+  status?: string;
+  items?: ResourceItem[];
+};
 
 // --- KOMPONEN SKELETON COMPACT ---
 function ResourceSkeleton() {
@@ -57,7 +67,7 @@ function ResourceSkeleton() {
 }
 
 export default function ResourcesPage() {
-  const [resources, setResources] = useState<any[]>([]);
+  const [resources, setResources] = useState<ResourceRow[]>([]);
   const [businessCategory, setBusinessCategory] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -71,8 +81,8 @@ export default function ResourcesPage() {
         setBusinessCategory(res.data.business_category || "");
         localStorage.setItem("cache_resources_all", JSON.stringify(res.data));
       }
-    } catch (err) {
-      console.error("Fetch Error:", err);
+    } catch {
+      console.error("Fetch Error:");
       setError(true);
     } finally {
       setLoading(false);
@@ -85,7 +95,7 @@ export default function ResourcesPage() {
       await api.delete(`/resources-all/${id}`);
       toast.success(`${name.toUpperCase()} DELETED`);
       fetchResources();
-    } catch (err) {
+    } catch {
       toast.error("FAILED TO DELETE RESOURCE");
     }
   };
@@ -171,10 +181,10 @@ export default function ResourcesPage() {
           </Button>
         </div>
       ) : resources.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-5">
           {resources.map((res) => {
             const mainItems =
-              res.items?.filter((i: any) =>
+              res.items?.filter((i) =>
                 ["main_option", "main", "console_option"].includes(i.item_type),
               ) || [];
 
@@ -184,43 +194,43 @@ export default function ResourcesPage() {
                 className="group rounded-[1.5rem] md:rounded-[2rem] border-[0.5px] border-slate-200 dark:border-white/5 transition-all duration-300 bg-white dark:bg-slate-900 hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/5 flex flex-col relative overflow-hidden"
               >
                 <CardContent className="p-3 md:p-6 flex-1 flex flex-col relative z-10">
-                  {/* Top: Status & Mini Icon */}
-                  <div className="flex justify-between items-center mb-4 md:mb-6">
-                    <div
-                      className={cn(
-                        "h-8 w-8 md:h-10 md:w-10 rounded-xl flex items-center justify-center shadow-inner",
-                        res.status === "available"
-                          ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600"
-                          : "bg-slate-50 dark:bg-slate-800 text-slate-300",
-                      )}
-                    >
-                      {labels.icon}
+                  {/* Header Actions */}
+                  <div className="flex items-start justify-between gap-3 mb-4 md:mb-6">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-base md:text-xl font-[1000] text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none truncate group-hover:text-blue-600 transition-colors">
+                        {res.name}
+                      </h3>
+                      <p className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1.5 opacity-70">
+                        {res.category || labels.unit}
+                      </p>
                     </div>
-                    <Badge
-                      className={cn(
-                        "px-3 py-0.5 rounded-full font-black uppercase text-[8px] border-none shadow-sm",
-                        res.status === "available"
-                          ? "bg-emerald-500 text-white"
-                          : "bg-orange-500 text-white",
-                      )}
-                    >
-                      {res.status}
-                    </Badge>
-                  </div>
-
-                  {/* Info: Title & Sub */}
-                  <div className="mb-4 md:mb-6">
-                    <h3 className="text-base md:text-xl font-[1000] text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none truncate group-hover:text-blue-600 transition-colors">
-                      {res.name}
-                    </h3>
-                    <p className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1.5 opacity-70">
-                      {res.category || labels.unit}
-                    </p>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Link href={`/admin/resources/${res.id}`} className="w-full">
+                        <Button
+                          variant="outline"
+                          className="h-9 w-9 md:h-10 md:w-10 rounded-xl border-slate-200 dark:border-white/10 bg-slate-950 text-white hover:bg-blue-600 hover:text-white transition-all p-0 flex items-center justify-center group/btn"
+                        >
+                          <Settings2
+                            size={12}
+                            className="group-hover/btn:rotate-90 transition-transform"
+                          />
+                          <span className="sr-only">Manage</span>
+                        </Button>
+                      </Link>
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleDelete(res.id, res.name)}
+                        className="h-9 w-9 md:h-10 md:w-10 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-all p-0 flex items-center justify-center"
+                      >
+                        <Trash2 size={12} />
+                        <span className="sr-only">Hapus</span>
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Main Configurations - Compact List */}
                   <div className="flex-1 space-y-2 mb-5 md:mb-8">
-                    {mainItems.slice(0, 3).map((item: any) => (
+                    {mainItems.slice(0, 3).map((item) => (
                       <div
                         key={item.id}
                         className={cn(
@@ -254,32 +264,6 @@ export default function ResourcesPage() {
                         +{mainItems.length - 3} other rates
                       </p>
                     )}
-                  </div>
-
-                  {/* Actions Footer */}
-                  <div className="flex gap-2 pt-4 md:pt-6 border-t border-slate-50 dark:border-white/5 mt-auto">
-                    <Link
-                      href={`/admin/resources/${res.id}`}
-                      className="flex-1"
-                    >
-                      <Button
-                        variant="outline"
-                        className="w-full h-10 md:h-11 rounded-xl font-black text-[9px] md:text-[10px] uppercase italic tracking-widest border-slate-200 dark:border-white/10 hover:bg-blue-600 hover:text-white transition-all gap-2 group/btn"
-                      >
-                        <Settings2
-                          size={14}
-                          className="group-hover/btn:rotate-90 transition-transform"
-                        />{" "}
-                        Manage Unit
-                      </Button>
-                    </Link>
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleDelete(res.id, res.name)}
-                      className="h-11 w-11 rounded-xl text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all shrink-0"
-                    >
-                      <Trash2 size={16} />
-                    </Button>
                   </div>
                 </CardContent>
               </Card>

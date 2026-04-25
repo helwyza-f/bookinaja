@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Sun,
   LogOut,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +36,7 @@ type MobileNavMode = "operational" | "owner" | "settings";
 type MobileNavProps = {
   mode: MobileNavMode;
   role?: string;
+  triggerClassName?: string;
 };
 
 type MobileUser = {
@@ -47,7 +49,7 @@ type MobileUser = {
 
 const FALLBACK_LOGO = "https://cdn.bookinaja.com/tenants/logo_frameless.png";
 
-export function MobileNav({ mode, role }: MobileNavProps) {
+export function MobileNav({ mode, role, triggerClassName }: MobileNavProps) {
   const pathname = usePathname();
   const params = useParams();
   const { theme, setTheme } = useTheme();
@@ -89,8 +91,19 @@ export function MobileNav({ mode, role }: MobileNavProps) {
       return ownerNavItems;
     }
 
+    if (String(role || userData?.role || "").toLowerCase() === "owner") {
+      return [
+        ...operationalNavItems,
+        ownerNavItems.find((item) => item.label === "Settings") || {
+          label: "Settings",
+          href: "/admin/settings",
+          icon: Settings,
+        },
+      ];
+    }
+
     return operationalNavItems;
-  }, [mode]);
+  }, [mode, role, userData?.role]);
 
   const tenantLogo =
     userData?.logo_url && userData.logo_url !== ""
@@ -107,7 +120,10 @@ export function MobileNav({ mode, role }: MobileNavProps) {
       <SheetTrigger asChild>
         <Button
           size="icon"
-          className="fixed left-4 bottom-4 z-50 h-12 w-12 rounded-2xl border border-slate-200 bg-slate-950 text-white shadow-2xl shadow-slate-950/20 hover:bg-slate-900 md:hidden"
+          className={cn(
+            "z-50 h-12 w-12 rounded-2xl border border-slate-200 bg-slate-950 text-white shadow-2xl shadow-slate-950/20 hover:bg-slate-900 md:hidden",
+            triggerClassName || "fixed left-4 bottom-4",
+          )}
           aria-label="Open admin navigation"
         >
           <Menu className="h-5 w-5" />
@@ -117,9 +133,9 @@ export function MobileNav({ mode, role }: MobileNavProps) {
       <SheetContent
         side="left"
         showCloseButton={false}
-        className="w-[88vw] max-w-[340px] gap-0 border-r border-slate-200 bg-white p-0 text-slate-950 shadow-[24px_0_80px_rgba(15,23,42,0.18)] dark:border-white/10 dark:bg-[#0a0a0a] dark:text-white"
+        className="w-[88vw] max-w-[340px] gap-0 overflow-hidden border-r border-slate-200 bg-white p-0 text-slate-950 shadow-[24px_0_80px_rgba(15,23,42,0.18)] dark:border-white/10 dark:bg-[#0a0a0a] dark:text-white scrollbar-hide"
       >
-        <div className="flex h-full flex-col">
+        <div className="flex h-full flex-col overflow-hidden">
           <SheetHeader className="border-b border-slate-100 p-5 dark:border-white/5">
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1">
@@ -163,7 +179,7 @@ export function MobileNav({ mode, role }: MobileNavProps) {
             </div>
           </SheetHeader>
 
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
             <nav className="space-y-2">
               {items.map((item) => {
                 const active =

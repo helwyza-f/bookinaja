@@ -5,7 +5,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -16,10 +15,6 @@ import {
   ChevronRight,
   Utensils,
   Coffee,
-  CheckCircle2,
-  Zap,
-  Clock,
-  Image as ImageIcon,
 } from "lucide-react";
 import {
   Dialog,
@@ -40,6 +35,16 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
+
+type MenuItem = {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  category: string;
+  image_url?: string | null;
+  is_available: boolean;
+};
 
 // --- KOMPONEN SKELETON COMPACT ---
 function FnbSkeleton() {
@@ -62,7 +67,7 @@ function FnbSkeleton() {
 }
 
 export default function FnbManagementPage() {
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
 
@@ -79,7 +84,7 @@ export default function FnbManagementPage() {
     try {
       const res = await api.get("/fnb");
       setItems(res.data || []);
-    } catch (err) {
+    } catch {
       toast.error("Gagal sinkronisasi katalog");
     } finally {
       setLoading(false);
@@ -90,7 +95,7 @@ export default function FnbManagementPage() {
     fetchMenu();
   }, []);
 
-  const handleToggleAvailable = async (item: any) => {
+  const handleToggleAvailable = async (item: MenuItem) => {
     const originalStatus = item.is_available;
     setItems((prev) =>
       prev.map((i) =>
@@ -104,7 +109,7 @@ export default function FnbManagementPage() {
         is_available: !originalStatus,
       });
       toast.success(`${item.name} status updated`);
-    } catch (err) {
+    } catch {
       setItems((prev) =>
         prev.map((i) =>
           i.id === item.id ? { ...i, is_available: originalStatus } : i,
@@ -136,7 +141,7 @@ export default function FnbManagementPage() {
       setOpen(false);
       resetForm();
       fetchMenu();
-    } catch (err) {
+    } catch {
       toast.error("Gagal menyimpan data");
     }
   };
@@ -147,7 +152,7 @@ export default function FnbManagementPage() {
       await api.delete(`/fnb/${id}`);
       toast.success("Item removed");
       fetchMenu();
-    } catch (err) {
+    } catch {
       toast.error("Gagal menghapus");
     }
   };
@@ -165,15 +170,15 @@ export default function FnbManagementPage() {
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-5 md:space-y-6 pb-32 animate-in fade-in duration-500 font-plus-jakarta px-3 md:px-4 mt-4 md:mt-6">
+    <div className="max-w-[1600px] mx-auto space-y-4 md:space-y-6 pb-32 animate-in fade-in duration-500 font-plus-jakarta px-3 md:px-4 mt-4 md:mt-6">
       {/* 1. COMPACT HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-5 md:pb-6 gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-4 md:pb-6 gap-3">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-xl shadow-blue-500/20">
-            <Coffee size={20} fill="currentColor" />
+          <div className="h-9 w-9 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-xl shadow-blue-500/20">
+            <Coffee size={18} fill="currentColor" />
           </div>
           <div className="flex flex-col">
-            <h1 className="text-xl md:text-4xl font-[1000] italic uppercase tracking-tighter text-slate-950 dark:text-white leading-none">
+            <h1 className="text-lg md:text-4xl font-[1000] italic uppercase tracking-tighter text-slate-950 dark:text-white leading-none">
               Menu <span className="text-blue-600">Library.</span>
             </h1>
             <p className="hidden sm:block text-[8px] font-black text-slate-400 uppercase tracking-[0.4em] italic mt-1.5">
@@ -190,7 +195,7 @@ export default function FnbManagementPage() {
           }}
         >
           <DialogTrigger asChild>
-            <Button className="h-12 px-4 md:px-6 rounded-2xl bg-slate-950 dark:bg-blue-600 text-white font-black uppercase italic text-[10px] shadow-lg border-b-4 border-slate-800 dark:border-blue-800 gap-2 transition-all active:scale-95 w-full sm:w-auto">
+            <Button className="h-11 px-3 md:px-6 rounded-2xl bg-slate-950 dark:bg-blue-600 text-white font-black uppercase italic text-[9px] shadow-lg border-b-4 border-slate-800 dark:border-blue-800 gap-2 transition-all active:scale-95 w-full sm:w-auto">
               <Plus size={16} strokeWidth={4} /> Add Item
             </Button>
           </DialogTrigger>
@@ -310,7 +315,7 @@ export default function FnbManagementPage() {
       {loading ? (
         <FnbSkeleton />
       ) : items.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 animate-in slide-in-from-bottom-2 duration-500">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 md:gap-4 animate-in slide-in-from-bottom-2 duration-500">
           {items.map((item) => (
             <Card
               key={item.id}
@@ -355,22 +360,22 @@ export default function FnbManagementPage() {
                 </div>
               </div>
 
-              <CardContent className="p-3 flex flex-col flex-1">
-                <div className="flex-1 min-h-[40px] mb-3">
-                  <h3 className="text-[11px] font-[1000] text-slate-900 dark:text-white uppercase italic tracking-tight leading-tight group-hover:text-blue-600 transition-colors line-clamp-2">
+              <CardContent className="p-2.5 flex flex-col flex-1">
+                <div className="flex-1 min-h-[34px] mb-2.5">
+                  <h3 className="text-[10px] md:text-[11px] font-[1000] text-slate-900 dark:text-white uppercase italic tracking-tight leading-tight group-hover:text-blue-600 transition-colors line-clamp-2">
                     {item.name}
                   </h3>
-                  <p className="text-[8px] font-black text-slate-400 uppercase mt-1 tracking-widest">
+                  <p className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase mt-1 tracking-widest">
                     {item.category}
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-slate-50 dark:border-white/5">
+                <div className="flex items-center justify-between pt-2.5 border-t border-slate-50 dark:border-white/5">
                   <div className="flex flex-col">
                     <span className="text-[7px] font-black text-slate-400 uppercase italic mb-0.5">
                       Price
                     </span>
-                    <span className="text-sm font-[1000] italic text-blue-600 dark:text-blue-400 tracking-tighter">
+                    <span className="text-[11px] md:text-sm font-[1000] italic text-blue-600 dark:text-blue-400 tracking-tighter">
                       Rp{formatIDR(item.price)}
                     </span>
                   </div>
@@ -388,17 +393,17 @@ export default function FnbManagementPage() {
                         setAvailable(item.is_available);
                         setOpen(true);
                       }}
-                      className="h-8 w-8 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-600 transition-all shadow-sm"
+                      className="h-7 w-7 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-600 transition-all shadow-sm"
                     >
-                      <Edit3 size={14} />
+                      <Edit3 size={12} />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => handleDelete(item.id)}
-                      className="h-8 w-8 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 transition-all shadow-sm"
+                      className="h-7 w-7 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 transition-all shadow-sm"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={12} />
                     </Button>
                   </div>
                 </div>

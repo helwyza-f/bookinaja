@@ -182,9 +182,9 @@ export default function ResourceDetailPage() {
   if (loading && !resource) return <ResourceDetailLoading />;
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-5 md:space-y-6 pb-20 animate-in fade-in duration-500 px-3 md:px-4 mt-4 md:mt-6 font-plus-jakarta">
+    <div className="max-w-[1600px] mx-auto space-y-4 md:space-y-6 pb-20 animate-in fade-in duration-500 px-3 md:px-4 mt-4 md:mt-6 font-plus-jakarta">
       {/* 1. ULTRA COMPACT HEADER */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-5 md:pb-6 gap-4">
+      <header className="flex flex-col md:flex-row md:items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-4 md:pb-6 gap-4">
         <div className="flex items-center gap-3 md:gap-4">
           <Button
             variant="ghost"
@@ -213,15 +213,15 @@ export default function ResourceDetailPage() {
             setEditingItem(null);
             setDialogOpen(true);
           }}
-          className="h-12 px-4 md:px-5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[10px] shadow-lg border-b-4 border-blue-800 gap-2 transition-all active:scale-95 w-full md:w-auto"
+            className="h-11 px-4 md:px-5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[9px] shadow-lg border-b-4 border-blue-800 gap-2 transition-all active:scale-95 w-full md:w-auto"
         >
           <Plus size={16} strokeWidth={4} /> New Config
         </Button>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 md:gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start">
         {/* LEFT: VISUAL (Fixed Width, Compact) */}
-        <div className="lg:col-span-4 space-y-6">
+        <div className="lg:col-span-4 space-y-5">
           <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-[0.5px] border-slate-200 dark:border-white/5 shadow-sm p-4 md:p-6 bg-white dark:bg-slate-900 relative">
             <div className="absolute top-4 right-4 z-20">
               <Button
@@ -244,7 +244,7 @@ export default function ResourceDetailPage() {
             </div>
 
             {isEditMode ? (
-                <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+              <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
                 <SingleImageUpload
                   label="Banner"
                   value={imageUrl}
@@ -275,7 +275,7 @@ export default function ResourceDetailPage() {
                 </Button>
               </div>
             ) : (
-                <div className="space-y-5 md:space-y-6 animate-in fade-in duration-500">
+              <div className="space-y-5 md:space-y-6 animate-in fade-in duration-500">
                 <div className="aspect-[16/10] rounded-[2rem] overflow-hidden shadow-inner bg-slate-100 dark:bg-slate-800">
                   {imageUrl ? (
                     <img
@@ -341,18 +341,18 @@ export default function ResourceDetailPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {mainItems.map((item: any) => (
                 <Card
                   key={item.id}
                   className={cn(
-                    "group rounded-2xl border-[0.5px] p-5 transition-all bg-white dark:bg-slate-900",
+                    "group rounded-2xl border-[0.5px] p-4 transition-all bg-white dark:bg-slate-900",
                     item.is_default
                       ? "border-blue-600/50 shadow-lg shadow-blue-500/5 ring-1 ring-blue-500/10"
                       : "border-slate-200 dark:border-white/5 opacity-80 hover:opacity-100",
                   )}
                 >
-                  <div className="flex justify-between items-start mb-4">
+                  <div className="flex justify-between items-start mb-3">
                     <div
                       className={cn(
                         "h-8 w-8 rounded-lg flex items-center justify-center shadow-inner",
@@ -396,14 +396,14 @@ export default function ResourceDetailPage() {
                       </Button>
                     </div>
                   </div>
-                  <h4 className="text-sm font-[1000] uppercase italic tracking-tight text-slate-900 dark:text-white leading-none mb-2">
+                  <h4 className="text-[11px] md:text-sm font-[1000] uppercase italic tracking-tight text-slate-900 dark:text-white leading-none mb-2">
                     {item.name}
                   </h4>
                   <div className="flex items-baseline gap-1">
                     <span className="text-[10px] font-black text-blue-600 italic">
                       Rp
                     </span>
-                    <span className="text-xl font-[1000] text-blue-600 italic tracking-tighter">
+                    <span className="text-lg md:text-xl font-[1000] text-blue-600 italic tracking-tighter">
                       {formatIDR(item.price)}
                     </span>
                     <span className="text-[8px] text-slate-400 font-black uppercase ml-1">
@@ -437,17 +437,17 @@ export default function ResourceDetailPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {addonItems.map((item: any) => (
                 <div
                   key={item.id}
-                  className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/30 border-[0.5px] border-slate-200 dark:border-white/5 flex justify-between items-center group hover:border-blue-500/30 transition-all"
+                  className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/30 border-[0.5px] border-slate-200 dark:border-white/5 flex justify-between items-center group hover:border-blue-500/30 transition-all"
                 >
                   <div className="flex flex-col leading-none">
-                    <h5 className="font-[1000] uppercase italic text-[11px] text-slate-800 dark:text-slate-200 tracking-tight">
+                    <h5 className="font-[1000] uppercase italic text-[10px] md:text-[11px] text-slate-800 dark:text-slate-200 tracking-tight">
                       {item.name}
                     </h5>
-                    <p className="text-blue-600 font-[1000] text-[10px] italic mt-1.5">
+                    <p className="text-blue-600 font-[1000] text-[9px] md:text-[10px] italic mt-1.5">
                       Rp {formatIDR(item.price)}
                     </p>
                   </div>

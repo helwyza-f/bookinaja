@@ -182,7 +182,7 @@ export function ManageItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-[2.5rem] p-8 sm:max-w-[500px] border-none shadow-2xl overflow-hidden bg-background">
+      <DialogContent className="rounded-[2rem] p-4 sm:p-6 sm:max-w-[500px] border-none shadow-2xl overflow-hidden bg-background w-[94vw] sm:w-auto">
         <DialogHeader className="space-y-2 text-left">
           <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter leading-none">
             MANAGE <span className="text-blue-600">{config.title}</span>
@@ -195,7 +195,7 @@ export function ManageItemDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSave} className="space-y-6 pt-4">
+        <form onSubmit={handleSave} className="space-y-5 pt-4">
           {/* TIPE ITEM (DIATAS AGAR KONTEKS JELAS) */}
           <div className="space-y-3">
             <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 italic">
@@ -208,7 +208,7 @@ export function ManageItemDialog({
                 setPriceUnit(v === "main" ? "hour" : "pcs");
                 setUnitDuration(v === "main" ? 60 : 0);
               }}
-              className="grid grid-cols-2 gap-3"
+              className="grid grid-cols-2 gap-2.5"
             >
               <div className="relative">
                 <RadioGroupItem
@@ -218,7 +218,7 @@ export function ManageItemDialog({
                 />
                 <Label
                   htmlFor="main"
-                  className="flex flex-col items-center justify-center rounded-2xl border-2 border-slate-50 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-4 hover:bg-slate-100 dark:hover:bg-slate-800 peer-data-[state=checked]:border-blue-600 peer-data-[state=checked]:bg-blue-50 dark:peer-data-[state=checked]:bg-blue-900/20 transition-all cursor-pointer h-24"
+                  className="flex flex-col items-center justify-center rounded-2xl border-2 border-slate-50 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 hover:bg-slate-100 dark:hover:bg-slate-800 peer-data-[state=checked]:border-blue-600 peer-data-[state=checked]:bg-blue-50 dark:peer-data-[state=checked]:bg-blue-900/20 transition-all cursor-pointer h-20"
                 >
                   <div
                     className={cn(
@@ -241,7 +241,7 @@ export function ManageItemDialog({
                 />
                 <Label
                   htmlFor="addon"
-                  className="flex flex-col items-center justify-center rounded-2xl border-2 border-slate-50 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-4 hover:bg-slate-100 dark:hover:bg-slate-800 peer-data-[state=checked]:border-orange-500 peer-data-[state=checked]:bg-orange-50 dark:peer-data-[state=checked]:bg-orange-900/20 transition-all cursor-pointer text-center h-24"
+                  className="flex flex-col items-center justify-center rounded-2xl border-2 border-slate-50 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 hover:bg-slate-100 dark:hover:bg-slate-800 peer-data-[state=checked]:border-orange-500 peer-data-[state=checked]:bg-orange-50 dark:peer-data-[state=checked]:bg-orange-900/20 transition-all cursor-pointer text-center h-20"
                 >
                   <PlusCircle
                     className={cn(
@@ -274,13 +274,13 @@ export function ManageItemDialog({
                   ? config.placeholder
                   : config.addonPlaceholder
               }
-              className="h-14 rounded-2xl font-bold bg-slate-50 dark:bg-slate-900 border-none px-5 text-sm focus-visible:ring-blue-600 transition-all"
+              className="h-12 rounded-2xl font-bold bg-slate-50 dark:bg-slate-900 border-none px-4 text-sm focus-visible:ring-blue-600 transition-all"
               required
             />
           </div>
 
           {/* HARGA & SATUAN */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 italic">
                 HARGA (RP)
@@ -289,7 +289,7 @@ export function ManageItemDialog({
                 value={displayPrice}
                 onChange={(e) => handlePriceChange(e.target.value)}
                 placeholder="0"
-                className="h-12 rounded-xl font-black bg-slate-50 dark:bg-slate-900 border-none shadow-inner text-base"
+                className="h-11 rounded-xl font-black bg-slate-50 dark:bg-slate-900 border-none shadow-inner text-base"
                 required
               />
             </div>
@@ -305,7 +305,7 @@ export function ManageItemDialog({
                   if (v === "day") setUnitDuration(1440);
                 }}
               >
-                <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-slate-900 border-none font-bold text-[10px] uppercase italic">
+                <SelectTrigger className="h-11 rounded-xl bg-slate-50 dark:bg-slate-900 border-none font-bold text-[10px] uppercase italic">
                   <SelectValue placeholder="Satuan" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl font-bold uppercase">
@@ -333,7 +333,7 @@ export function ManageItemDialog({
                 type="number"
                 value={unitDuration}
                 onChange={(e) => setUnitDuration(Number(e.target.value))}
-                className="h-12 rounded-xl font-black bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900 text-base"
+                className="h-11 rounded-xl font-black bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900 text-base"
                 required
               />
             </div>
@@ -341,7 +341,7 @@ export function ManageItemDialog({
 
           {/* DEFAULT CHECKBOX */}
           {itemType === "main" && (
-            <div className="flex items-center space-x-3 p-4 rounded-2xl border-2 border-dashed bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900 transition-all">
+            <div className="flex items-center space-x-3 p-3.5 rounded-2xl border-2 border-dashed bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900 transition-all">
               <input
                 type="checkbox"
                 id="def"
@@ -361,7 +361,7 @@ export function ManageItemDialog({
           <Button
             type="submit"
             disabled={loading}
-            className="w-full h-16 rounded-[2rem] bg-slate-900 dark:bg-blue-600 hover:bg-black dark:hover:bg-blue-700 font-black uppercase tracking-[0.2em] text-[10px] shadow-xl text-white transition-all active:scale-95 border-b-8 border-slate-800 dark:border-blue-800"
+            className="w-full h-14 rounded-[2rem] bg-slate-900 dark:bg-blue-600 hover:bg-black dark:hover:bg-blue-700 font-black uppercase tracking-[0.2em] text-[9px] shadow-xl text-white transition-all active:scale-95 border-b-8 border-slate-800 dark:border-blue-800"
           >
             {loading ? (
               <Loader2 className="animate-spin h-5 w-5" />

@@ -67,6 +67,24 @@ export default function OwnerLayout({
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.08),transparent_32%),linear-gradient(180deg,#f8fafc_0%,#ffffff_100%)] dark:bg-[#050505] dark:bg-none">
+      <div className="fixed inset-x-0 top-0 z-40 md:hidden border-b border-slate-200/80 bg-white/90 backdrop-blur dark:border-white/5 dark:bg-[#050505]/90">
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <div className="min-w-0">
+            <div className="text-[8px] font-black uppercase tracking-[0.35em] text-blue-600">
+              Owner Command Center
+            </div>
+            <div className="truncate text-sm font-black italic uppercase tracking-tighter text-slate-950 dark:text-white">
+              Monitoring from anywhere
+            </div>
+          </div>
+          <MobileNav
+            mode="owner"
+            role="owner"
+            triggerClassName="relative left-auto bottom-auto z-auto h-11 w-11 rounded-2xl border border-slate-200 bg-slate-950 text-white shadow-lg shadow-slate-950/15 hover:bg-slate-900"
+          />
+        </div>
+      </div>
+
       <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 lg:px-10 lg:py-8">
         <div className="mb-6 flex flex-col gap-3 rounded-[2rem] border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur dark:border-white/5 dark:bg-white/[0.03] md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
@@ -81,9 +99,8 @@ export default function OwnerLayout({
             {user?.name || "Owner"}
           </div>
         </div>
-        <div className="pb-24 md:pb-0">{children}</div>
+        <div className="pb-24 pt-20 md:pb-0 md:pt-0">{children}</div>
       </div>
-      <MobileNav mode="owner" role="owner" />
     </div>
   );
 }

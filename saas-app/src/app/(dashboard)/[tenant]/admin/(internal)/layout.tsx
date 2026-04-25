@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,7 @@ export default function DashboardInternalLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [checkingSession, setCheckingSession] = useState(true);
   const [role, setRole] = useState<string>("staff");
@@ -62,6 +63,33 @@ export default function DashboardInternalLayout({
     return <DashboardLayoutSkeleton isCollapsed={isCollapsed} />;
   }
 
+  const pageTitle = (() => {
+    const cleanPath = pathname.replace(/^\/[a-zA-Z0-9-]+\/admin\//, "");
+    const first = cleanPath.split("/")[0] || "dashboard";
+    switch (first) {
+      case "dashboard":
+        return "Dashboard";
+      case "bookings":
+        return "Bookings";
+      case "resources":
+        return "Resources";
+      case "customers":
+        return "Customers";
+      case "fnb":
+        return "F&B";
+      case "owner":
+        return "Owner";
+      case "settings":
+        return "Settings";
+      case "pos":
+        return "POS";
+      case "":
+        return "Dashboard";
+      default:
+        return first.charAt(0).toUpperCase() + first.slice(1);
+    }
+  })();
+
   return (
     <TooltipProvider delayDuration={0} skipDelayDuration={0}>
       <div className="tenant-admin-shell flex min-h-screen overflow-x-hidden bg-slate-50 selection:bg-blue-500/30 dark:bg-[#050505]">
@@ -82,13 +110,30 @@ export default function DashboardInternalLayout({
             isCollapsed ? "md:pl-20" : "md:pl-72",
           )}
         >
-          <main className="min-h-screen w-full p-4 md:p-10">
+          <div className="fixed inset-x-0 top-0 z-40 md:hidden border-b border-slate-200/80 bg-slate-50/95 backdrop-blur dark:border-white/5 dark:bg-[#050505]/90">
+            <div className="flex items-center justify-between gap-3 px-4 py-3">
+              <div className="min-w-0">
+                <div className="text-[8px] font-black uppercase tracking-[0.35em] text-blue-600">
+                  Admin Tenant
+                </div>
+                <div className="truncate text-sm font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">
+                  {pageTitle}
+                </div>
+              </div>
+              <MobileNav
+                mode="operational"
+                role={role}
+                triggerClassName="relative left-auto bottom-auto z-auto h-11 w-11 rounded-2xl border border-slate-200 bg-slate-950 text-white shadow-lg shadow-slate-950/15 hover:bg-slate-900"
+              />
+            </div>
+          </div>
+
+          <main className="min-h-screen w-full p-4 pt-20 md:p-10 md:pt-10">
             <div className="max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-2 duration-700">
               {children}
             </div>
           </main>
         </div>
-        <MobileNav mode="operational" role={role} />
       </div>
     </TooltipProvider>
   );

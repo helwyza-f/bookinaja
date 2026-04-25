@@ -32,7 +32,6 @@ import {
   Wallet,
   Clock,
   Layers,
-  Filter,
   Box,
   MonitorPlay,
   TrendingUp,
@@ -44,10 +43,25 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
+type BookingRow = {
+  id: string;
+  customer_name: string;
+  customer_phone: string;
+  resource_name: string;
+  start_time: string;
+  end_time: string;
+  status: string;
+  payment_status?: string;
+  deposit_amount?: number;
+  balance_due?: number;
+  total_resource: number;
+  total_fnb: number;
+};
+
 export default function BookingsPage() {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
-  const [bookings, setBookings] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -61,7 +75,7 @@ export default function BookingsPage() {
     try {
       const res = await api.get(`/bookings`);
       setBookings(res.data || []);
-    } catch (err) {
+    } catch {
       toast.error("Gagal mengambil data reservasi");
     } finally {
       setLoading(false);
@@ -73,14 +87,26 @@ export default function BookingsPage() {
   }, []);
 
   useEffect(() => {
-    if (window.matchMedia("(min-width: 1024px)").matches) {
-      setViewMode("list");
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+
+    const syncViewMode = () => {
+      setViewMode(mediaQuery.matches ? "list" : "grid");
+    };
+
+    syncViewMode();
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", syncViewMode);
+      return () => mediaQuery.removeEventListener("change", syncViewMode);
     }
+
+    mediaQuery.addListener(syncViewMode);
+    return () => mediaQuery.removeListener(syncViewMode);
   }, []);
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
 
-  const getPaymentMeta = (booking: any) => {
+  const getPaymentMeta = (booking: BookingRow) => {
     const status = (booking?.payment_status || "").toLowerCase();
     const depositAmount = Number(booking?.deposit_amount || 0);
     const balanceDue = Number(booking?.balance_due || 0);
@@ -140,7 +166,7 @@ export default function BookingsPage() {
   }, [bookings, searchQuery, filterStatus, filterResource, selectedDate]);
 
   const groupedData = useMemo(() => {
-    const map: Record<string, any[]> = {};
+    const map: Record<string, BookingRow[]> = {};
     filteredBookings.forEach((b) => {
       if (!map[b.resource_name]) map[b.resource_name] = [];
       map[b.resource_name].push(b);
@@ -174,7 +200,7 @@ export default function BookingsPage() {
         </div>
 
         <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-stretch sm:gap-3 w-full lg:w-auto">
-          <div className="flex items-center gap-2 bg-slate-950 dark:bg-white p-1.5 pl-3 rounded-2xl shadow-xl border-b-4 border-slate-800 dark:border-slate-300 w-full sm:w-auto">
+          <div className="flex items-center gap-2 bg-slate-950 dark:bg-white p-1.5 pl-3 rounded-2xl shadow-xl border-b-4 border-slate-800 dark:border-slate-300 w-full sm:w-auto lg:min-w-[210px]">
             <div className="flex flex-col">
               <span className="text-[7px] md:text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase leading-none mb-0.5">
                 Total Revenue
@@ -188,7 +214,7 @@ export default function BookingsPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1.5 pl-3 rounded-2xl shadow-md border border-slate-100 dark:border-white/5 w-full sm:w-auto">
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1.5 pl-3 rounded-2xl shadow-md border border-slate-100 dark:border-white/5 w-full sm:w-auto lg:min-w-[180px]">
             <div className="flex flex-col">
               <span className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase leading-none mb-0.5">
                 Active Slot
@@ -204,7 +230,7 @@ export default function BookingsPage() {
 
           <Button
             onClick={() => router.push(`/admin/bookings/new`)}
-            className="h-12 md:h-14 px-3 md:px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[10px] md:text-[11px] shadow-2xl border-b-4 border-blue-800 gap-2 transition-all active:scale-95 ml-auto lg:ml-0 w-full sm:w-auto"
+            className="h-12 md:h-14 px-3 md:px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[10px] md:text-[11px] shadow-2xl border-b-4 border-blue-800 gap-2 transition-all active:scale-95 ml-auto lg:ml-0 w-full sm:w-auto lg:min-w-[180px]"
           >
             <Plus size={16} strokeWidth={4} /> New Booking
           </Button>
@@ -213,9 +239,8 @@ export default function BookingsPage() {
 
       {/* 2. ENHANCED SEARCH & FILTER BAR */}
       <Card className="p-4 md:p-5 rounded-[1.75rem] md:rounded-[2.5rem] bg-white dark:bg-slate-900 border-none shadow-sm ring-1 ring-slate-100 dark:ring-white/5">
-        <div className="grid grid-cols-2 gap-2 md:gap-3 lg:flex lg:flex-row">
-          {/* Main Search */}
-          <div className="relative col-span-2 lg:flex-1">
+        <div className="space-y-4 lg:hidden">
+          <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
               placeholder="Search customer name or phone..."
@@ -225,8 +250,7 @@ export default function BookingsPage() {
             />
           </div>
 
-          {/* Expanded Filters */}
-          <div className="col-span-2 grid grid-cols-2 gap-2 md:flex md:flex-wrap md:items-center md:gap-3">
+          <div className="grid grid-cols-2 gap-2 md:gap-3">
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -234,9 +258,7 @@ export default function BookingsPage() {
                   className="h-11 md:h-12 px-3 md:px-5 rounded-xl border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-800 font-[1000] italic text-[9px] md:text-xs gap-2 md:gap-3 uppercase shadow-sm w-full"
                 >
                   <CalendarIcon className="h-4 w-4 text-blue-600" />
-                  {selectedDate
-                    ? format(selectedDate, "dd MMM yyyy")
-                    : "Pick Date"}
+                  {selectedDate ? format(selectedDate, "dd MMM yyyy") : "Pick Date"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent
@@ -304,7 +326,7 @@ export default function BookingsPage() {
               </SelectContent>
             </Select>
 
-            {isFilterActive && (
+            {isFilterActive ? (
               <Button
                 onClick={resetFilters}
                 variant="ghost"
@@ -312,9 +334,9 @@ export default function BookingsPage() {
               >
                 <XCircle size={16} /> Clear
               </Button>
+            ) : (
+              <div className="h-11 rounded-2xl border border-dashed border-slate-100 bg-slate-50/60 dark:border-white/5 dark:bg-slate-800/30" />
             )}
-
-            <div className="hidden xl:block h-10 w-[1px] bg-slate-100 dark:bg-white/5 mx-1" />
 
             <div className="col-span-2 flex gap-1.5 bg-slate-50 dark:bg-slate-800 p-1.5 rounded-2xl w-full">
               <Button
@@ -344,6 +366,134 @@ export default function BookingsPage() {
                 <LayoutGrid size={18} />
               </Button>
             </div>
+          </div>
+        </div>
+
+        <div className="hidden lg:flex lg:flex-wrap lg:items-center lg:gap-3">
+          <div className="relative flex-1 min-w-[320px]">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input
+              placeholder="Search customer name or phone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-11 h-12 rounded-2xl border-none bg-slate-50 dark:bg-slate-800/50 font-black italic text-xs shadow-inner focus:ring-2 focus:ring-blue-600/20"
+            />
+          </div>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-12 px-5 rounded-xl border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-800 font-[1000] italic text-xs gap-3 uppercase shadow-sm min-w-[170px]"
+              >
+                <CalendarIcon className="h-4 w-4 text-blue-600" />
+                {selectedDate ? format(selectedDate, "dd MMM yyyy") : "Pick Date"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-80 p-0 border-none rounded-3xl overflow-hidden shadow-2xl"
+              align="start"
+            >
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={setSelectedDate}
+                className="w-full"
+              />
+            </PopoverContent>
+          </Popover>
+
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="h-12 w-[170px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-[1000] italic text-xs uppercase focus:ring-0 shadow-sm">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent className="rounded-2xl border-none shadow-2xl p-2">
+              <SelectItem
+                value="all"
+                className="text-xs font-black uppercase italic py-3 rounded-xl"
+              >
+                All Status
+              </SelectItem>
+              {[
+                "pending",
+                "confirmed",
+                "active",
+                "completed",
+                "cancelled",
+              ].map((s) => (
+                <SelectItem
+                  key={s}
+                  value={s}
+                  className="text-xs font-black uppercase italic py-3 rounded-xl"
+                >
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterResource} onValueChange={setFilterResource}>
+            <SelectTrigger className="h-12 w-[180px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-[1000] italic text-xs uppercase focus:ring-0 shadow-sm">
+              <SelectValue placeholder="Resource" />
+            </SelectTrigger>
+            <SelectContent className="rounded-2xl border-none shadow-2xl p-2">
+              <SelectItem
+                value="all"
+                className="text-xs font-black uppercase italic py-3 rounded-xl"
+              >
+                All Resources
+              </SelectItem>
+              {uniqueResources.map((r) => (
+                <SelectItem
+                  key={r}
+                  value={r}
+                  className="text-xs font-black uppercase italic py-3 rounded-xl"
+                >
+                  {r}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {isFilterActive ? (
+            <Button
+              onClick={resetFilters}
+              variant="ghost"
+              className="h-12 px-4 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 font-black italic text-xs uppercase gap-2 rounded-2xl"
+            >
+              <XCircle size={16} /> Clear
+            </Button>
+          ) : (
+            <div className="h-12 w-[100px]" />
+          )}
+
+          <div className="ml-auto flex gap-1.5 bg-slate-50 dark:bg-slate-800 p-1.5 rounded-2xl">
+            <Button
+              variant={viewMode === "list" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("list")}
+              className={cn(
+                "rounded-xl h-11 px-4 min-w-[78px]",
+                viewMode === "list"
+                  ? "bg-white dark:bg-slate-700 shadow-md font-black"
+                  : "text-slate-400",
+              )}
+            >
+              <List size={18} />
+            </Button>
+            <Button
+              variant={viewMode === "grid" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("grid")}
+              className={cn(
+                "rounded-xl h-11 px-4 min-w-[78px]",
+                viewMode === "grid"
+                  ? "bg-white dark:bg-slate-700 shadow-md font-black"
+                  : "text-slate-400",
+              )}
+            >
+              <LayoutGrid size={18} />
+            </Button>
           </div>
         </div>
       </Card>
@@ -414,7 +564,7 @@ export default function BookingsPage() {
                           <div className="flex flex-col">
                             <div className="flex items-center gap-2 text-blue-600 font-black italic text-[12px] uppercase tracking-tighter leading-none">
                               <Clock size={14} />{" "}
-                              {format(new Date(b.start_time), "HH:mm")} —{" "}
+                              {format(new Date(b.start_time), "HH:mm")} -{" "}
                               {format(new Date(b.end_time), "HH:mm")}
                             </div>
                             <span className="text-[10px] font-bold text-slate-400 uppercase italic mt-1.5">

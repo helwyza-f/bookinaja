@@ -10,6 +10,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 // Custom Brand Icons
 const InstagramIcon = ({ className }: { className?: string }) => (
@@ -217,8 +218,9 @@ export function TenantFooter({ profile, primaryColor = "#3b82f6" }: any) {
                     className="h-1 w-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                     style={{ backgroundColor: primaryColor }}
                   />
-                  Member Console
+                  Direct Support
                 </li>
+
                 <li
                   className="hover:translate-x-3 transition-transform cursor-pointer flex items-center gap-3 group"
                   style={{ color: primaryColor }}
@@ -227,7 +229,7 @@ export function TenantFooter({ profile, primaryColor = "#3b82f6" }: any) {
                     className="h-1 w-1 rounded-full opacity-100"
                     style={{ backgroundColor: primaryColor }}
                   />
-                  Direct Support
+                  <Link href={"/admin/login"}>Login Admin</Link>
                 </li>
               </ul>
 

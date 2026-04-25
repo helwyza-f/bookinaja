@@ -234,9 +234,9 @@ export default function NewManualBookingPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#050505] font-plus-jakarta pb-20 -mt-6">
-      <div className="max-w-[1600px] mx-auto p-3 md:p-4 lg:p-6 space-y-5 md:space-y-6">
+      <div className="max-w-[1600px] mx-auto p-3 md:p-4 lg:p-6 space-y-4 md:space-y-6">
         {/* COMPACT HEADER */}
-        <header className="flex items-center gap-3">
+        <header className="flex items-center gap-3 pt-6">
           <Button
             variant="ghost"
             size="icon"
@@ -246,7 +246,7 @@ export default function NewManualBookingPage() {
             <ArrowLeft size={20} className="dark:text-white" />
           </Button>
           <div>
-            <h1 className="text-xl font-[1000] uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none">
+            <h1 className="text-lg md:text-xl font-[1000] uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none">
               Manual <span className="text-blue-600">Handshake</span>
             </h1>
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
@@ -255,21 +255,21 @@ export default function NewManualBookingPage() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start">
           {/* LEFT: SELECTION FLOW */}
-          <div className="lg:col-span-8 space-y-6">
+          <div className="lg:col-span-8 space-y-5">
             {/* 01. PILIH UNIT & PAKET */}
-            <Card className="rounded-[1.5rem] md:rounded-[2rem] border-none bg-white dark:bg-[#0c0c0c] p-5 md:p-6 shadow-sm ring-1 ring-black/5 dark:ring-white/5">
-              <div className="flex items-center gap-3 mb-6">
+            <Card className="rounded-[1.5rem] md:rounded-[2rem] border-none bg-white dark:bg-[#0c0c0c] p-4 md:p-6 shadow-sm ring-1 ring-black/5 dark:ring-white/5">
+              <div className="flex items-center gap-3 mb-5">
                 <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">
-                  <Box size={18} />
+                  <Box size={16} />
                 </div>
                 <h2 className="text-sm font-[1000] uppercase italic text-slate-900 dark:text-white">
                   01. Pilih Unit & Layanan
                 </h2>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {resources.map((r) => (
                   <button
                     key={r.id}
@@ -279,7 +279,7 @@ export default function NewManualBookingPage() {
                       setSelectedTime("");
                     }}
                     className={cn(
-                      "p-4 rounded-2xl border-2 text-left transition-all",
+                      "p-3.5 rounded-2xl border-2 text-left transition-all",
                       selectedResourceId === r.id
                         ? "border-blue-600 bg-blue-50/10 dark:bg-blue-600/10 shadow-md scale-[1.02]"
                         : "border-transparent bg-slate-50 dark:bg-white/5 text-slate-400",
@@ -295,7 +295,7 @@ export default function NewManualBookingPage() {
                     >
                       {r.name}
                     </p>
-                    <p className="text-[8px] font-bold uppercase opacity-50 mt-1 italic tracking-widest">
+                    <p className="text-[7px] font-bold uppercase opacity-50 mt-1 italic tracking-widest">
                       {r.category}
                     </p>
                   </button>
@@ -303,7 +303,7 @@ export default function NewManualBookingPage() {
               </div>
 
               {currentResource && (
-                <div className="mt-6 pt-6 border-t border-slate-100 dark:border-white/5">
+                <div className="mt-5 pt-5 border-t border-slate-100 dark:border-white/5">
                   <p className="text-[9px] font-black uppercase text-slate-400 mb-3 tracking-widest italic leading-none">
                     Paket Tersedia
                   </p>
@@ -320,7 +320,7 @@ export default function NewManualBookingPage() {
                             if (!isInterday) setSelectedTime("");
                           }}
                           className={cn(
-                            "px-5 py-3 rounded-xl border-2 text-[10px] font-[1000] uppercase italic transition-all shadow-sm",
+                            "px-4 py-2.5 rounded-xl border-2 text-[9px] font-[1000] uppercase italic transition-all shadow-sm",
                             selectedMainId === item.id
                               ? "bg-slate-900 dark:bg-white text-white dark:text-black border-transparent scale-105"
                               : "bg-white dark:bg-white/5 border-slate-100 dark:border-white/5 text-slate-400 hover:text-slate-900 dark:hover:text-white",
@@ -337,16 +337,16 @@ export default function NewManualBookingPage() {
             {/* 02. JADWAL & DURASI - LEBIH BESAR */}
             <Card
               className={cn(
-                "rounded-[2rem] border-none bg-white dark:bg-[#0c0c0c] p-8 shadow-sm ring-1 ring-black/5 dark:ring-white/5 transition-all",
+                "rounded-[2rem] border-none bg-white dark:bg-[#0c0c0c] p-5 md:p-8 shadow-sm ring-1 ring-black/5 dark:ring-white/5 transition-all",
                 !selectedMainId && "opacity-20 pointer-events-none",
               )}
             >
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-10">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5 md:mb-10">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-emerald-500 flex items-center justify-center text-white shadow-lg">
-                    <Clock size={22} />
+                  <div className="h-9 w-9 rounded-xl bg-emerald-500 flex items-center justify-center text-white shadow-lg">
+                    <Clock size={18} />
                   </div>
-                  <h2 className="text-lg font-[1000] uppercase italic text-slate-900 dark:text-white tracking-tight leading-none">
+                  <h2 className="text-base md:text-lg font-[1000] uppercase italic text-slate-900 dark:text-white tracking-tight leading-none">
                     02. Kontrol Jadwal & Durasi
                   </h2>
                 </div>
@@ -355,7 +355,7 @@ export default function NewManualBookingPage() {
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className="h-12 rounded-xl font-black italic text-xs uppercase gap-3 bg-slate-50 dark:bg-white/5 px-6 border-slate-200 dark:border-white/5 text-slate-900 dark:text-white"
+                      className="h-11 rounded-xl font-black italic text-[10px] uppercase gap-3 bg-slate-50 dark:bg-white/5 px-4 border-slate-200 dark:border-white/5 text-slate-900 dark:text-white"
                     >
                       <CalendarIcon size={16} className="text-blue-600" />
                       {date
@@ -377,9 +377,9 @@ export default function NewManualBookingPage() {
                 </Popover>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-10">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-10">
                 <div className="lg:col-span-4 flex flex-col items-center justify-center border-r border-slate-100 dark:border-white/5 pr-4 md:pr-10">
-                  <span className="text-[10px] font-black uppercase text-slate-400 italic mb-6 tracking-[0.2em] leading-none text-center">
+                  <span className="text-[9px] font-black uppercase text-slate-400 italic mb-5 tracking-[0.2em] leading-none text-center">
                     Jumlah Unit / Sesi
                   </span>
                   <div className="flex items-center gap-6">
@@ -389,11 +389,11 @@ export default function NewManualBookingPage() {
                       onClick={() =>
                         setDurationValue((d) => Math.max(1, d - 1))
                       }
-                      className="h-10 w-10 rounded-full shadow-sm dark:bg-white/5 dark:border-white/10 dark:text-white"
+                      className="h-9 w-9 rounded-full shadow-sm dark:bg-white/5 dark:border-white/10 dark:text-white"
                     >
                       -
                     </Button>
-                    <span className="text-4xl md:text-7xl font-[1000] italic text-blue-600 tabular-nums leading-none tracking-tighter">
+                    <span className="text-3xl md:text-7xl font-[1000] italic text-blue-600 tabular-nums leading-none tracking-tighter">
                       {durationValue}
                     </span>
                     <Button
@@ -404,14 +404,14 @@ export default function NewManualBookingPage() {
                           Math.min(maxAvailableSessions, d + 1),
                         )
                       }
-                      className="h-10 w-10 rounded-full shadow-sm dark:bg-white/5 dark:border-white/10 dark:text-white"
+                      className="h-9 w-9 rounded-full shadow-sm dark:bg-white/5 dark:border-white/10 dark:text-white"
                     >
                       +
                     </Button>
                   </div>
                   <Badge
                     variant="secondary"
-                    className="mt-6 text-[9px] font-black uppercase tracking-widest italic px-4 py-1 dark:bg-white/5 dark:text-slate-400"
+                    className="mt-5 text-[8px] font-black uppercase tracking-widest italic px-4 py-1 dark:bg-white/5 dark:text-slate-400"
                   >
                     Slot Maks: {maxAvailableSessions}
                   </Badge>
@@ -419,7 +419,7 @@ export default function NewManualBookingPage() {
 
                 <div className="lg:col-span-8">
                   {!isInterday ? (
-                    <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2.5">
+                    <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2">
                       {availableSlots.map((t) => {
                         const isBusy = busySlots.some((s) => {
                           const [h, m] = t.split(":").map(Number);
@@ -437,7 +437,7 @@ export default function NewManualBookingPage() {
                             disabled={isBusy || isPast}
                             onClick={() => setSelectedTime(t)}
                             className={cn(
-                              "h-12 rounded-xl text-xs font-black italic border-2 transition-all flex items-center justify-center relative",
+                              "h-11 rounded-xl text-[10px] font-black italic border-2 transition-all flex items-center justify-center relative",
                               isSel
                                 ? "bg-blue-600 border-blue-600 text-white shadow-xl scale-110 z-10"
                                 : isBusy || isPast
@@ -451,9 +451,9 @@ export default function NewManualBookingPage() {
                       })}
                     </div>
                   ) : (
-                    <div className="h-full flex items-center p-5 md:p-8 bg-blue-500/5 rounded-[1.5rem] md:rounded-[2rem] border border-blue-500/10 gap-4 md:gap-5">
-                      <ShieldCheck className="text-blue-500 h-10 w-10 shrink-0" />
-                      <p className="text-xs font-black text-blue-600 uppercase italic leading-relaxed tracking-wide">
+                    <div className="h-full flex items-center p-4 md:p-8 bg-blue-500/5 rounded-[1.5rem] md:rounded-[2rem] border border-blue-500/10 gap-4 md:gap-5">
+                      <ShieldCheck className="text-blue-500 h-9 w-9 shrink-0" />
+                      <p className="text-[10px] md:text-xs font-black text-blue-600 uppercase italic leading-relaxed tracking-wide">
                         Logic Antar Hari Aktif: Boking dimulai otomatis pukul
                         08:00 untuk paket {selectedItem?.price_unit}.
                       </p>
@@ -467,15 +467,15 @@ export default function NewManualBookingPage() {
           {/* SISI KANAN: RINGKASAN & KONFIRMASI */}
           <div
             className={cn(
-              "lg:col-span-4 space-y-6 transition-all duration-500",
+              "lg:col-span-4 space-y-5 transition-all duration-500",
               !selectedTime && "opacity-20 pointer-events-none",
             )}
           >
-            <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-none bg-slate-950 p-5 md:p-8 text-white shadow-2xl space-y-6 md:space-y-8 ring-1 ring-white/5">
+            <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-none bg-slate-950 p-4 md:p-8 text-white shadow-2xl space-y-5 md:space-y-8 ring-1 ring-white/5">
               {/* CUSTOMER INFO */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                  <p className="text-[10px] font-black uppercase italic tracking-widest text-slate-500">
+                <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                  <p className="text-[9px] font-black uppercase italic tracking-widest text-slate-500">
                     Profil Pelanggan
                   </p>
                   <Smartphone size={16} className="text-blue-500" />
@@ -489,10 +489,10 @@ export default function NewManualBookingPage() {
                       onChange={(e) =>
                         setCustPhone(e.target.value.replace(/\D/g, ""))
                       }
-                      className="h-14 bg-white/5 border-none font-black italic text-sm pl-12 rounded-xl placeholder:text-slate-700 focus-visible:ring-blue-600 text-white"
+                      className="h-12 bg-white/5 border-none font-black italic text-sm pl-12 rounded-xl placeholder:text-slate-700 focus-visible:ring-blue-600 text-white"
                     />
                     {isReturning && (
-                      <Badge className="absolute right-3 top-1/2 -translate-y-1/2 bg-blue-600 text-[8px] font-black uppercase italic border-none shadow-lg">
+                      <Badge className="absolute right-3 top-1/2 -translate-y-1/2 bg-blue-600 text-[7px] font-black uppercase italic border-none shadow-lg">
                         Member Sultan
                       </Badge>
                     )}
@@ -505,40 +505,43 @@ export default function NewManualBookingPage() {
                       onChange={(e) =>
                         setCustName(e.target.value.toUpperCase())
                       }
-                      className="h-14 bg-white/5 border-none font-black italic text-sm pl-12 rounded-xl placeholder:text-slate-700 focus-visible:ring-blue-600 text-white"
+                      className="h-12 bg-white/5 border-none font-black italic text-sm pl-12 rounded-xl placeholder:text-slate-700 focus-visible:ring-blue-600 text-white"
                     />
                   </div>
                 </div>
               </div>
 
               {/* FLOW & ADDONS */}
-              <div className="space-y-6 pt-4 border-t border-white/5">
+              <div className="space-y-5 pt-4 border-t border-white/5">
                 <div className="space-y-3">
-                  <p className="text-[10px] font-black uppercase italic tracking-widest text-slate-500 leading-none">
+                  <p className="text-[9px] font-black uppercase italic tracking-widest text-slate-500 leading-none">
                     Flow Booking
                   </p>
                   <div className="rounded-2xl border border-orange-500/15 bg-orange-500/10 px-4 py-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-[9px] font-black uppercase tracking-widest text-orange-200">
+                        <p className="text-[8px] font-black uppercase tracking-widest text-orange-200">
                           Status awal otomatis
                         </p>
-                        <p className="mt-2 text-sm font-[1000] italic text-white">
+                        <p className="mt-2 text-[13px] font-[1000] italic text-white">
                           Pending, belum aktif
                         </p>
                       </div>
-                      <Badge className="border-none bg-orange-600 text-white text-[8px] font-black uppercase italic shadow-lg">
+                      <Badge className="border-none bg-orange-600 text-white text-[7px] font-black uppercase italic shadow-lg">
                         pending
                       </Badge>
                     </div>
-                    <p className="mt-3 text-[11px] font-bold leading-relaxed text-orange-50/85">
-                      Semua booking manual tetap mengikuti flow DP. Jika unit sedang kosong dan customer langsung masuk, sesi bisa diaktifkan manual nanti dari detail booking atau oleh admin.
+                    <p className="mt-3 text-[10px] font-bold leading-relaxed text-orange-50/85">
+                      Semua booking manual tetap mengikuti flow DP. Jika unit
+                      sedang kosong dan customer langsung masuk, sesi bisa
+                      diaktifkan manual nanti dari detail booking atau oleh
+                      admin.
                     </p>
                   </div>
                 </div>
 
                 <div className="space-y-3">
-                  <p className="text-[10px] font-black uppercase italic tracking-widest text-slate-500 leading-none">
+                  <p className="text-[9px] font-black uppercase italic tracking-widest text-slate-500 leading-none">
                     Layanan Tambahan
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -557,7 +560,7 @@ export default function NewManualBookingPage() {
                               )
                             }
                             className={cn(
-                              "px-4 py-2 rounded-lg text-[9px] font-black uppercase italic transition-all shadow-sm",
+                              "px-3.5 py-2 rounded-lg text-[8px] font-black uppercase italic transition-all shadow-sm",
                               active
                                 ? "bg-blue-600 text-white"
                                 : "bg-white/5 text-slate-500 hover:text-slate-300",
@@ -572,27 +575,25 @@ export default function NewManualBookingPage() {
               </div>
 
               {/* TOTAL BILL */}
-              <div className="bg-white/5 p-6 rounded-3xl space-y-4 relative overflow-hidden border border-white/5 shadow-inner">
+              <div className="bg-white/5 p-4 md:p-6 rounded-3xl space-y-4 relative overflow-hidden border border-white/5 shadow-inner">
                 <div className="relative z-10">
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 italic leading-none">
+                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1 italic leading-none">
                     Estimasi Tagihan
                   </p>
-                  <p className="text-3xl md:text-5xl font-[1000] italic tracking-tighter text-white leading-none">
+                  <p className="text-2xl md:text-5xl font-[1000] italic tracking-tighter text-white leading-none">
                     Rp{calculateTotal().toLocaleString()}
                   </p>
                 </div>
                 <div className="relative z-10 pt-4 border-t border-white/5 flex items-center justify-between gap-4">
                   <div className="flex flex-col">
-                    <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] leading-none mb-1.5">
+                    <span className="text-[7px] font-black text-slate-500 uppercase tracking-[0.2em] leading-none mb-1.5">
                       Garis Waktu
                     </span>
-                    <span className="text-[10px] font-black italic text-blue-400 leading-none">
+                    <span className="text-[9px] font-black italic text-blue-400 leading-none">
                       {timelineSummary}
                     </span>
                   </div>
-                  <Badge
-                    className="font-[1000] italic text-[9px] uppercase shadow-lg px-3 py-1 border-none bg-orange-600"
-                  >
+                  <Badge className="font-[1000] italic text-[8px] uppercase shadow-lg px-3 py-1 border-none bg-orange-600">
                     pending
                   </Badge>
                 </div>

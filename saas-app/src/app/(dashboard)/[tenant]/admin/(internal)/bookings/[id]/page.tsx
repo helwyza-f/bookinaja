@@ -186,7 +186,7 @@ export default function BookingDetailPage() {
     );
 
   return (
-    <div className="max-w-7xl mx-auto p-3 md:p-4 lg:p-6 space-y-5 md:space-y-6 animate-in fade-in duration-500 font-plus-jakarta pb-20 mt-3 md:mt-4">
+    <div className="max-w-7xl mx-auto p-3 md:p-4 lg:p-6 space-y-4 md:space-y-6 animate-in fade-in duration-500 font-plus-jakarta pb-20 mt-3 md:mt-4">
       <Script
         src={
           (
@@ -206,12 +206,12 @@ export default function BookingDetailPage() {
           <Button
             variant="ghost"
             onClick={() => router.push("/admin/bookings")}
-            className="h-6 px-0 text-slate-400 hover:text-blue-600 font-black text-[9px] uppercase tracking-widest italic flex items-center gap-2 transition-all"
+            className="h-6 px-0 text-slate-400 hover:text-blue-600 font-black text-[8px] uppercase tracking-widest italic flex items-center gap-2 transition-all"
           >
             <ArrowLeft className="w-2.5 h-2.5 stroke-[4]" /> Back to List
           </Button>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl md:text-4xl lg:text-5xl font-[1000] italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
+            <h1 className="text-xl md:text-4xl lg:text-5xl font-[1000] italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
               Billing <span className="text-blue-600">Details.</span>
             </h1>
             <Badge
@@ -229,14 +229,14 @@ export default function BookingDetailPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+        <div className="grid grid-cols-2 gap-2 w-full md:flex md:flex-wrap md:w-auto">
           {/* VIP ACTIONS */}
           {(booking.balance_due > 0 || booking.payment_status === "partial_paid") && (
             <div className="relative">
               <Button
                 onClick={() => setPayOpen((prev) => !prev)}
                 disabled={updating}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[9px] h-12 px-4 sm:px-6 rounded-xl shadow-lg border-b-4 border-blue-800 gap-2 w-full sm:w-auto"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[8px] h-11 px-3 sm:px-6 rounded-xl shadow-lg border-b-4 border-blue-800 gap-2 w-full sm:w-auto"
               >
                 <CreditCard className="w-3.5 h-3.5" />
                 Process Payment
@@ -286,7 +286,7 @@ export default function BookingDetailPage() {
             <Button
               onClick={() => router.push(`/admin/pos?active=${booking.id}`)}
               variant="outline"
-              className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 text-blue-600 font-black uppercase italic text-[9px] h-12 px-4 sm:px-5 rounded-xl shadow-sm hover:bg-blue-600 hover:text-white transition-all gap-2 w-full sm:w-auto"
+            className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 text-blue-600 font-black uppercase italic text-[8px] h-11 px-3 sm:px-5 rounded-xl shadow-sm hover:bg-blue-600 hover:text-white transition-all gap-2 w-full sm:w-auto"
             >
               <Zap className="w-3.5 h-3.5 fill-current" /> POS Hub
             </Button>
@@ -296,7 +296,7 @@ export default function BookingDetailPage() {
             <Button
               onClick={() => handleUpdateStatus("active")}
               disabled={updating}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase italic text-[9px] h-12 px-4 sm:px-6 rounded-xl shadow-lg border-b-4 border-emerald-800 w-full sm:w-auto"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase italic text-[8px] h-11 px-3 sm:px-6 rounded-xl shadow-lg border-b-4 border-emerald-800 w-full sm:w-auto"
             >
               Activate Session
             </Button>
@@ -306,7 +306,7 @@ export default function BookingDetailPage() {
             <Button
               onClick={() => handleUpdateStatus("confirmed")}
               disabled={updating}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[9px] h-12 px-4 sm:px-6 rounded-xl shadow-lg border-b-4 border-blue-800 w-full sm:w-auto"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[8px] h-11 px-3 sm:px-6 rounded-xl shadow-lg border-b-4 border-blue-800 w-full sm:w-auto"
             >
               Confirm Booking
             </Button>
@@ -322,7 +322,7 @@ export default function BookingDetailPage() {
                 handleUpdateStatus("completed");
               }}
               disabled={updating || !isPaymentSettled}
-              className="bg-slate-900 dark:bg-blue-600 text-white font-black uppercase italic text-[9px] h-12 px-4 sm:px-6 rounded-xl shadow-lg border-b-4 border-slate-700 dark:border-blue-800 w-full sm:w-auto"
+            className="bg-slate-900 dark:bg-blue-600 text-white font-black uppercase italic text-[8px] h-11 px-3 sm:px-6 rounded-xl shadow-lg border-b-4 border-slate-700 dark:border-blue-800 w-full sm:w-auto"
             >
               {isPaymentSettled ? "Checkout Final" : "Belum Lunas"}
             </Button>
@@ -357,42 +357,42 @@ export default function BookingDetailPage() {
       </header>
 
       {/* 2. MAIN CONTENT GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start">
         {/* LEFT COLUMN: CUSTOMER & SCHEDULE */}
-        <div className="lg:col-span-7 space-y-6">
-          <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-none shadow-sm p-5 md:p-8 bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5 overflow-hidden relative">
+        <div className="lg:col-span-7 space-y-5">
+          <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-none shadow-sm p-4 md:p-8 bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5 overflow-hidden relative">
             <div className="absolute -top-6 -right-6 opacity-[0.03] dark:opacity-[0.05] pointer-events-none">
               <User size={180} />
             </div>
 
-            <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8">
-              <div className="space-y-6">
+            <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+              <div className="space-y-5">
                 <div className="space-y-1">
                   <p className="text-[8px] font-black text-blue-600 uppercase tracking-widest italic leading-none">
                     Customer Profile
                   </p>
-                  <h2 className="text-xl md:text-2xl lg:text-3xl font-[1000] italic text-slate-950 dark:text-white uppercase tracking-tighter truncate">
+                  <h2 className="text-lg md:text-2xl lg:text-3xl font-[1000] italic text-slate-950 dark:text-white uppercase tracking-tighter truncate">
                     {booking.customer_name}
                   </h2>
-                  <div className="flex items-center gap-2 text-slate-400 font-bold italic text-sm mt-2">
+                  <div className="flex items-center gap-2 text-slate-400 font-bold italic text-xs md:text-sm mt-2">
                     <Phone className="w-3.5 h-3.5 text-emerald-500" />{" "}
                     {booking.customer_phone}
                   </div>
                 </div>
 
-                <div className="pt-6 border-t border-slate-50 dark:border-white/5 space-y-3">
+                <div className="pt-5 border-t border-slate-50 dark:border-white/5 space-y-3">
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest italic leading-none">
                     Resource Handshake
                   </p>
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-slate-950 dark:bg-slate-800 flex items-center justify-center text-white shadow-lg">
-                      <Package size={20} />
+                    <div className="w-9 h-9 rounded-xl bg-slate-950 dark:bg-slate-800 flex items-center justify-center text-white shadow-lg">
+                      <Package size={18} />
                     </div>
                     <div>
-                      <p className="font-[1000] italic text-slate-950 dark:text-white uppercase text-base leading-none tracking-tight">
+                      <p className="font-[1000] italic text-slate-950 dark:text-white uppercase text-sm md:text-base leading-none tracking-tight">
                         {booking.resource_name}
                       </p>
-                      <span className="text-[8px] font-black text-blue-500 uppercase mt-1 block tracking-widest">
+                      <span className="text-[7px] font-black text-blue-500 uppercase mt-1 block tracking-widest">
                         Handshake Active
                       </span>
                     </div>
@@ -400,30 +400,30 @@ export default function BookingDetailPage() {
                 </div>
               </div>
 
-              <div className="space-y-6 md:border-l md:border-slate-50 md:dark:border-white/5 md:pl-8">
+              <div className="space-y-5 md:border-l md:border-slate-50 md:dark:border-white/5 md:pl-8">
                 <div className="space-y-1">
                   <p className="text-[8px] font-black text-blue-600 uppercase tracking-widest italic leading-none">
                     Timeline
                   </p>
-                  <div className="flex items-center gap-2 text-base font-[1000] italic text-slate-900 dark:text-white uppercase tracking-tighter">
+                  <div className="flex items-center gap-2 text-sm md:text-base font-[1000] italic text-slate-900 dark:text-white uppercase tracking-tighter">
                     <Calendar className="w-4 h-4 text-slate-300" />
                     {format(new Date(booking.start_time), "dd MMMM yyyy", {
                       locale: localeID,
                     })}
                   </div>
-                  <div className="flex items-center gap-2 text-xl font-[1000] italic text-blue-600 dark:text-blue-400 uppercase tracking-tighter">
+                  <div className="flex items-center gap-2 text-lg md:text-xl font-[1000] italic text-blue-600 dark:text-blue-400 uppercase tracking-tighter">
                     <Clock className="w-4 h-4 opacity-40" />
                     {format(new Date(booking.start_time), "HH:mm")} —{" "}
                     {format(new Date(booking.end_time), "HH:mm")}
                   </div>
                 </div>
 
-                <div className="pt-6 border-t border-slate-50 dark:border-white/5 flex items-center justify-between">
+                <div className="pt-5 border-t border-slate-50 dark:border-white/5 flex items-center justify-between">
                   <div className="space-y-1">
                     <p className="text-[8px] font-black text-slate-400 uppercase italic">
                       Token Handle
                     </p>
-                    <p className="text-[10px] font-mono font-bold text-slate-600 dark:text-slate-500 break-all uppercase tracking-tighter">
+                    <p className="text-[9px] font-mono font-bold text-slate-600 dark:text-slate-500 break-all uppercase tracking-tighter">
                       {booking.access_token.slice(0, 15)}...
                     </p>
                   </div>
@@ -434,8 +434,8 @@ export default function BookingDetailPage() {
           </Card>
 
           {/* RENTAL OPTIONS */}
-          <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-none shadow-sm p-5 md:p-8 bg-white dark:bg-slate-900 space-y-6 ring-1 ring-slate-100 dark:ring-white/5">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
+          <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-none shadow-sm p-4 md:p-8 bg-white dark:bg-slate-900 space-y-5 md:space-y-6 ring-1 ring-slate-100 dark:ring-white/5">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
               <div className="flex items-center gap-2">
                 <Layers className="w-4 h-4 text-blue-600" />
                 <h3 className="text-sm font-[1000] italic uppercase tracking-widest text-slate-950 dark:text-white">
@@ -444,30 +444,30 @@ export default function BookingDetailPage() {
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3.5">
               {groupedOptions.map((opt: any) => (
                 <div
                   key={opt.id}
                   className="flex justify-between items-center group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center font-black italic text-blue-600 text-[10px] shadow-inner">
+                    <div className="w-9 h-9 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center font-black italic text-blue-600 text-[9px] shadow-inner">
                       {opt.item_type === "main_option" ? "PKG" : "ADD"}
                     </div>
                     <div>
-                      <p className="font-black italic text-slate-900 dark:text-slate-100 uppercase text-sm leading-none tracking-tight">
+                      <p className="font-black italic text-slate-900 dark:text-slate-100 uppercase text-[11px] md:text-sm leading-none tracking-tight">
                         {opt.item_name}
                       </p>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase italic mt-1 leading-none">
+                      <p className="text-[8px] font-bold text-slate-400 uppercase italic mt-1 leading-none">
                         @Rp{formatIDR(opt.displayUnitPrice)}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className="font-black italic text-blue-600 text-xs">
+                    <span className="font-black italic text-blue-600 text-[10px]">
                       x{opt.quantity}
                     </span>
-                    <p className="font-[1000] italic text-slate-950 dark:text-white text-base leading-none">
+                    <p className="font-[1000] italic text-slate-950 dark:text-white text-sm md:text-base leading-none">
                       Rp{formatIDR(opt.totalPrice)}
                     </p>
                   </div>
@@ -478,10 +478,10 @@ export default function BookingDetailPage() {
         </div>
 
         {/* RIGHT COLUMN: F&B + TOTAL */}
-        <div className="lg:col-span-5 space-y-6">
+        <div className="lg:col-span-5 space-y-5">
           {/* FnB SECTION */}
-          <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-none shadow-sm p-5 md:p-8 bg-white dark:bg-slate-900 flex flex-col ring-1 ring-slate-100 dark:ring-white/5 min-h-[300px]">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4 mb-6">
+          <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-none shadow-sm p-4 md:p-8 bg-white dark:bg-slate-900 flex flex-col ring-1 ring-slate-100 dark:ring-white/5 min-h-[300px]">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3 mb-5">
               <div className="flex items-center gap-2">
                 <Utensils className="w-4 h-4 text-orange-500" />
                 <h3 className="text-sm font-[1000] italic uppercase tracking-widest text-slate-950 dark:text-white">
@@ -493,14 +493,14 @@ export default function BookingDetailPage() {
                 <Button
                   variant="ghost"
                   onClick={() => router.push(`/admin/pos?active=${booking.id}`)}
-                  className="h-8 text-[9px] font-black uppercase italic bg-orange-50 dark:bg-orange-950/20 text-orange-600 rounded-lg px-3"
+                className="h-8 text-[8px] font-black uppercase italic bg-orange-50 dark:bg-orange-950/20 text-orange-600 rounded-lg px-3"
                 >
                   Edit POS
                 </Button>
               )}
             </div>
 
-            <div className="flex-1 space-y-4">
+            <div className="flex-1 space-y-3.5">
               {groupedOrders.length > 0 ? (
                 groupedOrders.map((order: any) => (
                   <div
@@ -516,7 +516,7 @@ export default function BookingDetailPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="font-black text-blue-600 italic text-[11px]">
+                      <span className="font-black text-blue-600 italic text-[10px]">
                         x{order.quantity}
                       </span>
                       <span className="font-black text-slate-950 dark:text-white italic text-base">
