@@ -6,8 +6,7 @@ import api from "@/lib/api";
 import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SettingsSidebar } from "@/components/dashboard/settings-sidebar";
-import { MobileNav } from "@/components/dashboard/mobile-nav";
-import { SettingsTabs } from "@/components/dashboard/settings-tabs";
+import { SettingsMobileNav } from "@/components/dashboard/settings-mobile-nav";
 
 type MeResponse = {
   user?: {
@@ -78,8 +77,8 @@ export default function SettingsLayout({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#050505]">
-      <div className="mx-auto grid min-h-screen max-w-[1800px] gap-0 lg:grid-cols-[340px_minmax(0,1fr)] pb-24 md:pb-0">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-[#050505]">
+      <div className="mx-auto grid min-h-screen max-w-[1800px] gap-0 lg:grid-cols-[340px_minmax(0,1fr)] pb-6 md:pb-0">
         <div className="hidden lg:block">
           <SettingsSidebar
             tenantName={tenantName || user?.name}
@@ -88,12 +87,14 @@ export default function SettingsLayout({
           />
         </div>
 
-        <main className="px-4 py-6 md:px-6 lg:px-10 lg:py-8">
-          <SettingsTabs />
+        <main className="space-y-4 px-4 py-4 md:space-y-6 md:px-6 lg:px-10 lg:py-8">
+          <SettingsMobileNav
+            tenantName={tenantName || user?.name}
+            role={user?.role}
+          />
           <div className="mx-auto max-w-[1400px]">{children}</div>
         </main>
       </div>
-      <MobileNav mode="settings" role={user?.role} />
     </div>
   );
 }

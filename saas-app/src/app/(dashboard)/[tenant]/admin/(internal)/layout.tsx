@@ -64,7 +64,7 @@ export default function DashboardInternalLayout({
 
   return (
     <TooltipProvider delayDuration={0} skipDelayDuration={0}>
-      <div className="tenant-admin-shell flex min-h-screen bg-slate-50 dark:bg-[#050505] selection:bg-blue-500/30">
+      <div className="tenant-admin-shell flex min-h-screen overflow-x-hidden bg-slate-50 selection:bg-blue-500/30 dark:bg-[#050505]">
         {/* SIDEBAR */}
         <aside
           className={cn(
@@ -78,11 +78,11 @@ export default function DashboardInternalLayout({
         {/* MAIN CONTENT */}
         <div
           className={cn(
-            "tenant-admin-content flex flex-1 flex-col transition-all duration-300 ease-in-out pb-24 md:pb-0",
+            "tenant-admin-content flex min-w-0 flex-1 flex-col transition-all duration-300 ease-in-out pb-24 md:pb-0",
             isCollapsed ? "md:pl-20" : "md:pl-72",
           )}
         >
-          <main className="min-h-screen p-4 md:p-10">
+          <main className="min-h-screen w-full p-4 md:p-10">
             <div className="max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-2 duration-700">
               {children}
             </div>
@@ -97,7 +97,7 @@ export default function DashboardInternalLayout({
 // --- LOADING SKELETON COMPONENT ---
 function DashboardLayoutSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
   return (
-    <div className="tenant-admin-shell flex min-h-screen bg-slate-50 dark:bg-[#050505]">
+    <div className="tenant-admin-shell flex min-h-screen overflow-x-hidden bg-slate-50 dark:bg-[#050505]">
       {/* Sidebar Shadow Skeleton */}
       <div
         className={cn(

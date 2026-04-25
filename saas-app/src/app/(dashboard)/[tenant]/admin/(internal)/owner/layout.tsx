@@ -66,7 +66,7 @@ export default function OwnerLayout({
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.08),transparent_32%),linear-gradient(180deg,#f8fafc_0%,#ffffff_100%)] dark:bg-[#050505] dark:bg-none">
+    <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.08),transparent_32%),linear-gradient(180deg,#f8fafc_0%,#ffffff_100%)] dark:bg-[#050505] dark:bg-none">
       <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 lg:px-10 lg:py-8">
         <div className="mb-6 flex flex-col gap-3 rounded-[2rem] border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur dark:border-white/5 dark:bg-white/[0.03] md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">

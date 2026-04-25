@@ -31,7 +31,7 @@ import { cn } from "@/lib/utils";
 // --- KOMPONEN SKELETON COMPACT ---
 function ResourceSkeleton() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
       {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
         <Card
           key={i}
@@ -120,18 +120,18 @@ export default function ResourcesPage() {
   })();
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-6 pb-20 animate-in fade-in duration-500 px-4 mt-6 font-plus-jakarta">
+    <div className="max-w-[1600px] mx-auto space-y-5 md:space-y-6 pb-20 animate-in fade-in duration-500 px-3 md:px-4 mt-4 md:mt-6 font-plus-jakarta">
       {/* 1. COMPACT HEADER */}
-      <div className="flex flex-row items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-6 gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-5 md:pb-6 gap-4">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 bg-slate-950 dark:bg-white rounded-xl flex items-center justify-center text-white dark:text-slate-950 shadow-xl">
             {labels.icon}
           </div>
           <div className="flex flex-col">
-            <h1 className="text-2xl md:text-4xl font-[1000] italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
+            <h1 className="text-xl md:text-4xl font-[1000] italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
               {labels.title} <span className="text-blue-600">Assets.</span>
             </h1>
-            <p className="hidden sm:block text-[8px] font-black text-slate-400 uppercase tracking-[0.4em] italic mt-1.5">
+            <p className="hidden sm:block text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-[0.4em] italic mt-1.5">
               Inventory Master & Rate Control
             </p>
           </div>
@@ -171,7 +171,7 @@ export default function ResourcesPage() {
           </Button>
         </div>
       ) : resources.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-5">
           {resources.map((res) => {
             const mainItems =
               res.items?.filter((i: any) =>
@@ -181,14 +181,14 @@ export default function ResourcesPage() {
             return (
               <Card
                 key={res.id}
-                className="group rounded-[2rem] border-[0.5px] border-slate-200 dark:border-white/5 transition-all duration-300 bg-white dark:bg-slate-900 hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/5 flex flex-col relative overflow-hidden"
+                className="group rounded-[1.5rem] md:rounded-[2rem] border-[0.5px] border-slate-200 dark:border-white/5 transition-all duration-300 bg-white dark:bg-slate-900 hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/5 flex flex-col relative overflow-hidden"
               >
-                <CardContent className="p-6 flex-1 flex flex-col relative z-10">
+                <CardContent className="p-3 md:p-6 flex-1 flex flex-col relative z-10">
                   {/* Top: Status & Mini Icon */}
-                  <div className="flex justify-between items-center mb-6">
+                  <div className="flex justify-between items-center mb-4 md:mb-6">
                     <div
                       className={cn(
-                        "h-10 w-10 rounded-xl flex items-center justify-center shadow-inner",
+                        "h-8 w-8 md:h-10 md:w-10 rounded-xl flex items-center justify-center shadow-inner",
                         res.status === "available"
                           ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600"
                           : "bg-slate-50 dark:bg-slate-800 text-slate-300",
@@ -209,22 +209,22 @@ export default function ResourcesPage() {
                   </div>
 
                   {/* Info: Title & Sub */}
-                  <div className="mb-6">
-                    <h3 className="text-xl font-[1000] text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none truncate group-hover:text-blue-600 transition-colors">
+                  <div className="mb-4 md:mb-6">
+                    <h3 className="text-base md:text-xl font-[1000] text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none truncate group-hover:text-blue-600 transition-colors">
                       {res.name}
                     </h3>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1.5 opacity-70">
+                    <p className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1.5 opacity-70">
                       {res.category || labels.unit}
                     </p>
                   </div>
 
                   {/* Main Configurations - Compact List */}
-                  <div className="flex-1 space-y-2 mb-8">
+                  <div className="flex-1 space-y-2 mb-5 md:mb-8">
                     {mainItems.slice(0, 3).map((item: any) => (
                       <div
                         key={item.id}
                         className={cn(
-                          "flex items-center justify-between p-3 rounded-xl border-[0.5px] transition-all",
+                          "flex items-center justify-between p-2.5 md:p-3 rounded-xl border-[0.5px] transition-all",
                           item.is_default
                             ? "bg-blue-50/50 dark:bg-blue-900/10 border-blue-200/50 dark:border-blue-800/30"
                             : "bg-slate-50/30 dark:bg-slate-800/20 border-transparent opacity-60",
@@ -240,11 +240,11 @@ export default function ResourcesPage() {
                             )}
                             strokeWidth={4}
                           />
-                          <span className="text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase italic truncate">
+                          <span className="text-[8px] md:text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase italic truncate">
                             {item.name}
                           </span>
                         </div>
-                        <span className="text-[10px] font-black text-blue-600 italic whitespace-nowrap ml-2">
+                        <span className="text-[8px] md:text-[10px] font-black text-blue-600 italic whitespace-nowrap ml-2">
                           Rp{formatIDR(item.price)}
                         </span>
                       </div>
@@ -257,14 +257,14 @@ export default function ResourcesPage() {
                   </div>
 
                   {/* Actions Footer */}
-                  <div className="flex gap-2.5 pt-6 border-t border-slate-50 dark:border-white/5 mt-auto">
+                  <div className="flex gap-2 pt-4 md:pt-6 border-t border-slate-50 dark:border-white/5 mt-auto">
                     <Link
                       href={`/admin/resources/${res.id}`}
                       className="flex-1"
                     >
                       <Button
                         variant="outline"
-                        className="w-full h-11 rounded-xl font-black text-[10px] uppercase italic tracking-widest border-slate-200 dark:border-white/10 hover:bg-blue-600 hover:text-white transition-all gap-2 group/btn"
+                        className="w-full h-10 md:h-11 rounded-xl font-black text-[9px] md:text-[10px] uppercase italic tracking-widest border-slate-200 dark:border-white/10 hover:bg-blue-600 hover:text-white transition-all gap-2 group/btn"
                       >
                         <Settings2
                           size={14}
@@ -278,7 +278,7 @@ export default function ResourcesPage() {
                       onClick={() => handleDelete(res.id, res.name)}
                       className="h-11 w-11 rounded-xl text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all shrink-0"
                     >
-                      <Trash2 size={18} />
+                      <Trash2 size={16} />
                     </Button>
                   </div>
                 </CardContent>
@@ -307,3 +307,4 @@ export default function ResourcesPage() {
     </div>
   );
 }
+

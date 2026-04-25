@@ -136,53 +136,53 @@ export default function CustomersPage() {
   return (
     <div className="max-w-[1600px] mx-auto space-y-6 pb-20 animate-in fade-in duration-500 px-4 mt-6 font-plus-jakarta">
       {/* 1. COMPACT ANALYTICS BAR */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-6 rounded-[1.5rem] bg-slate-950 text-white border-none shadow-xl relative overflow-hidden group">
-          <Users className="absolute right-[-5%] top-[-10%] opacity-10 w-24 h-24" />
+      <div className="grid grid-cols-3 gap-2 md:gap-4">
+        <Card className="p-3 md:p-6 rounded-[1.25rem] md:rounded-[1.5rem] bg-slate-950 text-white border-none shadow-xl relative overflow-hidden group">
+          <Users className="absolute right-[-5%] top-[-10%] opacity-10 w-16 h-16 md:w-24 md:h-24" />
           <div className="relative z-10">
-            <p className="text-[8px] font-black uppercase tracking-widest text-slate-500 italic mb-1">
+            <p className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-slate-500 italic mb-1">
               Total Database
             </p>
-            <h3 className="text-3xl font-[1000] italic leading-none">
+            <h3 className="text-xl md:text-3xl font-[1000] italic leading-none">
               {loading ? "..." : stats.total}{" "}
-              <span className="text-[10px] not-italic opacity-40 uppercase">
+              <span className="text-[8px] md:text-[10px] not-italic opacity-40 uppercase">
                 Clients
               </span>
             </h3>
           </div>
         </Card>
 
-        <Card className="p-6 rounded-[1.5rem] bg-white dark:bg-slate-900 border-[0.5px] border-slate-200 dark:border-white/5 shadow-sm relative overflow-hidden">
+        <Card className="p-3 md:p-6 rounded-[1.25rem] md:rounded-[1.5rem] bg-white dark:bg-slate-900 border-[0.5px] border-slate-200 dark:border-white/5 shadow-sm relative overflow-hidden">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic mb-1">
+              <p className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-slate-400 italic mb-1">
                 VIP Retention
               </p>
-              <h3 className="text-3xl font-[1000] italic text-blue-600 leading-none">
+              <h3 className="text-xl md:text-3xl font-[1000] italic text-blue-600 leading-none">
                 {loading ? "..." : stats.vips}
               </h3>
             </div>
-            <Badge className="bg-purple-500/10 text-purple-600 border-none font-black italic text-[9px] uppercase px-2 py-0.5">
+            <Badge className="bg-purple-500/10 text-purple-600 border-none font-black italic text-[8px] uppercase px-2 py-0.5">
               Top Tier
             </Badge>
           </div>
         </Card>
 
-        <Card className="p-6 rounded-[1.5rem] bg-white dark:bg-slate-900 border-[0.5px] border-slate-200 dark:border-white/5 shadow-sm">
-          <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic mb-1">
+        <Card className="p-3 md:p-6 rounded-[1.25rem] md:rounded-[1.5rem] bg-white dark:bg-slate-900 border-[0.5px] border-slate-200 dark:border-white/5 shadow-sm">
+          <p className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-slate-400 italic mb-1">
             Avg. Loyalty Rank
           </p>
           <div className="flex items-center gap-2">
-            <h3 className="text-3xl font-[1000] italic text-orange-500 leading-none">
+            <h3 className="text-xl md:text-3xl font-[1000] italic text-orange-500 leading-none">
               {stats.avgVisits}x
             </h3>
-            <TrendingUp size={16} className="text-emerald-500 opacity-50" />
+            <TrendingUp size={14} className="text-emerald-500 opacity-50 md:size-4" />
           </div>
         </Card>
       </div>
 
       {/* 2. COMPACT HEADER & SEARCH */}
-      <div className="flex flex-col lg:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-900 p-5 rounded-[2rem] shadow-sm border-[0.5px] border-slate-200 dark:border-white/5">
+      <div className="flex flex-col lg:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-900 p-4 md:p-5 rounded-[1.5rem] md:rounded-[2rem] shadow-sm border-[0.5px] border-slate-200 dark:border-white/5">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-blue-600 rounded-xl shadow-lg shadow-blue-500/20 text-white">
             <UserCheck size={20} />
@@ -209,12 +209,12 @@ export default function CustomersPage() {
       </div>
 
       {/* 3. MOBILE CARDS */}
-      <div className="grid gap-3 md:hidden">
+      <div className="grid grid-cols-2 gap-2 md:hidden">
         {loading ? (
           [...Array(4)].map((_, i) => (
             <Card
               key={i}
-              className="rounded-[1.5rem] border-none shadow-sm bg-white dark:bg-slate-900 p-4"
+              className="rounded-[1.25rem] border-none shadow-sm bg-white dark:bg-slate-900 p-3"
             >
               <Skeleton className="h-20 rounded-[1rem] bg-slate-100 dark:bg-white/5" />
             </Card>
@@ -227,7 +227,7 @@ export default function CustomersPage() {
           filteredCustomers.map((c) => (
             <Card
               key={c.id}
-              className="rounded-[1.5rem] border-none shadow-sm bg-white dark:bg-slate-900 p-4 ring-1 ring-slate-100 dark:ring-white/5"
+              className="rounded-[1.25rem] border-none shadow-sm bg-white dark:bg-slate-900 p-3 ring-1 ring-slate-100 dark:ring-white/5"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -239,7 +239,7 @@ export default function CustomersPage() {
                       <div className="truncate text-sm font-black italic uppercase tracking-tight dark:text-white">
                         {c.name}
                       </div>
-                      <div className="mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      <div className="mt-1 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
                         {c.phone}
                       </div>
                     </div>
@@ -247,7 +247,7 @@ export default function CustomersPage() {
                 </div>
                 <Badge
                   className={cn(
-                    "shrink-0 font-black italic text-[8px] uppercase px-3 py-0.5 rounded-lg border-none shadow-sm",
+                    "shrink-0 font-black italic text-[7px] uppercase px-2.5 py-0.5 rounded-lg border-none shadow-sm",
                     c.tier === "VIP"
                       ? "bg-purple-600 text-white animate-pulse"
                       : c.tier === "GOLD"
@@ -602,3 +602,4 @@ export default function CustomersPage() {
     </div>
   );
 }
+

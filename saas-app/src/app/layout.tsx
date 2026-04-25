@@ -34,7 +34,7 @@ export const viewport: Viewport = {
 // Metadata & Ikon Terintegrasi (Next.js File-based Metadata)
 export const metadata: Metadata = {
   title: {
-    default: "bookinaja.com | All-in-One Booking Platform",
+    default: "bookinaja | All-in-One Booking Platform",
     template: "%s | bookinaja.com",
   },
   description:

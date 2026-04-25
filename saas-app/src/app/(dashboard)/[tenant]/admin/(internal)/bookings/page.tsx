@@ -173,38 +173,38 @@ export default function BookingsPage() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row flex-wrap items-stretch gap-3 w-full lg:w-auto">
-          <div className="flex items-center gap-3 bg-slate-950 dark:bg-white p-1.5 pl-4 rounded-2xl shadow-xl border-b-4 border-slate-800 dark:border-slate-300 w-full sm:w-auto">
+        <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-stretch sm:gap-3 w-full lg:w-auto">
+          <div className="flex items-center gap-2 bg-slate-950 dark:bg-white p-1.5 pl-3 rounded-2xl shadow-xl border-b-4 border-slate-800 dark:border-slate-300 w-full sm:w-auto">
             <div className="flex flex-col">
-              <span className="text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase leading-none mb-0.5">
+              <span className="text-[7px] md:text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase leading-none mb-0.5">
                 Total Revenue
               </span>
-              <span className="text-sm font-black italic text-white dark:text-slate-950">
+              <span className="text-[11px] md:text-sm font-black italic text-white dark:text-slate-950">
                 Rp {formatIDR(stats.totalRevenue)}
               </span>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg">
-              <Wallet size={18} />
+            <div className="h-8 w-8 md:h-10 md:w-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg">
+              <Wallet size={14} className="md:size-[18px]" />
             </div>
           </div>
 
-          <div className="flex items-center gap-3 bg-white dark:bg-slate-900 p-1.5 pl-4 rounded-2xl shadow-md border border-slate-100 dark:border-white/5 w-full sm:w-auto">
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1.5 pl-3 rounded-2xl shadow-md border border-slate-100 dark:border-white/5 w-full sm:w-auto">
             <div className="flex flex-col">
-              <span className="text-[8px] font-black text-slate-400 uppercase leading-none mb-0.5">
+              <span className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase leading-none mb-0.5">
                 Active Slot
               </span>
-              <span className="text-sm font-black italic text-blue-600">
+              <span className="text-[11px] md:text-sm font-black italic text-blue-600">
                 {stats.activeSess} Units
               </span>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-blue-600">
-              <TrendingUp size={18} />
+            <div className="h-8 w-8 md:h-10 md:w-10 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-blue-600">
+              <TrendingUp size={14} className="md:size-[18px]" />
             </div>
           </div>
 
           <Button
             onClick={() => router.push(`/admin/bookings/new`)}
-            className="h-12 md:h-14 px-5 md:px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[11px] shadow-2xl border-b-4 border-blue-800 gap-2 transition-all active:scale-95 ml-auto lg:ml-0 w-full sm:w-auto"
+            className="h-12 md:h-14 px-3 md:px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[10px] md:text-[11px] shadow-2xl border-b-4 border-blue-800 gap-2 transition-all active:scale-95 ml-auto lg:ml-0 w-full sm:w-auto"
           >
             <Plus size={16} strokeWidth={4} /> New Booking
           </Button>
@@ -213,25 +213,25 @@ export default function BookingsPage() {
 
       {/* 2. ENHANCED SEARCH & FILTER BAR */}
       <Card className="p-4 md:p-5 rounded-[1.75rem] md:rounded-[2.5rem] bg-white dark:bg-slate-900 border-none shadow-sm ring-1 ring-slate-100 dark:ring-white/5">
-        <div className="flex flex-col lg:flex-row gap-4 md:gap-5">
+        <div className="grid grid-cols-2 gap-2 md:gap-3 lg:flex lg:flex-row">
           {/* Main Search */}
-          <div className="relative flex-1">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <div className="relative col-span-2 lg:flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
               placeholder="Search customer name or phone..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 h-12 md:h-14 rounded-2xl border-none bg-slate-50 dark:bg-slate-800/50 font-black italic text-xs shadow-inner focus:ring-2 focus:ring-blue-600/20"
+              className="pl-11 h-11 md:h-14 rounded-2xl border-none bg-slate-50 dark:bg-slate-800/50 font-black italic text-[10px] md:text-xs shadow-inner focus:ring-2 focus:ring-blue-600/20"
             />
           </div>
 
           {/* Expanded Filters */}
-          <div className="flex flex-wrap items-center gap-2 md:gap-3">
+          <div className="col-span-2 grid grid-cols-2 gap-2 md:flex md:flex-wrap md:items-center md:gap-3">
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className="h-11 md:h-12 px-4 md:px-5 rounded-xl border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-800 font-[1000] italic text-xs gap-3 uppercase shadow-sm w-full sm:w-auto"
+                  className="h-11 md:h-12 px-3 md:px-5 rounded-xl border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-800 font-[1000] italic text-[9px] md:text-xs gap-2 md:gap-3 uppercase shadow-sm w-full"
                 >
                   <CalendarIcon className="h-4 w-4 text-blue-600" />
                   {selectedDate
@@ -240,7 +240,7 @@ export default function BookingsPage() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-              className="w-[92vw] sm:w-80 p-0 border-none rounded-3xl overflow-hidden shadow-2xl"
+                className="w-[92vw] sm:w-80 p-0 border-none rounded-3xl overflow-hidden shadow-2xl"
                 align="end"
               >
                 <Calendar
@@ -253,7 +253,7 @@ export default function BookingsPage() {
             </Popover>
 
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-full sm:w-[160px] min-h-[45px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-[1000] italic text-xs uppercase focus:ring-0 shadow-sm ">
+              <SelectTrigger className="w-full min-h-[44px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-[1000] italic text-[9px] uppercase focus:ring-0 shadow-sm">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-none shadow-2xl p-2">
@@ -282,7 +282,7 @@ export default function BookingsPage() {
             </Select>
 
             <Select value={filterResource} onValueChange={setFilterResource}>
-            <SelectTrigger className="w-full sm:w-[180px] min-h-[45px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-[1000] italic text-xs uppercase focus:ring-0 shadow-sm">
+              <SelectTrigger className="w-full min-h-[44px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-[1000] italic text-[9px] uppercase focus:ring-0 shadow-sm">
                 <SelectValue placeholder="Resource" />
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-none shadow-2xl p-2">
@@ -308,21 +308,21 @@ export default function BookingsPage() {
               <Button
                 onClick={resetFilters}
                 variant="ghost"
-                className="h-12 px-4 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 font-black italic text-[10px] uppercase gap-2 rounded-2xl w-full sm:w-auto"
+                className="h-11 px-3 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 font-black italic text-[9px] uppercase gap-2 rounded-2xl w-full"
               >
                 <XCircle size={16} /> Clear
               </Button>
             )}
 
-            <div className="h-10 w-[1px] bg-slate-100 dark:bg-white/5 hidden xl:block mx-1" />
+            <div className="hidden xl:block h-10 w-[1px] bg-slate-100 dark:bg-white/5 mx-1" />
 
-            <div className="flex gap-1.5 bg-slate-50 dark:bg-slate-800 p-1.5 rounded-2xl w-full sm:w-auto">
+            <div className="col-span-2 flex gap-1.5 bg-slate-50 dark:bg-slate-800 p-1.5 rounded-2xl w-full">
               <Button
                 variant={viewMode === "list" ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => setViewMode("list")}
                 className={cn(
-                  "rounded-xl h-11 px-4",
+                  "rounded-xl h-11 px-4 flex-1",
                   viewMode === "list"
                     ? "bg-white dark:bg-slate-700 shadow-md font-black"
                     : "text-slate-400",
@@ -335,7 +335,7 @@ export default function BookingsPage() {
                 size="sm"
                 onClick={() => setViewMode("grid")}
                 className={cn(
-                  "rounded-xl h-11 px-4",
+                  "rounded-xl h-11 px-4 flex-1",
                   viewMode === "grid"
                     ? "bg-white dark:bg-slate-700 shadow-md font-black"
                     : "text-slate-400",
@@ -554,3 +554,4 @@ export default function BookingsPage() {
     </div>
   );
 }
+

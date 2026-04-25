@@ -6,20 +6,14 @@ import { usePathname, useParams, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard,
-  CalendarDays,
-  Users,
-  Box,
-  MonitorPlay,
-  Settings,
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Utensils,
   Moon,
   Sun,
   ChevronsUpDown,
   ShieldCheck,
+  Settings,
 } from "lucide-react";
 import {
   Tooltip,
@@ -38,6 +32,7 @@ import {
 import { clearTenantSession } from "@/lib/tenant-session";
 import api from "@/lib/api";
 import { Badge } from "../ui/badge";
+import { operationalNavItems } from "./admin-nav-config";
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -96,15 +91,6 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       ? userData.logo_url
       : FALLBACK_LOGO;
 
-  const routes = [
-    { label: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
-    { label: "Bookings", icon: CalendarDays, href: "/admin/bookings" },
-    { label: "POS / Kasir", icon: MonitorPlay, href: "/admin/pos" },
-    { label: "Resources", icon: Box, href: "/admin/resources" },
-    { label: "F&B / Menu", icon: Utensils, href: "/admin/fnb" },
-    { label: "Customers", icon: Users, href: "/admin/customers" },
-  ];
-
   const handleLogout = () => {
     clearTenantSession({ keepTenantSlug: true });
     window.location.href = "/admin/login";
@@ -155,7 +141,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
 
       {/* MAIN NAVIGATION */}
       <nav className="flex flex-col flex-1 gap-1 p-3 pt-4 overflow-y-auto scrollbar-hide">
-        {routes.map((route) => {
+        {operationalNavItems.map((route) => {
           const isActive = pathname.includes(route.href);
           return (
             <Tooltip key={route.href}>
