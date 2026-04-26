@@ -114,6 +114,25 @@ func (r *Repository) GetPublicLandingData(ctx context.Context, slug string) (map
 	return result, nil
 }
 
+func (r *Repository) ListPublicTenants(ctx context.Context) ([]TenantDirectoryItem, error) {
+	var items []TenantDirectoryItem
+	err := r.db.SelectContext(ctx, &items, `
+		SELECT
+			id, name, slug, business_category, business_type,
+			COALESCE(tagline, '') AS tagline,
+			COALESCE(slogan, '') AS slogan,
+			COALESCE(about_us, '') AS about_us,
+			COALESCE(primary_color, '#3b82f6') AS primary_color,
+			COALESCE(logo_url, '') AS logo_url,
+			COALESCE(banner_url, '') AS banner_url,
+			COALESCE(open_time, '09:00') AS open_time,
+			COALESCE(close_time, '22:00') AS close_time,
+			created_at
+		FROM tenants
+		ORDER BY created_at DESC, name ASC`)
+	return items, err
+}
+
 func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {

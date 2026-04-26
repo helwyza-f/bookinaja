@@ -57,6 +57,8 @@ type OrderItem struct {
 
 type BookingDetail struct {
 	Booking
+	TenantName    string               `db:"tenant_name" json:"tenant_name"`
+	TenantSlug    string               `db:"tenant_slug" json:"tenant_slug"`
 	CustomerName   string                `db:"customer_name" json:"customer_name"`
 	CustomerPhone  string                `db:"customer_phone" json:"customer_phone"`
 	ResourceName   string                `db:"resource_name" json:"resource_name"`

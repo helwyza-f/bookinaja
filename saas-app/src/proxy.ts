@@ -22,7 +22,8 @@ export default async function proxy(req: NextRequest) {
 
   const host = req.headers.get("host") || "";
   const hostname = host.split(":")[0];
-  const rootDomain = resolveRootDomain(hostname);
+  const rootConfig = resolveRootDomainConfig(hostname);
+  const rootDomain = rootConfig.host;
   const hasBookingTokenQuery =
     url.pathname.startsWith("/me/bookings/") && url.searchParams.has("token");
 
@@ -44,6 +45,8 @@ export default async function proxy(req: NextRequest) {
   const reservedKeywords = [
     "admin",
     "me",
+    "user",
+    "tenants",
     "login",
     "register",
     "dashboard",
@@ -56,6 +59,12 @@ export default async function proxy(req: NextRequest) {
     tenantSlug !== "www" &&
     !reservedKeywords.includes(tenantSlug)
   ) {
+    if (path.startsWith("/user") || path.startsWith("/tenants")) {
+      return NextResponse.redirect(
+        buildRootUrl(req, path, url.search, rootConfig),
+      );
+    }
+
     const redirectTarget = resolveTenantRedirect(path, {
       hasAdminToken: Boolean(adminToken),
       hasCustomerToken: Boolean(customerToken),
@@ -96,20 +105,48 @@ export default async function proxy(req: NextRequest) {
   return NextResponse.next();
 }
 
-function resolveRootDomain(hostname: string) {
-  const configured = (process.env.NEXT_PUBLIC_ROOT_DOMAIN || "").replace(/(^"|"$)/g, "").trim();
-  if (configured && hostname) {
-    if (hostname === configured || hostname.endsWith(`.${configured}`)) {
-      return configured;
+function resolveRootDomainConfig(hostname: string) {
+  const configured = (process.env.NEXT_PUBLIC_ROOT_DOMAIN || "")
+    .replace(/(^"|"$)/g, "")
+    .trim();
+  const configuredHost = stripPort(configured);
+  const configuredPort = configured.includes(":")
+    ? configured.split(":").slice(1).join(":")
+    : "";
+
+  if (configuredHost && hostname) {
+    if (hostname === configuredHost || hostname.endsWith(`.${configuredHost}`)) {
+      return { host: configuredHost, port: configuredPort };
     }
   }
 
   // Fallback: infer from host (e.g. gaming-demo.bookinaja.com -> bookinaja.com)
   const parts = (hostname || "").split(".").filter(Boolean);
   if (parts.length >= 2) {
-    return parts.slice(-2).join(".");
+    return { host: parts.slice(-2).join("."), port: configuredPort };
   }
-  return configured || "bookinaja.local";
+  return { host: configuredHost || "bookinaja.local", port: configuredPort };
+}
+
+function buildRootUrl(
+  req: NextRequest,
+  pathname: string,
+  search: string,
+  rootConfig: { host: string; port: string },
+) {
+  const rootUrl = new URL(req.url);
+  rootUrl.protocol = req.nextUrl.protocol || rootUrl.protocol;
+  rootUrl.hostname = rootConfig.host;
+  if (rootConfig.port) {
+    rootUrl.port = rootConfig.port;
+  }
+  rootUrl.pathname = pathname;
+  rootUrl.search = search;
+  return rootUrl;
+}
+
+function stripPort(value: string) {
+  return value.split(":")[0];
 }
 
 function resolveTenantRedirect(

@@ -6,13 +6,14 @@ import (
 	"github.com/google/uuid"
 )
 
-// Customer adalah entitas pelanggan utama yang terhubung ke Tenant (CRM).
+// Customer adalah entitas pelanggan platform-level yang dipakai lintas tenant.
 type Customer struct {
 	ID       uuid.UUID `db:"id" json:"id"`
-	TenantID uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	TenantID *uuid.UUID `db:"tenant_id" json:"tenant_id,omitempty"`
 	Name     string    `db:"name" json:"name"`
 	Phone    string    `db:"phone" json:"phone"`
 	Email    *string   `db:"email" json:"email"`
+	Password *string   `db:"password" json:"-"`
 
 	// CRM Fields (Physical Data - Persistent)
 	Tier        string     `db:"tier" json:"tier"` // NEW, REGULAR, GOLD, VIP
@@ -28,9 +29,10 @@ type Customer struct {
 // --- DTO (Data Transfer Object) ---
 
 type RegisterReq struct {
-	Name  string  `json:"name" binding:"required"`
-	Phone string  `json:"phone" binding:"required"`
-	Email *string `json:"email"`
+	Name     string  `json:"name" binding:"required"`
+	Phone    string  `json:"phone" binding:"required"`
+	Email    *string `json:"email"`
+	Password *string `json:"password"`
 }
 
 type LoginReq struct {
@@ -40,6 +42,12 @@ type LoginReq struct {
 type VerifyOtpReq struct {
 	Phone string `json:"phone" binding:"required"`
 	Code  string `json:"code" binding:"required"`
+}
+
+type UpdateProfileReq struct {
+	Name     *string `json:"name"`
+	Email    *string `json:"email"`
+	Password *string `json:"password"`
 }
 
 type AuthResponse struct {
@@ -59,6 +67,9 @@ type CustomerDashboardData struct {
 // RecentHistoryDTO digunakan untuk list bokingan di dashboard customer
 type RecentHistoryDTO struct {
 	ID            uuid.UUID  `json:"id" db:"id"`
+	TenantID      uuid.UUID  `json:"tenant_id" db:"tenant_id"`
+	TenantName    string     `json:"tenant_name" db:"tenant_name"`
+	TenantSlug    string     `json:"tenant_slug" db:"tenant_slug"`
 	Resource      string     `json:"resource" db:"resource"`
 	Date          time.Time  `json:"date" db:"date"`
 	EndDate       *time.Time `json:"end_date" db:"end_date"`

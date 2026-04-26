@@ -1,5 +1,15 @@
 import { deleteCookie, setCookie, getCookie } from "cookies-next";
 
+const COOKIE_DOMAIN = normalizeCookieDomain(
+  process.env.NEXT_PUBLIC_COOKIE_DOMAIN || process.env.NEXT_PUBLIC_ROOT_DOMAIN,
+);
+const COOKIE_BASE_OPTIONS = {
+  path: "/",
+  sameSite: "lax" as const,
+  secure: process.env.NODE_ENV === "production",
+  ...(COOKIE_DOMAIN ? { domain: COOKIE_DOMAIN } : {}),
+};
+
 /**
  * Sinkronisasi cookie tenant agar backend mengenali context via Middleware
  */
@@ -9,8 +19,7 @@ export function syncTenantCookies(
 ) {
   const options = {
     maxAge: 60 * 60 * 24 * 7, // 7 Hari
-    path: "/",
-    // domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN, // Buka ini kalau sudah production/subdomain
+    ...COOKIE_BASE_OPTIONS,
   };
 
   if (tenantSlug) {
@@ -26,12 +35,12 @@ export function syncTenantCookies(
  * Membersihkan semua sesi saat logout atau auth error
  */
 export function clearTenantSession(options?: { keepTenantSlug?: boolean }) {
-  deleteCookie("auth_token");
+  deleteCookie("auth_token", COOKIE_BASE_OPTIONS);
   deleteCookie("customer_auth");
-  deleteCookie("current_tenant_id");
+  deleteCookie("current_tenant_id", COOKIE_BASE_OPTIONS);
 
   if (!options?.keepTenantSlug) {
-    deleteCookie("current_tenant_slug");
+    deleteCookie("current_tenant_slug", COOKIE_BASE_OPTIONS);
   }
 }
 
@@ -51,4 +60,19 @@ export function isTenantAuthError(error: unknown) {
  */
 export function getCurrentTenantId() {
   return getCookie("current_tenant_id") as string | undefined;
+}
+
+function normalizeCookieDomain(value?: string | null) {
+  const cleaned = (value || "").replace(/(^"|"$)/g, "").trim();
+  if (!cleaned) return "";
+
+  const withoutPort = cleaned.split(":")[0];
+  if (
+    withoutPort === "localhost" ||
+    withoutPort === "127.0.0.1"
+  ) {
+    return "";
+  }
+
+  return withoutPort.startsWith(".") ? withoutPort : `.${withoutPort}`;
 }

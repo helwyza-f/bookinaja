@@ -11,14 +11,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/helwiza/saas/internal/platform/fonnte"
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Service struct {
 	repo  *Repository
 	redis *redis.Client // Redis untuk OTP & Caching
 }
-
-const starterCustomerLimit = 10
 
 func NewService(r *Repository, rdb *redis.Client) *Service {
 	return &Service{
@@ -30,9 +29,9 @@ func NewService(r *Repository, rdb *redis.Client) *Service {
 // --- AUTH & OTP LOGIC (REDIS + FONNTE) ---
 
 // RequestOTP menangani alur permintaan login: Cek user -> Gen OTP -> Redis -> WhatsApp.
-func (s *Service) RequestOTP(ctx context.Context, tenantID uuid.UUID, phone string) error {
+func (s *Service) RequestOTP(ctx context.Context, phone string) error {
 	// 1. Pastikan nomor terdaftar di tenant ini (Postgres Check)
-	cust, err := s.repo.FindByPhone(ctx, tenantID, phone)
+	cust, err := s.repo.FindByPhone(ctx, phone)
 	if err != nil || cust == nil {
 		return fmt.Errorf("nomor %s tidak terdaftar. silakan hubungi admin atau buat reservasi baru", phone)
 	}
@@ -41,7 +40,7 @@ func (s *Service) RequestOTP(ctx context.Context, tenantID uuid.UUID, phone stri
 	otpCode := fmt.Sprintf("%06d", rand.New(rand.NewSource(time.Now().UnixNano())).Intn(1000000))
 
 	// 3. Simpan ke Redis Cloud dengan TTL 5 Menit
-	key := fmt.Sprintf("otp:%s:%s", tenantID.String(), phone)
+	key := fmt.Sprintf("otp:%s", phone)
 	err = s.redis.Set(ctx, key, otpCode, 5*time.Minute).Err()
 	if err != nil {
 		return fmt.Errorf("sistem login sedang sibuk (redis error): %w", err)
@@ -55,19 +54,19 @@ func (s *Service) RequestOTP(ctx context.Context, tenantID uuid.UUID, phone stri
 	)
 
 	if strings.ToLower(strings.TrimSpace(os.Getenv("GIN_MODE"))) != "release" {
-		fmt.Printf("[WA OTP] tenant=%s phone=%s message_len=%d\n", tenantID.String(), phone, len(msg))
+		fmt.Printf("[WA OTP] phone=%s message_len=%d\n", phone, len(msg))
 	}
 
 	success, err := fonnte.SendMessage(phone, msg)
 	if err != nil || !success {
 		if strings.ToLower(strings.TrimSpace(os.Getenv("GIN_MODE"))) != "release" {
-			fmt.Printf("[WA OTP] send_failed tenant=%s phone=%s err=%v\n", tenantID.String(), phone, err)
+			fmt.Printf("[WA OTP] send_failed phone=%s err=%v\n", phone, err)
 		}
 		return fmt.Errorf("gagal mengirim kode ke WhatsApp: %v", err)
 	}
 
 	if strings.ToLower(strings.TrimSpace(os.Getenv("GIN_MODE"))) != "release" {
-		fmt.Printf("[WA OTP] send_success tenant=%s phone=%s\n", tenantID.String(), phone)
+		fmt.Printf("[WA OTP] send_success phone=%s\n", phone)
 	}
 
 	fmt.Printf("[AUTH] OTP Request Success: %s -> %s\n", phone, otpCode)
@@ -75,8 +74,8 @@ func (s *Service) RequestOTP(ctx context.Context, tenantID uuid.UUID, phone stri
 }
 
 // VerifyOTP memvalidasi kode dari customer dan mengembalikan data profil untuk JWT.
-func (s *Service) VerifyOTP(ctx context.Context, tenantID uuid.UUID, phone, code string) (*Customer, error) {
-	key := fmt.Sprintf("otp:%s:%s", tenantID.String(), phone)
+func (s *Service) VerifyOTP(ctx context.Context, phone, code string) (*Customer, error) {
+	key := fmt.Sprintf("otp:%s", phone)
 
 	savedCode, err := s.redis.Get(ctx, key).Result()
 	if err == redis.Nil {
@@ -91,15 +90,15 @@ func (s *Service) VerifyOTP(ctx context.Context, tenantID uuid.UUID, phone, code
 
 	s.redis.Del(ctx, key)
 
-	return s.repo.FindByPhone(ctx, tenantID, phone)
+	return s.repo.FindByPhone(ctx, phone)
 }
 
 // --- CORE CUSTOMER LOGIC ---
 
 // CheckExistence mengecek keberadaan customer berdasarkan nomor HP.
 // Digunakan di frontend booking untuk mendeteksi pelanggan lama (Returning Customer).
-func (s *Service) CheckExistence(ctx context.Context, tenantID uuid.UUID, phone string) (*Customer, error) {
-	cust, err := s.repo.FindByPhone(ctx, tenantID, phone)
+func (s *Service) CheckExistence(ctx context.Context, phone string) (*Customer, error) {
+	cust, err := s.repo.FindByPhone(ctx, phone)
 	if err != nil {
 		return nil, fmt.Errorf("service: gagal cek keberadaan pelanggan: %w", err)
 	}
@@ -108,44 +107,23 @@ func (s *Service) CheckExistence(ctx context.Context, tenantID uuid.UUID, phone 
 }
 
 // Register menangani pendaftaran via Booking (Silent) atau manual Admin.
-func (s *Service) Register(ctx context.Context, tenantID string, req RegisterReq) (*Customer, error) {
-	tID, err := uuid.Parse(tenantID)
-	if err != nil {
-		return nil, fmt.Errorf("service: id tenant tidak valid")
-	}
-
-	existing, err := s.repo.FindByPhone(ctx, tID, req.Phone)
-	if err != nil {
-		return nil, fmt.Errorf("service: gagal cek pelanggan existing: %w", err)
-	}
-
-	if existing == nil {
-		plan, status, _, periodEnd, err := s.repo.GetTenantBillingState(ctx, tID)
+func (s *Service) Register(ctx context.Context, req RegisterReq) (*Customer, error) {
+	var hashedPassword *string
+	if req.Password != nil && strings.TrimSpace(*req.Password) != "" {
+		hashed, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
 		if err != nil {
-			return nil, fmt.Errorf("service: gagal membaca status subscription: %w", err)
+			return nil, fmt.Errorf("service: gagal mengamankan password pelanggan: %w", err)
 		}
-
-		if !canCreateNewCustomer(plan, status, periodEnd) {
-			return nil, fmt.Errorf("tenant ini perlu upgrade paket untuk menambah pelanggan baru")
-		}
-
-		if strings.ToLower(strings.TrimSpace(status)) != "trial" && strings.ToLower(strings.TrimSpace(plan)) == "starter" {
-			total, err := s.repo.CountByTenant(ctx, tID)
-			if err != nil {
-				return nil, fmt.Errorf("service: gagal menghitung pelanggan: %w", err)
-			}
-			if total >= starterCustomerLimit {
-				return nil, fmt.Errorf("paket starter hanya mendukung %d pelanggan. upgrade ke pro untuk unlimited", starterCustomerLimit)
-			}
-		}
+		hash := string(hashed)
+		hashedPassword = &hash
 	}
 
 	cust := Customer{
 		ID:            uuid.New(),
-		TenantID:      tID,
 		Name:          req.Name,
 		Phone:         req.Phone,
 		Email:         req.Email,
+		Password:      hashedPassword,
 		Tier:          "NEW",
 		TotalVisits:   0,
 		TotalSpent:    0,
@@ -272,6 +250,22 @@ func (s *Service) GetDashboardData(ctx context.Context, customerID uuid.UUID) (*
 	}, nil
 }
 
+func (s *Service) UpdateAccount(ctx context.Context, customerID string, req UpdateProfileReq) (*Customer, error) {
+	cID, err := uuid.Parse(customerID)
+	if err != nil {
+		return nil, fmt.Errorf("id customer tidak valid")
+	}
+
+	updated, err := s.repo.UpdateProfile(ctx, cID, req)
+	if err != nil {
+		return nil, err
+	}
+	if updated == nil {
+		return nil, fmt.Errorf("customer tidak ditemukan")
+	}
+	return updated, nil
+}
+
 // --- UTILITIES ---
 
 func (s *Service) ListByTenant(ctx context.Context, tenantID string) ([]Customer, error) {
@@ -282,14 +276,17 @@ func (s *Service) ListByTenant(ctx context.Context, tenantID string) ([]Customer
 	return s.repo.FindByTenant(ctx, tID)
 }
 
-func (s *Service) GetByPhone(ctx context.Context, tenantID uuid.UUID, phone string) (*Customer, error) {
-	return s.repo.FindByPhone(ctx, tenantID, phone)
+func (s *Service) GetByPhone(ctx context.Context, phone string) (*Customer, error) {
+	return s.repo.FindByPhone(ctx, phone)
 }
 
 func (s *Service) GetDetail(ctx context.Context, id, tenantID string) (*Customer, error) {
 	cID, err := uuid.Parse(id)
 	if err != nil {
 		return nil, fmt.Errorf("id customer tidak valid")
+	}
+	if strings.TrimSpace(tenantID) == "" {
+		return s.repo.FindByID(ctx, cID)
 	}
 	tID, err := uuid.Parse(tenantID)
 	if err != nil {
@@ -303,18 +300,25 @@ func (s *Service) GetTransactionHistory(ctx context.Context, id, tenantID string
 	if err != nil {
 		return nil, fmt.Errorf("id customer tidak valid")
 	}
-	tID, err := uuid.Parse(tenantID)
-	if err != nil {
-		return nil, fmt.Errorf("id tenant tidak valid")
-	}
+	if strings.TrimSpace(tenantID) != "" {
+		tID, err := uuid.Parse(tenantID)
+		if err != nil {
+			return nil, fmt.Errorf("id tenant tidak valid")
+		}
 
-	cust, err := s.repo.FindByIDForTenant(ctx, cID, tID)
-	if err != nil || cust == nil {
-		return nil, fmt.Errorf("customer tidak ditemukan")
+		cust, err := s.repo.FindByIDForTenant(ctx, cID, tID)
+		if err != nil || cust == nil {
+			return nil, fmt.Errorf("customer tidak ditemukan")
+		}
+	} else {
+		cust, err := s.repo.FindByID(ctx, cID)
+		if err != nil || cust == nil {
+			return nil, fmt.Errorf("customer tidak ditemukan")
+		}
 	}
 
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
-	return s.repo.GetTransactionHistory(ctx, cust.ID, limit)
+	return s.repo.GetTransactionHistory(ctx, cID, limit)
 }

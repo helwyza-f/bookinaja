@@ -42,6 +42,10 @@ func (s *Service) GetPublicLandingData(ctx context.Context, slug string) (map[st
 	return s.repo.GetPublicLandingData(ctx, slug)
 }
 
+func (s *Service) ListPublicTenants(ctx context.Context) ([]TenantDirectoryItem, error) {
+	return s.repo.ListPublicTenants(ctx)
+}
+
 // Register menangani pendaftaran tenant baru & inisialisasi default branding
 func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error) {
 	slug := strings.ToLower(strings.TrimSpace(req.TenantSlug))

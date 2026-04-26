@@ -74,6 +74,16 @@ func (h *Handler) GetPublicLandingData(c *gin.Context) {
 	c.JSON(http.StatusOK, data)
 }
 
+func (h *Handler) ListPublicTenants(c *gin.Context) {
+	items, err := h.service.ListPublicTenants(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil daftar tenant"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
 // extractSlug helper biar gak nulis berkali-kali
 func (h *Handler) extractSlug(c *gin.Context) string {
 	// Cek Query Param ?slug=

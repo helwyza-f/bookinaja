@@ -9,13 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/helwiza/saas/internal/customer"
 	"github.com/helwiza/saas/internal/fnb"
 	"github.com/helwiza/saas/internal/platform/env"
 	"github.com/helwiza/saas/internal/platform/fonnte"
-	"github.com/helwiza/saas/internal/platform/security"
 	"github.com/helwiza/saas/internal/resource"
 )
 
@@ -94,7 +92,7 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 	end := start.Add(time.Duration(totalMinutes) * time.Minute)
 
 	// 4. SILENT REGISTER / UPSERT PELANGGAN (CRM INTEGRATION)
-	cust, err := s.customerService.Register(ctx, tID.String(), customer.RegisterReq{
+	cust, err := s.customerService.Register(ctx, customer.RegisterReq{
 		Name:  req.CustomerName,
 		Phone: req.CustomerPhone,
 	})
@@ -292,7 +290,13 @@ func (s *Service) ExchangeAccessToken(ctx context.Context, accessToken string) (
 		return nil, nil, "", errors.New("DATA PELANGGAN TIDAK DITEMUKAN")
 	}
 
-	sessionToken, err := generateCustomerSessionToken(cust.ID.String(), cust.TenantID.String())
+	tenantSlug, _ := s.repo.GetTenantSlug(ctx, booking.TenantID)
+	sessionToken, err := customer.GenerateAuthToken(
+		cust.ID.String(),
+		booking.TenantID.String(),
+		tenantSlug,
+		time.Hour*72,
+	)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("GAGAL MENUKAR AKSES: %w", err)
 	}
@@ -412,11 +416,18 @@ func (s *Service) GetDetailForCustomer(ctx context.Context, id, tenantID, custom
 		return nil, errors.New("ID BOOKING TIDAK VALID")
 	}
 
+	if strings.TrimSpace(tenantID) == "" {
+		cID, err := uuid.Parse(customerID)
+		if err != nil {
+			return nil, errors.New("ID CUSTOMER TIDAK VALID")
+		}
+		return s.repo.FindByIDForCustomerGlobal(ctx, bID, cID)
+	}
+
 	tID, err := uuid.Parse(tenantID)
 	if err != nil {
 		return nil, errors.New("ID TENANT TIDAK VALID")
 	}
-
 	cID, err := uuid.Parse(customerID)
 	if err != nil {
 		return nil, errors.New("ID CUSTOMER TIDAK VALID")
@@ -542,15 +553,6 @@ func (s *Service) SendBookingConfirmation(ctx context.Context, booking *Booking,
 
 func bookingVerifyURL(tenantSlug, accessToken string) string {
 	return env.TenantURL(tenantSlug, fmt.Sprintf("/verify?code=%s", accessToken))
-}
-
-func generateCustomerSessionToken(customerID, tenantID string) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"customer_id": customerID,
-		"tenant_id":   tenantID,
-		"exp":         time.Now().Add(time.Hour * 72).Unix(),
-	})
-	return token.SignedString([]byte(security.JWTSecret()))
 }
 
 func formatMoney(v float64) string {
