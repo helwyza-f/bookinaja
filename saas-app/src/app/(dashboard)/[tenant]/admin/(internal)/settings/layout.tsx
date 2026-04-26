@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SettingsHeader } from "@/components/dashboard/settings-header";
+import { SettingsSidebar } from "@/components/dashboard/settings-sidebar";
+import { SettingsTabs } from "@/components/dashboard/settings-tabs";
 
 type MeResponse = {
   user?: {
@@ -23,6 +25,7 @@ export default function SettingsLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<MeResponse["user"] | null>(null);
   const [tenantName, setTenantName] = useState<string>("");
@@ -76,12 +79,29 @@ export default function SettingsLayout({
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-[#050505]">
-      <div className="mx-auto min-h-screen max-w-[1800px] pb-6 md:pb-0">
-        <SettingsHeader tenantName={tenantName || user?.name} role={user?.role} />
+      <div className="mx-auto flex min-h-screen max-w-[1800px] flex-col">
+        <SettingsHeader
+          tenantName={tenantName || user?.name}
+          role={user?.role}
+        />
 
-        <main className="space-y-4 px-4 py-4 md:space-y-6 md:px-6 lg:px-10 lg:py-8">
-          <div className="mx-auto max-w-[1400px]">{children}</div>
-        </main>
+        <div className="border-b border-slate-200/80 bg-slate-50/95 px-4 py-3 backdrop-blur dark:border-white/5 dark:bg-[#050505]/90 lg:hidden">
+          <SettingsTabs />
+        </div>
+
+        <div className="flex flex-1 flex-col pt-2 lg:flex-row ">
+          <aside className="hidden h-fit w-[300px] shrink-0 lg:sticky lg:top-6 lg:block">
+            <SettingsSidebar
+              tenantName={tenantName || user?.name}
+              role={user?.role}
+              pathname={pathname}
+            />
+          </aside>
+
+          <main className="min-w-0 flex-1">
+            <div className="mx-auto max-w-[1400px]">{children}</div>
+          </main>
+        </div>
       </div>
     </div>
   );
@@ -89,11 +109,14 @@ export default function SettingsLayout({
 
 function SettingsLayoutSkeleton() {
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#050505] p-4 md:p-6">
-      <div className="mx-auto max-w-[1800px] space-y-6">
-        <Skeleton className="h-28 rounded-[2rem] bg-white dark:bg-white/5" />
-        <Skeleton className="h-44 rounded-[2rem] bg-white dark:bg-white/5" />
-        <Skeleton className="h-[560px] rounded-[2rem] bg-white dark:bg-white/5" />
+    <div className="min-h-screen bg-slate-50 p-4 dark:bg-[#050505] md:p-6">
+      <div className="mx-auto max-w-[1800px] space-y-4 md:space-y-6">
+        <Skeleton className="h-24 rounded-[2rem] bg-white dark:bg-white/5" />
+        <Skeleton className="h-12 rounded-[1.5rem] bg-white dark:bg-white/5 lg:hidden" />
+        <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
+          <Skeleton className="hidden h-[560px] rounded-[2rem] bg-white dark:bg-white/5 lg:block" />
+          <Skeleton className="h-[560px] rounded-[2rem] bg-white dark:bg-white/5" />
+        </div>
       </div>
     </div>
   );

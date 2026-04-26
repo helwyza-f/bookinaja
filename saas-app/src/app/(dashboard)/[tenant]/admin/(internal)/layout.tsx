@@ -125,7 +125,7 @@ export default function DashboardInternalLayout({
             </div>
           </div>
 
-          <main className="min-h-screen w-full p-4 pt-20 md:p-10 md:pt-10">
+          <main className="min-h-screen w-full p-4 ">
             <div className="max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-2 duration-700">
               {children}
             </div>

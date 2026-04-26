@@ -3,49 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import {
-  BarChart3,
-  BriefcaseBusiness,
-  CreditCard,
-  Megaphone,
-  UsersRound,
-} from "lucide-react";
-
-const tabs = [
-  {
-    label: "Bisnis",
-    href: "/admin/settings/bisnis",
-    icon: BriefcaseBusiness,
-  },
-  {
-    label: "Pegawai",
-    href: "/admin/settings/staff",
-    icon: UsersRound,
-  },
-  {
-    label: "CRM",
-    href: "/admin/settings/crm",
-    icon: Megaphone,
-  },
-  {
-    label: "Analitik",
-    href: "/admin/settings/analytics",
-    icon: BarChart3,
-  },
-  {
-    label: "Billing",
-    href: "/admin/settings/billing",
-    icon: CreditCard,
-  },
-];
+import { settingsNavItems } from "./admin-nav-config";
 
 export function SettingsTabs() {
   const pathname = usePathname();
 
   return (
-    <div className="sticky top-0 z-30 -mx-4 mb-6 border-b border-slate-200 bg-slate-50/95 px-4 py-3 backdrop-blur dark:border-white/5 dark:bg-[#050505]/90 md:-mx-6 md:px-6 lg:hidden">
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {tabs.map((tab) => {
+    <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex w-max gap-2 pb-1">
+        {settingsNavItems.map((tab) => {
           const active =
             pathname === tab.href || pathname.startsWith(`${tab.href}/`);
 
