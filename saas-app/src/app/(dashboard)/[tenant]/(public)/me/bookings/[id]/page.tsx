@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Script from "next/script";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +34,6 @@ import { BookingLiveController } from "@/components/customer/booking-live-contro
 export default function CustomerBookingDetail() {
   const params = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [booking, setBooking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -101,7 +100,11 @@ export default function CustomerBookingDetail() {
   useEffect(() => {
     if (!params.id) return;
     let cancelled = false;
-    const token = searchParams.get("token") || searchParams.get("code");
+    const token =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("token") ||
+          new URLSearchParams(window.location.search).get("code")
+        : null;
 
     const bootstrap = async () => {
       if (token) {
@@ -155,7 +158,7 @@ export default function CustomerBookingDetail() {
       cancelled = true;
       if (cleanup) cleanup();
     };
-  }, [params.id, searchParams]);
+  }, [params.id]);
 
   useEffect(() => {
     if (window.snap) {
