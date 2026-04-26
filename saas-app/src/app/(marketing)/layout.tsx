@@ -11,14 +11,13 @@ export default function MarketingLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const { theme, resolvedTheme, setTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const currentTheme = resolvedTheme || theme;
 
   // Mencegah hydration mismatch
   useEffect(() => {
-    setMounted(true);
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };
@@ -27,6 +26,7 @@ export default function MarketingLayout({
   }, []);
 
   const navLinks = [
+    { name: "Tenants", href: "/tenants" },
     { name: "About", href: "/documentation" },
     { name: "Demo", href: "/demos" },
     { name: "Pricing", href: "/pricing" },
@@ -93,11 +93,11 @@ export default function MarketingLayout({
 
             {/* Actions */}
             <div className="flex items-center gap-2 md:gap-4">
-              {mounted && (
+              {currentTheme && (
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                  onClick={() => setTheme(currentTheme === "dark" ? "light" : "dark")}
                   className="rounded-xl hidden md:flex hover:bg-secondary/80 text-foreground"
                 >
                   <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
@@ -108,6 +108,15 @@ export default function MarketingLayout({
               <Link href="/register" className="hidden sm:block">
                 <Button className="rounded-xl md:rounded-2xl bg-blue-600 px-6 md:px-8 h-10 md:h-12 font-black text-white hover:bg-blue-700 shadow-xl shadow-blue-500/20 active:scale-95 transition-all text-[10px] md:text-xs uppercase italic tracking-widest border-b-4 border-blue-800 active:border-b-0">
                   Mulai Bisnis
+                </Button>
+              </Link>
+
+              <Link href="/tenants" className="hidden sm:block">
+                <Button
+                  variant="outline"
+                  className="rounded-xl md:rounded-2xl px-6 md:px-8 h-10 md:h-12 font-black uppercase italic tracking-widest text-[10px] md:text-xs"
+                >
+                  Direktori Tenant
                 </Button>
               </Link>
 
@@ -149,6 +158,14 @@ export default function MarketingLayout({
                 Mulai Bisnis Sekarang
               </Button>
             </Link>
+            <Link href="/tenants" onClick={() => setIsMobileMenuOpen(false)}>
+              <Button
+                variant="outline"
+                className="w-full h-16 rounded-[1.5rem] font-black uppercase italic tracking-[0.2em]"
+              >
+                Direktori Tenant
+              </Button>
+            </Link>
           </nav>
         </div>
       </header>
@@ -158,12 +175,12 @@ export default function MarketingLayout({
       <main className="flex-1 w-full bg-background">{children}</main>
 
       {/* --- FLOATING THEME TOGGLE (MOBILE ONLY) --- */}
-      {mounted && (
+      {currentTheme && (
         <button
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          onClick={() => setTheme(currentTheme === "dark" ? "light" : "dark")}
           className="md:hidden fixed bottom-6 right-6 z-[200] flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-[0_10px_30px_rgba(59,130,246,0.5)] active:scale-90 transition-all border-4 border-background/20"
         >
-          {theme === "dark" ? (
+          {currentTheme === "dark" ? (
             <Sun className="h-6 w-6" />
           ) : (
             <Moon className="h-6 w-6" />

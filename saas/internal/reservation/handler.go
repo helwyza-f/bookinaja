@@ -1,11 +1,13 @@
 package reservation
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/helwiza/saas/internal/platform/env"
 )
 
 type Handler struct {
@@ -73,7 +75,8 @@ func (h *Handler) ExchangeAccessToken(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message":        "AKSES BERHASIL DITUKAR",
 		"booking_id":     booking.ID,
-		"redirect_url":   "/me/bookings/" + booking.ID.String(),
+		"tenant_slug":    booking.TenantSlug,
+		"redirect_url":   env.TenantURL(booking.TenantSlug, fmt.Sprintf("/me/bookings/%s/live", booking.ID.String())),
 		"customer_token": sessionToken,
 		"customer":       cust,
 	})
@@ -217,7 +220,7 @@ func (h *Handler) GetDetail(c *gin.Context) {
 
 func (h *Handler) GetMyDetail(c *gin.Context) {
 	id := c.Param("id")
-	tenantID := c.MustGet("tenantID").(string)
+	tenantID := optionalTenantID(c)
 	customerIDValue, exists := c.Get("customerID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
@@ -260,7 +263,7 @@ func (h *Handler) GetCustomerFnb(c *gin.Context) {
 }
 
 func (h *Handler) CustomerBookingAvailability(c *gin.Context) {
-	tenantID := c.MustGet("tenantID").(string)
+	tenantID := optionalTenantID(c)
 	bookingID := c.Param("id")
 	dateStr := c.Query("date")
 	targetDate, err := time.Parse("2006-01-02", dateStr)
@@ -286,7 +289,7 @@ func (h *Handler) CustomerBookingAvailability(c *gin.Context) {
 }
 
 func (h *Handler) GetCustomerLiveSnapshot(c *gin.Context) {
-	tenantID := c.MustGet("tenantID").(string)
+	tenantID := optionalTenantID(c)
 	customerIDValue, exists := c.Get("customerID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
@@ -318,7 +321,7 @@ func (h *Handler) GetCustomerLiveSnapshot(c *gin.Context) {
 
 func (h *Handler) CustomerExtendSession(c *gin.Context) {
 	bookingID := c.Param("id")
-	tenantID := c.MustGet("tenantID").(string)
+	tenantID := optionalTenantID(c)
 	customerIDValue, exists := c.Get("customerID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
@@ -346,7 +349,7 @@ func (h *Handler) CustomerExtendSession(c *gin.Context) {
 
 func (h *Handler) CustomerAddOrder(c *gin.Context) {
 	bookingID := c.Param("id")
-	tenantID := c.MustGet("tenantID").(string)
+	tenantID := optionalTenantID(c)
 	customerIDValue, exists := c.Get("customerID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
@@ -372,7 +375,7 @@ func (h *Handler) CustomerAddOrder(c *gin.Context) {
 
 func (h *Handler) CustomerAddAddonItem(c *gin.Context) {
 	bookingID := c.Param("id")
-	tenantID := c.MustGet("tenantID").(string)
+	tenantID := optionalTenantID(c)
 	customerIDValue, exists := c.Get("customerID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
@@ -400,7 +403,7 @@ func (h *Handler) CustomerAddAddonItem(c *gin.Context) {
 
 func (h *Handler) CustomerActivate(c *gin.Context) {
 	bookingID := c.Param("id")
-	tenantID := c.MustGet("tenantID").(string)
+	tenantID := optionalTenantID(c)
 	customerIDValue, exists := c.Get("customerID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
@@ -444,6 +447,15 @@ func (h *Handler) SyncSession(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, booking)
+}
+
+func optionalTenantID(c *gin.Context) string {
+	if tenantID, exists := c.Get("tenantID"); exists {
+		if tenantIDStr, ok := tenantID.(string); ok {
+			return tenantIDStr
+		}
+	}
+	return ""
 }
 
 // UpdateStatus eksekusi transisi status (Check-out, Cancel, dll)

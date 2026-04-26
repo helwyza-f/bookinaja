@@ -37,6 +37,19 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			me.GET("/bookings/:id", cfg.ReservationHandler.GetMyDetail)
 		}
 
+		user := protected.Group("/user")
+		{
+			user.GET("/me", cfg.CustomerHandler.GetMe)
+			user.PUT("/me", cfg.CustomerHandler.UpdateMe)
+			user.GET("/me/bookings/:id", cfg.ReservationHandler.GetMyDetail)
+			user.GET("/me/bookings/:id/context", cfg.ReservationHandler.GetCustomerLiveSnapshot)
+			user.GET("/me/bookings/:id/availability", cfg.ReservationHandler.CustomerBookingAvailability)
+			user.POST("/me/bookings/:id/activate", cfg.ReservationHandler.CustomerActivate)
+			user.POST("/me/bookings/:id/extend", cfg.ReservationHandler.CustomerExtendSession)
+			user.POST("/me/bookings/:id/orders", cfg.ReservationHandler.CustomerAddOrder)
+			user.POST("/me/bookings/:id/addons", cfg.ReservationHandler.CustomerAddAddonItem)
+		}
+
 		customerArea := protected.Group("/customer")
 		{
 			customerArea.GET("/resources", cfg.ReservationHandler.GetCustomerResources)

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -24,6 +25,7 @@ import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { format, differenceInSeconds, parseISO } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
+import { setCookie } from "cookies-next";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
@@ -98,23 +100,60 @@ export default function CustomerBookingDetail() {
 
   useEffect(() => {
     if (!params.id) return;
-    const token = searchParams.get("token");
-    if (token) {
-      router.replace(`/verify?code=${encodeURIComponent(token)}`);
-      return;
-    }
-    fetchDetail();
-    fetchMenuItems();
-    fetchLiveContext();
-    const interval = setInterval(fetchDetail, 30000);
-    const liveInterval = setInterval(fetchLiveContext, 45000);
-    const syncInterval = setInterval(syncSession, 60000);
-    const clock = setInterval(() => setNow(new Date()), 1000);
+    let cancelled = false;
+    const token = searchParams.get("token") || searchParams.get("code");
+
+    const bootstrap = async () => {
+      if (token) {
+        try {
+          const res = await api.post("/public/bookings/exchange", { code: token });
+          if (cancelled) return;
+
+          if (!res.data?.customer_token) {
+            throw new Error("Akses booking tidak valid");
+          }
+
+          setCookie("customer_auth", res.data.customer_token);
+          window.history.replaceState(null, "", window.location.pathname);
+        } catch (error: unknown) {
+          if (cancelled) return;
+          const message =
+            (error as { response?: { data?: { error?: string } } })?.response?.data
+              ?.error || "Gagal memverifikasi akses booking";
+          toast.error(message);
+          router.replace("/login");
+          return;
+        }
+      }
+
+      if (cancelled) return;
+
+      await fetchDetail();
+      await fetchMenuItems();
+      await fetchLiveContext();
+
+      if (cancelled) return;
+
+      const interval = setInterval(fetchDetail, 30000);
+      const liveInterval = setInterval(fetchLiveContext, 45000);
+      const syncInterval = setInterval(syncSession, 60000);
+      const clock = setInterval(() => setNow(new Date()), 1000);
+      return () => {
+        clearInterval(interval);
+        clearInterval(liveInterval);
+        clearInterval(syncInterval);
+        clearInterval(clock);
+      };
+    };
+
+    let cleanup: (() => void) | void;
+    void bootstrap().then((result) => {
+      cleanup = result;
+    });
+
     return () => {
-      clearInterval(interval);
-      clearInterval(liveInterval);
-      clearInterval(syncInterval);
-      clearInterval(clock);
+      cancelled = true;
+      if (cleanup) cleanup();
     };
   }, [params.id, searchParams]);
 
@@ -247,7 +286,6 @@ export default function CustomerBookingDetail() {
     }
   };
 
-  // Helper untuk menentukan label unit (Jam vs Sesi)
   const getUnitLabel = (duration: number) => {
     if (duration === 60) return "Jam";
     return "Sesi";

@@ -6,10 +6,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/helwiza/saas/internal/platform/fonnte"
-	"github.com/helwiza/saas/internal/platform/security"
 )
 
 type Handler struct {
@@ -30,14 +28,7 @@ func (h *Handler) RequestOTP(c *gin.Context) {
 		return
 	}
 
-	tenantIDStr, exists := c.Get("tenantID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Identitas bisnis tidak ditemukan"})
-		return
-	}
-	tID, _ := uuid.Parse(tenantIDStr.(string))
-
-	err := h.service.RequestOTP(c.Request.Context(), tID, req.Phone)
+	err := h.service.RequestOTP(c.Request.Context(), req.Phone)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
@@ -54,23 +45,14 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 		return
 	}
 
-	tenantIDStr := c.MustGet("tenantID").(string)
-	tID, _ := uuid.Parse(tenantIDStr)
-
-	cust, err := h.service.VerifyOTP(c.Request.Context(), tID, req.Phone, req.Code)
+	cust, err := h.service.VerifyOTP(c.Request.Context(), req.Phone, req.Code)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
 	// Generate JWT khusus Customer (Berlaku 3 Hari)
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"customer_id": cust.ID.String(),
-		"tenant_id":   cust.TenantID.String(),
-		"exp":         time.Now().Add(time.Hour * 72).Unix(),
-	})
-
-	tokenString, err := token.SignedString([]byte(security.JWTSecret()))
+	tokenString, err := GenerateAuthToken(cust.ID.String(), "", "", time.Hour*72)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat sesi login"})
 		return
@@ -93,10 +75,7 @@ func (h *Handler) ValidateCustomer(c *gin.Context) {
 		return
 	}
 
-	tenantIDStr := c.MustGet("tenantID").(string)
-	tID, _ := uuid.Parse(tenantIDStr)
-
-	cust, err := h.service.CheckExistence(c.Request.Context(), tID, phone)
+	cust, err := h.service.CheckExistence(c.Request.Context(), phone)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal melakukan validasi data"})
 		return
@@ -141,6 +120,29 @@ func (h *Handler) GetMe(c *gin.Context) {
 	c.JSON(http.StatusOK, data)
 }
 
+// UpdateMe memperbarui profil customer global
+func (h *Handler) UpdateMe(c *gin.Context) {
+	customerIDStr, exists := c.Get("customerID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid, silakan login kembali"})
+		return
+	}
+
+	var req UpdateProfileReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data profil tidak valid"})
+		return
+	}
+
+	updated, err := h.service.UpdateAccount(c.Request.Context(), customerIDStr.(string), req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Profil diperbarui", "customer": updated})
+}
+
 // ValidatePhone untuk live validation nomor WA via Fonnte API (Cek aktif/enggak)
 func (h *Handler) ValidatePhone(c *gin.Context) {
 	phone := c.Query("phone")
@@ -171,8 +173,7 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	tenantID := c.MustGet("tenantID").(string)
-	cust, err := h.service.Register(c.Request.Context(), tenantID, req)
+	cust, err := h.service.Register(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -251,11 +252,8 @@ func (h *Handler) SearchByPhone(c *gin.Context) {
 		return
 	}
 
-	tenantIDStr := c.MustGet("tenantID").(string)
-	tID, _ := uuid.Parse(tenantIDStr)
-
 	// Cek apakah user sudah ada
-	cust, err := h.service.GetByPhone(c.Request.Context(), tID, phone)
+	cust, err := h.service.GetByPhone(c.Request.Context(), phone)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

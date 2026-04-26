@@ -32,6 +32,13 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		// Customer token bersifat platform-level, jadi tidak perlu tenant cross-check.
+		if custID, ok := claims["customer_id"]; ok && custID != nil {
+			setAuthContext(c, claims)
+			c.Next()
+			return
+		}
+
 		// 3. MULTI-TENANCY CROSS-CHECK (CRITICAL FIX)
 		activeTenantID := c.GetString("tenantID")
 		tokenTenantID := fmt.Sprintf("%v", claims["tenant_id"])

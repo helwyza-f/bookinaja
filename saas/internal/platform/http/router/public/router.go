@@ -9,6 +9,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 	public := r.Group("/public")
 	{
 		public.GET("/tenant-id", cfg.TenantHandler.GetIDBySlug)
+		public.GET("/tenants", cfg.TenantHandler.ListPublicTenants)
 		public.GET("/profile", cfg.TenantHandler.GetPublicProfile)
 		public.GET("/landing", cfg.TenantHandler.GetPublicLandingData)
 		public.GET("/resources", cfg.ResourceHandler.ListPublic)

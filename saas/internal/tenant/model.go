@@ -117,3 +117,20 @@ type Tenant struct {
 	CloseTime string    `db:"close_time" json:"close_time"`
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
+
+type TenantDirectoryItem struct {
+	ID               uuid.UUID `db:"id" json:"id"`
+	Name             string    `db:"name" json:"name"`
+	Slug             string    `db:"slug" json:"slug"`
+	BusinessCategory string    `db:"business_category" json:"business_category"`
+	BusinessType     string    `db:"business_type" json:"business_type"`
+	Tagline          string    `db:"tagline" json:"tagline"`
+	Slogan           string    `db:"slogan" json:"slogan"`
+	AboutUs          string    `db:"about_us" json:"about_us"`
+	PrimaryColor     string    `db:"primary_color" json:"primary_color"`
+	LogoURL          string    `db:"logo_url" json:"logo_url"`
+	BannerURL        string    `db:"banner_url" json:"banner_url"`
+	OpenTime         string    `db:"open_time" json:"open_time"`
+	CloseTime        string    `db:"close_time" json:"close_time"`
+	CreatedAt        time.Time `db:"created_at" json:"created_at"`
+}

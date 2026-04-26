@@ -246,10 +246,12 @@ func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error
 func (r *Repository) GetByToken(ctx context.Context, token uuid.UUID) (*BookingDetail, error) {
 	var b BookingDetail
 	query := `
-		SELECT b.*, c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
+		SELECT b.*, t.name as tenant_name, t.slug as tenant_slug,
+		c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
 		COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) as total_resource,
 		COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_fnb
 		FROM bookings b
+		JOIN tenants t ON t.id = b.tenant_id
 		JOIN customers c ON b.customer_id = c.id
 		JOIN resources res ON b.resource_id = res.id
 		WHERE b.access_token = $1 LIMIT 1`
@@ -273,6 +275,10 @@ func (r *Repository) GetByToken(ctx context.Context, token uuid.UUID) (*BookingD
 }
 
 func (r *Repository) FindByIDForCustomer(ctx context.Context, id, tenantID, customerID uuid.UUID) (*BookingDetail, error) {
+	if tenantID == uuid.Nil {
+		return r.FindByIDForCustomerGlobal(ctx, id, customerID)
+	}
+
 	var b BookingDetail
 	if err := r.recalculateBookingTotalsTx(ctx, r.db, id); err != nil {
 		return nil, err
@@ -293,6 +299,46 @@ func (r *Repository) FindByIDForCustomer(ctx context.Context, id, tenantID, cust
 		LIMIT 1`
 
 	err := r.db.GetContext(ctx, &b, query, id, tenantID, customerID)
+	if err != nil {
+		return nil, err
+	}
+
+	if b.GrandTotal <= 0 {
+		b.GrandTotal = b.TotalResource + b.TotalFnb
+	}
+	if b.BalanceDue <= 0 && b.GrandTotal > 0 {
+		b.BalanceDue = b.GrandTotal - b.PaidAmount
+		if b.BalanceDue < 0 {
+			b.BalanceDue = 0
+		}
+	}
+	err = r.HydrateBooking(ctx, &b)
+	return &b, err
+}
+
+func (r *Repository) FindByIDForCustomerGlobal(ctx context.Context, id, customerID uuid.UUID) (*BookingDetail, error) {
+	var b BookingDetail
+	if err := r.recalculateBookingTotalsTx(ctx, r.db, id); err != nil {
+		return nil, err
+	}
+	query := `
+		SELECT 
+			b.*, t.name as tenant_name, t.slug as tenant_slug,
+			c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
+			COALESCE(ri.price, 0) as unit_price, 
+			COALESCE(ri.unit_duration, 60) as unit_duration,
+			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) as total_resource,
+			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_fnb
+		FROM bookings b
+		JOIN tenants t ON t.id = b.tenant_id
+		JOIN customers c ON b.customer_id = c.id
+		JOIN resources res ON b.resource_id = res.id
+		LEFT JOIN booking_options bo ON bo.booking_id = b.id
+		LEFT JOIN resource_items ri ON bo.resource_item_id = ri.id AND (ri.item_type = 'main_option' OR ri.item_type = 'console_option' OR ri.item_type = 'main')
+		WHERE b.id = $1 AND b.customer_id = $2
+		LIMIT 1`
+
+	err := r.db.GetContext(ctx, &b, query, id, customerID)
 	if err != nil {
 		return nil, err
 	}
@@ -396,10 +442,12 @@ func (r *Repository) FindActiveSessions(ctx context.Context, tenantID uuid.UUID)
 	var res []BookingDetail
 	query := `
 		SELECT 
-			b.*, c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
+			b.*, t.name as tenant_name, t.slug as tenant_slug,
+			c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
 			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) as total_resource,
 			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_fnb
 		FROM bookings b
+		JOIN tenants t ON t.id = b.tenant_id
 		JOIN customers c ON b.customer_id = c.id
 		JOIN resources res ON b.resource_id = res.id
 		WHERE b.tenant_id = $1 AND b.status IN ('active', 'ongoing')

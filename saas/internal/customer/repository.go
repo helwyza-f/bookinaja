@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Repository struct {
@@ -23,7 +25,7 @@ func NewRepository(db *sqlx.DB) *Repository {
 func (r *Repository) Upsert(ctx context.Context, c Customer) (uuid.UUID, error) {
 	query := `
 		INSERT INTO customers (
-			id, tenant_id, name, phone, email, 
+			id, name, phone, email, password, 
 			total_visits, total_spent, tier, loyalty_points, 
 			created_at, updated_at
 		) 
@@ -32,15 +34,17 @@ func (r *Repository) Upsert(ctx context.Context, c Customer) (uuid.UUID, error) 
 			0, 0, 'NEW', 0, 
 			NOW(), NOW()
 		)
-		ON CONFLICT (tenant_id, phone) 
+		ON CONFLICT (phone) 
 		DO UPDATE SET 
 			name = EXCLUDED.name,
+			email = COALESCE(EXCLUDED.email, customers.email),
+			password = COALESCE(EXCLUDED.password, customers.password),
 			updated_at = NOW()
 		RETURNING id`
 
 	var id uuid.UUID
 	err := r.db.QueryRowContext(ctx, query,
-		c.ID, c.TenantID, c.Name, c.Phone, c.Email,
+		c.ID, c.Name, c.Phone, c.Email, c.Password,
 	).Scan(&id)
 
 	if err != nil {
@@ -84,9 +88,15 @@ func (r *Repository) ListBroadcastTargets(ctx context.Context, tenantID uuid.UUI
 	var targets []BroadcastTarget
 	err := r.db.SelectContext(ctx, &targets, `
 		SELECT id, name, phone
-		FROM customers
-		WHERE tenant_id = $1 AND COALESCE(phone, '') <> ''
-		ORDER BY updated_at DESC, created_at DESC`, tenantID)
+		FROM customers c
+		WHERE COALESCE(c.phone, '') <> ''
+		AND EXISTS (
+			SELECT 1
+			FROM bookings b
+			WHERE b.customer_id = c.id
+			AND b.tenant_id = $1
+		)
+		ORDER BY c.updated_at DESC, c.created_at DESC`, tenantID)
 	return targets, err
 }
 
@@ -104,11 +114,60 @@ func (r *Repository) CreateAuditLog(ctx context.Context, tenantID uuid.UUID, act
 }
 
 // FindByPhone digunakan untuk validasi awal sebelum booking & login OTP.
-func (r *Repository) FindByPhone(ctx context.Context, tenantID uuid.UUID, phone string) (*Customer, error) {
+func (r *Repository) FindByPhone(ctx context.Context, phone string) (*Customer, error) {
 	var c Customer
-	query := `SELECT * FROM customers WHERE tenant_id = $1 AND phone = $2 LIMIT 1`
-	err := r.db.GetContext(ctx, &c, query, tenantID, phone)
+	query := `SELECT * FROM customers WHERE phone = $1 LIMIT 1`
+	err := r.db.GetContext(ctx, &c, query, phone)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &c, nil
+}
+
+func (r *Repository) UpdateProfile(ctx context.Context, id uuid.UUID, req UpdateProfileReq) (*Customer, error) {
+	setClauses := []string{"updated_at = NOW()"}
+	args := []any{}
+	argIdx := 1
+
+	if req.Name != nil && strings.TrimSpace(*req.Name) != "" {
+		setClauses = append(setClauses, fmt.Sprintf("name = $%d", argIdx))
+		args = append(args, strings.TrimSpace(*req.Name))
+		argIdx++
+	}
+	if req.Email != nil {
+		setClauses = append(setClauses, fmt.Sprintf("email = $%d", argIdx))
+		args = append(args, strings.TrimSpace(*req.Email))
+		argIdx++
+	}
+	if req.Password != nil && strings.TrimSpace(*req.Password) != "" {
+		hashed, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, fmt.Errorf("gagal mengamankan password pelanggan: %w", err)
+		}
+		setClauses = append(setClauses, fmt.Sprintf("password = $%d", argIdx))
+		args = append(args, string(hashed))
+		argIdx++
+	}
+
+	if len(args) == 0 {
+		return r.FindByID(ctx, id)
+	}
+
+	query := fmt.Sprintf(`
+		UPDATE customers
+		SET %s
+		WHERE id = $%d
+		RETURNING *`,
+		strings.Join(setClauses, ", "),
+		argIdx,
+	)
+	args = append(args, id)
+
+	var c Customer
+	if err := r.db.GetContext(ctx, &c, query, args...); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -146,15 +205,17 @@ func (r *Repository) FindByTenant(ctx context.Context, tenantID uuid.UUID) ([]Cu
 			COALESCE(stats.total_spent, 0) AS total_spent,
 			stats.last_visit AS last_visit
 		FROM customers c
-		LEFT JOIN LATERAL (
+		JOIN LATERAL (
 			SELECT
 				COUNT(*) FILTER (WHERE b.status IN ('confirmed', 'pending', 'active', 'ongoing', 'completed')) AS total_visits,
 				COALESCE(SUM(CASE WHEN b.payment_status IN ('settled', 'partial_paid', 'paid') THEN b.grand_total ELSE 0 END), 0) AS total_spent,
 				MAX(b.end_time) FILTER (WHERE b.status IN ('completed', 'active', 'ongoing', 'confirmed', 'pending')) AS last_visit
 			FROM bookings b
-			WHERE b.customer_id = c.id
+			WHERE b.customer_id = c.id AND b.tenant_id = $1
 		) stats ON TRUE
-		WHERE c.tenant_id = $1
+		WHERE EXISTS (
+			SELECT 1 FROM bookings b WHERE b.customer_id = c.id AND b.tenant_id = $1
+		)
 		ORDER BY COALESCE(stats.total_spent, 0) DESC, c.updated_at DESC`
 	err := r.db.SelectContext(ctx, &customers, query, tenantID)
 	return customers, err
@@ -195,15 +256,15 @@ func (r *Repository) FindByIDForTenant(ctx context.Context, id, tenantID uuid.UU
 			COALESCE(stats.total_spent, 0) AS total_spent,
 			stats.last_visit AS last_visit
 		FROM customers c
-		LEFT JOIN LATERAL (
+		JOIN LATERAL (
 			SELECT
 				COUNT(*) FILTER (WHERE b.status IN ('confirmed', 'pending', 'active', 'ongoing', 'completed')) AS total_visits,
 				COALESCE(SUM(CASE WHEN b.payment_status IN ('settled', 'partial_paid', 'paid') THEN b.grand_total ELSE 0 END), 0) AS total_spent,
 				MAX(b.end_time) FILTER (WHERE b.status IN ('completed', 'active', 'ongoing', 'confirmed', 'pending')) AS last_visit
 			FROM bookings b
-			WHERE b.customer_id = c.id
+			WHERE b.customer_id = c.id AND b.tenant_id = $2
 		) stats ON TRUE
-		WHERE c.id = $1 AND c.tenant_id = $2
+		WHERE c.id = $1
 		LIMIT 1`
 	err := r.db.GetContext(ctx, &c, query, id, tenantID)
 	if err == sql.ErrNoRows {
@@ -216,12 +277,14 @@ func (r *Repository) GetActiveBookings(ctx context.Context, customerID uuid.UUID
 	var bookings []RecentHistoryDTO
 	query := `
 		SELECT 
-			b.id, res.name as resource, b.start_time as date, b.status,
+			b.id, b.tenant_id, t.name as tenant_name, t.slug as tenant_slug,
+			res.name as resource, b.start_time as date, b.status,
 			b.payment_status,
 			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) +
 			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_spent
 		FROM bookings b
 		JOIN resources res ON b.resource_id = res.id
+		JOIN tenants t ON t.id = b.tenant_id
 		WHERE b.customer_id = $1 AND b.status IN ('confirmed', 'pending', 'active')
 		ORDER BY b.start_time ASC`
 	err := r.db.SelectContext(ctx, &bookings, query, customerID)
@@ -232,13 +295,15 @@ func (r *Repository) GetPastHistory(ctx context.Context, customerID uuid.UUID, l
 	var history []RecentHistoryDTO
 	query := `
 		SELECT 
-			b.id, res.name as resource, b.start_time as date, b.end_time as end_date,
+			b.id, b.tenant_id, t.name as tenant_name, t.slug as tenant_slug,
+			res.name as resource, b.start_time as date, b.end_time as end_date,
 			b.grand_total, b.deposit_amount, b.paid_amount, b.balance_due,
 			b.status, b.payment_status, b.payment_method,
 			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) +
 			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_spent
 		FROM bookings b
 		JOIN resources res ON b.resource_id = res.id
+		JOIN tenants t ON t.id = b.tenant_id
 		WHERE b.customer_id = $1 AND b.status IN ('completed', 'cancelled')
 		ORDER BY b.start_time DESC LIMIT $2`
 	err := r.db.SelectContext(ctx, &history, query, customerID, limit)
@@ -249,13 +314,15 @@ func (r *Repository) GetTransactionHistory(ctx context.Context, customerID uuid.
 	var history []RecentHistoryDTO
 	query := `
 		SELECT 
-			b.id, res.name as resource, b.start_time as date, b.end_time as end_date,
+			b.id, b.tenant_id, t.name as tenant_name, t.slug as tenant_slug,
+			res.name as resource, b.start_time as date, b.end_time as end_date,
 			b.grand_total, b.deposit_amount, b.paid_amount, b.balance_due,
 			b.status, b.payment_status, b.payment_method,
 			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) +
 			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_spent
 		FROM bookings b
 		JOIN resources res ON b.resource_id = res.id
+		JOIN tenants t ON t.id = b.tenant_id
 		WHERE b.customer_id = $1
 		ORDER BY b.start_time DESC
 		LIMIT $2`

@@ -7,8 +7,10 @@ const RESERVED_SLUGS = new Set([
   "www",
   "api",
   "admin",
+  "user",
   "login",
   "register",
+  "tenants",
   "public",
   "me",
   "localhost",
@@ -48,8 +50,9 @@ export function getTenantSlugFromBrowser() {
 function resolveRootDomainForHost(host: string, configuredRootDomain: string) {
   const configured = configuredRootDomain?.trim();
   if (configured) {
-    if (host === configured || host.endsWith(`.${configured}`)) {
-      return configured;
+    const configuredHost = stripPort(configured);
+    if (host === configuredHost || host.endsWith(`.${configuredHost}`)) {
+      return configuredHost;
     }
   }
 
@@ -58,5 +61,61 @@ function resolveRootDomainForHost(host: string, configuredRootDomain: string) {
     return parts.slice(-2).join(".");
   }
 
-  return configured || "bookinaja.local";
+  return stripPort(configured) || "bookinaja.local";
+}
+
+export function getTenantUrl(
+  slug: string,
+  path = "/",
+  searchParams?: Record<string, string | number | boolean | null | undefined>,
+) {
+  const normalizedSlug = normalizeSlug(slug);
+  if (!normalizedSlug) return path || "/";
+
+  const root = resolveConfiguredRoot();
+  const [pathnamePart, searchPart = ""] = path.split("?");
+  const safePath = pathnamePart.startsWith("/")
+    ? pathnamePart
+    : `/${pathnamePart}`;
+  const mergedSearch = new URLSearchParams(searchPart);
+
+  if (searchParams) {
+    for (const [key, value] of Object.entries(searchParams)) {
+      if (value === undefined || value === null) continue;
+      mergedSearch.set(key, String(value));
+    }
+  }
+
+  const search = mergedSearch.toString();
+
+  if (typeof window !== "undefined") {
+    const url = new URL(window.location.href);
+    url.hostname = `${normalizedSlug}.${root.host}`;
+    if (root.port) {
+      url.port = root.port;
+    }
+    url.pathname = safePath;
+    url.search = search ? `?${search}` : "";
+    url.hash = "";
+    return url.toString();
+  }
+
+  const protocol =
+    process.env.NODE_ENV === "production" ? "https:" : "http:";
+  const port = root.port ? `:${root.port}` : "";
+  return `${protocol}//${normalizedSlug}.${root.host}${port}${safePath}${search ? `?${search}` : ""}`;
+}
+
+function resolveConfiguredRoot() {
+  const cleaned = ROOT_DOMAIN || "bookinaja.local";
+  const [host, portFromDomain] = cleaned.split(":");
+  const port = portFromDomain || "";
+  return {
+    host: host || "bookinaja.local",
+    port,
+  };
+}
+
+function stripPort(value: string) {
+  return value.split(":")[0];
 }
