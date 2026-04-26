@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { setCookie } from "cookies-next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,6 @@ export default function TenantLoginPage() {
   const [loading, setLoading] = useState(false);
   const params = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { register, handleSubmit } = useForm<LoginForm>();
   const tenantSlug = params.tenant as string;
 
@@ -56,6 +55,10 @@ export default function TenantLoginPage() {
       syncTenantCookies(tenantSlug, res.data.user?.tenant_id);
       toast.success("Login Berhasil!");
 
+      const searchParams =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search)
+          : new URLSearchParams();
       const plan = searchParams.get("plan");
       const interval = searchParams.get("interval");
       if (plan || interval) {
