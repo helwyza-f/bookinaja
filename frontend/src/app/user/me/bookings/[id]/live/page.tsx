@@ -305,7 +305,7 @@ export default function CustomerBookingDetail() {
   const handlePayBooking = async (mode: "dp" | "settlement") => {
     try {
       const res = await api.post(
-        `/public/bookings/${params.id}/checkout?mode=${mode}`,
+        `/public/bookings/${params.id}/checkout?mode=${mode}&slug=${booking.tenant_slug}`,
       );
       const snap = await waitForSnap();
       if (!snap) return;
@@ -576,7 +576,7 @@ export default function CustomerBookingDetail() {
                 <div className="flex items-center gap-2 text-blue-600 mb-1">
                   <MapPin size={14} />
                   <span className="text-[10px] font-black uppercase tracking-widest italic">
-                    Booking Detail
+                    {booking.tenant_name || "Booking Detail"}
                   </span>
                 </div>
                 <h3 className="text-2xl font-[1000] uppercase dark:text-white italic tracking-tighter line-clamp-2">
