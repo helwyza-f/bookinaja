@@ -31,12 +31,15 @@ type SnapWindow = Window & {
   snap?: {
     pay: (token: string, options?: Record<string, unknown>) => void;
   };
+  __midtransSnapPromise?: Promise<SnapWindow["snap"] | null>;
 };
 
 export default function SettingsBillingSubscribePage() {
   const router = useRouter();
   const [isAnnual, setIsAnnual] = useState(true);
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
+  const [midtransReady, setMidtransReady] = useState(false);
+  const [checkingMidtrans, setCheckingMidtrans] = useState(false);
 
   useEffect(() => {
     api.get("/billing/subscription").then((res) => {
@@ -44,11 +47,104 @@ export default function SettingsBillingSubscribePage() {
     }).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as SnapWindow).snap) {
+      setMidtransReady(true);
+    }
+  }, []);
+
   const activeLabel = useMemo(() => currentPlan?.toUpperCase() || "Belum aktif", [currentPlan]);
 
+  const loadMidtransSnap = async () => {
+    if (typeof window === "undefined") return null;
+
+    const snapWindow = window as SnapWindow;
+    if (snapWindow.snap) {
+      setMidtransReady(true);
+      return snapWindow.snap;
+    }
+
+    if (snapWindow.__midtransSnapPromise) {
+      return snapWindow.__midtransSnapPromise;
+    }
+
+    snapWindow.__midtransSnapPromise = new Promise((resolve) => {
+      const existingScript = document.querySelector<HTMLScriptElement>(
+        'script[data-midtrans-snap="bookinaja"]',
+      );
+
+      const finish = () => {
+        const resolvedSnap = (window as SnapWindow).snap || null;
+        setMidtransReady(Boolean(resolvedSnap));
+        resolve(resolvedSnap);
+      };
+
+      if (existingScript) {
+        existingScript.addEventListener("load", finish, { once: true });
+        existingScript.addEventListener("error", () => {
+          setMidtransReady(false);
+          resolve(null);
+        }, { once: true });
+        window.setTimeout(finish, 1500);
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src =
+        (process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION || "").toLowerCase() === "true"
+          ? "https://app.midtrans.com/snap/snap.js"
+          : "https://app.sandbox.midtrans.com/snap/snap.js";
+      script.setAttribute("data-client-key", process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "");
+      script.setAttribute("data-midtrans-snap", "bookinaja");
+      script.async = true;
+      script.onload = finish;
+      script.onerror = () => {
+        setMidtransReady(false);
+        resolve(null);
+      };
+      document.head.appendChild(script);
+    });
+
+    return snapWindow.__midtransSnapPromise;
+  };
+
+  const waitForSnap = async () => {
+    if (typeof window === "undefined") return null;
+
+    const existingSnap = (window as SnapWindow).snap;
+    if (existingSnap) {
+      setMidtransReady(true);
+      return existingSnap;
+    }
+
+    setCheckingMidtrans(true);
+    try {
+      const started = Date.now();
+      while (Date.now() - started < 3000) {
+        const currentSnap = (window as SnapWindow).snap;
+        if (currentSnap) {
+          setMidtransReady(true);
+          return currentSnap;
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 200));
+      }
+
+      const loadedSnap = await loadMidtransSnap();
+      if (loadedSnap) {
+        setMidtransReady(true);
+        return loadedSnap;
+      }
+
+      toast.error("Midtrans belum siap dibuka. Coba refresh halaman atau nonaktifkan ad blocker untuk domain ini.");
+      return null;
+    } finally {
+      setCheckingMidtrans(false);
+    }
+  };
+
   const checkout = async (plan: string) => {
-    const snap = (window as SnapWindow).snap;
-    if (!snap) return toast.error("Midtrans belum siap");
+    const snap = await waitForSnap();
+    if (!snap) return;
 
     try {
       const res = await api.post("/billing/checkout", {
@@ -83,7 +179,10 @@ export default function SettingsBillingSubscribePage() {
           ? "https://app.midtrans.com/snap/snap.js"
           : "https://app.sandbox.midtrans.com/snap/snap.js"}
         data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
+        data-midtrans-snap="bookinaja"
         strategy="afterInteractive"
+        onLoad={() => setMidtransReady(Boolean((window as SnapWindow).snap))}
+        onError={() => setMidtransReady(false)}
       />
 
       <div className="flex items-center justify-between gap-3">
@@ -181,10 +280,15 @@ export default function SettingsBillingSubscribePage() {
 
               <Button
                 onClick={() => checkout(plan.key)}
+                disabled={checkingMidtrans}
                 className="mt-8 h-14 w-full rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black uppercase italic tracking-[0.2em] shadow-xl shadow-blue-600/20"
               >
                 <Sparkles className="mr-2 h-4 w-4" />
-                Pilih {plan.name}
+                {checkingMidtrans
+                  ? "Menyiapkan Midtrans..."
+                  : midtransReady
+                    ? `Pilih ${plan.name}`
+                    : `Pilih ${plan.name}`}
               </Button>
             </Card>
           );
