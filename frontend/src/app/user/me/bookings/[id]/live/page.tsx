@@ -862,20 +862,26 @@ export default function CustomerBookingDetail() {
               </div>
             </div>
 
-            {(paymentStatus === "partial_paid" || (paymentStatus === "paid" && balanceDue > 0)) ? (
-              <Button
-                onClick={() => handlePayBooking("settlement")}
-                disabled={!midtransReady || isLiveSession}
-                className="w-full h-14 rounded-2xl bg-slate-950 hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-600 text-white font-[1000] uppercase italic tracking-widest text-sm shadow-lg gap-2"
-              >
-                <CreditCard size={16} />
-                {midtransReady ? (isLiveSession ? "Sesi Aktif (Akhiri Dulu)" : "Bayar Settlement") : "Menyiapkan Midtrans..."}
-              </Button>
+            {sessionStatus === "completed" ? (
+              (paymentStatus === "partial_paid" || (paymentStatus === "paid" && balanceDue > 0)) ? (
+                <Button
+                  onClick={() => handlePayBooking("settlement")}
+                  disabled={!midtransReady}
+                  className="w-full h-14 rounded-2xl bg-slate-950 hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-600 text-white font-[1000] uppercase italic tracking-widest text-sm shadow-lg gap-2"
+                >
+                  <CreditCard size={16} />
+                  {midtransReady ? "Bayar Settlement" : "Menyiapkan Midtrans..."}
+                </Button>
+              ) : (
+                <div className="rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50/80 dark:bg-white/5 px-4 py-3 text-[11px] font-bold leading-relaxed text-slate-700 dark:text-slate-200">
+                  {balanceDue > 0
+                    ? "Settlement akan tersedia setelah DP tercatat."
+                    : "Tidak ada sisa pembayaran untuk sesi ini."}
+                </div>
+              )
             ) : (
-              <div className="rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50/80 dark:bg-white/5 px-4 py-3 text-[11px] font-bold leading-relaxed text-slate-700 dark:text-slate-200">
-                {balanceDue > 0
-                  ? "Settlement akan tersedia setelah DP tercatat."
-                  : "Tidak ada sisa pembayaran untuk sesi ini."}
+              <div className="rounded-2xl border border-blue-500/15 bg-blue-500/10 px-4 py-3 text-[11px] font-bold leading-relaxed text-blue-700 dark:text-blue-200 text-center">
+                🕒 Tombol pelunasan akan muncul setelah sesi berakhir.
               </div>
             )}
           </div>

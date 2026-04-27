@@ -40,9 +40,13 @@ function MobileSheet({
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center">
-      <div className="w-full sm:max-w-lg bg-white dark:bg-slate-950 rounded-t-[2rem] sm:rounded-[2rem] max-h-[92vh] overflow-hidden shadow-2xl">
-        <div className="p-4 border-b dark:border-white/5 flex items-center justify-between">
+    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose} />
+      <div className="relative w-full sm:max-w-lg bg-white dark:bg-slate-950 rounded-t-[2rem] sm:rounded-[2rem] max-h-[90vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom-full sm:zoom-in-95 duration-300 pb-safe">
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+          <div className="h-1.5 w-12 bg-slate-200 dark:bg-white/20 rounded-full" />
+        </div>
+        <div className="p-4 sm:pt-6 border-b dark:border-white/5 flex items-center justify-between shrink-0">
           <div className="min-w-0">
             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-600 italic">
               Customer Live
@@ -54,13 +58,13 @@ function MobileSheet({
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-full"
+            className="rounded-full bg-slate-100 dark:bg-white/10 shrink-0"
             onClick={onClose}
           >
-            <X size={18} />
+            <X size={16} />
           </Button>
         </div>
-        <div className="max-h-[calc(92vh-72px)] overflow-y-auto">
+        <div className="overflow-y-auto overscroll-contain">
           {children}
         </div>
       </div>
