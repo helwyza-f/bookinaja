@@ -115,12 +115,12 @@ export default function MarketingLayout({
                 </Button>
               </Link>
 
-              <Link href="/tenants" className="hidden sm:block">
+              <Link href="/user/me" className="hidden sm:block">
                 <Button
                   variant="outline"
                   className="rounded-xl md:rounded-2xl px-6 md:px-8 h-10 md:h-12 font-black uppercase italic tracking-widest text-[10px] md:text-xs"
                 >
-                  Direktori Tenant
+                  Portal Customer
                 </Button>
               </Link>
 
@@ -162,12 +162,12 @@ export default function MarketingLayout({
                 Mulai Bisnis Sekarang
               </Button>
             </Link>
-            <Link href="/tenants" onClick={() => setIsMobileMenuOpen(false)}>
+            <Link href="/user/me" onClick={() => setIsMobileMenuOpen(false)}>
               <Button
                 variant="outline"
                 className="w-full h-16 rounded-[1.5rem] font-black uppercase italic tracking-[0.2em]"
               >
-                Direktori Tenant
+                Portal Customer
               </Button>
             </Link>
           </nav>

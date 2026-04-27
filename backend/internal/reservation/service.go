@@ -552,7 +552,7 @@ func (s *Service) SendBookingConfirmation(ctx context.Context, booking *Booking,
 }
 
 func bookingVerifyURL(tenantSlug, accessToken string) string {
-	return env.TenantURL(tenantSlug, fmt.Sprintf("/verify?code=%s", accessToken))
+	return env.PlatformURL(fmt.Sprintf("/user/verify?code=%s", accessToken))
 }
 
 func formatMoney(v float64) string {

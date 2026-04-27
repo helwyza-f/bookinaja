@@ -47,3 +47,14 @@ func TenantURL(slug, path string) string {
 	}
 	return fmt.Sprintf("%s://%s.%s%s", AppProtocol(), slug, AppDomain(), path)
 }
+
+func PlatformURL(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		path = "/"
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return fmt.Sprintf("%s://%s%s", AppProtocol(), AppDomain(), path)
+}
