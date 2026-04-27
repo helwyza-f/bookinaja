@@ -1,19 +1,44 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import { Sun, Moon, UserCircle2, Layout } from "lucide-react";
+import { Sun, Moon, UserCircle2, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 
-export function TenantNavbar({ profile }: any) {
+type TenantNavbarProfile = {
+  name: string;
+  business_type?: string;
+  primary_color?: string;
+  logo_url?: string;
+};
+
+type TenantNavbarProps = {
+  profile: TenantNavbarProfile;
+  tenantSlug?: string;
+};
+
+function getRootPortalUrl(path: string) {
+  if (typeof window === "undefined") return path;
+
+  const url = new URL(window.location.href);
+  const hostParts = url.hostname.split(".").filter(Boolean);
+
+  if (url.hostname !== "localhost" && hostParts.length > 2) {
+    url.hostname = hostParts.slice(-2).join(".");
+  }
+
+  url.pathname = path;
+  url.search = "";
+  url.hash = "";
+  return url.toString();
+}
+
+export function TenantNavbar({ profile }: TenantNavbarProps) {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
-  // 1. Fix Hydration Error: Pastikan komponen sudah di-mount di client sebelum render elemen berbasis tema
   useEffect(() => {
-    setMounted(true);
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
@@ -74,15 +99,13 @@ export function TenantNavbar({ profile }: any) {
         </div>
 
         {/* Actions Section */}
-        <div className="flex items-center gap-2 md:gap-6">
-          {/* Theme Toggle - Dengan check 'mounted' biar gak removeChild error */}
+        <div className="flex items-center gap-1.5 md:gap-4">
           <button
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
             className="p-2.5 md:p-3.5 rounded-xl md:rounded-2xl bg-white/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 transition-all border border-slate-200/50 dark:border-white/5 shadow-sm min-w-[40px] flex items-center justify-center"
+            suppressHydrationWarning
           >
-            {!mounted ? (
-              <div className="h-4 w-4 md:h-5 md:w-5" /> // Placeholder biar ga jumping
-            ) : theme === "dark" ? (
+            {theme === "dark" ? (
               <Sun className="h-4 w-4 md:h-5 md:w-5 text-yellow-500 animate-in zoom-in duration-300" />
             ) : (
               <Moon className="h-4 w-4 md:h-5 md:w-5 text-blue-600 animate-in zoom-in duration-300" />
@@ -91,29 +114,32 @@ export function TenantNavbar({ profile }: any) {
 
           <div className="h-8 md:h-10 w-px bg-slate-200 dark:bg-white/10 mx-1 md:mx-2" />
 
-          {/* Member Portal - Sign In */}
-          <Link href={`/login`}>
+          <Link
+            href="/user/login"
+            onClick={(event) => {
+              event.preventDefault();
+              window.location.href = getRootPortalUrl("/user/login");
+            }}
+          >
             <Button
               variant="ghost"
-              className="rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-[0.2em] gap-2 md:gap-3 hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-black px-3 md:px-6 h-10 md:h-12 transition-all active:scale-95"
+              className="rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-[0.16em] gap-2 hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-black px-3 md:px-5 h-10 md:h-12 transition-all active:scale-95"
             >
               <UserCircle2 className="h-4 w-4 md:h-5 md:w-5 opacity-60" />
-              <span className="hidden sm:inline">Sign In</span>
-              <span className="sm:hidden text-[9px]">Login</span>
+              <span className="hidden md:inline">Customer</span>
             </Button>
           </Link>
 
-          {/* Console Login - Hidden on Mobile */}
-          <Link href="/admin/login" className="hidden lg:block">
+          <Link href="/admin/login">
             <Button
-              className="rounded-2xl font-black text-xs uppercase tracking-[0.2em] h-12 px-10 transition-all hover:scale-105 active:scale-95 shadow-xl border-none text-white"
+              className="rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-[0.16em] h-10 md:h-12 px-3 md:px-6 transition-all active:scale-95 shadow-lg border-none text-white"
               style={{
                 backgroundColor: primaryColor,
                 boxShadow: `0 10px 25px -5px ${primaryColor}66`,
               }}
             >
-              <Layout className="mr-2 h-4 w-4" />
-              Console
+              <LayoutDashboard className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Admin</span>
             </Button>
           </Link>
         </div>
