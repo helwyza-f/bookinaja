@@ -30,47 +30,30 @@ func NewService(r *Repository, rdb *redis.Client) *Service {
 
 // RequestOTP menangani alur permintaan login: Cek user -> Gen OTP -> Redis -> WhatsApp.
 func (s *Service) RequestOTP(ctx context.Context, phone string) error {
-	// 1. Pastikan nomor terdaftar di tenant ini (Postgres Check)
 	cust, err := s.repo.FindByPhone(ctx, phone)
 	if err != nil || cust == nil {
-		return fmt.Errorf("nomor %s tidak terdaftar. silakan hubungi admin atau buat reservasi baru", phone)
+		return fmt.Errorf("nomor WhatsApp ini belum terhubung ke akun Bookinaja. Silakan daftar dulu atau lanjut booking sebagai pelanggan baru")
+	}
+	if !cust.IsVerified() {
+		return fmt.Errorf("akun ini belum aktif. Selesaikan verifikasi WhatsApp dari halaman daftar terlebih dahulu")
 	}
 
-	// 2. Generate 6 digit OTP acak
-	otpCode := fmt.Sprintf("%06d", rand.New(rand.NewSource(time.Now().UnixNano())).Intn(1000000))
+	return s.sendOTP(ctx, cust.Phone, cust.Name, "login")
+}
 
-	// 3. Simpan ke Redis Cloud dengan TTL 5 Menit
-	key := fmt.Sprintf("otp:%s", phone)
-	err = s.redis.Set(ctx, key, otpCode, 5*time.Minute).Err()
+func (s *Service) ResendRegistrationOTP(ctx context.Context, phone string) error {
+	cust, err := s.repo.FindByPhone(ctx, strings.TrimSpace(phone))
 	if err != nil {
-		return fmt.Errorf("sistem login sedang sibuk (redis error): %w", err)
+		return fmt.Errorf("kami belum bisa menyiapkan kode verifikasi saat ini")
+	}
+	if cust == nil {
+		return fmt.Errorf("data pendaftaran belum ditemukan. Silakan isi formulir daftar terlebih dahulu")
+	}
+	if cust.IsVerified() {
+		return fmt.Errorf("akun ini sudah aktif. Silakan langsung masuk ke Bookinaja")
 	}
 
-	// 4. Integrasi Fonnte (Kirim WhatsApp Real-time)
-	msg := fmt.Sprintf(
-		"Halo *%s*,\n\nKode OTP login Anda adalah: *%s*\n\nKode ini berlaku selama 5 menit. Jangan berikan kode ini kepada siapapun termasuk pihak staff.",
-		cust.Name,
-		otpCode,
-	)
-
-	if strings.ToLower(strings.TrimSpace(os.Getenv("GIN_MODE"))) != "release" {
-		fmt.Printf("[WA OTP] phone=%s message_len=%d\n", phone, len(msg))
-	}
-
-	success, err := fonnte.SendMessage(phone, msg)
-	if err != nil || !success {
-		if strings.ToLower(strings.TrimSpace(os.Getenv("GIN_MODE"))) != "release" {
-			fmt.Printf("[WA OTP] send_failed phone=%s err=%v\n", phone, err)
-		}
-		return fmt.Errorf("gagal mengirim kode ke WhatsApp: %v", err)
-	}
-
-	if strings.ToLower(strings.TrimSpace(os.Getenv("GIN_MODE"))) != "release" {
-		fmt.Printf("[WA OTP] send_success phone=%s\n", phone)
-	}
-
-	fmt.Printf("[AUTH] OTP Request Success: %s -> %s\n", phone, otpCode)
-	return nil
+	return s.sendOTP(ctx, cust.Phone, cust.Name, "register")
 }
 
 // VerifyOTP memvalidasi kode dari customer dan mengembalikan data profil untuk JWT.
@@ -79,18 +62,30 @@ func (s *Service) VerifyOTP(ctx context.Context, phone, code string) (*Customer,
 
 	savedCode, err := s.redis.Get(ctx, key).Result()
 	if err == redis.Nil {
-		return nil, fmt.Errorf("kode OTP sudah kadaluarsa, silakan minta kode baru")
+		return nil, fmt.Errorf("kode verifikasi sudah kedaluwarsa. Silakan kirim ulang OTP")
 	} else if err != nil {
-		return nil, fmt.Errorf("gagal verifikasi (redis error): %w", err)
+		return nil, fmt.Errorf("verifikasi sedang mengalami kendala. Silakan coba lagi sebentar")
 	}
 
 	if savedCode != code {
-		return nil, fmt.Errorf("kode OTP yang Anda masukkan salah")
+		return nil, fmt.Errorf("kode verifikasi belum sesuai. Coba periksa lagi")
 	}
 
 	s.redis.Del(ctx, key)
 
-	return s.repo.FindByPhone(ctx, phone)
+	cust, err := s.repo.FindByPhone(ctx, phone)
+	if err != nil || cust == nil {
+		return nil, fmt.Errorf("akun pelanggan belum ditemukan")
+	}
+
+	if !cust.IsVerified() {
+		if err := s.repo.MarkPhoneVerified(ctx, cust.ID); err != nil {
+			return nil, fmt.Errorf("akun belum berhasil diaktifkan. Silakan coba lagi")
+		}
+		return s.repo.FindByID(ctx, cust.ID)
+	}
+
+	return cust, nil
 }
 
 // --- CORE CUSTOMER LOGIC ---
@@ -124,6 +119,8 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Customer, err
 		Phone:         req.Phone,
 		Email:         req.Email,
 		Password:      hashedPassword,
+		AccountStatus: "verified",
+		PhoneVerifiedAt: timePtr(time.Now().UTC()),
 		Tier:          "NEW",
 		TotalVisits:   0,
 		TotalSpent:    0,
@@ -141,32 +138,78 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Customer, err
 func (s *Service) LoginWithEmail(ctx context.Context, email, password string) (*Customer, error) {
 	cust, err := s.repo.FindByEmail(ctx, email)
 	if err != nil || cust == nil {
-		return nil, fmt.Errorf("email tidak terdaftar")
+		return nil, fmt.Errorf("email ini belum terdaftar di Bookinaja")
 	}
 
 	if cust.Password == nil || *cust.Password == "" {
-		return nil, fmt.Errorf("akun belum memiliki password, silakan login dengan nomor HP dan atur password di pengaturan")
+		return nil, fmt.Errorf("akun ini belum memakai password. Masuk dengan WhatsApp dulu, lalu atur password di profil")
+	}
+	if !cust.IsVerified() {
+		return nil, fmt.Errorf("akun ini belum aktif. Selesaikan verifikasi WhatsApp terlebih dahulu")
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(*cust.Password), []byte(password)); err != nil {
-		return nil, fmt.Errorf("password salah")
+		return nil, fmt.Errorf("password belum sesuai")
 	}
 
 	return cust, nil
 }
 
-func (s *Service) RegisterGlobalCustomer(ctx context.Context, req RegisterReq) (*Customer, error) {
-	// Pengecekan duplikasi by email & phone
-	if req.Email != nil && *req.Email != "" {
-		if existing, _ := s.repo.FindByEmail(ctx, *req.Email); existing != nil {
-			return nil, fmt.Errorf("email sudah terdaftar")
+func (s *Service) StartRegistration(ctx context.Context, req RegisterReq) (*Customer, error) {
+	if req.Email != nil && strings.TrimSpace(*req.Email) != "" {
+		email := strings.TrimSpace(*req.Email)
+		req.Email = &email
+
+		existingByEmail, err := s.repo.FindByEmail(ctx, email)
+		if err != nil {
+			return nil, fmt.Errorf("kami belum bisa memeriksa email saat ini")
+		}
+		if existingByEmail != nil && existingByEmail.Phone != req.Phone {
+			return nil, fmt.Errorf("email ini sudah dipakai akun lain")
 		}
 	}
-	if existing, _ := s.repo.FindByPhone(ctx, req.Phone); existing != nil {
-		return nil, fmt.Errorf("nomor HP sudah terdaftar")
+
+	existingByPhone, err := s.repo.FindByPhone(ctx, req.Phone)
+	if err != nil {
+		return nil, fmt.Errorf("kami belum bisa memeriksa nomor WhatsApp saat ini")
+	}
+	if existingByPhone != nil && existingByPhone.IsVerified() {
+		return nil, fmt.Errorf("nomor WhatsApp ini sudah terdaftar")
 	}
 
-	return s.Register(ctx, req)
+	hashedPassword, err := hashPassword(req.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	cust := Customer{
+		ID:            uuid.New(),
+		Name:          strings.TrimSpace(req.Name),
+		Phone:         strings.TrimSpace(req.Phone),
+		Email:         req.Email,
+		Password:      hashedPassword,
+		AccountStatus: "unverified",
+		Tier:          "NEW",
+		TotalVisits:   0,
+		TotalSpent:    0,
+		LoyaltyPoints: 0,
+	}
+
+	id, err := s.repo.UpsertPendingRegistration(ctx, cust)
+	if err != nil {
+		return nil, fmt.Errorf("data pendaftaran belum berhasil disimpan")
+	}
+
+	created, err := s.repo.FindByID(ctx, id)
+	if err != nil || created == nil {
+		return nil, fmt.Errorf("data pendaftaran belum bisa dibaca kembali")
+	}
+
+	if err := s.sendOTP(ctx, created.Phone, created.Name, "register"); err != nil {
+		return nil, err
+	}
+
+	return created, nil
 }
 
 func canCreateNewCustomer(plan, status string, periodEnd *time.Time) bool {
@@ -352,4 +395,55 @@ func (s *Service) GetTransactionHistory(ctx context.Context, id, tenantID string
 		limit = 20
 	}
 	return s.repo.GetTransactionHistory(ctx, cID, limit)
+}
+
+func (s *Service) sendOTP(ctx context.Context, phone, name, purpose string) error {
+	otpCode := fmt.Sprintf("%06d", rand.New(rand.NewSource(time.Now().UnixNano())).Intn(1000000))
+	key := fmt.Sprintf("otp:%s", phone)
+	if err := s.redis.Set(ctx, key, otpCode, 5*time.Minute).Err(); err != nil {
+		return fmt.Errorf("sistem verifikasi sedang sibuk. Silakan coba lagi sebentar")
+	}
+
+	actionLabel := "login"
+	if purpose == "register" {
+		actionLabel = "aktivasi akun"
+	}
+	msg := fmt.Sprintf(
+		"Halo *%s*,\n\nKode OTP %s Anda adalah: *%s*\n\nKode ini berlaku selama 5 menit. Jangan berikan kode ini kepada siapapun termasuk pihak staff.",
+		name,
+		actionLabel,
+		otpCode,
+	)
+
+	if strings.ToLower(strings.TrimSpace(os.Getenv("GIN_MODE"))) != "release" {
+		fmt.Printf("[WA OTP] purpose=%s phone=%s message_len=%d\n", purpose, phone, len(msg))
+	}
+
+	success, err := fonnte.SendMessage(phone, msg)
+	if err != nil || !success {
+		if strings.ToLower(strings.TrimSpace(os.Getenv("GIN_MODE"))) != "release" {
+			fmt.Printf("[WA OTP] send_failed purpose=%s phone=%s err=%v\n", purpose, phone, err)
+		}
+		return fmt.Errorf("kode verifikasi belum berhasil dikirim ke WhatsApp. Silakan coba lagi")
+	}
+
+	return nil
+}
+
+func hashPassword(password *string) (*string, error) {
+	if password == nil || strings.TrimSpace(*password) == "" {
+		return nil, nil
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(*password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("service: gagal mengamankan password pelanggan: %w", err)
+	}
+
+	hash := string(hashed)
+	return &hash, nil
+}
+
+func timePtr(t time.Time) *time.Time {
+	return &t
 }

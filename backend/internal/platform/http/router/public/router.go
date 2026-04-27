@@ -25,6 +25,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 		public.POST("/customer/login", cfg.CustomerHandler.RequestOTP)
 		public.POST("/customer/login-email", cfg.CustomerHandler.CustomerLoginEmail)
 		public.POST("/customer/register", cfg.CustomerHandler.CustomerRegister)
+		public.POST("/customer/register/resend", cfg.CustomerHandler.ResendRegistrationOTP)
 		public.POST("/customer/verify", cfg.CustomerHandler.VerifyOTP)
 	}
 }

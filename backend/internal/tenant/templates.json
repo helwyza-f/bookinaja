@@ -14,28 +14,10 @@
         "image_url": "https://images.unsplash.com/photo-1547394765-185e1e68f34e?w=800&q=80"
       },
       {
-        "name": "PC E-SPORTS",
-        "category": "E-SPORTS",
-        "description": "RTX 4090, Ryzen 9, BenQ Zowie 360Hz, SecretLab Chair",
-        "image_url": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&q=80"
-      },
-      {
         "name": "CONSOLE PS5",
         "category": "CONSOLE",
         "description": "PlayStation 5, TV Sony 4K 55 Inch",
         "image_url": "https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=800&q=80"
-      },
-      {
-        "name": "STREAMING ROOM",
-        "category": "STUDIO",
-        "description": "GoXLR, Shure SM7B, Dual PC Setup",
-        "image_url": "https://images.unsplash.com/photo-1598550476439-6847785fcea6?w=800&q=80"
-      },
-      {
-        "name": "SIMULATOR RACING",
-        "category": "SIMULATOR",
-        "description": "Fanatec DD2, Hydraulic Pedals, Triple Monitor",
-        "image_url": "https://images.unsplash.com/photo-1636622433525-127afdf3662d?w=800&q=80"
       }
     ],
     "main_items": [
@@ -47,29 +29,8 @@
         "is_default": true
       },
       {
-        "name": "NON-MEMBER REGULER",
-        "price": 8000,
-        "price_unit": "hour",
-        "unit_duration": 60,
-        "is_default": false
-      },
-      {
         "name": "MEMBER VIP",
         "price": 12000,
-        "price_unit": "hour",
-        "unit_duration": 60,
-        "is_default": false
-      },
-      {
-        "name": "NON-MEMBER VIP",
-        "price": 15000,
-        "price_unit": "hour",
-        "unit_duration": 60,
-        "is_default": false
-      },
-      {
-        "name": "PRO-PLAYER RATE",
-        "price": 25000,
         "price_unit": "hour",
         "unit_duration": 60,
         "is_default": false
@@ -79,13 +40,6 @@
         "price": 15000,
         "price_unit": "session",
         "unit_duration": 180,
-        "is_default": false
-      },
-      {
-        "name": "PAKET BEGADANG (22:00-06:00)",
-        "price": 45000,
-        "price_unit": "session",
-        "unit_duration": 480,
         "is_default": false
       }
     ],
@@ -99,12 +53,6 @@
       {
         "name": "HEADSET HYPERX",
         "price": 7000,
-        "price_unit": "session",
-        "unit_duration": 0
-      },
-      {
-        "name": "MECHANICAL KEYBOARD",
-        "price": 5000,
         "price_unit": "session",
         "unit_duration": 0
       },
@@ -123,34 +71,16 @@
         "image_url": "https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?w=400&q=80"
       },
       {
-        "name": "NASI GORENG GILA",
-        "price": 25000,
-        "category": "Food",
-        "image_url": "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=400&q=80"
-      },
-      {
         "name": "KENTANG GORENG",
         "price": 15000,
         "category": "Snack",
         "image_url": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=400&q=80"
       },
       {
-        "name": "ES TEH MANIS JUMBO",
-        "price": 7000,
-        "category": "Drink",
-        "image_url": "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&q=80"
-      },
-      {
         "name": "KOPI SUSU GULA AREN",
         "price": 18000,
         "category": "Drink",
         "image_url": "https://images.unsplash.com/photo-1612528443702-f6741f70a049?w=400&q=80"
-      },
-      {
-        "name": "ENERGY DRINK MONSTER",
-        "price": 35000,
-        "category": "Drink",
-        "image_url": "https://images.unsplash.com/photo-1622543925917-763c34d1a86e?w=400&q=80"
       }
     ]
   },
@@ -163,18 +93,6 @@
         "image_url": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&q=80"
       },
       {
-        "name": "STUDIO THEMATIC",
-        "category": "PHOTOGRAPHY",
-        "description": "European Style Living Room & Vintage Library Set",
-        "image_url": "https://images.unsplash.com/photo-1554080353-a576cf803bda?w=800&q=80"
-      },
-      {
-        "name": "STUDIO GREEN SCREEN",
-        "category": "VIDEO",
-        "description": "U-Shape Green Screen with Overhead Lighting Grid",
-        "image_url": "https://images.unsplash.com/photo-1598899134739-24c46f58b8c0?w=800&q=80"
-      },
-      {
         "name": "PODCAST SUITE",
         "category": "AUDIO",
         "description": "Acoustic Treated, Shure SM7B, RODECaster Pro II",
@@ -185,12 +103,6 @@
         "category": "POST-PROD",
         "description": "Mac Studio M2 Ultra, Pro Display XDR, DaVinci Resolve",
         "image_url": "https://images.unsplash.com/photo-1547082299-de196ea013d6?w=800&q=80"
-      },
-      {
-        "name": "DANCE STUDIO",
-        "category": "REHEARSAL",
-        "description": "Full Mirror Wall, Sound System, Vinyl Floor",
-        "image_url": "https://images.unsplash.com/photo-1524594152303-9fd13543fe6e?w=800&q=80"
       }
     ],
     "main_items": [
@@ -209,29 +121,8 @@
         "is_default": false
       },
       {
-        "name": "STUDIO FULL DAY (8H)",
-        "price": 1300000,
-        "price_unit": "session",
-        "unit_duration": 480,
-        "is_default": false
-      },
-      {
         "name": "PODCAST HOURLY",
         "price": 150000,
-        "price_unit": "hour",
-        "unit_duration": 60,
-        "is_default": false
-      },
-      {
-        "name": "EDITING HOURLY",
-        "price": 75000,
-        "price_unit": "hour",
-        "unit_duration": 60,
-        "is_default": false
-      },
-      {
-        "name": "MEMBER RATE",
-        "price": 175000,
         "price_unit": "hour",
         "unit_duration": 60,
         "is_default": false
@@ -241,12 +132,6 @@
       {
         "name": "KAMERA SONY A7IV",
         "price": 350000,
-        "price_unit": "session",
-        "unit_duration": 0
-      },
-      {
-        "name": "LENSA GM 24-70MM",
-        "price": 200000,
         "price_unit": "session",
         "unit_duration": 0
       },
@@ -271,34 +156,16 @@
         "image_url": "https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=400&q=80"
       },
       {
-        "name": "CARAMEL MACCHIATO",
-        "price": 35000,
-        "category": "Coffee",
-        "image_url": "https://images.unsplash.com/photo-1485808191679-5f86510bd9d4?w=400&q=80"
-      },
-      {
         "name": "CLUB SANDWICH",
         "price": 45000,
         "category": "Food",
         "image_url": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=400&q=80"
       },
       {
-        "name": "SPAGHETTI BOLOGNESE",
-        "price": 55000,
-        "category": "Food",
-        "image_url": "https://images.unsplash.com/photo-1598866594230-a7c12756260f?w=400&q=80"
-      },
-      {
         "name": "CROISSANT BUTTER",
         "price": 22000,
         "category": "Snack",
         "image_url": "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400&q=80"
-      },
-      {
-        "name": "SPARKLING WATER",
-        "price": 25000,
-        "category": "Drink",
-        "image_url": "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&q=80"
       }
     ]
   },
@@ -317,18 +184,6 @@
         "image_url": "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=800&q=80"
       },
       {
-        "name": "LAPANGAN BASKET 3X3",
-        "category": "BASKETBALL",
-        "description": "Outdoor Court, Professional Ring",
-        "image_url": "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800&q=80"
-      },
-      {
-        "name": "LAPANGAN TENIS",
-        "category": "TENNIS",
-        "description": "Hard Court, Floodlights for Night Match",
-        "image_url": "https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800&q=80"
-      },
-      {
         "name": "STUDIO SENAM / YOGA",
         "category": "INDOOR",
         "description": "Wooden Floor, Full Mirror, Sound System",
@@ -344,29 +199,8 @@
         "is_default": true
       },
       {
-        "name": "FUTSAL OFF PEAK (08-17)",
-        "price": 150000,
-        "price_unit": "hour",
-        "unit_duration": 60,
-        "is_default": false
-      },
-      {
         "name": "BADMINTON REGULER",
         "price": 50000,
-        "price_unit": "hour",
-        "unit_duration": 60,
-        "is_default": false
-      },
-      {
-        "name": "BADMINTON MEMBER",
-        "price": 40000,
-        "price_unit": "hour",
-        "unit_duration": 60,
-        "is_default": false
-      },
-      {
-        "name": "TENNIS HOURLY",
-        "price": 100000,
         "price_unit": "hour",
         "unit_duration": 60,
         "is_default": false
@@ -393,12 +227,6 @@
         "unit_duration": 0
       },
       {
-        "name": "ROMPI FUTSAL (12 PCS)",
-        "price": 30000,
-        "price_unit": "session",
-        "unit_duration": 0
-      },
-      {
         "name": "SEWA SEPATU FUTSAL",
         "price": 25000,
         "price_unit": "pcs",
@@ -413,34 +241,16 @@
         "image_url": "https://images.unsplash.com/photo-1622543925917-763c34d1a86e?w=400&q=80"
       },
       {
-        "name": "GATORADE 500ML",
-        "price": 18000,
-        "category": "Drink",
-        "image_url": "https://images.unsplash.com/photo-1581009137042-c552e485697a?w=400&q=80"
-      },
-      {
         "name": "NASI AYAM BAKAR",
         "price": 28000,
         "category": "Food",
         "image_url": "https://images.unsplash.com/photo-1632778149955-e80f8ceca2e8?w=400&q=80"
       },
       {
-        "name": "NASI GORENG TELUR",
-        "price": 20000,
-        "category": "Food",
-        "image_url": "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=400&q=80"
-      },
-      {
         "name": "PISANG GORENG COKLAT",
         "price": 15000,
         "category": "Snack",
         "image_url": "https://images.unsplash.com/photo-1606756790138-261d2b21cd75?w=400&q=80"
-      },
-      {
-        "name": "ES JERUK PERAS",
-        "price": 12000,
-        "category": "Drink",
-        "image_url": "https://images.unsplash.com/photo-1534353436294-0dbd4bdac845?w=400&q=80"
       }
     ]
   },
@@ -453,12 +263,6 @@
         "image_url": "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80"
       },
       {
-        "name": "HOT-DESK (SOCIAL AREA)",
-        "category": "COWORKING",
-        "description": "Collaborative Zone, Near Coffee Station",
-        "image_url": "https://images.unsplash.com/photo-1556761175-4b46a572b786?w=800&q=80"
-      },
-      {
         "name": "PRIVATE OFFICE",
         "category": "OFFICE",
         "description": "Soundproof Private Room, Dual Desk, Storage",
@@ -469,18 +273,6 @@
         "category": "MEETING",
         "description": "Capacity 12-15 People, Projector, Video Conf Ready",
         "image_url": "https://images.unsplash.com/photo-1517502884422-41eaead166d4?w=800&q=80"
-      },
-      {
-        "name": "PHONE BOOTH",
-        "category": "PRIVATE",
-        "description": "Single Person Soundproof Booth for Private Calls",
-        "image_url": "https://images.unsplash.com/photo-1588196749597-9ff075ee6b5b?w=800&q=80"
-      },
-      {
-        "name": "EVENT HALL",
-        "category": "EVENT",
-        "description": "Capacity 50 People, Sound System, Projector, Stage",
-        "image_url": "https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&q=80"
       }
     ],
     "main_items": [
@@ -490,13 +282,6 @@
         "price_unit": "day",
         "unit_duration": 1440,
         "is_default": true
-      },
-      {
-        "name": "WEEKLY PASS",
-        "price": 500000,
-        "price_unit": "week",
-        "unit_duration": 10080,
-        "is_default": false
       },
       {
         "name": "MONTHLY MEMBER",
@@ -511,32 +296,12 @@
         "price_unit": "hour",
         "unit_duration": 60,
         "is_default": false
-      },
-      {
-        "name": "MEETING HOURLY (LARGE)",
-        "price": 300000,
-        "price_unit": "hour",
-        "unit_duration": 60,
-        "is_default": false
-      },
-      {
-        "name": "VIRTUAL OFFICE (YEARLY)",
-        "price": 5000000,
-        "price_unit": "year",
-        "unit_duration": 525600,
-        "is_default": false
       }
     ],
     "unit_addons": [
       {
         "name": "PRINTING B/W (PER PAGE)",
         "price": 1000,
-        "price_unit": "pcs",
-        "unit_duration": 0
-      },
-      {
-        "name": "PRINTING COLOR (PER PAGE)",
-        "price": 5000,
         "price_unit": "pcs",
         "unit_duration": 0
       },
@@ -561,34 +326,16 @@
         "image_url": "https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=400&q=80"
       },
       {
-        "name": "FLAT WHITE",
-        "price": 30000,
-        "category": "Coffee",
-        "image_url": "https://images.unsplash.com/photo-1534040385115-33dcb3acba5b?w=400&q=80"
-      },
-      {
         "name": "PASTA CARBONARA",
         "price": 55000,
         "category": "Food",
         "image_url": "https://images.unsplash.com/photo-1612874742237-6526221588e3?w=400&q=80"
       },
       {
-        "name": "BEEF BURGER & FRIES",
-        "price": 75000,
-        "category": "Food",
-        "image_url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80"
-      },
-      {
         "name": "ALMOND CROISSANT",
         "price": 28000,
         "category": "Snack",
         "image_url": "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400&q=80"
-      },
-      {
-        "name": "EARL GREY TEA HOT",
-        "price": 25000,
-        "category": "Tea",
-        "image_url": "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&q=80"
       }
     ]
   },
@@ -601,12 +348,6 @@
         "image_url": "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800&q=80"
       },
       {
-        "name": "KARAOKE ROOM MEDIUM",
-        "category": "KARAOKE",
-        "description": "Capacity 8 People, Dual Mic, Sofa Comfort",
-        "image_url": "https://images.unsplash.com/photo-1598387993441-a364f854cffd?w=800&q=80"
-      },
-      {
         "name": "KARAOKE ROOM VIP",
         "category": "KARAOKE",
         "description": "Capacity 15 People, Tablet Controller, Private Restroom",
@@ -617,18 +358,6 @@
         "category": "BILLIARD",
         "description": "9-Feet Table, Professional Slate, Tournament Grade",
         "image_url": "https://images.unsplash.com/photo-1615542578965-958786aab89c?w=800&q=80"
-      },
-      {
-        "name": "BILLIARD VIP",
-        "category": "BILLIARD",
-        "description": "Private Room with Sofa and Personal Minibar",
-        "image_url": "https://images.unsplash.com/photo-1542751110-97427bbecf20?w=800&q=80"
-      },
-      {
-        "name": "VR BOOTH",
-        "category": "VR",
-        "description": "HTC Vive Pro 2 Setup, 3x3m Walking Space",
-        "image_url": "https://images.unsplash.com/photo-1622979135225-d2ba269cf1ac?w=800&q=80"
       }
     ],
     "main_items": [
@@ -640,38 +369,10 @@
         "is_default": true
       },
       {
-        "name": "KARAOKE MEDIUM HOURLY",
-        "price": 120000,
-        "price_unit": "hour",
-        "unit_duration": 60,
-        "is_default": false
-      },
-      {
-        "name": "KARAOKE VIP HOURLY",
-        "price": 250000,
-        "price_unit": "hour",
-        "unit_duration": 60,
-        "is_default": false
-      },
-      {
         "name": "BILLIARD REGULER HOURLY",
         "price": 50000,
         "price_unit": "hour",
         "unit_duration": 60,
-        "is_default": false
-      },
-      {
-        "name": "BILLIARD VIP HOURLY",
-        "price": 100000,
-        "price_unit": "hour",
-        "unit_duration": 60,
-        "is_default": false
-      },
-      {
-        "name": "VR 30 MINUTE SESSION",
-        "price": 60000,
-        "price_unit": "session",
-        "unit_duration": 30,
         "is_default": false
       },
       {
@@ -696,12 +397,6 @@
         "unit_duration": 0
       },
       {
-        "name": "KAOS KAKI VR",
-        "price": 10000,
-        "price_unit": "pcs",
-        "unit_duration": 0
-      },
-      {
         "name": "MIC COVER (ISI 2)",
         "price": 5000,
         "price_unit": "pcs",
@@ -722,28 +417,10 @@
         "image_url": "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&q=80"
       },
       {
-        "name": "NACHOS WITH CHEESE",
-        "price": 55000,
-        "category": "Snack",
-        "image_url": "https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?w=400&q=80"
-      },
-      {
         "name": "MOCKTAIL VIRGIN MOJITO",
         "price": 45000,
         "category": "Drink",
         "image_url": "https://images.unsplash.com/photo-1544145945-f90425340c7e?w=400&q=80"
-      },
-      {
-        "name": "NASI GORENG SPECIAL",
-        "price": 45000,
-        "category": "Food",
-        "image_url": "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=400&q=80"
-      },
-      {
-        "name": "POPCORN CARAMEL",
-        "price": 30000,
-        "category": "Snack",
-        "image_url": "https://images.unsplash.com/photo-1585647347384-2593bc35786b?w=400&q=80"
       }
     ]
   }

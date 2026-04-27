@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -11,35 +12,30 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jmoiron/sqlx"
 
-	// Import semua domain internal
 	"github.com/helwiza/backend/internal/auth"
 	"github.com/helwiza/backend/internal/billing"
 	"github.com/helwiza/backend/internal/customer"
 	"github.com/helwiza/backend/internal/expense"
 	"github.com/helwiza/backend/internal/fnb"
-	"github.com/helwiza/backend/internal/platformadmin"
-	"github.com/helwiza/backend/internal/reservation"
-	"github.com/helwiza/backend/internal/resource"
-	"github.com/helwiza/backend/internal/tenant"
-
-	// Platform & Infrastructure
 	"github.com/helwiza/backend/internal/platform/database"
 	"github.com/helwiza/backend/internal/platform/http"
 	"github.com/helwiza/backend/internal/platform/http/routecfg"
 	midtranssvc "github.com/helwiza/backend/internal/platform/midtrans"
+	"github.com/helwiza/backend/internal/platformadmin"
+	"github.com/helwiza/backend/internal/reservation"
+	"github.com/helwiza/backend/internal/resource"
+	"github.com/helwiza/backend/internal/tenant"
 	"github.com/joho/godotenv"
 )
 
 func main() {
-	// 0. Load Configuration (.env)
 	if err := godotenv.Load(); err != nil {
-		log.Println("ℹ️ Info: .env file not found, menggunakan environment variables sistem")
+		log.Println("info: .env file not found, using system environment variables")
 	}
 
 	dbHost := os.Getenv("DB_HOST")
 	dbPort := os.Getenv("DB_PORT")
 
-	// 1. Database Connection with Retry Logic
 	var db *sqlx.DB
 	var err error
 	for i := 0; i < 5; i++ {
@@ -53,26 +49,22 @@ func main() {
 		if err == nil {
 			break
 		}
-		log.Printf("⏳ DB belum siap di %s:%s, mencoba ulang dalam 2 detik... (%d/5)", dbHost, dbPort, i+1)
+		log.Printf("database not ready at %s:%s, retrying in 2s (%d/5)", dbHost, dbPort, i+1)
 		time.Sleep(2 * time.Second)
 	}
 	if err != nil {
-		log.Fatalf("❌ DB Connection Error: %v", err)
+		log.Fatalf("database connection error: %v", err)
 	}
 	defer db.Close()
 
-	// 2. Redis Connection
 	rdb, err := database.NewRedisClient()
 	if err != nil {
-		log.Fatalf("❌ Redis Connection Error: %v", err)
+		log.Fatalf("redis connection error: %v", err)
 	}
 	defer rdb.Close()
 
-	// 3. Database Migration
 	runMigration(db.DB)
 
-	// 4. DEPENDENCY INJECTION (Wiring Batam Engine)
-	// STEP A: Inisialisasi Semua Repository
 	tenantRepo := tenant.NewRepository(db, rdb)
 	customerRepo := customer.NewRepository(db)
 	expenseRepo := expense.NewRepository(db)
@@ -83,14 +75,8 @@ func main() {
 	platformRepo := platformadmin.NewRepository(db)
 	midtransRepo := midtranssvc.NewRepository(db)
 
-	// STEP B: Inisialisasi Semua Service (Urutan Berpengaruh)
-	// AuthSvc berdiri sendiri
 	authSvc := auth.NewService()
-
-	// TenantSvc butuh AuthSvc
 	tenantSvc := tenant.NewService(tenantRepo, authSvc)
-
-	// Domain lainnya
 	customerSvc := customer.NewService(customerRepo, rdb)
 	expenseSvc := expense.NewService(expenseRepo)
 	resourceSvc := resource.NewService(resourceRepo)
@@ -100,8 +86,6 @@ func main() {
 	billingSvc := billing.NewService(db, billingRepo)
 	platformSvc := platformadmin.NewService()
 
-	// STEP C: Inisialisasi Semua Handler
-	// Sekarang tenantSvc sudah terdefinisi, aman buat authHdl
 	authHdl := auth.NewHandler(authSvc, tenantSvc)
 	customerHdl := customer.NewHandler(customerSvc)
 	expenseHdl := expense.NewHandler(expenseSvc)
@@ -114,7 +98,6 @@ func main() {
 	midtransSvc := midtranssvc.NewService(db, midtransRepo)
 	midtransHdl := midtranssvc.NewHandler(midtransSvc)
 
-	// 5. Setup Router Config
 	routerConfig := routecfg.Config{
 		TenantHandler:      tenantHdl,
 		ResourceHandler:    resourceHdl,
@@ -132,48 +115,99 @@ func main() {
 
 	scheduler.Start()
 
-	// 6. Start Server
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
 	log.Println("--------------------------------------------------")
-	log.Printf("🚀 BOOKINAJA ENGINE: LIVE ON IDCLOUDHOST")
-	log.Printf("📡 Environment : %s", os.Getenv("APP_ENV"))
-	log.Printf("📡 Domain      : %s", os.Getenv("APP_DOMAIN"))
-	log.Printf("📡 Port        : %s", port)
-	log.Printf("📦 Storage     : Cloudflare R2 (cdn.bookinaja.com)")
-	log.Printf("⚡ Cache Engine : Redis (7-alpine)")
+	log.Printf("bookinaja engine starting on port %s", port)
+	log.Printf("domain=%s", os.Getenv("APP_DOMAIN"))
+	log.Printf("storage=cloudflare-r2")
 	log.Println("--------------------------------------------------")
 
 	if err := r.Run(":" + port); err != nil {
-		log.Fatalf("❌ Gagal menjalankan server: %v", err)
+		log.Fatalf("failed to run server: %v", err)
 	}
 }
 
 func runMigration(db *sql.DB) {
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
-		log.Fatalf("❌ Migration driver error: %v", err)
+		log.Fatalf("migration driver error: %v", err)
 	}
 
-	mPath := os.Getenv("MIGRATION_PATH")
-	if mPath == "" {
-		mPath = "file://migrations"
+	var lastErr error
+	for _, migrationPath := range migrationCandidates() {
+		m, migErr := migrate.NewWithDatabaseInstance(migrationPath, "postgres", driver)
+		if migErr != nil {
+			lastErr = migErr
+			continue
+		}
+
+		if upErr := m.Up(); upErr != nil && upErr != migrate.ErrNoChange {
+			lastErr = upErr
+			continue
+		}
+
+		if verifyErr := verifyCoreTables(db); verifyErr != nil {
+			lastErr = verifyErr
+			continue
+		}
+
+		log.Printf("database schema is up to date via %s", migrationPath)
+		return
 	}
 
-	m, err := migrate.NewWithDatabaseInstance(
-		mPath,
-		"postgres", driver,
-	)
-	if err != nil {
-		log.Fatalf("❌ Migration init error: %v", err)
+	log.Fatalf("migration failed: %v", lastErr)
+}
+
+func migrationCandidates() []string {
+	rawCandidates := []string{}
+	if envPath := os.Getenv("MIGRATION_PATH"); envPath != "" {
+		rawCandidates = append(rawCandidates, envPath)
+	}
+	rawCandidates = append(rawCandidates, "migrations", "backend/migrations", "./backend/migrations", "../migrations")
+
+	seen := map[string]bool{}
+	result := make([]string, 0, len(rawCandidates))
+	for _, candidate := range rawCandidates {
+		if candidate == "" {
+			continue
+		}
+
+		if len(candidate) >= 7 && candidate[:7] == "file://" {
+			if !seen[candidate] {
+				seen[candidate] = true
+				result = append(result, candidate)
+			}
+			continue
+		}
+
+		absPath, err := filepath.Abs(candidate)
+		if err != nil {
+			continue
+		}
+		uri := "file://" + filepath.ToSlash(absPath)
+		if !seen[uri] {
+			seen[uri] = true
+			result = append(result, uri)
+		}
 	}
 
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		log.Fatalf("❌ Migration failed: %v", err)
-	}
+	return result
+}
 
-	log.Println("✅ Database schema is up to date.")
+func verifyCoreTables(db *sql.DB) error {
+	requiredTables := []string{"tenants", "customers", "bookings"}
+	for _, tableName := range requiredTables {
+		var resolved sql.NullString
+		if err := db.QueryRow(`SELECT to_regclass($1)`, "public."+tableName).Scan(&resolved); err != nil {
+			return err
+		}
+		if !resolved.Valid || resolved.String == "" {
+			return os.ErrNotExist
+		}
+	}
+	return nil
 }

@@ -24,7 +24,7 @@ func NewHandler(s *Service) *Handler {
 func (h *Handler) RequestOTP(c *gin.Context) {
 	var req LoginReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Nomor WhatsApp diperlukan"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nomor WhatsApp wajib diisi"})
 		return
 	}
 
@@ -34,14 +34,29 @@ func (h *Handler) RequestOTP(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Kode OTP telah dikirim ke WhatsApp Anda"})
+	c.JSON(http.StatusOK, gin.H{"message": "Kode verifikasi sudah dikirim ke WhatsApp kamu"})
+}
+
+func (h *Handler) ResendRegistrationOTP(c *gin.Context) {
+	var req LoginReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nomor WhatsApp wajib diisi"})
+		return
+	}
+
+	if err := h.service.ResendRegistrationOTP(c.Request.Context(), req.Phone); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "OTP aktivasi baru sudah kami kirim ke WhatsApp kamu"})
 }
 
 // VerifyOTP memvalidasi kode dan mengembalikan JWT Token
 func (h *Handler) VerifyOTP(c *gin.Context) {
 	var req VerifyOtpReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Data verifikasi tidak lengkap"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Kode verifikasi belum lengkap"})
 		return
 	}
 
@@ -54,7 +69,7 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 	// Generate JWT khusus Customer (Berlaku 3 Hari)
 	tokenString, err := GenerateAuthToken(cust.ID.String(), "", "", time.Hour*72)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat sesi login"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Sesi belum berhasil dibuat. Silakan coba lagi"})
 		return
 	}
 
@@ -82,7 +97,7 @@ func (h *Handler) CustomerLoginEmail(c *gin.Context) {
 
 	tokenString, err := GenerateAuthToken(cust.ID.String(), "", "", time.Hour*72)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat sesi login"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Sesi belum berhasil dibuat. Silakan coba lagi"})
 		return
 	}
 
@@ -95,29 +110,24 @@ func (h *Handler) CustomerLoginEmail(c *gin.Context) {
 func (h *Handler) CustomerRegister(c *gin.Context) {
 	var req RegisterReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Data registrasi tidak lengkap"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data pendaftaran belum lengkap"})
 		return
 	}
 
 	if req.Phone == "" || req.Name == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Nama dan Nomor HP wajib diisi"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nama lengkap dan nomor WhatsApp wajib diisi"})
 		return
 	}
 
-	cust, err := h.service.RegisterGlobalCustomer(c.Request.Context(), req)
+	cust, err := h.service.StartRegistration(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	tokenString, err := GenerateAuthToken(cust.ID.String(), "", "", time.Hour*72)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat sesi login otomatis"})
-		return
-	}
-
 	c.JSON(http.StatusOK, gin.H{
-		"token":    tokenString,
+		"message":  "Pendaftaran hampir selesai. Verifikasi WhatsApp untuk mengaktifkan akun Bookinaja kamu.",
+		"phone":    cust.Phone,
 		"customer": cust,
 	})
 }

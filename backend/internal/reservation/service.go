@@ -708,7 +708,6 @@ func (s *Service) sendSessionReminders(ctx context.Context, booking *BookingDeta
 			5,
 			booking.CustomerName,
 			booking.TenantName,
-			5,
 			booking.ResourceName,
 			formatWIB(booking.StartTime),
 			url,

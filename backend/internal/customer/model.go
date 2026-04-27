@@ -8,18 +8,20 @@ import (
 
 // Customer adalah entitas pelanggan platform-level yang dipakai lintas tenant.
 type Customer struct {
-	ID       uuid.UUID `db:"id" json:"id"`
+	ID       uuid.UUID  `db:"id" json:"id"`
 	TenantID *uuid.UUID `db:"tenant_id" json:"tenant_id,omitempty"`
-	Name     string    `db:"name" json:"name"`
-	Phone    string    `db:"phone" json:"phone"`
-	Email    *string   `db:"email" json:"email"`
-	Password *string   `db:"password" json:"-"`
+	Name     string     `db:"name" json:"name"`
+	Phone    string     `db:"phone" json:"phone"`
+	Email    *string    `db:"email" json:"email"`
+	Password *string    `db:"password" json:"-"`
 
 	// CRM Fields (Physical Data - Persistent)
-	Tier        string     `db:"tier" json:"tier"` // NEW, REGULAR, GOLD, VIP
-	TotalVisits int        `db:"total_visits" json:"total_visits"`
-	TotalSpent  int64      `db:"total_spent" json:"total_spent"`
-	LastVisit   *time.Time `db:"last_visit" json:"last_visit"`
+	Tier            string     `db:"tier" json:"tier"` // NEW, REGULAR, GOLD, VIP
+	TotalVisits     int        `db:"total_visits" json:"total_visits"`
+	TotalSpent      int64      `db:"total_spent" json:"total_spent"`
+	LastVisit       *time.Time `db:"last_visit" json:"last_visit"`
+	AccountStatus   string     `db:"account_status" json:"account_status"`
+	PhoneVerifiedAt *time.Time `db:"phone_verified_at" json:"phone_verified_at"`
 
 	LoyaltyPoints int       `db:"loyalty_points" json:"loyalty_points"`
 	CreatedAt     time.Time `db:"created_at" json:"created_at"`
@@ -52,6 +54,12 @@ type UpdateProfileReq struct {
 
 type AuthResponse struct {
 	Token    string   `json:"token"`
+	Customer Customer `json:"customer"`
+}
+
+type RegisterStartResponse struct {
+	Message  string   `json:"message"`
+	Phone    string   `json:"phone"`
 	Customer Customer `json:"customer"`
 }
 
@@ -105,4 +113,8 @@ type BroadcastResult struct {
 	Skipped    int       `json:"skipped"`
 	Failed     int       `json:"failed"`
 	DefaultMsg bool      `json:"default_message"`
+}
+
+func (c Customer) IsVerified() bool {
+	return c.AccountStatus == "" || c.AccountStatus == "verified"
 }

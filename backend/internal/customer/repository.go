@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -25,32 +27,84 @@ func NewRepository(db *sqlx.DB) *Repository {
 func (r *Repository) Upsert(ctx context.Context, c Customer) (uuid.UUID, error) {
 	query := `
 		INSERT INTO customers (
-			id, name, phone, email, password, 
-			total_visits, total_spent, tier, loyalty_points, 
+			id, name, phone, email, password,
+			total_visits, total_spent, tier, loyalty_points,
+			account_status, phone_verified_at,
 			created_at, updated_at
-		) 
+		)
 		VALUES (
-			$1, $2, $3, $4, $5, 
-			0, 0, 'NEW', 0, 
+			$1, $2, $3, $4, $5,
+			0, 0, 'NEW', 0,
+			$6, $7,
 			NOW(), NOW()
 		)
-		ON CONFLICT (phone) 
-		DO UPDATE SET 
+		ON CONFLICT (phone)
+		DO UPDATE SET
 			name = EXCLUDED.name,
 			email = COALESCE(EXCLUDED.email, customers.email),
 			password = COALESCE(EXCLUDED.password, customers.password),
+			account_status = COALESCE(EXCLUDED.account_status, customers.account_status),
+			phone_verified_at = COALESCE(EXCLUDED.phone_verified_at, customers.phone_verified_at),
 			updated_at = NOW()
 		RETURNING id`
 
 	var id uuid.UUID
 	err := r.db.QueryRowContext(ctx, query,
-		c.ID, c.Name, c.Phone, c.Email, c.Password,
+		c.ID, c.Name, c.Phone, c.Email, c.Password, c.AccountStatus, c.PhoneVerifiedAt,
 	).Scan(&id)
 
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("repo: gagal upsert customer: %w", err)
+		return uuid.Nil, wrapCustomerRepoErr("repo: gagal upsert customer", err)
 	}
 	return id, nil
+}
+
+func (r *Repository) UpsertPendingRegistration(ctx context.Context, c Customer) (uuid.UUID, error) {
+	query := `
+		INSERT INTO customers (
+			id, name, phone, email, password,
+			total_visits, total_spent, tier, loyalty_points,
+			account_status, phone_verified_at,
+			created_at, updated_at
+		)
+		VALUES (
+			$1, $2, $3, $4, $5,
+			0, 0, 'NEW', 0,
+			'unverified', NULL,
+			NOW(), NOW()
+		)
+		ON CONFLICT (phone)
+		DO UPDATE SET
+			name = EXCLUDED.name,
+			email = EXCLUDED.email,
+			password = EXCLUDED.password,
+			account_status = 'unverified',
+			phone_verified_at = NULL,
+			updated_at = NOW()
+		WHERE COALESCE(customers.account_status, 'verified') != 'verified'
+		RETURNING id`
+
+	var id uuid.UUID
+	err := r.db.QueryRowContext(ctx, query, c.ID, c.Name, c.Phone, c.Email, c.Password).Scan(&id)
+	if err != nil {
+		return uuid.Nil, wrapCustomerRepoErr("repo: gagal simpan registrasi pending", err)
+	}
+	return id, nil
+}
+
+func (r *Repository) MarkPhoneVerified(ctx context.Context, id uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE customers
+		SET
+			account_status = 'verified',
+			phone_verified_at = COALESCE(phone_verified_at, NOW()),
+			updated_at = NOW()
+		WHERE id = $1
+	`, id)
+	if err != nil {
+		return wrapCustomerRepoErr("repo: gagal update verifikasi customer", err)
+	}
+	return nil
 }
 
 func (r *Repository) CountByTenant(ctx context.Context, tenantID uuid.UUID) (int, error) {
@@ -122,7 +176,7 @@ func (r *Repository) FindByPhone(ctx context.Context, phone string) (*Customer, 
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		return nil, err
+		return nil, wrapCustomerRepoErr("repo: gagal cari customer by phone", err)
 	}
 	return &c, nil
 }
@@ -135,7 +189,7 @@ func (r *Repository) FindByEmail(ctx context.Context, email string) (*Customer, 
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		return nil, err
+		return nil, wrapCustomerRepoErr("repo: gagal cari customer by email", err)
 	}
 	return &c, nil
 }
@@ -184,7 +238,7 @@ func (r *Repository) UpdateProfile(ctx context.Context, id uuid.UUID, req Update
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		return nil, err
+		return nil, wrapCustomerRepoErr("repo: gagal update customer", err)
 	}
 	return &c, nil
 }
@@ -257,7 +311,10 @@ func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*Customer, err
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
-	return &c, err
+	if err != nil {
+		return nil, wrapCustomerRepoErr("repo: gagal cari customer by id", err)
+	}
+	return &c, nil
 }
 
 func (r *Repository) FindByIDForTenant(ctx context.Context, id, tenantID uuid.UUID) (*Customer, error) {
@@ -283,7 +340,10 @@ func (r *Repository) FindByIDForTenant(ctx context.Context, id, tenantID uuid.UU
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
-	return &c, err
+	if err != nil {
+		return nil, wrapCustomerRepoErr("repo: gagal cari customer by id tenant", err)
+	}
+	return &c, nil
 }
 
 func (r *Repository) GetActiveBookings(ctx context.Context, customerID uuid.UUID) ([]RecentHistoryDTO, error) {
@@ -341,4 +401,12 @@ func (r *Repository) GetTransactionHistory(ctx context.Context, customerID uuid.
 		LIMIT $2`
 	err := r.db.SelectContext(ctx, &history, query, customerID, limit)
 	return history, err
+}
+
+func wrapCustomerRepoErr(prefix string, err error) error {
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && pqErr.Code == "42P01" {
+		return fmt.Errorf("%s: tabel customers belum tersedia; jalankan migrasi database terlebih dahulu: %w", prefix, err)
+	}
+	return fmt.Errorf("%s: %w", prefix, err)
 }

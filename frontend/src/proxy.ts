@@ -24,16 +24,30 @@ export default async function proxy(req: NextRequest) {
   const hostname = host.split(":")[0];
   const rootConfig = resolveRootDomainConfig(hostname);
   const rootDomain = rootConfig.host;
-  const hasBookingTokenQuery =
-    url.pathname.startsWith("/me/bookings/") && url.searchParams.has("token");
-
-  // 2. BYPASS DOMAIN UTAMA & SISTEM
-  if (
+  const isRootDomainHost =
     hostname === rootDomain ||
     hostname === `www.${rootDomain}` ||
     hostname === "localhost" ||
-    hostname.startsWith("api.")
-  ) {
+    hostname === "127.0.0.1" ||
+    hostname === "" ||
+    hostname.startsWith("api.");
+  const hasBookingTokenQuery =
+    url.pathname.startsWith("/me/bookings/") && url.searchParams.has("token");
+  const rootRedirect = resolveRootRedirect(path, {
+    hasAdminToken: Boolean(adminToken),
+    hasCustomerToken: Boolean(customerToken),
+    hasBookingTokenQuery:
+      url.pathname.startsWith("/user/me/bookings/") &&
+      url.searchParams.has("token"),
+    search: url.search,
+  });
+
+  if (isRootDomainHost && rootRedirect) {
+    return NextResponse.redirect(buildRootRedirectUrl(req, rootRedirect, rootConfig));
+  }
+
+  // 2. BYPASS DOMAIN UTAMA & SISTEM
+  if (isRootDomainHost) {
     return NextResponse.next();
   }
 
@@ -145,6 +159,16 @@ function buildRootUrl(
   return rootUrl;
 }
 
+function buildRootRedirectUrl(
+  req: NextRequest,
+  target: string,
+  rootConfig: { host: string; port: string },
+) {
+  const [pathname, rawSearch = ""] = target.split("?");
+  const search = rawSearch ? `?${rawSearch}` : "";
+  return buildRootUrl(req, pathname, search, rootConfig);
+}
+
 function stripPort(value: string) {
   return value.split(":")[0];
 }
@@ -218,6 +242,79 @@ function resolveTenantRedirect(
   }
 
   return null;
+}
+
+function resolveRootRedirect(
+  path: string,
+  auth: {
+    hasAdminToken: boolean;
+    hasCustomerToken: boolean;
+    hasBookingTokenQuery?: boolean;
+    search?: string;
+  },
+) {
+  const isPlatformLogin = path === "/login";
+  const isPlatformDashboard = path === "/dashboard" || path.startsWith("/dashboard/");
+  const isCustomerAuthPage =
+    path === "/user/login" ||
+    path === "/user/login/phone" ||
+    path === "/user/register";
+  const isCustomerArea = path === "/user" || path === "/user/me" || path.startsWith("/user/me/");
+  const isCustomerVerify = path === "/user/verify" || path.startsWith("/user/verify/");
+
+  if (isPlatformLogin) {
+    if (auth.hasAdminToken) {
+      return "/dashboard/overview";
+    }
+    if (auth.hasCustomerToken) {
+      return "/user/me";
+    }
+    return null;
+  }
+
+  if (isPlatformDashboard) {
+    if (auth.hasAdminToken) {
+      return null;
+    }
+    if (auth.hasCustomerToken) {
+      return "/user/me";
+    }
+    return `/login${buildNextQuery(path, auth.search)}`;
+  }
+
+  if (isCustomerAuthPage) {
+    if (auth.hasCustomerToken) {
+      return "/user/me";
+    }
+    if (auth.hasAdminToken) {
+      return "/dashboard/overview";
+    }
+    return null;
+  }
+
+  if (isCustomerVerify) {
+    return null;
+  }
+
+  if (isCustomerArea) {
+    if (auth.hasBookingTokenQuery) {
+      return null;
+    }
+    if (auth.hasCustomerToken) {
+      return null;
+    }
+    if (auth.hasAdminToken) {
+      return "/dashboard/overview";
+    }
+    return `/user/login${buildNextQuery(path, auth.search)}`;
+  }
+
+  return null;
+}
+
+function buildNextQuery(pathname: string, search = "") {
+  const nextValue = `${pathname}${search || ""}`;
+  return `?next=${encodeURIComponent(nextValue)}`;
 }
 
 export const config = {
