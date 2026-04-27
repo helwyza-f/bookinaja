@@ -461,7 +461,7 @@ func (h *Handler) GetPublicDetailByToken(c *gin.Context) {
 
 func (h *Handler) SyncSession(c *gin.Context) {
 	bookingID := c.Param("id")
-	tenantID := c.MustGet("tenantID").(string)
+	tenantID := optionalTenantID(c)
 	booking, err := h.service.SyncSessionState(c.Request.Context(), bookingID, tenantID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

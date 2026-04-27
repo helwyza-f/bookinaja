@@ -254,10 +254,10 @@ func (s *Service) ActivateForCustomer(ctx context.Context, bookingID, tenantID, 
 		}
 	}
 
-	if err := s.UpdateStatus(ctx, bookingID, tenantID, "active"); err != nil {
+	if err := s.UpdateStatus(ctx, bookingID, detail.TenantID.String(), "active"); err != nil {
 		return nil, err
 	}
-	return s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID)
+	return s.GetDetailForCustomer(ctx, bookingID, detail.TenantID.String(), customerID)
 }
 
 func (s *Service) CompleteForCustomer(ctx context.Context, bookingID, tenantID, customerID string) (*BookingDetail, error) {
@@ -271,10 +271,10 @@ func (s *Service) CompleteForCustomer(ctx context.Context, bookingID, tenantID, 
 		return nil, errors.New("HANYA SESI YANG SEDANG AKTIF YANG BISA DIAKHIRI")
 	}
 
-	if err := s.UpdateStatus(ctx, bookingID, tenantID, "completed"); err != nil {
+	if err := s.UpdateStatus(ctx, bookingID, detail.TenantID.String(), "completed"); err != nil {
 		return nil, err
 	}
-	return s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID)
+	return s.GetDetailForCustomer(ctx, bookingID, detail.TenantID.String(), customerID)
 }
 
 func (s *Service) SettleCash(ctx context.Context, id, tenantID string) error {
@@ -518,24 +518,27 @@ func (s *Service) GetCustomerLiveSnapshot(ctx context.Context, bookingID, tenant
 }
 
 func (s *Service) CustomerExtendSession(ctx context.Context, bookingID, tenantID, customerID string, additionalDuration int) error {
-	if _, err := s.ensureCustomerLiveSessionAccessible(ctx, bookingID, tenantID, customerID); err != nil {
+	detail, err := s.ensureCustomerLiveSessionAccessible(ctx, bookingID, tenantID, customerID)
+	if err != nil {
 		return err
 	}
-	return s.ExtendSession(ctx, bookingID, tenantID, additionalDuration)
+	return s.ExtendSession(ctx, bookingID, detail.TenantID.String(), additionalDuration)
 }
 
 func (s *Service) CustomerAddFnbOrder(ctx context.Context, bookingID, tenantID, customerID string, req AddOrderReq) error {
-	if _, err := s.ensureCustomerLiveSessionAccessible(ctx, bookingID, tenantID, customerID); err != nil {
+	detail, err := s.ensureCustomerLiveSessionAccessible(ctx, bookingID, tenantID, customerID)
+	if err != nil {
 		return err
 	}
-	return s.AddFnbOrder(ctx, bookingID, tenantID, req)
+	return s.AddFnbOrder(ctx, bookingID, detail.TenantID.String(), req)
 }
 
 func (s *Service) CustomerAddAddonOrder(ctx context.Context, bookingID, tenantID, customerID, itemID string) error {
-	if _, err := s.ensureCustomerLiveSessionAccessible(ctx, bookingID, tenantID, customerID); err != nil {
+	detail, err := s.ensureCustomerLiveSessionAccessible(ctx, bookingID, tenantID, customerID)
+	if err != nil {
 		return err
 	}
-	return s.AddAddonOrder(ctx, bookingID, tenantID, itemID)
+	return s.AddAddonOrder(ctx, bookingID, detail.TenantID.String(), itemID)
 }
 
 func (s *Service) ListByTenant(ctx context.Context, tenantID, status string) ([]BookingDetail, error) {
@@ -554,9 +557,18 @@ func (s *Service) SyncSessionState(ctx context.Context, bookingID, tenantID stri
 	if err != nil {
 		return nil, errors.New("ID BOOKING TIDAK VALID")
 	}
-	tID, err := uuid.Parse(tenantID)
-	if err != nil {
-		return nil, errors.New("ID TENANT TIDAK VALID")
+
+	var tID uuid.UUID
+	if tenantID != "" {
+		tID, err = uuid.Parse(tenantID)
+		if err != nil {
+			return nil, errors.New("ID TENANT TIDAK VALID")
+		}
+	} else {
+		tID, err = s.repo.GetTenantIDByBookingID(ctx, bID)
+		if err != nil {
+			return nil, errors.New("SESI TIDAK DITEMUKAN")
+		}
 	}
 
 	booking, err := s.repo.FindByID(ctx, bID, tID)

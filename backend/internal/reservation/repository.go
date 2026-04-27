@@ -27,6 +27,12 @@ func (r *Repository) GetTenantSlug(ctx context.Context, tenantID uuid.UUID) (str
 	return slug, nil
 }
 
+func (r *Repository) GetTenantIDByBookingID(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+	var tID uuid.UUID
+	err := r.db.GetContext(ctx, &tID, `SELECT tenant_id FROM bookings WHERE id = $1 LIMIT 1`, id)
+	return tID, err
+}
+
 // GetOrCreateCustomer mengidentifikasi customer berdasarkan nomor HP (Silent Registration)
 func (r *Repository) GetOrCreateCustomer(ctx context.Context, tenantID uuid.UUID, name, phone string) (uuid.UUID, error) {
 	var customerID uuid.UUID
