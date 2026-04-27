@@ -81,6 +81,7 @@ func main() {
 	fnbRepo := fnb.NewRepository(db)
 	billingRepo := billing.NewRepository(db)
 	platformRepo := platformadmin.NewRepository(db)
+	midtransRepo := midtranssvc.NewRepository(db)
 
 	// STEP B: Inisialisasi Semua Service (Urutan Berpengaruh)
 	// AuthSvc berdiri sendiri
@@ -110,7 +111,7 @@ func main() {
 	fnbHdl := fnb.NewHandler(fnbSvc)
 	billingHdl := billing.NewHandler(billingSvc)
 	platformHdl := platformadmin.NewHandler(platformSvc, platformRepo)
-	midtransSvc := midtranssvc.NewService(db, billingRepo)
+	midtransSvc := midtranssvc.NewService(db, midtransRepo)
 	midtransHdl := midtranssvc.NewHandler(midtransSvc)
 
 	// 5. Setup Router Config

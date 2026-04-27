@@ -11,29 +11,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/helwiza/backend/internal/platform/fonnte"
 	"github.com/jmoiron/sqlx"
 	"math/big"
 )
 
-type Repository interface {
-	UpdateOrderFromMidtrans(ctx context.Context, exec sqlx.ExtContext, orderID string, status string, transactionID *string, paymentType *string, raw map[string]any) (SubscriptionOrder, error)
-	UpdateBookingPaymentFromMidtrans(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID, status string, transactionID *string, paymentType *string, raw map[string]any) error
-	UpdateBookingSettlementFromMidtrans(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID, status string, transactionID *string, paymentType *string, raw map[string]any) error
-	GetBookingNotificationContext(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID) (BookingNotificationContext, error)
-	CreateMidtransNotificationLog(ctx context.Context, exec sqlx.ExtContext, log MidtransNotificationLog) error
-	CreateLedgerEntry(ctx context.Context, exec sqlx.ExtContext, entry TenantLedgerEntry) error
-	CurrentTenantBalance(ctx context.Context, exec sqlx.ExtContext, tenantID uuid.UUID) (int64, error)
-	ActivateSubscriptionExec(ctx context.Context, exec sqlx.ExtContext, tenantID uuid.UUID, plan string, start time.Time, end time.Time) error
-}
+
 
 type Service struct {
-	repo Repository
+	repo *Repository
 	db   *sqlx.DB
 }
 
-func NewService(db *sqlx.DB, repo Repository) *Service {
+func NewService(db *sqlx.DB, repo *Repository) *Service {
 	return &Service{db: db, repo: repo}
 }
 
