@@ -120,6 +120,10 @@ func (s *Service) CheckoutBookingPayment(ctx context.Context, tenantID uuid.UUID
 		if amount <= 0 {
 			return BookingCheckoutRes{}, errors.New("booking ini sudah lunas")
 		}
+		status := strings.ToLower(strings.TrimSpace(booking.Status))
+		if status == "active" || status == "ongoing" {
+			return BookingCheckoutRes{}, errors.New("SESI HARUS DIAKHIRI TERLEBIH DAHULU SEBELUM MELAKUKAN PELUNASAN")
+		}
 	} else {
 		if booking.DepositAmount <= 0 {
 			return BookingCheckoutRes{}, errors.New("booking ini tidak memiliki DP yang perlu dibayar")

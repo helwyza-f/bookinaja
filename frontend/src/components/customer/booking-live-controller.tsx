@@ -24,6 +24,7 @@ type ControllerProps = {
   onExtend: (count: number) => Promise<void>;
   onOrderFnb: (cart: any[]) => Promise<void>;
   onOrderAddon: (cart: any[]) => Promise<void>;
+  onComplete?: () => void;
 };
 
 function MobileSheet({
@@ -75,6 +76,7 @@ export function BookingLiveController({
   onExtend,
   onOrderFnb,
   onOrderAddon,
+  onComplete,
 }: ControllerProps) {
   const [extendOpen, setExtendOpen] = useState(false);
   const [fnbOpen, setFnbOpen] = useState(false);
@@ -141,7 +143,7 @@ export function BookingLiveController({
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <Button
           disabled={!active}
           onClick={() => setExtendOpen(true)}
@@ -165,6 +167,14 @@ export function BookingLiveController({
         >
           <PlusCircle size={14} className="text-emerald-500" />
           Add-on
+        </Button>
+        <Button
+          disabled={!active}
+          onClick={onComplete}
+          className="h-14 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black uppercase italic text-[10px] shadow-lg border-none flex flex-col gap-1"
+        >
+          <X size={14} />
+          Akhiri Sesi
         </Button>
       </div>
 

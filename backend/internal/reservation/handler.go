@@ -422,6 +422,28 @@ func (h *Handler) CustomerActivate(c *gin.Context) {
 	c.JSON(http.StatusOK, booking)
 }
 
+func (h *Handler) CustomerCompleteSession(c *gin.Context) {
+	bookingID := c.Param("id")
+	tenantID := optionalTenantID(c)
+	customerIDValue, exists := c.Get("customerID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	customerID, ok := customerIDValue.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+
+	booking, err := h.service.CompleteForCustomer(c.Request.Context(), bookingID, tenantID, customerID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, booking)
+}
+
 func (h *Handler) GetPublicDetailByToken(c *gin.Context) {
 	token := c.Param("id")
 	if _, err := uuid.Parse(token); err != nil {

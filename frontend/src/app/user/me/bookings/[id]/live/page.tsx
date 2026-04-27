@@ -422,9 +422,23 @@ export default function CustomerBookingDetail() {
     await fetchDetail();
   };
 
+  const handleCompleteSession = async () => {
+    try {
+      await api.post(`/user/me/bookings/${params.id}/complete`);
+      setPaymentNotice("Sesi telah diakhiri. Silakan cek detail pelunasan di bawah.");
+      toast.success("Sesi berhasil diakhiri");
+      await fetchDetail();
+      await fetchLiveContext();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Gagal mengakhiri sesi");
+    }
+  };
+
   if (loading) return <TicketSkeleton />;
 
   const isPending = sessionStatus === "pending";
+  const hasPaidDp = paymentStatus === "partial_paid" || paymentStatus === "paid" || paymentStatus === "settled" || depositAmount === 0;
+  const isTimeReached = now >= new Date(booking?.start_time || "");
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#050505] font-plus-jakarta pb-24 transition-colors overflow-x-hidden">
@@ -515,6 +529,12 @@ export default function CustomerBookingDetail() {
           </Card>
         )}
 
+        {isLiveSession && countdownData && countdownData.isCritical && (
+          <div className="rounded-2xl border border-amber-500/15 bg-amber-500/10 p-4 text-[11px] font-bold text-amber-700 dark:text-amber-200 animate-pulse">
+            ⚠️ Waktu sesi hampir habis (kurang dari 5 menit). Segera perpanjang sesi jika diperlukan.
+          </div>
+        )}
+
         <Card className="rounded-[2rem] border-none shadow-sm ring-1 ring-black/5 dark:ring-white/5 bg-white dark:bg-[#0c0c0c] p-4 space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -535,19 +555,44 @@ export default function CustomerBookingDetail() {
             </Badge>
           </div>
 
-          {!isLiveSession && (
-            <div className="rounded-2xl border border-blue-500/15 bg-blue-500/10 p-4 space-y-3">
-              <p className="text-[11px] font-bold leading-relaxed text-slate-700 dark:text-slate-200">
-                Sesi tidak aktif otomatis. Aktifkan manual saat customer memang sudah siap masuk, atau minta admin aktifkan dari detail booking.
+          {!isLiveSession && sessionStatus !== "completed" && sessionStatus !== "cancelled" && (
+            <div className={cn("rounded-2xl border p-4 space-y-3",
+              !hasPaidDp ? "border-amber-500/15 bg-amber-500/10" :
+              !isTimeReached ? "border-blue-500/15 bg-blue-500/10" :
+              "border-emerald-500/15 bg-emerald-500/10"
+            )}>
+              <p className={cn("text-[11px] font-bold leading-relaxed",
+                !hasPaidDp ? "text-amber-700 dark:text-amber-200" :
+                !isTimeReached ? "text-blue-700 dark:text-blue-200" :
+                "text-emerald-700 dark:text-emerald-200"
+              )}>
+                {!hasPaidDp 
+                  ? "⚠️ Selesaikan pembayaran DP terlebih dahulu untuk bisa mengaktifkan sesi ini."
+                  : !isTimeReached 
+                    ? "🕒 Waktu sesi belum dimulai. Tombol aktivasi akan menyala otomatis saat jam mulai tiba." 
+                    : "✅ Waktu sesi telah tiba! Aktifkan sesi sekarang jika Anda sudah siap."}
               </p>
               <Button
                 onClick={handleActivateSession}
-                disabled={activating || sessionStatus === "completed" || sessionStatus === "cancelled"}
-                className="h-12 w-full rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-[1000] uppercase italic tracking-widest text-xs gap-2"
+                disabled={activating || !hasPaidDp || !isTimeReached}
+                className={cn(
+                  "h-12 w-full rounded-2xl text-white font-[1000] uppercase italic tracking-widest text-xs gap-2 shadow-sm transition-all",
+                  (!hasPaidDp || !isTimeReached)
+                    ? "bg-slate-300 dark:bg-white/10 text-slate-500 cursor-not-allowed"
+                    : "bg-emerald-600 hover:bg-emerald-500"
+                )}
               >
                 <Zap size={15} />
                 {activating ? "Mengaktifkan..." : "Aktifkan Sesi Sekarang"}
               </Button>
+            </div>
+          )}
+
+          {sessionStatus === "completed" && (
+            <div className="rounded-2xl border border-blue-500/15 bg-blue-500/10 p-4">
+              <p className="text-[11px] font-bold text-blue-700 dark:text-blue-200 text-center">
+                Sesi telah berakhir. Silakan cek detail pelunasan di bawah jika ada sisa tagihan.
+              </p>
             </div>
           )}
 
@@ -565,6 +610,7 @@ export default function CustomerBookingDetail() {
             onExtend={handleExtend}
             onOrderFnb={handleAddFnb}
             onOrderAddon={handleAddons}
+            onComplete={handleCompleteSession}
           />
         </Card>
 
@@ -819,11 +865,11 @@ export default function CustomerBookingDetail() {
             {(paymentStatus === "partial_paid" || (paymentStatus === "paid" && balanceDue > 0)) ? (
               <Button
                 onClick={() => handlePayBooking("settlement")}
-                disabled={!midtransReady}
+                disabled={!midtransReady || isLiveSession}
                 className="w-full h-14 rounded-2xl bg-slate-950 hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-600 text-white font-[1000] uppercase italic tracking-widest text-sm shadow-lg gap-2"
               >
                 <CreditCard size={16} />
-                {midtransReady ? "Bayar Settlement" : "Menyiapkan Midtrans..."}
+                {midtransReady ? (isLiveSession ? "Sesi Aktif (Akhiri Dulu)" : "Bayar Settlement") : "Menyiapkan Midtrans..."}
               </Button>
             ) : (
               <div className="rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50/80 dark:bg-white/5 px-4 py-3 text-[11px] font-bold leading-relaxed text-slate-700 dark:text-slate-200">

@@ -240,7 +240,38 @@ func (s *Service) ActivateForCustomer(ctx context.Context, bookingID, tenantID, 
 		return nil, errors.New("SESI SUDAH TIDAK BISA DIAKTIFKAN")
 	}
 
+	// Validasi Waktu: Tidak bisa diaktifkan sebelum StartTime
+	now := time.Now().UTC()
+	if now.Before(detail.StartTime) {
+		return nil, errors.New("SESI BELUM BISA DIAKTIFKAN SEBELUM WAKTUNYA DIMULAI")
+	}
+
+	// Validasi Pembayaran: Wajib sudah bayar DP (status minimal partial_paid, paid, atau settled)
+	paymentStatus := strings.ToLower(strings.TrimSpace(detail.PaymentStatus))
+	if paymentStatus == "pending" || paymentStatus == "expired" || paymentStatus == "failed" {
+		if detail.DepositAmount > 0 {
+			return nil, errors.New("SELESAIKAN PEMBAYARAN DP TERLEBIH DAHULU UNTUK MENGAKTIFKAN SESI")
+		}
+	}
+
 	if err := s.UpdateStatus(ctx, bookingID, tenantID, "active"); err != nil {
+		return nil, err
+	}
+	return s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID)
+}
+
+func (s *Service) CompleteForCustomer(ctx context.Context, bookingID, tenantID, customerID string) (*BookingDetail, error) {
+	detail, err := s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID)
+	if err != nil {
+		return nil, err
+	}
+
+	status := strings.ToLower(strings.TrimSpace(detail.Status))
+	if status != "active" && status != "ongoing" {
+		return nil, errors.New("HANYA SESI YANG SEDANG AKTIF YANG BISA DIAKHIRI")
+	}
+
+	if err := s.UpdateStatus(ctx, bookingID, tenantID, "completed"); err != nil {
 		return nil, err
 	}
 	return s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID)
