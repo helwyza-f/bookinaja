@@ -149,10 +149,12 @@ function buildRootUrl(
   rootConfig: { host: string; port: string },
 ) {
   const rootUrl = new URL(req.url);
-  rootUrl.protocol = req.nextUrl.protocol || rootUrl.protocol;
+  rootUrl.protocol = resolveRequestProtocol(req);
   rootUrl.hostname = rootConfig.host;
   if (rootConfig.port) {
     rootUrl.port = rootConfig.port;
+  } else {
+    rootUrl.port = "";
   }
   rootUrl.pathname = pathname;
   rootUrl.search = search;
@@ -171,6 +173,18 @@ function buildRootRedirectUrl(
 
 function stripPort(value: string) {
   return value.split(":")[0];
+}
+
+function resolveRequestProtocol(req: NextRequest) {
+  const forwardedProto = req.headers.get("x-forwarded-proto");
+  if (forwardedProto) {
+    const normalized = forwardedProto.split(",")[0]?.trim();
+    if (normalized === "http" || normalized === "https") {
+      return `${normalized}:`;
+    }
+  }
+
+  return req.nextUrl.protocol || new URL(req.url).protocol;
 }
 
 function resolveTenantRedirect(
