@@ -42,7 +42,7 @@ func (r *Repository) UpdateOrderFromMidtrans(ctx context.Context, exec sqlx.ExtC
 			midtrans_raw = $5,
 			updated_at = NOW()
 		WHERE order_id = $1
-		RETURNING *`,
+		RETURNING tenant_id, amount, status, plan, billing_interval`,
 		orderID, status, transactionID, paymentType, rawBytes,
 	)
 	return updated, err
