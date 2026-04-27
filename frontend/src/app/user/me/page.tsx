@@ -3,27 +3,30 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  ArrowRight,
+  Building2,
+  Calendar,
+  ChevronRight,
+  Clock,
+  LogOut,
+  MapPin,
+  Search,
+  Settings,
+  Sparkles,
+  Ticket,
+  User,
+  Wallet,
+} from "lucide-react";
 import api from "@/lib/api";
+import { getTenantUrl } from "@/lib/tenant";
 import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import {
-  ArrowRight,
-  Calendar,
-  Clock,
-  LogOut,
-  ShieldCheck,
-  Sparkles,
-  Ticket,
-  Wallet,
-  Settings,
-  MapPin,
-  ChevronRight,
-  User,
-} from "lucide-react";
 
 type CustomerDashboard = {
   customer?: {
@@ -57,19 +60,40 @@ type BookingItem = {
   total_spent?: number;
 };
 
+type TenantCard = {
+  id: string;
+  name: string;
+  slug: string;
+  business_category?: string;
+  business_type?: string;
+  tagline?: string;
+  slogan?: string;
+  primary_color?: string;
+  logo_url?: string;
+};
+
 export default function UserDashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<CustomerDashboard | null>(null);
+  const [tenants, setTenants] = useState<TenantCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"active" | "history">("active");
+  const [tenantQuery, setTenantQuery] = useState("");
 
   useEffect(() => {
     let active = true;
 
     const load = async () => {
       try {
-        const res = await api.get("/user/me");
-        if (active) setData(res.data);
+        const [profileRes, tenantsRes] = await Promise.all([
+          api.get("/user/me"),
+          api.get("/public/tenants").catch(() => ({ data: { items: [] } })),
+        ]);
+
+        if (active) {
+          setData(profileRes.data);
+          setTenants(tenantsRes.data?.items || []);
+        }
       } catch (error) {
         if (isTenantAuthError(error)) {
           clearTenantSession({ keepTenantSlug: true });
@@ -90,6 +114,26 @@ export default function UserDashboardPage() {
   const pastHistory = data?.past_history || [];
   const currentList = activeTab === "active" ? activeBookings : pastHistory;
 
+  const filteredTenants = useMemo(() => {
+    const q = tenantQuery.trim().toLowerCase();
+    const list = !q
+      ? tenants
+      : tenants.filter((tenant) =>
+          [
+            tenant.name,
+            tenant.slug,
+            tenant.business_category,
+            tenant.business_type,
+            tenant.tagline,
+            tenant.slogan,
+          ]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(q)),
+        );
+
+    return list.slice(0, 6);
+  }, [tenantQuery, tenants]);
+
   const handleLogout = () => {
     clearTenantSession({ keepTenantSlug: true });
     router.push("/user/login");
@@ -100,31 +144,28 @@ export default function UserDashboardPage() {
   }
 
   const customerTier = data?.customer?.tier || "NEW";
-  const tierColor = customerTier === "VIP" 
-    ? "from-amber-400 to-orange-500" 
-    : customerTier === "GOLD" 
-      ? "from-yellow-300 to-yellow-500"
-      : "from-blue-400 to-indigo-500";
+  const tierColor =
+    customerTier === "VIP"
+      ? "from-amber-400 to-orange-500"
+      : customerTier === "GOLD"
+        ? "from-yellow-300 to-yellow-500"
+        : "from-blue-400 to-indigo-500";
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#050505] pb-24">
-      {/* Decorative Background */}
-      <div className="absolute top-0 left-0 right-0 h-[40vh] bg-gradient-to-b from-blue-600/10 to-transparent dark:from-blue-600/5 -z-10" />
-
-      <div className="mx-auto max-w-5xl px-4 py-8 md:px-6 lg:px-8">
-        {/* Header Section */}
-        <header className="flex items-center justify-between mb-8">
+    <div className="min-h-screen bg-slate-50 pb-24 dark:bg-[#050505]">
+      <div className="mx-auto max-w-6xl px-4 py-6 md:px-6 lg:px-8">
+        <header className="mb-5 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-black italic uppercase tracking-tighter dark:text-white flex items-center gap-2">
+            <h1 className="flex items-center gap-2 text-2xl font-black uppercase tracking-tight dark:text-white">
               <Sparkles className="h-5 w-5 text-blue-500" />
               Bookinaja
             </h1>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1">
+            <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
               Global Customer Portal
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Button asChild variant="outline" size="icon" className="rounded-xl border-slate-200 dark:border-white/10 dark:bg-white/5 bg-white">
+            <Button asChild variant="outline" size="icon" className="rounded-xl border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
               <Link href="/user/me/settings">
                 <Settings className="h-4 w-4" />
               </Link>
@@ -135,91 +176,149 @@ export default function UserDashboardPage() {
           </div>
         </header>
 
-        {/* Global Identity Card */}
-        <div className="relative overflow-hidden rounded-[2.5rem] bg-slate-950 p-8 shadow-2xl transition-transform hover:scale-[1.01] duration-300">
-          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-gradient-to-br from-indigo-500/30 to-purple-500/30 blur-3xl" />
-          <div className="absolute -left-20 -bottom-20 h-64 w-64 rounded-full bg-gradient-to-tr from-blue-500/20 to-emerald-500/20 blur-3xl" />
-          
-          <div className="relative z-10 flex flex-col md:flex-row gap-8 items-start md:items-center justify-between">
-            <div className="flex items-center gap-6">
-              <div className={`h-20 w-20 rounded-3xl bg-gradient-to-br ${tierColor} p-[2px] shadow-lg`}>
-                <div className="h-full w-full rounded-[22px] bg-slate-950 flex items-center justify-center">
-                  <User className="h-8 w-8 text-white" />
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-4">
+              <div className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${tierColor} p-[2px]`}>
+                <div className="flex h-full w-full items-center justify-center rounded-[14px] bg-slate-950">
+                  <User className="h-6 w-6 text-white" />
                 </div>
               </div>
-              <div>
-                <Badge variant="secondary" className={`bg-gradient-to-r ${tierColor} text-white border-0 font-black tracking-widest text-[10px] uppercase mb-2 px-3 py-1 shadow-md`}>
+              <div className="min-w-0">
+                <Badge variant="secondary" className={`mb-2 border-0 bg-gradient-to-r ${tierColor} px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-white`}>
                   {customerTier} MEMBER
                 </Badge>
-                <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white">
+                <h2 className="truncate text-2xl font-black uppercase tracking-tight text-slate-950 dark:text-white">
                   {data?.customer?.name || "Customer"}
                 </h2>
-                <p className="text-sm font-medium text-slate-400 mt-1 flex items-center gap-2">
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
                   <span className="font-mono">{data?.customer?.phone}</span>
-                  {data?.customer?.email && (
+                  {data?.customer?.email ? (
                     <>
-                      <span className="w-1 h-1 rounded-full bg-slate-600" />
-                      <span>{data?.customer?.email}</span>
+                      <span className="h-1 w-1 rounded-full bg-slate-300" />
+                      <span>{data.customer.email}</span>
                     </>
-                  )}
+                  ) : null}
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-row md:flex-col gap-6 md:gap-4 w-full md:w-auto p-5 md:p-0 rounded-2xl bg-white/5 md:bg-transparent border border-white/10 md:border-transparent backdrop-blur-md">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">
-                  Bookinaja Points
-                </p>
-                <div className="flex items-center gap-2 text-3xl font-black italic text-white">
-                  <Wallet className="h-6 w-6 text-emerald-400" />
-                  {(data?.points || 0).toLocaleString("id-ID")}
-                </div>
+            <div className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 md:w-auto md:min-w-48 dark:border-white/10 dark:bg-white/[0.03]">
+              <p className="mb-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                Bookinaja Points
+              </p>
+              <div className="flex items-center gap-2 text-2xl font-black text-slate-950 dark:text-white">
+                <Wallet className="h-6 w-6 text-emerald-400" />
+                {(data?.points || 0).toLocaleString("id-ID")}
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Navigation Tabs */}
-        <div className="mt-10 flex items-center gap-2 overflow-x-auto pb-4 scrollbar-none">
+        <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-base font-black uppercase tracking-tight text-slate-950 dark:text-white">
+                Cari Tenant
+              </h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Temukan semua tenant Bookinaja dan langsung masuk ke halaman booking mereka.
+              </p>
+            </div>
+            <Button asChild variant="outline" className="rounded-xl">
+              <Link href="/tenants">
+                Semua Tenant
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+
+          <div className="relative mt-4">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              value={tenantQuery}
+              onChange={(event) => setTenantQuery(event.target.value)}
+              placeholder="Cari nama tenant, kategori, atau slug..."
+              className="h-11 rounded-xl pl-10"
+            />
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {filteredTenants.map((tenant) => (
+              <a
+                key={tenant.id}
+                href={getTenantUrl(tenant.slug)}
+                className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 transition-colors hover:border-blue-200 hover:bg-blue-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-blue-400/30 dark:hover:bg-blue-400/10"
+              >
+                <div
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white"
+                  style={tenant.primary_color ? { backgroundColor: tenant.primary_color } : undefined}
+                >
+                  {tenant.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={tenant.logo_url} alt="" className="h-full w-full rounded-xl object-cover" />
+                  ) : (
+                    <Building2 className="h-5 w-5" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-black text-slate-950 dark:text-white">
+                    {tenant.name}
+                  </div>
+                  <div className="truncate text-xs text-slate-500 dark:text-slate-400">
+                    {tenant.business_category || tenant.business_type || tenant.slug}
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-slate-400 transition-transform group-hover:translate-x-0.5" />
+              </a>
+            ))}
+          </div>
+
+          {filteredTenants.length === 0 ? (
+            <div className="mt-4 rounded-xl border border-dashed border-slate-300 p-5 text-center text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
+              Tenant tidak ditemukan.
+            </div>
+          ) : null}
+        </section>
+
+        <div className="mt-6 flex items-center gap-2 overflow-x-auto pb-3 scrollbar-none">
           {(["active", "history"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={cn(
-                "relative rounded-2xl px-6 py-3 text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
-                activeTab === tab 
-                  ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
+                "relative whitespace-nowrap rounded-xl px-4 py-2.5 text-[11px] font-black uppercase tracking-widest transition-all",
+                activeTab === tab
+                  ? "bg-blue-600 text-white shadow-sm"
                   : "bg-white text-slate-500 hover:bg-slate-100 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10",
               )}
             >
-              {tab === "active" ? "Sesi Berjalan & Mendatang" : "Riwayat Selesai"}
+              {tab === "active" ? "Sesi Aktif" : "Riwayat"}
             </button>
           ))}
         </div>
 
-        {/* Booking List */}
-        <div className="mt-4 grid gap-5 md:grid-cols-2 lg:grid-cols-2">
+        <div className="mt-3 grid gap-4 md:grid-cols-2">
           {currentList.map((booking) => (
             <Card
               key={booking.id}
-              className="group overflow-hidden rounded-[2rem] border-slate-200/60 bg-white/60 backdrop-blur-xl shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl dark:border-white/5 dark:bg-white/[0.02]"
+              className="group overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm transition-colors hover:border-blue-200 dark:border-white/10 dark:bg-white/[0.04]"
             >
               <CardContent className="p-0">
-                <div className="p-6">
+                <div className="p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-blue-600 dark:text-blue-400">
                         <MapPin className="h-3 w-3" />
                         <span className="truncate">{booking.tenant_name || "Tenant"}</span>
                       </div>
-                      <h3 className="mt-2 truncate text-xl font-black italic uppercase tracking-tighter dark:text-white">
+                      <h3 className="mt-2 truncate text-lg font-black uppercase tracking-tight dark:text-white">
                         {booking.resource || "Booking"}
                       </h3>
                     </div>
                     <Badge
                       className={cn(
-                        "rounded-xl border-none px-3 py-1.5 text-[9px] font-black uppercase shadow-sm",
+                        "rounded-lg border-none px-2.5 py-1 text-[9px] font-black uppercase shadow-sm",
                         booking.status === "active" || booking.status === "ongoing"
                           ? "bg-emerald-500 text-white"
                           : booking.status === "pending" || booking.status === "confirmed"
@@ -231,28 +330,41 @@ export default function UserDashboardPage() {
                     </Badge>
                   </div>
 
-                  <div className="mt-6 flex flex-wrap gap-4 text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-black/20 p-4 rounded-2xl">
+                  <div className="mt-4 flex flex-wrap gap-3 rounded-xl bg-slate-50 p-3 text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500 dark:bg-black/20 dark:text-slate-400">
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-blue-500" />
-                      {booking.date ? new Date(booking.date).toLocaleDateString("id-ID", { weekday: 'short', day: 'numeric', month: 'short' }) : "-"}
+                      {booking.date
+                        ? new Date(booking.date).toLocaleDateString("id-ID", {
+                            weekday: "short",
+                            day: "numeric",
+                            month: "short",
+                          })
+                        : "-"}
                     </div>
                     <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-purple-500" />
-                      {booking.date ? new Date(booking.date).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "-"}
+                      <Clock className="h-4 w-4 text-violet-500" />
+                      {booking.date
+                        ? new Date(booking.date).toLocaleTimeString("id-ID", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "-"}
                     </div>
                   </div>
                 </div>
 
-                <div className="border-t border-slate-100 bg-white dark:border-white/5 dark:bg-white/5 p-4 px-6 flex items-center justify-between transition-colors group-hover:bg-blue-50 dark:group-hover:bg-blue-900/10">
+                <div className="flex items-center justify-between border-t border-slate-100 bg-white p-4 transition-colors group-hover:bg-blue-50 dark:border-white/5 dark:bg-white/5 dark:group-hover:bg-blue-900/10">
                   <div>
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-0.5">Total Biaya</p>
+                    <p className="mb-0.5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
+                      Total Biaya
+                    </p>
                     <p className="text-sm font-bold dark:text-white">
                       Rp {(booking.total_spent || booking.grand_total || 0).toLocaleString("id-ID")}
                     </p>
                   </div>
-                  <Button asChild size="sm" className="rounded-xl bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 shadow-md">
+                  <Button asChild size="sm" className="rounded-xl bg-slate-900 text-white shadow-sm hover:bg-slate-800 dark:bg-white dark:text-slate-900">
                     <Link href={`/user/me/bookings/${booking.id}`}>
-                      Detail Sesi
+                      Detail
                       <ChevronRight className="ml-1 h-3.5 w-3.5" />
                     </Link>
                   </Button>
@@ -262,20 +374,20 @@ export default function UserDashboardPage() {
           ))}
 
           {currentList.length === 0 ? (
-            <div className="col-span-full rounded-[2.5rem] border border-dashed border-slate-300 bg-white/50 p-16 text-center backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.01]">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-slate-100 dark:bg-white/5">
-                <Ticket className="h-8 w-8 text-slate-400" />
+            <div className="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center dark:border-white/10 dark:bg-white/[0.04]">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-white/5">
+                <Ticket className="h-7 w-7 text-slate-400" />
               </div>
-              <h3 className="mt-6 text-lg font-black italic uppercase tracking-tighter dark:text-white">
+              <h3 className="mt-5 text-lg font-black uppercase tracking-tight dark:text-white">
                 Belum ada reservasi
               </h3>
-              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-                {activeTab === "active" 
-                  ? "Kamu belum memiliki sesi reservasi yang aktif atau mendatang." 
+              <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500 dark:text-slate-400">
+                {activeTab === "active"
+                  ? "Kamu belum memiliki reservasi aktif atau mendatang."
                   : "Riwayat reservasi kamu masih kosong."}
               </p>
-              <Button asChild className="mt-6 rounded-xl bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-500/25">
-                <Link href="/">Cari Cabang Sekarang</Link>
+              <Button asChild className="mt-6 rounded-xl bg-blue-600 shadow-sm hover:bg-blue-500">
+                <Link href="/tenants">Cari Tenant Sekarang</Link>
               </Button>
             </div>
           ) : null}
@@ -287,19 +399,16 @@ export default function UserDashboardPage() {
 
 function DashboardSkeleton() {
   return (
-    <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 md:px-6 lg:px-8">
-      <div className="flex justify-between items-center">
+    <div className="mx-auto max-w-6xl space-y-5 px-4 py-6 md:px-6 lg:px-8">
+      <div className="flex items-center justify-between">
         <Skeleton className="h-8 w-40 rounded-lg bg-white dark:bg-white/5" />
         <Skeleton className="h-10 w-24 rounded-xl bg-white dark:bg-white/5" />
       </div>
-      <Skeleton className="h-48 rounded-[2.5rem] bg-white dark:bg-white/5" />
-      <div className="flex gap-2">
-        <Skeleton className="h-12 w-48 rounded-2xl bg-white dark:bg-white/5" />
-        <Skeleton className="h-12 w-32 rounded-2xl bg-white dark:bg-white/5" />
-      </div>
-      <div className="grid gap-5 md:grid-cols-2">
-        <Skeleton className="h-64 rounded-[2rem] bg-white dark:bg-white/5" />
-        <Skeleton className="h-64 rounded-[2rem] bg-white dark:bg-white/5" />
+      <Skeleton className="h-32 rounded-2xl bg-white dark:bg-white/5" />
+      <Skeleton className="h-56 rounded-2xl bg-white dark:bg-white/5" />
+      <div className="grid gap-4 md:grid-cols-2">
+        <Skeleton className="h-44 rounded-2xl bg-white dark:bg-white/5" />
+        <Skeleton className="h-44 rounded-2xl bg-white dark:bg-white/5" />
       </div>
     </div>
   );
