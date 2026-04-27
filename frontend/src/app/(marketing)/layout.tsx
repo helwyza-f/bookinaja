@@ -14,10 +14,12 @@ export default function MarketingLayout({
   const { theme, resolvedTheme, setTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const currentTheme = resolvedTheme || theme;
 
   // Mencegah hydration mismatch
   useEffect(() => {
+    setMounted(true);
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };
@@ -93,7 +95,7 @@ export default function MarketingLayout({
 
             {/* Actions */}
             <div className="flex items-center gap-2 md:gap-4">
-              {currentTheme && (
+              {mounted ? (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -103,6 +105,8 @@ export default function MarketingLayout({
                   <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
                   <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                 </Button>
+              ) : (
+                <div className="w-10 h-10 hidden md:block" />
               )}
 
               <Link href="/register" className="hidden sm:block">
@@ -175,7 +179,7 @@ export default function MarketingLayout({
       <main className="flex-1 w-full bg-background">{children}</main>
 
       {/* --- FLOATING THEME TOGGLE (MOBILE ONLY) --- */}
-      {currentTheme && (
+      {mounted && currentTheme && (
         <button
           onClick={() => setTheme(currentTheme === "dark" ? "light" : "dark")}
           className="md:hidden fixed bottom-6 right-6 z-[200] flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-[0_10px_30px_rgba(59,130,246,0.5)] active:scale-90 transition-all border-4 border-background/20"

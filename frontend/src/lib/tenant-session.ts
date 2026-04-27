@@ -36,11 +36,15 @@ export function syncTenantCookies(
  */
 export function clearTenantSession(options?: { keepTenantSlug?: boolean }) {
   deleteCookie("auth_token", COOKIE_BASE_OPTIONS);
-  deleteCookie("customer_auth");
+  deleteCookie("auth_token", { path: "/" });
+  deleteCookie("customer_auth", COOKIE_BASE_OPTIONS);
+  deleteCookie("customer_auth", { path: "/" });
   deleteCookie("current_tenant_id", COOKIE_BASE_OPTIONS);
+  deleteCookie("current_tenant_id", { path: "/" });
 
   if (!options?.keepTenantSlug) {
     deleteCookie("current_tenant_slug", COOKIE_BASE_OPTIONS);
+    deleteCookie("current_tenant_slug", { path: "/" });
   }
 }
 

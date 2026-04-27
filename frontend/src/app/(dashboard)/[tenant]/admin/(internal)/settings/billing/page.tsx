@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import api from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { ArrowUpRight, CreditCard, History, Receipt, Zap } from "lucide-react";
 
 type SubscriptionInfo = {
@@ -65,42 +66,57 @@ export default function SettingsBillingPage() {
               <Badge variant="outline" className="border-blue-500/20 bg-blue-500/5 text-blue-600 font-black uppercase tracking-widest text-[9px]">
                 Subscription
               </Badge>
-              <Badge className="bg-emerald-500/10 text-emerald-500 border-none text-[9px] font-black uppercase tracking-widest">
-                {isTrial ? "Free Trial 30 Hari" : isActive ? "Active" : "Inactive"}
-              </Badge>
+              {isTrial ? (
+                <Badge className="bg-amber-500/10 text-amber-600 border-none text-[9px] font-black uppercase tracking-widest">
+                  Free Trial 30 Hari
+                </Badge>
+              ) : isActive ? (
+                <Badge className="bg-emerald-500/10 text-emerald-500 border-none text-[9px] font-black uppercase tracking-widest">
+                  Active
+                </Badge>
+              ) : (
+                <Badge className="bg-red-500/10 text-red-500 border-none text-[9px] font-black uppercase tracking-widest">
+                  Inactive / Expired
+                </Badge>
+              )}
             </div>
             <h1 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter leading-none dark:text-white">
               {sub?.plan || "Starter"}
             </h1>
             <p className="max-w-2xl text-sm md:text-base text-slate-500 dark:text-slate-400 font-medium">
-              Kelola status paket, invoice, dan upgrade tanpa keluar dari command center executive.
+              {isTrial 
+                ? "Kamu sedang dalam masa uji coba gratis. Segera upgrade untuk mendapatkan akses penuh tanpa batas." 
+                : "Kelola status paket, invoice, dan upgrade tanpa keluar dari command center executive."}
             </p>
           </div>
 
           <Link href="/admin/settings/billing/subscribe">
-            <Button className="h-14 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black uppercase italic tracking-[0.2em] px-6 shadow-xl shadow-blue-600/20">
+            <Button className={cn("h-14 rounded-2xl font-black uppercase italic tracking-[0.2em] px-6 shadow-xl", isTrial ? "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20" : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/20")}>
               <CreditCard className="mr-2 h-4 w-4" />
-              Upgrade Paket
+              {isTrial ? "Upgrade Sekarang" : "Ganti Paket"}
             </Button>
           </Link>
         </div>
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
-        <Card className="rounded-[1.5rem] p-4 md:p-5 border-slate-200 dark:border-white/5 bg-white dark:bg-[#0a0a0a]">
+        <Card className="relative overflow-hidden rounded-[1.5rem] p-4 md:p-5 border-slate-200 dark:border-white/5 bg-white dark:bg-[#0a0a0a] shadow-sm">
+          {isTrial && <div className="absolute top-0 right-0 rounded-bl-[1.5rem] bg-amber-500/10 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-amber-600">Trial</div>}
           <div className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">Status</div>
-          <div className="mt-2 text-2xl font-black italic uppercase dark:text-white">
+          <div className={cn("mt-2 text-2xl font-black italic uppercase", isTrial ? "text-amber-500" : isActive ? "text-emerald-500" : "text-red-500")}>
             {sub?.status || "-"}
           </div>
         </Card>
-        <Card className="rounded-[1.5rem] p-4 md:p-5 border-slate-200 dark:border-white/5 bg-white dark:bg-[#0a0a0a]">
-          <div className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">Plan</div>
-          <div className="mt-2 text-2xl font-black italic uppercase dark:text-white">
+        <Card className="rounded-[1.5rem] p-4 md:p-5 border-slate-200 dark:border-white/5 bg-white dark:bg-[#0a0a0a] shadow-sm">
+          <div className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">Active Plan</div>
+          <div className="mt-2 text-2xl font-black italic uppercase text-blue-600">
             {sub?.plan || "-"}
           </div>
         </Card>
-        <Card className="rounded-[1.5rem] p-4 md:p-5 border-slate-200 dark:border-white/5 bg-white dark:bg-[#0a0a0a]">
-          <div className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">Expires</div>
+        <Card className="rounded-[1.5rem] p-4 md:p-5 border-slate-200 dark:border-white/5 bg-white dark:bg-[#0a0a0a] shadow-sm">
+          <div className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">
+            {isTrial ? "Masa Trial Berakhir" : "Perpanjangan Berikutnya"}
+          </div>
           <div className="mt-2 text-lg font-black italic dark:text-white">
             {sub?.current_period_end ? new Date(sub.current_period_end).toLocaleDateString("id-ID", { dateStyle: "long" }) : "-"}
           </div>
