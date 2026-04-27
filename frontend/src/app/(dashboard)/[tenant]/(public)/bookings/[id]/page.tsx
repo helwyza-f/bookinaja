@@ -330,7 +330,7 @@ export default function ResourceBookingDetail() {
       syncTenantCookies(params.tenant as string, resource?.tenant_id);
       const verifyRedirect =
         res.data.redirect_url ||
-        `/verify?code=${encodeURIComponent(booking.access_token || "")}`;
+        `/user/verify?code=${encodeURIComponent(booking.access_token || "")}`;
       if ((booking.deposit_amount || 0) > 0) {
         const checkout = await api.post(
           `/public/bookings/${res.data.booking_id}/checkout`,

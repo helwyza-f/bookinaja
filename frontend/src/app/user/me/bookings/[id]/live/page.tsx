@@ -46,16 +46,17 @@ export default function CustomerBookingDetail() {
 
   const fetchDetail = async () => {
     try {
-      const res = await api.get(`/me/bookings/${params.id}`);
+      const res = await api.get(`/user/me/bookings/${params.id}`);
       setBooking(res.data);
+      return res.data;
     } catch (err) {
       if (isTenantAuthError(err)) {
         clearTenantSession({ keepTenantSlug: true });
-        router.replace("/login");
+        router.replace("/user/login");
         return;
       }
       toast.error("Gagal memuat tiket booking");
-      router.replace("/me");
+      router.replace("/user/me");
     } finally {
       setLoading(false);
     }
@@ -70,9 +71,10 @@ export default function CustomerBookingDetail() {
     }
   };
 
-  const fetchMenuItems = async () => {
+  const fetchMenuItems = async (slug?: string) => {
+    if (!slug) return;
     try {
-      const menuRes = await api.get("/customer/fnb");
+      const menuRes = await api.get("/customer/fnb", { params: { slug } });
       setMenuItems(menuRes.data || []);
     } catch {
       setMenuItems([]);
@@ -81,7 +83,7 @@ export default function CustomerBookingDetail() {
 
   const fetchLiveContext = async () => {
     try {
-      const res = await api.get(`/customer/bookings/${params.id}/context`);
+      const res = await api.get(`/user/me/bookings/${params.id}/context`);
       if (res.data?.booking) {
         setBooking((prev: any) => ({
           ...(prev || {}),
@@ -124,15 +126,21 @@ export default function CustomerBookingDetail() {
             (error as { response?: { data?: { error?: string } } })?.response?.data
               ?.error || "Gagal memverifikasi akses booking";
           toast.error(message);
-          router.replace("/login");
+          router.replace("/user/login");
           return;
         }
       }
 
       if (cancelled) return;
 
-      await fetchDetail();
-      await fetchMenuItems();
+      const detail = await fetchDetail();
+      const currentSlug = detail?.tenant_slug;
+      if (currentSlug) {
+        await fetchMenuItems(currentSlug);
+      } else {
+        // Fallback or retry
+        setTimeout(() => fetchMenuItems(booking?.tenant_slug), 2000);
+      }
       await fetchLiveContext();
 
       if (cancelled) return;
@@ -329,7 +337,7 @@ export default function CustomerBookingDetail() {
   const handleActivateSession = async () => {
     setActivating(true);
     try {
-      await api.post(`/customer/bookings/${params.id}/activate`);
+      await api.post(`/user/me/bookings/${params.id}/activate`);
       setPaymentNotice("Sesi berhasil diaktifkan manual.");
       toast.success("Sesi berhasil diaktifkan");
       await fetchDetail();
@@ -385,7 +393,7 @@ export default function CustomerBookingDetail() {
 
   const handleAddFnb = async (cartItems: any[]) => {
     for (const item of cartItems) {
-      await api.post(`/customer/bookings/${params.id}/orders`, {
+      await api.post(`/user/me/bookings/${params.id}/orders`, {
         fnb_item_id: item.id,
         quantity: item.quantity,
       });
@@ -397,7 +405,7 @@ export default function CustomerBookingDetail() {
   const handleAddons = async (cartItems: any[]) => {
     for (const item of cartItems) {
       for (let i = 0; i < item.quantity; i++) {
-        await api.post(`/customer/bookings/${params.id}/addons`, {
+        await api.post(`/user/me/bookings/${params.id}/addons`, {
           item_id: item.id,
         });
       }
@@ -407,7 +415,7 @@ export default function CustomerBookingDetail() {
   };
 
   const handleExtend = async (count: number) => {
-    await api.post(`/customer/bookings/${params.id}/extend`, {
+    await api.post(`/user/me/bookings/${params.id}/extend`, {
       additional_duration: count,
     });
     toast.success("Session diperpanjang");
@@ -438,7 +446,7 @@ export default function CustomerBookingDetail() {
           variant="ghost"
           size="icon"
           className="rounded-full"
-          onClick={() => router.push("/me")}
+          onClick={() => router.push("/user/me")}
         >
           <ChevronLeft size={20} />
         </Button>

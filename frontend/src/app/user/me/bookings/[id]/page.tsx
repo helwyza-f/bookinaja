@@ -49,12 +49,10 @@ export default function UserBookingDetailPage() {
     return getTenantUrl(booking.tenant_slug);
   }, [booking?.tenant_slug]);
 
-  const tenantLiveUrl = useMemo(() => {
-    if (!booking?.tenant_slug || !booking?.id || !booking?.access_token) return null;
-    return getTenantUrl(booking.tenant_slug, `/me/bookings/${booking.id}/live`, {
-      token: booking.access_token,
-    });
-  }, [booking?.tenant_slug, booking?.id, booking?.access_token]);
+  const globalLiveUrl = useMemo(() => {
+    if (!booking?.id) return null;
+    return `/user/me/bookings/${booking.id}/live`;
+  }, [booking?.id]);
 
   if (loading) {
     return (
@@ -88,7 +86,7 @@ export default function UserBookingDetailPage() {
           {tenantUrl ? (
             <div className="flex items-center gap-2">
               <Button asChild variant="outline" className="rounded-2xl">
-                <Link href={tenantLiveUrl || tenantUrl}>
+                <Link href={globalLiveUrl || "#"}>
                   Live Controller
                   <ExternalLink className="ml-2 h-4 w-4" />
                 </Link>
