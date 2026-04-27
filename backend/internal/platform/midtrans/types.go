@@ -64,9 +64,9 @@ type MidtransNotificationLog struct {
 }
 
 type SubscriptionOrder struct {
-	TenantID        uuid.UUID
-	Amount          int64
-	Status          string
-	Plan            string
-	BillingInterval string
+	TenantID        uuid.UUID `db:"tenant_id"`
+	Amount          int64     `db:"amount"`
+	Status          string    `db:"status"`
+	Plan            string    `db:"plan"`
+	BillingInterval string    `db:"billing_interval"`
 }
