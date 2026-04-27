@@ -58,9 +58,67 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, AuthResponse{
-		Token:    tokenString,
-		Customer: *cust,
+	c.JSON(http.StatusOK, gin.H{
+		"token":    tokenString,
+		"customer": cust,
+	})
+}
+
+func (h *Handler) CustomerLoginEmail(c *gin.Context) {
+	var req struct {
+		Email    string `json:"email" binding:"required"`
+		Password string `json:"password" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email dan password wajib diisi"})
+		return
+	}
+
+	cust, err := h.service.LoginWithEmail(c.Request.Context(), req.Email, req.Password)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	tokenString, err := GenerateAuthToken(cust.ID.String(), "", "", time.Hour*72)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat sesi login"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token":    tokenString,
+		"customer": cust,
+	})
+}
+
+func (h *Handler) CustomerRegister(c *gin.Context) {
+	var req RegisterReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data registrasi tidak lengkap"})
+		return
+	}
+
+	if req.Phone == "" || req.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nama dan Nomor HP wajib diisi"})
+		return
+	}
+
+	cust, err := h.service.RegisterGlobalCustomer(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	tokenString, err := GenerateAuthToken(cust.ID.String(), "", "", time.Hour*72)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat sesi login otomatis"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token":    tokenString,
+		"customer": cust,
 	})
 }
 

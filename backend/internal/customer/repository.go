@@ -127,6 +127,19 @@ func (r *Repository) FindByPhone(ctx context.Context, phone string) (*Customer, 
 	return &c, nil
 }
 
+func (r *Repository) FindByEmail(ctx context.Context, email string) (*Customer, error) {
+	var c Customer
+	query := `SELECT * FROM customers WHERE email = $1 LIMIT 1`
+	err := r.db.GetContext(ctx, &c, query, email)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &c, nil
+}
+
 func (r *Repository) UpdateProfile(ctx context.Context, id uuid.UUID, req UpdateProfileReq) (*Customer, error) {
 	setClauses := []string{"updated_at = NOW()"}
 	args := []any{}

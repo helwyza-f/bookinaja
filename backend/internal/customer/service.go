@@ -138,6 +138,37 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Customer, err
 	return s.repo.FindByID(ctx, id)
 }
 
+func (s *Service) LoginWithEmail(ctx context.Context, email, password string) (*Customer, error) {
+	cust, err := s.repo.FindByEmail(ctx, email)
+	if err != nil || cust == nil {
+		return nil, fmt.Errorf("email tidak terdaftar")
+	}
+
+	if cust.Password == nil || *cust.Password == "" {
+		return nil, fmt.Errorf("akun belum memiliki password, silakan login dengan nomor HP dan atur password di pengaturan")
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(*cust.Password), []byte(password)); err != nil {
+		return nil, fmt.Errorf("password salah")
+	}
+
+	return cust, nil
+}
+
+func (s *Service) RegisterGlobalCustomer(ctx context.Context, req RegisterReq) (*Customer, error) {
+	// Pengecekan duplikasi by email & phone
+	if req.Email != nil && *req.Email != "" {
+		if existing, _ := s.repo.FindByEmail(ctx, *req.Email); existing != nil {
+			return nil, fmt.Errorf("email sudah terdaftar")
+		}
+	}
+	if existing, _ := s.repo.FindByPhone(ctx, req.Phone); existing != nil {
+		return nil, fmt.Errorf("nomor HP sudah terdaftar")
+	}
+
+	return s.Register(ctx, req)
+}
+
 func canCreateNewCustomer(plan, status string, periodEnd *time.Time) bool {
 	plan = strings.ToLower(strings.TrimSpace(plan))
 	status = strings.ToLower(strings.TrimSpace(status))
