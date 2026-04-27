@@ -34,13 +34,13 @@ services:
   # 3. BACKEND (Go) - Port digeser ke 8081
   backend:
     build:
-      context: ./saas
+      context: ./backend
       dockerfile: Dockerfile
     container_name: bookinaja_api
     restart: always
     ports:
       - "8081:8080" # Luar: 8081, Dalam: 8080
-    env_file: ./saas/.env
+    env_file: ./backend/.env
     depends_on:
       - db
       - redis
@@ -52,13 +52,13 @@ services:
   # 4. FRONTEND (Next.js) - Port digeser ke 3001
   frontend:
     build:
-      context: ./saas-app
+      context: ./frontend
       dockerfile: Dockerfile
     container_name: bookinaja_fe
     restart: always
     ports:
       - "3001:3000" # Luar: 3001, Dalam: 3000
-    env_file: ./saas-app/.env
+    env_file: ./frontend/.env
     depends_on:
       - backend
     logging:

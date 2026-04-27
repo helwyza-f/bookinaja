@@ -20,7 +20,7 @@ Bookinaja is a multi-tenant booking platform designed for managing reservations,
 
 ```
 bookinaja/
-├── saas-app/          # Next.js frontend application
+├── frontend/          # Next.js frontend application
 │   ├── src/
 │   │   ├── app/       # Next.js App Router (pages, layouts, components)
 │   │   ├── components/# Reusable React components (shadcn/ui)
@@ -29,7 +29,7 @@ bookinaja/
 │   │   └── proxy.ts   # Backend API client
 │   └── package.json
 │
-├── saas/              # Go backend application
+├── backend/              # Go backend application
 │   ├── cmd/api/       # Application entry point
 │   ├── internal/      # Domain packages (auth, reservation, tenant, etc.)
 │   ├── migrations/    # SQL migration files
@@ -66,7 +66,7 @@ docker-compose -f docker-compose.dev.yml up
 
 **Terminal 1 - Frontend:**
 ```bash
-cd saas-app
+cd frontend
 npm install
 npm run dev
 # http://localhost:3000
@@ -74,7 +74,7 @@ npm run dev
 
 **Terminal 2 - Backend:**
 ```bash
-cd saas
+cd backend
 make run
 # http://localhost:8080
 ```
@@ -88,14 +88,14 @@ docker-compose -f docker-compose.dev.yml up postgres_db redis_cache
 
 ### Frontend
 ```bash
-cd saas-app
+cd frontend
 npm run build      # Creates .next/ production build
 npm start          # Runs production build
 ```
 
 ### Backend
 ```bash
-cd saas
+cd backend
 make migrate-up    # Apply database migrations
 go build ./cmd/api # Compile binary
 ./api              # Run server
@@ -111,12 +111,12 @@ docker-compose up -d
 
 ## Development Commands
 
-### Frontend (saas-app/)
+### Frontend (frontend/)
 - `npm run dev` - Development server with hot reload
 - `npm run build` - Production build
 - `npm run lint` - Run ESLint
 
-### Backend (saas/)
+### Backend (backend/)
 - `make run` - Start development server
 - `make migrate-up` - Apply database migrations
 - `make migrate-down` - Rollback one migration
@@ -131,14 +131,14 @@ postgres://devuser:devpassword@localhost:5432/bookinaja_dev
 ```
 
 **Migrations:**
-- Located in `saas/migrations/`
+- Located in `backend/migrations/`
 - Auto-runs on backend startup
 - Managed with [golang-migrate](https://github.com/golang-migrate/migrate)
 
 **To create a new migration:**
 ```bash
 # Migrations use SQL files: YYYYMMDDHHMMSS_description.up.sql
-# Place in saas/migrations/ and they'll auto-run on next backend start
+# Place in backend/migrations/ and they'll auto-run on next backend start
 ```
 
 ## Environment Configuration
@@ -178,7 +178,7 @@ See [.github/copilot-instructions.md](.github/copilot-instructions.md) for:
 docker-compose -f docker-compose.dev.yml ps
 
 # Reset database and migrations
-cd saas && make db-reset
+cd backend && make db-reset
 ```
 
 ### Port Conflicts
@@ -188,13 +188,13 @@ cd saas && make db-reset
 ### Frontend Build Issues
 ```bash
 # Clear Next.js cache
-cd saas-app && rm -rf .next && npm run build
+cd frontend && rm -rf .next && npm run build
 ```
 
 ### Backend Compilation Issues
 ```bash
 # Update dependencies
-cd saas && go mod tidy
+cd backend && go mod tidy
 ```
 
 ## Contributing

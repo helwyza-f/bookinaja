@@ -14,8 +14,8 @@ jobs:
       # --- 1. GENERATE .ENV DARI SECRETS ---
       - name: Create Environment Files
         run: |
-          echo "${{ secrets.BE_ENV }}" > saas/.env
-          echo "${{ secrets.FE_ENV }}" > saas-app/.env
+          echo "${{ secrets.BE_ENV }}" > backend/.env
+          echo "${{ secrets.FE_ENV }}" > frontend/.env
 
       # --- 2. BUILD BACKEND (GO) ---
       - name: Setup Go
@@ -24,7 +24,7 @@ jobs:
           go-version: "1.24"
       - name: Build Backend Binary
         run: |
-          cd saas
+          cd backend
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o main cmd/api/main.go
 
       # --- 3. BUILD FRONTEND (NEXT.JS) ---
@@ -33,12 +33,12 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-          cache-dependency-path: "saas-app/package-lock.json"
+          cache-dependency-path: "frontend/package-lock.json"
       - name: Build Frontend Standalone
         env:
           NEXT_PUBLIC_API_URL: https://bookinaja.com/api/v1
         run: |
-          cd saas-app
+          cd frontend
           # rm -rf .next 
           npm install
           npm run build
@@ -51,11 +51,11 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            mkdir -p ~/bookinaja/saas ~/bookinaja/saas-app
-            rm -f ~/bookinaja/saas/main
-            rm -f ~/bookinaja/saas/.env
-            rm -f ~/bookinaja/saas-app/.env
-            rm -rf ~/bookinaja/saas-app/.next
+            mkdir -p ~/bookinaja/backend ~/bookinaja/frontend
+            rm -f ~/bookinaja/backend/main
+            rm -f ~/bookinaja/backend/.env
+            rm -f ~/bookinaja/frontend/.env
+            rm -rf ~/bookinaja/frontend/.next
 
       # --- 5. TRANSFER FILES (SCP) ---
       - name: Transfer Files to VPS
@@ -64,7 +64,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "saas/main,saas/migrations,saas/internal,saas/Dockerfile,saas/.env,saas-app/.next/standalone,saas-app/.next/static,saas-app/public,saas-app/Dockerfile,saas-app/.env,docker-compose.yml"
+          source: "backend/main,backend/migrations,backend/internal,backend/Dockerfile,backend/.env,frontend/.next/standalone,frontend/.next/static,frontend/public,frontend/Dockerfile,frontend/.env,docker-compose.yml"
           target: "~/bookinaja"
           strip_components: 0
           overwrite: true
