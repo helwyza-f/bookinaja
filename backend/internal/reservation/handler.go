@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/helwiza/backend/internal/platform/env"
 )
 
 type Handler struct {
@@ -76,7 +75,7 @@ func (h *Handler) ExchangeAccessToken(c *gin.Context) {
 		"message":        "AKSES BERHASIL DITUKAR",
 		"booking_id":     booking.ID,
 		"tenant_slug":    booking.TenantSlug,
-		"redirect_url":   env.TenantURL(booking.TenantSlug, fmt.Sprintf("/me/bookings/%s/live", booking.ID.String())),
+		"redirect_url":   fmt.Sprintf("/user/me/bookings/%s/live", booking.ID.String()),
 		"customer_token": sessionToken,
 		"customer":       cust,
 	})

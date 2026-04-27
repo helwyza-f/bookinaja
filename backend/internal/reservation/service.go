@@ -555,6 +555,41 @@ func bookingVerifyURL(tenantSlug, accessToken string) string {
 	return env.PlatformURL(fmt.Sprintf("/user/verify?code=%s", accessToken))
 }
 
+func wibLocation() *time.Location {
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		loc = time.FixedZone("WIB", 7*60*60)
+	}
+	return loc
+}
+
+func formatWIB(t time.Time) string {
+	return t.In(wibLocation()).Format("02 Jan 2006, 15:04 WIB")
+}
+
+func formatRupiah(v float64) string {
+	val := int64(math.Round(v))
+	s := fmt.Sprintf("%d", val)
+	if len(s) <= 3 {
+		return "Rp " + s
+	}
+	var result []byte
+	for i, c := range s {
+		if i > 0 && (len(s)-i)%3 == 0 {
+			result = append(result, '.')
+		}
+		result = append(result, byte(c))
+	}
+	return "Rp " + string(result)
+}
+
+func shortRef(id string) string {
+	if len(id) >= 8 {
+		return strings.ToUpper(id[:8])
+	}
+	return strings.ToUpper(id)
+}
+
 func formatMoney(v float64) string {
 	return fmt.Sprintf("%d", int64(math.Round(v)))
 }
@@ -563,13 +598,27 @@ func (s *Service) sendSessionStarted(ctx context.Context, booking *BookingDetail
 	if booking == nil {
 		return nil
 	}
-	cust := booking.CustomerName
 	phone := booking.CustomerPhone
 	if phone == "" {
 		return nil
 	}
 	tenantSlug, _ := s.repo.GetTenantSlug(ctx, booking.TenantID)
-	msg := waSessionStartedMessage(cust, booking.ResourceName, bookingVerifyURL(tenantSlug, booking.AccessToken.String()))
+	url := bookingVerifyURL(tenantSlug, booking.AccessToken.String())
+	msg := fmt.Sprintf(
+		"🟢 *Sesi Dimulai!*\n\n"+
+			"Halo *%s*, sesi booking kamu sudah aktif.\n\n"+
+			"📍 *%s* — %s\n"+
+			"🎯 Unit: *%s*\n"+
+			"⏰ %s — %s\n\n"+
+			"Kontrol sesi, pesan F&B, dan perpanjang waktu langsung di sini:\n%s",
+		booking.CustomerName,
+		booking.TenantName,
+		booking.TenantSlug,
+		booking.ResourceName,
+		formatWIB(booking.StartTime),
+		booking.EndTime.In(wibLocation()).Format("15:04 WIB"),
+		url,
+	)
 	_, _ = fonnte.SendMessage(phone, msg)
 	return nil
 }
@@ -585,15 +634,42 @@ func (s *Service) sendSessionReminders(ctx context.Context, booking *BookingDeta
 	now := time.Now().UTC()
 	due := booking.StartTime.Sub(now)
 	tenantSlug, _ := s.repo.GetTenantSlug(ctx, booking.TenantID)
+	url := bookingVerifyURL(tenantSlug, booking.AccessToken.String())
 
 	if due <= 20*time.Minute && due > 19*time.Minute && booking.Reminder20MSentAt == nil {
-		msg := waSessionReminderMessage(booking.CustomerName, booking.ResourceName, 20, booking.StartTime, bookingVerifyURL(tenantSlug, booking.AccessToken.String()))
+		msg := fmt.Sprintf(
+			"⏳ *Reminder: %d Menit Lagi!*\n\n"+
+				"Halo *%s*, sesi booking kamu di *%s* mulai *%d menit lagi*.\n\n"+
+				"🎯 Unit: *%s*\n"+
+				"⏰ Mulai: %s\n\n"+
+				"Siap-siap ya! Buka detail booking:\n%s",
+			20,
+			booking.CustomerName,
+			booking.TenantName,
+			20,
+			booking.ResourceName,
+			formatWIB(booking.StartTime),
+			url,
+		)
 		_, _ = fonnte.SendMessage(phone, msg)
 		_ = s.repo.MarkReminderSent(ctx, booking.ID, booking.TenantID, "reminder_20m_sent_at")
 	}
 
 	if due <= 5*time.Minute && due > 4*time.Minute && booking.Reminder5MSentAt == nil {
-		msg := waSessionReminderMessage(booking.CustomerName, booking.ResourceName, 5, booking.StartTime, bookingVerifyURL(tenantSlug, booking.AccessToken.String()))
+		msg := fmt.Sprintf(
+			"🔔 *Reminder: %d Menit Lagi!*\n\n"+
+				"Halo *%s*, sesi kamu di *%s* hampir dimulai!\n\n"+
+				"🎯 Unit: *%s*\n"+
+				"⏰ Mulai: %s\n\n"+
+				"Yuk langsung masuk! Buka detail booking:\n%s",
+			5,
+			booking.CustomerName,
+			booking.TenantName,
+			5,
+			booking.ResourceName,
+			formatWIB(booking.StartTime),
+			url,
+		)
 		_, _ = fonnte.SendMessage(phone, msg)
 		_ = s.repo.MarkReminderSent(ctx, booking.ID, booking.TenantID, "reminder_5m_sent_at")
 	}
@@ -601,16 +677,26 @@ func (s *Service) sendSessionReminders(ctx context.Context, booking *BookingDeta
 }
 
 func waBookingCreatedMessage(name, bookingID string, startTime, endTime time.Time, depositAmount, balanceDue float64, detailURL string) string {
-	paymentLine := "Booking tanpa DP. Detail booking bisa dibuka di bawah."
+	paymentLine := "Booking ini tanpa DP. Langsung datang saat jadwal sesi."
 	if depositAmount > 0 {
-		paymentLine = fmt.Sprintf("DP booking: Rp %s. Sisa bayar: Rp %s.", formatMoney(depositAmount), formatMoney(balanceDue))
+		paymentLine = fmt.Sprintf(
+			"💰 DP: %s\n💳 Sisa bayar: %s\n\nSegera selesaikan DP agar booking terkonfirmasi.",
+			formatRupiah(depositAmount),
+			formatRupiah(balanceDue),
+		)
 	}
 	return fmt.Sprintf(
-		"Halo %s, booking kamu sudah berhasil.\n\nNomor booking: %s\nMulai: %s\nSelesai: %s\n%s\n\nBuka detail booking di sini:\n%s",
+		"✅ *Booking Berhasil!*\n\n"+
+			"Halo *%s*, booking kamu sudah tercatat.\n\n"+
+			"🔖 Ref: *%s*\n"+
+			"⏰ Mulai: %s\n"+
+			"⏰ Selesai: %s\n\n"+
+			"%s\n\n"+
+			"Buka e-tiket & kontrol sesi di sini:\n%s",
 		name,
-		bookingID,
-		startTime.In(time.Local).Format("02 Jan 2006 15:04"),
-		endTime.In(time.Local).Format("02 Jan 2006 15:04"),
+		shortRef(bookingID),
+		formatWIB(startTime),
+		formatWIB(endTime),
 		paymentLine,
 		detailURL,
 	)
@@ -618,7 +704,7 @@ func waBookingCreatedMessage(name, bookingID string, startTime, endTime time.Tim
 
 func waSessionStartedMessage(name, resourceName, detailURL string) string {
 	return fmt.Sprintf(
-		"Halo %s, sesi booking kamu untuk %s sekarang sudah aktif.\n\nBuka detail booking di sini:\n%s",
+		"🟢 *Sesi Aktif!*\n\nHalo *%s*, sesi kamu untuk *%s* sekarang sudah berjalan.\n\nBuka live controller:\n%s",
 		name,
 		resourceName,
 		detailURL,
@@ -627,11 +713,12 @@ func waSessionStartedMessage(name, resourceName, detailURL string) string {
 
 func waSessionReminderMessage(name, resourceName string, minutes int, startTime time.Time, detailURL string) string {
 	return fmt.Sprintf(
-		"Halo %s, sesi booking kamu untuk %s mulai %d menit lagi pada %s.\n\nBuka detail booking di sini:\n%s",
+		"⏳ *Reminder: %d Menit Lagi!*\n\nHalo *%s*, sesi kamu untuk *%s* mulai %d menit lagi (%s).\n\nBuka detail booking:\n%s",
+		minutes,
 		name,
 		resourceName,
 		minutes,
-		startTime.In(time.Local).Format("02 Jan 2006 15:04"),
+		formatWIB(startTime),
 		detailURL,
 	)
 }
@@ -652,16 +739,30 @@ func waPaymentReceivedMessage(name, note, bookingID, resourceName string, grandT
 	if remaining < 0 {
 		remaining = 0
 	}
+	statusLine := ""
+	if remaining <= 0 {
+		statusLine = "\n✅ *Booking sudah LUNAS!*"
+	} else {
+		statusLine = fmt.Sprintf("\n💳 Sisa bayar: %s", formatRupiah(remaining))
+	}
 	return fmt.Sprintf(
-		"Halo %s, %s\n\nNomor booking: %s\nUnit: %s\nTotal: Rp %s\nDP: Rp %s\nSudah dibayar: Rp %s\nSisa: Rp %s\n\nBuka detail booking di sini:\n%s",
+		"💵 *Pembayaran Diterima*\n\n"+
+			"Halo *%s*, %s\n\n"+
+			"🔖 Ref: *%s*\n"+
+			"🎯 Unit: *%s*\n"+
+			"💰 Total: %s\n"+
+			"💰 DP: %s\n"+
+			"💰 Dibayar: %s%s\n\n"+
+			"Buka detail booking:\n%s",
 		name,
 		note,
-		bookingID,
+		shortRef(bookingID),
 		resourceName,
-		formatMoney(grandTotal),
-		formatMoney(depositAmount),
-		formatMoney(paidAmount),
-		formatMoney(remaining),
+		formatRupiah(grandTotal),
+		formatRupiah(depositAmount),
+		formatRupiah(paidAmount),
+		statusLine,
 		detailURL,
 	)
 }
+

@@ -101,14 +101,23 @@ func (s *Scheduler) sendReminder(job sessionJob, minutes int) error {
 	if err != nil {
 		tenantSlug = "tenant"
 	}
+	url := bookingVerifyURL(tenantSlug, job.AccessToken)
+
+	loc, lerr := time.LoadLocation("Asia/Jakarta")
+	if lerr != nil {
+		loc = time.FixedZone("WIB", 7*60*60)
+	}
+
 	msg := fmt.Sprintf(
-		"Halo %s, sesi booking kamu untuk %s mulai %d menit lagi pada %s.\n\nBuka detail booking di https://%s.bookinaja.com:\n%s",
+		"⏳ *Reminder: %d Menit Lagi!*\n\n"+
+			"Halo *%s*, sesi booking kamu untuk *%s* mulai *%d menit lagi* (%s).\n\n"+
+			"Buka detail booking:\n%s",
+		minutes,
 		job.CustomerName,
 		job.ResourceName,
 		minutes,
-		job.StartTime.In(time.Local).Format("02 Jan 2006 15:04"),
-		tenantSlug,
-		bookingVerifyURL(tenantSlug, job.AccessToken),
+		job.StartTime.In(loc).Format("02 Jan 2006, 15:04 WIB"),
+		url,
 	)
 	_, sendErr := fonnte.SendMessage(job.CustomerPhone, msg)
 	return sendErr

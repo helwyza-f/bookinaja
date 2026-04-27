@@ -316,7 +316,7 @@ func addInterval(start time.Time, interval string) time.Time {
 }
 
 func bookingDetailURL(tenantSlug, accessToken string) string {
-	return env.TenantURL(tenantSlug, fmt.Sprintf("/verify?code=%s", accessToken))
+	return env.PlatformURL(fmt.Sprintf("/user/verify?code=%s", accessToken))
 }
 
 func formatMoney(v float64) string {

@@ -252,26 +252,67 @@ func (s *Service) sendBookingPaymentWhatsApp(ctx context.Context, info BookingNo
 		return nil
 	}
 
-	detailURL := fmt.Sprintf("https://%s.%s/verify?code=%s", info.TenantSlug, os.Getenv("APP_DOMAIN"), info.AccessToken.String())
+	detailURL := fmt.Sprintf("%s://%s/user/verify?code=%s", appProtocol(), appDomain(), info.AccessToken.String())
 	paymentNote := "DP booking kamu sudah diterima."
 	if mode == "settlement" {
 		paymentNote = "Pelunasan booking kamu sudah diterima."
 	}
 
+	remaining := info.BalanceDue
+	if remaining < 0 {
+		remaining = 0
+	}
+	statusLine := ""
+	if remaining <= 0 {
+		statusLine = "\n✅ *Booking sudah LUNAS!*"
+	} else {
+		statusLine = fmt.Sprintf("\n💳 Sisa bayar: Rp %d", int64(remaining+0.5))
+	}
+
+	ref := info.BookingID.String()
+	if len(ref) >= 8 {
+		ref = strings.ToUpper(ref[:8])
+	}
+
 	msg := fmt.Sprintf(
-		"Halo %s, %s\n\nNomor booking: %s\nUnit: %s\nTotal: Rp %d\nDP: Rp %d\nSudah dibayar: Rp %d\nSisa: Rp %d\n\nBuka detail booking di sini:\n%s",
+		"💵 *Pembayaran Diterima*\n\n"+
+			"Halo *%s*, %s\n\n"+
+			"🔖 Ref: *%s*\n"+
+			"🎯 Unit: *%s*\n"+
+			"💰 Total: Rp %d\n"+
+			"💰 DP: Rp %d\n"+
+			"💰 Dibayar: Rp %d%s\n\n"+
+			"Buka detail booking:\n%s",
 		info.CustomerName,
 		paymentNote,
-		info.BookingID.String(),
+		ref,
 		info.ResourceName,
 		int64(info.GrandTotal+0.5),
 		int64(info.DepositAmount+0.5),
 		int64(info.PaidAmount+0.5),
-		int64(info.BalanceDue+0.5),
+		statusLine,
 		detailURL,
 	)
 	_, _ = fonnte.SendMessage(info.CustomerPhone, msg)
 	return nil
+}
+
+func appProtocol() string {
+	if p := strings.TrimSpace(os.Getenv("APP_PROTOCOL")); p != "" {
+		return p
+	}
+	env := strings.ToLower(strings.TrimSpace(os.Getenv("APP_ENV")))
+	if env == "local" || env == "dev" || env == "development" {
+		return "http"
+	}
+	return "https"
+}
+
+func appDomain() string {
+	if d := strings.TrimSpace(os.Getenv("APP_DOMAIN")); d != "" {
+		return d
+	}
+	return "bookinaja.com"
 }
 
 func mapMidtransStatus(transactionStatus string, fraudStatus string) string {
