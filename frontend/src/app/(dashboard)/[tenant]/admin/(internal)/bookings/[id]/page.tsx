@@ -186,7 +186,7 @@ export default function BookingDetailPage() {
     );
 
   return (
-    <div className="max-w-7xl mx-auto p-3 md:p-4 lg:p-6 space-y-4 md:space-y-6 animate-in fade-in duration-500 font-plus-jakarta pb-20 mt-3 md:mt-4">
+    <div className="max-w-7xl mx-auto p-3 md:p-4 lg:p-6 space-y-4 md:space-y-6 animate-in fade-in duration-500 font-plus-jakarta pb-20">
       <Script
         src={
           (

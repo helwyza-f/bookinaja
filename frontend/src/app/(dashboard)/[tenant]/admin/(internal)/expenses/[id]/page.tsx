@@ -79,7 +79,7 @@ export default function ExpenseDetailPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto mt-4 max-w-5xl space-y-4 px-3 pb-20 font-plus-jakarta md:mt-6 md:px-4">
+      <div className="mx-auto max-w-5xl space-y-4 px-3 pb-20 font-plus-jakarta md:px-4">
         <Skeleton className="h-10 w-40 rounded-2xl bg-slate-100 dark:bg-white/5" />
         <Skeleton className="h-16 w-full rounded-[1.5rem] bg-slate-100 dark:bg-white/5" />
         <div className="grid gap-3 lg:grid-cols-[1.15fr_0.85fr]">
@@ -92,7 +92,7 @@ export default function ExpenseDetailPage() {
 
   if (!expense) {
     return (
-      <div className="mx-auto mt-4 flex min-h-[70vh] max-w-5xl flex-col items-center justify-center gap-3 px-3 pb-20 text-center font-plus-jakarta md:mt-6 md:px-4">
+      <div className="mx-auto flex min-h-[70vh] max-w-5xl flex-col items-center justify-center gap-3 px-3 pb-20 text-center font-plus-jakarta md:px-4">
         <ReceiptText className="h-10 w-10 text-slate-300" />
         <h1 className="text-xl font-[1000] italic uppercase tracking-tighter text-slate-950 dark:text-white">
           Expense not found
@@ -108,7 +108,7 @@ export default function ExpenseDetailPage() {
   }
 
   return (
-    <div className="mx-auto mt-4 max-w-5xl space-y-4 px-3 pb-20 font-plus-jakarta animate-in fade-in duration-500 md:mt-6 md:space-y-5 md:px-4">
+    <div className="mx-auto max-w-5xl space-y-4 px-3 pb-20 font-plus-jakarta animate-in fade-in duration-500 md:space-y-5 md:px-4">
       <header className="flex flex-col gap-4 border-b-[0.5px] border-slate-200 pb-5 dark:border-white/5 sm:flex-row sm:items-start sm:justify-between md:pb-6">
         <div className="space-y-2">
           <Button

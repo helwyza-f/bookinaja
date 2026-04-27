@@ -286,7 +286,7 @@ export default function POSPage() {
   };
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-5 md:space-y-6 animate-in fade-in duration-500 font-plus-jakarta pb-20 mt-4 md:mt-6 px-3 md:px-4">
+    <div className="max-w-[1600px] mx-auto space-y-5 md:space-y-6 animate-in fade-in duration-500 font-plus-jakarta pb-20 px-3 md:px-4">
       {/* 1. ULTRA COMPACT HEADER */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-5 md:pb-6 gap-4">
         <div className="flex items-center gap-3">

@@ -118,7 +118,10 @@ export default function BookingsPage() {
       return { label: "DP Masuk", className: "bg-blue-600 text-white" };
     }
     if (status === "pending") {
-      return { label: depositAmount > 0 ? "Menunggu DP" : "Bayar Nanti", className: "bg-orange-500 text-white" };
+      return {
+        label: depositAmount > 0 ? "Menunggu DP" : "Bayar Nanti",
+        className: "bg-orange-500 text-white",
+      };
     }
     if (status === "expired") {
       return { label: "DP Kadaluarsa", className: "bg-red-500 text-white" };
@@ -186,7 +189,7 @@ export default function BookingsPage() {
   }, [filteredBookings]);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-5 md:space-y-6 pb-20 animate-in fade-in duration-500 px-3 md:px-4 mt-4 md:mt-6 font-plus-jakarta">
+    <div className="w-full mx-auto space-y-5 md:space-y-6 pb-20 animate-in fade-in duration-500 px-3 md:px-4 font-plus-jakarta">
       {/* 1. TOP HEADER SECTION */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 md:gap-6">
         <div className="space-y-1 max-w-2xl">
@@ -258,7 +261,9 @@ export default function BookingsPage() {
                   className="h-11 md:h-12 px-3 md:px-5 rounded-xl border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-800 font-[1000] italic text-[9px] md:text-xs gap-2 md:gap-3 uppercase shadow-sm w-full"
                 >
                   <CalendarIcon className="h-4 w-4 text-blue-600" />
-                  {selectedDate ? format(selectedDate, "dd MMM yyyy") : "Pick Date"}
+                  {selectedDate
+                    ? format(selectedDate, "dd MMM yyyy")
+                    : "Pick Date"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent
@@ -387,7 +392,9 @@ export default function BookingsPage() {
                 className="h-12 px-5 rounded-xl border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-800 font-[1000] italic text-xs gap-3 uppercase shadow-sm min-w-[170px]"
               >
                 <CalendarIcon className="h-4 w-4 text-blue-600" />
-                {selectedDate ? format(selectedDate, "dd MMM yyyy") : "Pick Date"}
+                {selectedDate
+                  ? format(selectedDate, "dd MMM yyyy")
+                  : "Pick Date"}
               </Button>
             </PopoverTrigger>
             <PopoverContent
@@ -414,21 +421,17 @@ export default function BookingsPage() {
               >
                 All Status
               </SelectItem>
-              {[
-                "pending",
-                "confirmed",
-                "active",
-                "completed",
-                "cancelled",
-              ].map((s) => (
-                <SelectItem
-                  key={s}
-                  value={s}
-                  className="text-xs font-black uppercase italic py-3 rounded-xl"
-                >
-                  {s}
-                </SelectItem>
-              ))}
+              {["pending", "confirmed", "active", "completed", "cancelled"].map(
+                (s) => (
+                  <SelectItem
+                    key={s}
+                    value={s}
+                    className="text-xs font-black uppercase italic py-3 rounded-xl"
+                  >
+                    {s}
+                  </SelectItem>
+                ),
+              )}
             </SelectContent>
           </Select>
 
@@ -537,81 +540,85 @@ export default function BookingsPage() {
 
               <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-none shadow-lg overflow-hidden bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5">
                 <div className="overflow-x-auto">
-                <Table className="min-w-[920px]">
-                  <TableBody>
-                    {sessions.map((b) => (
-                      <TableRow
-                        key={b.id}
-                        onClick={() => router.push(`/admin/bookings/${b.id}`)}
-                        className="border-slate-50 dark:border-white/5 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 group cursor-pointer transition-colors"
-                      >
-                        <TableCell className="pl-10 py-6 w-[35%]">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
-                              <User size={20} />
+                  <Table className="min-w-[920px]">
+                    <TableBody>
+                      {sessions.map((b) => (
+                        <TableRow
+                          key={b.id}
+                          onClick={() => router.push(`/admin/bookings/${b.id}`)}
+                          className="border-slate-50 dark:border-white/5 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 group cursor-pointer transition-colors"
+                        >
+                          <TableCell className="pl-10 py-6 w-[35%]">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
+                                <User size={20} />
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="font-[1000] uppercase italic tracking-tighter text-base text-slate-900 dark:text-white">
+                                  {b.customer_name}
+                                </span>
+                                <span className="text-[11px] font-bold text-slate-400 italic leading-none mt-1">
+                                  {b.customer_phone}
+                                </span>
+                              </div>
                             </div>
+                          </TableCell>
+                          <TableCell className="w-[30%]">
                             <div className="flex flex-col">
-                              <span className="font-[1000] uppercase italic tracking-tighter text-base text-slate-900 dark:text-white">
-                                {b.customer_name}
-                              </span>
-                              <span className="text-[11px] font-bold text-slate-400 italic leading-none mt-1">
-                                {b.customer_phone}
+                              <div className="flex items-center gap-2 text-blue-600 font-black italic text-[12px] uppercase tracking-tighter leading-none">
+                                <Clock size={14} />{" "}
+                                {format(new Date(b.start_time), "HH:mm")} -{" "}
+                                {format(new Date(b.end_time), "HH:mm")}
+                              </div>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase italic mt-1.5">
+                                {format(
+                                  new Date(b.start_time),
+                                  "dd MMMM yyyy",
+                                  {
+                                    locale: id,
+                                  },
+                                )}
                               </span>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="w-[30%]">
-                          <div className="flex flex-col">
-                            <div className="flex items-center gap-2 text-blue-600 font-black italic text-[12px] uppercase tracking-tighter leading-none">
-                              <Clock size={14} />{" "}
-                              {format(new Date(b.start_time), "HH:mm")} -{" "}
-                              {format(new Date(b.end_time), "HH:mm")}
+                          </TableCell>
+                          <TableCell className="w-[15%]">
+                            <Badge
+                              className={cn(
+                                "font-black italic text-[9px] uppercase px-4 py-1.5 rounded-full border-none shadow-sm",
+                                b.status === "active"
+                                  ? "bg-emerald-500 text-white animate-pulse"
+                                  : b.status === "confirmed"
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-slate-100 dark:bg-slate-800 text-slate-400",
+                              )}
+                            >
+                              {b.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="w-[15%]">
+                            <Badge
+                              className={cn(
+                                "font-black italic text-[9px] uppercase px-4 py-1.5 rounded-full border-none shadow-sm",
+                                getPaymentMeta(b).className,
+                              )}
+                            >
+                              {getPaymentMeta(b).label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right pr-10">
+                            <div className="flex flex-col items-end">
+                              <span className="text-[10px] font-black text-slate-400 uppercase italic mb-1">
+                                Billing
+                              </span>
+                              <span className="text-lg font-[1000] italic text-slate-950 dark:text-white leading-none">
+                                Rp {formatIDR(b.total_resource + b.total_fnb)}
+                              </span>
                             </div>
-                            <span className="text-[10px] font-bold text-slate-400 uppercase italic mt-1.5">
-                              {format(new Date(b.start_time), "dd MMMM yyyy", {
-                                locale: id,
-                              })}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="w-[15%]">
-                          <Badge
-                            className={cn(
-                              "font-black italic text-[9px] uppercase px-4 py-1.5 rounded-full border-none shadow-sm",
-                              b.status === "active"
-                                ? "bg-emerald-500 text-white animate-pulse"
-                                : b.status === "confirmed"
-                                  ? "bg-blue-600 text-white"
-                                  : "bg-slate-100 dark:bg-slate-800 text-slate-400",
-                            )}
-                          >
-                            {b.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="w-[15%]">
-                          <Badge
-                            className={cn(
-                              "font-black italic text-[9px] uppercase px-4 py-1.5 rounded-full border-none shadow-sm",
-                              getPaymentMeta(b).className,
-                            )}
-                          >
-                            {getPaymentMeta(b).label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right pr-10">
-                          <div className="flex flex-col items-end">
-                            <span className="text-[10px] font-black text-slate-400 uppercase italic mb-1">
-                              Billing
-                            </span>
-                            <span className="text-lg font-[1000] italic text-slate-950 dark:text-white leading-none">
-                              Rp {formatIDR(b.total_resource + b.total_fnb)}
-                            </span>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               </Card>
             </div>
@@ -704,4 +711,3 @@ export default function BookingsPage() {
     </div>
   );
 }
-

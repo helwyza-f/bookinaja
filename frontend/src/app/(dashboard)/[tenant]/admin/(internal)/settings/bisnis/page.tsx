@@ -142,7 +142,7 @@ export default function SettingsPage() {
 
   if (!isEditing) {
     return (
-      <div className="max-w-6xl mx-auto space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 px-3 md:px-4">
+      <div className="max-w-6xl mx-auto space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
         {/* HEADER SUMMARY CARD */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5 md:gap-8 bg-slate-950 p-5 md:p-10 rounded-[1.75rem] md:rounded-[3.5rem] text-white shadow-2xl relative overflow-hidden group">
           <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-blue-600/20 to-transparent pointer-events-none" />
@@ -410,7 +410,7 @@ export default function SettingsPage() {
 
   // --- EDITOR MODE ---
   return (
-    <div className="max-w-6xl mx-auto pb-24 animate-in zoom-in-95 duration-500 px-4">
+    <div className="max-w-6xl mx-auto pb-24 animate-in zoom-in-95 duration-500">
       {/* STICKY ACTION BAR */}
       <div className="sticky top-4 z-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/80 backdrop-blur-xl p-3 md:p-4 rounded-2xl md:rounded-3xl border border-slate-200 shadow-2xl mb-8 md:mb-12 animate-in slide-in-from-top-4 duration-700">
         <Button

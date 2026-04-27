@@ -10,6 +10,7 @@ import {
   Sun,
   LogOut,
   ShieldCheck,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +27,7 @@ import api from "@/lib/api";
 import { clearTenantSession } from "@/lib/tenant-session";
 import {
   operationalNavItems,
+  settingsNavItems,
   type AdminNavItem,
 } from "./admin-nav-config";
 
@@ -84,8 +86,11 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
   }, [params.tenant]);
 
   const items = useMemo<AdminNavItem[]>(() => {
+    if (mode === "settings") {
+      return settingsNavItems;
+    }
     return operationalNavItems;
-  }, []);
+  }, [mode]);
 
   const tenantLogo =
     userData?.logo_url && userData.logo_url !== ""
@@ -201,6 +206,31 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
                 );
               })}
             </nav>
+
+            {mode === "operational" ? (
+              <div className="mt-4 rounded-[1.35rem] border border-slate-200 bg-slate-50 p-3 dark:border-white/5 dark:bg-white/5">
+                <div className="mb-2 text-[9px] font-black uppercase tracking-[0.24em] text-slate-400">
+                  Executive Settings
+                </div>
+                <Link
+                  href="/admin/settings/bisnis"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 rounded-[1.1rem] bg-white px-4 py-3 text-slate-700 shadow-sm dark:bg-[#0a0a0a] dark:text-white"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/20">
+                    <Settings className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] font-black uppercase italic tracking-widest leading-none">
+                      Settings
+                    </div>
+                    <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                      Bisnis, staff, CRM, billing
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            ) : null}
 
             <div className="mt-4 space-y-3 border-t border-slate-100 pt-4 dark:border-white/5">
               <Button

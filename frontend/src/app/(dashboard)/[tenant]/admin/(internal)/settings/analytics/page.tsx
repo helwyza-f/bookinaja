@@ -409,7 +409,7 @@ export default function SettingsAnalyticsPage() {
   ];
 
   return (
-    <div className="space-y-4 pb-20 px-3 font-plus-jakarta animate-in fade-in duration-500 md:space-y-5 md:px-0">
+    <div className="space-y-4 pb-20 animate-in fade-in duration-500 md:space-y-5">
       <Card className="rounded-[1.75rem] border-none bg-slate-950 p-4 text-white shadow-2xl md:rounded-[2rem] md:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">

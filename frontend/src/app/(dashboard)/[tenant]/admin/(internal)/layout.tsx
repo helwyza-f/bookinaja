@@ -125,8 +125,8 @@ export default function DashboardInternalLayout({
             </div>
           </div>
 
-          <main className="min-h-screen w-full p-4 ">
-            <div className="max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-2 duration-700">
+          <main className="min-h-screen w-full">
+            <div className="mx-auto mt-20 max-w-[1600px] animate-in fade-in slide-in-from-bottom-2 duration-700 md:mt-10">
               {children}
             </div>
           </main>
@@ -161,7 +161,7 @@ function DashboardLayoutSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
       </div>
 
       {/* Content Skeleton */}
-      <div className="flex-1 p-6 md:p-10 space-y-8">
+      <div className="flex-1 space-y-8 px-4 pt-4 md:p-10">
         <div className="flex items-center justify-between">
           <div className="space-y-2">
             <Skeleton className="h-4 w-32 bg-slate-100 dark:bg-white/5" />

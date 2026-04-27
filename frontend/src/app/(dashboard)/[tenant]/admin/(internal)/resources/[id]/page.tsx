@@ -182,7 +182,7 @@ export default function ResourceDetailPage() {
   if (loading && !resource) return <ResourceDetailLoading />;
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-4 md:space-y-6 pb-20 animate-in fade-in duration-500 px-3 md:px-4 mt-4 md:mt-6 font-plus-jakarta">
+    <div className="max-w-[1600px] mx-auto space-y-4 md:space-y-6 pb-20 animate-in fade-in duration-500 px-3 md:px-4 font-plus-jakarta">
       {/* 1. ULTRA COMPACT HEADER */}
       <header className="flex flex-col md:flex-row md:items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-4 md:pb-6 gap-4">
         <div className="flex items-center gap-3 md:gap-4">

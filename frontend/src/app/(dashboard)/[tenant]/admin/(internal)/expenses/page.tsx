@@ -195,7 +195,7 @@ export default function ExpensesPage() {
   ];
 
   return (
-    <div className="mx-auto mt-4 max-w-[1600px] space-y-4 pb-20 px-3 font-plus-jakarta animate-in fade-in duration-500 md:mt-6 md:space-y-5 md:px-4">
+    <div className="mx-auto max-w-[1600px] space-y-4 pb-20 px-3 font-plus-jakarta animate-in fade-in duration-500 md:space-y-5 md:px-4">
       <div className="flex flex-col gap-4 border-b-[0.5px] border-slate-200 pb-5 dark:border-white/5 sm:flex-row sm:items-center sm:justify-between md:pb-6">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white shadow-xl dark:bg-white dark:text-slate-950">

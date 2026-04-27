@@ -134,7 +134,7 @@ export default function CustomersPage() {
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-6 pb-20 animate-in fade-in duration-500 px-4 mt-6 font-plus-jakarta">
+    <div className="max-w-[1600px] mx-auto space-y-6 pb-20 animate-in fade-in duration-500 px-4 font-plus-jakarta">
       {/* 1. COMPACT ANALYTICS BAR */}
       <div className="grid grid-cols-3 gap-2 md:gap-4">
         <Card className="p-3 md:p-6 rounded-[1.25rem] md:rounded-[1.5rem] bg-slate-950 text-white border-none shadow-xl relative overflow-hidden group">

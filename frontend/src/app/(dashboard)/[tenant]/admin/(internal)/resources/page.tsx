@@ -129,37 +129,55 @@ export default function ResourcesPage() {
     }
   })();
 
+  const statusTone = (status?: string) => {
+    switch ((status || "").toLowerCase()) {
+      case "available":
+        return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300";
+      case "occupied":
+      case "busy":
+        return "bg-amber-500/10 text-amber-600 dark:text-amber-300";
+      case "maintenance":
+        return "bg-rose-500/10 text-rose-600 dark:text-rose-300";
+      default:
+        return "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-300";
+    }
+  };
+
   return (
-    <div className="max-w-[1600px] mx-auto space-y-5 md:space-y-6 pb-20 animate-in fade-in duration-500 px-3 md:px-4 mt-4 md:mt-6 font-plus-jakarta">
-      {/* 1. COMPACT HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-5 md:pb-6 gap-4">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 bg-slate-950 dark:bg-white rounded-xl flex items-center justify-center text-white dark:text-slate-950 shadow-xl">
+    <div className="max-w-[1600px] mx-auto space-y-5 md:space-y-6 pb-20 animate-in fade-in duration-500 px-3 md:px-4 font-plus-jakarta">
+      <div className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:rounded-[2rem] md:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#0f1f4a] via-[#1d4ed8] to-[#60a5fa] text-white shadow-lg shadow-blue-600/20">
             {labels.icon}
           </div>
-          <div className="flex flex-col">
-            <h1 className="text-xl md:text-4xl font-[1000] italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
-              {labels.title} <span className="text-blue-600">Assets.</span>
-            </h1>
-            <p className="hidden sm:block text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-[0.4em] italic mt-1.5">
-              Inventory Master & Rate Control
-            </p>
+            <div className="flex flex-col">
+              <div className="text-[8px] font-black uppercase tracking-[0.3em] text-blue-600">
+                Resource Management
+              </div>
+              <h1 className="text-xl font-black italic uppercase tracking-tighter text-slate-950 dark:text-white md:text-3xl">
+                {labels.title}
+              </h1>
+              <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 md:text-sm">
+                Kelola unit, harga aktif, dan status operasional dalam satu tempat.
+              </p>
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex flex-col items-end leading-none mr-2 hidden md:flex text-right">
-            <span className="text-[8px] font-black text-slate-400 uppercase italic mb-1">
-              Stock Level
-            </span>
-            <span className="text-xs font-[1000] italic text-slate-900 dark:text-white uppercase leading-none">
-              {resources.length} {labels.unit}S
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="hidden rounded-2xl bg-slate-50 px-4 py-3 text-right dark:bg-white/5 md:block">
+              <div className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-400">
+                Total Resource
+              </div>
+              <div className="mt-1 text-sm font-black italic uppercase text-slate-950 dark:text-white">
+                {resources.length} {labels.unit}
+              </div>
+            </div>
+            <AddResourceDialog
+              category={businessCategory}
+              onRefresh={fetchResources}
+            />
           </div>
-          <AddResourceDialog
-            category={businessCategory}
-            onRefresh={fetchResources}
-          />
         </div>
       </div>
 
@@ -191,17 +209,32 @@ export default function ResourcesPage() {
             return (
               <Card
                 key={res.id}
-                className="group rounded-[1.5rem] md:rounded-[2rem] border-[0.5px] border-slate-200 dark:border-white/5 transition-all duration-300 bg-white dark:bg-slate-900 hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/5 flex flex-col relative overflow-hidden"
+                className="group relative flex flex-col overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-600/10 dark:border-white/5 dark:bg-[#0a0a0a] md:rounded-[1.9rem]"
               >
-                <CardContent className="p-3 md:p-6 flex-1 flex flex-col relative z-10">
-                  {/* Header Actions */}
-                  <div className="flex items-start justify-between gap-3 mb-4 md:mb-6">
+                <div className="h-1.5 w-full bg-gradient-to-r from-[#0f1f4a] via-[#1d4ed8] to-[#60a5fa]" />
+                <CardContent className="relative z-10 flex flex-1 flex-col p-4 md:p-5">
+                  <div className="mb-4 flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-base md:text-xl font-[1000] text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none truncate group-hover:text-blue-600 transition-colors">
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.22em] text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
+                          {res.category || labels.unit}
+                        </span>
+                        <span
+                          className={cn(
+                            "inline-flex rounded-full px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.22em]",
+                            statusTone(res.status),
+                          )}
+                        >
+                          {res.status || "draft"}
+                        </span>
+                      </div>
+                      <h3 className="truncate text-lg font-black italic uppercase tracking-tighter text-slate-950 transition-colors group-hover:text-blue-700 dark:text-white dark:group-hover:text-blue-300 md:text-xl">
                         {res.name}
                       </h3>
-                      <p className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1.5 opacity-70">
-                        {res.category || labels.unit}
+                      <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                        {mainItems.length > 0
+                          ? `${mainItems.length} konfigurasi harga tersimpan`
+                          : "Belum ada konfigurasi harga aktif"}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -228,16 +261,34 @@ export default function ResourcesPage() {
                     </div>
                   </div>
 
-                  {/* Main Configurations - Compact List */}
-                  <div className="flex-1 space-y-2 mb-5 md:mb-8">
+                  <div className="mb-5 grid grid-cols-2 gap-2.5">
+                    <div className="rounded-[1.2rem] bg-slate-50 px-3 py-3 dark:bg-white/5">
+                      <div className="text-[8px] font-black uppercase tracking-[0.24em] text-slate-400">
+                        Paket Aktif
+                      </div>
+                      <div className="mt-1 text-lg font-black italic text-slate-950 dark:text-white">
+                        {mainItems.length}
+                      </div>
+                    </div>
+                    <div className="rounded-[1.2rem] bg-slate-50 px-3 py-3 dark:bg-white/5">
+                      <div className="text-[8px] font-black uppercase tracking-[0.24em] text-slate-400">
+                        Harga Dasar
+                      </div>
+                      <div className="mt-1 text-sm font-black italic text-blue-600 dark:text-blue-300">
+                        {mainItems[0] ? `Rp${formatIDR(mainItems[0].price)}` : "-"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mb-5 flex-1 space-y-2">
                     {mainItems.slice(0, 3).map((item) => (
                       <div
                         key={item.id}
                         className={cn(
-                          "flex items-center justify-between p-2.5 md:p-3 rounded-xl border-[0.5px] transition-all",
+                          "flex items-center justify-between rounded-[1rem] border p-3 transition-all",
                           item.is_default
-                            ? "bg-blue-50/50 dark:bg-blue-900/10 border-blue-200/50 dark:border-blue-800/30"
-                            : "bg-slate-50/30 dark:bg-slate-800/20 border-transparent opacity-60",
+                            ? "border-blue-200 bg-blue-50/70 dark:border-blue-800/30 dark:bg-blue-900/10"
+                            : "border-slate-200 bg-slate-50/70 dark:border-white/5 dark:bg-white/[0.03]",
                         )}
                       >
                         <div className="flex items-center gap-2 overflow-hidden">
@@ -250,20 +301,32 @@ export default function ResourcesPage() {
                             )}
                             strokeWidth={4}
                           />
-                          <span className="text-[8px] md:text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase italic truncate">
+                          <span className="truncate text-[9px] font-black uppercase italic text-slate-700 dark:text-slate-300 md:text-[10px]">
                             {item.name}
                           </span>
                         </div>
-                        <span className="text-[8px] md:text-[10px] font-black text-blue-600 italic whitespace-nowrap ml-2">
+                        <span className="ml-2 whitespace-nowrap text-[9px] font-black italic text-blue-600 dark:text-blue-300 md:text-[10px]">
                           Rp{formatIDR(item.price)}
                         </span>
                       </div>
                     ))}
                     {mainItems.length > 3 && (
-                      <p className="text-[8px] font-bold text-slate-400 italic text-center">
-                        +{mainItems.length - 3} other rates
+                      <p className="text-center text-[9px] font-bold italic text-slate-400">
+                        +{mainItems.length - 3} paket lainnya
                       </p>
                     )}
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-4 dark:border-white/5">
+                    <div className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-400">
+                      Buka detail resource
+                    </div>
+                    <Link
+                      href={`/admin/resources/${res.id}`}
+                      className="text-[10px] font-black uppercase italic tracking-widest text-blue-600 dark:text-blue-300"
+                    >
+                      Kelola
+                    </Link>
                   </div>
                 </CardContent>
               </Card>

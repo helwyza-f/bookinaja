@@ -15,7 +15,6 @@ const RESERVED_TENANT_SLUGS = new Set([
   "public",
   "me",
   "dashboard",
-  "site.webmanifest",
   "favicon.ico",
 ]);
 

@@ -78,19 +78,19 @@ export default function SettingsLayout({
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-[#050505]">
-      <div className="mx-auto flex min-h-screen max-w-[1800px] flex-col">
+    <div className="space-y-4 pb-20 font-plus-jakarta md:space-y-5 md:px-4">
+      <div className="mx-auto flex max-w-[1800px] flex-col gap-4 md:gap-5">
         <SettingsHeader
           tenantName={tenantName || user?.name}
           role={user?.role}
         />
 
-        <div className="border-b border-slate-200/80 bg-slate-50/95 px-4 py-3 backdrop-blur dark:border-white/5 dark:bg-[#050505]/90 lg:hidden">
+        <div className="rounded-[1.5rem] border border-slate-200 bg-white p-3 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] lg:hidden">
           <SettingsTabs />
         </div>
 
-        <div className="flex flex-1 flex-col pt-2 lg:flex-row ">
-          <aside className="hidden h-fit w-[300px] shrink-0 lg:sticky lg:top-6 lg:block">
+        <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-6">
+          <aside className="hidden h-fit w-full shrink-0 lg:sticky lg:top-6 lg:block">
             <SettingsSidebar
               tenantName={tenantName || user?.name}
               role={user?.role}
@@ -109,10 +109,10 @@ export default function SettingsLayout({
 
 function SettingsLayoutSkeleton() {
   return (
-    <div className="min-h-screen bg-slate-50 p-4 dark:bg-[#050505] md:p-6">
-      <div className="mx-auto max-w-[1800px] space-y-4 md:space-y-6">
-        <Skeleton className="h-24 rounded-[2rem] bg-white dark:bg-white/5" />
-        <Skeleton className="h-12 rounded-[1.5rem] bg-white dark:bg-white/5 lg:hidden" />
+    <div className="px-3 pb-20 md:px-4">
+      <div className="mx-auto max-w-[1800px] space-y-4 md:space-y-5">
+        <Skeleton className="h-32 rounded-[2rem] bg-white dark:bg-white/5" />
+        <Skeleton className="h-14 rounded-[1.5rem] bg-white dark:bg-white/5 lg:hidden" />
         <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
           <Skeleton className="hidden h-[560px] rounded-[2rem] bg-white dark:bg-white/5 lg:block" />
           <Skeleton className="h-[560px] rounded-[2rem] bg-white dark:bg-white/5" />

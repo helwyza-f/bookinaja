@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 
 export default function ResourceDetailLoading() {
   return (
-    <div className="max-w-7xl mx-auto space-y-6 md:space-y-10 pb-24 px-3 md:px-4 font-plus-jakarta animate-pulse mt-6 md:mt-10">
+    <div className="max-w-7xl mx-auto space-y-6 md:space-y-10 pb-24 px-3 md:px-4 font-plus-jakarta animate-pulse">
       {/* --- HEADER SKELETON --- */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b-2 border-slate-100 dark:border-white/5 pb-6 md:pb-10 gap-4 md:gap-6">
         <div className="space-y-4">

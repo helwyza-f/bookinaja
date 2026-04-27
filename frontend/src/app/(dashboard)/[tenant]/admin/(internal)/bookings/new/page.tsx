@@ -233,7 +233,7 @@ export default function NewManualBookingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#050505] font-plus-jakarta pb-20 -mt-6">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#050505] font-plus-jakarta pb-20">
       <div className="max-w-[1600px] mx-auto p-3 md:p-4 lg:p-6 space-y-4 md:space-y-6">
         {/* COMPACT HEADER */}
         <header className="flex items-center gap-3 pt-6">

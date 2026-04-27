@@ -116,7 +116,9 @@ export default function DashboardPage() {
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
-  const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
+  const [subscription, setSubscription] = useState<SubscriptionRow | null>(
+    null,
+  );
   const [customersCount, setCustomersCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [lastSyncAt, setLastSyncAt] = useState<string>("");
@@ -128,7 +130,9 @@ export default function DashboardPage() {
 
     try {
       const meRes = await api.get<{ user?: AppUser }>("/auth/me");
-      const currentRole = String(meRes.data?.user?.role || "staff").toLowerCase();
+      const currentRole = String(
+        meRes.data?.user?.role || "staff",
+      ).toLowerCase();
       setRole(currentRole);
 
       const commonRequests = await Promise.all([
@@ -193,7 +197,9 @@ export default function DashboardPage() {
     const totalResources = resources.length;
     const activeSessions = sessions.length;
     const occupiedPercent =
-      totalResources > 0 ? Math.round((activeSessions / totalResources) * 100) : 0;
+      totalResources > 0
+        ? Math.round((activeSessions / totalResources) * 100)
+        : 0;
     const availableResources = resources.filter(
       (resource) => resource.status === "available",
     ).length;
@@ -206,7 +212,9 @@ export default function DashboardPage() {
     ).length;
 
     const todayRevenue = bookings
-      .filter((booking) => isSameDay(booking.start_time || booking.created_at, today))
+      .filter((booking) =>
+        isSameDay(booking.start_time || booking.created_at, today),
+      )
       .reduce((sum, booking) => sum + getBookingTotal(booking), 0);
 
     return {
@@ -247,15 +255,20 @@ export default function DashboardPage() {
     const maxRevenue = Math.max(...points.map((item) => item.revenue), 1);
     return points.map((item) => ({
       ...item,
-      height: Math.max((item.revenue / maxRevenue) * 100, item.revenue > 0 ? 12 : 4),
+      height: Math.max(
+        (item.revenue / maxRevenue) * 100,
+        item.revenue > 0 ? 12 : 4,
+      ),
     }));
   }, [bookings]);
 
   const topBookings = useMemo(() => {
     return [...bookings]
       .sort((a, b) => {
-        const aTime = parseSafeDate(a.start_time || a.created_at)?.getTime() || 0;
-        const bTime = parseSafeDate(b.start_time || b.created_at)?.getTime() || 0;
+        const aTime =
+          parseSafeDate(a.start_time || a.created_at)?.getTime() || 0;
+        const bTime =
+          parseSafeDate(b.start_time || b.created_at)?.getTime() || 0;
         return bTime - aTime;
       })
       .slice(0, 5);
@@ -287,8 +300,11 @@ export default function DashboardPage() {
     });
 
     bookings.forEach((booking) => {
-      const bookingDate = parseSafeDate(booking.start_time || booking.created_at);
-      if (!bookingDate || format(bookingDate, "yyyy-MM-dd") !== todayKey) return;
+      const bookingDate = parseSafeDate(
+        booking.start_time || booking.created_at,
+      );
+      if (!bookingDate || format(bookingDate, "yyyy-MM-dd") !== todayKey)
+        return;
 
       const key = booking.resource_name || "Unknown";
       const current = resourceMap.get(key) || {
@@ -312,12 +328,48 @@ export default function DashboardPage() {
     });
 
     return Array.from(resourceMap.values()).sort((a, b) => {
-      if (b.revenueToday !== a.revenueToday) return b.revenueToday - a.revenueToday;
+      if (b.revenueToday !== a.revenueToday)
+        return b.revenueToday - a.revenueToday;
       return b.bookingsToday - a.bookingsToday;
     });
   }, [bookings, resources]);
 
   const topResourceToday = resourceStats[0] || null;
+  const quickActions = ownerOnly
+    ? [
+        {
+          href: "/admin/bookings",
+          label: "Bookings",
+          icon: CalendarClock,
+        },
+        {
+          href: "/admin/resources",
+          label: "Resources",
+          icon: Monitor,
+        },
+        {
+          href: "/admin/settings/analytics",
+          label: "Analytics",
+          icon: PanelsTopLeft,
+        },
+      ]
+    : [
+        {
+          href: "/admin/bookings",
+          label: "Bookings",
+          icon: CalendarClock,
+        },
+        {
+          href: "/admin/expenses",
+          label: "Expenses",
+          icon: Banknote,
+        },
+        {
+          href: "/admin/pos",
+          label: "Quick POS",
+          icon: Sparkles,
+        },
+      ];
 
   const cardSpecs = useMemo(() => {
     const base = [
@@ -365,53 +417,43 @@ export default function DashboardPage() {
   }, [customersCount, metrics, ownerOnly]);
 
   return (
-    <div className="space-y-4 pb-20 px-3 font-plus-jakarta animate-in fade-in duration-500 md:space-y-5 md:px-0">
-      <Card className="relative overflow-hidden rounded-[1.75rem] border-none bg-slate-950 p-4 text-white shadow-2xl md:rounded-[2rem] md:p-6">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.22),transparent_32%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.12),transparent_28%)]" />
-        <div className="relative flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-2">
-            <Badge className="border-none bg-white/10 text-white text-[7px] md:text-[9px] font-black uppercase tracking-widest">
-              {ownerOnly ? "Owner View" : "Staff Daily View"}
+    <div className="space-y-4 pb-20 px-3 font-plus-jakarta animate-in fade-in duration-500 md:space-y-5 md:px-4">
+      <div className="flex flex-col gap-3 rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:flex-row md:items-center md:justify-between md:rounded-[2rem] md:p-5">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Badge className="border-none bg-blue-600 text-[8px] font-black uppercase tracking-widest text-white">
+              {ownerOnly ? "Owner View" : "Staff View"}
             </Badge>
-            <h1 className="text-2xl font-black italic uppercase tracking-tighter leading-none md:text-5xl">
-              Business <span className="text-blue-400">Dashboard.</span>
+            <Badge className="border-none bg-slate-100 text-[8px] font-black uppercase tracking-widest text-slate-500 dark:bg-white/5 dark:text-slate-300">
+              Sync {lastSyncAt || "--:--"}
+            </Badge>
+          </div>
+          <div>
+            <h1 className="text-xl font-black italic uppercase tracking-tighter text-slate-950 dark:text-white md:text-3xl">
+              Dashboard Operasional
             </h1>
-            <p className="max-w-2xl text-[12px] text-slate-300 md:text-sm">
-              Pantau operasi bisnis dari HP atau desktop. Staff hanya melihat ringkasan harian, sementara owner dapat melihat revenue mingguan dan insight yang sensitif langsung di sini.
+            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 md:text-sm">
+              Ringkasan cepat untuk booking, resource, pelanggan, dan performa hari ini.
             </p>
           </div>
-
-          <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:gap-3">
-            <Button asChild className="h-10 rounded-2xl bg-white text-slate-950 hover:bg-slate-100 font-black uppercase italic tracking-[0.15em] text-[8px] md:text-[10px]">
-              <Link href="/admin/bookings">
-                <CalendarClock className="mr-1.5 h-3.5 w-3.5 md:h-4 md:w-4" />
-                Bookings
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="h-10 rounded-2xl border-white/15 bg-white/5 text-white hover:bg-white/10 font-black uppercase italic tracking-[0.15em] text-[8px] md:text-[10px]">
-              <Link href="/admin/expenses">
-                <Banknote className="mr-1.5 h-3.5 w-3.5 md:h-4 md:w-4" />
-                Expenses
-              </Link>
-            </Button>
-            {ownerOnly ? (
-              <Button asChild variant="outline" className="col-span-2 h-10 rounded-2xl border-white/15 bg-blue-600/10 text-white hover:bg-blue-600/20 font-black uppercase italic tracking-[0.15em] text-[8px] md:text-[10px] md:col-span-1">
-                <Link href="/admin/settings/analytics">
-                  <PanelsTopLeft className="mr-1.5 h-3.5 w-3.5 md:h-4 md:w-4" />
-                  Analytics
-                </Link>
-              </Button>
-            ) : (
-              <Button asChild variant="outline" className="col-span-2 h-10 rounded-2xl border-white/15 bg-white/5 text-white hover:bg-white/10 font-black uppercase italic tracking-[0.15em] text-[8px] md:text-[10px]">
-                <Link href="/admin/pos">
-                  <Sparkles className="mr-1.5 h-3.5 w-3.5 md:h-4 md:w-4" />
-                  Quick POS
-                </Link>
-              </Button>
-            )}
-          </div>
         </div>
-      </Card>
+
+        <div className="grid grid-cols-3 gap-2 md:flex md:flex-wrap">
+          {quickActions.map((action) => (
+            <Button
+              key={action.href}
+              asChild
+              variant="outline"
+              className="h-11 rounded-2xl border-slate-200 bg-slate-50 px-3 text-[8px] font-black uppercase italic tracking-[0.15em] text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 md:px-4 md:text-[10px]"
+            >
+              <Link href={action.href}>
+                <action.icon className="mr-1.5 h-3.5 w-3.5 md:h-4 md:w-4" />
+                {action.label}
+              </Link>
+            </Button>
+          ))}
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         {cardSpecs.map((item) => (
@@ -435,7 +477,12 @@ export default function DashboardPage() {
                   {item.hint}
                 </p>
               </div>
-              <div className={cn("flex h-9 w-9 items-center justify-center rounded-2xl md:h-11 md:w-11", item.tone)}>
+              <div
+                className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-2xl md:h-11 md:w-11",
+                  item.tone,
+                )}
+              >
                 <item.icon className="h-3.5 w-3.5 md:h-5 md:w-5" />
               </div>
             </div>
@@ -456,7 +503,8 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-center gap-2">
               <Badge className="border-none bg-emerald-500 text-[8px] font-black uppercase tracking-widest text-white">
-                {resourceStats.filter((item) => item.bookingsToday > 0).length} active
+                {resourceStats.filter((item) => item.bookingsToday > 0).length}{" "}
+                active
               </Badge>
               <Badge className="border-none bg-slate-100 text-[8px] font-black uppercase tracking-widest text-slate-500 dark:bg-white/5 dark:text-slate-300">
                 {topResourceToday?.name || "No activity"}
@@ -501,7 +549,9 @@ export default function DashboardPage() {
                         Revenue Today
                       </div>
                       <div className="mt-1 text-sm font-black italic uppercase tracking-tighter text-blue-600">
-                        {ownerOnly ? `Rp ${formatIDR(resource.revenueToday)}` : "Owner only"}
+                        {ownerOnly
+                          ? `Rp ${formatIDR(resource.revenueToday)}`
+                          : "Owner only"}
                       </div>
                     </div>
                     <div className="rounded-2xl bg-white px-3 py-2 dark:bg-slate-950/40">
@@ -510,7 +560,11 @@ export default function DashboardPage() {
                       </div>
                       <div className="mt-1 truncate text-sm font-black italic uppercase tracking-tighter text-slate-950 dark:text-white">
                         {resource.lastBookingAt
-                          ? format(parseSafeDate(resource.lastBookingAt) || new Date(), "HH:mm")
+                          ? format(
+                              parseSafeDate(resource.lastBookingAt) ||
+                                new Date(),
+                              "HH:mm",
+                            )
                           : "-"}
                       </div>
                     </div>
@@ -561,9 +615,14 @@ export default function DashboardPage() {
                         {booking.customer_name || "Guest"}
                       </div>
                       <div className="mt-1 truncate text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">
-                        {booking.resource_name || "-"} • {(() => {
-                          const parsedDate = parseSafeDate(booking.start_time || booking.created_at);
-                          return parsedDate ? format(parsedDate, "dd MMM HH:mm") : "-";
+                        {booking.resource_name || "-"} •{" "}
+                        {(() => {
+                          const parsedDate = parseSafeDate(
+                            booking.start_time || booking.created_at,
+                          );
+                          return parsedDate
+                            ? format(parsedDate, "dd MMM HH:mm")
+                            : "-";
                         })()}
                       </div>
                     </div>
@@ -571,7 +630,14 @@ export default function DashboardPage() {
                       <div className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-400">
                         {booking.status || "active"}
                       </div>
-                      <div className={cn("mt-1 text-[10px] font-black italic uppercase tracking-tighter", ownerOnly ? "text-blue-600" : "text-slate-950 dark:text-white")}>
+                      <div
+                        className={cn(
+                          "mt-1 text-[10px] font-black italic uppercase tracking-tighter",
+                          ownerOnly
+                            ? "text-blue-600"
+                            : "text-slate-950 dark:text-white",
+                        )}
+                      >
                         {ownerOnly ? `Rp ${formatIDR(total)}` : "Live"}
                       </div>
                     </div>
@@ -607,7 +673,10 @@ export default function DashboardPage() {
 
             <div className="mt-5 grid grid-cols-7 gap-2 items-end">
               {weeklyRevenue.map((item) => (
-                <div key={item.key} className="flex flex-col items-center gap-2">
+                <div
+                  key={item.key}
+                  className="flex flex-col items-center gap-2"
+                >
                   <div className="flex h-36 w-full items-end rounded-[1.1rem] bg-slate-50 p-1 dark:bg-white/5">
                     <div
                       className="w-full rounded-[0.9rem] bg-gradient-to-t from-blue-600 to-cyan-400 transition-all"
@@ -641,11 +710,31 @@ export default function DashboardPage() {
             </div>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <InfoTile label="Subscription Plan" value={metrics.plan.toUpperCase()} icon={Wallet} />
-              <InfoTile label="Customer Count" value={String(customersCount)} icon={Users} />
-              <InfoTile label="Available Resources" value={String(metrics.availableResources)} icon={Monitor} />
-              <InfoTile label="Maintenance" value={String(metrics.maintenanceResources)} icon={Activity} />
-              <InfoTile label="Billing Orders" value={String(orders.length)} icon={PanelsTopLeft} />
+              <InfoTile
+                label="Subscription Plan"
+                value={metrics.plan.toUpperCase()}
+                icon={Wallet}
+              />
+              <InfoTile
+                label="Customer Count"
+                value={String(customersCount)}
+                icon={Users}
+              />
+              <InfoTile
+                label="Available Resources"
+                value={String(metrics.availableResources)}
+                icon={Monitor}
+              />
+              <InfoTile
+                label="Maintenance"
+                value={String(metrics.maintenanceResources)}
+                icon={Activity}
+              />
+              <InfoTile
+                label="Billing Orders"
+                value={String(orders.length)}
+                icon={PanelsTopLeft}
+              />
             </div>
 
             <div className="mt-4 rounded-[1.35rem] bg-slate-50 p-4 dark:bg-white/5">
@@ -658,7 +747,11 @@ export default function DashboardPage() {
                     {lastSyncAt || "--:--"}
                   </div>
                 </div>
-                <Button asChild variant="outline" className="h-10 rounded-2xl border-none bg-blue-600 px-3 font-black uppercase italic text-[9px] tracking-widest text-white hover:bg-blue-500">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="h-10 rounded-2xl border-none bg-blue-600 px-3 font-black uppercase italic text-[9px] tracking-widest text-white hover:bg-blue-500"
+                >
                   <Link href="/admin/settings/analytics">
                     Open Analytics
                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -666,7 +759,8 @@ export default function DashboardPage() {
                 </Button>
               </div>
               <p className="mt-2 text-[10px] font-medium text-slate-500 dark:text-slate-400">
-                Laporan komprehensif tetap tersedia di menu analytics. Dashboard ini fokus untuk pemantauan cepat dan mobile.
+                Laporan komprehensif tetap tersedia di menu analytics. Dashboard
+                ini fokus untuk pemantauan cepat dan mobile.
               </p>
             </div>
           </Card>
@@ -687,7 +781,9 @@ export default function DashboardPage() {
             </Badge>
           </div>
           <p className="mt-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-            Role staff hanya melihat ringkasan harian dan operasional. Insight yang bersifat sensitif seperti revenue trend dan snapshot finansial khusus owner tetap disembunyikan.
+            Role staff hanya melihat ringkasan harian dan operasional. Insight
+            yang bersifat sensitif seperti revenue trend dan snapshot finansial
+            khusus owner tetap disembunyikan.
           </p>
         </Card>
       )}

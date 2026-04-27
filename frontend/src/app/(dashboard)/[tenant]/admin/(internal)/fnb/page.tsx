@@ -49,7 +49,7 @@ type MenuItem = {
 // --- KOMPONEN SKELETON COMPACT ---
 function FnbSkeleton() {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-4">
       {[...Array(12)].map((_, i) => (
         <Card
           key={i}
@@ -170,7 +170,7 @@ export default function FnbManagementPage() {
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-4 md:space-y-6 pb-32 animate-in fade-in duration-500 font-plus-jakarta px-3 md:px-4 mt-4 md:mt-6">
+    <div className="max-w-[1600px] mx-auto space-y-4 md:space-y-6 pb-32 animate-in fade-in duration-500 font-plus-jakarta px-3 md:px-4">
       {/* 1. COMPACT HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-4 md:pb-6 gap-3">
         <div className="flex items-center gap-3">
