@@ -20,6 +20,11 @@ import { Plus, Loader2, Info, LayoutGrid, ChevronRight } from "lucide-react";
 import api from "@/lib/api";
 import { Badge } from "../ui/badge";
 
+type ResourceFormValues = {
+  name: string;
+  category: string;
+};
+
 interface AddResourceDialogProps {
   onRefresh: () => void;
   category?: string; // ID kategori bisnis: gaming_hub, creative_space, sport_center, social_space
@@ -32,7 +37,8 @@ export function AddResourceDialog({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const { register, handleSubmit, reset, setValue } = useForm({
+  const { register, handleSubmit, reset, setValue } =
+    useForm<ResourceFormValues>({
     defaultValues: {
       name: "",
       category: "",
@@ -72,7 +78,7 @@ export function AddResourceDialog({
 
   const labels = getPlaceholder();
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: ResourceFormValues) => {
     setLoading(true);
     const payload = {
       name: data.name.toUpperCase(),
@@ -85,7 +91,7 @@ export function AddResourceDialog({
       setOpen(false);
       reset();
       onRefresh();
-    } catch (err) {
+    } catch {
       toast.error("GAGAL MENAMBAHKAN UNIT");
     } finally {
       setLoading(false);
@@ -95,8 +101,8 @@ export function AddResourceDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="rounded-2xl h-12 bg-blue-600 font-black px-8 shadow-xl shadow-blue-600/20 transition-all hover:scale-105 active:scale-95 uppercase italic tracking-widest text-[11px] group">
-          <Plus className="mr-2 h-4 w-4 stroke-[3] group-hover:rotate-90 transition-transform duration-300" />
+        <Button className="h-11 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 active:scale-95">
+          <Plus className="mr-2 h-4 w-4" />
           Tambah{" "}
           {category === "gaming_hub"
             ? "Unit"
@@ -107,19 +113,16 @@ export function AddResourceDialog({
       </DialogTrigger>
 
       <DialogPortal>
-        <DialogOverlay className="z-[9998] bg-slate-950/40 backdrop-blur-sm" />
-        <DialogContent className="z-[9999] rounded-[2.5rem] sm:max-w-[480px] border-none p-10 shadow-3xl bg-background overflow-hidden">
-          {/* Decorative Glow */}
-          <div className="absolute -top-20 -right-20 h-40 w-40 bg-blue-600/10 blur-[80px] rounded-full pointer-events-none" />
-
+        <DialogOverlay className="z-[9998] bg-slate-950/30 backdrop-blur-sm" />
+        <DialogContent className="z-[9999] w-[94vw] overflow-hidden rounded-2xl border border-slate-200 bg-background p-5 shadow-2xl sm:max-w-[480px] sm:p-6 dark:border-white/10">
           <DialogHeader className="space-y-3 relative z-10">
-            <div className="h-14 w-14 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 mb-2">
-              <LayoutGrid className="h-7 w-7 stroke-[2.5]" />
+            <div className="mb-1 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              <LayoutGrid className="h-5 w-5" />
             </div>
-            <DialogTitle className="text-3xl font-black uppercase italic tracking-tighter leading-none text-slate-900">
-              REGISTER <span className="text-blue-600">NEW UNIT</span>
+            <DialogTitle className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
+              Tambah Unit Baru
             </DialogTitle>
-            <DialogDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic leading-relaxed">
+            <DialogDescription className="text-sm leading-relaxed text-slate-500">
               Daftarkan unit fisik baru untuk mulai menerima reservasi
               pelanggan.
             </DialogDescription>
@@ -127,18 +130,18 @@ export function AddResourceDialog({
 
           <form
             onSubmit={handleSubmit(onSubmit)}
-            className="space-y-8 pt-8 relative z-10"
+            className="space-y-5 pt-4 relative z-10"
           >
             {/* INPUT NAMA */}
             <div className="space-y-3">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1 italic">
+              <Label className="px-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
                 {labels.label}
               </Label>
               <Input
                 {...register("name", { required: true })}
                 placeholder={labels.name}
                 onChange={(e) => setValue("name", e.target.value.toUpperCase())}
-                className="h-16 rounded-2xl bg-slate-50 border-2 border-transparent font-black text-slate-900 px-6 focus:bg-white focus:border-blue-600/20 focus:ring-4 focus:ring-blue-600/5 text-lg tracking-tight transition-all placeholder:text-slate-300 placeholder:font-bold"
+                className="h-12 rounded-xl border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-900 transition-all placeholder:text-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-600/10 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 required
                 autoComplete="off"
               />
@@ -147,12 +150,12 @@ export function AddResourceDialog({
             {/* INPUT KATEGORI - OPTIONAL */}
             <div className="space-y-3">
               <div className="flex justify-between items-center px-1">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">
+                <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
                   AREA / LANTAI / TIPE
                 </Label>
                 <Badge
                   variant="secondary"
-                  className="text-[8px] font-black uppercase bg-slate-100 text-slate-400 px-2 py-0 border-none"
+                  className="border-none bg-slate-100 px-2 py-0 text-[10px] font-semibold text-slate-500"
                 >
                   OPSIONAL
                 </Badge>
@@ -163,33 +166,33 @@ export function AddResourceDialog({
                 onChange={(e) =>
                   setValue("category", e.target.value.toUpperCase())
                 }
-                className="h-16 rounded-2xl bg-slate-50 border-2 border-transparent font-black text-slate-900 px-6 focus:bg-white focus:border-blue-600/20 focus:ring-4 focus:ring-blue-600/5 text-lg tracking-tight transition-all placeholder:text-slate-300 placeholder:font-bold"
+                className="h-12 rounded-xl border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-900 transition-all placeholder:text-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-600/10 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 autoComplete="off"
               />
               <div className="flex items-start gap-2 px-2">
                 <Info className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
-                <p className="text-[9px] text-slate-400 font-bold leading-normal uppercase tracking-tighter">
+                <p className="text-xs leading-relaxed text-slate-500">
                   Kategori memudahkan pelanggan saat memfilter unit di halaman
                   booking.
                 </p>
               </div>
             </div>
 
-            <div className="pt-4">
+            <div className="pt-2">
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full h-20 rounded-[2rem] bg-slate-900 hover:bg-black text-white font-black tracking-[0.2em] uppercase italic text-xs shadow-2xl transition-all active:scale-95 border-b-[10px] border-slate-700 flex items-center justify-center gap-3"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 text-sm font-semibold text-white shadow-sm transition-all hover:bg-black active:scale-95"
               >
                 {loading ? (
                   <>
                     <Loader2 className="animate-spin h-5 w-5" />
-                    <span>PROVISIONING...</span>
+                    <span>Menyimpan...</span>
                   </>
                 ) : (
                   <>
-                    <span>REGISTER UNIT</span>
-                    <ChevronRight className="h-4 w-4 stroke-[4]" />
+                    <span>Tambah Unit</span>
+                    <ChevronRight className="h-4 w-4" />
                   </>
                 )}
               </Button>

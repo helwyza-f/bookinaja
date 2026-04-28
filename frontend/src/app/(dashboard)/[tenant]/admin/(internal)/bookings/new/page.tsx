@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   format,
@@ -44,12 +44,50 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 
+type ResourceItem = {
+  id: string;
+  name: string;
+  item_type: string;
+  price: number;
+  price_unit?: string;
+  unit_duration?: number;
+};
+
+type ResourceRow = {
+  id: string;
+  tenant_id: string;
+  name: string;
+  category?: string;
+  items?: ResourceItem[];
+};
+
+type BusySlot = {
+  start_min: number;
+  end_min: number;
+};
+
+type AvailabilitySlot = {
+  start_time: string;
+  end_time: string;
+};
+
+type ApiError = {
+  response?: {
+    data?: {
+      error?: string;
+    };
+  };
+};
+
 export default function NewManualBookingPage() {
   const router = useRouter();
-  const [resources, setResources] = useState<any[]>([]);
+  const packageRef = useRef<HTMLDivElement | null>(null);
+  const scheduleRef = useRef<HTMLDivElement | null>(null);
+  const summaryRef = useRef<HTMLDivElement | null>(null);
+  const [resources, setResources] = useState<ResourceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [busySlots, setBusySlots] = useState<any[]>([]);
+  const [busySlots, setBusySlots] = useState<BusySlot[]>([]);
   const [isReturning, setIsReturning] = useState(false);
 
   // Form State
@@ -61,6 +99,15 @@ export default function NewManualBookingPage() {
   const [durationValue, setDurationValue] = useState(1);
   const [selectedMainId, setSelectedMainId] = useState("");
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+
+  const scrollToSection = (ref: React.RefObject<HTMLDivElement | null>) => {
+    window.setTimeout(() => {
+      ref.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
+  };
 
   // 1. Fetch Resources
   useEffect(() => {
@@ -80,13 +127,15 @@ export default function NewManualBookingPage() {
   );
 
   const selectedItem = useMemo(
-    () => currentResource?.items?.find((i: any) => i.id === selectedMainId),
+    () => currentResource?.items?.find((i) => i.id === selectedMainId),
     [currentResource, selectedMainId],
   );
 
   const isInterday = useMemo(() => {
     if (!selectedItem) return false;
-    return ["day", "week", "month", "year"].includes(selectedItem.price_unit);
+    return ["day", "week", "month", "year"].includes(
+      selectedItem.price_unit || "",
+    );
   }, [selectedItem]);
 
   // 2. Load Availability & Auto-select Interday
@@ -100,7 +149,9 @@ export default function NewManualBookingPage() {
             `/guest/availability/${selectedResourceId}?date=${format(date, "yyyy-MM-dd")}`,
           )
           .then((res) => {
-            const normalized = (res.data.busy_slots || []).map((slot: any) => {
+            const normalized = (
+              (res.data.busy_slots || []) as AvailabilitySlot[]
+            ).map((slot) => {
               const [h, m] = slot.start_time.split(":").map(Number);
               const [eh, em] = slot.end_time.split(":").map(Number);
               return { start_min: h * 60 + m, end_min: eh * 60 + em };
@@ -165,7 +216,7 @@ export default function NewManualBookingPage() {
 
   useEffect(() => {
     if (durationValue > maxAvailableSessions) setDurationValue(1);
-  }, [maxAvailableSessions]);
+  }, [durationValue, maxAvailableSessions]);
 
   // 5. Timeline Summary
   const timelineSummary = useMemo(() => {
@@ -188,7 +239,7 @@ export default function NewManualBookingPage() {
       default:
         endObj = addMinutes(
           startObj,
-          selectedItem.unit_duration * durationValue,
+          (selectedItem.unit_duration || 60) * durationValue,
         );
     }
     return `${format(startObj, "HH:mm")} s/d ${format(endObj, isInterday ? "dd MMM, HH:mm" : "HH:mm")}`;
@@ -198,13 +249,13 @@ export default function NewManualBookingPage() {
     if (!selectedItem) return 0;
     const addonsPrice =
       currentResource?.items
-        ?.filter((i: any) => selectedAddons.includes(i.id))
-        .reduce((acc: number, curr: any) => acc + (curr.price || 0), 0) || 0;
+        ?.filter((i) => selectedAddons.includes(i.id))
+        .reduce((acc, curr) => acc + (curr.price || 0), 0) || 0;
     return selectedItem.price * durationValue + addonsPrice;
   };
 
   const handleSave = async () => {
-    if (!selectedTime || !custName || !custPhone)
+    if (!selectedTime || !custName || !custPhone || !currentResource)
       return toast.error("Data belum lengkap");
     setIsSubmitting(true);
     try {
@@ -220,8 +271,8 @@ export default function NewManualBookingPage() {
       });
       toast.success("Reservasi Berhasil Disimpan");
       router.push("/admin/bookings");
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Gagal menyimpan");
+    } catch (err: unknown) {
+      toast.error((err as ApiError).response?.data?.error || "Gagal menyimpan");
     } finally {
       setIsSubmitting(false);
     }
@@ -232,44 +283,91 @@ export default function NewManualBookingPage() {
     return <ManualBookingSkeleton />;
   }
 
+  const steps = [
+    {
+      label: "Unit",
+      active: Boolean(selectedResourceId),
+      current: !selectedResourceId,
+    },
+    {
+      label: "Paket",
+      active: Boolean(selectedMainId),
+      current: Boolean(selectedResourceId) && !selectedMainId,
+    },
+    {
+      label: "Jadwal",
+      active: Boolean(selectedTime),
+      current: Boolean(selectedMainId) && !selectedTime,
+    },
+    {
+      label: "Customer",
+      active: Boolean(custName && custPhone),
+      current: Boolean(selectedTime) && !custName,
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#050505] font-plus-jakarta pb-20">
-      <div className="max-w-[1600px] mx-auto p-3 md:p-4 lg:p-6 space-y-4 md:space-y-6">
-        {/* COMPACT HEADER */}
-        <header className="flex items-center gap-3 pt-6">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.back()}
-            className="rounded-full hover:bg-slate-200 dark:hover:bg-white/5"
-          >
-            <ArrowLeft size={20} className="dark:text-white" />
-          </Button>
-          <div>
-            <h1 className="text-lg md:text-xl font-[1000] uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none">
-              Manual <span className="text-blue-600">Handshake</span>
-            </h1>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-              Input reservasi & walk-in langsung
-            </p>
+    <div className="min-h-screen bg-slate-50 pb-24 pt-6 px-3 font-plus-jakarta dark:bg-[#050505]">
+      <div className="mx-auto max-w-400 space-y-4  md:p-4 lg:p-6">
+        <header className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/5 dark:bg-[#0a0a0a]">
+          <div className="h-1 bg-blue-600" />
+          <div className="flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between md:p-5">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => router.back()}
+                className="rounded-xl hover:bg-slate-100 dark:hover:bg-white/5"
+              >
+                <ArrowLeft size={20} className="dark:text-white" />
+              </Button>
+              <div>
+                <h1 className="text-xl font-semibold text-slate-900 dark:text-white md:text-3xl">
+                  Booking Manual
+                </h1>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  Input walk-in, pilih jadwal, dan simpan reservasi dari admin.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 gap-2 md:min-w-[420px]">
+              {steps.map((step, index) => (
+                <div
+                  key={step.label}
+                  className={cn(
+                    "rounded-xl border px-2.5 py-2 text-center transition-colors",
+                    step.active
+                      ? "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300"
+                      : step.current
+                        ? "border-slate-300 bg-white text-slate-900 dark:border-white/15 dark:bg-white/5 dark:text-white"
+                        : "border-slate-200 bg-slate-50 text-slate-400 dark:border-white/5 dark:bg-white/[0.03]",
+                  )}
+                >
+                  <div className="text-[10px] font-semibold">{index + 1}</div>
+                  <div className="mt-0.5 truncate text-[10px] font-medium">
+                    {step.label}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start p-0 ">
           {/* LEFT: SELECTION FLOW */}
           <div className="lg:col-span-8 space-y-5">
             {/* 01. PILIH UNIT & PAKET */}
-            <Card className="rounded-[1.5rem] md:rounded-[2rem] border-none bg-white dark:bg-[#0c0c0c] p-4 md:p-6 shadow-sm ring-1 ring-black/5 dark:ring-white/5">
+            <Card className="rounded-2xl border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0c0c0c] md:p-6">
               <div className="flex items-center gap-3 mb-5">
-                <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">
+                <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center text-white">
                   <Box size={16} />
                 </div>
-                <h2 className="text-sm font-[1000] uppercase italic text-slate-900 dark:text-white">
-                  01. Pilih Unit & Layanan
+                <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                  Pilih Unit & Layanan
                 </h2>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
                 {resources.map((r) => (
                   <button
                     key={r.id}
@@ -277,17 +375,18 @@ export default function NewManualBookingPage() {
                       setSelectedResourceId(r.id);
                       setSelectedMainId("");
                       setSelectedTime("");
+                      scrollToSection(packageRef);
                     }}
                     className={cn(
-                      "p-3.5 rounded-2xl border-2 text-left transition-all",
+                      "rounded-2xl border p-4 text-left transition-all",
                       selectedResourceId === r.id
-                        ? "border-blue-600 bg-blue-50/10 dark:bg-blue-600/10 shadow-md scale-[1.02]"
-                        : "border-transparent bg-slate-50 dark:bg-white/5 text-slate-400",
+                        ? "border-blue-300 bg-blue-50 shadow-sm dark:border-blue-500/40 dark:bg-blue-600/10"
+                        : "border-slate-200 bg-slate-50 text-slate-600 hover:border-blue-200 hover:bg-white dark:border-white/5 dark:bg-white/5 dark:text-slate-300",
                     )}
                   >
                     <p
                       className={cn(
-                        "text-xs font-[1000] uppercase italic truncate",
+                        "truncate text-sm font-semibold",
                         selectedResourceId === r.id
                           ? "text-blue-600"
                           : "text-slate-900 dark:text-slate-200",
@@ -295,35 +394,37 @@ export default function NewManualBookingPage() {
                     >
                       {r.name}
                     </p>
-                    <p className="text-[7px] font-bold uppercase opacity-50 mt-1 italic tracking-widest">
-                      {r.category}
-                    </p>
+                    <p className="mt-1 text-xs text-slate-400">{r.category}</p>
                   </button>
                 ))}
               </div>
 
               {currentResource && (
-                <div className="mt-5 pt-5 border-t border-slate-100 dark:border-white/5">
-                  <p className="text-[9px] font-black uppercase text-slate-400 mb-3 tracking-widest italic leading-none">
+                <div
+                  ref={packageRef}
+                  className="mt-5 scroll-mt-20 border-t border-slate-100 pt-5 dark:border-white/5"
+                >
+                  <p className="mb-3 text-xs font-semibold text-slate-400">
                     Paket Tersedia
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {currentResource.items
-                      ?.filter((i: any) =>
+                      ?.filter((i) =>
                         ["main_option", "main"].includes(i.item_type),
                       )
-                      .map((item: any) => (
+                      .map((item) => (
                         <button
                           key={item.id}
                           onClick={() => {
                             setSelectedMainId(item.id);
                             if (!isInterday) setSelectedTime("");
+                            scrollToSection(scheduleRef);
                           }}
                           className={cn(
-                            "px-4 py-2.5 rounded-xl border-2 text-[9px] font-[1000] uppercase italic transition-all shadow-sm",
+                            "rounded-xl border px-4 py-2.5 text-xs font-semibold transition-all",
                             selectedMainId === item.id
-                              ? "bg-slate-900 dark:bg-white text-white dark:text-black border-transparent scale-105"
-                              : "bg-white dark:bg-white/5 border-slate-100 dark:border-white/5 text-slate-400 hover:text-slate-900 dark:hover:text-white",
+                              ? "border-blue-600 bg-blue-600 text-white"
+                              : "border-slate-200 bg-white text-slate-500 hover:border-blue-200 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:hover:text-white",
                           )}
                         >
                           {item.name} • Rp{item.price.toLocaleString()}
@@ -336,18 +437,19 @@ export default function NewManualBookingPage() {
 
             {/* 02. JADWAL & DURASI - LEBIH BESAR */}
             <Card
+              ref={scheduleRef}
               className={cn(
-                "rounded-[2rem] border-none bg-white dark:bg-[#0c0c0c] p-5 md:p-8 shadow-sm ring-1 ring-black/5 dark:ring-white/5 transition-all",
-                !selectedMainId && "opacity-20 pointer-events-none",
+                "scroll-mt-20 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all dark:border-white/5 dark:bg-[#0c0c0c] md:p-6",
+                !selectedMainId && "pointer-events-none opacity-60",
               )}
             >
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5 md:mb-10">
+              <div className="mb-5 flex flex-col justify-between gap-4 md:flex-row md:items-center">
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-xl bg-emerald-500 flex items-center justify-center text-white shadow-lg">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-sm">
                     <Clock size={18} />
                   </div>
-                  <h2 className="text-base md:text-lg font-[1000] uppercase italic text-slate-900 dark:text-white tracking-tight leading-none">
-                    02. Kontrol Jadwal & Durasi
+                  <h2 className="text-base font-semibold text-slate-900 dark:text-white md:text-lg">
+                    Jadwal & Durasi
                   </h2>
                 </div>
 
@@ -355,7 +457,7 @@ export default function NewManualBookingPage() {
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className="h-11 rounded-xl font-black italic text-[10px] uppercase gap-3 bg-slate-50 dark:bg-white/5 px-4 border-slate-200 dark:border-white/5 text-slate-900 dark:text-white"
+                      className="h-11 rounded-xl border-slate-200 bg-slate-50 px-4 text-xs font-semibold text-slate-900 dark:border-white/5 dark:bg-white/5 dark:text-white"
                     >
                       <CalendarIcon size={16} className="text-blue-600" />
                       {date
@@ -364,7 +466,7 @@ export default function NewManualBookingPage() {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent
-                    className="w-auto p-0 border-none rounded-2xl shadow-2xl"
+                    className="w-auto overflow-hidden rounded-2xl border-none p-0 shadow-lg"
                     align="end"
                   >
                     <Calendar
@@ -377,9 +479,9 @@ export default function NewManualBookingPage() {
                 </Popover>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-10">
-                <div className="lg:col-span-4 flex flex-col items-center justify-center border-r border-slate-100 dark:border-white/5 pr-4 md:pr-10">
-                  <span className="text-[9px] font-black uppercase text-slate-400 italic mb-5 tracking-[0.2em] leading-none text-center">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+                <div className="flex flex-col items-center justify-center rounded-2xl bg-slate-50 p-4 dark:bg-white/5 lg:col-span-4">
+                  <span className="mb-4 text-center text-xs font-semibold text-slate-400">
                     Jumlah Unit / Sesi
                   </span>
                   <div className="flex items-center gap-6">
@@ -389,11 +491,11 @@ export default function NewManualBookingPage() {
                       onClick={() =>
                         setDurationValue((d) => Math.max(1, d - 1))
                       }
-                      className="h-9 w-9 rounded-full shadow-sm dark:bg-white/5 dark:border-white/10 dark:text-white"
+                      className="h-10 w-10 rounded-xl shadow-sm dark:bg-white/5 dark:border-white/10 dark:text-white"
                     >
                       -
                     </Button>
-                    <span className="text-3xl md:text-7xl font-[1000] italic text-blue-600 tabular-nums leading-none tracking-tighter">
+                    <span className="text-5xl font-semibold tabular-nums leading-none text-blue-600 md:text-6xl">
                       {durationValue}
                     </span>
                     <Button
@@ -404,14 +506,14 @@ export default function NewManualBookingPage() {
                           Math.min(maxAvailableSessions, d + 1),
                         )
                       }
-                      className="h-9 w-9 rounded-full shadow-sm dark:bg-white/5 dark:border-white/10 dark:text-white"
+                      className="h-10 w-10 rounded-xl shadow-sm dark:bg-white/5 dark:border-white/10 dark:text-white"
                     >
                       +
                     </Button>
                   </div>
                   <Badge
                     variant="secondary"
-                    className="mt-5 text-[8px] font-black uppercase tracking-widest italic px-4 py-1 dark:bg-white/5 dark:text-slate-400"
+                    className="mt-4 px-4 py-1 text-[10px] font-semibold dark:bg-white/5 dark:text-slate-400"
                   >
                     Slot Maks: {maxAvailableSessions}
                   </Badge>
@@ -419,7 +521,7 @@ export default function NewManualBookingPage() {
 
                 <div className="lg:col-span-8">
                   {!isInterday ? (
-                    <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2">
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-6">
                       {availableSlots.map((t) => {
                         const isBusy = busySlots.some((s) => {
                           const [h, m] = t.split(":").map(Number);
@@ -435,14 +537,17 @@ export default function NewManualBookingPage() {
                           <button
                             key={t}
                             disabled={isBusy || isPast}
-                            onClick={() => setSelectedTime(t)}
+                            onClick={() => {
+                              setSelectedTime(t);
+                              scrollToSection(summaryRef);
+                            }}
                             className={cn(
-                              "h-11 rounded-xl text-[10px] font-black italic border-2 transition-all flex items-center justify-center relative",
+                              "relative flex h-11 items-center justify-center rounded-xl border text-xs font-semibold transition-all",
                               isSel
-                                ? "bg-blue-600 border-blue-600 text-white shadow-xl scale-110 z-10"
+                                ? "z-10 border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-600/20"
                                 : isBusy || isPast
-                                  ? "opacity-20 grayscale cursor-not-allowed bg-slate-100 dark:bg-[#111]"
-                                  : "bg-white dark:bg-white/5 border-slate-100 dark:border-white/5 text-slate-500 hover:border-blue-600 dark:hover:text-white shadow-sm",
+                                  ? "cursor-not-allowed border-slate-100 bg-slate-100 text-slate-300 dark:border-white/5 dark:bg-[#111]"
+                                  : "border-slate-200 bg-white text-slate-600 shadow-sm hover:border-blue-600 dark:border-white/5 dark:bg-white/5 dark:text-slate-300 dark:hover:text-white",
                             )}
                           >
                             {t}
@@ -451,9 +556,9 @@ export default function NewManualBookingPage() {
                       })}
                     </div>
                   ) : (
-                    <div className="h-full flex items-center p-4 md:p-8 bg-blue-500/5 rounded-[1.5rem] md:rounded-[2rem] border border-blue-500/10 gap-4 md:gap-5">
+                    <div className="flex h-full items-center gap-4 rounded-2xl border border-blue-500/10 bg-blue-500/5 p-4 md:gap-5 md:p-8">
                       <ShieldCheck className="text-blue-500 h-9 w-9 shrink-0" />
-                      <p className="text-[10px] md:text-xs font-black text-blue-600 uppercase italic leading-relaxed tracking-wide">
+                      <p className="text-xs font-semibold leading-relaxed text-blue-600">
                         Logic Antar Hari Aktif: Boking dimulai otomatis pukul
                         08:00 untuk paket {selectedItem?.price_unit}.
                       </p>
@@ -466,16 +571,17 @@ export default function NewManualBookingPage() {
 
           {/* SISI KANAN: RINGKASAN & KONFIRMASI */}
           <div
+            ref={summaryRef}
             className={cn(
-              "lg:col-span-4 space-y-5 transition-all duration-500",
-              !selectedTime && "opacity-20 pointer-events-none",
+              "scroll-mt-20 space-y-5 transition-all duration-300 lg:sticky lg:top-6 lg:col-span-4",
+              !selectedTime && "pointer-events-none opacity-70",
             )}
           >
-            <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-none bg-slate-950 p-4 md:p-8 text-white shadow-2xl space-y-5 md:space-y-8 ring-1 ring-white/5">
+            <Card className="space-y-5 rounded-2xl border border-slate-800 bg-slate-950 p-4 text-white shadow-xl md:p-6">
               {/* CUSTOMER INFO */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <p className="text-[9px] font-black uppercase italic tracking-widest text-slate-500">
+                  <p className="text-xs font-semibold text-slate-400">
                     Profil Pelanggan
                   </p>
                   <Smartphone size={16} className="text-blue-500" />
@@ -489,11 +595,11 @@ export default function NewManualBookingPage() {
                       onChange={(e) =>
                         setCustPhone(e.target.value.replace(/\D/g, ""))
                       }
-                      className="h-12 bg-white/5 border-none font-black italic text-sm pl-12 rounded-xl placeholder:text-slate-700 focus-visible:ring-blue-600 text-white"
+                      className="h-12 rounded-xl border-white/10 bg-white/5 pl-12 text-sm font-semibold text-white placeholder:text-slate-600 focus-visible:ring-blue-600"
                     />
                     {isReturning && (
-                      <Badge className="absolute right-3 top-1/2 -translate-y-1/2 bg-blue-600 text-[7px] font-black uppercase italic border-none shadow-lg">
-                        Member Sultan
+                      <Badge className="absolute right-3 top-1/2 -translate-y-1/2 border-none bg-blue-600 text-[10px] font-semibold">
+                        Member
                       </Badge>
                     )}
                   </div>
@@ -505,7 +611,7 @@ export default function NewManualBookingPage() {
                       onChange={(e) =>
                         setCustName(e.target.value.toUpperCase())
                       }
-                      className="h-12 bg-white/5 border-none font-black italic text-sm pl-12 rounded-xl placeholder:text-slate-700 focus-visible:ring-blue-600 text-white"
+                      className="h-12 rounded-xl border-white/10 bg-white/5 pl-12 text-sm font-semibold text-white placeholder:text-slate-600 focus-visible:ring-blue-600"
                     />
                   </div>
                 </div>
@@ -514,20 +620,20 @@ export default function NewManualBookingPage() {
               {/* FLOW & ADDONS */}
               <div className="space-y-5 pt-4 border-t border-white/5">
                 <div className="space-y-3">
-                  <p className="text-[9px] font-black uppercase italic tracking-widest text-slate-500 leading-none">
+                  <p className="text-xs font-semibold text-slate-400">
                     Flow Booking
                   </p>
                   <div className="rounded-2xl border border-orange-500/15 bg-orange-500/10 px-4 py-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-[8px] font-black uppercase tracking-widest text-orange-200">
+                        <p className="text-[10px] font-semibold text-orange-200">
                           Status awal otomatis
                         </p>
-                        <p className="mt-2 text-[13px] font-[1000] italic text-white">
+                        <p className="mt-1 text-sm font-semibold text-white">
                           Pending, belum aktif
                         </p>
                       </div>
-                      <Badge className="border-none bg-orange-600 text-white text-[7px] font-black uppercase italic shadow-lg">
+                      <Badge className="border-none bg-orange-600 text-white text-[10px] font-semibold">
                         pending
                       </Badge>
                     </div>
@@ -541,13 +647,13 @@ export default function NewManualBookingPage() {
                 </div>
 
                 <div className="space-y-3">
-                  <p className="text-[9px] font-black uppercase italic tracking-widest text-slate-500 leading-none">
+                  <p className="text-xs font-semibold text-slate-400">
                     Layanan Tambahan
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {currentResource?.items
-                      ?.filter((i: any) => i.item_type === "add_on")
-                      .map((addon: any) => {
+                      ?.filter((i) => i.item_type === "add_on")
+                      .map((addon) => {
                         const active = selectedAddons.includes(addon.id);
                         return (
                           <button
@@ -560,7 +666,7 @@ export default function NewManualBookingPage() {
                               )
                             }
                             className={cn(
-                              "px-3.5 py-2 rounded-lg text-[8px] font-black uppercase italic transition-all shadow-sm",
+                              "rounded-lg px-3.5 py-2 text-[10px] font-semibold transition-all",
                               active
                                 ? "bg-blue-600 text-white"
                                 : "bg-white/5 text-slate-500 hover:text-slate-300",
@@ -575,25 +681,25 @@ export default function NewManualBookingPage() {
               </div>
 
               {/* TOTAL BILL */}
-              <div className="bg-white/5 p-4 md:p-6 rounded-3xl space-y-4 relative overflow-hidden border border-white/5 shadow-inner">
+              <div className="relative space-y-4 overflow-hidden rounded-2xl border border-white/5 bg-white/5 p-4 shadow-inner md:p-5">
                 <div className="relative z-10">
-                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1 italic leading-none">
+                  <p className="mb-1 text-[10px] font-semibold text-slate-400">
                     Estimasi Tagihan
                   </p>
-                  <p className="text-2xl md:text-5xl font-[1000] italic tracking-tighter text-white leading-none">
+                  <p className="text-3xl font-semibold leading-none text-white md:text-4xl">
                     Rp{calculateTotal().toLocaleString()}
                   </p>
                 </div>
                 <div className="relative z-10 pt-4 border-t border-white/5 flex items-center justify-between gap-4">
                   <div className="flex flex-col">
-                    <span className="text-[7px] font-black text-slate-500 uppercase tracking-[0.2em] leading-none mb-1.5">
-                      Garis Waktu
+                    <span className="text-[7px] font-semibold text-slate-500 tracking-[0.2em] leading-none mb-1.5">
+                      Timeline
                     </span>
-                    <span className="text-[9px] font-black italic text-blue-400 leading-none">
+                    <span className="text-xs font-semibold text-blue-400">
                       {timelineSummary}
                     </span>
                   </div>
-                  <Badge className="font-[1000] italic text-[8px] uppercase shadow-lg px-3 py-1 border-none bg-orange-600">
+                  <Badge className="border-none bg-orange-600 px-3 py-1 text-[10px] font-semibold">
                     pending
                   </Badge>
                 </div>
@@ -603,13 +709,13 @@ export default function NewManualBookingPage() {
               <Button
                 onClick={handleSave}
                 disabled={isSubmitting || !selectedTime || !custName}
-                className="w-full h-14 md:h-20 rounded-[1.5rem] md:rounded-[2rem] bg-blue-600 hover:bg-blue-500 text-white font-[1000] uppercase italic tracking-widest text-sm md:text-base border-b-8 border-blue-800 shadow-2xl transition-all active:scale-95 gap-4"
+                className="h-14 w-full rounded-2xl bg-blue-600 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-blue-500 active:scale-95 md:h-16 md:text-base"
               >
                 {isSubmitting ? (
                   <Loader2 className="animate-spin" />
                 ) : (
                   <>
-                    SIMPAN & GAS <ChevronRight size={22} strokeWidth={4} />
+                    Simpan Booking <ChevronRight size={22} strokeWidth={4} />
                   </>
                 )}
               </Button>

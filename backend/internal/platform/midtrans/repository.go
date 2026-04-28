@@ -2,6 +2,7 @@ package midtrans
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"time"
 
@@ -149,6 +150,40 @@ func (r *Repository) CreateLedgerEntry(ctx context.Context, exec sqlx.ExtContext
 		entry.TenantID, entry.SourceType, entry.SourceID, entry.SourceRef, entry.MidtransOrderID, entry.MidtransTransactionID,
 		entry.TransactionStatus, entry.PaymentType, entry.Direction, entry.GrossAmount, entry.PlatformFee, entry.NetAmount,
 		entry.BalanceAfter, entry.Status, entry.DedupeKey, entry.RawPayload, entry.CreatedAt, entry.UpdatedAt,
+	)
+	return err
+}
+
+func (r *Repository) AwardCustomerBookingPoints(ctx context.Context, exec sqlx.ExtContext, booking BookingNotificationContext, paidAmount int64) error {
+	points := paidAmount / 10000
+	if points <= 0 {
+		return nil
+	}
+
+	var insertedID uuid.UUID
+	err := sqlx.GetContext(ctx, exec, &insertedID, `
+		INSERT INTO customer_point_ledger (
+			id, customer_id, tenant_id, booking_id, event_type, points, description, metadata, created_at
+		) VALUES (
+			$1, $2, $3, $4, 'earn', $5, 'Earned from booking payment', jsonb_build_object('paid_amount', $6), NOW()
+		)
+		ON CONFLICT DO NOTHING
+		RETURNING id`,
+		uuid.New(), booking.CustomerID, booking.TenantID, booking.BookingID, points, paidAmount,
+	)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	_, err = exec.ExecContext(ctx, `
+		UPDATE customers
+		SET loyalty_points = loyalty_points + $2,
+			updated_at = NOW()
+		WHERE id = $1`,
+		booking.CustomerID, points,
 	)
 	return err
 }

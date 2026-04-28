@@ -27,6 +27,8 @@ type ResourceItem = {
   name: string;
   item_type: string;
   price: number;
+  price_unit?: string;
+  unit_duration?: number;
   is_default?: boolean;
 };
 
@@ -45,7 +47,7 @@ function ResourceSkeleton() {
       {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
         <Card
           key={i}
-          className="rounded-[1.5rem] border-none bg-white dark:bg-slate-900 p-5 space-y-4 shadow-sm ring-1 ring-slate-100 dark:ring-white/5"
+          className="rounded-2xl border-none bg-white dark:bg-slate-900 p-5 space-y-4 shadow-sm ring-1 ring-slate-100 dark:ring-white/5"
         >
           <div className="flex justify-between items-center">
             <Skeleton className="h-10 w-10 rounded-xl dark:bg-slate-800" />
@@ -106,6 +108,25 @@ export default function ResourcesPage() {
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
 
+  const priceUnitLabel = (unit?: string) => {
+    switch (unit) {
+      case "hour":
+        return "jam";
+      case "session":
+        return "sesi";
+      case "day":
+        return "hari";
+      case "week":
+        return "minggu";
+      case "month":
+        return "bulan";
+      case "year":
+        return "tahun";
+      default:
+        return unit || "unit";
+    }
+  };
+
   const labels = (() => {
     switch (businessCategory) {
       case "gaming_hub":
@@ -144,18 +165,18 @@ export default function ResourcesPage() {
   };
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-5 md:space-y-6 pb-20 animate-in fade-in duration-500 px-3 md:px-4 font-plus-jakarta">
-      <div className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:rounded-[2rem] md:p-5">
+    <div className="max-w-[1600px] mx-auto space-y-5 md:space-y-6 pb-20 pt-5  px-3 md:px-4 font-plus-jakarta">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:rounded-2xl md:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#0f1f4a] via-[#1d4ed8] to-[#60a5fa] text-white shadow-lg shadow-blue-600/20">
-            {labels.icon}
-          </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+              {labels.icon}
+            </div>
             <div className="flex flex-col">
-              <div className="text-[8px] font-black uppercase tracking-[0.3em] text-blue-600">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-600">
                 Resource Management
               </div>
-              <h1 className="text-xl font-black italic uppercase tracking-tighter text-slate-950 dark:text-white md:text-3xl">
+              <h1 className="text-xl font-semibold text-slate-950 dark:text-white md:text-3xl">
                 {labels.title}
               </h1>
               <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 md:text-sm">
@@ -166,10 +187,10 @@ export default function ResourcesPage() {
 
           <div className="flex items-center gap-3">
             <div className="hidden rounded-2xl bg-slate-50 px-4 py-3 text-right dark:bg-white/5 md:block">
-              <div className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-400">
+              <div className="text-[8px] font-semibold tracking-[0.25em] text-slate-400">
                 Total Resource
               </div>
-              <div className="mt-1 text-sm font-black italic uppercase text-slate-950 dark:text-white">
+              <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
                 {resources.length} {labels.unit}
               </div>
             </div>
@@ -185,15 +206,15 @@ export default function ResourcesPage() {
       {loading ? (
         <ResourceSkeleton />
       ) : error ? (
-        <div className="h-80 flex flex-col items-center justify-center bg-red-50/30 dark:bg-red-950/5 rounded-[2.5rem] border-[0.5px] border-red-100 dark:border-red-900/20">
+        <div className="h-80 flex flex-col items-center justify-center bg-red-50/30 dark:bg-red-950/5 rounded-2xl border border-red-100 dark:border-red-900/20">
           <AlertCircle className="h-10 w-10 text-red-400 mb-4 opacity-40" />
-          <h3 className="text-sm font-black text-red-900 dark:text-red-400 uppercase italic">
+          <h3 className="text-sm font-semibold text-red-900 dark:text-red-400">
             Sync Failure
           </h3>
           <Button
             onClick={fetchResources}
             variant="ghost"
-            className="mt-4 text-[10px] font-black uppercase italic hover:bg-red-100 dark:hover:bg-red-900/20"
+            className="mt-4 text-[10px] font-semibold hover:bg-red-100 dark:hover:bg-red-900/20"
           >
             Re-Connect
           </Button>
@@ -209,26 +230,25 @@ export default function ResourcesPage() {
             return (
               <Card
                 key={res.id}
-                className="group relative flex flex-col overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-600/10 dark:border-white/5 dark:bg-[#0a0a0a] md:rounded-[1.9rem]"
+                className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition-colors hover:border-blue-200 dark:border-white/5 dark:bg-[#0a0a0a]"
               >
-                <div className="h-1.5 w-full bg-gradient-to-r from-[#0f1f4a] via-[#1d4ed8] to-[#60a5fa]" />
                 <CardContent className="relative z-10 flex flex-1 flex-col p-4 md:p-5">
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="mb-2 flex items-center gap-2">
-                        <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.22em] text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
+                        <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[8px] font-semibold tracking-[0.22em] text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
                           {res.category || labels.unit}
                         </span>
                         <span
                           className={cn(
-                            "inline-flex rounded-full px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.22em]",
+                            "inline-flex rounded-full px-2.5 py-1 text-[8px] font-semibold tracking-[0.22em]",
                             statusTone(res.status),
                           )}
                         >
                           {res.status || "draft"}
                         </span>
                       </div>
-                      <h3 className="truncate text-lg font-black italic uppercase tracking-tighter text-slate-950 transition-colors group-hover:text-blue-700 dark:text-white dark:group-hover:text-blue-300 md:text-xl">
+                      <h3 className="truncate text-lg font-semibold text-slate-950 transition-colors group-hover:text-blue-700 dark:text-white dark:group-hover:text-blue-300 md:text-xl">
                         {res.name}
                       </h3>
                       <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
@@ -262,19 +282,19 @@ export default function ResourcesPage() {
                   </div>
 
                   <div className="mb-5 grid grid-cols-2 gap-2.5">
-                    <div className="rounded-[1.2rem] bg-slate-50 px-3 py-3 dark:bg-white/5">
-                      <div className="text-[8px] font-black uppercase tracking-[0.24em] text-slate-400">
+                    <div className="rounded-xl bg-slate-50 px-3 py-3 dark:bg-white/5">
+                      <div className="text-[8px] font-semibold tracking-[0.24em] text-slate-400">
                         Paket Aktif
                       </div>
-                      <div className="mt-1 text-lg font-black italic text-slate-950 dark:text-white">
+                      <div className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
                         {mainItems.length}
                       </div>
                     </div>
-                    <div className="rounded-[1.2rem] bg-slate-50 px-3 py-3 dark:bg-white/5">
-                      <div className="text-[8px] font-black uppercase tracking-[0.24em] text-slate-400">
+                    <div className="rounded-xl bg-slate-50 px-3 py-3 dark:bg-white/5">
+                      <div className="text-[8px] font-semibold tracking-[0.24em] text-slate-400">
                         Harga Dasar
                       </div>
-                      <div className="mt-1 text-sm font-black italic text-blue-600 dark:text-blue-300">
+                      <div className="mt-1 text-sm font-semibold text-blue-600 dark:text-blue-300">
                         {mainItems[0] ? `Rp${formatIDR(mainItems[0].price)}` : "-"}
                       </div>
                     </div>
@@ -285,7 +305,7 @@ export default function ResourcesPage() {
                       <div
                         key={item.id}
                         className={cn(
-                          "flex items-center justify-between rounded-[1rem] border p-3 transition-all",
+                          "flex items-center justify-between rounded-xl border p-3 transition-all",
                           item.is_default
                             ? "border-blue-200 bg-blue-50/70 dark:border-blue-800/30 dark:bg-blue-900/10"
                             : "border-slate-200 bg-slate-50/70 dark:border-white/5 dark:bg-white/[0.03]",
@@ -301,29 +321,27 @@ export default function ResourcesPage() {
                             )}
                             strokeWidth={4}
                           />
-                          <span className="truncate text-[9px] font-black uppercase italic text-slate-700 dark:text-slate-300 md:text-[10px]">
+                          <span className="truncate text-[9px] font-semibold text-slate-700 dark:text-slate-300 md:text-[10px]">
                             {item.name}
                           </span>
                         </div>
-                        <span className="ml-2 whitespace-nowrap text-[9px] font-black italic text-blue-600 dark:text-blue-300 md:text-[10px]">
+                        <span className="ml-2 whitespace-nowrap text-[9px] font-semibold text-blue-600 dark:text-blue-300 md:text-[10px]">
                           Rp{formatIDR(item.price)}
+                          {item.price_unit ? `/${priceUnitLabel(item.price_unit)}` : ""}
                         </span>
                       </div>
                     ))}
                     {mainItems.length > 3 && (
-                      <p className="text-center text-[9px] font-bold italic text-slate-400">
+                      <p className="text-center text-[9px] font-bold text-slate-400">
                         +{mainItems.length - 3} paket lainnya
                       </p>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-slate-100 pt-4 dark:border-white/5">
-                    <div className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-400">
-                      Buka detail resource
-                    </div>
+                  <div className="flex items-center justify-end border-t border-slate-100 pt-4 dark:border-white/5">
                     <Link
                       href={`/admin/resources/${res.id}`}
-                      className="text-[10px] font-black uppercase italic tracking-widest text-blue-600 dark:text-blue-300"
+                      className="text-[10px] font-semibold tracking-widest text-blue-600 dark:text-blue-300"
                     >
                       Kelola
                     </Link>
@@ -335,14 +353,14 @@ export default function ResourcesPage() {
         </div>
       ) : (
         /* 3. EMPTY STATE */
-        <div className="h-[50vh] flex flex-col items-center justify-center bg-white dark:bg-slate-950 rounded-[3rem] border border-dashed border-slate-200 dark:border-white/10 p-12 text-center">
-          <div className="h-20 w-20 bg-slate-50 dark:bg-slate-900 rounded-[2rem] flex items-center justify-center mb-6 shadow-inner">
+        <div className="h-[50vh] flex flex-col items-center justify-center bg-white dark:bg-slate-950 rounded-2xl border border-dashed border-slate-200 dark:border-white/10 p-12 text-center">
+          <div className="h-20 w-20 bg-slate-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center mb-6 shadow-inner">
             <Inbox size={32} className="text-slate-200" />
           </div>
-          <h3 className="text-2xl font-[1000] italic uppercase text-slate-900 dark:text-white tracking-tighter">
+          <h3 className="text-2xl font-semibold text-slate-900 dark:text-white">
             No Assets Found
           </h3>
-          <p className="text-xs font-bold text-slate-400 uppercase italic mt-2 mb-8 tracking-widest">
+          <p className="text-xs font-bold text-slate-400 mt-2 mb-8 tracking-widest">
             Register your first unit to start digital operation
           </p>
           <AddResourceDialog
@@ -354,4 +372,3 @@ export default function ResourcesPage() {
     </div>
   );
 }
-

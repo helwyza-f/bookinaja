@@ -16,8 +16,6 @@ import (
 	"math/big"
 )
 
-
-
 type Service struct {
 	repo *Repository
 	db   *sqlx.DB
@@ -187,6 +185,9 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 					notify = &bookingInfo
 					notifyMode = "settlement"
 				}
+				if err := s.repo.AwardCustomerBookingPoints(ctx, tx, bookingInfo, int64(bookingInfo.GrandTotal)); err != nil {
+					return err
+				}
 				return nil
 			}
 			if err := s.repo.UpdateBookingPaymentFromMidtrans(ctx, tx, bookingID, newStatus, txIDPtr, paymentTypePtr, payload); err != nil {
@@ -228,6 +229,11 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 			if shouldNotifyBookingPayment(bookingInfo.PaymentStatus, newStatus) {
 				notify = &bookingInfo
 				notifyMode = "deposit"
+			}
+			if bookingInfo.BalanceDue <= 0 {
+				if err := s.repo.AwardCustomerBookingPoints(ctx, tx, bookingInfo, int64(bookingInfo.GrandTotal)); err != nil {
+					return err
+				}
 			}
 			return nil
 		}

@@ -312,6 +312,25 @@ func (h *Handler) GetHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": history})
 }
 
+func (h *Handler) GetPoints(c *gin.Context) {
+	id := c.Param("id")
+	tenantID := c.MustGet("tenantID").(string)
+	limit := 20
+	if raw := c.Query("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = parsed
+		}
+	}
+
+	points, err := h.service.GetPointSummary(c.Request.Context(), id, tenantID, limit)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Riwayat poin tidak ditemukan"})
+		return
+	}
+
+	c.JSON(http.StatusOK, points)
+}
+
 // SearchByPhone digunakan untuk pencarian instan di POS kasir
 func (h *Handler) SearchByPhone(c *gin.Context) {
 	phone := c.Query("phone")

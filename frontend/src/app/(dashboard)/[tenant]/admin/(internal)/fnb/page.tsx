@@ -1,50 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Plus,
   Trash2,
   Edit3,
   PackageSearch,
-  ChevronRight,
   Utensils,
   Coffee,
+  Search,
+  RefreshCw,
+  BadgeCheck,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { SingleImageUpload } from "@/components/upload/single-image-upload";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
+import { FnbItemDialog, type FnbItem } from "@/components/fnb/fnb-item-dialong";
 
-type MenuItem = {
-  id: string;
-  name: string;
-  description?: string;
-  price: number;
-  category: string;
-  image_url?: string | null;
-  is_available: boolean;
-};
+type MenuItem = FnbItem;
 
 // --- KOMPONEN SKELETON COMPACT ---
 function FnbSkeleton() {
@@ -70,17 +47,12 @@ export default function FnbManagementPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-
-  // Form States
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [price, setPrice] = useState("");
-  const [category, setCategory] = useState("Food");
-  const [imageUrl, setImageUrl] = useState("");
-  const [available, setAvailable] = useState(true);
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
   const fetchMenu = async () => {
+    setLoading(true);
     try {
       const res = await api.get("/fnb");
       setItems(res.data || []);
@@ -119,33 +91,6 @@ export default function FnbManagementPage() {
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const payload = {
-      name: name.toUpperCase(),
-      description,
-      price: parseInt(price.replace(/\D/g, "")),
-      category,
-      image_url: imageUrl || null,
-      is_available: available,
-    };
-
-    try {
-      if (editingId) {
-        await api.put(`/fnb/${editingId}`, payload);
-        toast.success("MENU UPDATED");
-      } else {
-        await api.post("/fnb", payload);
-        toast.success("NEW ITEM ADDED");
-      }
-      setOpen(false);
-      resetForm();
-      fetchMenu();
-    } catch {
-      toast.error("Gagal menyimpan data");
-    }
-  };
-
   const handleDelete = async (id: string) => {
     if (!confirm("Hapus item ini selamanya?")) return;
     try {
@@ -157,166 +102,131 @@ export default function FnbManagementPage() {
     }
   };
 
-  const resetForm = () => {
-    setEditingId(null);
-    setName("");
-    setDescription("");
-    setPrice("");
-    setCategory("Food");
-    setImageUrl("");
-    setAvailable(true);
-  };
-
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
 
+  const categories = useMemo(
+    () => ["all", ...Array.from(new Set(items.map((item) => item.category)))],
+    [items],
+  );
+
+  const stats = useMemo(
+    () => ({
+      total: items.length,
+      ready: items.filter((item) => item.is_available).length,
+      empty: items.filter((item) => !item.is_available).length,
+    }),
+    [items],
+  );
+
+  const filteredItems = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return items.filter((item) => {
+      const matchCategory =
+        categoryFilter === "all" || item.category === categoryFilter;
+      const matchSearch =
+        !query ||
+        [item.name, item.description, item.category]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(query));
+      return matchCategory && matchSearch;
+    });
+  }, [items, searchQuery, categoryFilter]);
+
   return (
-    <div className="max-w-[1600px] mx-auto space-y-4 md:space-y-6 pb-32 animate-in fade-in duration-500 font-plus-jakarta px-3 md:px-4">
-      {/* 1. COMPACT HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-4 md:pb-6 gap-3">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-xl shadow-blue-500/20">
-            <Coffee size={18} fill="currentColor" />
+    <div className="max-w-[1600px] mx-auto space-y-4 md:space-y-6 pb-32 pt-5 animate-in fade-in duration-500 font-plus-jakarta px-3 md:px-4">
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950">
+        <div className="flex flex-col gap-4 border-b border-slate-100 p-4 md:flex-row md:items-center md:justify-between md:p-5 dark:border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white">
+              <Coffee size={18} />
+            </div>
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">
+                F&B Catalog
+              </div>
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl dark:text-white">
+                Menu Library
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">
+                Kelola menu kasir, stok tampil, kategori, dan foto produk.
+              </p>
+            </div>
           </div>
-          <div className="flex flex-col">
-            <h1 className="text-lg md:text-4xl font-[1000] italic uppercase tracking-tighter text-slate-950 dark:text-white leading-none">
-              Menu <span className="text-blue-600">Library.</span>
-            </h1>
-            <p className="hidden sm:block text-[8px] font-black text-slate-400 uppercase tracking-[0.4em] italic mt-1.5">
-              {items.length} Products Registered
-            </p>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={fetchMenu}
+              disabled={loading}
+              className="h-10 rounded-xl"
+            >
+              <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
+              Refresh
+            </Button>
+            <Button
+              onClick={() => {
+                setEditingItem(null);
+                setOpen(true);
+              }}
+              className="h-10 rounded-xl bg-blue-600 px-4 font-semibold text-white hover:bg-blue-700"
+            >
+              <Plus className="mr-2 h-4 w-4" /> Add Item
+            </Button>
           </div>
         </div>
 
-        <Dialog
-          open={open}
-          onOpenChange={(v) => {
-            setOpen(v);
-            if (!v) resetForm();
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button className="h-11 px-3 md:px-6 rounded-2xl bg-slate-950 dark:bg-blue-600 text-white font-black uppercase italic text-[9px] shadow-lg border-b-4 border-slate-800 dark:border-blue-800 gap-2 transition-all active:scale-95 w-full sm:w-auto">
-              <Plus size={16} strokeWidth={4} /> Add Item
-            </Button>
-          </DialogTrigger>
+        <div className="grid grid-cols-3 border-b border-slate-100 dark:border-white/10">
+          <div className="border-r border-slate-100 p-4 dark:border-white/10">
+            <p className="text-xs text-slate-500">Total item</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-950 dark:text-white">{stats.total}</p>
+          </div>
+          <div className="border-r border-slate-100 p-4 dark:border-white/10">
+            <p className="text-xs text-slate-500">Ready</p>
+            <p className="mt-1 flex items-center gap-2 text-2xl font-semibold text-emerald-600">
+              {stats.ready} <BadgeCheck className="h-4 w-4" />
+            </p>
+          </div>
+          <div className="p-4">
+            <p className="text-xs text-slate-500">Empty</p>
+            <p className="mt-1 text-2xl font-semibold text-amber-600">{stats.empty}</p>
+          </div>
+        </div>
 
-          <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 overflow-hidden border-none bg-white dark:bg-slate-950 rounded-[2.5rem] shadow-2xl">
-            <VisuallyHidden.Root>
-              <DialogHeader>
-                <DialogTitle>Menu Editor</DialogTitle>
-              </DialogHeader>
-            </VisuallyHidden.Root>
-
-            <div className="flex flex-col md:flex-row w-full max-h-[90vh]">
-              {/* Left Side: Media Area - FIXED & CLEAN */}
-              <div className="w-full md:w-5/12 bg-slate-50 dark:bg-slate-900/50 p-5 md:p-10 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-slate-100 dark:border-white/5">
-                <div className="space-y-6 w-full max-w-[320px]">
-                  <div className="text-center md:text-left">
-                    <h2 className="text-2xl font-[1000] uppercase italic tracking-tighter dark:text-white leading-none">
-                      Product <span className="text-blue-600">Media</span>
-                    </h2>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase mt-2 tracking-widest italic">
-                      Ratio 1:1 Recommended
-                    </p>
-                  </div>
-
-                  {/* Kontainer Upload - Bersih Tanpa Inner Padding Berlebih */}
-                  <div className="p-4 w-full rounded-[2.5rem] overflow-hidden bg-white dark:bg-slate-800 shadow-2xl ring-4 ring-white dark:ring-slate-900 group/upload relative">
-                    <SingleImageUpload
-                      value={imageUrl}
-                      onChange={setImageUrl}
-                      endpoint="/fnb/upload"
-                    />
-                  </div>
-
-                  <p className="text-[9px] text-center text-slate-400 font-bold uppercase italic px-4 leading-relaxed">
-                    Click the box above to upload or drag your product photo.
-                  </p>
-                </div>
-              </div>
-
-              {/* Right Side: Form Details */}
-              <div className="w-full md:w-7/12 p-5 md:p-12 overflow-y-auto bg-white dark:bg-slate-950">
-                <form onSubmit={handleSave} className="space-y-8">
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-600 italic tracking-widest ml-1">
-                        Product Name
-                      </Label>
-                      <Input
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="EX: CHICKEN PARMESAN"
-                        className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-black italic uppercase px-6 focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-white shadow-inner"
-                        required
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-600 italic tracking-widest ml-1">
-                          Price (IDR)
-                        </Label>
-                        <Input
-                          value={price}
-                          onChange={(e) =>
-                            setPrice(e.target.value.replace(/\D/g, ""))
-                          }
-                          placeholder="0"
-                          className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-black italic text-blue-600 dark:text-blue-400 px-6 shadow-inner focus-visible:ring-2 focus-visible:ring-blue-600"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-600 italic tracking-widest ml-1">
-                          Category
-                        </Label>
-                        <Select value={category} onValueChange={setCategory}>
-                          <SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-black italic text-[11px] uppercase px-6 focus:ring-2 focus:ring-blue-600 dark:text-white shadow-inner">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl border-none shadow-2xl font-black uppercase italic">
-                            <SelectItem value="Food">Food</SelectItem>
-                            <SelectItem value="Drink">Drink</SelectItem>
-                            <SelectItem value="Snack">Snack</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-600 italic tracking-widest ml-1">
-                        Short Description
-                      </Label>
-                      <Textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        className="rounded-2xl bg-slate-50 dark:bg-slate-900 border-none min-h-[140px] p-6 font-medium text-sm focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-white shadow-inner"
-                        placeholder="Explain flavor, size, or ingredients..."
-                      />
-                    </div>
-                  </div>
-
-                  <Button
-                    type="submit"
-                    className="w-full h-16 rounded-[1.5rem] bg-blue-600 hover:bg-blue-500 text-white font-[1000] uppercase italic text-xs tracking-[0.2em] shadow-2xl border-b-8 border-blue-800 active:border-b-0 gap-3 transition-all active:scale-[0.98]"
-                  >
-                    {editingId ? "Update Product" : "Commit to Catalog"}
-                    <ChevronRight size={18} strokeWidth={4} />
-                  </Button>
-                </form>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+        <div className="space-y-3 p-4">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Cari nama menu, kategori, atau deskripsi..."
+              className="h-11 rounded-xl bg-slate-50 pl-10 dark:bg-white/5"
+            />
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={cn(
+                  "h-9 shrink-0 rounded-xl border px-4 text-xs font-semibold transition",
+                  categoryFilter === cat
+                    ? "border-blue-600 bg-blue-600 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 dark:border-white/10 dark:bg-slate-950 dark:text-slate-300",
+                )}
+              >
+                {cat === "all" ? "Semua" : cat}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* 2. GRID AREA - HIGH DENSITY */}
       {loading ? (
         <FnbSkeleton />
-      ) : items.length > 0 ? (
+      ) : filteredItems.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 md:gap-4 animate-in slide-in-from-bottom-2 duration-500">
-          {items.map((item) => (
+          {filteredItems.map((item) => (
             <Card
               key={item.id}
               className={cn(
@@ -384,13 +294,7 @@ export default function FnbManagementPage() {
                       variant="ghost"
                       size="icon"
                       onClick={() => {
-                        setEditingId(item.id);
-                        setName(item.name);
-                        setDescription(item.description || "");
-                        setPrice(item.price.toString());
-                        setCategory(item.category);
-                        setImageUrl(item.image_url || "");
-                        setAvailable(item.is_available);
+                        setEditingItem(item);
                         setOpen(true);
                       }}
                       className="h-7 w-7 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-600 transition-all shadow-sm"
@@ -423,13 +327,22 @@ export default function FnbManagementPage() {
             Register your products for the terminal display
           </p>
           <Button
-            onClick={() => setOpen(true)}
+            onClick={() => {
+              setEditingItem(null);
+              setOpen(true);
+            }}
             className="h-12 px-8 rounded-2xl bg-blue-600 text-white font-black italic uppercase text-[10px] tracking-widest"
           >
             Register Product
           </Button>
         </div>
       )}
+      <FnbItemDialog
+        open={open}
+        onOpenChange={setOpen}
+        editingItem={editingItem}
+        onSuccess={fetchMenu}
+      />
     </div>
   );
 }

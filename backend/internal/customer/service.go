@@ -3,6 +3,7 @@ package customer
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 	"os"
 	"strings"
@@ -13,6 +14,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
+
+const pointRupiahDivisor int64 = 10000
 
 type Service struct {
 	repo  *Repository
@@ -114,17 +117,17 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Customer, err
 	}
 
 	cust := Customer{
-		ID:            uuid.New(),
-		Name:          req.Name,
-		Phone:         req.Phone,
-		Email:         req.Email,
-		Password:      hashedPassword,
-		AccountStatus: "verified",
+		ID:              uuid.New(),
+		Name:            req.Name,
+		Phone:           req.Phone,
+		Email:           req.Email,
+		Password:        hashedPassword,
+		AccountStatus:   "verified",
 		PhoneVerifiedAt: timePtr(time.Now().UTC()),
-		Tier:          "NEW",
-		TotalVisits:   0,
-		TotalSpent:    0,
-		LoyaltyPoints: 0,
+		Tier:            "NEW",
+		TotalVisits:     0,
+		TotalSpent:      0,
+		LoyaltyPoints:   0,
 	}
 
 	id, err := s.repo.Upsert(ctx, cust)
@@ -303,6 +306,25 @@ func (s *Service) SyncStats(ctx context.Context, customerID uuid.UUID, totalSpen
 	return s.repo.IncrementStats(ctx, customerID, totalSpent)
 }
 
+func (s *Service) AwardBookingPoints(ctx context.Context, customerID, tenantID, bookingID uuid.UUID, paidAmount int64) (int, error) {
+	if paidAmount <= 0 {
+		return 0, nil
+	}
+	points := int(math.Floor(float64(paidAmount) / float64(pointRupiahDivisor)))
+	if points <= 0 {
+		return 0, nil
+	}
+	return s.repo.AwardBookingPoints(
+		ctx,
+		customerID,
+		tenantID,
+		bookingID,
+		paidAmount,
+		points,
+		"Earned from booking payment",
+	)
+}
+
 // GetDashboardData menyiapkan data untuk Portal Customer (/me) dengan pemisahan Active vs History.
 func (s *Service) GetDashboardData(ctx context.Context, customerID uuid.UUID) (*CustomerDashboardData, error) {
 	cust, err := s.repo.FindByID(ctx, customerID)
@@ -315,10 +337,12 @@ func (s *Service) GetDashboardData(ctx context.Context, customerID uuid.UUID) (*
 
 	// 2. Ambil riwayat lampau (Limit 10 history terakhir)
 	past, _ := s.repo.GetPastHistory(ctx, customerID, 10)
+	pointActivity, _ := s.repo.ListPointActivity(ctx, customerID, nil, 8)
 
 	return &CustomerDashboardData{
 		Customer:       *cust,
 		Points:         cust.LoyaltyPoints,
+		PointActivity:  pointActivity,
 		ActiveBookings: active,
 		PastHistory:    past,
 	}, nil
@@ -395,6 +419,41 @@ func (s *Service) GetTransactionHistory(ctx context.Context, id, tenantID string
 		limit = 20
 	}
 	return s.repo.GetTransactionHistory(ctx, cID, limit)
+}
+
+func (s *Service) GetPointSummary(ctx context.Context, id, tenantID string, limit int) (*CustomerPointSummary, error) {
+	cID, err := uuid.Parse(id)
+	if err != nil {
+		return nil, fmt.Errorf("id customer tidak valid")
+	}
+
+	cust, err := s.repo.FindByID(ctx, cID)
+	if err != nil || cust == nil {
+		return nil, fmt.Errorf("customer tidak ditemukan")
+	}
+
+	var tenantUUID *uuid.UUID
+	earnedAtTenant := 0
+	if strings.TrimSpace(tenantID) != "" {
+		tID, err := uuid.Parse(tenantID)
+		if err != nil {
+			return nil, fmt.Errorf("id tenant tidak valid")
+		}
+		tenantUUID = &tID
+		earnedAtTenant, _ = s.repo.SumEarnedPointsAtTenant(ctx, cID, tID)
+	}
+
+	activity, err := s.repo.ListPointActivity(ctx, cID, tenantUUID, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return &CustomerPointSummary{
+		Balance:          cust.LoyaltyPoints,
+		EarnedAtTenant:   earnedAtTenant,
+		Activity:         activity,
+		EarningRuleLabel: "1 poin setiap Rp10.000 pembayaran lunas",
+	}, nil
 }
 
 func (s *Service) sendOTP(ctx context.Context, phone, name, purpose string) error {

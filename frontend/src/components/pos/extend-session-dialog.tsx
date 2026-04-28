@@ -12,14 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   format,
-  parse,
   addMinutes,
   isBefore,
   isSameDay,
-  isValid,
 } from "date-fns";
 import {
-  Clock,
   X,
   CalendarCheck2,
   LayoutGrid,
@@ -38,9 +35,34 @@ import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 interface ExtendSessionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  session: any;
+  session: ExtendSession;
   onExtend: (count: number) => Promise<void>;
 }
+
+type BusySlotResponse = {
+  id: string;
+  start_time: string;
+  end_time: string;
+};
+
+type BusySlot = BusySlotResponse & {
+  start_date: Date;
+  end_date: Date;
+  start_local: string;
+  end_local: string;
+};
+
+export type ExtendSession = {
+  id: string;
+  resource_id: string;
+  resource_name?: string;
+  customer_name?: string;
+  start_time: string;
+  end_time: string;
+  unit_duration?: number;
+  unit_price?: number;
+  price_unit?: string;
+};
 
 export function ExtendSessionDialog({
   open,
@@ -48,7 +70,7 @@ export function ExtendSessionDialog({
   session,
   onExtend,
 }: ExtendSessionDialogProps) {
-  const [busySlots, setBusySlots] = useState<any[]>([]);
+  const [busySlots, setBusySlots] = useState<BusySlot[]>([]);
   const [loadingSchedule, setLoadingSchedule] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [now] = useState(new Date());
@@ -74,7 +96,7 @@ export function ExtendSessionDialog({
       api
         .get(`/guest/availability/${session.resource_id}?date=${dateParam}`)
         .then((res) => {
-          const mappedSlots = (res.data.busy_slots || []).map((slot: any) => {
+          const mappedSlots = (res.data.busy_slots || []).map((slot: BusySlotResponse) => {
             const startDate = getLocalDateFromUTC(slot.start_time, sessionDate);
             const endDate = getLocalDateFromUTC(slot.end_time, sessionDate);
             return {
@@ -179,30 +201,30 @@ export function ExtendSessionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[98vw] lg:max-w-[94vw] h-[94vh] p-0 overflow-hidden rounded-[2.5rem] border-none shadow-3xl bg-slate-50 dark:bg-slate-950 flex flex-col font-plus-jakarta">
+      <DialogContent className="flex h-[92vh] max-w-[96vw] flex-col overflow-hidden rounded-3xl border bg-slate-50 p-0 shadow-2xl lg:h-[94vh] lg:max-w-[94vw] dark:bg-slate-950 font-plus-jakarta">
         <VisuallyHidden.Root>
           <DialogHeader>
             <DialogTitle>Extend Session</DialogTitle>
           </DialogHeader>
         </VisuallyHidden.Root>
 
-        <div className="p-5 lg:p-6 bg-slate-900 text-white shrink-0 flex items-center justify-between border-b border-white/5 shadow-md z-20">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+        <div className="z-20 flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-950 p-4 text-white lg:p-6">
+          <div className="flex min-w-0 items-center gap-3 lg:gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600">
               <TimerReset className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <h2 className="text-xl font-black italic uppercase tracking-tighter leading-none pr-2">
-                Extend <span className="text-blue-500">Scheduler</span>
+            <div className="min-w-0">
+              <h2 className="truncate pr-2 text-lg font-semibold leading-tight lg:text-xl">
+                Extend Scheduler
               </h2>
-              <p className="text-[9px] font-bold text-slate-500 uppercase mt-1 pr-2">
+              <p className="mt-1 truncate pr-2 text-xs font-medium text-slate-400">
                 Unit:{" "}
                 <span className="text-blue-400">{session?.resource_name}</span>{" "}
                 • {session?.customer_name}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex shrink-0 items-center gap-3 lg:gap-6">
             <div className="text-right hidden sm:block">
               <p className="text-[7px] font-black text-slate-500 uppercase italic mb-0.5 pr-1">
                 Current End
@@ -222,12 +244,12 @@ export function ExtendSessionDialog({
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-          <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 overflow-hidden border-r dark:border-white/5">
-            <div className="p-6 border-b dark:border-white/5 flex items-center justify-between shrink-0">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-b bg-white md:border-b-0 md:border-r dark:border-white/10 dark:bg-slate-900">
+            <div className="flex shrink-0 items-center justify-between border-b p-4 md:p-6 dark:border-white/10">
               <div className="flex items-center gap-2">
                 <CalendarCheck2 className="w-4 h-4 text-blue-600" />
-                <h3 className="text-[10px] font-black italic uppercase tracking-widest text-slate-950 dark:text-white pr-1">
+                <h3 className="pr-1 text-xs font-semibold text-slate-950 dark:text-white">
                   Resource Activity Map
                 </h3>
               </div>
@@ -239,7 +261,7 @@ export function ExtendSessionDialog({
               </Badge>
             </div>
 
-            <ScrollArea className="flex-1 p-6">
+            <ScrollArea className="flex-1 p-4 md:p-6">
               {loadingSchedule ? (
                 <div className="flex flex-col items-center justify-center py-24 text-slate-300 gap-3">
                   <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
@@ -248,12 +270,12 @@ export function ExtendSessionDialog({
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-2 pb-12">
+                <div className="grid grid-cols-4 gap-2 pb-6 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10">
                   {timeSlots.map((slot) => (
                     <div
                       key={slot.time}
                       className={cn(
-                        "p-3 rounded-2xl text-center border-2 transition-all flex flex-col items-center justify-center gap-0.5",
+                        "flex flex-col items-center justify-center gap-0.5 rounded-xl border p-3 text-center transition-all md:rounded-2xl",
                         slot.status === "available" &&
                           "bg-white dark:bg-slate-800 border-slate-50 dark:border-white/5 shadow-sm",
                         slot.status === "full" &&
@@ -296,12 +318,12 @@ export function ExtendSessionDialog({
             </ScrollArea>
           </div>
 
-          <div className="w-full md:w-[400px] bg-slate-100 dark:bg-slate-950 flex flex-col overflow-hidden shadow-2xl relative">
-            <div className="p-8 space-y-8 flex-1 overflow-y-auto scrollbar-hide">
-              <div className="space-y-4">
+          <div className="relative flex max-h-[44vh] w-full flex-col overflow-hidden bg-slate-100 md:max-h-none md:w-[400px] dark:bg-slate-950">
+            <div className="flex-1 space-y-5 overflow-y-auto p-4 scrollbar-hide md:space-y-8 md:p-8">
+              <div className="space-y-3 md:space-y-4">
                 <div className="flex items-center gap-2">
                   <LayoutGrid className="w-4 h-4 text-blue-600" />
-                  <h3 className="text-[10px] font-black italic uppercase tracking-widest text-slate-950 dark:text-white pr-2">
+                  <h3 className="pr-2 text-xs font-semibold text-slate-950 dark:text-white">
                     Extension Options
                   </h3>
                 </div>
@@ -317,7 +339,7 @@ export function ExtendSessionDialog({
                         })
                       }
                       className={cn(
-                        "p-6 rounded-[2rem] border-4 transition-all flex flex-col items-center justify-center group relative",
+                        "group relative flex flex-col items-center justify-center rounded-2xl border p-5 transition-all md:p-6",
                         selectedExtension?.count === opt.count
                           ? "bg-white dark:bg-slate-800 border-blue-600 shadow-xl scale-[1.03] z-10"
                           : opt.busy
@@ -327,7 +349,7 @@ export function ExtendSessionDialog({
                     >
                       <span
                         className={cn(
-                          "text-3xl font-black italic tracking-tighter leading-none mb-1 pr-1",
+                          "mb-1 pr-1 text-2xl font-semibold leading-none md:text-3xl",
                           selectedExtension?.count === opt.count
                             ? "text-blue-600"
                             : "dark:text-white",
@@ -386,7 +408,7 @@ export function ExtendSessionDialog({
                 </div>
               )}
 
-              <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border dark:border-white/5 flex gap-4 items-start shadow-sm">
+              <div className="flex items-start gap-3 rounded-2xl border bg-white p-4 shadow-sm md:gap-4 md:p-5 dark:border-white/10 dark:bg-slate-900">
                 <AlertTriangle className="text-amber-500 w-5 h-5 shrink-0 mt-0.5" />
                 <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase italic leading-relaxed pr-2">
                   Sistem otomatis memblokir opsi perpanjangan jika menabrak
@@ -395,11 +417,11 @@ export function ExtendSessionDialog({
               </div>
             </div>
 
-            <div className="p-8 bg-white dark:bg-slate-900 border-t dark:border-white/5 shrink-0 z-20 shadow-[0_-10px_30px_rgba(0,0,0,0.05)] mt-auto">
+            <div className="z-20 mt-auto shrink-0 border-t bg-white p-4 shadow-[0_-10px_30px_rgba(0,0,0,0.05)] md:p-8 dark:border-white/10 dark:bg-slate-900">
               <Button
                 disabled={!selectedExtension || isSubmitting}
                 onClick={handleConfirmExtend}
-                className="w-full h-16 rounded-[1.8rem] bg-blue-600 hover:bg-blue-500 text-white font-black uppercase italic text-xs shadow-xl gap-3 border-b-8 border-blue-800 active:border-b-0 active:translate-y-1 transition-all group pr-3"
+                className="h-12 w-full rounded-xl bg-blue-600 pr-3 text-xs font-semibold text-white shadow-sm transition-all hover:bg-blue-500 md:h-16 md:rounded-2xl"
               >
                 {isSubmitting ? (
                   <Loader2 className="w-5 h-5 animate-spin text-white" />

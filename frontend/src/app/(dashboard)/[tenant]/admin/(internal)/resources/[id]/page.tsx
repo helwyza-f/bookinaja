@@ -28,7 +28,10 @@ import {
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { ManageItemDialog } from "@/components/resources/manage-item-dialog";
+import {
+  ManageItemDialog,
+  type ResourceItemConfig,
+} from "@/components/resources/manage-item-dialog";
 import { SingleImageUpload } from "@/components/upload/single-image-upload";
 import { BulkImageUpload } from "@/components/upload/bulk-image-upload";
 import ResourceDetailLoading from "./loading";
@@ -38,7 +41,17 @@ export default function ResourceDetailPage() {
   const router = useRouter();
   const tenantSlug = params.tenant as string;
 
-  const [resource, setResource] = useState<any>(null);
+  type ResourceDetail = {
+    id: string;
+    name: string;
+    category?: string;
+    description?: string;
+    image_url?: string;
+    gallery?: string[];
+    items?: ResourceItemConfig[];
+  };
+
+  const [resource, setResource] = useState<ResourceDetail | null>(null);
   const [businessCategory, setBusinessCategory] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
@@ -46,7 +59,9 @@ export default function ResourceDetailPage() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [isUpdatingResource, setIsUpdatingResource] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<any>(null);
+  const [editingItem, setEditingItem] = useState<ResourceItemConfig | null>(
+    null,
+  );
 
   // Form States
   const [description, setDescription] = useState("");
@@ -63,7 +78,7 @@ export default function ResourceDetailPage() {
           if (cachedAll) {
             const parsed = JSON.parse(cachedAll);
             const found = parsed.resources?.find(
-              (r: any) => r.id === params.id,
+              (r: ResourceDetail) => r.id === params.id,
             );
             if (found) {
               setResource(found);
@@ -82,8 +97,13 @@ export default function ResourceDetailPage() {
         setDescription(data.description || "");
         setImageUrl(data.image_url || "");
         setGallery(data.gallery || []);
-      } catch (err: any) {
-        if (err.response?.status === 404) {
+      } catch (err: unknown) {
+        if (
+          typeof err === "object" &&
+          err !== null &&
+          "response" in err &&
+          (err as { response?: { status?: number } }).response?.status === 404
+        ) {
           toast.error("Unit not found");
           router.push("/admin/resources");
         }
@@ -102,12 +122,14 @@ export default function ResourceDetailPage() {
     const allItems = resource?.items || [];
     return {
       mainItems: allItems
-        .filter((i: any) =>
-          ["main_option", "main", "console_option"].includes(i.item_type),
+        .filter((i) =>
+          ["main_option", "main", "console_option"].includes(
+            i.item_type || "",
+          ),
         )
-        .sort((a: any, b: any) => (b.is_default ? 1 : -1)),
-      addonItems: allItems.filter((i: any) =>
-        ["add_on", "addon"].includes(i.item_type),
+        .sort((a, b) => (b.is_default ? 1 : -1)),
+      addonItems: allItems.filter((i) =>
+        ["add_on", "addon"].includes(i.item_type || ""),
       ),
     };
   }, [resource]);
@@ -124,14 +146,14 @@ export default function ResourceDetailPage() {
       toast.success("Visual Data Updated");
       setIsEditMode(false);
       fetchData(false);
-    } catch (err) {
+    } catch {
       toast.error("Update failed");
     } finally {
       setIsUpdatingResource(false);
     }
   };
 
-  const handleSetDefault = async (item: any) => {
+  const handleSetDefault = async (item: ResourceItemConfig) => {
     try {
       await api.put(`/resources-all/items/${item.id}`, {
         ...item,
@@ -139,7 +161,7 @@ export default function ResourceDetailPage() {
       });
       toast.success("Main package updated");
       fetchData(false);
-    } catch (err) {
+    } catch {
       toast.error("Status update failed");
     }
   };
@@ -150,12 +172,44 @@ export default function ResourceDetailPage() {
       await api.delete(`/resources-all/items/${id}`);
       toast.success("Item deleted");
       fetchData(false);
-    } catch (err) {
+    } catch {
       toast.error("Delete failed");
     }
   };
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
+
+  const priceUnitLabel = (unit?: string) => {
+    switch (unit) {
+      case "hour":
+        return "jam";
+      case "session":
+        return "sesi";
+      case "day":
+        return "hari";
+      case "week":
+        return "minggu";
+      case "month":
+        return "bulan";
+      case "year":
+        return "tahun";
+      case "pcs":
+        return "pcs";
+      default:
+        return unit || "unit";
+    }
+  };
+
+  const durationLabel = (minutes?: number) => {
+    const value = Number(minutes || 0);
+    if (!value) return "";
+    if (value % 525600 === 0) return `${value / 525600} tahun`;
+    if (value % 43200 === 0) return `${value / 43200} bulan`;
+    if (value % 10080 === 0) return `${value / 10080} minggu`;
+    if (value % 1440 === 0) return `${value / 1440} hari`;
+    if (value % 60 === 0) return `${value / 60} jam`;
+    return `${value} menit`;
+  };
 
   const configMeta = {
     gaming_hub: {
@@ -182,7 +236,7 @@ export default function ResourceDetailPage() {
   if (loading && !resource) return <ResourceDetailLoading />;
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-4 md:space-y-6 pb-20 animate-in fade-in duration-500 px-3 md:px-4 font-plus-jakarta">
+    <div className="max-w-[1600px] mx-auto space-y-4 md:space-y-6 pb-20 pt-5 animate-in fade-in duration-500 px-3 md:px-4 font-plus-jakarta">
       {/* 1. ULTRA COMPACT HEADER */}
       <header className="flex flex-col md:flex-row md:items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-4 md:pb-6 gap-4">
         <div className="flex items-center gap-3 md:gap-4">
@@ -342,7 +396,7 @@ export default function ResourceDetailPage() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-              {mainItems.map((item: any) => (
+              {mainItems.map((item) => (
                 <Card
                   key={item.id}
                   className={cn(
@@ -407,13 +461,13 @@ export default function ResourceDetailPage() {
                       {formatIDR(item.price)}
                     </span>
                     <span className="text-[8px] text-slate-400 font-black uppercase ml-1">
-                      / {item.price_unit}
+                      / {priceUnitLabel(item.price_unit)}
                     </span>
                   </div>
-                  {item.unit_duration > 0 && (
+                  {(item.unit_duration || 0) > 0 && (
                     <div className="mt-3 flex items-center gap-1 text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                       <Clock size={10} className="text-blue-500/50" />{" "}
-                      {item.unit_duration} MINS DURATION
+                      {durationLabel(item.unit_duration)} durasi
                     </div>
                   )}
                 </Card>
@@ -438,7 +492,7 @@ export default function ResourceDetailPage() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-              {addonItems.map((item: any) => (
+              {addonItems.map((item) => (
                 <div
                   key={item.id}
                   className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/30 border-[0.5px] border-slate-200 dark:border-white/5 flex justify-between items-center group hover:border-blue-500/30 transition-all"

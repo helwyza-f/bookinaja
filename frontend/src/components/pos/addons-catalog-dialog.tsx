@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,6 @@ import {
   Package,
   Plus,
   Minus,
-  ShoppingCart,
   Send,
   Trash2,
   X,
@@ -27,9 +26,19 @@ import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 interface AddonsCatalogDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  availableAddons: any[];
-  onConfirmAddons: (cart: any[]) => Promise<void>;
+  availableAddons: AddonItem[];
+  onConfirmAddons: (cart: AddonCartItem[]) => Promise<void>;
 }
+
+export type AddonItem = {
+  id: string;
+  name: string;
+  price: number;
+};
+
+export type AddonCartItem = AddonItem & {
+  quantity: number;
+};
 
 export function AddonsCatalogDialog({
   open,
@@ -37,12 +46,13 @@ export function AddonsCatalogDialog({
   availableAddons,
   onConfirmAddons,
 }: AddonsCatalogDialogProps) {
-  const [cart, setCart] = useState<Record<string, any>>({});
+  const [cart, setCart] = useState<Record<string, AddonCartItem>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
 
-  const addToCart = (item: any) => {
+  const addToCart = (item: AddonItem) => {
     setCart((prev) => ({
       ...prev,
       [item.id]: {
@@ -76,6 +86,7 @@ export function AddonsCatalogDialog({
     try {
       await onConfirmAddons(cartItems);
       setCart({});
+      setReviewOpen(false);
       onOpenChange(false);
     } finally {
       setIsSubmitting(false);
@@ -84,7 +95,7 @@ export function AddonsCatalogDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] lg:max-w-5xl h-[85vh] p-0 overflow-hidden rounded-[3rem] border-none shadow-3xl bg-slate-50 dark:bg-slate-950 flex flex-col md:flex-row font-plus-jakarta">
+      <DialogContent className="flex h-[92vh] max-w-[96vw] flex-col overflow-hidden rounded-3xl border bg-slate-50 p-0 shadow-2xl md:h-[85vh] md:max-w-5xl md:flex-row dark:bg-slate-950 font-plus-jakarta">
         <VisuallyHidden.Root>
           <DialogHeader>
             <DialogTitle>Katalog Add-ons & Layanan</DialogTitle>
@@ -92,18 +103,18 @@ export function AddonsCatalogDialog({
         </VisuallyHidden.Root>
 
         {/* --- KIRI: KATALOG ADD-ONS --- */}
-        <div className="flex-1 flex flex-col h-full bg-white dark:bg-slate-900 overflow-hidden border-r dark:border-white/5">
-          <div className="p-6 lg:p-10 bg-slate-950 text-white shrink-0">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-b bg-white md:h-full md:border-b-0 md:border-r dark:border-white/10 dark:bg-slate-900">
+          <div className="shrink-0 bg-slate-950 p-4 text-white md:p-6 lg:p-10">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
-                  <Package className="w-6 h-6 text-white" />
+              <div className="flex items-center gap-3 md:gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500 md:h-12 md:w-12">
+                  <Package className="h-5 w-5 text-white md:h-6 md:w-6" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-black italic uppercase tracking-tighter leading-none pr-2">
-                    Add-ons <span className="text-orange-500">Inventory</span>
+                  <h2 className="pr-2 text-lg font-semibold leading-tight md:text-2xl">
+                    Add-ons Inventory
                   </h2>
-                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1.5 italic pr-2">
+                  <p className="mt-1 text-xs font-medium text-slate-400">
                     Layanan & Alat Ekstra untuk Unit
                   </p>
                 </div>
@@ -111,14 +122,14 @@ export function AddonsCatalogDialog({
             </div>
           </div>
 
-          <ScrollArea className="flex-1 bg-slate-50/30 dark:bg-slate-900 p-6 lg:p-10">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pb-10">
+          <ScrollArea className="flex-1 bg-slate-50/30 p-4 md:p-6 lg:p-10 dark:bg-slate-900">
+            <div className="grid grid-cols-1 gap-3 pb-8 sm:grid-cols-2 md:gap-5">
               {availableAddons?.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => addToCart(item)}
                   className={cn(
-                    "flex justify-between items-center p-6 rounded-[2.2rem] transition-all group border-4 text-left relative",
+                    "group relative flex items-center justify-between rounded-2xl border p-4 text-left transition-all md:p-6",
                     cart[item.id]
                       ? "bg-white dark:bg-slate-800 border-orange-500 shadow-xl scale-[1.02]"
                       : "bg-white dark:bg-slate-800/40 border-transparent dark:border-white/5 hover:border-slate-200 dark:hover:border-white/10 shadow-sm",
@@ -153,10 +164,40 @@ export function AddonsCatalogDialog({
           </ScrollArea>
         </div>
 
+        <div className="flex shrink-0 items-center gap-3 border-t bg-white p-3 md:hidden dark:border-white/10 dark:bg-slate-900">
+          <Button
+            variant="outline"
+            disabled={cartItems.length === 0}
+            onClick={() => setReviewOpen(true)}
+            className="h-12 flex-1 rounded-xl justify-between px-4"
+          >
+            <span className="flex items-center gap-2 font-semibold">
+              <Layers className="h-4 w-4" />
+              {cartItems.length} item
+            </span>
+            <span className="font-semibold text-orange-600">
+              Rp{formatIDR(cartTotal)}
+            </span>
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+            className="h-12 w-12 rounded-xl"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+
         {/* --- KANAN: REVIEW ADD-ONS (STICKY & COMPACT) --- */}
-        <div className="w-full md:w-[380px] bg-slate-100 dark:bg-slate-950 flex flex-col h-full overflow-hidden shadow-[-10px_0_30px_rgba(0,0,0,0.05)] relative">
+        <div
+          className={cn(
+            "fixed inset-x-3 bottom-3 top-auto z-50 hidden max-h-[78vh] flex-col overflow-hidden rounded-3xl bg-slate-100 shadow-2xl md:relative md:inset-auto md:z-auto md:flex md:h-full md:w-[380px] md:rounded-none md:shadow-[0_-10px_30px_rgba(0,0,0,0.05)] dark:bg-slate-950",
+            reviewOpen && "flex md:flex",
+          )}
+        >
           {/* Header Panel Review */}
-          <div className="p-6 bg-white dark:bg-slate-900 border-b dark:border-white/5 shrink-0 z-20 flex items-center justify-between">
+          <div className="z-20 flex shrink-0 items-center justify-between border-b bg-white p-4 md:p-6 dark:border-white/10 dark:bg-slate-900">
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-orange-500" />
               <h3 className="text-sm font-black uppercase italic tracking-widest text-slate-900 dark:text-white pr-2">
@@ -166,7 +207,9 @@ export function AddonsCatalogDialog({
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => onOpenChange(false)}
+              onClick={() =>
+                reviewOpen ? setReviewOpen(false) : onOpenChange(false)
+              }
               className="h-9 w-9 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 transition-all shadow-sm"
             >
               <X className="w-4 h-4" />
@@ -177,7 +220,7 @@ export function AddonsCatalogDialog({
           <ScrollArea className="flex-1">
             <div className="p-4 space-y-2 pb-10">
               {cartItems.length > 0 ? (
-                cartItems.map((item: any) => (
+                cartItems.map((item) => (
                   <div
                     key={item.id}
                     className="px-4 py-3 rounded-2xl bg-white dark:bg-slate-900 shadow-sm border dark:border-white/5 animate-in slide-in-from-right-4 transition-all"
@@ -230,7 +273,7 @@ export function AddonsCatalogDialog({
           </ScrollArea>
 
           {/* Footer Sticky (Sticky Total) */}
-          <div className="p-7 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-white/5 shrink-0 z-20 space-y-5 shadow-[0_-15px_30px_rgba(0,0,0,0.05)]">
+          <div className="z-20 shrink-0 space-y-3 border-t border-slate-200 bg-white p-4 shadow-[0_-15px_30px_rgba(0,0,0,0.05)] md:space-y-5 md:p-7 dark:border-white/10 dark:bg-slate-900">
             <div className="flex justify-between items-center">
               <div className="space-y-0.5">
                 <p className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase italic">
@@ -260,7 +303,7 @@ export function AddonsCatalogDialog({
             <Button
               disabled={cartItems.length === 0 || isSubmitting}
               onClick={handleProcessOrder}
-              className="w-full h-16 rounded-[1.8rem] bg-slate-900 hover:bg-black dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-black uppercase italic text-xs shadow-2xl gap-3 border-b-8 border-slate-800 dark:border-blue-800 active:border-b-0 active:translate-y-1 transition-all group pr-3"
+              className="h-12 w-full rounded-xl bg-slate-900 pr-3 text-xs font-semibold text-white shadow-sm transition-all hover:bg-black md:h-16 md:rounded-2xl dark:bg-blue-600 dark:hover:bg-blue-700"
             >
               {isSubmitting ? (
                 <Loader2 className="animate-spin" />

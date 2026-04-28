@@ -161,6 +161,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				customers.GET("", cfg.CustomerHandler.List)
 				customers.GET("/search", cfg.CustomerHandler.SearchByPhone)
 				customers.GET("/:id/history", cfg.CustomerHandler.GetHistory)
+				customers.GET("/:id/points", cfg.CustomerHandler.GetPoints)
 				customers.GET("/:id", cfg.CustomerHandler.GetByID)
 			}
 		}

@@ -2,29 +2,74 @@
 
 import { useState, useMemo, useEffect } from "react";
 import {
-  Zap,
   ChevronUp,
   ShoppingCart,
   Package,
   Info,
-  Clock,
   TimerReset,
+  X,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FnBCatalogDialog } from "./fnb-catalog-dialog";
-import { ExtendSessionDialog } from "./extend-session-dialog";
-import { AddonsCatalogDialog } from "./addons-catalog-dialog";
+import {
+  FnBCatalogDialog,
+  type FnBCartItem,
+  type FnBMenuItem,
+} from "./fnb-catalog-dialog";
+import {
+  ExtendSessionDialog,
+  type ExtendSession,
+} from "./extend-session-dialog";
+import {
+  AddonsCatalogDialog,
+  type AddonCartItem,
+  type AddonItem,
+} from "./addons-catalog-dialog";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { format, differenceInMinutes } from "date-fns";
-import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
-import {
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
 
-export function POSControlHub({ session, menuItems, onRefresh, onClose }: any) {
+type POSLineItem = {
+  id?: string;
+  item_name: string;
+  quantity: number;
+  unit_price?: number;
+  price_at_booking?: number;
+};
+
+type POSOrderItem = {
+  fnb_item_id: string;
+  item_name: string;
+  quantity: number;
+  subtotal: number;
+  price_at_purchase: number;
+};
+
+export type POSSessionDetail = ExtendSession & {
+  id: string;
+  customer_name?: string;
+  resource_name?: string;
+  resource_addons?: AddonItem[];
+  start_time: string;
+  end_time: string;
+  grand_total?: number;
+  options?: POSLineItem[];
+  orders?: POSOrderItem[];
+};
+
+type POSControlHubProps = {
+  session: POSSessionDetail;
+  menuItems: FnBMenuItem[];
+  onRefresh: (id: string) => Promise<void>;
+  onClose?: () => void;
+};
+
+export function POSControlHub({
+  session,
+  menuItems,
+  onRefresh,
+  onClose,
+}: POSControlHubProps) {
   const [fnbOpen, setFnbOpen] = useState(false);
   const [extendOpen, setExtendOpen] = useState(false);
   const [addonsOpen, setAddonsOpen] = useState(false);
@@ -53,27 +98,30 @@ export function POSControlHub({ session, menuItems, onRefresh, onClose }: any) {
 
   // --- LOGIKA GROUPING REFACTORED (Data Direct from Backend) ---
   const groupedOptions = useMemo(() => {
-    if (!session?.options) return [];
-    const groups = session.options.reduce((acc: any, item: any) => {
+    if (!session.options) return [];
+    const groups = session.options.reduce<Record<string, POSLineItem & {
+      unitPrice: number;
+      total_price: number;
+    }>>((acc, item) => {
       const key = item.item_name;
       if (!acc[key]) {
         acc[key] = {
           ...item,
-          unitPrice: item.unit_price,
-          total_price: item.price_at_booking,
+          unitPrice: item.unit_price || 0,
+          total_price: item.price_at_booking || 0,
         };
       } else {
         acc[key].quantity += item.quantity;
-        acc[key].total_price += item.price_at_booking;
+        acc[key].total_price += item.price_at_booking || 0;
       }
       return acc;
     }, {});
     return Object.values(groups);
-  }, [session?.options]);
+  }, [session.options]);
 
   const groupedFnb = useMemo(() => {
-    if (!session?.orders) return [];
-    const groups = session.orders.reduce((acc: any, item: any) => {
+    if (!session.orders) return [];
+    const groups = session.orders.reduce<Record<string, POSOrderItem>>((acc, item) => {
       const id = item.fnb_item_id;
       if (!acc[id]) acc[id] = { ...item };
       else {
@@ -83,36 +131,26 @@ export function POSControlHub({ session, menuItems, onRefresh, onClose }: any) {
       return acc;
     }, {});
     return Object.values(groups);
-  }, [session?.orders]);
+  }, [session.orders]);
 
   return (
-    <div className="w-full h-full bg-white dark:bg-slate-950 flex flex-col overflow-hidden shadow-none border-l dark:border-white/5 font-plus-jakarta">
-      <VisuallyHidden.Root>
-        <SheetHeader>
-          <SheetTitle>Sesi Kontrol: {session.customer_name}</SheetTitle>
-          <SheetDescription>
-            Manajemen billing dan durasi sesi aktif
-          </SheetDescription>
-        </SheetHeader>
-      </VisuallyHidden.Root>
-
-      {/* 1. COMPACT HEADER SECTION */}
-      <div className="px-6 py-5 bg-slate-900 text-white shrink-0 shadow-md">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-white font-plus-jakarta dark:bg-slate-950">
+      <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-4 dark:border-white/10 dark:bg-slate-950">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0">
-              <Zap className="w-5 h-5 fill-current" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/30">
+              <User className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-lg font-black italic uppercase tracking-tighter leading-none pr-2 truncate">
-                {session.customer_name}
+              <h2 className="truncate pr-2 text-base font-semibold leading-tight text-slate-950 dark:text-white">
+                {session.customer_name || "Customer"}
               </h2>
-              <div className="flex items-center gap-2 mt-1.5 opacity-60">
-                <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest italic pr-1 truncate">
-                  {session.resource_name}
+              <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+                <p className="truncate pr-1 font-medium text-blue-600">
+                  {session.resource_name || "Unit"}
                 </p>
-                <span className="w-1 h-1 rounded-full bg-white/20" />
-                <span className="text-[8px] font-bold font-mono">
+                <span className="h-1 w-1 rounded-full bg-slate-300" />
+                <span className="font-mono">
                   {format(new Date(session.start_time), "HH:mm")}—
                   {format(new Date(session.end_time), "HH:mm")}
                 </span>
@@ -120,63 +158,71 @@ export function POSControlHub({ session, menuItems, onRefresh, onClose }: any) {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0 mr-8">
-            {/* mr-8 ditambahkan agar info sisa waktu tidak tertutup tombol X bawaan Sheet */}
+          <div className="flex shrink-0 items-center gap-2">
             <div
               className={cn(
-                "flex flex-col items-end px-3 py-1.5 rounded-xl border transition-all",
+                "flex flex-col items-end rounded-xl border px-3 py-1.5 transition-all",
                 isLowTime
-                  ? "bg-red-500/20 border-red-500/50 scale-105"
-                  : "bg-emerald-500/10 border-emerald-500/30",
+                  ? "border-amber-200 bg-amber-50"
+                  : "border-emerald-200 bg-emerald-50",
               )}
             >
               <span
                 className={cn(
-                  "text-[7px] font-black uppercase",
-                  isLowTime ? "text-red-400" : "text-emerald-500",
+                  "text-[10px] font-medium",
+                  isLowTime ? "text-amber-700" : "text-emerald-700",
                 )}
               >
                 Sisa
               </span>
               <span
                 className={cn(
-                  "text-[10px] font-black italic",
-                  isLowTime ? "text-red-400 animate-pulse" : "text-emerald-400",
+                  "text-sm font-semibold",
+                  isLowTime ? "text-amber-700" : "text-emerald-700",
                 )}
               >
                 {timeRemaining}
               </span>
             </div>
+            {onClose && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
+                className="h-9 w-9 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/10 dark:hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* 2. ACTIONS BAR */}
-      <div className="p-3 grid grid-cols-3 gap-3 bg-slate-50 dark:bg-slate-900/50 border-b dark:border-white/5 shrink-0">
+      <div className="grid shrink-0 grid-cols-3 gap-2 border-b border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
         <button
           onClick={() => setFnbOpen(true)}
-          className="h-14 flex flex-col items-center justify-center rounded-xl bg-white dark:bg-slate-800 border dark:border-white/5 text-slate-900 dark:text-white hover:bg-blue-600 hover:text-white transition-all shadow-sm group"
+          className="group flex h-14 flex-col items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-blue-300 hover:text-blue-600 dark:border-white/10 dark:bg-slate-950 dark:text-white"
         >
           <ShoppingCart className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
-          <span className="text-[8px] font-black uppercase italic pr-1">
+          <span className="pr-1 text-[11px] font-semibold">
             F&B Menu
           </span>
         </button>
         <button
           onClick={() => setAddonsOpen(true)}
-          className="h-14 flex flex-col items-center justify-center rounded-xl bg-white dark:bg-slate-800 border dark:border-white/5 text-slate-900 dark:text-white hover:bg-orange-500 hover:text-white transition-all shadow-sm group"
+          className="group flex h-14 flex-col items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-orange-300 hover:text-orange-600 dark:border-white/10 dark:bg-slate-950 dark:text-white"
         >
           <Package className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
-          <span className="text-[8px] font-black uppercase italic pr-1">
+          <span className="pr-1 text-[11px] font-semibold">
             Add-ons
           </span>
         </button>
         <button
           onClick={() => setExtendOpen(true)}
-          className="h-14 flex flex-col items-center justify-center rounded-xl bg-white dark:bg-slate-800 border dark:border-white/5 text-slate-900 dark:text-white hover:bg-slate-950 hover:text-white transition-all shadow-sm group"
+          className="group flex h-14 flex-col items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-slate-400 dark:border-white/10 dark:bg-slate-950 dark:text-white"
         >
           <TimerReset className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
-          <span className="text-[8px] font-black uppercase italic pr-1">
+          <span className="pr-1 text-[11px] font-semibold">
             Extend
           </span>
         </button>
@@ -194,7 +240,7 @@ export function POSControlHub({ session, menuItems, onRefresh, onClose }: any) {
               </span>
             </div>
             <div className="space-y-4">
-              {groupedOptions.map((opt: any) => (
+              {groupedOptions.map((opt) => (
                 <div
                   key={opt.id}
                   className="group animate-in fade-in slide-in-from-right-2"
@@ -229,7 +275,7 @@ export function POSControlHub({ session, menuItems, onRefresh, onClose }: any) {
                 </span>
               </div>
               <div className="space-y-4">
-                {groupedFnb.map((order: any) => (
+                {groupedFnb.map((order) => (
                   <div
                     key={order.fnb_item_id}
                     className="group animate-in fade-in slide-in-from-right-2"
@@ -276,7 +322,7 @@ export function POSControlHub({ session, menuItems, onRefresh, onClose }: any) {
               <span className="text-blue-500 text-lg mr-1.5 font-black not-italic">
                 Rp
               </span>
-              {formatIDR(session.grand_total)}
+              {formatIDR(session.grand_total || 0)}
             </p>
           </div>
           <Button
@@ -296,7 +342,7 @@ export function POSControlHub({ session, menuItems, onRefresh, onClose }: any) {
         open={fnbOpen}
         onOpenChange={setFnbOpen}
         menuItems={menuItems}
-        onConfirmOrder={async (cartItems: any) => {
+        onConfirmOrder={async (cartItems: FnBCartItem[]) => {
           for (const item of cartItems) {
             await api.post(`/bookings/pos/order/${session.id}`, {
               fnb_item_id: item.id,
@@ -309,8 +355,8 @@ export function POSControlHub({ session, menuItems, onRefresh, onClose }: any) {
       <AddonsCatalogDialog
         open={addonsOpen}
         onOpenChange={setAddonsOpen}
-        availableAddons={session.resource_addons}
-        onConfirmAddons={async (cartItems: any) => {
+        availableAddons={session.resource_addons || []}
+        onConfirmAddons={async (cartItems: AddonCartItem[]) => {
           for (const item of cartItems) {
             for (let i = 0; i < item.quantity; i++) {
               await api.post(`/bookings/${session.id}/addons`, {

@@ -195,18 +195,22 @@ export default function ExpensesPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-[1600px] space-y-4 pb-20 px-3 font-plus-jakarta animate-in fade-in duration-500 md:space-y-5 md:px-4">
-      <div className="flex flex-col gap-4 border-b-[0.5px] border-slate-200 pb-5 dark:border-white/5 sm:flex-row sm:items-center sm:justify-between md:pb-6">
+    <div className="mx-auto max-w-[1440px] space-y-4 pb-20 px-3 pt-5 font-plus-jakarta animate-in fade-in duration-300 md:px-4">
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950">
+        <div className="flex flex-col gap-4 border-b border-slate-100 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between md:p-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white shadow-xl dark:bg-white dark:text-slate-950">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white dark:bg-white dark:text-slate-950">
             <Banknote size={18} />
           </div>
           <div className="min-w-0">
-            <h1 className="text-xl font-[1000] italic uppercase tracking-tighter leading-none text-slate-900 dark:text-white md:text-4xl">
-              Expense <span className="text-blue-600">Ledger.</span>
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">
+              Pengeluaran
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-3xl">
+              Expense Ledger
             </h1>
-            <p className="mt-1 hidden text-[7px] font-black uppercase italic tracking-[0.4em] text-slate-400 sm:block">
-              Compact business expense tracking
+            <p className="mt-1 text-sm text-slate-500">
+              Catat biaya operasional, struk, dan kategori pengeluaran.
             </p>
           </div>
         </div>
@@ -216,23 +220,23 @@ export default function ExpensesPage() {
             <div
               key={item.label}
               className={cn(
-                "flex items-center gap-2 rounded-2xl px-3 py-1.5 shadow-sm ring-1 ring-slate-100 dark:ring-white/5",
+                "flex items-center gap-2 rounded-xl border px-3 py-2 shadow-sm",
                 item.tone,
               )}
             >
               <div className="min-w-0 flex-1">
-                <p className="text-[7px] font-black uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
                   {item.label}
                 </p>
                 {loading ? (
                   <Skeleton className="mt-1 h-4 w-24 rounded-full bg-slate-100 dark:bg-white/10" />
                 ) : (
-                  <p className="mt-1 truncate text-[11px] font-black italic uppercase leading-none">
+                  <p className="mt-1 truncate text-sm font-semibold leading-none">
                     {item.value}
                   </p>
                 )}
               </div>
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 dark:bg-black/5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 dark:bg-black/5">
                 <item.icon className="h-4 w-4" />
               </div>
             </div>
@@ -240,30 +244,30 @@ export default function ExpensesPage() {
 
           <Button
             onClick={openCreate}
-            className="col-span-2 h-10 rounded-2xl bg-blue-600 px-3 font-black uppercase italic text-[9px] tracking-widest text-white shadow-lg border-b-4 border-blue-800 gap-2 transition-all active:scale-95 sm:col-span-1 sm:w-auto"
+            className="col-span-2 h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm gap-2 transition-all hover:bg-blue-700 active:scale-95 sm:col-span-1 sm:w-auto"
           >
-            <Plus size={15} strokeWidth={4} /> Add Expense
+            <Plus size={15} /> Add Expense
           </Button>
         </div>
-      </div>
+        </div>
 
-      <Card className="rounded-[1.5rem] border-none bg-white p-3.5 shadow-sm ring-1 ring-slate-100 dark:bg-slate-900 dark:ring-white/5 md:p-4">
+        <div className="p-4">
         <div className="grid gap-2.5 lg:grid-cols-[minmax(0,1.4fr)_0.95fr_0.95fr_0.95fr_auto]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search title, vendor, notes..."
-              className="h-10 rounded-2xl border-none bg-slate-50 pl-10 text-xs font-black italic shadow-inner focus-visible:ring-2 focus-visible:ring-blue-600 dark:bg-slate-800/70"
+              placeholder="Cari judul, vendor, notes..."
+              className="h-10 rounded-xl border-slate-200 bg-slate-50 pl-10 text-sm font-medium focus-visible:ring-4 focus-visible:ring-blue-600/10 dark:border-white/10 dark:bg-white/5"
             />
           </div>
 
           <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger className="h-10 rounded-2xl border-none bg-slate-50 text-xs font-black italic shadow-inner dark:bg-slate-800/70">
+            <SelectTrigger className="h-10 rounded-xl border-slate-200 bg-slate-50 text-sm font-medium dark:border-white/10 dark:bg-white/5">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
-            <SelectContent className="rounded-2xl border-none font-black uppercase italic shadow-2xl">
+            <SelectContent className="rounded-xl font-medium">
               {categoryOptions.map((item) => (
                 <SelectItem key={item} value={item}>
                   {item === "all" ? "All Categories" : item}
@@ -279,7 +283,7 @@ export default function ExpensesPage() {
             onClick={resetFilters}
             variant="ghost"
             className={cn(
-              "h-10 rounded-2xl px-4 font-black uppercase italic text-[9px] tracking-widest lg:w-auto",
+              "h-10 rounded-xl px-4 text-sm font-semibold lg:w-auto",
               isFilterActive
                 ? "text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
                 : "text-slate-300",
@@ -288,7 +292,8 @@ export default function ExpensesPage() {
             Reset
           </Button>
         </div>
-      </Card>
+        </div>
+      </section>
 
       {loading ? (
         <div className="space-y-3">
@@ -321,33 +326,33 @@ export default function ExpensesPage() {
               <Card
                 key={expense.id}
                 onClick={() => openDetail(expense.id)}
-                className="group cursor-pointer rounded-[1.35rem] border-none bg-white p-3.5 shadow-sm ring-1 ring-slate-100 transition-all hover:ring-blue-500/30 dark:bg-slate-900 dark:ring-white/5"
+            className="group cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-blue-200 dark:border-white/10 dark:bg-slate-950"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1 space-y-2">
                     <div className="flex items-center gap-2">
-                      <Badge className="rounded-full border-none bg-blue-600/10 px-2 py-0.5 text-[7px] font-black uppercase italic tracking-widest text-blue-600">
+                      <Badge className="rounded-full border-none bg-blue-600/10 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
                         {expense.category}
                       </Badge>
-                      <span className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-400">
+                      <span className="text-[11px] font-medium text-slate-400">
                         {expense.receipt_url ? "receipt" : "no receipt"}
                       </span>
                     </div>
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="min-w-0 flex-1 truncate text-sm font-black italic uppercase tracking-tighter text-slate-950 dark:text-white">
+                      <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-slate-950 dark:text-white">
                         {expense.title}
                       </h3>
                       <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-blue-600" />
                     </div>
-                    <div className="text-[10px] font-bold text-slate-400">
+                    <div className="text-xs font-medium text-slate-500">
                       {formatExpenseDate(expense.expense_date)}
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-[7px] font-black uppercase tracking-widest text-slate-400">
+                    <div className="text-[11px] font-medium text-slate-400">
                       Amount
                     </div>
-                    <div className="mt-1 text-sm font-black italic text-blue-600">
+                    <div className="mt-1 text-sm font-semibold text-blue-600">
                       Rp {formatIDR(expense.amount)}
                     </div>
                   </div>
@@ -361,7 +366,7 @@ export default function ExpensesPage() {
                       openEdit(expense);
                     }}
                     variant="outline"
-                    className="h-8 flex-1 rounded-2xl border-slate-200 px-3 font-black uppercase italic text-[8px] tracking-widest dark:border-white/10"
+                    className="h-8 flex-1 rounded-xl border-slate-200 px-3 text-xs font-semibold dark:border-white/10"
                   >
                     <PencilLine className="mr-1.5 h-3.5 w-3.5" />
                     Edit
@@ -382,23 +387,23 @@ export default function ExpensesPage() {
             ))}
           </div>
 
-          <Card className="hidden overflow-hidden rounded-[1.6rem] border-none bg-white shadow-sm ring-1 ring-slate-100 dark:bg-slate-900 dark:ring-white/5 md:block">
+          <Card className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950 md:block">
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-100 dark:border-white/5">
-                  <TableHead className="pl-5 text-[10px] font-black uppercase italic tracking-widest text-slate-400">
+                  <TableHead className="pl-5 text-xs font-semibold text-slate-500">
                     Title
                   </TableHead>
-                  <TableHead className="text-[10px] font-black uppercase italic tracking-widest text-slate-400">
+                  <TableHead className="text-xs font-semibold text-slate-500">
                     Category
                   </TableHead>
-                  <TableHead className="text-[10px] font-black uppercase italic tracking-widest text-slate-400">
+                  <TableHead className="text-xs font-semibold text-slate-500">
                     Date
                   </TableHead>
-                  <TableHead className="text-right text-[10px] font-black uppercase italic tracking-widest text-slate-400">
+                  <TableHead className="text-right text-xs font-semibold text-slate-500">
                     Amount
                   </TableHead>
-                  <TableHead className="pr-5 text-right text-[10px] font-black uppercase italic tracking-widest text-slate-400">
+                  <TableHead className="pr-5 text-right text-xs font-semibold text-slate-500">
                     Actions
                   </TableHead>
                 </TableRow>
@@ -413,24 +418,24 @@ export default function ExpensesPage() {
                     <TableCell className="pl-5 py-4">
                       <div className="flex items-center gap-2">
                         <div className="min-w-0">
-                          <div className="truncate font-black italic uppercase tracking-tight text-slate-950 dark:text-white">
+                          <div className="truncate font-semibold text-slate-950 dark:text-white">
                             {expense.title}
                           </div>
-                          <div className="mt-1 flex items-center gap-1 text-[8px] font-black uppercase tracking-[0.25em] text-slate-400">
+                          <div className="mt-1 flex items-center gap-1 text-xs font-medium text-slate-400">
                             <span>{expense.receipt_url ? "receipt ready" : "no receipt"}</span>
                           </div>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge className="rounded-full border-none bg-blue-600/10 px-2 py-0.5 text-[8px] font-black uppercase italic tracking-widest text-blue-600">
+                      <Badge className="rounded-full border-none bg-blue-600/10 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
                         {expense.category}
                       </Badge>
                     </TableCell>
                     <TableCell className="font-medium text-slate-500">
                       {formatExpenseDate(expense.expense_date)}
                     </TableCell>
-                    <TableCell className="text-right font-black italic text-blue-600">
+                    <TableCell className="text-right font-semibold text-blue-600">
                       Rp {formatIDR(expense.amount)}
                     </TableCell>
                     <TableCell className="pr-5">
@@ -497,9 +502,9 @@ function DatePopover({
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          className="h-10 justify-between rounded-2xl border-none bg-slate-50 px-4 text-xs font-black italic shadow-inner dark:bg-slate-800/70"
+          className="h-10 justify-between rounded-xl border-slate-200 bg-slate-50 px-4 text-sm font-medium dark:border-white/10 dark:bg-white/5"
         >
-          <span className="text-[9px] uppercase tracking-widest text-slate-500">
+          <span className="text-xs text-slate-500">
             {label}
           </span>
           <span className="ml-3 truncate">{labelValue}</span>

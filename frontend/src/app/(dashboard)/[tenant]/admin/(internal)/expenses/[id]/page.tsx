@@ -108,26 +108,26 @@ export default function ExpenseDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4 px-3 pb-20 font-plus-jakarta animate-in fade-in duration-500 md:space-y-5 md:px-4">
-      <header className="flex flex-col gap-4 border-b-[0.5px] border-slate-200 pb-5 dark:border-white/5 sm:flex-row sm:items-start sm:justify-between md:pb-6">
+    <div className="mx-auto max-w-5xl space-y-4 px-3 pb-20 pt-5 font-plus-jakarta animate-in fade-in duration-300 md:px-4">
+      <header className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950 sm:flex sm:items-start sm:justify-between sm:gap-4">
         <div className="space-y-2">
           <Button
             variant="ghost"
             onClick={() => router.push("/admin/expenses")}
-            className="h-6 px-0 text-[8px] font-black uppercase italic tracking-widest text-slate-400 hover:text-blue-600"
+            className="h-8 px-0 text-xs font-semibold text-slate-500 hover:text-blue-600"
           >
-            <ArrowLeft className="h-2.5 w-2.5 stroke-[4]" />
+            <ArrowLeft className="h-4 w-4" />
             Back to List
           </Button>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-xl font-[1000] italic uppercase tracking-tighter leading-none text-slate-950 dark:text-white md:text-4xl">
-              Expense <span className="text-blue-600">Detail.</span>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-3xl">
+              Expense Detail
             </h1>
-            <Badge className="rounded-lg border-none bg-blue-600 px-3 py-1 text-[9px] font-black uppercase italic tracking-widest text-white">
+            <Badge className="rounded-full border-none bg-blue-600/10 px-3 py-1 text-xs font-semibold text-blue-600">
               {expense.category}
             </Badge>
           </div>
-          <p className="max-w-2xl text-[10px] font-black uppercase italic tracking-[0.25em] text-slate-400">
+          <p className="max-w-2xl text-sm text-slate-500">
             {expense.title}
           </p>
         </div>
@@ -135,7 +135,7 @@ export default function ExpenseDetailPage() {
         <div className="grid grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
           <Button
             onClick={() => setOpen(true)}
-            className="h-10 rounded-2xl bg-blue-600 px-3 font-black uppercase italic text-[9px] tracking-widest text-white shadow-lg border-b-4 border-blue-800 gap-2"
+            className="h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm gap-2 hover:bg-blue-700"
           >
             <PencilLine className="h-4 w-4" />
             Edit
@@ -144,7 +144,7 @@ export default function ExpenseDetailPage() {
             onClick={handleDelete}
             disabled={deleting}
             variant="ghost"
-            className="h-10 rounded-2xl px-3 font-black uppercase italic text-[9px] tracking-widest text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
+            className="h-10 rounded-xl px-4 text-sm font-semibold text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
           >
             <Trash2 className="h-4 w-4" />
             Delete
@@ -153,13 +153,13 @@ export default function ExpenseDetailPage() {
       </header>
 
       <div className="grid gap-3 lg:grid-cols-[1.15fr_0.85fr]">
-        <Card className="rounded-[1.6rem] border-none bg-white p-4 shadow-sm ring-1 ring-slate-100 dark:bg-slate-900 dark:ring-white/5 md:p-5">
+        <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950 md:p-5">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
-              <p className="text-[8px] font-black uppercase tracking-[0.35em] text-slate-400">
+              <p className="text-xs font-medium text-slate-500">
                 Amount
               </p>
-              <div className="text-3xl font-[1000] italic uppercase tracking-tighter text-blue-600 md:text-4xl">
+              <div className="text-3xl font-semibold tracking-tight text-blue-600 md:text-4xl">
                 Rp {formatIDR(expense.amount)}
               </div>
             </div>
@@ -195,7 +195,7 @@ export default function ExpenseDetailPage() {
             />
           </div>
 
-          <div className="mt-4 grid gap-3 rounded-[1.4rem] bg-slate-50 p-3 dark:bg-slate-950/40">
+          <div className="mt-4 grid gap-3 rounded-2xl bg-slate-50 p-3 dark:bg-white/5">
             <div className="grid gap-2 sm:grid-cols-2">
               <Field label="Category" value={expense.category || "-"} />
               <Field label="Vendor" value={expense.vendor || "-"} />
@@ -209,13 +209,13 @@ export default function ExpenseDetailPage() {
           </div>
         </Card>
 
-        <Card className="rounded-[1.6rem] border-none bg-white p-4 shadow-sm ring-1 ring-slate-100 dark:bg-slate-900 dark:ring-white/5 md:p-5">
+        <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950 md:p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[8px] font-black uppercase tracking-[0.35em] text-slate-400">
+              <p className="text-xs font-medium text-slate-500">
                 Receipt Preview
               </p>
-              <h2 className="mt-1 text-base font-[1000] italic uppercase tracking-tighter text-slate-950 dark:text-white">
+              <h2 className="mt-1 text-base font-semibold text-slate-950 dark:text-white">
                 Bukti Transaksi
               </h2>
             </div>
@@ -288,15 +288,15 @@ function MetaItem({
   value: string;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-[1.3rem] bg-slate-50 p-3 dark:bg-slate-950/40">
+    <div className="flex items-start gap-3 rounded-xl bg-slate-50 p-3 dark:bg-white/5">
       <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm dark:bg-white/5">
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">
+        <p className="text-xs font-medium text-slate-500">
           {label}
         </p>
-        <p className="mt-1 truncate text-sm font-black italic uppercase tracking-tighter text-slate-950 dark:text-white">
+        <p className="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-white">
           {value}
         </p>
       </div>
@@ -315,12 +315,12 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <p className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">
+      <p className="text-xs font-medium text-slate-500">
         {label}
       </p>
       <p
         className={cn(
-          "rounded-2xl bg-white px-3 py-2 text-sm font-black uppercase italic tracking-tighter text-slate-950 dark:bg-slate-900 dark:text-white",
+          "rounded-xl bg-white px-3 py-2 text-sm font-semibold text-slate-950 dark:bg-slate-900 dark:text-white",
           mono && "font-mono not-italic tracking-normal normal-case break-all",
         )}
       >

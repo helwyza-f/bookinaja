@@ -417,19 +417,19 @@ export default function DashboardPage() {
   }, [customersCount, metrics, ownerOnly]);
 
   return (
-    <div className="space-y-4 pb-20 px-3 font-plus-jakarta animate-in fade-in duration-500 md:space-y-5 md:px-4">
-      <div className="flex flex-col gap-3 rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:flex-row md:items-center md:justify-between md:rounded-[2rem] md:p-5">
+    <div className="space-y-4 pt-5 pb-20 px-3 font-plus-jakarta  md:space-y-5 md:px-4">
+      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:flex-row md:items-center md:justify-between md:rounded-2xl md:p-5">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <Badge className="border-none bg-blue-600 text-[8px] font-black uppercase tracking-widest text-white">
+            <Badge className="border-none bg-blue-600 text-[8px] font-semibold tracking-widest text-white">
               {ownerOnly ? "Owner View" : "Staff View"}
             </Badge>
-            <Badge className="border-none bg-slate-100 text-[8px] font-black uppercase tracking-widest text-slate-500 dark:bg-white/5 dark:text-slate-300">
+            <Badge className="border-none bg-slate-100 text-[8px] font-semibold tracking-widest text-slate-500 dark:bg-white/5 dark:text-slate-300">
               Sync {lastSyncAt || "--:--"}
             </Badge>
           </div>
           <div>
-            <h1 className="text-xl font-black italic uppercase tracking-tighter text-slate-950 dark:text-white md:text-3xl">
+            <h1 className="text-xl font-semibold text-slate-950 dark:text-white md:text-3xl">
               Dashboard Operasional
             </h1>
             <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 md:text-sm">
@@ -444,7 +444,7 @@ export default function DashboardPage() {
               key={action.href}
               asChild
               variant="outline"
-              className="h-11 rounded-2xl border-slate-200 bg-slate-50 px-3 text-[8px] font-black uppercase italic tracking-[0.15em] text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 md:px-4 md:text-[10px]"
+              className="h-11 rounded-2xl border-slate-200 bg-slate-50 px-3 text-[8px] font-semibold tracking-[0.15em] text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 md:px-4 md:text-[10px]"
             >
               <Link href={action.href}>
                 <action.icon className="mr-1.5 h-3.5 w-3.5 md:h-4 md:w-4" />
@@ -459,17 +459,17 @@ export default function DashboardPage() {
         {cardSpecs.map((item) => (
           <Card
             key={item.label}
-            className="rounded-[1.45rem] border-slate-200 bg-white p-3.5 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:rounded-[1.75rem] md:p-5"
+            className="rounded-2xl border-slate-200 bg-white p-3.5 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:rounded-2xl md:p-5"
           >
             <div className="flex items-start justify-between gap-3 md:gap-4">
               <div className="space-y-1.5">
-                <p className="text-[7px] md:text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">
+                <p className="text-[7px] md:text-[9px] font-semibold tracking-[0.3em] text-slate-400">
                   {item.label}
                 </p>
                 {loading ? (
                   <Skeleton className="h-7 w-16 rounded-xl bg-slate-100 dark:bg-white/5 md:h-10 md:w-28" />
                 ) : (
-                  <div className="text-xl font-black italic uppercase tracking-tighter text-slate-950 dark:text-white md:text-3xl">
+                  <div className="text-xl font-semibold text-slate-950 dark:text-white md:text-3xl">
                     {item.value}
                   </div>
                 )}
@@ -491,22 +491,22 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <Card className="rounded-[1.75rem] border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:rounded-[2rem] md:p-6">
+        <Card className="rounded-2xl border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:rounded-2xl md:p-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">
+              <p className="text-[8px] font-semibold tracking-[0.3em] text-slate-400">
                 Resource Today
               </p>
-              <h2 className="mt-1 text-lg font-black italic uppercase tracking-tighter text-slate-950 dark:text-white md:text-2xl">
+              <h2 className="mt-1 text-lg font-semibold text-slate-950 dark:text-white md:text-2xl">
                 Booking dan revenue per unit
               </h2>
             </div>
             <div className="flex items-center gap-2">
-              <Badge className="border-none bg-emerald-500 text-[8px] font-black uppercase tracking-widest text-white">
+              <Badge className="border-none bg-emerald-500 text-[8px] font-semibold tracking-widest text-white">
                 {resourceStats.filter((item) => item.bookingsToday > 0).length}{" "}
                 active
               </Badge>
-              <Badge className="border-none bg-slate-100 text-[8px] font-black uppercase tracking-widest text-slate-500 dark:bg-white/5 dark:text-slate-300">
+              <Badge className="border-none bg-slate-100 text-[8px] font-semibold tracking-widest text-slate-500 dark:bg-white/5 dark:text-slate-300">
                 {topResourceToday?.name || "No activity"}
               </Badge>
             </div>
@@ -515,50 +515,50 @@ export default function DashboardPage() {
           <div className="mt-4 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {loading ? (
               <>
-                <Skeleton className="h-24 rounded-[1.35rem] bg-slate-100 dark:bg-white/5" />
-                <Skeleton className="h-24 rounded-[1.35rem] bg-slate-100 dark:bg-white/5" />
-                <Skeleton className="h-24 rounded-[1.35rem] bg-slate-100 dark:bg-white/5" />
+                <Skeleton className="h-24 rounded-xl bg-slate-100 dark:bg-white/5" />
+                <Skeleton className="h-24 rounded-xl bg-slate-100 dark:bg-white/5" />
+                <Skeleton className="h-24 rounded-xl bg-slate-100 dark:bg-white/5" />
               </>
             ) : resourceStats.length === 0 ? (
-              <div className="rounded-[1.35rem] border border-dashed border-slate-200 p-5 text-center font-black italic uppercase tracking-widest text-slate-400 dark:border-white/5 sm:col-span-2 lg:col-span-3">
+              <div className="rounded-xl border border-dashed border-slate-200 p-5 text-center font-semibold tracking-widest text-slate-400 dark:border-white/5 sm:col-span-2 lg:col-span-3">
                 Belum ada resource
               </div>
             ) : (
               resourceStats.slice(0, 9).map((resource) => (
                 <div
                   key={resource.id}
-                  className="rounded-[1.35rem] border border-slate-200 bg-slate-50 p-3.5 dark:border-white/5 dark:bg-white/5"
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 dark:border-white/5 dark:bg-white/5"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="truncate text-[11px] font-black italic uppercase tracking-tight text-slate-950 dark:text-white md:text-sm">
+                      <div className="truncate text-[11px] font-semibold text-slate-950 dark:text-white md:text-sm">
                         {resource.name}
                       </div>
-                      <div className="mt-1 text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">
+                      <div className="mt-1 text-[8px] font-semibold tracking-[0.3em] text-slate-400">
                         {resource.status || "resource"}
                       </div>
                     </div>
-                    <Badge className="border-none bg-blue-600/10 text-[8px] font-black uppercase tracking-widest text-blue-600">
+                    <Badge className="border-none bg-blue-600/10 text-[8px] font-semibold tracking-widest text-blue-600">
                       {resource.bookingsToday} bookings
                     </Badge>
                   </div>
 
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     <div className="rounded-2xl bg-white px-3 py-2 dark:bg-slate-950/40">
-                      <div className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">
+                      <div className="text-[8px] font-semibold tracking-[0.3em] text-slate-400">
                         Revenue Today
                       </div>
-                      <div className="mt-1 text-sm font-black italic uppercase tracking-tighter text-blue-600">
+                      <div className="mt-1 text-sm font-semibold text-blue-600">
                         {ownerOnly
                           ? `Rp ${formatIDR(resource.revenueToday)}`
                           : "Owner only"}
                       </div>
                     </div>
                     <div className="rounded-2xl bg-white px-3 py-2 dark:bg-slate-950/40">
-                      <div className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">
+                      <div className="text-[8px] font-semibold tracking-[0.3em] text-slate-400">
                         Last Booking
                       </div>
-                      <div className="mt-1 truncate text-sm font-black italic uppercase tracking-tighter text-slate-950 dark:text-white">
+                      <div className="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-white">
                         {resource.lastBookingAt
                           ? format(
                               parseSafeDate(resource.lastBookingAt) ||
@@ -575,13 +575,13 @@ export default function DashboardPage() {
           </div>
         </Card>
 
-        <Card className="rounded-[1.75rem] border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:rounded-[2rem] md:p-6">
+        <Card className="rounded-2xl border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:rounded-2xl md:p-6">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">
+              <p className="text-[8px] font-semibold tracking-[0.3em] text-slate-400">
                 Recent Activity
               </p>
-              <h2 className="mt-1 text-lg font-black italic uppercase tracking-tighter text-slate-950 dark:text-white">
+              <h2 className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
                 Booking terbaru
               </h2>
             </div>
@@ -591,12 +591,12 @@ export default function DashboardPage() {
           <div className="mt-4 space-y-3">
             {loading ? (
               <>
-                <Skeleton className="h-16 rounded-[1.25rem] bg-slate-100 dark:bg-white/5" />
-                <Skeleton className="h-16 rounded-[1.25rem] bg-slate-100 dark:bg-white/5" />
-                <Skeleton className="h-16 rounded-[1.25rem] bg-slate-100 dark:bg-white/5" />
+                <Skeleton className="h-16 rounded-xl bg-slate-100 dark:bg-white/5" />
+                <Skeleton className="h-16 rounded-xl bg-slate-100 dark:bg-white/5" />
+                <Skeleton className="h-16 rounded-xl bg-slate-100 dark:bg-white/5" />
               </>
             ) : topBookings.length === 0 ? (
-              <div className="rounded-[1.35rem] border border-dashed border-slate-200 p-6 text-center text-sm font-black italic uppercase tracking-widest text-slate-400 dark:border-white/5">
+              <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm font-semibold tracking-widest text-slate-400 dark:border-white/5">
                 Belum ada booking
               </div>
             ) : (
@@ -605,16 +605,16 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={booking.id}
-                    className="flex items-center gap-3 rounded-[1.35rem] border border-slate-200 bg-slate-50 p-3.5 dark:border-white/5 dark:bg-white/5"
+                    className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5 dark:border-white/5 dark:bg-white/5"
                   >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-[10px] font-black uppercase italic text-white dark:bg-white dark:text-slate-950">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-[10px] font-semibold text-white dark:bg-white dark:text-slate-950">
                       {(booking.customer_name || "B").slice(0, 2)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[11px] font-black italic uppercase tracking-tight text-slate-950 dark:text-white">
+                      <div className="truncate text-[11px] font-semibold text-slate-950 dark:text-white">
                         {booking.customer_name || "Guest"}
                       </div>
-                      <div className="mt-1 truncate text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                      <div className="mt-1 truncate text-[9px] font-bold tracking-[0.2em] text-slate-400">
                         {booking.resource_name || "-"} •{" "}
                         {(() => {
                           const parsedDate = parseSafeDate(
@@ -627,12 +627,12 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-400">
+                      <div className="text-[8px] font-semibold tracking-[0.25em] text-slate-400">
                         {booking.status || "active"}
                       </div>
                       <div
                         className={cn(
-                          "mt-1 text-[10px] font-black italic uppercase tracking-tighter",
+                          "mt-1 text-[10px] font-semibold",
                           ownerOnly
                             ? "text-blue-600"
                             : "text-slate-950 dark:text-white",
@@ -651,21 +651,21 @@ export default function DashboardPage() {
 
       {ownerOnly ? (
         <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-          <Card className="rounded-[1.75rem] border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:rounded-[2rem] md:p-6">
+          <Card className="rounded-2xl border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:rounded-2xl md:p-6">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">
+                <p className="text-[8px] font-semibold tracking-[0.3em] text-slate-400">
                   Weekly Revenue
                 </p>
-                <h2 className="mt-1 text-lg font-black italic uppercase tracking-tighter text-slate-950 dark:text-white md:text-2xl">
+                <h2 className="mt-1 text-lg font-semibold text-slate-950 dark:text-white md:text-2xl">
                   Trend 7 hari
                 </h2>
               </div>
               <div className="text-right">
-                <p className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">
+                <p className="text-[8px] font-semibold tracking-[0.3em] text-slate-400">
                   Today
                 </p>
-                <p className="mt-1 text-sm font-black italic uppercase tracking-tighter text-blue-600 md:text-base">
+                <p className="mt-1 text-sm font-semibold text-blue-600 md:text-base">
                   Rp {formatIDR(metrics.todayRevenue)}
                 </p>
               </div>
@@ -677,16 +677,16 @@ export default function DashboardPage() {
                   key={item.key}
                   className="flex flex-col items-center gap-2"
                 >
-                  <div className="flex h-36 w-full items-end rounded-[1.1rem] bg-slate-50 p-1 dark:bg-white/5">
+                  <div className="flex h-36 w-full items-end rounded-xl bg-slate-50 p-1 dark:bg-white/5">
                     <div
-                      className="w-full rounded-[0.9rem] bg-gradient-to-t from-blue-600 to-cyan-400 transition-all"
+                      className="w-full rounded-lg bg-gradient-to-t from-blue-600 to-cyan-400 transition-all"
                       style={{ height: `${item.height}%` }}
                     />
                   </div>
-                  <div className="text-[8px] font-black uppercase tracking-widest text-slate-400">
+                  <div className="text-[8px] font-semibold tracking-widest text-slate-400">
                     {item.label}
                   </div>
-                  <div className="truncate text-[8px] font-black uppercase tracking-tight text-blue-600">
+                  <div className="truncate text-[8px] font-semibold text-blue-600">
                     Rp {formatIDR(item.revenue)}
                   </div>
                 </div>
@@ -694,17 +694,17 @@ export default function DashboardPage() {
             </div>
           </Card>
 
-          <Card className="rounded-[1.75rem] border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:rounded-[2rem] md:p-6">
+          <Card className="rounded-2xl border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:rounded-2xl md:p-6">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">
+                <p className="text-[8px] font-semibold tracking-[0.3em] text-slate-400">
                   Business Snapshot
                 </p>
-                <h2 className="mt-1 text-lg font-black italic uppercase tracking-tighter text-slate-950 dark:text-white">
+                <h2 className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
                   Owner summary
                 </h2>
               </div>
-              <Badge className="border-none bg-emerald-500 text-[8px] font-black uppercase tracking-widest text-white">
+              <Badge className="border-none bg-emerald-500 text-[8px] font-semibold tracking-widest text-white">
                 {metrics.status}
               </Badge>
             </div>
@@ -737,20 +737,20 @@ export default function DashboardPage() {
               />
             </div>
 
-            <div className="mt-4 rounded-[1.35rem] bg-slate-50 p-4 dark:bg-white/5">
+            <div className="mt-4 rounded-xl bg-slate-50 p-4 dark:bg-white/5">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">
+                  <p className="text-[8px] font-semibold tracking-[0.3em] text-slate-400">
                     Sync
                   </p>
-                  <div className="mt-1 text-sm font-black italic uppercase tracking-tighter text-slate-950 dark:text-white">
+                  <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
                     {lastSyncAt || "--:--"}
                   </div>
                 </div>
                 <Button
                   asChild
                   variant="outline"
-                  className="h-10 rounded-2xl border-none bg-blue-600 px-3 font-black uppercase italic text-[9px] tracking-widest text-white hover:bg-blue-500"
+                  className="h-10 rounded-2xl border-none bg-blue-600 px-3 font-semibold text-[9px] tracking-widest text-white hover:bg-blue-500"
                 >
                   <Link href="/admin/settings/analytics">
                     Open Analytics
@@ -766,17 +766,17 @@ export default function DashboardPage() {
           </Card>
         </div>
       ) : (
-        <Card className="rounded-[1.75rem] border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:rounded-[2rem] md:p-6">
+        <Card className="rounded-2xl border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:rounded-2xl md:p-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">
+              <p className="text-[8px] font-semibold tracking-[0.3em] text-slate-400">
                 Visibility
               </p>
-              <h2 className="mt-1 text-lg font-black italic uppercase tracking-tighter text-slate-950 dark:text-white">
+              <h2 className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
                 Revenue analytics hidden for staff
               </h2>
             </div>
-            <Badge className="border-none bg-slate-100 text-[8px] font-black uppercase tracking-widest text-slate-500 dark:bg-white/5 dark:text-slate-300">
+            <Badge className="border-none bg-slate-100 text-[8px] font-semibold tracking-widest text-slate-500 dark:bg-white/5 dark:text-slate-300">
               Daily summary only
             </Badge>
           </div>
@@ -801,15 +801,15 @@ function InfoTile({
   icon: LucideIcon;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-[1.35rem] bg-slate-50 p-3 dark:bg-white/5">
+    <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3 dark:bg-white/5">
       <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-blue-600 shadow-sm dark:bg-slate-950">
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0">
-        <p className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">
+        <p className="text-[8px] font-semibold tracking-[0.3em] text-slate-400">
           {label}
         </p>
-        <p className="mt-1 truncate text-sm font-black italic uppercase tracking-tighter text-slate-950 dark:text-white">
+        <p className="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-white">
           {value}
         </p>
       </div>

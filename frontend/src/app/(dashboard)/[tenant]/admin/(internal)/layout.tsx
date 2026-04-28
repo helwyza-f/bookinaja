@@ -94,7 +94,7 @@ export default function DashboardInternalLayout({
         {/* SIDEBAR */}
         <aside
           className={cn(
-            "hidden md:flex flex-col fixed inset-y-0 z-50 transition-all duration-300 ease-in-out border-r border-slate-200 dark:border-white/5 bg-white dark:bg-[#0a0a0a]",
+            "hidden md:flex flex-col fixed inset-y-0 z-50 transition-all duration-200 ease-in-out border-r border-slate-200 dark:border-white/5 bg-white dark:bg-[#0a0a0a]",
             isCollapsed ? "w-20" : "w-72",
           )}
         >
@@ -104,31 +104,29 @@ export default function DashboardInternalLayout({
         {/* MAIN CONTENT */}
         <div
           className={cn(
-            "tenant-admin-content flex min-w-0 flex-1 flex-col transition-all duration-300 ease-in-out pb-24 md:pb-0",
+            "tenant-admin-content flex min-w-0 flex-1 flex-col transition-all duration-200 ease-in-out pb-16 md:pb-0",
             isCollapsed ? "md:pl-20" : "md:pl-72",
           )}
         >
-          <div className="fixed inset-x-0 top-0 z-40 md:hidden border-b border-slate-200/80 bg-slate-50/95 backdrop-blur dark:border-white/5 dark:bg-[#050505]/90">
-            <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <div className="fixed inset-x-0 top-0 z-40 md:hidden border-b border-slate-200/80 bg-white/95 backdrop-blur dark:border-white/5 dark:bg-[#080808]/95">
+            <div className="flex h-17.5 items-center justify-between gap-3 px-4">
               <div className="min-w-0">
-                <div className="text-[8px] font-black uppercase tracking-[0.35em] text-blue-600">
+                <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-blue-600">
                   Admin Tenant
                 </div>
-                <div className="truncate text-sm font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">
+                <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">
                   {pageTitle}
                 </div>
               </div>
               <MobileNav
                 mode="operational"
-                triggerClassName="relative left-auto bottom-auto z-auto h-11 w-11 rounded-2xl border border-slate-200 bg-slate-950 text-white shadow-lg shadow-slate-950/15 hover:bg-slate-900"
+                triggerClassName="relative left-auto bottom-auto z-auto h-10 w-10 rounded-xl border border-slate-200 bg-slate-950 text-white shadow-sm hover:bg-slate-900"
               />
             </div>
           </div>
 
           <main className="min-h-screen w-full">
-            <div className="mx-auto mt-20 max-w-[1600px] animate-in fade-in slide-in-from-bottom-2 duration-700 md:mt-10">
-              {children}
-            </div>
+            <div className="mx-auto mt-16 max-w-400 md:mt-6">{children}</div>
           </main>
         </div>
       </div>

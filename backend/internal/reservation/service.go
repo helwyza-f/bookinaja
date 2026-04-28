@@ -294,6 +294,7 @@ func (s *Service) SettleCash(ctx context.Context, id, tenantID string) error {
 	if err != nil || detail == nil {
 		return nil
 	}
+	_, _ = s.customerService.AwardBookingPoints(ctx, detail.CustomerID, detail.TenantID, detail.ID, int64(detail.GrandTotal))
 
 	tenantSlug, err := s.repo.GetTenantSlug(ctx, tID)
 	if err != nil {
@@ -807,4 +808,3 @@ func waPaymentReceivedMessage(name, note, bookingID, resourceName string, grandT
 		detailURL,
 	)
 }
-

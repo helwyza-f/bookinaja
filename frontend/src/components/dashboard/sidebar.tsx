@@ -32,7 +32,7 @@ import {
 import { clearTenantSession } from "@/lib/tenant-session";
 import api from "@/lib/api";
 import { Badge } from "../ui/badge";
-import { operationalNavItems } from "./admin-nav-config";
+import { operationalNavItems, settingsNavItems } from "./admin-nav-config";
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -97,11 +97,11 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   };
 
   return (
-    <div className="relative flex h-full flex-col bg-white dark:bg-[#0a0a0a] font-sans border-r border-slate-200 dark:border-white/5 shadow-xl transition-colors duration-500">
+    <div className="relative flex h-full flex-col bg-white dark:bg-[#0a0a0a] font-sans border-r border-slate-200 dark:border-white/5 transition-colors duration-200">
       {/* COLLAPSE TOGGLE BUTTON */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-8 z-[60] flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 dark:text-white shadow-xl hover:bg-blue-600 hover:text-white transition-all active:scale-90"
+        className="absolute -right-3 top-7 z-[60] flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:bg-blue-600 hover:text-white dark:border-white/10 dark:bg-slate-900 dark:text-white"
       >
         {isCollapsed ? (
           <ChevronRight className="h-3 w-3" />
@@ -128,10 +128,10 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
           </div>
           {!isCollapsed && (
             <div className="flex flex-col animate-in fade-in slide-in-from-left-2 duration-300 min-w-0">
-              <span className="text-xs font-[1000] italic tracking-tighter dark:text-white uppercase leading-none truncate w-32">
+              <span className="w-36 truncate text-sm font-semibold leading-none text-slate-950 dark:text-white">
                 {tenantName}
               </span>
-              <span className="text-[7px] font-black text-blue-500 uppercase tracking-[0.4em] mt-1 italic leading-none">
+              <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-600">
                 Management
               </span>
             </div>
@@ -142,7 +142,8 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       {/* MAIN NAVIGATION */}
       <nav className="flex flex-col flex-1 gap-1 p-3 pt-4 overflow-y-auto scrollbar-hide">
         {operationalNavItems.map((route) => {
-          const isActive = pathname.includes(route.href);
+          const isActive =
+            pathname === route.href || pathname.startsWith(`${route.href}/`);
           return (
             <Tooltip key={route.href}>
               <TooltipTrigger asChild>
@@ -151,10 +152,10 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                   className={cn(
                     "group flex items-center transition-all duration-200",
                     isCollapsed
-                      ? "h-11 w-11 justify-center mx-auto rounded-xl"
-                      : "px-4 py-3 w-full gap-3 rounded-xl",
+                      ? "h-10 w-10 justify-center mx-auto rounded-xl"
+                      : "px-3 py-2.5 w-full gap-3 rounded-xl",
                     isActive
-                      ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+                      ? "bg-blue-600 text-white shadow-sm"
                       : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-blue-600 dark:hover:text-white",
                   )}
                 >
@@ -166,7 +167,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                     )}
                   />
                   {!isCollapsed && (
-                    <span className="text-[10px] font-[1000] uppercase italic tracking-widest truncate animate-in fade-in duration-300">
+                    <span className="truncate text-sm font-semibold">
                       {route.label}
                     </span>
                   )}
@@ -175,7 +176,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
               {isCollapsed && (
                 <TooltipContent
                   side="right"
-                  className="bg-blue-600 border-none font-[1000] italic uppercase text-[9px] text-white px-3 py-1.5 shadow-2xl ml-2"
+                  className="ml-2 border-none bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white shadow-lg"
                 >
                   {route.label}
                 </TooltipContent>
@@ -183,6 +184,60 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
             </Tooltip>
           );
         })}
+
+        {userData?.role === "owner" && (
+          <div className="mt-3 border-t border-slate-100 pt-3 dark:border-white/5">
+            {!isCollapsed && (
+              <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                Settings
+              </div>
+            )}
+            <div className="flex flex-col gap-1">
+              {settingsNavItems.map((route) => {
+                const isActive =
+                  pathname === route.href || pathname.startsWith(`${route.href}/`);
+                return (
+                  <Tooltip key={route.href}>
+                    <TooltipTrigger asChild>
+                      <Link
+                        href={route.href}
+                        className={cn(
+                          "group flex items-center transition-colors",
+                          isCollapsed
+                            ? "mx-auto h-10 w-10 justify-center rounded-xl"
+                            : "w-full gap-3 rounded-xl px-3 py-2.5",
+                          isActive
+                            ? "bg-blue-600 text-white shadow-sm"
+                            : "text-slate-500 hover:bg-slate-100 hover:text-blue-600 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white",
+                        )}
+                      >
+                        <route.icon
+                          className={cn(
+                            "shrink-0",
+                            isCollapsed ? "h-5 w-5" : "h-4 w-4",
+                          )}
+                        />
+                        {!isCollapsed && (
+                          <span className="truncate text-sm font-semibold">
+                            {route.label}
+                          </span>
+                        )}
+                      </Link>
+                    </TooltipTrigger>
+                    {isCollapsed && (
+                      <TooltipContent
+                        side="right"
+                        className="ml-2 border-none bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white shadow-lg"
+                      >
+                        {route.label}
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* FOOTER: NAV USER POPOVER */}
@@ -195,7 +250,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                 isCollapsed ? "h-12 w-12 justify-center mx-auto" : "p-2 gap-3",
               )}
             >
-              <div className="h-9 w-9 shrink-0 rounded-xl bg-blue-600 flex items-center justify-center font-[1000] text-white shadow-lg italic border-b-2 border-blue-800 uppercase overflow-hidden">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-blue-600 font-semibold uppercase text-white shadow-sm">
                 {userData?.logo_url && userData.logo_url !== "" ? (
                   <div
                     className="h-full w-full bg-cover bg-center"
@@ -211,7 +266,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
               {!isCollapsed && (
                 <>
                   <div className="flex flex-col flex-1 text-left min-w-0">
-                    <span className="text-[10px] font-[1000] uppercase italic dark:text-white leading-none truncate">
+                    <span className="truncate text-sm font-semibold leading-none dark:text-white">
                       {userData?.name || "Admin Sultan"}
                     </span>
                     <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tight truncate mt-1.5">
@@ -225,23 +280,23 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
           </DropdownMenuTrigger>
 
           <DropdownMenuContent
-            className="w-64 rounded-[1.8rem] p-2 bg-white dark:bg-[#0c0c0c] border-slate-200 dark:border-white/10 shadow-2xl"
+            className="w-64 rounded-2xl border-slate-200 bg-white p-2 shadow-xl dark:border-white/10 dark:bg-[#0c0c0c]"
             side="right"
             align="end"
             sideOffset={12}
           >
             <DropdownMenuLabel className="p-4">
-              <div className="rounded-[1.25rem] bg-slate-950 text-white p-4 space-y-3">
+              <div className="space-y-3 rounded-xl bg-slate-950 p-4 text-white">
                 <div className="flex items-center justify-between gap-3">
                   <div className="space-y-1 min-w-0">
-                    <div className="text-[10px] font-[1000] uppercase italic leading-none tracking-widest">
+                    <div className="text-sm font-semibold leading-none">
                       {tenantName}
                     </div>
                     <div className="text-[8px] font-bold uppercase tracking-[0.3em] text-slate-300">
                       Command Center
                     </div>
                   </div>
-                  <Badge className="bg-white/10 text-white border-none text-[7px] px-2 py-0 uppercase font-black italic">
+                  <Badge className="border-none bg-white/10 px-2 py-0 text-[10px] font-semibold uppercase text-white">
                     {String(userData?.role || "staff").toUpperCase()}
                   </Badge>
                 </div>
@@ -257,11 +312,11 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
             <DropdownMenuGroup className="p-1 space-y-0.5">
               {userData?.role === "owner" && (
                 <DropdownMenuItem
-                  onClick={() => router.push("/admin/settings")}
+                  onClick={() => router.push("/admin/settings/bisnis")}
                   className="rounded-xl px-3 py-3 cursor-pointer text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 focus:bg-slate-100 dark:focus:bg-white/5 focus:text-blue-600 dark:focus:text-white transition-all"
                 >
                   <Settings className="mr-3 h-4 w-4" />
-                  <span className="text-[10px] font-black uppercase tracking-widest italic">
+                  <span className="text-xs font-semibold">
                     Konfigurasi Bisnis
                   </span>
                 </DropdownMenuItem>
@@ -276,7 +331,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                 ) : (
                   <Moon className="mr-3 h-4 w-4 text-blue-500 fill-blue-500/20" />
                 )}
-                <span className="text-[10px] font-black uppercase tracking-widest italic">
+                <span className="text-xs font-semibold">
                   Tampilan {theme === "dark" ? "Terang" : "Gelap"}
                 </span>
               </DropdownMenuItem>
@@ -290,7 +345,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                 className="rounded-xl px-3 py-3 cursor-pointer text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 focus:bg-red-50 dark:focus:bg-red-500/10 transition-all group"
               >
                 <LogOut className="mr-3 h-4 w-4 transition-transform group-hover:-translate-x-1" />
-                <span className="text-[10px] font-black uppercase tracking-widest italic">
+                <span className="text-xs font-semibold">
                   Putuskan Sesi
                 </span>
               </DropdownMenuItem>

@@ -188,60 +188,65 @@ export default function BookingsPage() {
     return { totalRevenue, activeSess };
   }, [filteredBookings]);
 
+  const bookingCountLabel = `${filteredBookings.length} booking`;
+
   return (
-    <div className="w-full mx-auto space-y-5 md:space-y-6 pb-20 animate-in fade-in duration-500 px-3 md:px-4 font-plus-jakarta">
-      {/* 1. TOP HEADER SECTION */}
-      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 md:gap-6">
-        <div className="space-y-1 max-w-2xl">
-          <h1 className="text-2xl md:text-5xl font-[1000] tracking-tighter uppercase italic text-slate-900 dark:text-white leading-none pr-0 md:pr-4">
-            Master <span className="text-blue-600">Bookings.</span>
-          </h1>
-          <div className="flex items-center gap-2 text-slate-400 font-bold italic text-[10px] uppercase tracking-widest">
-            <MonitorPlay size={12} className="text-blue-600" />
-            Live Inventory Management
-          </div>
-        </div>
+    <div className="mx-auto w-full space-y-4 px-3 pb-20 pt-5 font-plus-jakarta md:px-4">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/5 dark:bg-[#0a0a0a]">
+        <div className="h-1 bg-blue-600" />
+        <div className="p-4 md:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-2xl space-y-1">
+              <h1 className="text-2xl font-semibold text-slate-900 dark:text-white md:text-3xl">
+                Bookings
+              </h1>
+              <div className="flex items-start gap-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                <MonitorPlay size={14} className="mt-1 shrink-0 text-blue-600" />
+                <span>Kelola jadwal, status pembayaran, dan booking per resource.</span>
+              </div>
+            </div>
 
-        <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-stretch sm:gap-3 w-full lg:w-auto">
-          <div className="flex items-center gap-2 bg-slate-950 dark:bg-white p-1.5 pl-3 rounded-2xl shadow-xl border-b-4 border-slate-800 dark:border-slate-300 w-full sm:w-auto lg:min-w-[210px]">
-            <div className="flex flex-col">
-              <span className="text-[7px] md:text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase leading-none mb-0.5">
-                Total Revenue
-              </span>
-              <span className="text-[11px] md:text-sm font-black italic text-white dark:text-slate-950">
-                Rp {formatIDR(stats.totalRevenue)}
-              </span>
-            </div>
-            <div className="h-8 w-8 md:h-10 md:w-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg">
-              <Wallet size={14} className="md:size-[18px]" />
+            <div className="grid w-full gap-2 sm:grid-cols-[1fr_1fr_auto] lg:w-auto lg:min-w-[520px]">
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/5">
+                <div className="flex flex-col">
+                  <span className="mb-0.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                    Total Revenue
+                  </span>
+                  <span className="text-base font-semibold text-slate-950 dark:text-white">
+                    Rp {formatIDR(stats.totalRevenue)}
+                  </span>
+                </div>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white">
+                  <Wallet size={16} />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/5">
+                <div className="flex flex-col">
+                  <span className="mb-0.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                    Active Slot
+                  </span>
+                  <span className="text-base font-semibold text-blue-600">
+                    {stats.activeSess} Units
+                  </span>
+                </div>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-blue-600 dark:bg-white/10">
+                  <TrendingUp size={16} />
+                </div>
+              </div>
+
+              <Button
+                onClick={() => router.push(`/admin/bookings/new`)}
+                className="h-12 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 sm:h-auto sm:min-h-full sm:min-w-[150px] md:px-5"
+              >
+                <Plus size={16} strokeWidth={4} /> New Booking
+              </Button>
             </div>
           </div>
-
-          <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1.5 pl-3 rounded-2xl shadow-md border border-slate-100 dark:border-white/5 w-full sm:w-auto lg:min-w-[180px]">
-            <div className="flex flex-col">
-              <span className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase leading-none mb-0.5">
-                Active Slot
-              </span>
-              <span className="text-[11px] md:text-sm font-black italic text-blue-600">
-                {stats.activeSess} Units
-              </span>
-            </div>
-            <div className="h-8 w-8 md:h-10 md:w-10 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-blue-600">
-              <TrendingUp size={14} className="md:size-[18px]" />
-            </div>
-          </div>
-
-          <Button
-            onClick={() => router.push(`/admin/bookings/new`)}
-            className="h-12 md:h-14 px-3 md:px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[10px] md:text-[11px] shadow-2xl border-b-4 border-blue-800 gap-2 transition-all active:scale-95 ml-auto lg:ml-0 w-full sm:w-auto lg:min-w-[180px]"
-          >
-            <Plus size={16} strokeWidth={4} /> New Booking
-          </Button>
         </div>
       </div>
 
-      {/* 2. ENHANCED SEARCH & FILTER BAR */}
-      <Card className="p-4 md:p-5 rounded-[1.75rem] md:rounded-[2.5rem] bg-white dark:bg-slate-900 border-none shadow-sm ring-1 ring-slate-100 dark:ring-white/5">
+      <Card className="rounded-2xl border-slate-200 bg-white p-3 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:p-4">
         <div className="space-y-4 lg:hidden">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -249,7 +254,7 @@ export default function BookingsPage() {
               placeholder="Search customer name or phone..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-11 h-11 md:h-14 rounded-2xl border-none bg-slate-50 dark:bg-slate-800/50 font-black italic text-[10px] md:text-xs shadow-inner focus:ring-2 focus:ring-blue-600/20"
+              className="pl-11 h-11 md:h-14 rounded-2xl border-none bg-slate-50 dark:bg-slate-800/50 font-semibold text-[10px] md:text-xs shadow-inner focus:ring-2 focus:ring-blue-600/20"
             />
           </div>
 
@@ -258,7 +263,7 @@ export default function BookingsPage() {
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className="h-11 md:h-12 px-3 md:px-5 rounded-xl border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-800 font-[1000] italic text-[9px] md:text-xs gap-2 md:gap-3 uppercase shadow-sm w-full"
+                  className="h-11 md:h-12 px-3 md:px-5 rounded-xl border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-800 font-semibold text-[9px] md:text-xs gap-2 md:gap-3 shadow-sm w-full"
                 >
                   <CalendarIcon className="h-4 w-4 text-blue-600" />
                   {selectedDate
@@ -267,7 +272,7 @@ export default function BookingsPage() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                className="w-[92vw] sm:w-80 p-0 border-none rounded-3xl overflow-hidden shadow-2xl"
+                className="w-[92vw] sm:w-80 p-0 border-none rounded-2xl overflow-hidden shadow-sm"
                 align="end"
               >
                 <Calendar
@@ -280,13 +285,13 @@ export default function BookingsPage() {
             </Popover>
 
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-full min-h-[44px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-[1000] italic text-[9px] uppercase focus:ring-0 shadow-sm">
+              <SelectTrigger className="w-full min-h-[44px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-semibold text-[9px] focus:ring-0 shadow-sm">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
-              <SelectContent className="rounded-2xl border-none shadow-2xl p-2">
+              <SelectContent className="rounded-2xl border-none shadow-sm p-2">
                 <SelectItem
                   value="all"
-                  className="text-xs font-black uppercase italic py-3 rounded-xl"
+                  className="text-xs font-semibold py-3 rounded-xl"
                 >
                   All Status
                 </SelectItem>
@@ -300,7 +305,7 @@ export default function BookingsPage() {
                   <SelectItem
                     key={s}
                     value={s}
-                    className="text-xs font-black uppercase italic py-3 rounded-xl"
+                    className="text-xs font-semibold py-3 rounded-xl"
                   >
                     {s}
                   </SelectItem>
@@ -309,13 +314,13 @@ export default function BookingsPage() {
             </Select>
 
             <Select value={filterResource} onValueChange={setFilterResource}>
-              <SelectTrigger className="w-full min-h-[44px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-[1000] italic text-[9px] uppercase focus:ring-0 shadow-sm">
+              <SelectTrigger className="w-full min-h-[44px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-semibold text-[9px] focus:ring-0 shadow-sm">
                 <SelectValue placeholder="Resource" />
               </SelectTrigger>
-              <SelectContent className="rounded-2xl border-none shadow-2xl p-2">
+              <SelectContent className="rounded-2xl border-none shadow-sm p-2">
                 <SelectItem
                   value="all"
-                  className="text-xs font-black uppercase italic py-3 rounded-xl"
+                  className="text-xs font-semibold py-3 rounded-xl"
                 >
                   All Resources
                 </SelectItem>
@@ -323,7 +328,7 @@ export default function BookingsPage() {
                   <SelectItem
                     key={r}
                     value={r}
-                    className="text-xs font-black uppercase italic py-3 rounded-xl"
+                    className="text-xs font-semibold py-3 rounded-xl"
                   >
                     {r}
                   </SelectItem>
@@ -335,12 +340,14 @@ export default function BookingsPage() {
               <Button
                 onClick={resetFilters}
                 variant="ghost"
-                className="h-11 px-3 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 font-black italic text-[9px] uppercase gap-2 rounded-2xl w-full"
+                className="h-11 px-3 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 font-semibold text-[9px] gap-2 rounded-2xl w-full"
               >
                 <XCircle size={16} /> Clear
               </Button>
             ) : (
-              <div className="h-11 rounded-2xl border border-dashed border-slate-100 bg-slate-50/60 dark:border-white/5 dark:bg-slate-800/30" />
+              <div className="flex h-11 items-center justify-center rounded-2xl border border-dashed border-slate-100 bg-slate-50/60 text-[10px] font-semibold text-slate-400 dark:border-white/5 dark:bg-slate-800/30">
+                {bookingCountLabel}
+              </div>
             )}
 
             <div className="col-span-2 flex gap-1.5 bg-slate-50 dark:bg-slate-800 p-1.5 rounded-2xl w-full">
@@ -351,7 +358,7 @@ export default function BookingsPage() {
                 className={cn(
                   "rounded-xl h-11 px-4 flex-1",
                   viewMode === "list"
-                    ? "bg-white dark:bg-slate-700 shadow-md font-black"
+                    ? "bg-white dark:bg-slate-700 shadow-sm font-semibold"
                     : "text-slate-400",
                 )}
               >
@@ -364,7 +371,7 @@ export default function BookingsPage() {
                 className={cn(
                   "rounded-xl h-11 px-4 flex-1",
                   viewMode === "grid"
-                    ? "bg-white dark:bg-slate-700 shadow-md font-black"
+                    ? "bg-white dark:bg-slate-700 shadow-sm font-semibold"
                     : "text-slate-400",
                 )}
               >
@@ -381,7 +388,7 @@ export default function BookingsPage() {
               placeholder="Search customer name or phone..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-11 h-12 rounded-2xl border-none bg-slate-50 dark:bg-slate-800/50 font-black italic text-xs shadow-inner focus:ring-2 focus:ring-blue-600/20"
+              className="pl-11 h-12 rounded-2xl border-none bg-slate-50 dark:bg-slate-800/50 font-semibold text-xs shadow-inner focus:ring-2 focus:ring-blue-600/20"
             />
           </div>
 
@@ -389,7 +396,7 @@ export default function BookingsPage() {
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className="h-12 px-5 rounded-xl border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-800 font-[1000] italic text-xs gap-3 uppercase shadow-sm min-w-[170px]"
+                className="h-12 px-5 rounded-xl border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-800 font-semibold text-xs gap-3 shadow-sm min-w-[170px]"
               >
                 <CalendarIcon className="h-4 w-4 text-blue-600" />
                 {selectedDate
@@ -398,7 +405,7 @@ export default function BookingsPage() {
               </Button>
             </PopoverTrigger>
             <PopoverContent
-              className="w-80 p-0 border-none rounded-3xl overflow-hidden shadow-2xl"
+              className="w-80 p-0 border-none rounded-2xl overflow-hidden shadow-sm"
               align="start"
             >
               <Calendar
@@ -411,13 +418,13 @@ export default function BookingsPage() {
           </Popover>
 
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="h-12 w-[170px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-[1000] italic text-xs uppercase focus:ring-0 shadow-sm">
+            <SelectTrigger className="h-12 w-[170px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-semibold text-xs focus:ring-0 shadow-sm">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
-            <SelectContent className="rounded-2xl border-none shadow-2xl p-2">
+            <SelectContent className="rounded-2xl border-none shadow-sm p-2">
               <SelectItem
                 value="all"
-                className="text-xs font-black uppercase italic py-3 rounded-xl"
+                className="text-xs font-semibold py-3 rounded-xl"
               >
                 All Status
               </SelectItem>
@@ -426,7 +433,7 @@ export default function BookingsPage() {
                   <SelectItem
                     key={s}
                     value={s}
-                    className="text-xs font-black uppercase italic py-3 rounded-xl"
+                    className="text-xs font-semibold py-3 rounded-xl"
                   >
                     {s}
                   </SelectItem>
@@ -436,13 +443,13 @@ export default function BookingsPage() {
           </Select>
 
           <Select value={filterResource} onValueChange={setFilterResource}>
-            <SelectTrigger className="h-12 w-[180px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-[1000] italic text-xs uppercase focus:ring-0 shadow-sm">
+            <SelectTrigger className="h-12 w-[180px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-semibold text-xs focus:ring-0 shadow-sm">
               <SelectValue placeholder="Resource" />
             </SelectTrigger>
-            <SelectContent className="rounded-2xl border-none shadow-2xl p-2">
+            <SelectContent className="rounded-2xl border-none shadow-sm p-2">
               <SelectItem
                 value="all"
-                className="text-xs font-black uppercase italic py-3 rounded-xl"
+                className="text-xs font-semibold py-3 rounded-xl"
               >
                 All Resources
               </SelectItem>
@@ -450,7 +457,7 @@ export default function BookingsPage() {
                 <SelectItem
                   key={r}
                   value={r}
-                  className="text-xs font-black uppercase italic py-3 rounded-xl"
+                  className="text-xs font-semibold py-3 rounded-xl"
                 >
                   {r}
                 </SelectItem>
@@ -458,17 +465,19 @@ export default function BookingsPage() {
             </SelectContent>
           </Select>
 
+          <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 dark:bg-white/5 dark:text-slate-400">
+            {bookingCountLabel}
+          </div>
+
           {isFilterActive ? (
             <Button
               onClick={resetFilters}
               variant="ghost"
-              className="h-12 px-4 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 font-black italic text-xs uppercase gap-2 rounded-2xl"
+              className="h-12 px-4 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 font-semibold text-xs gap-2 rounded-2xl"
             >
               <XCircle size={16} /> Clear
             </Button>
-          ) : (
-            <div className="h-12 w-[100px]" />
-          )}
+          ) : null}
 
           <div className="ml-auto flex gap-1.5 bg-slate-50 dark:bg-slate-800 p-1.5 rounded-2xl">
             <Button
@@ -478,7 +487,7 @@ export default function BookingsPage() {
               className={cn(
                 "rounded-xl h-11 px-4 min-w-[78px]",
                 viewMode === "list"
-                  ? "bg-white dark:bg-slate-700 shadow-md font-black"
+                  ? "bg-white dark:bg-slate-700 shadow-sm font-semibold"
                   : "text-slate-400",
               )}
             >
@@ -491,7 +500,7 @@ export default function BookingsPage() {
               className={cn(
                 "rounded-xl h-11 px-4 min-w-[78px]",
                 viewMode === "grid"
-                  ? "bg-white dark:bg-slate-700 shadow-md font-black"
+                  ? "bg-white dark:bg-slate-700 shadow-sm font-semibold"
                   : "text-slate-400",
               )}
             >
@@ -504,41 +513,53 @@ export default function BookingsPage() {
       {/* 3. DYNAMIC CONTENT AREA */}
       {loading ? (
         <div className="space-y-6">
-          <Skeleton className="h-64 w-full rounded-[2.5rem]" />
-          <Skeleton className="h-64 w-full rounded-[2.5rem]" />
+          <Skeleton className="h-64 w-full rounded-2xl" />
+          <Skeleton className="h-64 w-full rounded-2xl" />
         </div>
       ) : filteredBookings.length === 0 ? (
-        <div className="h-80 flex flex-col items-center justify-center gap-4 bg-white dark:bg-slate-900 rounded-[3rem] border border-dashed border-slate-200 dark:border-white/5">
-          <div className="h-16 w-16 rounded-3xl bg-slate-50 dark:bg-white/5 flex items-center justify-center text-slate-200 dark:text-slate-800">
-            <Box size={32} />
+        <div className="flex min-h-[360px] flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center dark:border-white/5 dark:bg-slate-900">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-500 dark:bg-blue-500/10">
+            <Box size={30} />
           </div>
-          <p className="text-slate-400 font-black italic uppercase text-sm tracking-widest">
-            No Reservation Found
-          </p>
+          <div>
+            <p className="text-lg font-semibold text-slate-900 dark:text-white">
+              Belum ada reservasi di filter ini
+            </p>
+            <p className="mt-1 max-w-sm text-sm text-slate-500 dark:text-slate-400">
+              Coba ganti tanggal/filter, atau buat booking manual untuk walk-in.
+            </p>
+          </div>
+          <Button
+            onClick={() => router.push("/admin/bookings/new")}
+            className="rounded-xl bg-blue-600 text-white hover:bg-blue-700"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            New Booking
+          </Button>
         </div>
       ) : viewMode === "list" ? (
         <div className="space-y-6">
           {Object.entries(groupedData).map(([resourceName, sessions]) => (
             <div
               key={resourceName}
-              className="space-y-3 animate-in slide-in-from-bottom-2 duration-300"
+              className="space-y-3 "
             >
               <div className="flex items-center gap-3 px-3">
                 <div className="w-8 h-8 rounded-xl bg-blue-600/10 flex items-center justify-center">
                   <Layers className="w-4 h-4 text-blue-600" />
                 </div>
-                <h3 className="font-[1000] italic text-lg uppercase tracking-tight text-slate-800 dark:text-slate-200">
+                <h3 className="font-semibold text-lg text-slate-800 dark:text-slate-200">
                   {resourceName}
                 </h3>
                 <Badge
                   variant="outline"
-                  className="text-[10px] font-black italic border-slate-100 dark:border-white/5 text-slate-400"
+                  className="text-[10px] font-semibold border-slate-100 dark:border-white/5 text-slate-400"
                 >
                   {sessions.length} Booking
                 </Badge>
               </div>
 
-              <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-none shadow-lg overflow-hidden bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5">
+              <Card className="rounded-2xl md:rounded-2xl border-none shadow-sm overflow-hidden bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5">
                 <div className="overflow-x-auto">
                   <Table className="min-w-[920px]">
                     <TableBody>
@@ -554,10 +575,10 @@ export default function BookingsPage() {
                                 <User size={20} />
                               </div>
                               <div className="flex flex-col">
-                                <span className="font-[1000] uppercase italic tracking-tighter text-base text-slate-900 dark:text-white">
+                                <span className="font-semibold text-base text-slate-900 dark:text-white">
                                   {b.customer_name}
                                 </span>
-                                <span className="text-[11px] font-bold text-slate-400 italic leading-none mt-1">
+                                <span className="text-[11px] font-bold text-slate-400 leading-none mt-1">
                                   {b.customer_phone}
                                 </span>
                               </div>
@@ -565,12 +586,12 @@ export default function BookingsPage() {
                           </TableCell>
                           <TableCell className="w-[30%]">
                             <div className="flex flex-col">
-                              <div className="flex items-center gap-2 text-blue-600 font-black italic text-[12px] uppercase tracking-tighter leading-none">
+                              <div className="flex items-center gap-2 text-blue-600 font-semibold text-[12px] leading-none">
                                 <Clock size={14} />{" "}
                                 {format(new Date(b.start_time), "HH:mm")} -{" "}
                                 {format(new Date(b.end_time), "HH:mm")}
                               </div>
-                              <span className="text-[10px] font-bold text-slate-400 uppercase italic mt-1.5">
+                              <span className="text-[10px] font-bold text-slate-400 mt-1.5">
                                 {format(
                                   new Date(b.start_time),
                                   "dd MMMM yyyy",
@@ -584,9 +605,9 @@ export default function BookingsPage() {
                           <TableCell className="w-[15%]">
                             <Badge
                               className={cn(
-                                "font-black italic text-[9px] uppercase px-4 py-1.5 rounded-full border-none shadow-sm",
+                                "font-semibold text-[9px] px-4 py-1.5 rounded-full border-none shadow-sm",
                                 b.status === "active"
-                                  ? "bg-emerald-500 text-white animate-pulse"
+                                  ? "bg-emerald-500 text-white "
                                   : b.status === "confirmed"
                                     ? "bg-blue-600 text-white"
                                     : "bg-slate-100 dark:bg-slate-800 text-slate-400",
@@ -598,7 +619,7 @@ export default function BookingsPage() {
                           <TableCell className="w-[15%]">
                             <Badge
                               className={cn(
-                                "font-black italic text-[9px] uppercase px-4 py-1.5 rounded-full border-none shadow-sm",
+                                "font-semibold text-[9px] px-4 py-1.5 rounded-full border-none shadow-sm",
                                 getPaymentMeta(b).className,
                               )}
                             >
@@ -607,10 +628,10 @@ export default function BookingsPage() {
                           </TableCell>
                           <TableCell className="text-right pr-10">
                             <div className="flex flex-col items-end">
-                              <span className="text-[10px] font-black text-slate-400 uppercase italic mb-1">
+                              <span className="text-[10px] font-semibold text-slate-400 mb-1">
                                 Billing
                               </span>
-                              <span className="text-lg font-[1000] italic text-slate-950 dark:text-white leading-none">
+                              <span className="text-lg font-semibold text-slate-950 dark:text-white leading-none">
                                 Rp {formatIDR(b.total_resource + b.total_fnb)}
                               </span>
                             </div>
@@ -630,7 +651,7 @@ export default function BookingsPage() {
           {Object.entries(groupedData).map(([resourceName, sessions]) => (
             <div key={resourceName} className="space-y-5">
               <div className="flex items-center gap-3 px-3">
-                <h3 className="font-[1000] italic text-xl uppercase tracking-tight text-slate-800 dark:text-slate-200">
+                <h3 className="font-semibold text-xl text-slate-800 dark:text-slate-200">
                   {resourceName}
                 </h3>
                 <div className="flex-1 h-[1px] bg-slate-100 dark:bg-white/5" />
@@ -640,16 +661,16 @@ export default function BookingsPage() {
                   <Card
                     key={b.id}
                     onClick={() => router.push(`/admin/bookings/${b.id}`)}
-                    className="p-4 md:p-6 rounded-[1.75rem] md:rounded-[2.5rem] border-none shadow-md hover:shadow-xl transition-all cursor-pointer group relative overflow-hidden bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5"
+                    className="p-4 md:p-6 rounded-2xl md:rounded-2xl border-none shadow-sm hover:shadow-sm transition-all cursor-pointer group relative overflow-hidden bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5"
                   >
                     {b.status === "active" && (
-                      <div className="absolute top-0 left-0 w-full h-1.5 bg-emerald-500 animate-pulse" />
+                      <div className="absolute top-0 left-0 w-full h-1.5 bg-emerald-500 " />
                     )}
 
                     <div className="flex justify-between items-start mb-5">
                       <Badge
                         className={cn(
-                          "font-black italic text-[9px] uppercase px-3 py-1 rounded-full shadow-sm",
+                          "font-semibold text-[9px] px-3 py-1 rounded-full shadow-sm",
                           b.status === "active"
                             ? "bg-emerald-500 text-white"
                             : "bg-slate-50 dark:bg-slate-800 text-slate-400",
@@ -665,7 +686,7 @@ export default function BookingsPage() {
                     <div className="mb-4">
                       <Badge
                         className={cn(
-                          "font-black italic text-[9px] uppercase px-3 py-1 rounded-full border-none shadow-sm",
+                          "font-semibold text-[9px] px-3 py-1 rounded-full border-none shadow-sm",
                           getPaymentMeta(b).className,
                         )}
                       >
@@ -674,29 +695,29 @@ export default function BookingsPage() {
                     </div>
 
                     <div className="space-y-1 mb-6">
-                      <h4 className="font-[1000] italic text-base lg:text-lg uppercase tracking-tighter text-slate-900 dark:text-white leading-tight group-hover:text-blue-600 transition-colors">
+                      <h4 className="font-semibold text-base lg:text-lg text-slate-900 dark:text-white leading-tight group-hover:text-blue-600 transition-colors">
                         {b.customer_name}
                       </h4>
-                      <p className="text-[11px] font-bold text-slate-400 italic leading-none">
+                      <p className="text-[11px] font-bold text-slate-400 leading-none">
                         {b.customer_phone}
                       </p>
                     </div>
 
                     <div className="pt-5 border-t border-slate-50 dark:border-white/5 flex justify-between items-end">
                       <div className="flex flex-col">
-                        <span className="text-[8px] font-black text-slate-400 uppercase italic leading-none mb-1.5">
+                        <span className="text-[8px] font-semibold text-slate-400 leading-none mb-1.5">
                           TIME SLOT
                         </span>
-                        <span className="text-[13px] font-[1000] italic text-blue-600 dark:text-blue-400 leading-none">
+                        <span className="text-[13px] font-semibold text-blue-600 dark:text-blue-400 leading-none">
                           {format(new Date(b.start_time), "HH:mm")} -{" "}
                           {format(new Date(b.end_time), "HH:mm")}
                         </span>
                       </div>
                       <div className="text-right">
-                        <span className="text-[8px] font-black text-slate-400 uppercase italic mb-1.5 leading-none">
+                        <span className="text-[8px] font-semibold text-slate-400 mb-1.5 leading-none">
                           TOTAL
                         </span>
-                        <span className="text-base font-black italic text-slate-950 dark:text-white leading-none block">
+                        <span className="text-base font-semibold text-slate-950 dark:text-white leading-none block">
                           Rp{formatIDR(b.total_resource + b.total_fnb)}
                         </span>
                       </div>

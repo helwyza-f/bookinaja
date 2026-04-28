@@ -65,11 +65,32 @@ type RegisterStartResponse struct {
 
 // CustomerDashboardData: Menampung data untuk Mobile Dashboard /me
 type CustomerDashboardData struct {
-	Customer Customer `json:"customer"`
-	Points   int      `json:"points"`
+	Customer      Customer             `json:"customer"`
+	Points        int                  `json:"points"`
+	PointActivity []CustomerPointEvent `json:"point_activity"`
 	// Dipisah agar Frontend bisa render Tab "Active" vs "History" dengan benar
 	ActiveBookings []RecentHistoryDTO `json:"active_bookings"`
 	PastHistory    []RecentHistoryDTO `json:"past_history"`
+}
+
+type CustomerPointEvent struct {
+	ID          uuid.UUID  `json:"id" db:"id"`
+	CustomerID  uuid.UUID  `json:"customer_id" db:"customer_id"`
+	TenantID    *uuid.UUID `json:"tenant_id" db:"tenant_id"`
+	TenantName  *string    `json:"tenant_name" db:"tenant_name"`
+	TenantSlug  *string    `json:"tenant_slug" db:"tenant_slug"`
+	BookingID   *uuid.UUID `json:"booking_id" db:"booking_id"`
+	EventType   string     `json:"event_type" db:"event_type"`
+	Points      int        `json:"points" db:"points"`
+	Description *string    `json:"description" db:"description"`
+	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
+}
+
+type CustomerPointSummary struct {
+	Balance          int                  `json:"balance"`
+	EarnedAtTenant   int                  `json:"earned_at_tenant"`
+	Activity         []CustomerPointEvent `json:"activity"`
+	EarningRuleLabel string               `json:"earning_rule_label"`
 }
 
 // RecentHistoryDTO digunakan untuk list bokingan di dashboard customer

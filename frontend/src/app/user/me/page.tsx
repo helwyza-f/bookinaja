@@ -11,7 +11,6 @@ import {
   Clock,
   LogOut,
   MapPin,
-  Search,
   Settings,
   Sparkles,
   Ticket,
@@ -24,7 +23,6 @@ import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -38,8 +36,17 @@ type CustomerDashboard = {
     loyalty_points?: number;
   };
   points?: number;
+  point_activity?: PointEvent[];
   active_bookings?: BookingItem[];
   past_history?: BookingItem[];
+};
+
+type PointEvent = {
+  id: string;
+  tenant_name?: string;
+  points: number;
+  description?: string;
+  created_at: string;
 };
 
 type BookingItem = {
@@ -78,7 +85,6 @@ export default function UserDashboardPage() {
   const [tenants, setTenants] = useState<TenantCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"active" | "history">("active");
-  const [tenantQuery, setTenantQuery] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -110,19 +116,19 @@ export default function UserDashboardPage() {
     };
   }, [router]);
 
-  const activeBookings = data?.active_bookings || [];
-  const pastHistory = data?.past_history || [];
+  const activeBookings = useMemo(() => data?.active_bookings || [], [data?.active_bookings]);
+  const pastHistory = useMemo(() => data?.past_history || [], [data?.past_history]);
+  const pointActivity = useMemo(() => data?.point_activity || [], [data?.point_activity]);
   const currentList = activeTab === "active" ? activeBookings : pastHistory;
 
   const recentlyBookedTenantSlugs = useMemo(() => {
-    if (!data) return [];
     const allBookings = [...activeBookings, ...pastHistory];
     const slugs = new Set<string>();
     allBookings.forEach((b) => {
       if (b.tenant_slug) slugs.add(b.tenant_slug);
     });
     return Array.from(slugs).slice(0, 3);
-  }, [data, activeBookings, pastHistory]);
+  }, [activeBookings, pastHistory]);
 
   const recentTenants = useMemo(() => {
     if (recentlyBookedTenantSlugs.length === 0) {
@@ -211,6 +217,49 @@ export default function UserDashboardPage() {
                 {(data?.points || 0).toLocaleString("id-ID")}
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-black uppercase tracking-tight text-slate-950 dark:text-white">
+                Aktivitas Points
+              </h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Points kamu berlaku lintas tenant Bookinaja.
+              </p>
+            </div>
+            <Badge variant="secondary" className="rounded-lg">
+              1 poin / Rp10.000
+            </Badge>
+          </div>
+          <div className="mt-4 grid gap-2 md:grid-cols-2">
+            {pointActivity.slice(0, 4).map((event) => (
+              <div
+                key={event.id}
+                className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.03]"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-slate-950 dark:text-white">
+                    {event.tenant_name || event.description || "Bookinaja"}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {new Date(event.created_at).toLocaleDateString("id-ID", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </p>
+                </div>
+                <span className="font-black text-blue-600">+{event.points.toLocaleString("id-ID")}</span>
+              </div>
+            ))}
+            {pointActivity.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
+                Points akan muncul setelah pembayaran booking lunas.
+              </div>
+            ) : null}
           </div>
         </section>
 

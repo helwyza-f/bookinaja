@@ -7,7 +7,6 @@ import {
   ReceiptText,
   Save,
   Upload,
-  X,
 } from "lucide-react";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -178,47 +177,22 @@ export function ExpenseDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[96vw] overflow-hidden border-none bg-white p-0 shadow-2xl dark:bg-slate-950 rounded-[1.75rem] sm:max-w-2xl lg:max-w-5xl">
-        <div className="relative overflow-hidden border-b border-slate-200 bg-slate-950 text-white dark:border-white/5">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.26),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.12),transparent_32%)]" />
-          <div className="relative flex items-start justify-between gap-4 px-4 py-4 md:px-5">
-            <div className="min-w-0">
-              <p className="text-[8px] font-black uppercase tracking-[0.35em] text-blue-200">
-                Expense Entry
-              </p>
-              <DialogTitle className="mt-1 text-lg font-[1000] italic uppercase tracking-tighter leading-none text-white md:text-2xl">
-                {editingExpense ? "Edit" : "New"}{" "}
-                <span className="text-blue-400">Expense.</span>
-              </DialogTitle>
-              <p className="mt-2 max-w-xl text-[10px] font-medium text-slate-300 md:text-sm">
-                Catat pengeluaran bisnis secara cepat, rapi, dan tetap enak dibaca di mobile maupun desktop.
-              </p>
-            </div>
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => onOpenChange(false)}
-              className="h-9 w-9 rounded-full text-white hover:bg-white/10 hover:text-white"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+      <DialogContent className="max-w-[96vw] overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl dark:border-white/10 dark:bg-slate-950 sm:max-w-xl">
+        <DialogTitle className="px-4 pt-4 text-xl font-semibold tracking-tight text-slate-950 dark:text-white md:px-5">
+          {editingExpense ? "Ubah Pengeluaran" : "Tambah Pengeluaran"}
+        </DialogTitle>
 
         <form
           onSubmit={handleSubmit}
-          className="max-h-[86vh] overflow-y-auto p-4 md:p-5"
+          className="max-h-[82vh] overflow-y-auto p-4 pt-3 md:p-5 md:pt-3"
         >
-          <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] lg:gap-5">
-            <div className="space-y-4">
+          <div className="space-y-4">
               <FieldGroup label="Keterangan">
                 <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Contoh: bayar listrik bulan ini"
-                  className="h-11 rounded-2xl border-none bg-slate-50 px-4 font-bold uppercase italic shadow-inner focus-visible:ring-2 focus-visible:ring-blue-600 dark:bg-slate-900"
+                  className="h-11 rounded-xl border-slate-200 bg-slate-50 px-4 font-semibold focus-visible:ring-4 focus-visible:ring-blue-600/10 dark:border-white/10 dark:bg-white/5"
                   autoComplete="off"
                   required
                 />
@@ -231,7 +205,7 @@ export function ExpenseDialog({
                     onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))}
                     placeholder="0"
                     inputMode="numeric"
-                    className="h-11 rounded-2xl border-none bg-slate-50 px-4 font-[1000] italic text-blue-600 shadow-inner focus-visible:ring-2 focus-visible:ring-blue-600 dark:bg-slate-900"
+                    className="h-11 rounded-xl border-slate-200 bg-slate-50 px-4 font-semibold text-blue-600 focus-visible:ring-4 focus-visible:ring-blue-600/10 dark:border-white/10 dark:bg-white/5"
                     required
                   />
                 </FieldGroup>
@@ -243,11 +217,11 @@ export function ExpenseDialog({
                         type="button"
                         variant="outline"
                         className={cn(
-                          "h-11 w-full justify-between rounded-2xl border-none bg-slate-50 px-4 font-bold italic shadow-inner dark:bg-slate-900",
+                          "h-11 w-full justify-between rounded-xl border-slate-200 bg-slate-50 px-4 font-semibold dark:border-white/10 dark:bg-white/5",
                           !expenseDate && "text-slate-400",
                         )}
                       >
-                        <span className="text-[10px] uppercase tracking-widest">
+                        <span className="text-sm">
                           {expenseDate
                             ? format(expenseDate, "dd MMM yyyy")
                             : "Pilih tanggal"}
@@ -272,10 +246,10 @@ export function ExpenseDialog({
 
               <FieldGroup label="Kategori">
                 <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger className="h-11 rounded-2xl border-none bg-slate-50 px-4 font-bold italic shadow-inner focus:ring-2 focus:ring-blue-600 dark:bg-slate-900">
+                  <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50 px-4 font-semibold focus:ring-4 focus:ring-blue-600/10 dark:border-white/10 dark:bg-white/5">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-none font-black uppercase italic shadow-2xl">
+                  <SelectContent className="rounded-xl font-medium">
                     {categoryOptions.map((item) => (
                       <SelectItem key={item} value={item} className="text-xs">
                         {item}
@@ -285,13 +259,13 @@ export function ExpenseDialog({
                 </Select>
               </FieldGroup>
 
-              <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-3.5 dark:border-white/5 dark:bg-slate-900">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 dark:border-white/10 dark:bg-white/5">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">
+                    <p className="text-xs font-medium text-slate-500">
                       Foto Struk
                     </p>
-                    <p className="mt-1 text-[10px] font-black uppercase italic tracking-tighter text-slate-950 dark:text-white">
+                    <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
                       Bukti transaksi
                     </p>
                   </div>
@@ -300,7 +274,7 @@ export function ExpenseDialog({
                       type="button"
                       variant="ghost"
                       onClick={() => setReceiptUrl("")}
-                      className="h-8 rounded-xl px-3 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/5 dark:hover:text-white"
+                      className="h-8 rounded-xl px-3 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/5 dark:hover:text-white"
                     >
                       Remove
                     </Button>
@@ -320,26 +294,26 @@ export function ExpenseDialog({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="mt-3 flex w-full flex-col items-center justify-center gap-3 rounded-[1.25rem] border border-dashed border-slate-300 bg-white px-4 py-8 text-center transition-colors hover:border-blue-500/50 hover:bg-blue-50/30 dark:border-white/5 dark:bg-slate-950 dark:hover:bg-blue-950/10"
+                    className="mt-3 flex w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center transition-colors hover:border-blue-500/50 hover:bg-blue-50/30 dark:border-white/10 dark:bg-slate-950 dark:hover:bg-blue-950/10"
                   >
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-white/5 dark:text-slate-500">
                       <ReceiptText className="h-5 w-5" />
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black uppercase italic tracking-tighter text-slate-950 dark:text-white">
+                      <p className="text-sm font-semibold text-slate-950 dark:text-white">
                         Upload foto struk
                       </p>
-                      <p className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-400">
+                      <p className="text-xs font-medium text-slate-400">
                         PNG / JPG, max 2MB
                       </p>
                     </div>
-                    <div className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-white">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-3 py-2 text-xs font-semibold text-white">
                       {isUploading ? (
                         <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                       ) : (
                         <Upload className="h-3.5 w-3.5" />
                       )}
-                      Choose file
+                      Pilih file
                     </div>
                   </button>
                 )}
@@ -358,44 +332,6 @@ export function ExpenseDialog({
                   disabled={isUploading}
                 />
               </div>
-            </div>
-
-            <div className="space-y-4 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/5 dark:bg-slate-900/70">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">
-                    Quick Summary
-                  </p>
-                  <p className="mt-1 text-[10px] font-black uppercase italic tracking-tighter text-slate-950 dark:text-white">
-                    Expense snapshot
-                  </p>
-                </div>
-                <ReceiptText className="h-5 w-5 text-blue-600" />
-              </div>
-
-              <MiniStat
-                label="Amount"
-                value={amount ? `Rp ${formatMoneyInput(amount)}` : "-"}
-              />
-              <MiniStat
-                label="Date"
-                value={expenseDate ? format(expenseDate, "dd MMM yyyy") : "-"}
-              />
-              <MiniStat label="Category" value={category} />
-              <MiniStat
-                label="Receipt"
-                value={receiptUrl ? "Uploaded" : "Not uploaded"}
-              />
-
-              <div className="rounded-[1.25rem] border border-dashed border-slate-300 bg-white p-4 dark:border-white/5 dark:bg-slate-950">
-                <p className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">
-                  Notes
-                </p>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                  Simpan pengeluaran seperlunya. Dialog ini sengaja dibuat ringkas supaya cepat diisi dari HP.
-                </p>
-              </div>
-            </div>
           </div>
 
           <div className="sticky bottom-0 z-10 -mx-4 mt-5 border-t border-slate-200 bg-white/95 px-4 py-4 backdrop-blur dark:border-white/5 dark:bg-slate-950/95 md:-mx-5 md:px-5">
@@ -404,21 +340,21 @@ export function ExpenseDialog({
                 type="button"
                 variant="ghost"
                 onClick={() => onOpenChange(false)}
-                className="h-11 flex-1 rounded-2xl font-black uppercase italic text-[9px] tracking-widest text-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/5 dark:hover:text-white"
+                className="h-11 flex-1 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/5 dark:hover:text-white"
               >
-                Cancel
+                Batal
               </Button>
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="h-11 flex-[2] rounded-2xl bg-blue-600 px-4 font-[1000] uppercase italic text-[10px] tracking-widest text-white shadow-lg border-b-4 border-blue-800 hover:bg-blue-500 active:scale-95"
+                className="h-11 flex-[2] rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 active:scale-95"
               >
                 {isSubmitting ? (
-                  "Saving..."
+                  "Menyimpan..."
                 ) : (
                   <span className="flex items-center gap-2">
                     <Save className="h-4 w-4" strokeWidth={3} />
-                    Save Expense
+                    Simpan Pengeluaran
                   </span>
                 )}
               </Button>
@@ -439,29 +375,10 @@ function FieldGroup({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-400">
+      <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
         {label}
       </Label>
       {children}
-    </div>
-  );
-}
-
-function MiniStat({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-[1.1rem] bg-white px-3.5 py-3 shadow-sm dark:bg-slate-950">
-      <span className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">
-        {label}
-      </span>
-      <span className="max-w-[60%] truncate text-[10px] font-black italic uppercase tracking-tighter text-slate-950 dark:text-white">
-        {value}
-      </span>
     </div>
   );
 }

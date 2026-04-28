@@ -2,44 +2,45 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  Zap,
   Clock,
   MonitorPlay,
   ChevronRight,
   User as UserIcon,
-  Hash,
-  Lock,
-  History,
-  Activity,
+  Search,
+  RefreshCw,
+  Timer,
+  Wallet,
+  AlertTriangle,
+  PanelRightOpen,
+  ChevronLeft,
 } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { POSControlHub } from "@/components/pos/pos-control-hub";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+  POSControlHub,
+  type POSSessionDetail,
+} from "@/components/pos/pos-control-hub";
+import type { FnBMenuItem } from "@/components/pos/fnb-catalog-dialog";
 import { format, differenceInMinutes } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
-import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
-// --- KOMPONEN SKELETON COMPACT ---
+type POSSession = {
+  id: string;
+  resource_name?: string;
+  customer_name?: string;
+  start_time: string;
+  end_time: string;
+  grand_total?: number;
+};
+
 function POSControlSkeleton() {
   return (
     <div className="w-full h-full bg-white dark:bg-slate-950 flex flex-col overflow-hidden font-plus-jakarta animate-in fade-in duration-300">
-      <VisuallyHidden.Root>
-        <SheetHeader>
-          <SheetTitle>Loading</SheetTitle>
-          <SheetDescription>Data sync...</SheetDescription>
-        </SheetHeader>
-      </VisuallyHidden.Root>
       <div className="px-6 py-6 bg-slate-900 shrink-0 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -59,8 +60,15 @@ function POSControlSkeleton() {
   );
 }
 
-// --- SESSION CARD PREMIUM ---
-function SessionCard({ session, onClick, isActiveParam }: any) {
+function SessionCard({
+  session,
+  onClick,
+  isActiveParam,
+}: {
+  session: POSSession;
+  onClick: () => void;
+  isActiveParam: boolean;
+}) {
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -74,12 +82,11 @@ function SessionCard({ session, onClick, isActiveParam }: any) {
     const totalDuration = differenceInMinutes(end, start);
     const elapsed = differenceInMinutes(now, start);
     const remaining = differenceInMinutes(end, now);
-    const progress = Math.min(
-      100,
-      Math.max(0, (elapsed / totalDuration) * 100),
-    );
+    const safeTotal = Math.max(totalDuration, 1);
+    const progress = Math.min(100, Math.max(0, (elapsed / safeTotal) * 100));
 
     return {
+      minutesRemaining: remaining,
       remaining:
         remaining <= 0
           ? "Habis"
@@ -93,120 +100,119 @@ function SessionCard({ session, onClick, isActiveParam }: any) {
   }, [session, now]);
 
   return (
-    <Card
+    <button
       onClick={onClick}
       className={cn(
-        "group cursor-pointer rounded-[1.2rem] border-[0.5px] border-slate-200 dark:border-white/5 transition-all duration-300 bg-white dark:bg-slate-900 hover:border-blue-500/50 hover:shadow-xl active:scale-[0.97]",
+        "group w-full overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md active:translate-y-0 dark:border-white/10 dark:bg-slate-950",
         isActiveParam &&
-          "ring-2 ring-blue-500 border-transparent shadow-lg shadow-blue-500/10",
-        timeInfo.isUrgent &&
-          "ring-1 ring-red-500/50 border-transparent shadow-red-500/5",
+          "border-blue-500 ring-2 ring-blue-500/20 shadow-blue-500/10",
+        timeInfo.isUrgent && "border-amber-300 ring-2 ring-amber-200/70",
+        timeInfo.isOver && "border-red-200 bg-red-50/40 dark:border-red-900/60",
       )}
     >
-      <CardContent className="p-0 flex flex-col">
-        {/* Subtle Mini Progress */}
-        <div className="h-1 w-full bg-slate-50 dark:bg-white/5 overflow-hidden">
-          <div
-            className={cn(
-              "h-full transition-all duration-1000",
-              timeInfo.isUrgent
-                ? "bg-red-500"
-                : timeInfo.isOver
-                  ? "bg-slate-400"
-                  : "bg-blue-600",
-            )}
-            style={{ width: `${timeInfo.progress}%` }}
-          />
-        </div>
+      <div className="h-1 bg-slate-100 dark:bg-white/5">
+        <div
+          className={cn(
+            "h-full transition-all duration-700",
+            timeInfo.isOver
+              ? "bg-red-500"
+              : timeInfo.isUrgent
+                ? "bg-amber-500"
+                : "bg-blue-600",
+          )}
+          style={{ width: `${timeInfo.progress}%` }}
+        />
+      </div>
 
-        <div className="p-4 space-y-4">
-          {/* Top Row: Unit ID & Status */}
-          <div className="flex items-center justify-between">
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <div
+              <span
                 className={cn(
-                  "w-6 h-6 rounded-lg flex items-center justify-center",
-                  timeInfo.isUrgent
-                    ? "bg-red-100 dark:bg-red-900/40 text-red-600"
-                    : "bg-blue-50 dark:bg-blue-900/30 text-blue-600",
+                  "h-2 w-2 rounded-full",
+                  timeInfo.isOver
+                    ? "bg-red-500"
+                    : timeInfo.isUrgent
+                      ? "bg-amber-500"
+                      : "bg-emerald-500",
                 )}
-              >
-                <Hash className="w-3 h-3 stroke-[3]" />
-              </div>
-              <span className="text-xs font-[1000] uppercase italic tracking-tighter text-slate-950 dark:text-white">
-                {session.resource_name}
-              </span>
+              />
+              <p className="truncate text-sm font-semibold text-slate-950 dark:text-white">
+                {session.resource_name || "Unit"}
+              </p>
             </div>
-            {timeInfo.isUrgent ? (
-              <div className="flex items-center gap-1 text-[8px] font-black text-red-500 uppercase italic animate-pulse">
-                <History size={10} strokeWidth={3} /> Expiring
-              </div>
-            ) : (
-              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            )}
+            <div className="mt-3 flex items-center gap-2 text-slate-500 dark:text-slate-400">
+              <UserIcon className="h-4 w-4 shrink-0" />
+              <h3 className="truncate text-base font-semibold text-slate-900 dark:text-slate-100">
+                {session.customer_name || "Customer"}
+              </h3>
+            </div>
           </div>
 
-          {/* Center: Customer */}
-          <div className="space-y-0.5">
-            <h3 className="text-sm font-[1000] uppercase italic truncate text-slate-900 dark:text-slate-100 pr-2 leading-tight group-hover:text-blue-600 transition-colors">
-              {session.customer_name}
-            </h3>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic flex items-center gap-1 opacity-70">
-              <Clock size={10} />{" "}
+          <Badge
+            className={cn(
+              "shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+              timeInfo.isOver
+                ? "border-red-200 bg-red-50 text-red-700"
+                : timeInfo.isUrgent
+                  ? "border-amber-200 bg-amber-50 text-amber-700"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-700",
+            )}
+          >
+            {timeInfo.isOver
+              ? "Overtime"
+              : timeInfo.isUrgent
+                ? "Segera habis"
+                : "Aktif"}
+          </Badge>
+        </div>
+
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-white/5">
+            <p className="text-[11px] font-medium text-slate-500">Waktu</p>
+            <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-900 dark:text-slate-100">
+              <Clock className="h-3.5 w-3.5 text-blue-600" />
               {format(new Date(session.start_time), "HH:mm")} -{" "}
               {format(new Date(session.end_time), "HH:mm")}
             </p>
           </div>
-
-          {/* Bottom Grid: Info Bento */}
-          <div className="grid grid-cols-2 gap-2">
-            <div
+          <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-white/5">
+            <p className="text-[11px] font-medium text-slate-500">Sisa</p>
+            <p
               className={cn(
-                "px-2.5 py-1.5 rounded-xl flex flex-col border-[0.5px]",
-                timeInfo.isUrgent
-                  ? "bg-red-50 dark:bg-red-950/20 border-red-100 dark:border-red-900/30"
-                  : "bg-slate-50 dark:bg-slate-800/30 border-transparent",
+                "mt-1 flex items-center gap-1 text-xs font-semibold",
+                timeInfo.isOver
+                  ? "text-red-600"
+                  : timeInfo.isUrgent
+                    ? "text-amber-600"
+                    : "text-emerald-600",
               )}
             >
-              <span className="text-[7px] font-black uppercase text-slate-400">
-                Remaining
-              </span>
-              <span
-                className={cn(
-                  "text-[11px] font-[1000] italic leading-tight",
-                  timeInfo.isUrgent
-                    ? "text-red-600"
-                    : timeInfo.isOver
-                      ? "text-slate-500"
-                      : "text-emerald-500",
-                )}
-              >
-                {timeInfo.remaining}
-              </span>
-            </div>
-            <div className="px-2.5 py-1.5 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 flex flex-col border-[0.5px] border-transparent">
-              <span className="text-[7px] font-black uppercase text-blue-400">
-                Total Bill
-              </span>
-              <span className="text-[11px] font-[1000] italic text-blue-600 dark:text-blue-400 leading-tight">
-                Rp{new Intl.NumberFormat("id-ID").format(session.grand_total)}
-              </span>
-            </div>
+              <Timer className="h-3.5 w-3.5" />
+              {timeInfo.remaining}
+            </p>
+          </div>
+          <div className="rounded-xl bg-blue-50 px-3 py-2 dark:bg-blue-950/30">
+            <p className="text-[11px] font-medium text-blue-500">Bill</p>
+            <p className="mt-1 truncate text-xs font-semibold text-blue-700 dark:text-blue-300">
+              Rp
+              {new Intl.NumberFormat("id-ID").format(session.grand_total || 0)}
+            </p>
           </div>
         </div>
 
-        {/* Action Bar */}
-        <div className="px-4 py-2 border-t-[0.5px] border-slate-50 dark:border-white/5 flex justify-between items-center group-hover:bg-blue-600 transition-all duration-300">
-          <span className="text-[8px] font-black uppercase text-slate-300 group-hover:text-blue-100 italic transition-all tracking-widest">
-            Open Hub
+        <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-white/10">
+          <span className="text-xs font-medium text-slate-500">
+            Buka kontrol sesi
           </span>
           <ChevronRight
-            size={12}
-            className="text-slate-200 group-hover:text-white transition-all translate-x-[-4px] group-hover:translate-x-0"
+            size={16}
+            className="text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-blue-600"
           />
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </button>
   );
 }
 
@@ -215,12 +221,17 @@ export default function POSPage() {
   const router = useRouter();
   const activeId = searchParams.get("active");
 
-  const [activeSessions, setActiveSessions] = useState<any[]>([]);
-  const [menuItems, setMenuItems] = useState<any[]>([]);
+  const [activeSessions, setActiveSessions] = useState<POSSession[]>([]);
+  const [menuItems, setMenuItems] = useState<FnBMenuItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedSession, setSelectedSession] = useState<any>(null);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [selectedSession, setSelectedSession] =
+    useState<POSSessionDetail | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+    null,
+  );
   const [isSheetLoading, setIsSheetLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isDesktop, setIsDesktop] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -230,7 +241,7 @@ export default function POSPage() {
       ]);
       setActiveSessions(sessionsRes.data || []);
       setMenuItems(menuRes.data || []);
-    } catch (err) {
+    } catch {
       toast.error("Gagal sinkronisasi terminal");
     } finally {
       setLoading(false);
@@ -241,23 +252,34 @@ export default function POSPage() {
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1024px)");
+    const syncViewport = () => {
+      setIsDesktop(query.matches);
+    };
+
+    syncViewport();
+    query.addEventListener("change", syncViewport);
+    return () => query.removeEventListener("change", syncViewport);
+  }, []);
+
   const openSessionDetail = useCallback(async (id: string) => {
+    setSelectedSessionId(id);
     setSelectedSession(null);
-    setIsSheetOpen(true);
     setIsSheetLoading(true);
     try {
       const res = await api.get(`/bookings/${id}`);
       setSelectedSession(res.data);
-    } catch (err) {
+    } catch {
       toast.error("Detail gagal dimuat");
-      setIsSheetOpen(false);
+      setSelectedSessionId(null);
     } finally {
       setIsSheetLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (activeId && activeSessions.length > 0 && !isSheetOpen) {
+    if (activeId && activeSessions.length > 0 && !selectedSessionId) {
       const exists = activeSessions.find((s) => s.id === activeId);
       if (exists) {
         openSessionDetail(activeId);
@@ -270,7 +292,7 @@ export default function POSPage() {
     activeId,
     activeSessions,
     openSessionDetail,
-    isSheetOpen,
+    selectedSessionId,
     router,
     searchParams,
   ]);
@@ -285,95 +307,61 @@ export default function POSPage() {
     );
   };
 
-  return (
-    <div className="max-w-[1600px] mx-auto space-y-5 md:space-y-6 animate-in fade-in duration-500 font-plus-jakarta pb-20 px-3 md:px-4">
-      {/* 1. ULTRA COMPACT HEADER */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-5 md:pb-6 gap-4">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-xl shadow-blue-500/20">
-            <Zap size={20} fill="currentColor" />
-          </div>
-          <div className="flex flex-col">
-            <h1 className="text-xl md:text-3xl font-[1000] italic uppercase tracking-tighter text-slate-950 dark:text-white leading-none">
-              POS <span className="text-blue-600">Terminal.</span>
-            </h1>
-            <p className="hidden sm:block text-[8px] font-black text-slate-400 uppercase tracking-[0.4em] italic mt-1.5">
-              Active Session Monitor
+  const sessionSummary = useMemo(() => {
+    const now = new Date();
+    return activeSessions.reduce(
+      (acc, session) => {
+        const remaining = differenceInMinutes(new Date(session.end_time), now);
+        acc.revenue += Number(session.grand_total || 0);
+        if (remaining <= 0) acc.overtime += 1;
+        else if (remaining <= 10) acc.urgent += 1;
+        return acc;
+      },
+      { revenue: 0, urgent: 0, overtime: 0 },
+    );
+  }, [activeSessions]);
+
+  const filteredSessions = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const sorted = [...activeSessions].sort(
+      (a, b) => new Date(a.end_time).getTime() - new Date(b.end_time).getTime(),
+    );
+    if (!query) return sorted;
+    return sorted.filter((session) =>
+      [session.customer_name, session.resource_name]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query)),
+    );
+  }, [activeSessions, searchQuery]);
+
+  const closeMobileDetail = () => {
+    setSelectedSession(null);
+    setSelectedSessionId(null);
+  };
+
+  if (!isDesktop && selectedSessionId) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col bg-white font-plus-jakarta dark:bg-slate-950">
+        <div className="flex h-14 shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3 dark:border-white/10 dark:bg-slate-950">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={closeMobileDetail}
+            className="h-10 w-10 rounded-xl"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
+              POS Control
             </p>
+            <h1 className="truncate text-sm font-semibold text-slate-950 dark:text-white">
+              {selectedSession?.customer_name || "Memuat sesi..."}
+            </h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex flex-col items-end leading-none mr-2 hidden md:flex">
-            <span className="text-[8px] font-black text-slate-400 uppercase italic mb-1">
-              Live Status
-            </span>
-            <div className="flex items-center gap-1.5 text-emerald-500 font-black text-[10px] uppercase italic">
-              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />{" "}
-              Connected
-            </div>
-          </div>
-          <Badge className="h-12 px-5 bg-slate-950 dark:bg-white text-white dark:text-slate-950 rounded-2xl font-[1000] italic border-none shadow-lg gap-2 text-base">
-            {activeSessions.length}{" "}
-            <span className="text-[10px] opacity-60 uppercase not-italic tracking-tighter">
-              Units
-            </span>
-          </Badge>
-        </div>
-      </div>
-
-      {/* 2. GRID CONTENT - HIGH DENSITY */}
-      {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-          {[...Array(12)].map((_, i) => (
-            <Card
-              key={i}
-              className="rounded-[1.2rem] border-none bg-white dark:bg-slate-900 ring-1 ring-slate-100 overflow-hidden h-44"
-            >
-              <Skeleton className="h-1 w-full" />
-              <div className="p-4 space-y-4">
-                <Skeleton className="h-6 w-1/2" />
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-12 w-full" />
-              </div>
-            </Card>
-          ))}
-        </div>
-      ) : activeSessions.length === 0 ? (
-        <div className="h-72 md:h-96 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900/50 rounded-[1.75rem] md:rounded-[3rem] border border-dashed border-slate-200 dark:border-white/5 gap-3">
-          <MonitorPlay
-            size={40}
-            className="text-slate-200 dark:text-slate-800"
-          />
-          <h3 className="text-sm font-black italic uppercase text-slate-400 tracking-widest">
-            No Active Terminal
-          </h3>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 animate-in slide-in-from-bottom-2 duration-500">
-          {activeSessions.map((session) => (
-            <SessionCard
-              key={session.id}
-              session={session}
-              isActiveParam={activeId === session.id}
-              onClick={() => openSessionDetail(session.id)}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* 3. DETAIL SESSION SHEET */}
-      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent className="p-0 border-none bg-transparent sm:max-w-[460px] w-full shadow-none">
-          <VisuallyHidden.Root>
-            <SheetHeader>
-              <SheetTitle>Session Management</SheetTitle>
-              <SheetDescription>
-                Control unit session and orders
-              </SheetDescription>
-            </SheetHeader>
-          </VisuallyHidden.Root>
-
+        <div className="min-h-0 flex-1 overflow-hidden">
           {isSheetLoading ? (
             <POSControlSkeleton />
           ) : selectedSession ? (
@@ -381,11 +369,174 @@ export default function POSPage() {
               session={selectedSession}
               menuItems={menuItems}
               onRefresh={refreshSelectedSession}
-              onClose={() => setIsSheetOpen(false)}
             />
-          ) : null}
-        </SheetContent>
-      </Sheet>
+          ) : (
+            <POSControlSkeleton />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-360 space-y-4 pb-20 pt-5 px-3 font-plus-jakarta animate-in fade-in duration-300">
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950">
+        <div className="flex flex-col gap-4 border-b border-slate-100 p-4 md:flex-row md:items-center md:justify-between md:p-5 dark:border-white/10">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-blue-600">
+              <MonitorPlay className="h-4 w-4" />
+              POS Admin
+            </div>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl dark:text-white">
+              Sesi Aktif
+            </h1>
+            <p className="mt-1 max-w-2xl text-sm text-slate-500">
+              Pantau unit yang sedang berjalan, sisa durasi, dan tagihan sebelum
+              checkout.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={fetchData}
+            disabled={loading}
+            className="h-10 rounded-xl border-slate-200 bg-white px-4 text-sm font-semibold dark:border-white/10 dark:bg-slate-950"
+          >
+            <RefreshCw
+              className={cn("mr-2 h-4 w-4", loading && "animate-spin")}
+            />
+            Refresh
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-2 border-b border-slate-100 md:grid-cols-4 dark:border-white/10">
+          <div className="border-r border-slate-100 p-4 dark:border-white/10">
+            <p className="text-xs font-medium text-slate-500">Sesi berjalan</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-950 dark:text-white">
+              {activeSessions.length}
+            </p>
+          </div>
+          <div className="border-r border-slate-100 p-4 dark:border-white/10">
+            <p className="text-xs font-medium text-slate-500">
+              Perlu perhatian
+            </p>
+            <p className="mt-1 flex items-center gap-2 text-2xl font-semibold text-amber-600">
+              {sessionSummary.urgent}
+              <AlertTriangle className="h-4 w-4" />
+            </p>
+          </div>
+          <div className="border-r border-slate-100 p-4 dark:border-white/10">
+            <p className="text-xs font-medium text-slate-500">Overtime</p>
+            <p className="mt-1 text-2xl font-semibold text-red-600">
+              {sessionSummary.overtime}
+            </p>
+          </div>
+          <div className="p-4">
+            <p className="text-xs font-medium text-slate-500">Tagihan aktif</p>
+            <p className="mt-1 flex items-center gap-2 text-2xl font-semibold text-blue-700 dark:text-blue-300">
+              <Wallet className="h-4 w-4" />
+              Rp{new Intl.NumberFormat("id-ID").format(sessionSummary.revenue)}
+            </p>
+          </div>
+        </div>
+
+        <div className="p-4">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Cari customer atau unit..."
+              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-medium outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-white/5 dark:text-white"
+            />
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_460px]">
+        <div className="min-w-0">
+          {loading ? (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
+              {[...Array(9)].map((_, i) => (
+                <Card
+                  key={i}
+                  className="h-44 overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950"
+                >
+                  <Skeleton className="h-1 w-full" />
+                  <div className="space-y-4 p-4">
+                    <Skeleton className="h-5 w-2/3" />
+                    <Skeleton className="h-6 w-1/2" />
+                    <div className="grid grid-cols-3 gap-2">
+                      <Skeleton className="h-14 rounded-xl" />
+                      <Skeleton className="h-14 rounded-xl" />
+                      <Skeleton className="h-14 rounded-xl" />
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : activeSessions.length === 0 ? (
+            <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-white text-center shadow-sm dark:border-white/10 dark:bg-slate-950">
+              <MonitorPlay size={38} className="text-slate-300" />
+              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-200">
+                Belum ada sesi aktif
+              </h3>
+              <p className="max-w-sm text-sm text-slate-500">
+                Sesi yang sudah diaktifkan dari booking akan tampil di monitor POS.
+              </p>
+            </div>
+          ) : filteredSessions.length === 0 ? (
+            <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-white text-center shadow-sm dark:border-white/10 dark:bg-slate-950">
+              <Search size={34} className="text-slate-300" />
+              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-200">
+                Sesi tidak ditemukan
+              </h3>
+              <p className="text-sm text-slate-500">
+                Coba cari dengan nama customer atau unit lain.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 animate-in slide-in-from-bottom-2 duration-300 md:grid-cols-2 2xl:grid-cols-3">
+              {filteredSessions.map((session) => (
+                <SessionCard
+                  key={session.id}
+                  session={session}
+                  isActiveParam={selectedSessionId === session.id}
+                  onClick={() => openSessionDetail(session.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <aside className="sticky top-20 hidden h-[calc(100vh-7rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:block dark:border-white/10 dark:bg-slate-950">
+          {isSheetLoading ? (
+            <POSControlSkeleton />
+          ) : selectedSession ? (
+            <POSControlHub
+              session={selectedSession}
+              menuItems={menuItems}
+              onRefresh={refreshSelectedSession}
+              onClose={() => {
+                setSelectedSession(null);
+                setSelectedSessionId(null);
+              }}
+            />
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-950/30">
+                <PanelRightOpen className="h-6 w-6" />
+              </div>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                Pilih sesi untuk kontrol
+              </h2>
+              <p className="max-w-xs text-sm text-slate-500">
+                Detail billing, F&B, add-ons, extend, dan checkout akan tampil di panel ini.
+              </p>
+            </div>
+          )}
+        </aside>
+      </div>
+
     </div>
   );
 }

@@ -9,11 +9,9 @@ import {
   Moon,
   Sun,
   LogOut,
-  ShieldCheck,
-  Settings,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -42,11 +40,7 @@ type MobileUser = {
   name?: string;
   email?: string;
   role?: string;
-  logo_url?: string;
-  initials?: string;
 };
-
-const FALLBACK_LOGO = "https://cdn.bookinaja.com/tenants/logo_frameless.png";
 
 export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
   const pathname = usePathname();
@@ -92,11 +86,6 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
     return operationalNavItems;
   }, [mode]);
 
-  const tenantLogo =
-    userData?.logo_url && userData.logo_url !== ""
-      ? userData.logo_url
-      : FALLBACK_LOGO;
-
   const handleLogout = () => {
     clearTenantSession({ keepTenantSlug: true });
     window.location.href = "/admin/login";
@@ -108,7 +97,7 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
         <Button
           size="icon"
           className={cn(
-            "z-50 h-12 w-12 rounded-2xl border border-slate-200 bg-slate-950 text-white shadow-2xl shadow-slate-950/20 hover:bg-slate-900 md:hidden",
+            "z-50 h-10 w-10 rounded-xl border border-slate-200 bg-slate-950 text-white shadow-sm hover:bg-slate-900 md:hidden",
             triggerClassName || "fixed left-4 bottom-4",
           )}
           aria-label="Open admin navigation"
@@ -120,52 +109,34 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
       <SheetContent
         side="left"
         showCloseButton={false}
-        className="w-[88vw] max-w-[340px] gap-0 overflow-hidden border-r border-slate-200 bg-white p-0 text-slate-950 shadow-[24px_0_80px_rgba(15,23,42,0.18)] dark:border-white/10 dark:bg-[#0a0a0a] dark:text-white scrollbar-hide"
+        className="w-[84vw] max-w-[320px] gap-0 overflow-hidden border-r border-slate-200 bg-white p-0 text-slate-950 shadow-xl dark:border-white/10 dark:bg-[#0a0a0a] dark:text-white"
       >
         <div className="flex h-full flex-col overflow-hidden">
-          <SheetHeader className="border-b border-slate-100 p-5 dark:border-white/5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-1">
-                <SheetTitle className="text-[10px] font-black uppercase tracking-[0.35em] text-blue-600">
-                  Bookinaja Admin
+          <SheetHeader className="border-b border-slate-200 px-4 py-3 text-left dark:border-white/10">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <SheetTitle className="truncate text-base font-semibold text-slate-950 dark:text-white">
+                  {tenantName}
                 </SheetTitle>
-                <SheetDescription className="text-sm font-semibold text-slate-500 dark:text-slate-400">
-                  {mode === "settings"
-                    ? "Settings navigation"
-                    : "Operational navigation"}
+                <SheetDescription className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
+                  {userData?.name || "Admin"} · {String(userData?.role || "staff").toUpperCase()}
                 </SheetDescription>
               </div>
-              <div className="h-11 w-11 shrink-0 overflow-hidden rounded-2xl bg-slate-100 ring-1 ring-slate-200 dark:bg-white/5 dark:ring-white/10">
-                <div
-                  className="h-full w-full bg-cover bg-center"
-                  style={{ backgroundImage: `url(${tenantLogo})` }}
-                  aria-label="Tenant logo"
-                  role="img"
-                />
-              </div>
-            </div>
-
-            <div className="mt-4 rounded-[1.5rem] bg-slate-950 p-4 text-white shadow-xl shadow-slate-950/10">
-              <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.35em] text-blue-200">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                {tenantName}
-              </div>
-              <div className="mt-2 text-xl font-[1000] italic uppercase tracking-tighter leading-none">
-                {userData?.name || "Admin"}
-              </div>
-              <div className="mt-2 flex items-center justify-between gap-3">
-                <div className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-400">
-                  {userData?.email || "syncing..."}
-                </div>
-                <Badge className="border-none bg-white/10 text-[7px] font-black uppercase italic tracking-[0.25em] text-white">
-                  {String(userData?.role || "staff").toUpperCase()}
-                </Badge>
-              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setOpen(false)}
+                className="h-9 w-9 shrink-0 rounded-lg"
+                aria-label="Tutup navigasi"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           </SheetHeader>
 
-          <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
-            <nav className="space-y-2">
+          <div className="flex-1 overflow-y-auto px-3 py-3">
+            <nav className="space-y-1">
               {items.map((item) => {
                 const active =
                   pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -176,28 +147,24 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
                     href={item.href}
                     onClick={() => setOpen(false)}
                     className={cn(
-                      "flex items-center gap-3 rounded-[1.35rem] border px-4 py-3.5 transition-all",
+                      "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                       active
-                        ? "border-blue-500/20 bg-blue-500/5 text-blue-600 shadow-sm"
-                        : "border-transparent bg-transparent text-slate-500 hover:border-slate-200 hover:bg-slate-50 dark:text-slate-400 dark:hover:border-white/5 dark:hover:bg-white/5",
+                        ? "bg-blue-600 text-white"
+                        : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5",
                     )}
                   >
-                    <div
-                      className={cn(
-                        "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-all",
-                        active
-                          ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-                          : "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400",
-                      )}
-                    >
-                      <item.icon className="h-4 w-4" />
-                    </div>
+                    <item.icon className="h-4 w-4 shrink-0" />
                     <div className="min-w-0 flex-1">
-                      <div className="text-[10px] font-black uppercase italic tracking-widest leading-none">
+                      <div className="truncate font-medium">
                         {item.label}
                       </div>
                       {item.hint ? (
-                        <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                        <div
+                          className={cn(
+                            "mt-0.5 truncate text-xs",
+                            active ? "text-blue-100" : "text-slate-400",
+                          )}
+                        >
                           {item.hint}
                         </div>
                       ) : null}
@@ -208,60 +175,78 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
             </nav>
 
             {mode === "operational" ? (
-              <div className="mt-4 rounded-[1.35rem] border border-slate-200 bg-slate-50 p-3 dark:border-white/5 dark:bg-white/5">
-                <div className="mb-2 text-[9px] font-black uppercase tracking-[0.24em] text-slate-400">
-                  Executive Settings
+              <div className="mt-3 border-t border-slate-200 pt-3 dark:border-white/10">
+                <div className="mb-1 px-3 text-xs font-semibold text-slate-400">
+                  Settings
                 </div>
-                <Link
-                  href="/admin/settings/bisnis"
-                  onClick={() => setOpen(false)}
-                  className="flex items-center gap-3 rounded-[1.1rem] bg-white px-4 py-3 text-slate-700 shadow-sm dark:bg-[#0a0a0a] dark:text-white"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/20">
-                    <Settings className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-black uppercase italic tracking-widest leading-none">
-                      Settings
-                    </div>
-                    <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">
-                      Bisnis, staff, CRM, billing
-                    </div>
-                  </div>
-                </Link>
+                <div className="space-y-1">
+                  {settingsNavItems.map((item) => {
+                    const active =
+                      pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setOpen(false)}
+                        className={cn(
+                          "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                          active
+                            ? "bg-blue-600 text-white"
+                            : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5",
+                        )}
+                      >
+                        <item.icon className="h-4 w-4 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-medium">{item.label}</div>
+                          {item.hint ? (
+                            <div
+                              className={cn(
+                                "mt-0.5 truncate text-xs",
+                                active ? "text-blue-100" : "text-slate-400",
+                              )}
+                            >
+                              {item.hint}
+                            </div>
+                          ) : null}
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
             ) : null}
+          </div>
 
-            <div className="mt-4 space-y-3 border-t border-slate-100 pt-4 dark:border-white/5">
+          <div className="border-t border-slate-200 p-3 dark:border-white/10">
+            <div className="mb-3 min-w-0 px-1">
+              <p className="truncate text-xs font-medium text-slate-700 dark:text-slate-200">
+                {userData?.email || "syncing..."}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="flex h-auto w-full items-center justify-between rounded-[1.35rem] border-slate-200 px-4 py-4 text-left hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"
+                className="h-10 justify-start gap-2 rounded-lg px-3 text-sm"
               >
-                <span className="flex items-center gap-3">
-                  {theme === "dark" ? (
-                    <Sun className="h-4 w-4 text-amber-500" />
-                  ) : (
-                    <Moon className="h-4 w-4 text-blue-500" />
-                  )}
-                  <span className="text-[10px] font-black uppercase italic tracking-widest">
-                    Tampilan {theme === "dark" ? "Terang" : "Gelap"}
-                  </span>
-                </span>
+                {theme === "dark" ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
+                Tema
               </Button>
 
               <Button
                 type="button"
+                variant="outline"
                 onClick={handleLogout}
-                className="flex h-auto w-full items-center justify-between rounded-[1.35rem] border border-red-200 bg-red-50 px-4 py-4 text-left text-red-600 hover:bg-red-100 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/15"
+                className="h-10 justify-start gap-2 rounded-lg border-red-200 px-3 text-sm text-red-600 hover:bg-red-50 dark:border-red-500/20 dark:text-red-300 dark:hover:bg-red-500/10"
               >
-                <span className="flex items-center gap-3">
-                  <LogOut className="h-4 w-4" />
-                  <span className="text-[10px] font-black uppercase italic tracking-widest">
-                    Putuskan Sesi
-                  </span>
-                </span>
+                <LogOut className="h-4 w-4" />
+                Keluar
               </Button>
             </div>
           </div>

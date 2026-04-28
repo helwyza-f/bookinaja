@@ -75,8 +75,10 @@ export default function TenantLoginPage() {
         typeof error === "object" &&
         error !== null &&
         "response" in error &&
-        typeof (error as { response?: { data?: { error?: string } } }).response?.data?.error === "string"
-          ? (error as { response?: { data?: { error?: string } } }).response?.data?.error
+        typeof (error as { response?: { data?: { error?: string } } }).response
+          ?.data?.error === "string"
+          ? (error as { response?: { data?: { error?: string } } }).response
+              ?.data?.error
           : "Login Gagal.";
       toast.error(message);
     } finally {
@@ -86,15 +88,18 @@ export default function TenantLoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-[#050505] px-4 relative overflow-hidden transition-colors duration-500">
-      
       {/* Decorative Orbs */}
       <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-blue-500/20 dark:bg-blue-600/10 mix-blend-multiply dark:mix-blend-screen filter blur-[128px] opacity-70 pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-violet-500/20 dark:bg-violet-600/10 mix-blend-multiply dark:mix-blend-screen filter blur-[128px] opacity-70 pointer-events-none" />
 
       {/* Fallback Link */}
       <div className="absolute top-6 left-6 md:top-8 md:left-8 z-50">
-        <Button asChild variant="ghost" className="gap-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/10 rounded-xl transition-colors">
-          <Link href={`/${tenantSlug}`}>
+        <Button
+          asChild
+          variant="ghost"
+          className="gap-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/10 rounded-xl transition-colors"
+        >
+          <Link href={`/`}>
             <ChevronLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Kembali ke Beranda</span>
           </Link>
@@ -118,7 +123,9 @@ export default function TenantLoginPage() {
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-2">
-              <Label className="font-bold ml-1 text-slate-700 dark:text-slate-300">Email Admin</Label>
+              <Label className="font-bold ml-1 text-slate-700 dark:text-slate-300">
+                Email Admin
+              </Label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                 <Input
@@ -131,7 +138,9 @@ export default function TenantLoginPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="font-bold ml-1 text-slate-700 dark:text-slate-300">Password</Label>
+              <Label className="font-bold ml-1 text-slate-700 dark:text-slate-300">
+                Password
+              </Label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                 <Input

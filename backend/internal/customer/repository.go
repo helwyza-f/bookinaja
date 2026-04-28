@@ -109,7 +109,11 @@ func (r *Repository) MarkPhoneVerified(ctx context.Context, id uuid.UUID) error 
 
 func (r *Repository) CountByTenant(ctx context.Context, tenantID uuid.UUID) (int, error) {
 	var total int
-	err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM customers WHERE tenant_id = $1`, tenantID)
+	err := r.db.GetContext(ctx, &total, `
+		SELECT COUNT(DISTINCT c.id)
+		FROM customers c
+		JOIN bookings b ON b.customer_id = c.id
+		WHERE b.tenant_id = $1`, tenantID)
 	return total, err
 }
 
@@ -261,6 +265,101 @@ func (r *Repository) IncrementStats(ctx context.Context, id uuid.UUID, amount in
 
 	_, err := r.db.ExecContext(ctx, query, id, amount)
 	return err
+}
+
+func (r *Repository) AwardBookingPoints(ctx context.Context, customerID, tenantID, bookingID uuid.UUID, paidAmount int64, points int, description string) (int, error) {
+	if points <= 0 {
+		return 0, nil
+	}
+
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var insertedID uuid.UUID
+	err = tx.GetContext(ctx, &insertedID, `
+		INSERT INTO customer_point_ledger (
+			id, customer_id, tenant_id, booking_id, event_type, points, description, metadata, created_at
+		) VALUES (
+			$1, $2, $3, $4, 'earn', $5, $6, jsonb_build_object('paid_amount', $7), NOW()
+		)
+		ON CONFLICT DO NOTHING
+		RETURNING id`,
+		uuid.New(), customerID, tenantID, bookingID, points, description, paidAmount,
+	)
+	if err == sql.ErrNoRows {
+		return 0, tx.Commit()
+	}
+	if err != nil {
+		var existing int
+		getErr := tx.GetContext(ctx, &existing, `
+			SELECT points
+			FROM customer_point_ledger
+			WHERE booking_id = $1 AND event_type = 'earn'
+			LIMIT 1`, bookingID)
+		if getErr == nil {
+			return 0, tx.Commit()
+		}
+		return 0, err
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE customers
+		SET loyalty_points = loyalty_points + $2,
+			updated_at = NOW()
+		WHERE id = $1`,
+		customerID, points,
+	); err != nil {
+		return 0, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return points, nil
+}
+
+func (r *Repository) ListPointActivity(ctx context.Context, customerID uuid.UUID, tenantID *uuid.UUID, limit int) ([]CustomerPointEvent, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	args := []any{customerID, limit}
+	filter := ""
+	if tenantID != nil {
+		args = []any{customerID, *tenantID, limit}
+		filter = "AND l.tenant_id = $2"
+	}
+
+	limitArg := "$2"
+	if tenantID != nil {
+		limitArg = "$3"
+	}
+
+	var events []CustomerPointEvent
+	err := r.db.SelectContext(ctx, &events, fmt.Sprintf(`
+		SELECT
+			l.id, l.customer_id, l.tenant_id, t.name AS tenant_name, t.slug AS tenant_slug,
+			l.booking_id, l.event_type, l.points, l.description, l.created_at
+		FROM customer_point_ledger l
+		LEFT JOIN tenants t ON t.id = l.tenant_id
+		WHERE l.customer_id = $1 %s
+		ORDER BY l.created_at DESC
+		LIMIT %s`, filter, limitArg), args...)
+	return events, err
+}
+
+func (r *Repository) SumEarnedPointsAtTenant(ctx context.Context, customerID, tenantID uuid.UUID) (int, error) {
+	var total int
+	err := r.db.GetContext(ctx, &total, `
+		SELECT COALESCE(SUM(points), 0)
+		FROM customer_point_ledger
+		WHERE customer_id = $1 AND tenant_id = $2 AND event_type = 'earn'`,
+		customerID, tenantID,
+	)
+	return total, err
 }
 
 func (r *Repository) FindByTenant(ctx context.Context, tenantID uuid.UUID) ([]Customer, error) {

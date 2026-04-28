@@ -35,14 +35,20 @@ func (r *Repository) GetTenantIDByBookingID(ctx context.Context, id uuid.UUID) (
 
 // GetOrCreateCustomer mengidentifikasi customer berdasarkan nomor HP (Silent Registration)
 func (r *Repository) GetOrCreateCustomer(ctx context.Context, tenantID uuid.UUID, name, phone string) (uuid.UUID, error) {
+	_ = tenantID
 	var customerID uuid.UUID
-	queryFind := `SELECT id FROM customers WHERE tenant_id = $1 AND phone = $2 LIMIT 1`
-	err := r.db.GetContext(ctx, &customerID, queryFind, tenantID, phone)
+	queryFind := `SELECT id FROM customers WHERE phone = $1 LIMIT 1`
+	err := r.db.GetContext(ctx, &customerID, queryFind, phone)
 
 	if err == sql.ErrNoRows {
 		customerID = uuid.New()
-		queryInsert := `INSERT INTO customers (id, tenant_id, name, phone) VALUES ($1, $2, $3, $4)`
-		_, err = r.db.ExecContext(ctx, queryInsert, customerID, tenantID, name, phone)
+		queryInsert := `
+			INSERT INTO customers (
+				id, name, phone, total_visits, total_spent, tier, loyalty_points, created_at, updated_at
+			) VALUES (
+				$1, $2, $3, 0, 0, 'NEW', 0, NOW(), NOW()
+			)`
+		_, err = r.db.ExecContext(ctx, queryInsert, customerID, name, phone)
 		if err != nil {
 			return uuid.Nil, err
 		}

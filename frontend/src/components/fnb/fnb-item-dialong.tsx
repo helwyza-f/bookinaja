@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChevronRight, Utensils, X } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { SingleImageUpload } from "@/components/upload/single-image-upload";
 import api from "@/lib/api";
 import { toast } from "sonner";
@@ -28,9 +28,19 @@ import { cn } from "@/lib/utils";
 interface FnbItemDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  editingItem: any | null;
+  editingItem: FnbItem | null;
   onSuccess: () => void;
 }
+
+export type FnbItem = {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  category: string;
+  image_url?: string | null;
+  is_available: boolean;
+};
 
 export function FnbItemDialog({
   open,
@@ -90,7 +100,7 @@ export function FnbItemDialog({
       }
       onSuccess();
       onOpenChange(false);
-    } catch (err) {
+    } catch {
       toast.error("Failed to save product");
     } finally {
       setIsSubmitting(false);
@@ -99,64 +109,57 @@ export function FnbItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 overflow-hidden border-none bg-white dark:bg-slate-950 rounded-[2.5rem] shadow-2xl">
+      <DialogContent className="max-w-[95vw] md:max-w-3xl p-0 overflow-hidden border bg-white dark:bg-slate-950 rounded-2xl shadow-2xl">
         <VisuallyHidden.Root>
           <DialogHeader>
             <DialogTitle>F&B Item Editor</DialogTitle>
           </DialogHeader>
         </VisuallyHidden.Root>
 
-        <div className="flex flex-col md:flex-row w-full max-h-[90vh]">
+        <div className="flex flex-col md:flex-row w-full max-h-[88vh]">
           {/* LEFT: MEDIA SIDE */}
-          <div className="w-full md:w-5/12 bg-slate-50 dark:bg-slate-900/50 p-8 md:p-10 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-slate-100 dark:border-white/5">
-            <div className="space-y-6 w-full">
+          <div className="w-full md:w-5/12 bg-slate-50 dark:bg-slate-900/50 p-4 md:p-6 flex flex-col justify-start border-b md:border-b-0 md:border-r border-slate-100 dark:border-white/5">
+            <div className="space-y-4 w-full max-w-[340px] mx-auto">
               <div className="text-center md:text-left">
-                <h2 className="text-2xl font-[1000] uppercase italic tracking-tighter dark:text-white">
-                  Product <span className="text-blue-600">Media</span>
+                <h2 className="text-xl font-semibold tracking-tight dark:text-white">
+                  Product Media
                 </h2>
-                <p className="text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-widest italic leading-none">
+                <p className="text-xs font-medium text-slate-500 mt-1 leading-none">
                   Ratio 1:1 Recommended
                 </p>
               </div>
 
-              {/* IMAGE UPLOAD CONTAINER */}
-              <div className="aspect-square w-full rounded-[2rem] overflow-hidden bg-white dark:bg-slate-800 shadow-2xl ring-4 ring-white dark:ring-slate-900 group/upload relative">
-                <SingleImageUpload
-                  value={imageUrl}
-                  onChange={setImageUrl}
-                  endpoint="/fnb/upload"
-                />
-                {!imageUrl && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-20">
-                    <Utensils size={48} />
-                  </div>
-                )}
-              </div>
+              <SingleImageUpload
+                value={imageUrl}
+                onChange={setImageUrl}
+                endpoint="/fnb/upload"
+                className="w-[60%] md:w-full mx-auto" //kalo dimobile 80% aja klo di desktop baru full
+              />
             </div>
           </div>
 
           {/* RIGHT: FORM DETAILS */}
-          <div className="w-full md:w-7/12 p-8 md:p-12 overflow-y-auto bg-white dark:bg-slate-950">
-            <form onSubmit={handleSubmit} className="space-y-8">
-              <div className="space-y-6">
+          <div className="w-full md:w-7/12 p-5 md:p-6 overflow-y-auto bg-white dark:bg-slate-950">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-4">
                 {/* NAME */}
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-600 italic tracking-widest ml-1">
+                  <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">
                     Product Name
                   </Label>
                   <Input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="EX: CHICKEN PARMESAN"
-                    className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-black italic uppercase px-6 focus-visible:ring-2 focus-visible:ring-blue-600 shadow-inner"
+                    className="h-12 rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-white/10 font-semibold uppercase px-4 focus-visible:ring-4 focus-visible:ring-blue-600/10"
                     required
                   />
                 </div>
 
                 {/* PRICE & CATEGORY */}
-                <div className="grid grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-600 italic tracking-widest ml-1">
+                    <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">
                       Price (IDR)
                     </Label>
                     <Input
@@ -165,19 +168,19 @@ export function FnbItemDialog({
                         setPrice(e.target.value.replace(/\D/g, ""))
                       }
                       placeholder="0"
-                      className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-black italic text-blue-600 dark:text-blue-400 px-6 shadow-inner focus-visible:ring-2 focus-visible:ring-blue-600"
+                      className="h-12 rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-white/10 font-semibold text-blue-600 dark:text-blue-400 px-4 focus-visible:ring-4 focus-visible:ring-blue-600/10"
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-600 italic tracking-widest ml-1">
+                    <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">
                       Category
                     </Label>
                     <Select value={category} onValueChange={setCategory}>
-                      <SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-black italic text-[11px] uppercase px-6 focus:ring-2 focus:ring-blue-600 shadow-inner">
+                      <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-white/10 font-semibold text-xs uppercase px-4 focus:ring-4 focus:ring-blue-600/10">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="rounded-xl border-none shadow-2xl font-black uppercase italic dark:bg-slate-800">
+                      <SelectContent className="rounded-xl font-semibold uppercase dark:bg-slate-800">
                         <SelectItem value="Food">Food</SelectItem>
                         <SelectItem value="Drink">Drink</SelectItem>
                         <SelectItem value="Snack">Snack</SelectItem>
@@ -188,13 +191,13 @@ export function FnbItemDialog({
 
                 {/* DESCRIPTION */}
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-600 italic tracking-widest ml-1">
+                  <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">
                     Short Description
                   </Label>
                   <Textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="rounded-2xl bg-slate-50 dark:bg-slate-900 border-none min-h-[140px] p-6 font-medium text-sm focus-visible:ring-2 focus-visible:ring-blue-600 shadow-inner"
+                    className="rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-white/10  p-4 font-medium text-sm focus-visible:ring-4 focus-visible:ring-blue-600/10"
                     placeholder="Describe flavor, size, or ingredients..."
                   />
                 </div>
@@ -204,7 +207,7 @@ export function FnbItemDialog({
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full h-16 rounded-[1.5rem] bg-blue-600 hover:bg-blue-500 text-white font-[1000] uppercase italic text-xs tracking-[0.2em] shadow-2xl border-b-8 border-blue-800 active:border-b-0 gap-3 transition-all active:scale-[0.98]"
+                className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm gap-2 transition-all active:scale-[0.98]"
               >
                 {isSubmitting ? (
                   <Loader2 className="animate-spin" />

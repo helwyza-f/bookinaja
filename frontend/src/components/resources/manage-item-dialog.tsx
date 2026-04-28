@@ -20,30 +20,48 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Plus,
   Zap,
   PlusCircle,
-  Gamepad2,
   Camera,
   Trophy,
   Briefcase,
   Monitor,
-  Package,
-  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import api from "@/lib/api";
 import { toast } from "sonner";
 
+const TIME_UNIT_OPTIONS = [
+  { value: "hour", label: "Per Jam", minutes: 60 },
+  { value: "session", label: "Per Sesi", minutes: 60 },
+  { value: "day", label: "Per Hari", minutes: 1440 },
+  { value: "week", label: "Per Minggu", minutes: 10080 },
+  { value: "month", label: "Per Bulan", minutes: 43200 },
+  { value: "year", label: "Per Tahun", minutes: 525600 },
+];
+
+const getUnitMinutes = (unit: string) =>
+  TIME_UNIT_OPTIONS.find((option) => option.value === unit)?.minutes || 60;
+
 interface ManageItemDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  editingItem: any;
+  editingItem: ResourceItemConfig | null;
   resourceId: string;
   resourceName: string;
   businessCategory: string;
   onSuccess: () => void;
 }
+
+export type ResourceItemConfig = {
+  id: string;
+  name: string;
+  price: number;
+  price_unit?: string;
+  unit_duration?: number;
+  is_default?: boolean;
+  item_type?: string;
+};
 
 export function ManageItemDialog({
   open,
@@ -71,7 +89,7 @@ export function ManageItemDialog({
       setName(editingItem.name);
       setRawPrice(editingItem.price);
       setDisplayPrice(formatIDR(editingItem.price));
-      setIsDefault(editingItem.is_default);
+      setIsDefault(Boolean(editingItem.is_default));
       // Mapping dari backend type ke UI state
       setItemType(editingItem.item_type === "main_option" ? "main" : "add_on");
       setPriceUnit(editingItem.price_unit || "hour");
@@ -121,7 +139,7 @@ export function ManageItemDialog({
       }
       onSuccess();
       onOpenChange(false);
-    } catch (err) {
+    } catch {
       toast.error("Gagal menyimpan data");
     } finally {
       setLoading(false);
@@ -301,8 +319,7 @@ export function ManageItemDialog({
                 value={priceUnit}
                 onValueChange={(v) => {
                   setPriceUnit(v);
-                  if (v === "hour") setUnitDuration(60);
-                  if (v === "day") setUnitDuration(1440);
+                  if (v !== "session") setUnitDuration(getUnitMinutes(v));
                 }}
               >
                 <SelectTrigger className="h-11 rounded-xl bg-slate-50 dark:bg-slate-900 border-none font-bold text-[10px] uppercase italic">
@@ -311,9 +328,11 @@ export function ManageItemDialog({
                 <SelectContent className="rounded-xl font-bold uppercase">
                   {itemType === "main" ? (
                     <>
-                      <SelectItem value="hour">Per Jam</SelectItem>
-                      <SelectItem value="session">Per Sesi</SelectItem>
-                      <SelectItem value="day">Per Hari</SelectItem>
+                      {TIME_UNIT_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
                     </>
                   ) : (
                     <SelectItem value="pcs">Per Pcs / Unit</SelectItem>
@@ -336,6 +355,16 @@ export function ManageItemDialog({
                 className="h-11 rounded-xl font-black bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900 text-base"
                 required
               />
+            </div>
+          )}
+
+          {itemType === "main" && priceUnit !== "session" && (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-[10px] font-semibold text-slate-500 dark:border-white/10 dark:bg-white/5">
+              Durasi otomatis: {unitDuration.toLocaleString("id-ID")} menit per{" "}
+              {TIME_UNIT_OPTIONS.find((option) => option.value === priceUnit)
+                ?.label.toLowerCase()
+                .replace("per ", "") || "unit"}
+              .
             </div>
           )}
 
