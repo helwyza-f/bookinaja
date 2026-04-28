@@ -127,7 +127,10 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 				start = currentEnd.Time
 			}
 			end := addInterval(start, updated.BillingInterval)
-			return s.repo.ActivateSubscriptionExec(ctx, tx, updated.TenantID, updated.Plan, start, end)
+			if err := s.repo.ActivateSubscriptionExec(ctx, tx, updated.TenantID, updated.Plan, start, end); err != nil {
+				return err
+			}
+			return s.repo.CreateReferralRewardIfEligible(ctx, tx, updated.TenantID, orderID)
 		}
 		if strings.HasPrefix(orderID, "bk-") {
 			bookingID, paymentKind, err := ParseBookingOrderID(orderID)

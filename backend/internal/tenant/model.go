@@ -14,6 +14,7 @@ type RegisterReq struct {
 	TenantSlug       string `json:"tenant_slug" binding:"required"`
 	BusinessCategory string `json:"business_category" binding:"required"` // gaming_hub, creative_space, dll
 	BusinessType     string `json:"business_type"`
+	ReferralCode     string `json:"referral_code"`
 	AdminName        string `json:"admin_name" binding:"required"`
 	AdminEmail       string `json:"admin_email" binding:"required,email"`
 	AdminPass        string `json:"admin_password" binding:"required,min=6"`
@@ -147,18 +148,24 @@ type Tenant struct {
 	CloseTime string `db:"close_time" json:"close_time"`
 
 	// --- RECEIPT & PRINTER SETTINGS ---
-	ReceiptTitle        string `db:"receipt_title" json:"receipt_title"`
-	ReceiptSubtitle     string `db:"receipt_subtitle" json:"receipt_subtitle"`
-	ReceiptFooter       string `db:"receipt_footer" json:"receipt_footer"`
-	ReceiptWhatsAppText string `db:"receipt_whatsapp_text" json:"receipt_whatsapp_text"`
-	ReceiptTemplate     string `db:"receipt_template" json:"receipt_template"`
-	ReceiptChannel      string `db:"receipt_channel" json:"receipt_channel"`
-	PrinterEnabled      bool   `db:"printer_enabled" json:"printer_enabled"`
-	PrinterName         string `db:"printer_name" json:"printer_name"`
-	PrinterMode         string `db:"printer_mode" json:"printer_mode"`
-	PrinterEndpoint     string `db:"printer_endpoint" json:"printer_endpoint"`
-	PrinterAutoPrint    bool   `db:"printer_auto_print" json:"printer_auto_print"`
-	PrinterStatus       string `db:"printer_status" json:"printer_status"`
+	ReceiptTitle        string     `db:"receipt_title" json:"receipt_title"`
+	ReceiptSubtitle     string     `db:"receipt_subtitle" json:"receipt_subtitle"`
+	ReceiptFooter       string     `db:"receipt_footer" json:"receipt_footer"`
+	ReceiptWhatsAppText string     `db:"receipt_whatsapp_text" json:"receipt_whatsapp_text"`
+	ReceiptTemplate     string     `db:"receipt_template" json:"receipt_template"`
+	ReceiptChannel      string     `db:"receipt_channel" json:"receipt_channel"`
+	PrinterEnabled      bool       `db:"printer_enabled" json:"printer_enabled"`
+	PrinterName         string     `db:"printer_name" json:"printer_name"`
+	PrinterMode         string     `db:"printer_mode" json:"printer_mode"`
+	PrinterEndpoint     string     `db:"printer_endpoint" json:"printer_endpoint"`
+	PrinterAutoPrint    bool       `db:"printer_auto_print" json:"printer_auto_print"`
+	PrinterStatus       string     `db:"printer_status" json:"printer_status"`
+	ReferralCode        string     `db:"referral_code" json:"referral_code"`
+	ReferredByTenantID  *uuid.UUID `db:"referred_by_tenant_id" json:"referred_by_tenant_id,omitempty"`
+	PayoutBankName      string     `db:"payout_bank_name" json:"payout_bank_name"`
+	PayoutAccountName   string     `db:"payout_account_name" json:"payout_account_name"`
+	PayoutAccountNumber string     `db:"payout_account_number" json:"payout_account_number"`
+	PayoutWhatsApp      string     `db:"payout_whatsapp" json:"payout_whatsapp"`
 
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
@@ -178,4 +185,33 @@ type TenantDirectoryItem struct {
 	OpenTime         string    `db:"open_time" json:"open_time"`
 	CloseTime        string    `db:"close_time" json:"close_time"`
 	CreatedAt        time.Time `db:"created_at" json:"created_at"`
+}
+
+type ReferralReward struct {
+	ID               uuid.UUID  `db:"id" json:"id"`
+	ReferrerTenantID uuid.UUID  `db:"referrer_tenant_id" json:"referrer_tenant_id"`
+	ReferredTenantID uuid.UUID  `db:"referred_tenant_id" json:"referred_tenant_id"`
+	SourceOrderID    string     `db:"source_order_id" json:"source_order_id"`
+	RewardAmount     int64      `db:"reward_amount" json:"reward_amount"`
+	Status           string     `db:"status" json:"status"`
+	AvailableAt      *time.Time `db:"available_at" json:"available_at"`
+	PaidAt           *time.Time `db:"paid_at" json:"paid_at"`
+	Metadata         []byte     `db:"metadata" json:"metadata"`
+	CreatedAt        time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt        time.Time  `db:"updated_at" json:"updated_at"`
+}
+
+type ReferralWithdrawalRequest struct {
+	ID                uuid.UUID  `db:"id" json:"id"`
+	TenantID          uuid.UUID  `db:"tenant_id" json:"tenant_id"`
+	Amount            int64      `db:"amount" json:"amount"`
+	Status            string     `db:"status" json:"status"`
+	RequestedByUserID *uuid.UUID `db:"requested_by_user_id" json:"requested_by_user_id,omitempty"`
+	ReviewedByUserID  *uuid.UUID `db:"reviewed_by_user_id" json:"reviewed_by_user_id,omitempty"`
+	ReviewedAt        *time.Time `db:"reviewed_at" json:"reviewed_at,omitempty"`
+	PaidAt            *time.Time `db:"paid_at" json:"paid_at,omitempty"`
+	Note              string     `db:"note" json:"note"`
+	Metadata          []byte     `db:"metadata" json:"metadata"`
+	CreatedAt         time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt         time.Time  `db:"updated_at" json:"updated_at"`
 }

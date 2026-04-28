@@ -796,3 +796,64 @@ func (r *Repository) RevenueCSV(ctx context.Context, tenantSlug string, start, e
 	}
 	return b.String(), nil
 }
+
+func (r *Repository) ListReferralWithdrawals(ctx context.Context, status string) ([]map[string]any, error) {
+	query := `
+		SELECT
+			r.id::text,
+			r.tenant_id::text,
+			t.name AS tenant_name,
+			t.slug AS tenant_slug,
+			r.amount,
+			r.status,
+			r.note,
+			r.requested_by_user_id::text,
+			r.reviewed_by_user_id::text,
+			r.reviewed_at,
+			r.paid_at,
+			r.created_at,
+			r.updated_at
+		FROM referral_withdrawal_requests r
+		JOIN tenants t ON t.id = r.tenant_id`
+	args := []any{}
+	if strings.TrimSpace(status) != "" {
+		query += " WHERE r.status = $1"
+		args = append(args, status)
+	}
+	query += " ORDER BY r.created_at DESC LIMIT 200"
+
+	rows, err := r.db.QueryxContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []map[string]any
+	for rows.Next() {
+		row := map[string]any{}
+		if err := rows.MapScan(row); err != nil {
+			return nil, err
+		}
+		result = append(result, normalizeRow(row))
+	}
+	return result, nil
+}
+
+func (r *Repository) UpdateReferralWithdrawalStatus(ctx context.Context, withdrawalID string, status string) error {
+	status = strings.ToLower(strings.TrimSpace(status))
+	switch status {
+	case "approved", "rejected", "paid":
+	default:
+		return fmt.Errorf("status tidak valid")
+	}
+
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE referral_withdrawal_requests
+		SET status = $2,
+			reviewed_at = CASE WHEN $2 IN ('approved', 'rejected', 'paid') THEN NOW() ELSE reviewed_at END,
+			paid_at = CASE WHEN $2 = 'paid' THEN NOW() ELSE paid_at END,
+			updated_at = NOW()
+		WHERE id::text = $1`,
+		withdrawalID, status,
+	)
+	return err
+}

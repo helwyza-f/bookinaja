@@ -29,6 +29,8 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			platformProtected.GET("/customers", cfg.PlatformHandler.Customers)
 			platformProtected.GET("/transactions", cfg.PlatformHandler.Transactions)
 			platformProtected.GET("/midtrans-notifications", cfg.PlatformHandler.MidtransNotifications)
+			platformProtected.GET("/referral-withdrawals", cfg.PlatformHandler.ReferralWithdrawals)
+			platformProtected.PATCH("/referral-withdrawals/:id", cfg.PlatformHandler.UpdateReferralWithdrawalStatus)
 		}
 
 		me := protected.Group("/me")
@@ -94,6 +96,11 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 
 				settingsGroup := ownerArea.Group("/admin/settings")
 				{
+					settingsGroup.GET("/referrals/summary", cfg.TenantHandler.GetReferralSummary)
+					settingsGroup.GET("/referrals", cfg.TenantHandler.ListReferrals)
+					settingsGroup.GET("/referrals/withdrawals", cfg.TenantHandler.ListReferralWithdrawals)
+					settingsGroup.POST("/referrals/withdrawals", cfg.TenantHandler.RequestReferralWithdrawal)
+					settingsGroup.PUT("/referrals/payout", cfg.TenantHandler.UpdateReferralPayout)
 					settingsGroup.GET("/roles", cfg.TenantHandler.ListStaffRoles)
 					settingsGroup.POST("/roles", cfg.TenantHandler.CreateStaffRole)
 					settingsGroup.PUT("/roles/:id", cfg.TenantHandler.UpdateStaffRole)

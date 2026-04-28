@@ -226,6 +226,102 @@ func (h *Handler) UpdateReceiptSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Pengaturan nota diperbarui", "data": updated})
 }
 
+func (h *Handler) GetReferralSummary(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	summary, err := h.service.GetReferralSummary(c.Request.Context(), tID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, summary)
+}
+
+func (h *Handler) ListReferrals(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	items, err := h.service.ListReferralFriends(c.Request.Context(), tID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data referral"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
+func (h *Handler) RequestReferralWithdrawal(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	actorRaw := c.GetString("userID")
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	actorID, _ := uuid.Parse(actorRaw)
+
+	summary, err := h.service.GetReferralSummary(c.Request.Context(), tID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+	amount, _ := summary["available_balance"].(int64)
+	if amount <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "saldo referral belum tersedia"})
+		return
+	}
+	req, err := h.service.RequestReferralWithdrawal(c.Request.Context(), actorID, tID, amount, "Request pencairan referral")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"message": "Pencairan referral masuk pending", "data": req})
+}
+
+func (h *Handler) ListReferralWithdrawals(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	items, err := h.service.ListReferralWithdrawals(c.Request.Context(), tID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data pencairan"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
+func (h *Handler) UpdateReferralPayout(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	actorRaw := c.GetString("userID")
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	actorID, _ := uuid.Parse(actorRaw)
+
+	var req Tenant
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data tidak valid"})
+		return
+	}
+	updated, err := h.service.UpdateReferralPayout(c.Request.Context(), actorID, tID, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Rekening pencairan diperbarui", "data": updated})
+}
+
 func (h *Handler) ListStaff(c *gin.Context) {
 	tIDRaw, exists := c.Get("tenantID")
 	if !exists {

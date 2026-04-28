@@ -1,42 +1,58 @@
 "use client";
 
-import { Card } from "@/components/ui/card";
+import Link from "next/link";
+import { ArrowUpRight, BadgeCheck, Settings2, ShieldCheck, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { PageShell } from "@/components/dashboard/page-shell";
+
+const sections = [
+  { href: "/dashboard/overview", title: "Overview", desc: "Ringkasan data platform", icon: BadgeCheck },
+  { href: "/dashboard/tenants", title: "Tenants", desc: "Directory tenant aktif", icon: ShieldCheck },
+  { href: "/dashboard/referral-withdrawals", title: "Referral payout", desc: "Review request pencairan", icon: Sparkles },
+];
 
 export default function SettingsPage() {
   return (
-    <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 md:px-8">
-      <div>
-        <div className="text-[10px] font-black uppercase tracking-[0.35em] text-blue-600">
-          Platform controls
-        </div>
-        <h1 className="mt-2 text-3xl font-black uppercase tracking-tight">Settings</h1>
-      </div>
+    <PageShell
+      eyebrow="Platform controls"
+      title="Settings"
+      description="Pusat pengaturan dan pintasan untuk area operasional platform admin."
+      stats={[
+        { label: "Mode", value: "Operational" },
+        { label: "Access", value: "Platform admin only" },
+      ]}
+    >
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {sections.map((section) => {
+          const Icon = section.icon;
+          return (
+            <Card key={section.href} className="rounded-3xl border-slate-200 p-5 shadow-sm dark:border-white/10 dark:bg-[#0a0a0a]">
+              <Icon className="h-5 w-5 text-blue-600" />
+              <h2 className="mt-4 text-lg font-semibold text-slate-950 dark:text-white">{section.title}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-slate-500">{section.desc}</p>
+              <Link href={section.href} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-blue-600">
+                Open
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
+            </Card>
+          );
+        })}
+      </section>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="rounded-[2rem] p-6">
-          <div className="text-sm font-black uppercase tracking-[0.25em] text-slate-500">
-            Access rules
-          </div>
-          <p className="mt-3 text-sm leading-7 text-slate-600">
-            Root domain hanya untuk platform admin. Tenant slug tetap dipakai untuk
-            <span className="font-mono">https://{"{tenant}"}.bookinaja.com</span> dan
-            tidak boleh dipakai di <span className="font-mono">bookinaja.com</span>.
-          </p>
-        </Card>
-        <Card className="rounded-[2rem] p-6">
-          <div className="text-sm font-black uppercase tracking-[0.25em] text-slate-500">
-            Backend status
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Badge variant="outline" className="rounded-full uppercase">platform login</Badge>
-            <Badge variant="outline" className="rounded-full uppercase">summary</Badge>
-            <Badge variant="outline" className="rounded-full uppercase">tenants</Badge>
-            <Badge variant="outline" className="rounded-full uppercase">customers</Badge>
-            <Badge variant="outline" className="rounded-full uppercase">transactions</Badge>
-          </div>
-        </Card>
-      </div>
-    </main>
+      <Card className="rounded-3xl border-slate-200 p-5 shadow-sm dark:border-white/10 dark:bg-[#0a0a0a]">
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
+          <Settings2 className="h-4 w-4" />
+          Operational checklist
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {["platform login", "summary", "tenants", "customers", "transactions", "referral payout"].map((item) => (
+            <Badge key={item} variant="outline" className="rounded-full uppercase">
+              {item}
+            </Badge>
+          ))}
+        </div>
+      </Card>
+    </PageShell>
   );
 }

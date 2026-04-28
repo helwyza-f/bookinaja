@@ -212,3 +212,36 @@ func (r *Repository) ActivateSubscriptionExec(ctx context.Context, exec sqlx.Ext
 	)
 	return err
 }
+
+func (r *Repository) CreateReferralRewardIfEligible(ctx context.Context, exec sqlx.ExtContext, referredTenantID uuid.UUID, sourceOrderID string) error {
+	var referrerID sql.NullString
+	err := sqlx.GetContext(ctx, exec, &referrerID, `
+		SELECT referred_by_tenant_id
+		FROM tenants
+		WHERE id = $1
+		LIMIT 1`,
+		referredTenantID,
+	)
+	if err != nil {
+		return err
+	}
+	if !referrerID.Valid {
+		return nil
+	}
+
+	referrerUUID, err := uuid.Parse(referrerID.String)
+	if err != nil {
+		return err
+	}
+
+	_, err = exec.ExecContext(ctx, `
+		INSERT INTO referral_rewards (
+			referrer_tenant_id, referred_tenant_id, source_order_id, reward_amount, status, available_at, metadata, created_at, updated_at
+		) VALUES (
+			$1, $2, $3, 100000, 'available', NOW(), jsonb_build_object('source', 'subscription_first_purchase'), NOW(), NOW()
+		)
+		ON CONFLICT (referred_tenant_id) DO NOTHING`,
+		referrerUUID, referredTenantID, sourceOrderID,
+	)
+	return err
+}

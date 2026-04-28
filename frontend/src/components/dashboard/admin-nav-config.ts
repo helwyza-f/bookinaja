@@ -3,6 +3,7 @@ import {
   BriefcaseBusiness,
   CalendarDays,
   CreditCard,
+  Link2,
   Printer,
   Grid2x2,
   LayoutDashboard,
@@ -68,5 +69,11 @@ export const settingsNavItems: AdminNavItem[] = [
     href: "/admin/settings/nota",
     icon: Printer,
     hint: "Struk, WhatsApp, printer",
+  },
+  {
+    label: "Referral",
+    href: "/admin/settings/referral",
+    icon: Link2,
+    hint: "Kode referral & bonus",
   },
 ];

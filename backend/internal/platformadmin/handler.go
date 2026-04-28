@@ -268,6 +268,36 @@ func (h *Handler) RevenueCSV(c *gin.Context) {
 	_, _ = c.Writer.WriteString(csvData)
 }
 
+func (h *Handler) ReferralWithdrawals(c *gin.Context) {
+	status := strings.TrimSpace(c.Query("status"))
+	data, err := h.repo.ListReferralWithdrawals(c.Request.Context(), status)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	respondData(c, data)
+}
+
+func (h *Handler) UpdateReferralWithdrawalStatus(c *gin.Context) {
+	withdrawalID := strings.TrimSpace(c.Param("id"))
+	if withdrawalID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "withdrawal id wajib diisi"})
+		return
+	}
+	var req struct {
+		Status string `json:"status" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "status wajib diisi"})
+		return
+	}
+	if err := h.repo.UpdateReferralWithdrawalStatus(c.Request.Context(), withdrawalID, req.Status); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "status pencairan diperbarui"})
+}
+
 func parseTimePtr(raw string) (*time.Time, error) {
 	if strings.TrimSpace(raw) == "" {
 		return nil, nil

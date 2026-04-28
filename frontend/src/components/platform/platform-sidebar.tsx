@@ -10,6 +10,7 @@ import {
   ReceiptText,
   ChartColumn,
   ShieldCheck,
+  HandCoins,
   LogOut,
   ChevronRight,
 } from "lucide-react";
@@ -21,6 +22,7 @@ const navItems = [
   { href: "/dashboard/tenants", label: "Tenants", icon: Building2 },
   { href: "/dashboard/customers", label: "Customers", icon: Users },
   { href: "/dashboard/transactions", label: "Transactions", icon: ReceiptText },
+  { href: "/dashboard/referral-withdrawals", label: "Referral Payout", icon: HandCoins },
   { href: "/dashboard/settings", label: "Settings", icon: ShieldCheck },
 ];
 

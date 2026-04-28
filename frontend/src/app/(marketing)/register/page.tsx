@@ -29,6 +29,15 @@ import {
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 
+type RegisterFormValues = {
+  businessName: string;
+  subdomain: string;
+  referralCode: string;
+  fullName: string;
+  email: string;
+  password: string;
+};
+
 const CATEGORIES = [
   {
     id: "gaming_hub",
@@ -67,16 +76,18 @@ function RegisterForm() {
   const categoryParam = searchParams.get("category");
   const planParam = searchParams.get("plan");
   const intervalParam = searchParams.get("interval");
+  const referralParam = searchParams.get("ref");
 
   // Inisialisasi category dari URL jika ada, jika tidak default ke gaming_hub
   const [selectedCategory, setSelectedCategory] = useState(
     categoryParam || "gaming_hub",
   );
 
-  const { register, handleSubmit, watch } = useForm({
+  const { register, handleSubmit, watch } = useForm<RegisterFormValues>({
     defaultValues: {
       businessName: "",
       subdomain: "",
+      referralCode: referralParam || "",
       fullName: "",
       email: "",
       password: "",
@@ -85,7 +96,7 @@ function RegisterForm() {
 
   const slugValue = watch("subdomain", "");
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: RegisterFormValues) => {
     setLoading(true);
     const payload = {
       tenant_name: data.businessName,
@@ -94,6 +105,7 @@ function RegisterForm() {
       business_type:
         CATEGORIES.find((c) => c.id === selectedCategory)?.name ||
         "Universal Booking",
+      referral_code: data.referralCode?.trim() || "",
       admin_name: data.fullName,
       admin_email: data.email,
       admin_password: data.password,
@@ -115,7 +127,7 @@ function RegisterForm() {
 
     try {
       await promise;
-    } catch (e) {
+    } catch {
       setLoading(false);
     }
   };
@@ -134,7 +146,7 @@ function RegisterForm() {
           <div className="h-px flex-1 bg-border/60" />
         </div>
 
-        <div className="grid gap-6">
+          <div className="grid gap-6">
           <div className="space-y-3">
             <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
               Nama Entitas Bisnis
@@ -171,6 +183,23 @@ function RegisterForm() {
                 LIVE URL: {slugValue.toLowerCase()}.bookinaja.com
               </p>
             )}
+          </div>
+
+          <div className="space-y-3">
+            <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
+              Kode Referral
+            </Label>
+            <div className="relative">
+              <Fingerprint className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40" />
+              <Input
+                placeholder="Opsional: kode referral dari partner"
+                className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold pl-14 focus:ring-4 focus:ring-blue-600/5"
+                {...register("referralCode")}
+              />
+            </div>
+            <p className="px-4 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/70">
+              Jika diisi, sistem akan memverifikasi kode sebelum registrasi disimpan.
+            </p>
           </div>
         </div>
       </div>
@@ -343,14 +372,9 @@ function RegisterForm() {
 }
 
 export default function RegisterPage() {
-  const [mounted, setMounted] = useState(false);
-
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-    setMounted(true);
   }, []);
-
-  if (!mounted) return null;
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center py-12 md:py-24 px-4 md:px-6 overflow-hidden selection:bg-blue-600/30 font-plus-jakarta bg-background">

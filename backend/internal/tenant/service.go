@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -70,6 +71,15 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 
 	tID := uuid.New()
 	now := time.Now().UTC()
+	referralCode := generateReferralCode(req.TenantSlug)
+	var referredBy *uuid.UUID
+	if code := strings.TrimSpace(strings.ToLower(req.ReferralCode)); code != "" {
+		if refTenant, err := s.repo.GetByReferralCode(ctx, code); err == nil && refTenant != nil {
+			referredBy = &refTenant.ID
+		} else {
+			return nil, errors.New("kode referral tidak valid")
+		}
+	}
 
 	// --- DYNAMIC DEFAULT BRANDING ---
 	defaultColor := "#3b82f6"
@@ -121,6 +131,8 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 		ReceiptChannel:                 "whatsapp",
 		PrinterMode:                    "whatsapp",
 		PrinterStatus:                  "disconnected",
+		ReferralCode:                   referralCode,
+		ReferredByTenantID:             referredBy,
 		CreatedAt:                      now,
 	}
 
@@ -143,6 +155,20 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 	go s.SeedTemplate(context.Background(), tID, req.BusinessCategory)
 
 	return &tenant, nil
+}
+
+func generateReferralCode(slug string) string {
+	base := strings.ToUpper(strings.TrimSpace(slug))
+	base = strings.ReplaceAll(base, " ", "")
+	base = strings.ReplaceAll(base, ".", "")
+	base = strings.ReplaceAll(base, "-", "")
+	if base == "" {
+		base = "BOOK"
+	}
+	if len(base) > 8 {
+		base = base[:8]
+	}
+	return fmt.Sprintf("%s%s", base, strings.ToUpper(uuid.NewString()[:4]))
 }
 
 func ptrTime(t time.Time) *time.Time {
@@ -313,6 +339,131 @@ func (s *Service) GetReceiptSettings(ctx context.Context, id uuid.UUID) (*Tenant
 	return s.repo.GetByID(ctx, id)
 }
 
+func (s *Service) GetReferralSummary(ctx context.Context, id uuid.UUID) (map[string]any, error) {
+	tenant, err := s.repo.GetByID(ctx, id)
+	if err != nil || tenant == nil {
+		return nil, errors.New("tenant tidak ditemukan")
+	}
+	summary, err := s.repo.ReferralSummary(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	summary["referral_code"] = tenant.ReferralCode
+	return summary, nil
+}
+
+func (s *Service) ListReferralFriends(ctx context.Context, id uuid.UUID) ([]Tenant, error) {
+	return s.repo.GetReferralChildren(ctx, id)
+}
+
+func (s *Service) RequestReferralWithdrawal(ctx context.Context, actorUserID uuid.UUID, tenantID uuid.UUID, amount int64, note string) (*ReferralWithdrawalRequest, error) {
+	if amount <= 0 {
+		return nil, errors.New("jumlah penarikan harus lebih dari nol")
+	}
+
+	tenant, err := s.repo.GetByID(ctx, tenantID)
+	if err != nil || tenant == nil {
+		return nil, errors.New("tenant tidak ditemukan")
+	}
+	if strings.TrimSpace(tenant.PayoutBankName) == "" || strings.TrimSpace(tenant.PayoutAccountName) == "" || strings.TrimSpace(tenant.PayoutAccountNumber) == "" || strings.TrimSpace(tenant.PayoutWhatsApp) == "" {
+		return nil, errors.New("rekening pencairan belum lengkap")
+	}
+
+	summary, err := s.repo.ReferralSummary(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	available := int64(0)
+	if raw, ok := summary["available_balance"].(int64); ok {
+		available = raw
+	}
+	if available < amount {
+		return nil, errors.New("saldo tersedia tidak mencukupi")
+	}
+
+	req := ReferralWithdrawalRequest{
+		ID:                uuid.New(),
+		TenantID:          tenantID,
+		Amount:            amount,
+		Status:            "pending",
+		RequestedByUserID: &actorUserID,
+		Note:              note,
+		Metadata:          []byte(`{}`),
+		CreatedAt:         time.Now().UTC(),
+		UpdatedAt:         time.Now().UTC(),
+	}
+	if err := s.repo.RequestReferralWithdrawal(ctx, req); err != nil {
+		return nil, err
+	}
+	return &req, nil
+}
+
+func (s *Service) ListReferralWithdrawals(ctx context.Context, tenantID uuid.UUID) ([]ReferralWithdrawalRequest, error) {
+	return s.repo.ListReferralWithdrawals(ctx, tenantID)
+}
+
+func (s *Service) UpdateReferralPayout(ctx context.Context, actorUserID uuid.UUID, id uuid.UUID, req Tenant) (*Tenant, error) {
+	curr, err := s.repo.GetByID(ctx, id)
+	if err != nil || curr == nil {
+		return nil, errors.New("tenant tidak ditemukan")
+	}
+	req.ID = id
+	req.Slug = curr.Slug
+	req.Name = curr.Name
+	req.BusinessCategory = curr.BusinessCategory
+	req.BusinessType = curr.BusinessType
+	req.Plan = curr.Plan
+	req.SubscriptionStatus = curr.SubscriptionStatus
+	req.SubscriptionCurrentPeriodStart = curr.SubscriptionCurrentPeriodStart
+	req.SubscriptionCurrentPeriodEnd = curr.SubscriptionCurrentPeriodEnd
+	req.Slogan = curr.Slogan
+	req.Tagline = curr.Tagline
+	req.AboutUs = curr.AboutUs
+	req.Features = curr.Features
+	req.PrimaryColor = curr.PrimaryColor
+	req.LogoURL = curr.LogoURL
+	req.BannerURL = curr.BannerURL
+	req.Gallery = curr.Gallery
+	req.Address = curr.Address
+	req.WhatsappNumber = curr.WhatsappNumber
+	req.InstagramURL = curr.InstagramURL
+	req.TiktokURL = curr.TiktokURL
+	req.MapIframeURL = curr.MapIframeURL
+	req.MetaTitle = curr.MetaTitle
+	req.MetaDescription = curr.MetaDescription
+	req.OpenTime = curr.OpenTime
+	req.CloseTime = curr.CloseTime
+	req.ReferralCode = curr.ReferralCode
+	req.ReferredByTenantID = curr.ReferredByTenantID
+	req.ReceiptTitle = curr.ReceiptTitle
+	req.ReceiptSubtitle = curr.ReceiptSubtitle
+	req.ReceiptFooter = curr.ReceiptFooter
+	req.ReceiptWhatsAppText = curr.ReceiptWhatsAppText
+	req.ReceiptTemplate = curr.ReceiptTemplate
+	req.ReceiptChannel = curr.ReceiptChannel
+	req.PrinterEnabled = curr.PrinterEnabled
+	req.PrinterName = curr.PrinterName
+	req.PrinterMode = curr.PrinterMode
+	req.PrinterEndpoint = curr.PrinterEndpoint
+	req.PrinterAutoPrint = curr.PrinterAutoPrint
+	req.PrinterStatus = curr.PrinterStatus
+	req.CreatedAt = curr.CreatedAt
+	if err := s.repo.Update(ctx, req); err != nil {
+		return nil, err
+	}
+	_ = s.repo.CreateAuditLog(ctx, AuditLog{
+		ID:           uuid.New(),
+		TenantID:     id,
+		ActorUserID:  &actorUserID,
+		Action:       "update_referral_payout",
+		ResourceType: "tenant",
+		ResourceID:   &id,
+		Metadata:     []byte(`{}`),
+		CreatedAt:    time.Now().UTC(),
+	})
+	return &req, nil
+}
+
 func (s *Service) UpdateProfile(ctx context.Context, actorUserID uuid.UUID, id uuid.UUID, req Tenant) (*Tenant, error) {
 	curr, err := s.repo.GetByID(ctx, id)
 	if err != nil || curr == nil {
@@ -321,6 +472,12 @@ func (s *Service) UpdateProfile(ctx context.Context, actorUserID uuid.UUID, id u
 
 	req.ID = id
 	req.Slug = curr.Slug
+	req.ReferralCode = curr.ReferralCode
+	req.ReferredByTenantID = curr.ReferredByTenantID
+	req.PayoutBankName = curr.PayoutBankName
+	req.PayoutAccountName = curr.PayoutAccountName
+	req.PayoutAccountNumber = curr.PayoutAccountNumber
+	req.PayoutWhatsApp = curr.PayoutWhatsApp
 	req.CreatedAt = curr.CreatedAt
 
 	if err := s.repo.Update(ctx, req); err != nil {
@@ -377,6 +534,12 @@ func (s *Service) UpdateReceiptSettings(ctx context.Context, actorUserID uuid.UU
 	req.MetaDescription = curr.MetaDescription
 	req.OpenTime = curr.OpenTime
 	req.CloseTime = curr.CloseTime
+	req.ReferralCode = curr.ReferralCode
+	req.ReferredByTenantID = curr.ReferredByTenantID
+	req.PayoutBankName = curr.PayoutBankName
+	req.PayoutAccountName = curr.PayoutAccountName
+	req.PayoutAccountNumber = curr.PayoutAccountNumber
+	req.PayoutWhatsApp = curr.PayoutWhatsApp
 	req.ReceiptTitle = curr.ReceiptTitle
 	req.ReceiptSubtitle = curr.ReceiptSubtitle
 	req.ReceiptFooter = curr.ReceiptFooter
@@ -396,12 +559,12 @@ func (s *Service) UpdateReceiptSettings(ctx context.Context, actorUserID uuid.UU
 	}
 
 	metadata, _ := json.Marshal(map[string]any{
-		"receipt_title":    req.ReceiptTitle,
-		"printer_enabled":  req.PrinterEnabled,
-		"printer_name":     req.PrinterName,
-		"printer_mode":     req.PrinterMode,
-		"receipt_channel":  req.ReceiptChannel,
-		"printer_status":   req.PrinterStatus,
+		"receipt_title":      req.ReceiptTitle,
+		"printer_enabled":    req.PrinterEnabled,
+		"printer_name":       req.PrinterName,
+		"printer_mode":       req.PrinterMode,
+		"receipt_channel":    req.ReceiptChannel,
+		"printer_status":     req.PrinterStatus,
 		"printer_auto_print": req.PrinterAutoPrint,
 	})
 	_ = s.repo.CreateAuditLog(ctx, AuditLog{

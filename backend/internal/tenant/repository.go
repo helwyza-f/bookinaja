@@ -148,6 +148,7 @@ func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) erro
 			slogan, tagline, about_us, features, primary_color,
 			receipt_title, receipt_subtitle, receipt_footer, receipt_whatsapp_text, receipt_template,
 			receipt_channel, printer_enabled, printer_name, printer_mode, printer_endpoint, printer_auto_print, printer_status,
+			referral_code, referred_by_tenant_id,
 			created_at
 		) VALUES (
 			:id, :name, :slug, :business_category, :business_type, 
@@ -155,6 +156,7 @@ func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) erro
 			:slogan, :tagline, :about_us, :features, :primary_color,
 			:receipt_title, :receipt_subtitle, :receipt_footer, :receipt_whatsapp_text, :receipt_template,
 			:receipt_channel, :printer_enabled, :printer_name, :printer_mode, :printer_endpoint, :printer_auto_print, :printer_status,
+			:referral_code, :referred_by_tenant_id,
 			:created_at
 		)`, t)
 	if err != nil {
@@ -213,7 +215,10 @@ func (r *Repository) Update(ctx context.Context, t Tenant) error {
             receipt_title=:receipt_title, receipt_subtitle=:receipt_subtitle, receipt_footer=:receipt_footer,
             receipt_whatsapp_text=:receipt_whatsapp_text, receipt_template=:receipt_template, receipt_channel=:receipt_channel,
             printer_enabled=:printer_enabled, printer_name=:printer_name, printer_mode=:printer_mode,
-            printer_endpoint=:printer_endpoint, printer_auto_print=:printer_auto_print, printer_status=:printer_status
+			printer_endpoint=:printer_endpoint, printer_auto_print=:printer_auto_print, printer_status=:printer_status,
+            referral_code=:referral_code, referred_by_tenant_id=:referred_by_tenant_id,
+            payout_bank_name=:payout_bank_name, payout_account_name=:payout_account_name,
+            payout_account_number=:payout_account_number, payout_whatsapp=:payout_whatsapp
         WHERE id=:id`
 
 	_, err := r.db.NamedExecContext(ctx, query, t)
@@ -255,6 +260,91 @@ func (r *Repository) Update(ctx context.Context, t Tenant) error {
 	}
 
 	return nil
+}
+
+func (r *Repository) GetByReferralCode(ctx context.Context, code string) (*Tenant, error) {
+	var t Tenant
+	err := r.db.GetContext(ctx, &t, `SELECT * FROM tenants WHERE LOWER(TRIM(referral_code)) = $1 LIMIT 1`, strings.ToLower(strings.TrimSpace(code)))
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+func (r *Repository) GetReferralChildren(ctx context.Context, tenantID uuid.UUID) ([]Tenant, error) {
+	var items []Tenant
+	err := r.db.SelectContext(ctx, &items, `
+		SELECT * FROM tenants
+		WHERE referred_by_tenant_id = $1
+		ORDER BY created_at DESC`, tenantID)
+	return items, err
+}
+
+func (r *Repository) ReferralSummary(ctx context.Context, tenantID uuid.UUID) (map[string]any, error) {
+	var out map[string]any = map[string]any{}
+	var referrals int
+	var active int
+	var pending int
+	var available int64
+	var pendingWithdrawal int64
+	err := r.db.GetContext(ctx, &referrals, `SELECT COUNT(*) FROM tenants WHERE referred_by_tenant_id = $1`, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	_ = r.db.GetContext(ctx, &active, `SELECT COUNT(*) FROM tenants t WHERE t.referred_by_tenant_id = $1 AND t.subscription_status = 'active'`, tenantID)
+	_ = r.db.GetContext(ctx, &pending, `SELECT COUNT(*) FROM tenants t WHERE t.referred_by_tenant_id = $1 AND t.subscription_status = 'trial'`, tenantID)
+	_ = r.db.GetContext(ctx, &available, `SELECT COALESCE(SUM(reward_amount),0) FROM referral_rewards WHERE referrer_tenant_id = $1 AND status = 'available'`, tenantID)
+	_ = r.db.GetContext(ctx, &pendingWithdrawal, `SELECT COALESCE(SUM(amount),0) FROM referral_withdrawal_requests WHERE tenant_id = $1 AND status = 'pending'`, tenantID)
+	out["total_referred"] = referrals
+	out["active_referred"] = active
+	out["trial_referred"] = pending
+	out["available_balance"] = available
+	out["pending_withdrawal"] = pendingWithdrawal
+	return out, nil
+}
+
+func (r *Repository) CreateReferralReward(ctx context.Context, reward ReferralReward) error {
+	_, err := r.db.NamedExecContext(ctx, `
+		INSERT INTO referral_rewards (
+			id, referrer_tenant_id, referred_tenant_id, source_order_id, reward_amount, status, available_at, metadata, created_at, updated_at
+		) VALUES (
+			:id, :referrer_tenant_id, :referred_tenant_id, :source_order_id, :reward_amount, :status, :available_at, :metadata, :created_at, :updated_at
+	)`, reward)
+	return err
+}
+
+func (r *Repository) RequestReferralWithdrawal(ctx context.Context, req ReferralWithdrawalRequest) error {
+	_, err := r.db.NamedExecContext(ctx, `
+		INSERT INTO referral_withdrawal_requests (
+			id, tenant_id, amount, status, requested_by_user_id, note, metadata, created_at, updated_at
+		) VALUES (
+			:id, :tenant_id, :amount, :status, :requested_by_user_id, :note, :metadata, :created_at, :updated_at
+		)`, req)
+	if err != nil {
+		return err
+	}
+	_, err = r.db.ExecContext(ctx, `
+		UPDATE referral_rewards
+		SET status = 'pending', updated_at = NOW()
+		WHERE referrer_tenant_id = $1 AND status = 'available'`,
+		req.TenantID,
+	)
+	return err
+}
+
+func (r *Repository) ListReferralWithdrawals(ctx context.Context, tenantID uuid.UUID) ([]ReferralWithdrawalRequest, error) {
+	var items []ReferralWithdrawalRequest
+	err := r.db.SelectContext(ctx, &items, `
+		SELECT *
+		FROM referral_withdrawal_requests
+		WHERE tenant_id = $1
+		ORDER BY created_at DESC`,
+		tenantID,
+	)
+	return items, err
 }
 
 func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Tenant, error) {
