@@ -77,6 +77,8 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				{
 					ownerAdmin.GET("/profile", cfg.TenantHandler.GetProfile)
 					ownerAdmin.PUT("/profile", cfg.TenantHandler.UpdateProfile)
+					ownerAdmin.GET("/receipt-settings", cfg.TenantHandler.GetReceiptSettings)
+					ownerAdmin.PUT("/receipt-settings", cfg.TenantHandler.UpdateReceiptSettings)
 					ownerAdmin.POST("/upload", func(c *gin.Context) {
 						upload.HandleSingleUpload(c, "tenants")
 					})

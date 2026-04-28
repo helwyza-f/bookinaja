@@ -51,11 +51,10 @@ export default function SettingsBillingSubscribePage() {
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
   const [checkingMidtrans, setCheckingMidtrans] = useState(false);
+  const [midtransReady, setMidtransReady] = useState(false);
 
   useEffect(() => {
-    api
-      .get("/billing/subscription")
-    .then((res) => {
+    api.get("/billing/subscription").then((res) => {
         const info = res.data as SubscriptionInfo;
         setCurrentPlan((info?.plan || "").toLowerCase() || null);
         setCurrentStatus((info?.status || "").toLowerCase() || null);
@@ -64,8 +63,7 @@ export default function SettingsBillingSubscribePage() {
   }, []);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && (window as SnapWindow).snap) {
-    }
+    setMidtransReady(Boolean(typeof window !== "undefined" && (window as SnapWindow).snap));
   }, []);
 
   const activeLabel = useMemo(() => currentPlan?.toUpperCase() || "BELUM AKTIF", [currentPlan]);
@@ -207,6 +205,12 @@ export default function SettingsBillingSubscribePage() {
         Subscription Checkout
       </Badge>
       </div>
+
+      {!midtransReady && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+          Midtrans Snap belum siap. Tombol checkout tetap bisa dipakai setelah script selesai termuat.
+        </div>
+      )}
 
       <Card className="relative overflow-hidden border-slate-200 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] sm:p-8">
         <div className="absolute right-0 top-0 h-40 w-40 translate-x-1/3 -translate-y-1/3 rounded-full bg-blue-500/10 blur-3xl" />

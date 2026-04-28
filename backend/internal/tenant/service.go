@@ -114,6 +114,13 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 		AboutUs:                        defaultAbout,
 		Features:                       defaultFeatures,
 		PrimaryColor:                   defaultColor,
+		ReceiptTitle:                   "Struk Bookinaja",
+		ReceiptSubtitle:                "Bukti transaksi resmi",
+		ReceiptFooter:                  "Terima kasih sudah berkunjung",
+		ReceiptWhatsAppText:            "Berikut struk transaksi Anda dari Bookinaja.",
+		ReceiptChannel:                 "whatsapp",
+		PrinterMode:                    "whatsapp",
+		PrinterStatus:                  "disconnected",
 		CreatedAt:                      now,
 	}
 
@@ -302,6 +309,10 @@ func (s *Service) GetProfile(ctx context.Context, id uuid.UUID) (*Tenant, error)
 	return s.repo.GetByID(ctx, id)
 }
 
+func (s *Service) GetReceiptSettings(ctx context.Context, id uuid.UUID) (*Tenant, error) {
+	return s.repo.GetByID(ctx, id)
+}
+
 func (s *Service) UpdateProfile(ctx context.Context, actorUserID uuid.UUID, id uuid.UUID, req Tenant) (*Tenant, error) {
 	curr, err := s.repo.GetByID(ctx, id)
 	if err != nil || curr == nil {
@@ -325,6 +336,79 @@ func (s *Service) UpdateProfile(ctx context.Context, actorUserID uuid.UUID, id u
 		TenantID:     id,
 		ActorUserID:  &actorUserID,
 		Action:       "update_business_profile",
+		ResourceType: "tenant",
+		ResourceID:   &id,
+		Metadata:     metadata,
+		CreatedAt:    time.Now().UTC(),
+	})
+
+	return &req, nil
+}
+
+func (s *Service) UpdateReceiptSettings(ctx context.Context, actorUserID uuid.UUID, id uuid.UUID, req Tenant) (*Tenant, error) {
+	curr, err := s.repo.GetByID(ctx, id)
+	if err != nil || curr == nil {
+		return nil, errors.New("tenant tidak ditemukan")
+	}
+
+	req.ID = id
+	req.Slug = curr.Slug
+	req.Name = curr.Name
+	req.BusinessCategory = curr.BusinessCategory
+	req.BusinessType = curr.BusinessType
+	req.Plan = curr.Plan
+	req.SubscriptionStatus = curr.SubscriptionStatus
+	req.SubscriptionCurrentPeriodStart = curr.SubscriptionCurrentPeriodStart
+	req.SubscriptionCurrentPeriodEnd = curr.SubscriptionCurrentPeriodEnd
+	req.Slogan = curr.Slogan
+	req.Tagline = curr.Tagline
+	req.AboutUs = curr.AboutUs
+	req.Features = curr.Features
+	req.PrimaryColor = curr.PrimaryColor
+	req.LogoURL = curr.LogoURL
+	req.BannerURL = curr.BannerURL
+	req.Gallery = curr.Gallery
+	req.Address = curr.Address
+	req.WhatsappNumber = curr.WhatsappNumber
+	req.InstagramURL = curr.InstagramURL
+	req.TiktokURL = curr.TiktokURL
+	req.MapIframeURL = curr.MapIframeURL
+	req.MetaTitle = curr.MetaTitle
+	req.MetaDescription = curr.MetaDescription
+	req.OpenTime = curr.OpenTime
+	req.CloseTime = curr.CloseTime
+	req.ReceiptTitle = curr.ReceiptTitle
+	req.ReceiptSubtitle = curr.ReceiptSubtitle
+	req.ReceiptFooter = curr.ReceiptFooter
+	req.ReceiptWhatsAppText = curr.ReceiptWhatsAppText
+	req.ReceiptTemplate = curr.ReceiptTemplate
+	req.ReceiptChannel = curr.ReceiptChannel
+	req.PrinterEnabled = curr.PrinterEnabled
+	req.PrinterName = curr.PrinterName
+	req.PrinterMode = curr.PrinterMode
+	req.PrinterEndpoint = curr.PrinterEndpoint
+	req.PrinterAutoPrint = curr.PrinterAutoPrint
+	req.PrinterStatus = curr.PrinterStatus
+	req.CreatedAt = curr.CreatedAt
+
+	if err := s.repo.Update(ctx, req); err != nil {
+		return nil, err
+	}
+
+	metadata, _ := json.Marshal(map[string]any{
+		"receipt_title":    req.ReceiptTitle,
+		"printer_enabled":  req.PrinterEnabled,
+		"printer_name":     req.PrinterName,
+		"printer_mode":     req.PrinterMode,
+		"receipt_channel":  req.ReceiptChannel,
+		"printer_status":   req.PrinterStatus,
+		"printer_auto_print": req.PrinterAutoPrint,
+	})
+	_ = s.repo.CreateAuditLog(ctx, AuditLog{
+		ID:           uuid.New(),
+		TenantID:     id,
+		ActorUserID:  &actorUserID,
+		Action:       "update_receipt_settings",
 		ResourceType: "tenant",
 		ResourceID:   &id,
 		Metadata:     metadata,

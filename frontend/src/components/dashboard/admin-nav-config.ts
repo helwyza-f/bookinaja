@@ -3,6 +3,7 @@ import {
   BriefcaseBusiness,
   CalendarDays,
   CreditCard,
+  Printer,
   Grid2x2,
   LayoutDashboard,
   Megaphone,
@@ -61,5 +62,11 @@ export const settingsNavItems: AdminNavItem[] = [
     href: "/admin/settings/billing",
     icon: CreditCard,
     hint: "Paket SaaS & Midtrans",
+  },
+  {
+    label: "Nota & Printer",
+    href: "/admin/settings/nota",
+    icon: Printer,
+    hint: "Struk, WhatsApp, printer",
   },
 ];

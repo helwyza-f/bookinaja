@@ -145,11 +145,17 @@ func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) erro
 		INSERT INTO tenants (
 			id, name, slug, business_category, business_type, 
 			plan, subscription_status, subscription_current_period_start, subscription_current_period_end,
-			slogan, tagline, about_us, features, primary_color, created_at
+			slogan, tagline, about_us, features, primary_color,
+			receipt_title, receipt_subtitle, receipt_footer, receipt_whatsapp_text, receipt_template,
+			receipt_channel, printer_enabled, printer_name, printer_mode, printer_endpoint, printer_auto_print, printer_status,
+			created_at
 		) VALUES (
 			:id, :name, :slug, :business_category, :business_type, 
 			:plan, :subscription_status, :subscription_current_period_start, :subscription_current_period_end,
-			:slogan, :tagline, :about_us, :features, :primary_color, :created_at
+			:slogan, :tagline, :about_us, :features, :primary_color,
+			:receipt_title, :receipt_subtitle, :receipt_footer, :receipt_whatsapp_text, :receipt_template,
+			:receipt_channel, :printer_enabled, :printer_name, :printer_mode, :printer_endpoint, :printer_auto_print, :printer_status,
+			:created_at
 		)`, t)
 	if err != nil {
 		return err
@@ -203,7 +209,11 @@ func (r *Repository) Update(ctx context.Context, t Tenant) error {
             gallery=:gallery, business_category=:business_category, primary_color=:primary_color, 
             whatsapp_number=:whatsapp_number, instagram_url=:instagram_url, 
             tiktok_url=:tiktok_url, map_iframe_url=:map_iframe_url, 
-            meta_title=:meta_title, meta_description=:meta_description
+            meta_title=:meta_title, meta_description=:meta_description,
+            receipt_title=:receipt_title, receipt_subtitle=:receipt_subtitle, receipt_footer=:receipt_footer,
+            receipt_whatsapp_text=:receipt_whatsapp_text, receipt_template=:receipt_template, receipt_channel=:receipt_channel,
+            printer_enabled=:printer_enabled, printer_name=:printer_name, printer_mode=:printer_mode,
+            printer_endpoint=:printer_endpoint, printer_auto_print=:printer_auto_print, printer_status=:printer_status
         WHERE id=:id`
 
 	_, err := r.db.NamedExecContext(ctx, query, t)
@@ -305,7 +315,7 @@ func (r *Repository) GetUserByID(ctx context.Context, id uuid.UUID) (*User, stri
 	query := `
 		SELECT 
 			u.id, u.tenant_id, u.role_id, u.name, u.email, u.role, u.created_at,
-			COALESCE(t.logo_url, '') as logo_url,
+			COALESCE(t.logo_url, '') as logo_url
 		FROM users u
 		JOIN tenants t ON t.id = u.tenant_id
 		LEFT JOIN staff_roles sr ON sr.id = u.role_id

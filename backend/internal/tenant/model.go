@@ -143,8 +143,23 @@ type Tenant struct {
 	MetaDescription string `db:"meta_description" json:"meta_description"`
 
 	// --- OPERATIONAL ---
-	OpenTime  string    `db:"open_time" json:"open_time"`
-	CloseTime string    `db:"close_time" json:"close_time"`
+	OpenTime  string `db:"open_time" json:"open_time"`
+	CloseTime string `db:"close_time" json:"close_time"`
+
+	// --- RECEIPT & PRINTER SETTINGS ---
+	ReceiptTitle        string `db:"receipt_title" json:"receipt_title"`
+	ReceiptSubtitle     string `db:"receipt_subtitle" json:"receipt_subtitle"`
+	ReceiptFooter       string `db:"receipt_footer" json:"receipt_footer"`
+	ReceiptWhatsAppText string `db:"receipt_whatsapp_text" json:"receipt_whatsapp_text"`
+	ReceiptTemplate     string `db:"receipt_template" json:"receipt_template"`
+	ReceiptChannel      string `db:"receipt_channel" json:"receipt_channel"`
+	PrinterEnabled      bool   `db:"printer_enabled" json:"printer_enabled"`
+	PrinterName         string `db:"printer_name" json:"printer_name"`
+	PrinterMode         string `db:"printer_mode" json:"printer_mode"`
+	PrinterEndpoint     string `db:"printer_endpoint" json:"printer_endpoint"`
+	PrinterAutoPrint    bool   `db:"printer_auto_print" json:"printer_auto_print"`
+	PrinterStatus       string `db:"printer_status" json:"printer_status"`
+
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
 

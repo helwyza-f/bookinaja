@@ -160,6 +160,21 @@ func (h *Handler) GetProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, p)
 }
 
+func (h *Handler) GetReceiptSettings(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	p, err := h.service.GetReceiptSettings(c.Request.Context(), tID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Gagal mengambil pengaturan nota"})
+		return
+	}
+	c.JSON(http.StatusOK, p)
+}
+
 // UpdateProfile
 func (h *Handler) UpdateProfile(c *gin.Context) {
 	tIDRaw, exists := c.Get("tenantID")
@@ -184,6 +199,31 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Profil diperbarui", "data": updated})
+}
+
+func (h *Handler) UpdateReceiptSettings(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	actorRaw := c.GetString("userID")
+
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	actorID, _ := uuid.Parse(actorRaw)
+	var req Tenant
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data tidak valid"})
+		return
+	}
+
+	updated, err := h.service.UpdateReceiptSettings(c.Request.Context(), actorID, tID, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Pengaturan nota diperbarui", "data": updated})
 }
 
 func (h *Handler) ListStaff(c *gin.Context) {
