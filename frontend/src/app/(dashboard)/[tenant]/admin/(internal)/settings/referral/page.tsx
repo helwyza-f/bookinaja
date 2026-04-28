@@ -83,8 +83,7 @@ export default function ReferralSettingsPage() {
 
   const referralUrl = useMemo(() => {
     if (!summary?.referral_code) return "";
-    if (typeof window === "undefined") return "";
-    const url = new URL(window.location.origin + "/register");
+    const url = new URL("https://bookinaja.com/register");
     url.searchParams.set("ref", summary.referral_code);
     return url.toString();
   }, [summary?.referral_code]);
@@ -99,9 +98,11 @@ export default function ReferralSettingsPage() {
         api.get("/admin/settings/referrals/withdrawals"),
       ]);
       const nextSummary = summaryRes.data?.data || summaryRes.data || {};
+      const nextReferrals = referralsRes.data?.data ?? referralsRes.data?.items ?? referralsRes.data ?? [];
+      const nextWithdrawals = withdrawalsRes.data?.data ?? withdrawalsRes.data?.items ?? withdrawalsRes.data ?? [];
       setSummary(nextSummary);
-      setReferrals(referralsRes.data?.data || []);
-      setWithdrawals(withdrawalsRes.data?.data || []);
+      setReferrals(Array.isArray(nextReferrals) ? nextReferrals : []);
+      setWithdrawals(Array.isArray(nextWithdrawals) ? nextWithdrawals : []);
       setPayout({
         bank_name: nextSummary.payout_bank_name || "",
         account_name: nextSummary.payout_account_name || "",
@@ -286,6 +287,30 @@ export default function ReferralSettingsPage() {
                 Bonus muncul sekali saja, tepat saat tenant yang direfer berhasil jadi subscriber aktif untuk pertama kali.
               </p>
             </div>
+
+            {payoutReady ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#0a0a0a]">
+                <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Rekening tersimpan</div>
+                <div className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Bank</span>
+                    <span className="font-semibold text-slate-950 dark:text-white">{summary?.payout_bank_name || "-"}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Nama</span>
+                    <span className="font-semibold text-slate-950 dark:text-white">{summary?.payout_account_name || "-"}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span>No. rekening</span>
+                    <span className="font-semibold text-slate-950 dark:text-white">{summary?.payout_account_number || "-"}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span>WhatsApp</span>
+                    <span className="font-semibold text-slate-950 dark:text-white">{summary?.payout_whatsapp || "-"}</span>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 
