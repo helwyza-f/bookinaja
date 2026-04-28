@@ -39,48 +39,43 @@ export function TenantHero({ profile, content, theme }: any) {
       </div>
 
       {/* --- CONTENT LAYER --- */}
-      <div className="relative z-20 w-full max-w-7xl mx-auto px-6 md:px-12 text-center pt-28 pb-16">
-        <div className="flex flex-col items-center gap-8 md:gap-14">
+      <div className="relative z-20 w-full max-w-5xl mx-auto px-6 md:px-12 text-center pt-32 pb-24">
+        <div className="flex flex-col items-center gap-6 md:gap-10">
           {/* 1. TAGLINE BADGE */}
           <div className="animate-in fade-in slide-in-from-top-6 duration-1000">
-            <Badge className="px-5 py-2 rounded-full font-[1000] text-[9px] md:text-xs uppercase tracking-[0.3em] shadow-xl border border-black/5 dark:border-white/10 bg-white/90 dark:bg-white/5 text-slate-900 dark:text-white backdrop-blur-2xl">
+            <Badge className="px-5 py-2.5 rounded-full font-bold text-[10px] md:text-xs uppercase tracking-[0.25em] shadow-2xl border border-white/20 bg-white/20 dark:bg-black/20 text-slate-900 dark:text-white backdrop-blur-xl">
               <Sparkles
-                className="h-3.5 w-3.5 mr-3 animate-pulse"
+                className="h-4 w-4 mr-2.5"
                 style={{ color: theme.primary }}
               />
-              {profile.slogan || "Hub Experience"}
+              {profile.slogan || "Premium Experience"}
             </Badge>
           </div>
 
-          {/* 2. MEGA HEADING SYSTEM - Fixed px-4 agar tidak kepotong */}
-          <div className="w-full py-2 select-none px-4 overflow-visible">
-            <h1 className="text-[16vw] md:text-[9.5rem] font-[1000] uppercase italic tracking-tighter leading-[0.85] md:leading-[0.8] text-slate-950 dark:text-white drop-shadow-2xl">
-              <span className="block animate-in slide-in-from-left-10 duration-700">
+          {/* 2. MEGA HEADING SYSTEM */}
+          <div className="w-full py-4 select-none px-4">
+            <h1 className="text-[12vw] md:text-[7rem] font-[1000] uppercase italic tracking-tighter leading-[0.9] text-slate-950 dark:text-white drop-shadow-2xl">
+              <span className="block animate-in slide-in-from-bottom-10 duration-700">
                 {firstName}
               </span>
               <span
-                className="inline-block pb-4 animate-in slide-in-from-right-10 duration-1000 delay-150"
+                className="inline-block pb-2 animate-in slide-in-from-bottom-10 duration-1000 delay-150"
                 style={{
                   color: theme.primary,
-                  lineHeight: "1",
-                  // Menggunakan textShadow dengan opacity berbeda untuk Light/Dark biar tetep enak diliat
-                  textShadow: `0 0 20px ${theme.primary}88`,
-                  WebkitTextStroke: otherNames
-                    ? "1px rgba(255,255,255,0.1)"
-                    : "none",
+                  textShadow: `0 10px 40px ${theme.primary}66`,
                 }}
               >
-                {otherNames || "Experience"}
+                {otherNames || "Hub"}
               </span>
             </h1>
           </div>
 
           {/* 3. DYNAMIC MARKETING COPY */}
-          <div className="max-w-4xl animate-in fade-in duration-1000 delay-500 space-y-4 px-6">
-            <h2 className="text-lg md:text-4xl font-[1000] italic text-slate-900 dark:text-slate-100 leading-tight tracking-tighter uppercase drop-shadow-sm">
+          <div className="max-w-3xl animate-in fade-in duration-1000 delay-500 space-y-5 px-6">
+            <h2 className="text-xl md:text-3xl font-black italic text-slate-800 dark:text-white leading-snug tracking-tight uppercase">
               {content.tagline}
             </h2>
-            <p className="text-xs md:text-lg font-bold text-slate-600 dark:text-slate-400 max-w-xl mx-auto leading-relaxed opacity-90 drop-shadow-sm">
+            <p className="text-sm md:text-base font-medium text-slate-600 dark:text-slate-300 max-w-2xl mx-auto leading-relaxed drop-shadow-sm">
               {content.description}
             </p>
           </div>
@@ -88,25 +83,22 @@ export function TenantHero({ profile, content, theme }: any) {
           {/* 4. DYNAMIC FEATURE PILLS */}
           <div
             className={cn(
-              "grid gap-3 md:gap-5 px-4 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-700",
-              content.features?.length > 3
-                ? "grid-cols-2"
-                : "grid-cols-1 md:flex md:justify-center",
+              "flex flex-wrap justify-center gap-3 md:gap-4 px-4 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-700",
             )}
           >
             {content.features.map((f: string, i: number) => (
               <div
                 key={i}
-                className="flex items-center gap-3 border px-5 py-3 rounded-2xl shadow-xl backdrop-blur-3xl bg-white/70 dark:bg-white/5 border-black/5 dark:border-white/10 group transition-all hover:-translate-y-1"
+                className="flex items-center gap-2 md:gap-3 border border-white/40 dark:border-white/10 px-4 md:px-5 py-2.5 md:py-3 rounded-xl md:rounded-2xl shadow-xl backdrop-blur-2xl bg-white/40 dark:bg-black/20 transition-all hover:-translate-y-1"
               >
                 <div
-                  className="h-2 w-2 rounded-full shadow-[0_0_10px_currentColor]"
+                  className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full"
                   style={{
-                    color: theme.primary,
                     backgroundColor: theme.primary,
+                    boxShadow: `0 0 10px ${theme.primary}`,
                   }}
                 />
-                <span className="text-[10px] md:text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white/90 italic">
+                <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-slate-800 dark:text-slate-200">
                   {f}
                 </span>
               </div>

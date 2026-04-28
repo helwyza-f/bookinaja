@@ -50,17 +50,16 @@ export function TenantNavbar({ profile }: TenantNavbarProps) {
     <div
       className={cn(
         "fixed top-0 left-0 right-0 z-[100] transition-all duration-500",
-        // Desktop: Floating Island effect | Mobile: Fixed at top
-        scrolled ? "pt-0 md:pt-4 px-0 md:px-12" : "pt-0 md:pt-6 px-0 md:px-12",
+        scrolled ? "pt-2 md:pt-6 px-4" : "pt-4 md:pt-8 px-4",
       )}
     >
       <nav
         className={cn(
-          "mx-auto max-w-7xl h-20 flex items-center justify-between transition-all duration-500",
-          "px-4 md:px-10",
+          "mx-auto max-w-5xl h-[72px] md:h-[84px] flex items-center justify-between transition-all duration-500 px-4 md:px-8",
+          "rounded-[2rem] md:rounded-[2.5rem]",
           scrolled
-            ? "bg-white/90 dark:bg-black/80 backdrop-blur-2xl border-b md:border border-slate-200 dark:border-white/10 shadow-lg md:rounded-[2.5rem]"
-            : "bg-white/40 dark:bg-black/20 backdrop-blur-md border-b md:border border-white/10 dark:border-white/5 md:rounded-[2.5rem]",
+            ? "bg-white/70 dark:bg-black/50 backdrop-blur-3xl border border-white/20 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)]"
+            : "bg-white/20 dark:bg-white/5 backdrop-blur-xl border border-white/30 dark:border-white/10 shadow-lg",
         )}
       >
         {/* Branding Section */}

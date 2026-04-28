@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Building2, Clock, Search } from "lucide-react";
+import { ArrowRight, Search, Sparkles, Building2, Store } from "lucide-react";
 import api from "@/lib/api";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import { getTenantUrl } from "@/lib/tenant";
 
 type TenantCard = {
@@ -23,14 +23,15 @@ type TenantCard = {
   primary_color?: string;
   logo_url?: string;
   banner_url?: string;
-  open_time?: string;
-  close_time?: string;
 };
+
+const CATEGORIES = ["Semua", "Olahraga", "Klinik", "Studio", "F&B", "Layanan"];
 
 export default function TenantsDirectoryPage() {
   const [tenants, setTenants] = useState<TenantCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState("Semua");
 
   useEffect(() => {
     let active = true;
@@ -52,152 +53,165 @@ export default function TenantsDirectoryPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return tenants;
-
-    return tenants.filter((tenant) =>
-      [
-        tenant.name,
-        tenant.slug,
-        tenant.business_category,
-        tenant.business_type,
-        tenant.tagline,
-        tenant.slogan,
-        tenant.about_us,
-      ]
+    return tenants.filter((tenant) => {
+      const matchesQuery = [tenant.name, tenant.slug, tenant.business_category, tenant.business_type]
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(q)),
-    );
-  }, [query, tenants]);
+        .some((value) => String(value).toLowerCase().includes(q));
+        
+      const matchesCategory = activeCategory === "Semua" || 
+        (tenant.business_category?.toLowerCase() === activeCategory.toLowerCase());
+        
+      return matchesQuery && matchesCategory;
+    });
+  }, [query, tenants, activeCategory]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-950 dark:bg-[#050505] dark:text-white">
-      <main className="mx-auto max-w-7xl px-4 py-6 md:px-6 lg:px-8">
-        <section className="flex flex-col gap-5 border-b border-slate-200 pb-6 dark:border-white/10 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-blue-600">
-              <Building2 className="h-4 w-4" />
-              Tenant Directory
-            </div>
-            <h1 className="mt-3 text-3xl font-black uppercase tracking-tight md:text-5xl">
-              Cari tenant Bookinaja
-            </h1>
-            <p className="mt-3 text-sm leading-7 text-slate-500 dark:text-slate-400">
-              Pilih tempat yang mau kamu booking. Semua tenant aktif bisa dicari dari sini tanpa harus tahu slug atau subdomain mereka dulu.
-            </p>
+    <div className="min-h-screen bg-slate-50 text-slate-950 dark:bg-[#050505] dark:text-white pb-24 relative overflow-hidden">
+      {/* Decorative Background */}
+      <div className="absolute top-0 inset-x-0 h-[60vh] bg-gradient-to-b from-blue-600/10 via-indigo-500/5 to-transparent dark:from-blue-600/10 dark:via-indigo-500/5 pointer-events-none" />
+      <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-500/20 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute top-40 -left-40 w-96 h-96 bg-indigo-500/20 rounded-full blur-[100px] pointer-events-none" />
+
+      <div className="relative mx-auto max-w-7xl px-4 py-12 md:px-6 lg:px-8">
+        
+        {/* Header Section */}
+        <section className="text-center max-w-3xl mx-auto mb-16">
+          <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-blue-600 dark:text-blue-400 mb-6 backdrop-blur-md shadow-sm">
+            <Sparkles className="h-4 w-4" />
+            Eksplorasi Tenant
           </div>
-          <div className="flex gap-2">
-            <Button asChild variant="outline" className="rounded-xl">
-              <Link href="/user/login">Login Customer</Link>
-            </Button>
-            <Button asChild className="rounded-xl bg-slate-950 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950">
-              <Link href="/user/me">Dashboard</Link>
+          <h1 className="text-4xl font-black italic uppercase tracking-tighter leading-tight md:text-6xl md:leading-none mb-6">
+            Temukan tempat <br className="hidden md:block"/> favoritmu di Bookinaja.
+          </h1>
+          <p className="text-base md:text-lg text-slate-500 dark:text-slate-400 leading-relaxed mb-8">
+            Dari lapangan olahraga hingga klinik kesehatan. Jelajahi berbagai layanan yang tersedia dan lakukan reservasi dengan satu akun global Bookinaja.
+          </p>
+          
+          <div className="flex flex-wrap justify-center gap-4">
+            <Button asChild className="rounded-2xl bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25 px-8 h-14 font-semibold text-sm">
+              <Link href="/user/login">Masuk sebagai Customer</Link>
             </Button>
           </div>
         </section>
 
-        <section className="sticky top-0 z-10 -mx-4 bg-slate-50/95 px-4 py-4 backdrop-blur dark:bg-[#050505]/95 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
-          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:flex-row md:items-center">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Cari tenant, kategori, tipe bisnis, atau slug..."
-                className="h-11 rounded-xl border-slate-200 pl-10"
-              />
-            </div>
-            <div className="px-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {loading ? "Memuat tenant..." : `${filtered.length} dari ${tenants.length} tenant`}
-            </div>
+        {/* Search & Filter Section */}
+        <section className="sticky top-4 z-20 mb-12 flex flex-col md:flex-row gap-4 items-center justify-between p-4 rounded-[2rem] bg-white/70 dark:bg-white/5 backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-none">
+          <div className="relative w-full md:w-96">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Cari nama tempat, kategori..."
+              className="h-14 rounded-2xl pl-12 bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-base shadow-sm"
+            />
+          </div>
+          
+          <div className="flex w-full md:w-auto overflow-x-auto gap-2 pb-2 md:pb-0 scrollbar-none snap-x">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={cn(
+                  "snap-center whitespace-nowrap rounded-xl px-5 py-3 text-[11px] font-bold uppercase tracking-wider transition-all duration-300",
+                  activeCategory === cat 
+                    ? "bg-slate-900 text-white shadow-md dark:bg-white dark:text-slate-900" 
+                    : "bg-white text-slate-500 hover:bg-slate-100 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10"
+                )}
+              >
+                {cat}
+              </button>
+            ))}
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {/* Tenant Grid */}
+        <section className="grid gap-6 md:gap-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {loading
-            ? Array.from({ length: 6 }).map((_, index) => (
-                <Skeleton key={index} className="h-56 rounded-2xl bg-white dark:bg-white/5" />
+            ? Array.from({ length: 8 }).map((_, index) => (
+                <Skeleton
+                  key={index}
+                  className="h-[420px] rounded-[2.5rem] bg-white/50 dark:bg-white/5 backdrop-blur-sm"
+                />
               ))
             : filtered.map((tenant) => (
                 <Card
                   key={tenant.id}
-                  className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm transition-colors hover:border-blue-200 dark:border-white/10 dark:bg-white/[0.04]"
+                  className="group relative overflow-hidden rounded-[2.5rem] border-0 bg-white shadow-xl shadow-slate-200/50 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl dark:bg-[#0A0A0A] dark:shadow-none dark:ring-1 dark:ring-white/10"
                 >
-                  {tenant.banner_url ? (
-                    <div className="h-24 bg-slate-100 bg-cover bg-center" style={{ backgroundImage: `url(${tenant.banner_url})` }} />
-                  ) : (
-                    <div
-                      className="h-2"
-                      style={{ backgroundColor: tenant.primary_color || "#2563eb" }}
-                    />
-                  )}
-
-                  <div className="p-4">
-                    <div className="flex items-start gap-3">
-                      <div
-                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white"
-                        style={tenant.primary_color ? { backgroundColor: tenant.primary_color } : undefined}
-                      >
-                        {tenant.logo_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={tenant.logo_url} alt="" className="h-full w-full rounded-xl object-cover" />
-                        ) : (
-                          <Building2 className="h-5 w-5" />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h2 className="truncate text-lg font-black uppercase tracking-tight">
-                          {tenant.name}
-                        </h2>
-                        <div className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                          {tenant.slug}
+                  <div
+                    className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110 opacity-40 dark:opacity-20"
+                    style={{
+                      backgroundImage: tenant.banner_url
+                        ? `url(${tenant.banner_url})`
+                        : "linear-gradient(135deg, rgba(59,130,246,0.8), rgba(99,102,241,0.8))",
+                    }}
+                  />
+                  <div className="absolute inset-0 z-0 bg-gradient-to-t from-white via-white/95 to-white/40 dark:from-[#0A0A0A] dark:via-[#0A0A0A]/95 dark:to-[#0A0A0A]/40" />
+                  
+                  <CardContent className="relative z-10 flex h-full flex-col p-6">
+                    <div className="flex justify-between items-start mb-6 pt-32">
+                      {tenant.primary_color ? (
+                        <div
+                          className="h-14 w-14 rounded-2xl border-2 border-white dark:border-[#0A0A0A] shadow-lg flex items-center justify-center text-white font-black text-xl"
+                          style={{ backgroundColor: tenant.primary_color }}
+                        >
+                          {tenant.name.charAt(0).toUpperCase()}
                         </div>
-                      </div>
-                    </div>
-
-                    <p className="mt-3 line-clamp-2 min-h-10 text-sm leading-5 text-slate-500 dark:text-slate-400">
-                      {tenant.tagline || tenant.slogan || tenant.about_us || "Tenant terdaftar di Bookinaja."}
-                    </p>
-
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <Badge variant="outline" className="rounded-lg uppercase">
-                        {tenant.business_category || "tenant"}
-                      </Badge>
-                      {tenant.business_type ? (
-                        <Badge variant="outline" className="rounded-lg uppercase">
-                          {tenant.business_type}
-                        </Badge>
-                      ) : null}
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-white/10">
-                      <div className="flex min-w-0 items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                        <Clock className="h-4 w-4 shrink-0" />
-                        <span className="truncate">
-                          {tenant.open_time || "09:00"}-{tenant.close_time || "22:00"}
+                      ) : (
+                        <div className="h-14 w-14 rounded-2xl bg-slate-900 border-2 border-white dark:border-[#0A0A0A] shadow-lg flex items-center justify-center text-white">
+                          <Building2 className="h-6 w-6" />
+                        </div>
+                      )}
+                      
+                      <div className="bg-white/80 dark:bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm">
+                         <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-600 dark:text-slate-300">
+                          {tenant.business_category || "Layanan"}
                         </span>
                       </div>
-                      <a
-                        href={getTenantUrl(tenant.slug)}
-                        className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-slate-950 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-slate-800 dark:bg-white dark:text-slate-950"
-                      >
-                        Buka
-                        <ArrowRight className="h-3.5 w-3.5" />
-                      </a>
                     </div>
-                  </div>
+
+                    <div className="mb-4">
+                      <h2 className="text-2xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white line-clamp-2">
+                        {tenant.name}
+                      </h2>
+                      <div className="flex items-center gap-1 mt-1 text-xs font-semibold text-blue-600 dark:text-blue-400">
+                        <Store className="h-3.5 w-3.5" />
+                        bookinaja.com/{tenant.slug}
+                      </div>
+                    </div>
+
+                    <p className="text-sm leading-relaxed text-slate-500 dark:text-slate-400 line-clamp-3 mb-6 flex-grow">
+                      {tenant.tagline ||
+                        tenant.slogan ||
+                        tenant.about_us ||
+                        "Mitra resmi terdaftar di platform Bookinaja."}
+                    </p>
+
+                    <Button asChild className="w-full h-12 rounded-xl bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 shadow-lg mt-auto group-hover:bg-blue-600 dark:group-hover:bg-blue-500 transition-colors">
+                      <a href={getTenantUrl(tenant.slug)}>
+                        Kunjungi Cabang
+                        <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                      </a>
+                    </Button>
+                  </CardContent>
                 </Card>
               ))}
         </section>
 
-        {!loading && filtered.length === 0 ? (
-          <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center dark:border-white/10 dark:bg-white/[0.04]">
-            <h2 className="text-lg font-black uppercase tracking-tight">Tenant tidak ditemukan</h2>
-            <p className="mx-auto mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
-              Coba cari nama bisnis, kategori, atau slug yang lebih umum.
+        {!loading && filtered.length === 0 && (
+          <div className="mt-12 rounded-[3rem] border border-dashed border-slate-300 dark:border-white/10 p-16 text-center bg-white/50 dark:bg-white/5 backdrop-blur-sm">
+            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-slate-100 dark:bg-white/5 mb-6">
+              <Search className="h-10 w-10 text-slate-400" />
+            </div>
+            <h3 className="text-2xl font-black italic uppercase tracking-tighter dark:text-white">
+              Tidak Ditemukan
+            </h3>
+            <p className="mt-3 text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+              Maaf, tenant dengan kata kunci atau kategori tersebut belum terdaftar di Bookinaja.
             </p>
-          </section>
-        ) : null}
-      </main>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
