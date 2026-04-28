@@ -58,6 +58,7 @@ type BluetoothNavigator = Navigator & {
       name?: string | null;
       gatt?: {
         connect: () => Promise<unknown>;
+        disconnect?: () => void;
       } | null;
     }>;
   };
