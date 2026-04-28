@@ -12,6 +12,7 @@ import (
 	"github.com/helwiza/backend/internal/fnb"
 	"github.com/helwiza/backend/internal/resource"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -161,12 +162,34 @@ func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) erro
 		return err
 	}
 
+	if err := r.seedDefaultStaffRolesTx(ctx, tx, t.ID); err != nil {
+		return err
+	}
+
 	if err := tx.Commit(); err != nil {
 		return err
 	}
 
 	// Clear potential negative cache or pre-warm if necessary
 	r.rdb.Del(ctx, r.getProfileCacheKey(t.Slug))
+	return nil
+}
+
+func (r *Repository) seedDefaultStaffRolesTx(ctx context.Context, tx *sqlx.Tx, tenantID uuid.UUID) error {
+	defaults := []StaffRole{
+		{TenantID: tenantID, Name: "Kasir", Description: "Handle booking dan POS", PermissionKeys: pq.StringArray{"bookings.read", "bookings.write", "pos.manage"}, IsDefault: true},
+		{TenantID: tenantID, Name: "Operasional", Description: "Kelola resource dan F&B", PermissionKeys: pq.StringArray{"bookings.read", "resources.manage", "fnb.manage", "customers.read"}, IsDefault: false},
+		{TenantID: tenantID, Name: "Supervisor", Description: "Akses analitik dan pengeluaran", PermissionKeys: pq.StringArray{"bookings.read", "resources.manage", "fnb.manage", "customers.read", "expenses.manage", "reports.view"}, IsDefault: false},
+	}
+	for _, role := range defaults {
+		role.ID = uuid.New()
+		_, err := tx.NamedExecContext(ctx, `
+			INSERT INTO staff_roles (id, tenant_id, name, description, permission_keys, is_default, created_at, updated_at)
+			VALUES (:id, :tenant_id, :name, :description, :permission_keys, :is_default, NOW(), NOW())`, role)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -281,11 +304,14 @@ func (r *Repository) GetUserByID(ctx context.Context, id uuid.UUID) (*User, stri
 
 	query := `
 		SELECT 
-			u.id, u.tenant_id, u.name, u.email, u.role, u.created_at,
-			COALESCE(t.logo_url, '') as logo_url
+			u.id, u.tenant_id, u.role_id, u.name, u.email, u.role, u.created_at,
+			COALESCE(t.logo_url, '') as logo_url,
 		FROM users u
 		JOIN tenants t ON t.id = u.tenant_id
-		WHERE u.id = $1 LIMIT 1`
+		LEFT JOIN staff_roles sr ON sr.id = u.role_id
+		WHERE u.id = $1
+		GROUP BY u.id, t.logo_url
+		LIMIT 1`
 
 	err = r.db.GetContext(ctx, &u, query, id)
 	if err == sql.ErrNoRows {
@@ -340,23 +366,94 @@ func (r *Repository) GetUserByEmailAndSlug(ctx context.Context, email, slug stri
 func (r *Repository) ListUsersByTenant(ctx context.Context, tenantID uuid.UUID) ([]User, error) {
 	var users []User
 	err := r.db.SelectContext(ctx, &users, `
-		SELECT id, tenant_id, name, email, role, created_at
-		FROM users
-		WHERE tenant_id = $1 AND role = 'staff'
-		ORDER BY role ASC, created_at ASC`, tenantID)
+		SELECT 
+			u.id, u.tenant_id, u.role_id, u.name, u.email, u.role, u.created_at
+		FROM users u
+		WHERE u.tenant_id = $1 AND u.role = 'staff'
+		GROUP BY u.id
+		ORDER BY u.role ASC, u.created_at ASC`, tenantID)
 	return users, err
 }
 
-func (r *Repository) CreateStaff(ctx context.Context, tenantID uuid.UUID, name, email, password string) (*User, error) {
+func (r *Repository) CreateStaff(ctx context.Context, tenantID uuid.UUID, name, email, password string, roleID uuid.UUID) (*User, error) {
 	query := `
-		INSERT INTO users (id, tenant_id, name, email, password, role, created_at)
-		VALUES ($1, $2, $3, $4, $5, 'staff', NOW())
-		RETURNING id, tenant_id, name, email, role, created_at`
+		INSERT INTO users (id, tenant_id, role_id, name, email, password, role, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, 'staff', NOW())
+		RETURNING id, tenant_id, role_id, name, email, role, created_at`
 	var u User
-	if err := r.db.GetContext(ctx, &u, query, uuid.New(), tenantID, name, email, password); err != nil {
+	if err := r.db.GetContext(ctx, &u, query, uuid.New(), tenantID, roleID, name, email, password); err != nil {
 		return nil, err
 	}
 	return &u, nil
+}
+
+func (r *Repository) UpdateStaff(ctx context.Context, tenantID, staffID, roleID uuid.UUID, name, email string) (*User, error) {
+	query := `
+		UPDATE users
+		SET name = COALESCE(NULLIF($4, ''), name),
+		    email = COALESCE(NULLIF($5, ''), email),
+		    role_id = $3
+		WHERE id = $1 AND tenant_id = $2 AND role = 'staff'
+		RETURNING id, tenant_id, role_id, name, email, role, created_at`
+	var u User
+	if err := r.db.GetContext(ctx, &u, query, staffID, tenantID, roleID, name, email); err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+func (r *Repository) ListStaffRoles(ctx context.Context, tenantID uuid.UUID) ([]StaffRole, error) {
+	var roles []StaffRole
+	err := r.db.SelectContext(ctx, &roles, `
+		SELECT id, tenant_id, name, description, permission_keys, is_default, created_at, updated_at
+		FROM staff_roles
+		WHERE tenant_id = $1
+		ORDER BY is_default DESC, name ASC`, tenantID)
+	return roles, err
+}
+
+func (r *Repository) GetStaffRoleByID(ctx context.Context, tenantID, roleID uuid.UUID) (*StaffRole, error) {
+	var role StaffRole
+	err := r.db.GetContext(ctx, &role, `
+		SELECT id, tenant_id, name, description, permission_keys, is_default, created_at, updated_at
+		FROM staff_roles
+		WHERE tenant_id = $1 AND id = $2
+		LIMIT 1`, tenantID, roleID)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return &role, err
+}
+
+func (r *Repository) CreateStaffRole(ctx context.Context, role StaffRole) (*StaffRole, error) {
+	_, err := r.db.NamedExecContext(ctx, `
+		INSERT INTO staff_roles (id, tenant_id, name, description, permission_keys, is_default, created_at, updated_at)
+		VALUES (:id, :tenant_id, :name, :description, :permission_keys, :is_default, NOW(), NOW())`, role)
+	if err != nil {
+		return nil, err
+	}
+	return &role, nil
+}
+
+func (r *Repository) UpdateStaffRole(ctx context.Context, role StaffRole) (*StaffRole, error) {
+	_, err := r.db.NamedExecContext(ctx, `
+		UPDATE staff_roles
+		SET name=:name, description=:description, permission_keys=:permission_keys, is_default=:is_default, updated_at=NOW()
+		WHERE tenant_id=:tenant_id AND id=:id`, role)
+	if err != nil {
+		return nil, err
+	}
+	return &role, nil
+}
+
+func (r *Repository) DeleteStaffRole(ctx context.Context, tenantID, roleID uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM staff_roles WHERE tenant_id = $1 AND id = $2 AND is_default = false`, tenantID, roleID)
+	return err
+}
+
+func (r *Repository) ClearDefaultRoles(ctx context.Context, tenantID uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE staff_roles SET is_default = false WHERE tenant_id = $1`, tenantID)
+	return err
 }
 
 func (r *Repository) DeleteStaff(ctx context.Context, tenantID, staffID uuid.UUID) error {

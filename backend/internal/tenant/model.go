@@ -34,19 +34,49 @@ type LoginResponse struct {
 
 // User merepresentasikan entitas pemilik bisnis atau staff
 type User struct {
-	ID        uuid.UUID `db:"id" json:"id"`
-	TenantID  uuid.UUID `db:"tenant_id" json:"tenant_id"`
-	Name      string    `db:"name" json:"name"`
-	Email     string    `db:"email" json:"email"`
-	Password  string    `db:"password" json:"-"`
-	Role      string    `db:"role" json:"role"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	ID        uuid.UUID  `db:"id" json:"id"`
+	TenantID  uuid.UUID  `db:"tenant_id" json:"tenant_id"`
+	RoleID    *uuid.UUID `db:"role_id" json:"role_id,omitempty"`
+	Name      string     `db:"name" json:"name"`
+	Email     string     `db:"email" json:"email"`
+	Password  string     `db:"password" json:"-"`
+	Role      string     `db:"role" json:"role"`
+	CreatedAt time.Time  `db:"created_at" json:"created_at"`
 }
 
 type StaffCreateReq struct {
 	Name     string `json:"name" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
+	RoleID   string `json:"role_id" binding:"required"`
+}
+
+type StaffUpdateReq struct {
+	Name   string `json:"name"`
+	Email  string `json:"email" binding:"omitempty,email"`
+	RoleID string `json:"role_id"`
+}
+
+type StaffRole struct {
+	ID             uuid.UUID      `db:"id" json:"id"`
+	TenantID       uuid.UUID      `db:"tenant_id" json:"tenant_id"`
+	Name           string         `db:"name" json:"name"`
+	Description    string         `db:"description" json:"description"`
+	PermissionKeys pq.StringArray `db:"permission_keys" json:"permission_keys"`
+	IsDefault      bool           `db:"is_default" json:"is_default"`
+	CreatedAt      time.Time      `db:"created_at" json:"created_at"`
+	UpdatedAt      time.Time      `db:"updated_at" json:"updated_at"`
+}
+
+type StaffRoleReq struct {
+	Name           string   `json:"name" binding:"required"`
+	Description    string   `json:"description"`
+	PermissionKeys []string `json:"permission_keys"`
+	IsDefault      bool     `json:"is_default"`
+}
+
+type StaffPermissionsReq struct {
+	PermissionKeys []string `json:"permission_keys"`
 }
 
 type AuditLog struct {

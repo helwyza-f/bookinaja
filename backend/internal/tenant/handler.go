@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/helwiza/backend/internal/platform/env"
 	"github.com/helwiza/backend/internal/platform/storage"
@@ -202,9 +203,103 @@ func (h *Handler) ListStaff(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": items})
 }
 
+func (h *Handler) ListStaffRoles(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	items, err := h.service.ListStaffRoles(c.Request.Context(), tID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
+func (h *Handler) CreateStaffRole(c *gin.Context) {
+	var req StaffRoleReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data role tidak lengkap"})
+		return
+	}
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	role, err := h.service.CreateStaffRole(c.Request.Context(), tID, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, role)
+}
+
+func (h *Handler) UpdateStaffRole(c *gin.Context) {
+	var req StaffRoleReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data role tidak lengkap"})
+		return
+	}
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	roleID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID role tidak valid"})
+		return
+	}
+	role, err := h.service.UpdateStaffRole(c.Request.Context(), tID, roleID, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, role)
+}
+
+func (h *Handler) DeleteStaffRole(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	roleID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID role tidak valid"})
+		return
+	}
+	if err := h.service.DeleteStaffRole(c.Request.Context(), tID, roleID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Role dihapus"})
+}
+
 func (h *Handler) CreateStaff(c *gin.Context) {
 	var req StaffCreateReq
 	if err := c.ShouldBindJSON(&req); err != nil {
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			for _, validationErr := range validationErrs {
+				switch validationErr.Field() {
+				case "Name":
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Nama staff wajib diisi"})
+				case "Email":
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Email staff wajib valid"})
+				case "Password":
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Password staff minimal 6 karakter"})
+				default:
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Data staff tidak valid"})
+				}
+				return
+			}
+		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Data staff tidak lengkap"})
 		return
 	}
@@ -224,6 +319,81 @@ func (h *Handler) CreateStaff(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, staff)
+}
+
+func (h *Handler) UpdateStaff(c *gin.Context) {
+	var req StaffUpdateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data staff tidak valid"})
+		return
+	}
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	staffID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID pegawai tidak valid"})
+		return
+	}
+	actorID, _ := uuid.Parse(c.GetString("userID"))
+	updated, err := h.service.UpdateStaff(c.Request.Context(), actorID, tID, staffID, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, updated)
+}
+
+func (h *Handler) GetStaffPermissions(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	staffID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID pegawai tidak valid"})
+		return
+	}
+
+	items, err := h.service.GetStaffPermissions(c.Request.Context(), tID, staffID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
+func (h *Handler) UpdateStaffPermissions(c *gin.Context) {
+	var req StaffPermissionsReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data permission tidak valid"})
+		return
+	}
+
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	staffID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID pegawai tidak valid"})
+		return
+	}
+
+	if err := h.service.UpdateStaffPermissions(c.Request.Context(), tID, staffID, req.PermissionKeys); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Permission staff diperbarui"})
 }
 
 func (h *Handler) DeleteStaff(c *gin.Context) {

@@ -338,13 +338,70 @@ func (s *Service) ListStaff(ctx context.Context, tenantID uuid.UUID) ([]User, er
 	return s.repo.ListUsersByTenant(ctx, tenantID)
 }
 
+func (s *Service) ListStaffRoles(ctx context.Context, tenantID uuid.UUID) ([]StaffRole, error) {
+	return s.repo.ListStaffRoles(ctx, tenantID)
+}
+
+func (s *Service) CreateStaffRole(ctx context.Context, tenantID uuid.UUID, req StaffRoleReq) (*StaffRole, error) {
+	role := StaffRole{
+		ID:             uuid.New(),
+		TenantID:       tenantID,
+		Name:           strings.TrimSpace(req.Name),
+		Description:    strings.TrimSpace(req.Description),
+		PermissionKeys: sanitizePermissions(req.PermissionKeys),
+		IsDefault:      req.IsDefault,
+	}
+	if role.IsDefault {
+		_ = s.repo.ClearDefaultRoles(ctx, tenantID)
+	}
+	return s.repo.CreateStaffRole(ctx, role)
+}
+
+func (s *Service) UpdateStaffRole(ctx context.Context, tenantID, roleID uuid.UUID, req StaffRoleReq) (*StaffRole, error) {
+	role := StaffRole{
+		ID:             roleID,
+		TenantID:       tenantID,
+		Name:           strings.TrimSpace(req.Name),
+		Description:    strings.TrimSpace(req.Description),
+		PermissionKeys: sanitizePermissions(req.PermissionKeys),
+		IsDefault:      req.IsDefault,
+	}
+	if role.IsDefault {
+		_ = s.repo.ClearDefaultRoles(ctx, tenantID)
+	}
+	return s.repo.UpdateStaffRole(ctx, role)
+}
+
+func (s *Service) DeleteStaffRole(ctx context.Context, tenantID, roleID uuid.UUID) error {
+	return s.repo.DeleteStaffRole(ctx, tenantID, roleID)
+}
+
 func (s *Service) CreateStaff(ctx context.Context, actorUserID uuid.UUID, tenantID uuid.UUID, req StaffCreateReq) (*User, error) {
+	existing, err := s.repo.GetUserByEmail(ctx, strings.TrimSpace(req.Email))
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		return nil, errors.New("email staff sudah terdaftar")
+	}
+	roleID, err := uuid.Parse(req.RoleID)
+	if err != nil {
+		return nil, errors.New("role staff tidak valid")
+	}
+	role, err := s.repo.GetStaffRoleByID(ctx, tenantID, roleID)
+	if err != nil {
+		return nil, err
+	}
+	if role == nil {
+		return nil, errors.New("role staff tidak ditemukan")
+	}
+
 	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
 	}
 
-	staff, err := s.repo.CreateStaff(ctx, tenantID, req.Name, req.Email, string(hashed))
+	staff, err := s.repo.CreateStaff(ctx, tenantID, req.Name, req.Email, string(hashed), role.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -352,7 +409,7 @@ func (s *Service) CreateStaff(ctx context.Context, actorUserID uuid.UUID, tenant
 	metadata, _ := json.Marshal(map[string]any{
 		"name":  req.Name,
 		"email": req.Email,
-		"role":  "staff",
+		"role":  role.Name,
 	})
 	_ = s.repo.CreateAuditLog(ctx, AuditLog{
 		ID:           uuid.New(),
@@ -366,6 +423,61 @@ func (s *Service) CreateStaff(ctx context.Context, actorUserID uuid.UUID, tenant
 	})
 
 	return staff, nil
+}
+
+func (s *Service) UpdateStaff(ctx context.Context, actorUserID uuid.UUID, tenantID, staffID uuid.UUID, req StaffUpdateReq) (*User, error) {
+	target, _, err := s.repo.GetUserByID(ctx, staffID)
+	if err != nil {
+		return nil, err
+	}
+	if target == nil || target.TenantID != tenantID || target.Role != "staff" {
+		return nil, errors.New("pegawai tidak ditemukan")
+	}
+
+	var roleID uuid.UUID
+	if strings.TrimSpace(req.RoleID) != "" {
+		roleID, err = uuid.Parse(req.RoleID)
+		if err != nil {
+			return nil, errors.New("role staff tidak valid")
+		}
+		role, err := s.repo.GetStaffRoleByID(ctx, tenantID, roleID)
+		if err != nil {
+			return nil, err
+		}
+		if role == nil {
+			return nil, errors.New("role staff tidak ditemukan")
+		}
+	} else if target.RoleID != nil {
+		roleID = *target.RoleID
+	}
+
+	updated, err := s.repo.UpdateStaff(ctx, tenantID, staffID, roleID, strings.TrimSpace(req.Name), strings.TrimSpace(req.Email))
+	if err != nil {
+		return nil, err
+	}
+
+	role, _ := s.repo.GetStaffRoleByID(ctx, tenantID, roleID)
+	metadata, _ := json.Marshal(map[string]any{
+		"name":  updated.Name,
+		"email": updated.Email,
+		"role": func() string {
+			if role != nil {
+				return role.Name
+			}
+			return "staff"
+		}(),
+	})
+	_ = s.repo.CreateAuditLog(ctx, AuditLog{
+		ID:           uuid.New(),
+		TenantID:     tenantID,
+		ActorUserID:  &actorUserID,
+		Action:       "update_staff",
+		ResourceType: "user",
+		ResourceID:   &staffID,
+		Metadata:     metadata,
+		CreatedAt:    time.Now().UTC(),
+	})
+	return updated, nil
 }
 
 func (s *Service) DeleteStaff(ctx context.Context, actorUserID uuid.UUID, tenantID, staffID uuid.UUID) error {
@@ -408,6 +520,22 @@ func (s *Service) ListActivity(ctx context.Context, tenantID uuid.UUID, limit in
 	return s.repo.ListAuditLogsByTenant(ctx, tenantID, limit)
 }
 
+func (s *Service) GetStaffPermissions(ctx context.Context, tenantID, staffID uuid.UUID) ([]string, error) {
+	staff, _, err := s.repo.GetUserByID(ctx, staffID)
+	if err != nil || staff == nil || staff.TenantID != tenantID || staff.RoleID == nil {
+		return []string{}, err
+	}
+	role, err := s.repo.GetStaffRoleByID(ctx, tenantID, *staff.RoleID)
+	if err != nil || role == nil {
+		return []string{}, err
+	}
+	return []string(role.PermissionKeys), nil
+}
+
+func (s *Service) UpdateStaffPermissions(ctx context.Context, tenantID, staffID uuid.UUID, permissions []string) error {
+	return errors.New("edit permission langsung tidak didukung; gunakan role")
+}
+
 // GetUserByID sekarang me-return DTO yang diminta oleh auth handler
 // Gunakan alias atau mapping manual
 func (s *Service) GetUserByID(ctx context.Context, id uuid.UUID) (*auth.CheckMeUserResponse, error) {
@@ -419,13 +547,38 @@ func (s *Service) GetUserByID(ctx context.Context, id uuid.UUID) (*auth.CheckMeU
 		return nil, nil
 	}
 
+	permissionKeys := []string{}
+	if u.RoleID != nil && u.Role == "staff" {
+		if role, err := s.repo.GetStaffRoleByID(ctx, u.TenantID, *u.RoleID); err == nil && role != nil {
+			permissionKeys = []string(role.PermissionKeys)
+		}
+	}
+
 	// Mapping data termasuk LogoURL
 	return &auth.CheckMeUserResponse{
-		ID:       u.ID,
-		TenantID: u.TenantID,
-		Name:     u.Name,
-		Email:    u.Email,
-		Role:     u.Role,
-		LogoURL:  logo, // Data hasil JOIN tadi
+		ID:             u.ID,
+		TenantID:       u.TenantID,
+		Name:           u.Name,
+		Email:          u.Email,
+		Role:           u.Role,
+		LogoURL:        logo, // Data hasil JOIN tadi
+		PermissionKeys: permissionKeys,
 	}, nil
+}
+
+func sanitizePermissions(values []string) []string {
+	seen := make(map[string]struct{})
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		key := strings.TrimSpace(value)
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, key)
+	}
+	return out
 }

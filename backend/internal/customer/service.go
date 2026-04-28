@@ -215,22 +215,18 @@ func (s *Service) StartRegistration(ctx context.Context, req RegisterReq) (*Cust
 	return created, nil
 }
 
-func canCreateNewCustomer(plan, status string, periodEnd *time.Time) bool {
+func isProActive(plan, status string, periodEnd *time.Time) bool {
 	plan = strings.ToLower(strings.TrimSpace(plan))
 	status = strings.ToLower(strings.TrimSpace(status))
 	now := time.Now().UTC()
 
-	switch status {
-	case "trial":
-		return periodEnd == nil || periodEnd.After(now)
-	case "active":
-		if periodEnd != nil && periodEnd.Before(now) {
-			return false
-		}
-		return plan == "starter" || plan == "pro"
-	default:
+	if status != "active" || plan != "pro" {
 		return false
 	}
+	if periodEnd != nil && periodEnd.Before(now) {
+		return false
+	}
+	return true
 }
 
 func (s *Service) BlastAnnouncement(ctx context.Context, actorUserID uuid.UUID, tenantID string, req BroadcastAnnouncementReq) (*BroadcastResult, error) {
@@ -244,8 +240,8 @@ func (s *Service) BlastAnnouncement(ctx context.Context, actorUserID uuid.UUID, 
 		return nil, fmt.Errorf("service: gagal membaca status subscription: %w", err)
 	}
 
-	if !canCreateNewCustomer(plan, status, periodEnd) {
-		return nil, fmt.Errorf("tenant ini tidak aktif untuk blast pelanggan")
+	if !isProActive(plan, status, periodEnd) {
+		return nil, fmt.Errorf("fitur blast pelanggan hanya tersedia untuk tenant plan pro yang active")
 	}
 
 	targets, err := s.repo.ListBroadcastTargets(ctx, tID)
@@ -298,6 +294,116 @@ func (s *Service) BlastAnnouncement(ctx context.Context, actorUserID uuid.UUID, 
 		"default_message":  result.DefaultMsg,
 		"broadcast_target": "all_customers",
 	})
+	return result, nil
+}
+
+func (s *Service) ImportCustomers(ctx context.Context, actorUserID uuid.UUID, tenantID string, rows []CustomerImportRow) (*CustomerImportResult, error) {
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("service: id tenant tidak valid")
+	}
+	plan, status, _, periodEnd, err := s.repo.GetTenantBillingState(ctx, tID)
+	if err != nil {
+		return nil, fmt.Errorf("service: gagal membaca status subscription: %w", err)
+	}
+	if !isProActive(plan, status, periodEnd) {
+		return nil, fmt.Errorf("fitur import pelanggan hanya tersedia untuk tenant plan pro yang active")
+	}
+	if len(rows) == 0 {
+		return nil, fmt.Errorf("tidak ada data pelanggan untuk diimpor")
+	}
+
+	result := &CustomerImportResult{Total: len(rows), Messages: []string{}}
+	seenPhones := map[string]struct{}{}
+
+	for idx, row := range rows {
+		name := strings.TrimSpace(row.Name)
+		phone := strings.TrimSpace(row.Phone)
+		if name == "" || phone == "" {
+			result.Skipped++
+			result.Messages = append(result.Messages, fmt.Sprintf("baris %d dilewati: nama atau phone kosong", idx+1))
+			continue
+		}
+
+		if _, exists := seenPhones[phone]; exists {
+			result.Skipped++
+			result.Messages = append(result.Messages, fmt.Sprintf("baris %d dilewati: nomor WhatsApp duplikat di file", idx+1))
+			continue
+		}
+		seenPhones[phone] = struct{}{}
+
+		existingBefore, err := s.repo.FindByPhone(ctx, phone)
+		if err != nil {
+			result.Failed++
+			result.Messages = append(result.Messages, fmt.Sprintf("baris %d gagal: %v", idx+1, err))
+			continue
+		}
+
+		var email *string
+		if row.Email != nil {
+			trimmed := strings.TrimSpace(*row.Email)
+			if trimmed != "" {
+				email = &trimmed
+			}
+		}
+
+		var password *string
+		if row.Password != nil {
+			trimmed := strings.TrimSpace(*row.Password)
+			if trimmed != "" {
+				password = &trimmed
+			}
+		}
+
+		hashedPassword, err := hashPassword(password)
+		if err != nil {
+			result.Failed++
+			result.Messages = append(result.Messages, fmt.Sprintf("baris %d gagal: %v", idx+1, err))
+			continue
+		}
+
+		cust := Customer{
+			ID:              uuid.New(),
+			Name:            name,
+			Phone:           phone,
+			Email:           email,
+			Password:        hashedPassword,
+			AccountStatus:   "verified",
+			PhoneVerifiedAt: timePtr(time.Now().UTC()),
+			Tier:            "NEW",
+			TotalVisits:     0,
+			TotalSpent:      0,
+			LoyaltyPoints:   0,
+		}
+
+		if _, err := s.repo.UpsertImportedCustomer(ctx, cust); err != nil {
+			result.Failed++
+			result.Messages = append(result.Messages, fmt.Sprintf("baris %d gagal: %v", idx+1, err))
+			continue
+		}
+
+		existing, err := s.repo.FindByPhone(ctx, phone)
+		if err != nil || existing == nil {
+			result.Failed++
+			result.Messages = append(result.Messages, fmt.Sprintf("baris %d gagal: data tidak bisa diverifikasi", idx+1))
+			continue
+		}
+
+		if existingBefore == nil {
+			result.Created++
+		} else {
+			result.Updated++
+		}
+	}
+
+	_ = s.repo.CreateAuditLog(ctx, tID, &actorUserID, "customer_import", "customer", nil, map[string]any{
+		"total":   result.Total,
+		"created": result.Created,
+		"updated": result.Updated,
+		"skipped": result.Skipped,
+		"failed":  result.Failed,
+	})
+
 	return result, nil
 }
 

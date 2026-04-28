@@ -47,6 +47,22 @@ type SidebarUser = {
   role?: string;
   logo_url?: string;
   initials?: string;
+  permission_keys?: string[];
+};
+
+const permissionMap: Record<string, string[]> = {
+  "/admin/dashboard": ["bookings.read"],
+  "/admin/bookings": ["bookings.read"],
+  "/admin/pos": ["pos.manage"],
+  "/admin/resources": ["resources.manage"],
+  "/admin/fnb": ["fnb.manage"],
+  "/admin/expenses": ["expenses.manage"],
+  "/admin/customers": ["customers.read"],
+  "/admin/settings/bisnis": ["settings.business"],
+  "/admin/settings/staff": ["settings.business"],
+  "/admin/settings/crm": ["settings.crm"],
+  "/admin/settings/analytics": ["reports.view"],
+  "/admin/settings/billing": ["settings.business"],
 };
 
 export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
@@ -96,6 +112,14 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
     window.location.href = "/admin/login";
   };
 
+  const hasAccess = (href: string) => {
+    if (userData?.role === "owner") return true;
+    const required = permissionMap[href];
+    if (!required || required.length === 0) return true;
+    const perms = userData?.permission_keys || [];
+    return required.some((permission) => perms.includes(permission));
+  };
+
   return (
     <div className="relative flex h-full flex-col bg-white dark:bg-[#0a0a0a] font-sans border-r border-slate-200 dark:border-white/5 transition-colors duration-200">
       {/* COLLAPSE TOGGLE BUTTON */}
@@ -141,7 +165,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
 
       {/* MAIN NAVIGATION */}
       <nav className="flex flex-col flex-1 gap-1 p-3 pt-4 overflow-y-auto scrollbar-hide">
-        {operationalNavItems.map((route) => {
+        {operationalNavItems.filter((route) => hasAccess(route.href)).map((route) => {
           const isActive =
             pathname === route.href || pathname.startsWith(`${route.href}/`);
           return (
@@ -193,7 +217,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
               </div>
             )}
             <div className="flex flex-col gap-1">
-              {settingsNavItems.map((route) => {
+              {settingsNavItems.filter((route) => hasAccess(route.href)).map((route) => {
                 const isActive =
                   pathname === route.href || pathname.startsWith(`${route.href}/`);
                 return (

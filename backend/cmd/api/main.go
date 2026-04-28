@@ -99,6 +99,7 @@ func main() {
 	midtransHdl := midtranssvc.NewHandler(midtransSvc)
 
 	routerConfig := routecfg.Config{
+		DB:                 db,
 		TenantHandler:      tenantHdl,
 		ResourceHandler:    resourceHdl,
 		ReservationHandler: reservationHdl,

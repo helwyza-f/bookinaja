@@ -268,6 +268,26 @@ func (h *Handler) BlastAnnouncement(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+func (h *Handler) ImportCustomers(c *gin.Context) {
+	var req struct {
+		Rows []CustomerImportRow `json:"rows"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format import pelanggan tidak valid"})
+		return
+	}
+
+	tenantID := c.MustGet("tenantID").(string)
+	actorID, _ := uuid.Parse(c.GetString("userID"))
+	result, err := h.service.ImportCustomers(c.Request.Context(), actorID, tenantID, req.Rows)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
 // List database pelanggan untuk Admin CRM (Sorted by Spending)
 func (h *Handler) List(c *gin.Context) {
 	tenantID := c.MustGet("tenantID").(string)

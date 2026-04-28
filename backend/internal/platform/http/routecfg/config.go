@@ -11,9 +11,11 @@ import (
 	"github.com/helwiza/backend/internal/reservation"
 	"github.com/helwiza/backend/internal/resource"
 	"github.com/helwiza/backend/internal/tenant"
+	"github.com/jmoiron/sqlx"
 )
 
 type Config struct {
+	DB                 *sqlx.DB
 	TenantHandler      *tenant.Handler
 	ResourceHandler    *resource.Handler
 	ReservationHandler *reservation.Handler

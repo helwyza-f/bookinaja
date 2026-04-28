@@ -136,6 +136,22 @@ type BroadcastResult struct {
 	DefaultMsg bool      `json:"default_message"`
 }
 
+type CustomerImportRow struct {
+	Name     string  `json:"name"`
+	Phone    string  `json:"phone"`
+	Email    *string `json:"email,omitempty"`
+	Password *string `json:"password,omitempty"`
+}
+
+type CustomerImportResult struct {
+	Total    int      `json:"total"`
+	Created  int      `json:"created"`
+	Updated  int      `json:"updated"`
+	Skipped  int      `json:"skipped"`
+	Failed   int      `json:"failed"`
+	Messages []string `json:"messages"`
+}
+
 func (c Customer) IsVerified() bool {
 	return c.AccountStatus == "" || c.AccountStatus == "verified"
 }

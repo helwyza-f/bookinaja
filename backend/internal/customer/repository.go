@@ -92,6 +92,39 @@ func (r *Repository) UpsertPendingRegistration(ctx context.Context, c Customer) 
 	return id, nil
 }
 
+func (r *Repository) UpsertImportedCustomer(ctx context.Context, c Customer) (bool, error) {
+	query := `
+		INSERT INTO customers (
+			id, name, phone, email, password,
+			total_visits, total_spent, tier, loyalty_points,
+			account_status, phone_verified_at,
+			created_at, updated_at
+		)
+		VALUES (
+			$1, $2, $3, $4, $5,
+			0, 0, 'NEW', 0,
+			'verified', NOW(),
+			NOW(), NOW()
+		)
+		ON CONFLICT (phone)
+		DO UPDATE SET
+			name = EXCLUDED.name,
+			email = COALESCE(EXCLUDED.email, customers.email),
+			password = COALESCE(EXCLUDED.password, customers.password),
+			account_status = 'verified',
+			phone_verified_at = COALESCE(customers.phone_verified_at, NOW()),
+			updated_at = NOW()`
+
+	result, err := r.db.ExecContext(ctx, query,
+		c.ID, c.Name, c.Phone, c.Email, c.Password,
+	)
+	if err != nil {
+		return false, wrapCustomerRepoErr("repo: gagal import customer", err)
+	}
+	rows, _ := result.RowsAffected()
+	return rows > 0, nil
+}
+
 func (r *Repository) MarkPhoneVerified(ctx context.Context, id uuid.UUID) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE customers

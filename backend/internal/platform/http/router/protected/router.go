@@ -9,7 +9,7 @@ import (
 
 func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 	protected := r.Group("/")
-	protected.Use(middleware.AuthMiddleware())
+	protected.Use(middleware.AuthMiddleware(cfg.DB))
 	{
 		platformProtected := protected.Group("/platform")
 		platformProtected.Use(middleware.PlatformOnly())
@@ -92,15 +92,22 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 
 				settingsGroup := ownerArea.Group("/admin/settings")
 				{
+					settingsGroup.GET("/roles", cfg.TenantHandler.ListStaffRoles)
+					settingsGroup.POST("/roles", cfg.TenantHandler.CreateStaffRole)
+					settingsGroup.PUT("/roles/:id", cfg.TenantHandler.UpdateStaffRole)
+					settingsGroup.DELETE("/roles/:id", cfg.TenantHandler.DeleteStaffRole)
 					settingsGroup.GET("/staff", cfg.TenantHandler.ListStaff)
 					settingsGroup.POST("/staff", cfg.TenantHandler.CreateStaff)
+					settingsGroup.PUT("/staff/:id", cfg.TenantHandler.UpdateStaff)
 					settingsGroup.DELETE("/staff/:id", cfg.TenantHandler.DeleteStaff)
 					settingsGroup.GET("/activity", cfg.TenantHandler.ListActivity)
+					settingsGroup.POST("/customers/import", cfg.CustomerHandler.ImportCustomers)
 					settingsGroup.POST("/customers/blast", cfg.CustomerHandler.BlastAnnouncement)
 				}
 			}
 
 			resources := adminArea.Group("/resources-all")
+			resources.Use(middleware.RequirePermission("resources.manage"))
 			{
 				resources.GET("", cfg.ResourceHandler.List)
 				resources.GET("/:id", cfg.ResourceHandler.GetByID)
@@ -120,6 +127,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			}
 
 			expenses := adminArea.Group("/expenses")
+			expenses.Use(middleware.RequirePermission("expenses.manage"))
 			{
 				expenses.GET("", cfg.ExpenseHandler.List)
 				expenses.GET("/summary", cfg.ExpenseHandler.Summary)
@@ -134,18 +142,19 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 
 			bookings := adminArea.Group("/bookings")
 			{
-				bookings.GET("", cfg.ReservationHandler.ListAll)
-				bookings.GET("/:id", cfg.ReservationHandler.GetDetail)
-				bookings.PUT("/:id/status", cfg.ReservationHandler.UpdateStatus)
-				bookings.POST("/:id/settle-cash", cfg.ReservationHandler.SettleCash)
-				bookings.POST("/manual", cfg.ReservationHandler.Create)
-				bookings.GET("/pos/active", cfg.ReservationHandler.GetActiveSessions)
-				bookings.POST("/pos/order/:id", cfg.ReservationHandler.AddOrder)
-				bookings.POST("/:id/extend", cfg.ReservationHandler.ExtendSession)
-				bookings.POST("/:id/addons", cfg.ReservationHandler.AddAddonItem)
+				bookings.GET("", middleware.RequirePermission("bookings.read"), cfg.ReservationHandler.ListAll)
+				bookings.GET("/:id", middleware.RequirePermission("bookings.read"), cfg.ReservationHandler.GetDetail)
+				bookings.PUT("/:id/status", middleware.RequirePermission("bookings.write"), cfg.ReservationHandler.UpdateStatus)
+				bookings.POST("/:id/settle-cash", middleware.RequirePermission("bookings.write"), cfg.ReservationHandler.SettleCash)
+				bookings.POST("/manual", middleware.RequirePermission("bookings.write"), cfg.ReservationHandler.Create)
+				bookings.GET("/pos/active", middleware.RequirePermission("bookings.read"), cfg.ReservationHandler.GetActiveSessions)
+				bookings.POST("/pos/order/:id", middleware.RequirePermission("bookings.write"), cfg.ReservationHandler.AddOrder)
+				bookings.POST("/:id/extend", middleware.RequirePermission("bookings.write"), cfg.ReservationHandler.ExtendSession)
+				bookings.POST("/:id/addons", middleware.RequirePermission("bookings.write"), cfg.ReservationHandler.AddAddonItem)
 			}
 
 			fnbGroup := adminArea.Group("/fnb")
+			fnbGroup.Use(middleware.RequirePermission("fnb.manage"))
 			{
 				fnbGroup.GET("", cfg.FnbHandler.GetMenu)
 				fnbGroup.POST("", cfg.FnbHandler.CreateItem)
@@ -157,6 +166,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			}
 
 			customers := adminArea.Group("/customers")
+			customers.Use(middleware.RequirePermission("customers.read"))
 			{
 				customers.GET("", cfg.CustomerHandler.List)
 				customers.GET("/search", cfg.CustomerHandler.SearchByPhone)

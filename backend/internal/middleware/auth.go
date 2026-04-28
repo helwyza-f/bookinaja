@@ -8,9 +8,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/helwiza/backend/internal/platform/security"
+	"github.com/jmoiron/sqlx"
 )
 
-func AuthMiddleware() gin.HandlerFunc {
+func AuthMiddleware(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 1. Ambil & Validasi Format Header
 		tokenString, err := extractBearerToken(c)
@@ -60,6 +61,13 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.Set("tenantID", tokenTenantID)
 		}
 
+		if userID, ok := claims["user_id"]; ok && userID != nil && db != nil {
+			permissions, err := loadUserPermissions(c, db, fmt.Sprintf("%v", userID), fmt.Sprintf("%v", c.GetString("tenantID")))
+			if err == nil {
+				c.Set("permissions", permissions)
+			}
+		}
+
 		// 4. Injeksi Identitas ke Context
 		setAuthContext(c, claims)
 
@@ -101,6 +109,23 @@ func setAuthContext(c *gin.Context, claims jwt.MapClaims) {
 	}
 }
 
+func loadUserPermissions(c *gin.Context, db *sqlx.DB, userID, tenantID string) ([]string, error) {
+	if strings.TrimSpace(userID) == "" || strings.TrimSpace(tenantID) == "" {
+		return nil, nil
+	}
+	var permissions []string
+	err := db.SelectContext(c.Request.Context(), &permissions, `
+		SELECT up.permission_key
+		FROM user_permissions up
+		JOIN users u ON u.id = up.user_id
+		WHERE u.id = $1 AND u.tenant_id = $2
+		ORDER BY up.permission_key ASC`, userID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return permissions, nil
+}
+
 func abortUnauthorized(c *gin.Context, msg string) {
 	c.JSON(http.StatusUnauthorized, gin.H{"error": msg})
 	c.Abort()
@@ -136,5 +161,40 @@ func PlatformOnly() gin.HandlerFunc {
 			return
 		}
 		c.Next()
+	}
+}
+
+func RequirePermission(required ...string) gin.HandlerFunc {
+	requiredSet := map[string]struct{}{}
+	for _, key := range required {
+		key = strings.TrimSpace(key)
+		if key != "" {
+			requiredSet[key] = struct{}{}
+		}
+	}
+
+	return func(c *gin.Context) {
+		if c.GetString("userRole") == "owner" {
+			c.Next()
+			return
+		}
+
+		raw, exists := c.Get("permissions")
+		if !exists {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Izin akses tidak ditemukan"})
+			c.Abort()
+			return
+		}
+
+		perms, _ := raw.([]string)
+		for _, permission := range perms {
+			if _, ok := requiredSet[permission]; ok {
+				c.Next()
+				return
+			}
+		}
+
+		c.JSON(http.StatusForbidden, gin.H{"error": "Akses modul ditolak"})
+		c.Abort()
 	}
 }

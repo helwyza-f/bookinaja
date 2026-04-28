@@ -12,12 +12,13 @@ import (
 // CheckMeUserResponse adalah DTO untuk memutus dependensi ke model tenant.User
 // CheckMeUserResponse adalah DTO untuk memutus dependensi ke model tenant.User
 type CheckMeUserResponse struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-	Name     string    `json:"name"`
-	Email    string    `json:"email"`
-	Role     string    `json:"role"`
-	LogoURL  string    `json:"logo_url"` // Tambahkan ini
+	ID             uuid.UUID `json:"id"`
+	TenantID       uuid.UUID `json:"tenant_id"`
+	Name           string    `json:"name"`
+	Email          string    `json:"email"`
+	Role           string    `json:"role"`
+	LogoURL        string    `json:"logo_url"`
+	PermissionKeys []string  `json:"permission_keys"`
 }
 
 // TenantService adalah Interface untuk memutus Import Cycle.
@@ -75,13 +76,14 @@ func (h *Handler) CheckMe(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status": "authenticated",
 		"user": gin.H{
-			"id":        user.ID,
-			"tenant_id": user.TenantID,
-			"role":      user.Role,
-			"name":      user.Name,
-			"email":     user.Email,
-			"logo_url":  user.LogoURL, // Tampilkan di JSON
-			"initials":  h.getInitials(user.Name),
+			"id":              user.ID,
+			"tenant_id":       user.TenantID,
+			"role":            user.Role,
+			"name":            user.Name,
+			"email":           user.Email,
+			"logo_url":        user.LogoURL,
+			"permission_keys": []string(user.PermissionKeys),
+			"initials":        h.getInitials(user.Name),
 		},
 	})
 }
