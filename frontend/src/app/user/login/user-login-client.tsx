@@ -207,7 +207,7 @@ export default function UserLoginClient() {
                   </p>
 
                   {waStep === "phone" ? (
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       <label className="block space-y-2">
                         <span className="text-xs font-medium uppercase tracking-[0.18em] text-[#1d4ed8] dark:text-sky-300">
                           Nomor WhatsApp
@@ -241,7 +241,7 @@ export default function UserLoginClient() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#1d4ed81a] bg-[#eff6ff] px-4 py-3 text-sm dark:border-white/10 dark:bg-white/5">
                         <div className="min-w-0 text-[#334155] dark:text-slate-400">
                           <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-[#1d4ed8] dark:text-sky-300">
@@ -299,7 +299,7 @@ export default function UserLoginClient() {
                   )}
                 </div>
               ) : (
-                <form onSubmit={handleEmailLogin} className="space-y-4">
+                <form onSubmit={handleEmailLogin} className="space-y-6">
                   <p className="text-sm leading-6 text-[#334155] dark:text-slate-400">
                     Gunakan email dan password jika akun kamu sudah memakai
                     login klasik.

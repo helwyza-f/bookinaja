@@ -114,25 +114,24 @@ export default function UserDashboardPage() {
   const pastHistory = data?.past_history || [];
   const currentList = activeTab === "active" ? activeBookings : pastHistory;
 
-  const filteredTenants = useMemo(() => {
-    const q = tenantQuery.trim().toLowerCase();
-    const list = !q
-      ? tenants
-      : tenants.filter((tenant) =>
-          [
-            tenant.name,
-            tenant.slug,
-            tenant.business_category,
-            tenant.business_type,
-            tenant.tagline,
-            tenant.slogan,
-          ]
-            .filter(Boolean)
-            .some((value) => String(value).toLowerCase().includes(q)),
-        );
+  const recentlyBookedTenantSlugs = useMemo(() => {
+    if (!data) return [];
+    const allBookings = [...activeBookings, ...pastHistory];
+    const slugs = new Set<string>();
+    allBookings.forEach((b) => {
+      if (b.tenant_slug) slugs.add(b.tenant_slug);
+    });
+    return Array.from(slugs).slice(0, 3);
+  }, [data, activeBookings, pastHistory]);
 
-    return list.slice(0, 6);
-  }, [tenantQuery, tenants]);
+  const recentTenants = useMemo(() => {
+    if (recentlyBookedTenantSlugs.length === 0) {
+      return tenants.slice(0, 3);
+    }
+    return tenants
+      .filter((t) => recentlyBookedTenantSlugs.includes(t.slug))
+      .slice(0, 3);
+  }, [recentlyBookedTenantSlugs, tenants]);
 
   const handleLogout = () => {
     clearTenantSession({ keepTenantSlug: true });
@@ -219,10 +218,12 @@ export default function UserDashboardPage() {
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-base font-black uppercase tracking-tight text-slate-950 dark:text-white">
-                Cari Tenant
+                {recentlyBookedTenantSlugs.length > 0 ? "Tenant Terakhir Dikunjungi" : "Rekomendasi Tenant"}
               </h2>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Temukan semua tenant Bookinaja dan langsung masuk ke halaman booking mereka.
+                {recentlyBookedTenantSlugs.length > 0
+                  ? "Akses cepat ke tenant yang sering kamu kunjungi."
+                  : "Temukan semua tenant Bookinaja dan langsung masuk ke halaman booking mereka."}
               </p>
             </div>
             <Button asChild variant="outline" className="rounded-xl">
@@ -233,18 +234,8 @@ export default function UserDashboardPage() {
             </Button>
           </div>
 
-          <div className="relative mt-4">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              value={tenantQuery}
-              onChange={(event) => setTenantQuery(event.target.value)}
-              placeholder="Cari nama tenant, kategori, atau slug..."
-              className="h-11 rounded-xl pl-10"
-            />
-          </div>
-
           <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {filteredTenants.map((tenant) => (
+            {recentTenants.map((tenant) => (
               <a
                 key={tenant.id}
                 href={getTenantUrl(tenant.slug)}
@@ -274,9 +265,9 @@ export default function UserDashboardPage() {
             ))}
           </div>
 
-          {filteredTenants.length === 0 ? (
+          {recentTenants.length === 0 ? (
             <div className="mt-4 rounded-xl border border-dashed border-slate-300 p-5 text-center text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
-              Tenant tidak ditemukan.
+              Belum ada tenant yang tersedia.
             </div>
           ) : null}
         </section>
