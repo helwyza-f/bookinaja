@@ -426,7 +426,7 @@ export default function LandingPage() {
           >
             <Link href="/register" className="w-full sm:w-auto">
               <Button className="w-full sm:w-auto h-12 px-8 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl bg-blue-600 hover:bg-blue-500 text-white border-0 transition-colors duration-200 shadow-lg shadow-blue-600/20">
-                Coba Gratis 14 Hari <ArrowRight className="ml-2 h-3.5 w-3.5" />
+                Coba Gratis 30 Hari <ArrowRight className="ml-2 h-3.5 w-3.5" />
               </Button>
             </Link>
             <Link href="/demos" className="w-full sm:w-auto">

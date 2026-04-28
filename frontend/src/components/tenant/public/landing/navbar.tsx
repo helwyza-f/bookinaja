@@ -50,16 +50,16 @@ export function TenantNavbar({ profile }: TenantNavbarProps) {
     <div
       className={cn(
         "fixed top-0 left-0 right-0 z-[100] transition-all duration-500",
-        scrolled ? "pt-2 md:pt-6 px-4" : "pt-4 md:pt-8 px-4",
+        scrolled ? "pt-0 md:pt-6 md:px-4" : "pt-0 md:pt-8 md:px-4",
       )}
     >
       <nav
         className={cn(
-          "mx-auto max-w-5xl h-[72px] md:h-[84px] flex items-center justify-between transition-all duration-500 px-3 md:px-8",
-          "rounded-[2rem] md:rounded-[2.5rem]",
+          "mx-auto max-w-5xl h-[72px] md:h-[84px] flex items-center justify-between transition-all duration-500 px-4 md:px-8",
+          "rounded-b-[2rem] md:rounded-[2.5rem]",
           scrolled
-            ? "bg-white/70 dark:bg-black/50 backdrop-blur-3xl border border-white/20 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)]"
-            : "bg-white/20 dark:bg-white/5 backdrop-blur-xl border border-white/30 dark:border-white/10 shadow-lg",
+            ? "bg-white/70 dark:bg-black/50 backdrop-blur-3xl border-b md:border border-slate-200/50 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)]"
+            : "bg-white/20 dark:bg-white/5 backdrop-blur-xl border-b md:border border-white/30 dark:border-white/10 shadow-lg",
         )}
       >
         {/* Branding Section */}
@@ -98,16 +98,16 @@ export function TenantNavbar({ profile }: TenantNavbarProps) {
         </div>
 
         {/* Actions Section */}
-        <div className="flex items-center gap-1 md:gap-4">
+        <div className="flex items-center gap-2 md:gap-4">
           <button
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
             className="p-2 md:p-3.5 rounded-xl md:rounded-2xl bg-white/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 transition-all border border-slate-200/50 dark:border-white/5 shadow-sm min-w-[36px] md:min-w-[40px] flex items-center justify-center"
             suppressHydrationWarning
           >
             {theme === "dark" ? (
-              <Sun className="h-4 w-4 md:h-5 md:w-5 text-yellow-500 animate-in zoom-in duration-300" />
+              <Sun className="h-5 w-5 text-yellow-500 animate-in zoom-in duration-300" />
             ) : (
-              <Moon className="h-4 w-4 md:h-5 md:w-5 text-blue-600 animate-in zoom-in duration-300" />
+              <Moon className="h-5 w-5 text-blue-600 animate-in zoom-in duration-300" />
             )}
           </button>
 
@@ -124,7 +124,7 @@ export function TenantNavbar({ profile }: TenantNavbarProps) {
               variant="ghost"
               className="rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-[0.16em] gap-2 hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-black px-2 md:px-5 h-10 md:h-12 transition-all active:scale-95"
             >
-              <UserCircle2 className="h-4 w-4 md:h-5 md:w-5 opacity-60" />
+              <UserCircle2 className="h-5 w-5 opacity-80" />
               <span className="hidden md:inline">Customer</span>
             </Button>
           </Link>
@@ -137,7 +137,7 @@ export function TenantNavbar({ profile }: TenantNavbarProps) {
                 boxShadow: `0 10px 25px -5px ${primaryColor}66`,
               }}
             >
-              <LayoutDashboard className="h-4 w-4 md:mr-2" />
+              <LayoutDashboard className="h-5 w-5 md:mr-2" />
               <span className="hidden md:inline">Admin</span>
             </Button>
           </Link>

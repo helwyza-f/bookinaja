@@ -165,7 +165,7 @@ export default function RegisterClient() {
                     <span className="text-xs font-medium uppercase tracking-[0.18em] text-[#1d4ed8] dark:text-sky-300">
                       Nama lengkap
                     </span>
-                    <div className="relative">
+                    <div className="relative mt-2">
                       <User className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1d4ed8] dark:text-sky-300" />
                       <Input
                         type="text"
@@ -182,7 +182,7 @@ export default function RegisterClient() {
                     <span className="text-xs font-medium uppercase tracking-[0.18em] text-[#1d4ed8] dark:text-sky-300">
                       Nomor WhatsApp
                     </span>
-                    <div className="relative">
+                    <div className="relative mt-2">
                       <Phone className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1d4ed8] dark:text-sky-300" />
                       <Input
                         type="tel"
@@ -199,7 +199,7 @@ export default function RegisterClient() {
                     <span className="text-xs font-medium uppercase tracking-[0.18em] text-[#1d4ed8] dark:text-sky-300">
                       Email
                     </span>
-                    <div className="relative">
+                    <div className="relative mt-2">
                       <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1d4ed8] dark:text-sky-300" />
                       <Input
                         type="email"
@@ -216,7 +216,7 @@ export default function RegisterClient() {
                     <span className="text-xs font-medium uppercase tracking-[0.18em] text-[#1d4ed8] dark:text-sky-300">
                       Password
                     </span>
-                    <div className="relative">
+                    <div className="relative mt-2">
                       <KeyRound className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1d4ed8] dark:text-sky-300" />
                       <Input
                         type="password"
@@ -311,11 +311,11 @@ export default function RegisterClient() {
                 </div>
               )}
 
-              <div className="flex items-center justify-between border-t border-[#1d4ed81a] pt-4 text-sm dark:border-white/10">
+              <div className="flex items-center justify-center border-t border-[#1d4ed81a] pt-4 text-sm dark:border-white/10">
                 <p className="text-[#334155] dark:text-slate-400">Sudah punya akun?</p>
                 <Link
                   href="/user/login"
-                  className="font-medium text-[#1d4ed8] underline-offset-4 hover:underline dark:text-sky-300"
+                  className="font-medium text-[#1d4ed8] underline-offset-4 hover:underline dark:text-sky-300 ml-2"
                 >
                   Masuk
                 </Link>
