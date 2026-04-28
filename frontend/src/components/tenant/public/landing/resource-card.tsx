@@ -17,10 +17,10 @@ export function ResourceCard({
       href={`/bookings/${res.id}`}
       className="group block w-full outline-none focus:ring-0"
     >
-      <Card className="relative h-[340px] md:h-[400px] rounded-[2rem] md:rounded-[2.5rem] border border-white/20 dark:border-white/10 bg-white/70 dark:bg-black/40 backdrop-blur-3xl overflow-hidden transition-all duration-500 hover:-translate-y-2 group-active:scale-[0.97] shadow-xl hover:shadow-2xl">
+      <Card className="relative flex flex-col rounded-[2rem] md:rounded-[2.5rem] border border-slate-200/60 dark:border-white/10 bg-white/70 dark:bg-black/40 backdrop-blur-3xl overflow-hidden transition-all duration-500 hover:-translate-y-2 group-active:scale-[0.97] shadow-xl hover:shadow-2xl">
         {/* --- Image Section --- */}
-        <div className="relative h-[55%] w-full overflow-hidden p-3 pb-0">
-          <div className="relative w-full h-full rounded-[1.5rem] md:rounded-[2rem] overflow-hidden">
+        <div className="relative w-full p-3 pb-0 shrink-0">
+          <div className="relative w-full aspect-[4/3] sm:aspect-[16/10] md:h-[220px] rounded-[1.5rem] md:rounded-[2rem] overflow-hidden">
             {res.image_url ? (
               <img
                 src={res.image_url}
@@ -50,13 +50,13 @@ export function ResourceCard({
         </div>
 
         {/* --- Info Section --- */}
-        <div className="p-5 md:p-6 flex flex-col justify-between h-[45%] relative">
-          <div className="space-y-2">
+        <div className="p-5 md:p-6 flex flex-col flex-1 relative">
+          <div className="space-y-2 mb-4 flex-1">
             <div className="flex items-start justify-between gap-3">
               <h3 className="text-lg md:text-xl font-black uppercase italic tracking-tight leading-tight text-slate-900 dark:text-white line-clamp-2">
                 {res.name}
               </h3>
-              <div className="flex items-center gap-1 shrink-0 bg-white/50 dark:bg-white/10 backdrop-blur-md px-2 py-1 rounded-lg border border-white/20 dark:border-white/5">
+              <div className="flex items-center gap-1 shrink-0 bg-white/50 dark:bg-white/10 backdrop-blur-md px-2 py-1 rounded-lg border border-white/20 dark:border-white/5 mt-1">
                 <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
                 <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">
                   4.9

@@ -159,7 +159,7 @@ export default function TenantPublicLanding() {
         <div className="container mx-auto max-w-6xl px-6 md:px-8">
           <div className="mb-16 space-y-4 text-center">
             <h2 className="text-4xl md:text-6xl font-[1000] uppercase italic tracking-tighter text-slate-900 dark:text-white">
-              Ready to <span style={{ color: theme.primary }}>Book.</span>
+              Siap <span style={{ color: theme.primary }}>Reservasi.</span>
             </h2>
             <p className="text-sm md:text-base font-medium text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">
               Pilih fasilitas yang kamu butuhkan dan lakukan reservasi secara real-time.

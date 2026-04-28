@@ -48,7 +48,7 @@ export function TenantHero({ profile, content, theme }: any) {
                 className="h-4 w-4 mr-2.5"
                 style={{ color: theme.primary }}
               />
-              {profile.slogan || "Premium Experience"}
+              {profile.slogan || "Pengalaman Premium"}
             </Badge>
           </div>
 
@@ -124,14 +124,14 @@ export function TenantHero({ profile, content, theme }: any) {
                   boxShadow: `0 20px 40px -10px ${theme.primary}88`,
                 }}
               >
-                Explore Hub
+                Lihat Layanan
                 <Zap className="ml-5 h-6 w-6 md:h-10 md:w-10 fill-current animate-bounce" />
               </Button>
 
               <div className="mt-8 flex items-center justify-center gap-3 opacity-40 group-hover:opacity-100 transition-all duration-500">
                 <MousePointer2 size={14} className="dark:text-white" />
                 <span className="text-[9px] font-black uppercase tracking-[0.4em] dark:text-white italic">
-                  Jump to Catalog
+                  Lompat ke Katalog
                 </span>
               </div>
             </Link>
