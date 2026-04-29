@@ -564,8 +564,23 @@ func (r *Repository) FindActiveSessions(ctx context.Context, tenantID uuid.UUID)
 		JOIN tenants t ON t.id = b.tenant_id
 		JOIN customers c ON b.customer_id = c.id
 		JOIN resources res ON b.resource_id = res.id
-		WHERE b.tenant_id = $1 AND b.status IN ('active', 'ongoing')
-		ORDER BY b.start_time ASC`
+		WHERE b.tenant_id = $1
+			AND (
+				b.status IN ('active', 'ongoing')
+				OR (
+					b.status = 'completed'
+					AND (
+						COALESCE(b.balance_due, 0) > 0
+						OR COALESCE(b.payment_status, '') IN ('pending', 'partial_paid', 'unpaid', 'failed', 'expired')
+					)
+				)
+			)
+		ORDER BY
+			CASE
+				WHEN b.status IN ('active', 'ongoing') THEN 0
+				ELSE 1
+			END,
+			b.start_time ASC`
 
 	err := r.db.SelectContext(ctx, &res, query, tenantID)
 	if err != nil {

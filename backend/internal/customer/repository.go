@@ -483,14 +483,25 @@ func (r *Repository) GetActiveBookings(ctx context.Context, customerID uuid.UUID
 	query := `
 		SELECT 
 			b.id, b.tenant_id, t.name as tenant_name, t.slug as tenant_slug,
-			res.name as resource, b.start_time as date, b.status,
-			b.payment_status,
+			res.name as resource, b.start_time as date, b.end_time as end_date,
+			b.grand_total, b.deposit_amount, b.paid_amount, b.balance_due,
+			b.status, b.payment_status, b.payment_method,
 			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) +
 			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_spent
 		FROM bookings b
 		JOIN resources res ON b.resource_id = res.id
 		JOIN tenants t ON t.id = b.tenant_id
-		WHERE b.customer_id = $1 AND b.status IN ('confirmed', 'pending', 'active')
+		WHERE b.customer_id = $1
+			AND (
+				b.status IN ('confirmed', 'pending', 'active', 'ongoing')
+				OR (
+					b.status = 'completed'
+					AND (
+						COALESCE(b.balance_due, 0) > 0
+						OR COALESCE(b.payment_status, '') IN ('pending', 'partial_paid', 'unpaid', 'failed', 'expired')
+					)
+				)
+			)
 		ORDER BY b.start_time ASC`
 	err := r.db.SelectContext(ctx, &bookings, query, customerID)
 	return bookings, err
@@ -509,7 +520,17 @@ func (r *Repository) GetPastHistory(ctx context.Context, customerID uuid.UUID, l
 		FROM bookings b
 		JOIN resources res ON b.resource_id = res.id
 		JOIN tenants t ON t.id = b.tenant_id
-		WHERE b.customer_id = $1 AND b.status IN ('completed', 'cancelled')
+		WHERE b.customer_id = $1
+			AND (
+				b.status = 'cancelled'
+				OR (
+					b.status = 'completed'
+					AND (
+						COALESCE(b.balance_due, 0) <= 0
+						OR COALESCE(b.payment_status, '') IN ('settled', 'paid')
+					)
+				)
+			)
 		ORDER BY b.start_time DESC LIMIT $2`
 	err := r.db.SelectContext(ctx, &history, query, customerID, limit)
 	return history, err

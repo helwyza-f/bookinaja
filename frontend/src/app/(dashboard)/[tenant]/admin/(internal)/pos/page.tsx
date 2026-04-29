@@ -35,7 +35,20 @@ type POSSession = {
   customer_name?: string;
   start_time: string;
   end_time: string;
+  status?: string;
+  payment_status?: string;
+  balance_due?: number;
   grand_total?: number;
+};
+
+const needsSettlement = (session: Pick<POSSession, "status" | "payment_status" | "balance_due">) => {
+  const status = String(session.status || "").toLowerCase();
+  const paymentStatus = String(session.payment_status || "").toLowerCase();
+  const balanceDue = Number(session.balance_due || 0);
+  return (
+    status === "completed" &&
+    (balanceDue > 0 || ["pending", "partial_paid", "unpaid", "failed", "expired"].includes(paymentStatus))
+  );
 };
 
 function POSControlSkeleton() {
@@ -77,6 +90,7 @@ function SessionCard({
   }, []);
 
   const timeInfo = useMemo(() => {
+    const attention = needsSettlement(session);
     const end = new Date(session.end_time);
     const start = new Date(session.start_time);
     const totalDuration = differenceInMinutes(end, start);
@@ -95,6 +109,7 @@ function SessionCard({
             : `${Math.floor(remaining / 60)}h ${remaining % 60}m`,
       isUrgent: remaining > 0 && remaining <= 10,
       isOver: remaining <= 0,
+      attention,
       progress,
     };
   }, [session, now]);
@@ -106,7 +121,7 @@ function SessionCard({
         "group w-full overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md active:translate-y-0 dark:border-white/10 dark:bg-slate-950",
         isActiveParam &&
           "border-blue-500 ring-2 ring-blue-500/20 shadow-blue-500/10",
-        timeInfo.isUrgent && "border-amber-300 ring-2 ring-amber-200/70",
+        (timeInfo.isUrgent || timeInfo.attention) && "border-amber-300 ring-2 ring-amber-200/70",
         timeInfo.isOver && "border-red-200 bg-red-50/40 dark:border-red-900/60",
       )}
     >
@@ -114,7 +129,9 @@ function SessionCard({
         <div
           className={cn(
             "h-full transition-all duration-700",
-            timeInfo.isOver
+            timeInfo.attention
+              ? "bg-amber-500"
+              : timeInfo.isOver
               ? "bg-red-500"
               : timeInfo.isUrgent
                 ? "bg-amber-500"
@@ -131,7 +148,9 @@ function SessionCard({
               <span
                 className={cn(
                   "h-2 w-2 rounded-full",
-                  timeInfo.isOver
+                  timeInfo.attention
+                    ? "bg-amber-500"
+                    : timeInfo.isOver
                     ? "bg-red-500"
                     : timeInfo.isUrgent
                       ? "bg-amber-500"
@@ -153,14 +172,18 @@ function SessionCard({
           <Badge
             className={cn(
               "shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
-              timeInfo.isOver
+              timeInfo.attention
+                ? "border-amber-200 bg-amber-50 text-amber-700"
+                : timeInfo.isOver
                 ? "border-red-200 bg-red-50 text-red-700"
                 : timeInfo.isUrgent
                   ? "border-amber-200 bg-amber-50 text-amber-700"
                   : "border-emerald-200 bg-emerald-50 text-emerald-700",
             )}
           >
-            {timeInfo.isOver
+            {timeInfo.attention
+              ? "Perlu pelunasan"
+              : timeInfo.isOver
               ? "Overtime"
               : timeInfo.isUrgent
                 ? "Segera habis"
@@ -194,17 +217,21 @@ function SessionCard({
             </p>
           </div>
           <div className="rounded-xl bg-blue-50 px-3 py-2 dark:bg-blue-950/30">
-            <p className="text-[11px] font-medium text-blue-500">Bill</p>
+            <p className="text-[11px] font-medium text-blue-500">
+              {timeInfo.attention ? "Sisa" : "Bill"}
+            </p>
             <p className="mt-1 truncate text-xs font-semibold text-blue-700 dark:text-blue-300">
               Rp
-              {new Intl.NumberFormat("id-ID").format(session.grand_total || 0)}
+              {new Intl.NumberFormat("id-ID").format(
+                timeInfo.attention ? session.balance_due || 0 : session.grand_total || 0,
+              )}
             </p>
           </div>
         </div>
 
         <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-white/10">
           <span className="text-xs font-medium text-slate-500">
-            Buka kontrol sesi
+            {timeInfo.attention ? "Buka checkout" : "Buka kontrol sesi"}
           </span>
           <ChevronRight
             size={16}
@@ -313,11 +340,12 @@ export default function POSPage() {
       (acc, session) => {
         const remaining = differenceInMinutes(new Date(session.end_time), now);
         acc.revenue += Number(session.grand_total || 0);
-        if (remaining <= 0) acc.overtime += 1;
+        if (needsSettlement(session)) acc.settlement += 1;
+        else if (remaining <= 0) acc.overtime += 1;
         else if (remaining <= 10) acc.urgent += 1;
         return acc;
       },
-      { revenue: 0, urgent: 0, overtime: 0 },
+      { revenue: 0, urgent: 0, overtime: 0, settlement: 0 },
     );
   }, [activeSessions]);
 
@@ -388,11 +416,10 @@ export default function POSPage() {
               POS Admin
             </div>
             <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl dark:text-white">
-              Sesi Aktif
+              Sesi & Tagihan Aktif
             </h1>
             <p className="mt-1 max-w-2xl text-sm text-slate-500">
-              Pantau unit yang sedang berjalan, sisa durasi, dan tagihan sebelum
-              checkout.
+              Pantau sesi berjalan dan booking selesai yang masih perlu pelunasan.
             </p>
           </div>
           <Button
@@ -410,24 +437,24 @@ export default function POSPage() {
 
         <div className="grid grid-cols-2 border-b border-slate-100 md:grid-cols-4 dark:border-white/10">
           <div className="border-r border-slate-100 p-4 dark:border-white/10">
-            <p className="text-xs font-medium text-slate-500">Sesi berjalan</p>
+            <p className="text-xs font-medium text-slate-500">Perlu ditangani</p>
             <p className="mt-1 text-2xl font-semibold text-slate-950 dark:text-white">
               {activeSessions.length}
             </p>
           </div>
           <div className="border-r border-slate-100 p-4 dark:border-white/10">
             <p className="text-xs font-medium text-slate-500">
-              Perlu perhatian
+              Pelunasan
             </p>
             <p className="mt-1 flex items-center gap-2 text-2xl font-semibold text-amber-600">
-              {sessionSummary.urgent}
+              {sessionSummary.settlement}
               <AlertTriangle className="h-4 w-4" />
             </p>
           </div>
           <div className="border-r border-slate-100 p-4 dark:border-white/10">
-            <p className="text-xs font-medium text-slate-500">Overtime</p>
+            <p className="text-xs font-medium text-slate-500">Urgent/Overtime</p>
             <p className="mt-1 text-2xl font-semibold text-red-600">
-              {sessionSummary.overtime}
+              {sessionSummary.urgent + sessionSummary.overtime}
             </p>
           </div>
           <div className="p-4">
@@ -478,10 +505,10 @@ export default function POSPage() {
             <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-white text-center shadow-sm dark:border-white/10 dark:bg-slate-950">
               <MonitorPlay size={38} className="text-slate-300" />
               <h3 className="text-base font-semibold text-slate-700 dark:text-slate-200">
-                Belum ada sesi aktif
+                Belum ada sesi atau tagihan aktif
               </h3>
               <p className="max-w-sm text-sm text-slate-500">
-                Sesi yang sudah diaktifkan dari booking akan tampil di monitor POS.
+                Sesi berjalan dan transaksi selesai yang belum lunas akan tampil di sini.
               </p>
             </div>
           ) : filteredSessions.length === 0 ? (
@@ -530,7 +557,7 @@ export default function POSPage() {
                 Pilih sesi untuk kontrol
               </h2>
               <p className="max-w-xs text-sm text-slate-500">
-                Detail billing, F&B, add-ons, extend, dan checkout akan tampil di panel ini.
+                Detail billing, aksi sesi, dan checkout akan tampil di panel ini.
               </p>
             </div>
           )}

@@ -58,6 +58,34 @@ type BookingRow = {
   total_fnb: number;
 };
 
+const isOperationallyActive = (booking: BookingRow) => {
+  const status = String(booking.status || "").toLowerCase();
+  const paymentStatus = String(booking.payment_status || "").toLowerCase();
+  const balanceDue = Number(booking.balance_due || 0);
+  return (
+    status === "active" ||
+    status === "ongoing" ||
+    (status === "completed" &&
+      (balanceDue > 0 || ["pending", "partial_paid", "unpaid", "failed", "expired"].includes(paymentStatus)))
+  );
+};
+
+const getBookingStatusMeta = (booking: BookingRow) => {
+  if (isOperationallyActive(booking) && booking.status === "completed") {
+    return { label: "Perlu Pelunasan", className: "bg-amber-500 text-white" };
+  }
+  if (booking.status === "active" || booking.status === "ongoing") {
+    return { label: "Aktif", className: "bg-emerald-500 text-white" };
+  }
+  if (booking.status === "confirmed") {
+    return { label: "Confirmed", className: "bg-blue-600 text-white" };
+  }
+  return {
+    label: booking.status || "pending",
+    className: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
+  };
+};
+
 export default function BookingsPage() {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
@@ -157,7 +185,9 @@ export default function BookingsPage() {
         b.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         b.customer_phone.includes(searchQuery);
 
-      const matchStatus = filterStatus === "all" || b.status === filterStatus;
+      const matchStatus =
+        filterStatus === "all" ||
+        (filterStatus === "active" ? isOperationallyActive(b) : b.status === filterStatus);
       const matchResource =
         filterResource === "all" || b.resource_name === filterResource;
       const matchDate =
@@ -182,9 +212,7 @@ export default function BookingsPage() {
       (acc, curr) => acc + (curr.total_resource + curr.total_fnb),
       0,
     );
-    const activeSess = filteredBookings.filter(
-      (b) => b.status === "active",
-    ).length;
+    const activeSess = filteredBookings.filter(isOperationallyActive).length;
     return { totalRevenue, activeSess };
   }, [filteredBookings]);
 
@@ -307,7 +335,7 @@ export default function BookingsPage() {
                     value={s}
                     className="text-xs font-semibold py-3 rounded-xl"
                   >
-                    {s}
+                    {s === "active" ? "active / perlu pelunasan" : s}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -435,7 +463,7 @@ export default function BookingsPage() {
                     value={s}
                     className="text-xs font-semibold py-3 rounded-xl"
                   >
-                    {s}
+                    {s === "active" ? "active / perlu pelunasan" : s}
                   </SelectItem>
                 ),
               )}
@@ -606,14 +634,10 @@ export default function BookingsPage() {
                             <Badge
                               className={cn(
                                 "font-semibold text-[9px] px-4 py-1.5 rounded-full border-none shadow-sm",
-                                b.status === "active"
-                                  ? "bg-emerald-500 text-white "
-                                  : b.status === "confirmed"
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-slate-100 dark:bg-slate-800 text-slate-400",
+                                getBookingStatusMeta(b).className,
                               )}
                             >
-                              {b.status}
+                              {getBookingStatusMeta(b).label}
                             </Badge>
                           </TableCell>
                           <TableCell className="w-[15%]">
@@ -663,20 +687,23 @@ export default function BookingsPage() {
                     onClick={() => router.push(`/admin/bookings/${b.id}`)}
                     className="p-4 md:p-6 rounded-2xl md:rounded-2xl border-none shadow-sm hover:shadow-sm transition-all cursor-pointer group relative overflow-hidden bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5"
                   >
-                    {b.status === "active" && (
-                      <div className="absolute top-0 left-0 w-full h-1.5 bg-emerald-500 " />
+                    {isOperationallyActive(b) && (
+                      <div
+                        className={cn(
+                          "absolute top-0 left-0 w-full h-1.5",
+                          b.status === "completed" ? "bg-amber-500" : "bg-emerald-500",
+                        )}
+                      />
                     )}
 
                     <div className="flex justify-between items-start mb-5">
                       <Badge
                         className={cn(
                           "font-semibold text-[9px] px-3 py-1 rounded-full shadow-sm",
-                          b.status === "active"
-                            ? "bg-emerald-500 text-white"
-                            : "bg-slate-50 dark:bg-slate-800 text-slate-400",
+                          getBookingStatusMeta(b).className,
                         )}
                       >
-                        {b.status}
+                        {getBookingStatusMeta(b).label}
                       </Badge>
                       <ArrowUpRight
                         size={18}

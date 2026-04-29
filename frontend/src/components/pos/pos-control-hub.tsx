@@ -53,6 +53,10 @@ export type POSSessionDetail = ExtendSession & {
   resource_addons?: AddonItem[];
   start_time: string;
   end_time: string;
+  status?: string;
+  payment_status?: string;
+  balance_due?: number;
+  paid_amount?: number;
   grand_total?: number;
   options?: POSLineItem[];
   orders?: POSOrderItem[];
@@ -83,6 +87,13 @@ export function POSControlHub({
   }, []);
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
+  const sessionStatus = String(session.status || "").toLowerCase();
+  const paymentStatus = String(session.payment_status || "").toLowerCase();
+  const balanceDue = Number(session.balance_due || 0);
+  const isOutstanding =
+    sessionStatus === "completed" &&
+    (balanceDue > 0 || ["pending", "partial_paid", "unpaid", "failed", "expired"].includes(paymentStatus));
+  const isSessionEditable = !isOutstanding && ["active", "ongoing"].includes(sessionStatus);
 
   const timeRemaining = useMemo(() => {
     if (!session?.end_time) return null;
@@ -156,6 +167,12 @@ export function POSControlHub({
                   {format(new Date(session.start_time), "HH:mm")}—
                   {format(new Date(session.end_time), "HH:mm")}
                 </span>
+                {isOutstanding ? (
+                  <>
+                    <span className="h-1 w-1 rounded-full bg-slate-300" />
+                    <span className="font-semibold text-amber-600">Perlu pelunasan</span>
+                  </>
+                ) : null}
               </div>
             </div>
           </div>
@@ -164,7 +181,9 @@ export function POSControlHub({
             <div
               className={cn(
                 "flex flex-col items-end rounded-xl border px-3 py-1.5 transition-all",
-                isLowTime
+                isOutstanding
+                  ? "border-amber-200 bg-amber-50"
+                  : isLowTime
                   ? "border-amber-200 bg-amber-50"
                   : "border-emerald-200 bg-emerald-50",
               )}
@@ -172,18 +191,18 @@ export function POSControlHub({
               <span
                 className={cn(
                   "text-[10px] font-medium",
-                  isLowTime ? "text-amber-700" : "text-emerald-700",
+                  isOutstanding || isLowTime ? "text-amber-700" : "text-emerald-700",
                 )}
               >
-                Sisa
+                {isOutstanding ? "Tagihan" : "Sisa"}
               </span>
               <span
                 className={cn(
                   "text-sm font-semibold",
-                  isLowTime ? "text-amber-700" : "text-emerald-700",
+                  isOutstanding || isLowTime ? "text-amber-700" : "text-emerald-700",
                 )}
               >
-                {timeRemaining}
+                {isOutstanding ? `Rp${formatIDR(balanceDue)}` : timeRemaining}
               </span>
             </div>
             {onClose && (
@@ -200,35 +219,35 @@ export function POSControlHub({
         </div>
       </div>
 
-      <div className="grid shrink-0 grid-cols-3 gap-2 border-b border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
-        <button
-          onClick={() => setFnbOpen(true)}
-          className="group flex h-14 flex-col items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-blue-300 hover:text-blue-600 dark:border-white/10 dark:bg-slate-950 dark:text-white"
-        >
-          <ShoppingCart className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
-          <span className="pr-1 text-[11px] font-semibold">
-            F&B Menu
-          </span>
-        </button>
-        <button
-          onClick={() => setAddonsOpen(true)}
-          className="group flex h-14 flex-col items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-orange-300 hover:text-orange-600 dark:border-white/10 dark:bg-slate-950 dark:text-white"
-        >
-          <Package className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
-          <span className="pr-1 text-[11px] font-semibold">
-            Add-ons
-          </span>
-        </button>
-        <button
-          onClick={() => setExtendOpen(true)}
-          className="group flex h-14 flex-col items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-slate-400 dark:border-white/10 dark:bg-slate-950 dark:text-white"
-        >
-          <TimerReset className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
-          <span className="pr-1 text-[11px] font-semibold">
-            Extend
-          </span>
-        </button>
-      </div>
+      {isSessionEditable ? (
+        <div className="grid shrink-0 grid-cols-3 gap-2 border-b border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+          <button
+            onClick={() => setFnbOpen(true)}
+            className="group flex h-14 flex-col items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-blue-300 hover:text-blue-600 dark:border-white/10 dark:bg-slate-950 dark:text-white"
+          >
+            <ShoppingCart className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
+            <span className="pr-1 text-[11px] font-semibold">F&B Menu</span>
+          </button>
+          <button
+            onClick={() => setAddonsOpen(true)}
+            className="group flex h-14 flex-col items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-orange-300 hover:text-orange-600 dark:border-white/10 dark:bg-slate-950 dark:text-white"
+          >
+            <Package className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
+            <span className="pr-1 text-[11px] font-semibold">Add-ons</span>
+          </button>
+          <button
+            onClick={() => setExtendOpen(true)}
+            className="group flex h-14 flex-col items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-slate-400 dark:border-white/10 dark:bg-slate-950 dark:text-white"
+          >
+            <TimerReset className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
+            <span className="pr-1 text-[11px] font-semibold">Extend</span>
+          </button>
+        </div>
+      ) : (
+        <div className="border-b border-slate-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-white/10 dark:bg-amber-950/20 dark:text-amber-200">
+          Sesi sudah selesai. Fokus berikutnya adalah pelunasan tagihan.
+        </div>
+      )}
 
       {/* 3. MAIN BILLING AREA */}
       <div className="flex-1 bg-white dark:bg-slate-950 overflow-y-auto pr-1 scrollbar-hide scroll-smooth">
@@ -318,8 +337,9 @@ export function POSControlHub({
           <div className="p-5 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-white/5 flex gap-3 items-start mb-6">
             <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
             <p className="text-[9px] font-bold text-slate-400 uppercase italic leading-relaxed tracking-tight pr-2">
-              Lakukan finalisasi pembayaran di menu checkout untuk melepaskan
-              unit.
+              {isOutstanding
+                ? "Selesaikan pelunasan untuk menutup transaksi ini."
+                : "Lakukan finalisasi pembayaran di menu checkout untuk melepaskan unit."}
             </p>
           </div>
           </div>
@@ -331,13 +351,13 @@ export function POSControlHub({
         <div className="flex items-center justify-between mb-2">
           <div className="space-y-0.5">
             <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic leading-none pr-1">
-              Total Billing
+              {isOutstanding ? "Sisa Tagihan" : "Total Billing"}
             </p>
             <p className="text-2xl sm:text-3xl font-black tracking-tight leading-none flex items-baseline pr-2 whitespace-nowrap">
               <span className="text-blue-500 text-lg mr-1.5 font-black not-italic">
                 Rp
               </span>
-              {formatIDR(session.grand_total || 0)}
+              {formatIDR(isOutstanding ? balanceDue : session.grand_total || 0)}
             </p>
           </div>
           <Button

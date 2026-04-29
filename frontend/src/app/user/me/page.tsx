@@ -79,6 +79,16 @@ type TenantCard = {
   logo_url?: string;
 };
 
+const bookingNeedsPayment = (booking: BookingItem) => {
+  const status = String(booking.status || "").toLowerCase();
+  const paymentStatus = String(booking.payment_status || "").toLowerCase();
+  return (
+    status === "completed" &&
+    (Number(booking.balance_due || 0) > 0 ||
+      ["pending", "partial_paid", "unpaid", "failed", "expired"].includes(paymentStatus))
+  );
+};
+
 export default function UserDashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<CustomerDashboard | null>(null);
@@ -333,7 +343,7 @@ export default function UserDashboardPage() {
                   : "bg-white text-slate-500 hover:bg-slate-100 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10",
               )}
             >
-              {tab === "active" ? "Sesi Aktif" : "Riwayat"}
+              {tab === "active" ? "Aktif & Tagihan" : "Riwayat"}
             </button>
           ))}
         </div>
@@ -359,14 +369,16 @@ export default function UserDashboardPage() {
                     <Badge
                       className={cn(
                         "rounded-lg border-none px-2.5 py-1 text-[9px] font-black uppercase shadow-sm",
-                        booking.status === "active" || booking.status === "ongoing"
-                          ? "bg-emerald-500 text-white"
-                          : booking.status === "pending" || booking.status === "confirmed"
+                        bookingNeedsPayment(booking)
+                          ? "bg-amber-500 text-white"
+                          : booking.status === "active" || booking.status === "ongoing"
+                            ? "bg-emerald-500 text-white"
+                            : booking.status === "pending" || booking.status === "confirmed"
                             ? "bg-amber-500 text-white"
                             : "bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-300",
                       )}
                     >
-                      {booking.status || "pending"}
+                      {bookingNeedsPayment(booking) ? "perlu pelunasan" : booking.status || "pending"}
                     </Badge>
                   </div>
 
@@ -404,7 +416,7 @@ export default function UserDashboardPage() {
                   </div>
                   <Button asChild size="sm" className="rounded-xl bg-slate-900 text-white shadow-sm hover:bg-slate-800 dark:bg-white dark:text-slate-900">
                     <Link href={`/user/me/bookings/${booking.id}`}>
-                      Detail
+                      {bookingNeedsPayment(booking) ? "Bayar" : "Detail"}
                       <ChevronRight className="ml-1 h-3.5 w-3.5" />
                     </Link>
                   </Button>
