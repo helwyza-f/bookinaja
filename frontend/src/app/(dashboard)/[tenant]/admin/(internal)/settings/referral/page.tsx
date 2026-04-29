@@ -18,6 +18,14 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import api from "@/lib/api";
@@ -73,6 +81,7 @@ export default function ReferralSettingsPage() {
   const [referrals, setReferrals] = useState<ReferralItem[]>([]);
   const [withdrawals, setWithdrawals] = useState<WithdrawalItem[]>([]);
   const [message, setMessage] = useState<string | null>(null);
+  const [payoutDialogOpen, setPayoutDialogOpen] = useState(false);
 
   const [payout, setPayout] = useState({
     bank_name: "",
@@ -127,16 +136,36 @@ export default function ReferralSettingsPage() {
   };
 
   const savePayout = async () => {
+    if (!payout.bank_name.trim() || !payout.account_name.trim() || !payout.account_number.trim() || !payout.whatsapp.trim()) {
+      setMessage("Lengkapi nama bank, pemilik rekening, nomor rekening, dan WhatsApp.");
+      return;
+    }
+
     setSaving(true);
     setMessage(null);
     try {
-      await api.put("/admin/settings/referrals/payout", {
+      const res = await api.put("/admin/settings/referrals/payout", {
         payout_bank_name: payout.bank_name,
         payout_account_name: payout.account_name,
         payout_account_number: payout.account_number,
         payout_whatsapp: payout.whatsapp,
       });
+      const updated = res.data?.data || {};
+      setSummary((prev) => ({
+        ...(prev || {}),
+        payout_bank_name: updated.payout_bank_name || payout.bank_name,
+        payout_account_name: updated.payout_account_name || payout.account_name,
+        payout_account_number: updated.payout_account_number || payout.account_number,
+        payout_whatsapp: updated.payout_whatsapp || payout.whatsapp,
+      }));
+      setPayout({
+        bank_name: updated.payout_bank_name || payout.bank_name,
+        account_name: updated.payout_account_name || payout.account_name,
+        account_number: updated.payout_account_number || payout.account_number,
+        whatsapp: updated.payout_whatsapp || payout.whatsapp,
+      });
       toast.success("Rekening pencairan tersimpan.");
+      setPayoutDialogOpen(false);
       await loadData();
     } catch {
       setMessage("Gagal menyimpan rekening pencairan.");
@@ -163,6 +192,18 @@ export default function ReferralSettingsPage() {
     summary?.payout_bank_name && summary?.payout_account_name && summary?.payout_account_number && summary?.payout_whatsapp,
   );
   const canWithdraw = (summary?.available_balance || 0) > 0 && payoutReady;
+  const resetPayoutDraft = () => {
+    setPayout({
+      bank_name: summary?.payout_bank_name || "",
+      account_name: summary?.payout_account_name || "",
+      account_number: summary?.payout_account_number || "",
+      whatsapp: summary?.payout_whatsapp || "",
+    });
+  };
+  const openPayoutDialog = () => {
+    resetPayoutDraft();
+    setPayoutDialogOpen(true);
+  };
 
   return (
     <div className="space-y-4 p-3 pb-24 sm:space-y-6 sm:p-6">
@@ -288,82 +329,50 @@ export default function ReferralSettingsPage() {
               </p>
             </div>
 
-            {payoutReady ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#0a0a0a]">
-                <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Rekening tersimpan</div>
-                <div className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
-                  <div className="flex items-center justify-between gap-3">
-                    <span>Bank</span>
-                    <span className="font-semibold text-slate-950 dark:text-white">{summary?.payout_bank_name || "-"}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span>Nama</span>
-                    <span className="font-semibold text-slate-950 dark:text-white">{summary?.payout_account_name || "-"}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span>No. rekening</span>
-                    <span className="font-semibold text-slate-950 dark:text-white">{summary?.payout_account_number || "-"}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span>WhatsApp</span>
-                    <span className="font-semibold text-slate-950 dark:text-white">{summary?.payout_whatsapp || "-"}</span>
-                  </div>
-                </div>
-              </div>
-            ) : null}
           </CardContent>
         </Card>
 
         <Card className="border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0a0a0a]">
           <CardHeader className="space-y-2">
             <CardTitle className="text-base">Rekening pencairan</CardTitle>
-            <CardDescription>Wajib diisi sebelum ajukan pencairan referral.</CardDescription>
+            <CardDescription>Rekening tujuan transfer bonus referral.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="bank_name">Nama bank</Label>
-              <Input
-                id="bank_name"
-                value={payout.bank_name}
-                onChange={(e) => setPayout((prev) => ({ ...prev, bank_name: e.target.value }))}
-                placeholder="BCA / BRI / Mandiri"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="account_name">Nama pemilik rekening</Label>
-              <Input
-                id="account_name"
-                value={payout.account_name}
-                onChange={(e) => setPayout((prev) => ({ ...prev, account_name: e.target.value }))}
-                placeholder="Sesuai buku rekening"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="account_number">Nomor rekening</Label>
-              <Input
-                id="account_number"
-                value={payout.account_number}
-                onChange={(e) => setPayout((prev) => ({ ...prev, account_number: e.target.value }))}
-                placeholder="1234567890"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="whatsapp">WhatsApp konfirmasi</Label>
-              <Input
-                id="whatsapp"
-                value={payout.whatsapp}
-                onChange={(e) => setPayout((prev) => ({ ...prev, whatsapp: e.target.value }))}
-                placeholder="08xxxxxxxxxx"
-              />
-            </div>
+            {payoutReady ? (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Rekening aktif</div>
+                  <div className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200">
+                    Siap cair
+                  </div>
+                </div>
+                <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                  <InfoRow label="Bank" value={summary?.payout_bank_name} />
+                  <InfoRow label="Nama" value={summary?.payout_account_name} />
+                  <InfoRow label="No. rekening" value={summary?.payout_account_number} />
+                  <InfoRow label="WhatsApp" value={summary?.payout_whatsapp} />
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center dark:border-white/10 dark:bg-white/[0.03]">
+                <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-slate-400 ring-1 ring-slate-200 dark:bg-slate-950 dark:ring-white/10">
+                  <Wallet className="h-5 w-5" />
+                </div>
+                <div className="mt-3 text-sm font-semibold text-slate-950 dark:text-white">
+                  Rekening pencairan belum diatur
+                </div>
+                <p className="mx-auto mt-1 max-w-xs text-sm text-slate-500">
+                  Tambahkan rekening dulu sebelum ajukan pencairan referral.
+                </p>
+              </div>
+            )}
 
             <div className="grid gap-2 sm:grid-cols-2">
-              <Button onClick={savePayout} disabled={saving} className="w-full">
+              <Button onClick={openPayoutDialog} variant="outline" className="w-full">
                 <Download className="mr-2 h-4 w-4" />
-                Simpan Rekening
+                {payoutReady ? "Edit Rekening" : "Tambah Rekening"}
               </Button>
               <Button
-                variant="outline"
                 onClick={requestWithdrawal}
                 disabled={!canWithdraw || withdrawing}
                 className="w-full"
@@ -463,6 +472,75 @@ export default function ReferralSettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={payoutDialogOpen} onOpenChange={setPayoutDialogOpen}>
+        <DialogContent className="max-w-lg rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>{payoutReady ? "Edit rekening pencairan" : "Tambah rekening pencairan"}</DialogTitle>
+            <DialogDescription>
+              Data ini dipakai tim Bookinaja untuk transfer bonus referral.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="bank_name">Nama bank</Label>
+              <Input
+                id="bank_name"
+                value={payout.bank_name}
+                onChange={(e) => setPayout((prev) => ({ ...prev, bank_name: e.target.value }))}
+                placeholder="BCA / BRI / Mandiri"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="account_name">Nama pemilik rekening</Label>
+              <Input
+                id="account_name"
+                value={payout.account_name}
+                onChange={(e) => setPayout((prev) => ({ ...prev, account_name: e.target.value }))}
+                placeholder="Sesuai buku rekening"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="account_number">Nomor rekening</Label>
+              <Input
+                id="account_number"
+                value={payout.account_number}
+                onChange={(e) => setPayout((prev) => ({ ...prev, account_number: e.target.value }))}
+                placeholder="1234567890"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="whatsapp">WhatsApp konfirmasi</Label>
+              <Input
+                id="whatsapp"
+                value={payout.whatsapp}
+                onChange={(e) => setPayout((prev) => ({ ...prev, whatsapp: e.target.value }))}
+                placeholder="08xxxxxxxxxx"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setPayoutDialogOpen(false)} disabled={saving}>
+              Batal
+            </Button>
+            <Button type="button" onClick={savePayout} disabled={saving}>
+              <Download className="mr-2 h-4 w-4" />
+              Simpan Rekening
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value?: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span>{label}</span>
+      <span className="text-right font-semibold text-slate-950 dark:text-white">{value || "-"}</span>
     </div>
   );
 }

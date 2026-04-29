@@ -349,6 +349,10 @@ func (s *Service) GetReferralSummary(ctx context.Context, id uuid.UUID) (map[str
 		return nil, err
 	}
 	summary["referral_code"] = tenant.ReferralCode
+	summary["payout_bank_name"] = tenant.PayoutBankName
+	summary["payout_account_name"] = tenant.PayoutAccountName
+	summary["payout_account_number"] = tenant.PayoutAccountNumber
+	summary["payout_whatsapp"] = tenant.PayoutWhatsApp
 	return summary, nil
 }
 
