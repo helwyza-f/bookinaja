@@ -544,18 +544,6 @@ func (s *Service) UpdateReceiptSettings(ctx context.Context, actorUserID uuid.UU
 	req.PayoutAccountName = curr.PayoutAccountName
 	req.PayoutAccountNumber = curr.PayoutAccountNumber
 	req.PayoutWhatsApp = curr.PayoutWhatsApp
-	req.ReceiptTitle = curr.ReceiptTitle
-	req.ReceiptSubtitle = curr.ReceiptSubtitle
-	req.ReceiptFooter = curr.ReceiptFooter
-	req.ReceiptWhatsAppText = curr.ReceiptWhatsAppText
-	req.ReceiptTemplate = curr.ReceiptTemplate
-	req.ReceiptChannel = curr.ReceiptChannel
-	req.PrinterEnabled = curr.PrinterEnabled
-	req.PrinterName = curr.PrinterName
-	req.PrinterMode = curr.PrinterMode
-	req.PrinterEndpoint = curr.PrinterEndpoint
-	req.PrinterAutoPrint = curr.PrinterAutoPrint
-	req.PrinterStatus = curr.PrinterStatus
 	req.CreatedAt = curr.CreatedAt
 
 	if err := s.repo.Update(ctx, req); err != nil {

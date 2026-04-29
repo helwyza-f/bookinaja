@@ -10,8 +10,17 @@ import {
   TimerReset,
   X,
   User,
+  MessageCircle,
+  Printer,
+  ReceiptText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   FnBCatalogDialog,
   type FnBCartItem,
@@ -29,6 +38,13 @@ import {
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { format, differenceInMinutes } from "date-fns";
+import {
+  buildReceiptWhatsAppUrl,
+  isReceiptProEnabled,
+  printReceiptText,
+  type ReceiptSettings,
+} from "@/lib/receipt";
+import { toast } from "sonner";
 
 type POSLineItem = {
   id?: string;
@@ -49,6 +65,7 @@ type POSOrderItem = {
 export type POSSessionDetail = ExtendSession & {
   id: string;
   customer_name?: string;
+  customer_phone?: string;
   resource_name?: string;
   resource_addons?: AddonItem[];
   start_time: string;
@@ -80,10 +97,18 @@ export function POSControlHub({
   const [addonsOpen, setAddonsOpen] = useState(false);
   const [itemsOpen, setItemsOpen] = useState(false);
   const [now, setNow] = useState(new Date());
+  const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    api
+      .get("/admin/receipt-settings")
+      .then((res) => setReceiptSettings(res.data || null))
+      .catch(() => setReceiptSettings(null));
   }, []);
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
@@ -94,6 +119,34 @@ export function POSControlHub({
     sessionStatus === "completed" &&
     (balanceDue > 0 || ["pending", "partial_paid", "unpaid", "failed", "expired"].includes(paymentStatus));
   const isSessionEditable = !isOutstanding && ["active", "ongoing"].includes(sessionStatus);
+  const canUseReceipt = isReceiptProEnabled(receiptSettings);
+  const isPaymentSettled =
+    paymentStatus === "settled" ||
+    (paymentStatus === "paid" && Number(session.balance_due || 0) === 0);
+
+  const handleReceiptAction = (mode: "whatsapp" | "print" | "both") => {
+    if (!canUseReceipt) {
+      toast.message("Fitur nota aktif di paket Pro", {
+        description: "Pengaturan bisa dilihat di Starter/Trial, penggunaan nota terkunci.",
+      });
+      window.location.href = "/admin/settings/billing/subscribe";
+      return;
+    }
+
+    if (mode === "whatsapp" || mode === "both") {
+      const url = buildReceiptWhatsAppUrl(receiptSettings, session);
+      if (!url) {
+        toast.error("Nomor WhatsApp customer belum valid");
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+
+    if (mode === "print" || mode === "both") {
+      const ok = printReceiptText(receiptSettings, session);
+      if (!ok) toast.error("Popup print diblokir browser");
+    }
+  };
 
   const timeRemaining = useMemo(() => {
     if (!session?.end_time) return null;
@@ -370,6 +423,35 @@ export function POSControlHub({
             <ChevronUp className="w-4 h-4 animate-bounce group-hover:scale-125 transition-transform" />
           </Button>
         </div>
+        {isPaymentSettled && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="mt-3 h-10 w-full rounded-xl border-white/10 bg-white/10 text-white hover:bg-white/15 hover:text-white"
+              >
+                <ReceiptText className="mr-2 h-4 w-4" />
+                Nota pelanggan
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 dark:bg-slate-900">
+              {!canUseReceipt && (
+                <DropdownMenuItem onClick={() => (window.location.href = "/admin/settings/billing/subscribe")} className="rounded-xl text-amber-700">
+                  Upgrade Pro untuk pakai nota
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => handleReceiptAction("whatsapp")} className="rounded-xl" disabled={!canUseReceipt}>
+                <MessageCircle size={14} className="mr-2" /> Kirim nota WA
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleReceiptAction("print")} className="rounded-xl" disabled={!canUseReceipt}>
+                <Printer size={14} className="mr-2" /> Cetak nota fisik
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleReceiptAction("both")} className="rounded-xl" disabled={!canUseReceipt}>
+                <ReceiptText size={14} className="mr-2" /> WA + cetak
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       {/* DIALOGS */}

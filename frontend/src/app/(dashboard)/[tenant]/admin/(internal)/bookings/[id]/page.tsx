@@ -20,6 +20,8 @@ import {
   Zap,
   MoreVertical,
   Trash2,
+  MessageCircle,
+  Printer,
 } from "lucide-react";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -34,6 +36,12 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { BookingDetailSkeleton } from "@/components/dashboard/booking-detail-skeleton";
+import {
+  buildReceiptWhatsAppUrl,
+  isReceiptProEnabled,
+  printReceiptText,
+  type ReceiptSettings,
+} from "@/lib/receipt";
 
 type BookingOption = {
   id?: string;
@@ -91,6 +99,7 @@ export default function BookingDetailPage() {
   const [updating, setUpdating] = useState(false);
   const [midtransReady, setMidtransReady] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
+  const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings | null>(null);
 
   const fetchDetail = useCallback(async () => {
     try {
@@ -108,6 +117,13 @@ export default function BookingDetailPage() {
     window.addEventListener("focus", fetchDetail);
     return () => window.removeEventListener("focus", fetchDetail);
   }, [fetchDetail]);
+
+  useEffect(() => {
+    api
+      .get("/admin/receipt-settings")
+      .then((res) => setReceiptSettings(res.data || null))
+      .catch(() => setReceiptSettings(null));
+  }, []);
 
   useEffect(() => {
     if (window.snap) setMidtransReady(true);
@@ -188,6 +204,7 @@ export default function BookingDetailPage() {
   const canComplete = status === "active";
   const canSettle = status === "completed" && !isPaymentSettled && Number(booking?.balance_due || 0) > 0;
   const isFinal = status === "completed" || status === "cancelled";
+  const canUseReceipt = isReceiptProEnabled(receiptSettings);
   const nextActionHint = !hasPaidDp
     ? "DP belum tercatat. Sesi belum bisa dimulai."
     : status === "pending"
@@ -248,6 +265,31 @@ export default function BookingDetailPage() {
     } catch (error) {
       const err = error as { response?: { data?: { error?: string } } };
       toast.error(err.response?.data?.error || "Gagal memproses cash settlement");
+    }
+  };
+
+  const handleReceiptAction = (mode: "whatsapp" | "print" | "both") => {
+    if (!booking) return;
+    if (!canUseReceipt) {
+      toast.message("Fitur nota aktif di paket Pro", {
+        description: "Starter dan trial bisa melihat pengaturan, tapi kirim/cetak nota terkunci.",
+      });
+      router.push("/admin/settings/billing/subscribe");
+      return;
+    }
+
+    if (mode === "whatsapp" || mode === "both") {
+      const url = buildReceiptWhatsAppUrl(receiptSettings, booking);
+      if (!url) {
+        toast.error("Nomor WhatsApp customer belum valid");
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+
+    if (mode === "print" || mode === "both") {
+      const ok = printReceiptText(receiptSettings, booking);
+      if (!ok) toast.error("Popup print diblokir browser");
     }
   };
 
@@ -348,6 +390,32 @@ export default function BookingDetailPage() {
                 <Button onClick={() => setPayOpen((prev) => !prev)} disabled={updating} className="h-10 rounded-xl bg-blue-600 text-white hover:bg-blue-700">
                   <CreditCard className="mr-2 h-4 w-4" /> Pelunasan
                 </Button>
+              )}
+              {isPaymentSettled && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="h-10 rounded-xl">
+                      <Receipt className="mr-2 h-4 w-4" />
+                      Nota
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 dark:bg-slate-900">
+                    {!canUseReceipt && (
+                      <DropdownMenuItem onClick={() => router.push("/admin/settings/billing/subscribe")} className="rounded-xl text-amber-700">
+                        Upgrade Pro untuk pakai nota
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={() => handleReceiptAction("whatsapp")} className="rounded-xl" disabled={!canUseReceipt}>
+                      <MessageCircle size={14} className="mr-2" /> Kirim nota WA
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleReceiptAction("print")} className="rounded-xl" disabled={!canUseReceipt}>
+                      <Printer size={14} className="mr-2" /> Cetak nota fisik
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleReceiptAction("both")} className="rounded-xl" disabled={!canUseReceipt}>
+                      <Receipt size={14} className="mr-2" /> WA + cetak
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
               {!isFinal && (
                 <DropdownMenu>

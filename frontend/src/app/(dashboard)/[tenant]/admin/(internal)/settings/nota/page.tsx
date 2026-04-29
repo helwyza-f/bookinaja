@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Copy,
   Edit3,
+  Lock,
   Printer,
   ReceiptText,
   Save,
@@ -22,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import Link from "next/link";
 
 type ReceiptSettings = {
   receipt_title?: string;
@@ -38,6 +40,8 @@ type ReceiptSettings = {
   printer_status?: string;
   whatsapp_number?: string;
   name?: string;
+  plan?: string;
+  subscription_status?: string;
 };
 
 type BluetoothNavigator = Navigator & {
@@ -143,6 +147,11 @@ export default function ReceiptPrinterSettingsPage() {
   }, [connectionState, savedData.printer_enabled]);
 
   const previewText = useMemo(() => renderTemplate(draft.receipt_template || defaultTemplate, draft), [draft]);
+  const isProActive = useMemo(() => {
+    const plan = String(savedData.plan || "").toLowerCase();
+    const status = String(savedData.subscription_status || "").toLowerCase();
+    return plan === "pro" && status === "active";
+  }, [savedData.plan, savedData.subscription_status]);
 
   const setField = (key: keyof ReceiptSettings, value: string | boolean) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
@@ -187,6 +196,10 @@ export default function ReceiptPrinterSettingsPage() {
   };
 
   const openBluetoothPicker = async () => {
+    if (!isProActive) {
+      setMessage("Printer dan penggunaan nota hanya aktif di paket Pro.");
+      return;
+    }
     setScanning(true);
     setMessage(null);
     try {
@@ -228,6 +241,10 @@ export default function ReceiptPrinterSettingsPage() {
   };
 
   const connectSelectedBluetooth = async () => {
+    if (!isProActive) {
+      setMessage("Printer dan penggunaan nota hanya aktif di paket Pro.");
+      return;
+    }
     setConnecting(true);
     setMessage(null);
     try {
@@ -286,6 +303,10 @@ export default function ReceiptPrinterSettingsPage() {
   };
 
   const toggleAutoPrint = async (enabled: boolean) => {
+    if (!isProActive) {
+      setMessage("Auto print hanya aktif di paket Pro.");
+      return;
+    }
     const nextData = normalizeSettings({
       ...draft,
       printer_auto_print: enabled,
@@ -327,16 +348,33 @@ export default function ReceiptPrinterSettingsPage() {
               Nota sederhana, printer Bluetooth jelas
             </h1>
             <p className="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-              Atur isi struk dan koneksi printer tanpa opsi teknis yang tidak perlu.
+              Atur isi struk dan koneksi printer. Starter dan trial bisa melihat setup, penggunaan nota aktif di paket Pro.
             </p>
           </div>
           <div className="grid gap-2 sm:grid-cols-3 lg:w-[520px]">
             <StatusPill label="Printer" value={printerStatus} active={!!savedData.printer_enabled} />
-            <StatusPill label="Mode" value="Bluetooth" active />
+            <StatusPill label="Paket" value={(savedData.plan || "starter").toUpperCase()} active={isProActive} />
             <StatusPill label="Auto print" value={savedData.printer_auto_print ? "Aktif" : "Manual"} active={!!savedData.printer_auto_print} />
           </div>
         </div>
       </section>
+
+      {!isProActive && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex gap-3">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <div className="text-sm font-semibold">Nota WA dan print fisik tersedia di paket Pro.</div>
+              <p className="mt-1 text-xs leading-5 opacity-80">
+                Kamu tetap bisa cek template dan alur pengaturannya, tapi tombol kirim/cetak nota di booking dan POS akan terkunci sampai upgrade.
+              </p>
+            </div>
+          </div>
+          <Button asChild className="rounded-xl bg-slate-950 text-white hover:bg-slate-800">
+            <Link href="/admin/settings/billing/subscribe">Upgrade Pro</Link>
+          </Button>
+        </div>
+      )}
 
       {message && (
         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
@@ -368,15 +406,15 @@ export default function ReceiptPrinterSettingsPage() {
               </div>
 
               <div className="grid gap-2 sm:grid-cols-2">
-                <Button type="button" onClick={openBluetoothPicker} disabled={scanning || saving || !bluetoothAvailable}>
+                <Button type="button" onClick={openBluetoothPicker} disabled={scanning || saving || !bluetoothAvailable || !isProActive}>
                   <Bluetooth className="mr-2 h-4 w-4" />
                   {scanning ? "Membuka..." : "Pilih Printer"}
                 </Button>
-                <Button type="button" variant="outline" onClick={connectSelectedBluetooth} disabled={connecting || saving || !bluetoothAvailable}>
+                <Button type="button" variant="outline" onClick={connectSelectedBluetooth} disabled={connecting || saving || !bluetoothAvailable || !isProActive}>
                   <CheckCircle2 className="mr-2 h-4 w-4" />
                   {connecting ? "Connect..." : "Test Connect"}
                 </Button>
-                <Button type="button" variant="outline" onClick={disconnectBluetooth} disabled={disconnecting || saving} className="sm:col-span-2">
+                <Button type="button" variant="outline" onClick={disconnectBluetooth} disabled={disconnecting || saving || !isProActive} className="sm:col-span-2">
                   <Unplug className="mr-2 h-4 w-4" />
                   {disconnecting ? "Memutus..." : "Matikan Printer"}
                 </Button>
@@ -393,7 +431,7 @@ export default function ReceiptPrinterSettingsPage() {
                   <div className="text-sm font-semibold text-slate-950 dark:text-white">Auto print saat lunas</div>
                   <div className="text-xs text-slate-500">Kalau aktif, nota disiapkan untuk cetak setelah pembayaran lunas.</div>
                 </div>
-                <Switch checked={!!draft.printer_auto_print} onCheckedChange={toggleAutoPrint} disabled={saving} />
+                <Switch checked={!!draft.printer_auto_print} onCheckedChange={toggleAutoPrint} disabled={saving || !isProActive} />
               </div>
             </CardContent>
           </Card>
