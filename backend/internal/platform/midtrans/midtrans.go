@@ -35,9 +35,18 @@ func ParseBookingOrderID(orderID string) (bookingID uuid.UUID, kind string, err 
 	}
 	kind = parts[0]
 	idHex := parts[1]
+	if len(idHex) < 32 {
+		return uuid.UUID{}, "", fmt.Errorf("invalid booking id length")
+	}
+	if len(idHex) > 32 {
+		idHex = idHex[:32]
+	}
 	raw, err := hex.DecodeString(idHex)
 	if err != nil {
 		return uuid.UUID{}, "", err
+	}
+	if len(raw) != 16 {
+		return uuid.UUID{}, "", fmt.Errorf("invalid booking id length")
 	}
 	bookingID, err = uuid.FromBytes(raw)
 	if err != nil {

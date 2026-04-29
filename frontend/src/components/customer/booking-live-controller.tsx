@@ -13,17 +13,37 @@ import {
   Search,
   Minus,
   Plus,
+  ReceiptText,
 } from "lucide-react";
 import { toast } from "sonner";
 
+type CatalogItem = {
+  id: string;
+  name: string;
+  category?: string;
+  price?: number;
+  unit_price?: number;
+  quantity?: number;
+};
+
+type BookingLite = {
+  unit_duration?: number;
+  unit_price?: number;
+};
+
+type ApiError = {
+  response?: { data?: { error?: string } };
+  message?: string;
+};
+
 type ControllerProps = {
   active: boolean;
-  booking: any;
-  menuItems: any[];
-  addonItems: any[];
+  booking: BookingLite;
+  menuItems: CatalogItem[];
+  addonItems: CatalogItem[];
   onExtend: (count: number) => Promise<void>;
-  onOrderFnb: (cart: any[]) => Promise<void>;
-  onOrderAddon: (cart: any[]) => Promise<void>;
+  onOrderFnb: (cart: CatalogItem[]) => Promise<void>;
+  onOrderAddon: (cart: CatalogItem[]) => Promise<void>;
   onComplete?: () => void;
 };
 
@@ -87,17 +107,8 @@ export function BookingLiveController({
   const [addonOpen, setAddonOpen] = useState(false);
   const [extendError, setExtendError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [cart, setCart] = useState<Record<string, any>>({});
+  const [cart, setCart] = useState<Record<string, CatalogItem & { quantity: number }>>({});
   const [selectedExtend, setSelectedExtend] = useState<number>(1);
-
-  useEffect(() => {
-    if (!active) {
-      setExtendOpen(false);
-      setFnbOpen(false);
-      setAddonOpen(false);
-      setExtendError(null);
-    }
-  }, [active]);
 
   useEffect(() => {
     if (!extendError) return;
@@ -109,7 +120,7 @@ export function BookingLiveController({
     });
   }, [extendError]);
 
-  const add = (item: any) => {
+  const add = (item: CatalogItem) => {
     setCart((prev) => ({
       ...prev,
       [item.id]: { ...item, quantity: (prev[item.id]?.quantity || 0) + 1 },
@@ -144,40 +155,45 @@ export function BookingLiveController({
 
   const unitDuration = Number(booking?.unit_duration || 60);
   const extOptions = [1, 2, 3, 4];
+  const formatIDR = (value: number) => new Intl.NumberFormat("id-ID").format(Number(value || 0));
+  const totalCart = cartItems.reduce((sum, item) => sum + Number(item.price || item.unit_price || 0) * Number(item.quantity || 0), 0);
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-2">
         <Button
           disabled={!active}
           onClick={() => setExtendOpen(true)}
-          className="h-14 rounded-2xl bg-white text-slate-950 hover:bg-slate-100 font-black uppercase italic text-[10px] shadow-lg border border-slate-100 flex flex-col gap-1"
+          variant="outline"
+          className="h-12 rounded-xl justify-start gap-2 text-xs font-semibold"
         >
-          <Timer size={14} className="text-blue-600" />
+          <Timer size={16} className="text-blue-600" />
           Tambah Jam
         </Button>
         <Button
           disabled={!active}
           onClick={() => setFnbOpen(true)}
-          className="h-14 rounded-2xl bg-slate-950 hover:bg-slate-900 text-white font-black uppercase italic text-[10px] shadow-lg flex flex-col gap-1"
+          variant="outline"
+          className="h-12 rounded-xl justify-start gap-2 text-xs font-semibold"
         >
-          <Coffee size={14} className="text-orange-400" />
+          <Coffee size={16} className="text-orange-500" />
           Pesan Makan
         </Button>
         <Button
           disabled={!active}
           onClick={() => setAddonOpen(true)}
-          className="h-14 rounded-2xl bg-white text-slate-950 hover:bg-slate-100 font-black uppercase italic text-[10px] shadow-lg border border-slate-100 flex flex-col gap-1"
+          variant="outline"
+          className="h-12 rounded-xl justify-start gap-2 text-xs font-semibold"
         >
-          <PlusCircle size={14} className="text-emerald-500" />
+          <PlusCircle size={16} className="text-emerald-500" />
           Add-on
         </Button>
         <Button
           disabled={!active}
           onClick={onComplete}
-          className="h-14 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black uppercase italic text-[10px] shadow-lg border-none flex flex-col gap-1"
+          className="h-12 rounded-xl justify-start gap-2 bg-slate-950 text-xs font-semibold text-white hover:bg-slate-800"
         >
-          <X size={14} />
+          <ReceiptText size={16} />
           Akhiri Sesi
         </Button>
       </div>
@@ -188,7 +204,7 @@ export function BookingLiveController({
         title="Tambah Jam"
       >
         <div className="p-4 space-y-4">
-          <div className="rounded-2xl bg-blue-500/10 border border-blue-500/10 p-4 text-xs font-bold italic text-blue-700 dark:text-blue-100">
+          <div className="rounded-xl bg-blue-50 border border-blue-100 p-4 text-sm leading-6 text-blue-800 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100">
             Pilih tambahan durasi. Sistem akan menambah billing booking
             customer.
           </div>
@@ -200,30 +216,31 @@ export function BookingLiveController({
                   key={count}
                   onClick={() => setSelectedExtend(count)}
                   className={cn(
-                    "p-4 rounded-2xl border text-left",
+                    "p-4 rounded-xl border text-left",
                     selectedExtend === count
                       ? "border-blue-600 bg-blue-50 dark:bg-blue-950/20"
                       : "border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900",
                   )}
                 >
-                  <p className="text-[10px] font-black uppercase italic text-slate-400">
+                  <p className="text-xs font-semibold text-slate-500">
                     +{count} {unitDuration === 60 ? "Jam" : "Sesi"}
                   </p>
-                  <p className="mt-2 text-sm font-[1000] italic dark:text-white">
-                    Rp {total.toLocaleString()}
+                  <p className="mt-2 text-base font-semibold dark:text-white">
+                    Rp {formatIDR(total)}
                   </p>
                 </button>
               );
             })}
           </div>
           <Button
-            className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black uppercase italic"
+            className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold"
             onClick={async () => {
               try {
                 await onExtend(selectedExtend);
                 setExtendError(null);
                 setExtendOpen(false);
-              } catch (err: any) {
+              } catch (error) {
+                const err = error as ApiError;
                 const message = String(
                   err?.response?.data?.error || err?.message || "",
                 );
@@ -255,7 +272,7 @@ export function BookingLiveController({
               className="pl-11 h-12 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none"
             />
           </div>
-          <div className="space-y-3">
+          <div className="max-h-[48vh] space-y-3 overflow-y-auto pr-1">
             {filteredMenu.map((item) => (
               <div
                 key={item.id}
@@ -270,8 +287,8 @@ export function BookingLiveController({
                       {item.category}
                     </p>
                   </div>
-                  <p className="font-black italic text-blue-600">
-                    Rp {Number(item.price || 0).toLocaleString()}
+                  <p className="shrink-0 font-semibold text-blue-600">
+                    Rp {formatIDR(Number(item.price || 0))}
                   </p>
                 </div>
                 <div className="mt-3 flex items-center justify-between">
@@ -301,9 +318,17 @@ export function BookingLiveController({
               </div>
             ))}
           </div>
+          {cartItems.length > 0 && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Total pesanan</span>
+                <span className="font-semibold text-slate-950 dark:text-white">Rp {formatIDR(totalCart)}</span>
+              </div>
+            </div>
+          )}
           <Button
             disabled={cartItems.length === 0}
-            className="w-full h-14 rounded-2xl bg-slate-950 text-white font-black uppercase italic"
+            className="w-full h-12 rounded-xl bg-slate-950 text-white font-semibold"
             onClick={async () => {
               await onOrderFnb(cartItems);
               setCart({});
@@ -330,7 +355,7 @@ export function BookingLiveController({
               className="pl-11 h-12 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none"
             />
           </div>
-          <div className="space-y-3">
+          <div className="max-h-[48vh] space-y-3 overflow-y-auto pr-1">
             {filteredAddons.map((item) => (
               <div
                 key={item.id}
@@ -345,8 +370,8 @@ export function BookingLiveController({
                       addon resource
                     </p>
                   </div>
-                  <p className="font-black italic text-emerald-600">
-                    Rp {Number(item.price || 0).toLocaleString()}
+                  <p className="shrink-0 font-semibold text-emerald-600">
+                    Rp {formatIDR(Number(item.price || 0))}
                   </p>
                 </div>
                 <div className="mt-3 flex items-center justify-between">
@@ -373,9 +398,17 @@ export function BookingLiveController({
               </div>
             ))}
           </div>
+          {cartItems.length > 0 && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Total add-on</span>
+                <span className="font-semibold text-slate-950 dark:text-white">Rp {formatIDR(totalCart)}</span>
+              </div>
+            </div>
+          )}
           <Button
             disabled={cartItems.length === 0}
-            className="w-full h-14 rounded-2xl bg-emerald-600 text-white font-black uppercase italic"
+            className="w-full h-12 rounded-xl bg-emerald-600 text-white font-semibold"
             onClick={async () => {
               await onOrderAddon(cartItems);
               setCart({});

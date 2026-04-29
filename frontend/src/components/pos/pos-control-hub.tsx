@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import {
   ChevronUp,
+  ChevronDown,
   ShoppingCart,
   Package,
   Info,
@@ -73,6 +74,7 @@ export function POSControlHub({
   const [fnbOpen, setFnbOpen] = useState(false);
   const [extendOpen, setExtendOpen] = useState(false);
   const [addonsOpen, setAddonsOpen] = useState(false);
+  const [itemsOpen, setItemsOpen] = useState(false);
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -230,7 +232,19 @@ export function POSControlHub({
 
       {/* 3. MAIN BILLING AREA */}
       <div className="flex-1 bg-white dark:bg-slate-950 overflow-y-auto pr-1 scrollbar-hide scroll-smooth">
-        <div className="p-6 space-y-8">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-8">
+          <button
+            type="button"
+            onClick={() => setItemsOpen((prev) => !prev)}
+            className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left dark:border-white/10 dark:bg-white/[0.03] sm:hidden"
+          >
+            <div>
+              <div className="text-sm font-semibold text-slate-950 dark:text-white">Detail item</div>
+              <div className="text-xs text-slate-500">{groupedOptions.length + groupedFnb.length} item dalam billing</div>
+            </div>
+            {itemsOpen ? <ChevronUp className="h-4 w-4 text-slate-500" /> : <ChevronDown className="h-4 w-4 text-slate-500" />}
+          </button>
+          <div className={cn("space-y-8", !itemsOpen && "hidden sm:block")}>
           {/* RENTAL SECTION */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 border-b border-slate-100 dark:border-white/5 pb-2">
@@ -308,17 +322,18 @@ export function POSControlHub({
               unit.
             </p>
           </div>
+          </div>
         </div>
       </div>
 
       {/* 4. STICKY FOOTER SECTION */}
-      <div className="p-6 bg-slate-900 text-white shrink-0 shadow-[0_-15px_30px_rgba(0,0,0,0.3)] border-t border-white/5">
+      <div className="p-4 sm:p-6 bg-slate-900 text-white shrink-0 shadow-[0_-15px_30px_rgba(0,0,0,0.3)] border-t border-white/5">
         <div className="flex items-center justify-between mb-2">
           <div className="space-y-0.5">
             <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic leading-none pr-1">
               Total Billing
             </p>
-            <p className="text-3xl font-black italic tracking-tighter leading-none flex items-baseline pr-2">
+            <p className="text-2xl sm:text-3xl font-black tracking-tight leading-none flex items-baseline pr-2 whitespace-nowrap">
               <span className="text-blue-500 text-lg mr-1.5 font-black not-italic">
                 Rp
               </span>
@@ -329,9 +344,9 @@ export function POSControlHub({
             onClick={() =>
               (window.location.href = `/admin/bookings/${session.id}`)
             }
-            className="h-14 px-7 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black uppercase italic text-[11px] shadow-2xl shadow-blue-900/40 border-b-4 border-blue-800 active:border-b-0 active:translate-y-1 transition-all gap-2 group pr-3"
+            className="h-12 sm:h-14 px-4 sm:px-7 rounded-xl sm:rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-lg gap-2 group pr-3"
           >
-            Checkout{" "}
+            Checkout
             <ChevronUp className="w-4 h-4 animate-bounce group-hover:scale-125 transition-transform" />
           </Button>
         </div>
