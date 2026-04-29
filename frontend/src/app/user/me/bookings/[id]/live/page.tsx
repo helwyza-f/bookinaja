@@ -312,25 +312,27 @@ export default function CustomerBookingDetail() {
       snap.pay(res.data.snap_token, {
         onSuccess: () => {
           setPaymentNotice(
-            "DP sudah dibayar. Sistem sedang memperbarui status booking.",
+            mode === "dp"
+              ? "DP sudah dibayar. Sistem sedang memperbarui status booking."
+              : "Pelunasan sudah dibayar. Sistem sedang memperbarui status booking.",
           );
-          toast.success("DP berhasil dibayar");
+          toast.success(mode === "dp" ? "DP berhasil dibayar" : "Pelunasan berhasil dibayar");
           fetchDetail();
           setTimeout(fetchDetail, 4000);
         },
         onPending: () => {
-          setPaymentNotice("Pembayaran DP masih menunggu konfirmasi Midtrans.");
-          toast.message("Pembayaran DP tertunda");
+          setPaymentNotice("Pembayaran masih menunggu konfirmasi Midtrans.");
+          toast.message("Pembayaran tertunda");
           fetchDetail();
         },
         onError: () => {
-          setPaymentNotice("Pembayaran DP gagal atau dibatalkan.");
-          toast.error("Pembayaran DP gagal");
+          setPaymentNotice("Pembayaran gagal atau dibatalkan.");
+          toast.error("Pembayaran gagal");
         },
         onClose: () => fetchDetail(),
       });
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Gagal membuka pembayaran DP");
+      toast.error(err.response?.data?.error || "Gagal membuka pembayaran");
     }
   };
 
@@ -680,6 +682,46 @@ export default function CustomerBookingDetail() {
                 </p>
               </div>
             </div>
+          </div>
+        </Card>
+
+        <Card className="rounded-[2rem] border-none bg-white p-4 shadow-sm ring-1 ring-black/5 dark:bg-[#0c0c0c] dark:ring-white/5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
+                Timeline
+              </p>
+              <p className="mt-1 text-sm font-[1000] italic text-slate-900 dark:text-white">
+                Aktivitas booking kamu
+              </p>
+            </div>
+            <Badge className="border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200 text-[8px] font-black uppercase italic">
+              {booking.events?.length || 0} event
+            </Badge>
+          </div>
+          <div className="space-y-3">
+            {(booking.events || []).length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-center text-[11px] font-bold text-slate-400 dark:border-white/10">
+                Timeline belum tersedia untuk booking lama.
+              </div>
+            ) : (
+              booking.events.map((event: any) => (
+                <div key={event.id} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 dark:border-white/5 dark:bg-white/[0.03]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-black text-slate-950 dark:text-white">{event.title || event.event_type}</p>
+                      <p className="mt-1 text-[11px] font-bold leading-5 text-slate-500">{event.description || event.event_type}</p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[9px] font-black uppercase text-slate-500 dark:bg-white/10">
+                      {event.actor_type}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-[10px] font-bold text-slate-400">
+                    {event.created_at ? format(parseISO(event.created_at), "dd MMM yyyy, HH:mm", { locale: idLocale }) : "-"}
+                  </p>
+                </div>
+              ))
+            )}
           </div>
         </Card>
 

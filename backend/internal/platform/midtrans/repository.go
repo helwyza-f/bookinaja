@@ -18,6 +18,22 @@ func NewRepository(db *sqlx.DB) *Repository {
 	return &Repository{db: db}
 }
 
+func (r *Repository) CreateBookingEvent(ctx context.Context, exec sqlx.ExtContext, booking BookingNotificationContext, actorType, eventType, title, description string, metadata map[string]any) error {
+	raw, _ := json.Marshal(metadata)
+	if len(raw) == 0 {
+		raw = []byte(`{}`)
+	}
+	_, err := exec.ExecContext(ctx, `
+		INSERT INTO booking_events (
+			id, booking_id, tenant_id, customer_id, actor_type, event_type, title, description, metadata, created_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()
+		)`,
+		uuid.New(), booking.BookingID, booking.TenantID, booking.CustomerID, actorType, eventType, title, description, raw,
+	)
+	return err
+}
+
 func (r *Repository) UpdateOrderFromMidtrans(ctx context.Context, exec sqlx.ExtContext, orderID string, status string, transactionID *string, paymentType *string, raw map[string]any) (SubscriptionOrder, error) {
 	rawBytes, _ := json.Marshal(raw)
 
@@ -56,9 +72,18 @@ func (r *Repository) UpdateBookingPaymentFromMidtrans(ctx context.Context, exec 
 				ELSE paid_amount
 			END,
 			balance_due = CASE
+				WHEN $2 IN ('paid', 'settled') AND balance_due > 0 THEN GREATEST(grand_total - deposit_amount, 0)
 				WHEN $2 = 'paid' OR $2 = 'settled' THEN 0
 				WHEN $2 = 'partial_paid' THEN GREATEST(grand_total - deposit_amount, 0)
 				ELSE balance_due
+			END,
+			settled_at = CASE
+				WHEN $2 IN ('paid', 'settled') AND balance_due <= 0 THEN COALESCE(settled_at, NOW())
+				ELSE settled_at
+			END,
+			last_status_changed_at = CASE
+				WHEN status = 'pending' AND $2 IN ('paid', 'settled') THEN NOW()
+				ELSE last_status_changed_at
 			END
 		WHERE id = $1`,
 		bookingID, status, paymentType,
@@ -85,6 +110,18 @@ func (r *Repository) UpdateBookingSettlementFromMidtrans(ctx context.Context, ex
 			balance_due = CASE
 				WHEN $2 IN ('paid', 'settled') THEN 0
 				ELSE balance_due
+			END,
+			settled_at = CASE
+				WHEN $2 IN ('paid', 'settled') THEN COALESCE(settled_at, NOW())
+				ELSE settled_at
+			END,
+			completed_at = CASE
+				WHEN status IN ('pending', 'confirmed', 'active') AND $2 IN ('paid', 'settled') THEN COALESCE(completed_at, NOW())
+				ELSE completed_at
+			END,
+			last_status_changed_at = CASE
+				WHEN status IN ('pending', 'confirmed', 'active') AND $2 IN ('paid', 'settled') THEN NOW()
+				ELSE last_status_changed_at
 			END
 		WHERE id = $1`,
 		bookingID, status, paymentType,

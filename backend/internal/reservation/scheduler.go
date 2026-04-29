@@ -69,7 +69,7 @@ func (s *Scheduler) runOnce(ctx context.Context) {
 		FROM bookings b
 		JOIN customers c ON c.id = b.customer_id
 		JOIN resources res ON res.id = b.resource_id
-		WHERE b.status IN ('pending', 'active', 'ongoing')
+		WHERE b.status IN ('pending', 'confirmed', 'active', 'ongoing')
 		  AND b.status != 'cancelled'
 		  AND b.end_time > $1
 		ORDER BY b.start_time ASC`,
@@ -88,10 +88,14 @@ func (s *Scheduler) runOnce(ctx context.Context) {
 		}
 
 		if startIn <= 20*time.Minute && startIn > 19*time.Minute {
-			_ = s.sendReminder(job, 20)
+			if err := s.sendReminder(job, 20); err == nil {
+				_ = s.repo.MarkReminderSent(ctx, mustParseUUID(job.ID), mustParseUUID(job.TenantID), "reminder_20m_sent_at")
+			}
 		}
 		if startIn <= 5*time.Minute && startIn > 4*time.Minute {
-			_ = s.sendReminder(job, 5)
+			if err := s.sendReminder(job, 5); err == nil {
+				_ = s.repo.MarkReminderSent(ctx, mustParseUUID(job.ID), mustParseUUID(job.TenantID), "reminder_5m_sent_at")
+			}
 		}
 	}
 }

@@ -159,7 +159,7 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 }
 
 // ExtendSession menangani penambahan durasi dari Admin Panel/POS Live Dashboard
-func (s *Service) ExtendSession(ctx context.Context, bookingID string, tenantID string, additionalDuration int) error {
+func (s *Service) ExtendSession(ctx context.Context, bookingID string, tenantID string, additionalDuration int, actorType string) error {
 	bID, _ := uuid.Parse(bookingID)
 	tID, _ := uuid.Parse(tenantID)
 
@@ -192,25 +192,33 @@ func (s *Service) ExtendSession(ctx context.Context, bookingID string, tenantID 
 		booking.EndTime,
 		newEndTime,
 		additionalDuration,
+		actorType,
 	)
 }
 
 // UpdateStatus menangani transisi status (Ongoing, Completed, dll) & Sinkronisasi CRM Stats
-func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string) error {
+func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string, actorType string) error {
 	bID, _ := uuid.Parse(id)
 	tID, _ := uuid.Parse(tenantID)
+	status = strings.ToLower(strings.TrimSpace(status))
+	if status == "ongoing" {
+		status = "active"
+	}
 
 	// Ambil detail sebelum update untuk mendapatkan CustomerID & Total Spending
 	booking, err := s.repo.FindByID(ctx, bID, tID)
 	if err != nil {
 		return err
 	}
-
-	if err := s.repo.UpdateStatus(ctx, bID, tID, status); err != nil {
+	if err := validateBookingTransition(booking.Status, status, booking.PaymentStatus, booking.DepositAmount); err != nil {
 		return err
 	}
 
-	if status == "active" || status == "ongoing" {
+	if err := s.repo.UpdateStatus(ctx, bID, tID, status, actorType); err != nil {
+		return err
+	}
+
+	if status == "active" {
 		updated, findErr := s.repo.FindByID(ctx, bID, tID)
 		if findErr == nil {
 			_ = s.sendSessionStarted(ctx, updated)
@@ -254,7 +262,7 @@ func (s *Service) ActivateForCustomer(ctx context.Context, bookingID, tenantID, 
 		}
 	}
 
-	if err := s.UpdateStatus(ctx, bookingID, detail.TenantID.String(), "active"); err != nil {
+	if err := s.UpdateStatus(ctx, bookingID, detail.TenantID.String(), "active", "customer"); err != nil {
 		return nil, err
 	}
 	return s.GetDetailForCustomer(ctx, bookingID, detail.TenantID.String(), customerID)
@@ -271,7 +279,7 @@ func (s *Service) CompleteForCustomer(ctx context.Context, bookingID, tenantID, 
 		return nil, errors.New("HANYA SESI YANG SEDANG AKTIF YANG BISA DIAKHIRI")
 	}
 
-	if err := s.UpdateStatus(ctx, bookingID, detail.TenantID.String(), "completed"); err != nil {
+	if err := s.UpdateStatus(ctx, bookingID, detail.TenantID.String(), "completed", "customer"); err != nil {
 		return nil, err
 	}
 	return s.GetDetailForCustomer(ctx, bookingID, detail.TenantID.String(), customerID)
@@ -337,7 +345,7 @@ func (s *Service) ExchangeAccessToken(ctx context.Context, accessToken string) (
 }
 
 // AddAddonOrder menambahkan layanan tambahan (Add-on on-the-spot)
-func (s *Service) AddAddonOrder(ctx context.Context, bookingID string, tenantID string, itemID string) error {
+func (s *Service) AddAddonOrder(ctx context.Context, bookingID string, tenantID string, itemID string, actorType string) error {
 	bID, _ := uuid.Parse(bookingID)
 	tID, _ := uuid.Parse(tenantID)
 	iID, _ := uuid.Parse(itemID)
@@ -351,7 +359,7 @@ func (s *Service) AddAddonOrder(ctx context.Context, bookingID string, tenantID 
 		return errors.New("ADD-ON HANYA BISA DITAMBAHKAN PADA SESI YANG SEDANG BERJALAN")
 	}
 
-	return s.repo.AddAddonOrder(ctx, bID, iID)
+	return s.repo.AddAddonOrder(ctx, bID, iID, actorType)
 }
 
 func (s *Service) ensureCustomerLiveSessionAccessible(ctx context.Context, bookingID, tenantID, customerID string) (*BookingDetail, error) {
@@ -378,7 +386,7 @@ func (s *Service) GetActiveSessions(ctx context.Context, tenantID string) ([]Boo
 }
 
 // AddFnbOrder integrasi pesanan makanan dari sistem POS ke billing reservasi
-func (s *Service) AddFnbOrder(ctx context.Context, bookingID string, tenantID string, req AddOrderReq) error {
+func (s *Service) AddFnbOrder(ctx context.Context, bookingID string, tenantID string, req AddOrderReq, actorType string) error {
 	bID, _ := uuid.Parse(bookingID)
 	tID, _ := uuid.Parse(tenantID)
 
@@ -391,7 +399,7 @@ func (s *Service) AddFnbOrder(ctx context.Context, bookingID string, tenantID st
 		return errors.New("PESANAN HANYA BISA DITAMBAHKAN PADA SESI AKTIF")
 	}
 
-	return s.repo.AddFnbOrder(ctx, bID, req.FnbItemID, req.Quantity)
+	return s.repo.AddFnbOrder(ctx, bID, req.FnbItemID, req.Quantity, actorType)
 }
 
 // --- UTILITIES & SEARCH ---
@@ -523,7 +531,7 @@ func (s *Service) CustomerExtendSession(ctx context.Context, bookingID, tenantID
 	if err != nil {
 		return err
 	}
-	return s.ExtendSession(ctx, bookingID, detail.TenantID.String(), additionalDuration)
+	return s.ExtendSession(ctx, bookingID, detail.TenantID.String(), additionalDuration, "customer")
 }
 
 func (s *Service) CustomerAddFnbOrder(ctx context.Context, bookingID, tenantID, customerID string, req AddOrderReq) error {
@@ -531,7 +539,7 @@ func (s *Service) CustomerAddFnbOrder(ctx context.Context, bookingID, tenantID, 
 	if err != nil {
 		return err
 	}
-	return s.AddFnbOrder(ctx, bookingID, detail.TenantID.String(), req)
+	return s.AddFnbOrder(ctx, bookingID, detail.TenantID.String(), req, "customer")
 }
 
 func (s *Service) CustomerAddAddonOrder(ctx context.Context, bookingID, tenantID, customerID, itemID string) error {
@@ -539,7 +547,7 @@ func (s *Service) CustomerAddAddonOrder(ctx context.Context, bookingID, tenantID
 	if err != nil {
 		return err
 	}
-	return s.AddAddonOrder(ctx, bookingID, detail.TenantID.String(), itemID)
+	return s.AddAddonOrder(ctx, bookingID, detail.TenantID.String(), itemID, "customer")
 }
 
 func (s *Service) ListByTenant(ctx context.Context, tenantID, status string) ([]BookingDetail, error) {
@@ -775,6 +783,46 @@ func calculateDepositAmount(grandTotal float64) float64 {
 		dp = grandTotal
 	}
 	return dp
+}
+
+func validateBookingTransition(currentStatus, nextStatus, paymentStatus string, depositAmount float64) error {
+	currentStatus = strings.ToLower(strings.TrimSpace(currentStatus))
+	nextStatus = strings.ToLower(strings.TrimSpace(nextStatus))
+	paymentStatus = strings.ToLower(strings.TrimSpace(paymentStatus))
+	if nextStatus == "ongoing" {
+		nextStatus = "active"
+	}
+	if currentStatus == nextStatus {
+		return nil
+	}
+	if currentStatus == "completed" || currentStatus == "cancelled" {
+		return errors.New("BOOKING SUDAH FINAL DAN TIDAK BISA DIUBAH")
+	}
+	if nextStatus == "cancelled" {
+		return nil
+	}
+	if nextStatus == "confirmed" {
+		if currentStatus != "pending" {
+			return errors.New("HANYA BOOKING PENDING YANG BISA DIKONFIRMASI")
+		}
+		return nil
+	}
+	if nextStatus == "active" {
+		if currentStatus != "pending" && currentStatus != "confirmed" {
+			return errors.New("HANYA BOOKING PENDING/CONFIRMED YANG BISA DIMULAI")
+		}
+		if depositAmount > 0 && paymentStatus != "partial_paid" && paymentStatus != "paid" && paymentStatus != "settled" {
+			return errors.New("DP HARUS TERCATAT SEBELUM SESI DIMULAI")
+		}
+		return nil
+	}
+	if nextStatus == "completed" {
+		if currentStatus != "active" {
+			return errors.New("HANYA SESI AKTIF YANG BISA DISELESAIKAN")
+		}
+		return nil
+	}
+	return errors.New("STATUS BOOKING TIDAK VALID")
 }
 
 func waPaymentReceivedMessage(name, note, bookingID, resourceName string, grandTotal, depositAmount, paidAmount, balanceDue float64, detailURL string) string {

@@ -149,7 +149,7 @@ func (h *Handler) AddOrder(c *gin.Context) {
 		return
 	}
 
-	err := h.service.AddFnbOrder(c.Request.Context(), bookingID, tenantID, req)
+	err := h.service.AddFnbOrder(c.Request.Context(), bookingID, tenantID, req, "admin")
 	if err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
@@ -172,7 +172,7 @@ func (h *Handler) ExtendSession(c *gin.Context) {
 		return
 	}
 
-	err := h.service.ExtendSession(c.Request.Context(), bookingID, tenantID, req.AdditionalDuration)
+	err := h.service.ExtendSession(c.Request.Context(), bookingID, tenantID, req.AdditionalDuration, "admin")
 	if err != nil {
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		return
@@ -195,7 +195,7 @@ func (h *Handler) AddAddonItem(c *gin.Context) {
 		return
 	}
 
-	err := h.service.AddAddonOrder(c.Request.Context(), bookingID, tenantID, req.ItemID)
+	err := h.service.AddAddonOrder(c.Request.Context(), bookingID, tenantID, req.ItemID, "admin")
 	if err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
@@ -492,7 +492,7 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
-	err := h.service.UpdateStatus(c.Request.Context(), id, tenantID, req.Status)
+	err := h.service.UpdateStatus(c.Request.Context(), id, tenantID, req.Status, "admin")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "GAGAL UPDATE STATUS"})
 		return

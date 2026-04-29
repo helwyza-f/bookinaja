@@ -3,6 +3,7 @@ package reservation
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -16,6 +17,39 @@ type Repository struct {
 
 func NewRepository(db *sqlx.DB) *Repository {
 	return &Repository{db: db}
+}
+
+type BookingEventInput struct {
+	BookingID   uuid.UUID
+	TenantID    uuid.UUID
+	CustomerID  *uuid.UUID
+	ActorType   string
+	EventType   string
+	Title       string
+	Description string
+	Metadata    map[string]any
+}
+
+func (r *Repository) CreateBookingEvent(ctx context.Context, exec sqlx.ExtContext, input BookingEventInput) error {
+	if input.ActorType == "" {
+		input.ActorType = "system"
+	}
+	if input.Title == "" {
+		input.Title = input.EventType
+	}
+	metadata, _ := json.Marshal(input.Metadata)
+	if len(metadata) == 0 {
+		metadata = []byte(`{}`)
+	}
+	_, err := exec.ExecContext(ctx, `
+		INSERT INTO booking_events (
+			id, booking_id, tenant_id, customer_id, actor_type, event_type, title, description, metadata, created_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()
+		)`,
+		uuid.New(), input.BookingID, input.TenantID, input.CustomerID, input.ActorType, input.EventType, input.Title, input.Description, metadata,
+	)
+	return err
 }
 
 func (r *Repository) GetTenantSlug(ctx context.Context, tenantID uuid.UUID) (string, error) {
@@ -71,7 +105,7 @@ func (r *Repository) CheckAvailability(ctx context.Context, resourceID uuid.UUID
 }
 
 // ExtendSessionWithValidation memperbarui Quantity durasi paket utama dan billing secara atomik
-func (r *Repository) ExtendSessionWithValidation(ctx context.Context, bID uuid.UUID, resourceID uuid.UUID, currentEnd, newEnd time.Time, additionalDuration int) error {
+func (r *Repository) ExtendSessionWithValidation(ctx context.Context, bID uuid.UUID, resourceID uuid.UUID, currentEnd, newEnd time.Time, additionalDuration int, actorType string) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
@@ -118,6 +152,22 @@ func (r *Repository) ExtendSessionWithValidation(ctx context.Context, bID uuid.U
 	}
 
 	if err := r.recalculateBookingTotalsTx(ctx, tx, bID); err != nil {
+		return err
+	}
+	var booking Booking
+	if err := tx.GetContext(ctx, &booking, `SELECT * FROM bookings WHERE id = $1 LIMIT 1`, bID); err != nil {
+		return err
+	}
+	if err := r.CreateBookingEvent(ctx, tx, BookingEventInput{
+		BookingID:   bID,
+		TenantID:    booking.TenantID,
+		CustomerID:  &booking.CustomerID,
+		ActorType:   actorType,
+		EventType:   "session.extended",
+		Title:       "Sesi diperpanjang",
+		Description: fmt.Sprintf("Durasi ditambah %d sesi.", additionalDuration),
+		Metadata:    map[string]any{"additional_duration": additionalDuration, "old_end_time": currentEnd, "new_end_time": newEnd},
+	}); err != nil {
 		return err
 	}
 
@@ -167,6 +217,18 @@ func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []u
 				return err
 			}
 		}
+	}
+	if err := r.CreateBookingEvent(ctx, tx, BookingEventInput{
+		BookingID:   b.ID,
+		TenantID:    b.TenantID,
+		CustomerID:  &b.CustomerID,
+		ActorType:   "customer",
+		EventType:   "booking.created",
+		Title:       "Booking dibuat",
+		Description: "Booking tercatat dan menunggu pembayaran DP.",
+		Metadata:    map[string]any{"grand_total": b.GrandTotal, "deposit_amount": b.DepositAmount, "start_time": b.StartTime, "end_time": b.EndTime},
+	}); err != nil {
+		return err
 	}
 	return tx.Commit()
 }
@@ -250,8 +312,16 @@ func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error
 		FROM resource_items 
 		WHERE resource_id = $1 AND item_type = 'add_on'
 		ORDER BY name ASC`, b.ResourceID)
+	if err != nil {
+		return err
+	}
 
-	return err
+	b.Events = make([]BookingEvent, 0)
+	return r.db.SelectContext(ctx, &b.Events, `
+		SELECT id, booking_id, tenant_id, customer_id, actor_type, event_type, title, description, metadata, created_at
+		FROM booking_events
+		WHERE booking_id = $1
+		ORDER BY created_at ASC`, b.ID)
 }
 
 // GetByToken menarik detail untuk pengecekan status tiket customer (Hydrated)
@@ -368,7 +438,7 @@ func (r *Repository) FindByIDForCustomerGlobal(ctx context.Context, id, customer
 	return &b, err
 }
 
-func (r *Repository) AddFnbOrder(ctx context.Context, bookingID uuid.UUID, fnbItemID uuid.UUID, qty int) error {
+func (r *Repository) AddFnbOrder(ctx context.Context, bookingID uuid.UUID, fnbItemID uuid.UUID, qty int, actorType string) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
@@ -395,10 +465,26 @@ func (r *Repository) AddFnbOrder(ctx context.Context, bookingID uuid.UUID, fnbIt
 	if err := r.recalculateBookingTotalsTx(ctx, tx, bookingID); err != nil {
 		return err
 	}
+	var booking Booking
+	if err := tx.GetContext(ctx, &booking, `SELECT * FROM bookings WHERE id = $1 LIMIT 1`, bookingID); err != nil {
+		return err
+	}
+	if err := r.CreateBookingEvent(ctx, tx, BookingEventInput{
+		BookingID:   bookingID,
+		TenantID:    booking.TenantID,
+		CustomerID:  &booking.CustomerID,
+		ActorType:   actorType,
+		EventType:   "order.fnb_added",
+		Title:       "F&B ditambahkan",
+		Description: fmt.Sprintf("%d item F&B masuk ke tagihan.", qty),
+		Metadata:    map[string]any{"fnb_item_id": fnbItemID, "quantity": qty},
+	}); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 
-func (r *Repository) AddAddonOrder(ctx context.Context, bookingID uuid.UUID, itemID uuid.UUID) error {
+func (r *Repository) AddAddonOrder(ctx context.Context, bookingID uuid.UUID, itemID uuid.UUID, actorType string) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
@@ -423,6 +509,22 @@ func (r *Repository) AddAddonOrder(ctx context.Context, bookingID uuid.UUID, ite
 		return fmt.Errorf("ADD-ON TIDAK VALID UNTUK RESOURCE INI")
 	}
 	if err := r.recalculateBookingTotalsTx(ctx, tx, bookingID); err != nil {
+		return err
+	}
+	var booking Booking
+	if err := tx.GetContext(ctx, &booking, `SELECT * FROM bookings WHERE id = $1 LIMIT 1`, bookingID); err != nil {
+		return err
+	}
+	if err := r.CreateBookingEvent(ctx, tx, BookingEventInput{
+		BookingID:   bookingID,
+		TenantID:    booking.TenantID,
+		CustomerID:  &booking.CustomerID,
+		ActorType:   actorType,
+		EventType:   "addon.added",
+		Title:       "Add-on ditambahkan",
+		Description: "Layanan tambahan masuk ke tagihan.",
+		Metadata:    map[string]any{"item_id": itemID},
+	}); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -487,36 +589,103 @@ func (r *Repository) FindActiveSessions(ctx context.Context, tenantID uuid.UUID)
 	return res, nil
 }
 
-func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, status string) error {
+func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, status string, actorType string) error {
+	if status == "ongoing" {
+		status = "active"
+	}
+	var before Booking
+	if err := r.db.GetContext(ctx, &before, `SELECT * FROM bookings WHERE id = $1 AND tenant_id = $2 LIMIT 1`, id, tenantID); err != nil {
+		return err
+	}
 	query := `
 		UPDATE bookings
 		SET
 			status = $1::text,
+			last_status_changed_at = NOW(),
 			session_activated_at = CASE
-				WHEN $1::text IN ('active', 'ongoing') AND session_activated_at IS NULL THEN NOW()
+				WHEN $1::text = 'active' AND session_activated_at IS NULL THEN NOW()
 				ELSE session_activated_at
+			END,
+			completed_at = CASE
+				WHEN $1::text = 'completed' AND completed_at IS NULL THEN NOW()
+				ELSE completed_at
+			END,
+			cancelled_at = CASE
+				WHEN $1::text = 'cancelled' AND cancelled_at IS NULL THEN NOW()
+				ELSE cancelled_at
 			END
 		WHERE id = $2 AND tenant_id = $3`
-	_, err := r.db.ExecContext(ctx, query, status, id, tenantID)
-	return err
+	if _, err := r.db.ExecContext(ctx, query, status, id, tenantID); err != nil {
+		return err
+	}
+	eventType := "booking.status_changed"
+	title := "Status booking diperbarui"
+	switch status {
+	case "confirmed":
+		eventType = "booking.confirmed"
+		title = "Booking dikonfirmasi"
+	case "active":
+		eventType = "session.activated"
+		title = "Sesi dimulai"
+	case "completed":
+		eventType = "session.completed"
+		title = "Sesi selesai"
+	case "cancelled":
+		eventType = "booking.cancelled"
+		title = "Booking dibatalkan"
+	}
+	return r.CreateBookingEvent(ctx, r.db, BookingEventInput{
+		BookingID:   id,
+		TenantID:    tenantID,
+		CustomerID:  &before.CustomerID,
+		ActorType:   actorType,
+		EventType:   eventType,
+		Title:       title,
+		Description: fmt.Sprintf("Status berubah dari %s ke %s.", before.Status, status),
+		Metadata:    map[string]any{"from_status": before.Status, "to_status": status},
+	})
 }
 
 func (r *Repository) SettlePaymentCash(ctx context.Context, id, tenantID uuid.UUID, cashReceived *float64, notes *string) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var booking Booking
+	if err := tx.GetContext(ctx, &booking, `SELECT * FROM bookings WHERE id = $1 AND tenant_id = $2 LIMIT 1`, id, tenantID); err != nil {
+		return err
+	}
 	query := `
 		UPDATE bookings
 		SET payment_status = 'settled',
 			payment_method = 'cash',
 			paid_amount = grand_total,
-			balance_due = 0
+			balance_due = 0,
+			settled_at = COALESCE(settled_at, NOW())
 		WHERE id = $1 AND tenant_id = $2`
-	_, err := r.db.ExecContext(ctx, query, id, tenantID)
-	return err
+	if _, err := tx.ExecContext(ctx, query, id, tenantID); err != nil {
+		return err
+	}
+	if err := r.CreateBookingEvent(ctx, tx, BookingEventInput{
+		BookingID:   id,
+		TenantID:    tenantID,
+		CustomerID:  &booking.CustomerID,
+		ActorType:   "admin",
+		EventType:   "payment.cash.settled",
+		Title:       "Pembayaran cash lunas",
+		Description: "Admin menandai tagihan booking sudah lunas via cash.",
+		Metadata:    map[string]any{"payment_method": "cash"},
+	}); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (r *Repository) UpdateSessionActivatedAt(ctx context.Context, id, tenantID uuid.UUID) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE bookings
-		SET session_activated_at = NOW()
+		SET session_activated_at = NOW(), last_status_changed_at = COALESCE(last_status_changed_at, NOW())
 		WHERE id = $1 AND tenant_id = $2 AND session_activated_at IS NULL`,
 		id, tenantID,
 	)
@@ -527,9 +696,40 @@ func (r *Repository) MarkReminderSent(ctx context.Context, id, tenantID uuid.UUI
 	if field != "reminder_20m_sent_at" && field != "reminder_5m_sent_at" {
 		return fmt.Errorf("invalid reminder field")
 	}
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var booking Booking
+	if err := tx.GetContext(ctx, &booking, `SELECT * FROM bookings WHERE id = $1 AND tenant_id = $2 LIMIT 1`, id, tenantID); err != nil {
+		return err
+	}
 	query := fmt.Sprintf(`UPDATE bookings SET %s = NOW() WHERE id = $1 AND tenant_id = $2 AND %s IS NULL`, field, field)
-	_, err := r.db.ExecContext(ctx, query, id, tenantID)
-	return err
+	result, err := tx.ExecContext(ctx, query, id, tenantID)
+	if err != nil {
+		return err
+	}
+	rows, _ := result.RowsAffected()
+	if rows > 0 {
+		minutes := 20
+		if field == "reminder_5m_sent_at" {
+			minutes = 5
+		}
+		if err := r.CreateBookingEvent(ctx, tx, BookingEventInput{
+			BookingID:   id,
+			TenantID:    tenantID,
+			CustomerID:  &booking.CustomerID,
+			ActorType:   "system",
+			EventType:   fmt.Sprintf("reminder.%dm.sent", minutes),
+			Title:       fmt.Sprintf("Reminder %d menit terkirim", minutes),
+			Description: "Sistem mengirim pengingat sesi ke customer.",
+			Metadata:    map[string]any{"minutes_before_start": minutes},
+		}); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func (r *Repository) ListUpcoming(ctx context.Context, resourceID uuid.UUID, from time.Time) ([]Booking, error) {

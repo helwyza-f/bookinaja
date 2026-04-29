@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Script from "next/script";
 import { format } from "date-fns";
@@ -20,7 +20,6 @@ import {
   Zap,
   MoreVertical,
   Trash2,
-  AlertCircle,
 } from "lucide-react";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -36,31 +35,79 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { BookingDetailSkeleton } from "@/components/dashboard/booking-detail-skeleton";
 
+type BookingOption = {
+  id?: string;
+  item_name?: string;
+  item_type?: string;
+  quantity?: number;
+  unit_price?: number;
+  price_at_booking?: number;
+  totalPrice?: number;
+  displayUnitPrice?: number;
+};
+
+type BookingOrder = {
+  fnb_item_id?: string;
+  item_name?: string;
+  quantity?: number;
+  price_at_purchase?: number;
+  subtotal?: number;
+};
+
+type BookingEvent = {
+  id: string;
+  actor_type?: string;
+  event_type?: string;
+  title?: string;
+  description?: string;
+  created_at?: string;
+};
+
+type BookingDetail = {
+  id: string;
+  status?: string;
+  payment_status?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  resource_name?: string;
+  start_time: string;
+  end_time: string;
+  grand_total?: number;
+  deposit_amount?: number;
+  paid_amount?: number;
+  balance_due?: number;
+  total_fnb?: number;
+  access_token?: string;
+  options?: BookingOption[];
+  orders?: BookingOrder[];
+  events?: BookingEvent[];
+};
+
 export default function BookingDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const [booking, setBooking] = useState<any>(null);
+  const [booking, setBooking] = useState<BookingDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [midtransReady, setMidtransReady] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
 
-  const fetchDetail = async () => {
+  const fetchDetail = useCallback(async () => {
     try {
       const res = await api.get(`/bookings/${params.id}`);
       setBooking(res.data);
-    } catch (err) {
+    } catch {
       toast.error("Gagal memuat detail reservasi");
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.id]);
 
   useEffect(() => {
     fetchDetail();
     window.addEventListener("focus", fetchDetail);
     return () => window.removeEventListener("focus", fetchDetail);
-  }, [params.id]);
+  }, [fetchDetail]);
 
   useEffect(() => {
     if (window.snap) setMidtransReady(true);
@@ -68,7 +115,7 @@ export default function BookingDetailPage() {
 
   const groupedOptions = useMemo(() => {
     if (!booking?.options) return [];
-    const groups = booking.options.reduce((acc: any, item: any) => {
+    const groups = booking.options.reduce<Record<string, BookingOption>>((acc, item) => {
       const key = `${String(item.item_name || "").trim().toLowerCase()}::${item.item_type || ""}`;
       if (!acc[key]) {
         acc[key] = {
@@ -77,27 +124,39 @@ export default function BookingDetailPage() {
           totalPrice: Number(item.price_at_booking || 0),
         };
       } else {
-        acc[key].quantity += Number(item.quantity || 0);
-        acc[key].totalPrice += Number(item.price_at_booking || 0);
+        acc[key] = {
+          ...acc[key],
+          quantity: Number(acc[key].quantity || 0) + Number(item.quantity || 0),
+          totalPrice: Number(acc[key].totalPrice || 0) + Number(item.price_at_booking || 0),
+        };
       }
       return acc;
     }, {});
 
-    return Object.values(groups).map((item: any) => ({
+    return Object.values(groups).map((item) => ({
       ...item,
       displayUnitPrice:
-        item.unit_price || item.totalPrice / Math.max(item.quantity || 1, 1),
+        item.unit_price || Number(item.totalPrice || 0) / Math.max(item.quantity || 1, 1),
     }));
   }, [booking?.options]);
 
   const groupedOrders = useMemo(() => {
     if (!booking?.orders) return [];
-    const groups = booking.orders.reduce((acc: any, item: any) => {
+    const groups = booking.orders.reduce<Record<string, BookingOrder>>((acc, item) => {
       const key = String(item.item_name || "").trim().toLowerCase();
-      if (!acc[key]) acc[key] = { ...item };
+      if (!acc[key]) {
+        acc[key] = {
+          ...item,
+          quantity: Number(item.quantity || 0),
+          subtotal: Number(item.subtotal || 0),
+        };
+      }
       else {
-        acc[key].quantity += item.quantity;
-        acc[key].subtotal += item.subtotal;
+        acc[key] = {
+          ...acc[key],
+          quantity: Number(acc[key].quantity || 0) + Number(item.quantity || 0),
+          subtotal: Number(acc[key].subtotal || 0) + Number(item.subtotal || 0),
+        };
       }
       return acc;
     }, {});
@@ -110,7 +169,7 @@ export default function BookingDetailPage() {
       await api.put(`/bookings/${params.id}/status`, { status: newStatus });
       toast.success(`STATUS UPDATED: ${newStatus.toUpperCase()}`);
       fetchDetail();
-    } catch (err) {
+    } catch {
       toast.error("Gagal memperbarui status");
     } finally {
       setUpdating(false);
@@ -121,6 +180,27 @@ export default function BookingDetailPage() {
   const isPaymentSettled =
     booking?.payment_status === "settled" ||
     (booking?.payment_status === "paid" && Number(booking?.balance_due || 0) === 0);
+  const status = String(booking?.status || "").toLowerCase();
+  const paymentStatus = String(booking?.payment_status || "").toLowerCase();
+  const hasPaidDp = paymentStatus === "partial_paid" || paymentStatus === "paid" || paymentStatus === "settled" || Number(booking?.deposit_amount || 0) === 0;
+  const canConfirm = status === "pending";
+  const canStart = (status === "pending" || status === "confirmed") && hasPaidDp;
+  const canComplete = status === "active";
+  const canSettle = status === "completed" && !isPaymentSettled && Number(booking?.balance_due || 0) > 0;
+  const isFinal = status === "completed" || status === "cancelled";
+  const nextActionHint = !hasPaidDp
+    ? "DP belum tercatat. Sesi belum bisa dimulai."
+    : status === "pending"
+      ? "DP masuk. Konfirmasi booking atau mulaikan sesi saat customer hadir."
+      : status === "confirmed"
+        ? "Booking siap dimulai saat customer hadir."
+        : status === "active"
+          ? "Sesi berjalan. Kelola add-on/F&B di POS, lalu akhiri sesi."
+          : status === "completed" && !isPaymentSettled
+            ? "Sesi selesai. Lanjutkan pelunasan sisa tagihan."
+            : status === "completed"
+              ? "Booking selesai dan lunas."
+              : "Booking sudah dibatalkan.";
 
   const waitForSnap = async () => {
     if (window.snap) return window.snap;
@@ -133,6 +213,7 @@ export default function BookingDetailPage() {
   };
 
   const handlePayment = async (mode: "settlement") => {
+    if (!booking) return;
     try {
       const snap = await waitForSnap();
       if (!snap) {
@@ -152,7 +233,8 @@ export default function BookingDetailPage() {
         onError: () => toast.error("Pembayaran gagal"),
         onClose: () => fetchDetail(),
       });
-    } catch (err: any) {
+    } catch (error) {
+      const err = error as { response?: { data?: { error?: string } } };
       toast.error(err.response?.data?.error || "Gagal membuka pembayaran");
     }
   };
@@ -163,7 +245,8 @@ export default function BookingDetailPage() {
       toast.success("Pelunasan cash berhasil");
       setPayOpen(false);
       fetchDetail();
-    } catch (err: any) {
+    } catch (error) {
+      const err = error as { response?: { data?: { error?: string } } };
       toast.error(err.response?.data?.error || "Gagal memproses cash settlement");
     }
   };
@@ -229,34 +312,74 @@ export default function BookingDetailPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 w-full md:flex md:flex-wrap md:w-auto">
-          {/* VIP ACTIONS */}
-          {(booking.balance_due > 0 || booking.payment_status === "partial_paid") && (
-            <div className="relative">
-              <Button
-                onClick={() => setPayOpen((prev) => !prev)}
-                disabled={updating}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[8px] h-11 px-3 sm:px-6 rounded-xl shadow-lg border-b-4 border-blue-800 gap-2 w-full sm:w-auto"
-              >
-                <CreditCard className="w-3.5 h-3.5" />
-                Process Payment
-              </Button>
+        <div className="w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-slate-900 md:max-w-2xl">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Next action</div>
+                <div className="mt-1 text-sm font-medium leading-5 text-slate-700 dark:text-slate-200">{nextActionHint}</div>
+              </div>
+              <Badge className="shrink-0 rounded-full border-none bg-slate-950 px-3 py-1 text-xs font-semibold text-white">
+                {status}
+              </Badge>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {canConfirm && (
+                <Button onClick={() => handleUpdateStatus("confirmed")} disabled={updating} variant="outline" className="h-10 rounded-xl">
+                  Konfirmasi
+                </Button>
+              )}
+              {(status === "active") && (
+                <Button onClick={() => router.push(`/admin/pos?active=${booking.id}`)} variant="outline" className="h-10 rounded-xl">
+                  <Zap className="mr-2 h-4 w-4" /> POS
+                </Button>
+              )}
+              {(status === "pending" || status === "confirmed") && (
+                <Button onClick={() => handleUpdateStatus("active")} disabled={updating || !canStart} className="h-10 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700">
+                  Mulai Sesi
+                </Button>
+              )}
+              {canComplete && (
+                <Button onClick={() => handleUpdateStatus("completed")} disabled={updating} className="h-10 rounded-xl bg-slate-950 text-white hover:bg-slate-800">
+                  Akhiri Sesi
+                </Button>
+              )}
+              {canSettle && (
+                <Button onClick={() => setPayOpen((prev) => !prev)} disabled={updating} className="h-10 rounded-xl bg-blue-600 text-white hover:bg-blue-700">
+                  <CreditCard className="mr-2 h-4 w-4" /> Pelunasan
+                </Button>
+              )}
+              {!isFinal && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="h-10 rounded-xl">
+                      <MoreVertical className="mr-2 h-4 w-4" /> Lainnya
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52 rounded-2xl p-2 dark:bg-slate-900">
+                    <DropdownMenuItem onClick={() => handleUpdateStatus("cancelled")} className="rounded-xl text-red-600">
+                      <Trash2 size={14} className="mr-2" /> Batalkan booking
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+          </div>
 
-              {payOpen && (
-                <div className="absolute right-0 mt-3 w-[92vw] sm:w-72 rounded-2xl border border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900 shadow-2xl p-3 z-50">
+          {canSettle && payOpen && (
+            <div className="relative">
+                <div className="absolute right-0 mt-3 w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-white/10 dark:bg-slate-900 sm:w-80">
                   <div className="space-y-3">
-                    <div className="rounded-xl bg-slate-50 dark:bg-white/5 p-3">
-                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
-                        Ringkasan Pelunasan
-                      </p>
-                      <div className="mt-2 grid grid-cols-2 gap-2 text-[10px]">
+                    <div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Ringkasan Pelunasan</p>
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                         <div>
-                          <p className="text-slate-400 uppercase font-black italic">Total</p>
-                          <p className="text-slate-900 dark:text-white font-black">Rp{formatIDR(booking.grand_total || 0)}</p>
+                          <p className="text-slate-500">Total</p>
+                          <p className="font-semibold text-slate-900 dark:text-white">Rp {formatIDR(booking.grand_total || 0)}</p>
                         </div>
                         <div>
-                          <p className="text-slate-400 uppercase font-black italic">Sisa</p>
-                          <p className="text-blue-600 font-black">Rp{formatIDR(booking.balance_due || 0)}</p>
+                          <p className="text-slate-500">Sisa</p>
+                          <p className="font-semibold text-blue-600">Rp {formatIDR(booking.balance_due || 0)}</p>
                         </div>
                       </div>
                     </div>
@@ -266,95 +389,58 @@ export default function BookingDetailPage() {
                         handlePayment("settlement");
                       }}
                       disabled={!midtransReady}
-                      className="w-full rounded-xl bg-slate-950 hover:bg-slate-800 text-white font-black uppercase italic text-[10px] h-11"
+                      className="h-10 w-full rounded-xl bg-slate-950 text-white hover:bg-slate-800"
                     >
                       {midtransReady ? "Bayar via Midtrans" : "Menyiapkan Midtrans"}
                     </Button>
                     <Button
                       onClick={handleCashSettlement}
-                      className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase italic text-[10px] h-11"
+                      className="h-10 w-full rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
                     >
                       Bayar Cash
                     </Button>
                   </div>
                 </div>
-              )}
             </div>
           )}
-
-          {(booking.status === "active" || booking.status === "ongoing") && (
-            <Button
-              onClick={() => router.push(`/admin/pos?active=${booking.id}`)}
-              variant="outline"
-            className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 text-blue-600 font-black uppercase italic text-[8px] h-11 px-3 sm:px-5 rounded-xl shadow-sm hover:bg-blue-600 hover:text-white transition-all gap-2 w-full sm:w-auto"
-            >
-              <Zap className="w-3.5 h-3.5 fill-current" /> POS Hub
-            </Button>
-          )}
-
-          {(booking.status === "pending" || booking.status === "confirmed") && (
-            <Button
-              onClick={() => handleUpdateStatus("active")}
-              disabled={updating}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase italic text-[8px] h-11 px-3 sm:px-6 rounded-xl shadow-lg border-b-4 border-emerald-800 w-full sm:w-auto"
-            >
-              Activate Session
-            </Button>
-          )}
-
-          {booking.status === "pending" && (
-            <Button
-              onClick={() => handleUpdateStatus("confirmed")}
-              disabled={updating}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[8px] h-11 px-3 sm:px-6 rounded-xl shadow-lg border-b-4 border-blue-800 w-full sm:w-auto"
-            >
-              Confirm Booking
-            </Button>
-          )}
-
-          {(booking.status === "active" || booking.status === "ongoing") && (
-            <Button
-              onClick={() => {
-                if (!isPaymentSettled) {
-                  toast.error("Checkout final hanya bisa dilakukan jika pembayaran sudah lunas");
-                  return;
-                }
-                handleUpdateStatus("completed");
-              }}
-              disabled={updating || !isPaymentSettled}
-            className="bg-slate-900 dark:bg-blue-600 text-white font-black uppercase italic text-[8px] h-11 px-3 sm:px-6 rounded-xl shadow-lg border-b-4 border-slate-700 dark:border-blue-800 w-full sm:w-auto"
-            >
-              {isPaymentSettled ? "Checkout Final" : "Belum Lunas"}
-            </Button>
-          )}
-
-          {/* MORE ACTIONS */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="w-11 h-11 md:w-12 md:h-12 rounded-xl border-slate-200 dark:border-white/5 bg-white dark:bg-slate-900 p-0 shadow-sm hover:bg-slate-50 transition-all"
-              >
-                <MoreVertical className="w-4 h-4 text-slate-400" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="w-52 rounded-2xl p-2 border-none shadow-2xl dark:bg-slate-900"
-            >
-              <DropdownMenuItem
-                onClick={() => handleUpdateStatus("cancelled")}
-                className="rounded-xl h-11 text-red-500 font-black uppercase italic text-[10px] gap-3 px-4"
-              >
-                <Trash2 size={14} /> Cancel Booking
-              </DropdownMenuItem>
-              <DropdownMenuItem className="rounded-xl h-11 text-slate-500 font-black uppercase italic text-[10px] gap-3 px-4">
-                <AlertCircle size={14} /> Report Issue
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </header>
+
+      <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-slate-950 dark:text-white">Timeline booking</h2>
+            <p className="text-sm text-slate-500">Event tercatat dari customer, admin, payment, dan sistem.</p>
+          </div>
+          <Badge variant="outline" className="w-fit rounded-full">
+            {booking.events?.length || 0} event
+          </Badge>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {(booking.events || []).length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500 dark:border-white/10">
+              Timeline belum tersedia untuk booking lama.
+            </div>
+          ) : (
+            (booking.events || []).map((event) => (
+              <div key={event.id} className="rounded-xl border border-slate-200 p-3 dark:border-white/10">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-slate-950 dark:text-white">{event.title || event.event_type}</div>
+                    <div className="mt-1 text-xs leading-5 text-slate-500">{event.description || event.event_type}</div>
+                  </div>
+                  <Badge className="shrink-0 rounded-full border-none bg-slate-100 text-xs text-slate-600 dark:bg-white/10 dark:text-slate-200">
+                    {event.actor_type}
+                  </Badge>
+                </div>
+                <div className="mt-2 text-xs text-slate-400">
+                  {event.created_at ? format(new Date(event.created_at), "dd MMM yyyy, HH:mm", { locale: localeID }) : "-"}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </Card>
 
       {/* 2. MAIN CONTENT GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start">
@@ -424,7 +510,7 @@ export default function BookingDetailPage() {
                       Token Handle
                     </p>
                     <p className="text-[9px] font-mono font-bold text-slate-600 dark:text-slate-500 break-all uppercase tracking-tighter">
-                      {booking.access_token.slice(0, 15)}...
+                      {(booking.access_token || "").slice(0, 15)}...
                     </p>
                   </div>
                   <ShieldCheck className="w-6 h-6 text-blue-200 dark:text-blue-900/30" />
@@ -445,7 +531,7 @@ export default function BookingDetailPage() {
             </div>
 
             <div className="space-y-3.5">
-              {groupedOptions.map((opt: any) => (
+              {groupedOptions.map((opt) => (
                 <div
                   key={opt.id}
                   className="flex justify-between items-center group"
@@ -468,7 +554,7 @@ export default function BookingDetailPage() {
                       x{opt.quantity}
                     </span>
                     <p className="font-[1000] italic text-slate-950 dark:text-white text-sm md:text-base leading-none">
-                      Rp{formatIDR(opt.totalPrice)}
+                      Rp{formatIDR(Number(opt.totalPrice || 0))}
                     </p>
                   </div>
                 </div>
@@ -502,7 +588,7 @@ export default function BookingDetailPage() {
 
             <div className="flex-1 space-y-3.5">
               {groupedOrders.length > 0 ? (
-                groupedOrders.map((order: any) => (
+                groupedOrders.map((order) => (
                   <div
                     key={order.fnb_item_id}
                     className="flex justify-between items-center group"
@@ -512,7 +598,7 @@ export default function BookingDetailPage() {
                         {order.item_name}
                       </span>
                       <span className="text-[9px] font-bold text-slate-400 italic mt-1 leading-none">
-                        @Rp{formatIDR(order.price_at_purchase)}
+                        @Rp{formatIDR(Number(order.price_at_purchase || 0))}
                       </span>
                     </div>
                     <div className="flex items-center gap-3">
@@ -520,7 +606,7 @@ export default function BookingDetailPage() {
                         x{order.quantity}
                       </span>
                       <span className="font-black text-slate-950 dark:text-white italic text-base">
-                        Rp{formatIDR(order.subtotal)}
+                        Rp{formatIDR(Number(order.subtotal || 0))}
                       </span>
                     </div>
                   </div>
