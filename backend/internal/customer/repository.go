@@ -125,6 +125,56 @@ func (r *Repository) UpsertImportedCustomer(ctx context.Context, c Customer) (bo
 	return rows > 0, nil
 }
 
+func (r *Repository) UpsertLegacyContact(ctx context.Context, tenantID uuid.UUID, row CustomerImportRow) (bool, error) {
+	query := `
+		INSERT INTO legacy_customer_contacts (
+			id, tenant_id, name, phone, source, created_at, updated_at
+		) VALUES (
+			$1, $2, $3, $4, 'migration', NOW(), NOW()
+		)
+		ON CONFLICT (tenant_id, phone)
+		DO UPDATE SET
+			name = EXCLUDED.name,
+			source = EXCLUDED.source,
+			updated_at = NOW()`
+	result, err := r.db.ExecContext(ctx, query, uuid.New(), tenantID, row.Name, row.Phone)
+	if err != nil {
+		return false, wrapCustomerRepoErr("repo: gagal simpan pelanggan lama", err)
+	}
+	rows, _ := result.RowsAffected()
+	return rows > 0, nil
+}
+
+func (r *Repository) ListLegacyContacts(ctx context.Context, tenantID uuid.UUID) ([]LegacyCustomerContact, error) {
+	var contacts []LegacyCustomerContact
+	err := r.db.SelectContext(ctx, &contacts, `
+		SELECT *
+		FROM legacy_customer_contacts
+		WHERE tenant_id = $1
+		ORDER BY updated_at DESC, created_at DESC`, tenantID)
+	return contacts, err
+}
+
+func (r *Repository) ListLegacyBroadcastTargets(ctx context.Context, tenantID uuid.UUID) ([]BroadcastTarget, error) {
+	var targets []BroadcastTarget
+	err := r.db.SelectContext(ctx, &targets, `
+		SELECT id, name, phone
+		FROM legacy_customer_contacts
+		WHERE tenant_id = $1 AND COALESCE(phone, '') <> ''
+		ORDER BY updated_at DESC, created_at DESC`, tenantID)
+	return targets, err
+}
+
+func (r *Repository) MarkLegacyBlastSent(ctx context.Context, tenantID uuid.UUID, phone string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE legacy_customer_contacts
+		SET last_blast_at = NOW(),
+			blast_count = blast_count + 1,
+			updated_at = NOW()
+		WHERE tenant_id = $1 AND phone = $2`, tenantID, phone)
+	return err
+}
+
 func (r *Repository) MarkPhoneVerified(ctx context.Context, id uuid.UUID) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE customers

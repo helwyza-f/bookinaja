@@ -244,7 +244,17 @@ func (s *Service) BlastAnnouncement(ctx context.Context, actorUserID uuid.UUID, 
 		return nil, fmt.Errorf("fitur blast pelanggan hanya tersedia untuk tenant plan pro yang active")
 	}
 
-	targets, err := s.repo.ListBroadcastTargets(ctx, tID)
+	targetMode := strings.ToLower(strings.TrimSpace(req.Target))
+	if targetMode == "" {
+		targetMode = "active"
+	}
+	var targets []BroadcastTarget
+	if targetMode == "legacy" {
+		targets, err = s.repo.ListLegacyBroadcastTargets(ctx, tID)
+	} else {
+		targetMode = "active"
+		targets, err = s.repo.ListBroadcastTargets(ctx, tID)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("service: gagal mengambil daftar pelanggan: %w", err)
 	}
@@ -264,8 +274,8 @@ func (s *Service) BlastAnnouncement(ctx context.Context, actorUserID uuid.UUID, 
 	}
 
 	result := &BroadcastResult{TenantID: tID, Total: len(targets), DefaultMsg: strings.TrimSpace(req.Message) == ""}
-	for _, target := range targets {
-		recipientName := strings.TrimSpace(target.Name)
+	for _, recipient := range targets {
+		recipientName := strings.TrimSpace(recipient.Name)
 		if recipientName == "" {
 			recipientName = "Pelanggan"
 		}
@@ -276,23 +286,32 @@ func (s *Service) BlastAnnouncement(ctx context.Context, actorUserID uuid.UUID, 
 			continue
 		}
 
-		ok, sendErr := fonnte.SendMessage(target.Phone, msg)
+		ok, sendErr := fonnte.SendMessage(recipient.Phone, msg)
 		if sendErr != nil || !ok {
 			result.Failed++
 			continue
+		}
+		if targetMode == "legacy" {
+			_ = s.repo.MarkLegacyBlastSent(ctx, tID, recipient.Phone)
 		}
 		result.Sent++
 	}
 
 	result.Skipped = result.Total - result.Sent - result.Failed
-	_ = s.repo.CreateAuditLog(ctx, tID, &actorUserID, "customer_blast", "customer", nil, map[string]any{
+	action := "customer_blast"
+	resourceType := "customer"
+	if targetMode == "legacy" {
+		action = "legacy_customer_blast"
+		resourceType = "legacy_customer"
+	}
+	_ = s.repo.CreateAuditLog(ctx, tID, &actorUserID, action, resourceType, nil, map[string]any{
 		"message":          message,
 		"total":            result.Total,
 		"sent":             result.Sent,
 		"failed":           result.Failed,
 		"skipped":          result.Skipped,
 		"default_message":  result.DefaultMsg,
-		"broadcast_target": "all_customers",
+		"broadcast_target": targetMode,
 	})
 	return result, nil
 }
@@ -332,71 +351,16 @@ func (s *Service) ImportCustomers(ctx context.Context, actorUserID uuid.UUID, te
 		}
 		seenPhones[phone] = struct{}{}
 
-		existingBefore, err := s.repo.FindByPhone(ctx, phone)
-		if err != nil {
+		if _, err := s.repo.UpsertLegacyContact(ctx, tID, CustomerImportRow{Name: name, Phone: phone}); err != nil {
 			result.Failed++
 			result.Messages = append(result.Messages, fmt.Sprintf("baris %d gagal: %v", idx+1, err))
 			continue
 		}
 
-		var email *string
-		if row.Email != nil {
-			trimmed := strings.TrimSpace(*row.Email)
-			if trimmed != "" {
-				email = &trimmed
-			}
-		}
-
-		var password *string
-		if row.Password != nil {
-			trimmed := strings.TrimSpace(*row.Password)
-			if trimmed != "" {
-				password = &trimmed
-			}
-		}
-
-		hashedPassword, err := hashPassword(password)
-		if err != nil {
-			result.Failed++
-			result.Messages = append(result.Messages, fmt.Sprintf("baris %d gagal: %v", idx+1, err))
-			continue
-		}
-
-		cust := Customer{
-			ID:              uuid.New(),
-			Name:            name,
-			Phone:           phone,
-			Email:           email,
-			Password:        hashedPassword,
-			AccountStatus:   "verified",
-			PhoneVerifiedAt: timePtr(time.Now().UTC()),
-			Tier:            "NEW",
-			TotalVisits:     0,
-			TotalSpent:      0,
-			LoyaltyPoints:   0,
-		}
-
-		if _, err := s.repo.UpsertImportedCustomer(ctx, cust); err != nil {
-			result.Failed++
-			result.Messages = append(result.Messages, fmt.Sprintf("baris %d gagal: %v", idx+1, err))
-			continue
-		}
-
-		existing, err := s.repo.FindByPhone(ctx, phone)
-		if err != nil || existing == nil {
-			result.Failed++
-			result.Messages = append(result.Messages, fmt.Sprintf("baris %d gagal: data tidak bisa diverifikasi", idx+1))
-			continue
-		}
-
-		if existingBefore == nil {
-			result.Created++
-		} else {
-			result.Updated++
-		}
+		result.Created++
 	}
 
-	_ = s.repo.CreateAuditLog(ctx, tID, &actorUserID, "customer_import", "customer", nil, map[string]any{
+	_ = s.repo.CreateAuditLog(ctx, tID, &actorUserID, "legacy_customer_import", "legacy_customer", nil, map[string]any{
 		"total":   result.Total,
 		"created": result.Created,
 		"updated": result.Updated,
@@ -405,6 +369,14 @@ func (s *Service) ImportCustomers(ctx context.Context, actorUserID uuid.UUID, te
 	})
 
 	return result, nil
+}
+
+func (s *Service) ListLegacyContacts(ctx context.Context, tenantID string) ([]LegacyCustomerContact, error) {
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("service: id tenant tidak valid")
+	}
+	return s.repo.ListLegacyContacts(ctx, tID)
 }
 
 // SyncStats memperbarui total visits dan total spent (CRM logic).

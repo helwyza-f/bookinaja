@@ -110,6 +110,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 					settingsGroup.PUT("/staff/:id", cfg.TenantHandler.UpdateStaff)
 					settingsGroup.DELETE("/staff/:id", cfg.TenantHandler.DeleteStaff)
 					settingsGroup.GET("/activity", cfg.TenantHandler.ListActivity)
+					settingsGroup.GET("/customers/legacy", cfg.CustomerHandler.ListLegacyContacts)
 					settingsGroup.POST("/customers/import", cfg.CustomerHandler.ImportCustomers)
 					settingsGroup.POST("/customers/blast", cfg.CustomerHandler.BlastAnnouncement)
 				}

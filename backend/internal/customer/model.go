@@ -119,6 +119,7 @@ type CustomerDetailWithHistory struct {
 
 type BroadcastAnnouncementReq struct {
 	Message string `json:"message"`
+	Target  string `json:"target"`
 }
 
 type BroadcastTarget struct {
@@ -137,10 +138,8 @@ type BroadcastResult struct {
 }
 
 type CustomerImportRow struct {
-	Name     string  `json:"name"`
-	Phone    string  `json:"phone"`
-	Email    *string `json:"email,omitempty"`
-	Password *string `json:"password,omitempty"`
+	Name  string `json:"name"`
+	Phone string `json:"phone"`
 }
 
 type CustomerImportResult struct {
@@ -154,4 +153,16 @@ type CustomerImportResult struct {
 
 func (c Customer) IsVerified() bool {
 	return c.AccountStatus == "" || c.AccountStatus == "verified"
+}
+
+type LegacyCustomerContact struct {
+	ID          uuid.UUID  `db:"id" json:"id"`
+	TenantID    uuid.UUID  `db:"tenant_id" json:"tenant_id"`
+	Name        string     `db:"name" json:"name"`
+	Phone       string     `db:"phone" json:"phone"`
+	Source      string     `db:"source" json:"source"`
+	LastBlastAt *time.Time `db:"last_blast_at" json:"last_blast_at"`
+	BlastCount  int        `db:"blast_count" json:"blast_count"`
+	CreatedAt   time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time  `db:"updated_at" json:"updated_at"`
 }

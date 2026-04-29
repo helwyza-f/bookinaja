@@ -288,6 +288,16 @@ func (h *Handler) ImportCustomers(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+func (h *Handler) ListLegacyContacts(c *gin.Context) {
+	tenantID := c.MustGet("tenantID").(string)
+	items, err := h.service.ListLegacyContacts(c.Request.Context(), tenantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
 // List database pelanggan untuk Admin CRM (Sorted by Spending)
 func (h *Handler) List(c *gin.Context) {
 	tenantID := c.MustGet("tenantID").(string)
