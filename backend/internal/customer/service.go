@@ -452,6 +452,10 @@ func (s *Service) ListByTenant(ctx context.Context, tenantID string) ([]Customer
 	return s.repo.FindByTenant(ctx, tID)
 }
 
+func (s *Service) InvalidateTenantCache(ctx context.Context, tenantID uuid.UUID) {
+	s.repo.InvalidateTenantCache(ctx, tenantID)
+}
+
 func (s *Service) GetByPhone(ctx context.Context, phone string) (*Customer, error) {
 	return s.repo.FindByPhone(ctx, phone)
 }

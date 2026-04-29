@@ -66,14 +66,14 @@ func main() {
 	runMigration(db.DB)
 
 	tenantRepo := tenant.NewRepository(db, rdb)
-	customerRepo := customer.NewRepository(db)
+	customerRepo := customer.NewRepository(db, rdb)
 	expenseRepo := expense.NewRepository(db)
 	resourceRepo := resource.NewRepository(db, rdb)
 	reservationRepo := reservation.NewRepository(db)
-	fnbRepo := fnb.NewRepository(db)
+	fnbRepo := fnb.NewRepository(db, rdb)
 	billingRepo := billing.NewRepository(db)
 	platformRepo := platformadmin.NewRepository(db)
-	midtransRepo := midtranssvc.NewRepository(db)
+	midtransRepo := midtranssvc.NewRepository(db, rdb)
 
 	authSvc := auth.NewService()
 	tenantSvc := tenant.NewService(tenantRepo, authSvc)

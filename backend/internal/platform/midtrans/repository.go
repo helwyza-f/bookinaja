@@ -4,19 +4,60 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/redis/go-redis/v9"
 )
 
 type Repository struct {
-	db *sqlx.DB
+	db  *sqlx.DB
+	rdb *redis.Client
 }
 
-func NewRepository(db *sqlx.DB) *Repository {
-	return &Repository{db: db}
+func NewRepository(db *sqlx.DB, rdb ...*redis.Client) *Repository {
+	var client *redis.Client
+	if len(rdb) > 0 {
+		client = rdb[0]
+	}
+	return &Repository{db: db, rdb: client}
+}
+
+func (r *Repository) invalidateTenantCache(ctx context.Context, exec sqlx.ExtContext, tenantID uuid.UUID) {
+	if r.rdb == nil {
+		return
+	}
+	var slug string
+	if err := sqlx.GetContext(ctx, exec, &slug, `SELECT slug FROM tenants WHERE id = $1 LIMIT 1`, tenantID); err != nil {
+		return
+	}
+	slug = strings.ToLower(strings.TrimSpace(slug))
+	_ = r.rdb.Del(
+		ctx,
+		fmt.Sprintf("tenant:profile:id:%s", tenantID.String()),
+		fmt.Sprintf("tenant:profile:slug:%s", slug),
+		fmt.Sprintf("landing:full:%s", slug),
+		fmt.Sprintf("tenant_id_by_slug:%s", slug),
+		"tenant:public:list",
+	).Err()
+}
+
+func (r *Repository) invalidateBookingTenantCache(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID) {
+	if r.rdb == nil {
+		return
+	}
+	var tenantID uuid.UUID
+	if err := sqlx.GetContext(ctx, exec, &tenantID, `SELECT tenant_id FROM bookings WHERE id = $1 LIMIT 1`, bookingID); err != nil {
+		return
+	}
+	_ = r.rdb.Del(
+		ctx,
+		fmt.Sprintf("customer:tenant:%s", tenantID.String()),
+		fmt.Sprintf("customer:broadcast:%s:active", tenantID.String()),
+	).Err()
 }
 
 func (r *Repository) CreateBookingEvent(ctx context.Context, exec sqlx.ExtContext, booking BookingNotificationContext, actorType, eventType, title, description string, metadata map[string]any) error {
@@ -103,6 +144,9 @@ func (r *Repository) UpdateBookingPaymentFromMidtrans(ctx context.Context, exec 
 		WHERE id = $1`,
 		bookingID, status, paymentType,
 	)
+	if err == nil {
+		r.invalidateBookingTenantCache(ctx, exec, bookingID)
+	}
 	return err
 }
 
@@ -141,6 +185,9 @@ func (r *Repository) UpdateBookingSettlementFromMidtrans(ctx context.Context, ex
 		WHERE id = $1`,
 		bookingID, status, paymentType,
 	)
+	if err == nil {
+		r.invalidateBookingTenantCache(ctx, exec, bookingID)
+	}
 	return err
 }
 
@@ -262,6 +309,9 @@ func (r *Repository) ActivateSubscriptionExec(ctx context.Context, exec sqlx.Ext
 		WHERE id = $1`,
 		tenantID, plan, start, end,
 	)
+	if err == nil {
+		r.invalidateTenantCache(ctx, exec, tenantID)
+	}
 	return err
 }
 

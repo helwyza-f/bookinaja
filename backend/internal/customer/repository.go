@@ -12,15 +12,79 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type Repository struct {
-	db *sqlx.DB
+	db  *sqlx.DB
+	rdb *redis.Client
 }
 
-func NewRepository(db *sqlx.DB) *Repository {
-	return &Repository{db: db}
+func NewRepository(db *sqlx.DB, rdb ...*redis.Client) *Repository {
+	var client *redis.Client
+	if len(rdb) > 0 {
+		client = rdb[0]
+	}
+	return &Repository{db: db, rdb: client}
+}
+
+func (r *Repository) cacheGet(ctx context.Context, key string, dest any) bool {
+	if r.rdb == nil {
+		return false
+	}
+	val, err := r.rdb.Get(ctx, key).Result()
+	if err != nil {
+		return false
+	}
+	return json.Unmarshal([]byte(val), dest) == nil
+}
+
+func (r *Repository) cacheSet(ctx context.Context, key string, value any, ttl time.Duration) {
+	if r.rdb == nil {
+		return
+	}
+	if raw, err := json.Marshal(value); err == nil {
+		_ = r.rdb.Set(ctx, key, raw, ttl).Err()
+	}
+}
+
+func (r *Repository) InvalidateTenantCache(ctx context.Context, tenantID uuid.UUID) {
+	if r.rdb == nil {
+		return
+	}
+	patterns := []string{
+		fmt.Sprintf("customer:tenant:%s", tenantID.String()),
+		fmt.Sprintf("customer:legacy:%s", tenantID.String()),
+		fmt.Sprintf("customer:broadcast:%s:*", tenantID.String()),
+	}
+	for _, pattern := range patterns {
+		if strings.Contains(pattern, "*") {
+			keys, err := r.rdb.Keys(ctx, pattern).Result()
+			if err == nil && len(keys) > 0 {
+				_ = r.rdb.Del(ctx, keys...).Err()
+			}
+			continue
+		}
+		_ = r.rdb.Del(ctx, pattern).Err()
+	}
+}
+
+func (r *Repository) InvalidateCustomerMembershipCache(ctx context.Context, customerID uuid.UUID) {
+	if r.rdb == nil {
+		return
+	}
+	var tenantIDs []uuid.UUID
+	err := r.db.SelectContext(ctx, &tenantIDs, `
+		SELECT DISTINCT tenant_id
+		FROM bookings
+		WHERE customer_id = $1`, customerID)
+	if err != nil {
+		return
+	}
+	for _, tenantID := range tenantIDs {
+		r.InvalidateTenantCache(ctx, tenantID)
+	}
 }
 
 // Upsert menangani Silent Register: Insert jika HP baru, Update nama sesuai request.
@@ -55,6 +119,9 @@ func (r *Repository) Upsert(ctx context.Context, c Customer) (uuid.UUID, error) 
 
 	if err != nil {
 		return uuid.Nil, wrapCustomerRepoErr("repo: gagal upsert customer", err)
+	}
+	if c.TenantID != nil {
+		r.InvalidateTenantCache(ctx, *c.TenantID)
 	}
 	return id, nil
 }
@@ -142,26 +209,40 @@ func (r *Repository) UpsertLegacyContact(ctx context.Context, tenantID uuid.UUID
 		return false, wrapCustomerRepoErr("repo: gagal simpan pelanggan lama", err)
 	}
 	rows, _ := result.RowsAffected()
+	r.InvalidateTenantCache(ctx, tenantID)
 	return rows > 0, nil
 }
 
 func (r *Repository) ListLegacyContacts(ctx context.Context, tenantID uuid.UUID) ([]LegacyCustomerContact, error) {
 	var contacts []LegacyCustomerContact
+	if r.cacheGet(ctx, fmt.Sprintf("customer:legacy:%s", tenantID.String()), &contacts) {
+		return contacts, nil
+	}
 	err := r.db.SelectContext(ctx, &contacts, `
 		SELECT *
 		FROM legacy_customer_contacts
 		WHERE tenant_id = $1
 		ORDER BY updated_at DESC, created_at DESC`, tenantID)
+	if err == nil {
+		r.cacheSet(ctx, fmt.Sprintf("customer:legacy:%s", tenantID.String()), contacts, 10*time.Minute)
+	}
 	return contacts, err
 }
 
 func (r *Repository) ListLegacyBroadcastTargets(ctx context.Context, tenantID uuid.UUID) ([]BroadcastTarget, error) {
 	var targets []BroadcastTarget
+	cacheKey := fmt.Sprintf("customer:broadcast:%s:legacy", tenantID.String())
+	if r.cacheGet(ctx, cacheKey, &targets) {
+		return targets, nil
+	}
 	err := r.db.SelectContext(ctx, &targets, `
 		SELECT id, name, phone
 		FROM legacy_customer_contacts
 		WHERE tenant_id = $1 AND COALESCE(phone, '') <> ''
 		ORDER BY updated_at DESC, created_at DESC`, tenantID)
+	if err == nil {
+		r.cacheSet(ctx, cacheKey, targets, 10*time.Minute)
+	}
 	return targets, err
 }
 
@@ -172,6 +253,9 @@ func (r *Repository) MarkLegacyBlastSent(ctx context.Context, tenantID uuid.UUID
 			blast_count = blast_count + 1,
 			updated_at = NOW()
 		WHERE tenant_id = $1 AND phone = $2`, tenantID, phone)
+	if err == nil {
+		r.InvalidateTenantCache(ctx, tenantID)
+	}
 	return err
 }
 
@@ -187,6 +271,7 @@ func (r *Repository) MarkPhoneVerified(ctx context.Context, id uuid.UUID) error 
 	if err != nil {
 		return wrapCustomerRepoErr("repo: gagal update verifikasi customer", err)
 	}
+	r.InvalidateCustomerMembershipCache(ctx, id)
 	return nil
 }
 
@@ -227,6 +312,10 @@ func (r *Repository) GetTenantName(ctx context.Context, tenantID uuid.UUID) (str
 
 func (r *Repository) ListBroadcastTargets(ctx context.Context, tenantID uuid.UUID) ([]BroadcastTarget, error) {
 	var targets []BroadcastTarget
+	cacheKey := fmt.Sprintf("customer:broadcast:%s:active", tenantID.String())
+	if r.cacheGet(ctx, cacheKey, &targets) {
+		return targets, nil
+	}
 	err := r.db.SelectContext(ctx, &targets, `
 		SELECT id, name, phone
 		FROM customers c
@@ -238,6 +327,9 @@ func (r *Repository) ListBroadcastTargets(ctx context.Context, tenantID uuid.UUI
 			AND b.tenant_id = $1
 		)
 		ORDER BY c.updated_at DESC, c.created_at DESC`, tenantID)
+	if err == nil {
+		r.cacheSet(ctx, cacheKey, targets, 10*time.Minute)
+	}
 	return targets, err
 }
 
@@ -327,6 +419,7 @@ func (r *Repository) UpdateProfile(ctx context.Context, id uuid.UUID, req Update
 		}
 		return nil, wrapCustomerRepoErr("repo: gagal update customer", err)
 	}
+	r.InvalidateCustomerMembershipCache(ctx, id)
 	return &c, nil
 }
 
@@ -347,6 +440,9 @@ func (r *Repository) IncrementStats(ctx context.Context, id uuid.UUID, amount in
 		WHERE id = $1`
 
 	_, err := r.db.ExecContext(ctx, query, id, amount)
+	if err == nil {
+		r.InvalidateCustomerMembershipCache(ctx, id)
+	}
 	return err
 }
 
@@ -401,6 +497,7 @@ func (r *Repository) AwardBookingPoints(ctx context.Context, customerID, tenantI
 	if err := tx.Commit(); err != nil {
 		return 0, err
 	}
+	r.InvalidateTenantCache(ctx, tenantID)
 	return points, nil
 }
 
@@ -447,6 +544,10 @@ func (r *Repository) SumEarnedPointsAtTenant(ctx context.Context, customerID, te
 
 func (r *Repository) FindByTenant(ctx context.Context, tenantID uuid.UUID) ([]Customer, error) {
 	var customers []Customer
+	cacheKey := fmt.Sprintf("customer:tenant:%s", tenantID.String())
+	if r.cacheGet(ctx, cacheKey, &customers) {
+		return customers, nil
+	}
 	query := `
 		SELECT
 			c.*,
@@ -467,6 +568,9 @@ func (r *Repository) FindByTenant(ctx context.Context, tenantID uuid.UUID) ([]Cu
 		)
 		ORDER BY COALESCE(stats.total_spent, 0) DESC, c.updated_at DESC`
 	err := r.db.SelectContext(ctx, &customers, query, tenantID)
+	if err == nil {
+		r.cacheSet(ctx, cacheKey, customers, 5*time.Minute)
+	}
 	return customers, err
 }
 

@@ -39,10 +39,10 @@ func (r *Repository) InvalidateTenantCache(ctx context.Context, tenantID uuid.UU
 	var slug string
 	err := r.db.GetContext(ctx, &slug, "SELECT slug FROM tenants WHERE id = $1", tenantID)
 	if err == nil {
-		landingKey := fmt.Sprintf("landing_full:%s", strings.ToLower(strings.TrimSpace(slug)))
+		landingKey := fmt.Sprintf("landing:full:%s", strings.ToLower(strings.TrimSpace(slug)))
 		r.rdb.Del(ctx, landingKey)
 	}
-	
+
 	fmt.Printf("[CACHE INVALIDATED] Cleared resource cache for tenant: %s\n", tenantID)
 }
 
@@ -68,7 +68,7 @@ func (r *Repository) ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]Re
 
 	// 2. MISS: Searching Postgres
 	fmt.Printf("[CACHE MISS] Querying DB resources for: %s\n", tenantID)
-	
+
 	var resources []Resource
 	var businessCategory string
 	var businessType string
@@ -173,7 +173,9 @@ func (r *Repository) CreateItem(ctx context.Context, item ResourceItem) (*Resour
 
 	if item.IsDefault {
 		_, err = tx.ExecContext(ctx, `UPDATE resource_items SET is_default = false WHERE resource_id = $1 AND item_type = $2`, item.ResourceID, item.ItemType)
-		if err != nil { return nil, err }
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	queryInsert := `
@@ -187,7 +189,9 @@ func (r *Repository) CreateItem(ctx context.Context, item ResourceItem) (*Resour
         )`
 
 	_, err = tx.NamedExecContext(ctx, queryInsert, item)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 
 	return &item, tx.Commit()
 }
@@ -195,12 +199,16 @@ func (r *Repository) CreateItem(ctx context.Context, item ResourceItem) (*Resour
 // UpdateItem memperbarui detail item
 func (r *Repository) UpdateItem(ctx context.Context, itemID uuid.UUID, item ResourceItem) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer tx.Rollback()
 
 	if item.IsDefault {
 		_, err = tx.ExecContext(ctx, `UPDATE resource_items SET is_default = false WHERE resource_id = $1 AND item_type = $2`, item.ResourceID, item.ItemType)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 	}
 
 	query := `
@@ -216,19 +224,38 @@ func (r *Repository) UpdateItem(ctx context.Context, itemID uuid.UUID, item Reso
 
 	item.ID = itemID
 	_, err = tx.NamedExecContext(ctx, query, item)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	return tx.Commit()
+}
+
+func (r *Repository) GetItemByID(ctx context.Context, itemID uuid.UUID) (*ResourceItem, error) {
+	var item ResourceItem
+	err := r.db.GetContext(ctx, &item, `SELECT * FROM resource_items WHERE id = $1 LIMIT 1`, itemID)
+	if err != nil {
+		return nil, err
+	}
+	emptyJSON := json.RawMessage("{}")
+	if item.Metadata == nil {
+		item.Metadata = &emptyJSON
+	}
+	return &item, nil
 }
 
 // GetOneWithItems (Detail Single Resource)
 func (r *Repository) GetOneWithItems(ctx context.Context, id uuid.UUID) (*Resource, error) {
 	var res Resource
 	err := r.db.GetContext(ctx, &res, `SELECT * FROM resources WHERE id = $1`, id)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 
 	emptyJSON := json.RawMessage("{}")
-	if res.Metadata == nil { res.Metadata = &emptyJSON }
+	if res.Metadata == nil {
+		res.Metadata = &emptyJSON
+	}
 
 	var items []ResourceItem
 	err = r.db.SelectContext(ctx, &items, `
@@ -238,7 +265,9 @@ func (r *Repository) GetOneWithItems(ctx context.Context, id uuid.UUID) (*Resour
 
 	if err == nil {
 		for i := range items {
-			if items[i].Metadata == nil { items[i].Metadata = &emptyJSON }
+			if items[i].Metadata == nil {
+				items[i].Metadata = &emptyJSON
+			}
 		}
 		res.Items = items
 	}
@@ -256,6 +285,20 @@ func (r *Repository) DeleteItem(ctx context.Context, itemID uuid.UUID) error {
 	query := `DELETE FROM resource_items WHERE id = $1`
 	_, err := r.db.ExecContext(ctx, query, itemID)
 	return err
+}
+
+func (r *Repository) GetTenantIDByItemID(ctx context.Context, itemID uuid.UUID) (*uuid.UUID, error) {
+	var tenantID uuid.UUID
+	err := r.db.GetContext(ctx, &tenantID, `
+		SELECT r.tenant_id
+		FROM resource_items ri
+		JOIN resources r ON r.id = ri.resource_id
+		WHERE ri.id = $1
+		LIMIT 1`, itemID)
+	if err != nil {
+		return nil, err
+	}
+	return &tenantID, nil
 }
 
 func (r *Repository) ListItemsByResource(ctx context.Context, resourceID uuid.UUID) ([]ResourceItem, error) {

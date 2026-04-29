@@ -46,6 +46,41 @@ func (r *Repository) getUserCacheKey(id string) string {
 	return fmt.Sprintf("user:profile:%s", id)
 }
 
+func (r *Repository) getPublicTenantsCacheKey() string {
+	return "tenant:public:list"
+}
+
+func (r *Repository) invalidateUserCache(ctx context.Context, userIDs ...uuid.UUID) {
+	if r.rdb == nil || len(userIDs) == 0 {
+		return
+	}
+	keys := make([]string, 0, len(userIDs))
+	for _, userID := range userIDs {
+		if userID != uuid.Nil {
+			keys = append(keys, r.getUserCacheKey(userID.String()))
+		}
+	}
+	if len(keys) > 0 {
+		_ = r.rdb.Del(ctx, keys...).Err()
+	}
+}
+
+func (r *Repository) invalidateStaffCacheByRole(ctx context.Context, tenantID, roleID uuid.UUID) {
+	if r.rdb == nil || tenantID == uuid.Nil || roleID == uuid.Nil {
+		return
+	}
+	var userIDs []uuid.UUID
+	err := r.db.SelectContext(ctx, &userIDs, `
+		SELECT id
+		FROM users
+		WHERE tenant_id = $1 AND role_id = $2 AND role = 'staff'`,
+		tenantID, roleID,
+	)
+	if err == nil {
+		r.invalidateUserCache(ctx, userIDs...)
+	}
+}
+
 // --- CORE REPOSITORY LOGIC ---
 
 func (r *Repository) GetBySlug(ctx context.Context, slug string) (*Tenant, error) {
@@ -117,6 +152,12 @@ func (r *Repository) GetPublicLandingData(ctx context.Context, slug string) (map
 
 func (r *Repository) ListPublicTenants(ctx context.Context) ([]TenantDirectoryItem, error) {
 	var items []TenantDirectoryItem
+	cacheKey := r.getPublicTenantsCacheKey()
+	if val, err := r.rdb.Get(ctx, cacheKey).Result(); err == nil {
+		if err := json.Unmarshal([]byte(val), &items); err == nil {
+			return items, nil
+		}
+	}
 	err := r.db.SelectContext(ctx, &items, `
 		SELECT
 			id, name, slug, business_category, business_type,
@@ -131,6 +172,11 @@ func (r *Repository) ListPublicTenants(ctx context.Context) ([]TenantDirectoryIt
 			created_at
 		FROM tenants
 		ORDER BY created_at DESC, name ASC`)
+	if err == nil {
+		if raw, marshalErr := json.Marshal(items); marshalErr == nil {
+			_ = r.rdb.Set(ctx, cacheKey, raw, 30*time.Minute).Err()
+		}
+	}
 	return items, err
 }
 
@@ -179,7 +225,7 @@ func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) erro
 	}
 
 	// Clear potential negative cache or pre-warm if necessary
-	r.rdb.Del(ctx, r.getProfileCacheKey(t.Slug))
+	r.rdb.Del(ctx, r.getProfileCacheKey(t.Slug), r.getPublicTenantsCacheKey(), fmt.Sprintf("tenant_id_by_slug:%s", strings.ToLower(strings.TrimSpace(t.Slug))))
 	return nil
 }
 
@@ -232,6 +278,8 @@ func (r *Repository) Update(ctx context.Context, t Tenant) error {
 		r.getLandingCacheKey(t.Slug),            // Cache Landing Page
 		r.getProfileCacheKey(t.Slug),            // Cache Profile by Slug
 		r.getProfileByIDCacheKey(t.ID.String()), // Cache Profile by ID
+		r.getPublicTenantsCacheKey(),
+		fmt.Sprintf("tenant_id_by_slug:%s", strings.ToLower(strings.TrimSpace(t.Slug))),
 	}
 
 	// 3. CRITICAL: Kita juga harus hapus cache USER!
@@ -523,6 +571,7 @@ func (r *Repository) UpdateStaff(ctx context.Context, tenantID, staffID, roleID 
 	if err := r.db.GetContext(ctx, &u, query, staffID, tenantID, roleID, name, email); err != nil {
 		return nil, err
 	}
+	r.invalidateUserCache(ctx, staffID)
 	return &u, nil
 }
 
@@ -567,16 +616,29 @@ func (r *Repository) UpdateStaffRole(ctx context.Context, role StaffRole) (*Staf
 	if err != nil {
 		return nil, err
 	}
+	r.invalidateStaffCacheByRole(ctx, role.TenantID, role.ID)
 	return &role, nil
 }
 
 func (r *Repository) DeleteStaffRole(ctx context.Context, tenantID, roleID uuid.UUID) error {
 	_, err := r.db.ExecContext(ctx, `DELETE FROM staff_roles WHERE tenant_id = $1 AND id = $2 AND is_default = false`, tenantID, roleID)
+	if err == nil {
+		r.invalidateStaffCacheByRole(ctx, tenantID, roleID)
+	}
 	return err
 }
 
 func (r *Repository) ClearDefaultRoles(ctx context.Context, tenantID uuid.UUID) error {
 	_, err := r.db.ExecContext(ctx, `UPDATE staff_roles SET is_default = false WHERE tenant_id = $1`, tenantID)
+	if err == nil && r.rdb != nil {
+		var userIDs []uuid.UUID
+		if selectErr := r.db.SelectContext(ctx, &userIDs, `
+			SELECT id
+			FROM users
+			WHERE tenant_id = $1 AND role = 'staff'`, tenantID); selectErr == nil {
+			r.invalidateUserCache(ctx, userIDs...)
+		}
+	}
 	return err
 }
 
@@ -590,7 +652,7 @@ func (r *Repository) DeleteStaff(ctx context.Context, tenantID, staffID uuid.UUI
 		return err
 	}
 
-	r.rdb.Del(ctx, r.getUserCacheKey(staffID.String()))
+	r.invalidateUserCache(ctx, staffID)
 	return nil
 }
 

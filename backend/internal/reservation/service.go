@@ -269,6 +269,7 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 	if err := s.repo.CreateWithItems(ctx, newBooking, itemUUIDs, req.Duration); err != nil {
 		return nil, nil, fmt.Errorf("GAGAL MENYIMPAN TRANSAKSI: %w", err)
 	}
+	s.customerService.InvalidateTenantCache(ctx, tID)
 
 	return &newBooking, cust, nil
 }
@@ -300,7 +301,7 @@ func (s *Service) ExtendSession(ctx context.Context, bookingID string, tenantID 
 		return errors.New("MAX EXTENSION SESSION TERCAPAI")
 	}
 
-	return s.repo.ExtendSessionWithValidation(
+	err = s.repo.ExtendSessionWithValidation(
 		ctx,
 		bID,
 		booking.ResourceID,
@@ -309,6 +310,10 @@ func (s *Service) ExtendSession(ctx context.Context, bookingID string, tenantID 
 		additionalDuration,
 		actorType,
 	)
+	if err == nil {
+		s.customerService.InvalidateTenantCache(ctx, tID)
+	}
+	return err
 }
 
 // UpdateStatus menangani transisi status (Ongoing, Completed, dll) & Sinkronisasi CRM Stats
@@ -332,6 +337,7 @@ func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string,
 	if err := s.repo.UpdateStatus(ctx, bID, tID, status, actorType); err != nil {
 		return err
 	}
+	s.customerService.InvalidateTenantCache(ctx, tID)
 
 	if status == "active" {
 		updated, findErr := s.repo.FindByID(ctx, bID, tID)
@@ -412,6 +418,7 @@ func (s *Service) SettleCash(ctx context.Context, id, tenantID string) error {
 	if err := s.repo.SettlePaymentCash(ctx, bID, tID, nil, nil); err != nil {
 		return err
 	}
+	s.customerService.InvalidateTenantCache(ctx, tID)
 
 	detail, err := s.repo.FindByID(ctx, bID, tID)
 	if err != nil || detail == nil {
@@ -474,7 +481,11 @@ func (s *Service) AddAddonOrder(ctx context.Context, bookingID string, tenantID 
 		return errors.New("ADD-ON HANYA BISA DITAMBAHKAN PADA SESI YANG SEDANG BERJALAN")
 	}
 
-	return s.repo.AddAddonOrder(ctx, bID, iID, actorType)
+	err = s.repo.AddAddonOrder(ctx, bID, iID, actorType)
+	if err == nil {
+		s.customerService.InvalidateTenantCache(ctx, tID)
+	}
+	return err
 }
 
 func (s *Service) ensureCustomerLiveSessionAccessible(ctx context.Context, bookingID, tenantID, customerID string) (*BookingDetail, error) {
@@ -514,7 +525,11 @@ func (s *Service) AddFnbOrder(ctx context.Context, bookingID string, tenantID st
 		return errors.New("PESANAN HANYA BISA DITAMBAHKAN PADA SESI AKTIF")
 	}
 
-	return s.repo.AddFnbOrder(ctx, bID, req.FnbItemID, req.Quantity, actorType)
+	err = s.repo.AddFnbOrder(ctx, bID, req.FnbItemID, req.Quantity, actorType)
+	if err == nil {
+		s.customerService.InvalidateTenantCache(ctx, tID)
+	}
+	return err
 }
 
 // --- UTILITIES & SEARCH ---

@@ -159,7 +159,7 @@ func (s *Service) DeleteResource(ctx context.Context, id string) error {
 
 	// Cari tahu tenant_id sebelum dihapus buat invalidate cache
 	existing, _ := s.repo.GetOneWithItems(ctx, uID)
-	
+
 	err = s.repo.Delete(ctx, uID)
 	if err == nil && existing != nil {
 		s.repo.InvalidateTenantCache(ctx, existing.TenantID)
@@ -173,18 +173,22 @@ func (s *Service) UpdateItem(ctx context.Context, id string, item ResourceItem) 
 	if err != nil {
 		return err
 	}
-	
+
+	existing, err := s.repo.GetItemByID(ctx, uID)
+	if err != nil {
+		return err
+	}
+	if item.ResourceID == uuid.Nil {
+		item.ResourceID = existing.ResourceID
+	}
 	if item.Metadata == nil {
-		emptyMeta := json.RawMessage("{}")
-		item.Metadata = &emptyMeta
+		item.Metadata = existing.Metadata
 	}
 
 	err = s.repo.UpdateItem(ctx, uID, item)
 	if err == nil {
-		// Cari tenant_id melalui resource_id item
-		res, _ := s.repo.GetOneWithItems(ctx, item.ResourceID)
-		if res != nil {
-			s.repo.InvalidateTenantCache(ctx, res.TenantID)
+		if tenantID, _ := s.repo.GetTenantIDByItemID(ctx, uID); tenantID != nil {
+			s.repo.InvalidateTenantCache(ctx, *tenantID)
 		}
 	}
 	return err
@@ -196,7 +200,12 @@ func (s *Service) DeleteItem(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	return s.repo.DeleteItem(ctx, uID)
+	tenantID, _ := s.repo.GetTenantIDByItemID(ctx, uID)
+	err = s.repo.DeleteItem(ctx, uID)
+	if err == nil && tenantID != nil {
+		s.repo.InvalidateTenantCache(ctx, *tenantID)
+	}
+	return err
 }
 
 // GetResourceDetail mengambil data lengkap satu unit
