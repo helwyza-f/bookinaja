@@ -316,7 +316,7 @@ func (r *Repository) AwardBookingPoints(ctx context.Context, customerID, tenantI
 		INSERT INTO customer_point_ledger (
 			id, customer_id, tenant_id, booking_id, event_type, points, description, metadata, created_at
 		) VALUES (
-			$1, $2, $3, $4, 'earn', $5, $6, jsonb_build_object('paid_amount', $7), NOW()
+			$1, $2, $3, $4, 'earn', $5, $6, jsonb_build_object('paid_amount', $7::bigint), NOW()
 		)
 		ON CONFLICT DO NOTHING
 		RETURNING id`,

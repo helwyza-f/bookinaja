@@ -217,7 +217,7 @@ func (r *Repository) AwardCustomerBookingPoints(ctx context.Context, exec sqlx.E
 		INSERT INTO customer_point_ledger (
 			id, customer_id, tenant_id, booking_id, event_type, points, description, metadata, created_at
 		) VALUES (
-			$1, $2, $3, $4, 'earn', $5, 'Earned from booking payment', jsonb_build_object('paid_amount', $6), NOW()
+			$1, $2, $3, $4, 'earn', $5, 'Earned from booking payment', jsonb_build_object('paid_amount', $6::bigint), NOW()
 		)
 		ON CONFLICT DO NOTHING
 		RETURNING id`,
