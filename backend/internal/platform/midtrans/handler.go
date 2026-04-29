@@ -1,6 +1,7 @@
 package midtrans
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -22,6 +23,7 @@ func (h *Handler) Webhook(c *gin.Context) {
 	}
 
 	if err := h.svc.HandleNotification(c.Request.Context(), payload); err != nil {
+		log.Printf("[MIDTRANS WEBHOOK] failed order_id=%v transaction_status=%v error=%v", payload["order_id"], payload["transaction_status"], err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

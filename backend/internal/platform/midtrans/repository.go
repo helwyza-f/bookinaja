@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,10 +20,19 @@ func NewRepository(db *sqlx.DB) *Repository {
 }
 
 func (r *Repository) CreateBookingEvent(ctx context.Context, exec sqlx.ExtContext, booking BookingNotificationContext, actorType, eventType, title, description string, metadata map[string]any) error {
+	var tableName sql.NullString
+	if err := sqlx.GetContext(ctx, exec, &tableName, `SELECT to_regclass('public.booking_events')::text`); err != nil {
+		return err
+	}
+	if !tableName.Valid || strings.TrimSpace(tableName.String) == "" {
+		return nil
+	}
+
 	raw, _ := json.Marshal(metadata)
 	if len(raw) == 0 {
 		raw = []byte(`{}`)
 	}
+	_, _ = exec.ExecContext(ctx, `SAVEPOINT optional_booking_event`)
 	_, err := exec.ExecContext(ctx, `
 		INSERT INTO booking_events (
 			id, booking_id, tenant_id, customer_id, actor_type, event_type, title, description, metadata, created_at
@@ -31,6 +41,11 @@ func (r *Repository) CreateBookingEvent(ctx context.Context, exec sqlx.ExtContex
 		)`,
 		uuid.New(), booking.BookingID, booking.TenantID, booking.CustomerID, actorType, eventType, title, description, raw,
 	)
+	if err != nil {
+		_, _ = exec.ExecContext(ctx, `ROLLBACK TO SAVEPOINT optional_booking_event`)
+		return err
+	}
+	_, _ = exec.ExecContext(ctx, `RELEASE SAVEPOINT optional_booking_event`)
 	return err
 }
 

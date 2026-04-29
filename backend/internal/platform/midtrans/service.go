@@ -155,11 +155,11 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 				}
 				if isFinalStatus {
 					if err := s.repo.CreateBookingEvent(ctx, tx, bookingInfo, "payment", "payment.settlement.paid", "Pelunasan digital diterima", "Midtrans mengonfirmasi pembayaran pelunasan.", map[string]any{"order_id": orderID, "status": newStatus, "payment_type": paymentType}); err != nil {
-						return err
+						fmt.Printf("[MIDTRANS WEBHOOK] booking event skipped order_id=%s event=payment.settlement.paid error=%v\n", orderID, err)
 					}
 					if bookingInfo.Status != "completed" {
 						if err := s.repo.CreateBookingEvent(ctx, tx, bookingInfo, "system", "session.completed", "Sesi ditutup oleh settlement", "Sistem menandai sesi selesai setelah pelunasan digital.", map[string]any{"from_status": bookingInfo.Status, "to_status": "completed"}); err != nil {
-							return err
+							fmt.Printf("[MIDTRANS WEBHOOK] booking event skipped order_id=%s event=session.completed error=%v\n", orderID, err)
 						}
 					}
 				}
@@ -210,11 +210,11 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 			}
 			if isFinalStatus {
 				if err := s.repo.CreateBookingEvent(ctx, tx, bookingInfo, "payment", "payment.dp.paid", "DP digital diterima", "Midtrans mengonfirmasi pembayaran DP.", map[string]any{"order_id": orderID, "status": newStatus, "payment_type": paymentType}); err != nil {
-					return err
+					fmt.Printf("[MIDTRANS WEBHOOK] booking event skipped order_id=%s event=payment.dp.paid error=%v\n", orderID, err)
 				}
 				if bookingInfo.Status == "pending" {
 					if err := s.repo.CreateBookingEvent(ctx, tx, bookingInfo, "system", "booking.confirmed", "Booking dikonfirmasi", "Sistem mengonfirmasi booking setelah DP diterima.", map[string]any{"from_status": "pending", "to_status": "confirmed"}); err != nil {
-						return err
+						fmt.Printf("[MIDTRANS WEBHOOK] booking event skipped order_id=%s event=booking.confirmed error=%v\n", orderID, err)
 					}
 				}
 			}
