@@ -846,7 +846,21 @@ func (r *Repository) UpdateReferralWithdrawalStatus(ctx context.Context, withdra
 		return fmt.Errorf("status tidak valid")
 	}
 
-	_, err := r.db.ExecContext(ctx, `
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var tenantID string
+	if err := tx.GetContext(ctx, &tenantID, `
+		SELECT tenant_id::text
+		FROM referral_withdrawal_requests
+		WHERE id::text = $1`, withdrawalID); err != nil {
+		return err
+	}
+
+	_, err = tx.ExecContext(ctx, `
 		UPDATE referral_withdrawal_requests
 		SET status = $2,
 			reviewed_at = CASE WHEN $2 IN ('approved', 'rejected', 'paid') THEN NOW() ELSE reviewed_at END,
@@ -855,5 +869,26 @@ func (r *Repository) UpdateReferralWithdrawalStatus(ctx context.Context, withdra
 		WHERE id::text = $1`,
 		withdrawalID, status,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+
+	rewardStatus := "withdrawn"
+	if status == "rejected" {
+		rewardStatus = "available"
+	}
+	_, err = tx.ExecContext(ctx, `
+		UPDATE referral_rewards
+		SET status = $2,
+			paid_at = CASE WHEN $2 = 'withdrawn' THEN NOW() ELSE paid_at END,
+			updated_at = NOW()
+		WHERE referrer_tenant_id::text = $1
+			AND status = 'pending'`,
+		tenantID, rewardStatus,
+	)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }

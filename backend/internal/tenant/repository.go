@@ -290,7 +290,15 @@ func (r *Repository) GetReferralChildren(ctx context.Context, tenantID uuid.UUID
 				WHEN t.subscription_status = 'active' THEN t.subscription_current_period_start
 				ELSE NULL
 			END AS subscribed_at,
-			COALESCE(rr.status, '') AS reward_status,
+			CASE
+				WHEN rr.status = 'pending' AND EXISTS (
+					SELECT 1
+					FROM referral_withdrawal_requests rwr
+					WHERE rwr.tenant_id = $1
+						AND rwr.status IN ('approved', 'paid')
+				) THEN 'withdrawn'
+				ELSE COALESCE(rr.status, '')
+			END AS reward_status,
 			COALESCE(rr.reward_amount, 0) AS reward_amount
 		FROM tenants t
 		LEFT JOIN referral_rewards rr ON rr.referred_tenant_id = t.id

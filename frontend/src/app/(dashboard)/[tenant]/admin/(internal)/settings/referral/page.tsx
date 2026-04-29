@@ -65,12 +65,33 @@ type WithdrawalItem = {
 const formatIDR = (value?: number) => new Intl.NumberFormat("id-ID").format(Number(value || 0));
 
 const statusLabel: Record<string, string> = {
-  pending: "Pending",
-  approved: "Approved",
-  rejected: "Rejected",
-  paid: "Paid",
-  available: "Available",
+  active: "Aktif",
+  trial: "Trial",
+  pending: "Menunggu cair",
+  approved: "Disetujui",
+  rejected: "Ditolak",
+  paid: "Dibayar",
+  available: "Tersedia",
   pending_withdrawal: "Menunggu pencairan",
+  withdrawn: "Sudah dicairkan",
+};
+
+const rewardTone: Record<string, string> = {
+  available: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  pending: "border-amber-200 bg-amber-50 text-amber-700",
+  withdrawn: "border-blue-200 bg-blue-50 text-blue-700",
+  rejected: "border-rose-200 bg-rose-50 text-rose-700",
+};
+
+const formatDate = (value?: string) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
 };
 
 export default function ReferralSettingsPage() {
@@ -410,35 +431,46 @@ export default function ReferralSettingsPage() {
                 Belum ada customer yang direfer.
               </div>
             ) : (
-              referrals.map((item) => (
+              referrals.map((item) => {
+                const rewardStatus = item.reward_status || "pending";
+                return (
                 <div key={`${item.tenant_slug}-${item.tenant_name}`} className="rounded-2xl border border-slate-200 p-4 dark:border-white/10">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">
                         {item.tenant_name || item.tenant_slug || "-"}
                       </div>
                       <div className="text-xs text-slate-500">{item.tenant_slug || "-"}</div>
                     </div>
-                    <div className="text-left sm:text-right">
-                      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                        {statusLabel[item.reward_status || ""] || item.reward_status || "Belum reward"}
+                    <div className="flex items-center justify-between gap-3 sm:block sm:text-right">
+                      <div
+                        className={cn(
+                          "inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold",
+                          rewardTone[rewardStatus] || "border-slate-200 bg-slate-50 text-slate-600",
+                        )}
+                      >
+                        {statusLabel[rewardStatus] || rewardStatus || "Belum reward"}
                       </div>
                       <div className="text-sm font-semibold text-blue-600">Rp {formatIDR(item.reward_amount)}</div>
                     </div>
                   </div>
                   <div className="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-3">
                     <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
-                      Trial berakhir: {item.trial_ends_at || "-"}
+                      <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Trial berakhir</span>
+                      <span className="mt-1 block text-slate-700 dark:text-slate-200">{formatDate(item.trial_ends_at)}</span>
                     </div>
                     <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
-                      Subscribed: {item.subscribed_at || "-"}
+                      <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Subscribe</span>
+                      <span className="mt-1 block text-slate-700 dark:text-slate-200">{formatDate(item.subscribed_at)}</span>
                     </div>
                     <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
-                      Status: {statusLabel[item.status || ""] || item.status || "-"}
+                      <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Status tenant</span>
+                      <span className="mt-1 block text-slate-700 dark:text-slate-200">{statusLabel[item.status || ""] || item.status || "-"}</span>
                     </div>
                   </div>
                 </div>
-              ))
+                );
+              })
             )}
           </CardContent>
         </Card>
