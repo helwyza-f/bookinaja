@@ -356,7 +356,7 @@ func (s *Service) GetReferralSummary(ctx context.Context, id uuid.UUID) (map[str
 	return summary, nil
 }
 
-func (s *Service) ListReferralFriends(ctx context.Context, id uuid.UUID) ([]Tenant, error) {
+func (s *Service) ListReferralFriends(ctx context.Context, id uuid.UUID) ([]ReferralListItem, error) {
 	return s.repo.GetReferralChildren(ctx, id)
 }
 

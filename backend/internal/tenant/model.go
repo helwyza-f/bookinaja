@@ -201,6 +201,17 @@ type ReferralReward struct {
 	UpdatedAt        time.Time  `db:"updated_at" json:"updated_at"`
 }
 
+type ReferralListItem struct {
+	TenantID     uuid.UUID  `db:"tenant_id" json:"tenant_id"`
+	TenantName   string     `db:"tenant_name" json:"tenant_name"`
+	TenantSlug   string     `db:"tenant_slug" json:"tenant_slug"`
+	Status       string     `db:"status" json:"status"`
+	TrialEndsAt  *time.Time `db:"trial_ends_at" json:"trial_ends_at,omitempty"`
+	SubscribedAt *time.Time `db:"subscribed_at" json:"subscribed_at,omitempty"`
+	RewardStatus string     `db:"reward_status" json:"reward_status"`
+	RewardAmount int64      `db:"reward_amount" json:"reward_amount"`
+}
+
 type ReferralWithdrawalRequest struct {
 	ID                uuid.UUID  `db:"id" json:"id"`
 	TenantID          uuid.UUID  `db:"tenant_id" json:"tenant_id"`

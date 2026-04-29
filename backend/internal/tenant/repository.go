@@ -274,12 +274,28 @@ func (r *Repository) GetByReferralCode(ctx context.Context, code string) (*Tenan
 	return &t, nil
 }
 
-func (r *Repository) GetReferralChildren(ctx context.Context, tenantID uuid.UUID) ([]Tenant, error) {
-	var items []Tenant
+func (r *Repository) GetReferralChildren(ctx context.Context, tenantID uuid.UUID) ([]ReferralListItem, error) {
+	var items []ReferralListItem
 	err := r.db.SelectContext(ctx, &items, `
-		SELECT * FROM tenants
-		WHERE referred_by_tenant_id = $1
-		ORDER BY created_at DESC`, tenantID)
+		SELECT
+			t.id AS tenant_id,
+			t.name AS tenant_name,
+			t.slug AS tenant_slug,
+			t.subscription_status AS status,
+			CASE
+				WHEN t.subscription_status = 'trial' THEN t.subscription_current_period_end
+				ELSE NULL
+			END AS trial_ends_at,
+			CASE
+				WHEN t.subscription_status = 'active' THEN t.subscription_current_period_start
+				ELSE NULL
+			END AS subscribed_at,
+			COALESCE(rr.status, '') AS reward_status,
+			COALESCE(rr.reward_amount, 0) AS reward_amount
+		FROM tenants t
+		LEFT JOIN referral_rewards rr ON rr.referred_tenant_id = t.id
+		WHERE t.referred_by_tenant_id = $1
+		ORDER BY t.created_at DESC`, tenantID)
 	return items, err
 }
 
