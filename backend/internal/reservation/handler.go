@@ -510,3 +510,14 @@ func (h *Handler) SettleCash(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "PEMBAYARAN CASH BERHASIL DILUNASI"})
 }
+
+func (h *Handler) SendReceiptWhatsApp(c *gin.Context) {
+	id := c.Param("id")
+	tenantID := c.MustGet("tenantID").(string)
+	result, err := h.service.SendReceiptWhatsApp(c.Request.Context(), id, tenantID)
+	if err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}

@@ -789,3 +789,42 @@ func (r *Repository) FindAllByTenant(ctx context.Context, tenantID uuid.UUID, st
 	}
 	return res, nil
 }
+
+func (r *Repository) GetReceiptContext(ctx context.Context, bookingID, tenantID uuid.UUID) (*ReceiptContext, error) {
+	var receipt ReceiptContext
+	query := `
+		SELECT
+			b.*,
+			t.name AS tenant_name,
+			t.plan AS tenant_plan,
+			t.subscription_status AS tenant_status,
+			t.receipt_title,
+			t.receipt_subtitle,
+			t.receipt_footer,
+			t.receipt_whatsapp_text,
+			t.receipt_template,
+			c.name AS customer_name,
+			c.phone AS customer_phone,
+			res.name AS resource_name,
+			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) AS total_resource,
+			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) AS total_fnb
+		FROM bookings b
+		JOIN tenants t ON t.id = b.tenant_id
+		JOIN customers c ON c.id = b.customer_id
+		JOIN resources res ON res.id = b.resource_id
+		WHERE b.id = $1 AND b.tenant_id = $2
+		LIMIT 1`
+	if err := r.db.GetContext(ctx, &receipt, query, bookingID, tenantID); err != nil {
+		return nil, err
+	}
+	if receipt.GrandTotal <= 0 {
+		receipt.GrandTotal = receipt.TotalResource + receipt.TotalFnb
+	}
+	if receipt.BalanceDue <= 0 && receipt.GrandTotal > 0 {
+		receipt.BalanceDue = receipt.GrandTotal - receipt.PaidAmount
+		if receipt.BalanceDue < 0 {
+			receipt.BalanceDue = 0
+		}
+	}
+	return &receipt, nil
+}

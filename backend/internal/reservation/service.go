@@ -24,6 +24,121 @@ type Service struct {
 	fnbService      *fnb.Service
 }
 
+func (s *Service) SendReceiptWhatsApp(ctx context.Context, bookingIDRaw, tenantIDRaw string) (*ReceiptDeliveryResult, error) {
+	bookingID, err := uuid.Parse(bookingIDRaw)
+	if err != nil {
+		return nil, errors.New("booking tidak valid")
+	}
+	tenantID, err := uuid.Parse(tenantIDRaw)
+	if err != nil {
+		return nil, errors.New("tenant tidak valid")
+	}
+
+	receipt, err := s.repo.GetReceiptContext(ctx, bookingID, tenantID)
+	if err != nil {
+		return nil, errors.New("booking tidak ditemukan")
+	}
+	if !isProReceiptTenant(receipt.TenantPlan, receipt.TenantStatus) {
+		return nil, errors.New("fitur nota hanya tersedia untuk paket pro aktif")
+	}
+	if strings.TrimSpace(receipt.CustomerPhone) == "" {
+		return nil, errors.New("nomor whatsapp customer belum tersedia")
+	}
+
+	message := buildReceiptMessage(receipt)
+	ok, err := fonnte.SendMessage(receipt.CustomerPhone, message)
+	if err != nil || !ok {
+		if err != nil {
+			return nil, err
+		}
+		return nil, errors.New("gagal mengirim nota whatsapp")
+	}
+
+	return &ReceiptDeliveryResult{
+		Message: "Nota WhatsApp terkirim",
+		Target:  receipt.CustomerPhone,
+	}, nil
+}
+
+func isProReceiptTenant(plan, status string) bool {
+	return strings.EqualFold(strings.TrimSpace(plan), "pro") && strings.EqualFold(strings.TrimSpace(status), "active")
+}
+
+func buildReceiptMessage(receipt *ReceiptContext) string {
+	intro := strings.TrimSpace(receipt.ReceiptWhatsAppText)
+	if intro == "" {
+		intro = "Berikut struk transaksi Anda dari Bookinaja."
+	}
+	return intro + "\n\n" + renderReceiptTemplate(receipt)
+}
+
+func renderReceiptTemplate(receipt *ReceiptContext) string {
+	template := strings.TrimSpace(receipt.ReceiptTemplate)
+	if template == "" {
+		template = strings.Join([]string{
+			"=== {receipt_title} ===",
+			"{receipt_subtitle}",
+			"",
+			"Pelanggan : {customer_name}",
+			"Booking   : {booking_id}",
+			"Unit      : {resource_name}",
+			"Waktu     : {booking_time}",
+			"",
+			"Total     : {grand_total}",
+			"DP        : {deposit_amount}",
+			"Dibayar   : {paid_amount}",
+			"Sisa      : {balance_due}",
+			"",
+			"{receipt_footer}",
+		}, "\n")
+	}
+
+	values := map[string]string{
+		"receipt_title":    defaultString(receipt.ReceiptTitle, "Struk Bookinaja"),
+		"receipt_subtitle": defaultString(receipt.ReceiptSubtitle, "Bukti transaksi resmi"),
+		"receipt_footer":   defaultString(receipt.ReceiptFooter, "Terima kasih sudah berkunjung"),
+		"tenant_name":      defaultString(receipt.TenantName, "Bookinaja"),
+		"customer_name":    defaultString(receipt.CustomerName, "Customer"),
+		"customer_phone":   defaultString(receipt.CustomerPhone, "-"),
+		"booking_id":       strings.ToUpper(receipt.ID.String()[:8]),
+		"resource_name":    defaultString(receipt.ResourceName, "Unit"),
+		"booking_time":     formatReceiptTime(receipt.StartTime, receipt.EndTime),
+		"grand_total":      formatReceiptIDR(receipt.GrandTotal),
+		"deposit_amount":   formatReceiptIDR(receipt.DepositAmount),
+		"paid_amount":      formatReceiptIDR(receipt.PaidAmount),
+		"balance_due":      formatReceiptIDR(receipt.BalanceDue),
+		"payment_status":   defaultString(receipt.PaymentStatus, "-"),
+	}
+
+	for key, value := range values {
+		template = strings.ReplaceAll(template, "{"+key+"}", value)
+	}
+	return template
+}
+
+func defaultString(value, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return value
+}
+
+func formatReceiptTime(start, end time.Time) string {
+	return fmt.Sprintf("%s %s-%s", start.Format("02 Jan 2006"), start.Format("15:04"), end.Format("15:04"))
+}
+
+func formatReceiptIDR(value float64) string {
+	raw := fmt.Sprintf("%.0f", math.Round(value))
+	var b strings.Builder
+	for i, r := range raw {
+		if i > 0 && (len(raw)-i)%3 == 0 {
+			b.WriteString(".")
+		}
+		b.WriteRune(r)
+	}
+	return "Rp " + b.String()
+}
+
 func NewService(r *Repository, resRepo *resource.Repository, custSvc *customer.Service, fnbSvc *fnb.Service) *Service {
 	return &Service{
 		repo:            r,

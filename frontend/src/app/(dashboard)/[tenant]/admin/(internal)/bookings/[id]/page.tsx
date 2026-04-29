@@ -37,9 +37,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { BookingDetailSkeleton } from "@/components/dashboard/booking-detail-skeleton";
 import {
-  buildReceiptWhatsAppUrl,
   isReceiptProEnabled,
-  printReceiptText,
+  printReceiptBluetooth,
   type ReceiptSettings,
 } from "@/lib/receipt";
 
@@ -268,7 +267,7 @@ export default function BookingDetailPage() {
     }
   };
 
-  const handleReceiptAction = (mode: "whatsapp" | "print" | "both") => {
+  const handleReceiptAction = async (mode: "whatsapp" | "print" | "both") => {
     if (!booking) return;
     if (!canUseReceipt) {
       toast.message("Fitur nota aktif di paket Pro", {
@@ -279,17 +278,24 @@ export default function BookingDetailPage() {
     }
 
     if (mode === "whatsapp" || mode === "both") {
-      const url = buildReceiptWhatsAppUrl(receiptSettings, booking);
-      if (!url) {
-        toast.error("Nomor WhatsApp customer belum valid");
-        return;
+      try {
+        await api.post(`/bookings/${booking.id}/receipt/send`);
+        toast.success("Nota WhatsApp dikirim via Fonnte");
+      } catch (error) {
+        const err = error as { response?: { data?: { error?: string } } };
+        toast.error(err.response?.data?.error || "Gagal mengirim nota WhatsApp");
+        if (mode === "whatsapp") return;
       }
-      window.open(url, "_blank", "noopener,noreferrer");
     }
 
     if (mode === "print" || mode === "both") {
-      const ok = printReceiptText(receiptSettings, booking);
-      if (!ok) toast.error("Popup print diblokir browser");
+      try {
+        await printReceiptBluetooth(receiptSettings, booking);
+        toast.success("Nota dikirim ke printer Bluetooth");
+      } catch (error) {
+        const err = error as Error;
+        toast.error(err.message || "Gagal cetak ke printer Bluetooth");
+      }
     }
   };
 

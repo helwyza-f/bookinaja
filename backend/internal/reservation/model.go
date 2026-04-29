@@ -90,6 +90,28 @@ type BookingEvent struct {
 	CreatedAt   time.Time  `db:"created_at" json:"created_at"`
 }
 
+type ReceiptDeliveryResult struct {
+	Message string `json:"message"`
+	Target  string `json:"target"`
+}
+
+type ReceiptContext struct {
+	Booking
+	TenantName          string  `db:"tenant_name"`
+	TenantPlan          string  `db:"tenant_plan"`
+	TenantStatus        string  `db:"tenant_status"`
+	ReceiptTitle        string  `db:"receipt_title"`
+	ReceiptSubtitle     string  `db:"receipt_subtitle"`
+	ReceiptFooter       string  `db:"receipt_footer"`
+	ReceiptWhatsAppText string  `db:"receipt_whatsapp_text"`
+	ReceiptTemplate     string  `db:"receipt_template"`
+	CustomerName        string  `db:"customer_name"`
+	CustomerPhone       string  `db:"customer_phone"`
+	ResourceName        string  `db:"resource_name"`
+	TotalResource       float64 `db:"total_resource"`
+	TotalFnb            float64 `db:"total_fnb"`
+}
+
 type BookingOptionDetail struct {
 	ID             uuid.UUID `json:"id"`
 	ItemName       string    `db:"item_name" json:"item_name"`

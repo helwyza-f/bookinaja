@@ -12,6 +12,37 @@ export type ReceiptSettings = {
   printer_auto_print?: boolean;
 };
 
+type BluetoothRemoteGATTCharacteristicLike = {
+  properties?: {
+    write?: boolean;
+    writeWithoutResponse?: boolean;
+  };
+  writeValue: (value: BufferSource) => Promise<void>;
+  writeValueWithoutResponse?: (value: BufferSource) => Promise<void>;
+};
+
+type BluetoothRemoteGATTServiceLike = {
+  getCharacteristics: () => Promise<BluetoothRemoteGATTCharacteristicLike[]>;
+};
+
+type BluetoothRemoteGATTServerLike = {
+  connect: () => Promise<BluetoothRemoteGATTServerLike>;
+  getPrimaryService: (service: string) => Promise<BluetoothRemoteGATTServiceLike>;
+};
+
+type BluetoothDeviceLike = {
+  gatt?: BluetoothRemoteGATTServerLike;
+};
+
+type BluetoothNavigator = Navigator & {
+  bluetooth?: {
+    requestDevice: (options: {
+      acceptAllDevices: boolean;
+      optionalServices: string[];
+    }) => Promise<BluetoothDeviceLike>;
+  };
+};
+
 export type ReceiptBooking = {
   id: string;
   customer_name?: string;
@@ -96,58 +127,85 @@ export const renderReceiptText = (
   );
 };
 
-export const buildReceiptWhatsAppUrl = (
-  settings: ReceiptSettings | null | undefined,
-  booking: ReceiptBooking,
-) => {
-  const phone = normalizeIndonesianPhone(booking.customer_phone || "");
-  if (!phone) return null;
-  const intro =
-    settings?.receipt_whatsapp_text ||
-    "Berikut struk transaksi Anda dari Bookinaja.";
-  const text = `${intro}\n\n${renderReceiptText(settings, booking)}`;
-  return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
-};
+const PRINTER_SERVICE_IDS = [
+  "000018f0-0000-1000-8000-00805f9b34fb",
+  "0000ffe0-0000-1000-8000-00805f9b34fb",
+  "49535343-fe7d-4ae5-8fa9-9fafd205e455",
+  "e7810a71-73ae-499d-8c15-faa9aef0c3f2",
+];
 
-export const printReceiptText = (
+export const printReceiptBluetooth = async (
   settings: ReceiptSettings | null | undefined,
   booking: ReceiptBooking,
 ) => {
+  const nav = navigator as BluetoothNavigator;
+  if (!window.isSecureContext || !nav.bluetooth) {
+    throw new Error("Bluetooth printer hanya tersedia di Chrome/Edge lewat HTTPS atau localhost.");
+  }
+
+  const device = await nav.bluetooth.requestDevice({
+    acceptAllDevices: true,
+    optionalServices: PRINTER_SERVICE_IDS,
+  });
+  if (!device.gatt) {
+    throw new Error("Printer tidak menyediakan koneksi GATT.");
+  }
+
+  const server = await device.gatt.connect();
+  const characteristic = await findWritablePrinterCharacteristic(server);
+  if (!characteristic) {
+    throw new Error("Printer Bluetooth tidak expose channel tulis yang didukung.");
+  }
+
   const text = renderReceiptText(settings, booking);
-  const popup = window.open("", "_blank", "width=420,height=640");
-  if (!popup) return false;
-
-  popup.document.write(`
-    <html>
-      <head>
-        <title>Nota ${booking.id.slice(0, 8).toUpperCase()}</title>
-        <style>
-          body { margin: 0; padding: 16px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #0f172a; }
-          pre { white-space: pre-wrap; font-size: 12px; line-height: 1.55; }
-          @media print { body { padding: 0; } }
-        </style>
-      </head>
-      <body><pre>${escapeHtml(text)}</pre></body>
-    </html>
-  `);
-  popup.document.close();
-  popup.focus();
-  popup.print();
-  return true;
+  const payload = buildEscPosPayload(text);
+  await writeInChunks(characteristic, payload);
 };
 
-const normalizeIndonesianPhone = (raw: string) => {
-  const digits = raw.replace(/\D/g, "");
-  if (!digits) return "";
-  if (digits.startsWith("62")) return digits;
-  if (digits.startsWith("0")) return `62${digits.slice(1)}`;
-  return digits;
+const findWritablePrinterCharacteristic = async (server: BluetoothRemoteGATTServerLike) => {
+  for (const serviceId of PRINTER_SERVICE_IDS) {
+    try {
+      const service = await server.getPrimaryService(serviceId);
+      const characteristics = await service.getCharacteristics();
+      const writable = characteristics.find(
+        (item) => item.properties?.write || item.properties?.writeWithoutResponse,
+      );
+      if (writable) return writable;
+    } catch {
+      // Coba service berikutnya. Printer thermal BLE tidak punya UUID yang benar-benar seragam.
+    }
+  }
+  return null;
 };
 
-const escapeHtml = (value: string) =>
-  value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+const buildEscPosPayload = (text: string) => {
+  const encoder = new TextEncoder();
+  const normalized = text
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x20-\x7E\n\r]/g, "");
+  const body = encoder.encode(`${normalized}\n\n\n`);
+  const init = new Uint8Array([0x1b, 0x40]);
+  const cut = new Uint8Array([0x1d, 0x56, 0x42, 0x00]);
+  const payload = new Uint8Array(init.length + body.length + cut.length);
+  payload.set(init, 0);
+  payload.set(body, init.length);
+  payload.set(cut, init.length + body.length);
+  return payload;
+};
+
+const writeInChunks = async (
+  characteristic: BluetoothRemoteGATTCharacteristicLike,
+  payload: Uint8Array,
+) => {
+  const chunkSize = 180;
+  for (let offset = 0; offset < payload.length; offset += chunkSize) {
+    const chunk = payload.slice(offset, offset + chunkSize);
+    if (characteristic.writeValueWithoutResponse && characteristic.properties?.writeWithoutResponse) {
+      await characteristic.writeValueWithoutResponse(chunk);
+    } else {
+      await characteristic.writeValue(chunk);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+};

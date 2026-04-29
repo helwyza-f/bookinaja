@@ -155,6 +155,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				bookings.GET("/:id", middleware.RequirePermission("bookings.read"), cfg.ReservationHandler.GetDetail)
 				bookings.PUT("/:id/status", middleware.RequirePermission("bookings.write"), cfg.ReservationHandler.UpdateStatus)
 				bookings.POST("/:id/settle-cash", middleware.RequirePermission("bookings.write"), cfg.ReservationHandler.SettleCash)
+				bookings.POST("/:id/receipt/send", middleware.RequirePermission("bookings.write"), cfg.ReservationHandler.SendReceiptWhatsApp)
 				bookings.POST("/manual", middleware.RequirePermission("bookings.write"), cfg.ReservationHandler.Create)
 				bookings.GET("/pos/active", middleware.RequirePermission("bookings.read"), cfg.ReservationHandler.GetActiveSessions)
 				bookings.POST("/pos/order/:id", middleware.RequirePermission("bookings.write"), cfg.ReservationHandler.AddOrder)
