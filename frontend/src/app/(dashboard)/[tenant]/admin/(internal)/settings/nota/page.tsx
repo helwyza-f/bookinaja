@@ -2,33 +2,24 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AxiosError } from "axios";
-import api from "@/lib/api";
-import { cn } from "@/lib/utils";
 import {
-  BadgeCheck,
   Bluetooth,
   CheckCircle2,
   Copy,
-  Link2,
-  MessageCircleMore,
-  PlugZap,
+  Edit3,
   Printer,
+  ReceiptText,
   Save,
   Smartphone,
   Unplug,
+  X,
 } from "lucide-react";
+import api from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -47,8 +38,6 @@ type ReceiptSettings = {
   printer_status?: string;
   whatsapp_number?: string;
   name?: string;
-  plan?: string;
-  subscription_status?: string;
 };
 
 type BluetoothNavigator = Navigator & {
@@ -74,16 +63,33 @@ type BluetoothDeviceSession = {
 const defaultTemplate = [
   "=== {receipt_title} ===",
   "{receipt_subtitle}",
-  "Kasir: {cashier_name}",
-  "Pelanggan: {customer_name}",
-  "Booking: {booking_id}",
-  "Unit: {resource_name}",
-  "Total: {grand_total}",
-  "DP: {deposit_amount}",
-  "Dibayar: {paid_amount}",
-  "Sisa: {balance_due}",
+  "",
+  "Kasir     : {cashier_name}",
+  "Pelanggan : {customer_name}",
+  "Booking   : {booking_id}",
+  "Unit      : {resource_name}",
+  "",
+  "Total     : {grand_total}",
+  "DP        : {deposit_amount}",
+  "Dibayar   : {paid_amount}",
+  "Sisa      : {balance_due}",
+  "",
   "{receipt_footer}",
 ].join("\n");
+
+const sampleReceipt = {
+  receipt_title: "Struk Bookinaja",
+  receipt_subtitle: "Bukti transaksi resmi",
+  cashier_name: "Admin",
+  customer_name: "Helwiza",
+  booking_id: "BK-1024",
+  resource_name: "Lapangan Futsal",
+  grand_total: "Rp 150.000",
+  deposit_amount: "Rp 50.000",
+  paid_amount: "Rp 150.000",
+  balance_due: "Rp 0",
+  receipt_footer: "Terima kasih sudah berkunjung",
+};
 
 export default function ReceiptPrinterSettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -93,11 +99,12 @@ export default function ReceiptPrinterSettingsPage() {
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [isEditingReceipt, setIsEditingReceipt] = useState(false);
+  const [savedData, setSavedData] = useState<ReceiptSettings>({ receipt_template: defaultTemplate });
+  const [draft, setDraft] = useState<ReceiptSettings>({ receipt_template: defaultTemplate });
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [selectedDeviceName, setSelectedDeviceName] = useState<string | null>(null);
-  const [selectedDeviceState, setSelectedDeviceState] = useState<"idle" | "picked" | "connected">("idle");
   const [connectionState, setConnectionState] = useState<"idle" | "selected" | "connected" | "disconnected">("idle");
-  const [data, setData] = useState<ReceiptSettings>({ receipt_template: defaultTemplate });
   const bluetoothSessionRef = useRef<BluetoothDeviceSession | null>(null);
 
   useEffect(() => {
@@ -106,16 +113,15 @@ export default function ReceiptPrinterSettingsPage() {
       .get("/admin/receipt-settings")
       .then((res) => {
         if (!active) return;
-        setData({
-          ...res.data,
-          receipt_template: res.data?.receipt_template || defaultTemplate,
-        });
+        const nextData = normalizeSettings(res.data || {});
+        setSavedData(nextData);
+        setDraft(nextData);
         setLoading(false);
       })
       .catch(() => {
         if (active) {
           setLoading(false);
-          setMessage("Gagal memuat pengaturan nota");
+          setMessage("Gagal memuat pengaturan nota.");
         }
       });
     return () => {
@@ -123,56 +129,61 @@ export default function ReceiptPrinterSettingsPage() {
     };
   }, []);
 
-  const channelLabel = useMemo(() => {
-    const channel = String(data.receipt_channel || "whatsapp");
-    if (channel === "printer") return "Printer";
-    if (channel === "hybrid") return "Hybrid";
-    return "WhatsApp";
-  }, [data.receipt_channel]);
-
   const bluetoothAvailable = useMemo(() => {
     if (typeof window === "undefined") return false;
     return window.isSecureContext && "bluetooth" in navigator;
   }, []);
 
-  const printerModeLabel = useMemo(() => {
-    if (data.printer_mode === "bluetooth") return "Bluetooth";
-    if (data.printer_mode === "local-bridge") return "Local bridge";
-    if (data.printer_mode === "usb") return "USB";
-    if (data.printer_mode === "whatsapp") return "WhatsApp";
-    return data.printer_mode || "Belum dipilih";
-  }, [data.printer_mode]);
-
-  const connectionLabel = useMemo(() => {
-    if (connectionState === "connected") return "Printer terhubung";
+  const printerStatus = useMemo(() => {
+    if (connectionState === "connected") return "Terhubung";
     if (connectionState === "selected") return "Printer dipilih";
-    if (connectionState === "disconnected") return "Printer terputus";
-    return data.printer_enabled ? "Siap dipilih" : "Nonaktif";
-  }, [connectionState, data.printer_enabled]);
+    if (connectionState === "disconnected") return "Terputus";
+    if (savedData.printer_enabled) return "Siap dipakai";
+    return "Nonaktif";
+  }, [connectionState, savedData.printer_enabled]);
 
-  const stepLabel = useMemo(() => {
-    if (!bluetoothAvailable) return "Bluetooth tidak tersedia";
-    if (selectedDeviceState === "connected") return "1. Device dipilih, 2. Terhubung, 3. Siap simpan";
-    if (selectedDeviceState === "picked") return "1. Device dipilih, lanjut connect";
-    return "1. Scan device, 2. Pilih, 3. Connect";
-  }, [bluetoothAvailable, selectedDeviceState]);
+  const previewText = useMemo(() => renderTemplate(draft.receipt_template || defaultTemplate, draft), [draft]);
 
   const setField = (key: keyof ReceiptSettings, value: string | boolean) => {
-    setData((prev) => ({ ...prev, [key]: value }));
+    setDraft((prev) => ({ ...prev, [key]: value }));
   };
 
-  const persistSettings = async (nextData: ReceiptSettings, note?: string) => {
+  const persistSettings = async (nextData: ReceiptSettings, note: string) => {
+    setSaving(true);
+    setMessage(null);
     try {
-      const res = await api.put("/admin/receipt-settings", nextData);
-      setData({
-        ...res.data?.data,
-        receipt_template: res.data?.data?.receipt_template || defaultTemplate,
+      const payload = normalizeSettings({
+        ...nextData,
+        printer_mode: "bluetooth",
+        printer_endpoint: "",
+        receipt_channel: nextData.printer_enabled ? "printer" : "whatsapp",
       });
-      if (note) setMessage(note);
+      const res = await api.put("/admin/receipt-settings", payload);
+      const updated = normalizeSettings(res.data?.data || payload);
+      setSavedData(updated);
+      setDraft(updated);
+      setIsEditingReceipt(false);
+      setMessage(note);
     } catch (error) {
       const err = error as AxiosError<{ error?: string }>;
-      setMessage(err.response?.data?.error || "Gagal memperbarui pengaturan");
+      setMessage(err.response?.data?.error || "Gagal menyimpan pengaturan.");
+    } finally {
+      setSaving(false);
     }
+  };
+
+  const saveReceiptTemplate = async () => {
+    await persistSettings(draft, "Template nota berhasil disimpan.");
+  };
+
+  const savePrinterSettings = async (nextData: ReceiptSettings) => {
+    await persistSettings(nextData, "Pengaturan printer berhasil disimpan.");
+  };
+
+  const cancelReceiptEdit = () => {
+    setDraft(savedData);
+    setIsEditingReceipt(false);
+    setMessage(null);
   };
 
   const openBluetoothPicker = async () => {
@@ -181,33 +192,35 @@ export default function ReceiptPrinterSettingsPage() {
     try {
       const nav = navigator as BluetoothNavigator;
       if (!nav.bluetooth) {
-        setMessage("Browser ini belum mendukung Web Bluetooth");
+        setMessage("Bluetooth belum tersedia di browser ini. Gunakan Chrome/Edge lewat HTTPS atau localhost.");
         return;
       }
 
       const device = await nav.bluetooth.requestDevice({ acceptAllDevices: true });
+      const name = device.name || "Bluetooth Printer";
       setSelectedDeviceId(device.id);
-      setSelectedDeviceName(device.name || "Bluetooth Printer");
-      setSelectedDeviceState("picked");
+      setSelectedDeviceName(name);
       setConnectionState("selected");
-      setField("printer_enabled", true);
-      setField("printer_mode", "bluetooth");
-      setField("printer_name", device.name || "Bluetooth Printer");
-      setField("printer_status", "selected");
       bluetoothSessionRef.current = {
         id: device.id,
-        name: device.name || "Bluetooth Printer",
-        connect: async () => {
-          const connected = await device.gatt?.connect();
-          return Boolean(connected);
-        },
+        name,
+        connect: async () => Boolean(await device.gatt?.connect()),
         disconnect: () => device.gatt?.disconnect?.(),
       };
-      setMessage(device.name ? `Device dipilih: ${device.name}` : "Device Bluetooth dipilih");
+
+      const nextData = normalizeSettings({
+        ...draft,
+        printer_enabled: true,
+        printer_mode: "bluetooth",
+        printer_name: name,
+        printer_status: "selected",
+      });
+      setDraft(nextData);
+      await savePrinterSettings(nextData);
     } catch (error) {
       const err = error as Error;
       if (err.name !== "NotFoundError" && err.name !== "AbortError") {
-        setMessage("Gagal membuka pemilih printer Bluetooth");
+        setMessage("Gagal membuka pilihan printer Bluetooth.");
       }
     } finally {
       setScanning(false);
@@ -218,37 +231,32 @@ export default function ReceiptPrinterSettingsPage() {
     setConnecting(true);
     setMessage(null);
     try {
-      const nav = navigator as BluetoothNavigator;
-      if (!nav.bluetooth) {
-        setMessage("Browser ini belum mendukung Web Bluetooth");
-        return;
-      }
-
       const session = bluetoothSessionRef.current;
       if (!session) {
-        setMessage("Silakan scan dulu untuk memilih printer Bluetooth");
+        setMessage("Pilih printer Bluetooth dulu.");
         return;
       }
 
       const connected = await session.connect();
       if (!connected) {
-        setMessage("Perangkat tidak merespons saat koneksi dicoba");
+        setMessage("Printer tidak merespons saat koneksi dicoba.");
         return;
       }
 
-      setSelectedDeviceId(session.id);
-      setSelectedDeviceName(session.name);
-      setSelectedDeviceState("connected");
       setConnectionState("connected");
-      setField("printer_enabled", true);
-      setField("printer_mode", "bluetooth");
-      setField("printer_name", session.name);
-      setField("printer_status", "connected");
-      setMessage(session.name ? `Printer ${session.name} tersambung` : "Printer Bluetooth tersambung");
+      const nextData = normalizeSettings({
+        ...draft,
+        printer_enabled: true,
+        printer_mode: "bluetooth",
+        printer_name: session.name,
+        printer_status: "connected",
+      });
+      setDraft(nextData);
+      await savePrinterSettings(nextData);
     } catch (error) {
       const err = error as Error;
       if (err.name !== "NotFoundError" && err.name !== "AbortError") {
-        setMessage("Gagal mencoba koneksi Bluetooth");
+        setMessage("Gagal menghubungkan printer Bluetooth.");
       }
     } finally {
       setConnecting(false);
@@ -260,33 +268,39 @@ export default function ReceiptPrinterSettingsPage() {
     setMessage(null);
     try {
       bluetoothSessionRef.current?.disconnect();
+      bluetoothSessionRef.current = null;
+      setSelectedDeviceId(null);
+      setSelectedDeviceName(null);
       setConnectionState("disconnected");
-      setSelectedDeviceState("idle");
-      setField("printer_status", "disconnected");
-      setMessage("Status printer Bluetooth direset ke terputus");
+      const nextData = normalizeSettings({
+        ...draft,
+        printer_enabled: false,
+        printer_mode: "bluetooth",
+        printer_status: "disconnected",
+      });
+      setDraft(nextData);
+      await savePrinterSettings(nextData);
     } finally {
       setDisconnecting(false);
     }
   };
 
-  const onSave = async () => {
-    setSaving(true);
-    setMessage(null);
-    try {
-      await persistSettings(data, "Pengaturan nota dan printer berhasil disimpan");
-    } finally {
-      setSaving(false);
-    }
+  const toggleAutoPrint = async (enabled: boolean) => {
+    const nextData = normalizeSettings({
+      ...draft,
+      printer_auto_print: enabled,
+    });
+    setDraft(nextData);
+    await savePrinterSettings(nextData);
   };
 
   const onCopyWhatsApp = async () => {
     setCopying(true);
     try {
-      const text = [data.receipt_whatsapp_text || "Berikut struk transaksi Anda dari Bookinaja.", "", "Isi pesan bisa dipakai untuk kirim ringkasan transaksi ke pelanggan."].join("\n");
-      await navigator.clipboard.writeText(text);
-      setMessage("Teks WhatsApp nota sudah disalin");
+      await navigator.clipboard.writeText(draft.receipt_whatsapp_text || "Berikut struk transaksi Anda dari Bookinaja.");
+      setMessage("Teks WhatsApp nota disalin.");
     } catch {
-      setMessage("Gagal menyalin teks WhatsApp");
+      setMessage("Gagal menyalin teks WhatsApp.");
     } finally {
       setCopying(false);
     }
@@ -301,44 +315,28 @@ export default function ReceiptPrinterSettingsPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03] lg:flex-row lg:items-center lg:justify-between">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <BadgeCheck className="h-4 w-4 text-blue-600" />
-            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">Nota & Printer</span>
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
-            Konten nota, koneksi printer, dan jalur kirim WhatsApp
-          </h1>
-          <p className="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-            Satu tempat untuk mengatur isi struk, memilih channel cetak, dan menyiapkan printer yang dipakai saat pelunasan booking.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <div className="rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-600 dark:border-white/10 dark:text-slate-300">
-            Channel aktif: <span className="font-semibold text-slate-950 dark:text-white">{channelLabel}</span>
-          </div>
-          <div className="rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-600 dark:border-white/10 dark:text-slate-300">
-            Status printer: <span className="font-semibold text-slate-950 dark:text-white">{connectionLabel}</span>
-          </div>
-        </div>
-      </div>
-
-      <Card className="border-blue-200 bg-blue-50/70 shadow-sm dark:border-blue-500/20 dark:bg-blue-500/10">
-        <CardContent className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-700 dark:text-blue-200">Panduan singkat</div>
-            <div className="text-sm font-medium text-slate-900 dark:text-white">{stepLabel}</div>
-            <div className="text-xs text-slate-600 dark:text-slate-300">
-              Admin cukup scan, pilih printer, connect kalau ingin cek sesi, lalu simpan pengaturan.
+    <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4 sm:px-6 lg:px-8">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03] sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0 space-y-1">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">
+              <ReceiptText className="h-4 w-4" />
+              Nota & Printer
             </div>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+              Nota sederhana, printer Bluetooth jelas
+            </h1>
+            <p className="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-400">
+              Atur isi struk dan koneksi printer tanpa opsi teknis yang tidak perlu.
+            </p>
           </div>
-          <div className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-blue-500/20 dark:bg-white/5 dark:text-slate-200">
-            Mode yang dipakai sekarang: <span className="font-semibold">{printerModeLabel}</span>
+          <div className="grid gap-2 sm:grid-cols-3 lg:w-[520px]">
+            <StatusPill label="Printer" value={printerStatus} active={!!savedData.printer_enabled} />
+            <StatusPill label="Mode" value="Bluetooth" active />
+            <StatusPill label="Auto print" value={savedData.printer_auto_print ? "Aktif" : "Manual"} active={!!savedData.printer_auto_print} />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {message && (
         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
@@ -346,256 +344,223 @@ export default function ReceiptPrinterSettingsPage() {
         </div>
       )}
 
-      <Card className="border-slate-200 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
-        <CardContent className="grid gap-3 p-4 sm:grid-cols-4">
-          <div className="rounded-xl border border-slate-200 px-3 py-3 dark:border-white/10">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">Alur</div>
-            <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">Scan → Pilih → Connect → Disconnect</div>
-          </div>
-          <div className="rounded-xl border border-slate-200 px-3 py-3 dark:border-white/10">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">Device</div>
-            <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">{selectedDeviceName || data.printer_name || "Belum ada perangkat"}</div>
-          </div>
-          <div className="rounded-xl border border-slate-200 px-3 py-3 dark:border-white/10">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">ID</div>
-            <div className="mt-1 break-all text-sm font-semibold text-slate-950 dark:text-white">{selectedDeviceId || "Belum dipilih"}</div>
-          </div>
-          <div className="rounded-xl border border-slate-200 px-3 py-3 dark:border-white/10">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">Mode</div>
-            <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">{printerModeLabel}</div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <Card className="border-slate-200 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
-          <CardHeader className="space-y-2">
-            <CardTitle className="text-base">Konten Nota</CardTitle>
-            <CardDescription>
-              Atur isi nota standar yang dipakai saat pelunasan dan saat staf kirim ringkasan ke pelanggan.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Judul nota</Label>
-                <Input value={data.receipt_title || ""} onChange={(e) => setField("receipt_title", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Subjudul</Label>
-                <Input value={data.receipt_subtitle || ""} onChange={(e) => setField("receipt_subtitle", e.target.value)} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Footer nota</Label>
-              <Input value={data.receipt_footer || ""} onChange={(e) => setField("receipt_footer", e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Template WhatsApp</Label>
-              <Textarea
-                value={data.receipt_whatsapp_text || ""}
-                onChange={(e) => setField("receipt_whatsapp_text", e.target.value)}
-                className="min-h-28"
-              />
-              <p className="text-xs text-slate-500">Teks ini dipakai saat staf kirim nota via WhatsApp ke pelanggan.</p>
-            </div>
-            <div className="space-y-2">
-              <Label>Template cetak</Label>
-              <Textarea
-                value={data.receipt_template || ""}
-                onChange={(e) => setField("receipt_template", e.target.value)}
-                className="min-h-48 font-mono text-xs"
-              />
-              <p className="text-xs text-slate-500">
-                Gunakan placeholder seperti <code>{`{receipt_title}`}</code>, <code>{`{grand_total}`}</code>, atau <code>{`{customer_name}`}</code>.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant="secondary" onClick={onCopyWhatsApp} disabled={copying}>
-                <Copy className="mr-2 h-4 w-4" />
-                Salin Teks WA
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
+      <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="space-y-4">
           <Card className="border-slate-200 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
             <CardHeader className="space-y-2">
-              <CardTitle className="text-base">Koneksi Printer</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Printer className="h-4 w-4 text-blue-600" />
+                Printer Bluetooth
+              </CardTitle>
               <CardDescription>
-                Gunakan alur scan dulu, pilih device, lalu connect kalau mau memastikan sesi browser ke printer benar-benar aktif.
+                Pilih printer dari browser, lalu connect kalau mau cek sesi. Tidak ada mode lain di halaman ini.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Mode printer</Label>
-                  <Select value={data.printer_mode || "bluetooth"} onValueChange={(value) => setField("printer_mode", value)}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Pilih mode printer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="bluetooth">Bluetooth</SelectItem>
-                      <SelectItem value="local-bridge">Local bridge</SelectItem>
-                      <SelectItem value="usb">USB</SelectItem>
-                      <SelectItem value="whatsapp">WhatsApp only</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Printer terpilih</div>
+                <div className="mt-2 text-base font-semibold text-slate-950 dark:text-white">
+                  {selectedDeviceName || draft.printer_name || "Belum ada printer"}
                 </div>
-                <div className="space-y-2">
-                  <Label>Nama printer</Label>
-                  <Input
-                    value={data.printer_name || ""}
-                    onChange={(e) => setField("printer_name", e.target.value)}
-                    placeholder="Epson TM-T82"
-                  />
+                <div className="mt-1 break-all text-xs text-slate-500">
+                  {selectedDeviceId || (draft.printer_enabled ? "Tersimpan dari sesi sebelumnya" : "Klik Pilih Printer untuk mulai")}
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Endpoint bridge printer</Label>
-                <Input
-                  value={data.printer_endpoint || ""}
-                  onChange={(e) => setField("printer_endpoint", e.target.value)}
-                  placeholder="http://localhost:3030/print"
-                />
-                <p className="text-xs text-slate-500">
-                  Dipakai kalau printer lewat bridge lokal. Kalau Bluetooth murni, bagian ini bisa dikosongkan.
-                </p>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button type="button" onClick={openBluetoothPicker} disabled={scanning || saving || !bluetoothAvailable}>
+                  <Bluetooth className="mr-2 h-4 w-4" />
+                  {scanning ? "Membuka..." : "Pilih Printer"}
+                </Button>
+                <Button type="button" variant="outline" onClick={connectSelectedBluetooth} disabled={connecting || saving || !bluetoothAvailable}>
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  {connecting ? "Connect..." : "Test Connect"}
+                </Button>
+                <Button type="button" variant="outline" onClick={disconnectBluetooth} disabled={disconnecting || saving} className="sm:col-span-2">
+                  <Unplug className="mr-2 h-4 w-4" />
+                  {disconnecting ? "Memutus..." : "Matikan Printer"}
+                </Button>
               </div>
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-3 dark:border-white/10">
-                <div>
-                  <div className="text-sm font-semibold text-slate-950 dark:text-white">Aktifkan printer</div>
-                  <div className="text-xs text-slate-500">Centang kalau tenant memang memakai printer atau bridge lokal.</div>
+
+              {!bluetoothAvailable && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                  Web Bluetooth hanya aktif di Chrome/Edge lewat HTTPS atau localhost.
                 </div>
-                <Switch checked={!!data.printer_enabled} onCheckedChange={(value) => setField("printer_enabled", value)} />
-              </div>
+              )}
+
               <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-3 dark:border-white/10">
                 <div>
                   <div className="text-sm font-semibold text-slate-950 dark:text-white">Auto print saat lunas</div>
-                  <div className="text-xs text-slate-500">Kalau aktif, sistem menyiapkan cetak otomatis setelah payment settlement.</div>
+                  <div className="text-xs text-slate-500">Kalau aktif, nota disiapkan untuk cetak setelah pembayaran lunas.</div>
                 </div>
-                <Switch checked={!!data.printer_auto_print} onCheckedChange={(value) => setField("printer_auto_print", value)} />
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={openBluetoothPicker}
-                  disabled={scanning || !bluetoothAvailable}
-                >
-                  <Bluetooth className="mr-2 h-4 w-4" />
-                  {scanning ? "Membuka scanner..." : "Scan Bluetooth"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={connectSelectedBluetooth}
-                  disabled={connecting || !bluetoothAvailable}
-                >
-                  <PlugZap className="mr-2 h-4 w-4" />
-                  {connecting ? "Mencoba konek..." : "Connect"}
-                </Button>
-                <Button type="button" variant="outline" onClick={disconnectBluetooth} disabled={disconnecting}>
-                  <Unplug className="mr-2 h-4 w-4" />
-                  {disconnecting ? "Memutus..." : "Disconnect"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setMessage("Alur singkat: Scan untuk pilih device, Connect untuk coba sesi browser, Disconnect untuk reset status. Kalau belum support, pakai Chrome/Edge di HTTPS atau localhost.")}
-                >
-                  <Link2 className="mr-2 h-4 w-4" />
-                  Cara Pakai
-                </Button>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-slate-200 px-3 py-3 dark:border-white/10">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">Printer terpilih</div>
-                  <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
-                    {selectedDeviceName || data.printer_name || "Belum ada perangkat"}
-                  </div>
-                  <div className="mt-1 text-xs text-slate-500">{selectedDeviceId || "Klik Scan Bluetooth untuk memilih printer"}</div>
-                </div>
-                <div className="rounded-xl border border-slate-200 px-3 py-3 dark:border-white/10">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">Kesiapan browser</div>
-                  <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
-                    {bluetoothAvailable ? "Web Bluetooth siap dipakai" : "Web Bluetooth belum siap"}
-                  </div>
-                  <div className="mt-1 text-xs text-slate-500">
-                    {bluetoothAvailable
-                      ? "Pilih device dulu, baru connect kalau perlu uji sesi."
-                      : "Buka lewat Chrome/Edge di HTTPS atau localhost agar tombol scan bisa aktif."}
-                  </div>
-                </div>
-              </div>
-              {!bluetoothAvailable && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-                  Bluetooth belum aktif di environment ini. Coba buka lewat <span className="font-semibold">Chrome atau Edge</span> pada <span className="font-semibold">localhost</span> atau <span className="font-semibold">HTTPS</span>.
-                </div>
-              )}
-              <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-3 text-xs text-slate-600 dark:bg-white/[0.03] dark:text-slate-300">
-                <CheckCircle2 className={cn("h-4 w-4", data.printer_status === "connected" || connectionState === "connected" ? "text-emerald-500" : "text-amber-500")} />
-                Status terakhir: {connectionLabel}
+                <Switch checked={!!draft.printer_auto_print} onCheckedChange={toggleAutoPrint} disabled={saving} />
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-slate-200 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
             <CardHeader className="space-y-2">
-              <CardTitle className="text-base">Channel Kirim</CardTitle>
-              <CardDescription>Pilih jalur utama yang paling sering dipakai staf saat kirim nota.</CardDescription>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Smartphone className="h-4 w-4 text-blue-600" />
+                Pesan WhatsApp
+              </CardTitle>
+              <CardDescription>Teks pendek yang dipakai saat staf kirim nota ke pelanggan.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {isEditingReceipt ? (
+                <Textarea
+                  value={draft.receipt_whatsapp_text || ""}
+                  onChange={(event) => setField("receipt_whatsapp_text", event.target.value)}
+                  className="min-h-28"
+                />
+              ) : (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
+                  {draft.receipt_whatsapp_text || "Berikut struk transaksi Anda dari Bookinaja."}
+                </div>
+              )}
+              <Button type="button" variant="outline" onClick={onCopyWhatsApp} disabled={copying}>
+                <Copy className="mr-2 h-4 w-4" />
+                {copying ? "Menyalin..." : "Salin Pesan"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-4">
+          <Card className="border-slate-200 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+            <CardHeader className="space-y-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <CardTitle className="text-base">Template Nota</CardTitle>
+                  <CardDescription>Mode view dulu. Edit hanya saat perlu mengubah isi nota.</CardDescription>
+                </div>
+                {isEditingReceipt ? (
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={cancelReceiptEdit} disabled={saving}>
+                      <X className="mr-2 h-4 w-4" />
+                      Batal
+                    </Button>
+                    <Button type="button" size="sm" onClick={saveReceiptTemplate} disabled={saving}>
+                      <Save className="mr-2 h-4 w-4" />
+                      {saving ? "Menyimpan..." : "Simpan"}
+                    </Button>
+                  </div>
+                ) : (
+                  <Button type="button" variant="outline" size="sm" onClick={() => setIsEditingReceipt(true)}>
+                    <Edit3 className="mr-2 h-4 w-4" />
+                    Edit Template
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-3">
-                {["whatsapp", "printer", "hybrid"].map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => setField("receipt_channel", item)}
-                    className={cn(
-                      "rounded-xl border px-4 py-3 text-left text-sm font-semibold transition",
-                      data.receipt_channel === item
-                        ? "border-blue-600 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-200"
-                        : "border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-700 dark:border-white/10 dark:text-slate-300",
-                    )}
-                  >
-                    {item === "whatsapp" ? "WhatsApp" : item === "printer" ? "Printer" : "Hybrid"}
-                  </button>
-                ))}
-              </div>
-              <Separator />
-              <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
-                <div className="flex items-start gap-2">
-                  <Smartphone className="mt-0.5 h-4 w-4 text-blue-600" />
-                  <span>WhatsApp cocok kalau tenant belum siap printer fisik.</span>
+              {isEditingReceipt ? (
+                <div className="space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Judul nota">
+                      <Input value={draft.receipt_title || ""} onChange={(event) => setField("receipt_title", event.target.value)} />
+                    </Field>
+                    <Field label="Subjudul">
+                      <Input value={draft.receipt_subtitle || ""} onChange={(event) => setField("receipt_subtitle", event.target.value)} />
+                    </Field>
+                  </div>
+                  <Field label="Footer">
+                    <Input value={draft.receipt_footer || ""} onChange={(event) => setField("receipt_footer", event.target.value)} />
+                  </Field>
+                  <Field label="Template cetak">
+                    <Textarea
+                      value={draft.receipt_template || ""}
+                      onChange={(event) => setField("receipt_template", event.target.value)}
+                      className="min-h-56 font-mono text-xs"
+                    />
+                  </Field>
+                  <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-500 dark:bg-white/[0.03]">
+                    Placeholder yang umum: {"{receipt_title}"}, {"{customer_name}"}, {"{resource_name}"}, {"{grand_total}"}, {"{paid_amount}"}, {"{balance_due}"}.
+                  </div>
                 </div>
-                <div className="flex items-start gap-2">
-                  <Printer className="mt-0.5 h-4 w-4 text-blue-600" />
-                  <span>Printer dipakai kalau ada device fisik atau bridge lokal.</span>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <ReadField label="Judul" value={draft.receipt_title || "Struk Bookinaja"} />
+                  <ReadField label="Subjudul" value={draft.receipt_subtitle || "Bukti transaksi resmi"} />
+                  <ReadField label="Footer" value={draft.receipt_footer || "Terima kasih sudah berkunjung"} />
                 </div>
-                <div className="flex items-start gap-2">
-                  <MessageCircleMore className="mt-0.5 h-4 w-4 text-blue-600" />
-                  <span>Hybrid kirim ke printer dan WhatsApp sekaligus.</span>
-                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-200 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+            <CardHeader className="space-y-2">
+              <CardTitle className="text-base">Preview Nota</CardTitle>
+              <CardDescription>Preview ini memakai contoh transaksi supaya format mudah dicek.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="mx-auto max-w-sm rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950">
+                <pre className="whitespace-pre-wrap font-mono text-xs leading-6 text-slate-800 dark:text-slate-100">
+                  {previewText}
+                </pre>
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
+    </div>
+  );
+}
 
-      <Card className="border-slate-200 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
-        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <div className="text-sm font-semibold text-slate-950 dark:text-white">Simpan konfigurasi</div>
-            <div className="text-xs text-slate-500">Perubahan ini dipakai saat pelunasan booking dan saat staf kirim nota.</div>
-          </div>
-          <Button onClick={onSave} disabled={saving} className="sm:min-w-44">
-            <Save className="mr-2 h-4 w-4" />
-            {saving ? "Menyimpan..." : "Simpan Pengaturan"}
-          </Button>
-        </CardContent>
-      </Card>
+function normalizeSettings(data: ReceiptSettings): ReceiptSettings {
+  return {
+    ...data,
+    receipt_title: data.receipt_title || "Struk Bookinaja",
+    receipt_subtitle: data.receipt_subtitle || "Bukti transaksi resmi",
+    receipt_footer: data.receipt_footer || "Terima kasih sudah berkunjung",
+    receipt_whatsapp_text: data.receipt_whatsapp_text || "Berikut struk transaksi Anda dari Bookinaja.",
+    receipt_template: data.receipt_template || defaultTemplate,
+    receipt_channel: data.receipt_channel || "whatsapp",
+    printer_mode: "bluetooth",
+    printer_endpoint: "",
+    printer_status: data.printer_status || "disconnected",
+  };
+}
+
+function renderTemplate(template: string, data: ReceiptSettings) {
+  const values = {
+    ...sampleReceipt,
+    receipt_title: data.receipt_title || sampleReceipt.receipt_title,
+    receipt_subtitle: data.receipt_subtitle || sampleReceipt.receipt_subtitle,
+    receipt_footer: data.receipt_footer || sampleReceipt.receipt_footer,
+  };
+
+  return Object.entries(values).reduce(
+    (text, [key, value]) => text.replaceAll(`{${key}}`, String(value)),
+    template || defaultTemplate,
+  );
+}
+
+function StatusPill({ label, value, active }: { label: string; value: string; active?: boolean }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</div>
+      <div className={cn("mt-1 text-sm font-semibold", active ? "text-blue-700 dark:text-blue-200" : "text-slate-950 dark:text-white")}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+function ReadField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</div>
+      <div className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">{value}</div>
     </div>
   );
 }
