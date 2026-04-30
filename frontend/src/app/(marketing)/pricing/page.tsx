@@ -4,7 +4,7 @@ import PricingPage from "./page.client";
 export const metadata: Metadata = {
   title: "Pricing — Bookinaja",
   description:
-    "Pilih paket Bookinaja untuk kebutuhan bisnis persewaan: free trial 30 hari, Starter, atau Pro. Billing fleksibel bulanan/tahunan, aktivasi cepat via Midtrans.",
+    "Pilih paket Bookinaja untuk kebutuhan bisnis persewaan: trial 30 hari, Starter, Pro, atau Scale. Billing fleksibel bulanan atau tahunan untuk operasional yang makin rapi.",
   alternates: { canonical: "/pricing" },
 };
 
