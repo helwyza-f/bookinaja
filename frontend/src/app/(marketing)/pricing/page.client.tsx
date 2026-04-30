@@ -24,8 +24,7 @@ import {
 
 /**
  * PRICING PAGE - BOOKINAJA.COM
- * Logic: Annual price displayed as "effective monthly" to lower barrier.
- * Features: Starter (Single Owner) vs Pro (Multi-Role Staff).
+ * Prelaunch pricing: honest trial-first offer with clear upgrade paths.
  */
 export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(true);
@@ -41,17 +40,17 @@ export default function PricingPage() {
       originalMonthly: "189.000",
       originalAnnualTotal: "2.268.000",
       annualTotal: "1.788.000",
-      desc: "Cocok buat tenant yang baru mulai dan ingin fokus validasi pelanggan.",
+      desc: "Untuk owner yang ingin keluar dari catatan manual dan mulai operasional lebih rapi tanpa tim besar.",
       features: [
-        "Free trial 30 hari",
+        "Trial prelaunch 30 hari",
         "1 Akun Utama (Owner Only)",
         "Akses Full Dashboard Admin",
         "Website Booking (Subdomain)",
         "Sampai 10 pelanggan aktif",
-        "Laporan Pendapatan Bulanan",
-        "Email & Chat Support",
+        "Laporan pendapatan dasar",
+        "Support chat & onboarding awal",
       ],
-      cta: "Pilih Starter",
+      cta: "Mulai Starter",
       popular: false,
     },
     {
@@ -60,8 +59,9 @@ export default function PricingPage() {
       originalMonthly: "399.000",
       originalAnnualTotal: "4.788.000",
       annualTotal: "3.588.000",
-      desc: "Untuk tenant yang ingin scale, repeat order, dan database pelanggan lebih besar.",
+      desc: "Untuk bisnis yang ingin kontrol staff, pelanggan lebih banyak, dan operasional yang lebih siap scale.",
       features: [
+        "Trial prelaunch 30 hari",
         "Akses Akun Staff/Karyawan",
         "Role-Based Access (Admin/Kasir)",
         "Unlimited pelanggan",
@@ -69,24 +69,24 @@ export default function PricingPage() {
         "Dashboard Status Live Real-time",
         "Sistem Harga Khusus Weekend",
         "WhatsApp Reminder Otomatis",
-        "Prioritas Support 24/7",
+        "Priority onboarding & support",
       ],
-      cta: "Pilih Pro",
+      cta: "Mulai Pro",
       popular: true,
     },
     {
       name: "Enterprise",
       price: "Custom",
-      desc: "Dukungan eksklusif untuk jaringan bisnis skala nasional.",
+      desc: "Untuk kebutuhan multi-cabang, branding khusus, dan flow operasional yang lebih kompleks.",
       features: [
         "Custom Domain (bisnisanda.com)",
         "Hapus Logo & Branding Bookinaja",
         "Unlimited Multi-User Roles",
-        "Analitik Data Konsumen Lanjutan",
-        "SLA & Akun Manajer Khusus",
-        "Setup Dibantu Tim Ahli",
+        "Kebutuhan flow & integrasi khusus",
+        "Pendampingan implementasi",
+        "Setup dibantu tim",
       ],
-      cta: "Hubungi Sales",
+      cta: "Konsultasi Enterprise",
       popular: false,
     },
   ];
@@ -110,25 +110,26 @@ export default function PricingPage() {
             variant="outline"
             className="border-blue-500/20 bg-blue-500/5 text-blue-500 px-5 py-1.5 font-syne text-[10px] font-bold uppercase tracking-widest"
           >
-            30 Hari Free Trial
+            Prelaunch Offer
           </Badge>
           <h1 className="text-5xl font-black tracking-tighter sm:text-7xl text-foreground leading-[0.9]">
-            Fokus ke <br />
-            <span className="text-blue-500 italic">Pelanggan yang Balik Lagi.</span>
+            Pilih paket yang bikin <br />
+            <span className="text-blue-500 italic">chaos operasional berhenti.</span>
           </h1>
           <p className="max-w-[32rem] text-lg md:text-xl text-muted-foreground font-medium">
-            Free trial 30 hari, lalu lanjut ke paket yang paling sesuai dengan
-            jumlah pelanggan dan kebutuhan operasional tenant Anda.
+            Semua paket dimulai dengan trial 30 hari tanpa kartu kredit.
+            Masuk lebih awal, setup lebih cepat, dan uji apakah Bookinaja
+            benar-benar bikin booking, staff, dan pelanggan lebih rapi.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
             <span className="rounded-full border border-blue-500/15 bg-blue-500/5 px-3 py-1 text-blue-600">
-              Starter: 10 pelanggan
+              Trial 30 hari
             </span>
             <span className="rounded-full border border-emerald-500/15 bg-emerald-500/5 px-3 py-1 text-emerald-600">
-              Pro: unlimited pelanggan
+              Tanpa kartu kredit
             </span>
             <span className="rounded-full border border-slate-200 bg-white/60 px-3 py-1">
-              Blast WhatsApp tersedia
+              Onboarding dibantu
             </span>
           </div>
 
@@ -277,10 +278,10 @@ export default function PricingPage() {
           <div className="flex items-start justify-between gap-6 flex-wrap">
             <div className="space-y-2">
               <h2 className="text-2xl md:text-3xl font-black tracking-tight">
-                Bandingkan Paket Secara Cepat
+                Bandingkan Berdasarkan Hasil yang Kamu Butuhkan
               </h2>
               <p className="text-sm font-semibold text-muted-foreground max-w-3xl">
-                Kalau kamu masih ragu, tabel ini merangkum fitur pembeda paling penting.
+                Kalau kamu masih ragu, mulai dari transformasi yang paling ingin kamu capai dulu.
               </p>
             </div>
             <Link href="/documentation">
@@ -301,12 +302,12 @@ export default function PricingPage() {
               </TableHeader>
               <TableBody>
                 {[
-                  { label: "Website Booking Tenant", starter: true, pro: true },
-                  { label: "Dashboard Admin", starter: true, pro: true },
-                  { label: "Staff / Role-based Access", starter: false, pro: true },
-                  { label: "Unit & Resource Tanpa Batas", starter: false, pro: true },
-                  { label: "Weekend Pricing / Special Rules", starter: false, pro: true },
-                  { label: "Prioritas Support", starter: false, pro: true },
+                  { label: "Booking tidak dicatat manual lagi", starter: true, pro: true },
+                  { label: "Owner bisa pantau operasional dari dashboard", starter: true, pro: true },
+                  { label: "Staff punya akses sesuai role", starter: false, pro: true },
+                  { label: "Bisnis lebih siap scale ke banyak unit", starter: false, pro: true },
+                  { label: "Aturan harga & operasional lebih fleksibel", starter: false, pro: true },
+                  { label: "Onboarding dan support lebih prioritas", starter: false, pro: true },
                 ].map((row) => (
                   <TableRow key={row.label}>
                     <TableCell className="font-semibold text-muted-foreground whitespace-normal">
@@ -347,7 +348,7 @@ export default function PricingPage() {
               Aman & Terenkripsi
             </h4>
             <p className="text-xs text-muted-foreground text-pretty">
-              Pembayaran diproteksi oleh standar AES-256 dan 3D Secure Midtrans.
+              Coba dulu 30 hari tanpa kartu kredit sebelum memutuskan lanjut.
             </p>
           </div>
           <div className="flex flex-col items-center text-center space-y-3">
@@ -355,10 +356,10 @@ export default function PricingPage() {
               <Zap className="h-6 w-6" />
             </div>
             <h4 className="font-bold text-sm text-foreground">
-              Aktif Seketika
+              Fokus ke Hasil
             </h4>
             <p className="text-xs text-muted-foreground text-pretty">
-              Layanan otomatis aktif sesaat setelah pembayaran berhasil.
+              Pilih paket berdasarkan seberapa cepat kamu ingin berhenti dari booking manual dan operasional berantakan.
             </p>
           </div>
           <div className="flex flex-col items-center text-center space-y-3">
@@ -366,10 +367,10 @@ export default function PricingPage() {
               <HelpCircle className="h-6 w-6" />
             </div>
             <h4 className="font-bold text-sm text-foreground">
-              Bantuan Teknis
+              Onboarding Dekat
             </h4>
             <p className="text-xs text-muted-foreground text-pretty">
-              Tim support kami siap membantu setiap kendala bisnis Anda.
+              Pengguna prelaunch mendapat akses lebih dekat ke tim untuk setup dan feedback.
             </p>
           </div>
         </div>
@@ -384,7 +385,7 @@ export default function PricingPage() {
             href="mailto:support@bookinaja.com"
             className="text-blue-500 font-bold hover:underline underline-offset-4"
           >
-            Konsultasi Gratis
+            Konsultasi Prelaunch
           </Link>
         </p>
       </div>

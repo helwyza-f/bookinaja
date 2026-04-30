@@ -395,23 +395,23 @@ export default function RegisterPage() {
               <div className="space-y-6">
                 <Badge className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-5 py-2 rounded-full font-syne text-[10px] font-bold uppercase tracking-[0.2em] backdrop-blur-md">
                   <Sparkles className="mr-2 h-3.5 w-3.5 fill-current" />
-                  Enterprise Architecture
+                  Prelaunch Access
                 </Badge>
                 <h2 className="text-6xl font-black leading-[0.9] tracking-tighter italic">
-                  Digitalisasi <br />
-                  <span className="text-blue-500">Nasional.</span>
+                  Masuk Lebih Awal. <br />
+                  <span className="text-blue-500">Setup Lebih Tenang.</span>
                 </h2>
                 <p className="text-slate-400 font-medium text-lg leading-relaxed">
-                  Gabung bersama ratusan pemilik usaha yang telah
-                  mengotomatisasi bisnis mereka hari ini.
+                  Fase prelaunch memberi kamu trial 30 hari, onboarding lebih
+                  dekat, dan kesempatan membentuk produk bersama tim kami.
                 </p>
               </div>
 
               <div className="space-y-8">
                 {[
-                  { icon: Globe, text: "Subdomain Profesional" },
-                  { icon: ShieldCheck, text: "Isolasi Data High-Security" },
-                  { icon: Rocket, text: "Otomasi Billing Instan" },
+                  { icon: Globe, text: "Subdomain Bisnis Siap Pakai" },
+                  { icon: ShieldCheck, text: "Trial Tanpa Kartu Kredit" },
+                  { icon: Rocket, text: "Onboarding Dibantu Tim" },
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-5 group">
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/5 border border-white/10 group-hover:bg-blue-600 group-hover:border-blue-500 transition-all duration-500">
@@ -427,7 +427,7 @@ export default function RegisterPage() {
 
             <div className="relative z-10 p-8 rounded-[2rem] bg-white/5 border border-white/10 backdrop-blur-md">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] leading-loose">
-                ISO 27001 Certified · Cloud Infrastructure · 24/7 Monitoring
+                Early Access · Trial 30 Hari · Cancel Kapan Saja
               </p>
             </div>
           </div>
@@ -439,14 +439,15 @@ export default function RegisterPage() {
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500">
                   <Fingerprint className="h-4 w-4" />
                   <span className="text-[10px] font-black uppercase tracking-[0.3em]">
-                    Business Registration
+                    Prelaunch Registration
                   </span>
                 </div>
                 <h1 className="text-5xl md:text-6xl font-black tracking-tighter text-foreground italic uppercase leading-none">
                   Mulai Bisnis
                 </h1>
                 <p className="text-muted-foreground font-medium text-lg leading-snug">
-                  Konfigurasi infrastruktur digital Anda hanya dalam 60 detik.
+                  Buka akses awal Bookinaja untuk bisnis kamu dan coba gratis
+                  30 hari bersama onboarding dari tim kami.
                 </p>
               </div>
 
@@ -473,13 +474,13 @@ export default function RegisterPage() {
                 </p>
                 <div className="flex flex-wrap justify-center gap-6 opacity-40 grayscale pointer-events-none">
                   <div className="text-[9px] font-black uppercase tracking-widest border border-foreground/20 px-3 py-1 rounded-md">
-                    AWS Infrastructure
+                    Trial 30 Hari
                   </div>
                   <div className="text-[9px] font-black uppercase tracking-widest border border-foreground/20 px-3 py-1 rounded-md">
-                    AES-256 Encrypted
+                    Tanpa Kartu Kredit
                   </div>
                   <div className="text-[9px] font-black uppercase tracking-widest border border-foreground/20 px-3 py-1 rounded-md">
-                    SLA 99.9%
+                    Dibantu Sampai Live
                   </div>
                 </div>
               </div>

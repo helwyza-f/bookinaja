@@ -244,11 +244,10 @@ function NotFoundUI() {
         </h1>
         <div className="space-y-3 relative z-10 -mt-10 md:-mt-20">
           <p className="font-black uppercase tracking-[0.6em] text-blue-600 text-sm md:text-base italic">
-            Station Offline
+            Halaman Tidak Ditemukan
           </p>
           <p className="text-slate-500 font-bold italic text-[10px] md:text-xs uppercase tracking-widest px-4 max-w-xs mx-auto">
-            Target business hub not found in Batam Engine database or your
-            session is out of sync.
+            Bisnis yang kamu cari belum tersedia atau sesi browser sedang tidak sinkron.
           </p>
         </div>
         <div className="flex flex-col items-center gap-4 relative z-10">
@@ -257,7 +256,7 @@ function NotFoundUI() {
               variant="outline"
               className="rounded-full h-16 px-12 font-black uppercase border-white/10 hover:bg-white hover:text-black transition-all italic tracking-widest"
             >
-              Abort Mission
+              Kembali ke Beranda
             </Button>
           </Link>
           <button
@@ -265,7 +264,7 @@ function NotFoundUI() {
             className="group flex flex-col items-center gap-2 text-slate-500 hover:text-white transition-colors"
           >
             <span className="text-[10px] font-black uppercase italic tracking-[0.3em]">
-              Force Reconnect
+              Coba Muat Ulang
             </span>
             <div className="h-0.5 w-8 bg-blue-600 group-hover:w-24 transition-all duration-500" />
           </button>

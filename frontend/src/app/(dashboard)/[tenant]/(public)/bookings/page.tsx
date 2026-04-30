@@ -14,7 +14,6 @@ import {
   Search,
   Filter,
   ArrowRight,
-  Star,
   Layers,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -205,22 +204,21 @@ function ResourceCard({ res, primaryColor, getBestPrice }: any) {
                 {res.name}
               </h3>
               <div className="flex items-center gap-1 bg-slate-50 dark:bg-white/5 px-2 py-1 rounded-lg">
-                <Star className="h-2.5 w-2.5 fill-yellow-400 text-yellow-400" />
-                <span className="text-[9px] font-black text-slate-400">
-                  4.9
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                  Ready
                 </span>
               </div>
             </div>
             <p className="text-[10px] font-bold text-slate-400 line-clamp-2 italic uppercase tracking-tight leading-relaxed">
               {res.description ||
-                "Premium asset configured for high-performance use cases."}
+                "Siap dipilih untuk booking yang lebih cepat dan rapi."}
             </p>
           </div>
 
           <div className="flex items-end justify-between border-t border-slate-50 dark:border-white/5 pt-5">
             <div className="space-y-1">
               <p className="text-[8px] font-[1000] uppercase tracking-[0.3em] text-slate-400 italic leading-none">
-                Starting from
+                Mulai dari
               </p>
               {bestRate ? (
                 <div className="flex items-baseline gap-1">

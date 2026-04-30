@@ -414,9 +414,10 @@ export default function LandingPage() {
             <p
               className={`max-w-sm sm:max-w-xl mx-auto text-sm sm:text-base md:text-lg font-medium leading-relaxed ${muted}`}
             >
-              Bookinaja adalah platform booking & manajemen slot untuk owner
-              rental — gaming, studio, lapangan, coworking, dan lebih. Tanpa
-              catatan manual. Tanpa khawatir kasir curang.
+              Bookinaja membantu owner rental berhenti balas booking manual,
+              mengurangi slot kosong yang bocor, dan memantau operasional lebih
+              rapi dari satu dashboard. Prelaunch sekarang dibuka untuk bisnis
+              yang ingin setup lebih awal bersama tim kami.
             </p>
           </div>
 
@@ -445,9 +446,9 @@ export default function LandingPage() {
             style={revealStyle(hero.visible, 0.27)}
           >
             {[
+              "✓ Trial 30 hari",
               "✓ Tanpa kartu kredit",
-              "✓ Setup 5 menit",
-              "✓ Batalkan kapanpun",
+              "✓ Dibantu sampai live",
             ].map((f) => (
               <span key={f} className={`text-[11px] font-medium ${muted}`}>
                 {f}
@@ -1692,9 +1693,9 @@ export default function LandingPage() {
                   </div>
                   <div className="mt-6 pt-5 border-t grid grid-cols-3 gap-3 border-white/10">
                     {[
-                      { n: "2022", l: "Tahun berdiri" },
-                      { n: "2.4K+", l: "Bisnis aktif" },
-                      { n: "99.9%", l: "Uptime" },
+                      { n: "Prelaunch", l: "Status saat ini" },
+                      { n: "30 Hari", l: "Trial gratis" },
+                      { n: "Hands-on", l: "Onboarding" },
                     ].map((s, i) => (
                       <div key={i} className="text-center">
                         <p className={`text-lg font-black accent-text`}>
@@ -1761,43 +1762,43 @@ export default function LandingPage() {
           <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
             <SectionBadge
               icon={<Star className="h-3 w-3 fill-current" />}
-              label="Testimoni Nyata"
+              label="Kenapa Masuk Sekarang"
             />
             <h2
               className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
             >
-              Kata owner yang
+              Belum launch penuh.
               <br />
-              <span className="shimmer-text">sudah pakai.</span>
+              <span className="shimmer-text">Justru itu keuntungannya.</span>
             </h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               {
-                name: "Rizky Firmansyah",
-                role: "Owner Gaming Hub · Surabaya",
-                text: "Sebelum Bookinaja, kasir saya nulis di buku dan sering salah hitung. Sekarang semua otomatis — saya bisa pantau dari rumah. Pendapatan naik 40% dalam 2 bulan karena nggak ada lagi slot yang 'lupa' dicatat.",
-                result: "↑ 40% pendapatan",
+                name: "Akses Early Partner",
+                role: "Untuk bisnis yang ingin setup lebih cepat",
+                text: "Masuk di fase prelaunch berarti kamu tidak cuma pakai produk. Kamu ikut membentuk alur operasional yang paling cocok untuk bisnis kamu sejak awal.",
+                result: "Feedback kamu diprioritaskan",
                 stars: 5,
-                av: "RF",
+                av: "EP",
                 color: "bg-blue-600",
               },
               {
-                name: "Siti Rahayu",
-                role: "Owner Studio Foto · Jakarta",
-                text: "Dulu saya balas WA booking seharian penuh. Sekarang customer bisa pilih slot, bayar QRIS, dapat konfirmasi otomatis. Saya tinggal lihat dashboard. Waktu luang saya balik, stres hilang.",
-                result: "0 WA booking manual",
+                name: "Onboarding Lebih Dekat",
+                role: "Bukan dibiarkan jalan sendiri",
+                text: "Di tahap ini kami bisa dampingi setup lebih intens, bantu mapping kebutuhan bisnis, dan pastikan flow booking kamu tidak berantakan saat mulai live.",
+                result: "Dibantu sampai paham",
                 stars: 5,
-                av: "SR",
+                av: "OB",
                 color: "bg-purple-600",
               },
               {
-                name: "Budi Santoso",
-                role: "Owner Lapangan Futsal · Bandung",
-                text: "Laporan keuangannya bikin saya shock — ternyata selama ini ada selisih yang lumayan tiap bulan. Sekarang semua tercatat, saya bisa tidur tenang. Bookinaja balik modal dalam minggu pertama.",
-                result: "Selisih kas = 0",
+                name: "Trial Tanpa Tekanan",
+                role: "Masuk, coba, nilai dengan tenang",
+                text: "Kamu bisa uji apakah Bookinaja benar-benar membantu mengurangi chaos booking, beban admin, dan potensi kebocoran operasional sebelum commit berbayar.",
+                result: "30 hari tanpa kartu kredit",
                 stars: 5,
-                av: "BS",
+                av: "TR",
                 color: "bg-emerald-600",
               },
             ].map((t, i) => (
@@ -1865,7 +1866,7 @@ export default function LandingPage() {
             {[
               {
                 q: "Apakah saya butuh keahlian teknis untuk setup?",
-                a: "Tidak sama sekali. Bookinaja dirancang untuk owner bisnis, bukan programmer. Kalau kamu bisa pakai WhatsApp, kamu bisa setup Bookinaja. Rata-rata bisnis bisa live dalam 5–10 menit pertama.",
+                a: "Tidak. Bookinaja dirancang untuk owner dan tim operasional, bukan programmer. Karena masih prelaunch, kami juga bisa bantu onboarding lebih dekat supaya bisnis kamu tidak setup sendirian.",
               },
               {
                 q: "Apakah ada biaya tersembunyi?",
@@ -1873,19 +1874,19 @@ export default function LandingPage() {
               },
               {
                 q: "Bagaimana kalau bisnis saya punya banyak unit atau cabang?",
-                a: "Bookinaja scale bersama bisnis kamu. Kamu bisa tambah unit baru kapan saja. Untuk multi-cabang, tersedia di paket Pro ke atas dengan dashboard terpusat satu tampilan untuk semua lokasi.",
+                a: "Bookinaja dirancang untuk bisnis yang ingin tumbuh. Kamu bisa mulai dari satu lokasi dulu, lalu tambah unit dan operasional yang lebih kompleks saat bisnis sudah siap scale.",
               },
               {
                 q: "Apakah data saya aman?",
-                a: "Data setiap bisnis disimpan dalam database yang sepenuhnya terisolasi. Data bisnis kamu tidak pernah bercampur dengan bisnis lain. Kami menggunakan enkripsi standar enterprise dan backup otomatis harian.",
+                a: "Kami membangun Bookinaja dengan pemisahan data per bisnis dan alur autentikasi yang jelas. Untuk prelaunch, kami lebih memilih jujur soal progres produk daripada membuat klaim keamanan yang berlebihan.",
               },
               {
                 q: "Bagaimana kalau saya ingin berhenti berlangganan?",
-                a: "Kamu bisa batalkan kapan saja, tidak ada kontrak jangka panjang. Data kamu bisa diexport sebelum berhenti. Masa trial 14 hari juga tidak memerlukan kartu kredit sama sekali.",
+                a: "Kamu bisa berhenti kapan saja. Tidak ada kontrak panjang dan trial 30 hari tidak memerlukan kartu kredit. Tujuannya supaya kamu bisa menilai value produknya tanpa tekanan.",
               },
               {
                 q: "Apakah ada support kalau saya butuh bantuan?",
-                a: "Ya. Semua paket mendapat akses ke tim support kami via chat dan email. Paket Pro ke atas mendapat priority support dengan response time lebih cepat dan dedicated onboarding call gratis.",
+                a: "Ya. Justru di fase prelaunch kami ingin dekat dengan pengguna awal. Kamu bisa masuk, coba alurnya, lalu kasih feedback dan kami bantu kalau ada bagian yang belum cocok.",
               },
             ].map((item, i) => (
               <div
@@ -1941,7 +1942,7 @@ export default function LandingPage() {
             <div className="relative z-10 max-w-sm sm:max-w-2xl md:max-w-3xl mx-auto space-y-6 sm:space-y-8">
               <SectionBadge
                 icon={<Rocket className="h-3 w-3" />}
-                label="Mulai Sekarang"
+                label="Batch Prelaunch"
               />
               <h2
                 className={`text-4xl sm:text-5xl md:text-7xl font-black tracking-[-0.06em] leading-[0.86] uppercase ${heading}`}
@@ -1953,14 +1954,15 @@ export default function LandingPage() {
               <p
                 className={`text-sm sm:text-base font-medium max-w-xs sm:max-w-md mx-auto ${muted}`}
               >
-                Bergabung dengan 2.400+ bisnis Indonesia yang sudah berhenti
-                buang waktu untuk hal-hal yang bisa diotomasi. Coba gratis 14
-                hari — tanpa kartu kredit, tanpa komitmen.
+                Kami belum launch penuh, dan itu justru kesempatanmu masuk
+                lebih awal. Coba gratis 30 hari, dapat onboarding lebih dekat,
+                dan nilai sendiri apakah Bookinaja bisa bikin operasionalmu
+                lebih rapi.
               </p>
               <div className="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4">
                 <Link href="/register" className="w-full sm:w-auto">
                   <Button className="w-full sm:w-auto h-12 sm:h-14 md:h-16 px-8 sm:px-10 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl bg-blue-600 hover:bg-blue-500 text-white border-0 transition-colors duration-200 shadow-lg shadow-blue-600/20">
-                    Coba Gratis 14 Hari{" "}
+                    Coba Gratis 30 Hari{" "}
                     <ArrowUpRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
@@ -1973,11 +1975,11 @@ export default function LandingPage() {
               </div>
               <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
                 {[
-                  "✓ Gratis 14 hari",
+                  "✓ Gratis 30 hari",
                   "✓ Tanpa kartu kredit",
-                  "✓ Live dalam 5 menit",
-                  "✓ Batalkan kapanpun",
-                  "✓ Support tersedia",
+                  "✓ Onboarding dibantu",
+                  "✓ Batalkan kapan saja",
+                  "✓ Feedback diprioritaskan",
                 ].map((f) => (
                   <span
                     key={f}
