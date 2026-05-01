@@ -572,12 +572,14 @@ function FeedRowCard({
   tenant,
   surface,
   sectionId,
+  cardVariant,
   positionIndex,
   onVisible,
 }: {
   tenant: DiscoveryTenant;
   surface: string;
   sectionId: string;
+  cardVariant: string;
   positionIndex: number;
   onVisible?: () => void;
 }) {
@@ -639,7 +641,7 @@ function FeedRowCard({
                   event_type: "click",
                   surface,
                   section_id: sectionId,
-                  card_variant: "feed-row",
+                  card_variant: cardVariant,
                   position_index: positionIndex,
                   promo_label: tenant.promo_label,
                 })
