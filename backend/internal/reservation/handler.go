@@ -484,15 +484,25 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 	id := c.Param("id")
 	tenantID := c.MustGet("tenantID").(string)
 
-	var req struct {
-		Status string `json:"status" binding:"required"`
+	statusValue, exists := c.Get("bookingStatusRequest")
+	if !exists {
+		var req struct {
+			Status string `json:"status" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "STATUS TIDAK VALID"})
+			return
+		}
+		statusValue = req.Status
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
+
+	status, _ := statusValue.(string)
+	if status == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "STATUS TIDAK VALID"})
 		return
 	}
 
-	err := h.service.UpdateStatus(c.Request.Context(), id, tenantID, req.Status, "admin")
+	err := h.service.UpdateStatus(c.Request.Context(), id, tenantID, status, "admin")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "GAGAL UPDATE STATUS"})
 		return

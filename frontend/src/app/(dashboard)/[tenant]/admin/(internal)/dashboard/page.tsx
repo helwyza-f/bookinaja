@@ -133,7 +133,7 @@ export default function DashboardPage() {
     ownerOnly ||
     hasPermission(
       { role, permission_keys: permissions },
-      ["resources.read", "resources.manage"],
+      "resources.read",
     );
   const canReadCustomers =
     ownerOnly || hasPermission({ role, permission_keys: permissions }, "customers.read");
@@ -141,10 +141,10 @@ export default function DashboardPage() {
     ownerOnly ||
     hasPermission(
       { role, permission_keys: permissions },
-      ["expenses.read", "expenses.manage"],
+      "expenses.read",
     );
   const canManagePos =
-    ownerOnly || hasPermission({ role, permission_keys: permissions }, "pos.manage");
+    ownerOnly || hasPermission({ role, permission_keys: permissions }, "pos.read");
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
@@ -162,7 +162,6 @@ export default function DashboardPage() {
       const allowBookings = hasPermission(scope, "bookings.read");
       const allowResources = hasPermission(scope, [
         "resources.read",
-        "resources.manage",
       ]);
       const allowCustomers = hasPermission(scope, "customers.read");
 

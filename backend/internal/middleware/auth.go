@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/helwiza/backend/internal/platform/security"
+	"github.com/helwiza/backend/internal/tenant"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -64,7 +65,7 @@ func AuthMiddleware(db *sqlx.DB) gin.HandlerFunc {
 		if userID, ok := claims["user_id"]; ok && userID != nil && db != nil {
 			permissions, err := loadUserPermissions(c, db, fmt.Sprintf("%v", userID), fmt.Sprintf("%v", c.GetString("tenantID")))
 			if err == nil {
-				c.Set("permissions", permissions)
+				c.Set("permissions", tenant.ExpandPermissionKeys(permissions))
 			}
 		}
 
@@ -142,6 +143,11 @@ func abortUnauthorized(c *gin.Context, msg string) {
 	c.Abort()
 }
 
+func abortForbidden(c *gin.Context, msg string) {
+	c.JSON(http.StatusForbidden, gin.H{"error": msg})
+	c.Abort()
+}
+
 func AdminOnly() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.GetString("authType") != "admin" {
@@ -176,6 +182,31 @@ func PlatformOnly() gin.HandlerFunc {
 }
 
 func RequirePermission(required ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if HasAnyPermission(c, required...) {
+			c.Next()
+			return
+		}
+
+		abortForbidden(c, "Akses modul ditolak")
+	}
+}
+
+func HasAnyPermission(c *gin.Context, required ...string) bool {
+	if c.GetString("userRole") == "owner" {
+		return true
+	}
+
+	raw, exists := c.Get("permissions")
+	if !exists {
+		return false
+	}
+
+	perms, _ := raw.([]string)
+	if len(perms) == 0 {
+		return false
+	}
+
 	requiredSet := map[string]struct{}{}
 	for _, key := range required {
 		key = strings.TrimSpace(key)
@@ -184,28 +215,48 @@ func RequirePermission(required ...string) gin.HandlerFunc {
 		}
 	}
 
+	for _, permission := range perms {
+		if _, ok := requiredSet[permission]; ok {
+			return true
+		}
+	}
+
+	return false
+}
+
+func RequireBookingStatusPermission() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.GetString("userRole") == "owner" {
-			c.Next()
-			return
+		var req struct {
+			Status string `json:"status"`
 		}
 
-		raw, exists := c.Get("permissions")
-		if !exists {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Izin akses tidak ditemukan"})
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "STATUS TIDAK VALID"})
 			c.Abort()
 			return
 		}
 
-		perms, _ := raw.([]string)
-		for _, permission := range perms {
-			if _, ok := requiredSet[permission]; ok {
-				c.Next()
-				return
-			}
+		c.Set("bookingStatusRequest", strings.ToLower(strings.TrimSpace(req.Status)))
+
+		var required []string
+		switch strings.ToLower(strings.TrimSpace(req.Status)) {
+		case "confirmed":
+			required = []string{tenant.PermissionBookingsConfirm}
+		case "active":
+			required = []string{tenant.PermissionSessionsStart}
+		case "completed":
+			required = []string{tenant.PermissionSessionsComplete}
+		case "cancelled":
+			required = []string{tenant.PermissionBookingsCancel}
+		default:
+			required = []string{tenant.PermissionBookingsUpdate}
 		}
 
-		c.JSON(http.StatusForbidden, gin.H{"error": "Akses modul ditolak"})
-		c.Abort()
+		if HasAnyPermission(c, required...) {
+			c.Next()
+			return
+		}
+
+		abortForbidden(c, "Akses aksi booking ditolak")
 	}
 }

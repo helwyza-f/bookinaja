@@ -4,70 +4,306 @@ import "github.com/lib/pq"
 
 const (
 	PermissionBookingsRead    = "bookings.read"
-	PermissionBookingsWrite   = "bookings.write"
-	PermissionPosManage       = "pos.manage"
+	PermissionBookingsCreate  = "bookings.create"
+	PermissionBookingsUpdate  = "bookings.update"
+	PermissionBookingsConfirm = "bookings.confirm"
+	PermissionBookingsCancel  = "bookings.cancel"
+
+	PermissionSessionsStart    = "sessions.start"
+	PermissionSessionsExtend   = "sessions.extend"
+	PermissionSessionsComplete = "sessions.complete"
+
+	PermissionPosRead       = "pos.read"
+	PermissionPosOrderAdd   = "pos.order.add"
+	PermissionPosCheckout   = "pos.checkout"
+	PermissionPosCashSettle = "pos.cash.settle"
+
 	PermissionResourcesRead   = "resources.read"
-	PermissionResourcesManage = "resources.manage"
-	PermissionFnbRead         = "fnb.read"
-	PermissionFnbManage       = "fnb.manage"
-	PermissionCustomersRead   = "customers.read"
-	PermissionExpensesRead    = "expenses.read"
-	PermissionExpensesManage  = "expenses.manage"
+	PermissionResourcesCreate = "resources.create"
+	PermissionResourcesUpdate = "resources.update"
+	PermissionResourcesDelete = "resources.delete"
+
+	PermissionFnbRead   = "fnb.read"
+	PermissionFnbCreate = "fnb.create"
+	PermissionFnbUpdate = "fnb.update"
+	PermissionFnbDelete = "fnb.delete"
+
+	PermissionCustomersRead = "customers.read"
+
+	PermissionExpensesRead   = "expenses.read"
+	PermissionExpensesCreate = "expenses.create"
+	PermissionExpensesUpdate = "expenses.update"
+	PermissionExpensesDelete = "expenses.delete"
+
+	PermissionAnalyticsRead = "analytics.read"
+	PermissionReceiptsSend  = "receipts.send"
+	PermissionReceiptsPrint = "receipts.print"
+
+	PermissionLegacyBookingsWrite   = "bookings.write"
+	PermissionLegacyPosManage       = "pos.manage"
+	PermissionLegacyResourcesManage = "resources.manage"
+	PermissionLegacyFnbManage       = "fnb.manage"
+	PermissionLegacyExpensesManage  = "expenses.manage"
 )
 
 var AllowedPermissionKeys = map[string]struct{}{
 	PermissionBookingsRead:    {},
-	PermissionBookingsWrite:   {},
-	PermissionPosManage:       {},
+	PermissionBookingsCreate:  {},
+	PermissionBookingsUpdate:  {},
+	PermissionBookingsConfirm: {},
+	PermissionBookingsCancel:  {},
+
+	PermissionSessionsStart:    {},
+	PermissionSessionsExtend:   {},
+	PermissionSessionsComplete: {},
+
+	PermissionPosRead:       {},
+	PermissionPosOrderAdd:   {},
+	PermissionPosCheckout:   {},
+	PermissionPosCashSettle: {},
+
 	PermissionResourcesRead:   {},
-	PermissionResourcesManage: {},
-	PermissionFnbRead:         {},
-	PermissionFnbManage:       {},
-	PermissionCustomersRead:   {},
-	PermissionExpensesRead:    {},
-	PermissionExpensesManage:  {},
+	PermissionResourcesCreate: {},
+	PermissionResourcesUpdate: {},
+	PermissionResourcesDelete: {},
+
+	PermissionFnbRead:   {},
+	PermissionFnbCreate: {},
+	PermissionFnbUpdate: {},
+	PermissionFnbDelete: {},
+
+	PermissionCustomersRead: {},
+
+	PermissionExpensesRead:   {},
+	PermissionExpensesCreate: {},
+	PermissionExpensesUpdate: {},
+	PermissionExpensesDelete: {},
+
+	PermissionAnalyticsRead: {},
+	PermissionReceiptsSend:  {},
+	PermissionReceiptsPrint: {},
+
+	PermissionLegacyBookingsWrite:   {},
+	PermissionLegacyPosManage:       {},
+	PermissionLegacyResourcesManage: {},
+	PermissionLegacyFnbManage:       {},
+	PermissionLegacyExpensesManage:  {},
+}
+
+var permissionImplications = map[string][]string{
+	PermissionLegacyBookingsWrite: {
+		PermissionBookingsRead,
+		PermissionBookingsCreate,
+		PermissionBookingsUpdate,
+		PermissionBookingsConfirm,
+		PermissionBookingsCancel,
+		PermissionSessionsStart,
+		PermissionSessionsExtend,
+		PermissionSessionsComplete,
+		PermissionPosRead,
+		PermissionPosCheckout,
+		PermissionPosCashSettle,
+		PermissionReceiptsSend,
+		PermissionReceiptsPrint,
+	},
+	PermissionLegacyPosManage: {
+		PermissionPosRead,
+		PermissionPosOrderAdd,
+		PermissionPosCheckout,
+		PermissionPosCashSettle,
+		PermissionSessionsExtend,
+		PermissionReceiptsSend,
+		PermissionReceiptsPrint,
+	},
+	PermissionLegacyResourcesManage: {
+		PermissionResourcesRead,
+		PermissionResourcesCreate,
+		PermissionResourcesUpdate,
+		PermissionResourcesDelete,
+	},
+	PermissionLegacyFnbManage: {
+		PermissionFnbRead,
+		PermissionFnbCreate,
+		PermissionFnbUpdate,
+		PermissionFnbDelete,
+	},
+	PermissionLegacyExpensesManage: {
+		PermissionExpensesRead,
+		PermissionExpensesCreate,
+		PermissionExpensesUpdate,
+		PermissionExpensesDelete,
+	},
+	PermissionBookingsCreate:  {PermissionBookingsRead},
+	PermissionBookingsUpdate:  {PermissionBookingsRead},
+	PermissionBookingsConfirm: {PermissionBookingsRead, PermissionBookingsUpdate},
+	PermissionBookingsCancel:  {PermissionBookingsRead, PermissionBookingsUpdate},
+	PermissionSessionsStart:   {PermissionBookingsRead, PermissionBookingsUpdate, PermissionPosRead},
+	PermissionSessionsExtend:  {PermissionBookingsRead, PermissionPosRead},
+	PermissionSessionsComplete: {
+		PermissionBookingsRead,
+		PermissionBookingsUpdate,
+		PermissionPosRead,
+	},
+	PermissionPosOrderAdd:     {PermissionPosRead, PermissionBookingsRead},
+	PermissionPosCheckout:     {PermissionPosRead, PermissionBookingsRead},
+	PermissionPosCashSettle:   {PermissionPosRead, PermissionBookingsRead, PermissionPosCheckout},
+	PermissionResourcesCreate: {PermissionResourcesRead},
+	PermissionResourcesUpdate: {PermissionResourcesRead},
+	PermissionResourcesDelete: {PermissionResourcesRead},
+	PermissionFnbCreate:       {PermissionFnbRead},
+	PermissionFnbUpdate:       {PermissionFnbRead},
+	PermissionFnbDelete:       {PermissionFnbRead},
+	PermissionExpensesCreate:  {PermissionExpensesRead},
+	PermissionExpensesUpdate:  {PermissionExpensesRead},
+	PermissionExpensesDelete:  {PermissionExpensesRead},
+	PermissionReceiptsSend:    {PermissionBookingsRead, PermissionPosRead},
+	PermissionReceiptsPrint:   {PermissionBookingsRead, PermissionPosRead},
+	PermissionAnalyticsRead: {
+		PermissionBookingsRead,
+		PermissionResourcesRead,
+		PermissionCustomersRead,
+		PermissionExpensesRead,
+	},
+}
+
+func ExpandPermissionKeys(keys []string) []string {
+	visited := map[string]struct{}{}
+	queue := make([]string, 0, len(keys))
+
+	for _, key := range keys {
+		if _, exists := AllowedPermissionKeys[key]; !exists {
+			continue
+		}
+		if _, exists := visited[key]; exists {
+			continue
+		}
+		visited[key] = struct{}{}
+		queue = append(queue, key)
+	}
+
+	for index := 0; index < len(queue); index++ {
+		current := queue[index]
+		for _, implied := range permissionImplications[current] {
+			if _, exists := AllowedPermissionKeys[implied]; !exists {
+				continue
+			}
+			if _, exists := visited[implied]; exists {
+				continue
+			}
+			visited[implied] = struct{}{}
+			queue = append(queue, implied)
+		}
+	}
+
+	return queue
 }
 
 func defaultStaffRoles() []StaffRole {
 	return []StaffRole{
 		{
-			Name:        "Frontdesk / Kasir",
-			Description: "Role default untuk pegawai yang pegang booking, checkout, dan POS harian di outlet gaming/rental.",
+			Name:        "Frontdesk",
+			Description: "Fokus menerima booking, konfirmasi jadwal, dan melayani customer yang datang di counter.",
 			PermissionKeys: pq.StringArray{
 				PermissionBookingsRead,
-				PermissionBookingsWrite,
-				PermissionPosManage,
-				PermissionFnbRead,
+				PermissionBookingsCreate,
+				PermissionBookingsConfirm,
 				PermissionCustomersRead,
 			},
 			IsDefault: true,
 		},
 		{
-			Name:        "Operator Shift",
-			Description: "Fokus ke operasional lantai: pantau resource, status sesi, dan kebutuhan customer tanpa pegang pengeluaran.",
+			Name:        "Kasir / POS",
+			Description: "Untuk staff yang pegang terminal POS, tambah order, checkout, pelunasan cash, dan pengiriman nota.",
 			PermissionKeys: pq.StringArray{
 				PermissionBookingsRead,
+				PermissionPosRead,
+				PermissionPosOrderAdd,
+				PermissionPosCheckout,
+				PermissionPosCashSettle,
+				PermissionFnbRead,
+				PermissionCustomersRead,
+				PermissionReceiptsSend,
+				PermissionReceiptsPrint,
+			},
+			IsDefault: false,
+		},
+		{
+			Name:        "Operator Shift",
+			Description: "Menjalankan sesi di lapangan, memantau unit/resource, dan memastikan operasional berjalan rapi.",
+			PermissionKeys: pq.StringArray{
+				PermissionBookingsRead,
+				PermissionSessionsStart,
+				PermissionSessionsExtend,
+				PermissionSessionsComplete,
+				PermissionPosRead,
 				PermissionResourcesRead,
-				PermissionResourcesManage,
+				PermissionResourcesUpdate,
 				PermissionFnbRead,
 				PermissionCustomersRead,
 			},
 			IsDefault: false,
 		},
 		{
-			Name:        "Supervisor",
-			Description: "Akses operasional paling lengkap untuk kepala outlet atau PIC shift yang ikut kontrol pengeluaran.",
+			Name:        "Supervisor Outlet",
+			Description: "PIC outlet yang memegang kontrol operasional harian termasuk booking, POS, resource, F&B, dan pengeluaran.",
 			PermissionKeys: pq.StringArray{
 				PermissionBookingsRead,
-				PermissionBookingsWrite,
-				PermissionPosManage,
+				PermissionBookingsCreate,
+				PermissionBookingsConfirm,
+				PermissionBookingsCancel,
+				PermissionSessionsStart,
+				PermissionSessionsExtend,
+				PermissionSessionsComplete,
+				PermissionPosRead,
+				PermissionPosOrderAdd,
+				PermissionPosCheckout,
+				PermissionPosCashSettle,
 				PermissionResourcesRead,
-				PermissionResourcesManage,
+				PermissionResourcesUpdate,
 				PermissionFnbRead,
-				PermissionFnbManage,
+				PermissionFnbUpdate,
 				PermissionCustomersRead,
 				PermissionExpensesRead,
-				PermissionExpensesManage,
+				PermissionExpensesCreate,
+				PermissionExpensesUpdate,
+				PermissionReceiptsSend,
+				PermissionReceiptsPrint,
+				PermissionAnalyticsRead,
+			},
+			IsDefault: false,
+		},
+		{
+			Name:        "Admin Outlet",
+			Description: "Level delegasi tertinggi untuk pengelola outlet yang perlu akses penuh ke modul operasional, katalog, dan analytics.",
+			PermissionKeys: pq.StringArray{
+				PermissionBookingsRead,
+				PermissionBookingsCreate,
+				PermissionBookingsUpdate,
+				PermissionBookingsConfirm,
+				PermissionBookingsCancel,
+				PermissionSessionsStart,
+				PermissionSessionsExtend,
+				PermissionSessionsComplete,
+				PermissionPosRead,
+				PermissionPosOrderAdd,
+				PermissionPosCheckout,
+				PermissionPosCashSettle,
+				PermissionResourcesRead,
+				PermissionResourcesCreate,
+				PermissionResourcesUpdate,
+				PermissionResourcesDelete,
+				PermissionFnbRead,
+				PermissionFnbCreate,
+				PermissionFnbUpdate,
+				PermissionFnbDelete,
+				PermissionCustomersRead,
+				PermissionExpensesRead,
+				PermissionExpensesCreate,
+				PermissionExpensesUpdate,
+				PermissionExpensesDelete,
+				PermissionReceiptsSend,
+				PermissionReceiptsPrint,
+				PermissionAnalyticsRead,
 			},
 			IsDefault: false,
 		},

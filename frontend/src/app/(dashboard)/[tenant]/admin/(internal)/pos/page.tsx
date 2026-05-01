@@ -263,8 +263,17 @@ export default function POSPage() {
   const [adminUser, setAdminUser] = useState<AdminSessionUser | null>(null);
 
   const canReadBookings = hasPermission(adminUser, "bookings.read");
-  const canWriteBookings = hasPermission(adminUser, ["bookings.write", "pos.manage"]);
-  const canManageFnb = hasPermission(adminUser, ["fnb.read", "fnb.manage"]);
+  const canReadPos = hasPermission(adminUser, "pos.read");
+  const canOperateSession = hasPermission(adminUser, [
+    "sessions.extend",
+    "sessions.complete",
+    "pos.order.add",
+    "pos.checkout",
+    "pos.cash.settle",
+  ]);
+  const canReadFnb = hasPermission(adminUser, "fnb.read");
+  const canManageFnb = hasPermission(adminUser, ["fnb.create", "fnb.update", "fnb.delete"]);
+  const canUseReceiptActions = hasPermission(adminUser, ["receipts.send", "receipts.print"]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -273,10 +282,10 @@ export default function POSPage() {
       setAdminUser(currentUser);
 
       const [sessionsRes, menuRes] = await Promise.allSettled([
-        hasPermission(currentUser, "bookings.read")
+        hasPermission(currentUser, "pos.read")
           ? api.get("/bookings/pos/active")
           : Promise.resolve(null),
-        hasPermission(currentUser, ["fnb.read", "fnb.manage"])
+        hasPermission(currentUser, "fnb.read")
           ? api.get("/fnb")
           : Promise.resolve(null),
       ]);
@@ -417,9 +426,9 @@ export default function POSPage() {
               session={selectedSession}
               menuItems={menuItems}
               onRefresh={refreshSelectedSession}
-              canWriteBookings={canWriteBookings}
+              canWriteBookings={canOperateSession}
               canManageFnb={canManageFnb}
-              canUseReceiptActions={canWriteBookings && isOwner(adminUser)}
+              canUseReceiptActions={canUseReceiptActions && isOwner(adminUser)}
             />
           ) : (
             <POSControlSkeleton />
@@ -490,14 +499,14 @@ export default function POSPage() {
         </div>
 
         <div className="p-4">
-          {!canReadBookings && (
+          {!canReadPos && (
             <div className="mb-3 rounded-xl border border-dashed border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/20 dark:bg-amber-950/20 dark:text-amber-200">
               Akun ini belum punya akses untuk membaca sesi booking aktif.
             </div>
           )}
-          {canReadBookings && !canManageFnb && (
+          {canReadPos && !canReadFnb && (
             <div className="mb-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
-              Menu F&B disembunyikan karena izin `fnb.manage` belum diberikan.
+              Menu F&B disembunyikan karena izin `fnb.read` belum diberikan.
             </div>
           )}
           <div className="relative">
@@ -534,14 +543,14 @@ export default function POSPage() {
                 </Card>
               ))}
             </div>
-          ) : !canReadBookings ? (
+          ) : !canReadPos ? (
             <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-amber-200 bg-amber-50 text-center shadow-sm dark:border-amber-500/20 dark:bg-amber-950/20">
               <AlertTriangle size={38} className="text-amber-500" />
               <h3 className="text-base font-semibold text-amber-700 dark:text-amber-200">
                 Akses sesi aktif belum diberikan
               </h3>
               <p className="max-w-sm text-sm text-amber-600 dark:text-amber-300">
-                Minta izin `bookings.read` agar halaman POS bisa menampilkan sesi yang sedang berjalan.
+                Minta izin `pos.read` agar halaman POS bisa menampilkan sesi yang sedang berjalan.
               </p>
             </div>
           ) : activeSessions.length === 0 ? (
@@ -586,9 +595,9 @@ export default function POSPage() {
               session={selectedSession}
               menuItems={menuItems}
               onRefresh={refreshSelectedSession}
-              canWriteBookings={canWriteBookings}
+              canWriteBookings={canOperateSession}
               canManageFnb={canManageFnb}
-              canUseReceiptActions={canWriteBookings && isOwner(adminUser)}
+              canUseReceiptActions={canUseReceiptActions && isOwner(adminUser)}
               onClose={() => {
                 setSelectedSession(null);
                 setSelectedSessionId(null);

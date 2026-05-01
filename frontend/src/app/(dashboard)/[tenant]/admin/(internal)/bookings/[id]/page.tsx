@@ -215,7 +215,14 @@ export default function BookingDetailPage() {
   const canSettle = status === "completed" && !isPaymentSettled && Number(booking?.balance_due || 0) > 0;
   const isFinal = status === "completed" || status === "cancelled";
   const canUseReceipt = isReceiptProEnabled(receiptSettings);
-  const canWriteBookings = hasPermission(adminUser, "bookings.write");
+  const canConfirmBooking = hasPermission(adminUser, "bookings.confirm");
+  const canStartSession = hasPermission(adminUser, "sessions.start");
+  const canCompleteSession = hasPermission(adminUser, "sessions.complete");
+  const canCancelBooking = hasPermission(adminUser, "bookings.cancel");
+  const canSettleCash = hasPermission(adminUser, "pos.cash.settle");
+  const canOperatePos = hasPermission(adminUser, "pos.read");
+  const canSendReceipt = hasPermission(adminUser, "receipts.send");
+  const canPrintReceipt = hasPermission(adminUser, "receipts.print");
   const nextActionHint = !hasPaidDp
     ? "DP belum tercatat. Sesi belum bisa dimulai."
     : status === "pending"
@@ -385,31 +392,31 @@ export default function BookingDetailPage() {
             </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {canConfirm && (
-                <Button onClick={() => handleUpdateStatus("confirmed")} disabled={updating || !canWriteBookings} variant="outline" className="h-10 rounded-xl">
+                <Button onClick={() => handleUpdateStatus("confirmed")} disabled={updating || !canConfirmBooking} variant="outline" className="h-10 rounded-xl">
                   Konfirmasi
                 </Button>
               )}
               {(status === "active") && (
-                <Button onClick={() => router.push(`/admin/pos?active=${booking.id}`)} disabled={!canWriteBookings} variant="outline" className="h-10 rounded-xl">
+                <Button onClick={() => router.push(`/admin/pos?active=${booking.id}`)} disabled={!canOperatePos} variant="outline" className="h-10 rounded-xl">
                   <Zap className="mr-2 h-4 w-4" /> POS
                 </Button>
               )}
               {(status === "pending" || status === "confirmed") && (
-                <Button onClick={() => handleUpdateStatus("active")} disabled={updating || !canStart || !canWriteBookings} className="h-10 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700">
+                <Button onClick={() => handleUpdateStatus("active")} disabled={updating || !canStart || !canStartSession} className="h-10 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700">
                   Mulai Sesi
                 </Button>
               )}
               {canComplete && (
-                <Button onClick={() => handleUpdateStatus("completed")} disabled={updating || !canWriteBookings} className="h-10 rounded-xl bg-slate-950 text-white hover:bg-slate-800">
+                <Button onClick={() => handleUpdateStatus("completed")} disabled={updating || !canCompleteSession} className="h-10 rounded-xl bg-slate-950 text-white hover:bg-slate-800">
                   Akhiri Sesi
                 </Button>
               )}
               {canSettle && (
-                <Button onClick={() => setPayOpen((prev) => !prev)} disabled={updating || !canWriteBookings} className="h-10 rounded-xl bg-blue-600 text-white hover:bg-blue-700">
+                <Button onClick={() => setPayOpen((prev) => !prev)} disabled={updating || !canSettleCash} className="h-10 rounded-xl bg-blue-600 text-white hover:bg-blue-700">
                   <CreditCard className="mr-2 h-4 w-4" /> Pelunasan
                 </Button>
               )}
-              {isPaymentSettled && canWriteBookings && (
+              {isPaymentSettled && (canSendReceipt || canPrintReceipt) && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="h-10 rounded-xl">
@@ -423,19 +430,19 @@ export default function BookingDetailPage() {
                         Upgrade Pro untuk pakai nota
                       </DropdownMenuItem>
                     )}
-                    <DropdownMenuItem onClick={() => handleReceiptAction("whatsapp")} className="rounded-xl" disabled={!canUseReceipt}>
+                    <DropdownMenuItem onClick={() => handleReceiptAction("whatsapp")} className="rounded-xl" disabled={!canUseReceipt || !canSendReceipt}>
                       <MessageCircle size={14} className="mr-2" /> Kirim nota WA
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleReceiptAction("print")} className="rounded-xl" disabled={!canUseReceipt}>
+                    <DropdownMenuItem onClick={() => handleReceiptAction("print")} className="rounded-xl" disabled={!canUseReceipt || !canPrintReceipt}>
                       <Printer size={14} className="mr-2" /> Cetak nota fisik
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleReceiptAction("both")} className="rounded-xl" disabled={!canUseReceipt}>
+                    <DropdownMenuItem onClick={() => handleReceiptAction("both")} className="rounded-xl" disabled={!canUseReceipt || !canSendReceipt || !canPrintReceipt}>
                       <Receipt size={14} className="mr-2" /> WA + cetak
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
-              {!isFinal && canWriteBookings && (
+              {!isFinal && canCancelBooking && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="h-10 rounded-xl">
@@ -452,7 +459,7 @@ export default function BookingDetailPage() {
             </div>
           </div>
 
-          {canSettle && payOpen && canWriteBookings && (
+          {canSettle && payOpen && canSettleCash && (
             <div className="relative">
                 <div className="absolute right-0 mt-3 w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-white/10 dark:bg-slate-900 sm:w-80">
                   <div className="space-y-3">

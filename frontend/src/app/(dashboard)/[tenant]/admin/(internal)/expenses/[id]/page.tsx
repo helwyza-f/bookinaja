@@ -31,7 +31,8 @@ export default function ExpenseDetailPage() {
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [adminUser, setAdminUser] = useState<AdminSessionUser | null>(null);
-  const canManageExpenses = hasPermission(adminUser, "expenses.manage");
+  const canUpdateExpenses = hasPermission(adminUser, "expenses.update");
+  const canDeleteExpenses = hasPermission(adminUser, "expenses.delete");
 
   const formatIDR = (value: number) =>
     new Intl.NumberFormat("id-ID").format(value || 0);
@@ -72,6 +73,7 @@ export default function ExpenseDetailPage() {
   }, [fetchDetail]);
 
   const handleDelete = async () => {
+    if (!canDeleteExpenses) return;
     if (!expense) return;
     if (!confirm(`Hapus pengeluaran "${expense.title}"?`)) return;
 
@@ -144,8 +146,8 @@ export default function ExpenseDetailPage() {
 
         <div className="grid grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
           <Button
-            onClick={() => canManageExpenses && setOpen(true)}
-            disabled={!canManageExpenses}
+            onClick={() => canUpdateExpenses && setOpen(true)}
+            disabled={!canUpdateExpenses}
             className="h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm gap-2 hover:bg-blue-700"
           >
             <PencilLine className="h-4 w-4" />
@@ -153,7 +155,7 @@ export default function ExpenseDetailPage() {
           </Button>
           <Button
             onClick={handleDelete}
-            disabled={deleting || !canManageExpenses}
+            disabled={deleting || !canDeleteExpenses}
             variant="ghost"
             className="h-10 rounded-xl px-4 text-sm font-semibold text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
           >

@@ -1,3 +1,5 @@
+import { expandPermissionKeys } from "@/lib/permission-catalog";
+
 export type AdminSessionUser = {
   role?: string;
   permission_keys?: string[];
@@ -14,17 +16,18 @@ const DASHBOARD_PERMISSIONS = [
   "resources.read",
   "customers.read",
   "expenses.read",
-  "pos.manage",
+  "pos.read",
   "fnb.read",
+  "analytics.read",
 ];
 
 const ROUTE_RULES: RouteRule[] = [
   { prefix: "/admin/settings", ownerOnly: true },
-  { prefix: "/admin/resources", permissions: ["resources.read", "resources.manage"] },
-  { prefix: "/admin/expenses", permissions: ["expenses.read", "expenses.manage"] },
+  { prefix: "/admin/resources", permissions: ["resources.read"] },
+  { prefix: "/admin/expenses", permissions: ["expenses.read"] },
   { prefix: "/admin/bookings", permissions: ["bookings.read"] },
-  { prefix: "/admin/pos", permissions: ["pos.manage", "bookings.read"] },
-  { prefix: "/admin/fnb", permissions: ["fnb.read", "fnb.manage"] },
+  { prefix: "/admin/pos", permissions: ["pos.read"] },
+  { prefix: "/admin/fnb", permissions: ["fnb.read"] },
   { prefix: "/admin/customers", permissions: ["customers.read"] },
   { prefix: "/admin/dashboard", permissions: DASHBOARD_PERMISSIONS },
 ];
@@ -43,7 +46,7 @@ export function hasPermission(
 ) {
   if (user?.role === "owner") return true;
   const requiredList = Array.isArray(required) ? required : [required];
-  const permissions = user?.permission_keys || [];
+  const permissions = expandPermissionKeys(user?.permission_keys);
   return requiredList.some((permission) => permissions.includes(permission));
 }
 

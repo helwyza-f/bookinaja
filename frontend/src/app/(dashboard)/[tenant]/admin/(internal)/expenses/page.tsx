@@ -79,7 +79,9 @@ export default function ExpensesPage() {
     null,
   );
   const [adminUser, setAdminUser] = useState<AdminSessionUser | null>(null);
-  const canManageExpenses = hasPermission(adminUser, "expenses.manage");
+  const canCreateExpenses = hasPermission(adminUser, "expenses.create");
+  const canUpdateExpenses = hasPermission(adminUser, "expenses.update");
+  const canDeleteExpenses = hasPermission(adminUser, "expenses.delete");
 
   const formatIDR = (value: number) =>
     new Intl.NumberFormat("id-ID").format(value || 0);
@@ -159,6 +161,7 @@ export default function ExpensesPage() {
     to !== defaultTo();
 
   const handleDelete = async (expense: ExpenseRecord) => {
+    if (!canDeleteExpenses) return;
     if (!confirm(`Hapus pengeluaran "${expense.title}"?`)) return;
 
     try {
@@ -171,13 +174,13 @@ export default function ExpensesPage() {
   };
 
   const openCreate = () => {
-    if (!canManageExpenses) return;
+    if (!canCreateExpenses) return;
     setEditingExpense(null);
     setOpen(true);
   };
 
   const openEdit = (expense: ExpenseRecord) => {
-    if (!canManageExpenses) return;
+    if (!canUpdateExpenses) return;
     setEditingExpense(expense);
     setOpen(true);
   };
@@ -251,7 +254,7 @@ export default function ExpensesPage() {
 
           <Button
             onClick={openCreate}
-            disabled={!canManageExpenses}
+            disabled={!canCreateExpenses}
             className="col-span-2 h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm gap-2 transition-all hover:bg-blue-700 active:scale-95 sm:col-span-1 sm:w-auto"
           >
             <Plus size={15} /> Add Expense
@@ -367,27 +370,27 @@ export default function ExpensesPage() {
                 </div>
 
                 <div className="mt-3 flex items-center gap-2">
-                  <Button
+                    <Button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       openEdit(expense);
                     }}
                     variant="outline"
-                    disabled={!canManageExpenses}
+                    disabled={!canUpdateExpenses}
                     className="h-8 flex-1 rounded-xl border-slate-200 px-3 text-xs font-semibold dark:border-white/10"
                   >
                     <PencilLine className="mr-1.5 h-3.5 w-3.5" />
                     Edit
                   </Button>
-                  <Button
+                    <Button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       void handleDelete(expense);
                     }}
                     variant="ghost"
-                    disabled={!canManageExpenses}
+                    disabled={!canDeleteExpenses}
                     className="h-8 rounded-2xl px-3 text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -457,7 +460,7 @@ export default function ExpensesPage() {
                             openEdit(expense);
                           }}
                           variant="outline"
-                          disabled={!canManageExpenses}
+                          disabled={!canUpdateExpenses}
                           size="icon"
                           className="h-9 w-9 rounded-xl border-slate-200 dark:border-white/10"
                         >
@@ -470,7 +473,7 @@ export default function ExpensesPage() {
                             void handleDelete(expense);
                           }}
                           variant="ghost"
-                          disabled={!canManageExpenses}
+                          disabled={!canDeleteExpenses}
                           size="icon"
                           className="h-9 w-9 rounded-xl text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
                         >

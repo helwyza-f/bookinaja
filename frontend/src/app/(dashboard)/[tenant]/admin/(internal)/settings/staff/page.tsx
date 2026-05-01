@@ -25,6 +25,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
+  PERMISSION_GROUPS,
+  RECOMMENDED_ROLE_PRESETS,
+} from "@/lib/permission-catalog";
+import {
   Plus,
   Pencil,
   Trash2,
@@ -80,118 +84,6 @@ type ApiErrorLike = {
     };
   };
 };
-
-const PERMISSION_GROUPS = [
-  {
-    title: "Booking & POS",
-    description: "Kontrol booking, checkout, dan terminal POS.",
-    items: [
-      {
-        key: "bookings.read",
-        label: "Booking - lihat",
-        help: "Membuka daftar booking, detail booking, dan dashboard operasional dasar.",
-      },
-      {
-        key: "bookings.write",
-        label: "Booking - ubah",
-        help: "Konfirmasi booking, mulai/akhiri sesi, pelunasan, dan booking manual.",
-      },
-      {
-        key: "pos.manage",
-        label: "POS - operasikan",
-        help: "Masuk ke halaman POS dan jalankan aksi kasir saat sesi berjalan.",
-      },
-    ],
-  },
-  {
-    title: "Operasional",
-    description: "Kelola resource, menu, dan customer harian.",
-    items: [
-      {
-        key: "resources.read",
-        label: "Resources - lihat",
-        help: "Melihat resource pool, item resource, dan ringkasan kapasitas.",
-      },
-      {
-        key: "resources.manage",
-        label: "Resources - kelola",
-        help: "Tambah, edit, hapus resource dan item di dalamnya.",
-      },
-      {
-        key: "fnb.read",
-        label: "F&B - lihat",
-        help: "Melihat katalog menu untuk kebutuhan POS dan operasional.",
-      },
-      {
-        key: "fnb.manage",
-        label: "F&B - kelola",
-        help: "Tambah, edit, hapus menu F&B dan upload gambar produk.",
-      },
-      {
-        key: "customers.read",
-        label: "Customers - lihat",
-        help: "Membuka daftar customer, pencarian nomor, riwayat, dan poin.",
-      },
-    ],
-  },
-  {
-    title: "Keuangan Operasional",
-    description: "Lihat dan kelola pengeluaran bisnis harian.",
-    items: [
-      {
-        key: "expenses.read",
-        label: "Expenses - lihat",
-        help: "Melihat daftar, summary, dan detail pengeluaran.",
-      },
-      {
-        key: "expenses.manage",
-        label: "Expenses - kelola",
-        help: "Tambah, edit, hapus expense dan upload bukti struk.",
-      },
-    ],
-  },
-] as const;
-
-const RECOMMENDED_ROLE_PRESETS = [
-  {
-    name: "Frontdesk / Kasir",
-    summary: "Paling cocok untuk staff yang jaga counter, input booking, checkout, dan handle customer datang.",
-    permissions: [
-      "bookings.read",
-      "bookings.write",
-      "pos.manage",
-      "fnb.read",
-      "customers.read",
-    ],
-  },
-  {
-    name: "Operator Shift",
-    summary: "Untuk staff yang lebih fokus jaga flow operasional dan status resource di lapangan.",
-    permissions: [
-      "bookings.read",
-      "resources.read",
-      "resources.manage",
-      "fnb.read",
-      "customers.read",
-    ],
-  },
-  {
-    name: "Supervisor",
-    summary: "Untuk PIC outlet yang ikut mengontrol booking, POS, menu, resource, dan pengeluaran harian.",
-    permissions: [
-      "bookings.read",
-      "bookings.write",
-      "pos.manage",
-      "resources.read",
-      "resources.manage",
-      "fnb.read",
-      "fnb.manage",
-      "customers.read",
-      "expenses.read",
-      "expenses.manage",
-    ],
-  },
-] as const;
 
 const EMPTY_STAFF_FORM: StaffFormState = {
   name: "",
@@ -425,7 +317,7 @@ export default function StaffSettingsPage() {
             Role dan akses pegawai
           </h1>
           <p className="max-w-xl text-sm leading-relaxed text-slate-500">
-            Tambahkan pegawai, pilih role, dan atur permission per role.
+            Tambahkan pegawai, pilih role operasional, dan atur permission per domain kerja. Owner tetap terpisah dengan akses penuh di level bisnis.
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -597,8 +489,11 @@ export default function StaffSettingsPage() {
           <div className="space-y-3">
             <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3 dark:border-blue-500/10 dark:bg-blue-950/10">
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
-                Preset Rekomendasi Gaming / Rental
+                Preset Operasional Gaming / Rental
               </div>
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                Lima preset ini disusun dari tanggung jawab outlet yang paling umum. Owner tidak dipilih di sini karena owner selalu punya akses penuh dan berdiri di luar role staff.
+              </p>
               <div className="mt-3 space-y-3">
                 {RECOMMENDED_ROLE_PRESETS.map((preset) => (
                   <div key={preset.name} className="rounded-lg border border-white/70 bg-white/80 p-3 dark:border-white/5 dark:bg-white/[0.03]">

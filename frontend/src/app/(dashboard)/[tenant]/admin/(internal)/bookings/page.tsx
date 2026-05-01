@@ -125,7 +125,7 @@ export default function BookingsPage() {
     fetchBookings();
   }, []);
 
-  const canWriteBookings = hasPermission(adminUser, "bookings.write");
+  const canCreateBookings = hasPermission(adminUser, "bookings.create");
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 1024px)");
@@ -277,8 +277,8 @@ export default function BookingsPage() {
               </div>
 
               <Button
-                onClick={() => canWriteBookings && router.push(`/admin/bookings/new`)}
-                disabled={!canWriteBookings}
+                onClick={() => canCreateBookings && router.push(`/admin/bookings/new`)}
+                disabled={!canCreateBookings}
                 className="h-12 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 sm:h-auto sm:min-h-full sm:min-w-[150px] md:px-5"
               >
                 <Plus size={16} strokeWidth={4} /> New Booking
@@ -572,8 +572,8 @@ export default function BookingsPage() {
             </p>
           </div>
           <Button
-            onClick={() => canWriteBookings && router.push("/admin/bookings/new")}
-            disabled={!canWriteBookings}
+            onClick={() => canCreateBookings && router.push("/admin/bookings/new")}
+            disabled={!canCreateBookings}
             className="rounded-xl bg-blue-600 text-white hover:bg-blue-700"
           >
             <Plus className="mr-2 h-4 w-4" />
