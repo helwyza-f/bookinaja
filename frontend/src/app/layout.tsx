@@ -34,12 +34,52 @@ export const viewport: Viewport = {
 // Metadata & Ikon Terintegrasi (Next.js File-based Metadata)
 export const metadata: Metadata = {
   title: {
-    default: "bookinaja | All-in-One Booking Platform",
-    template: "%s | bookinaja.com",
+    default: "Bookinaja | Sistem Operasional Bisnis Rental",
+    template: "%s | Bookinaja",
   },
   description:
-    "Otomasi reservasi, billing real-time, dan transformasi digital untuk berbagai sektor bisnis persewaan.",
+    "Bookinaja membantu bisnis rental membuat booking lebih rapi, operasional lebih terkontrol, dan owner lebih tenang menjalankan bisnisnya.",
   metadataBase: new URL("https://bookinaja.com"),
+  applicationName: "Bookinaja",
+  keywords: [
+    "bookinaja",
+    "software booking rental",
+    "sistem booking bisnis rental",
+    "aplikasi booking rental",
+    "sistem operasional bisnis rental",
+    "booking bisnis persewaan",
+    "software rental Indonesia",
+  ],
+  authors: [{ name: "Bookinaja" }],
+  creator: "Bookinaja",
+  publisher: "Bookinaja",
+  category: "business",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    locale: "id_ID",
+    url: "https://bookinaja.com",
+    siteName: "Bookinaja",
+    title: "Bookinaja | Sistem Operasional Bisnis Rental",
+    description:
+      "Bookinaja membantu bisnis rental membuat booking lebih rapi, operasional lebih terkontrol, dan owner lebih tenang menjalankan bisnisnya.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Bookinaja | Sistem Operasional Bisnis Rental",
+    description:
+      "Bookinaja membantu bisnis rental membuat booking lebih rapi, operasional lebih terkontrol, dan owner lebih tenang menjalankan bisnisnya.",
+  },
   icons: {
     icon: [
       { url: "/favicon.ico" },
