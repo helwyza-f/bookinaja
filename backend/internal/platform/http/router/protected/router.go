@@ -45,6 +45,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 		user := protected.Group("/user")
 		{
 			user.GET("/me", cfg.CustomerHandler.GetMe)
+			user.GET("/me/discover/feed", cfg.TenantHandler.CustomerDiscoverFeed)
 			user.PUT("/me", cfg.CustomerHandler.UpdateMe)
 			user.GET("/me/bookings/:id", cfg.ReservationHandler.GetMyDetail)
 			user.GET("/me/bookings/:id/context", cfg.ReservationHandler.GetCustomerLiveSnapshot)

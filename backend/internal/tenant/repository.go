@@ -308,6 +308,93 @@ func (r *Repository) listPublicTenantsLegacy(ctx context.Context) ([]TenantDirec
 	return items, err
 }
 
+func (r *Repository) GetCustomerDiscoverySignals(ctx context.Context, customerID uuid.UUID) (*CustomerDiscoverySignals, error) {
+	signals := &CustomerDiscoverySignals{
+		FavoriteCategories: map[string]int{},
+		FavoriteTypes:      map[string]int{},
+		VisitedTenants:     map[uuid.UUID]int{},
+	}
+
+	type categoryRow struct {
+		Category string `db:"category"`
+		Total    int    `db:"total"`
+	}
+	var categoryRows []categoryRow
+	if err := r.db.SelectContext(ctx, &categoryRows, `
+		SELECT
+			LOWER(COALESCE(NULLIF(TRIM(t.business_category), ''), 'lainnya')) AS category,
+			COUNT(*) AS total
+		FROM bookings b
+		JOIN tenants t ON t.id = b.tenant_id
+		WHERE b.customer_id = $1
+		GROUP BY 1
+		ORDER BY total DESC`, customerID); err != nil {
+		return nil, err
+	}
+	for _, row := range categoryRows {
+		signals.FavoriteCategories[row.Category] = row.Total
+		signals.TotalBookings += row.Total
+	}
+
+	type typeRow struct {
+		BusinessType string `db:"business_type"`
+		Total        int    `db:"total"`
+	}
+	var typeRows []typeRow
+	if err := r.db.SelectContext(ctx, &typeRows, `
+		SELECT
+			LOWER(COALESCE(NULLIF(TRIM(t.business_type), ''), '')) AS business_type,
+			COUNT(*) AS total
+		FROM bookings b
+		JOIN tenants t ON t.id = b.tenant_id
+		WHERE b.customer_id = $1
+		GROUP BY 1
+		ORDER BY total DESC`, customerID); err != nil {
+		return nil, err
+	}
+	for _, row := range typeRows {
+		if strings.TrimSpace(row.BusinessType) == "" {
+			continue
+		}
+		signals.FavoriteTypes[row.BusinessType] = row.Total
+	}
+
+	type tenantRow struct {
+		TenantID uuid.UUID `db:"tenant_id"`
+		Total    int       `db:"total"`
+	}
+	var tenantRows []tenantRow
+	if err := r.db.SelectContext(ctx, &tenantRows, `
+		SELECT tenant_id, COUNT(*) AS total
+		FROM bookings
+		WHERE customer_id = $1
+		GROUP BY tenant_id
+		ORDER BY total DESC`, customerID); err != nil {
+		return nil, err
+	}
+	for _, row := range tenantRows {
+		signals.VisitedTenants[row.TenantID] = row.Total
+	}
+
+	if err := r.db.GetContext(ctx, &signals.AverageSpend, `
+		SELECT COALESCE(AVG(NULLIF(grand_total, 0)), 0)
+		FROM bookings
+		WHERE customer_id = $1
+		  AND COALESCE(grand_total, 0) > 0`, customerID); err != nil {
+		return nil, err
+	}
+
+	if err := r.db.GetContext(ctx, &signals.EveningBookings, `
+		SELECT COUNT(*)
+		FROM bookings
+		WHERE customer_id = $1
+		  AND EXTRACT(HOUR FROM start_time) >= 18`, customerID); err != nil {
+		return nil, err
+	}
+
+	return signals, nil
+}
+
 func isDiscoverySchemaError(err error) bool {
 	if err == nil {
 		return false

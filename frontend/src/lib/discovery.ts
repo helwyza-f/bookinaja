@@ -33,6 +33,8 @@ export type DiscoveryTenant = {
   discovery_ctr_30d?: number;
   featured_reason?: string;
   availability_hint?: string;
+  recommendation_reason?: string;
+  personalization_score?: number;
   is_featured?: boolean;
   is_new?: boolean;
   is_promoted?: boolean;
@@ -56,6 +58,7 @@ export type DiscoveryFeedResponse = {
   quick_categories: string[];
   featured: DiscoveryTenant[];
   sections: DiscoverySection[];
+  personalized?: boolean;
 };
 
 export const formatStartingPrice = (value?: number) => {

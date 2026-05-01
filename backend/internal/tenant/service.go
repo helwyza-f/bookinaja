@@ -57,7 +57,25 @@ func (s *Service) GetPublicDiscoverFeed(ctx context.Context) (*PublicDiscoverFee
 	if err != nil {
 		return nil, err
 	}
+	return s.buildPublicDiscoverFeed(items, false), nil
+}
 
+func (s *Service) GetCustomerDiscoverFeed(ctx context.Context, customerID uuid.UUID) (*PublicDiscoverFeedResponse, error) {
+	items, err := s.ListPublicTenants(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	signals, err := s.repo.GetCustomerDiscoverySignals(ctx, customerID)
+	if err != nil {
+		return nil, err
+	}
+
+	personalized := s.personalizeDiscoveryItems(items, signals)
+	return s.buildCustomerDiscoverFeed(personalized, signals), nil
+}
+
+func (s *Service) buildPublicDiscoverFeed(items []TenantDirectoryItem, personalized bool) *PublicDiscoverFeedResponse {
 	categoriesSet := map[string]struct{}{}
 	for _, item := range items {
 		category := strings.TrimSpace(item.BusinessCategory)
@@ -124,6 +142,7 @@ func (s *Service) GetPublicDiscoverFeed(ctx context.Context) (*PublicDiscoverFee
 		},
 		QuickCategories: quickCategories,
 		Featured:        featured,
+		Personalized:    personalized,
 		Sections: []PublicDiscoverySection{
 			{
 				ID:          "trending-now",
@@ -154,7 +173,105 @@ func (s *Service) GetPublicDiscoverFeed(ctx context.Context) (*PublicDiscoverFee
 				Items:       lateNight,
 			},
 		},
-	}, nil
+	}
+}
+
+func (s *Service) buildCustomerDiscoverFeed(items []TenantDirectoryItem, signals *CustomerDiscoverySignals) *PublicDiscoverFeedResponse {
+	categoriesSet := map[string]struct{}{}
+	for _, item := range items {
+		category := strings.TrimSpace(item.BusinessCategory)
+		if category == "" {
+			continue
+		}
+		categoriesSet[category] = struct{}{}
+	}
+
+	quickCategories := make([]string, 0, len(categoriesSet))
+	for category := range categoriesSet {
+		quickCategories = append(quickCategories, category)
+	}
+	sort.Strings(quickCategories)
+	if len(quickCategories) > 6 {
+		quickCategories = quickCategories[:6]
+	}
+
+	title := "Temukan sesuatu yang lebih nyambung buat kamu."
+	description := "Feed customer Bookinaja sekarang memadukan minat kategori, riwayat booking, dan kualitas listing untuk menampilkan bisnis yang lebih relevan."
+	if signals == nil || signals.TotalBookings == 0 {
+		title = "Mulai dari tempat yang paling siap dijelajahi."
+		description = "Saat jejak booking kamu masih sedikit, Bookinaja memulai dari listing yang paling rapi, paling menarik, dan paling mudah dicoba."
+	}
+
+	preference := filterDiscoveryItems(items, func(item TenantDirectoryItem) bool {
+		return strings.TrimSpace(item.RecommendationReason) != ""
+	}, 6)
+	rebook := filterDiscoveryItems(items, func(item TenantDirectoryItem) bool {
+		return signals != nil && signals.VisitedTenants[item.ID] > 0
+	}, 6)
+	fresh := filterDiscoveryItems(items, func(item TenantDirectoryItem) bool {
+		return item.IsNew
+	}, 6)
+	budgetFit := filterDiscoveryItems(items, func(item TenantDirectoryItem) bool {
+		return signals != nil &&
+			signals.AverageSpend > 0 &&
+			item.StartingPrice > 0 &&
+			item.StartingPrice <= (signals.AverageSpend*0.45)
+	}, 6)
+
+	if len(preference) == 0 {
+		preference = append(preference, items[:minInt(len(items), 6)]...)
+	}
+	if len(rebook) == 0 {
+		rebook = append(rebook, items[:minInt(len(items), 6)]...)
+	}
+	if len(fresh) == 0 {
+		fresh = append(fresh, items[:minInt(len(items), 6)]...)
+	}
+	if len(budgetFit) == 0 {
+		budgetFit = append(budgetFit, items[:minInt(len(items), 6)]...)
+	}
+
+	return &PublicDiscoverFeedResponse{
+		Hero: PublicDiscoveryHero{
+			Eyebrow:     "Smart Discovery",
+			Title:       title,
+			Description: description,
+			SearchHint:  "Cari tempat, kategori, aktivitas, atau suasana yang kamu cari",
+		},
+		QuickCategories: quickCategories,
+		Featured:        items[:minInt(len(items), 4)],
+		Personalized:    true,
+		Sections: []PublicDiscoverySection{
+			{
+				ID:          "for-you",
+				Title:       "Paling Nyambung Buat Kamu",
+				Description: "Dipilih dari kategori yang sering kamu pilih, kualitas listing, dan sinyal interaksi yang sedang kuat.",
+				Style:       "personal",
+				Items:       preference,
+			},
+			{
+				ID:          "rebook-favorites",
+				Title:       "Tempat yang Pernah Kamu Pilih",
+				Description: "Cocok untuk repeat booking yang lebih cepat tanpa mulai dari nol lagi.",
+				Style:       "repeat",
+				Items:       rebook,
+			},
+			{
+				ID:          "fresh-for-you",
+				Title:       "Baru, Tapi Masih Relevan",
+				Description: "Listing baru yang tetap terasa dekat dengan pola booking dan minat kamu.",
+				Style:       "fresh",
+				Items:       fresh,
+			},
+			{
+				ID:          "budget-fit",
+				Title:       "Masih Masuk Pola Budget Kamu",
+				Description: "Pilihan dengan titik masuk harga yang lebih dekat dengan gaya booking kamu sejauh ini.",
+				Style:       "budget",
+				Items:       budgetFit,
+			},
+		},
+	}
 }
 
 func (s *Service) TrackDiscoveryEvent(ctx context.Context, req DiscoveryEventReq) error {
@@ -243,6 +360,33 @@ func (s *Service) decorateDiscoveryItems(items []TenantDirectoryItem) []TenantDi
 	})
 
 	return decorated
+}
+
+func (s *Service) personalizeDiscoveryItems(items []TenantDirectoryItem, signals *CustomerDiscoverySignals) []TenantDirectoryItem {
+	if signals == nil {
+		return items
+	}
+
+	personalized := make([]TenantDirectoryItem, 0, len(items))
+	for _, item := range items {
+		entry := item
+		entry.PersonalizationScore, entry.RecommendationReason = scorePersonalization(item, signals)
+		personalized = append(personalized, entry)
+	}
+
+	sort.SliceStable(personalized, func(i, j int) bool {
+		left := discoveryRank(personalized[i]) + personalized[i].PersonalizationScore
+		right := discoveryRank(personalized[j]) + personalized[j].PersonalizationScore
+		if left != right {
+			return left > right
+		}
+		if personalized[i].DiscoveryCtr30d != personalized[j].DiscoveryCtr30d {
+			return personalized[i].DiscoveryCtr30d > personalized[j].DiscoveryCtr30d
+		}
+		return personalized[i].CreatedAt.After(personalized[j].CreatedAt)
+	})
+
+	return personalized
 }
 
 func buildDiscoveryHeadline(item TenantDirectoryItem) string {
@@ -1348,4 +1492,74 @@ func discoveryQualityScore(item TenantDirectoryItem) int {
 		score += 3
 	}
 	return score
+}
+
+func scorePersonalization(item TenantDirectoryItem, signals *CustomerDiscoverySignals) (int, string) {
+	score := 0
+	reasons := []string{}
+
+	categoryKey := strings.ToLower(strings.TrimSpace(item.BusinessCategory))
+	typeKey := strings.ToLower(strings.TrimSpace(item.BusinessType))
+
+	if visits := signals.VisitedTenants[item.ID]; visits > 0 {
+		score += 28 + minInt(visits, 4)*6
+		reasons = append(reasons, "Kamu pernah booking di sini")
+	}
+
+	if hits := signals.FavoriteCategories[categoryKey]; hits > 0 {
+		score += 12 + minInt(hits, 4)*4
+		if pretty := prettifyLabel(item.BusinessCategory); pretty != "" {
+			reasons = append(reasons, fmt.Sprintf("Selaras dengan minat kamu di %s", pretty))
+		}
+	}
+
+	if hits := signals.FavoriteTypes[typeKey]; hits > 0 {
+		score += 8 + minInt(hits, 3)*3
+		reasons = append(reasons, "Mirip dengan tipe tempat yang sering kamu pilih")
+	}
+
+	if signals.AverageSpend > 0 && item.StartingPrice > 0 {
+		switch {
+		case item.StartingPrice <= signals.AverageSpend*0.3:
+			score += 10
+			reasons = append(reasons, "Masih masuk ke gaya budget booking kamu")
+		case item.StartingPrice <= signals.AverageSpend*0.55:
+			score += 6
+		}
+	}
+
+	if signals.EveningBookings >= 2 && closesLate(item.CloseTime) {
+		score += 8
+		reasons = append(reasons, "Cocok untuk pola booking kamu di sore atau malam")
+	}
+
+	if item.IsNew {
+		score += 4
+	}
+
+	if len(reasons) == 0 {
+		if item.DiscoveryCtr30d >= 5 {
+			return score + 6, "Sedang menarik perhatian customer lain"
+		}
+		if item.ResourceCount >= 4 {
+			return score + 4, "Punya pilihan resource yang lebih lengkap"
+		}
+		return score, ""
+	}
+
+	return score, reasons[0]
+}
+
+func filterDiscoveryItems(items []TenantDirectoryItem, keep func(TenantDirectoryItem) bool, limit int) []TenantDirectoryItem {
+	out := make([]TenantDirectoryItem, 0, limit)
+	for _, item := range items {
+		if !keep(item) {
+			continue
+		}
+		out = append(out, item)
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out
 }

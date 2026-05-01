@@ -219,6 +219,8 @@ type TenantDirectoryItem struct {
 	DiscoveryCtr30d         float64 `db:"discovery_ctr_30d" json:"discovery_ctr_30d"`
 	FeaturedReason       string     `db:"-" json:"featured_reason"`
 	AvailabilityHint     string     `db:"-" json:"availability_hint"`
+	RecommendationReason string     `db:"-" json:"recommendation_reason"`
+	PersonalizationScore int        `db:"-" json:"personalization_score"`
 	IsFeatured           bool       `db:"-" json:"is_featured"`
 	IsNew                bool       `db:"-" json:"is_new"`
 	IsPromoted           bool       `db:"-" json:"is_promoted"`
@@ -245,6 +247,16 @@ type PublicDiscoverFeedResponse struct {
 	QuickCategories []string                 `json:"quick_categories"`
 	Featured        []TenantDirectoryItem    `json:"featured"`
 	Sections        []PublicDiscoverySection `json:"sections"`
+	Personalized    bool                     `json:"personalized"`
+}
+
+type CustomerDiscoverySignals struct {
+	FavoriteCategories map[string]int
+	FavoriteTypes      map[string]int
+	VisitedTenants     map[uuid.UUID]int
+	AverageSpend       float64
+	EveningBookings    int
+	TotalBookings      int
 }
 
 type DiscoveryEventReq struct {

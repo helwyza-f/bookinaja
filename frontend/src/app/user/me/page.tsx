@@ -72,7 +72,7 @@ export default function UserDashboardPage() {
       try {
         const [profileRes, discoverRes] = await Promise.all([
           api.get("/user/me"),
-          api.get("/public/discover/feed").catch(() => ({ data: null })),
+          api.get("/user/me/discover/feed").catch(() => ({ data: null })),
         ]);
 
         if (active) {
@@ -463,7 +463,10 @@ function FeatureHero({
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-white/72">
-              {tenant.highlight_copy || tenant.availability_hint || "Lihat mengapa tempat ini cocok buat dicoba sekarang."}
+              {tenant.recommendation_reason ||
+                tenant.highlight_copy ||
+                tenant.availability_hint ||
+                "Lihat mengapa tempat ini cocok buat dicoba sekarang."}
             </div>
             <Button asChild className="h-11 rounded-2xl bg-white text-slate-950 hover:bg-white/90">
               <a
@@ -533,7 +536,10 @@ function ContentCard({
               {tenant.name}
             </h3>
             <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">
-              {tenant.discovery_headline || tenant.tagline || tenant.about_us}
+              {tenant.recommendation_reason ||
+                tenant.discovery_headline ||
+                tenant.tagline ||
+                tenant.about_us}
             </p>
           </div>
 

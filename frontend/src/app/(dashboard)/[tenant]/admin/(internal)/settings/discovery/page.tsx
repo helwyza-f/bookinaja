@@ -106,7 +106,8 @@ export default function DiscoverySettingsPage() {
               <p>1. Isi judul singkat yang menjelaskan kenapa bisnis kamu menarik.</p>
               <p>2. Isi alasan singkat supaya customer paham apa yang membuat tempat ini layak dicoba.</p>
               <p>3. Tambahkan label pendek seperti promo atau suasana tempat.</p>
-              <p>4. Kalau perlu, baru buka pengaturan lanjutan seperti unggulan, promo, atau urutan tampil.</p>
+              <p>4. Upload gambar utama agar card di marketplace terlihat lebih kuat di mobile.</p>
+              <p>5. Ranking, momentum promo, dan penempatan unggulan diatur otomatis oleh sistem Bookinaja.</p>
             </div>
           </Card>
 
@@ -176,15 +177,15 @@ function MarketplacePreview({ profile }: { profile: TenantProfile }) {
 
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm">
           <div className="flex items-center justify-between">
-            <span className="text-slate-500">Mode unggulan</span>
+            <span className="text-slate-500">Ranking feed</span>
             <span className="font-semibold text-slate-950">
-              {profile.discovery_featured ? "Nyala" : "Normal"}
+              Otomatis
             </span>
           </div>
           <div className="mt-2 flex items-center justify-between">
-            <span className="text-slate-500">Mode promo</span>
+            <span className="text-slate-500">Momentum promo</span>
             <span className="font-semibold text-slate-950">
-              {profile.discovery_promoted ? "Nyala" : "Normal"}
+              Otomatis
             </span>
           </div>
         </div>

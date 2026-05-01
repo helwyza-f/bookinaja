@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Plus, Sparkles, X } from "lucide-react";
+import { Plus, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { SingleImageUpload } from "@/components/upload/single-image-upload";
 import { SectionShell, ViewGrid, ViewItem } from "./section-shell";
 import type { SectionProps } from "./types";
 
@@ -74,7 +74,7 @@ export function DiscoverySection({
   return (
     <SectionShell
       title="Tampilan di Customer Feed"
-      description="Isi bagian penting yang membantu customer cepat paham dan tertarik dengan bisnis kamu."
+      description="Tenant cukup isi materi yang ingin ditampilkan. Sistem Bookinaja yang akan mengatur ranking dan penempatan feed secara otomatis."
       icon={Sparkles}
       saving={saving}
       editing={editing}
@@ -111,24 +111,17 @@ export function DiscoverySection({
             items={profile.discovery_badges || []}
             emptyLabel="Belum ada badge"
           />
-          <details className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-            <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold text-slate-700">
-              Pengaturan lanjutan
-              <ChevronDown className="h-4 w-4" />
-            </summary>
-            <div className="mt-3 space-y-2 text-sm text-slate-500">
-              <div>Unggulan: {profile.discovery_featured ? "Nyala" : "Normal"}</div>
-              <div>Promo: {profile.discovery_promoted ? "Nyala" : "Normal"}</div>
-              <div>Urutan tampil: {profile.discovery_priority || 0}</div>
-            </div>
-          </details>
+          <ViewItem
+            label="Gambar utama"
+            value={profile.featured_image_url ? "Sudah diupload" : "Pakai banner bisnis"}
+          />
         </div>
       }
     >
       <div className="space-y-5">
         <Field
           label="Judul singkat untuk customer"
-          hint="Kalimat utama yang muncul di card atau feed. Buat singkat dan jelas."
+          hint="Kalimat utama yang muncul di card atau feed. Buat singkat, jelas, dan enak dibaca di mobile."
         >
           <Input
             value={draft.discovery_headline}
@@ -141,7 +134,7 @@ export function DiscoverySection({
 
         <Field
           label="Alasan singkat kenapa layak dicoba"
-          hint="Ini membantu customer cepat paham kenapa bisnis kamu menarik."
+          hint="Ini membantu customer cepat paham kenapa bisnis kamu menarik tanpa harus buka detail dulu."
         >
           <Textarea
             value={draft.highlight_copy}
@@ -155,7 +148,7 @@ export function DiscoverySection({
 
         <Field
           label="Penjelasan tambahan"
-          hint="Opsional. Bisa dipakai kalau kamu ingin isi deskripsi kedua yang lebih detail."
+          hint="Opsional. Dipakai kalau kamu ingin menambah penjelasan kedua yang lebih santai atau lebih detail."
         >
           <Textarea
             value={draft.discovery_subheadline}
@@ -173,7 +166,7 @@ export function DiscoverySection({
         <div className="grid gap-4 md:grid-cols-2">
           <Field
             label="Label kecil"
-            hint="Contoh: Lagi ramai, Promo weekend, Baru di Bookinaja."
+            hint="Label pendek yang muncul di card. Misalnya: Lagi ramai, Private room, Baru gabung."
           >
             <Input
               value={draft.promo_label}
@@ -186,14 +179,15 @@ export function DiscoverySection({
 
           <Field
             label="Gambar utama"
-            hint="Kalau kosong, sistem akan pakai banner bisnis yang sekarang."
+            hint="Gambar ini akan dipakai untuk feed customer. Kalau kosong, sistem akan pakai banner bisnis."
           >
-            <Input
+            <SingleImageUpload
+              label=""
               value={draft.featured_image_url}
-              onChange={(event) =>
-                setDraft({ ...draft, featured_image_url: event.target.value })
+              onChange={(url) =>
+                setDraft({ ...draft, featured_image_url: url })
               }
-              placeholder="https://..."
+              aspect="video"
             />
           </Field>
         </div>
@@ -226,97 +220,18 @@ export function DiscoverySection({
           onRemove={(index) => removeListItem("discovery_badges", index)}
         />
 
-        <details className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold text-slate-800">
-            Pengaturan lanjutan
-            <ChevronDown className="h-4 w-4" />
-          </summary>
-
-          <div className="mt-4 space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <ToggleField
-                label="Tandai sebagai unggulan"
-                description="Dipakai kalau kamu ingin bisnis ini lebih mudah muncul di bagian unggulan."
-                checked={draft.discovery_featured}
-                onCheckedChange={(checked) =>
-                  setDraft({ ...draft, discovery_featured: checked })
-                }
-              />
-              <ToggleField
-                label="Tandai sedang promo"
-                description="Dipakai kalau ada momentum khusus yang ingin lebih ditonjolkan."
-                checked={draft.discovery_promoted}
-                onCheckedChange={(checked) =>
-                  setDraft({ ...draft, discovery_promoted: checked })
-                }
-              />
-            </div>
-
-            <Field
-              label="Urutan tampil manual"
-              hint="Semakin tinggi, semakin diprioritaskan untuk tampil lebih atas."
-            >
-              <Input
-                type="number"
-                min="0"
-                step="1"
-                value={draft.discovery_priority}
-                onChange={(event) =>
-                  setDraft({
-                    ...draft,
-                    discovery_priority: Math.max(0, Number(event.target.value || 0)),
-                  })
-                }
-                placeholder="0"
-              />
-            </Field>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Promo mulai">
-                <Input
-                  type="datetime-local"
-                  value={draft.promo_starts_at}
-                  onChange={(event) =>
-                    setDraft({ ...draft, promo_starts_at: event.target.value })
-                  }
-                />
-              </Field>
-              <Field label="Promo berakhir">
-                <Input
-                  type="datetime-local"
-                  value={draft.promo_ends_at}
-                  onChange={(event) =>
-                    setDraft({ ...draft, promo_ends_at: event.target.value })
-                  }
-                />
-              </Field>
-            </div>
+        <div className="rounded-2xl border border-blue-100 bg-blue-50/60 px-4 py-4 text-sm leading-7 text-slate-600">
+          <div className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-700">
+            Diatur otomatis oleh Bookinaja
           </div>
-        </details>
+          <div className="mt-2 space-y-1">
+            <p>Urutan tampil di feed</p>
+            <p>Momentum promo dan kapan listing didorong</p>
+            <p>Apakah listing masuk blok unggulan atau tidak</p>
+          </div>
+        </div>
       </div>
     </SectionShell>
-  );
-}
-
-function ToggleField({
-  label,
-  description,
-  checked,
-  onCheckedChange,
-}: {
-  label: string;
-  description: string;
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3">
-      <div>
-        <p className="text-sm font-semibold text-slate-950">{label}</p>
-        <p className="mt-1 text-xs leading-6 text-slate-500">{description}</p>
-      </div>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
-    </div>
   );
 }
 

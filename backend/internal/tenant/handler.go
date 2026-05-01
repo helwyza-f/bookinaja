@@ -97,6 +97,29 @@ func (h *Handler) PublicDiscoverFeed(c *gin.Context) {
 	c.JSON(http.StatusOK, feed)
 }
 
+func (h *Handler) CustomerDiscoverFeed(c *gin.Context) {
+	customerIDStr, exists := c.Get("customerID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi customer tidak valid"})
+		return
+	}
+
+	customerID, err := uuid.Parse(customerIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID customer tidak valid"})
+		return
+	}
+
+	feed, err := h.service.GetCustomerDiscoverFeed(c.Request.Context(), customerID)
+	if err != nil {
+		log.Printf("customer discover feed error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil feed personalisasi"})
+		return
+	}
+
+	c.JSON(http.StatusOK, feed)
+}
+
 func (h *Handler) TrackDiscoveryEvent(c *gin.Context) {
 	var req DiscoveryEventReq
 	if err := c.ShouldBindJSON(&req); err != nil {
