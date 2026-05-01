@@ -17,7 +17,17 @@ jobs:
           echo "${{ secrets.BE_ENV }}" > backend/.env
           echo "${{ secrets.FE_ENV }}" > frontend/.env
 
-      # --- 2. BUILD FRONTEND (NEXT.JS) ---
+      # --- 2. BUILD BACKEND (GO) ---
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+      - name: Build Backend Binary
+        run: |
+          cd backend
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o main cmd/api/main.go
+
+      # --- 3. BUILD FRONTEND (NEXT.JS) ---
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -33,7 +43,7 @@ jobs:
           npm install
           npm run build
 
-      # --- 3. PRE-CLEAN VPS ---
+      # --- 4. PRE-CLEAN VPS ---
       - name: Reset Environment on VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -43,23 +53,28 @@ jobs:
           script: |
             mkdir -p ~/bookinaja/backend ~/bookinaja/frontend
             rm -f ~/bookinaja/backend/main
+            rm -rf ~/bookinaja/backend/migrations
+            rm -rf ~/bookinaja/backend/internal
+            rm -rf ~/bookinaja/backend/cmd
+            rm -f ~/bookinaja/backend/go.mod
+            rm -f ~/bookinaja/backend/go.sum
             rm -f ~/bookinaja/backend/.env
             rm -f ~/bookinaja/frontend/.env
             rm -rf ~/bookinaja/frontend/.next
 
-      # --- 4. TRANSFER FILES (SCP) ---
+      # --- 5. TRANSFER FILES (SCP) ---
       - name: Transfer Files to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "backend/cmd,backend/go.mod,backend/go.sum,backend/migrations,backend/internal,backend/Dockerfile,backend/.env,frontend/.next/standalone,frontend/.next/static,frontend/public,frontend/Dockerfile,frontend/.env,docker-compose.yml"
+          source: "backend/main,backend/migrations,backend/internal,backend/Dockerfile,backend/.env,frontend/.next/standalone,frontend/.next/static,frontend/public,frontend/Dockerfile,frontend/.env,docker-compose.yml"
           target: "~/bookinaja"
           strip_components: 0
           overwrite: true
 
-      # --- 5. RESTART DOCKER ON VPS (FIXED COMMAND) ---
+      # --- 6. RESTART DOCKER ON VPS ---
       - name: Execute Docker Commands
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -69,6 +84,5 @@ jobs:
           script: |
             cd ~/bookinaja
             sudo docker compose down
-            sudo docker compose build --no-cache backend
-            sudo docker compose up -d
+            sudo docker compose up --build -d
             sudo docker image prune -f
