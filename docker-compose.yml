@@ -41,6 +41,8 @@ services:
     ports:
       - "8081:8080" # Luar: 8081, Dalam: 8080
     env_file: ./backend/.env
+    environment:
+      MIGRATION_PATH: /app/migrations
     depends_on:
       - db
       - redis
