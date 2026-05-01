@@ -1,0 +1,2 @@
+ALTER TABLE tenants
+    ADD COLUMN IF NOT EXISTS discovery_priority INTEGER NOT NULL DEFAULT 0;

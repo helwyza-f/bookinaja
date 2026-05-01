@@ -9,6 +9,7 @@ import { PageShell } from "@/components/dashboard/page-shell";
 const sections = [
   { href: "/dashboard/overview", title: "Overview", desc: "Ringkasan data platform", icon: BadgeCheck },
   { href: "/dashboard/tenants", title: "Tenants", desc: "Directory tenant aktif", icon: ShieldCheck },
+  { href: "/dashboard/discovery", title: "Discovery editorial", desc: "Override featured order lintas tenant", icon: Sparkles },
   { href: "/dashboard/referral-withdrawals", title: "Referral payout", desc: "Review request pencairan", icon: Sparkles },
 ];
 
@@ -46,7 +47,7 @@ export default function SettingsPage() {
           Operational checklist
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          {["platform login", "summary", "tenants", "customers", "transactions", "referral payout"].map((item) => (
+          {["platform login", "summary", "tenants", "discovery editorial", "customers", "transactions", "referral payout"].map((item) => (
             <Badge key={item} variant="outline" className="rounded-full uppercase">
               {item}
             </Badge>

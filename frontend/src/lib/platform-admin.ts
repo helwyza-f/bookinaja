@@ -25,6 +25,21 @@ export type PlatformTenant = {
   transactions_count?: number;
   revenue?: number;
   last_activity?: string;
+  discovery_headline?: string;
+  discovery_subheadline?: string;
+  promo_label?: string;
+  featured_image_url?: string;
+  highlight_copy?: string;
+  discovery_tags?: string[];
+  discovery_badges?: string[];
+  discovery_featured?: boolean;
+  discovery_promoted?: boolean;
+  discovery_priority?: number;
+  promo_starts_at?: string | null;
+  promo_ends_at?: string | null;
+  discovery_impressions_30d?: number;
+  discovery_clicks_30d?: number;
+  discovery_ctr_30d?: number;
 };
 
 export type PlatformTenantDetail = PlatformTenant & {
@@ -149,6 +164,35 @@ export type PlatformRevenuePoint = {
   orders: number;
 };
 
+export type DiscoveryAnalyticsBucket = {
+  bucket: string;
+  impressions_30d: number;
+  clicks_30d: number;
+  ctr_30d: number;
+};
+
+export type DiscoveryAnalyticsSpotlight = {
+  tenant_id?: string;
+  tenant_name?: string;
+  tenant_slug?: string;
+  discovery_priority?: number;
+  impressions_30d?: number;
+  clicks_30d?: number;
+  ctr_30d?: number;
+};
+
+export type PlatformDiscoveryAnalytics = {
+  sections: DiscoveryAnalyticsBucket[];
+  card_variants: DiscoveryAnalyticsBucket[];
+  top_featured: DiscoveryAnalyticsSpotlight;
+  underperforming_promoted: DiscoveryAnalyticsSpotlight;
+};
+
+type TenantDetailEnvelope = {
+  tenant?: PlatformTenantDetail;
+  summary?: PlatformTenantDetail["summary"];
+};
+
 const mockTenants: PlatformTenant[] = [
   {
     id: "tenant_001",
@@ -243,14 +287,31 @@ export function getPlatformTenants() {
   return safeGet<PlatformTenant[]>("/platform/tenants", mockTenants);
 }
 
+export function updatePlatformTenantDiscovery(
+  tenantId: string,
+  payload: Partial<PlatformTenant>,
+) {
+  return api.patch(`/platform/tenants/${tenantId}/discovery`, payload);
+}
+
+export function getPlatformDiscoveryAnalytics() {
+  return safeGet<PlatformDiscoveryAnalytics>("/platform/discovery/analytics", {
+    sections: [],
+    card_variants: [],
+    top_featured: {},
+    underperforming_promoted: {},
+  });
+}
+
 export function getPlatformTenantDetail(tenantId: string) {
   return safeGet<PlatformTenantDetail>(`/platform/tenants/${tenantId}`, {
     id: tenantId,
     name: "",
     slug: "",
-  }).then((res: any) => {
-    const tenant = res?.tenant ?? res;
-    const summary = res?.summary;
+  }).then((res) => {
+    const envelope = res as PlatformTenantDetail & TenantDetailEnvelope;
+    const tenant = envelope.tenant ?? envelope;
+    const summary = envelope.summary;
     return {
       ...tenant,
       summary,
@@ -274,7 +335,7 @@ export function getPlatformTenantTransactions(tenantId: string) {
   return safeGet<PaginatedResponse<PlatformTransaction>>(
     `/platform/tenants/${tenantId}/transactions?page=1&page_size=25`,
     { items: [], page: 1, page_size: 25, total: 0 },
-  ).then((res: any) => res.items ?? res);
+  ).then((res) => res.items ?? res);
 }
 
 export function getPlatformTenantTransactionsPage(tenantId: string, page = 1, pageSize = 25) {
@@ -291,7 +352,7 @@ export function getPlatformTenantNotifications(tenantId: string, limit = 100) {
   return safeGet<PaginatedResponse<MidtransNotificationLog>>(
     `/platform/tenants/${tenantId}/notif-history?page=1&page_size=${limit}`,
     { items: [], page: 1, page_size: limit, total: 0 },
-  ).then((res: any) => res.items ?? res);
+  ).then((res) => res.items ?? res);
 }
 
 export function getPlatformTenantNotificationsPage(tenantId: string, page = 1, pageSize = 25) {
@@ -305,7 +366,7 @@ export function getPlatformTenantNotificationsPage(tenantId: string, page = 1, p
 }
 
 export function getPlatformCustomers() {
-  return safeGet<PlatformCustomer[]>("/platform/customers", mockCustomers).then((items: any) =>
+  return safeGet<PlatformCustomer[]>("/platform/customers", mockCustomers).then((items) =>
     (Array.isArray(items) ? items : []).map((item) => ({
       ...item,
       visits: item.visits ?? item.total_visits ?? 0,
@@ -320,7 +381,7 @@ export function getPlatformTransactions() {
     page: 1,
     page_size: mockTransactions.length,
     total: mockTransactions.length,
-  }).then((res: any) => res.items ?? res);
+  }).then((res) => res.items ?? res);
 }
 
 export function getPlatformTransactionsPage(page = 1, pageSize = 25) {

@@ -51,6 +51,21 @@ func (r *Repository) ListTenants(ctx context.Context) ([]map[string]any, error) 
             t.meta_description,
             t.open_time,
             t.close_time,
+            t.discovery_headline,
+            t.discovery_subheadline,
+            t.promo_label,
+            t.featured_image_url,
+            t.highlight_copy,
+            COALESCE(t.discovery_tags, ARRAY[]::text[]) AS discovery_tags,
+            COALESCE(t.discovery_badges, ARRAY[]::text[]) AS discovery_badges,
+            COALESCE(t.discovery_featured, false) AS discovery_featured,
+            COALESCE(t.discovery_promoted, false) AS discovery_promoted,
+            COALESCE(t.discovery_priority, 0) AS discovery_priority,
+            t.promo_starts_at,
+            t.promo_ends_at,
+            COALESCE(discovery_stats.impressions_30d, 0) AS discovery_impressions_30d,
+            COALESCE(discovery_stats.clicks_30d, 0) AS discovery_clicks_30d,
+            COALESCE(discovery_stats.ctr_30d, 0) AS discovery_ctr_30d,
             t.created_at,
             u.name AS owner_name,
             u.email AS owner_email,
@@ -60,6 +75,24 @@ func (r *Repository) ListTenants(ctx context.Context) ([]map[string]any, error) 
             COALESCE((SELECT COUNT(*) FROM billing_orders bo WHERE bo.tenant_id = t.id), 0) AS transactions_count
         FROM tenants t
         LEFT JOIN users u ON u.tenant_id = t.id AND u.role = 'owner'
+        LEFT JOIN (
+            SELECT
+                tenant_id,
+                COUNT(*) FILTER (WHERE event_type = 'impression' AND created_at >= NOW() - INTERVAL '30 days') AS impressions_30d,
+                COUNT(*) FILTER (WHERE event_type = 'click' AND created_at >= NOW() - INTERVAL '30 days') AS clicks_30d,
+                CASE
+                    WHEN COUNT(*) FILTER (WHERE event_type = 'impression' AND created_at >= NOW() - INTERVAL '30 days') = 0 THEN 0
+                    ELSE ROUND(
+                        (
+                            COUNT(*) FILTER (WHERE event_type = 'click' AND created_at >= NOW() - INTERVAL '30 days')::numeric
+                            / COUNT(*) FILTER (WHERE event_type = 'impression' AND created_at >= NOW() - INTERVAL '30 days')::numeric
+                        ) * 100,
+                        2
+                    )
+                END AS ctr_30d
+            FROM discovery_feed_events
+            GROUP BY tenant_id
+        ) discovery_stats ON discovery_stats.tenant_id = t.id
         ORDER BY t.created_at DESC`)
 	if err != nil {
 		return nil, err
@@ -75,6 +108,142 @@ func (r *Repository) ListTenants(ctx context.Context) ([]map[string]any, error) 
 		result = append(result, normalizeRow(row))
 	}
 	return result, nil
+}
+
+func (r *Repository) UpdateTenantDiscoveryEditorial(ctx context.Context, tenantID string, payload map[string]any) error {
+	_, err := r.db.NamedExecContext(ctx, `
+		UPDATE tenants
+		SET
+			discovery_headline = :discovery_headline,
+			discovery_subheadline = :discovery_subheadline,
+			promo_label = :promo_label,
+			featured_image_url = :featured_image_url,
+			highlight_copy = :highlight_copy,
+			discovery_tags = :discovery_tags,
+			discovery_badges = :discovery_badges,
+			discovery_featured = :discovery_featured,
+			discovery_promoted = :discovery_promoted,
+			discovery_priority = :discovery_priority,
+			promo_starts_at = :promo_starts_at,
+			promo_ends_at = :promo_ends_at
+		WHERE id::text = :tenant_id`,
+		payload,
+	)
+	return err
+}
+
+func (r *Repository) GetDiscoveryAnalytics(ctx context.Context) (map[string]any, error) {
+	sections, err := r.discoveryBreakdown(ctx, "section_id")
+	if err != nil {
+		return nil, err
+	}
+	cardVariants, err := r.discoveryBreakdown(ctx, "card_variant")
+	if err != nil {
+		return nil, err
+	}
+	topFeatured, err := r.discoveryTenantPerformance(ctx, true)
+	if err != nil {
+		return nil, err
+	}
+	underperformingPromoted, err := r.discoveryTenantPerformance(ctx, false)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"sections":                 sections,
+		"card_variants":            cardVariants,
+		"top_featured":             topFeatured,
+		"underperforming_promoted": underperformingPromoted,
+	}, nil
+}
+
+func (r *Repository) discoveryBreakdown(ctx context.Context, dimension string) ([]map[string]any, error) {
+	if dimension != "section_id" && dimension != "card_variant" {
+		return []map[string]any{}, nil
+	}
+
+	query := fmt.Sprintf(`
+		SELECT
+			COALESCE(%s, '') AS bucket,
+			COUNT(*) FILTER (WHERE event_type = 'impression' AND created_at >= NOW() - INTERVAL '30 days') AS impressions_30d,
+			COUNT(*) FILTER (WHERE event_type = 'click' AND created_at >= NOW() - INTERVAL '30 days') AS clicks_30d,
+			CASE
+				WHEN COUNT(*) FILTER (WHERE event_type = 'impression' AND created_at >= NOW() - INTERVAL '30 days') = 0 THEN 0
+				ELSE ROUND(
+					(
+						COUNT(*) FILTER (WHERE event_type = 'click' AND created_at >= NOW() - INTERVAL '30 days')::numeric
+						/ COUNT(*) FILTER (WHERE event_type = 'impression' AND created_at >= NOW() - INTERVAL '30 days')::numeric
+					) * 100,
+					2
+				)
+			END AS ctr_30d
+		FROM discovery_feed_events
+		GROUP BY bucket
+		ORDER BY impressions_30d DESC, clicks_30d DESC`, dimension)
+
+	rows, err := r.db.QueryxContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []map[string]any
+	for rows.Next() {
+		row := map[string]any{}
+		if err := rows.MapScan(row); err != nil {
+			return nil, err
+		}
+		result = append(result, normalizeRow(row))
+	}
+	return result, nil
+}
+
+func (r *Repository) discoveryTenantPerformance(ctx context.Context, topFeatured bool) (map[string]any, error) {
+	where := "t.discovery_featured = TRUE"
+	order := "ctr_30d DESC, impressions_30d DESC"
+	if !topFeatured {
+		where = "t.discovery_promoted = TRUE"
+		order = "ctr_30d ASC, impressions_30d DESC"
+	}
+
+	query := fmt.Sprintf(`
+		SELECT
+			t.id::text AS tenant_id,
+			t.name AS tenant_name,
+			t.slug AS tenant_slug,
+			COALESCE(t.discovery_priority, 0) AS discovery_priority,
+			COUNT(*) FILTER (WHERE e.event_type = 'impression' AND e.created_at >= NOW() - INTERVAL '30 days') AS impressions_30d,
+			COUNT(*) FILTER (WHERE e.event_type = 'click' AND e.created_at >= NOW() - INTERVAL '30 days') AS clicks_30d,
+			CASE
+				WHEN COUNT(*) FILTER (WHERE e.event_type = 'impression' AND e.created_at >= NOW() - INTERVAL '30 days') = 0 THEN 0
+				ELSE ROUND(
+					(
+						COUNT(*) FILTER (WHERE e.event_type = 'click' AND e.created_at >= NOW() - INTERVAL '30 days')::numeric
+						/ COUNT(*) FILTER (WHERE e.event_type = 'impression' AND e.created_at >= NOW() - INTERVAL '30 days')::numeric
+					) * 100,
+					2
+				)
+			END AS ctr_30d
+		FROM tenants t
+		LEFT JOIN discovery_feed_events e ON e.tenant_id = t.id
+		WHERE %s
+		GROUP BY t.id, t.name, t.slug, t.discovery_priority
+		ORDER BY %s
+		LIMIT 1`, where, order)
+
+	rows, err := r.db.QueryxContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return map[string]any{}, nil
+	}
+	row := map[string]any{}
+	if err := rows.MapScan(row); err != nil {
+		return nil, err
+	}
+	return normalizeRow(row), nil
 }
 
 func (r *Repository) ListCustomers(ctx context.Context) ([]map[string]any, error) {
@@ -574,12 +743,33 @@ func normalizeRow(row map[string]any) map[string]any {
 			var decoded any
 			if json.Unmarshal(b, &decoded) == nil {
 				row[k] = decoded
+			} else if strings.HasPrefix(string(b), "{") && strings.HasSuffix(string(b), "}") {
+				row[k] = parsePostgresArray(string(b))
 			} else {
 				row[k] = string(b)
 			}
 		}
 	}
 	return row
+}
+
+func parsePostgresArray(value string) []string {
+	trimmed := strings.TrimSpace(value)
+	trimmed = strings.TrimPrefix(trimmed, "{")
+	trimmed = strings.TrimSuffix(trimmed, "}")
+	if trimmed == "" {
+		return []string{}
+	}
+	parts := strings.Split(trimmed, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		item := strings.Trim(strings.TrimSpace(part), `"`)
+		if item == "" {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
 }
 
 func (r *Repository) Summary(ctx context.Context) (map[string]any, error) {

@@ -17,11 +17,13 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 		{
 			platformProtected.GET("/me", cfg.PlatformHandler.Me)
 			platformProtected.GET("/summary", cfg.PlatformHandler.Summary)
+			platformProtected.GET("/discovery/analytics", cfg.PlatformHandler.DiscoveryAnalytics)
 			platformProtected.GET("/revenue", cfg.PlatformHandler.Revenue)
 			platformProtected.GET("/revenue/breakdown", cfg.PlatformHandler.RevenueBreakdown)
 			platformProtected.GET("/revenue/timeseries", cfg.PlatformHandler.RevenueTimeseries)
 			platformProtected.GET("/revenue/export", cfg.PlatformHandler.RevenueCSV)
 			platformProtected.GET("/tenants", cfg.PlatformHandler.Tenants)
+			platformProtected.PATCH("/tenants/:tenant_id/discovery", cfg.PlatformHandler.UpdateTenantDiscoveryEditorial)
 			platformProtected.GET("/tenants/:tenant_id", cfg.PlatformHandler.TenantDetail)
 			platformProtected.GET("/tenants/:tenant_id/customers", cfg.PlatformHandler.TenantCustomers)
 			platformProtected.GET("/tenants/:tenant_id/transactions", cfg.PlatformHandler.TenantTransactions)

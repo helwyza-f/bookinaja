@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ExternalLink, RefreshCw } from "lucide-react";
 import { BasicProfileSection } from "./sections/basic-profile-section";
 import { ContactLocationSection } from "./sections/contact-location-section";
+import { DiscoverySection } from "./sections/discovery-section";
 import { LandingContentSection } from "./sections/landing-content-section";
 import { MediaSection } from "./sections/media-section";
 import { OperationsSection } from "./sections/operations-section";
@@ -35,6 +36,18 @@ const defaultProfile: TenantProfile = {
   meta_title: "",
   meta_description: "",
   gallery: [],
+  discovery_headline: "",
+  discovery_subheadline: "",
+  discovery_tags: [],
+  discovery_badges: [],
+  promo_label: "",
+  featured_image_url: "",
+  highlight_copy: "",
+  discovery_featured: false,
+  discovery_promoted: false,
+  discovery_priority: 0,
+  promo_starts_at: null,
+  promo_ends_at: null,
 };
 
 export default function BusinessSettingsPage() {
@@ -130,6 +143,18 @@ export default function BusinessSettingsPage() {
             label="Gallery"
             value={`${profile.gallery?.length || 0} foto`}
           />
+          <Summary
+            label="Discovery Tags"
+            value={`${profile.discovery_tags?.length || 0} tag`}
+          />
+          <Summary
+            label="Promo"
+            value={profile.discovery_promoted ? "Aktif" : "Normal"}
+          />
+          <Summary
+            label="Priority"
+            value={String(profile.discovery_priority || 0)}
+          />
         </div>
       </section>
 
@@ -157,6 +182,14 @@ export default function BusinessSettingsPage() {
             saving={savingKey === "media"}
             onSave={(patch) =>
               saveSection("media", patch, "Media bisnis disimpan")
+            }
+          />
+          <DiscoverySection
+            key={`discovery-${profile.discovery_headline}-${profile.discovery_subheadline}-${profile.promo_label}-${profile.featured_image_url}-${profile.highlight_copy}-${profile.discovery_tags?.join("|")}-${profile.discovery_badges?.join("|")}`}
+            profile={profile}
+            saving={savingKey === "discovery"}
+            onSave={(patch) =>
+              saveSection("discovery", patch, "Konten discovery disimpan")
             }
           />
           <ContactLocationSection
@@ -212,10 +245,10 @@ function PreviewCard({
   return (
     <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950">
       <div className="aspect-video bg-slate-100 dark:bg-white/5">
-        {profile.banner_url ? (
+        {profile.featured_image_url || profile.banner_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={profile.banner_url}
+            src={profile.featured_image_url || profile.banner_url}
             alt=""
             className="h-full w-full object-cover"
           />
@@ -246,13 +279,29 @@ function PreviewCard({
               {profile.name || "Nama bisnis"}
             </h2>
             <p className="mt-1 line-clamp-2 text-sm text-slate-500 dark:text-slate-400">
-              {profile.tagline ||
+              {profile.discovery_headline ||
+                profile.tagline ||
                 profile.slogan ||
-                "Headline landing belum diisi"}
+                "Headline discovery belum diisi"}
             </p>
           </div>
         </div>
         <div className="mt-4 space-y-2 text-sm">
+          <Row label="Promo" value={profile.promo_label || "-"} />
+          <Row
+            label="Editorial"
+            value={
+              profile.discovery_featured
+                ? "Featured"
+                : profile.discovery_promoted
+                  ? "Promoted"
+                  : "Normal"
+            }
+          />
+          <Row
+            label="Priority"
+            value={String(profile.discovery_priority || 0)}
+          />
           <Row
             label="Warna"
             value={profile.primary_color || "-"}
@@ -264,6 +313,14 @@ function PreviewCard({
             value={profile.instagram_url ? "Terhubung" : "-"}
           />
           <Row label="Public URL" value={publicUrl || "-"} />
+          <Row
+            label="Tags"
+            value={
+              profile.discovery_tags?.length
+                ? profile.discovery_tags.slice(0, 3).join(", ")
+                : "-"
+            }
+          />
         </div>
       </div>
     </Card>

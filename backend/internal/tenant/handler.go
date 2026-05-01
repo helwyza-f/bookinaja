@@ -85,6 +85,31 @@ func (h *Handler) ListPublicTenants(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": items})
 }
 
+func (h *Handler) PublicDiscoverFeed(c *gin.Context) {
+	feed, err := h.service.GetPublicDiscoverFeed(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil feed discovery"})
+		return
+	}
+
+	c.JSON(http.StatusOK, feed)
+}
+
+func (h *Handler) TrackDiscoveryEvent(c *gin.Context) {
+	var req DiscoveryEventReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "payload analytics tidak valid"})
+		return
+	}
+
+	if err := h.service.TrackDiscoveryEvent(c.Request.Context(), req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"message": "event discovery dicatat"})
+}
+
 // extractSlug helper biar gak nulis berkali-kali
 func (h *Handler) extractSlug(c *gin.Context) string {
 	// Cek Query Param ?slug=

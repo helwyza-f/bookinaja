@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/helwiza/backend/internal/platform/security"
+	"github.com/lib/pq"
 )
 
 type Handler struct {
@@ -61,6 +62,15 @@ func (h *Handler) Summary(c *gin.Context) {
 	respondData(c, data)
 }
 
+func (h *Handler) DiscoveryAnalytics(c *gin.Context) {
+	data, err := h.repo.GetDiscoveryAnalytics(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	respondData(c, data)
+}
+
 func (h *Handler) Tenants(c *gin.Context) {
 	data, err := h.repo.ListTenants(c.Request.Context())
 	if err != nil {
@@ -68,6 +78,77 @@ func (h *Handler) Tenants(c *gin.Context) {
 		return
 	}
 	respondData(c, data)
+}
+
+func (h *Handler) UpdateTenantDiscoveryEditorial(c *gin.Context) {
+	tenantID := strings.TrimSpace(c.Param("tenant_id"))
+	if tenantID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenant_id wajib diisi"})
+		return
+	}
+
+	var req struct {
+		DiscoveryHeadline    string     `json:"discovery_headline"`
+		DiscoverySubheadline string     `json:"discovery_subheadline"`
+		PromoLabel           string     `json:"promo_label"`
+		FeaturedImageURL     string     `json:"featured_image_url"`
+		HighlightCopy        string     `json:"highlight_copy"`
+		DiscoveryTags        []string   `json:"discovery_tags"`
+		DiscoveryBadges      []string   `json:"discovery_badges"`
+		DiscoveryFeatured    bool       `json:"discovery_featured"`
+		DiscoveryPromoted    bool       `json:"discovery_promoted"`
+		DiscoveryPriority    int        `json:"discovery_priority"`
+		PromoStartsAt        *time.Time `json:"promo_starts_at"`
+		PromoEndsAt          *time.Time `json:"promo_ends_at"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "payload editorial tidak valid"})
+		return
+	}
+	if req.DiscoveryPriority < 0 {
+		req.DiscoveryPriority = 0
+	}
+
+	payload := map[string]any{
+		"tenant_id":             tenantID,
+		"discovery_headline":    strings.TrimSpace(req.DiscoveryHeadline),
+		"discovery_subheadline": strings.TrimSpace(req.DiscoverySubheadline),
+		"promo_label":           strings.TrimSpace(req.PromoLabel),
+		"featured_image_url":    strings.TrimSpace(req.FeaturedImageURL),
+		"highlight_copy":        strings.TrimSpace(req.HighlightCopy),
+		"discovery_tags":        pq.StringArray(cleanStringSlice(req.DiscoveryTags)),
+		"discovery_badges":      pq.StringArray(cleanStringSlice(req.DiscoveryBadges)),
+		"discovery_featured":    req.DiscoveryFeatured,
+		"discovery_promoted":    req.DiscoveryPromoted,
+		"discovery_priority":    req.DiscoveryPriority,
+		"promo_starts_at":       req.PromoStartsAt,
+		"promo_ends_at":         req.PromoEndsAt,
+	}
+
+	if err := h.repo.UpdateTenantDiscoveryEditorial(c.Request.Context(), tenantID, payload); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "editorial discovery tenant diperbarui"})
+}
+
+func cleanStringSlice(values []string) []string {
+	out := make([]string, 0, len(values))
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		key := strings.ToLower(trimmed)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, trimmed)
+	}
+	return out
 }
 
 func (h *Handler) Customers(c *gin.Context) {

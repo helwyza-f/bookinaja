@@ -168,9 +168,45 @@ func (r *Repository) ListPublicTenants(ctx context.Context) ([]TenantDirectoryIt
 			COALESCE(banner_url, '') AS banner_url,
 			COALESCE(open_time, '09:00') AS open_time,
 			COALESCE(close_time, '22:00') AS close_time,
+			COALESCE(discovery_headline, '') AS discovery_headline,
+			COALESCE(discovery_subheadline, '') AS discovery_subheadline,
+			COALESCE(discovery_tags, ARRAY[]::text[]) AS discovery_tags,
+			COALESCE(discovery_badges, ARRAY[]::text[]) AS discovery_badges,
+			COALESCE(promo_label, '') AS promo_label,
+			COALESCE(featured_image_url, '') AS featured_image_url,
+			COALESCE(highlight_copy, '') AS highlight_copy,
+			COALESCE(discovery_featured, false) AS discovery_featured,
+			COALESCE(discovery_promoted, false) AS discovery_promoted,
+			COALESCE(discovery_priority, 0) AS discovery_priority,
+			promo_starts_at,
+			promo_ends_at,
+			COALESCE(resource_stats.resource_count, 0) AS resource_count,
+			COALESCE(price_stats.starting_price, 0) AS starting_price,
+			COALESCE(top_resource.name, '') AS top_resource_name,
+			COALESCE(top_resource.category, '') AS top_resource_type,
 			created_at
 		FROM tenants
-		ORDER BY created_at DESC, name ASC`)
+		LEFT JOIN (
+			SELECT tenant_id, COUNT(*) AS resource_count
+			FROM resources
+			WHERE status != 'deleted'
+			GROUP BY tenant_id
+		) resource_stats ON resource_stats.tenant_id = tenants.id
+		LEFT JOIN (
+			SELECT r.tenant_id, MIN(ri.price) AS starting_price
+			FROM resources r
+			JOIN resource_items ri ON ri.resource_id = r.id
+			WHERE r.status != 'deleted'
+			GROUP BY r.tenant_id
+		) price_stats ON price_stats.tenant_id = tenants.id
+		LEFT JOIN (
+			SELECT DISTINCT ON (tenant_id)
+				tenant_id, name, category
+			FROM resources
+			WHERE status != 'deleted'
+			ORDER BY tenant_id, created_at DESC, name ASC
+		) top_resource ON top_resource.tenant_id = tenants.id
+		ORDER BY discovery_priority DESC, created_at DESC, name ASC`)
 	if err == nil {
 		if raw, marshalErr := json.Marshal(items); marshalErr == nil {
 			_ = r.rdb.Set(ctx, cacheKey, raw, 30*time.Minute).Err()
@@ -191,6 +227,8 @@ func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) erro
 			id, name, slug, business_category, business_type, 
 			plan, subscription_status, subscription_current_period_start, subscription_current_period_end,
 			slogan, tagline, about_us, features, primary_color,
+			discovery_headline, discovery_subheadline, discovery_tags, discovery_badges, promo_label, featured_image_url, highlight_copy,
+			discovery_featured, discovery_promoted, discovery_priority, promo_starts_at, promo_ends_at,
 			receipt_title, receipt_subtitle, receipt_footer, receipt_whatsapp_text, receipt_template,
 			receipt_channel, printer_enabled, printer_name, printer_mode, printer_endpoint, printer_auto_print, printer_status,
 			referral_code, referred_by_tenant_id,
@@ -199,6 +237,8 @@ func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) erro
 			:id, :name, :slug, :business_category, :business_type, 
 			:plan, :subscription_status, :subscription_current_period_start, :subscription_current_period_end,
 			:slogan, :tagline, :about_us, :features, :primary_color,
+			:discovery_headline, :discovery_subheadline, :discovery_tags, :discovery_badges, :promo_label, :featured_image_url, :highlight_copy,
+			:discovery_featured, :discovery_promoted, :discovery_priority, :promo_starts_at, :promo_ends_at,
 			:receipt_title, :receipt_subtitle, :receipt_footer, :receipt_whatsapp_text, :receipt_template,
 			:receipt_channel, :printer_enabled, :printer_name, :printer_mode, :printer_endpoint, :printer_auto_print, :printer_status,
 			:referral_code, :referred_by_tenant_id,
@@ -254,6 +294,12 @@ func (r *Repository) Update(ctx context.Context, t Tenant) error {
             whatsapp_number=:whatsapp_number, instagram_url=:instagram_url, 
             tiktok_url=:tiktok_url, map_iframe_url=:map_iframe_url, 
             meta_title=:meta_title, meta_description=:meta_description,
+            discovery_headline=:discovery_headline, discovery_subheadline=:discovery_subheadline,
+            discovery_tags=:discovery_tags, discovery_badges=:discovery_badges,
+            promo_label=:promo_label, featured_image_url=:featured_image_url, highlight_copy=:highlight_copy,
+            discovery_featured=:discovery_featured, discovery_promoted=:discovery_promoted,
+            discovery_priority=:discovery_priority,
+            promo_starts_at=:promo_starts_at, promo_ends_at=:promo_ends_at,
             receipt_title=:receipt_title, receipt_subtitle=:receipt_subtitle, receipt_footer=:receipt_footer,
             receipt_whatsapp_text=:receipt_whatsapp_text, receipt_template=:receipt_template, receipt_channel=:receipt_channel,
             printer_enabled=:printer_enabled, printer_name=:printer_name, printer_mode=:printer_mode,
@@ -442,6 +488,20 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Tenant, error)
 	r.rdb.Set(ctx, cacheKey, jsonData, 24*time.Hour)
 
 	return &t, nil
+}
+
+func (r *Repository) CreateDiscoveryFeedEvent(ctx context.Context, event DiscoveryFeedEvent) error {
+	_, err := r.db.NamedExecContext(ctx, `
+		INSERT INTO discovery_feed_events (
+			id, tenant_id, event_type, surface, section_id, card_variant,
+			position_index, session_id, promo_label, metadata, created_at
+		) VALUES (
+			:id, :tenant_id, :event_type, :surface, :section_id, :card_variant,
+			:position_index, :session_id, :promo_label, :metadata, :created_at
+		)`,
+		event,
+	)
+	return err
 }
 
 func (r *Repository) GetUserByID(ctx context.Context, id uuid.UUID) (*User, string, error) {

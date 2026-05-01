@@ -21,6 +21,18 @@ export type TenantProfile = {
   map_iframe_url: string;
   meta_title: string;
   meta_description: string;
+  discovery_headline: string;
+  discovery_subheadline: string;
+  discovery_tags: string[];
+  discovery_badges: string[];
+  promo_label: string;
+  featured_image_url: string;
+  highlight_copy: string;
+  discovery_featured: boolean;
+  discovery_promoted: boolean;
+  discovery_priority: number;
+  promo_starts_at: string | null;
+  promo_ends_at: string | null;
   [key: string]: unknown;
 };
 

@@ -143,6 +143,20 @@ type Tenant struct {
 	MetaTitle       string `db:"meta_title" json:"meta_title"`
 	MetaDescription string `db:"meta_description" json:"meta_description"`
 
+	// --- CUSTOMER DISCOVERY FEED ---
+	DiscoveryHeadline    string         `db:"discovery_headline" json:"discovery_headline"`
+	DiscoverySubheadline string         `db:"discovery_subheadline" json:"discovery_subheadline"`
+	DiscoveryTags        pq.StringArray `db:"discovery_tags" json:"discovery_tags"`
+	DiscoveryBadges      pq.StringArray `db:"discovery_badges" json:"discovery_badges"`
+	PromoLabel           string         `db:"promo_label" json:"promo_label"`
+	FeaturedImageURL     string         `db:"featured_image_url" json:"featured_image_url"`
+	HighlightCopy        string         `db:"highlight_copy" json:"highlight_copy"`
+	DiscoveryFeatured    bool           `db:"discovery_featured" json:"discovery_featured"`
+	DiscoveryPromoted    bool           `db:"discovery_promoted" json:"discovery_promoted"`
+	DiscoveryPriority    int            `db:"discovery_priority" json:"discovery_priority"`
+	PromoStartsAt        *time.Time     `db:"promo_starts_at" json:"promo_starts_at"`
+	PromoEndsAt          *time.Time     `db:"promo_ends_at" json:"promo_ends_at"`
+
 	// --- OPERATIONAL ---
 	OpenTime  string `db:"open_time" json:"open_time"`
 	CloseTime string `db:"close_time" json:"close_time"`
@@ -171,20 +185,90 @@ type Tenant struct {
 }
 
 type TenantDirectoryItem struct {
-	ID               uuid.UUID `db:"id" json:"id"`
-	Name             string    `db:"name" json:"name"`
-	Slug             string    `db:"slug" json:"slug"`
-	BusinessCategory string    `db:"business_category" json:"business_category"`
-	BusinessType     string    `db:"business_type" json:"business_type"`
-	Tagline          string    `db:"tagline" json:"tagline"`
-	Slogan           string    `db:"slogan" json:"slogan"`
-	AboutUs          string    `db:"about_us" json:"about_us"`
-	PrimaryColor     string    `db:"primary_color" json:"primary_color"`
-	LogoURL          string    `db:"logo_url" json:"logo_url"`
-	BannerURL        string    `db:"banner_url" json:"banner_url"`
-	OpenTime         string    `db:"open_time" json:"open_time"`
-	CloseTime        string    `db:"close_time" json:"close_time"`
-	CreatedAt        time.Time `db:"created_at" json:"created_at"`
+	ID                   uuid.UUID  `db:"id" json:"id"`
+	Name                 string     `db:"name" json:"name"`
+	Slug                 string     `db:"slug" json:"slug"`
+	BusinessCategory     string     `db:"business_category" json:"business_category"`
+	BusinessType         string     `db:"business_type" json:"business_type"`
+	Tagline              string     `db:"tagline" json:"tagline"`
+	Slogan               string     `db:"slogan" json:"slogan"`
+	AboutUs              string     `db:"about_us" json:"about_us"`
+	PrimaryColor         string     `db:"primary_color" json:"primary_color"`
+	LogoURL              string     `db:"logo_url" json:"logo_url"`
+	BannerURL            string     `db:"banner_url" json:"banner_url"`
+	OpenTime             string     `db:"open_time" json:"open_time"`
+	CloseTime            string     `db:"close_time" json:"close_time"`
+	ResourceCount        int        `db:"resource_count" json:"resource_count"`
+	StartingPrice        float64    `db:"starting_price" json:"starting_price"`
+	TopResourceName      string     `db:"top_resource_name" json:"top_resource_name"`
+	TopResourceType      string     `db:"top_resource_type" json:"top_resource_type"`
+	DiscoveryHeadline    string     `db:"discovery_headline" json:"discovery_headline"`
+	DiscoverySubheadline string     `db:"discovery_subheadline" json:"discovery_subheadline"`
+	DiscoveryTags        []string   `db:"discovery_tags" json:"discovery_tags"`
+	DiscoveryBadges      []string   `db:"discovery_badges" json:"discovery_badges"`
+	PromoLabel           string     `db:"promo_label" json:"promo_label"`
+	FeaturedImageURL     string     `db:"featured_image_url" json:"featured_image_url"`
+	HighlightCopy        string     `db:"highlight_copy" json:"highlight_copy"`
+	DiscoveryFeatured    bool       `db:"discovery_featured" json:"discovery_featured"`
+	DiscoveryPromoted    bool       `db:"discovery_promoted" json:"discovery_promoted"`
+	DiscoveryPriority    int        `db:"discovery_priority" json:"discovery_priority"`
+	PromoStartsAt        *time.Time `db:"promo_starts_at" json:"promo_starts_at"`
+	PromoEndsAt          *time.Time `db:"promo_ends_at" json:"promo_ends_at"`
+	FeaturedReason       string     `db:"-" json:"featured_reason"`
+	AvailabilityHint     string     `db:"-" json:"availability_hint"`
+	IsFeatured           bool       `db:"-" json:"is_featured"`
+	IsNew                bool       `db:"-" json:"is_new"`
+	IsPromoted           bool       `db:"-" json:"is_promoted"`
+	CreatedAt            time.Time  `db:"created_at" json:"created_at"`
+}
+
+type PublicDiscoveryHero struct {
+	Eyebrow     string `json:"eyebrow"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	SearchHint  string `json:"search_hint"`
+}
+
+type PublicDiscoverySection struct {
+	ID          string                `json:"id"`
+	Title       string                `json:"title"`
+	Description string                `json:"description"`
+	Style       string                `json:"style"`
+	Items       []TenantDirectoryItem `json:"items"`
+}
+
+type PublicDiscoverFeedResponse struct {
+	Hero            PublicDiscoveryHero      `json:"hero"`
+	QuickCategories []string                 `json:"quick_categories"`
+	Featured        []TenantDirectoryItem    `json:"featured"`
+	Sections        []PublicDiscoverySection `json:"sections"`
+}
+
+type DiscoveryEventReq struct {
+	TenantID      string          `json:"tenant_id"`
+	TenantSlug    string          `json:"tenant_slug"`
+	EventType     string          `json:"event_type"`
+	Surface       string          `json:"surface"`
+	SectionID     string          `json:"section_id"`
+	CardVariant   string          `json:"card_variant"`
+	PositionIndex int             `json:"position_index"`
+	SessionID     string          `json:"session_id"`
+	PromoLabel    string          `json:"promo_label"`
+	Metadata      json.RawMessage `json:"metadata"`
+}
+
+type DiscoveryFeedEvent struct {
+	ID            uuid.UUID       `db:"id" json:"id"`
+	TenantID      uuid.UUID       `db:"tenant_id" json:"tenant_id"`
+	EventType     string          `db:"event_type" json:"event_type"`
+	Surface       string          `db:"surface" json:"surface"`
+	SectionID     string          `db:"section_id" json:"section_id"`
+	CardVariant   string          `db:"card_variant" json:"card_variant"`
+	PositionIndex int             `db:"position_index" json:"position_index"`
+	SessionID     string          `db:"session_id" json:"session_id"`
+	PromoLabel    string          `db:"promo_label" json:"promo_label"`
+	Metadata      json.RawMessage `db:"metadata" json:"metadata"`
+	CreatedAt     time.Time       `db:"created_at" json:"created_at"`
 }
 
 type ReferralReward struct {

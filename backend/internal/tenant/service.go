@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -44,7 +45,343 @@ func (s *Service) GetPublicLandingData(ctx context.Context, slug string) (map[st
 }
 
 func (s *Service) ListPublicTenants(ctx context.Context) ([]TenantDirectoryItem, error) {
-	return s.repo.ListPublicTenants(ctx)
+	items, err := s.repo.ListPublicTenants(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.decorateDiscoveryItems(items), nil
+}
+
+func (s *Service) GetPublicDiscoverFeed(ctx context.Context) (*PublicDiscoverFeedResponse, error) {
+	items, err := s.ListPublicTenants(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	categoriesSet := map[string]struct{}{}
+	for _, item := range items {
+		category := strings.TrimSpace(item.BusinessCategory)
+		if category == "" {
+			continue
+		}
+		categoriesSet[category] = struct{}{}
+	}
+
+	quickCategories := make([]string, 0, len(categoriesSet))
+	for category := range categoriesSet {
+		quickCategories = append(quickCategories, category)
+	}
+	if len(quickCategories) > 6 {
+		quickCategories = quickCategories[:6]
+	}
+
+	featured := make([]TenantDirectoryItem, 0, minInt(len(items), 4))
+	newArrivals := make([]TenantDirectoryItem, 0, minInt(len(items), 6))
+	valuePicks := make([]TenantDirectoryItem, 0, minInt(len(items), 6))
+	lateNight := make([]TenantDirectoryItem, 0, minInt(len(items), 6))
+
+	for _, item := range items {
+		if item.IsFeatured && len(featured) < 4 {
+			featured = append(featured, item)
+		}
+		if item.IsNew && len(newArrivals) < 6 {
+			newArrivals = append(newArrivals, item)
+		}
+		if item.StartingPrice > 0 && item.StartingPrice <= 150000 && len(valuePicks) < 6 {
+			valuePicks = append(valuePicks, item)
+		}
+		if closesLate(item.CloseTime) && len(lateNight) < 6 {
+			lateNight = append(lateNight, item)
+		}
+	}
+
+	if len(featured) == 0 {
+		featured = append(featured, items[:minInt(len(items), 4)]...)
+	}
+	if len(newArrivals) == 0 {
+		newArrivals = append(newArrivals, items[:minInt(len(items), 6)]...)
+	}
+	if len(valuePicks) == 0 {
+		valuePicks = append(valuePicks, items[:minInt(len(items), 6)]...)
+	}
+	if len(lateNight) == 0 {
+		lateNight = append(lateNight, items[:minInt(len(items), 6)]...)
+	}
+
+	return &PublicDiscoverFeedResponse{
+		Hero: PublicDiscoveryHero{
+			Eyebrow:     "Customer Discovery",
+			Title:       "Temukan bisnis, pengalaman, dan tempat baru di Bookinaja.",
+			Description: "Jelajahi bisnis yang sedang ramai, baru bergabung, atau paling cocok untuk rencana berikutnya tanpa harus mulai dari nol setiap kali ingin booking.",
+			SearchHint:  "Cari tempat, kategori, atau aktivitas yang ingin kamu lakukan",
+		},
+		QuickCategories: quickCategories,
+		Featured:        featured,
+		Sections: []PublicDiscoverySection{
+			{
+				ID:          "new-arrivals",
+				Title:       "Baru Bergabung",
+				Description: "Bisnis baru yang baru masuk ke ekosistem Bookinaja dan siap ditemukan lebih awal.",
+				Style:       "fresh",
+				Items:       newArrivals,
+			},
+			{
+				ID:          "value-picks",
+				Title:       "Mulai dari Harga Ringan",
+				Description: "Pilihan bisnis dengan titik masuk harga yang lebih ramah untuk dicoba duluan.",
+				Style:       "value",
+				Items:       valuePicks,
+			},
+			{
+				ID:          "late-night",
+				Title:       "Buka Lebih Malam",
+				Description: "Cocok buat customer yang suka cari slot sore sampai malam tanpa buru-buru.",
+				Style:       "night",
+				Items:       lateNight,
+			},
+		},
+	}, nil
+}
+
+func (s *Service) TrackDiscoveryEvent(ctx context.Context, req DiscoveryEventReq) error {
+	eventType := strings.ToLower(strings.TrimSpace(req.EventType))
+	if eventType != "impression" && eventType != "click" {
+		return errors.New("event_type tidak valid")
+	}
+
+	var tenantRef *Tenant
+	var err error
+	if rawID := strings.TrimSpace(req.TenantID); rawID != "" {
+		tenantUUID, parseErr := uuid.Parse(rawID)
+		if parseErr != nil {
+			return errors.New("tenant_id tidak valid")
+		}
+		tenantRef, err = s.repo.GetByID(ctx, tenantUUID)
+		if err != nil {
+			return err
+		}
+	} else if slug := strings.TrimSpace(strings.ToLower(req.TenantSlug)); slug != "" {
+		tenantRef, err = s.repo.GetBySlug(ctx, slug)
+		if err != nil {
+			return err
+		}
+	} else {
+		return errors.New("tenant diperlukan")
+	}
+
+	if tenantRef == nil {
+		return errors.New("tenant tidak ditemukan")
+	}
+
+	metadata := req.Metadata
+	if len(metadata) == 0 {
+		metadata = json.RawMessage(`{}`)
+	}
+
+	return s.repo.CreateDiscoveryFeedEvent(ctx, DiscoveryFeedEvent{
+		ID:            uuid.New(),
+		TenantID:      tenantRef.ID,
+		EventType:     eventType,
+		Surface:       firstNonEmpty(req.Surface, "discover"),
+		SectionID:     strings.TrimSpace(req.SectionID),
+		CardVariant:   strings.TrimSpace(req.CardVariant),
+		PositionIndex: req.PositionIndex,
+		SessionID:     strings.TrimSpace(req.SessionID),
+		PromoLabel:    strings.TrimSpace(req.PromoLabel),
+		Metadata:      metadata,
+		CreatedAt:     time.Now().UTC(),
+	})
+}
+
+func (s *Service) decorateDiscoveryItems(items []TenantDirectoryItem) []TenantDirectoryItem {
+	decorated := make([]TenantDirectoryItem, 0, len(items))
+	now := time.Now()
+
+	for _, item := range items {
+		entry := item
+		promoActive := promoWindowActive(item.PromoStartsAt, item.PromoEndsAt, now)
+		entry.DiscoveryHeadline = firstNonEmpty(item.DiscoveryHeadline, buildDiscoveryHeadline(item))
+		entry.DiscoverySubheadline = firstNonEmpty(item.DiscoverySubheadline, buildDiscoverySubheadline(item))
+		entry.DiscoveryTags = firstStringSlice(item.DiscoveryTags, buildDiscoveryTags(item))
+		entry.DiscoveryBadges = firstStringSlice(item.DiscoveryBadges, buildDiscoveryBadges(item))
+		entry.IsNew = now.Sub(item.CreatedAt) <= 45*24*time.Hour
+		entry.IsPromoted = (item.DiscoveryPromoted && promoActive) || (item.StartingPrice > 0 && item.ResourceCount >= 3)
+		entry.IsFeatured = item.DiscoveryFeatured || entry.IsNew || entry.IsPromoted || item.ResourceCount >= 5
+		entry.PromoLabel = firstNonEmpty(curatedPromoLabel(item, promoActive), buildPromoLabel(item, entry))
+		entry.FeaturedReason = firstNonEmpty(item.HighlightCopy, buildFeaturedReason(item, entry))
+		entry.AvailabilityHint = buildAvailabilityHint(item)
+		decorated = append(decorated, entry)
+	}
+
+	sort.SliceStable(decorated, func(i, j int) bool {
+		left := discoveryRank(decorated[i])
+		right := discoveryRank(decorated[j])
+		if left != right {
+			return left > right
+		}
+		if decorated[i].DiscoveryPriority != decorated[j].DiscoveryPriority {
+			return decorated[i].DiscoveryPriority > decorated[j].DiscoveryPriority
+		}
+		if !decorated[i].CreatedAt.Equal(decorated[j].CreatedAt) {
+			return decorated[i].CreatedAt.After(decorated[j].CreatedAt)
+		}
+		return strings.ToLower(decorated[i].Name) < strings.ToLower(decorated[j].Name)
+	})
+
+	return decorated
+}
+
+func buildDiscoveryHeadline(item TenantDirectoryItem) string {
+	if text := strings.TrimSpace(item.Tagline); text != "" {
+		return text
+	}
+	if text := strings.TrimSpace(item.Slogan); text != "" {
+		return text
+	}
+	category := prettifyLabel(item.BusinessCategory)
+	if category == "" {
+		category = "tempat baru"
+	}
+	return fmt.Sprintf("Temukan pengalaman %s yang lebih mudah dipesan.", strings.ToLower(category))
+}
+
+func buildDiscoverySubheadline(item TenantDirectoryItem) string {
+	parts := []string{}
+	if item.TopResourceName != "" {
+		parts = append(parts, fmt.Sprintf("Highlight: %s", item.TopResourceName))
+	}
+	if item.StartingPrice > 0 {
+		parts = append(parts, fmt.Sprintf("Mulai dari Rp%.0f", item.StartingPrice))
+	}
+	if item.ResourceCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d pilihan resource", item.ResourceCount))
+	}
+	if len(parts) == 0 {
+		if text := strings.TrimSpace(item.AboutUs); text != "" {
+			return text
+		}
+		return "Jelajahi bisnis ini dan lihat apakah cocok untuk rencana berikutnya."
+	}
+	return strings.Join(parts, " • ")
+}
+
+func buildDiscoveryTags(item TenantDirectoryItem) []string {
+	tags := []string{}
+	if category := prettifyLabel(item.BusinessCategory); category != "" {
+		tags = append(tags, category)
+	}
+	if businessType := prettifyLabel(item.BusinessType); businessType != "" && !containsIgnoreCase(tags, businessType) {
+		tags = append(tags, businessType)
+	}
+	if item.TopResourceType != "" && !containsIgnoreCase(tags, item.TopResourceType) {
+		tags = append(tags, prettifyLabel(item.TopResourceType))
+	}
+	if item.ResourceCount >= 5 {
+		tags = append(tags, "Pilihan Lengkap")
+	}
+	return tags[:minInt(len(tags), 4)]
+}
+
+func buildDiscoveryBadges(item TenantDirectoryItem) []string {
+	badges := []string{}
+	if closesLate(item.CloseTime) {
+		badges = append(badges, "Buka Sampai Malam")
+	}
+	if item.ResourceCount >= 4 {
+		badges = append(badges, "Banyak Pilihan")
+	}
+	if item.StartingPrice > 0 && item.StartingPrice <= 100000 {
+		badges = append(badges, "Mulai Ramah Budget")
+	}
+	return badges[:minInt(len(badges), 3)]
+}
+
+func buildPromoLabel(item TenantDirectoryItem, entry TenantDirectoryItem) string {
+	if entry.IsNew {
+		return "Baru di Bookinaja"
+	}
+	if item.StartingPrice > 0 && item.StartingPrice <= 100000 {
+		return "Mulai dari harga ringan"
+	}
+	if item.ResourceCount >= 5 {
+		return "Pilihan resource lengkap"
+	}
+	return ""
+}
+
+func curatedPromoLabel(item TenantDirectoryItem, promoActive bool) string {
+	if !promoActive {
+		return ""
+	}
+	if text := strings.TrimSpace(item.PromoLabel); text != "" {
+		return text
+	}
+	if item.DiscoveryPromoted {
+		return "Promo aktif"
+	}
+	return ""
+}
+
+func buildFeaturedReason(item TenantDirectoryItem, entry TenantDirectoryItem) string {
+	if entry.IsNew {
+		return "Cocok buat yang suka coba tempat baru lebih awal."
+	}
+	if item.StartingPrice > 0 && item.ResourceCount > 0 {
+		return fmt.Sprintf("Mulai dari Rp%.0f dengan %d pilihan resource.", item.StartingPrice, item.ResourceCount)
+	}
+	if item.TopResourceName != "" {
+		return fmt.Sprintf("Paling cocok kalau kamu ingin langsung cek %s.", item.TopResourceName)
+	}
+	return "Layak dijelajahi untuk rencana booking berikutnya."
+}
+
+func buildAvailabilityHint(item TenantDirectoryItem) string {
+	if item.ResourceCount >= 6 {
+		return "Lebih banyak pilihan resource untuk dicoba."
+	}
+	if closesLate(item.CloseTime) {
+		return "Cocok untuk booking sore sampai malam."
+	}
+	if item.StartingPrice > 0 {
+		return fmt.Sprintf("Bisa mulai eksplor dari Rp%.0f.", item.StartingPrice)
+	}
+	return "Lihat detail bisnis untuk tahu apa yang bisa kamu lakukan di sini."
+}
+
+func closesLate(closeTime string) bool {
+	closeTime = strings.TrimSpace(closeTime)
+	if closeTime == "" {
+		return false
+	}
+	parsed, err := time.Parse("15:04", closeTime)
+	if err != nil {
+		return false
+	}
+	return parsed.Hour() >= 21
+}
+
+func prettifyLabel(value string) string {
+	value = strings.TrimSpace(strings.ReplaceAll(value, "_", " "))
+	if value == "" {
+		return ""
+	}
+	return strings.Title(strings.ToLower(value))
+}
+
+func containsIgnoreCase(values []string, candidate string) bool {
+	for _, value := range values {
+		if strings.EqualFold(strings.TrimSpace(value), strings.TrimSpace(candidate)) {
+			return true
+		}
+	}
+	return false
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // Register menangani pendaftaran tenant baru & inisialisasi default branding
@@ -124,6 +461,16 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 		AboutUs:                        defaultAbout,
 		Features:                       defaultFeatures,
 		PrimaryColor:                   defaultColor,
+		DiscoveryHeadline:              defaultTagline,
+		DiscoverySubheadline:           "Temukan pengalaman yang paling cocok untuk rencana berikutnya.",
+		DiscoveryTags:                  pq.StringArray{prettifyLabel(req.BusinessCategory)},
+		DiscoveryBadges:                pq.StringArray{},
+		PromoLabel:                     "Baru di Bookinaja",
+		DiscoveryFeatured:              false,
+		DiscoveryPromoted:              false,
+		DiscoveryPriority:              0,
+		PromoStartsAt:                  nil,
+		PromoEndsAt:                    nil,
 		ReceiptTitle:                   "Struk Bookinaja",
 		ReceiptSubtitle:                "Bukti transaksi resmi",
 		ReceiptFooter:                  "Terima kasih sudah berkunjung",
@@ -428,6 +775,18 @@ func (s *Service) UpdateReferralPayout(ctx context.Context, actorUserID uuid.UUI
 	req.LogoURL = curr.LogoURL
 	req.BannerURL = curr.BannerURL
 	req.Gallery = curr.Gallery
+	req.DiscoveryHeadline = curr.DiscoveryHeadline
+	req.DiscoverySubheadline = curr.DiscoverySubheadline
+	req.DiscoveryTags = curr.DiscoveryTags
+	req.DiscoveryBadges = curr.DiscoveryBadges
+	req.PromoLabel = curr.PromoLabel
+	req.FeaturedImageURL = curr.FeaturedImageURL
+	req.HighlightCopy = curr.HighlightCopy
+	req.DiscoveryFeatured = curr.DiscoveryFeatured
+	req.DiscoveryPromoted = curr.DiscoveryPromoted
+	req.DiscoveryPriority = curr.DiscoveryPriority
+	req.PromoStartsAt = curr.PromoStartsAt
+	req.PromoEndsAt = curr.PromoEndsAt
 	req.Address = curr.Address
 	req.WhatsappNumber = curr.WhatsappNumber
 	req.InstagramURL = curr.InstagramURL
@@ -529,6 +888,18 @@ func (s *Service) UpdateReceiptSettings(ctx context.Context, actorUserID uuid.UU
 	req.LogoURL = curr.LogoURL
 	req.BannerURL = curr.BannerURL
 	req.Gallery = curr.Gallery
+	req.DiscoveryHeadline = curr.DiscoveryHeadline
+	req.DiscoverySubheadline = curr.DiscoverySubheadline
+	req.DiscoveryTags = curr.DiscoveryTags
+	req.DiscoveryBadges = curr.DiscoveryBadges
+	req.PromoLabel = curr.PromoLabel
+	req.FeaturedImageURL = curr.FeaturedImageURL
+	req.HighlightCopy = curr.HighlightCopy
+	req.DiscoveryFeatured = curr.DiscoveryFeatured
+	req.DiscoveryPromoted = curr.DiscoveryPromoted
+	req.DiscoveryPriority = curr.DiscoveryPriority
+	req.PromoStartsAt = curr.PromoStartsAt
+	req.PromoEndsAt = curr.PromoEndsAt
 	req.Address = curr.Address
 	req.WhatsappNumber = curr.WhatsappNumber
 	req.InstagramURL = curr.InstagramURL
@@ -823,4 +1194,69 @@ func sanitizePermissions(values []string) []string {
 		out = append(out, key)
 	}
 	return out
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+func firstStringSlice(values ...[]string) []string {
+	for _, value := range values {
+		if len(value) == 0 {
+			continue
+		}
+		out := make([]string, 0, len(value))
+		seen := map[string]struct{}{}
+		for _, item := range value {
+			trimmed := strings.TrimSpace(item)
+			if trimmed == "" {
+				continue
+			}
+			if _, exists := seen[trimmed]; exists {
+				continue
+			}
+			seen[trimmed] = struct{}{}
+			out = append(out, trimmed)
+		}
+		if len(out) > 0 {
+			return out
+		}
+	}
+	return []string{}
+}
+
+func promoWindowActive(start, end *time.Time, now time.Time) bool {
+	if start != nil && now.Before(*start) {
+		return false
+	}
+	if end != nil && now.After(*end) {
+		return false
+	}
+	return true
+}
+
+func discoveryRank(item TenantDirectoryItem) int {
+	score := item.DiscoveryPriority * 100
+	if item.IsFeatured {
+		score += 40
+	}
+	if item.IsPromoted {
+		score += 25
+	}
+	if item.IsNew {
+		score += 15
+	}
+	if item.ResourceCount >= 5 {
+		score += 10
+	}
+	if item.StartingPrice > 0 && item.StartingPrice <= 100000 {
+		score += 5
+	}
+	return score
 }

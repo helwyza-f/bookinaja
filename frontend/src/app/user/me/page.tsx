@@ -8,9 +8,11 @@ import {
   Building2,
   Calendar,
   ChevronRight,
+  Compass,
   Clock,
   LogOut,
   MapPin,
+  Search,
   Settings,
   Sparkles,
   Ticket,
@@ -23,8 +25,18 @@ import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import {
+  type DiscoveryFeedResponse,
+  type DiscoveryTenant,
+  formatStartingPrice,
+} from "@/lib/discovery";
+import {
+  discoveryImpressionKey,
+  trackDiscoveryEvent,
+} from "@/lib/discovery-analytics";
 
 type CustomerDashboard = {
   customer?: {
@@ -78,7 +90,6 @@ type TenantCard = {
   primary_color?: string;
   logo_url?: string;
 };
-
 const bookingNeedsPayment = (booking: BookingItem) => {
   const status = String(booking.status || "").toLowerCase();
   const paymentStatus = String(booking.payment_status || "").toLowerCase();
@@ -93,22 +104,27 @@ export default function UserDashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<CustomerDashboard | null>(null);
   const [tenants, setTenants] = useState<TenantCard[]>([]);
+  const [discoverFeed, setDiscoverFeed] = useState<DiscoveryFeedResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"active" | "history">("active");
+  const [discoverQuery, setDiscoverQuery] = useState("");
+  const [seenDiscoveryImpressions, setSeenDiscoveryImpressions] = useState<Record<string, true>>({});
 
   useEffect(() => {
     let active = true;
 
     const load = async () => {
       try {
-        const [profileRes, tenantsRes] = await Promise.all([
+        const [profileRes, tenantsRes, discoverRes] = await Promise.all([
           api.get("/user/me"),
           api.get("/public/tenants").catch(() => ({ data: { items: [] } })),
+          api.get("/public/discover/feed").catch(() => ({ data: null })),
         ]);
 
         if (active) {
           setData(profileRes.data);
           setTenants(tenantsRes.data?.items || []);
+          setDiscoverFeed(discoverRes.data || null);
         }
       } catch (error) {
         if (isTenantAuthError(error)) {
@@ -149,9 +165,73 @@ export default function UserDashboardPage() {
       .slice(0, 3);
   }, [recentlyBookedTenantSlugs, tenants]);
 
+  const discoverCandidates = useMemo(() => {
+    const allItems = [
+      ...(discoverFeed?.featured || []),
+      ...((discoverFeed?.sections || []).flatMap((section) => section.items)),
+    ];
+    const unique = new Map<string, DiscoveryTenant>();
+    allItems.forEach((item) => unique.set(item.id, item));
+    return Array.from(unique.values());
+  }, [discoverFeed]);
+
+  const personalizedDiscoveries = useMemo(() => {
+    const query = discoverQuery.trim().toLowerCase();
+    const bookedSlugs = new Set(
+      [...activeBookings, ...pastHistory]
+        .map((booking) => booking.tenant_slug)
+        .filter(Boolean),
+    );
+
+    return discoverCandidates
+      .filter((item) => {
+        const matchesQuery =
+          query.length === 0 ||
+          [
+            item.name,
+            item.discovery_headline,
+            item.business_category,
+            item.business_type,
+            ...(item.discovery_tags || []),
+          ]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(query));
+
+        return matchesQuery;
+      })
+      .sort((left, right) => {
+        const leftScore =
+          (left.is_featured ? 4 : 0) +
+          (left.is_new ? 2 : 0) +
+          (bookedSlugs.has(left.slug) ? 1 : 0);
+        const rightScore =
+          (right.is_featured ? 4 : 0) +
+          (right.is_new ? 2 : 0) +
+          (bookedSlugs.has(right.slug) ? 1 : 0);
+        return rightScore - leftScore;
+      })
+      .slice(0, 6);
+  }, [activeBookings, pastHistory, discoverCandidates, discoverQuery]);
+
   const handleLogout = () => {
     clearTenantSession({ keepTenantSlug: true });
     router.push("/user/login");
+  };
+
+  const markDiscoveryImpression = (tenant: DiscoveryTenant, positionIndex: number) => {
+    const key = discoveryImpressionKey(["customer-hub", "recommended", tenant.id]);
+    if (seenDiscoveryImpressions[key]) return;
+    setSeenDiscoveryImpressions((prev) => ({ ...prev, [key]: true }));
+    trackDiscoveryEvent({
+      tenant_id: tenant.id,
+      tenant_slug: tenant.slug,
+      event_type: "impression",
+      surface: "customer-hub",
+      section_id: "recommended",
+      card_variant: "personalized",
+      position_index: positionIndex,
+      promo_label: tenant.promo_label,
+    });
   };
 
   if (loading) {
@@ -331,6 +411,102 @@ export default function UserDashboardPage() {
           ) : null}
         </section>
 
+        <section className="mt-5 overflow-hidden rounded-3xl border border-slate-200 bg-[linear-gradient(135deg,#0f172a_0%,#143f4b_55%,#d8bf97_100%)] p-5 text-white shadow-[0_24px_70px_rgba(15,23,42,0.22)] dark:border-white/10">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.26em] text-white/85">
+                <Compass className="h-3.5 w-3.5" />
+                Discovery Hub
+              </div>
+              <h2 className="mt-4 text-3xl font-black uppercase tracking-[-0.04em] md:text-4xl">
+                Portal customer sekarang bukan cuma buat cek booking.
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-white/76 md:text-base">
+                Cari tempat baru, lihat bisnis yang baru bergabung, dan temukan sesuatu yang menarik untuk dilakukan berikutnya langsung dari satu portal.
+              </p>
+            </div>
+
+            <Button
+              asChild
+              className="h-12 rounded-2xl bg-white px-5 text-sm font-semibold text-slate-950 hover:bg-white/90"
+            >
+              <Link href="/tenants">
+                Jelajahi Semua Bisnis
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+
+          <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_auto]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={discoverQuery}
+                onChange={(e) => setDiscoverQuery(e.target.value)}
+                placeholder={
+                  discoverFeed?.hero?.search_hint ||
+                  "Cari tempat, kategori, atau ide aktivitas berikutnya"
+                }
+                className="h-14 rounded-2xl border-white/15 bg-white/92 pl-12 text-sm font-medium text-slate-950 shadow-none placeholder:text-slate-500"
+              />
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {(discoverFeed?.quick_categories || []).slice(0, 5).map((category) => (
+                <Button
+                  key={category}
+                  variant="outline"
+                  onClick={() => setDiscoverQuery(category)}
+                  className="h-14 rounded-2xl border-white/15 bg-white/10 px-4 text-[11px] font-black uppercase tracking-[0.16em] text-white hover:bg-white/15"
+                >
+                  {category}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-5">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 className="text-base font-black uppercase tracking-tight text-slate-950 dark:text-white">
+                Rekomendasi Untuk Kamu
+              </h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Discovery layer untuk membantu customer menemukan bisnis baru, bukan hanya kembali ke booking lama.
+              </p>
+            </div>
+            <Button asChild variant="outline" className="rounded-xl">
+              <Link href="/tenants">
+                Buka Marketplace
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {personalizedDiscoveries.map((tenant, index) => (
+              <CustomerDiscoveryCard
+                key={tenant.id}
+                tenant={tenant}
+                index={index}
+                onVisible={() => markDiscoveryImpression(tenant, index)}
+              />
+            ))}
+
+            {personalizedDiscoveries.length === 0 ? (
+              <div className="col-span-full rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center dark:border-white/10 dark:bg-white/[0.04]">
+                <Compass className="mx-auto h-8 w-8 text-slate-300" />
+                <h3 className="mt-4 text-lg font-black uppercase tracking-tight text-slate-950 dark:text-white">
+                  Belum ada rekomendasi yang cocok
+                </h3>
+                <p className="mx-auto mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
+                  Coba kata kunci lain atau buka marketplace discovery untuk melihat bisnis yang sedang ramai dan baru bergabung.
+                </p>
+              </div>
+            ) : null}
+          </div>
+        </section>
+
         <div className="mt-6 flex items-center gap-2 overflow-x-auto pb-3 scrollbar-none">
           {(["active", "history"] as const).map((tab) => (
             <button
@@ -463,5 +639,116 @@ function DashboardSkeleton() {
         <Skeleton className="h-44 rounded-2xl bg-white dark:bg-white/5" />
       </div>
     </div>
+  );
+}
+
+function CustomerDiscoveryCard({
+  tenant,
+  index,
+  onVisible,
+}: {
+  tenant: DiscoveryTenant;
+  index: number;
+  onVisible: () => void;
+}) {
+  useEffect(() => {
+    onVisible();
+  }, [onVisible]);
+
+  return (
+    <Card className="group overflow-hidden rounded-3xl border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-1 hover:border-blue-200 dark:border-white/10 dark:bg-white/[0.04]">
+      <CardContent className="p-0">
+        <div
+          className="h-36 w-full bg-cover bg-center"
+          style={{
+            backgroundImage: tenant.featured_image_url || tenant.banner_url
+              ? `url(${tenant.featured_image_url || tenant.banner_url})`
+              : "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(37,99,235,0.65))",
+          }}
+        />
+        <div className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div
+              className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-white"
+              style={tenant.primary_color ? { backgroundColor: tenant.primary_color } : undefined}
+            >
+              {tenant.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={tenant.logo_url} alt="" className="h-full w-full rounded-2xl object-cover" />
+              ) : (
+                <Building2 className="h-5 w-5" />
+              )}
+            </div>
+            {tenant.promo_label ? (
+              <Badge className="rounded-full border-none bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
+                {tenant.promo_label}
+              </Badge>
+            ) : null}
+          </div>
+
+          <h3 className="mt-4 line-clamp-2 text-xl font-black uppercase tracking-[-0.03em] text-slate-950 dark:text-white">
+            {tenant.name}
+          </h3>
+          <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+            {tenant.discovery_headline || tenant.tagline || tenant.about_us}
+          </p>
+          <p className="mt-2 line-clamp-2 text-xs leading-6 text-slate-400 dark:text-slate-500">
+            {tenant.highlight_copy || tenant.featured_reason || tenant.discovery_subheadline}
+          </p>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {(tenant.discovery_badges || tenant.discovery_tags || [])
+              .slice(0, 3)
+              .map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600 dark:bg-white/10 dark:text-slate-300"
+                >
+                  {item}
+                </span>
+              ))}
+          </div>
+
+          <div className="mt-4 rounded-2xl bg-slate-50 p-3 text-xs font-medium text-slate-500 dark:bg-black/20 dark:text-slate-400">
+            <div className="flex items-center justify-between">
+              <span>Mulai</span>
+              <span className="font-semibold text-slate-950 dark:text-white">
+                {formatStartingPrice(tenant.starting_price)}
+              </span>
+            </div>
+            <div className="mt-2 flex items-center justify-between">
+              <span>Hint</span>
+              <span className="text-right font-semibold text-slate-950 dark:text-white">
+                {tenant.availability_hint || `${tenant.resource_count || 0} resource`}
+              </span>
+            </div>
+          </div>
+
+          <Button
+            asChild
+            className="mt-4 h-11 w-full rounded-2xl bg-slate-900 text-sm font-semibold text-white hover:bg-blue-600 dark:bg-white dark:text-slate-900 dark:hover:bg-blue-500 dark:hover:text-white"
+          >
+            <a
+              href={getTenantUrl(tenant.slug)}
+              onClick={() =>
+                trackDiscoveryEvent({
+                  tenant_id: tenant.id,
+                  tenant_slug: tenant.slug,
+                  event_type: "click",
+                  surface: "customer-hub",
+                  section_id: "recommended",
+                  card_variant: "personalized",
+                  position_index: index,
+                  promo_label: tenant.promo_label,
+                })
+              }
+            >
+              Lihat Bisnis
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </a>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
