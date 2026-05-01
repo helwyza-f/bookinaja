@@ -33,7 +33,11 @@ import { clearTenantSession } from "@/lib/tenant-session";
 import api from "@/lib/api";
 import { canAccessAdminRoute, hasPermission } from "@/lib/admin-access";
 import { Badge } from "../ui/badge";
-import { operationalNavItems, settingsNavItems } from "./admin-nav-config";
+import {
+  growthHubNavItem,
+  operationalNavItems,
+  settingsNavItems,
+} from "./admin-nav-config";
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -125,8 +129,8 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       {/* LOGO AREA - DYNAMIC TENANT LOGO */}
       <div
         className={cn(
-          "flex h-20 items-center transition-all shrink-0 px-4",
-          isCollapsed ? "justify-center" : "justify-start px-6",
+          "flex items-center transition-all shrink-0 px-4",
+          isCollapsed ? "h-18 justify-center" : "h-20 justify-start px-6",
         )}
       >
         <Link href="/admin/dashboard" className="flex items-center gap-3 group">
@@ -152,53 +156,128 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       </div>
 
       {/* MAIN NAVIGATION */}
-      <nav className="flex flex-col flex-1 gap-1 p-3 pt-4 overflow-y-auto scrollbar-hide">
-        {operationalNavItems.filter((route) => hasAccess(route.href)).map((route) => {
-          const isActive =
-            pathname === route.href || pathname.startsWith(`${route.href}/`);
-          return (
-            <Tooltip key={route.href}>
-              <TooltipTrigger asChild>
-                <Link
-                  href={route.href}
-                  className={cn(
-                    "group flex items-center transition-all duration-200",
-                    isCollapsed
-                      ? "h-10 w-10 justify-center mx-auto rounded-xl"
-                      : "px-3 py-2.5 w-full gap-3 rounded-xl",
-                    isActive
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-blue-600 dark:hover:text-white",
-                  )}
-                >
-                  <route.icon
+      <nav
+        className={cn(
+          "flex flex-col flex-1 overflow-y-auto scrollbar-hide",
+          isCollapsed ? "gap-2 p-2 pt-3" : "gap-1 p-3 pt-4",
+        )}
+      >
+        <div
+          className={cn(
+            "flex flex-col",
+            isCollapsed
+              ? "gap-1 rounded-[1.4rem] border border-slate-100 bg-slate-50/80 p-1.5"
+              : "gap-1",
+          )}
+        >
+          {operationalNavItems.filter((route) => hasAccess(route.href)).map((route) => {
+            const isActive =
+              pathname === route.href || pathname.startsWith(`${route.href}/`);
+            return (
+              <Tooltip key={route.href}>
+                <TooltipTrigger asChild>
+                  <Link
+                    href={route.href}
                     className={cn(
-                      "shrink-0",
-                      isCollapsed ? "h-5 w-5" : "h-4 w-4",
-                      isActive && "scale-110",
+                      "group flex items-center transition-all duration-200",
+                      isCollapsed
+                        ? "h-9 w-9 justify-center mx-auto rounded-xl"
+                        : "px-3 py-2.5 w-full gap-3 rounded-xl",
+                      isActive
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-blue-600 dark:hover:text-white",
                     )}
-                  />
-                  {!isCollapsed && (
-                    <span className="truncate text-sm font-semibold">
-                      {route.label}
-                    </span>
-                  )}
-                </Link>
-              </TooltipTrigger>
-              {isCollapsed && (
-                <TooltipContent
-                  side="right"
-                  className="ml-2 border-none bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white shadow-lg"
-                >
-                  {route.label}
-                </TooltipContent>
-              )}
-            </Tooltip>
-          );
-        })}
+                  >
+                    <route.icon
+                      className={cn(
+                        "shrink-0",
+                        isCollapsed ? "h-4.5 w-4.5" : "h-4 w-4",
+                        isActive && "scale-110",
+                      )}
+                    />
+                    {!isCollapsed && (
+                      <span className="truncate text-sm font-semibold">
+                        {route.label}
+                      </span>
+                    )}
+                  </Link>
+                </TooltipTrigger>
+                {isCollapsed && (
+                  <TooltipContent
+                    side="right"
+                    className="ml-2 border-none bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white shadow-lg"
+                  >
+                    {route.label}
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            );
+          })}
+        </div>
 
         {userData?.role === "owner" && (
-          <div className="mt-3 border-t border-slate-100 pt-3 dark:border-white/5">
+          <div
+            className={cn(
+              "border-slate-100 dark:border-white/5",
+              isCollapsed ? "mt-1 border-t pt-2" : "mt-3 border-t pt-3",
+            )}
+          >
+            {!isCollapsed && (
+              <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                Promosi
+              </div>
+            )}
+            <div className="flex flex-col gap-1">
+              {hasAccess(growthHubNavItem.href) && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={growthHubNavItem.href}
+                      className={cn(
+                        "group flex items-center transition-colors",
+                        isCollapsed
+                          ? "mx-auto h-9 w-9 justify-center rounded-xl"
+                          : "w-full gap-3 rounded-xl px-3 py-2.5",
+                        pathname === growthHubNavItem.href ||
+                          pathname.startsWith(`${growthHubNavItem.href}/`)
+                          ? "bg-blue-600 text-white shadow-sm"
+                          : "text-slate-500 hover:bg-slate-100 hover:text-blue-600 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white",
+                      )}
+                    >
+                      <growthHubNavItem.icon
+                        className={cn(
+                          "shrink-0",
+                          isCollapsed ? "h-4.5 w-4.5" : "h-4 w-4",
+                        )}
+                      />
+                      {!isCollapsed && (
+                        <span className="truncate text-sm font-semibold">
+                          {growthHubNavItem.label}
+                        </span>
+                      )}
+                    </Link>
+                  </TooltipTrigger>
+                  {isCollapsed && (
+                    <TooltipContent
+                      side="right"
+                      className="ml-2 border-none bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white shadow-lg"
+                    >
+                      {growthHubNavItem.label}
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              )}
+            </div>
+          </div>
+        )}
+
+        {userData?.role === "owner" && (
+          <div
+            className={cn(
+              "border-slate-100 dark:border-white/5",
+              isCollapsed ? "mt-1 border-t pt-2" : "mt-3 border-t pt-3",
+            )}
+          >
             {!isCollapsed && (
               <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
                 Settings
@@ -216,7 +295,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                         className={cn(
                           "group flex items-center transition-colors",
                           isCollapsed
-                            ? "mx-auto h-10 w-10 justify-center rounded-xl"
+                            ? "mx-auto h-9 w-9 justify-center rounded-xl"
                             : "w-full gap-3 rounded-xl px-3 py-2.5",
                           isActive
                             ? "bg-blue-600 text-white shadow-sm"
@@ -226,7 +305,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                         <route.icon
                           className={cn(
                             "shrink-0",
-                            isCollapsed ? "h-5 w-5" : "h-4 w-4",
+                            isCollapsed ? "h-4.5 w-4.5" : "h-4 w-4",
                           )}
                         />
                         {!isCollapsed && (
@@ -253,13 +332,18 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       </nav>
 
       {/* FOOTER: NAV USER POPOVER */}
-      <div className="p-3 mt-auto border-t border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
+      <div
+        className={cn(
+          "mt-auto border-t border-slate-100 bg-slate-50/50 dark:border-white/5 dark:bg-white/[0.02]",
+          isCollapsed ? "p-2" : "p-3",
+        )}
+      >
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               className={cn(
                 "flex items-center w-full transition-all duration-200 outline-none group rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 min-w-0",
-                isCollapsed ? "h-12 w-12 justify-center mx-auto" : "p-2 gap-3",
+                isCollapsed ? "h-10 w-10 justify-center mx-auto" : "p-2 gap-3",
               )}
             >
               <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-blue-600 font-semibold uppercase text-white shadow-sm">

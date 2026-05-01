@@ -22,6 +22,7 @@ const DASHBOARD_PERMISSIONS = [
 ];
 
 const ROUTE_RULES: RouteRule[] = [
+  { prefix: "/admin/growth", ownerOnly: true },
   { prefix: "/admin/settings", ownerOnly: true },
   { prefix: "/admin/resources", permissions: ["resources.read"] },
   { prefix: "/admin/expenses", permissions: ["expenses.read"] },

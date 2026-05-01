@@ -83,6 +83,11 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				{
 					ownerAdmin.GET("/profile", cfg.TenantHandler.GetProfile)
 					ownerAdmin.PUT("/profile", cfg.TenantHandler.UpdateProfile)
+					ownerAdmin.GET("/growth/feed", cfg.TenantHandler.OwnerDiscoverFeed)
+					ownerAdmin.GET("/growth/posts", cfg.TenantHandler.ListTenantPosts)
+					ownerAdmin.POST("/growth/posts", cfg.TenantHandler.CreateTenantPost)
+					ownerAdmin.PUT("/growth/posts/:id", cfg.TenantHandler.UpdateTenantPost)
+					ownerAdmin.DELETE("/growth/posts/:id", cfg.TenantHandler.DeleteTenantPost)
 					ownerAdmin.GET("/receipt-settings", cfg.TenantHandler.GetReceiptSettings)
 					ownerAdmin.PUT("/receipt-settings", cfg.TenantHandler.UpdateReceiptSettings)
 					ownerAdmin.POST("/upload", func(c *gin.Context) {

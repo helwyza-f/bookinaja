@@ -216,10 +216,10 @@ function PreviewCard({
                 Discovery Module
               </h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                Pengaturan marketplace, promo, ranking, dan kurasi feed customer sekarang punya modul terpisah agar profil bisnis tetap fokus pada identitas dan operasional inti.
+                  Pengaturan tampilan bisnis, postingan, dan feed customer sekarang punya modul terpisah agar profil bisnis tetap fokus pada identitas dan operasional inti.
               </p>
               <Button asChild size="sm" className="mt-3 h-9 rounded-xl bg-slate-950 text-white hover:bg-[#1f4b49]">
-                <Link href="/admin/settings/discovery">Buka Discovery & Marketplace</Link>
+                  <Link href="/admin/settings/discovery">Buka Promosi Bisnis</Link>
               </Button>
             </div>
           </div>

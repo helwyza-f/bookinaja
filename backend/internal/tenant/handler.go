@@ -120,6 +120,144 @@ func (h *Handler) CustomerDiscoverFeed(c *gin.Context) {
 	c.JSON(http.StatusOK, feed)
 }
 
+func (h *Handler) OwnerDiscoverFeed(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+
+	tenantID, err := uuid.Parse(tIDRaw.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tenant tidak valid"})
+		return
+	}
+
+	feed, err := h.service.GetOwnerDiscoverFeed(c.Request.Context(), tenantID)
+	if err != nil {
+		log.Printf("owner discover feed error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil feed Bookinaja"})
+		return
+	}
+
+	c.JSON(http.StatusOK, feed)
+}
+
+func (h *Handler) ListTenantPosts(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+
+	tenantID, err := uuid.Parse(tIDRaw.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tenant tidak valid"})
+		return
+	}
+
+	posts, err := h.service.ListTenantPosts(c.Request.Context(), tenantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil postingan"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"items": posts})
+}
+
+func (h *Handler) CreateTenantPost(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	actorRaw := c.GetString("userID")
+
+	tenantID, err := uuid.Parse(tIDRaw.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tenant tidak valid"})
+		return
+	}
+	actorID, _ := uuid.Parse(actorRaw)
+
+	var req TenantPostUpsertReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data postingan tidak valid"})
+		return
+	}
+
+	post, err := h.service.CreateTenantPost(c.Request.Context(), actorID, tenantID, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"message": "Postingan berhasil dibuat", "data": post})
+}
+
+func (h *Handler) UpdateTenantPost(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	actorRaw := c.GetString("userID")
+
+	tenantID, err := uuid.Parse(tIDRaw.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tenant tidak valid"})
+		return
+	}
+	postID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID postingan tidak valid"})
+		return
+	}
+	actorID, _ := uuid.Parse(actorRaw)
+
+	var req TenantPostUpsertReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data postingan tidak valid"})
+		return
+	}
+
+	post, err := h.service.UpdateTenantPost(c.Request.Context(), actorID, tenantID, postID, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Postingan berhasil diperbarui", "data": post})
+}
+
+func (h *Handler) DeleteTenantPost(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	actorRaw := c.GetString("userID")
+
+	tenantID, err := uuid.Parse(tIDRaw.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tenant tidak valid"})
+		return
+	}
+	postID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID postingan tidak valid"})
+		return
+	}
+	actorID, _ := uuid.Parse(actorRaw)
+
+	if err := h.service.DeleteTenantPost(c.Request.Context(), actorID, tenantID, postID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Postingan berhasil dihapus"})
+}
+
 func (h *Handler) TrackDiscoveryEvent(c *gin.Context) {
 	var req DiscoveryEventReq
 	if err := c.ShouldBindJSON(&req); err != nil {

@@ -47,7 +47,7 @@ export function SettingsMobileNav({ tenantName, role }: SettingsMobileNavProps) 
                 pathname === item.href || pathname.startsWith(`${item.href}/`);
 
               return (
-                  <Link
+                <Link
                   key={item.href}
                   href={item.href}
                   onClick={() => setOpen(false)}

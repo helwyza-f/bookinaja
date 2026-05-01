@@ -22,6 +22,15 @@ export type AdminNavItem = {
   href: string;
   icon: LucideIcon;
   hint?: string;
+  group?: "core" | "growth" | "ops" | "system";
+};
+
+export const growthHubNavItem: AdminNavItem = {
+  label: "Promosi Bisnis",
+  href: "/growth/feed",
+  icon: Sparkles,
+  hint: "Feed, konten, performa",
+  group: "growth",
 };
 
 export const operationalNavItems: AdminNavItem[] = [
@@ -40,47 +49,79 @@ export const settingsNavItems: AdminNavItem[] = [
     href: "/admin/settings/bisnis",
     icon: BriefcaseBusiness,
     hint: "Brand, SEO, landing",
-  },
-  {
-    label: "Discovery & Marketplace",
-    href: "/admin/settings/discovery",
-    icon: Sparkles,
-    hint: "Feed, promo, ranking",
+    group: "core",
   },
   {
     label: "Manajemen Pegawai",
     href: "/admin/settings/staff",
     icon: UsersRound,
     hint: "Staff, RBAC, aktivitas",
+    group: "ops",
   },
   {
     label: "CRM & Marketing",
     href: "/admin/settings/crm",
     icon: Megaphone,
     hint: "Migrasi & blast WA",
+    group: "growth",
   },
   {
     label: "Laporan & Analitik",
     href: "/admin/settings/analytics",
     icon: BarChart3,
     hint: "Grafik & export",
+    group: "ops",
   },
   {
     label: "Subscription & Billing",
     href: "/admin/settings/billing",
     icon: CreditCard,
     hint: "Paket SaaS & Midtrans",
+    group: "system",
   },
   {
     label: "Nota & Printer",
     href: "/admin/settings/nota",
     icon: Printer,
     hint: "Struk, WhatsApp, printer",
+    group: "system",
   },
   {
     label: "Referral",
     href: "/admin/settings/referral",
     icon: Link2,
     hint: "Kode referral & bonus",
+    group: "growth",
+  },
+];
+
+export const growthNavItems: AdminNavItem[] = [
+  {
+    label: "Feed Bookinaja",
+    href: "/growth/feed",
+    icon: Sparkles,
+    hint: "Pantau tampilan feed",
+    group: "growth",
+  },
+  {
+    label: "Tampilan Bisnis",
+    href: "/growth/profile",
+    icon: BriefcaseBusiness,
+    hint: "Yang dilihat customer",
+    group: "growth",
+  },
+  {
+    label: "Postingan & Konten",
+    href: "/growth/posts",
+    icon: Megaphone,
+    hint: "Kelola postingan",
+    group: "growth",
+  },
+  {
+    label: "Performa",
+    href: "/growth/insights",
+    icon: BarChart3,
+    hint: "Reach & performa",
+    group: "growth",
   },
 ];
