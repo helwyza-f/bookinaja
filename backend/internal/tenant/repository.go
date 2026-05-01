@@ -206,7 +206,7 @@ func (r *Repository) ListPublicTenants(ctx context.Context) ([]TenantDirectoryIt
 			WHERE status != 'deleted'
 			ORDER BY tenant_id, created_at DESC, name ASC
 		) top_resource ON top_resource.tenant_id = tenants.id
-		ORDER BY discovery_priority DESC, created_at DESC, name ASC`)
+		ORDER BY tenants.discovery_priority DESC, tenants.created_at DESC, tenants.name ASC`)
 	if err != nil {
 		if isDiscoverySchemaError(err) {
 			items, err = r.listPublicTenantsLegacy(ctx)
@@ -272,7 +272,7 @@ func (r *Repository) listPublicTenantsLegacy(ctx context.Context) ([]TenantDirec
 			WHERE status != 'deleted'
 			ORDER BY tenant_id, created_at DESC, name ASC
 		) top_resource ON top_resource.tenant_id = tenants.id
-		ORDER BY created_at DESC, name ASC`)
+		ORDER BY tenants.created_at DESC, tenants.name ASC`)
 	return items, err
 }
 
