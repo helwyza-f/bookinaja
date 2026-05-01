@@ -72,16 +72,16 @@ export default function UserBookingDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-6 dark:bg-[#050505]">
+    <div className="space-y-4">
       <div className="mx-auto max-w-3xl space-y-4">
         <div className="flex items-center justify-between gap-3">
           <Button
             variant="ghost"
-            onClick={() => router.push("/user/me")}
+            onClick={() => router.push("/user/me/active")}
             className="rounded-2xl"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
+            Kembali ke Booking Aktif
           </Button>
           {tenantUrl ? (
             <div className="flex items-center gap-2">

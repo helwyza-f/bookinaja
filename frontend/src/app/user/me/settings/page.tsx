@@ -1,22 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Loader2, Mail, Phone, Save, User, KeyRound } from "lucide-react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Loader2, ArrowLeft, Mail, User, Phone, KeyRound, Save } from "lucide-react";
 import api from "@/lib/api";
 import { clearTenantSession } from "@/lib/tenant-session";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 export default function UserSettingsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -31,8 +29,8 @@ export default function UserSettingsPage() {
           setPhone(res.data.customer.phone || "");
           setEmail(res.data.customer.email || "");
         }
-      } catch (err) {
-        toast.error("Sesi telah habis, silakan login kembali");
+      } catch {
+        toast.error("Sesi habis, silakan login lagi");
         clearTenantSession({ keepTenantSlug: true });
         router.replace("/user/login");
       } finally {
@@ -40,7 +38,7 @@ export default function UserSettingsPage() {
       }
     };
 
-    loadProfile();
+    void loadProfile();
   }, [router]);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -53,10 +51,18 @@ export default function UserSettingsPage() {
         email,
         password: password || undefined,
       });
-      toast.success("Profil berhasil diperbarui!");
-      setPassword(""); // Clear password field after save
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || "Gagal memperbarui profil");
+      toast.success("Pengaturan akun berhasil disimpan");
+      setPassword("");
+    } catch (error: unknown) {
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        typeof (error as { response?: { data?: { error?: string } } }).response?.data?.error ===
+          "string"
+          ? (error as { response?: { data?: { error?: string } } }).response?.data?.error
+          : "Gagal memperbarui akun";
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -64,107 +70,123 @@ export default function UserSettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 px-4 py-8 dark:bg-[#050505]">
-        <div className="mx-auto max-w-xl space-y-6">
-          <Skeleton className="h-10 w-32 rounded-xl bg-white dark:bg-white/5" />
-          <Skeleton className="h-96 rounded-[2rem] bg-white dark:bg-white/5" />
-        </div>
+      <div className="space-y-4">
+        <Skeleton className="h-20 rounded-[2rem] bg-white" />
+        <Skeleton className="h-[420px] rounded-[2rem] bg-white" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 dark:bg-[#050505] relative overflow-hidden">
-      {/* Decorative blobs */}
-      <div className="absolute top-0 right-0 -mr-20 -mt-20 w-72 h-72 rounded-full bg-blue-500/5 blur-3xl -z-10" />
+    <div className="space-y-4">
+      <section className="space-y-2">
+        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-600">
+          Akun
+        </p>
+        <h1 className="text-2xl font-black uppercase tracking-[-0.04em] md:text-3xl">
+          Atur akun customer kamu
+        </h1>
+        <p className="max-w-2xl text-sm leading-7 text-slate-500">
+          Lengkapi data dasar, email aktif, dan password supaya login Bookinaja
+          lebih gampang di kunjungan berikutnya.
+        </p>
+      </section>
 
-      <div className="mx-auto max-w-xl relative z-10">
-        <header className="mb-8">
-          <Button asChild variant="ghost" className="mb-4 pl-0 hover:bg-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
-            <Link href="/user/me" className="inline-flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Kembali ke Dashboard
-            </Link>
-          </Button>
-          <h1 className="text-3xl font-black italic uppercase tracking-tighter dark:text-white">
-            Pengaturan Akun
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Lengkapi email dan password untuk mempermudah login Bookinaja di semua cabang.
-          </p>
-        </header>
-
-        <Card className="w-full overflow-hidden rounded-[2.5rem] border-slate-200/50 bg-white/70 backdrop-blur-xl shadow-xl dark:border-white/5 dark:bg-white/[0.02]">
-          <CardContent className="p-6 md:p-10">
-            <form onSubmit={handleSave} className="space-y-6">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Nama Lengkap</label>
-                <div className="relative">
-                  <User className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <Input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="h-14 rounded-2xl pl-11 bg-white/50 dark:bg-black/20 text-md font-medium"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Nomor WhatsApp</label>
-                <div className="relative">
-                  <Phone className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <Input
-                    value={phone}
-                    disabled
-                    className="h-14 rounded-2xl pl-11 bg-slate-100 dark:bg-white/5 text-md font-medium text-slate-500 cursor-not-allowed"
-                    title="Nomor WhatsApp tidak dapat diubah"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Email Aktif</label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <Input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="nama@email.com"
-                    className="h-14 rounded-2xl pl-11 bg-white/50 dark:bg-black/20 text-md font-medium"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1 pt-4 border-t border-slate-100 dark:border-white/10">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Ubah Password</label>
-                <div className="relative">
-                  <KeyRound className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <Input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Kosongkan jika tidak ingin mengubah"
-                    className="h-14 rounded-2xl pl-11 bg-white/50 dark:bg-black/20 text-md"
-                  />
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                disabled={saving}
-                className="h-14 w-full rounded-2xl bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-500/25 mt-4"
+      <Card className="overflow-hidden rounded-[2rem] border-blue-100 bg-white shadow-sm">
+        <CardContent className="p-4 md:p-6">
+          <form onSubmit={handleSave} className="space-y-5">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field
+                label="Nama lengkap"
+                icon={<User className="h-4 w-4" />}
               >
-                {saving ? (
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                ) : (
-                  <Save className="mr-2 h-5 w-5" />
-                )}
-                Simpan Perubahan
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="h-12 rounded-2xl border-slate-200 pl-11"
+                />
+              </Field>
+
+              <Field
+                label="Nomor WhatsApp"
+                icon={<Phone className="h-4 w-4" />}
+              >
+                <Input
+                  value={phone}
+                  disabled
+                  className="h-12 cursor-not-allowed rounded-2xl border-slate-200 bg-slate-100 pl-11 text-slate-500"
+                  title="Nomor WhatsApp tidak dapat diubah"
+                />
+              </Field>
+            </div>
+
+            <Field label="Email aktif" icon={<Mail className="h-4 w-4" />}>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="nama@email.com"
+                className="h-12 rounded-2xl border-slate-200 pl-11"
+              />
+            </Field>
+
+            <Field
+              label="Password baru"
+              hint="Kosongkan jika tidak ingin mengganti password."
+              icon={<KeyRound className="h-4 w-4" />}
+            >
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Masukkan password baru"
+                className="h-12 rounded-2xl border-slate-200 pl-11"
+              />
+            </Field>
+
+            <Button
+              type="submit"
+              disabled={saving}
+              className="h-12 w-full rounded-2xl bg-blue-600 text-white hover:bg-blue-500 md:w-auto md:px-6"
+            >
+              {saving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              Simpan Perubahan
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  hint,
+  icon,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <div>
+        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+          {label}
+        </div>
+        {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
+      </div>
+      <div className="relative">
+        <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+          {icon}
+        </div>
+        {children}
       </div>
     </div>
   );

@@ -2,23 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { ArrowRight, Calendar, Clock, Compass, Search, Ticket, Wallet } from "lucide-react";
 import { useRouter } from "next/navigation";
-import {
-  ArrowRight,
-  Calendar,
-  Clock,
-  Compass,
-  LogOut,
-  Search,
-  Settings,
-  Sparkles,
-  Ticket,
-  User,
-  Wallet,
-} from "lucide-react";
 import api from "@/lib/api";
-import { getTenantUrl } from "@/lib/tenant";
 import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
+import { getTenantUrl } from "@/lib/tenant";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
-  bookinajaDiscoveryTheme,
   type DiscoveryFeedResponse,
   type DiscoveryTenant,
   formatStartingPrice,
@@ -41,10 +28,7 @@ type CustomerDashboard = {
   customer?: {
     id?: string;
     name?: string;
-    phone?: string;
-    email?: string | null;
     tier?: string;
-    loyalty_points?: number;
   };
   points?: number;
   point_activity?: PointEvent[];
@@ -56,7 +40,6 @@ type PointEvent = {
   id: string;
   tenant_name?: string;
   points: number;
-  description?: string;
   created_at: string;
 };
 
@@ -67,10 +50,8 @@ type BookingItem = {
   resource?: string;
   date?: string;
   status?: string;
-  grand_total?: number;
   total_spent?: number;
-  balance_due?: number;
-  payment_status?: string;
+  grand_total?: number;
 };
 
 const FILTER_ALL = "Semua";
@@ -115,13 +96,8 @@ export default function UserDashboardPage() {
   }, [router]);
 
   const activeBookings = useMemo(() => data?.active_bookings || [], [data?.active_bookings]);
-  const pastHistory = useMemo(() => data?.past_history || [], [data?.past_history]);
   const pointActivity = useMemo(() => data?.point_activity || [], [data?.point_activity]);
-
-  const categories = useMemo(() => {
-    const items = discoverFeed?.quick_categories || [];
-    return [FILTER_ALL, ...items];
-  }, [discoverFeed?.quick_categories]);
+  const categories = useMemo(() => [FILTER_ALL, ...(discoverFeed?.quick_categories || [])], [discoverFeed?.quick_categories]);
 
   const discoverCandidates = useMemo(() => {
     const map = new Map<string, DiscoveryTenant>();
@@ -129,39 +105,20 @@ export default function UserDashboardPage() {
     return Array.from(map.values());
   }, [discoverFeed]);
 
-  const bookedSlugs = useMemo(
-    () =>
-      new Set(
-        [...activeBookings, ...pastHistory]
-          .map((booking) => booking.tenant_slug)
-          .filter(Boolean),
-      ),
-    [activeBookings, pastHistory],
-  );
-
   const personalizedDiscoveries = useMemo(() => {
     return discoverCandidates
       .filter((tenant) => {
         const matchesCategory =
           activeCategory === FILTER_ALL ||
-          `${tenant.business_category || tenant.business_type || ""}`.toLowerCase() ===
-            activeCategory.toLowerCase();
-        const score = scoreDiscoveryTenant(tenant, query);
-        return matchesCategory && score > -100;
+          `${tenant.business_category || tenant.business_type || ""}`.toLowerCase() === activeCategory.toLowerCase();
+        return matchesCategory && scoreDiscoveryTenant(tenant, query) > -100;
       })
-      .sort((left, right) => {
-        const leftScore = scoreDiscoveryTenant(left, query) + (bookedSlugs.has(left.slug) ? 18 : 0);
-        const rightScore = scoreDiscoveryTenant(right, query) + (bookedSlugs.has(right.slug) ? 18 : 0);
-        return rightScore - leftScore;
-      });
-  }, [activeCategory, bookedSlugs, discoverCandidates, query]);
+      .sort((left, right) => scoreDiscoveryTenant(right, query) - scoreDiscoveryTenant(left, query));
+  }, [activeCategory, discoverCandidates, query]);
 
   const featuredTenant = personalizedDiscoveries[0] || null;
-  const recommendedGrid = personalizedDiscoveries.slice(1, 7);
-  const trendingSection = useMemo(
-    () => discoverFeed?.sections.find((section) => section.id === "trending-now") || null,
-    [discoverFeed?.sections],
-  );
+  const recommendedGrid = personalizedDiscoveries.slice(1, 5);
+  const trendingSection = discoverFeed?.sections.find((section) => section.id === "trending-now") || null;
 
   const markImpression = (
     tenant: DiscoveryTenant,
@@ -184,231 +141,248 @@ export default function UserDashboardPage() {
     });
   };
 
-  const handleLogout = () => {
-    clearTenantSession({ keepTenantSlug: true });
-    router.push("/user/login");
-  };
-
   if (loading) {
     return <DashboardSkeleton />;
   }
 
-  const tier = data?.customer?.tier || "Member";
-  const points = data?.points || 0;
-
   return (
-    <div className={cn("min-h-screen pb-24", bookinajaDiscoveryTheme.pageBg)}>
-      <div className={cn("pointer-events-none absolute inset-x-0 top-0 h-[42vh]", bookinajaDiscoveryTheme.pageGlow)} />
-      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-4 md:px-6 md:py-6">
-        <header className="flex items-center justify-between">
-          <div>
-            <p className={cn("text-[10px] font-black uppercase tracking-[0.24em]", bookinajaDiscoveryTheme.accentText)}>
-              Customer Hub
-            </p>
-            <h1 className="mt-1 text-2xl font-black uppercase tracking-tight text-slate-950">
-              Bookinaja Portal
-            </h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button asChild variant="outline" size="icon" className="rounded-2xl border-[#e7d8c3] bg-white/70">
-              <Link href="/user/me/settings">
-                <Settings className="h-4 w-4" />
+    <div className="space-y-6">
+      <section className="space-y-4">
+        <div className="space-y-2">
+          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-600">
+            Home Feed
+          </p>
+          <h1 className="text-2xl font-black uppercase tracking-[-0.04em] md:text-3xl">
+            Temukan tempat berikutnya lebih cepat.
+          </h1>
+          <p className="max-w-2xl text-sm leading-7 text-slate-500">
+            Fokus utamanya sekarang ada di feed discovery. Booking aktif, riwayat, dan pengaturan akun tetap ada, tapi tidak lagi memenuhi layar utama.
+          </p>
+        </div>
+
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={discoverFeed?.hero?.search_hint || "Cari tempat, kategori, atau aktivitas"}
+            className="h-12 rounded-2xl border-slate-200 bg-white pl-11 text-sm"
+          />
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {categories.map((category) => (
+            <button
+              key={category}
+              onClick={() => setActiveCategory(category)}
+              className={cn(
+                "whitespace-nowrap rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] transition-all",
+                activeCategory === category
+                  ? "bg-blue-600 text-white"
+                  : "bg-blue-50 text-slate-600 hover:bg-blue-100",
+              )}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {featuredTenant ? (
+        <FeatureHero
+          tenant={featuredTenant}
+          onVisible={() => markImpression(featuredTenant, "home-hero", "hero", 0)}
+        />
+      ) : null}
+
+      <section className="space-y-3">
+        <SectionHeader
+          eyebrow="Lanjutkan"
+          title="Yang masih aktif buat kamu"
+          description="Ringkasan kecil supaya kamu bisa lanjut booking tanpa mengalahkan feed utama."
+        />
+        <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
+          {activeBookings.length ? (
+            activeBookings.slice(0, 5).map((booking) => (
+              <Link
+                key={booking.id}
+                href={`/user/me/bookings/${booking.id}`}
+                className="min-w-[240px] flex-none rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <Badge className="rounded-full bg-blue-50 text-blue-700">
+                    {booking.status || "active"}
+                  </Badge>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                    {booking.tenant_name || "Tenant"}
+                  </span>
+                </div>
+                <div className="mt-3 text-base font-black uppercase tracking-tight">
+                  {booking.resource || "Booking"}
+                </div>
+                <div className="mt-2 flex gap-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5" />
+                    {booking.date
+                      ? new Date(booking.date).toLocaleDateString("id-ID", {
+                          day: "numeric",
+                          month: "short",
+                        })
+                      : "-"}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5" />
+                    {booking.date
+                      ? new Date(booking.date).toLocaleTimeString("id-ID", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "-"}
+                  </span>
+                </div>
               </Link>
-            </Button>
-            <Button onClick={handleLogout} size="icon" className={cn("rounded-2xl shadow-sm", bookinajaDiscoveryTheme.accentStrong)}>
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
-        </header>
-
-        <section className={cn("overflow-hidden rounded-[2rem] border p-4 shadow-[0_24px_70px_rgba(13,31,39,0.18)] md:p-6", bookinajaDiscoveryTheme.heroBg, bookinajaDiscoveryTheme.heroBorder)}>
-          <div className="flex flex-col gap-5 text-white">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-white/90">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Discovery-first Customer Portal
-                </div>
-                <h2 className="mt-4 text-3xl font-black uppercase leading-[0.94] tracking-[-0.05em] md:text-5xl">
-                  Temukan tempat berikutnya tanpa berhenti di riwayat booking.
-                </h2>
-                <p className="mt-3 max-w-2xl text-sm leading-7 text-white/78 md:text-base">
-                  Portal customer Bookinaja sekarang mendorong discovery: cari aktivitas, lihat bisnis yang sedang ramai, lalu lanjut booking dari satu tempat yang terasa lebih hidup.
-                </p>
-              </div>
-              <div className="hidden rounded-[1.6rem] border border-white/15 bg-white/10 p-4 md:block">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15">
-                  <User className="h-6 w-6" />
-                </div>
-                <div className="mt-3 text-sm font-semibold">{data?.customer?.name || "Customer"}</div>
-                <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/70">{tier}</div>
-              </div>
+            ))
+          ) : (
+            <div className="w-full rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-sm text-slate-500">
+              Belum ada booking aktif. Fokus utama kamu sekarang bisa langsung ke feed discovery di bawah.
             </div>
+          )}
+        </div>
+        {activeBookings.length ? (
+          <Button asChild variant="outline" className="h-11 rounded-2xl">
+            <Link href="/user/me/active">Lihat semua booking aktif</Link>
+          </Button>
+        ) : null}
+      </section>
 
-            <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                <Input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder={discoverFeed?.hero?.search_hint || "Cari tempat, kategori, atau suasana yang kamu cari"}
-                  className="h-14 rounded-2xl border-white/15 bg-white/92 pl-12 text-sm font-medium text-slate-950 placeholder:text-slate-500"
+      <section className="space-y-3">
+        <SectionHeader
+          eyebrow="Untuk Kamu"
+          title="Feed yang lebih content-centric"
+          description="Konten bisnis yang layak diklik duluan, bukan blok metrik besar yang memenuhi layar."
+        />
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {recommendedGrid.map((tenant, index) => (
+            <ContentCard
+              key={tenant.id}
+              tenant={tenant}
+              sectionId="recommended"
+              index={index}
+              onVisible={() => markImpression(tenant, "recommended", "compact", index)}
+            />
+          ))}
+        </div>
+      </section>
+
+      {trendingSection ? (
+        <section className="space-y-3">
+          <SectionHeader
+            eyebrow="Sedang Ramai"
+            title={trendingSection.title}
+            description={trendingSection.description}
+          />
+          <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
+            {trendingSection.items.slice(0, 8).map((tenant, index) => (
+              <div key={tenant.id} className="w-[250px] min-w-[250px] flex-none">
+                <ContentCard
+                  tenant={tenant}
+                  sectionId="trending"
+                  index={index}
+                  onVisible={() => markImpression(tenant, "trending", "rail", index)}
                 />
               </div>
-              <Button asChild className="h-14 rounded-2xl bg-white text-slate-950 hover:bg-white/90">
-                <Link href="/tenants">
-                  Jelajahi Marketplace
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <SummaryPill label="Tier" value={tier} icon={<Sparkles className="h-4 w-4" />} />
-              <SummaryPill label="Points" value={points.toLocaleString("id-ID")} icon={<Wallet className="h-4 w-4" />} />
-              <SummaryPill label="Booking Aktif" value={String(activeBookings.length)} icon={<Ticket className="h-4 w-4" />} />
-              <SummaryPill label="Riwayat" value={String(pastHistory.length)} icon={<Calendar className="h-4 w-4" />} />
-            </div>
-          </div>
-        </section>
-
-        <section className="sticky top-3 z-20 rounded-[1.6rem] border border-white/80 bg-white/85 p-3 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-          <div className="flex gap-2 overflow-x-auto scrollbar-none">
-            {categories.map((category) => (
-              <button
-                key={category}
-                onClick={() => setActiveCategory(category)}
-                className={cn(
-                  "whitespace-nowrap rounded-2xl px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] transition-all",
-                  activeCategory === category
-                    ? bookinajaDiscoveryTheme.accentStrong
-                    : "bg-blue-50 text-slate-500 hover:bg-blue-100",
-                )}
-              >
-                {category}
-              </button>
             ))}
           </div>
         </section>
+      ) : null}
 
-        {featuredTenant ? (
-          <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-            <DiscoverHeroCard
-              tenant={featuredTenant}
-              onVisible={() => markImpression(featuredTenant, "hero-discovery", "hero", 0)}
-            />
-            <div className="grid gap-4">
-              <BookingSnapshotCard bookings={activeBookings} />
-              <LoyaltyCard points={points} pointActivity={pointActivity} />
-            </div>
-          </section>
-        ) : null}
-
-        <section className="space-y-4">
-          <SectionHeader
-            eyebrow="Recommended"
-            title="Paling relevan buat kamu sekarang"
-            description="Gabungan antara bisnis yang lagi ramai, listing yang paling siap, dan tenant yang nyambung dengan minat atau jejak booking kamu."
-          />
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {recommendedGrid.map((tenant, index) => (
-              <CustomerDiscoveryCard
-                key={tenant.id}
-                tenant={tenant}
-                index={index}
-                sectionId="recommended"
-                onVisible={() => markImpression(tenant, "recommended", "grid", index)}
-              />
-            ))}
-          </div>
-          {recommendedGrid.length === 0 ? (
-            <EmptyDiscoveryState />
-          ) : null}
-        </section>
-
-        {trendingSection ? (
-          <section className="space-y-4">
-            <SectionHeader
-              eyebrow="Trending"
-              title={trendingSection.title}
-              description={trendingSection.description}
-            />
-            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
-              {trendingSection.items.slice(0, 8).map((tenant, index) => (
-                <div key={tenant.id} className="w-[280px] min-w-[280px] flex-none">
-                  <CustomerDiscoveryCard
-                    tenant={tenant}
-                    index={index}
-                    sectionId="trending-now"
-                    onVisible={() => markImpression(tenant, "trending-now", "rail", index)}
-                  />
+      <section className="grid gap-3 md:grid-cols-[1.2fr_0.8fr]">
+        <Card className="rounded-[1.8rem] border-blue-100 bg-white shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-600">
+                  Loyalty
+                </p>
+                <h3 className="mt-1 text-lg font-black uppercase tracking-tight">
+                  Points & activity
+                </h3>
+              </div>
+              <div className="rounded-2xl bg-blue-600 px-3 py-2 text-right text-white">
+                <div className="text-[10px] font-black uppercase tracking-[0.12em]">Total</div>
+                <div className="mt-1 flex items-center gap-2 text-base font-black">
+                  <Wallet className="h-4 w-4" />
+                  {(data?.points || 0).toLocaleString("id-ID")}
                 </div>
-              ))}
+              </div>
             </div>
-          </section>
-        ) : null}
+            <div className="mt-4 space-y-3">
+              {pointActivity.length ? (
+                pointActivity.slice(0, 4).map((event) => (
+                  <div key={event.id} className="flex items-center justify-between rounded-2xl bg-slate-50 p-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-bold text-slate-950">
+                        {event.tenant_name || "Bookinaja"}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        {new Date(event.created_at).toLocaleDateString("id-ID", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </div>
+                    </div>
+                    <div className="text-sm font-black text-blue-600">+{event.points}</div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                  Aktivitas loyalty akan muncul setelah booking dan pembayaran mulai berjalan.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
-        <section className="space-y-4">
-          <SectionHeader
-            eyebrow="Your Journey"
-            title="Booking yang masih berjalan dan histori terakhir"
-            description="Customer portal tetap menyimpan fungsi akun, tapi sekarang posisinya mendukung discovery, bukan menjadi satu-satunya alasan orang kembali."
-          />
-          <div className="grid gap-4 md:grid-cols-2">
-            {[...activeBookings.slice(0, 2), ...pastHistory.slice(0, 2)].map((booking) => (
-              <BookingJourneyCard key={booking.id} booking={booking} />
-            ))}
-          </div>
-          {activeBookings.length === 0 && pastHistory.length === 0 ? (
-            <div className="rounded-[1.8rem] border border-dashed border-[#d7c7b2] bg-white/80 p-8 text-center">
-              <Ticket className="mx-auto h-8 w-8 text-[#9a8f82]" />
-              <h3 className="mt-4 text-xl font-black uppercase tracking-tight">Belum ada booking</h3>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-7 text-slate-500">
-                Mulai dari marketplace discovery untuk menemukan tempat pertama yang ingin kamu coba.
-              </p>
-              <Button asChild className={cn("mt-5 rounded-2xl", bookinajaDiscoveryTheme.accentStrong)}>
-                <Link href="/tenants">Mulai Jelajahi</Link>
+        <Card className="rounded-[1.8rem] border-blue-100 bg-white shadow-sm">
+          <CardContent className="space-y-3 p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-600">
+              Akun
+            </p>
+            <div className="rounded-2xl bg-slate-50 p-4">
+              <div className="text-base font-black uppercase tracking-tight">
+                {data?.customer?.name || "Customer"}
+              </div>
+              <div className="mt-1 text-sm text-slate-500">
+                Tier {data?.customer?.tier || "Member"}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <QuickStat label="Aktif" value={String(activeBookings.length)} icon={<Ticket className="h-4 w-4" />} />
+              <QuickStat label="History" value={String(data?.past_history?.length || 0)} icon={<Compass className="h-4 w-4" />} />
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Button asChild variant="outline" className="h-11 rounded-2xl">
+                <Link href="/user/me/history">Lihat Riwayat</Link>
+              </Button>
+              <Button asChild variant="outline" className="h-11 rounded-2xl">
+                <Link href="/user/me/settings">Pengaturan Akun</Link>
               </Button>
             </div>
-          ) : null}
-        </section>
-      </div>
+          </CardContent>
+        </Card>
+      </section>
     </div>
   );
 }
 
 function DashboardSkeleton() {
   return (
-    <div className="mx-auto max-w-7xl space-y-5 px-4 py-4 md:px-6 md:py-6">
-      <Skeleton className="h-10 rounded-2xl bg-white/80" />
-      <Skeleton className="h-80 rounded-[2rem] bg-white/80" />
-      <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-        <Skeleton className="h-[420px] rounded-[2rem] bg-white/80" />
-        <div className="grid gap-4">
-          <Skeleton className="h-48 rounded-[2rem] bg-white/80" />
-          <Skeleton className="h-48 rounded-[2rem] bg-white/80" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SummaryPill({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl border border-white/12 bg-white/10 px-4 py-3">
-      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/72">
-        {icon}
-        {label}
-      </div>
-      <div className="mt-2 text-lg font-black text-white">{value}</div>
+    <div className="space-y-4">
+      <Skeleton className="h-24 rounded-[2rem] bg-white" />
+      <Skeleton className="h-72 rounded-[2rem] bg-white" />
+      <Skeleton className="h-32 rounded-[2rem] bg-white" />
+      <Skeleton className="h-80 rounded-[2rem] bg-white" />
     </div>
   );
 }
@@ -423,19 +397,19 @@ function SectionHeader({
   description: string;
 }) {
   return (
-    <div className="max-w-2xl">
-      <div className={cn("text-[10px] font-black uppercase tracking-[0.28em]", bookinajaDiscoveryTheme.accentText)}>
+    <div className="space-y-1">
+      <div className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-600">
         {eyebrow}
       </div>
-      <h2 className="mt-2 text-2xl font-black uppercase tracking-[-0.03em] text-slate-950 md:text-3xl">
+      <h2 className="text-xl font-black uppercase tracking-[-0.03em] md:text-2xl">
         {title}
       </h2>
-      <p className={cn("mt-2 text-sm leading-7", bookinajaDiscoveryTheme.mutedText)}>{description}</p>
+      <p className="max-w-2xl text-sm leading-7 text-slate-500">{description}</p>
     </div>
   );
 }
 
-function DiscoverHeroCard({
+function FeatureHero({
   tenant,
   onVisible,
 }: {
@@ -447,51 +421,51 @@ function DiscoverHeroCard({
   }, [onVisible]);
 
   return (
-    <Card className="overflow-hidden rounded-[2rem] border-0 bg-slate-950 text-white shadow-[0_28px_70px_rgba(15,23,42,0.22)]">
+    <Card className="overflow-hidden rounded-[2rem] border-0 bg-slate-950 text-white shadow-[0_22px_60px_rgba(15,23,42,0.22)]">
       <CardContent className="relative p-0">
         <div
           className="absolute inset-0 bg-cover bg-center opacity-45"
           style={{
             backgroundImage: tenant.featured_image_url || tenant.banner_url
               ? `url(${tenant.featured_image_url || tenant.banner_url})`
-              : "linear-gradient(135deg, rgba(13,31,39,0.95), rgba(31,75,73,0.64))",
+              : "linear-gradient(135deg, rgba(13,31,39,0.94), rgba(29,78,216,0.65))",
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-tr from-black/75 via-black/45 to-blue-400/18" />
-        <div className="relative z-10 flex min-h-[380px] flex-col justify-between p-5 md:p-7">
+        <div className="absolute inset-0 bg-gradient-to-tr from-black/78 via-black/50 to-blue-400/18" />
+        <div className="relative z-10 flex min-h-[280px] flex-col justify-between p-4 md:p-6">
           <div className="flex items-center justify-between gap-3">
-            <Badge className="rounded-full border-none bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white">
-              {tenant.promo_label || "Pilihan Hari Ini"}
+            <Badge className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white">
+              {tenant.promo_label || "Highlighted"}
             </Badge>
             <Badge className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-semibold text-white/90">
               {formatStartingPrice(tenant.starting_price)}
             </Badge>
           </div>
 
-          <div>
-            <h3 className="text-3xl font-black uppercase leading-[0.94] tracking-[-0.04em] md:text-4xl">
+          <div className="space-y-3">
+            <h3 className="max-w-2xl text-2xl font-black uppercase leading-[0.95] tracking-[-0.04em] md:text-4xl">
               {tenant.name}
             </h3>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-white/84 md:text-base">
+            <p className="max-w-2xl text-sm leading-7 text-white/85">
               {tenant.discovery_headline || tenant.tagline || tenant.about_us}
             </p>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-white/66">
-              {tenant.highlight_copy || tenant.featured_reason || tenant.discovery_subheadline}
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {(tenant.discovery_badges || tenant.discovery_tags || []).slice(0, 4).map((item) => (
-                <span key={item} className="rounded-full bg-white/12 px-3 py-1 text-[11px] font-semibold text-white/92">
+            <div className="flex flex-wrap gap-2">
+              {(tenant.discovery_badges || tenant.discovery_tags || []).slice(0, 3).map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full bg-white/12 px-3 py-1 text-[11px] font-semibold text-white/92"
+                >
                   {item}
                 </span>
               ))}
             </div>
           </div>
 
-          <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="text-sm text-white/74">
-              {tenant.availability_hint || "Cocok untuk ide booking berikutnya."}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-white/72">
+              {tenant.highlight_copy || tenant.availability_hint || "Lihat mengapa tempat ini cocok buat dicoba sekarang."}
             </div>
-            <Button asChild className="h-12 rounded-2xl bg-white text-slate-950 hover:bg-white/90">
+            <Button asChild className="h-11 rounded-2xl bg-white text-slate-950 hover:bg-white/90">
               <a
                 href={getTenantUrl(tenant.slug)}
                 onClick={() =>
@@ -500,7 +474,7 @@ function DiscoverHeroCard({
                     tenant_slug: tenant.slug,
                     event_type: "click",
                     surface: "customer-hub",
-                    section_id: "hero-discovery",
+                    section_id: "home-hero",
                     card_variant: "hero",
                     position_index: 0,
                     promo_label: tenant.promo_label,
@@ -518,126 +492,15 @@ function DiscoverHeroCard({
   );
 }
 
-function BookingSnapshotCard({ bookings }: { bookings: BookingItem[] }) {
-  return (
-    <Card className="rounded-[1.8rem] border-blue-100 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.07)]">
-      <CardContent className="p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className={cn("text-[10px] font-black uppercase tracking-[0.24em]", bookinajaDiscoveryTheme.accentText)}>
-              Active Snapshot
-            </p>
-            <h3 className="mt-2 text-xl font-black uppercase tracking-tight text-slate-950">
-              Booking yang masih berjalan
-            </h3>
-          </div>
-          <Badge className={cn("rounded-full border-none px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em]", bookinajaDiscoveryTheme.accentSoft)}>
-            {bookings.length} aktif
-          </Badge>
-        </div>
-        <div className="mt-4 space-y-3">
-          {bookings.slice(0, 3).map((booking) => (
-            <div key={booking.id} className="rounded-2xl bg-white/80 p-3 ring-1 ring-[#efe3d4]">
-              <div className="text-sm font-bold text-slate-950">{booking.tenant_name || "Tenant"}</div>
-              <div className="mt-1 text-sm text-[#6d6b67]">{booking.resource || "Booking"}</div>
-              <div className="mt-2 flex items-center gap-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8a7d6c]">
-                <span className="flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5" />
-                  {booking.date
-                    ? new Date(booking.date).toLocaleDateString("id-ID", {
-                        day: "numeric",
-                        month: "short",
-                      })
-                    : "-"}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5" />
-                  {booking.date
-                    ? new Date(booking.date).toLocaleTimeString("id-ID", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "-"}
-                </span>
-              </div>
-            </div>
-          ))}
-          {bookings.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-blue-100 bg-white/70 p-4 text-sm text-slate-500">
-              Belum ada booking aktif. Discovery feed di samping membantu customer tidak berhenti hanya karena belum punya reservasi berjalan.
-            </div>
-          ) : null}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function LoyaltyCard({
-  points,
-  pointActivity,
-}: {
-  points: number;
-  pointActivity: PointEvent[];
-}) {
-  return (
-    <Card className="rounded-[1.8rem] border-blue-100 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.07)]">
-      <CardContent className="p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className={cn("text-[10px] font-black uppercase tracking-[0.24em]", bookinajaDiscoveryTheme.accentText)}>
-              Loyalty
-            </p>
-            <h3 className="mt-2 text-xl font-black uppercase tracking-tight text-slate-950">
-              Points lintas tenant
-            </h3>
-          </div>
-          <div className="rounded-2xl bg-blue-600 px-3 py-2 text-right text-white">
-            <div className="text-[10px] font-black uppercase tracking-[0.16em]">Total</div>
-            <div className="mt-1 flex items-center gap-2 text-lg font-black">
-              <Wallet className="h-4 w-4" />
-              {points.toLocaleString("id-ID")}
-            </div>
-          </div>
-        </div>
-        <div className="mt-4 space-y-3">
-          {pointActivity.slice(0, 3).map((event) => (
-            <div key={event.id} className="flex items-center justify-between rounded-2xl bg-white/80 p-3 ring-1 ring-[#efe3d4]">
-              <div className="min-w-0">
-                <div className="truncate text-sm font-bold text-slate-950">
-                  {event.tenant_name || event.description || "Bookinaja"}
-                </div>
-                <div className="mt-1 text-xs text-slate-500">
-                  {new Date(event.created_at).toLocaleDateString("id-ID", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </div>
-              </div>
-              <div className="text-sm font-black text-blue-600">+{event.points}</div>
-            </div>
-          ))}
-          {pointActivity.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-blue-100 bg-white/70 p-4 text-sm text-slate-500">
-              Aktivitas loyalty akan muncul setelah booking dan pembayaran mulai berjalan.
-            </div>
-          ) : null}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function CustomerDiscoveryCard({
+function ContentCard({
   tenant,
-  index,
   sectionId,
+  index,
   onVisible,
 }: {
   tenant: DiscoveryTenant;
-  index: number;
   sectionId: string;
+  index: number;
   onVisible: () => void;
 }) {
   useEffect(() => {
@@ -645,41 +508,41 @@ function CustomerDiscoveryCard({
   }, [onVisible]);
 
   return (
-    <Card className="group h-full overflow-hidden rounded-[1.8rem] border-blue-100 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.07)] transition-all hover:-translate-y-1 hover:shadow-[0_24px_52px_rgba(15,23,42,0.10)]">
-      <CardContent className="flex h-full flex-col p-0">
+    <Card className="group overflow-hidden rounded-[1.7rem] border border-blue-100 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-md">
+      <CardContent className="p-0">
         <div
-          className="h-40 w-full bg-cover bg-center"
+          className="h-32 w-full bg-cover bg-center"
           style={{
             backgroundImage: tenant.featured_image_url || tenant.banner_url
               ? `url(${tenant.featured_image_url || tenant.banner_url})`
-              : "linear-gradient(135deg, rgba(13,31,39,0.92), rgba(215,177,122,0.72))",
+              : "linear-gradient(135deg, rgba(13,31,39,0.92), rgba(96,165,250,0.72))",
           }}
         />
-        <div className="flex flex-1 flex-col p-4">
+        <div className="space-y-4 p-4">
           <div className="flex items-start justify-between gap-3">
-            <div className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-blue-700">
-              {tenant.promo_label || "Discovery Pick"}
-            </div>
-            <div className="text-[11px] font-semibold text-slate-500">
-              {tenant.discovery_ctr_30d && tenant.discovery_ctr_30d > 0
-                ? `${tenant.discovery_ctr_30d}% CTR`
-                : formatStartingPrice(tenant.starting_price)}
-            </div>
+            <Badge className="rounded-full bg-blue-50 text-blue-700">
+              {tenant.promo_label || "Discovery"}
+            </Badge>
+            <span className="text-[11px] font-semibold text-slate-500">
+              {formatStartingPrice(tenant.starting_price)}
+            </span>
           </div>
 
-          <h3 className="mt-4 line-clamp-2 text-xl font-black uppercase tracking-[-0.03em] text-slate-950">
-            {tenant.name}
-          </h3>
-          <p className="mt-2 line-clamp-2 text-sm leading-6 text-[#6d6b67]">
-            {tenant.discovery_headline || tenant.tagline || tenant.about_us}
-          </p>
-          <p className="mt-2 line-clamp-2 text-sm leading-6 text-[#8a8176]">
-            {tenant.highlight_copy || tenant.availability_hint || tenant.discovery_subheadline}
-          </p>
+          <div>
+            <h3 className="line-clamp-2 text-lg font-black uppercase tracking-tight">
+              {tenant.name}
+            </h3>
+            <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">
+              {tenant.discovery_headline || tenant.tagline || tenant.about_us}
+            </p>
+          </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
-            {(tenant.discovery_badges || tenant.discovery_tags || []).slice(0, 3).map((item) => (
-              <span key={item} className="rounded-full bg-[#f1e7d8] px-3 py-1 text-[11px] font-semibold text-[#6c5a43]">
+          <div className="flex flex-wrap gap-2">
+            {(tenant.discovery_badges || tenant.discovery_tags || []).slice(0, 2).map((item) => (
+              <span
+                key={item}
+                className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600"
+              >
                 {item}
               </span>
             ))}
@@ -687,7 +550,7 @@ function CustomerDiscoveryCard({
 
           <Button
             asChild
-            className={cn("mt-5 h-11 rounded-2xl text-sm font-semibold shadow-sm hover:opacity-95", bookinajaDiscoveryTheme.accentStrong)}
+            className="h-11 w-full rounded-2xl bg-blue-600 text-sm font-semibold text-white hover:bg-blue-500"
           >
             <a
               href={getTenantUrl(tenant.slug)}
@@ -698,7 +561,7 @@ function CustomerDiscoveryCard({
                   event_type: "click",
                   surface: "customer-hub",
                   section_id: sectionId,
-                  card_variant: "card",
+                  card_variant: "content",
                   position_index: index,
                   promo_label: tenant.promo_label,
                 })
@@ -714,59 +577,22 @@ function CustomerDiscoveryCard({
   );
 }
 
-function BookingJourneyCard({ booking }: { booking: BookingItem }) {
+function QuickStat({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+}) {
   return (
-    <Card className="rounded-[1.8rem] border-blue-100 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.07)]">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className={cn("text-[10px] font-black uppercase tracking-[0.22em]", bookinajaDiscoveryTheme.accentText)}>
-              {booking.tenant_name || "Tenant"}
-            </div>
-            <h3 className="mt-2 text-lg font-black uppercase tracking-tight text-slate-950">
-              {booking.resource || "Booking"}
-            </h3>
-          </div>
-          <Badge className="rounded-full border-none bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-blue-700">
-            {booking.status || "history"}
-          </Badge>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8a7d6c]">
-          <span className="flex items-center gap-1.5">
-            <Calendar className="h-3.5 w-3.5" />
-            {booking.date
-              ? new Date(booking.date).toLocaleDateString("id-ID", {
-                  day: "numeric",
-                  month: "short",
-                })
-              : "-"}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5" />
-            {booking.date
-              ? new Date(booking.date).toLocaleTimeString("id-ID", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "-"}
-          </span>
-        </div>
-        <div className="mt-4 text-sm text-[#6d6b67]">
-          Total: Rp {((booking.total_spent || booking.grand_total || 0)).toLocaleString("id-ID")}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function EmptyDiscoveryState() {
-  return (
-    <div className="rounded-[1.8rem] border border-dashed border-[#d7c7b2] bg-white/80 p-8 text-center">
-      <Compass className="mx-auto h-8 w-8 text-[#9a8f82]" />
-      <h3 className="mt-4 text-xl font-black uppercase tracking-tight">Belum ada rekomendasi yang cocok</h3>
-      <p className="mx-auto mt-2 max-w-md text-sm leading-7 text-slate-500">
-        Coba kata kunci lain atau ganti kategori. Tujuan customer hub ini adalah membantu kamu menemukan sesuatu yang baru, bukan cuma membuka halaman akun.
-      </p>
+    <div className="rounded-2xl bg-slate-50 p-3">
+      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">
+        {icon}
+        {label}
+      </div>
+      <div className="mt-2 text-lg font-black text-slate-950">{value}</div>
     </div>
   );
 }
