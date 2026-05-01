@@ -117,35 +117,33 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			}
 
 			resources := adminArea.Group("/resources-all")
-			resources.Use(middleware.RequirePermission("resources.manage"))
 			{
-				resources.GET("", cfg.ResourceHandler.List)
-				resources.GET("/:id", cfg.ResourceHandler.GetByID)
-				resources.POST("", cfg.ResourceHandler.Create)
-				resources.PUT("/:id", cfg.ResourceHandler.Update)
-				resources.DELETE("/:id", cfg.ResourceHandler.Delete)
-				resources.GET("/:id/items", cfg.ResourceHandler.ListItems)
-				resources.POST("/:id/items", cfg.ResourceHandler.AddItem)
-				resources.PUT("/items/:id", cfg.ResourceHandler.UpdateItem)
-				resources.DELETE("/items/:id", cfg.ResourceHandler.DeleteItem)
-				resources.POST("/upload-cover", func(c *gin.Context) {
+				resources.GET("", middleware.RequirePermission("resources.read", "resources.manage"), cfg.ResourceHandler.List)
+				resources.GET("/:id", middleware.RequirePermission("resources.read", "resources.manage"), cfg.ResourceHandler.GetByID)
+				resources.POST("", middleware.RequirePermission("resources.manage"), cfg.ResourceHandler.Create)
+				resources.PUT("/:id", middleware.RequirePermission("resources.manage"), cfg.ResourceHandler.Update)
+				resources.DELETE("/:id", middleware.RequirePermission("resources.manage"), cfg.ResourceHandler.Delete)
+				resources.GET("/:id/items", middleware.RequirePermission("resources.read", "resources.manage"), cfg.ResourceHandler.ListItems)
+				resources.POST("/:id/items", middleware.RequirePermission("resources.manage"), cfg.ResourceHandler.AddItem)
+				resources.PUT("/items/:id", middleware.RequirePermission("resources.manage"), cfg.ResourceHandler.UpdateItem)
+				resources.DELETE("/items/:id", middleware.RequirePermission("resources.manage"), cfg.ResourceHandler.DeleteItem)
+				resources.POST("/upload-cover", middleware.RequirePermission("resources.manage"), func(c *gin.Context) {
 					upload.HandleSingleUpload(c, "resources/covers")
 				})
-				resources.POST("/upload-gallery", func(c *gin.Context) {
+				resources.POST("/upload-gallery", middleware.RequirePermission("resources.manage"), func(c *gin.Context) {
 					upload.HandleBulkUpload(c, "resources/gallery")
 				})
 			}
 
 			expenses := adminArea.Group("/expenses")
-			expenses.Use(middleware.RequirePermission("expenses.manage"))
 			{
-				expenses.GET("", cfg.ExpenseHandler.List)
-				expenses.GET("/summary", cfg.ExpenseHandler.Summary)
-				expenses.GET("/:id", cfg.ExpenseHandler.GetByID)
-				expenses.POST("", cfg.ExpenseHandler.Create)
-				expenses.PUT("/:id", cfg.ExpenseHandler.Update)
-				expenses.DELETE("/:id", cfg.ExpenseHandler.Delete)
-				expenses.POST("/upload-receipt", func(c *gin.Context) {
+				expenses.GET("", middleware.RequirePermission("expenses.read", "expenses.manage"), cfg.ExpenseHandler.List)
+				expenses.GET("/summary", middleware.RequirePermission("expenses.read", "expenses.manage"), cfg.ExpenseHandler.Summary)
+				expenses.GET("/:id", middleware.RequirePermission("expenses.read", "expenses.manage"), cfg.ExpenseHandler.GetByID)
+				expenses.POST("", middleware.RequirePermission("expenses.manage"), cfg.ExpenseHandler.Create)
+				expenses.PUT("/:id", middleware.RequirePermission("expenses.manage"), cfg.ExpenseHandler.Update)
+				expenses.DELETE("/:id", middleware.RequirePermission("expenses.manage"), cfg.ExpenseHandler.Delete)
+				expenses.POST("/upload-receipt", middleware.RequirePermission("expenses.manage"), func(c *gin.Context) {
 					upload.HandleSingleUpload(c, "expenses/receipts")
 				})
 			}
@@ -158,20 +156,19 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				bookings.POST("/:id/settle-cash", middleware.RequirePermission("bookings.write"), cfg.ReservationHandler.SettleCash)
 				bookings.POST("/:id/receipt/send", middleware.RequirePermission("bookings.write"), cfg.ReservationHandler.SendReceiptWhatsApp)
 				bookings.POST("/manual", middleware.RequirePermission("bookings.write"), cfg.ReservationHandler.Create)
-				bookings.GET("/pos/active", middleware.RequirePermission("bookings.read"), cfg.ReservationHandler.GetActiveSessions)
-				bookings.POST("/pos/order/:id", middleware.RequirePermission("bookings.write"), cfg.ReservationHandler.AddOrder)
-				bookings.POST("/:id/extend", middleware.RequirePermission("bookings.write"), cfg.ReservationHandler.ExtendSession)
-				bookings.POST("/:id/addons", middleware.RequirePermission("bookings.write"), cfg.ReservationHandler.AddAddonItem)
+				bookings.GET("/pos/active", middleware.RequirePermission("bookings.read", "pos.manage"), cfg.ReservationHandler.GetActiveSessions)
+				bookings.POST("/pos/order/:id", middleware.RequirePermission("bookings.write", "pos.manage"), cfg.ReservationHandler.AddOrder)
+				bookings.POST("/:id/extend", middleware.RequirePermission("bookings.write", "pos.manage"), cfg.ReservationHandler.ExtendSession)
+				bookings.POST("/:id/addons", middleware.RequirePermission("bookings.write", "pos.manage"), cfg.ReservationHandler.AddAddonItem)
 			}
 
 			fnbGroup := adminArea.Group("/fnb")
-			fnbGroup.Use(middleware.RequirePermission("fnb.manage"))
 			{
-				fnbGroup.GET("", cfg.FnbHandler.GetMenu)
-				fnbGroup.POST("", cfg.FnbHandler.CreateItem)
-				fnbGroup.PUT("/:id", cfg.FnbHandler.UpdateItem)
-				fnbGroup.DELETE("/:id", cfg.FnbHandler.DeleteItem)
-				fnbGroup.POST("/upload", func(c *gin.Context) {
+				fnbGroup.GET("", middleware.RequirePermission("fnb.read", "fnb.manage"), cfg.FnbHandler.GetMenu)
+				fnbGroup.POST("", middleware.RequirePermission("fnb.manage"), cfg.FnbHandler.CreateItem)
+				fnbGroup.PUT("/:id", middleware.RequirePermission("fnb.manage"), cfg.FnbHandler.UpdateItem)
+				fnbGroup.DELETE("/:id", middleware.RequirePermission("fnb.manage"), cfg.FnbHandler.DeleteItem)
+				fnbGroup.POST("/upload", middleware.RequirePermission("fnb.manage"), func(c *gin.Context) {
 					upload.HandleSingleUpload(c, "fnb")
 				})
 			}

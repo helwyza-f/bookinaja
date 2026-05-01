@@ -81,17 +81,116 @@ type ApiErrorLike = {
   };
 };
 
-const PERMISSION_OPTIONS = [
-  { key: "bookings.read", label: "Booking - lihat" },
-  { key: "bookings.write", label: "Booking - ubah" },
-  { key: "pos.manage", label: "POS" },
-  { key: "resources.manage", label: "Resources" },
-  { key: "fnb.manage", label: "F&B" },
-  { key: "customers.read", label: "Customers" },
-  { key: "expenses.manage", label: "Expenses" },
-  { key: "reports.view", label: "Reports" },
-  { key: "settings.business", label: "Settings bisnis" },
-  { key: "settings.crm", label: "Settings CRM" },
+const PERMISSION_GROUPS = [
+  {
+    title: "Booking & POS",
+    description: "Kontrol booking, checkout, dan terminal POS.",
+    items: [
+      {
+        key: "bookings.read",
+        label: "Booking - lihat",
+        help: "Membuka daftar booking, detail booking, dan dashboard operasional dasar.",
+      },
+      {
+        key: "bookings.write",
+        label: "Booking - ubah",
+        help: "Konfirmasi booking, mulai/akhiri sesi, pelunasan, dan booking manual.",
+      },
+      {
+        key: "pos.manage",
+        label: "POS - operasikan",
+        help: "Masuk ke halaman POS dan jalankan aksi kasir saat sesi berjalan.",
+      },
+    ],
+  },
+  {
+    title: "Operasional",
+    description: "Kelola resource, menu, dan customer harian.",
+    items: [
+      {
+        key: "resources.read",
+        label: "Resources - lihat",
+        help: "Melihat resource pool, item resource, dan ringkasan kapasitas.",
+      },
+      {
+        key: "resources.manage",
+        label: "Resources - kelola",
+        help: "Tambah, edit, hapus resource dan item di dalamnya.",
+      },
+      {
+        key: "fnb.read",
+        label: "F&B - lihat",
+        help: "Melihat katalog menu untuk kebutuhan POS dan operasional.",
+      },
+      {
+        key: "fnb.manage",
+        label: "F&B - kelola",
+        help: "Tambah, edit, hapus menu F&B dan upload gambar produk.",
+      },
+      {
+        key: "customers.read",
+        label: "Customers - lihat",
+        help: "Membuka daftar customer, pencarian nomor, riwayat, dan poin.",
+      },
+    ],
+  },
+  {
+    title: "Keuangan Operasional",
+    description: "Lihat dan kelola pengeluaran bisnis harian.",
+    items: [
+      {
+        key: "expenses.read",
+        label: "Expenses - lihat",
+        help: "Melihat daftar, summary, dan detail pengeluaran.",
+      },
+      {
+        key: "expenses.manage",
+        label: "Expenses - kelola",
+        help: "Tambah, edit, hapus expense dan upload bukti struk.",
+      },
+    ],
+  },
+] as const;
+
+const RECOMMENDED_ROLE_PRESETS = [
+  {
+    name: "Frontdesk / Kasir",
+    summary: "Paling cocok untuk staff yang jaga counter, input booking, checkout, dan handle customer datang.",
+    permissions: [
+      "bookings.read",
+      "bookings.write",
+      "pos.manage",
+      "fnb.read",
+      "customers.read",
+    ],
+  },
+  {
+    name: "Operator Shift",
+    summary: "Untuk staff yang lebih fokus jaga flow operasional dan status resource di lapangan.",
+    permissions: [
+      "bookings.read",
+      "resources.read",
+      "resources.manage",
+      "fnb.read",
+      "customers.read",
+    ],
+  },
+  {
+    name: "Supervisor",
+    summary: "Untuk PIC outlet yang ikut mengontrol booking, POS, menu, resource, dan pengeluaran harian.",
+    permissions: [
+      "bookings.read",
+      "bookings.write",
+      "pos.manage",
+      "resources.read",
+      "resources.manage",
+      "fnb.read",
+      "fnb.manage",
+      "customers.read",
+      "expenses.read",
+      "expenses.manage",
+    ],
+  },
 ] as const;
 
 const EMPTY_STAFF_FORM: StaffFormState = {
@@ -213,6 +312,8 @@ export default function StaffSettingsPage() {
         : [...prev.permission_keys, key],
     }));
   };
+
+  const selectedPermissionCount = roleForm.permission_keys.length;
 
   const submitStaff = async () => {
     if (!staffForm.name.trim() || !staffForm.email.trim() || !staffForm.role_id) {
@@ -494,6 +595,31 @@ export default function StaffSettingsPage() {
           </div>
 
           <div className="space-y-3">
+            <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3 dark:border-blue-500/10 dark:bg-blue-950/10">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
+                Preset Rekomendasi Gaming / Rental
+              </div>
+              <div className="mt-3 space-y-3">
+                {RECOMMENDED_ROLE_PRESETS.map((preset) => (
+                  <div key={preset.name} className="rounded-lg border border-white/70 bg-white/80 p-3 dark:border-white/5 dark:bg-white/[0.03]">
+                    <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                      {preset.name}
+                    </div>
+                    <div className="mt-1 text-xs leading-5 text-slate-500">
+                      {preset.summary}
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {preset.permissions.map((permission) => (
+                        <Badge key={permission} variant="secondary" className="font-normal">
+                          {permission}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {roles.length === 0 ? (
               <div className="rounded-lg border border-dashed border-slate-200 p-4 text-sm text-slate-500 dark:border-white/10">
                 Belum ada role.
@@ -508,6 +634,9 @@ export default function StaffSettingsPage() {
                         {role.is_default && <Badge>Default</Badge>}
                       </div>
                       <p className="mt-1 text-xs text-slate-500">{role.description || "Tidak ada deskripsi"}</p>
+                      <p className="mt-2 text-[11px] font-medium text-slate-400">
+                        {role.permission_keys.length} permission aktif
+                      </p>
                     </div>
                     <div className="flex shrink-0 gap-2">
                       <Button variant="outline" size="sm" onClick={() => openEditRole(role)} className="gap-2">
@@ -646,29 +775,44 @@ export default function StaffSettingsPage() {
               <div className="flex items-center justify-between">
                 <Label>Permission</Label>
                 <span className="text-xs text-slate-500">
-                  {roleForm.permission_keys.length} dipilih
+                  {selectedPermissionCount} dipilih
                 </span>
               </div>
               <Separator />
-              <div className="grid gap-2 sm:grid-cols-2">
-                {PERMISSION_OPTIONS.map((permission) => {
-                  const checked = roleForm.permission_keys.includes(permission.key);
-                  return (
-                    <button
-                      key={permission.key}
-                      type="button"
-                      onClick={() => togglePermission(permission.key)}
-                      className={`flex min-h-14 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
-                        checked
-                          ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-200"
-                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-transparent dark:text-slate-300 dark:hover:bg-white/5"
-                      }`}
-                    >
-                      <span className="min-w-0 font-medium">{permission.label}</span>
-                      <span className="shrink-0 text-[11px] leading-tight">{permission.key}</span>
-                    </button>
-                  );
-                })}
+              <div className="space-y-4">
+                {PERMISSION_GROUPS.map((group) => (
+                  <div key={group.title} className="space-y-2">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                        {group.title}
+                      </div>
+                      <div className="text-xs text-slate-500">{group.description}</div>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {group.items.map((permission) => {
+                        const checked = roleForm.permission_keys.includes(permission.key);
+                        return (
+                          <button
+                            key={permission.key}
+                            type="button"
+                            onClick={() => togglePermission(permission.key)}
+                            className={`flex min-h-20 flex-col items-start justify-between gap-3 rounded-lg border px-3 py-3 text-left text-sm transition-colors ${
+                              checked
+                                ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-200"
+                                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-transparent dark:text-slate-300 dark:hover:bg-white/5"
+                            }`}
+                          >
+                            <div className="space-y-1">
+                              <div className="min-w-0 font-medium">{permission.label}</div>
+                              <div className="text-xs leading-5 opacity-80">{permission.help}</div>
+                            </div>
+                            <span className="shrink-0 text-[11px] leading-tight">{permission.key}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

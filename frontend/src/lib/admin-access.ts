@@ -11,20 +11,20 @@ type RouteRule = {
 
 const DASHBOARD_PERMISSIONS = [
   "bookings.read",
-  "resources.manage",
+  "resources.read",
   "customers.read",
-  "expenses.manage",
+  "expenses.read",
   "pos.manage",
-  "fnb.manage",
+  "fnb.read",
 ];
 
 const ROUTE_RULES: RouteRule[] = [
   { prefix: "/admin/settings", ownerOnly: true },
-  { prefix: "/admin/resources", permissions: ["resources.manage"] },
-  { prefix: "/admin/expenses", permissions: ["expenses.manage"] },
+  { prefix: "/admin/resources", permissions: ["resources.read", "resources.manage"] },
+  { prefix: "/admin/expenses", permissions: ["expenses.read", "expenses.manage"] },
   { prefix: "/admin/bookings", permissions: ["bookings.read"] },
-  { prefix: "/admin/pos", permissions: ["pos.manage"] },
-  { prefix: "/admin/fnb", permissions: ["fnb.manage"] },
+  { prefix: "/admin/pos", permissions: ["pos.manage", "bookings.read"] },
+  { prefix: "/admin/fnb", permissions: ["fnb.read", "fnb.manage"] },
   { prefix: "/admin/customers", permissions: ["customers.read"] },
   { prefix: "/admin/dashboard", permissions: DASHBOARD_PERMISSIONS },
 ];

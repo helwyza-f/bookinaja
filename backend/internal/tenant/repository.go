@@ -12,7 +12,6 @@ import (
 	"github.com/helwiza/backend/internal/fnb"
 	"github.com/helwiza/backend/internal/resource"
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -230,12 +229,9 @@ func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) erro
 }
 
 func (r *Repository) seedDefaultStaffRolesTx(ctx context.Context, tx *sqlx.Tx, tenantID uuid.UUID) error {
-	defaults := []StaffRole{
-		{TenantID: tenantID, Name: "Kasir", Description: "Handle booking dan POS", PermissionKeys: pq.StringArray{"bookings.read", "bookings.write", "pos.manage"}, IsDefault: true},
-		{TenantID: tenantID, Name: "Operasional", Description: "Kelola resource dan F&B", PermissionKeys: pq.StringArray{"bookings.read", "resources.manage", "fnb.manage", "customers.read"}, IsDefault: false},
-		{TenantID: tenantID, Name: "Supervisor", Description: "Akses analitik dan pengeluaran", PermissionKeys: pq.StringArray{"bookings.read", "resources.manage", "fnb.manage", "customers.read", "expenses.manage", "reports.view"}, IsDefault: false},
-	}
+	defaults := defaultStaffRoles()
 	for _, role := range defaults {
+		role.TenantID = tenantID
 		role.ID = uuid.New()
 		_, err := tx.NamedExecContext(ctx, `
 			INSERT INTO staff_roles (id, tenant_id, name, description, permission_keys, is_default, created_at, updated_at)

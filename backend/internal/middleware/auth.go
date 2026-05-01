@@ -115,11 +115,22 @@ func loadUserPermissions(c *gin.Context, db *sqlx.DB, userID, tenantID string) (
 	}
 	var permissions []string
 	err := db.SelectContext(c.Request.Context(), &permissions, `
-		SELECT up.permission_key
-		FROM user_permissions up
-		JOIN users u ON u.id = up.user_id
-		WHERE u.id = $1 AND u.tenant_id = $2
-		ORDER BY up.permission_key ASC`, userID, tenantID)
+		SELECT DISTINCT permission_key
+		FROM (
+			SELECT UNNEST(COALESCE(sr.permission_keys, ARRAY[]::text[])) AS permission_key
+			FROM users u
+			LEFT JOIN staff_roles sr ON sr.id = u.role_id
+			WHERE u.id = $1 AND u.tenant_id = $2
+
+			UNION
+
+			SELECT up.permission_key
+			FROM user_permissions up
+			JOIN users u ON u.id = up.user_id
+			WHERE u.id = $1 AND u.tenant_id = $2
+		) permissions
+		WHERE permission_key IS NOT NULL AND TRIM(permission_key) <> ''
+		ORDER BY permission_key ASC`, userID, tenantID)
 	if err != nil {
 		return nil, err
 	}

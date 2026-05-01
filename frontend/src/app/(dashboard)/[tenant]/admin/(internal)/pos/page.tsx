@@ -263,8 +263,8 @@ export default function POSPage() {
   const [adminUser, setAdminUser] = useState<AdminSessionUser | null>(null);
 
   const canReadBookings = hasPermission(adminUser, "bookings.read");
-  const canWriteBookings = hasPermission(adminUser, "bookings.write");
-  const canManageFnb = hasPermission(adminUser, "fnb.manage");
+  const canWriteBookings = hasPermission(adminUser, ["bookings.write", "pos.manage"]);
+  const canManageFnb = hasPermission(adminUser, ["fnb.read", "fnb.manage"]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -276,7 +276,7 @@ export default function POSPage() {
         hasPermission(currentUser, "bookings.read")
           ? api.get("/bookings/pos/active")
           : Promise.resolve(null),
-        hasPermission(currentUser, "fnb.manage")
+        hasPermission(currentUser, ["fnb.read", "fnb.manage"])
           ? api.get("/fnb")
           : Promise.resolve(null),
       ]);

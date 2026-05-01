@@ -130,11 +130,19 @@ export default function DashboardPage() {
   const canReadBookings =
     ownerOnly || hasPermission({ role, permission_keys: permissions }, "bookings.read");
   const canManageResources =
-    ownerOnly || hasPermission({ role, permission_keys: permissions }, "resources.manage");
+    ownerOnly ||
+    hasPermission(
+      { role, permission_keys: permissions },
+      ["resources.read", "resources.manage"],
+    );
   const canReadCustomers =
     ownerOnly || hasPermission({ role, permission_keys: permissions }, "customers.read");
   const canManageExpenses =
-    ownerOnly || hasPermission({ role, permission_keys: permissions }, "expenses.manage");
+    ownerOnly ||
+    hasPermission(
+      { role, permission_keys: permissions },
+      ["expenses.read", "expenses.manage"],
+    );
   const canManagePos =
     ownerOnly || hasPermission({ role, permission_keys: permissions }, "pos.manage");
 
@@ -152,7 +160,10 @@ export default function DashboardPage() {
 
       const scope = { role: currentRole, permission_keys: currentPermissions };
       const allowBookings = hasPermission(scope, "bookings.read");
-      const allowResources = hasPermission(scope, "resources.manage");
+      const allowResources = hasPermission(scope, [
+        "resources.read",
+        "resources.manage",
+      ]);
       const allowCustomers = hasPermission(scope, "customers.read");
 
       const [resourcesRes, sessionsRes, bookingsRes, customersRes] =

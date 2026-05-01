@@ -813,6 +813,9 @@ func sanitizePermissions(values []string) []string {
 		if key == "" {
 			continue
 		}
+		if _, allowed := AllowedPermissionKeys[key]; !allowed {
+			continue
+		}
 		if _, ok := seen[key]; ok {
 			continue
 		}
