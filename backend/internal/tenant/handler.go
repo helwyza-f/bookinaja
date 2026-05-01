@@ -1,6 +1,7 @@
 package tenant
 
 import (
+	"log"
 	"net/http"
 	"strings"
 
@@ -88,6 +89,7 @@ func (h *Handler) ListPublicTenants(c *gin.Context) {
 func (h *Handler) PublicDiscoverFeed(c *gin.Context) {
 	feed, err := h.service.GetPublicDiscoverFeed(c.Request.Context())
 	if err != nil {
+		log.Printf("public discover feed error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil feed discovery"})
 		return
 	}

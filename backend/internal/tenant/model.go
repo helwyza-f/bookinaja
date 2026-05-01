@@ -204,8 +204,8 @@ type TenantDirectoryItem struct {
 	TopResourceType      string     `db:"top_resource_type" json:"top_resource_type"`
 	DiscoveryHeadline    string     `db:"discovery_headline" json:"discovery_headline"`
 	DiscoverySubheadline string     `db:"discovery_subheadline" json:"discovery_subheadline"`
-	DiscoveryTags        []string   `db:"discovery_tags" json:"discovery_tags"`
-	DiscoveryBadges      []string   `db:"discovery_badges" json:"discovery_badges"`
+	DiscoveryTags        pq.StringArray `db:"discovery_tags" json:"discovery_tags"`
+	DiscoveryBadges      pq.StringArray `db:"discovery_badges" json:"discovery_badges"`
 	PromoLabel           string     `db:"promo_label" json:"promo_label"`
 	FeaturedImageURL     string     `db:"featured_image_url" json:"featured_image_url"`
 	HighlightCopy        string     `db:"highlight_copy" json:"highlight_copy"`
