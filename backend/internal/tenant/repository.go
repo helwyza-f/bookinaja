@@ -159,32 +159,36 @@ func (r *Repository) ListPublicTenants(ctx context.Context) ([]TenantDirectoryIt
 	}
 	err := r.db.SelectContext(ctx, &items, `
 		SELECT
-			id, name, slug, business_category, business_type,
-			COALESCE(tagline, '') AS tagline,
-			COALESCE(slogan, '') AS slogan,
-			COALESCE(about_us, '') AS about_us,
-			COALESCE(primary_color, '#3b82f6') AS primary_color,
-			COALESCE(logo_url, '') AS logo_url,
-			COALESCE(banner_url, '') AS banner_url,
-			COALESCE(open_time, '09:00') AS open_time,
-			COALESCE(close_time, '22:00') AS close_time,
-			COALESCE(discovery_headline, '') AS discovery_headline,
-			COALESCE(discovery_subheadline, '') AS discovery_subheadline,
-			COALESCE(discovery_tags, ARRAY[]::text[]) AS discovery_tags,
-			COALESCE(discovery_badges, ARRAY[]::text[]) AS discovery_badges,
-			COALESCE(promo_label, '') AS promo_label,
-			COALESCE(featured_image_url, '') AS featured_image_url,
-			COALESCE(highlight_copy, '') AS highlight_copy,
-			COALESCE(discovery_featured, false) AS discovery_featured,
-			COALESCE(discovery_promoted, false) AS discovery_promoted,
-			COALESCE(discovery_priority, 0) AS discovery_priority,
-			promo_starts_at,
-			promo_ends_at,
+			tenants.id,
+			tenants.name,
+			tenants.slug,
+			tenants.business_category,
+			tenants.business_type,
+			COALESCE(tenants.tagline, '') AS tagline,
+			COALESCE(tenants.slogan, '') AS slogan,
+			COALESCE(tenants.about_us, '') AS about_us,
+			COALESCE(tenants.primary_color, '#3b82f6') AS primary_color,
+			COALESCE(tenants.logo_url, '') AS logo_url,
+			COALESCE(tenants.banner_url, '') AS banner_url,
+			COALESCE(tenants.open_time, '09:00') AS open_time,
+			COALESCE(tenants.close_time, '22:00') AS close_time,
+			COALESCE(tenants.discovery_headline, '') AS discovery_headline,
+			COALESCE(tenants.discovery_subheadline, '') AS discovery_subheadline,
+			COALESCE(tenants.discovery_tags, ARRAY[]::text[]) AS discovery_tags,
+			COALESCE(tenants.discovery_badges, ARRAY[]::text[]) AS discovery_badges,
+			COALESCE(tenants.promo_label, '') AS promo_label,
+			COALESCE(tenants.featured_image_url, '') AS featured_image_url,
+			COALESCE(tenants.highlight_copy, '') AS highlight_copy,
+			COALESCE(tenants.discovery_featured, false) AS discovery_featured,
+			COALESCE(tenants.discovery_promoted, false) AS discovery_promoted,
+			COALESCE(tenants.discovery_priority, 0) AS discovery_priority,
+			tenants.promo_starts_at,
+			tenants.promo_ends_at,
 			COALESCE(resource_stats.resource_count, 0) AS resource_count,
 			COALESCE(price_stats.starting_price, 0) AS starting_price,
 			COALESCE(top_resource.name, '') AS top_resource_name,
 			COALESCE(top_resource.category, '') AS top_resource_type,
-			created_at
+			tenants.created_at
 		FROM tenants
 		LEFT JOIN (
 			SELECT tenant_id, COUNT(*) AS resource_count
@@ -225,15 +229,19 @@ func (r *Repository) listPublicTenantsLegacy(ctx context.Context) ([]TenantDirec
 	var items []TenantDirectoryItem
 	err := r.db.SelectContext(ctx, &items, `
 		SELECT
-			id, name, slug, business_category, business_type,
-			COALESCE(tagline, '') AS tagline,
-			COALESCE(slogan, '') AS slogan,
-			COALESCE(about_us, '') AS about_us,
-			COALESCE(primary_color, '#3b82f6') AS primary_color,
-			COALESCE(logo_url, '') AS logo_url,
-			COALESCE(banner_url, '') AS banner_url,
-			COALESCE(open_time, '09:00') AS open_time,
-			COALESCE(close_time, '22:00') AS close_time,
+			tenants.id,
+			tenants.name,
+			tenants.slug,
+			tenants.business_category,
+			tenants.business_type,
+			COALESCE(tenants.tagline, '') AS tagline,
+			COALESCE(tenants.slogan, '') AS slogan,
+			COALESCE(tenants.about_us, '') AS about_us,
+			COALESCE(tenants.primary_color, '#3b82f6') AS primary_color,
+			COALESCE(tenants.logo_url, '') AS logo_url,
+			COALESCE(tenants.banner_url, '') AS banner_url,
+			COALESCE(tenants.open_time, '09:00') AS open_time,
+			COALESCE(tenants.close_time, '22:00') AS close_time,
 			'' AS discovery_headline,
 			'' AS discovery_subheadline,
 			ARRAY[]::text[] AS discovery_tags,
@@ -250,7 +258,7 @@ func (r *Repository) listPublicTenantsLegacy(ctx context.Context) ([]TenantDirec
 			COALESCE(price_stats.starting_price, 0) AS starting_price,
 			COALESCE(top_resource.name, '') AS top_resource_name,
 			COALESCE(top_resource.category, '') AS top_resource_type,
-			created_at
+			tenants.created_at
 		FROM tenants
 		LEFT JOIN (
 			SELECT tenant_id, COUNT(*) AS resource_count
