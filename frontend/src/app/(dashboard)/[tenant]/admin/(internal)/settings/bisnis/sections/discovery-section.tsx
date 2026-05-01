@@ -25,11 +25,6 @@ export function DiscoverySection({
     highlight_copy: profile.highlight_copy || "",
     discovery_tags: profile.discovery_tags || [],
     discovery_badges: profile.discovery_badges || [],
-    discovery_featured: profile.discovery_featured || false,
-    discovery_promoted: profile.discovery_promoted || false,
-    discovery_priority: profile.discovery_priority || 0,
-    promo_starts_at: toDateTimeLocal(profile.promo_starts_at),
-    promo_ends_at: toDateTimeLocal(profile.promo_ends_at),
   });
   const [editing, setEditing] = useState(false);
 
@@ -42,11 +37,6 @@ export function DiscoverySection({
       highlight_copy: profile.highlight_copy || "",
       discovery_tags: profile.discovery_tags || [],
       discovery_badges: profile.discovery_badges || [],
-      discovery_featured: profile.discovery_featured || false,
-      discovery_promoted: profile.discovery_promoted || false,
-      discovery_priority: profile.discovery_priority || 0,
-      promo_starts_at: toDateTimeLocal(profile.promo_starts_at),
-      promo_ends_at: toDateTimeLocal(profile.promo_ends_at),
     });
     setTagInput("");
     setBadgeInput("");
@@ -84,11 +74,7 @@ export function DiscoverySection({
         setEditing(false);
       }}
       onSave={() => {
-        onSave({
-          ...draft,
-          promo_starts_at: fromDateTimeLocal(draft.promo_starts_at),
-          promo_ends_at: fromDateTimeLocal(draft.promo_ends_at),
-        });
+        onSave(draft);
         setEditing(false);
       }}
       view={
@@ -347,20 +333,4 @@ function ListEditor({
       </div>
     </div>
   );
-}
-
-function toDateTimeLocal(value: string | null | undefined) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60000);
-  return local.toISOString().slice(0, 16);
-}
-
-function fromDateTimeLocal(value: string) {
-  if (!value.trim()) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toISOString();
 }

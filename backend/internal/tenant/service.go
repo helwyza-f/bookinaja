@@ -57,7 +57,12 @@ func (s *Service) GetPublicDiscoverFeed(ctx context.Context) (*PublicDiscoverFee
 	if err != nil {
 		return nil, err
 	}
-	return s.buildPublicDiscoverFeed(items, false), nil
+	posts, err := s.repo.ListActiveDiscoveryPosts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	feedItems := s.buildUnifiedDiscoveryFeedItems(items, posts, nil)
+	return s.buildPublicDiscoverFeed(feedItems, false), nil
 }
 
 func (s *Service) GetCustomerDiscoverFeed(ctx context.Context, customerID uuid.UUID) (*PublicDiscoverFeedResponse, error) {
@@ -71,73 +76,188 @@ func (s *Service) GetCustomerDiscoverFeed(ctx context.Context, customerID uuid.U
 		return nil, err
 	}
 
+	posts, err := s.repo.ListActiveDiscoveryPosts(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	personalized := s.personalizeDiscoveryItems(items, signals)
-	return s.buildCustomerDiscoverFeed(personalized, signals), nil
+	feedItems := s.buildUnifiedDiscoveryFeedItems(personalized, posts, signals)
+	return s.buildCustomerDiscoverFeed(feedItems, signals), nil
 }
 
-func (s *Service) buildPublicDiscoverFeed(items []TenantDirectoryItem, personalized bool) *PublicDiscoverFeedResponse {
-	categoriesSet := map[string]struct{}{}
-	for _, item := range items {
-		category := strings.TrimSpace(item.BusinessCategory)
-		if category == "" {
-			continue
-		}
-		categoriesSet[category] = struct{}{}
+func (s *Service) GetOwnerDiscoverFeed(ctx context.Context, tenantID uuid.UUID) (*PublicDiscoverFeedResponse, error) {
+	items, err := s.ListPublicTenants(ctx)
+	if err != nil {
+		return nil, err
 	}
-
-	quickCategories := make([]string, 0, len(categoriesSet))
-	for category := range categoriesSet {
-		quickCategories = append(quickCategories, category)
+	posts, err := s.repo.ListActiveDiscoveryPosts(ctx)
+	if err != nil {
+		return nil, err
 	}
-	if len(quickCategories) > 6 {
-		quickCategories = quickCategories[:6]
+	feedItems := s.buildUnifiedDiscoveryFeedItems(items, posts, nil)
+	feed := s.buildPublicDiscoverFeed(feedItems, false)
+	if feed == nil {
+		return nil, nil
 	}
+	feed.Hero.Eyebrow = "Feed Bookinaja"
+	feed.Hero.Title = "Lihat apa yang sedang tampil di Feed Bookinaja."
+	feed.Hero.Description = "Gunakan tampilan ini untuk membaca kualitas visual, ritme promosi, dan posisi bisnis lain di feed yang sama dengan customer."
 
-	featured := make([]TenantDirectoryItem, 0, minInt(len(items), 4))
-	trending := make([]TenantDirectoryItem, 0, minInt(len(items), 6))
-	valuePicks := make([]TenantDirectoryItem, 0, minInt(len(items), 6))
-	freshFinds := make([]TenantDirectoryItem, 0, minInt(len(items), 6))
-	lateNight := make([]TenantDirectoryItem, 0, minInt(len(items), 6))
-
-	for _, item := range items {
-		if item.IsFeatured && len(featured) < 4 {
-			featured = append(featured, item)
-		}
-		if item.DiscoveryClicks30d > 0 && len(trending) < 6 {
-			trending = append(trending, item)
-		}
-		if item.StartingPrice > 0 && item.StartingPrice <= 150000 && len(valuePicks) < 6 {
-			valuePicks = append(valuePicks, item)
-		}
-		if item.IsNew && len(freshFinds) < 6 {
-			freshFinds = append(freshFinds, item)
-		}
-		if closesLate(item.CloseTime) && len(lateNight) < 6 {
-			lateNight = append(lateNight, item)
+	if tenantID != uuid.Nil {
+		for i, item := range feed.Featured {
+			if item.TenantID == tenantID {
+				feed.Featured[i].FeedReason = "Ini bisnis kamu di feed publik saat ini"
+				break
+			}
 		}
 	}
 
-	if len(featured) == 0 {
-		featured = append(featured, items[:minInt(len(items), 4)]...)
+	return feed, nil
+}
+
+func (s *Service) ListTenantPosts(ctx context.Context, tenantID uuid.UUID) ([]TenantPost, error) {
+	return s.repo.ListTenantPosts(ctx, tenantID)
+}
+
+func (s *Service) CreateTenantPost(ctx context.Context, actorUserID, tenantID uuid.UUID, req TenantPostUpsertReq) (*TenantPost, error) {
+	post, err := normalizeTenantPostReq(req)
+	if err != nil {
+		return nil, err
 	}
-	if len(trending) == 0 {
-		trending = append(trending, items[:minInt(len(items), 6)]...)
+
+	now := time.Now().UTC()
+	post.ID = uuid.New()
+	post.TenantID = tenantID
+	post.AuthorUserID = &actorUserID
+	post.CreatedAt = now
+	post.UpdatedAt = now
+	post.PublishedAt = derivePublishedAt(post.Status, now)
+
+	created, err := s.repo.CreateTenantPost(ctx, post)
+	if err != nil {
+		return nil, err
 	}
-	if len(valuePicks) == 0 {
-		valuePicks = append(valuePicks, items[:minInt(len(items), 6)]...)
+
+	metadata, _ := json.Marshal(map[string]any{
+		"title":  created.Title,
+		"type":   created.Type,
+		"status": created.Status,
+	})
+	_ = s.repo.CreateAuditLog(ctx, AuditLog{
+		ID:           uuid.New(),
+		TenantID:     tenantID,
+		ActorUserID:  &actorUserID,
+		Action:       "create_tenant_post",
+		ResourceType: "tenant_post",
+		ResourceID:   &created.ID,
+		Metadata:     metadata,
+		CreatedAt:    now,
+	})
+
+	return created, nil
+}
+
+func (s *Service) UpdateTenantPost(ctx context.Context, actorUserID, tenantID, postID uuid.UUID, req TenantPostUpsertReq) (*TenantPost, error) {
+	current, err := s.repo.GetTenantPostByID(ctx, tenantID, postID)
+	if err != nil {
+		return nil, err
 	}
-	if len(freshFinds) == 0 {
-		freshFinds = append(freshFinds, items[:minInt(len(items), 6)]...)
+	if current == nil {
+		return nil, errors.New("postingan tidak ditemukan")
 	}
-	if len(lateNight) == 0 {
-		lateNight = append(lateNight, items[:minInt(len(items), 6)]...)
+
+	next, err := normalizeTenantPostReq(req)
+	if err != nil {
+		return nil, err
 	}
+	next.ID = current.ID
+	next.TenantID = current.TenantID
+	next.AuthorUserID = current.AuthorUserID
+	next.CreatedAt = current.CreatedAt
+	next.UpdatedAt = time.Now().UTC()
+	if current.PublishedAt != nil && current.Status == "published" && next.Status == "published" {
+		next.PublishedAt = current.PublishedAt
+	} else {
+		next.PublishedAt = derivePublishedAt(next.Status, next.UpdatedAt)
+	}
+
+	updated, err := s.repo.UpdateTenantPost(ctx, next)
+	if err != nil {
+		return nil, err
+	}
+
+	metadata, _ := json.Marshal(map[string]any{
+		"title":  updated.Title,
+		"type":   updated.Type,
+		"status": updated.Status,
+	})
+	_ = s.repo.CreateAuditLog(ctx, AuditLog{
+		ID:           uuid.New(),
+		TenantID:     tenantID,
+		ActorUserID:  &actorUserID,
+		Action:       "update_tenant_post",
+		ResourceType: "tenant_post",
+		ResourceID:   &updated.ID,
+		Metadata:     metadata,
+		CreatedAt:    updated.UpdatedAt,
+	})
+
+	return updated, nil
+}
+
+func (s *Service) DeleteTenantPost(ctx context.Context, actorUserID, tenantID, postID uuid.UUID) error {
+	current, err := s.repo.GetTenantPostByID(ctx, tenantID, postID)
+	if err != nil {
+		return err
+	}
+	if current == nil {
+		return errors.New("postingan tidak ditemukan")
+	}
+	if err := s.repo.DeleteTenantPost(ctx, tenantID, postID); err != nil {
+		return err
+	}
+
+	metadata, _ := json.Marshal(map[string]any{
+		"title":  current.Title,
+		"type":   current.Type,
+		"status": current.Status,
+	})
+	_ = s.repo.CreateAuditLog(ctx, AuditLog{
+		ID:           uuid.New(),
+		TenantID:     tenantID,
+		ActorUserID:  &actorUserID,
+		Action:       "delete_tenant_post",
+		ResourceType: "tenant_post",
+		ResourceID:   &postID,
+		Metadata:     metadata,
+		CreatedAt:    time.Now().UTC(),
+	})
+
+	return nil
+}
+
+func (s *Service) buildPublicDiscoverFeed(items []DiscoveryFeedItem, personalized bool) *PublicDiscoverFeedResponse {
+	quickCategories := buildQuickCategories(items)
+	featured := firstFeedItems(items, 4)
+	trending := filterFeedItems(items, func(item DiscoveryFeedItem) bool {
+		return item.DiscoveryClicks30d > 0 || item.ItemKind == "post"
+	}, 6)
+	valuePicks := filterFeedItems(items, func(item DiscoveryFeedItem) bool {
+		return item.StartingPrice > 0 && item.StartingPrice <= 150000
+	}, 6)
+	freshFinds := filterFeedItems(items, func(item DiscoveryFeedItem) bool {
+		return item.IsNew || (item.PostPublishedAt != nil && time.Since(*item.PostPublishedAt) <= 21*24*time.Hour)
+	}, 6)
+	lateNight := filterFeedItems(items, func(item DiscoveryFeedItem) bool {
+		return closesLate(item.CloseTime)
+	}, 6)
 
 	return &PublicDiscoverFeedResponse{
 		Hero: PublicDiscoveryHero{
-			Eyebrow:     "Discovery Marketplace",
-			Title:       "Temukan tempat, aktivitas, dan pengalaman berikutnya di Bookinaja.",
-			Description: "Feed discovery Bookinaja membantu customer menjelajahi bisnis yang paling relevan, paling aktif, dan paling layak dicoba tanpa berhenti di daftar tenant biasa.",
+			Eyebrow:     "Feed Bookinaja",
+			Title:       "Temukan tempat, aktivitas, dan konten yang layak dicoba duluan.",
+			Description: "Feed Bookinaja menggabungkan tampilan bisnis dan postingan tenant dengan ranking yang sama, supaya discovery terasa lebih hidup daripada daftar bisnis biasa.",
 			SearchHint:  "Cari tempat, kategori, aktivitas, atau suasana yang kamu cari",
 		},
 		QuickCategories: quickCategories,
@@ -146,129 +266,100 @@ func (s *Service) buildPublicDiscoverFeed(items []TenantDirectoryItem, personali
 		Sections: []PublicDiscoverySection{
 			{
 				ID:          "trending-now",
-				Title:       "Lagi Ramai Dijelajahi",
-				Description: "Bisnis yang sedang paling banyak menarik perhatian customer dalam discovery feed Bookinaja.",
+				Title:       "Sedang Banyak Dilirik",
+				Description: "Campuran bisnis dan postingan yang sedang paling aktif menarik perhatian di Feed Bookinaja.",
 				Style:       "trending",
-				Items:       trending,
+				Items:       fallbackFeedItems(trending, items, 6),
 			},
 			{
 				ID:          "value-picks",
 				Title:       "Mudah Dicoba Duluan",
-				Description: "Pilihan dengan titik masuk harga yang lebih ringan tanpa kehilangan kualitas pengalaman.",
+				Description: "Pilihan dengan titik masuk yang lebih ringan, cocok untuk customer yang ingin mulai dari yang paling mudah dicoba.",
 				Style:       "value",
-				Items:       valuePicks,
+				Items:       fallbackFeedItems(valuePicks, items, 6),
 			},
 			{
 				ID:          "fresh-finds",
-				Title:       "Tempat Baru yang Layak Dicoba",
-				Description: "Bisnis yang masih fresh di marketplace, tapi punya sinyal kualitas dan kesiapan yang bagus untuk dijelajahi lebih awal.",
+				Title:       "Baru Naik di Feed",
+				Description: "Listing baru dan postingan baru yang layak dijelajahi lebih awal.",
 				Style:       "fresh",
-				Items:       freshFinds,
+				Items:       fallbackFeedItems(freshFinds, items, 6),
 			},
 			{
 				ID:          "late-night",
-				Title:       "Buka Sampai Malam",
-				Description: "Cocok buat customer yang mencari slot sore hingga malam dengan waktu yang lebih fleksibel.",
+				Title:       "Cocok untuk Sore Sampai Malam",
+				Description: "Bisnis yang lebih relevan untuk customer dengan preferensi slot sore hingga malam.",
 				Style:       "night",
-				Items:       lateNight,
+				Items:       fallbackFeedItems(lateNight, items, 6),
 			},
 		},
 	}
 }
 
-func (s *Service) buildCustomerDiscoverFeed(items []TenantDirectoryItem, signals *CustomerDiscoverySignals) *PublicDiscoverFeedResponse {
-	categoriesSet := map[string]struct{}{}
-	for _, item := range items {
-		category := strings.TrimSpace(item.BusinessCategory)
-		if category == "" {
-			continue
-		}
-		categoriesSet[category] = struct{}{}
-	}
-
-	quickCategories := make([]string, 0, len(categoriesSet))
-	for category := range categoriesSet {
-		quickCategories = append(quickCategories, category)
-	}
-	sort.Strings(quickCategories)
-	if len(quickCategories) > 6 {
-		quickCategories = quickCategories[:6]
-	}
+func (s *Service) buildCustomerDiscoverFeed(items []DiscoveryFeedItem, signals *CustomerDiscoverySignals) *PublicDiscoverFeedResponse {
+	quickCategories := buildQuickCategories(items)
 
 	title := "Temukan sesuatu yang lebih nyambung buat kamu."
-	description := "Feed customer Bookinaja sekarang memadukan minat kategori, riwayat booking, dan kualitas listing untuk menampilkan bisnis yang lebih relevan."
+	description := "Feed customer Bookinaja memadukan minat kategori, riwayat booking, kualitas listing, dan postingan tenant untuk menampilkan sesuatu yang terasa lebih relevan."
 	if signals == nil || signals.TotalBookings == 0 {
-		title = "Mulai dari tempat yang paling siap dijelajahi."
-		description = "Saat jejak booking kamu masih sedikit, Bookinaja memulai dari listing yang paling rapi, paling menarik, dan paling mudah dicoba."
+		title = "Mulai dari yang paling siap dijelajahi."
+		description = "Saat jejak booking kamu masih sedikit, Bookinaja memulai dari bisnis dan postingan yang paling rapi, paling menarik, dan paling mudah dicoba."
 	}
 
-	preference := filterDiscoveryItems(items, func(item TenantDirectoryItem) bool {
-		return strings.TrimSpace(item.RecommendationReason) != ""
+	preference := filterFeedItems(items, func(item DiscoveryFeedItem) bool {
+		return strings.TrimSpace(item.FeedReason) != ""
 	}, 6)
-	rebook := filterDiscoveryItems(items, func(item TenantDirectoryItem) bool {
-		return signals != nil && signals.VisitedTenants[item.ID] > 0
+	rebook := filterFeedItems(items, func(item DiscoveryFeedItem) bool {
+		return signals != nil && signals.VisitedTenants[item.TenantID] > 0
 	}, 6)
-	fresh := filterDiscoveryItems(items, func(item TenantDirectoryItem) bool {
-		return item.IsNew
+	fresh := filterFeedItems(items, func(item DiscoveryFeedItem) bool {
+		return item.IsNew || item.ItemKind == "post"
 	}, 6)
-	budgetFit := filterDiscoveryItems(items, func(item TenantDirectoryItem) bool {
+	budgetFit := filterFeedItems(items, func(item DiscoveryFeedItem) bool {
 		return signals != nil &&
 			signals.AverageSpend > 0 &&
 			item.StartingPrice > 0 &&
 			item.StartingPrice <= (signals.AverageSpend*0.45)
 	}, 6)
 
-	if len(preference) == 0 {
-		preference = append(preference, items[:minInt(len(items), 6)]...)
-	}
-	if len(rebook) == 0 {
-		rebook = append(rebook, items[:minInt(len(items), 6)]...)
-	}
-	if len(fresh) == 0 {
-		fresh = append(fresh, items[:minInt(len(items), 6)]...)
-	}
-	if len(budgetFit) == 0 {
-		budgetFit = append(budgetFit, items[:minInt(len(items), 6)]...)
-	}
-
 	return &PublicDiscoverFeedResponse{
 		Hero: PublicDiscoveryHero{
-			Eyebrow:     "Smart Discovery",
+			Eyebrow:     "Feed Personal",
 			Title:       title,
 			Description: description,
 			SearchHint:  "Cari tempat, kategori, aktivitas, atau suasana yang kamu cari",
 		},
 		QuickCategories: quickCategories,
-		Featured:        items[:minInt(len(items), 4)],
+		Featured:        firstFeedItems(items, 4),
 		Personalized:    true,
 		Sections: []PublicDiscoverySection{
 			{
 				ID:          "for-you",
 				Title:       "Paling Nyambung Buat Kamu",
-				Description: "Dipilih dari kategori yang sering kamu pilih, kualitas listing, dan sinyal interaksi yang sedang kuat.",
+				Description: "Dipilih dari kategori yang sering kamu pilih, tenant yang pernah kamu kunjungi, dan postingan yang paling relevan dari bisnis itu.",
 				Style:       "personal",
-				Items:       preference,
+				Items:       fallbackFeedItems(preference, items, 6),
 			},
 			{
 				ID:          "rebook-favorites",
-				Title:       "Tempat yang Pernah Kamu Pilih",
-				Description: "Cocok untuk repeat booking yang lebih cepat tanpa mulai dari nol lagi.",
+				Title:       "Bisnis yang Pernah Kamu Pilih",
+				Description: "Cocok untuk repeat booking yang lebih cepat, lengkap dengan postingan terbaru dari bisnis yang sudah kamu kenal.",
 				Style:       "repeat",
-				Items:       rebook,
+				Items:       fallbackFeedItems(rebook, items, 6),
 			},
 			{
 				ID:          "fresh-for-you",
-				Title:       "Baru, Tapi Masih Relevan",
-				Description: "Listing baru yang tetap terasa dekat dengan pola booking dan minat kamu.",
+				Title:       "Konten Baru yang Masih Relevan",
+				Description: "Bisnis baru dan postingan baru yang tetap terasa dekat dengan minat dan pola booking kamu.",
 				Style:       "fresh",
-				Items:       fresh,
+				Items:       fallbackFeedItems(fresh, items, 6),
 			},
 			{
 				ID:          "budget-fit",
 				Title:       "Masih Masuk Pola Budget Kamu",
-				Description: "Pilihan dengan titik masuk harga yang lebih dekat dengan gaya booking kamu sejauh ini.",
+				Description: "Pilihan dengan titik masuk yang lebih dekat ke kebiasaan booking kamu sejauh ini.",
 				Style:       "budget",
-				Items:       budgetFit,
+				Items:       fallbackFeedItems(budgetFit, items, 6),
 			},
 		},
 	}
@@ -387,6 +478,213 @@ func (s *Service) personalizeDiscoveryItems(items []TenantDirectoryItem, signals
 	})
 
 	return personalized
+}
+
+func (s *Service) buildUnifiedDiscoveryFeedItems(
+	tenants []TenantDirectoryItem,
+	posts []TenantPost,
+	signals *CustomerDiscoverySignals,
+) []DiscoveryFeedItem {
+	tenantByID := make(map[uuid.UUID]TenantDirectoryItem, len(tenants))
+	items := make([]DiscoveryFeedItem, 0, len(tenants)+len(posts))
+
+	for _, tenantItem := range tenants {
+		tenantByID[tenantItem.ID] = tenantItem
+		feedItem := discoveryTenantFeedItem(tenantItem)
+		if signals != nil {
+			feedItem.PersonalizationScore = tenantItem.PersonalizationScore
+			if strings.TrimSpace(tenantItem.RecommendationReason) != "" {
+				feedItem.FeedReason = tenantItem.RecommendationReason
+			}
+		}
+		feedItem.FeedScore = discoveryRank(tenantItem) + feedItem.PersonalizationScore
+		items = append(items, feedItem)
+	}
+
+	for _, post := range posts {
+		tenantItem, exists := tenantByID[post.TenantID]
+		if !exists {
+			continue
+		}
+		feedItem := discoveryPostFeedItem(tenantItem, post)
+		if signals != nil {
+			feedItem.PersonalizationScore = tenantItem.PersonalizationScore
+			if strings.TrimSpace(tenantItem.RecommendationReason) != "" {
+				feedItem.FeedReason = tenantItem.RecommendationReason
+			}
+		}
+		feedItem.FeedScore = discoveryRank(tenantItem) + discoveryPostScore(post, tenantItem) + feedItem.PersonalizationScore
+		items = append(items, feedItem)
+	}
+
+	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].FeedScore != items[j].FeedScore {
+			return items[i].FeedScore > items[j].FeedScore
+		}
+		leftTime := discoveryFeedItemSortTime(items[i])
+		rightTime := discoveryFeedItemSortTime(items[j])
+		if !leftTime.Equal(rightTime) {
+			return leftTime.After(rightTime)
+		}
+		if items[i].ItemKind != items[j].ItemKind {
+			return items[i].ItemKind == "post"
+		}
+		return strings.ToLower(items[i].FeedTitle) < strings.ToLower(items[j].FeedTitle)
+	})
+
+	return items
+}
+
+func buildQuickCategories(items []DiscoveryFeedItem) []string {
+	categoriesSet := map[string]struct{}{}
+	for _, item := range items {
+		category := strings.TrimSpace(item.BusinessCategory)
+		if category == "" {
+			continue
+		}
+		categoriesSet[category] = struct{}{}
+	}
+
+	quickCategories := make([]string, 0, len(categoriesSet))
+	for category := range categoriesSet {
+		quickCategories = append(quickCategories, category)
+	}
+	sort.Strings(quickCategories)
+	if len(quickCategories) > 6 {
+		quickCategories = quickCategories[:6]
+	}
+	return quickCategories
+}
+
+func firstFeedItems(items []DiscoveryFeedItem, limit int) []DiscoveryFeedItem {
+	if len(items) == 0 {
+		return []DiscoveryFeedItem{}
+	}
+	if limit > len(items) {
+		limit = len(items)
+	}
+	out := make([]DiscoveryFeedItem, 0, limit)
+	out = append(out, items[:limit]...)
+	return out
+}
+
+func filterFeedItems(items []DiscoveryFeedItem, keep func(DiscoveryFeedItem) bool, limit int) []DiscoveryFeedItem {
+	out := make([]DiscoveryFeedItem, 0, limit)
+	for _, item := range items {
+		if !keep(item) {
+			continue
+		}
+		out = append(out, item)
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out
+}
+
+func fallbackFeedItems(items []DiscoveryFeedItem, fallback []DiscoveryFeedItem, limit int) []DiscoveryFeedItem {
+	if len(items) > 0 {
+		return items
+	}
+	return firstFeedItems(fallback, limit)
+}
+
+func discoveryTenantFeedItem(item TenantDirectoryItem) DiscoveryFeedItem {
+	return DiscoveryFeedItem{
+		ID:                   item.ID.String(),
+		ItemKind:             "tenant",
+		TenantID:             item.ID,
+		TenantDirectoryItem:  item,
+		FeedTitle:            firstNonEmpty(item.DiscoveryHeadline, item.Name),
+		FeedSummary:          firstNonEmpty(item.HighlightCopy, item.DiscoverySubheadline, item.Tagline, item.AboutUs),
+		FeedImageURL:         firstNonEmpty(item.FeaturedImageURL, item.BannerURL, item.LogoURL),
+		FeedLabel:            firstNonEmpty(item.PromoLabel, prettifyLabel(item.BusinessCategory), "Feed Bookinaja"),
+		FeedReason:           firstNonEmpty(item.RecommendationReason, item.FeaturedReason, item.AvailabilityHint),
+		FeedTags:             cloneStringSlice(item.DiscoveryTags),
+		FeedBadges:           cloneStringSlice(item.DiscoveryBadges),
+		FeedCTA:              "Lihat bisnis",
+		FeedScore:            discoveryRank(item),
+		PersonalizationScore: item.PersonalizationScore,
+	}
+}
+
+func discoveryPostFeedItem(tenantItem TenantDirectoryItem, post TenantPost) DiscoveryFeedItem {
+	postTitle := strings.TrimSpace(post.Title)
+	postCaption := strings.TrimSpace(post.Caption)
+	postLabel := strings.TrimSpace(post.CTA)
+	if postLabel == "" {
+		postLabel = firstNonEmpty(tenantItem.PromoLabel, labelForPostType(post.Type))
+	}
+
+	return DiscoveryFeedItem{
+		ID:                   post.ID.String(),
+		ItemKind:             "post",
+		TenantID:             tenantItem.ID,
+		TenantDirectoryItem:  tenantItem,
+		FeedTitle:            firstNonEmpty(postTitle, tenantItem.DiscoveryHeadline, tenantItem.Name),
+		FeedSummary:          firstNonEmpty(postCaption, tenantItem.HighlightCopy, tenantItem.DiscoverySubheadline),
+		FeedImageURL:         firstNonEmpty(post.CoverMediaURL, post.ThumbnailURL, tenantItem.FeaturedImageURL, tenantItem.BannerURL, tenantItem.LogoURL),
+		FeedLabel:            firstNonEmpty(postLabel, labelForPostType(post.Type), "Postingan baru"),
+		FeedReason:           firstNonEmpty(tenantItem.RecommendationReason, tenantItem.AvailabilityHint, "Postingan terbaru dari bisnis ini"),
+		FeedTags:             cloneStringSlice(tenantItem.DiscoveryTags),
+		FeedBadges:           appendUniqueStrings(cloneStringSlice(tenantItem.DiscoveryBadges), labelForPostType(post.Type)),
+		FeedCTA:              firstNonEmpty(post.CTA, "Lihat bisnis"),
+		PostID:               &post.ID,
+		PostType:             post.Type,
+		PostStatus:           post.Status,
+		PostVisibility:       post.Visibility,
+		PostCaption:          post.Caption,
+		PostPublishedAt:      post.PublishedAt,
+		PersonalizationScore: tenantItem.PersonalizationScore,
+	}
+}
+
+func discoveryPostScore(post TenantPost, tenantItem TenantDirectoryItem) int {
+	score := 20
+	if strings.TrimSpace(post.CoverMediaURL) != "" || strings.TrimSpace(post.ThumbnailURL) != "" {
+		score += 12
+	}
+	if strings.TrimSpace(post.Caption) != "" {
+		score += 8
+	}
+	if strings.TrimSpace(post.CTA) != "" {
+		score += 4
+	}
+	switch strings.ToLower(strings.TrimSpace(post.Type)) {
+	case "video":
+		score += 12
+	case "promo":
+		score += 10
+	case "update":
+		score += 6
+	default:
+		score += 8
+	}
+	if strings.EqualFold(post.Visibility, "highlight") {
+		score += 8
+	}
+	if post.PublishedAt != nil {
+		ageHours := time.Since(*post.PublishedAt).Hours()
+		switch {
+		case ageHours <= 24:
+			score += 20
+		case ageHours <= 72:
+			score += 12
+		case ageHours <= 168:
+			score += 6
+		}
+	}
+	if tenantItem.DiscoveryCtr30d >= 4 {
+		score += 6
+	}
+	return score
+}
+
+func discoveryFeedItemSortTime(item DiscoveryFeedItem) time.Time {
+	if item.PostPublishedAt != nil {
+		return *item.PostPublishedAt
+	}
+	return item.CreatedAt
 }
 
 func buildDiscoveryHeadline(item TenantDirectoryItem) string {
@@ -1401,6 +1699,55 @@ func firstStringSlice(values ...[]string) []string {
 	return []string{}
 }
 
+func cloneStringSlice(values []string) []string {
+	if len(values) == 0 {
+		return []string{}
+	}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		out = append(out, trimmed)
+	}
+	return out
+}
+
+func appendUniqueStrings(values []string, extras ...string) []string {
+	out := cloneStringSlice(values)
+	seen := map[string]struct{}{}
+	for _, value := range out {
+		seen[strings.ToLower(value)] = struct{}{}
+	}
+	for _, extra := range extras {
+		trimmed := strings.TrimSpace(extra)
+		if trimmed == "" {
+			continue
+		}
+		key := strings.ToLower(trimmed)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, trimmed)
+	}
+	return out
+}
+
+func labelForPostType(postType string) string {
+	switch strings.ToLower(strings.TrimSpace(postType)) {
+	case "video":
+		return "Video"
+	case "promo":
+		return "Promo"
+	case "update":
+		return "Update"
+	default:
+		return "Foto"
+	}
+}
+
 func promoWindowActive(start, end *time.Time, now time.Time) bool {
 	if start != nil && now.Before(*start) {
 		return false
@@ -1562,4 +1909,68 @@ func filterDiscoveryItems(items []TenantDirectoryItem, keep func(TenantDirectory
 		}
 	}
 	return out
+}
+
+func normalizeTenantPostReq(req TenantPostUpsertReq) (TenantPost, error) {
+	postType := strings.ToLower(strings.TrimSpace(req.Type))
+	if postType == "" {
+		postType = "photo"
+	}
+	switch postType {
+	case "photo", "video", "promo", "update":
+	default:
+		return TenantPost{}, errors.New("tipe postingan tidak valid")
+	}
+
+	title := strings.TrimSpace(req.Title)
+	if title == "" {
+		return TenantPost{}, errors.New("judul postingan wajib diisi")
+	}
+
+	status := strings.ToLower(strings.TrimSpace(req.Status))
+	if status == "" {
+		status = "draft"
+	}
+	switch status {
+	case "draft", "scheduled", "published":
+	default:
+		return TenantPost{}, errors.New("status postingan tidak valid")
+	}
+
+	visibility := strings.ToLower(strings.TrimSpace(req.Visibility))
+	if visibility == "" {
+		visibility = "feed"
+	}
+	switch visibility {
+	case "feed", "highlight", "private":
+	default:
+		return TenantPost{}, errors.New("visibility postingan tidak valid")
+	}
+
+	metadata := req.Metadata
+	if len(metadata) == 0 {
+		metadata = json.RawMessage(`{}`)
+	}
+
+	return TenantPost{
+		Type:          postType,
+		Title:         title,
+		Caption:       strings.TrimSpace(req.Caption),
+		CoverMediaURL: strings.TrimSpace(req.CoverMediaURL),
+		ThumbnailURL:  strings.TrimSpace(req.ThumbnailURL),
+		CTA:           strings.TrimSpace(req.CTA),
+		Status:        status,
+		Visibility:    visibility,
+		StartsAt:      req.StartsAt,
+		EndsAt:        req.EndsAt,
+		Metadata:      metadata,
+	}, nil
+}
+
+func derivePublishedAt(status string, now time.Time) *time.Time {
+	if status != "published" {
+		return nil
+	}
+	publishedAt := now
+	return &publishedAt
 }

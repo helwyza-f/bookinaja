@@ -26,6 +26,13 @@ import {
   type DiscoveryTenant,
   formatStartingPrice,
   getDiscoveryCategoryLabel,
+  getDiscoveryItemBadges,
+  getDiscoveryItemCta,
+  getDiscoveryItemImage,
+  getDiscoveryItemLabel,
+  getDiscoveryItemReason,
+  getDiscoveryItemSummary,
+  getDiscoveryItemTitle,
   scoreDiscoveryTenant,
 } from "@/lib/discovery";
 import {
@@ -121,7 +128,7 @@ export default function TenantsDirectoryPage() {
       if (seenImpressions[key]) return;
       setSeenImpressions((prev) => ({ ...prev, [key]: true }));
       trackDiscoveryEvent({
-        tenant_id: tenant.id,
+        tenant_id: tenant.tenant_id || tenant.id,
         tenant_slug: tenant.slug,
         event_type: "impression",
         surface,
@@ -338,8 +345,8 @@ function FeatureHeroCard({
         <div
           className="absolute inset-0 bg-cover bg-center opacity-45"
           style={{
-            backgroundImage: tenant.featured_image_url || tenant.banner_url
-              ? `url(${tenant.featured_image_url || tenant.banner_url})`
+            backgroundImage: getDiscoveryItemImage(tenant)
+              ? `url(${getDiscoveryItemImage(tenant)})`
               : "linear-gradient(135deg, rgba(13,31,39,0.94), rgba(29,78,216,0.65))",
           }}
         />
@@ -347,7 +354,7 @@ function FeatureHeroCard({
         <div className="relative z-10 flex min-h-[300px] flex-col justify-between p-4 md:p-6">
           <div className="flex items-center justify-between gap-3">
             <Badge className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white">
-              {tenant.promo_label || getDiscoveryCategoryLabel(tenant)}
+              {getDiscoveryItemLabel(tenant)}
             </Badge>
             <Badge className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-semibold text-white/90">
               <Flame className="mr-1 h-3.5 w-3.5" />
@@ -357,13 +364,13 @@ function FeatureHeroCard({
 
           <div className="space-y-3">
             <h3 className="max-w-2xl text-2xl font-black uppercase leading-[0.95] tracking-[-0.04em] md:text-4xl">
-              {tenant.name}
+              {getDiscoveryItemTitle(tenant)}
             </h3>
             <p className="max-w-2xl text-sm leading-7 text-white/85">
-              {tenant.discovery_headline || tenant.tagline || tenant.about_us}
+              {getDiscoveryItemSummary(tenant)}
             </p>
             <div className="flex flex-wrap gap-2">
-              {(tenant.discovery_badges || tenant.discovery_tags || []).slice(0, 3).map((item) => (
+              {getDiscoveryItemBadges(tenant).slice(0, 3).map((item) => (
                 <span
                   key={item}
                   className="rounded-full bg-white/12 px-3 py-1 text-[11px] font-semibold text-white/92"
@@ -376,9 +383,7 @@ function FeatureHeroCard({
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-white/72">
-              {tenant.highlight_copy ||
-                tenant.recommendation_reason ||
-                tenant.availability_hint ||
+              {getDiscoveryItemReason(tenant) ||
                 "Tempat ini terlihat paling siap untuk jadi titik awal eksplorasi kamu."}
             </div>
             <Button asChild className="h-11 rounded-2xl bg-white text-slate-950 hover:bg-white/90">
@@ -386,18 +391,18 @@ function FeatureHeroCard({
                 href={getTenantUrl(tenant.slug)}
                 onClick={() =>
                   trackDiscoveryEvent({
-                    tenant_id: tenant.id,
+                    tenant_id: tenant.tenant_id || tenant.id,
                     tenant_slug: tenant.slug,
                     event_type: "click",
                     surface: "discover",
                     section_id: "public-hero",
                     card_variant: "hero",
                     position_index: 0,
-                    promo_label: tenant.promo_label,
+                    promo_label: tenant.feed_label || tenant.promo_label,
                   })
                 }
               >
-                Lihat Bisnis
+                {getDiscoveryItemCta(tenant)}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </a>
             </Button>
@@ -433,15 +438,15 @@ function PublicContentCard({
         <div
           className="h-36 w-full bg-cover bg-center"
           style={{
-            backgroundImage: tenant.featured_image_url || tenant.banner_url
-              ? `url(${tenant.featured_image_url || tenant.banner_url})`
+            backgroundImage: getDiscoveryItemImage(tenant)
+              ? `url(${getDiscoveryItemImage(tenant)})`
               : "linear-gradient(135deg, rgba(13,31,39,0.92), rgba(96,165,250,0.72))",
           }}
         />
         <div className="space-y-4 p-4">
           <div className="flex items-start justify-between gap-3">
             <Badge className="rounded-full bg-blue-50 text-blue-700">
-              {tenant.promo_label || "Discovery"}
+              {getDiscoveryItemLabel(tenant)}
             </Badge>
             <span className="text-[11px] font-semibold text-slate-500">
               {formatStartingPrice(tenant.starting_price)}
@@ -450,18 +455,15 @@ function PublicContentCard({
 
           <div>
             <h3 className="line-clamp-2 text-lg font-black uppercase tracking-tight text-slate-950">
-              {tenant.name}
+              {getDiscoveryItemTitle(tenant)}
             </h3>
             <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">
-              {tenant.highlight_copy ||
-                tenant.discovery_headline ||
-                tenant.tagline ||
-                tenant.about_us}
+              {getDiscoveryItemSummary(tenant)}
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {(tenant.discovery_badges || tenant.discovery_tags || []).slice(0, 2).map((item) => (
+            {getDiscoveryItemBadges(tenant).slice(0, 2).map((item) => (
               <span
                 key={item}
                 className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600"
@@ -474,7 +476,7 @@ function PublicContentCard({
           <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
             <span className="flex items-center gap-1.5">
               <CalendarClock className="h-3.5 w-3.5 text-blue-600" />
-              {tenant.availability_hint || "Cocok untuk dicoba"}
+              {getDiscoveryItemReason(tenant) || "Cocok untuk dicoba"}
             </span>
             <span>{tenant.resource_count || 0} resource</span>
           </div>
@@ -487,18 +489,18 @@ function PublicContentCard({
               href={getTenantUrl(tenant.slug)}
               onClick={() =>
                 trackDiscoveryEvent({
-                  tenant_id: tenant.id,
+                  tenant_id: tenant.tenant_id || tenant.id,
                   tenant_slug: tenant.slug,
                   event_type: "click",
                   surface,
                   section_id: sectionId,
                   card_variant: cardVariant,
                   position_index: positionIndex,
-                  promo_label: tenant.promo_label,
+                  promo_label: tenant.feed_label || tenant.promo_label,
                 })
               }
             >
-              Lihat Bisnis
+              {getDiscoveryItemCta(tenant)}
               <ArrowRight className="ml-2 h-4 w-4" />
             </a>
           </Button>
@@ -565,8 +567,8 @@ function PublicRailCard({
         <div
           className="h-28 w-full bg-cover bg-center"
           style={{
-            backgroundImage: tenant.featured_image_url || tenant.banner_url
-              ? `url(${tenant.featured_image_url || tenant.banner_url})`
+            backgroundImage: getDiscoveryItemImage(tenant)
+              ? `url(${getDiscoveryItemImage(tenant)})`
               : "linear-gradient(135deg, rgba(13,31,39,0.92), rgba(96,165,250,0.72))",
           }}
         />
@@ -585,16 +587,16 @@ function PublicRailCard({
               )}
             </div>
             <Badge className="rounded-full bg-blue-50 text-blue-700">
-              {tenant.promo_label || getDiscoveryCategoryLabel(tenant)}
+              {getDiscoveryItemLabel(tenant)}
             </Badge>
           </div>
 
           <div>
             <h3 className="line-clamp-2 text-base font-black uppercase tracking-tight text-slate-950">
-              {tenant.name}
+              {getDiscoveryItemTitle(tenant)}
             </h3>
             <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">
-              {tenant.discovery_headline || tenant.tagline || tenant.about_us}
+              {getDiscoveryItemSummary(tenant)}
             </p>
           </div>
 
@@ -616,18 +618,18 @@ function PublicRailCard({
               href={getTenantUrl(tenant.slug)}
               onClick={() =>
                 trackDiscoveryEvent({
-                  tenant_id: tenant.id,
+                  tenant_id: tenant.tenant_id || tenant.id,
                   tenant_slug: tenant.slug,
                   event_type: "click",
                   surface: "discover",
                   section_id: sectionId,
                   card_variant: "rail",
                   position_index: positionIndex,
-                  promo_label: tenant.promo_label,
+                  promo_label: tenant.feed_label || tenant.promo_label,
                 })
               }
             >
-              Buka Bisnis
+              {getDiscoveryItemCta(tenant)}
               <ArrowRight className="ml-2 h-4 w-4" />
             </a>
           </Button>

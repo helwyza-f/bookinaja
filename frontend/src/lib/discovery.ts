@@ -1,5 +1,7 @@
 export type DiscoveryTenant = {
   id: string;
+  item_kind?: "tenant" | "post";
+  tenant_id?: string;
   name: string;
   slug: string;
   business_category?: string;
@@ -38,6 +40,21 @@ export type DiscoveryTenant = {
   is_featured?: boolean;
   is_new?: boolean;
   is_promoted?: boolean;
+  feed_title?: string;
+  feed_summary?: string;
+  feed_image_url?: string;
+  feed_label?: string;
+  feed_reason?: string;
+  feed_tags?: string[];
+  feed_badges?: string[];
+  feed_cta?: string;
+  feed_score?: number;
+  post_id?: string;
+  post_type?: string;
+  post_status?: string;
+  post_visibility?: string;
+  post_caption?: string;
+  post_published_at?: string | null;
 };
 
 export type DiscoverySection = {
@@ -69,6 +86,39 @@ export const formatStartingPrice = (value?: number) => {
 export const getDiscoveryCategoryLabel = (tenant: DiscoveryTenant) =>
   tenant.business_category || tenant.business_type || "Bisnis";
 
+export const getDiscoveryItemTitle = (item: DiscoveryTenant) =>
+  item.feed_title || item.discovery_headline || item.name;
+
+export const getDiscoveryItemSummary = (item: DiscoveryTenant) =>
+  item.feed_summary ||
+  item.highlight_copy ||
+  item.discovery_subheadline ||
+  item.tagline ||
+  item.about_us ||
+  "Belum ada ringkasan singkat.";
+
+export const getDiscoveryItemImage = (item: DiscoveryTenant) =>
+  item.feed_image_url || item.featured_image_url || item.banner_url || item.logo_url || "";
+
+export const getDiscoveryItemLabel = (item: DiscoveryTenant) =>
+  item.feed_label || item.promo_label || getDiscoveryCategoryLabel(item);
+
+export const getDiscoveryItemReason = (item: DiscoveryTenant) =>
+  item.feed_reason || item.recommendation_reason || item.featured_reason || item.availability_hint || "";
+
+export const getDiscoveryItemBadges = (item: DiscoveryTenant) =>
+  (item.feed_badges && item.feed_badges.length > 0
+    ? item.feed_badges
+    : item.discovery_badges?.length
+      ? item.discovery_badges
+      : item.discovery_tags) || [];
+
+export const getDiscoveryItemTags = (item: DiscoveryTenant) =>
+  (item.feed_tags && item.feed_tags.length > 0 ? item.feed_tags : item.discovery_tags) || [];
+
+export const getDiscoveryItemCta = (item: DiscoveryTenant) =>
+  item.feed_cta || (item.item_kind === "post" ? "Lihat postingan" : "Lihat bisnis");
+
 export const bookinajaDiscoveryTheme = {
   pageBg: "bg-slate-50",
   pageGlow:
@@ -88,10 +138,14 @@ export const scoreDiscoveryTenant = (tenant: DiscoveryTenant, query = "") => {
   const q = query.trim().toLowerCase();
   const textPool = [
     tenant.name,
+    tenant.feed_title,
+    tenant.feed_summary,
     tenant.discovery_headline,
     tenant.discovery_subheadline,
     tenant.business_category,
     tenant.business_type,
+    ...(tenant.feed_tags || []),
+    ...(tenant.feed_badges || []),
     ...(tenant.discovery_tags || []),
     ...(tenant.discovery_badges || []),
   ]
@@ -124,6 +178,12 @@ export const scoreDiscoveryTenant = (tenant: DiscoveryTenant, query = "") => {
     ((tenant.discovery_badges || []).length >= 1 ? 4 : 0);
 
   const freshnessScore = tenant.is_new ? 14 : 0;
+  const postScore =
+    tenant.item_kind === "post"
+      ? 14 +
+        (tenant.post_type === "video" ? 8 : tenant.post_type === "promo" ? 6 : 4) +
+        (tenant.post_published_at ? 8 : 0)
+      : 0;
 
-  return editorialScore + momentumScore + qualityScore + freshnessScore + queryBoost;
+  return editorialScore + momentumScore + qualityScore + freshnessScore + postScore + queryBoost;
 };

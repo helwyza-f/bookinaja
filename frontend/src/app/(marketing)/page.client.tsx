@@ -188,7 +188,7 @@ function DashboardWidget() {
         className={`px-4 py-3 border-b flex items-center justify-between ${divider}`}
       >
         <div className="flex items-center gap-2.5">
-          <div className="h-7 w-7 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
+          <div className="h-7 w-7 rounded-xl bg-blue-600 flex items-center justify-center shrink-0">
             <Activity size={12} className="text-white" />
           </div>
           <div>
@@ -221,7 +221,7 @@ function DashboardWidget() {
               slot.status === "busy"
                 ? "bg-blue-600/10 border-blue-500/25"
                 : isDark
-                  ? "bg-white/[0.03] border-white/[0.06]"
+                  ? "bg-white/3 border-white/6"
                   : "bg-white border-slate-200"
             }`}
           >
@@ -252,7 +252,7 @@ function DashboardWidget() {
       </div>
       <div className="px-3 pb-3">
         <div
-          className={`rounded-xl px-3 py-2 flex items-center justify-between ${isDark ? "bg-white/[0.03]" : "bg-slate-200/60"}`}
+          className={`rounded-xl px-3 py-2 flex items-center justify-between ${isDark ? "bg-white/3" : "bg-slate-200/60"}`}
         >
           <span
             className={`text-[8px] font-bold uppercase tracking-widest ${muted}`}
@@ -363,10 +363,10 @@ export default function LandingPage() {
       <div className="fixed inset-0 pointer-events-none z-0" aria-hidden>
         <div className={`absolute inset-0 ${bg}`} />
         <div
-          className={`absolute inset-0 ${gridLine} bg-[size:48px_48px] sm:bg-[size:56px_56px]`}
+          className={`absolute inset-0 ${gridLine} bg-size-[48px_48px] sm:bg-size-[56px_56px]`}
         />
         <div
-          className={`absolute top-0 inset-x-0 h-[500px] ${
+          className={`absolute top-0 inset-x-0 h-125 ${
             isDark
               ? "bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(59,130,246,0.10)_0%,transparent_100%)]"
               : "bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(59,130,246,0.06)_0%,transparent_100%)]"
@@ -380,7 +380,7 @@ export default function LandingPage() {
       {/* ══════════════════════════════
           1. HERO
       ══════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 pt-24 sm:pt-24 md:pt-32 pb-10 sm:pb-14 text-center">
+      <section className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 pt-24 sm:pt-24 md:pt-32 pb-10 sm:pb-14 text-center">
         <div ref={hero.ref} className="space-y-5 sm:space-y-6">
           <div
             className="flex justify-center"
@@ -389,12 +389,12 @@ export default function LandingPage() {
             <div
               className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 ${isDark ? "border-blue-500/20 bg-blue-500/[0.07]" : "border-blue-300/50 bg-blue-50"}`}
             >
-              <Sparkles className="h-3 w-3 text-blue-500 fill-current flex-shrink-0" />
+              <Sparkles className="h-3 w-3 text-blue-500 fill-current shrink-0" />
               <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.22em] text-blue-500">
                 Sistem Operasional untuk Bisnis Rental
               </span>
               <span
-                className="h-1.5 w-1.5 rounded-full bg-blue-500 flex-shrink-0"
+                className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0"
                 style={{ animation: "pulse-dot 2s ease-in-out infinite" }}
               />
             </div>
@@ -493,10 +493,10 @@ export default function LandingPage() {
             className={`absolute inset-0 rounded-[2rem] blur-2xl ${isDark ? "bg-blue-600/8" : "bg-blue-400/8"}`}
           />
           <div
-            className={`relative rounded-[1.25rem] sm:rounded-[2rem] border p-1 sm:p-1.5 ${isDark ? "border-white/[0.08] bg-white/[0.03]" : "border-slate-200 bg-white"}`}
+            className={`relative rounded-[1.25rem] sm:rounded-[2rem] border p-1 sm:p-1.5 ${isDark ? "border-white/8 bg-white/3" : "border-slate-200 bg-white"}`}
           >
             <div
-              className={`overflow-hidden rounded-[0.875rem] sm:rounded-[1.5rem] ${isDark ? "border border-white/[0.04]" : "border border-slate-100"}`}
+              className={`overflow-hidden rounded-[0.875rem] sm:rounded-[1.5rem] ${isDark ? "border border-white/4" : "border border-slate-100"}`}
             >
               <div
                 className={`relative overflow-hidden ${isDark ? "bg-slate-950" : "bg-slate-100"}`}
@@ -504,7 +504,7 @@ export default function LandingPage() {
               >
                 <div className="absolute inset-0 p-3 sm:p-5 grid grid-cols-12 grid-rows-6 gap-1.5 sm:gap-2">
                   <div
-                    className={`col-span-2 row-span-6 rounded-xl border p-1.5 sm:p-2 flex flex-col gap-1.5 ${isDark ? "bg-white/[0.03] border-white/[0.05]" : "bg-white border-slate-200"}`}
+                    className={`col-span-2 row-span-6 rounded-xl border p-1.5 sm:p-2 flex flex-col gap-1.5 ${isDark ? "bg-white/3 border-white/[0.05]" : "bg-white border-slate-200"}`}
                   >
                     <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-lg bg-blue-600 mx-auto mb-1.5" />
                     {[...Array(6)].map((_, i) => (

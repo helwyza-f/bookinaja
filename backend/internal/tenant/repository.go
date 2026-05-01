@@ -696,6 +696,113 @@ func (r *Repository) CreateDiscoveryFeedEvent(ctx context.Context, event Discove
 	return err
 }
 
+func (r *Repository) ListTenantPosts(ctx context.Context, tenantID uuid.UUID) ([]TenantPost, error) {
+	var posts []TenantPost
+	err := r.db.SelectContext(ctx, &posts, `
+		SELECT
+			id, tenant_id, author_user_id, type, title, caption, cover_media_url,
+			thumbnail_url, cta, status, visibility, starts_at, ends_at,
+			published_at, metadata, created_at, updated_at
+		FROM tenant_posts
+		WHERE tenant_id = $1
+		ORDER BY
+			CASE status
+				WHEN 'published' THEN 1
+				WHEN 'scheduled' THEN 2
+				ELSE 3
+			END,
+			COALESCE(published_at, created_at) DESC,
+			updated_at DESC`,
+		tenantID,
+	)
+	return posts, err
+}
+
+func (r *Repository) ListActiveDiscoveryPosts(ctx context.Context) ([]TenantPost, error) {
+	var posts []TenantPost
+	err := r.db.SelectContext(ctx, &posts, `
+		SELECT
+			id, tenant_id, author_user_id, type, title, caption, cover_media_url,
+			thumbnail_url, cta, status, visibility, starts_at, ends_at,
+			published_at, metadata, created_at, updated_at
+		FROM tenant_posts
+		WHERE status = 'published'
+		  AND visibility IN ('feed', 'highlight')
+		  AND (starts_at IS NULL OR starts_at <= NOW())
+		  AND (ends_at IS NULL OR ends_at >= NOW())
+		ORDER BY COALESCE(published_at, updated_at, created_at) DESC,
+		         updated_at DESC`)
+	return posts, err
+}
+
+func (r *Repository) GetTenantPostByID(ctx context.Context, tenantID, postID uuid.UUID) (*TenantPost, error) {
+	var post TenantPost
+	err := r.db.GetContext(ctx, &post, `
+		SELECT
+			id, tenant_id, author_user_id, type, title, caption, cover_media_url,
+			thumbnail_url, cta, status, visibility, starts_at, ends_at,
+			published_at, metadata, created_at, updated_at
+		FROM tenant_posts
+		WHERE tenant_id = $1 AND id = $2
+		LIMIT 1`,
+		tenantID, postID,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return &post, err
+}
+
+func (r *Repository) CreateTenantPost(ctx context.Context, post TenantPost) (*TenantPost, error) {
+	_, err := r.db.NamedExecContext(ctx, `
+		INSERT INTO tenant_posts (
+			id, tenant_id, author_user_id, type, title, caption, cover_media_url,
+			thumbnail_url, cta, status, visibility, starts_at, ends_at,
+			published_at, metadata, created_at, updated_at
+		) VALUES (
+			:id, :tenant_id, :author_user_id, :type, :title, :caption, :cover_media_url,
+			:thumbnail_url, :cta, :status, :visibility, :starts_at, :ends_at,
+			:published_at, :metadata, :created_at, :updated_at
+		)`,
+		post,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &post, nil
+}
+
+func (r *Repository) UpdateTenantPost(ctx context.Context, post TenantPost) (*TenantPost, error) {
+	_, err := r.db.NamedExecContext(ctx, `
+		UPDATE tenant_posts
+		SET
+			type = :type,
+			title = :title,
+			caption = :caption,
+			cover_media_url = :cover_media_url,
+			thumbnail_url = :thumbnail_url,
+			cta = :cta,
+			status = :status,
+			visibility = :visibility,
+			starts_at = :starts_at,
+			ends_at = :ends_at,
+			published_at = :published_at,
+			metadata = :metadata,
+			updated_at = :updated_at
+		WHERE tenant_id = :tenant_id AND id = :id`,
+		post,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &post, nil
+}
+
+func (r *Repository) DeleteTenantPost(ctx context.Context, tenantID, postID uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM tenant_posts WHERE tenant_id = $1 AND id = $2`, tenantID, postID)
+	return err
+}
+
 func (r *Repository) GetUserByID(ctx context.Context, id uuid.UUID) (*User, string, error) {
 	cacheKey := r.getUserCacheKey(id.String())
 
