@@ -214,6 +214,9 @@ type TenantDirectoryItem struct {
 	DiscoveryPriority    int        `db:"discovery_priority" json:"discovery_priority"`
 	PromoStartsAt        *time.Time `db:"promo_starts_at" json:"promo_starts_at"`
 	PromoEndsAt          *time.Time `db:"promo_ends_at" json:"promo_ends_at"`
+	DiscoveryImpressions30d int64   `db:"discovery_impressions_30d" json:"discovery_impressions_30d"`
+	DiscoveryClicks30d      int64   `db:"discovery_clicks_30d" json:"discovery_clicks_30d"`
+	DiscoveryCtr30d         float64 `db:"discovery_ctr_30d" json:"discovery_ctr_30d"`
 	FeaturedReason       string     `db:"-" json:"featured_reason"`
 	AvailabilityHint     string     `db:"-" json:"availability_hint"`
 	IsFeatured           bool       `db:"-" json:"is_featured"`

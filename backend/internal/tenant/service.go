@@ -76,19 +76,23 @@ func (s *Service) GetPublicDiscoverFeed(ctx context.Context) (*PublicDiscoverFee
 	}
 
 	featured := make([]TenantDirectoryItem, 0, minInt(len(items), 4))
-	newArrivals := make([]TenantDirectoryItem, 0, minInt(len(items), 6))
+	trending := make([]TenantDirectoryItem, 0, minInt(len(items), 6))
 	valuePicks := make([]TenantDirectoryItem, 0, minInt(len(items), 6))
+	freshFinds := make([]TenantDirectoryItem, 0, minInt(len(items), 6))
 	lateNight := make([]TenantDirectoryItem, 0, minInt(len(items), 6))
 
 	for _, item := range items {
 		if item.IsFeatured && len(featured) < 4 {
 			featured = append(featured, item)
 		}
-		if item.IsNew && len(newArrivals) < 6 {
-			newArrivals = append(newArrivals, item)
+		if item.DiscoveryClicks30d > 0 && len(trending) < 6 {
+			trending = append(trending, item)
 		}
 		if item.StartingPrice > 0 && item.StartingPrice <= 150000 && len(valuePicks) < 6 {
 			valuePicks = append(valuePicks, item)
+		}
+		if item.IsNew && len(freshFinds) < 6 {
+			freshFinds = append(freshFinds, item)
 		}
 		if closesLate(item.CloseTime) && len(lateNight) < 6 {
 			lateNight = append(lateNight, item)
@@ -98,11 +102,14 @@ func (s *Service) GetPublicDiscoverFeed(ctx context.Context) (*PublicDiscoverFee
 	if len(featured) == 0 {
 		featured = append(featured, items[:minInt(len(items), 4)]...)
 	}
-	if len(newArrivals) == 0 {
-		newArrivals = append(newArrivals, items[:minInt(len(items), 6)]...)
+	if len(trending) == 0 {
+		trending = append(trending, items[:minInt(len(items), 6)]...)
 	}
 	if len(valuePicks) == 0 {
 		valuePicks = append(valuePicks, items[:minInt(len(items), 6)]...)
+	}
+	if len(freshFinds) == 0 {
+		freshFinds = append(freshFinds, items[:minInt(len(items), 6)]...)
 	}
 	if len(lateNight) == 0 {
 		lateNight = append(lateNight, items[:minInt(len(items), 6)]...)
@@ -110,32 +117,39 @@ func (s *Service) GetPublicDiscoverFeed(ctx context.Context) (*PublicDiscoverFee
 
 	return &PublicDiscoverFeedResponse{
 		Hero: PublicDiscoveryHero{
-			Eyebrow:     "Customer Discovery",
-			Title:       "Temukan bisnis, pengalaman, dan tempat baru di Bookinaja.",
-			Description: "Jelajahi bisnis yang sedang ramai, baru bergabung, atau paling cocok untuk rencana berikutnya tanpa harus mulai dari nol setiap kali ingin booking.",
-			SearchHint:  "Cari tempat, kategori, atau aktivitas yang ingin kamu lakukan",
+			Eyebrow:     "Discovery Marketplace",
+			Title:       "Temukan tempat, aktivitas, dan pengalaman berikutnya di Bookinaja.",
+			Description: "Feed discovery Bookinaja membantu customer menjelajahi bisnis yang paling relevan, paling aktif, dan paling layak dicoba tanpa berhenti di daftar tenant biasa.",
+			SearchHint:  "Cari tempat, kategori, aktivitas, atau suasana yang kamu cari",
 		},
 		QuickCategories: quickCategories,
 		Featured:        featured,
 		Sections: []PublicDiscoverySection{
 			{
-				ID:          "new-arrivals",
-				Title:       "Baru Bergabung",
-				Description: "Bisnis baru yang baru masuk ke ekosistem Bookinaja dan siap ditemukan lebih awal.",
-				Style:       "fresh",
-				Items:       newArrivals,
+				ID:          "trending-now",
+				Title:       "Lagi Ramai Dijelajahi",
+				Description: "Bisnis yang sedang paling banyak menarik perhatian customer dalam discovery feed Bookinaja.",
+				Style:       "trending",
+				Items:       trending,
 			},
 			{
 				ID:          "value-picks",
-				Title:       "Mulai dari Harga Ringan",
-				Description: "Pilihan bisnis dengan titik masuk harga yang lebih ramah untuk dicoba duluan.",
+				Title:       "Mudah Dicoba Duluan",
+				Description: "Pilihan dengan titik masuk harga yang lebih ringan tanpa kehilangan kualitas pengalaman.",
 				Style:       "value",
 				Items:       valuePicks,
 			},
 			{
+				ID:          "fresh-finds",
+				Title:       "Tempat Baru yang Layak Dicoba",
+				Description: "Bisnis yang masih fresh di marketplace, tapi punya sinyal kualitas dan kesiapan yang bagus untuk dijelajahi lebih awal.",
+				Style:       "fresh",
+				Items:       freshFinds,
+			},
+			{
 				ID:          "late-night",
-				Title:       "Buka Lebih Malam",
-				Description: "Cocok buat customer yang suka cari slot sore sampai malam tanpa buru-buru.",
+				Title:       "Buka Sampai Malam",
+				Description: "Cocok buat customer yang mencari slot sore hingga malam dengan waktu yang lebih fleksibel.",
 				Style:       "night",
 				Items:       lateNight,
 			},
@@ -205,8 +219,8 @@ func (s *Service) decorateDiscoveryItems(items []TenantDirectoryItem) []TenantDi
 		entry.DiscoveryTags = firstStringSlice(item.DiscoveryTags, buildDiscoveryTags(item))
 		entry.DiscoveryBadges = firstStringSlice(item.DiscoveryBadges, buildDiscoveryBadges(item))
 		entry.IsNew = now.Sub(item.CreatedAt) <= 45*24*time.Hour
-		entry.IsPromoted = (item.DiscoveryPromoted && promoActive) || (item.StartingPrice > 0 && item.ResourceCount >= 3)
-		entry.IsFeatured = item.DiscoveryFeatured || entry.IsNew || entry.IsPromoted || item.ResourceCount >= 5
+		entry.IsPromoted = (item.DiscoveryPromoted && promoActive) || shouldAutoPromote(item)
+		entry.IsFeatured = item.DiscoveryFeatured || shouldAutoFeature(item, entry)
 		entry.PromoLabel = firstNonEmpty(curatedPromoLabel(item, promoActive), buildPromoLabel(item, entry))
 		entry.FeaturedReason = firstNonEmpty(item.HighlightCopy, buildFeaturedReason(item, entry))
 		entry.AvailabilityHint = buildAvailabilityHint(item)
@@ -284,6 +298,9 @@ func buildDiscoveryTags(item TenantDirectoryItem) []string {
 
 func buildDiscoveryBadges(item TenantDirectoryItem) []string {
 	badges := []string{}
+	if item.DiscoveryCtr30d >= 5 && item.DiscoveryClicks30d >= 5 {
+		badges = append(badges, "Lagi Ramai")
+	}
 	if closesLate(item.CloseTime) {
 		badges = append(badges, "Buka Sampai Malam")
 	}
@@ -297,6 +314,9 @@ func buildDiscoveryBadges(item TenantDirectoryItem) []string {
 }
 
 func buildPromoLabel(item TenantDirectoryItem, entry TenantDirectoryItem) string {
+	if item.DiscoveryCtr30d >= 5 && item.DiscoveryClicks30d >= 5 {
+		return "Lagi banyak dilihat"
+	}
 	if entry.IsNew {
 		return "Baru di Bookinaja"
 	}
@@ -323,6 +343,9 @@ func curatedPromoLabel(item TenantDirectoryItem, promoActive bool) string {
 }
 
 func buildFeaturedReason(item TenantDirectoryItem, entry TenantDirectoryItem) string {
+	if item.DiscoveryClicks30d >= 5 && item.DiscoveryCtr30d >= 4 {
+		return fmt.Sprintf("Sedang menarik perhatian customer dengan CTR %.1f%% dalam 30 hari terakhir.", item.DiscoveryCtr30d)
+	}
 	if entry.IsNew {
 		return "Cocok buat yang suka coba tempat baru lebih awal."
 	}
@@ -336,6 +359,9 @@ func buildFeaturedReason(item TenantDirectoryItem, entry TenantDirectoryItem) st
 }
 
 func buildAvailabilityHint(item TenantDirectoryItem) string {
+	if item.DiscoveryClicks30d >= 5 {
+		return "Sedang aktif dijelajahi customer lain di Bookinaja."
+	}
 	if item.ResourceCount >= 6 {
 		return "Lebih banyak pilihan resource untuk dicoba."
 	}
@@ -1242,7 +1268,9 @@ func promoWindowActive(start, end *time.Time, now time.Time) bool {
 }
 
 func discoveryRank(item TenantDirectoryItem) int {
-	score := item.DiscoveryPriority * 100
+	score := item.DiscoveryPriority * 80
+	score += discoveryBehaviorScore(item)
+	score += discoveryQualityScore(item)
 	if item.IsFeatured {
 		score += 40
 	}
@@ -1257,6 +1285,67 @@ func discoveryRank(item TenantDirectoryItem) int {
 	}
 	if item.StartingPrice > 0 && item.StartingPrice <= 100000 {
 		score += 5
+	}
+	return score
+}
+
+func shouldAutoFeature(item TenantDirectoryItem, entry TenantDirectoryItem) bool {
+	return entry.IsNew ||
+		entry.IsPromoted ||
+		item.ResourceCount >= 5 ||
+		(item.DiscoveryClicks30d >= 8 && item.DiscoveryCtr30d >= 4)
+}
+
+func shouldAutoPromote(item TenantDirectoryItem) bool {
+	return item.StartingPrice > 0 && item.ResourceCount >= 3 ||
+		(item.DiscoveryClicks30d >= 6 && item.DiscoveryCtr30d >= 3)
+}
+
+func discoveryBehaviorScore(item TenantDirectoryItem) int {
+	score := 0
+	if item.DiscoveryImpressions30d >= 25 {
+		score += 6
+	}
+	if item.DiscoveryClicks30d >= 5 {
+		score += 12
+	}
+	if item.DiscoveryClicks30d >= 10 {
+		score += 8
+	}
+	if item.DiscoveryCtr30d >= 2 {
+		score += 8
+	}
+	if item.DiscoveryCtr30d >= 5 {
+		score += 14
+	}
+	return score
+}
+
+func discoveryQualityScore(item TenantDirectoryItem) int {
+	score := 0
+	if strings.TrimSpace(item.FeaturedImageURL) != "" || strings.TrimSpace(item.BannerURL) != "" {
+		score += 6
+	}
+	if strings.TrimSpace(item.LogoURL) != "" {
+		score += 4
+	}
+	if len(item.DiscoveryTags) >= 2 {
+		score += 4
+	}
+	if len(item.DiscoveryBadges) >= 1 {
+		score += 4
+	}
+	if item.ResourceCount >= 3 {
+		score += 6
+	}
+	if item.ResourceCount >= 6 {
+		score += 6
+	}
+	if item.StartingPrice > 0 && item.StartingPrice <= 150000 {
+		score += 3
+	}
+	if closesLate(item.CloseTime) {
+		score += 3
 	}
 	return score
 }

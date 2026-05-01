@@ -184,6 +184,9 @@ func (r *Repository) ListPublicTenants(ctx context.Context) ([]TenantDirectoryIt
 			COALESCE(tenants.discovery_priority, 0) AS discovery_priority,
 			tenants.promo_starts_at,
 			tenants.promo_ends_at,
+			COALESCE(discovery_stats.impressions_30d, 0) AS discovery_impressions_30d,
+			COALESCE(discovery_stats.clicks_30d, 0) AS discovery_clicks_30d,
+			COALESCE(discovery_stats.ctr_30d, 0) AS discovery_ctr_30d,
 			COALESCE(resource_stats.resource_count, 0) AS resource_count,
 			COALESCE(price_stats.starting_price, 0) AS starting_price,
 			COALESCE(top_resource.name, '') AS top_resource_name,
@@ -196,6 +199,24 @@ func (r *Repository) ListPublicTenants(ctx context.Context) ([]TenantDirectoryIt
 			WHERE status != 'deleted'
 			GROUP BY tenant_id
 		) resource_stats ON resource_stats.tenant_id = tenants.id
+		LEFT JOIN (
+			SELECT
+				tenant_id,
+				COUNT(*) FILTER (WHERE event_type = 'impression' AND created_at >= NOW() - INTERVAL '30 days') AS impressions_30d,
+				COUNT(*) FILTER (WHERE event_type = 'click' AND created_at >= NOW() - INTERVAL '30 days') AS clicks_30d,
+				CASE
+					WHEN COUNT(*) FILTER (WHERE event_type = 'impression' AND created_at >= NOW() - INTERVAL '30 days') = 0 THEN 0
+					ELSE ROUND(
+						(
+							COUNT(*) FILTER (WHERE event_type = 'click' AND created_at >= NOW() - INTERVAL '30 days')::numeric
+							/ COUNT(*) FILTER (WHERE event_type = 'impression' AND created_at >= NOW() - INTERVAL '30 days')::numeric
+						) * 100,
+						2
+					)
+				END AS ctr_30d
+			FROM discovery_feed_events
+			GROUP BY tenant_id
+		) discovery_stats ON discovery_stats.tenant_id = tenants.id
 		LEFT JOIN (
 			SELECT r.tenant_id, MIN(ri.price) AS starting_price
 			FROM resources r
@@ -254,6 +275,9 @@ func (r *Repository) listPublicTenantsLegacy(ctx context.Context) ([]TenantDirec
 			0 AS discovery_priority,
 			NULL::timestamptz AS promo_starts_at,
 			NULL::timestamptz AS promo_ends_at,
+			0::bigint AS discovery_impressions_30d,
+			0::bigint AS discovery_clicks_30d,
+			0::numeric AS discovery_ctr_30d,
 			COALESCE(resource_stats.resource_count, 0) AS resource_count,
 			COALESCE(price_stats.starting_price, 0) AS starting_price,
 			COALESCE(top_resource.name, '') AS top_resource_name,
