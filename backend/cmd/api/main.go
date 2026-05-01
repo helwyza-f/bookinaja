@@ -142,16 +142,19 @@ func runMigration(db *sql.DB) {
 	for _, migrationPath := range migrationCandidates() {
 		m, migErr := migrate.NewWithDatabaseInstance(migrationPath, "postgres", driver)
 		if migErr != nil {
+			log.Printf("migration source failed for %s: %v", migrationPath, migErr)
 			lastErr = migErr
 			continue
 		}
 
 		if upErr := m.Up(); upErr != nil && upErr != migrate.ErrNoChange {
+			log.Printf("migration apply failed for %s: %v", migrationPath, upErr)
 			lastErr = upErr
 			continue
 		}
 
 		if verifyErr := verifyCoreTables(db); verifyErr != nil {
+			log.Printf("migration verify failed for %s: %v", migrationPath, verifyErr)
 			lastErr = verifyErr
 			continue
 		}
@@ -168,7 +171,7 @@ func migrationCandidates() []string {
 	if envPath := os.Getenv("MIGRATION_PATH"); envPath != "" {
 		rawCandidates = append(rawCandidates, envPath)
 	}
-	rawCandidates = append(rawCandidates, "migrations", "backend/migrations", "./backend/migrations", "../migrations")
+	rawCandidates = append(rawCandidates, "migrations", "backend/migrations", "./backend/migrations")
 
 	seen := map[string]bool{}
 	result := make([]string, 0, len(rawCandidates))
