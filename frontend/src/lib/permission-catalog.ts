@@ -255,7 +255,7 @@ export const RECOMMENDED_ROLE_PRESETS = [
   {
     name: "Frontdesk",
     summary:
-      "Untuk staff counter yang fokus menerima booking, konfirmasi jadwal, dan melayani customer datang.",
+      "Untuk staff frontdesk yang fokus menerima booking, konfirmasi jadwal, dan melayani customer datang.",
     permissions: [
       "bookings.read",
       "bookings.create",
@@ -280,9 +280,9 @@ export const RECOMMENDED_ROLE_PRESETS = [
     ],
   },
   {
-    name: "Operator Shift",
+    name: "Operator Operasional",
     summary:
-      "Untuk staff lantai yang memulai sesi, extend, mengakhiri sesi, dan menjaga resource tetap siap dipakai.",
+      "Untuk staff operasional yang memulai layanan aktif, extend, mengakhiri sesi, dan menjaga resource tetap siap dipakai.",
     permissions: [
       "bookings.read",
       "sessions.start",
@@ -296,9 +296,9 @@ export const RECOMMENDED_ROLE_PRESETS = [
     ],
   },
   {
-    name: "Supervisor Outlet",
+    name: "Supervisor Operasional",
     summary:
-      "Untuk PIC outlet yang mengawasi booking, POS, resource, F&B, pengeluaran, dan insight operasional harian.",
+      "Untuk PIC operasional yang mengawasi booking, POS, resource, katalog, pengeluaran, dan insight harian.",
     permissions: [
       "bookings.read",
       "bookings.create",
@@ -325,9 +325,9 @@ export const RECOMMENDED_ROLE_PRESETS = [
     ],
   },
   {
-    name: "Admin Outlet",
+    name: "Admin Operasional",
     summary:
-      "Delegasi tertinggi untuk pengelola outlet yang butuh akses hampir penuh ke operasional, katalog, dan insight.",
+      "Delegasi tertinggi untuk pengelola operasional yang butuh akses hampir penuh ke modul bisnis, katalog, dan insight.",
     permissions: [
       "bookings.read",
       "bookings.create",

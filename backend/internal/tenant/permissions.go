@@ -202,7 +202,7 @@ func defaultStaffRoles() []StaffRole {
 	return []StaffRole{
 		{
 			Name:        "Frontdesk",
-			Description: "Fokus menerima booking, konfirmasi jadwal, dan melayani customer yang datang di counter.",
+			Description: "Fokus menerima booking, konfirmasi jadwal, dan melayani customer yang datang di titik layanan.",
 			PermissionKeys: pq.StringArray{
 				PermissionBookingsRead,
 				PermissionBookingsCreate,
@@ -213,7 +213,7 @@ func defaultStaffRoles() []StaffRole {
 		},
 		{
 			Name:        "Kasir / POS",
-			Description: "Untuk staff yang pegang terminal POS, tambah order, checkout, pelunasan cash, dan pengiriman nota.",
+			Description: "Untuk staff yang memegang POS, menambah order, checkout, pelunasan cash, dan pengiriman nota.",
 			PermissionKeys: pq.StringArray{
 				PermissionBookingsRead,
 				PermissionPosRead,
@@ -228,8 +228,8 @@ func defaultStaffRoles() []StaffRole {
 			IsDefault: false,
 		},
 		{
-			Name:        "Operator Shift",
-			Description: "Menjalankan sesi di lapangan, memantau unit/resource, dan memastikan operasional berjalan rapi.",
+			Name:        "Operator Operasional",
+			Description: "Menjalankan sesi atau layanan aktif, memantau resource, dan memastikan operasional berjalan rapi.",
 			PermissionKeys: pq.StringArray{
 				PermissionBookingsRead,
 				PermissionSessionsStart,
@@ -244,8 +244,8 @@ func defaultStaffRoles() []StaffRole {
 			IsDefault: false,
 		},
 		{
-			Name:        "Supervisor Outlet",
-			Description: "PIC outlet yang memegang kontrol operasional harian termasuk booking, POS, resource, F&B, dan pengeluaran.",
+			Name:        "Supervisor Operasional",
+			Description: "PIC operasional harian yang mengawasi booking, POS, resource, katalog, dan pengeluaran tim.",
 			PermissionKeys: pq.StringArray{
 				PermissionBookingsRead,
 				PermissionBookingsCreate,
@@ -273,8 +273,8 @@ func defaultStaffRoles() []StaffRole {
 			IsDefault: false,
 		},
 		{
-			Name:        "Admin Outlet",
-			Description: "Level delegasi tertinggi untuk pengelola outlet yang perlu akses penuh ke modul operasional, katalog, dan analytics.",
+			Name:        "Admin Operasional",
+			Description: "Level delegasi tertinggi untuk pengelola operasional yang perlu akses hampir penuh ke modul bisnis, katalog, dan analytics.",
 			PermissionKeys: pq.StringArray{
 				PermissionBookingsRead,
 				PermissionBookingsCreate,

@@ -489,10 +489,10 @@ export default function StaffSettingsPage() {
           <div className="space-y-3">
             <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3 dark:border-blue-500/10 dark:bg-blue-950/10">
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
-                Preset Operasional Gaming / Rental
+                Preset Role Umum
               </div>
               <p className="mt-2 text-xs leading-5 text-slate-500">
-                Lima preset ini disusun dari tanggung jawab outlet yang paling umum. Owner tidak dipilih di sini karena owner selalu punya akses penuh dan berdiri di luar role staff.
+                Lima preset ini disusun dari tanggung jawab operasional yang umum dipakai lintas bisnis. Owner tidak dipilih di sini karena owner selalu punya akses penuh dan berdiri di luar role staff.
               </p>
               <div className="mt-3 space-y-3">
                 {RECOMMENDED_ROLE_PRESETS.map((preset) => (
