@@ -1,57 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ExternalLink, RefreshCw } from "lucide-react";
+import { ExternalLink, RefreshCw, Sparkles } from "lucide-react";
 import { BasicProfileSection } from "./sections/basic-profile-section";
 import { ContactLocationSection } from "./sections/contact-location-section";
-import { DiscoverySection } from "./sections/discovery-section";
 import { LandingContentSection } from "./sections/landing-content-section";
 import { MediaSection } from "./sections/media-section";
 import { OperationsSection } from "./sections/operations-section";
 import { SeoSection } from "./sections/seo-section";
-import type { TenantProfile } from "./sections/types";
-
-const defaultProfile: TenantProfile = {
-  name: "",
-  slug: "",
-  slogan: "",
-  tagline: "",
-  about_us: "",
-  features: [],
-  address: "",
-  open_time: "09:00",
-  close_time: "21:00",
-  primary_color: "#3b82f6",
-  logo_url: "",
-  banner_url: "",
-  instagram_url: "",
-  tiktok_url: "",
-  whatsapp_number: "",
-  map_iframe_url: "",
-  meta_title: "",
-  meta_description: "",
-  gallery: [],
-  discovery_headline: "",
-  discovery_subheadline: "",
-  discovery_tags: [],
-  discovery_badges: [],
-  promo_label: "",
-  featured_image_url: "",
-  highlight_copy: "",
-  discovery_featured: false,
-  discovery_promoted: false,
-  discovery_priority: 0,
-  promo_starts_at: null,
-  promo_ends_at: null,
-};
+import { defaultTenantProfile, type TenantProfile } from "./sections/types";
 
 export default function BusinessSettingsPage() {
-  const [profile, setProfile] = useState<TenantProfile>(defaultProfile);
+  const [profile, setProfile] = useState<TenantProfile>(defaultTenantProfile);
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
@@ -59,7 +25,7 @@ export default function BusinessSettingsPage() {
     setLoading(true);
     try {
       const res = await api.get("/admin/profile");
-      setProfile({ ...defaultProfile, ...res.data });
+      setProfile({ ...defaultTenantProfile, ...res.data });
     } catch {
       toast.error("Gagal memuat profil bisnis");
     } finally {
@@ -143,18 +109,7 @@ export default function BusinessSettingsPage() {
             label="Gallery"
             value={`${profile.gallery?.length || 0} foto`}
           />
-          <Summary
-            label="Discovery Tags"
-            value={`${profile.discovery_tags?.length || 0} tag`}
-          />
-          <Summary
-            label="Promo"
-            value={profile.discovery_promoted ? "Aktif" : "Normal"}
-          />
-          <Summary
-            label="Priority"
-            value={String(profile.discovery_priority || 0)}
-          />
+          <Summary label="Warna" value={profile.primary_color || "-"} />
         </div>
       </section>
 
@@ -182,14 +137,6 @@ export default function BusinessSettingsPage() {
             saving={savingKey === "media"}
             onSave={(patch) =>
               saveSection("media", patch, "Media bisnis disimpan")
-            }
-          />
-          <DiscoverySection
-            key={`discovery-${profile.discovery_headline}-${profile.discovery_subheadline}-${profile.promo_label}-${profile.featured_image_url}-${profile.highlight_copy}-${profile.discovery_tags?.join("|")}-${profile.discovery_badges?.join("|")}`}
-            profile={profile}
-            saving={savingKey === "discovery"}
-            onSave={(patch) =>
-              saveSection("discovery", patch, "Konten discovery disimpan")
             }
           />
           <ContactLocationSection
@@ -259,6 +206,24 @@ function PreviewCard({
         )}
       </div>
       <div className="p-4">
+        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-slate-800">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-[#1f4b49] text-white">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-[#1f4b49]">
+                Discovery Module
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Pengaturan marketplace, promo, ranking, dan kurasi feed customer sekarang punya modul terpisah agar profil bisnis tetap fokus pada identitas dan operasional inti.
+              </p>
+              <Button asChild size="sm" className="mt-3 h-9 rounded-xl bg-slate-950 text-white hover:bg-[#1f4b49]">
+                <Link href="/admin/settings/discovery">Buka Discovery & Marketplace</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
         <div className="flex items-start gap-3">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 dark:bg-white/5">
             {profile.logo_url ? (
@@ -287,21 +252,6 @@ function PreviewCard({
           </div>
         </div>
         <div className="mt-4 space-y-2 text-sm">
-          <Row label="Promo" value={profile.promo_label || "-"} />
-          <Row
-            label="Editorial"
-            value={
-              profile.discovery_featured
-                ? "Featured"
-                : profile.discovery_promoted
-                  ? "Promoted"
-                  : "Normal"
-            }
-          />
-          <Row
-            label="Priority"
-            value={String(profile.discovery_priority || 0)}
-          />
           <Row
             label="Warna"
             value={profile.primary_color || "-"}
@@ -313,14 +263,6 @@ function PreviewCard({
             value={profile.instagram_url ? "Terhubung" : "-"}
           />
           <Row label="Public URL" value={publicUrl || "-"} />
-          <Row
-            label="Tags"
-            value={
-              profile.discovery_tags?.length
-                ? profile.discovery_tags.slice(0, 3).join(", ")
-                : "-"
-            }
-          />
         </div>
       </div>
     </Card>

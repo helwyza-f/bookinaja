@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Megaphone,
   MonitorPlay,
+  Sparkles,
   Users,
   UsersRound,
   Banknote,
@@ -39,6 +40,12 @@ export const settingsNavItems: AdminNavItem[] = [
     href: "/admin/settings/bisnis",
     icon: BriefcaseBusiness,
     hint: "Brand, SEO, landing",
+  },
+  {
+    label: "Discovery & Marketplace",
+    href: "/admin/settings/discovery",
+    icon: Sparkles,
+    hint: "Feed, promo, ranking",
   },
   {
     label: "Manajemen Pegawai",

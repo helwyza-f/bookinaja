@@ -36,6 +36,40 @@ export type TenantProfile = {
   [key: string]: unknown;
 };
 
+export const defaultTenantProfile: TenantProfile = {
+  name: "",
+  slug: "",
+  slogan: "",
+  tagline: "",
+  about_us: "",
+  features: [],
+  address: "",
+  open_time: "09:00",
+  close_time: "21:00",
+  primary_color: "#3b82f6",
+  logo_url: "",
+  banner_url: "",
+  instagram_url: "",
+  tiktok_url: "",
+  whatsapp_number: "",
+  map_iframe_url: "",
+  meta_title: "",
+  meta_description: "",
+  gallery: [],
+  discovery_headline: "",
+  discovery_subheadline: "",
+  discovery_tags: [],
+  discovery_badges: [],
+  promo_label: "",
+  featured_image_url: "",
+  highlight_copy: "",
+  discovery_featured: false,
+  discovery_promoted: false,
+  discovery_priority: 0,
+  promo_starts_at: null,
+  promo_ends_at: null,
+};
+
 export type SectionProps = {
   profile: TenantProfile;
   saving: boolean;

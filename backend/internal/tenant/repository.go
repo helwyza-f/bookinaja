@@ -207,12 +207,85 @@ func (r *Repository) ListPublicTenants(ctx context.Context) ([]TenantDirectoryIt
 			ORDER BY tenant_id, created_at DESC, name ASC
 		) top_resource ON top_resource.tenant_id = tenants.id
 		ORDER BY discovery_priority DESC, created_at DESC, name ASC`)
-	if err == nil {
-		if raw, marshalErr := json.Marshal(items); marshalErr == nil {
-			_ = r.rdb.Set(ctx, cacheKey, raw, 30*time.Minute).Err()
+	if err != nil {
+		if isDiscoverySchemaError(err) {
+			items, err = r.listPublicTenantsLegacy(ctx)
+		}
+		if err != nil {
+			return nil, err
 		}
 	}
+	if raw, marshalErr := json.Marshal(items); marshalErr == nil {
+		_ = r.rdb.Set(ctx, cacheKey, raw, 30*time.Minute).Err()
+	}
+	return items, nil
+}
+
+func (r *Repository) listPublicTenantsLegacy(ctx context.Context) ([]TenantDirectoryItem, error) {
+	var items []TenantDirectoryItem
+	err := r.db.SelectContext(ctx, &items, `
+		SELECT
+			id, name, slug, business_category, business_type,
+			COALESCE(tagline, '') AS tagline,
+			COALESCE(slogan, '') AS slogan,
+			COALESCE(about_us, '') AS about_us,
+			COALESCE(primary_color, '#3b82f6') AS primary_color,
+			COALESCE(logo_url, '') AS logo_url,
+			COALESCE(banner_url, '') AS banner_url,
+			COALESCE(open_time, '09:00') AS open_time,
+			COALESCE(close_time, '22:00') AS close_time,
+			'' AS discovery_headline,
+			'' AS discovery_subheadline,
+			ARRAY[]::text[] AS discovery_tags,
+			ARRAY[]::text[] AS discovery_badges,
+			'' AS promo_label,
+			'' AS featured_image_url,
+			'' AS highlight_copy,
+			false AS discovery_featured,
+			false AS discovery_promoted,
+			0 AS discovery_priority,
+			NULL::timestamptz AS promo_starts_at,
+			NULL::timestamptz AS promo_ends_at,
+			COALESCE(resource_stats.resource_count, 0) AS resource_count,
+			COALESCE(price_stats.starting_price, 0) AS starting_price,
+			COALESCE(top_resource.name, '') AS top_resource_name,
+			COALESCE(top_resource.category, '') AS top_resource_type,
+			created_at
+		FROM tenants
+		LEFT JOIN (
+			SELECT tenant_id, COUNT(*) AS resource_count
+			FROM resources
+			WHERE status != 'deleted'
+			GROUP BY tenant_id
+		) resource_stats ON resource_stats.tenant_id = tenants.id
+		LEFT JOIN (
+			SELECT r.tenant_id, MIN(ri.price) AS starting_price
+			FROM resources r
+			JOIN resource_items ri ON ri.resource_id = r.id
+			WHERE r.status != 'deleted'
+			GROUP BY r.tenant_id
+		) price_stats ON price_stats.tenant_id = tenants.id
+		LEFT JOIN (
+			SELECT DISTINCT ON (tenant_id)
+				tenant_id, name, category
+			FROM resources
+			WHERE status != 'deleted'
+			ORDER BY tenant_id, created_at DESC, name ASC
+		) top_resource ON top_resource.tenant_id = tenants.id
+		ORDER BY created_at DESC, name ASC`)
 	return items, err
+}
+
+func isDiscoverySchemaError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "column") ||
+		strings.Contains(message, "discovery_") ||
+		strings.Contains(message, "featured_image_url") ||
+		strings.Contains(message, "promo_starts_at") ||
+		strings.Contains(message, "promo_ends_at")
 }
 
 func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) error {
