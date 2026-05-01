@@ -82,6 +82,9 @@ type POSControlHubProps = {
   session: POSSessionDetail;
   menuItems: FnBMenuItem[];
   onRefresh: (id: string) => Promise<void>;
+  canWriteBookings: boolean;
+  canManageFnb: boolean;
+  canUseReceiptActions: boolean;
   onClose?: () => void;
 };
 
@@ -89,6 +92,9 @@ export function POSControlHub({
   session,
   menuItems,
   onRefresh,
+  canWriteBookings,
+  canManageFnb,
+  canUseReceiptActions,
   onClose,
 }: POSControlHubProps) {
   const [fnbOpen, setFnbOpen] = useState(false);
@@ -104,11 +110,13 @@ export function POSControlHub({
   }, []);
 
   useEffect(() => {
+    if (!canUseReceiptActions) return;
+
     api
       .get("/admin/receipt-settings")
       .then((res) => setReceiptSettings(res.data || null))
       .catch(() => setReceiptSettings(null));
-  }, []);
+  }, [canUseReceiptActions]);
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
   const sessionStatus = String(session.status || "").toLowerCase();
@@ -118,7 +126,7 @@ export function POSControlHub({
     sessionStatus === "completed" &&
     (balanceDue > 0 || ["pending", "partial_paid", "unpaid", "failed", "expired"].includes(paymentStatus));
   const isSessionEditable = !isOutstanding && ["active", "ongoing"].includes(sessionStatus);
-  const canUseReceipt = isReceiptProEnabled(receiptSettings);
+  const canUseReceipt = canUseReceiptActions && isReceiptProEnabled(receiptSettings);
   const isPaymentSettled =
     paymentStatus === "settled" ||
     (paymentStatus === "paid" && Number(session.balance_due || 0) === 0);
@@ -278,10 +286,11 @@ export function POSControlHub({
         </div>
       </div>
 
-      {isSessionEditable ? (
+      {isSessionEditable && canWriteBookings ? (
         <div className="grid shrink-0 grid-cols-3 gap-2 border-b border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
           <button
-            onClick={() => setFnbOpen(true)}
+            onClick={() => canManageFnb && setFnbOpen(true)}
+            disabled={!canManageFnb}
             className="group flex h-14 flex-col items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-blue-300 hover:text-blue-600 dark:border-white/10 dark:bg-slate-950 dark:text-white"
           >
             <ShoppingCart className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
@@ -304,7 +313,9 @@ export function POSControlHub({
         </div>
       ) : (
         <div className="border-b border-slate-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-white/10 dark:bg-amber-950/20 dark:text-amber-200">
-          Sesi sudah selesai. Fokus berikutnya adalah pelunasan tagihan.
+          {canWriteBookings
+            ? "Sesi sudah selesai. Fokus berikutnya adalah pelunasan tagihan."
+            : "Akun ini hanya bisa melihat ringkasan sesi. Aksi POS dibatasi."}
         </div>
       )}
 
@@ -429,7 +440,7 @@ export function POSControlHub({
             <ChevronUp className="w-4 h-4 animate-bounce group-hover:scale-125 transition-transform" />
           </Button>
         </div>
-        {isPaymentSettled && (
+        {isPaymentSettled && canUseReceiptActions && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

@@ -40,6 +40,7 @@ import {
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { hasPermission } from "@/lib/admin-access";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -56,6 +57,11 @@ type BookingRow = {
   balance_due?: number;
   total_resource: number;
   total_fnb: number;
+};
+
+type AdminUser = {
+  role?: string;
+  permission_keys?: string[];
 };
 
 const isOperationallyActive = (booking: BookingRow) => {
@@ -97,11 +103,16 @@ export default function BookingsPage() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     new Date(),
   );
+  const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
 
   const fetchBookings = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/bookings`);
+      const [meRes, res] = await Promise.all([
+        api.get("/auth/me"),
+        api.get(`/bookings`),
+      ]);
+      setAdminUser(meRes.data?.user || null);
       setBookings(res.data || []);
     } catch {
       toast.error("Gagal mengambil data reservasi");
@@ -113,6 +124,8 @@ export default function BookingsPage() {
   useEffect(() => {
     fetchBookings();
   }, []);
+
+  const canWriteBookings = hasPermission(adminUser, "bookings.write");
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 1024px)");
@@ -264,7 +277,8 @@ export default function BookingsPage() {
               </div>
 
               <Button
-                onClick={() => router.push(`/admin/bookings/new`)}
+                onClick={() => canWriteBookings && router.push(`/admin/bookings/new`)}
+                disabled={!canWriteBookings}
                 className="h-12 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 sm:h-auto sm:min-h-full sm:min-w-[150px] md:px-5"
               >
                 <Plus size={16} strokeWidth={4} /> New Booking
@@ -558,7 +572,8 @@ export default function BookingsPage() {
             </p>
           </div>
           <Button
-            onClick={() => router.push("/admin/bookings/new")}
+            onClick={() => canWriteBookings && router.push("/admin/bookings/new")}
+            disabled={!canWriteBookings}
             className="rounded-xl bg-blue-600 text-white hover:bg-blue-700"
           >
             <Plus className="mr-2 h-4 w-4" />

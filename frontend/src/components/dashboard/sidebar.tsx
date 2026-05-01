@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { clearTenantSession } from "@/lib/tenant-session";
 import api from "@/lib/api";
+import { canAccessAdminRoute, hasPermission } from "@/lib/admin-access";
 import { Badge } from "../ui/badge";
 import { operationalNavItems, settingsNavItems } from "./admin-nav-config";
 
@@ -50,21 +51,6 @@ type SidebarUser = {
   permission_keys?: string[];
 };
 
-const permissionMap: Record<string, string[]> = {
-  "/admin/dashboard": ["bookings.read"],
-  "/admin/bookings": ["bookings.read"],
-  "/admin/pos": ["pos.manage"],
-  "/admin/resources": ["resources.manage"],
-  "/admin/fnb": ["fnb.manage"],
-  "/admin/expenses": ["expenses.manage"],
-  "/admin/customers": ["customers.read"],
-  "/admin/settings/bisnis": ["settings.business"],
-  "/admin/settings/staff": ["settings.business"],
-  "/admin/settings/crm": ["settings.crm"],
-  "/admin/settings/analytics": ["reports.view"],
-  "/admin/settings/billing": ["settings.business"],
-};
-
 export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   const pathname = usePathname();
   const params = useParams();
@@ -81,7 +67,15 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       .get("/auth/me")
       .then(async (res) => {
         if (!active) return;
-        setUserData(res.data.user);
+        const currentUser = res.data.user;
+        setUserData(currentUser);
+
+        if (currentUser?.role !== "owner") {
+          if (active) {
+            setTenantName(String(params.tenant || "HUB"));
+          }
+          return;
+        }
 
         try {
           const profileRes = await api.get("/admin/profile");
@@ -112,13 +106,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
     window.location.href = "/admin/login";
   };
 
-  const hasAccess = (href: string) => {
-    if (userData?.role === "owner") return true;
-    const required = permissionMap[href];
-    if (!required || required.length === 0) return true;
-    const perms = userData?.permission_keys || [];
-    return required.some((permission) => perms.includes(permission));
-  };
+  const hasAccess = (href: string) => canAccessAdminRoute(href, userData);
 
   return (
     <div className="relative flex h-full flex-col bg-white dark:bg-[#0a0a0a] font-sans border-r border-slate-200 dark:border-white/5 transition-colors duration-200">
@@ -328,6 +316,13 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                   <ShieldCheck className="h-3.5 w-3.5" />
                   {userData?.role === "owner" ? "Owner Console" : "Staff Console"}
                 </div>
+                {userData?.role !== "owner" && (
+                  <div className="text-[8px] font-bold uppercase tracking-[0.2em] text-slate-300">
+                    {hasPermission(userData, "bookings.read")
+                      ? "Operational access active"
+                      : "Limited operational access"}
+                  </div>
+                )}
               </div>
             </DropdownMenuLabel>
 

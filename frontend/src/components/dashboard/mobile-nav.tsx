@@ -4,13 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
 import { useTheme } from "next-themes";
-import {
-  Menu,
-  Moon,
-  Sun,
-  LogOut,
-  X,
-} from "lucide-react";
+import { Menu, Moon, Sun, LogOut, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +17,7 @@ import {
 } from "@/components/ui/sheet";
 import api from "@/lib/api";
 import { clearTenantSession } from "@/lib/tenant-session";
+import { canAccessAdminRoute } from "@/lib/admin-access";
 import {
   operationalNavItems,
   settingsNavItems,
@@ -40,6 +35,7 @@ type MobileUser = {
   name?: string;
   email?: string;
   role?: string;
+  permission_keys?: string[];
 };
 
 export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
@@ -59,7 +55,15 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
       .get("/auth/me")
       .then(async (res) => {
         if (!active) return;
-        setUserData(res.data.user);
+        const currentUser = res.data.user;
+        setUserData(currentUser);
+
+        if (currentUser?.role !== "owner") {
+          if (active) {
+            setTenantName(String(params.tenant || "HUB"));
+          }
+          return;
+        }
 
         try {
           const profileRes = await api.get("/admin/profile");
@@ -80,11 +84,15 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
   }, [params.tenant]);
 
   const items = useMemo<AdminNavItem[]>(() => {
-    if (mode === "settings") {
-      return settingsNavItems;
-    }
-    return operationalNavItems;
-  }, [mode]);
+    const source = mode === "settings" ? settingsNavItems : operationalNavItems;
+    return source.filter((item) => canAccessAdminRoute(item.href, userData));
+  }, [mode, userData]);
+
+  const settingsItems = useMemo(
+    () =>
+      settingsNavItems.filter((item) => canAccessAdminRoute(item.href, userData)),
+    [userData],
+  );
 
   const handleLogout = () => {
     clearTenantSession({ keepTenantSlug: true });
@@ -119,7 +127,8 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
                   {tenantName}
                 </SheetTitle>
                 <SheetDescription className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
-                  {userData?.name || "Admin"} · {String(userData?.role || "staff").toUpperCase()}
+                  {userData?.name || "Admin"} ·{" "}
+                  {String(userData?.role || "staff").toUpperCase()}
                 </SheetDescription>
               </div>
               <Button
@@ -155,9 +164,7 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
                   >
                     <item.icon className="h-4 w-4 shrink-0" />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium">
-                        {item.label}
-                      </div>
+                      <div className="truncate font-medium">{item.label}</div>
                       {item.hint ? (
                         <div
                           className={cn(
@@ -174,13 +181,15 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
               })}
             </nav>
 
-            {mode === "operational" ? (
+            {mode === "operational" &&
+            userData?.role === "owner" &&
+            settingsItems.length > 0 ? (
               <div className="mt-3 border-t border-slate-200 pt-3 dark:border-white/10">
                 <div className="mb-1 px-3 text-xs font-semibold text-slate-400">
                   Settings
                 </div>
                 <div className="space-y-1">
-                  {settingsNavItems.map((item) => {
+                  {settingsItems.map((item) => {
                     const active =
                       pathname === item.href || pathname.startsWith(`${item.href}/`);
 

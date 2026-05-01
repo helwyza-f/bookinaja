@@ -27,6 +27,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Skeleton } from "@/components/ui/skeleton";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { hasPermission, type AdminSessionUser } from "@/lib/admin-access";
 import {
   ExpenseDialog,
   type ExpenseRecord,
@@ -77,6 +78,8 @@ export default function ExpensesPage() {
   const [editingExpense, setEditingExpense] = useState<ExpenseRecord | null>(
     null,
   );
+  const [adminUser, setAdminUser] = useState<AdminSessionUser | null>(null);
+  const canManageExpenses = hasPermission(adminUser, "expenses.manage");
 
   const formatIDR = (value: number) =>
     new Intl.NumberFormat("id-ID").format(value || 0);
@@ -90,7 +93,8 @@ export default function ExpensesPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [expensesRes, summaryRes] = await Promise.all([
+      const [meRes, expensesRes, summaryRes] = await Promise.all([
+        api.get("/auth/me"),
         api.get("/expenses", {
           params: {
             limit: 100,
@@ -108,6 +112,7 @@ export default function ExpensesPage() {
         }),
       ]);
 
+      setAdminUser(meRes.data?.user || null);
       setItems(Array.isArray(expensesRes.data) ? expensesRes.data : []);
       setSummary(summaryRes.data || { total: 0, entries: 0 });
     } catch {
@@ -166,11 +171,13 @@ export default function ExpensesPage() {
   };
 
   const openCreate = () => {
+    if (!canManageExpenses) return;
     setEditingExpense(null);
     setOpen(true);
   };
 
   const openEdit = (expense: ExpenseRecord) => {
+    if (!canManageExpenses) return;
     setEditingExpense(expense);
     setOpen(true);
   };
@@ -244,6 +251,7 @@ export default function ExpensesPage() {
 
           <Button
             onClick={openCreate}
+            disabled={!canManageExpenses}
             className="col-span-2 h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm gap-2 transition-all hover:bg-blue-700 active:scale-95 sm:col-span-1 sm:w-auto"
           >
             <Plus size={15} /> Add Expense
@@ -366,6 +374,7 @@ export default function ExpensesPage() {
                       openEdit(expense);
                     }}
                     variant="outline"
+                    disabled={!canManageExpenses}
                     className="h-8 flex-1 rounded-xl border-slate-200 px-3 text-xs font-semibold dark:border-white/10"
                   >
                     <PencilLine className="mr-1.5 h-3.5 w-3.5" />
@@ -378,6 +387,7 @@ export default function ExpensesPage() {
                       void handleDelete(expense);
                     }}
                     variant="ghost"
+                    disabled={!canManageExpenses}
                     className="h-8 rounded-2xl px-3 text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -447,6 +457,7 @@ export default function ExpensesPage() {
                             openEdit(expense);
                           }}
                           variant="outline"
+                          disabled={!canManageExpenses}
                           size="icon"
                           className="h-9 w-9 rounded-xl border-slate-200 dark:border-white/10"
                         >
@@ -459,6 +470,7 @@ export default function ExpensesPage() {
                             void handleDelete(expense);
                           }}
                           variant="ghost"
+                          disabled={!canManageExpenses}
                           size="icon"
                           className="h-9 w-9 rounded-xl text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
                         >

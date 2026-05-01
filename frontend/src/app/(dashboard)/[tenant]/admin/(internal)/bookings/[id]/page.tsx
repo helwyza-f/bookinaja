@@ -36,6 +36,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { BookingDetailSkeleton } from "@/components/dashboard/booking-detail-skeleton";
+import { hasPermission, isOwner, type AdminSessionUser } from "@/lib/admin-access";
 import {
   isReceiptProEnabled,
   printReceiptBluetooth,
@@ -99,6 +100,7 @@ export default function BookingDetailPage() {
   const [midtransReady, setMidtransReady] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings | null>(null);
+  const [adminUser, setAdminUser] = useState<AdminSessionUser | null>(null);
 
   const fetchDetail = useCallback(async () => {
     try {
@@ -119,10 +121,19 @@ export default function BookingDetailPage() {
 
   useEffect(() => {
     api
+      .get("/auth/me")
+      .then((res) => setAdminUser(res.data?.user || null))
+      .catch(() => setAdminUser(null));
+  }, []);
+
+  useEffect(() => {
+    if (!isOwner(adminUser)) return;
+
+    api
       .get("/admin/receipt-settings")
       .then((res) => setReceiptSettings(res.data || null))
       .catch(() => setReceiptSettings(null));
-  }, []);
+  }, [adminUser]);
 
   useEffect(() => {
     if (window.snap) setMidtransReady(true);
@@ -204,6 +215,7 @@ export default function BookingDetailPage() {
   const canSettle = status === "completed" && !isPaymentSettled && Number(booking?.balance_due || 0) > 0;
   const isFinal = status === "completed" || status === "cancelled";
   const canUseReceipt = isReceiptProEnabled(receiptSettings);
+  const canWriteBookings = hasPermission(adminUser, "bookings.write");
   const nextActionHint = !hasPaidDp
     ? "DP belum tercatat. Sesi belum bisa dimulai."
     : status === "pending"
@@ -373,31 +385,31 @@ export default function BookingDetailPage() {
             </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {canConfirm && (
-                <Button onClick={() => handleUpdateStatus("confirmed")} disabled={updating} variant="outline" className="h-10 rounded-xl">
+                <Button onClick={() => handleUpdateStatus("confirmed")} disabled={updating || !canWriteBookings} variant="outline" className="h-10 rounded-xl">
                   Konfirmasi
                 </Button>
               )}
               {(status === "active") && (
-                <Button onClick={() => router.push(`/admin/pos?active=${booking.id}`)} variant="outline" className="h-10 rounded-xl">
+                <Button onClick={() => router.push(`/admin/pos?active=${booking.id}`)} disabled={!canWriteBookings} variant="outline" className="h-10 rounded-xl">
                   <Zap className="mr-2 h-4 w-4" /> POS
                 </Button>
               )}
               {(status === "pending" || status === "confirmed") && (
-                <Button onClick={() => handleUpdateStatus("active")} disabled={updating || !canStart} className="h-10 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700">
+                <Button onClick={() => handleUpdateStatus("active")} disabled={updating || !canStart || !canWriteBookings} className="h-10 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700">
                   Mulai Sesi
                 </Button>
               )}
               {canComplete && (
-                <Button onClick={() => handleUpdateStatus("completed")} disabled={updating} className="h-10 rounded-xl bg-slate-950 text-white hover:bg-slate-800">
+                <Button onClick={() => handleUpdateStatus("completed")} disabled={updating || !canWriteBookings} className="h-10 rounded-xl bg-slate-950 text-white hover:bg-slate-800">
                   Akhiri Sesi
                 </Button>
               )}
               {canSettle && (
-                <Button onClick={() => setPayOpen((prev) => !prev)} disabled={updating} className="h-10 rounded-xl bg-blue-600 text-white hover:bg-blue-700">
+                <Button onClick={() => setPayOpen((prev) => !prev)} disabled={updating || !canWriteBookings} className="h-10 rounded-xl bg-blue-600 text-white hover:bg-blue-700">
                   <CreditCard className="mr-2 h-4 w-4" /> Pelunasan
                 </Button>
               )}
-              {isPaymentSettled && (
+              {isPaymentSettled && canWriteBookings && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="h-10 rounded-xl">
@@ -423,7 +435,7 @@ export default function BookingDetailPage() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
-              {!isFinal && (
+              {!isFinal && canWriteBookings && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="h-10 rounded-xl">
@@ -440,7 +452,7 @@ export default function BookingDetailPage() {
             </div>
           </div>
 
-          {canSettle && payOpen && (
+          {canSettle && payOpen && canWriteBookings && (
             <div className="relative">
                 <div className="absolute right-0 mt-3 w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-white/10 dark:bg-slate-900 sm:w-80">
                   <div className="space-y-3">

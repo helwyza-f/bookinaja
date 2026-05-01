@@ -12,6 +12,12 @@ import {
   isTenantAuthError,
   syncTenantCookies,
 } from "@/lib/tenant-session";
+import {
+  canAccessAdminRoute,
+  getFirstAccessibleAdminPath,
+  normalizeAdminPath,
+  type AdminSessionUser,
+} from "@/lib/admin-access";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function DashboardInternalLayout({
@@ -23,6 +29,7 @@ export default function DashboardInternalLayout({
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [sessionUser, setSessionUser] = useState<AdminSessionUser | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -35,6 +42,16 @@ export default function DashboardInternalLayout({
           // Sinkronkan data tenant ke cookie untuk interoperabilitas header API
           const userData = res.data.user;
           syncTenantCookies(null, userData.tenant_id);
+          setSessionUser(userData);
+
+          if (!canAccessAdminRoute(pathname, userData)) {
+            router.replace(
+              normalizeAdminPath(pathname) === "/admin/dashboard"
+                ? getFirstAccessibleAdminPath(userData)
+                : "/admin/forbidden",
+            );
+            return;
+          }
 
           setCheckingSession(false);
         }
@@ -55,7 +72,18 @@ export default function DashboardInternalLayout({
     return () => {
       active = false;
     };
-  }, [router]);
+  }, [pathname, router]);
+
+  useEffect(() => {
+    if (!sessionUser || checkingSession) return;
+    if (!canAccessAdminRoute(pathname, sessionUser)) {
+      router.replace(
+        normalizeAdminPath(pathname) === "/admin/dashboard"
+          ? getFirstAccessibleAdminPath(sessionUser)
+          : "/admin/forbidden",
+      );
+    }
+  }, [checkingSession, pathname, router, sessionUser]);
 
   if (checkingSession) {
     return <DashboardLayoutSkeleton isCollapsed={isCollapsed} />;

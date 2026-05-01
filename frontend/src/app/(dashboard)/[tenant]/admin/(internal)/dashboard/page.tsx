@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { hasPermission } from "@/lib/admin-access";
 import { toast } from "sonner";
 
 type ResourceRow = {
@@ -75,6 +76,7 @@ type SubscriptionRow = {
 type AppUser = {
   role?: string;
   name?: string;
+  permission_keys?: string[];
 };
 
 const normalizeBookings = (payload: unknown): BookingRow[] => {
@@ -112,6 +114,7 @@ const isSameDay = (date: string | undefined, target: Date) => {
 
 export default function DashboardPage() {
   const [role, setRole] = useState<string>("staff");
+  const [permissions, setPermissions] = useState<string[]>([]);
   const [resources, setResources] = useState<ResourceRow[]>([]);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [bookings, setBookings] = useState<BookingRow[]>([]);
@@ -124,6 +127,16 @@ export default function DashboardPage() {
   const [lastSyncAt, setLastSyncAt] = useState<string>("");
 
   const ownerOnly = role === "owner";
+  const canReadBookings =
+    ownerOnly || hasPermission({ role, permission_keys: permissions }, "bookings.read");
+  const canManageResources =
+    ownerOnly || hasPermission({ role, permission_keys: permissions }, "resources.manage");
+  const canReadCustomers =
+    ownerOnly || hasPermission({ role, permission_keys: permissions }, "customers.read");
+  const canManageExpenses =
+    ownerOnly || hasPermission({ role, permission_keys: permissions }, "expenses.manage");
+  const canManagePos =
+    ownerOnly || hasPermission({ role, permission_keys: permissions }, "pos.manage");
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
@@ -133,19 +146,41 @@ export default function DashboardPage() {
       const currentRole = String(
         meRes.data?.user?.role || "staff",
       ).toLowerCase();
+      const currentPermissions = meRes.data?.user?.permission_keys || [];
       setRole(currentRole);
+      setPermissions(currentPermissions);
 
-      const commonRequests = await Promise.all([
-        api.get("/resources-all"),
-        api.get("/bookings/pos/active"),
-        api.get("/bookings"),
-        api.get("/customers"),
-      ]);
+      const scope = { role: currentRole, permission_keys: currentPermissions };
+      const allowBookings = hasPermission(scope, "bookings.read");
+      const allowResources = hasPermission(scope, "resources.manage");
+      const allowCustomers = hasPermission(scope, "customers.read");
 
-      setResources(commonRequests[0].data?.resources || []);
-      setSessions(commonRequests[1].data || []);
-      setBookings(normalizeBookings(commonRequests[2].data));
-      setCustomersCount((commonRequests[3].data || []).length);
+      const [resourcesRes, sessionsRes, bookingsRes, customersRes] =
+        await Promise.allSettled([
+          allowResources ? api.get("/resources-all") : Promise.resolve(null),
+          allowBookings ? api.get("/bookings/pos/active") : Promise.resolve(null),
+          allowBookings ? api.get("/bookings") : Promise.resolve(null),
+          allowCustomers ? api.get("/customers") : Promise.resolve(null),
+        ]);
+
+      setResources(
+        resourcesRes.status === "fulfilled"
+          ? resourcesRes.value?.data?.resources || []
+          : [],
+      );
+      setSessions(
+        sessionsRes.status === "fulfilled" ? sessionsRes.value?.data || [] : [],
+      );
+      setBookings(
+        bookingsRes.status === "fulfilled"
+          ? normalizeBookings(bookingsRes.value?.data)
+          : [],
+      );
+      setCustomersCount(
+        customersRes.status === "fulfilled"
+          ? (customersRes.value?.data || []).length
+          : 0,
+      );
 
       if (currentRole === "owner") {
         const [ordersRes, subscriptionRes] = await Promise.all([
@@ -354,54 +389,78 @@ export default function DashboardPage() {
         },
       ]
     : [
-        {
-          href: "/admin/bookings",
-          label: "Bookings",
-          icon: CalendarClock,
-        },
-        {
-          href: "/admin/expenses",
-          label: "Expenses",
-          icon: Banknote,
-        },
-        {
-          href: "/admin/pos",
-          label: "Quick POS",
-          icon: Sparkles,
-        },
-      ];
+        canReadBookings
+          ? {
+              href: "/admin/bookings",
+              label: "Bookings",
+              icon: CalendarClock,
+            }
+          : null,
+        canManageExpenses
+          ? {
+              href: "/admin/expenses",
+              label: "Expenses",
+              icon: Banknote,
+            }
+          : null,
+        canManagePos
+          ? {
+              href: "/admin/pos",
+              label: "Quick POS",
+              icon: Sparkles,
+            }
+          : null,
+      ].filter(Boolean) as {
+        href: string;
+        label: string;
+        icon: LucideIcon;
+      }[];
 
   const cardSpecs = useMemo(() => {
     const base = [
-      {
-        label: "Today Bookings",
-        value: metrics.todayBookings.toString(),
-        hint: "Booking masuk hari ini",
-        icon: CalendarClock,
-        tone: "bg-emerald-500 text-white",
-      },
-      {
-        label: "Active Sessions",
-        value: metrics.activeSessions.toString(),
-        hint: "Live now",
-        icon: Clock3,
-        tone: "bg-blue-600 text-white",
-      },
-      {
-        label: "Customers",
-        value: customersCount.toString(),
-        hint: "Database terkini",
-        icon: Users,
-        tone: "bg-white text-slate-950 dark:bg-slate-900 dark:text-white",
-      },
-      {
-        label: "Resource Pool",
-        value: String(metrics.totalResources),
-        hint: "Total resource terdaftar",
-        icon: Monitor,
-        tone: "bg-slate-50 text-slate-950 dark:bg-slate-800 dark:text-white",
-      },
-    ];
+      canReadBookings
+        ? {
+            label: "Today Bookings",
+            value: metrics.todayBookings.toString(),
+            hint: "Booking masuk hari ini",
+            icon: CalendarClock,
+            tone: "bg-emerald-500 text-white",
+          }
+        : null,
+      canReadBookings
+        ? {
+            label: "Active Sessions",
+            value: metrics.activeSessions.toString(),
+            hint: "Live now",
+            icon: Clock3,
+            tone: "bg-blue-600 text-white",
+          }
+        : null,
+      canReadCustomers
+        ? {
+            label: "Customers",
+            value: customersCount.toString(),
+            hint: "Database terkini",
+            icon: Users,
+            tone: "bg-white text-slate-950 dark:bg-slate-900 dark:text-white",
+          }
+        : null,
+      canManageResources
+        ? {
+            label: "Resource Pool",
+            value: String(metrics.totalResources),
+            hint: "Total resource terdaftar",
+            icon: Monitor,
+            tone: "bg-slate-50 text-slate-950 dark:bg-slate-800 dark:text-white",
+          }
+        : null,
+    ].filter(Boolean) as {
+      label: string;
+      value: string;
+      hint: string;
+      icon: LucideIcon;
+      tone: string;
+    }[];
 
     if (ownerOnly) {
       base.unshift({
@@ -414,7 +473,14 @@ export default function DashboardPage() {
     }
 
     return base;
-  }, [customersCount, metrics, ownerOnly]);
+  }, [
+    canManageResources,
+    canReadBookings,
+    canReadCustomers,
+    customersCount,
+    metrics,
+    ownerOnly,
+  ]);
 
   return (
     <div className="space-y-4 pt-5 pb-20 px-3 font-plus-jakarta  md:space-y-5 md:px-4">
@@ -519,6 +585,10 @@ export default function DashboardPage() {
                 <Skeleton className="h-24 rounded-xl bg-slate-100 dark:bg-white/5" />
                 <Skeleton className="h-24 rounded-xl bg-slate-100 dark:bg-white/5" />
               </>
+            ) : !canManageResources ? (
+              <div className="rounded-xl border border-dashed border-slate-200 p-5 text-center text-sm font-semibold text-slate-400 dark:border-white/5 sm:col-span-2 lg:col-span-3">
+                Akses resource belum diberikan untuk akun ini.
+              </div>
             ) : resourceStats.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 p-5 text-center font-semibold tracking-widest text-slate-400 dark:border-white/5 sm:col-span-2 lg:col-span-3">
                 Belum ada resource
@@ -595,6 +665,10 @@ export default function DashboardPage() {
                 <Skeleton className="h-16 rounded-xl bg-slate-100 dark:bg-white/5" />
                 <Skeleton className="h-16 rounded-xl bg-slate-100 dark:bg-white/5" />
               </>
+            ) : !canReadBookings ? (
+              <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm font-semibold text-slate-400 dark:border-white/5">
+                Akses booking belum diberikan untuk akun ini.
+              </div>
             ) : topBookings.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm font-semibold tracking-widest text-slate-400 dark:border-white/5">
                 Belum ada booking
@@ -785,6 +859,11 @@ export default function DashboardPage() {
             yang bersifat sensitif seperti revenue trend dan snapshot finansial
             khusus owner tetap disembunyikan.
           </p>
+          {quickActions.length === 0 && (
+            <p className="mt-2 max-w-2xl text-xs font-medium text-slate-400 dark:text-slate-500">
+              Saat ini akun ini belum memiliki modul operasional yang bisa dibuka.
+            </p>
+          )}
         </Card>
       )}
     </div>
