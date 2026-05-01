@@ -67,18 +67,18 @@ export const getDiscoveryCategoryLabel = (tenant: DiscoveryTenant) =>
   tenant.business_category || tenant.business_type || "Bisnis";
 
 export const bookinajaDiscoveryTheme = {
-  pageBg: "bg-[#f5efe5]",
+  pageBg: "bg-slate-50",
   pageGlow:
-    "bg-[radial-gradient(circle_at_top_left,_rgba(31,75,73,0.16),_transparent_30%),radial-gradient(circle_at_top_right,_rgba(212,175,122,0.24),_transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.55),transparent)]",
+    "bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.16),_transparent_30%),radial-gradient(circle_at_top_right,_rgba(96,165,250,0.24),_transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.55),transparent)]",
   heroBg:
-    "bg-[linear-gradient(135deg,#0d1f27_0%,#1f4b49_48%,#d7b17a_100%)]",
+    "bg-[linear-gradient(135deg,#0f1f4a_0%,#1d4ed8_52%,#60a5fa_100%)]",
   heroBorder: "border-white/60",
-  accentText: "text-[#1f4b49]",
-  accentSoft: "bg-[#ecdfca] text-[#6b4e2e]",
-  accentStrong: "bg-[#1f4b49] text-white",
-  cardBorder: "border-[#eadfce]",
-  cardBg: "bg-[#fffaf3]",
-  mutedText: "text-[#6d6b67]",
+  accentText: "text-blue-600",
+  accentSoft: "bg-blue-50 text-blue-700",
+  accentStrong: "bg-blue-600 text-white",
+  cardBorder: "border-blue-100",
+  cardBg: "bg-white",
+  mutedText: "text-slate-500",
 };
 
 export const scoreDiscoveryTenant = (tenant: DiscoveryTenant, query = "") => {

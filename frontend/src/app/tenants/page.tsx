@@ -195,7 +195,7 @@ export default function TenantsDirectoryPage() {
                   "whitespace-nowrap rounded-2xl px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] transition-all",
                   activeCategory === category
                     ? bookinajaDiscoveryTheme.accentStrong
-                    : "bg-[#f3ebdf] text-[#7b7368] hover:bg-[#eadcc6]",
+                    : "bg-blue-50 text-slate-500 hover:bg-blue-100",
                 )}
               >
                 {category}
@@ -274,13 +274,13 @@ export default function TenantsDirectoryPage() {
 
             {explorerGrid.length === 0 ? (
               <section className="rounded-[2rem] border border-dashed border-[#d7c7b2] bg-white/75 p-10 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#f3ebdf]">
-                  <Compass className="h-8 w-8 text-[#8c7f70]" />
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-50">
+                  <Compass className="h-8 w-8 text-blue-600" />
                 </div>
                 <h3 className="mt-5 text-2xl font-black uppercase tracking-tight">
                   Belum ada yang cocok
                 </h3>
-                <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-[#736b61]">
+                <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-slate-500">
                   Coba kata kunci lain atau ganti kategori. Discovery marketplace ini dirancang supaya customer tetap bisa menemukan jalur baru, bukan mentok di satu hasil.
                 </p>
               </section>
@@ -374,7 +374,7 @@ function FeatureSpotlightCard({
               : "linear-gradient(135deg, rgba(13,31,39,0.94), rgba(31,75,73,0.65))",
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-tr from-black/75 via-black/45 to-[#d7b17a]/20" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-black/75 via-black/45 to-blue-400/20" />
         <div className="relative z-10 flex min-h-[420px] flex-col justify-between p-5 md:p-7">
           <div className="flex items-center justify-between gap-3">
             <Badge className="rounded-full border-none bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white">
@@ -518,7 +518,7 @@ function CompactDiscoveryCard({
             ))}
           </div>
 
-          <div className="mt-4 grid gap-2 rounded-2xl bg-white/80 p-3 text-[11px] font-medium text-[#7b7368] ring-1 ring-[#efe3d4]">
+          <div className="mt-4 grid gap-2 rounded-2xl bg-white/80 p-3 text-[11px] font-medium text-slate-500 ring-1 ring-blue-100">
             <div className="flex items-center justify-between">
               <span>Mulai</span>
               <span className="font-semibold text-slate-950">

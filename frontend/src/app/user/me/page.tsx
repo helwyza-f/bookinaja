@@ -282,7 +282,7 @@ export default function UserDashboardPage() {
                   "whitespace-nowrap rounded-2xl px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] transition-all",
                   activeCategory === category
                     ? bookinajaDiscoveryTheme.accentStrong
-                    : "bg-[#f3ebdf] text-[#7b7368] hover:bg-[#eadcc6]",
+                    : "bg-blue-50 text-slate-500 hover:bg-blue-100",
                 )}
               >
                 {category}
@@ -363,7 +363,7 @@ export default function UserDashboardPage() {
             <div className="rounded-[1.8rem] border border-dashed border-[#d7c7b2] bg-white/80 p-8 text-center">
               <Ticket className="mx-auto h-8 w-8 text-[#9a8f82]" />
               <h3 className="mt-4 text-xl font-black uppercase tracking-tight">Belum ada booking</h3>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-7 text-[#736b61]">
+              <p className="mx-auto mt-2 max-w-md text-sm leading-7 text-slate-500">
                 Mulai dari marketplace discovery untuk menemukan tempat pertama yang ingin kamu coba.
               </p>
               <Button asChild className={cn("mt-5 rounded-2xl", bookinajaDiscoveryTheme.accentStrong)}>
@@ -457,7 +457,7 @@ function DiscoverHeroCard({
               : "linear-gradient(135deg, rgba(13,31,39,0.95), rgba(31,75,73,0.64))",
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-tr from-black/75 via-black/45 to-[#d7b17a]/18" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-black/75 via-black/45 to-blue-400/18" />
         <div className="relative z-10 flex min-h-[380px] flex-col justify-between p-5 md:p-7">
           <div className="flex items-center justify-between gap-3">
             <Badge className="rounded-full border-none bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white">
@@ -520,7 +520,7 @@ function DiscoverHeroCard({
 
 function BookingSnapshotCard({ bookings }: { bookings: BookingItem[] }) {
   return (
-    <Card className="rounded-[1.8rem] border-[#eadfce] bg-[#fffaf3] shadow-[0_18px_45px_rgba(15,23,42,0.07)]">
+    <Card className="rounded-[1.8rem] border-blue-100 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.07)]">
       <CardContent className="p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -563,7 +563,7 @@ function BookingSnapshotCard({ bookings }: { bookings: BookingItem[] }) {
             </div>
           ))}
           {bookings.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[#d7c7b2] bg-white/70 p-4 text-sm text-[#736b61]">
+            <div className="rounded-2xl border border-dashed border-blue-100 bg-white/70 p-4 text-sm text-slate-500">
               Belum ada booking aktif. Discovery feed di samping membantu customer tidak berhenti hanya karena belum punya reservasi berjalan.
             </div>
           ) : null}
@@ -581,7 +581,7 @@ function LoyaltyCard({
   pointActivity: PointEvent[];
 }) {
   return (
-    <Card className="rounded-[1.8rem] border-[#eadfce] bg-[#fffaf3] shadow-[0_18px_45px_rgba(15,23,42,0.07)]">
+    <Card className="rounded-[1.8rem] border-blue-100 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.07)]">
       <CardContent className="p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -592,7 +592,7 @@ function LoyaltyCard({
               Points lintas tenant
             </h3>
           </div>
-          <div className="rounded-2xl bg-[#1f4b49] px-3 py-2 text-right text-white">
+          <div className="rounded-2xl bg-blue-600 px-3 py-2 text-right text-white">
             <div className="text-[10px] font-black uppercase tracking-[0.16em]">Total</div>
             <div className="mt-1 flex items-center gap-2 text-lg font-black">
               <Wallet className="h-4 w-4" />
@@ -607,7 +607,7 @@ function LoyaltyCard({
                 <div className="truncate text-sm font-bold text-slate-950">
                   {event.tenant_name || event.description || "Bookinaja"}
                 </div>
-                <div className="mt-1 text-xs text-[#736b61]">
+                <div className="mt-1 text-xs text-slate-500">
                   {new Date(event.created_at).toLocaleDateString("id-ID", {
                     day: "numeric",
                     month: "short",
@@ -615,11 +615,11 @@ function LoyaltyCard({
                   })}
                 </div>
               </div>
-              <div className="text-sm font-black text-[#1f4b49]">+{event.points}</div>
+              <div className="text-sm font-black text-blue-600">+{event.points}</div>
             </div>
           ))}
           {pointActivity.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[#d7c7b2] bg-white/70 p-4 text-sm text-[#736b61]">
+            <div className="rounded-2xl border border-dashed border-blue-100 bg-white/70 p-4 text-sm text-slate-500">
               Aktivitas loyalty akan muncul setelah booking dan pembayaran mulai berjalan.
             </div>
           ) : null}
@@ -645,7 +645,7 @@ function CustomerDiscoveryCard({
   }, [onVisible]);
 
   return (
-    <Card className="group h-full overflow-hidden rounded-[1.8rem] border-[#eadfce] bg-[#fffaf3] shadow-[0_18px_45px_rgba(15,23,42,0.07)] transition-all hover:-translate-y-1 hover:shadow-[0_24px_52px_rgba(15,23,42,0.10)]">
+    <Card className="group h-full overflow-hidden rounded-[1.8rem] border-blue-100 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.07)] transition-all hover:-translate-y-1 hover:shadow-[0_24px_52px_rgba(15,23,42,0.10)]">
       <CardContent className="flex h-full flex-col p-0">
         <div
           className="h-40 w-full bg-cover bg-center"
@@ -657,10 +657,10 @@ function CustomerDiscoveryCard({
         />
         <div className="flex flex-1 flex-col p-4">
           <div className="flex items-start justify-between gap-3">
-            <div className="rounded-full bg-[#ecdfca] px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#6b4e2e]">
+            <div className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-blue-700">
               {tenant.promo_label || "Discovery Pick"}
             </div>
-            <div className="text-[11px] font-semibold text-[#7b7368]">
+            <div className="text-[11px] font-semibold text-slate-500">
               {tenant.discovery_ctr_30d && tenant.discovery_ctr_30d > 0
                 ? `${tenant.discovery_ctr_30d}% CTR`
                 : formatStartingPrice(tenant.starting_price)}
@@ -716,7 +716,7 @@ function CustomerDiscoveryCard({
 
 function BookingJourneyCard({ booking }: { booking: BookingItem }) {
   return (
-    <Card className="rounded-[1.8rem] border-[#eadfce] bg-[#fffaf3] shadow-[0_18px_45px_rgba(15,23,42,0.07)]">
+    <Card className="rounded-[1.8rem] border-blue-100 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.07)]">
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -727,7 +727,7 @@ function BookingJourneyCard({ booking }: { booking: BookingItem }) {
               {booking.resource || "Booking"}
             </h3>
           </div>
-          <Badge className="rounded-full border-none bg-[#ecdfca] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#6b4e2e]">
+          <Badge className="rounded-full border-none bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-blue-700">
             {booking.status || "history"}
           </Badge>
         </div>
@@ -764,7 +764,7 @@ function EmptyDiscoveryState() {
     <div className="rounded-[1.8rem] border border-dashed border-[#d7c7b2] bg-white/80 p-8 text-center">
       <Compass className="mx-auto h-8 w-8 text-[#9a8f82]" />
       <h3 className="mt-4 text-xl font-black uppercase tracking-tight">Belum ada rekomendasi yang cocok</h3>
-      <p className="mx-auto mt-2 max-w-md text-sm leading-7 text-[#736b61]">
+      <p className="mx-auto mt-2 max-w-md text-sm leading-7 text-slate-500">
         Coba kata kunci lain atau ganti kategori. Tujuan customer hub ini adalah membantu kamu menemukan sesuatu yang baru, bukan cuma membuka halaman akun.
       </p>
     </div>
