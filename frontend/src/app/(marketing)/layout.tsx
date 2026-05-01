@@ -28,11 +28,10 @@ export default function MarketingLayout({
   }, []);
 
   const navLinks = [
-    { name: "Tenants", href: "/tenants" },
-    { name: "About", href: "/documentation" },
+    { name: "Home", href: "/" },
     { name: "Demo", href: "/demos" },
     { name: "Pricing", href: "/pricing" },
-    { name: "FAQ", href: "/faq" },
+    { name: "Jelajahi Bisnis", href: "/tenants" },
   ];
 
   return (

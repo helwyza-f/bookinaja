@@ -149,20 +149,23 @@ export default function UserLoginClient() {
   };
 
   const tabBase =
-    "flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition";
+    "flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition";
   const tabActive =
     "bg-background text-[#0f1f4a] shadow-sm dark:bg-white/10 dark:text-sky-100";
-  const tabInactive = "text-muted-foreground hover:text-foreground dark:hover:text-slate-300";
+  const tabInactive =
+    "text-muted-foreground hover:text-foreground dark:hover:text-slate-300";
 
   return (
-    <main className="min-h-screen bg-background dark:bg-[#050505] px-4 py-6 text-foreground sm:px-6 relative overflow-hidden transition-colors duration-500">
-      {/* Decorative Orbs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-blue-500/10 dark:bg-blue-600/10 mix-blend-multiply dark:mix-blend-screen filter blur-[128px] opacity-70 pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-sky-500/10 dark:bg-sky-600/10 mix-blend-multiply dark:mix-blend-screen filter blur-[128px] opacity-70 pointer-events-none" />
+    <main className="relative min-h-screen overflow-hidden bg-background px-4 py-6 text-foreground transition-colors duration-500 dark:bg-[#050505] sm:px-6">
+      <div className="pointer-events-none absolute left-[-10%] top-[-10%] h-[500px] w-[500px] rounded-full bg-blue-500/10 blur-[128px] dark:bg-blue-600/10" />
+      <div className="pointer-events-none absolute bottom-[-10%] right-[-10%] h-[600px] w-[600px] rounded-full bg-sky-500/10 blur-[128px] dark:bg-sky-600/10" />
 
-      {/* Fallback Link */}
-      <div className="absolute top-6 left-6 md:top-8 md:left-8 z-50">
-        <Button asChild variant="ghost" className="gap-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/10 rounded-xl transition-colors">
+      <div className="absolute left-6 top-6 z-50 md:left-8 md:top-8">
+        <Button
+          asChild
+          variant="ghost"
+          className="gap-2 rounded-xl text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+        >
           <Link href="/">
             <ChevronLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Kembali ke Beranda</span>
@@ -170,14 +173,14 @@ export default function UserLoginClient() {
         </Button>
       </div>
 
-      <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-md items-center relative z-10">
+      <div className="relative z-10 mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-md items-center">
         <div className="w-full space-y-6">
-          <header className="space-y-2 text-center">
-            <div className="inline-flex items-center rounded-full border border-[#1d4ed81f] bg-[#1d4ed80f] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#0f1f4a] dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-200">
+          <header className="space-y-3 text-center">
+            <div className="inline-flex items-center rounded-full border border-[#1d4ed81f] bg-[#1d4ed80f] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[#0f1f4a] dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-200">
               Bookinaja Access
             </div>
-            <div className="space-y-1.5">
-              <h1 className="text-3xl font-semibold tracking-tight sm:text-[2rem]">
+            <div className="space-y-2">
+              <h1 className="text-3xl font-black tracking-tight sm:text-[2.15rem]">
                 <span className="text-[#0f1f4a] dark:text-slate-100">
                   Masuk ke{" "}
                 </span>
@@ -186,15 +189,15 @@ export default function UserLoginClient() {
                 </span>
               </h1>
               <p className="mx-auto max-w-sm text-sm leading-6 text-[#334155] dark:text-slate-400">
-                Login default menggunakan nomor WhatsApp. Email dan password
-                tersedia sebagai alternatif.
+                Akses customer dibuat cepat dan sederhana. WhatsApp jadi cara
+                utama, dan email sebagai alternatif.
               </p>
             </div>
           </header>
 
-          <Card className="rounded-3xl border border-[#1d4ed81a] dark:border-white/10 bg-white/70 dark:bg-black/50 backdrop-blur-3xl shadow-[0_32px_64px_-15px_rgba(0,0,0,0.05)] dark:shadow-[0_32px_64px_-15px_rgba(0,0,0,0.5)]">
-            <CardContent className="space-y-5 p-4 sm:p-5">
-              <div className="grid grid-cols-2 gap-2 rounded-full bg-[#eff6ff] p-1 dark:bg-white/5 border border-transparent dark:border-white/5">
+          <Card className="rounded-[2rem] border border-[#1d4ed81a] bg-white/75 shadow-[0_32px_64px_-15px_rgba(15,23,42,0.10)] backdrop-blur-3xl dark:border-white/10 dark:bg-black/50 dark:shadow-[0_32px_64px_-15px_rgba(0,0,0,0.5)]">
+            <CardContent className="space-y-6 p-5 sm:p-6">
+              <div className="grid grid-cols-2 gap-2 rounded-full border border-transparent bg-[#eff6ff] p-1 dark:border-white/5 dark:bg-white/5">
                 <button
                   type="button"
                   onClick={() => setMode("wa")}
@@ -217,17 +220,17 @@ export default function UserLoginClient() {
                 <div className="space-y-4">
                   <p className="text-sm leading-6 text-[#334155] dark:text-slate-400">
                     {waStep === "phone"
-                      ? "Masukkan nomor WhatsApp yang terdaftar untuk menerima OTP."
-                      : "Masukkan OTP 6 digit yang dikirim ke WhatsApp kamu."}
+                      ? "Masukkan nomor WhatsApp yang terdaftar untuk menerima kode OTP."
+                      : "Masukkan kode OTP 6 digit yang dikirim ke WhatsApp kamu."}
                   </p>
 
                   {waStep === "phone" ? (
-                    <div className="space-y-6">
+                    <div className="space-y-5">
                       <label className="block space-y-2">
-                        <span className="text-xs font-medium uppercase tracking-[0.18em] text-[#1d4ed8] dark:text-sky-300 ">
+                        <span className="text-xs font-medium uppercase tracking-[0.18em] text-[#1d4ed8] dark:text-sky-300">
                           Nomor WhatsApp
                         </span>
-                        <div className="relative mt-4">
+                        <div className="relative mt-2">
                           <Phone className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1d4ed8] dark:text-sky-300" />
                           <Input
                             type="tel"
@@ -236,7 +239,7 @@ export default function UserLoginClient() {
                             value={phone}
                             onChange={(e) => syncPhone(e.target.value)}
                             placeholder="08xxxxxxxxxx"
-                            className="h-12 rounded-2xl border-[#1d4ed826] bg-white dark:bg-white/5 pl-11 text-base shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-[#3b82f6] dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
+                            className="h-12 rounded-2xl border-[#1d4ed826] bg-white/90 pl-11 text-base shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-[#3b82f6] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-500"
                           />
                         </div>
                       </label>
@@ -245,7 +248,7 @@ export default function UserLoginClient() {
                         type="button"
                         onClick={handleRequestOtp}
                         disabled={loading}
-                        className="h-12 w-full rounded-2xl bg-gradient-to-r from-[#1d4ed8] to-[#3b82f6] text-white hover:from-[#1741b8] hover:to-[#2563eb] shadow-xl shadow-blue-500/20"
+                        className="h-12 w-full rounded-2xl bg-gradient-to-r from-[#1d4ed8] to-[#3b82f6] text-white shadow-xl shadow-blue-500/20 hover:from-[#1741b8] hover:to-[#2563eb]"
                       >
                         {loading ? (
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -256,7 +259,7 @@ export default function UserLoginClient() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="space-y-6">
+                    <div className="space-y-5">
                       <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#1d4ed81a] bg-[#eff6ff] px-4 py-3 text-sm dark:border-white/10 dark:bg-white/5">
                         <div className="min-w-0 text-[#334155] dark:text-slate-400">
                           <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-[#1d4ed8] dark:text-sky-300">
@@ -292,7 +295,7 @@ export default function UserLoginClient() {
                               setOtp(e.target.value.replace(/\D/g, ""))
                             }
                             placeholder="6 digit"
-                            className="h-12 rounded-2xl border-[#1d4ed826] bg-white dark:bg-white/5 pl-11 text-base tracking-[0.32em] shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-[#3b82f6] dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
+                            className="h-12 rounded-2xl border-[#1d4ed826] bg-white/90 pl-11 text-base tracking-[0.32em] shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-[#3b82f6] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-500"
                           />
                         </div>
                       </label>
@@ -301,7 +304,7 @@ export default function UserLoginClient() {
                         type="button"
                         onClick={handleVerifyOtp}
                         disabled={loading}
-                        className="h-12 w-full rounded-2xl bg-gradient-to-r from-[#0f1f4a] to-[#1d4ed8] text-white hover:from-[#0b1838] hover:to-[#1741b8] shadow-xl shadow-blue-500/20"
+                        className="h-12 w-full rounded-2xl bg-gradient-to-r from-[#0f1f4a] to-[#1d4ed8] text-white shadow-xl shadow-blue-500/20 hover:from-[#0b1838] hover:to-[#1741b8]"
                       >
                         {loading ? (
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -315,16 +318,11 @@ export default function UserLoginClient() {
                 </div>
               ) : (
                 <form onSubmit={handleEmailLogin} className="space-y-6">
-                  <p className="text-sm leading-6 text-[#334155] dark:text-slate-400">
-                    Gunakan email dan password jika akun kamu sudah memakai
-                    login klasik.
-                  </p>
-
                   <label className="block space-y-2">
                     <span className="text-xs font-medium uppercase tracking-[0.18em] text-[#1d4ed8] dark:text-sky-300">
                       Email
                     </span>
-                    <div className="relative mt-4">
+                    <div className="relative mt-2">
                       <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1d4ed8] dark:text-sky-300" />
                       <Input
                         type="email"
@@ -332,7 +330,7 @@ export default function UserLoginClient() {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="nama@domain.com"
-                        className="h-12 rounded-2xl border-[#1d4ed826] bg-white dark:bg-white/5 pl-11 text-base shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-[#3b82f6] dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
+                        className="h-12 rounded-2xl border-[#1d4ed826] bg-white/90 pl-11 text-base shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-[#3b82f6] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-500"
                       />
                     </div>
                   </label>
@@ -341,7 +339,7 @@ export default function UserLoginClient() {
                     <span className="text-xs font-medium uppercase tracking-[0.18em] text-[#1d4ed8] dark:text-sky-300">
                       Password
                     </span>
-                    <div className="relative mt-4">
+                    <div className="relative mt-2">
                       <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1d4ed8] dark:text-sky-300" />
                       <Input
                         type="password"
@@ -349,7 +347,7 @@ export default function UserLoginClient() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="kata sandi"
-                        className="h-12 rounded-2xl border-[#1d4ed826] bg-white dark:bg-white/5 pl-11 text-base shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-[#3b82f6] dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
+                        className="h-12 rounded-2xl border-[#1d4ed826] bg-white/90 pl-11 text-base shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-[#3b82f6] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-500"
                       />
                     </div>
                   </label>
@@ -357,7 +355,7 @@ export default function UserLoginClient() {
                   <Button
                     type="submit"
                     disabled={loading}
-                    className="h-12 w-full rounded-2xl bg-gradient-to-r from-[#1d4ed8] to-[#3b82f6] text-white hover:from-[#1741b8] hover:to-[#2563eb] shadow-xl shadow-blue-500/20"
+                    className="h-12 w-full rounded-2xl bg-gradient-to-r from-[#1d4ed8] to-[#3b82f6] text-white shadow-xl shadow-blue-500/20 hover:from-[#1741b8] hover:to-[#2563eb]"
                   >
                     {loading ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -370,26 +368,18 @@ export default function UserLoginClient() {
               )}
 
               <div className="flex items-center justify-center border-t border-[#1d4ed81a] pt-4 text-sm dark:border-white/10">
-                <p className="text-[#334155] dark:text-slate-400">Belum punya akun? </p>
+                <p className="text-[#334155] dark:text-slate-400">
+                  Belum punya akun?
+                </p>
                 <Link
                   href="/user/register"
-                  className="font-medium text-[#1d4ed8] underline-offset-4 hover:underline dark:text-sky-300 ml-2"
+                  className="ml-2 font-semibold text-[#1d4ed8] underline-offset-4 hover:underline dark:text-sky-300"
                 >
                   Daftar
                 </Link>
               </div>
             </CardContent>
           </Card>
-
-          <div className="flex items-center justify-center gap-3 text-xs font-medium uppercase tracking-[0.22em] text-[#64748b] dark:text-slate-400">
-            <button
-              type="button"
-              onClick={resetLogin}
-              className="transition hover:text-[#0f1f4a] dark:hover:text-slate-100"
-            >
-              Reset Data
-            </button>
-          </div>
         </div>
       </div>
     </main>

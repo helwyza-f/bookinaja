@@ -391,7 +391,7 @@ export default function LandingPage() {
             >
               <Sparkles className="h-3 w-3 text-blue-500 fill-current flex-shrink-0" />
               <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.22em] text-blue-500">
-                Sistem Manajemen Booking untuk Bisnis Rental Indonesia
+                Sistem Operasional untuk Bisnis Rental
               </span>
               <span
                 className="h-1.5 w-1.5 rounded-full bg-blue-500 flex-shrink-0"
@@ -404,20 +404,18 @@ export default function LandingPage() {
             <h1
               className={`mx-auto text-[38px] sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-[-0.05em] leading-[0.88] uppercase ${heading}`}
             >
-              Bisnis Rental Kamu
+              Berhenti Jalankan
               <br />
-              <span className="shimmer-text">Jalan Otomatis.</span>
+              <span className="shimmer-text">Bisnis Secara Manual.</span>
             </h1>
           </div>
 
           <div style={revealStyle(hero.visible, 0.16)}>
             <p
-              className={`max-w-sm sm:max-w-xl mx-auto text-sm sm:text-base md:text-lg font-medium leading-relaxed ${muted}`}
+              className={`max-w-sm sm:max-w-2xl mx-auto text-sm sm:text-base md:text-lg font-medium leading-relaxed ${muted}`}
             >
-              Bookinaja membantu owner rental berhenti balas booking manual,
-              mengurangi slot kosong yang bocor, dan memantau operasional lebih
-              rapi dari satu dashboard. Prelaunch sekarang dibuka untuk bisnis
-              yang ingin setup lebih awal bersama tim kami.
+              Bookinaja membantu booking lebih rapi, operasional lebih
+              terkontrol, dan owner lebih tenang menjalankan bisnisnya.
             </p>
           </div>
 
@@ -1649,110 +1647,6 @@ export default function LandingPage() {
       {/* ══════════════════════════════
           11. FOUNDER STORY
       ══════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
-        <div ref={founder.ref} style={revealStyle(founder.visible)}>
-          <div
-            className={`relative overflow-hidden rounded-[2rem] border p-6 sm:p-10 md:p-14 ${isDark ? "bg-white/[0.02] border-white/[0.07]" : "bg-white border-slate-200"}`}
-          >
-            <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_50%_60%_at_0%_50%,rgba(59,130,246,0.05),transparent)]" />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
-              {/* Visual — abstract founder block */}
-              <div className="order-2 lg:order-1">
-                <div
-                  className={`rounded-[1.75rem] border p-8 relative overflow-hidden ${panel} ${divider}`}
-                >
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="h-14 w-14 rounded-2xl bg-blue-600 flex items-center justify-center font-black text-white text-xl flex-shrink-0">
-                      B
-                    </div>
-                    <div>
-                      <p
-                        className={`font-black text-lg leading-none ${heading}`}
-                      >
-                        Tim Bookinaja
-                      </p>
-                      <p className={`text-sm mt-1 ${muted}`}>
-                        Bandung, Indonesia · 2022
-                      </p>
-                    </div>
-                  </div>
-                  <div
-                    className={`space-y-3 text-sm font-medium leading-relaxed ${muted}`}
-                  >
-                    <p>
-                      "Kami sendiri pernah punya bisnis rental gaming kecil di
-                      Bandung. Booking via WA, catat di buku, hitung uang akhir
-                      hari — capek, sering salah, nggak bisa scale."
-                    </p>
-                    <p>
-                      "Kami cari solusinya, tapi yang ada mahal atau terlalu
-                      ribet buat bisnis kecil. Akhirnya kami bikin sendiri —
-                      Bookinaja lahir dari masalah nyata yang kami rasakan
-                      sendiri."
-                    </p>
-                  </div>
-                  <div className="mt-6 pt-5 border-t grid grid-cols-3 gap-3 border-white/10">
-                    {[
-                      { n: "Prelaunch", l: "Status saat ini" },
-                      { n: "30 Hari", l: "Trial gratis" },
-                      { n: "Hands-on", l: "Onboarding" },
-                    ].map((s, i) => (
-                      <div key={i} className="text-center">
-                        <p className={`text-lg font-black accent-text`}>
-                          {s.n}
-                        </p>
-                        <p className={`text-[10px] font-bold ${muted}`}>
-                          {s.l}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              {/* Text */}
-              <div className="order-1 lg:order-2 space-y-5">
-                <SectionBadge
-                  icon={<Heart className="h-3 w-3" />}
-                  label="Kenapa Kami Bikin Ini"
-                />
-                <h2
-                  className={`text-3xl sm:text-4xl md:text-[44px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
-                >
-                  Dibangun oleh owner,
-                  <br />
-                  <span className="shimmer-text">untuk owner.</span>
-                </h2>
-                <p
-                  className={`text-sm sm:text-base font-medium leading-relaxed ${muted}`}
-                >
-                  Bookinaja tidak dibuat oleh korporat yang belum pernah jaga
-                  kasir atau buka tutup bisnis sendiri. Kami paham betul rasa
-                  frustrasi booking manual, kasir yang susah dipercaya, dan
-                  laporan yang tidak pernah akurat.
-                </p>
-                <p
-                  className={`text-sm sm:text-base font-medium leading-relaxed ${muted}`}
-                >
-                  Itulah mengapa setiap fitur Bookinaja dirancang untuk
-                  menyelesaikan masalah nyata — bukan menambah kerumitan baru.
-                  Sederhana untuk kasir, powerful untuk owner.
-                </p>
-                <div
-                  className={`flex items-center gap-3 p-4 rounded-2xl border ${isDark ? "bg-blue-600/[0.08] border-blue-500/20" : "bg-blue-50 border-blue-100"}`}
-                >
-                  <div className="h-8 w-8 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
-                    <MessageCircle size={14} className="text-white" />
-                  </div>
-                  <p className={`text-sm font-medium italic ${muted}`}>
-                    "Kami tidak sukses kalau kamu tidak sukses. Setiap bisnis
-                    yang bergabung, kami anggap sebagai mitra."
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* ══════════════════════════════
           12. TESTIMONIALS
@@ -1954,10 +1848,10 @@ export default function LandingPage() {
               <p
                 className={`text-sm sm:text-base font-medium max-w-xs sm:max-w-md mx-auto ${muted}`}
               >
-                Kami belum launch penuh, dan itu justru kesempatanmu masuk
-                lebih awal. Coba gratis 30 hari, dapat onboarding lebih dekat,
-                dan nilai sendiri apakah Bookinaja bisa bikin operasionalmu
-                lebih rapi.
+                Kami belum launch penuh, dan itu justru kesempatanmu masuk lebih
+                awal. Coba gratis 30 hari, dapat onboarding lebih dekat, dan
+                nilai sendiri apakah Bookinaja bisa bikin operasionalmu lebih
+                rapi.
               </p>
               <div className="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4">
                 <Link href="/register" className="w-full sm:w-auto">

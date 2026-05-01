@@ -78,7 +78,7 @@ export default function TenantsDirectoryPage() {
         <section className="text-center max-w-3xl mx-auto mb-16">
           <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-blue-600 dark:text-blue-400 mb-6 backdrop-blur-md shadow-sm">
             <Sparkles className="h-4 w-4" />
-            Eksplorasi Tenant
+            Jelajahi Bisnis
           </div>
           <h1 className="text-4xl font-black italic uppercase tracking-tighter leading-tight md:text-6xl md:leading-none mb-6">
             Temukan tempat <br className="hidden md:block"/> favoritmu di Bookinaja.
@@ -184,7 +184,7 @@ export default function TenantsDirectoryPage() {
                       {tenant.tagline ||
                         tenant.slogan ||
                         tenant.about_us ||
-                        "Mitra resmi terdaftar di platform Bookinaja."}
+                        "Bisnis yang tersedia untuk dijelajahi dan dipesan lewat Bookinaja."}
                     </p>
 
                     <Button asChild className="w-full h-12 rounded-xl bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 shadow-lg mt-auto group-hover:bg-blue-600 dark:group-hover:bg-blue-500 transition-colors">
@@ -207,7 +207,7 @@ export default function TenantsDirectoryPage() {
               Tidak Ditemukan
             </h3>
             <p className="mt-3 text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-              Maaf, tenant dengan kata kunci atau kategori tersebut belum terdaftar di Bookinaja.
+              Maaf, bisnis dengan kata kunci atau kategori tersebut belum tersedia di Bookinaja.
             </p>
           </div>
         )}
