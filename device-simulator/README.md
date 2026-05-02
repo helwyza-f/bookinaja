@@ -17,6 +17,10 @@ Simulator MQTT untuk `Bookinaja Smart Point` yang berdiri sendiri di luar projec
 4. Isi `DEVICE_SIM_API_URL` ke endpoint backend production kalau mau test pairing.
 5. Kalau hanya mau test MQTT transport, ubah `DEVICE_SIM_AUTO_PAIR=false`.
 
+Catatan:
+- Jangan commit `.env` simulator.
+- Isi `MQTT_USERNAME`, `MQTT_PASSWORD`, dan `DEVICE_SIM_DEVICE_KEY` dari secret manager atau env production kamu, bukan dari example file.
+
 Contoh PowerShell:
 
 ```powershell
