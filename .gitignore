@@ -2,5 +2,6 @@ bookinaja.pem
 .gocache/
 .gocache/
 .cache/
-./device-simulator/*
-device-simulator/*
+device-simulator/.env
+device-simulator/*.exe
+device-simulator/device-simulator
