@@ -327,7 +327,7 @@ export default function ResourceBookingDetail() {
 
       const res = await api.post("/public/bookings", payload);
       const booking = res.data.booking || {};
-      syncTenantCookies(params.tenant as string, resource?.tenant_id);
+      syncTenantCookies(params.tenant as string);
       const verifyRedirect =
         res.data.redirect_url ||
         `/user/verify?code=${encodeURIComponent(booking.access_token || "")}`;

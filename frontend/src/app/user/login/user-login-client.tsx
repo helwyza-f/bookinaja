@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setCookie } from "cookies-next";
@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { getTenantMismatchMessage } from "@/lib/tenant-session";
 
 type AuthMode = "wa" | "email";
 type WaStep = "phone" | "otp";
@@ -51,6 +52,15 @@ export default function UserLoginClient() {
   const [password, setPassword] = useState("");
 
   const nextPath = searchParams.get("next") || "/user/me";
+
+  useEffect(() => {
+    if (searchParams.get("reason") !== "tenant-mismatch") return;
+    const message = getTenantMismatchMessage("customer");
+    toast.info(message.title, {
+      description: message.description,
+      duration: 5000,
+    });
+  }, [searchParams]);
 
   const syncPhone = (value: string) => {
     setPhone(value.replace(/\D/g, ""));
@@ -137,15 +147,6 @@ export default function UserLoginClient() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const resetLogin = () => {
-    setMode("wa");
-    setWaStep("phone");
-    setPhone("");
-    setOtp("");
-    setEmail("");
-    setPassword("");
   };
 
   const tabBase =

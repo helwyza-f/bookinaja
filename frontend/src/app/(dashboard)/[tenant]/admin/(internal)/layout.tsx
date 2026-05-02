@@ -7,6 +7,7 @@ import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import api from "@/lib/api";
+import { getTenantSlugFromBrowser } from "@/lib/tenant";
 import {
   clearTenantSession,
   isTenantAuthError,
@@ -39,9 +40,9 @@ export default function DashboardInternalLayout({
         const res = await api.get("/auth/me");
 
         if (active) {
-          // Sinkronkan data tenant ke cookie untuk interoperabilitas header API
+          // Sinkronkan slug tenant aktif; tenant ID tidak lagi disimpan di browser.
           const userData = res.data.user;
-          syncTenantCookies(null, userData.tenant_id);
+          syncTenantCookies(getTenantSlugFromBrowser());
           setSessionUser(userData);
 
           if (!canAccessAdminRoute(pathname, userData)) {

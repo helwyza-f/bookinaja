@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -32,9 +33,18 @@ func TenantIdentifier(db *sqlx.DB, rdb *redis.Client) gin.HandlerFunc {
 			tenantID, err := lookupTenantIDBySlug(ctx, db, rdb, slug)
 			if err == nil && tenantID != "" {
 				if headerTenantID != "" && headerTenantID != tenantID {
-					c.AbortWithStatusJSON(403, gin.H{"error": "Tenant header tidak sesuai dengan domain aktif"})
-					return
+					log.Printf(
+						"[TENANT] stale_header_ignored host=%q path=%s slug=%s header_tenant_id=%s resolved_tenant_id=%s",
+						c.Request.Host,
+						c.Request.URL.Path,
+						slug,
+						headerTenantID,
+						tenantID,
+					)
 				}
+				// Subdomain/slug aktif adalah sumber kebenaran untuk konteks tenant.
+				// X-Tenant-ID dari browser bisa stale saat user pindah tenant/subdomain,
+				// jadi jangan diperlakukan sebagai header authoritative di sini.
 				c.Set("tenantID", tenantID)
 				c.Set("tenantSlug", slug)
 				c.Next()
