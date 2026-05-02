@@ -35,7 +35,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.4,
     },
     {
-      url: "https://bookinaja.com/tenants",
+      url: "https://bookinaja.com/discovery",
       lastModified,
       changeFrequency: "daily",
       priority: 0.7,

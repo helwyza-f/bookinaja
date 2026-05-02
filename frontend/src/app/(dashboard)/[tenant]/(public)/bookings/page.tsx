@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
@@ -159,11 +159,15 @@ export default function PublicResourceCatalog() {
 
 // REFACTORED RESOURCE CARD (From your concept)
 function ResourceCard({ res, primaryColor, getBestPrice }: any) {
+  const searchParams = useSearchParams();
+  const queryString = searchParams.toString();
+  const href = queryString ? `/bookings/${res.id}?${queryString}` : `/bookings/${res.id}`;
+
   const bestRate = getBestPrice(res);
 
   return (
     <Link
-      href={`/bookings/${res.id}`}
+      href={href}
       className="group block w-full outline-none focus:ring-0"
     >
       <Card className="relative h-[360px] md:h-[440px] rounded-[2.5rem] border-none bg-white dark:bg-[#0a0a0a] overflow-hidden transition-all duration-500 hover:-translate-y-2 group-active:scale-[0.98] shadow-lg hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.15)] ring-1 ring-black/5 dark:ring-white/5">

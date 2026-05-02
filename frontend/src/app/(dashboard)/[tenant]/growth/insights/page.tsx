@@ -8,15 +8,34 @@ import { FeedIdeaCard, InspirationRail } from "../_components/marketplace-cards"
 import { useGrowthWorkspace } from "../_lib/use-growth-workspace";
 
 export default function GrowthInsightsPage() {
-  const { marketplaceSamples, growthHealth, profile, loading, reload } = useGrowthWorkspace();
+  const { marketplaceSamples, growthHealth, posts, loading, reload } = useGrowthWorkspace();
 
   if (loading) {
     return <InsightsSkeleton />;
   }
 
-  const estimatedReach = Math.max(120, marketplaceSamples.length * 37 + growthHealth.score * 3);
-  const estimatedClicks = Math.max(12, Math.round(estimatedReach * 0.08));
-  const estimatedCtr = ((estimatedClicks / estimatedReach) * 100).toFixed(1);
+  const totalReach = posts.reduce((sum, post) => sum + (post.impressions_7d || 0), 0);
+  const totalClicks = posts.reduce((sum, post) => sum + (post.clicks_7d || 0), 0);
+  const totalDetailViews = posts.reduce((sum, post) => sum + (post.detail_views_7d || 0), 0);
+  const totalTenantOpens = posts.reduce((sum, post) => sum + (post.tenant_opens_7d || 0), 0);
+  const totalBookingStarts = posts.reduce((sum, post) => sum + (post.booking_starts_7d || 0), 0);
+  const totalRelatedClicks = posts.reduce((sum, post) => sum + (post.related_clicks_7d || 0), 0);
+  const totalRelatedTenantOpens = posts.reduce((sum, post) => sum + (post.related_tenant_opens_7d || 0), 0);
+  const publishedPosts = posts.filter((post) => post.status === "published");
+  const avgCtr =
+    totalReach > 0 ? ((totalClicks / totalReach) * 100).toFixed(1) : "0.0";
+  const openRate =
+    totalDetailViews > 0 ? ((totalTenantOpens / totalDetailViews) * 100).toFixed(1) : "0.0";
+  const bookingRate =
+    totalTenantOpens > 0 ? ((totalBookingStarts / totalTenantOpens) * 100).toFixed(1) : "0.0";
+  const topPerformer =
+    [...posts]
+      .sort(
+        (a, b) =>
+          (b.booking_starts_7d || 0) - (a.booking_starts_7d || 0) ||
+          (b.tenant_opens_7d || 0) - (a.tenant_opens_7d || 0) ||
+          (b.clicks_7d || 0) - (a.clicks_7d || 0),
+      )[0] || null;
 
   return (
     <div className="space-y-4 pb-20">
@@ -40,20 +59,20 @@ export default function GrowthInsightsPage() {
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
-          label="Reach est."
-          value={estimatedReach.toLocaleString("id-ID")}
-          hint="Estimasi exposure awal"
+          label="Tayang 7 hari"
+          value={totalReach.toLocaleString("id-ID")}
+          hint="Impression post di feed"
           icon={<Eye className="h-4 w-4" />}
         />
         <MetricCard
-          label="Klik est."
-          value={estimatedClicks.toLocaleString("id-ID")}
-          hint="Respons awal feed"
+          label="Klik 7 hari"
+          value={totalClicks.toLocaleString("id-ID")}
+          hint="Klik dari card ke detail"
           icon={<MousePointerClick className="h-4 w-4" />}
         />
         <MetricCard
-          label="CTR est."
-          value={`${estimatedCtr}%`}
+          label="CTR 7 hari"
+          value={`${avgCtr}%`}
           hint="Kekuatan click-through"
           icon={<TrendingUp className="h-4 w-4" />}
         />
@@ -73,24 +92,52 @@ export default function GrowthInsightsPage() {
             </div>
             <div className="mt-4 space-y-3">
               <InsightRow
-                title="Gambar utama"
-                status={growthHealth.imageReady ? "Siap" : "Perlu diperbaiki"}
-                description="Visual hampir selalu jadi penentu pertama apakah card dibuka atau dilewati."
+                title="Detail dibuka"
+                status={totalDetailViews.toLocaleString("id-ID")}
+                description="Jumlah orang yang lanjut membuka post detail setelah melihat atau mengklik card."
               />
               <InsightRow
-                title="Headline discovery"
-                status={growthHealth.headlineReady ? "Siap" : "Perlu diperjelas"}
-                description="Kalimat utama harus cepat menjelaskan manfaat atau suasana yang dijual."
+                title="Masuk ke bisnis"
+                status={`${openRate}%`}
+                description="Persentase pengunjung detail post yang lanjut membuka profil bisnis."
               />
               <InsightRow
-                title="Tag & badge"
-                status={`${growthHealth.tagCount} tag / ${growthHealth.badgeCount} badge`}
-                description="Membantu relevansi dan memperjelas konteks bisnis di feed."
+                title="Mulai booking"
+                status={`${bookingRate}%`}
+                description="Rasio dari kunjungan ke bisnis yang benar-benar lanjut ke booking start."
               />
               <InsightRow
-                title="Angle promosi"
-                status={profile.promo_label || "Belum ditetapkan"}
-                description="Label pendek membantu customer menangkap momentum atau vibe bisnis."
+                title="Klik related"
+                status={totalRelatedClicks.toLocaleString("id-ID")}
+                description="Interaksi dengan konten terkait dari detail post yang sama."
+              />
+            </div>
+          </Card>
+
+          <Card className="rounded-[1.75rem] border-slate-200 bg-white p-4 shadow-sm">
+            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-600">
+              Funnel nyata
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <FunnelStep
+                label="Post published"
+                value={publishedPosts.length.toLocaleString("id-ID")}
+                hint="Konten aktif yang benar-benar ikut tampil"
+              />
+              <FunnelStep
+                label="Detail view"
+                value={totalDetailViews.toLocaleString("id-ID")}
+                hint="Masuk lebih dalam dari card"
+              />
+              <FunnelStep
+                label="Tenant open"
+                value={totalTenantOpens.toLocaleString("id-ID")}
+                hint="Lanjut lihat bisnisnya"
+              />
+              <FunnelStep
+                label="Booking start"
+                value={totalBookingStarts.toLocaleString("id-ID")}
+                hint="Mulai intent transaksi"
               />
             </div>
           </Card>
@@ -114,21 +161,41 @@ export default function GrowthInsightsPage() {
         <aside className="space-y-4 xl:sticky xl:top-5 xl:self-start">
           <FeedIdeaCard
             title="Top angle"
-            description="Cari kombinasi headline, visual, dan label yang paling kuat menarik perhatian."
+            description={topPerformer ? `"${topPerformer.title}" sekarang paling kuat mendorong langkah berikutnya.` : "Cari kombinasi headline, visual, dan label yang paling kuat menarik perhatian."}
             icon="reach"
           />
           <FeedIdeaCard
             title="Uji format"
-            description="Bandingkan foto, video, dan promo copy untuk lihat format yang paling hidup."
+            description={`Foto, video, dan promo sekarang bisa dibaca lewat funnel yang sama. Related open: ${totalRelatedTenantOpens.toLocaleString("id-ID")}.`}
             icon="video"
           />
           <FeedIdeaCard
             title="Perbaiki profile"
-            description="Profile card tetap jadi fondasi utama visibility, jangan cuma fokus ke post."
+            description={growthHealth.imageReady && growthHealth.headlineReady ? "Fondasi profile sudah cukup sehat. Sekarang kualitas post jadi pembeda berikutnya." : "Profile card tetap jadi fondasi utama visibility, jangan cuma fokus ke post."}
             icon="spark"
           />
         </aside>
       </div>
+    </div>
+  );
+}
+
+function FunnelStep({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+}) {
+  return (
+    <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
+      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">
+        {label}
+      </div>
+      <div className="mt-2 text-2xl font-black tracking-tight text-slate-950">{value}</div>
+      <div className="mt-1 text-sm text-slate-500">{hint}</div>
     </div>
   );
 }

@@ -37,6 +37,7 @@ import {
   growthHubNavItem,
   operationalNavItems,
   settingsNavItems,
+  showGrowthWorkspaceInOperationalNav,
 } from "./admin-nav-config";
 
 interface SidebarProps {
@@ -215,7 +216,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
           })}
         </div>
 
-        {userData?.role === "owner" && (
+        {userData?.role === "owner" && showGrowthWorkspaceInOperationalNav && (
           <div
             className={cn(
               "border-slate-100 dark:border-white/5",

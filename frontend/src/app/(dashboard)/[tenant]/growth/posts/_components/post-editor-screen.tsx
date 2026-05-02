@@ -3,7 +3,7 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CalendarClock, Film, Image as ImageIcon, Megaphone, Save } from "lucide-react";
+import { ArrowLeft, CalendarClock, Film, Image as ImageIcon, Megaphone, Save, PlayCircle, Sparkles, Clock3, MousePointerClick } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -28,9 +28,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SingleImageUpload } from "@/components/upload/single-image-upload";
-import { FeedIdeaCard, InspirationRail } from "../../_components/marketplace-cards";
+import { SingleMediaUpload } from "@/components/upload/single-media-upload";
+import { InspirationRail } from "../../_components/marketplace-cards";
 import { type GrowthPostRecord } from "../../_lib/growth-data";
 import { useGrowthWorkspace } from "../../_lib/use-growth-workspace";
+import { type PostMediaMetadata, formatDiscoveryDuration } from "@/lib/discovery";
 
 type EditorMode = "create" | "edit";
 
@@ -45,6 +47,7 @@ type PostFormState = {
   visibility: "feed" | "highlight" | "private";
   starts_at: string;
   ends_at: string;
+  metadata: PostMediaMetadata;
 };
 
 type Props = {
@@ -63,6 +66,7 @@ const DEFAULT_FORM: PostFormState = {
   visibility: "feed",
   starts_at: "",
   ends_at: "",
+  metadata: {},
 };
 
 const contentFormats = [
@@ -87,6 +91,29 @@ const contentFormats = [
     icon: CalendarClock,
   },
 ];
+
+const formatGuides = {
+  photo: {
+    title: "Foto untuk ambience",
+    hook: "Tunjukkan suasana ruang atau setup yang langsung bikin orang membayangkan ada di sana.",
+    checklist: ["Pilih satu visual yang paling kuat", "Judul singkat, jangan seperti brosur", "Caption fokus ke vibe atau manfaat langsung"],
+  },
+  video: {
+    title: "Video untuk rasa hadir",
+    hook: "Pakai klip pendek yang cepat menjelaskan flow ruang, suasana, atau momen paling menarik.",
+    checklist: ["3-20 detik paling aman", "Pastikan frame awal kuat", "Siapkan poster agar tetap menarik saat belum diputar"],
+  },
+  promo: {
+    title: "Promo untuk momentum",
+    hook: "Buat orang merasa ada alasan untuk buka sekarang, bukan nanti.",
+    checklist: ["Sebut momentum atau benefit", "Jangan terlalu banyak detail kecil", "CTA harus jelas dan terasa mendesak"],
+  },
+  update: {
+    title: "Update untuk kabar baru",
+    hook: "Cocok untuk renovasi, resource baru, event, atau perubahan yang layak diketahui customer lama.",
+    checklist: ["Jelaskan apa yang baru", "Tambahkan alasan kenapa itu penting", "Pakai cover yang terasa fresh"],
+  },
+} as const;
 
 export function PostEditorScreen({ mode, postId }: Props) {
   const router = useRouter();
@@ -116,6 +143,7 @@ export function PostEditorScreen({ mode, postId }: Props) {
         visibility: normalizeVisibility(editingPost.visibility),
         starts_at: toDatetimeLocal(editingPost.starts_at),
         ends_at: toDatetimeLocal(editingPost.ends_at),
+        metadata: normalizeMetadata(editingPost.metadata),
       };
     }
     return DEFAULT_FORM;
@@ -126,6 +154,7 @@ export function PostEditorScreen({ mode, postId }: Props) {
   }, [initialForm]);
 
   const isDirty = useMemo(() => serializeForm(form) !== serializeForm(initialForm), [form, initialForm]);
+  const activeGuide = formatGuides[form.type];
 
   useEffect(() => {
     if (!isDirty) return;
@@ -199,6 +228,7 @@ export function PostEditorScreen({ mode, postId }: Props) {
       cta: form.cta.trim(),
       starts_at: form.starts_at ? new Date(form.starts_at).toISOString() : null,
       ends_at: form.ends_at ? new Date(form.ends_at).toISOString() : null,
+      metadata: buildMediaMetadataPayload(form),
     };
 
     setSaving(true);
@@ -313,6 +343,24 @@ export function PostEditorScreen({ mode, postId }: Props) {
             </div>
           </Card>
 
+          <Card className="rounded-[1.75rem] border-blue-100 bg-blue-50/45 p-4 shadow-sm">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-blue-700">
+              <Sparkles className="h-4 w-4" />
+              Format guide
+            </div>
+            <div className="mt-3 text-lg font-black tracking-tight text-slate-950">
+              {activeGuide.title}
+            </div>
+            <p className="mt-2 text-sm leading-7 text-slate-600">{activeGuide.hook}</p>
+            <div className="mt-4 grid gap-2 md:grid-cols-3">
+              {activeGuide.checklist.map((item) => (
+                <div key={item} className="rounded-2xl border border-blue-100 bg-white px-3 py-3 text-sm font-semibold text-slate-700">
+                  {item}
+                </div>
+              ))}
+            </div>
+          </Card>
+
           <Card className="rounded-[1.75rem] border-slate-200 bg-white p-4 shadow-sm">
             <div className="space-y-4">
               <FormField label="Jenis postingan">
@@ -407,33 +455,97 @@ export function PostEditorScreen({ mode, postId }: Props) {
                   placeholder="Contoh: Lihat detail"
                 />
               </FormField>
+
+              {form.type === "video" ? (
+                <div className="rounded-[1.25rem] border border-blue-100 bg-blue-50/50 p-4">
+                  <div className="text-sm font-black tracking-tight text-slate-950">
+                    Catatan video
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Untuk saat ini video paling aman disimpan di storage yang sama lalu diputar langsung via CDN. Browser akan memuatnya dengan mode native `preload=metadata`, jadi thumbnail dan playback awal tetap ringan.
+                  </p>
+                </div>
+              ) : null}
             </div>
           </Card>
         </section>
 
         <aside className="space-y-4 xl:sticky xl:top-5 xl:self-start">
           <Card className="rounded-[1.75rem] border-slate-200 bg-white p-4 shadow-sm">
-            <FormField label="Gambar utama">
-              <SingleImageUpload
-                label=""
-                value={form.cover_media_url}
-                onChange={(url) =>
-                  setForm((current) => ({
-                    ...current,
-                    cover_media_url: url,
-                    thumbnail_url: current.thumbnail_url || url,
-                  }))
-                }
-                aspect="video"
-              />
+            <FormField label={form.type === "video" ? "Media utama" : "Gambar utama"}>
+              {form.type === "video" ? (
+                <SingleMediaUpload
+                  label=""
+                  value={form.cover_media_url}
+                  mediaKind="video"
+                  accept="video/mp4,video/webm,video/quicktime"
+                  onChange={(url) =>
+                    setForm((current) => ({
+                      ...current,
+                      cover_media_url: url,
+                      metadata: {
+                        ...current.metadata,
+                        poster_url: current.metadata.poster_url || current.thumbnail_url || url,
+                      },
+                    }))
+                  }
+                  onMetadataChange={(metadata) =>
+                    setForm((current) => ({
+                      ...current,
+                      metadata: {
+                        ...current.metadata,
+                        ...metadata,
+                        poster_url: current.metadata.poster_url || current.thumbnail_url || current.cover_media_url || metadata.poster_url,
+                      },
+                    }))
+                  }
+                  aspect="video"
+                />
+              ) : (
+                <SingleImageUpload
+                  label=""
+                  value={form.cover_media_url}
+                  onChange={(url) =>
+                    setForm((current) => ({
+                      ...current,
+                      cover_media_url: url,
+                      thumbnail_url: current.thumbnail_url || url,
+                      metadata: {
+                        ...current.metadata,
+                        poster_url: current.thumbnail_url || url,
+                      },
+                    }))
+                  }
+                  onMetadataChange={(metadata) =>
+                    setForm((current) => ({
+                      ...current,
+                      metadata: {
+                        ...current.metadata,
+                        ...metadata,
+                        poster_url: current.thumbnail_url || current.cover_media_url || metadata.poster_url,
+                      },
+                    }))
+                  }
+                  aspect="video"
+                />
+              )}
             </FormField>
 
             <div className="mt-4">
-              <FormField label="Thumbnail (opsional)">
+              <FormField label={form.type === "video" ? "Thumbnail / poster" : "Thumbnail (opsional)"}>
                 <SingleImageUpload
                   label=""
                   value={form.thumbnail_url}
-                  onChange={(url) => setForm((current) => ({ ...current, thumbnail_url: url }))}
+                  onChange={(url) =>
+                    setForm((current) => ({
+                      ...current,
+                      thumbnail_url: url,
+                      metadata: {
+                        ...current.metadata,
+                        poster_url: url,
+                      },
+                    }))
+                  }
                   aspect="video"
                 />
               </FormField>
@@ -442,42 +554,137 @@ export function PostEditorScreen({ mode, postId }: Props) {
 
           <Card className="rounded-[1.75rem] border-slate-200 bg-white p-4 shadow-sm">
             <div className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">
-              Preview ringkas
+              Preview di feed
             </div>
-            <div className="mt-3 text-lg font-black tracking-tight text-slate-950">
-              {form.title || "Judul postingan"}
+            <div className="mt-3 overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm">
+              <div
+                className="relative h-40 w-full bg-cover bg-center"
+                style={{
+                  backgroundImage: form.cover_media_url
+                    ? `url(${form.thumbnail_url || form.cover_media_url})`
+                    : form.type === "promo"
+                      ? "linear-gradient(135deg, rgba(120,53,15,0.92), rgba(245,158,11,0.72))"
+                      : "linear-gradient(135deg, rgba(13,31,39,0.92), rgba(96,165,250,0.72))",
+                }}
+              >
+                <div className="absolute left-3 top-3 flex flex-wrap items-center gap-2">
+                  <Badge className="rounded-full bg-blue-50 text-blue-700">{labelForType(form.type)}</Badge>
+                  {form.type === "video" ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-950/75 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white">
+                      <PlayCircle className="h-3.5 w-3.5" />
+                      {formatDiscoveryDuration(form.metadata.duration_seconds) || "Video"}
+                    </span>
+                  ) : null}
+                  {form.type === "promo" ? (
+                    <span className="rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-amber-950">
+                      Promo
+                    </span>
+                  ) : null}
+                </div>
+                <div className="absolute bottom-3 left-3 rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white">
+                  Dari bisnis kamu
+                </div>
+              </div>
+              <div className="space-y-4 p-4">
+                <div className="flex flex-wrap gap-2">
+                  <Badge className="rounded-full bg-slate-100 text-slate-700">{form.status}</Badge>
+                  <Badge className="rounded-full bg-slate-100 text-slate-700">{form.visibility}</Badge>
+                </div>
+                <div className="text-lg font-black tracking-tight text-slate-950">
+                  {form.title || "Judul postingan"}
+                </div>
+                <p className="text-sm leading-6 text-slate-500">
+                  {form.caption || "Caption singkat akan muncul di sini."}
+                </p>
+                <div className="grid gap-2 text-[11px] font-semibold text-slate-500">
+                  <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
+                    <span className="flex items-center gap-1.5">
+                      <MousePointerClick className="h-3.5 w-3.5 text-blue-600" />
+                      Reaksi yang dicari
+                    </span>
+                    <span className="text-slate-900">
+                      {form.type === "promo" ? "Klik cepat" : form.type === "video" ? "Lanjut detail" : "Buka bisnis"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
+                    <span className="flex items-center gap-1.5">
+                      <Clock3 className="h-3.5 w-3.5 text-blue-600" />
+                      Kesan pertama
+                    </span>
+                    <span className="text-slate-900">
+                      {form.type === "promo" ? "Urgent" : form.type === "video" ? "Hidup" : "Editorial"}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              {form.caption || "Caption singkat akan muncul di sini."}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Badge className="rounded-full bg-blue-50 text-blue-700">{labelForType(form.type)}</Badge>
-              <Badge className="rounded-full bg-slate-200 text-slate-700">{form.status}</Badge>
-              <Badge className="rounded-full bg-slate-200 text-slate-700">{form.visibility}</Badge>
+            <div className="mt-4 grid gap-2 text-xs text-slate-500">
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                <span>Format media</span>
+                <span className="font-semibold text-slate-900">
+                  {form.metadata.mime_type || (form.type === "video" ? "video/mp4" : "image/jpeg")}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                <span>Resolusi</span>
+                <span className="font-semibold text-slate-900">
+                  {form.metadata.width && form.metadata.height
+                    ? `${form.metadata.width} x ${form.metadata.height}`
+                    : "Belum terbaca"}
+                </span>
+              </div>
+              {form.type === "video" ? (
+                <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                  <span>Durasi</span>
+                  <span className="font-semibold text-slate-900">
+                    {formatDiscoveryDuration(form.metadata.duration_seconds) || "Belum terbaca"}
+                  </span>
+                </div>
+              ) : null}
             </div>
           </Card>
 
+          {form.type === "video" ? (
+            <Card className="rounded-[1.75rem] border-slate-200 bg-white p-4 shadow-sm">
+              <FormField label="HLS stream URL (opsional, untuk nanti)">
+                <Input
+                  value={form.metadata.stream_url_hls || ""}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      metadata: {
+                        ...current.metadata,
+                        stream_url_hls: event.target.value,
+                      },
+                    }))
+                  }
+                  placeholder="https://cdn.bookinaja.com/.../master.m3u8"
+                />
+              </FormField>
+            </Card>
+          ) : null}
+
           <Card className="rounded-[1.75rem] border-slate-200 bg-white p-4 shadow-sm">
             <div className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">
-              Inspirasi feed
+              Checklist publish
             </div>
             <div className="mt-2 text-lg font-black tracking-tight text-slate-950">
-              Lihat tenant lain yang sedang aktif
+              Pastikan post ini siap tampil
             </div>
-            <p className="mt-2 text-sm leading-7 text-slate-500">
-              Amati angle visual, headline, dan jenis post yang terasa paling hidup di Feed Bookinaja.
-            </p>
-            <div className="mt-4 space-y-3">
-              <FeedIdeaCard
-                title="Post promo"
-                description="Bagus untuk dorong traffic saat ada momentum yang jelas."
-                icon="reach"
-              />
-              <FeedIdeaCard
-                title="Post ambience"
-                description="Jual suasana dan pengalaman, bukan cuma daftar fitur."
-                icon="video"
-              />
+            <div className="mt-4 space-y-2">
+              {[
+                { done: Boolean(form.title.trim()), label: "Judul sudah ada" },
+                { done: Boolean(form.caption.trim()), label: "Caption punya alasan yang jelas" },
+                { done: Boolean(form.cover_media_url.trim()), label: "Visual utama sudah dipilih" },
+                { done: form.type !== "video" || Boolean(form.metadata.poster_url || form.thumbnail_url), label: "Poster / thumbnail video aman" },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-3 text-sm font-semibold">
+                  <span className="text-slate-700">{item.label}</span>
+                  <span className={item.done ? "text-blue-600" : "text-slate-400"}>
+                    {item.done ? "Siap" : "Belum"}
+                  </span>
+                </div>
+              ))}
             </div>
           </Card>
         </aside>
@@ -595,6 +802,30 @@ function labelForType(type?: string) {
     default:
       return "Foto";
   }
+}
+
+function normalizeMetadata(value?: PostMediaMetadata | null) {
+  if (!value || typeof value !== "object") return {};
+  return {
+    duration_seconds: value.duration_seconds,
+    poster_url: value.poster_url || "",
+    mime_type: value.mime_type || "",
+    width: value.width,
+    height: value.height,
+    stream_url_hls: value.stream_url_hls || "",
+  } satisfies PostMediaMetadata;
+}
+
+function buildMediaMetadataPayload(form: PostFormState): PostMediaMetadata {
+  return {
+    ...form.metadata,
+    poster_url:
+      form.thumbnail_url.trim() ||
+      form.metadata.poster_url ||
+      form.cover_media_url.trim(),
+    mime_type: form.metadata.mime_type,
+    stream_url_hls: form.metadata.stream_url_hls?.trim() || undefined,
+  };
 }
 
 function serializeForm(form: PostFormState) {
