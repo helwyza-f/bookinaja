@@ -49,7 +49,7 @@ export function MediaSection({ profile, saving, onSave }: SectionProps) {
           {profile.gallery?.length ? (
             <div className="grid grid-cols-4 gap-2">
               {profile.gallery.slice(0, 4).map((url, index) => (
-                <div key={`${url}-${index}`} className="aspect-square overflow-hidden rounded-xl bg-slate-100">
+                <div key={`${url}-${index}`} className="aspect-square overflow-hidden rounded-xl bg-slate-100 dark:bg-white/[0.04]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={url} alt="" className="h-full w-full object-cover" />
                 </div>

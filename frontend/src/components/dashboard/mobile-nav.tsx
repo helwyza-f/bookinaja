@@ -122,7 +122,7 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
         <Button
           size="icon"
           className={cn(
-            "z-50 h-10 w-10 rounded-xl border border-slate-200 bg-slate-950 text-white shadow-sm hover:bg-slate-900 md:hidden",
+            "z-50 h-10 w-10 rounded-xl border border-[var(--sidebar-border)] bg-[var(--bookinaja-600)] text-white shadow-sm hover:bg-[var(--bookinaja-700)] md:hidden",
             triggerClassName || "fixed left-4 bottom-4",
           )}
           aria-label="Open admin navigation"
@@ -134,10 +134,10 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
       <SheetContent
         side="left"
         showCloseButton={false}
-        className="w-[84vw] max-w-[320px] gap-0 overflow-hidden border-r border-slate-200 bg-white p-0 text-slate-950 shadow-xl dark:border-white/10 dark:bg-[#0a0a0a] dark:text-white"
+        className="w-[84vw] max-w-[320px] gap-0 overflow-hidden border-r border-[var(--sidebar-border)] bg-[var(--card)] p-0 text-slate-950 shadow-xl dark:text-white"
       >
         <div className="flex h-full flex-col overflow-hidden">
-          <SheetHeader className="border-b border-slate-200 px-4 py-3 text-left dark:border-white/10">
+          <SheetHeader className="border-b border-[var(--sidebar-border)] px-4 py-3 text-left">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <SheetTitle className="truncate text-base font-semibold text-slate-950 dark:text-white">
@@ -175,8 +175,8 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
                     className={cn(
                       "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                       active
-                        ? "bg-blue-600 text-white"
-                        : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5",
+                        ? "bg-[var(--bookinaja-600)] text-white"
+                        : "text-slate-700 hover:bg-[var(--sidebar-accent)] dark:text-slate-300 dark:hover:bg-white/5",
                     )}
                   >
                     <item.icon className="h-4 w-4 shrink-0" />
@@ -201,7 +201,7 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
             {mode === "operational" &&
             userData?.role === "owner" &&
             (marketplaceItems.length > 0 || settingsItems.length > 0) ? (
-              <div className="mt-3 border-t border-slate-200 pt-3 dark:border-white/10">
+              <div className="mt-3 border-t border-[var(--sidebar-border)] pt-3">
                 {marketplaceItems.length > 0 ? (
                   <>
                     <div className="mb-1 px-3 text-xs font-semibold text-slate-400">
@@ -220,8 +220,8 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
                             className={cn(
                               "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                               active
-                                ? "bg-blue-600 text-white"
-                                : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5",
+                                ? "bg-[var(--bookinaja-600)] text-white"
+                                : "text-slate-700 hover:bg-[var(--sidebar-accent)] dark:text-slate-300 dark:hover:bg-white/5",
                             )}
                           >
                             <item.icon className="h-4 w-4 shrink-0" />
@@ -263,8 +263,8 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
                         className={cn(
                           "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                           active
-                            ? "bg-blue-600 text-white"
-                            : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5",
+                            ? "bg-[var(--bookinaja-600)] text-white"
+                            : "text-slate-700 hover:bg-[var(--sidebar-accent)] dark:text-slate-300 dark:hover:bg-white/5",
                         )}
                       >
                         <item.icon className="h-4 w-4 shrink-0" />
@@ -291,7 +291,7 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
             ) : null}
           </div>
 
-          <div className="border-t border-slate-200 p-3 dark:border-white/10">
+          <div className="border-t border-[var(--sidebar-border)] p-3">
             <div className="mb-3 min-w-0 px-1">
               <p className="truncate text-xs font-medium text-slate-700 dark:text-slate-200">
                 {userData?.email || "syncing..."}

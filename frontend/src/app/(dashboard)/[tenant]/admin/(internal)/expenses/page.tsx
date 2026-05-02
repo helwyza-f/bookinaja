@@ -166,7 +166,7 @@ export default function ExpensesPage() {
 
     try {
       await api.delete(`/expenses/${expense.id}`);
-      toast.success("PENGELUARAN DIHAPUS");
+      toast.success("Pengeluaran berhasil dihapus");
       void fetchData();
     } catch {
       toast.error("Gagal menghapus pengeluaran");
@@ -191,33 +191,33 @@ export default function ExpensesPage() {
 
   const stats = [
     {
-      label: "Total Expense",
+      label: "Total pengeluaran",
       value: `Rp ${formatIDR(Number(summary.total || 0))}`,
       icon: Banknote,
-      tone: "bg-slate-950 text-white dark:bg-white dark:text-slate-950",
+      tone: "bg-slate-950 text-white dark:bg-[var(--bookinaja-600)] dark:text-white",
     },
     {
-      label: "Entries",
+      label: "Jumlah catatan",
       value: String(summary.entries || filteredItems.length),
       icon: ReceiptText,
-      tone: "bg-white text-slate-950 dark:bg-slate-900 dark:text-white",
+      tone: "bg-white text-slate-950 dark:bg-[#0f0f17] dark:text-white",
     },
   ];
 
   return (
     <div className="mx-auto max-w-[1440px] space-y-4 pb-20 px-3 pt-5 font-plus-jakarta animate-in fade-in duration-300 md:px-4">
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950">
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
         <div className="flex flex-col gap-4 border-b border-slate-100 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between md:p-5">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white dark:bg-white dark:text-slate-950">
             <Banknote size={18} />
           </div>
           <div className="min-w-0">
-            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
               Pengeluaran
             </div>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-3xl">
-              Expense Ledger
+              Buku Pengeluaran
             </h1>
             <p className="mt-1 text-sm text-slate-500">
               Catat biaya operasional, struk, dan kategori pengeluaran.
@@ -255,9 +255,9 @@ export default function ExpensesPage() {
           <Button
             onClick={openCreate}
             disabled={!canCreateExpenses}
-            className="col-span-2 h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm gap-2 transition-all hover:bg-blue-700 active:scale-95 sm:col-span-1 sm:w-auto"
+            className="col-span-2 h-10 rounded-xl bg-[var(--bookinaja-600)] px-4 text-sm font-semibold text-white shadow-sm gap-2 transition-all hover:bg-[var(--bookinaja-700)] active:scale-95 sm:col-span-1 sm:w-auto"
           >
-            <Plus size={15} /> Add Expense
+            <Plus size={15} /> Tambah Pengeluaran
           </Button>
         </div>
         </div>
@@ -270,25 +270,25 @@ export default function ExpensesPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Cari judul, vendor, notes..."
-              className="h-10 rounded-xl border-slate-200 bg-slate-50 pl-10 text-sm font-medium focus-visible:ring-4 focus-visible:ring-blue-600/10 dark:border-white/10 dark:bg-white/5"
+              className="h-10 rounded-xl border-slate-200 bg-slate-50 pl-10 text-sm font-medium focus-visible:ring-4 focus-visible:ring-[color:rgba(59,130,246,0.14)] dark:border-white/10 dark:bg-white/5"
             />
           </div>
 
           <Select value={category} onValueChange={setCategory}>
             <SelectTrigger className="h-10 rounded-xl border-slate-200 bg-slate-50 text-sm font-medium dark:border-white/10 dark:bg-white/5">
-              <SelectValue placeholder="Category" />
+              <SelectValue placeholder="Kategori" />
             </SelectTrigger>
             <SelectContent className="rounded-xl font-medium">
               {categoryOptions.map((item) => (
                 <SelectItem key={item} value={item}>
-                  {item === "all" ? "All Categories" : item}
+                  {item === "all" ? "Semua kategori" : item}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          <DatePopover label="From" value={from} onChange={setFrom} />
-          <DatePopover label="To" value={to} onChange={setTo} />
+          <DatePopover label="Dari" value={from} onChange={setFrom} />
+          <DatePopover label="Sampai" value={to} onChange={setTo} />
 
           <Button
             onClick={resetFilters}
@@ -320,14 +320,13 @@ export default function ExpensesPage() {
             Belum ada pengeluaran
           </h3>
           <p className="mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
-            Catat biaya bisnis supaya pengeluaran tetap rapi dan gampang
-            ditelusuri.
+            Catat biaya bisnis supaya arus pengeluaran tetap rapi dan mudah ditelusuri.
           </p>
           <Button
             onClick={openCreate}
-            className="mt-5 rounded-2xl bg-blue-600 px-4 font-black uppercase italic text-[9px] tracking-widest text-white"
+            className="mt-5 rounded-2xl bg-[var(--bookinaja-600)] px-4 font-black uppercase italic text-[9px] tracking-widest text-white hover:bg-[var(--bookinaja-700)]"
           >
-            Add First Expense
+            Tambah Pengeluaran
           </Button>
         </div>
       ) : (
@@ -337,23 +336,23 @@ export default function ExpensesPage() {
               <Card
                 key={expense.id}
                 onClick={() => openDetail(expense.id)}
-            className="group cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-blue-200 dark:border-white/10 dark:bg-slate-950"
+            className="group cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-[color:rgba(59,130,246,0.22)] dark:border-white/15 dark:bg-[#0f0f17]"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1 space-y-2">
                     <div className="flex items-center gap-2">
-                      <Badge className="rounded-full border-none bg-blue-600/10 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                      <Badge className="rounded-full border-none bg-[var(--bookinaja-50)] px-2 py-0.5 text-[10px] font-semibold text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-200)]">
                         {expense.category}
                       </Badge>
                       <span className="text-[11px] font-medium text-slate-400">
-                        {expense.receipt_url ? "receipt" : "no receipt"}
+                        {expense.receipt_url ? "struk tersedia" : "tanpa struk"}
                       </span>
                     </div>
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-slate-950 dark:text-white">
                         {expense.title}
                       </h3>
-                      <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-blue-600" />
+                      <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--bookinaja-600)]" />
                     </div>
                     <div className="text-xs font-medium text-slate-500">
                       {formatExpenseDate(expense.expense_date)}
@@ -361,9 +360,9 @@ export default function ExpensesPage() {
                   </div>
                   <div className="text-right">
                     <div className="text-[11px] font-medium text-slate-400">
-                      Amount
+                      Nilai
                     </div>
-                    <div className="mt-1 text-sm font-semibold text-blue-600">
+                    <div className="mt-1 text-sm font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
                       Rp {formatIDR(expense.amount)}
                     </div>
                   </div>
@@ -400,24 +399,24 @@ export default function ExpensesPage() {
             ))}
           </div>
 
-          <Card className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950 md:block">
+          <Card className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:block">
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-100 dark:border-white/5">
                   <TableHead className="pl-5 text-xs font-semibold text-slate-500">
-                    Title
+                    Judul
                   </TableHead>
                   <TableHead className="text-xs font-semibold text-slate-500">
-                    Category
+                    Kategori
                   </TableHead>
                   <TableHead className="text-xs font-semibold text-slate-500">
-                    Date
+                    Tanggal
                   </TableHead>
                   <TableHead className="text-right text-xs font-semibold text-slate-500">
-                    Amount
+                    Nilai
                   </TableHead>
                   <TableHead className="pr-5 text-right text-xs font-semibold text-slate-500">
-                    Actions
+                    Aksi
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -426,7 +425,7 @@ export default function ExpensesPage() {
                   <TableRow
                     key={expense.id}
                     onClick={() => openDetail(expense.id)}
-                    className="cursor-pointer border-slate-100 dark:border-white/5 hover:bg-blue-50/30 dark:hover:bg-blue-950/10"
+                    className="cursor-pointer border-slate-100 hover:bg-[var(--bookinaja-50)]/70 dark:border-white/10 dark:hover:bg-[color:rgba(59,130,246,0.08)]"
                   >
                     <TableCell className="pl-5 py-4">
                       <div className="flex items-center gap-2">
@@ -435,20 +434,20 @@ export default function ExpensesPage() {
                             {expense.title}
                           </div>
                           <div className="mt-1 flex items-center gap-1 text-xs font-medium text-slate-400">
-                            <span>{expense.receipt_url ? "receipt ready" : "no receipt"}</span>
+                            <span>{expense.receipt_url ? "struk siap" : "tanpa struk"}</span>
                           </div>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge className="rounded-full border-none bg-blue-600/10 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                      <Badge className="rounded-full border-none bg-[var(--bookinaja-50)] px-2 py-0.5 text-[10px] font-semibold text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-200)]">
                         {expense.category}
                       </Badge>
                     </TableCell>
                     <TableCell className="font-medium text-slate-500">
                       {formatExpenseDate(expense.expense_date)}
                     </TableCell>
-                    <TableCell className="text-right font-semibold text-blue-600">
+                    <TableCell className="text-right font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
                       Rp {formatIDR(expense.amount)}
                     </TableCell>
                     <TableCell className="pr-5">
@@ -510,7 +509,7 @@ function DatePopover({
 }) {
   const selected = value ? parseISO(value) : undefined;
   const labelValue =
-    selected && isValid(selected) ? format(selected, "dd MMM yyyy") : "Select date";
+    selected && isValid(selected) ? format(selected, "dd MMM yyyy") : "Pilih tanggal";
 
   return (
     <Popover>
@@ -523,7 +522,7 @@ function DatePopover({
             {label}
           </span>
           <span className="ml-3 truncate">{labelValue}</span>
-          <CalendarIcon className="ml-3 h-4 w-4 text-blue-600" />
+          <CalendarIcon className="ml-3 h-4 w-4 text-[var(--bookinaja-600)]" />
         </Button>
       </PopoverTrigger>
       <PopoverContent

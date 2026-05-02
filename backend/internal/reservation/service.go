@@ -22,6 +22,14 @@ type Service struct {
 	resourceRepo    *resource.Repository
 	customerService *customer.Service
 	fnbService      *fnb.Service
+	deviceService   deviceAutomation
+}
+
+type deviceAutomation interface {
+	EnqueueSessionStart(ctx context.Context, tenantID, bookingID string) error
+	EnqueueWarning(ctx context.Context, tenantID, bookingID string) error
+	EnqueueTimeout(ctx context.Context, tenantID, bookingID string) error
+	EnqueueStandbyByResource(ctx context.Context, tenantID, resourceID string) error
 }
 
 func (s *Service) SendReceiptWhatsApp(ctx context.Context, bookingIDRaw, tenantIDRaw string) (*ReceiptDeliveryResult, error) {
@@ -139,12 +147,13 @@ func formatReceiptIDR(value float64) string {
 	return "Rp " + b.String()
 }
 
-func NewService(r *Repository, resRepo *resource.Repository, custSvc *customer.Service, fnbSvc *fnb.Service) *Service {
+func NewService(r *Repository, resRepo *resource.Repository, custSvc *customer.Service, fnbSvc *fnb.Service, deviceSvc deviceAutomation) *Service {
 	return &Service{
 		repo:            r,
 		resourceRepo:    resRepo,
 		customerService: custSvc,
 		fnbService:      fnbSvc,
+		deviceService:   deviceSvc,
 	}
 }
 
@@ -343,6 +352,9 @@ func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string,
 		updated, findErr := s.repo.FindByID(ctx, bID, tID)
 		if findErr == nil {
 			_ = s.sendSessionStarted(ctx, updated)
+			if s.deviceService != nil {
+				_ = s.deviceService.EnqueueSessionStart(ctx, tID.String(), bID.String())
+			}
 		}
 	}
 
@@ -350,6 +362,14 @@ func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string,
 	if status == "completed" {
 		totalSpent := int64(booking.GrandTotal)
 		_ = s.customerService.SyncStats(ctx, booking.CustomerID, totalSpent)
+		if s.deviceService != nil {
+			_ = s.deviceService.EnqueueTimeout(ctx, tID.String(), bID.String())
+			_ = s.deviceService.EnqueueStandbyByResource(ctx, tID.String(), booking.ResourceID.String())
+		}
+	}
+
+	if status == "cancelled" && s.deviceService != nil {
+		_ = s.deviceService.EnqueueStandbyByResource(ctx, tID.String(), booking.ResourceID.String())
 	}
 
 	return nil

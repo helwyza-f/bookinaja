@@ -121,11 +121,11 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   const hasAccess = (href: string) => canAccessAdminRoute(href, userData);
 
   return (
-    <div className="relative flex h-full flex-col bg-white dark:bg-[#0a0a0a] font-sans border-r border-slate-200 dark:border-white/5 transition-colors duration-200">
+    <div className="relative flex h-full flex-col border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] font-sans text-[var(--sidebar-foreground)] transition-colors duration-200">
       {/* COLLAPSE TOGGLE BUTTON */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-7 z-[60] flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:bg-blue-600 hover:text-white dark:border-white/10 dark:bg-slate-900 dark:text-white"
+        className="absolute -right-3 top-7 z-[60] flex h-6 w-6 items-center justify-center rounded-full border border-[var(--sidebar-border)] bg-[var(--card)] text-slate-500 shadow-sm transition-colors hover:bg-[var(--sidebar-primary)] hover:text-[var(--sidebar-primary-foreground)] dark:text-slate-300"
       >
         {isCollapsed ? (
           <ChevronRight className="h-3 w-3" />
@@ -155,8 +155,8 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
               <span className="w-36 truncate text-sm font-semibold leading-none text-slate-950 dark:text-white">
                 {tenantName}
               </span>
-              <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-600">
-                Management
+              <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-100)]">
+                Bookinaja Admin
               </span>
             </div>
           )}
@@ -192,8 +192,8 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                         ? "h-9 w-9 justify-center mx-auto rounded-xl"
                         : "px-3 py-2.5 w-full gap-3 rounded-xl",
                       isActive
-                        ? "bg-blue-600 text-white shadow-sm"
-                        : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-blue-600 dark:hover:text-white",
+                        ? "bg-[var(--sidebar-primary)] text-[var(--sidebar-primary-foreground)] shadow-sm"
+                        : "text-slate-500 dark:text-slate-300 hover:bg-[var(--sidebar-accent)] dark:hover:bg-white/5 hover:text-[var(--bookinaja-600)] dark:hover:text-white",
                     )}
                   >
                     <route.icon
@@ -213,7 +213,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                 {isCollapsed && (
                   <TooltipContent
                     side="right"
-                    className="ml-2 border-none bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white shadow-lg"
+                    className="ml-2 border-none bg-[var(--bookinaja-900)] px-3 py-1.5 text-xs font-semibold text-white shadow-lg"
                   >
                     {route.label}
                   </TooltipContent>
@@ -248,8 +248,8 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                           : "w-full gap-3 rounded-xl px-3 py-2.5",
                         pathname === growthHubNavItem.href ||
                           pathname.startsWith(`${growthHubNavItem.href}/`)
-                          ? "bg-blue-600 text-white shadow-sm"
-                          : "text-slate-500 hover:bg-slate-100 hover:text-blue-600 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white",
+                          ? "bg-[var(--sidebar-primary)] text-[var(--sidebar-primary-foreground)] shadow-sm"
+                          : "text-slate-500 hover:bg-[var(--sidebar-accent)] hover:text-[var(--bookinaja-600)] dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white",
                       )}
                     >
                       <growthHubNavItem.icon
@@ -268,7 +268,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                   {isCollapsed && (
                     <TooltipContent
                       side="right"
-                      className="ml-2 border-none bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white shadow-lg"
+                      className="ml-2 border-none bg-[var(--bookinaja-900)] px-3 py-1.5 text-xs font-semibold text-white shadow-lg"
                     >
                       {growthHubNavItem.label}
                     </TooltipContent>
@@ -306,8 +306,8 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                             ? "mx-auto h-9 w-9 justify-center rounded-xl"
                             : "w-full gap-3 rounded-xl px-3 py-2.5",
                           isActive
-                            ? "bg-blue-600 text-white shadow-sm"
-                            : "text-slate-500 hover:bg-slate-100 hover:text-blue-600 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white",
+                            ? "bg-[var(--sidebar-primary)] text-[var(--sidebar-primary-foreground)] shadow-sm"
+                            : "text-slate-500 hover:bg-[var(--sidebar-accent)] hover:text-[var(--bookinaja-600)] dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white",
                         )}
                       >
                         <route.icon
@@ -326,7 +326,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                     {isCollapsed && (
                       <TooltipContent
                         side="right"
-                        className="ml-2 border-none bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white shadow-lg"
+                        className="ml-2 border-none bg-[var(--bookinaja-900)] px-3 py-1.5 text-xs font-semibold text-white shadow-lg"
                       >
                         {route.label}
                       </TooltipContent>
@@ -342,7 +342,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       {/* FOOTER: NAV USER POPOVER */}
       <div
         className={cn(
-          "mt-auto border-t border-slate-100 bg-slate-50/50 dark:border-white/5 dark:bg-white/[0.02]",
+          "mt-auto border-t border-[var(--sidebar-border)] bg-[var(--sidebar-accent)]/50",
           isCollapsed ? "p-2" : "p-3",
         )}
       >
@@ -350,11 +350,11 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
           <DropdownMenuTrigger asChild>
             <button
               className={cn(
-                "flex items-center w-full transition-all duration-200 outline-none group rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 min-w-0",
+                "flex items-center w-full transition-all duration-200 outline-none group rounded-xl hover:bg-[var(--sidebar-accent)] dark:hover:bg-white/5 min-w-0",
                 isCollapsed ? "h-10 w-10 justify-center mx-auto" : "p-2 gap-3",
               )}
             >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-blue-600 font-semibold uppercase text-white shadow-sm">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--sidebar-primary)] font-semibold uppercase text-[var(--sidebar-primary-foreground)] shadow-sm">
                 {userData?.logo_url && userData.logo_url !== "" ? (
                   <div
                     className="h-full w-full bg-cover bg-center"
@@ -377,20 +377,20 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                       {userData?.email || "syncing..."}
                     </span>
                   </div>
-                  <ChevronsUpDown className="h-4 w-4 text-slate-400 shrink-0 group-hover:text-blue-500 transition-colors" />
+                  <ChevronsUpDown className="h-4 w-4 text-slate-400 shrink-0 group-hover:text-[var(--bookinaja-600)] transition-colors" />
                 </>
               )}
             </button>
           </DropdownMenuTrigger>
 
           <DropdownMenuContent
-            className="w-64 rounded-2xl border-slate-200 bg-white p-2 shadow-xl dark:border-white/10 dark:bg-[#0c0c0c]"
+            className="w-64 rounded-2xl border-[var(--sidebar-border)] bg-[var(--card)] p-2 shadow-xl"
             side="right"
             align="end"
             sideOffset={12}
           >
             <DropdownMenuLabel className="p-4">
-              <div className="space-y-3 rounded-xl bg-slate-950 p-4 text-white">
+              <div className="space-y-3 rounded-xl bg-[var(--bookinaja-900)] p-4 text-white">
                 <div className="flex items-center justify-between gap-3">
                   <div className="space-y-1 min-w-0">
                     <div className="text-sm font-semibold leading-none">
@@ -404,15 +404,15 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                     {String(userData?.role || "staff").toUpperCase()}
                   </Badge>
                 </div>
-                <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.25em] text-blue-200">
+                <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.25em] text-[var(--bookinaja-100)]">
                   <ShieldCheck className="h-3.5 w-3.5" />
-                  {userData?.role === "owner" ? "Owner Console" : "Staff Console"}
+                  {userData?.role === "owner" ? "Owner Access" : "Staff Access"}
                 </div>
                 {userData?.role !== "owner" && (
                   <div className="text-[8px] font-bold uppercase tracking-[0.2em] text-slate-300">
                     {hasPermission(userData, "bookings.read")
-                      ? "Operational access active"
-                      : "Limited operational access"}
+                      ? "Akses operasional aktif"
+                      : "Akses operasional terbatas"}
                   </div>
                 )}
               </div>
@@ -424,7 +424,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
               {userData?.role === "owner" && (
                 <DropdownMenuItem
                   onClick={() => router.push("/admin/settings/bisnis")}
-                  className="rounded-xl px-3 py-3 cursor-pointer text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 focus:bg-slate-100 dark:focus:bg-white/5 focus:text-blue-600 dark:focus:text-white transition-all"
+                  className="rounded-xl px-3 py-3 cursor-pointer text-slate-600 dark:text-slate-300 hover:bg-[var(--sidebar-accent)] dark:hover:bg-white/5 focus:bg-[var(--sidebar-accent)] dark:focus:bg-white/5 focus:text-[var(--bookinaja-600)] dark:focus:text-white transition-all"
                 >
                   <Settings className="mr-3 h-4 w-4" />
                   <span className="text-xs font-semibold">
@@ -435,12 +435,12 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
 
               <DropdownMenuItem
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="rounded-xl px-3 py-3 cursor-pointer text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 focus:bg-slate-100 dark:focus:bg-white/5 transition-all"
+                className="rounded-xl px-3 py-3 cursor-pointer text-slate-600 dark:text-slate-300 hover:bg-[var(--sidebar-accent)] dark:hover:bg-white/5 focus:bg-[var(--sidebar-accent)] dark:focus:bg-white/5 transition-all"
               >
                 {theme === "dark" ? (
                   <Sun className="mr-3 h-4 w-4 text-amber-500 fill-amber-500/20" />
                 ) : (
-                  <Moon className="mr-3 h-4 w-4 text-blue-500 fill-blue-500/20" />
+                  <Moon className="mr-3 h-4 w-4 text-[var(--bookinaja-600)] fill-[color:rgba(18,146,255,0.18)]" />
                 )}
                 <span className="text-xs font-semibold">
                   Tampilan {theme === "dark" ? "Terang" : "Gelap"}

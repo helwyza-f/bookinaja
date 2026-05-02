@@ -309,7 +309,7 @@ export default function StaffSettingsPage() {
     <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
+          <div className="flex items-center gap-2 text-sm font-semibold text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
             <Users className="h-4 w-4" />
             Manajemen Pegawai
           </div>
@@ -321,11 +321,11 @@ export default function StaffSettingsPage() {
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Button variant="outline" onClick={openCreateRole} className="w-full gap-2 sm:w-auto">
+          <Button variant="outline" onClick={openCreateRole} className="w-full gap-2 sm:w-auto dark:border-white/10 dark:bg-white/[0.03]">
             <UserCog className="h-4 w-4" />
             Role Baru
           </Button>
-          <Button onClick={openCreateStaff} className="w-full gap-2 sm:w-auto">
+          <Button onClick={openCreateStaff} className="w-full gap-2 bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)] sm:w-auto">
             <Plus className="h-4 w-4" />
             Tambah Pegawai
           </Button>
@@ -339,7 +339,7 @@ export default function StaffSettingsPage() {
       )}
 
       <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr] xl:gap-6">
-        <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0b0b0b]">
+        <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h2 className="text-sm font-semibold text-slate-950 dark:text-white">
@@ -470,7 +470,7 @@ export default function StaffSettingsPage() {
           </div>
         </Card>
 
-        <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0b0b0b]">
+        <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h2 className="text-sm font-semibold text-slate-950 dark:text-white">
@@ -487,8 +487,8 @@ export default function StaffSettingsPage() {
           </div>
 
           <div className="space-y-3">
-            <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3 dark:border-blue-500/10 dark:bg-blue-950/10">
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
+            <div className="rounded-xl border border-[color:rgba(59,130,246,0.18)] bg-[var(--bookinaja-50)] p-3 dark:border-[color:rgba(96,165,250,0.18)] dark:bg-[color:rgba(59,130,246,0.12)]">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-100)]">
                 Preset Role Umum
               </div>
               <p className="mt-2 text-xs leading-5 text-slate-500">
@@ -496,7 +496,7 @@ export default function StaffSettingsPage() {
               </p>
               <div className="mt-3 space-y-3">
                 {RECOMMENDED_ROLE_PRESETS.map((preset) => (
-                  <div key={preset.name} className="rounded-lg border border-white/70 bg-white/80 p-3 dark:border-white/5 dark:bg-white/[0.03]">
+                  <div key={preset.name} className="rounded-lg border border-white/70 bg-white/80 p-3 dark:border-white/10 dark:bg-white/[0.04]">
                     <div className="text-sm font-semibold text-slate-950 dark:text-white">
                       {preset.name}
                     </div>
@@ -693,7 +693,7 @@ export default function StaffSettingsPage() {
                             onClick={() => togglePermission(permission.key)}
                             className={`flex min-h-20 flex-col items-start justify-between gap-3 rounded-lg border px-3 py-3 text-left text-sm transition-colors ${
                               checked
-                                ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-200"
+                                ? "border-[var(--bookinaja-500)] bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]"
                                 : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-transparent dark:text-slate-300 dark:hover:bg-white/5"
                             }`}
                           >

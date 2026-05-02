@@ -100,6 +100,8 @@ export default function DashboardInternalLayout({
         return "Bookings";
       case "resources":
         return "Resources";
+      case "devices":
+        return "Smart Devices";
       case "customers":
         return "Customers";
       case "fnb":

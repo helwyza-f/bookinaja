@@ -2,3 +2,5 @@ bookinaja.pem
 .gocache/
 .gocache/
 .cache/
+./device-simulator/*
+device-simulator/*

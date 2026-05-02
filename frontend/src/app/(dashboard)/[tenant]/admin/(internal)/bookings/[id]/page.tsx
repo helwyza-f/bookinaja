@@ -324,13 +324,13 @@ export default function BookingDetailPage() {
     return (
       <div className="h-[80vh] flex flex-col items-center justify-center gap-4">
         <h1 className="text-xl font-black italic uppercase text-slate-400">
-          Not Found
+          Booking tidak ditemukan
         </h1>
         <Button
           onClick={() => router.push("/admin/bookings")}
           className="rounded-xl h-12 px-6"
         >
-          Back to List
+          Kembali ke daftar
         </Button>
       </div>
     );
@@ -351,18 +351,18 @@ export default function BookingDetailPage() {
         onError={() => setMidtransReady(false)}
       />
       {/* 1. COMPACT HEADER AREA */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="space-y-0.5">
           <Button
             variant="ghost"
             onClick={() => router.push("/admin/bookings")}
-            className="h-6 px-0 text-slate-400 hover:text-blue-600 font-black text-[8px] uppercase tracking-widest italic flex items-center gap-2 transition-all"
+            className="flex h-6 items-center gap-2 px-0 text-[8px] font-black uppercase italic tracking-widest text-slate-400 transition-all hover:text-[var(--bookinaja-600)] dark:hover:text-[var(--bookinaja-200)]"
           >
-            <ArrowLeft className="w-2.5 h-2.5 stroke-[4]" /> Back to List
+            <ArrowLeft className="w-2.5 h-2.5 stroke-[4]" /> Kembali ke daftar
           </Button>
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-xl md:text-4xl lg:text-5xl font-[1000] italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
-              Billing <span className="text-blue-600">Details.</span>
+              Booking <span className="text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">Detail.</span>
             </h1>
             <Badge
               className={cn(
@@ -370,7 +370,7 @@ export default function BookingDetailPage() {
                 booking.status === "active"
                   ? "bg-emerald-500 text-white"
                   : booking.status === "confirmed"
-                    ? "bg-blue-600 text-white"
+                    ? "bg-[var(--bookinaja-600)] text-white"
                     : "bg-slate-200 dark:bg-slate-800 text-slate-500",
               )}
             >
@@ -379,7 +379,7 @@ export default function BookingDetailPage() {
           </div>
         </div>
 
-        <div className="w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-slate-900 md:max-w-2xl">
+        <div className="w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:max-w-2xl">
           <div className="flex flex-col gap-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -412,7 +412,7 @@ export default function BookingDetailPage() {
                 </Button>
               )}
               {canSettle && (
-                <Button onClick={() => setPayOpen((prev) => !prev)} disabled={updating || !canSettleCash} className="h-10 rounded-xl bg-blue-600 text-white hover:bg-blue-700">
+                <Button onClick={() => setPayOpen((prev) => !prev)} disabled={updating || !canSettleCash} className="h-10 rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
                   <CreditCard className="mr-2 h-4 w-4" /> Pelunasan
                 </Button>
               )}
@@ -424,7 +424,7 @@ export default function BookingDetailPage() {
                       Nota
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 dark:bg-slate-900">
+                  <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 dark:bg-[#0f0f17]">
                     {!canUseReceipt && (
                       <DropdownMenuItem onClick={() => router.push("/admin/settings/billing/subscribe")} className="rounded-xl text-amber-700">
                         Upgrade Pro untuk pakai nota
@@ -449,7 +449,7 @@ export default function BookingDetailPage() {
                       <MoreVertical className="mr-2 h-4 w-4" /> Lainnya
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-52 rounded-2xl p-2 dark:bg-slate-900">
+                  <DropdownMenuContent align="end" className="w-52 rounded-2xl p-2 dark:bg-[#0f0f17]">
                     <DropdownMenuItem onClick={() => handleUpdateStatus("cancelled")} className="rounded-xl text-red-600">
                       <Trash2 size={14} className="mr-2" /> Batalkan booking
                     </DropdownMenuItem>
@@ -461,7 +461,7 @@ export default function BookingDetailPage() {
 
           {canSettle && payOpen && canSettleCash && (
             <div className="relative">
-                <div className="absolute right-0 mt-3 w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-white/10 dark:bg-slate-900 sm:w-80">
+                <div className="absolute right-0 mt-3 w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-white/15 dark:bg-[#0f0f17] sm:w-80">
                   <div className="space-y-3">
                     <div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5">
                       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Ringkasan Pelunasan</p>
@@ -472,7 +472,7 @@ export default function BookingDetailPage() {
                         </div>
                         <div>
                           <p className="text-slate-500">Sisa</p>
-                          <p className="font-semibold text-blue-600">Rp {formatIDR(booking.balance_due || 0)}</p>
+                          <p className="font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">Rp {formatIDR(booking.balance_due || 0)}</p>
                         </div>
                       </div>
                     </div>
@@ -499,7 +499,7 @@ export default function BookingDetailPage() {
         </div>
       </header>
 
-      <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900">
+      <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-base font-semibold text-slate-950 dark:text-white">Timeline booking</h2>
@@ -539,7 +539,7 @@ export default function BookingDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start">
         {/* LEFT COLUMN: CUSTOMER & SCHEDULE */}
         <div className="lg:col-span-7 space-y-5">
-          <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-none shadow-sm p-4 md:p-8 bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5 overflow-hidden relative">
+          <Card className="relative overflow-hidden rounded-[1.75rem] bg-white p-4 shadow-sm ring-1 ring-slate-100 md:rounded-[2.5rem] md:p-8 dark:bg-[#0f0f17] dark:ring-white/10 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             <div className="absolute -top-6 -right-6 opacity-[0.03] dark:opacity-[0.05] pointer-events-none">
               <User size={180} />
             </div>
@@ -547,7 +547,7 @@ export default function BookingDetailPage() {
             <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
               <div className="space-y-5">
                 <div className="space-y-1">
-                  <p className="text-[8px] font-black text-blue-600 uppercase tracking-widest italic leading-none">
+                  <p className="text-[8px] font-black uppercase tracking-widest italic leading-none text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
                     Customer Profile
                   </p>
                   <h2 className="text-lg md:text-2xl lg:text-3xl font-[1000] italic text-slate-950 dark:text-white uppercase tracking-tighter truncate">
@@ -571,8 +571,8 @@ export default function BookingDetailPage() {
                       <p className="font-[1000] italic text-slate-950 dark:text-white uppercase text-sm md:text-base leading-none tracking-tight">
                         {booking.resource_name}
                       </p>
-                      <span className="text-[7px] font-black text-blue-500 uppercase mt-1 block tracking-widest">
-                        Handshake Active
+                      <span className="mt-1 block text-[7px] font-black uppercase tracking-widest text-[var(--bookinaja-500)] dark:text-[var(--bookinaja-200)]">
+                        Resource Active
                       </span>
                     </div>
                   </div>
@@ -581,7 +581,7 @@ export default function BookingDetailPage() {
 
               <div className="space-y-5 md:border-l md:border-slate-50 md:dark:border-white/5 md:pl-8">
                 <div className="space-y-1">
-                  <p className="text-[8px] font-black text-blue-600 uppercase tracking-widest italic leading-none">
+                  <p className="text-[8px] font-black uppercase tracking-widest italic leading-none text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
                     Timeline
                   </p>
                   <div className="flex items-center gap-2 text-sm md:text-base font-[1000] italic text-slate-900 dark:text-white uppercase tracking-tighter">
@@ -590,9 +590,9 @@ export default function BookingDetailPage() {
                       locale: localeID,
                     })}
                   </div>
-                  <div className="flex items-center gap-2 text-lg md:text-xl font-[1000] italic text-blue-600 dark:text-blue-400 uppercase tracking-tighter">
+                  <div className="flex items-center gap-2 text-lg font-[1000] italic uppercase tracking-tighter text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)] md:text-xl">
                     <Clock className="w-4 h-4 opacity-40" />
-                    {format(new Date(booking.start_time), "HH:mm")} —{" "}
+                    {format(new Date(booking.start_time), "HH:mm")} -{" "}
                     {format(new Date(booking.end_time), "HH:mm")}
                   </div>
                 </div>
@@ -606,19 +606,19 @@ export default function BookingDetailPage() {
                       {(booking.access_token || "").slice(0, 15)}...
                     </p>
                   </div>
-                  <ShieldCheck className="w-6 h-6 text-blue-200 dark:text-blue-900/30" />
+                  <ShieldCheck className="w-6 h-6 text-[var(--bookinaja-200)] dark:text-[var(--bookinaja-800)]" />
                 </div>
               </div>
             </div>
           </Card>
 
           {/* RENTAL OPTIONS */}
-          <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-none shadow-sm p-4 md:p-8 bg-white dark:bg-slate-900 space-y-5 md:space-y-6 ring-1 ring-slate-100 dark:ring-white/5">
+          <Card className="space-y-5 rounded-[1.75rem] bg-white p-4 shadow-sm ring-1 ring-slate-100 md:space-y-6 md:rounded-[2.5rem] md:p-8 dark:bg-[#0f0f17] dark:ring-white/10 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
               <div className="flex items-center gap-2">
-                <Layers className="w-4 h-4 text-blue-600" />
+                <Layers className="w-4 h-4 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
                 <h3 className="text-sm font-[1000] italic uppercase tracking-widest text-slate-950 dark:text-white">
-                  Rental Breakdown
+                  Ringkasan Sewa
                 </h3>
               </div>
             </div>
@@ -630,7 +630,7 @@ export default function BookingDetailPage() {
                   className="flex justify-between items-center group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-9 h-9 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center font-black italic text-blue-600 text-[9px] shadow-inner">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-[9px] font-black italic text-[var(--bookinaja-700)] shadow-inner dark:bg-white/[0.04] dark:text-[var(--bookinaja-200)]">
                       {opt.item_type === "main_option" ? "PKG" : "ADD"}
                     </div>
                     <div>
@@ -643,7 +643,7 @@ export default function BookingDetailPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className="font-black italic text-blue-600 text-[10px]">
+                    <span className="text-[10px] font-black italic text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
                       x{opt.quantity}
                     </span>
                     <p className="font-[1000] italic text-slate-950 dark:text-white text-sm md:text-base leading-none">
@@ -659,7 +659,7 @@ export default function BookingDetailPage() {
         {/* RIGHT COLUMN: F&B + TOTAL */}
         <div className="lg:col-span-5 space-y-5">
           {/* FnB SECTION */}
-          <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-none shadow-sm p-4 md:p-8 bg-white dark:bg-slate-900 flex flex-col ring-1 ring-slate-100 dark:ring-white/5 min-h-[300px]">
+          <Card className="flex min-h-[300px] flex-col rounded-[1.75rem] bg-white p-4 shadow-sm ring-1 ring-slate-100 md:rounded-[2.5rem] md:p-8 dark:bg-[#0f0f17] dark:ring-white/10 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3 mb-5">
               <div className="flex items-center gap-2">
                 <Utensils className="w-4 h-4 text-orange-500" />
@@ -695,7 +695,7 @@ export default function BookingDetailPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="font-black text-blue-600 italic text-[10px]">
+                      <span className="text-[10px] font-black italic text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
                         x{order.quantity}
                       </span>
                       <span className="font-black text-slate-950 dark:text-white italic text-base">
@@ -741,7 +741,7 @@ export default function BookingDetailPage() {
                     Tombol aksi ada di kanan atas
                   </p>
                 </div>
-                <Badge className="rounded-full bg-blue-600 text-white border-none px-3 py-1 text-[8px] uppercase font-black">
+                <Badge className="rounded-full border-none bg-[var(--bookinaja-600)] px-3 py-1 text-[8px] font-black uppercase text-white">
                   {booking.payment_status || "pending"}
                 </Badge>
               </div>
@@ -767,8 +767,8 @@ export default function BookingDetailPage() {
                   <p className="text-[8px] uppercase tracking-widest text-slate-400 font-black italic">
                     Sisa
                   </p>
-                  <p className="mt-2 text-sm font-black italic text-blue-300">
-                    Rp{formatIDR(booking.balance_due || 0)}
+                    <p className="mt-2 text-sm font-black italic text-[var(--bookinaja-200)]">
+                      Rp{formatIDR(booking.balance_due || 0)}
                   </p>
                 </div>
               </div>

@@ -170,6 +170,19 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				})
 			}
 
+			devices := adminArea.Group("/devices")
+			{
+				devices.GET("/overview", middleware.RequirePermission(tenant.PermissionDevicesRead), cfg.SmartDeviceHandler.Overview)
+				devices.GET("", middleware.RequirePermission(tenant.PermissionDevicesRead), cfg.SmartDeviceHandler.List)
+				devices.POST("/claim", middleware.RequirePermission(tenant.PermissionDevicesClaim), cfg.SmartDeviceHandler.Claim)
+				devices.GET("/:id", middleware.RequirePermission(tenant.PermissionDevicesRead), cfg.SmartDeviceHandler.GetDetail)
+				devices.POST("/:id/assign", middleware.RequirePermission(tenant.PermissionDevicesAssign), cfg.SmartDeviceHandler.Assign)
+				devices.POST("/:id/unassign", middleware.RequirePermission(tenant.PermissionDevicesAssign), cfg.SmartDeviceHandler.Unassign)
+				devices.POST("/:id/enable", middleware.RequirePermission(tenant.PermissionDevicesControl), cfg.SmartDeviceHandler.Enable)
+				devices.POST("/:id/disable", middleware.RequirePermission(tenant.PermissionDevicesControl), cfg.SmartDeviceHandler.Disable)
+				devices.POST("/:id/test", middleware.RequirePermission(tenant.PermissionDevicesControl), cfg.SmartDeviceHandler.Test)
+			}
+
 			expenses := adminArea.Group("/expenses")
 			{
 				expenses.GET("", middleware.RequirePermission(tenant.PermissionExpensesRead), cfg.ExpenseHandler.List)

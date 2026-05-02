@@ -71,7 +71,7 @@ export function BasicProfileSection({ profile, saving, onSave }: SectionProps) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <Label className="text-xs font-semibold text-slate-500">{label}</Label>
+      <Label className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{label}</Label>
       {children}
     </div>
   );
