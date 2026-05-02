@@ -130,6 +130,16 @@ export default function DiscoveryPage() {
       .filter((section) => section.items.length > 0);
   }, [feed, matchesFilters, query]);
 
+  const contentRailSection = useMemo(
+    () => filteredSections.find((section) => section.items.every((item) => item.item_kind === "post")) || null,
+    [filteredSections],
+  );
+
+  const businessRailSection = useMemo(
+    () => filteredSections.find((section) => section.items.every((item) => item.item_kind !== "post")) || null,
+    [filteredSections],
+  );
+
   const markImpression = useCallback(
     (
       tenant: DiscoveryTenant,
@@ -311,13 +321,28 @@ export default function DiscoveryPage() {
             ) : null}
 
             <div className="space-y-8">
-              {filteredSections.map((section) => (
+              {contentRailSection ? (
                 <PublicRailSection
-                  key={section.id}
-                  section={section}
+                  section={{
+                    ...contentRailSection,
+                    title: "Konten Lain yang Masih Layak Dilihat",
+                    description:
+                      "Satu rail tambahan untuk konten tenant, supaya feed tetap ringan dan tidak terasa terlalu ramai.",
+                  }}
                   markImpression={markImpression}
                 />
-              ))}
+              ) : null}
+              {businessRailSection ? (
+                <PublicRailSection
+                  section={{
+                    ...businessRailSection,
+                    title: "Beberapa Profil Bisnis Lain",
+                    description:
+                      "Satu rail bisnis tambahan untuk bantu perbandingan cepat, tanpa bikin discovery terasa penuh section.",
+                  }}
+                  markImpression={markImpression}
+                />
+              ) : null}
             </div>
 
             {rankedItems.length === 0 ? (

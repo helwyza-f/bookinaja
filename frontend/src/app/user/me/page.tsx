@@ -135,8 +135,6 @@ export default function UserDashboardPage() {
   const featuredTenant = personalizedDiscoveries[0] || null;
   const contentRecommendations = personalizedDiscoveries.filter(isDiscoveryPost).slice(0, 4);
   const businessRecommendations = personalizedDiscoveries.filter(isDiscoveryBusiness).slice(0, 4);
-  const contentRail = discoverFeed?.sections.find((section) => section.items.every((item) => item.item_kind === "post")) || null;
-
   const markImpression = (
     tenant: DiscoveryTenant,
     sectionId: string,
@@ -310,28 +308,6 @@ export default function UserDashboardPage() {
                 index={index}
                 onVisible={() => markImpression(tenant, "recommended-business", "business", index)}
               />
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {contentRail ? (
-        <section className="space-y-3">
-          <SectionHeader
-            eyebrow="Konten"
-            title={contentRail.title}
-            description={contentRail.description}
-          />
-          <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
-            {contentRail.items.slice(0, 8).map((tenant, index) => (
-              <div key={tenant.id} className="w-[250px] min-w-[250px] flex-none">
-                <ContentCard
-                  tenant={tenant}
-                  sectionId={contentRail.id}
-                  index={index}
-                  onVisible={() => markImpression(tenant, contentRail.id, "rail", index)}
-                />
-              </div>
             ))}
           </div>
         </section>
