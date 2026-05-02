@@ -156,6 +156,12 @@ func normalizePEMEnv(raw string) string {
 	if trimmed == "" {
 		return ""
 	}
+	if len(trimmed) >= 2 {
+		if (strings.HasPrefix(trimmed, "\"") && strings.HasSuffix(trimmed, "\"")) ||
+			(strings.HasPrefix(trimmed, "'") && strings.HasSuffix(trimmed, "'")) {
+			trimmed = strings.TrimSpace(trimmed[1 : len(trimmed)-1])
+		}
+	}
 	replacer := strings.NewReplacer(`\r\n`, "\n", `\n`, "\n", `\r`, "\r")
 	return replacer.Replace(trimmed)
 }
