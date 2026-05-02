@@ -57,14 +57,11 @@ func (s *Service) GetPublicDiscoverFeed(ctx context.Context) (*PublicDiscoverFee
 	if err != nil {
 		return nil, err
 	}
-	posts := []TenantPost{}
-	if s.discoveryPostsEnabled(ctx) {
-		posts, err = s.repo.ListActiveDiscoveryPosts(ctx)
-		if err != nil {
-			return nil, err
-		}
+	posts, postMetrics, err := s.loadActiveDiscoveryPosts(ctx)
+	if err != nil {
+		return nil, err
 	}
-	feedItems := s.buildUnifiedDiscoveryFeedItems(items, posts, nil)
+	feedItems := s.buildUnifiedDiscoveryFeedItems(items, posts, postMetrics, nil)
 	return s.buildPublicDiscoverFeed(feedItems, false), nil
 }
 
@@ -79,16 +76,13 @@ func (s *Service) GetCustomerDiscoverFeed(ctx context.Context, customerID uuid.U
 		return nil, err
 	}
 
-	posts := []TenantPost{}
-	if s.discoveryPostsEnabled(ctx) {
-		posts, err = s.repo.ListActiveDiscoveryPosts(ctx)
-		if err != nil {
-			return nil, err
-		}
+	posts, postMetrics, err := s.loadActiveDiscoveryPosts(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	personalized := s.personalizeDiscoveryItems(items, signals)
-	feedItems := s.buildUnifiedDiscoveryFeedItems(personalized, posts, signals)
+	feedItems := s.buildUnifiedDiscoveryFeedItems(personalized, posts, postMetrics, signals)
 	return s.buildCustomerDiscoverFeed(feedItems, signals), nil
 }
 
@@ -97,14 +91,11 @@ func (s *Service) GetOwnerDiscoverFeed(ctx context.Context, tenantID uuid.UUID) 
 	if err != nil {
 		return nil, err
 	}
-	posts := []TenantPost{}
-	if s.discoveryPostsEnabled(ctx) {
-		posts, err = s.repo.ListActiveDiscoveryPosts(ctx)
-		if err != nil {
-			return nil, err
-		}
+	posts, postMetrics, err := s.loadActiveDiscoveryPosts(ctx)
+	if err != nil {
+		return nil, err
 	}
-	feedItems := s.buildUnifiedDiscoveryFeedItems(items, posts, nil)
+	feedItems := s.buildUnifiedDiscoveryFeedItems(items, posts, postMetrics, nil)
 	feed := s.buildPublicDiscoverFeed(feedItems, false)
 	if feed == nil {
 		return nil, nil
@@ -125,6 +116,78 @@ func (s *Service) GetOwnerDiscoverFeed(ctx context.Context, tenantID uuid.UUID) 
 	return feed, nil
 }
 
+func (s *Service) GetPublicDiscoveryPostDetail(ctx context.Context, postID uuid.UUID) (*PublicDiscoveryPostDetailResponse, error) {
+	if !s.discoveryPostsEnabled(ctx) {
+		return nil, nil
+	}
+
+	post, err := s.repo.GetActiveDiscoveryPostByID(ctx, postID)
+	if err != nil {
+		return nil, err
+	}
+	if post == nil {
+		return nil, nil
+	}
+
+	tenants, err := s.ListPublicTenants(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var tenantItem *TenantDirectoryItem
+	for i := range tenants {
+		if tenants[i].ID == post.TenantID {
+			tenantItem = &tenants[i]
+			break
+		}
+	}
+	if tenantItem == nil {
+		return nil, nil
+	}
+
+	postMetrics, err := s.repo.GetDiscoveryPostMetrics(ctx, []uuid.UUID{post.ID})
+	if err != nil {
+		return nil, err
+	}
+
+	item := discoveryPostFeedItem(*tenantItem, *post)
+	if metric, ok := postMetrics[post.ID]; ok {
+		item.PostImpressions7d = metric.Impressions7d
+		item.PostClicks7d = metric.Clicks7d
+		item.PostCTR7d = metric.CTR7d
+		item.PostDetailViews7d = metric.DetailViews7d
+		item.PostTenantOpens7d = metric.TenantOpens7d
+		item.PostRelatedClicks7d = metric.RelatedClicks7d
+		item.PostRelatedTenantOpens7d = metric.RelatedTenantOpens7d
+		item.PostBookingStarts7d = metric.BookingStarts7d
+		item.PostLastInteractionAt = metric.LastInteractionAt
+	}
+	item.FeedScore = (discoveryRank(*tenantItem) / 2) + discoveryPostScore(*post, *tenantItem) + discoveryPostPerformanceScore(item)
+
+	posts, relatedPostMetrics, err := s.loadActiveDiscoveryPosts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	feedItems := s.buildUnifiedDiscoveryFeedItems(tenants, posts, relatedPostMetrics, nil)
+	related := make([]DiscoveryFeedItem, 0, 4)
+	for _, candidate := range feedItems {
+		if candidate.ID == item.ID {
+			continue
+		}
+		if candidate.TenantID == item.TenantID || candidate.BusinessCategory == item.BusinessCategory {
+			related = append(related, candidate)
+		}
+		if len(related) >= 4 {
+			break
+		}
+	}
+
+	return &PublicDiscoveryPostDetailResponse{
+		Item:    item,
+		Tenant:  *tenantItem,
+		Related: related,
+	}, nil
+}
+
 func (s *Service) discoveryPostsEnabled(ctx context.Context) bool {
 	if s.repo != nil {
 		enabled, found, err := s.repo.GetPlatformBooleanSetting(ctx, "discovery_feed", "enable_discovery_posts")
@@ -132,12 +195,69 @@ func (s *Service) discoveryPostsEnabled(ctx context.Context) bool {
 			return enabled
 		}
 	}
+
 	value := strings.TrimSpace(strings.ToLower(os.Getenv("BOOKINAJA_ENABLE_DISCOVERY_POSTS")))
 	return value == "1" || value == "true" || value == "yes" || value == "on"
 }
 
+func (s *Service) loadActiveDiscoveryPosts(ctx context.Context) ([]TenantPost, map[uuid.UUID]TenantPostMetric, error) {
+	if !s.discoveryPostsEnabled(ctx) {
+		return nil, map[uuid.UUID]TenantPostMetric{}, nil
+	}
+
+	posts, err := s.repo.ListActiveDiscoveryPosts(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	postIDs := make([]uuid.UUID, 0, len(posts))
+	for _, post := range posts {
+		postIDs = append(postIDs, post.ID)
+	}
+	postMetrics, err := s.repo.GetDiscoveryPostMetrics(ctx, postIDs)
+	if err != nil {
+		return nil, nil, err
+	}
+	return posts, postMetrics, nil
+}
+
 func (s *Service) ListTenantPosts(ctx context.Context, tenantID uuid.UUID) ([]TenantPost, error) {
-	return s.repo.ListTenantPosts(ctx, tenantID)
+	posts, err := s.repo.ListTenantPosts(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	postIDs := make([]uuid.UUID, 0, len(posts))
+	for _, post := range posts {
+		postIDs = append(postIDs, post.ID)
+	}
+	postMetrics, err := s.repo.GetDiscoveryPostMetrics(ctx, postIDs)
+	if err != nil {
+		return nil, err
+	}
+	for i := range posts {
+		metadata := parseTenantPostMediaMetadata(posts[i].Metadata)
+		normalized, _ := normalizeTenantPostMetadata(
+			posts[i].Metadata,
+			posts[i].Type,
+			posts[i].CoverMediaURL,
+			posts[i].ThumbnailURL,
+		)
+		posts[i].Metadata = normalized
+		if metric, ok := postMetrics[posts[i].ID]; ok {
+			posts[i].Impressions7d = metric.Impressions7d
+			posts[i].Clicks7d = metric.Clicks7d
+			posts[i].CTR7d = metric.CTR7d
+			posts[i].DetailViews7d = metric.DetailViews7d
+			posts[i].TenantOpens7d = metric.TenantOpens7d
+			posts[i].RelatedClicks7d = metric.RelatedClicks7d
+			posts[i].RelatedTenantOpens7d = metric.RelatedTenantOpens7d
+			posts[i].BookingStarts7d = metric.BookingStarts7d
+			posts[i].LastInteractionAt = metric.LastInteractionAt
+		}
+		if len(posts[i].Metadata) == 0 {
+			posts[i].Metadata, _ = json.Marshal(metadata)
+		}
+	}
+	return posts, nil
 }
 
 func (s *Service) CreateTenantPost(ctx context.Context, actorUserID, tenantID uuid.UUID, req TenantPostUpsertReq) (*TenantPost, error) {
@@ -259,25 +379,61 @@ func (s *Service) DeleteTenantPost(ctx context.Context, actorUserID, tenantID, p
 
 func (s *Service) buildPublicDiscoverFeed(items []DiscoveryFeedItem, personalized bool) *PublicDiscoverFeedResponse {
 	quickCategories := buildQuickCategories(items)
-	featured := firstFeedItems(items, 4)
-	trending := filterFeedItems(items, func(item DiscoveryFeedItem) bool {
-		return item.DiscoveryClicks30d > 0 || item.ItemKind == "post"
-	}, 6)
-	valuePicks := filterFeedItems(items, func(item DiscoveryFeedItem) bool {
-		return item.StartingPrice > 0 && item.StartingPrice <= 150000
-	}, 6)
-	freshFinds := filterFeedItems(items, func(item DiscoveryFeedItem) bool {
-		return item.IsNew || (item.PostPublishedAt != nil && time.Since(*item.PostPublishedAt) <= 21*24*time.Hour)
-	}, 6)
-	lateNight := filterFeedItems(items, func(item DiscoveryFeedItem) bool {
-		return closesLate(item.CloseTime)
-	}, 6)
+	hasPosts := hasPostFeedItems(items)
+	selection := newFeedSelectionState()
+	featured := pickFeedSectionItems(items, feedSectionConfig{
+		Limit:                4,
+		GlobalTenantCap:      1,
+		AllowFallbackReuse:   false,
+		RequirePositiveScore: true,
+		Score:                scoreFeaturedSectionItem,
+	}, selection)
+	trending := pickFeedSectionItems(items, feedSectionConfig{
+		Limit:                6,
+		GlobalTenantCap:      2,
+		AllowFallbackReuse:   true,
+		RequirePositiveScore: true,
+		Predicate: func(item DiscoveryFeedItem) bool {
+			return item.DiscoveryClicks30d > 0 || item.PostClicks7d > 0 || item.ItemKind == "post"
+		},
+		Score: scoreTrendingSectionItem,
+	}, selection)
+	valuePicks := pickFeedSectionItems(items, feedSectionConfig{
+		Limit:                6,
+		GlobalTenantCap:      2,
+		AllowFallbackReuse:   true,
+		RequirePositiveScore: true,
+		Predicate: func(item DiscoveryFeedItem) bool {
+			return item.StartingPrice > 0
+		},
+		Score: scoreValueSectionItem,
+	}, selection)
+	freshFinds := pickFeedSectionItems(items, feedSectionConfig{
+		Limit:                6,
+		GlobalTenantCap:      2,
+		AllowFallbackReuse:   true,
+		RequirePositiveScore: true,
+		Predicate: func(item DiscoveryFeedItem) bool {
+			return item.IsNew || isRecentPost(item, 21*24*time.Hour)
+		},
+		Score: scoreFreshSectionItem,
+	}, selection)
+	lateNight := pickFeedSectionItems(items, feedSectionConfig{
+		Limit:                6,
+		GlobalTenantCap:      2,
+		AllowFallbackReuse:   true,
+		RequirePositiveScore: true,
+		Predicate: func(item DiscoveryFeedItem) bool {
+			return closesLate(item.CloseTime)
+		},
+		Score: scoreLateNightSectionItem,
+	}, selection)
 
 	return &PublicDiscoverFeedResponse{
 		Hero: PublicDiscoveryHero{
 			Eyebrow:     "Feed Bookinaja",
-			Title:       "Temukan tempat, aktivitas, dan konten yang layak dicoba duluan.",
-			Description: "Feed Bookinaja menggabungkan tampilan bisnis dan postingan tenant dengan ranking yang sama, supaya discovery terasa lebih hidup daripada daftar bisnis biasa.",
+			Title:       sectionDescription(hasPosts, "Temukan tempat, aktivitas, dan konten yang layak dicoba duluan.", "Temukan tempat dan aktivitas yang layak dicoba duluan."),
+			Description: publicFeedHeroDescription(hasPosts),
 			SearchHint:  "Cari tempat, kategori, aktivitas, atau suasana yang kamu cari",
 		},
 		QuickCategories: quickCategories,
@@ -287,30 +443,30 @@ func (s *Service) buildPublicDiscoverFeed(items []DiscoveryFeedItem, personalize
 			{
 				ID:          "trending-now",
 				Title:       "Sedang Banyak Dilirik",
-				Description: "Campuran bisnis dan postingan yang sedang paling aktif menarik perhatian di Feed Bookinaja.",
+				Description: sectionDescription(hasPosts, "Campuran bisnis dan postingan yang sedang paling aktif menarik perhatian di Feed Bookinaja.", "Bisnis yang sedang paling aktif menarik perhatian di Feed Bookinaja."),
 				Style:       "trending",
-				Items:       fallbackFeedItems(trending, items, 6),
+				Items:       trending,
 			},
 			{
 				ID:          "value-picks",
 				Title:       "Mudah Dicoba Duluan",
 				Description: "Pilihan dengan titik masuk yang lebih ringan, cocok untuk customer yang ingin mulai dari yang paling mudah dicoba.",
 				Style:       "value",
-				Items:       fallbackFeedItems(valuePicks, items, 6),
+				Items:       valuePicks,
 			},
 			{
 				ID:          "fresh-finds",
 				Title:       "Baru Naik di Feed",
-				Description: "Listing baru dan postingan baru yang layak dijelajahi lebih awal.",
+				Description: sectionDescription(hasPosts, "Listing baru dan postingan baru yang layak dijelajahi lebih awal.", "Listing baru yang layak dijelajahi lebih awal."),
 				Style:       "fresh",
-				Items:       fallbackFeedItems(freshFinds, items, 6),
+				Items:       freshFinds,
 			},
 			{
 				ID:          "late-night",
 				Title:       "Cocok untuk Sore Sampai Malam",
 				Description: "Bisnis yang lebih relevan untuk customer dengan preferensi slot sore hingga malam.",
 				Style:       "night",
-				Items:       fallbackFeedItems(lateNight, items, 6),
+				Items:       lateNight,
 			},
 		},
 	}
@@ -318,29 +474,73 @@ func (s *Service) buildPublicDiscoverFeed(items []DiscoveryFeedItem, personalize
 
 func (s *Service) buildCustomerDiscoverFeed(items []DiscoveryFeedItem, signals *CustomerDiscoverySignals) *PublicDiscoverFeedResponse {
 	quickCategories := buildQuickCategories(items)
+	hasPosts := hasPostFeedItems(items)
 
 	title := "Temukan sesuatu yang lebih nyambung buat kamu."
-	description := "Feed customer Bookinaja memadukan minat kategori, riwayat booking, kualitas listing, dan postingan tenant untuk menampilkan sesuatu yang terasa lebih relevan."
+	description := customerFeedHeroDescription(hasPosts)
 	if signals == nil || signals.TotalBookings == 0 {
 		title = "Mulai dari yang paling siap dijelajahi."
-		description = "Saat jejak booking kamu masih sedikit, Bookinaja memulai dari bisnis dan postingan yang paling rapi, paling menarik, dan paling mudah dicoba."
+		description = sectionDescription(hasPosts, "Saat jejak booking kamu masih sedikit, Bookinaja memulai dari bisnis dan postingan yang paling rapi, paling menarik, dan paling mudah dicoba.", "Saat jejak booking kamu masih sedikit, Bookinaja memulai dari bisnis yang paling rapi, paling menarik, dan paling mudah dicoba.")
 	}
 
-	preference := filterFeedItems(items, func(item DiscoveryFeedItem) bool {
-		return strings.TrimSpace(item.FeedReason) != ""
-	}, 6)
-	rebook := filterFeedItems(items, func(item DiscoveryFeedItem) bool {
-		return signals != nil && signals.VisitedTenants[item.TenantID] > 0
-	}, 6)
-	fresh := filterFeedItems(items, func(item DiscoveryFeedItem) bool {
-		return item.IsNew || item.ItemKind == "post"
-	}, 6)
-	budgetFit := filterFeedItems(items, func(item DiscoveryFeedItem) bool {
-		return signals != nil &&
-			signals.AverageSpend > 0 &&
-			item.StartingPrice > 0 &&
-			item.StartingPrice <= (signals.AverageSpend*0.45)
-	}, 6)
+	selection := newFeedSelectionState()
+	featured := pickFeedSectionItems(items, feedSectionConfig{
+		Limit:                4,
+		GlobalTenantCap:      1,
+		AllowFallbackReuse:   false,
+		RequirePositiveScore: true,
+		Score: func(item DiscoveryFeedItem) int {
+			return scoreForYouSectionItem(item, signals) + scoreFeaturedSectionItem(item)/2
+		},
+	}, selection)
+	preference := pickFeedSectionItems(items, feedSectionConfig{
+		Limit:                6,
+		GlobalTenantCap:      2,
+		AllowFallbackReuse:   true,
+		RequirePositiveScore: true,
+		Predicate: func(item DiscoveryFeedItem) bool {
+			return strings.TrimSpace(item.FeedReason) != ""
+		},
+		Score: func(item DiscoveryFeedItem) int {
+			return scoreForYouSectionItem(item, signals)
+		},
+	}, selection)
+	rebook := pickFeedSectionItems(items, feedSectionConfig{
+		Limit:                6,
+		GlobalTenantCap:      2,
+		AllowFallbackReuse:   true,
+		RequirePositiveScore: true,
+		Predicate: func(item DiscoveryFeedItem) bool {
+			return signals != nil && signals.VisitedTenants[item.TenantID] > 0
+		},
+		Score: func(item DiscoveryFeedItem) int {
+			return scoreRepeatSectionItem(item, signals)
+		},
+	}, selection)
+	fresh := pickFeedSectionItems(items, feedSectionConfig{
+		Limit:                6,
+		GlobalTenantCap:      2,
+		AllowFallbackReuse:   true,
+		RequirePositiveScore: true,
+		Predicate: func(item DiscoveryFeedItem) bool {
+			return item.IsNew || item.ItemKind == "post"
+		},
+		Score: func(item DiscoveryFeedItem) int {
+			return scoreFreshCustomerSectionItem(item, signals)
+		},
+	}, selection)
+	budgetFit := pickFeedSectionItems(items, feedSectionConfig{
+		Limit:                6,
+		GlobalTenantCap:      2,
+		AllowFallbackReuse:   true,
+		RequirePositiveScore: true,
+		Predicate: func(item DiscoveryFeedItem) bool {
+			return signals != nil && signals.AverageSpend > 0 && item.StartingPrice > 0
+		},
+		Score: func(item DiscoveryFeedItem) int {
+			return scoreBudgetSectionItem(item, signals)
+		},
+	}, selection)
 
 	return &PublicDiscoverFeedResponse{
 		Hero: PublicDiscoveryHero{
@@ -350,36 +550,36 @@ func (s *Service) buildCustomerDiscoverFeed(items []DiscoveryFeedItem, signals *
 			SearchHint:  "Cari tempat, kategori, aktivitas, atau suasana yang kamu cari",
 		},
 		QuickCategories: quickCategories,
-		Featured:        firstFeedItems(items, 4),
+		Featured:        featured,
 		Personalized:    true,
 		Sections: []PublicDiscoverySection{
 			{
 				ID:          "for-you",
 				Title:       "Paling Nyambung Buat Kamu",
-				Description: "Dipilih dari kategori yang sering kamu pilih, tenant yang pernah kamu kunjungi, dan postingan yang paling relevan dari bisnis itu.",
+				Description: sectionDescription(hasPosts, "Dipilih dari kategori yang sering kamu pilih, tenant yang pernah kamu kunjungi, dan postingan yang paling relevan dari bisnis itu.", "Dipilih dari kategori yang sering kamu pilih dan tenant yang pernah kamu kunjungi."),
 				Style:       "personal",
-				Items:       fallbackFeedItems(preference, items, 6),
+				Items:       preference,
 			},
 			{
 				ID:          "rebook-favorites",
 				Title:       "Bisnis yang Pernah Kamu Pilih",
-				Description: "Cocok untuk repeat booking yang lebih cepat, lengkap dengan postingan terbaru dari bisnis yang sudah kamu kenal.",
+				Description: sectionDescription(hasPosts, "Cocok untuk repeat booking yang lebih cepat, lengkap dengan postingan terbaru dari bisnis yang sudah kamu kenal.", "Cocok untuk repeat booking yang lebih cepat dari bisnis yang sudah kamu kenal."),
 				Style:       "repeat",
-				Items:       fallbackFeedItems(rebook, items, 6),
+				Items:       rebook,
 			},
 			{
 				ID:          "fresh-for-you",
 				Title:       "Konten Baru yang Masih Relevan",
-				Description: "Bisnis baru dan postingan baru yang tetap terasa dekat dengan minat dan pola booking kamu.",
+				Description: sectionDescription(hasPosts, "Bisnis baru dan postingan baru yang tetap terasa dekat dengan minat dan pola booking kamu.", "Bisnis baru yang tetap terasa dekat dengan minat dan pola booking kamu."),
 				Style:       "fresh",
-				Items:       fallbackFeedItems(fresh, items, 6),
+				Items:       fresh,
 			},
 			{
 				ID:          "budget-fit",
 				Title:       "Masih Masuk Pola Budget Kamu",
 				Description: "Pilihan dengan titik masuk yang lebih dekat ke kebiasaan booking kamu sejauh ini.",
 				Style:       "budget",
-				Items:       fallbackFeedItems(budgetFit, items, 6),
+				Items:       budgetFit,
 			},
 		},
 	}
@@ -387,7 +587,9 @@ func (s *Service) buildCustomerDiscoverFeed(items []DiscoveryFeedItem, signals *
 
 func (s *Service) TrackDiscoveryEvent(ctx context.Context, req DiscoveryEventReq) error {
 	eventType := strings.ToLower(strings.TrimSpace(req.EventType))
-	if eventType != "impression" && eventType != "click" {
+	switch eventType {
+	case "impression", "click", "detail_view", "tenant_open", "booking_start", "related_click", "tenant_profile_open_from_related":
+	default:
 		return errors.New("event_type tidak valid")
 	}
 
@@ -503,6 +705,7 @@ func (s *Service) personalizeDiscoveryItems(items []TenantDirectoryItem, signals
 func (s *Service) buildUnifiedDiscoveryFeedItems(
 	tenants []TenantDirectoryItem,
 	posts []TenantPost,
+	postMetrics map[uuid.UUID]TenantPostMetric,
 	signals *CustomerDiscoverySignals,
 ) []DiscoveryFeedItem {
 	tenantByID := make(map[uuid.UUID]TenantDirectoryItem, len(tenants))
@@ -527,13 +730,27 @@ func (s *Service) buildUnifiedDiscoveryFeedItems(
 			continue
 		}
 		feedItem := discoveryPostFeedItem(tenantItem, post)
+		if metric, ok := postMetrics[post.ID]; ok {
+			feedItem.PostImpressions7d = metric.Impressions7d
+			feedItem.PostClicks7d = metric.Clicks7d
+			feedItem.PostCTR7d = metric.CTR7d
+			feedItem.PostDetailViews7d = metric.DetailViews7d
+			feedItem.PostTenantOpens7d = metric.TenantOpens7d
+			feedItem.PostRelatedClicks7d = metric.RelatedClicks7d
+			feedItem.PostRelatedTenantOpens7d = metric.RelatedTenantOpens7d
+			feedItem.PostBookingStarts7d = metric.BookingStarts7d
+			feedItem.PostLastInteractionAt = metric.LastInteractionAt
+		}
 		if signals != nil {
 			feedItem.PersonalizationScore = tenantItem.PersonalizationScore
 			if strings.TrimSpace(tenantItem.RecommendationReason) != "" {
 				feedItem.FeedReason = tenantItem.RecommendationReason
 			}
 		}
-		feedItem.FeedScore = discoveryRank(tenantItem) + discoveryPostScore(post, tenantItem) + feedItem.PersonalizationScore
+		feedItem.FeedScore = (discoveryRank(tenantItem) / 2) +
+			discoveryPostScore(post, tenantItem) +
+			discoveryPostPerformanceScore(feedItem) +
+			feedItem.PersonalizationScore
 		items = append(items, feedItem)
 	}
 
@@ -576,37 +793,124 @@ func buildQuickCategories(items []DiscoveryFeedItem) []string {
 	return quickCategories
 }
 
-func firstFeedItems(items []DiscoveryFeedItem, limit int) []DiscoveryFeedItem {
-	if len(items) == 0 {
-		return []DiscoveryFeedItem{}
-	}
-	if limit > len(items) {
-		limit = len(items)
-	}
-	out := make([]DiscoveryFeedItem, 0, limit)
-	out = append(out, items[:limit]...)
-	return out
+type feedSelectionState struct {
+	usedItemIDs       map[string]struct{}
+	tenantAppearances map[uuid.UUID]int
 }
 
-func filterFeedItems(items []DiscoveryFeedItem, keep func(DiscoveryFeedItem) bool, limit int) []DiscoveryFeedItem {
-	out := make([]DiscoveryFeedItem, 0, limit)
-	for _, item := range items {
-		if !keep(item) {
-			continue
+type feedSectionConfig struct {
+	Limit                int
+	GlobalTenantCap      int
+	AllowFallbackReuse   bool
+	RequirePositiveScore bool
+	Predicate            func(DiscoveryFeedItem) bool
+	Score                func(DiscoveryFeedItem) int
+}
+
+func newFeedSelectionState() *feedSelectionState {
+	return &feedSelectionState{
+		usedItemIDs:       map[string]struct{}{},
+		tenantAppearances: map[uuid.UUID]int{},
+	}
+}
+
+func pickFeedSectionItems(items []DiscoveryFeedItem, cfg feedSectionConfig, state *feedSelectionState) []DiscoveryFeedItem {
+	if cfg.Limit <= 0 || len(items) == 0 {
+		return []DiscoveryFeedItem{}
+	}
+	ranked := rankSectionCandidates(items, cfg)
+	selected := make([]DiscoveryFeedItem, 0, cfg.Limit)
+	selectedIDs := map[string]struct{}{}
+	selectedTenants := map[uuid.UUID]struct{}{}
+
+	tryAppend := func(item DiscoveryFeedItem, allowReuse bool, ignoreGlobalCap bool) bool {
+		if cfg.Predicate != nil && !cfg.Predicate(item) {
+			return false
 		}
-		out = append(out, item)
-		if len(out) >= limit {
+		score := 0
+		if cfg.Score != nil {
+			score = cfg.Score(item)
+		}
+		if cfg.RequirePositiveScore && score <= 0 {
+			return false
+		}
+		if _, exists := selectedIDs[item.ID]; exists {
+			return false
+		}
+		if _, exists := selectedTenants[item.TenantID]; exists {
+			return false
+		}
+		if !allowReuse {
+			if _, exists := state.usedItemIDs[item.ID]; exists {
+				return false
+			}
+		}
+		if !ignoreGlobalCap && cfg.GlobalTenantCap > 0 && state.tenantAppearances[item.TenantID] >= cfg.GlobalTenantCap {
+			return false
+		}
+
+		selected = append(selected, item)
+		selectedIDs[item.ID] = struct{}{}
+		selectedTenants[item.TenantID] = struct{}{}
+		return len(selected) >= cfg.Limit
+	}
+
+	for _, item := range ranked {
+		if tryAppend(item, false, false) {
 			break
 		}
 	}
-	return out
+	if len(selected) < cfg.Limit {
+		for _, item := range ranked {
+			if tryAppend(item, false, true) {
+				break
+			}
+		}
+	}
+	if cfg.AllowFallbackReuse && len(selected) < cfg.Limit {
+		for _, item := range ranked {
+			if tryAppend(item, true, true) {
+				break
+			}
+		}
+	}
+
+	for _, item := range selected {
+		state.usedItemIDs[item.ID] = struct{}{}
+		state.tenantAppearances[item.TenantID]++
+	}
+
+	return selected
 }
 
-func fallbackFeedItems(items []DiscoveryFeedItem, fallback []DiscoveryFeedItem, limit int) []DiscoveryFeedItem {
-	if len(items) > 0 {
-		return items
+func rankSectionCandidates(items []DiscoveryFeedItem, cfg feedSectionConfig) []DiscoveryFeedItem {
+	ranked := make([]DiscoveryFeedItem, 0, len(items))
+	for _, item := range items {
+		if cfg.Predicate != nil && !cfg.Predicate(item) {
+			continue
+		}
+		ranked = append(ranked, item)
 	}
-	return firstFeedItems(fallback, limit)
+	sort.SliceStable(ranked, func(i, j int) bool {
+		left := cfg.Score(ranked[i])
+		right := cfg.Score(ranked[j])
+		if left != right {
+			return left > right
+		}
+		if ranked[i].FeedScore != ranked[j].FeedScore {
+			return ranked[i].FeedScore > ranked[j].FeedScore
+		}
+		leftTime := discoveryFeedItemSortTime(ranked[i])
+		rightTime := discoveryFeedItemSortTime(ranked[j])
+		if !leftTime.Equal(rightTime) {
+			return leftTime.After(rightTime)
+		}
+		if ranked[i].ItemKind != ranked[j].ItemKind {
+			return ranked[i].ItemKind == "post"
+		}
+		return strings.ToLower(ranked[i].FeedTitle) < strings.ToLower(ranked[j].FeedTitle)
+	})
+	return ranked
 }
 
 func discoveryTenantFeedItem(item TenantDirectoryItem) DiscoveryFeedItem {
@@ -635,6 +939,7 @@ func discoveryPostFeedItem(tenantItem TenantDirectoryItem, post TenantPost) Disc
 	if postLabel == "" {
 		postLabel = firstNonEmpty(tenantItem.PromoLabel, labelForPostType(post.Type))
 	}
+	mediaMeta := parseTenantPostMediaMetadata(post.Metadata)
 
 	return DiscoveryFeedItem{
 		ID:                   post.ID.String(),
@@ -654,6 +959,14 @@ func discoveryPostFeedItem(tenantItem TenantDirectoryItem, post TenantPost) Disc
 		PostStatus:           post.Status,
 		PostVisibility:       post.Visibility,
 		PostCaption:          post.Caption,
+		PostCoverMediaURL:    post.CoverMediaURL,
+		PostThumbnailURL:     post.ThumbnailURL,
+		PostPosterURL:        firstNonEmpty(mediaMeta.PosterURL, post.ThumbnailURL),
+		PostMimeType:         mediaMeta.MIMEType,
+		PostStreamURLHLS:     mediaMeta.StreamURLHLS,
+		PostDurationSeconds:  mediaMeta.DurationSeconds,
+		PostWidth:            mediaMeta.Width,
+		PostHeight:           mediaMeta.Height,
 		PostPublishedAt:      post.PublishedAt,
 		PersonalizationScore: tenantItem.PersonalizationScore,
 	}
@@ -661,8 +974,12 @@ func discoveryPostFeedItem(tenantItem TenantDirectoryItem, post TenantPost) Disc
 
 func discoveryPostScore(post TenantPost, tenantItem TenantDirectoryItem) int {
 	score := 20
+	meta := parseTenantPostMediaMetadata(post.Metadata)
 	if strings.TrimSpace(post.CoverMediaURL) != "" || strings.TrimSpace(post.ThumbnailURL) != "" {
 		score += 12
+	}
+	if strings.TrimSpace(meta.PosterURL) != "" {
+		score += 4
 	}
 	if strings.TrimSpace(post.Caption) != "" {
 		score += 8
@@ -673,12 +990,21 @@ func discoveryPostScore(post TenantPost, tenantItem TenantDirectoryItem) int {
 	switch strings.ToLower(strings.TrimSpace(post.Type)) {
 	case "video":
 		score += 12
+		if meta.DurationSeconds > 0 && meta.DurationSeconds <= 90 {
+			score += 6
+		}
+		if strings.TrimSpace(meta.StreamURLHLS) != "" {
+			score += 6
+		}
 	case "promo":
 		score += 10
 	case "update":
 		score += 6
 	default:
 		score += 8
+	}
+	if meta.Width >= 1080 || meta.Height >= 1080 {
+		score += 4
 	}
 	if strings.EqualFold(post.Visibility, "highlight") {
 		score += 8
@@ -700,11 +1026,244 @@ func discoveryPostScore(post TenantPost, tenantItem TenantDirectoryItem) int {
 	return score
 }
 
+func discoveryPostPerformanceScore(item DiscoveryFeedItem) int {
+	score := 0
+	if item.PostClicks7d > 0 {
+		score += minInt(int(item.PostClicks7d)*4, 32)
+	}
+	if item.PostCTR7d > 0 {
+		score += minInt(int(item.PostCTR7d*3), 30)
+	}
+	if item.PostImpressions7d >= 12 {
+		score += minInt(int(item.PostImpressions7d/4), 12)
+	}
+	if item.PostDetailViews7d > 0 {
+		score += minInt(int(item.PostDetailViews7d)*3, 24)
+	}
+	if item.PostTenantOpens7d > 0 {
+		score += minInt(int(item.PostTenantOpens7d)*5, 28)
+	}
+	if item.PostRelatedClicks7d > 0 {
+		score += minInt(int(item.PostRelatedClicks7d)*2, 14)
+	}
+	if item.PostRelatedTenantOpens7d > 0 {
+		score += minInt(int(item.PostRelatedTenantOpens7d)*3, 18)
+	}
+	if item.PostDetailViews7d > 0 && item.PostTenantOpens7d > 0 {
+		score += minInt(int(item.PostTenantOpens7d)*2, 12)
+	}
+	if item.PostBookingStarts7d > 0 {
+		score += minInt(int(item.PostBookingStarts7d)*12, 48)
+	}
+	if item.PostLastInteractionAt != nil {
+		ageHours := time.Since(*item.PostLastInteractionAt).Hours()
+		switch {
+		case ageHours <= 24:
+			score += 8
+		case ageHours <= 72:
+			score += 4
+		}
+	}
+	return score
+}
+
+func scoreFeaturedSectionItem(item DiscoveryFeedItem) int {
+	score := item.FeedScore
+	if item.ItemKind == "post" {
+		score += 10
+	}
+	if strings.TrimSpace(item.FeedImageURL) != "" {
+		score += 18
+	}
+	if item.IsFeatured {
+		score += 14
+	}
+	if strings.EqualFold(item.PostVisibility, "highlight") {
+		score += 10
+	}
+	return score
+}
+
+func scoreTrendingSectionItem(item DiscoveryFeedItem) int {
+	score := item.FeedScore/2 + minInt(int(item.DiscoveryClicks30d)*5, 40) + minInt(int(item.DiscoveryCtr30d*4), 28)
+	score += minInt(int(item.PostClicks7d)*6, 36) + minInt(int(item.PostCTR7d*4), 26)
+	if item.ItemKind == "post" {
+		score += 12
+	}
+	if isRecentPost(item, 72*time.Hour) {
+		score += 16
+	}
+	return score
+}
+
+func scoreValueSectionItem(item DiscoveryFeedItem) int {
+	if item.StartingPrice <= 0 {
+		return -1
+	}
+	score := item.FeedScore / 3
+	switch {
+	case item.StartingPrice <= 10000:
+		score += 32
+	case item.StartingPrice <= 50000:
+		score += 24
+	case item.StartingPrice <= 100000:
+		score += 18
+	case item.StartingPrice <= 150000:
+		score += 10
+	default:
+		score += 2
+	}
+	if item.ResourceCount >= 3 {
+		score += 8
+	}
+	if item.ItemKind == "post" {
+		score += 4
+	}
+	return score
+}
+
+func scoreFreshSectionItem(item DiscoveryFeedItem) int {
+	score := item.FeedScore / 4
+	if item.IsNew {
+		score += 26
+	}
+	if isRecentPost(item, 24*time.Hour) {
+		score += 34
+	} else if isRecentPost(item, 7*24*time.Hour) {
+		score += 20
+	}
+	if item.ItemKind == "post" {
+		score += 8
+	}
+	return score
+}
+
+func scoreLateNightSectionItem(item DiscoveryFeedItem) int {
+	score := item.FeedScore / 3
+	if closesLate(item.CloseTime) {
+		score += 28
+	}
+	if item.ItemKind == "post" {
+		score += 4
+	}
+	if item.StartingPrice > 0 && item.StartingPrice <= 100000 {
+		score += 6
+	}
+	return score
+}
+
+func scoreForYouSectionItem(item DiscoveryFeedItem, signals *CustomerDiscoverySignals) int {
+	score := item.FeedScore/3 + (item.PersonalizationScore * 2)
+	if signals == nil {
+		return score
+	}
+	if signals.VisitedTenants[item.TenantID] > 0 {
+		score += minInt(signals.VisitedTenants[item.TenantID]*14, 28)
+	}
+	if signals.FavoriteCategories[strings.ToLower(strings.TrimSpace(item.BusinessCategory))] > 0 {
+		score += minInt(signals.FavoriteCategories[strings.ToLower(strings.TrimSpace(item.BusinessCategory))]*8, 24)
+	}
+	if signals.FavoriteTypes[strings.ToLower(strings.TrimSpace(item.BusinessType))] > 0 {
+		score += minInt(signals.FavoriteTypes[strings.ToLower(strings.TrimSpace(item.BusinessType))]*6, 18)
+	}
+	if signals.AverageSpend > 0 && item.StartingPrice > 0 && item.StartingPrice <= (signals.AverageSpend*0.75) {
+		score += 8
+	}
+	if signals.EveningBookings > 0 && closesLate(item.CloseTime) {
+		score += 10
+	}
+	return score
+}
+
+func scoreRepeatSectionItem(item DiscoveryFeedItem, signals *CustomerDiscoverySignals) int {
+	if signals == nil {
+		return -1
+	}
+	repeatCount := signals.VisitedTenants[item.TenantID]
+	if repeatCount == 0 {
+		return -1
+	}
+	score := item.FeedScore/3 + minInt(repeatCount*24, 60)
+	if item.ItemKind == "post" {
+		score += 12
+	}
+	return score
+}
+
+func scoreFreshCustomerSectionItem(item DiscoveryFeedItem, signals *CustomerDiscoverySignals) int {
+	score := scoreFreshSectionItem(item) + item.PersonalizationScore
+	if signals != nil && signals.EveningBookings > 0 && closesLate(item.CloseTime) {
+		score += 8
+	}
+	return score
+}
+
+func scoreBudgetSectionItem(item DiscoveryFeedItem, signals *CustomerDiscoverySignals) int {
+	if signals == nil || signals.AverageSpend <= 0 || item.StartingPrice <= 0 {
+		return -1
+	}
+	diff := signals.AverageSpend - item.StartingPrice
+	if diff < 0 {
+		diff = item.StartingPrice - signals.AverageSpend
+	}
+	score := item.FeedScore / 4
+	switch {
+	case diff <= signals.AverageSpend*0.15:
+		score += 28
+	case diff <= signals.AverageSpend*0.30:
+		score += 18
+	case item.StartingPrice <= signals.AverageSpend:
+		score += 12
+	default:
+		score += 4
+	}
+	if item.ItemKind == "post" {
+		score += 4
+	}
+	return score
+}
+
+func isRecentPost(item DiscoveryFeedItem, within time.Duration) bool {
+	return item.PostPublishedAt != nil && time.Since(*item.PostPublishedAt) <= within
+}
+
 func discoveryFeedItemSortTime(item DiscoveryFeedItem) time.Time {
 	if item.PostPublishedAt != nil {
 		return *item.PostPublishedAt
 	}
 	return item.CreatedAt
+}
+
+func hasPostFeedItems(items []DiscoveryFeedItem) bool {
+	for _, item := range items {
+		if item.ItemKind == "post" {
+			return true
+		}
+	}
+	return false
+}
+
+func sectionDescription(hasPosts bool, withPosts string, withoutPosts string) string {
+	if hasPosts {
+		return withPosts
+	}
+	return withoutPosts
+}
+
+func publicFeedHeroDescription(hasPosts bool) string {
+	return sectionDescription(
+		hasPosts,
+		"Feed Bookinaja menggabungkan tampilan bisnis dan postingan tenant dengan ranking yang sama, supaya discovery terasa lebih hidup daripada daftar bisnis biasa.",
+		"Feed Bookinaja menata profil bisnis dengan ranking yang lebih rapi, supaya discovery terasa lebih hidup daripada daftar bisnis biasa.",
+	)
+}
+
+func customerFeedHeroDescription(hasPosts bool) string {
+	return sectionDescription(
+		hasPosts,
+		"Feed customer Bookinaja memadukan minat kategori, riwayat booking, kualitas listing, dan postingan tenant untuk menampilkan sesuatu yang terasa lebih relevan.",
+		"Feed customer Bookinaja memadukan minat kategori, riwayat booking, dan kualitas listing untuk menampilkan bisnis yang terasa lebih relevan.",
+	)
 }
 
 func buildDiscoveryHeadline(item TenantDirectoryItem) string {
@@ -1967,9 +2526,14 @@ func normalizeTenantPostReq(req TenantPostUpsertReq) (TenantPost, error) {
 		return TenantPost{}, errors.New("visibility postingan tidak valid")
 	}
 
-	metadata := req.Metadata
-	if len(metadata) == 0 {
-		metadata = json.RawMessage(`{}`)
+	metadata, err := normalizeTenantPostMetadata(
+		req.Metadata,
+		postType,
+		strings.TrimSpace(req.CoverMediaURL),
+		strings.TrimSpace(req.ThumbnailURL),
+	)
+	if err != nil {
+		return TenantPost{}, err
 	}
 
 	return TenantPost{
@@ -1985,6 +2549,72 @@ func normalizeTenantPostReq(req TenantPostUpsertReq) (TenantPost, error) {
 		EndsAt:        req.EndsAt,
 		Metadata:      metadata,
 	}, nil
+}
+
+func normalizeTenantPostMetadata(
+	raw json.RawMessage,
+	postType string,
+	coverMediaURL string,
+	thumbnailURL string,
+) (json.RawMessage, error) {
+	meta := parseTenantPostMediaMetadata(raw)
+	meta.PosterURL = firstNonEmpty(strings.TrimSpace(meta.PosterURL), thumbnailURL, coverMediaURL)
+	meta.MIMEType = firstNonEmpty(strings.TrimSpace(meta.MIMEType), inferMediaMIMEType(postType, coverMediaURL))
+	meta.StreamURLHLS = strings.TrimSpace(meta.StreamURLHLS)
+	if meta.DurationSeconds < 0 {
+		meta.DurationSeconds = 0
+	}
+	if meta.Width < 0 {
+		meta.Width = 0
+	}
+	if meta.Height < 0 {
+		meta.Height = 0
+	}
+	normalized, err := json.Marshal(meta)
+	if err != nil {
+		return nil, errors.New("metadata media tidak valid")
+	}
+	return normalized, nil
+}
+
+func parseTenantPostMediaMetadata(raw json.RawMessage) TenantPostMediaMetadata {
+	if len(raw) == 0 {
+		return TenantPostMediaMetadata{}
+	}
+	var meta TenantPostMediaMetadata
+	if err := json.Unmarshal(raw, &meta); err != nil {
+		return TenantPostMediaMetadata{}
+	}
+	return meta
+}
+
+func inferMediaMIMEType(postType string, mediaURL string) string {
+	lowerURL := strings.ToLower(strings.TrimSpace(mediaURL))
+	if idx := strings.Index(lowerURL, "?"); idx >= 0 {
+		lowerURL = lowerURL[:idx]
+	}
+	switch {
+	case strings.HasSuffix(lowerURL, ".m3u8"):
+		return "application/x-mpegURL"
+	case strings.HasSuffix(lowerURL, ".mp4"):
+		return "video/mp4"
+	case strings.HasSuffix(lowerURL, ".webm"):
+		return "video/webm"
+	case strings.HasSuffix(lowerURL, ".mov"):
+		return "video/quicktime"
+	case strings.HasSuffix(lowerURL, ".png"):
+		return "image/png"
+	case strings.HasSuffix(lowerURL, ".webp"):
+		return "image/webp"
+	case strings.HasSuffix(lowerURL, ".gif"):
+		return "image/gif"
+	case strings.HasSuffix(lowerURL, ".jpg"), strings.HasSuffix(lowerURL, ".jpeg"):
+		return "image/jpeg"
+	}
+	if strings.EqualFold(strings.TrimSpace(postType), "video") {
+		return "video/mp4"
+	}
+	return "image/jpeg"
 }
 
 func derivePublishedAt(status string, now time.Time) *time.Time {

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useMemo, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Script from "next/script";
 import {
   format,
@@ -51,10 +51,12 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTenant } from "@/context/tenant-context";
 import { syncTenantCookies } from "@/lib/tenant-session";
+import { trackDiscoveryEvent } from "@/lib/discovery-analytics";
 
 export default function ResourceBookingDetail() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { profile } = useTenant();
 
   const [resource, setResource] = useState<any>(null);
@@ -327,6 +329,25 @@ export default function ResourceBookingDetail() {
 
       const res = await api.post("/public/bookings", payload);
       const booking = res.data.booking || {};
+      const sourcePost = searchParams.get("source_post");
+      if (sourcePost) {
+        trackDiscoveryEvent({
+          tenant_id: resource.tenant_id,
+          tenant_slug: params.tenant as string,
+          event_type: "booking_start",
+          surface: "tenant-booking",
+          section_id: "resource-booking",
+          card_variant: "booking-sheet",
+          position_index: 0,
+          metadata: {
+            post_id: sourcePost,
+            resource_id: resource.id,
+            booking_id: res.data.booking_id,
+            source_tenant: searchParams.get("source_tenant"),
+            source_surface: searchParams.get("source_surface"),
+          },
+        });
+      }
       syncTenantCookies(params.tenant as string);
       const verifyRedirect =
         res.data.redirect_url ||

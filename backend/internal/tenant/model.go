@@ -239,22 +239,39 @@ type DiscoveryFeedItem struct {
 	ItemKind string    `json:"item_kind"`
 	TenantID uuid.UUID `json:"tenant_id"`
 	TenantDirectoryItem
-	FeedTitle            string     `json:"feed_title"`
-	FeedSummary          string     `json:"feed_summary"`
-	FeedImageURL         string     `json:"feed_image_url"`
-	FeedLabel            string     `json:"feed_label"`
-	FeedReason           string     `json:"feed_reason"`
-	FeedTags             []string   `json:"feed_tags"`
-	FeedBadges           []string   `json:"feed_badges"`
-	FeedCTA              string     `json:"feed_cta"`
-	FeedScore            int        `json:"feed_score"`
-	PersonalizationScore int        `json:"personalization_score"`
-	PostID               *uuid.UUID `json:"post_id,omitempty"`
-	PostType             string     `json:"post_type,omitempty"`
-	PostStatus           string     `json:"post_status,omitempty"`
-	PostVisibility       string     `json:"post_visibility,omitempty"`
-	PostCaption          string     `json:"post_caption,omitempty"`
-	PostPublishedAt      *time.Time `json:"post_published_at,omitempty"`
+	FeedTitle             string     `json:"feed_title"`
+	FeedSummary           string     `json:"feed_summary"`
+	FeedImageURL          string     `json:"feed_image_url"`
+	FeedLabel             string     `json:"feed_label"`
+	FeedReason            string     `json:"feed_reason"`
+	FeedTags              []string   `json:"feed_tags"`
+	FeedBadges            []string   `json:"feed_badges"`
+	FeedCTA               string     `json:"feed_cta"`
+	FeedScore             int        `json:"feed_score"`
+	PersonalizationScore  int        `json:"personalization_score"`
+	PostImpressions7d     int64      `json:"post_impressions_7d,omitempty"`
+	PostClicks7d          int64      `json:"post_clicks_7d,omitempty"`
+	PostCTR7d             float64    `json:"post_ctr_7d,omitempty"`
+	PostDetailViews7d     int64      `json:"post_detail_views_7d,omitempty"`
+	PostTenantOpens7d     int64      `json:"post_tenant_opens_7d,omitempty"`
+	PostRelatedClicks7d   int64      `json:"post_related_clicks_7d,omitempty"`
+	PostRelatedTenantOpens7d int64   `json:"post_related_tenant_opens_7d,omitempty"`
+	PostBookingStarts7d   int64      `json:"post_booking_starts_7d,omitempty"`
+	PostLastInteractionAt *time.Time `json:"post_last_interaction_at,omitempty"`
+	PostID                *uuid.UUID `json:"post_id,omitempty"`
+	PostType              string     `json:"post_type,omitempty"`
+	PostStatus            string     `json:"post_status,omitempty"`
+	PostVisibility        string     `json:"post_visibility,omitempty"`
+	PostCaption           string     `json:"post_caption,omitempty"`
+	PostCoverMediaURL     string     `json:"post_cover_media_url,omitempty"`
+	PostThumbnailURL      string     `json:"post_thumbnail_url,omitempty"`
+	PostPosterURL         string     `json:"post_poster_url,omitempty"`
+	PostMimeType          string     `json:"post_mime_type,omitempty"`
+	PostStreamURLHLS      string     `json:"post_stream_url_hls,omitempty"`
+	PostDurationSeconds   int        `json:"post_duration_seconds,omitempty"`
+	PostWidth             int        `json:"post_width,omitempty"`
+	PostHeight            int        `json:"post_height,omitempty"`
+	PostPublishedAt       *time.Time `json:"post_published_at,omitempty"`
 }
 
 type PublicDiscoverySection struct {
@@ -271,6 +288,12 @@ type PublicDiscoverFeedResponse struct {
 	Featured        []DiscoveryFeedItem      `json:"featured"`
 	Sections        []PublicDiscoverySection `json:"sections"`
 	Personalized    bool                     `json:"personalized"`
+}
+
+type PublicDiscoveryPostDetailResponse struct {
+	Item    DiscoveryFeedItem   `json:"item"`
+	Tenant  TenantDirectoryItem `json:"tenant"`
+	Related []DiscoveryFeedItem `json:"related"`
 }
 
 type TenantDiscoveryProfile struct {
@@ -305,6 +328,15 @@ type TenantPost struct {
 	EndsAt        *time.Time      `db:"ends_at" json:"ends_at"`
 	PublishedAt   *time.Time      `db:"published_at" json:"published_at"`
 	Metadata      json.RawMessage `db:"metadata" json:"metadata"`
+	Impressions7d int64           `db:"-" json:"impressions_7d,omitempty"`
+	Clicks7d      int64           `db:"-" json:"clicks_7d,omitempty"`
+	CTR7d         float64         `db:"-" json:"ctr_7d,omitempty"`
+	DetailViews7d int64           `db:"-" json:"detail_views_7d,omitempty"`
+	TenantOpens7d int64           `db:"-" json:"tenant_opens_7d,omitempty"`
+	RelatedClicks7d int64         `db:"-" json:"related_clicks_7d,omitempty"`
+	RelatedTenantOpens7d int64    `db:"-" json:"related_tenant_opens_7d,omitempty"`
+	BookingStarts7d int64         `db:"-" json:"booking_starts_7d,omitempty"`
+	LastInteractionAt *time.Time  `db:"-" json:"last_interaction_at,omitempty"`
 	CreatedAt     time.Time       `db:"created_at" json:"created_at"`
 	UpdatedAt     time.Time       `db:"updated_at" json:"updated_at"`
 }
@@ -314,9 +346,21 @@ type TenantPostMetric struct {
 	Impressions7d     int64      `db:"impressions_7d" json:"impressions_7d"`
 	Clicks7d          int64      `db:"clicks_7d" json:"clicks_7d"`
 	CTR7d             float64    `db:"ctr_7d" json:"ctr_7d"`
-	ProfileViews7d    int64      `db:"profile_views_7d" json:"profile_views_7d"`
+	DetailViews7d     int64      `db:"detail_views_7d" json:"detail_views_7d"`
+	TenantOpens7d     int64      `db:"tenant_opens_7d" json:"tenant_opens_7d"`
+	RelatedClicks7d   int64      `db:"related_clicks_7d" json:"related_clicks_7d"`
+	RelatedTenantOpens7d int64   `db:"related_tenant_opens_7d" json:"related_tenant_opens_7d"`
 	BookingStarts7d   int64      `db:"booking_starts_7d" json:"booking_starts_7d"`
 	LastInteractionAt *time.Time `db:"last_interaction_at" json:"last_interaction_at"`
+}
+
+type TenantPostMediaMetadata struct {
+	DurationSeconds int    `json:"duration_seconds,omitempty"`
+	PosterURL       string `json:"poster_url,omitempty"`
+	MIMEType        string `json:"mime_type,omitempty"`
+	Width           int    `json:"width,omitempty"`
+	Height          int    `json:"height,omitempty"`
+	StreamURLHLS    string `json:"stream_url_hls,omitempty"`
 }
 
 type CustomerDiscoverySignals struct {

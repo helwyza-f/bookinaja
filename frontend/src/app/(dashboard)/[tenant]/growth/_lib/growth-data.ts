@@ -6,6 +6,7 @@ import {
   getDiscoveryItemReason,
   getDiscoveryItemSummary,
   getDiscoveryItemTitle,
+  type PostMediaMetadata,
   type DiscoveryFeedResponse,
   type DiscoveryTenant,
 } from "@/lib/discovery";
@@ -26,6 +27,16 @@ export type GrowthPostRecord = {
   published_at?: string | null;
   created_at?: string;
   updated_at?: string;
+  metadata?: PostMediaMetadata | null;
+  impressions_7d?: number;
+  clicks_7d?: number;
+  ctr_7d?: number;
+  detail_views_7d?: number;
+  tenant_opens_7d?: number;
+  related_clicks_7d?: number;
+  related_tenant_opens_7d?: number;
+  booking_starts_7d?: number;
+  last_interaction_at?: string | null;
 };
 
 export type GrowthPostDraft = {
@@ -47,7 +58,7 @@ export type GrowthFeedEntry = {
   kicker: string;
   headline: string;
   summary: string;
-  mediaLabel: "Foto" | "Promo" | "Highlight";
+  mediaLabel: "Foto" | "Video" | "Promo" | "Highlight";
   momentumLabel: string;
 };
 
@@ -171,7 +182,9 @@ export function getMarketplaceFeedEntries(
       headline: getDiscoveryItemTitle(item),
       summary: getDiscoveryItemSummary(item),
       mediaLabel: item.item_kind === "post"
-        ? item.post_type === "promo"
+        ? item.post_type === "video"
+          ? "Video"
+          : item.post_type === "promo"
           ? "Promo"
           : "Foto"
         : item.is_promoted || item.discovery_promoted

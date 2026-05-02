@@ -16,13 +16,17 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
+  formatDiscoveryDuration,
   formatStartingPrice,
+  getDiscoveryCardKind,
   getDiscoveryItemBadges,
   getDiscoveryItemCta,
+  getDiscoveryItemHref,
   getDiscoveryItemImage,
   getDiscoveryItemLabel,
   getDiscoveryItemSummary,
   getDiscoveryItemTitle,
+  isDiscoveryVideoPost,
   type DiscoveryTenant,
 } from "@/lib/discovery";
 import { getTenantUrl } from "@/lib/tenant";
@@ -57,6 +61,15 @@ function MarketplaceFeedCard({
   const tenant = item;
   const image = getDiscoveryItemImage(item);
   const cardMode = entry.lane;
+  const href = getDiscoveryItemHref(item) || getTenantUrl(tenant.slug);
+  const isVideo = isDiscoveryVideoPost(item);
+  const cardKind = getDiscoveryCardKind(item);
+  const shellTone =
+    cardKind === "promo"
+      ? "from-amber-50 to-white"
+      : isVideo
+        ? "from-slate-50 to-white"
+        : "from-blue-50/80 to-white";
 
   return (
     <Card className="overflow-hidden rounded-[1.75rem] border-slate-200 bg-white shadow-sm">
@@ -81,14 +94,14 @@ function MarketplaceFeedCard({
             backgroundPosition: "center",
           }}
         />
-        <div className="flex min-w-0 flex-col p-4 md:p-5">
+        <div className={["flex min-w-0 flex-col bg-gradient-to-b p-4 md:p-5", shellTone].join(" ")}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="rounded-full bg-blue-50 text-blue-700">
                 {entry.kicker}
               </Badge>
               <Badge variant="secondary" className="rounded-full bg-slate-100 text-slate-700">
-                {entry.mediaLabel}
+                {isVideo ? `Video ${formatDiscoveryDuration(item.post_duration_seconds)}` : cardKind === "promo" ? "Promo" : entry.mediaLabel}
               </Badge>
             </div>
             <div className="text-right">
@@ -105,7 +118,7 @@ function MarketplaceFeedCard({
             <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-blue-600">
               #{String(index + 1).padStart(2, "0")}
               <span className="text-slate-400">•</span>
-              {tenant.name}
+              {item.item_kind === "post" ? `Dari ${tenant.name}` : tenant.name}
             </div>
             <h3
               className={
@@ -151,7 +164,7 @@ function MarketplaceFeedCard({
 
           <div className="mt-5 flex flex-wrap gap-2">
             <Button asChild className="h-10 rounded-xl bg-blue-600 px-4 hover:bg-blue-500">
-              <a href={getTenantUrl(tenant.slug)} target="_blank" rel="noreferrer">
+              <a href={href} target="_blank" rel="noreferrer">
                 {getDiscoveryItemCta(item)}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </a>
@@ -192,6 +205,11 @@ export function InspirationRail({ items }: { items: DiscoveryTenant[] }) {
               </span>
             </div>
             <div>
+              {item.item_kind === "post" ? (
+                <div className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">
+                  Dari {item.name}
+                </div>
+              ) : null}
               <div className="line-clamp-1 text-base font-black uppercase tracking-tight text-slate-950">
                 {getDiscoveryItemTitle(item)}
               </div>

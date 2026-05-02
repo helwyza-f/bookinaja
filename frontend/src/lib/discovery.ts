@@ -1,3 +1,5 @@
+import { getTenantUrl } from "@/lib/tenant";
+
 export type DiscoveryTenant = {
   id: string;
   item_kind?: "tenant" | "post";
@@ -54,7 +56,29 @@ export type DiscoveryTenant = {
   post_status?: string;
   post_visibility?: string;
   post_caption?: string;
+  post_cover_media_url?: string;
+  post_thumbnail_url?: string;
+  post_poster_url?: string;
+  post_mime_type?: string;
+  post_stream_url_hls?: string;
+  post_duration_seconds?: number;
+  post_width?: number;
+  post_height?: number;
+  post_detail_views_7d?: number;
+  post_tenant_opens_7d?: number;
+  post_related_clicks_7d?: number;
+  post_related_tenant_opens_7d?: number;
+  post_booking_starts_7d?: number;
   post_published_at?: string | null;
+};
+
+export type PostMediaMetadata = {
+  duration_seconds?: number;
+  poster_url?: string;
+  mime_type?: string;
+  width?: number;
+  height?: number;
+  stream_url_hls?: string;
 };
 
 export type DiscoverySection = {
@@ -78,6 +102,12 @@ export type DiscoveryFeedResponse = {
   personalized?: boolean;
 };
 
+export type DiscoveryPostDetailResponse = {
+  item: DiscoveryTenant;
+  tenant: DiscoveryTenant;
+  related: DiscoveryTenant[];
+};
+
 export const formatStartingPrice = (value?: number) => {
   if (!value || value <= 0) return "Cek tenant";
   return `Mulai Rp ${new Intl.NumberFormat("id-ID").format(value)}`;
@@ -98,7 +128,13 @@ export const getDiscoveryItemSummary = (item: DiscoveryTenant) =>
   "Belum ada ringkasan singkat.";
 
 export const getDiscoveryItemImage = (item: DiscoveryTenant) =>
-  item.feed_image_url || item.featured_image_url || item.banner_url || item.logo_url || "";
+  item.post_poster_url ||
+  item.post_thumbnail_url ||
+  (isDiscoveryVideoPost(item) ? "" : item.feed_image_url) ||
+  item.featured_image_url ||
+  item.banner_url ||
+  item.logo_url ||
+  "";
 
 export const getDiscoveryItemLabel = (item: DiscoveryTenant) =>
   item.feed_label || item.promo_label || getDiscoveryCategoryLabel(item);
@@ -118,6 +154,79 @@ export const getDiscoveryItemTags = (item: DiscoveryTenant) =>
 
 export const getDiscoveryItemCta = (item: DiscoveryTenant) =>
   item.feed_cta || (item.item_kind === "post" ? "Lihat postingan" : "Lihat bisnis");
+
+export const isDiscoveryVideoPost = (item: DiscoveryTenant) =>
+  item.item_kind === "post" && item.post_type === "video";
+
+export const isDiscoveryPromoPost = (item: DiscoveryTenant) =>
+  item.item_kind === "post" && item.post_type === "promo";
+
+export const isDiscoveryPhotoPost = (item: DiscoveryTenant) =>
+  item.item_kind === "post" && (item.post_type === "photo" || item.post_type === "update");
+
+export const getDiscoveryCardKind = (item: DiscoveryTenant) => {
+  if (isDiscoveryVideoPost(item)) return "video";
+  if (isDiscoveryPromoPost(item)) return "promo";
+  if (isDiscoveryPhotoPost(item)) return "photo";
+  return "tenant";
+};
+
+export const formatDiscoveryDuration = (seconds?: number) => {
+  if (!seconds || seconds <= 0) return "";
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins <= 0) return `${secs} dtk`;
+  return secs > 0 ? `${mins}:${String(secs).padStart(2, "0")}` : `${mins} mnt`;
+};
+
+export const getDiscoveryVideoPlaybackUrl = (item: DiscoveryTenant) =>
+  item.post_stream_url_hls || item.post_cover_media_url || item.feed_image_url || "";
+
+export const getDiscoveryMediaAccent = (item: DiscoveryTenant) => {
+  if (isDiscoveryPromoPost(item)) return "amber";
+  if (isDiscoveryVideoPost(item)) return "slate";
+  if (isDiscoveryPhotoPost(item)) return "blue";
+  return "blue";
+};
+
+export const isLikelyVideoUrl = (value?: string | null) => {
+  if (!value) return false;
+  const normalized = value.toLowerCase().split("?")[0];
+  return (
+    normalized.endsWith(".mp4") ||
+    normalized.endsWith(".webm") ||
+    normalized.endsWith(".mov") ||
+    normalized.endsWith(".m3u8")
+  );
+};
+
+export const getDiscoveryItemHref = (item: DiscoveryTenant) =>
+  item.item_kind === "post" && item.post_id ? `/discovery/${item.post_id}` : null;
+
+export const getDiscoveryTenantHrefFromPost = (item: DiscoveryTenant) => {
+  const base = getTenantUrl(item.slug);
+  if (item.item_kind !== "post" || !item.post_id) return base;
+  const params = new URLSearchParams({
+    source_post: item.post_id,
+    source_tenant: item.tenant_id || item.id,
+    source_surface: "discover-post",
+  });
+  return `${base}?${params.toString()}`;
+};
+
+export const getDiscoveryEventMetadata = (item: DiscoveryTenant) => {
+  const metadata: Record<string, unknown> = {
+    item_kind: item.item_kind || "tenant",
+    item_id: item.id,
+  };
+  if (item.post_id) {
+    metadata.post_id = item.post_id;
+  }
+  if (item.post_type) {
+    metadata.post_type = item.post_type;
+  }
+  return metadata;
+};
 
 export const bookinajaDiscoveryTheme = {
   pageBg: "bg-slate-50",

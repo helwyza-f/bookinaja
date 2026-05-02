@@ -22,6 +22,7 @@ import {
   growthHubNavItem,
   operationalNavItems,
   settingsNavItems,
+  showGrowthWorkspaceInOperationalNav,
   type AdminNavItem,
 } from "./admin-nav-config";
 
@@ -97,7 +98,9 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
 
   const marketplaceItems = useMemo(
     () =>
-      canAccessAdminRoute(growthHubNavItem.href, userData) ? [growthHubNavItem] : [],
+      showGrowthWorkspaceInOperationalNav && canAccessAdminRoute(growthHubNavItem.href, userData)
+        ? [growthHubNavItem]
+        : [],
     [userData],
   );
 

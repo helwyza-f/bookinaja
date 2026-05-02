@@ -73,7 +73,7 @@ export default async function proxy(req: NextRequest) {
     tenantSlug !== "www" &&
     !reservedKeywords.includes(tenantSlug)
   ) {
-    if (path.startsWith("/user") || path.startsWith("/tenants")) {
+    if (path.startsWith("/user") || path.startsWith("/tenants") || path.startsWith("/discovery")) {
       return NextResponse.redirect(
         buildRootUrl(req, path, url.search, rootConfig),
       );

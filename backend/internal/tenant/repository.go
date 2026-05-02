@@ -12,6 +12,7 @@ import (
 	"github.com/helwiza/backend/internal/fnb"
 	"github.com/helwiza/backend/internal/resource"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -764,6 +765,116 @@ func (r *Repository) ListActiveDiscoveryPosts(ctx context.Context) ([]TenantPost
 		ORDER BY COALESCE(published_at, updated_at, created_at) DESC,
 		         updated_at DESC`)
 	return posts, err
+}
+
+func (r *Repository) GetActiveDiscoveryPostByID(ctx context.Context, postID uuid.UUID) (*TenantPost, error) {
+	var post TenantPost
+	err := r.db.GetContext(ctx, &post, `
+		SELECT
+			id, tenant_id, author_user_id, type, title, caption, cover_media_url,
+			thumbnail_url, cta, status, visibility, starts_at, ends_at,
+			published_at, metadata, created_at, updated_at
+		FROM tenant_posts
+		WHERE id = $1
+		  AND status = 'published'
+		  AND visibility IN ('feed', 'highlight')
+		  AND (starts_at IS NULL OR starts_at <= NOW())
+		  AND (ends_at IS NULL OR ends_at >= NOW())
+		LIMIT 1`,
+		postID,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &post, nil
+}
+
+func (r *Repository) GetDiscoveryPostMetrics(ctx context.Context, postIDs []uuid.UUID) (map[uuid.UUID]TenantPostMetric, error) {
+	metrics := make(map[uuid.UUID]TenantPostMetric, len(postIDs))
+	if len(postIDs) == 0 {
+		return metrics, nil
+	}
+	postIDStrings := make([]string, 0, len(postIDs))
+	for _, postID := range postIDs {
+		postIDStrings = append(postIDStrings, postID.String())
+	}
+
+	var rows []TenantPostMetric
+	err := r.db.SelectContext(ctx, &rows, `
+		WITH target_posts AS (
+			SELECT UNNEST($1::uuid[]) AS post_id
+		)
+		SELECT
+			target_posts.post_id,
+			COUNT(*) FILTER (
+				WHERE dfe.event_type = 'impression'
+				  AND dfe.created_at >= NOW() - INTERVAL '7 days'
+			) AS impressions_7d,
+			COUNT(*) FILTER (
+				WHERE dfe.event_type = 'click'
+				  AND dfe.created_at >= NOW() - INTERVAL '7 days'
+			) AS clicks_7d,
+			CASE
+				WHEN COUNT(*) FILTER (
+					WHERE dfe.event_type = 'impression'
+					  AND dfe.created_at >= NOW() - INTERVAL '7 days'
+				) = 0 THEN 0
+				ELSE ROUND(
+					(
+						COUNT(*) FILTER (
+							WHERE dfe.event_type = 'click'
+							  AND dfe.created_at >= NOW() - INTERVAL '7 days'
+						)::numeric
+						/ COUNT(*) FILTER (
+							WHERE dfe.event_type = 'impression'
+							  AND dfe.created_at >= NOW() - INTERVAL '7 days'
+						)::numeric
+					) * 100,
+					2
+				)
+				END AS ctr_7d,
+			COUNT(*) FILTER (
+				WHERE dfe.event_type = 'detail_view'
+				  AND dfe.created_at >= NOW() - INTERVAL '7 days'
+			) AS detail_views_7d,
+			COUNT(*) FILTER (
+				WHERE dfe.event_type = 'tenant_open'
+				  AND dfe.created_at >= NOW() - INTERVAL '7 days'
+			) AS tenant_opens_7d,
+			COUNT(*) FILTER (
+				WHERE dfe.event_type = 'related_click'
+				  AND dfe.created_at >= NOW() - INTERVAL '7 days'
+			) AS related_clicks_7d,
+			COUNT(*) FILTER (
+				WHERE dfe.event_type = 'tenant_profile_open_from_related'
+				  AND dfe.created_at >= NOW() - INTERVAL '7 days'
+			) AS related_tenant_opens_7d,
+			COUNT(*) FILTER (
+				WHERE dfe.event_type = 'booking_start'
+				  AND dfe.created_at >= NOW() - INTERVAL '7 days'
+			) AS booking_starts_7d,
+			MAX(dfe.created_at) AS last_interaction_at
+		FROM target_posts
+		LEFT JOIN discovery_feed_events dfe
+			ON CASE
+				WHEN COALESCE(dfe.metadata->>'post_id', '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+				THEN (dfe.metadata->>'post_id')::uuid
+				ELSE NULL
+			END = target_posts.post_id
+		GROUP BY target_posts.post_id`,
+		pq.Array(postIDStrings),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, row := range rows {
+		metrics[row.PostID] = row
+	}
+	return metrics, nil
 }
 
 func (r *Repository) GetTenantPostByID(ctx context.Context, tenantID, postID uuid.UUID) (*TenantPost, error) {

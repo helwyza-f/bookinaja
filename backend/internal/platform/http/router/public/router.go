@@ -11,6 +11,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 		public.GET("/tenant-id", cfg.TenantHandler.GetIDBySlug)
 		public.GET("/tenants", cfg.TenantHandler.ListPublicTenants)
 		public.GET("/discover/feed", cfg.TenantHandler.PublicDiscoverFeed)
+		public.GET("/discover/posts/:id", cfg.TenantHandler.PublicDiscoveryPostDetail)
 		public.POST("/discover/events", cfg.TenantHandler.TrackDiscoveryEvent)
 		public.GET("/profile", cfg.TenantHandler.GetPublicProfile)
 		public.GET("/landing", cfg.TenantHandler.GetPublicLandingData)
