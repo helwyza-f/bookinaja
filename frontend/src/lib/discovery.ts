@@ -155,6 +155,18 @@ export const getDiscoveryItemTags = (item: DiscoveryTenant) =>
 export const getDiscoveryItemCta = (item: DiscoveryTenant) =>
   item.feed_cta || (item.item_kind === "post" ? "Lihat postingan" : "Lihat bisnis");
 
+export const isDiscoveryPost = (item: DiscoveryTenant) => item.item_kind === "post";
+
+export const isDiscoveryBusiness = (item: DiscoveryTenant) => item.item_kind !== "post";
+
+export const getDiscoverySurfaceLabel = (item: DiscoveryTenant) =>
+  isDiscoveryPost(item) ? "Postingan" : "Profil Bisnis";
+
+export const getDiscoveryByline = (item: DiscoveryTenant) =>
+  isDiscoveryPost(item)
+    ? `Dari ${item.name}`
+    : getDiscoveryCategoryLabel(item);
+
 export const isDiscoveryVideoPost = (item: DiscoveryTenant) =>
   item.item_kind === "post" && item.post_type === "video";
 

@@ -386,6 +386,8 @@ func (s *Service) DeleteTenantPost(ctx context.Context, actorUserID, tenantID, p
 func (s *Service) buildPublicDiscoverFeed(items []DiscoveryFeedItem, personalized bool) *PublicDiscoverFeedResponse {
 	quickCategories := buildQuickCategories(items)
 	hasPosts := hasPostFeedItems(items)
+	postItems := filterFeedItemsByKind(items, "post")
+	tenantItems := filterFeedItemsByKind(items, "tenant")
 	selection := newFeedSelectionState()
 	featured := pickFeedSectionItems(items, feedSectionConfig{
 		Limit:                4,
@@ -394,17 +396,14 @@ func (s *Service) buildPublicDiscoverFeed(items []DiscoveryFeedItem, personalize
 		RequirePositiveScore: true,
 		Score:                scoreFeaturedSectionItem,
 	}, selection)
-	trending := pickFeedSectionItems(items, feedSectionConfig{
+	contentSpotlight := pickFeedSectionItems(postItems, feedSectionConfig{
 		Limit:                6,
 		GlobalTenantCap:      2,
 		AllowFallbackReuse:   true,
 		RequirePositiveScore: true,
-		Predicate: func(item DiscoveryFeedItem) bool {
-			return item.DiscoveryClicks30d > 0 || item.PostClicks7d > 0 || item.ItemKind == "post"
-		},
-		Score: scoreTrendingSectionItem,
+		Score:                scoreTrendingSectionItem,
 	}, selection)
-	valuePicks := pickFeedSectionItems(items, feedSectionConfig{
+	businessPicks := pickFeedSectionItems(tenantItems, feedSectionConfig{
 		Limit:                6,
 		GlobalTenantCap:      2,
 		AllowFallbackReuse:   true,
@@ -414,7 +413,7 @@ func (s *Service) buildPublicDiscoverFeed(items []DiscoveryFeedItem, personalize
 		},
 		Score: scoreValueSectionItem,
 	}, selection)
-	freshFinds := pickFeedSectionItems(items, feedSectionConfig{
+	freshProfiles := pickFeedSectionItems(tenantItems, feedSectionConfig{
 		Limit:                6,
 		GlobalTenantCap:      2,
 		AllowFallbackReuse:   true,
@@ -424,7 +423,7 @@ func (s *Service) buildPublicDiscoverFeed(items []DiscoveryFeedItem, personalize
 		},
 		Score: scoreFreshSectionItem,
 	}, selection)
-	lateNight := pickFeedSectionItems(items, feedSectionConfig{
+	lateNight := pickFeedSectionItems(tenantItems, feedSectionConfig{
 		Limit:                6,
 		GlobalTenantCap:      2,
 		AllowFallbackReuse:   true,
@@ -434,53 +433,63 @@ func (s *Service) buildPublicDiscoverFeed(items []DiscoveryFeedItem, personalize
 		},
 		Score: scoreLateNightSectionItem,
 	}, selection)
+	sections := make([]PublicDiscoverySection, 0, 4)
+	if len(contentSpotlight) > 0 {
+		sections = append(sections, PublicDiscoverySection{
+			ID:          "content-spotlight",
+			Title:       "Konten dari Tenant",
+			Description: "Postingan foto, video, dan promo yang paling layak dibuka dulu sebelum masuk ke halaman bisnisnya.",
+			Style:       "content",
+			Items:       contentSpotlight,
+		})
+	}
+	if len(businessPicks) > 0 {
+		sections = append(sections, PublicDiscoverySection{
+			ID:          "business-picks",
+			Title:       "Profil Bisnis yang Layak Dicoba",
+			Description: "Profil bisnis yang lebih enak dibandingkan langsung, dengan titik masuk harga dan kualitas yang lebih jelas.",
+			Style:       "business",
+			Items:       businessPicks,
+		})
+	}
+	if len(freshProfiles) > 0 {
+		sections = append(sections, PublicDiscoverySection{
+			ID:          "fresh-profiles",
+			Title:       "Bisnis Baru yang Layak Dijelajahi",
+			Description: sectionDescription(hasPosts, "Bisnis baru tetap dipisahkan dari konten, supaya customer tahu kapan sedang melihat postingan dan kapan sedang melihat profil bisnis.", "Bisnis baru yang layak dijelajahi lebih awal."),
+			Style:       "fresh-business",
+			Items:       freshProfiles,
+		})
+	}
+	if len(lateNight) > 0 {
+		sections = append(sections, PublicDiscoverySection{
+			ID:          "late-night-business",
+			Title:       "Profil Bisnis untuk Sore Sampai Malam",
+			Description: "Profil bisnis yang lebih cocok untuk customer dengan preferensi slot sore hingga malam.",
+			Style:       "night-business",
+			Items:       lateNight,
+		})
+	}
 
 	return &PublicDiscoverFeedResponse{
 		Hero: PublicDiscoveryHero{
 			Eyebrow:     "Feed Bookinaja",
-			Title:       sectionDescription(hasPosts, "Temukan tempat, aktivitas, dan konten yang layak dicoba duluan.", "Temukan tempat dan aktivitas yang layak dicoba duluan."),
+			Title:       sectionDescription(hasPosts, "Temukan konten tenant dan profil bisnis tanpa bingung bedanya.", "Temukan tempat dan aktivitas yang layak dicoba duluan."),
 			Description: publicFeedHeroDescription(hasPosts),
 			SearchHint:  "Cari tempat, kategori, aktivitas, atau suasana yang kamu cari",
 		},
 		QuickCategories: quickCategories,
 		Featured:        featured,
 		Personalized:    personalized,
-		Sections: []PublicDiscoverySection{
-			{
-				ID:          "trending-now",
-				Title:       "Sedang Banyak Dilirik",
-				Description: sectionDescription(hasPosts, "Campuran bisnis dan postingan yang sedang paling aktif menarik perhatian di Feed Bookinaja.", "Bisnis yang sedang paling aktif menarik perhatian di Feed Bookinaja."),
-				Style:       "trending",
-				Items:       trending,
-			},
-			{
-				ID:          "value-picks",
-				Title:       "Mudah Dicoba Duluan",
-				Description: "Pilihan dengan titik masuk yang lebih ringan, cocok untuk customer yang ingin mulai dari yang paling mudah dicoba.",
-				Style:       "value",
-				Items:       valuePicks,
-			},
-			{
-				ID:          "fresh-finds",
-				Title:       "Baru Naik di Feed",
-				Description: sectionDescription(hasPosts, "Listing baru dan postingan baru yang layak dijelajahi lebih awal.", "Listing baru yang layak dijelajahi lebih awal."),
-				Style:       "fresh",
-				Items:       freshFinds,
-			},
-			{
-				ID:          "late-night",
-				Title:       "Cocok untuk Sore Sampai Malam",
-				Description: "Bisnis yang lebih relevan untuk customer dengan preferensi slot sore hingga malam.",
-				Style:       "night",
-				Items:       lateNight,
-			},
-		},
+		Sections:        sections,
 	}
 }
 
 func (s *Service) buildCustomerDiscoverFeed(items []DiscoveryFeedItem, signals *CustomerDiscoverySignals) *PublicDiscoverFeedResponse {
 	quickCategories := buildQuickCategories(items)
 	hasPosts := hasPostFeedItems(items)
+	postItems := filterFeedItemsByKind(items, "post")
+	tenantItems := filterFeedItemsByKind(items, "tenant")
 
 	title := "Temukan sesuatu yang lebih nyambung buat kamu."
 	description := customerFeedHeroDescription(hasPosts)
@@ -499,7 +508,7 @@ func (s *Service) buildCustomerDiscoverFeed(items []DiscoveryFeedItem, signals *
 			return scoreForYouSectionItem(item, signals) + scoreFeaturedSectionItem(item)/2
 		},
 	}, selection)
-	preference := pickFeedSectionItems(items, feedSectionConfig{
+	contentPreference := pickFeedSectionItems(postItems, feedSectionConfig{
 		Limit:                6,
 		GlobalTenantCap:      2,
 		AllowFallbackReuse:   true,
@@ -511,7 +520,19 @@ func (s *Service) buildCustomerDiscoverFeed(items []DiscoveryFeedItem, signals *
 			return scoreForYouSectionItem(item, signals)
 		},
 	}, selection)
-	rebook := pickFeedSectionItems(items, feedSectionConfig{
+	businessPreference := pickFeedSectionItems(tenantItems, feedSectionConfig{
+		Limit:                6,
+		GlobalTenantCap:      2,
+		AllowFallbackReuse:   true,
+		RequirePositiveScore: true,
+		Predicate: func(item DiscoveryFeedItem) bool {
+			return strings.TrimSpace(item.FeedReason) != ""
+		},
+		Score: func(item DiscoveryFeedItem) int {
+			return scoreForYouSectionItem(item, signals)
+		},
+	}, selection)
+	rebook := pickFeedSectionItems(tenantItems, feedSectionConfig{
 		Limit:                6,
 		GlobalTenantCap:      2,
 		AllowFallbackReuse:   true,
@@ -523,19 +544,16 @@ func (s *Service) buildCustomerDiscoverFeed(items []DiscoveryFeedItem, signals *
 			return scoreRepeatSectionItem(item, signals)
 		},
 	}, selection)
-	fresh := pickFeedSectionItems(items, feedSectionConfig{
+	fresh := pickFeedSectionItems(postItems, feedSectionConfig{
 		Limit:                6,
 		GlobalTenantCap:      2,
 		AllowFallbackReuse:   true,
 		RequirePositiveScore: true,
-		Predicate: func(item DiscoveryFeedItem) bool {
-			return item.IsNew || item.ItemKind == "post"
-		},
 		Score: func(item DiscoveryFeedItem) int {
 			return scoreFreshCustomerSectionItem(item, signals)
 		},
 	}, selection)
-	budgetFit := pickFeedSectionItems(items, feedSectionConfig{
+	budgetFit := pickFeedSectionItems(tenantItems, feedSectionConfig{
 		Limit:                6,
 		GlobalTenantCap:      2,
 		AllowFallbackReuse:   true,
@@ -547,6 +565,52 @@ func (s *Service) buildCustomerDiscoverFeed(items []DiscoveryFeedItem, signals *
 			return scoreBudgetSectionItem(item, signals)
 		},
 	}, selection)
+	sections := make([]PublicDiscoverySection, 0, 4)
+	if len(contentPreference) > 0 {
+		sections = append(sections, PublicDiscoverySection{
+			ID:          "content-for-you",
+			Title:       "Konten yang Nyambung Buat Kamu",
+			Description: "Postingan tenant yang paling dekat dengan kategori, minat, dan pola klik kamu belakangan ini.",
+			Style:       "content-personal",
+			Items:       contentPreference,
+		})
+	}
+	if len(businessPreference) > 0 {
+		sections = append(sections, PublicDiscoverySection{
+			ID:          "business-for-you",
+			Title:       "Profil Bisnis yang Nyambung Buat Kamu",
+			Description: "Profil bisnis yang lebih masuk ke pola booking kamu, tanpa tercampur dengan konten postingan.",
+			Style:       "business-personal",
+			Items:       businessPreference,
+		})
+	}
+	if len(rebook) > 0 {
+		sections = append(sections, PublicDiscoverySection{
+			ID:          "rebook-favorites",
+			Title:       "Bisnis yang Pernah Kamu Pilih",
+			Description: sectionDescription(hasPosts, "Cocok untuk repeat booking yang lebih cepat, sambil tetap membedakan profil bisnis dari konten barunya.", "Cocok untuk repeat booking yang lebih cepat dari bisnis yang sudah kamu kenal."),
+			Style:       "repeat",
+			Items:       rebook,
+		})
+	}
+	if len(fresh) > 0 {
+		sections = append(sections, PublicDiscoverySection{
+			ID:          "fresh-content",
+			Title:       "Konten Baru yang Masih Relevan",
+			Description: "Postingan baru yang masih terasa dekat dengan minat dan pola booking kamu.",
+			Style:       "fresh-content",
+			Items:       fresh,
+		})
+	}
+	if len(budgetFit) > 0 {
+		sections = append(sections, PublicDiscoverySection{
+			ID:          "budget-fit",
+			Title:       "Profil Bisnis yang Masuk Pola Budget Kamu",
+			Description: "Pilihan profil bisnis dengan titik masuk yang lebih dekat ke kebiasaan booking kamu sejauh ini.",
+			Style:       "budget",
+			Items:       budgetFit,
+		})
+	}
 
 	return &PublicDiscoverFeedResponse{
 		Hero: PublicDiscoveryHero{
@@ -558,36 +622,7 @@ func (s *Service) buildCustomerDiscoverFeed(items []DiscoveryFeedItem, signals *
 		QuickCategories: quickCategories,
 		Featured:        featured,
 		Personalized:    true,
-		Sections: []PublicDiscoverySection{
-			{
-				ID:          "for-you",
-				Title:       "Paling Nyambung Buat Kamu",
-				Description: sectionDescription(hasPosts, "Dipilih dari kategori yang sering kamu pilih, tenant yang pernah kamu kunjungi, dan postingan yang paling relevan dari bisnis itu.", "Dipilih dari kategori yang sering kamu pilih dan tenant yang pernah kamu kunjungi."),
-				Style:       "personal",
-				Items:       preference,
-			},
-			{
-				ID:          "rebook-favorites",
-				Title:       "Bisnis yang Pernah Kamu Pilih",
-				Description: sectionDescription(hasPosts, "Cocok untuk repeat booking yang lebih cepat, lengkap dengan postingan terbaru dari bisnis yang sudah kamu kenal.", "Cocok untuk repeat booking yang lebih cepat dari bisnis yang sudah kamu kenal."),
-				Style:       "repeat",
-				Items:       rebook,
-			},
-			{
-				ID:          "fresh-for-you",
-				Title:       "Konten Baru yang Masih Relevan",
-				Description: sectionDescription(hasPosts, "Bisnis baru dan postingan baru yang tetap terasa dekat dengan minat dan pola booking kamu.", "Bisnis baru yang tetap terasa dekat dengan minat dan pola booking kamu."),
-				Style:       "fresh",
-				Items:       fresh,
-			},
-			{
-				ID:          "budget-fit",
-				Title:       "Masih Masuk Pola Budget Kamu",
-				Description: "Pilihan dengan titik masuk yang lebih dekat ke kebiasaan booking kamu sejauh ini.",
-				Style:       "budget",
-				Items:       budgetFit,
-			},
-		},
+		Sections:        sections,
 	}
 }
 
@@ -1249,6 +1284,16 @@ func hasPostFeedItems(items []DiscoveryFeedItem) bool {
 	return false
 }
 
+func filterFeedItemsByKind(items []DiscoveryFeedItem, kind string) []DiscoveryFeedItem {
+	filtered := make([]DiscoveryFeedItem, 0, len(items))
+	for _, item := range items {
+		if item.ItemKind == kind {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}
+
 func sectionDescription(hasPosts bool, withPosts string, withoutPosts string) string {
 	if hasPosts {
 		return withPosts
@@ -1259,7 +1304,7 @@ func sectionDescription(hasPosts bool, withPosts string, withoutPosts string) st
 func publicFeedHeroDescription(hasPosts bool) string {
 	return sectionDescription(
 		hasPosts,
-		"Feed Bookinaja menggabungkan tampilan bisnis dan postingan tenant dengan ranking yang sama, supaya discovery terasa lebih hidup daripada daftar bisnis biasa.",
+		"Feed Bookinaja sekarang memisahkan postingan tenant dan profil bisnis secara lebih jelas, supaya customer tahu kapan sedang melihat konten dan kapan sedang menilai bisnisnya.",
 		"Feed Bookinaja menata profil bisnis dengan ranking yang lebih rapi, supaya discovery terasa lebih hidup daripada daftar bisnis biasa.",
 	)
 }
@@ -1267,7 +1312,7 @@ func publicFeedHeroDescription(hasPosts bool) string {
 func customerFeedHeroDescription(hasPosts bool) string {
 	return sectionDescription(
 		hasPosts,
-		"Feed customer Bookinaja memadukan minat kategori, riwayat booking, kualitas listing, dan postingan tenant untuk menampilkan sesuatu yang terasa lebih relevan.",
+		"Feed customer Bookinaja memisahkan konten tenant dari profil bisnis, lalu tetap menimbang minat kategori, riwayat booking, dan kualitas listing supaya hasilnya terasa lebih relevan.",
 		"Feed customer Bookinaja memadukan minat kategori, riwayat booking, dan kualitas listing untuk menampilkan bisnis yang terasa lebih relevan.",
 	)
 }

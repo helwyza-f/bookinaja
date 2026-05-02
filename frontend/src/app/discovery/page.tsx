@@ -29,6 +29,7 @@ import {
   type DiscoveryTenant,
   formatStartingPrice,
   formatDiscoveryDuration,
+  getDiscoveryByline,
   getDiscoveryCardKind,
   getDiscoveryCategoryLabel,
   getDiscoveryItemBadges,
@@ -38,8 +39,11 @@ import {
   getDiscoveryItemReason,
   getDiscoveryItemSummary,
   getDiscoveryItemTitle,
+  getDiscoverySurfaceLabel,
   getDiscoveryEventMetadata,
   getDiscoveryItemHref,
+  isDiscoveryBusiness,
+  isDiscoveryPost,
   isDiscoveryPromoPost,
   isDiscoveryVideoPost,
   scoreDiscoveryTenant,
@@ -111,7 +115,8 @@ export default function DiscoveryPage() {
   }, [allItems, matchesFilters, query]);
 
   const primaryFeature = rankedItems[0] || feed?.featured?.[0] || null;
-  const quickPicks = rankedItems.slice(1, 5);
+  const postHighlights = rankedItems.filter(isDiscoveryPost).slice(0, 4);
+  const businessHighlights = rankedItems.filter(isDiscoveryBusiness).slice(0, 4);
 
   const filteredSections = useMemo(() => {
     if (!feed) return [];
@@ -255,28 +260,55 @@ export default function DiscoveryPage() {
               </section>
             ) : null}
 
-            <section className="space-y-3">
-              <SectionHeader
-                eyebrow="Quick Picks"
-                title="Paling relevan buat mulai lihat-lihat"
-                description="Feed publik yang lebih clean, lebih padat, dan tidak terasa seperti katalog besar."
-              />
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-2">
-                {quickPicks.map((tenant, index) => (
-                  <PublicContentCard
-                    key={tenant.id}
-                    tenant={tenant}
-                    surface="discover"
-                    sectionId="quick-picks"
-                    cardVariant="content"
-                    positionIndex={index}
-                    onVisible={() =>
-                      markImpression(tenant, "discover", "quick-picks", "content", index)
-                    }
-                  />
-                ))}
-              </div>
-            </section>
+            {postHighlights.length > 0 ? (
+              <section className="space-y-3">
+                <SectionHeader
+                  eyebrow="Konten"
+                  title="Postingan yang layak dibuka dulu"
+                  description="Foto, video, dan promo dari tenant dipisahkan di sini, supaya orang langsung tahu ini konten dan bukan profil bisnis."
+                />
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-2">
+                  {postHighlights.map((tenant, index) => (
+                    <PublicContentCard
+                      key={tenant.id}
+                      tenant={tenant}
+                      surface="discover"
+                      sectionId="content-highlights"
+                      cardVariant="content"
+                      positionIndex={index}
+                      onVisible={() =>
+                        markImpression(tenant, "discover", "content-highlights", "content", index)
+                      }
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {businessHighlights.length > 0 ? (
+              <section className="space-y-3">
+                <SectionHeader
+                  eyebrow="Profil Bisnis"
+                  title="Bisnis yang layak dibandingkan"
+                  description="Bagian ini khusus profil bisnis, jadi customer bisa menilai harga mulai, kategori, dan kecocokan tempat tanpa tercampur konten."
+                />
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-2">
+                  {businessHighlights.map((tenant, index) => (
+                    <PublicBusinessCard
+                      key={tenant.id}
+                      tenant={tenant}
+                      surface="discover"
+                      sectionId="business-highlights"
+                      cardVariant="business"
+                      positionIndex={index}
+                      onVisible={() =>
+                        markImpression(tenant, "discover", "business-highlights", "business", index)
+                      }
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
 
             <div className="space-y-8">
               {filteredSections.map((section) => (
@@ -344,6 +376,14 @@ function SectionHeader({
 
 function DiscoveryTypeChip({ tenant }: { tenant: DiscoveryTenant }) {
   const cardKind = getDiscoveryCardKind(tenant);
+  if (tenant.item_kind !== "post") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
+        <Store className="h-3.5 w-3.5" />
+        Bisnis
+      </span>
+    );
+  }
   if (cardKind === "video") {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-950/75 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white">
@@ -406,7 +446,7 @@ function FeatureHeroCard({
           <div className="flex items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white">
-                {getDiscoveryItemLabel(tenant)}
+                {getDiscoverySurfaceLabel(tenant)}
               </Badge>
               <DiscoveryTypeChip tenant={tenant} />
             </div>
@@ -422,15 +462,9 @@ function FeatureHeroCard({
           </div>
 
           <div className="space-y-3">
-            {tenant.item_kind === "post" ? (
-              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-white/72">
-                Dari {tenant.name}
-              </div>
-            ) : (
-              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-white/72">
-                Profil bisnis
-              </div>
-            )}
+            <div className="text-[11px] font-black uppercase tracking-[0.18em] text-white/72">
+              {getDiscoveryByline(tenant)}
+            </div>
             <h3 className="max-w-2xl text-2xl font-black uppercase leading-[0.95] tracking-[-0.04em] md:text-4xl">
               {getDiscoveryItemTitle(tenant)}
             </h3>
@@ -527,11 +561,9 @@ function PublicContentCard({
           <div className="absolute left-3 top-3">
             <DiscoveryTypeChip tenant={tenant} />
           </div>
-          {tenant.item_kind === "post" ? (
-            <div className="absolute bottom-3 left-3 rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white">
-              Dari {tenant.name}
-            </div>
-          ) : null}
+          <div className="absolute bottom-3 left-3 rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white">
+            {getDiscoveryByline(tenant)}
+          </div>
         </div>
         <div className="space-y-4 p-4">
           <div className="flex items-start justify-between gap-3">
@@ -544,11 +576,9 @@ function PublicContentCard({
           </div>
 
           <div>
-            {tenant.item_kind === "post" ? (
-              <div className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">
-                Dari {tenant.name}
-              </div>
-            ) : null}
+            <div className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">
+              {getDiscoveryByline(tenant)}
+            </div>
             <h3 className="line-clamp-2 text-lg font-black uppercase tracking-tight text-slate-950">
               {getDiscoveryItemTitle(tenant)}
             </h3>
@@ -609,6 +639,101 @@ function PublicContentCard({
   );
 }
 
+function PublicBusinessCard({
+  tenant,
+  surface,
+  sectionId,
+  cardVariant,
+  positionIndex,
+  onVisible,
+}: {
+  tenant: DiscoveryTenant;
+  surface: string;
+  sectionId: string;
+  cardVariant: string;
+  positionIndex: number;
+  onVisible?: () => void;
+}) {
+  useEffect(() => {
+    onVisible?.();
+  }, [onVisible]);
+
+  return (
+    <Card className="group overflow-hidden rounded-[1.7rem] border border-emerald-100 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-md">
+      <CardContent className="p-0">
+        <div className="relative h-32 overflow-hidden bg-[linear-gradient(135deg,#052e2b_0%,#0f766e_55%,#99f6e4_100%)]">
+          {getDiscoveryItemImage(tenant) ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={getDiscoveryItemImage(tenant)}
+              alt={tenant.name}
+              className="h-full w-full object-cover opacity-40"
+            />
+          ) : null}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/45 to-transparent" />
+          <div className="absolute left-3 top-3">
+            <DiscoveryTypeChip tenant={tenant} />
+          </div>
+        </div>
+
+        <div className="space-y-4 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">
+                {getDiscoveryByline(tenant)}
+              </div>
+              <h3 className="mt-2 line-clamp-2 text-lg font-black uppercase tracking-tight text-slate-950">
+                {getDiscoveryItemTitle(tenant)}
+              </h3>
+            </div>
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
+              {formatStartingPrice(tenant.starting_price)}
+            </span>
+          </div>
+
+          <p className="line-clamp-2 text-sm leading-6 text-slate-600">
+            {getDiscoveryItemSummary(tenant)}
+          </p>
+
+          <div className="grid gap-2 rounded-2xl bg-emerald-50/80 px-3 py-3 text-[11px] font-semibold text-slate-600">
+            <span>{getDiscoveryItemReason(tenant) || "Profil bisnis ini layak dibandingkan lebih dulu."}</span>
+            <div className="flex items-center justify-between gap-3 uppercase tracking-[0.12em] text-slate-500">
+              <span>{tenant.resource_count || 0} resource</span>
+              <span>
+                {tenant.open_time && tenant.close_time
+                  ? `${tenant.open_time} - ${tenant.close_time}`
+                  : "Jam operasional"}
+              </span>
+            </div>
+          </div>
+
+          <Button asChild className="h-11 w-full rounded-2xl bg-slate-950 text-white hover:bg-slate-900">
+            <a
+              href={getDiscoverHref(tenant)}
+              onClick={() =>
+                trackDiscoveryEvent({
+                  tenant_id: tenant.tenant_id || tenant.id,
+                  tenant_slug: tenant.slug,
+                  event_type: "click",
+                  surface,
+                  section_id: sectionId,
+                  card_variant: cardVariant,
+                  position_index: positionIndex,
+                  promo_label: tenant.feed_label || tenant.promo_label,
+                  metadata: getDiscoveryEventMetadata(tenant),
+                })
+              }
+            >
+              Lihat profil bisnis
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </a>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function PublicRailSection({
   section,
   markImpression,
@@ -625,19 +750,30 @@ function PublicRailSection({
   return (
     <section className="space-y-3">
       <SectionHeader
-        eyebrow={section.style}
+        eyebrow={section.items.every((item) => item.item_kind === "post") ? "Konten" : "Profil Bisnis"}
         title={section.title}
         description={section.description}
       />
       <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
         {section.items.map((tenant, index) => (
           <div key={tenant.id} className="w-[250px] min-w-[250px] flex-none">
-            <PublicRailCard
-              tenant={tenant}
-              sectionId={section.id}
-              positionIndex={index}
-              onVisible={() => markImpression(tenant, "discover", section.id, "rail", index)}
-            />
+            {tenant.item_kind === "post" ? (
+              <PublicRailCard
+                tenant={tenant}
+                sectionId={section.id}
+                positionIndex={index}
+                onVisible={() => markImpression(tenant, "discover", section.id, "rail", index)}
+              />
+            ) : (
+              <PublicBusinessCard
+                tenant={tenant}
+                surface="discover"
+                sectionId={section.id}
+                cardVariant="rail-business"
+                positionIndex={index}
+                onVisible={() => markImpression(tenant, "discover", section.id, "rail-business", index)}
+              />
+            )}
           </div>
         ))}
       </div>
@@ -700,16 +836,14 @@ function PublicRailCard({
               )}
             </div>
             <Badge className={cn("rounded-full", isPromo ? "bg-amber-50 text-amber-700" : "bg-blue-50 text-blue-700")}>
-              {getDiscoveryItemLabel(tenant)}
+              {getDiscoverySurfaceLabel(tenant)}
             </Badge>
           </div>
 
           <div>
-            {tenant.item_kind === "post" ? (
-              <div className={cn("mb-2 text-[10px] font-black uppercase tracking-[0.18em]", isPromo ? "text-amber-700" : "text-blue-600")}>
-                Dari {tenant.name}
-              </div>
-            ) : null}
+            <div className={cn("mb-2 text-[10px] font-black uppercase tracking-[0.18em]", isPromo ? "text-amber-700" : "text-blue-600")}>
+              {getDiscoveryByline(tenant)}
+            </div>
             <h3 className="line-clamp-2 text-base font-black uppercase tracking-tight text-slate-950">
               {getDiscoveryItemTitle(tenant)}
             </h3>
