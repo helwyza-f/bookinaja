@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { setCookie } from "cookies-next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,10 @@ import {
 import Link from "next/link";
 import { Lock, Mail, ArrowRight, ChevronLeft } from "lucide-react";
 import api from "@/lib/api";
-import { syncTenantCookies } from "@/lib/tenant-session";
+import {
+  getTenantMismatchMessage,
+  syncTenantCookies,
+} from "@/lib/tenant-session";
 
 type LoginForm = {
   email: string;
@@ -37,8 +40,18 @@ export default function TenantLoginPage() {
   const [loading, setLoading] = useState(false);
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { register, handleSubmit } = useForm<LoginForm>();
   const tenantSlug = params.tenant as string;
+
+  useEffect(() => {
+    if (searchParams.get("reason") !== "tenant-mismatch") return;
+    const message = getTenantMismatchMessage("admin");
+    toast.info(message.title, {
+      description: message.description,
+      duration: 5000,
+    });
+  }, [searchParams]);
 
   const onSubmit = async (data: LoginForm) => {
     setLoading(true);
@@ -53,13 +66,9 @@ export default function TenantLoginPage() {
         maxAge: 60 * 60 * 24 * 7,
         path: "/",
       });
-      syncTenantCookies(tenantSlug, res.data.user?.tenant_id);
+      syncTenantCookies(tenantSlug);
       toast.success("Login Berhasil!");
 
-      const searchParams =
-        typeof window !== "undefined"
-          ? new URLSearchParams(window.location.search)
-          : new URLSearchParams();
       const plan = searchParams.get("plan");
       const interval = searchParams.get("interval");
       if (plan || interval) {

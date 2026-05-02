@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setCookie } from "cookies-next";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getTenantMismatchMessage } from "@/lib/tenant-session";
 
 type LoginFormValues = {
   email: string;
@@ -22,6 +23,15 @@ export function PlatformLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { register, handleSubmit } = useForm<LoginFormValues>();
+
+  useEffect(() => {
+    if (searchParams.get("reason") !== "tenant-mismatch") return;
+    const message = getTenantMismatchMessage("platform");
+    toast.info(message.title, {
+      description: message.description,
+      duration: 5000,
+    });
+  }, [searchParams]);
 
   const onSubmit = async (data: LoginFormValues) => {
     setLoading(true);

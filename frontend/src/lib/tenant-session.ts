@@ -1,4 +1,4 @@
-import { deleteCookie, setCookie, getCookie } from "cookies-next";
+import { deleteCookie, setCookie } from "cookies-next";
 
 const COOKIE_DOMAIN = normalizeCookieDomain(
   process.env.NEXT_PUBLIC_COOKIE_DOMAIN || process.env.NEXT_PUBLIC_ROOT_DOMAIN,
@@ -13,10 +13,7 @@ const COOKIE_BASE_OPTIONS = {
 /**
  * Sinkronisasi cookie tenant agar backend mengenali context via Middleware
  */
-export function syncTenantCookies(
-  tenantSlug?: string | null,
-  tenantId?: string | null,
-) {
+export function syncTenantCookies(tenantSlug?: string | null) {
   const options = {
     maxAge: 60 * 60 * 24 * 7, // 7 Hari
     ...COOKIE_BASE_OPTIONS,
@@ -24,10 +21,6 @@ export function syncTenantCookies(
 
   if (tenantSlug) {
     setCookie("current_tenant_slug", tenantSlug, options);
-  }
-
-  if (tenantId) {
-    setCookie("current_tenant_id", tenantId, options);
   }
 }
 
@@ -39,8 +32,6 @@ export function clearTenantSession(options?: { keepTenantSlug?: boolean }) {
   deleteCookie("auth_token", { path: "/" });
   deleteCookie("customer_auth", COOKIE_BASE_OPTIONS);
   deleteCookie("customer_auth", { path: "/" });
-  deleteCookie("current_tenant_id", COOKIE_BASE_OPTIONS);
-  deleteCookie("current_tenant_id", { path: "/" });
 
   if (!options?.keepTenantSlug) {
     deleteCookie("current_tenant_slug", COOKIE_BASE_OPTIONS);
@@ -59,11 +50,42 @@ export function isTenantAuthError(error: unknown) {
   return status === 401 || status === 403;
 }
 
-/**
- * Helper untuk mengambil tenantId saat ini dari cookie
- */
-export function getCurrentTenantId() {
-  return getCookie("current_tenant_id") as string | undefined;
+export function isCrossTenantSessionError(error: unknown) {
+  const response = (error as {
+    response?: { status?: number; data?: { error?: string; hint?: string } };
+  })?.response;
+  const message = `${response?.data?.error || ""} ${response?.data?.hint || ""}`
+    .trim()
+    .toLowerCase();
+
+  return (
+    response?.status === 403 &&
+    (message.includes("token ini terdaftar untuk bisnis lain") ||
+      message.includes("login di subdomain yang benar"))
+  );
+}
+
+export function getTenantMismatchMessage(kind: "admin" | "customer" | "platform") {
+  switch (kind) {
+    case "admin":
+      return {
+        title: "Sesi bisnis sebelumnya sudah dilepas",
+        description:
+          "Kamu sedang membuka panel bisnis yang berbeda. Masuk lagi di bisnis ini supaya data yang tampil tetap sesuai.",
+      };
+    case "customer":
+      return {
+        title: "Sesi customer sebelumnya tidak cocok dengan bisnis ini",
+        description:
+          "Kamu baru pindah ke bisnis lain. Masuk lagi supaya booking dan data akun tersinkron dengan bisnis yang sedang dibuka.",
+      };
+    default:
+      return {
+        title: "Sesi sebelumnya sudah tidak cocok",
+        description:
+          "Kamu baru berpindah workspace. Masuk lagi supaya akses dibuka di area Bookinaja yang benar.",
+      };
+  }
 }
 
 function normalizeCookieDomain(value?: string | null) {

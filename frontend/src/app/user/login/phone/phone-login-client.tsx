@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setCookie } from "cookies-next";
 import { Loader2, Phone, KeyRound, ArrowLeft } from "lucide-react";
@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import Link from "next/link";
+import { getTenantMismatchMessage } from "@/lib/tenant-session";
 
 type ApiError = {
   response?: {
@@ -37,6 +38,15 @@ export default function PhoneLoginClient() {
   const [loading, setLoading] = useState(false);
 
   const nextPath = searchParams.get("next") || "/user/me";
+
+  useEffect(() => {
+    if (searchParams.get("reason") !== "tenant-mismatch") return;
+    const message = getTenantMismatchMessage("customer");
+    toast.info(message.title, {
+      description: message.description,
+      duration: 5000,
+    });
+  }, [searchParams]);
 
   const handleRequestOtp = async () => {
     const cleaned = phone.replace(/\D/g, "");

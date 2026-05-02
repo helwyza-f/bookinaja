@@ -109,8 +109,6 @@ export default async function proxy(req: NextRequest) {
         ...(isProd && cookieDomain ? { domain: cookieDomain } : {}),
       });
 
-      // PENTING: Hapus ID tenant lama agar tidak terjadi salah alamat data!
-      response.cookies.delete("current_tenant_id");
     }
 
     return response;

@@ -1,6 +1,10 @@
 import axios from "axios";
-import { getCookie, setCookie, deleteCookie } from "cookies-next";
+import { getCookie, deleteCookie } from "cookies-next";
 import { getTenantSlugFromBrowser } from "@/lib/tenant";
+import {
+  clearTenantSession,
+  isCrossTenantSessionError,
+} from "@/lib/tenant-session";
 
 const baseURL =
   process.env.NEXT_PUBLIC_API_URL || "http://api.bookinaja.local:8080/api/v1";
@@ -11,11 +15,8 @@ const api = axios.create({
   withCredentials: true,
 });
 
-let isResolvingTenant = false;
-
 api.interceptors.request.use((config) => {
   const token = getCookie("auth_token") || getCookie("customer_auth");
-  const tenantId = getCookie("current_tenant_id");
   const browserTenantSlug = getTenantSlugFromBrowser();
   const tenantSlug = browserTenantSlug
     ? browserTenantSlug
@@ -27,33 +28,9 @@ api.interceptors.request.use((config) => {
     config.headers["X-Tenant-Slug"] = tenantSlug;
   }
 
-  if (browserTenantSlug && tenantId && tenantId !== "undefined" && tenantId !== "") {
-    config.headers["X-Tenant-ID"] = tenantId as string;
-  }
-
   if (browserTenantSlug && tenantSlug) {
     if (config.method?.toLowerCase() === "get") {
       config.params = { ...config.params, slug: tenantSlug };
-    }
-
-    // Silent resolver: sync tenant ID ke cookie biar backend middleware tidak 403
-    if (!tenantId && !isResolvingTenant) {
-      isResolvingTenant = true;
-      axios
-        .get(`${baseURL}/public/tenant-id`, { params: { slug: tenantSlug } })
-        .then((res) => {
-          if (res.data?.id) {
-            setCookie("current_tenant_id", res.data.id, {
-              maxAge: 60 * 60 * 24 * 7,
-              path: "/",
-            });
-          }
-        })
-        .finally(() => {
-          setTimeout(() => {
-            isResolvingTenant = false;
-          }, 1000);
-        });
     }
   }
 
@@ -63,11 +40,35 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
+    if (isCrossTenantSessionError(err) && typeof window !== "undefined") {
+      const hasAdminToken = Boolean(getCookie("auth_token"));
+      const hasCustomerToken = Boolean(getCookie("customer_auth"));
+      const isTenantSurface = Boolean(getTenantSlugFromBrowser());
+
+      clearTenantSession({ keepTenantSlug: isTenantSurface });
+
+      const nextPath = encodeURIComponent(
+        `${window.location.pathname}${window.location.search}`,
+      );
+      const target = hasAdminToken
+        ? isTenantSurface
+          ? `/admin/login?reason=tenant-mismatch&next=${nextPath}`
+          : `/login?reason=tenant-mismatch&next=${nextPath}`
+        : hasCustomerToken
+          ? isTenantSurface
+            ? `/login?reason=tenant-mismatch&next=${nextPath}`
+            : `/user/login?reason=tenant-mismatch&next=${nextPath}`
+          : null;
+
+      if (target && window.location.pathname !== target) {
+        window.location.replace(target);
+      }
+    }
+
     // --- FIX 2: Hapus kuki yang bener pas 401 ---
     if (err.response?.status === 401) {
       deleteCookie("auth_token");
       deleteCookie("customer_auth");
-      deleteCookie("current_tenant_id");
     }
     return Promise.reject(err);
   },

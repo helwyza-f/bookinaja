@@ -29,7 +29,9 @@ func CORSMiddleware() gin.HandlerFunc {
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE, PATCH")
 
-		// 3. Headers (PENTING: X-Tenant-ID sudah terdaftar)
+		// 3. Headers
+		// X-Tenant-ID dipertahankan untuk kompatibilitas legacy/internal.
+		// Browser tenant modern cukup mengandalkan slug/domain aktif.
 		allowedHeaders := []string{
 			"Content-Type",
 			"Content-Length",
