@@ -17,6 +17,7 @@ type Config struct {
 	WSPort        int
 	UseTLS        bool
 	CACertPath    string
+	CACertPEM     string
 	ClientID      string
 	Username      string
 	Password      string
@@ -33,6 +34,7 @@ func LoadConfig() (*Config, error) {
 		WSPort:        envInt("MQTT_WS_PORT", 8083),
 		UseTLS:        envBool("MQTT_USE_TLS", false),
 		CACertPath:    strings.TrimSpace(os.Getenv("MQTT_CA_CERT_PATH")),
+		CACertPEM:     normalizePEMEnv(os.Getenv("MQTT_CA_CERT_PEM")),
 		ClientID:      strings.TrimSpace(os.Getenv("MQTT_CLIENT_ID")),
 		Username:      strings.TrimSpace(os.Getenv("MQTT_USERNAME")),
 		Password:      os.Getenv("MQTT_PASSWORD"),
@@ -100,7 +102,12 @@ func (c *Config) TLSConfig() (*tls.Config, error) {
 		pool = x509.NewCertPool()
 	}
 
-	if strings.TrimSpace(c.CACertPath) != "" {
+	switch {
+	case strings.TrimSpace(c.CACertPEM) != "":
+		if ok := pool.AppendCertsFromPEM([]byte(c.CACertPEM)); !ok {
+			return nil, fmt.Errorf("parse mqtt ca certificate pem failed")
+		}
+	case strings.TrimSpace(c.CACertPath) != "":
 		certPath, err := resolvePath(c.CACertPath)
 		if err != nil {
 			return nil, err
@@ -142,6 +149,15 @@ func envInt(key string, fallback int) int {
 		return fallback
 	}
 	return value
+}
+
+func normalizePEMEnv(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	replacer := strings.NewReplacer(`\r\n`, "\n", `\n`, "\n", `\r`, "\r")
+	return replacer.Replace(trimmed)
 }
 
 func envBool(key string, fallback bool) bool {
