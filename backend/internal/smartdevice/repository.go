@@ -502,6 +502,7 @@ func (r *Repository) UpsertTelemetry(ctx context.Context, mqttDeviceID, topic st
 }
 
 func (r *Repository) UpdateDeviceState(ctx context.Context, mqttDeviceID, topic string, payload []byte, connectionStatus string, lastIP *string) (*Device, error) {
+	normalizedPayload := normalizeJSONPayload(payload)
 	var item Device
 	err := r.db.GetContext(ctx, &item, `
 		UPDATE smart_devices
@@ -514,7 +515,7 @@ func (r *Repository) UpdateDeviceState(ctx context.Context, mqttDeviceID, topic 
 			paired_at = COALESCE(paired_at, NOW()),
 			updated_at = NOW()
 		WHERE device_id = $1
-		RETURNING *`, mqttDeviceID, connectionStatus, string(payload), topic, lastIP)
+		RETURNING *`, mqttDeviceID, connectionStatus, string(normalizedPayload), topic, lastIP)
 	if err != nil {
 		return nil, err
 	}
