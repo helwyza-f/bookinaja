@@ -2,5 +2,5 @@
 .env
 .env.local
 .env.example
-
+.env.prod
 bookinaja.pem
