@@ -233,8 +233,8 @@ export default function BookingsPage() {
 
   return (
     <div className="mx-auto w-full space-y-4 px-3 pb-20 pt-5 font-plus-jakarta md:px-4">
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/5 dark:bg-[#0a0a0a]">
-        <div className="h-1 bg-blue-600" />
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+        <div className="h-1 bg-[var(--bookinaja-600)]" />
         <div className="p-4 md:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-2xl space-y-1">
@@ -242,7 +242,7 @@ export default function BookingsPage() {
                 Bookings
               </h1>
               <div className="flex items-start gap-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                <MonitorPlay size={14} className="mt-1 shrink-0 text-blue-600" />
+                <MonitorPlay size={14} className="mt-1 shrink-0 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-300)]" />
                 <span>Kelola jadwal, status pembayaran, dan booking per resource.</span>
               </div>
             </div>
@@ -257,7 +257,7 @@ export default function BookingsPage() {
                     Rp {formatIDR(stats.totalRevenue)}
                   </span>
                 </div>
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--bookinaja-600)] text-white">
                   <Wallet size={16} />
                 </div>
               </div>
@@ -267,11 +267,11 @@ export default function BookingsPage() {
                   <span className="mb-0.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
                     Active Slot
                   </span>
-                  <span className="text-base font-semibold text-blue-600">
+                  <span className="text-base font-semibold text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-300)]">
                     {stats.activeSess} Units
                   </span>
                 </div>
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-blue-600 dark:bg-white/10">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-[var(--bookinaja-600)] dark:bg-white/10 dark:text-[var(--bookinaja-300)]">
                   <TrendingUp size={16} />
                 </div>
               </div>
@@ -279,7 +279,7 @@ export default function BookingsPage() {
               <Button
                 onClick={() => canCreateBookings && router.push(`/admin/bookings/new`)}
                 disabled={!canCreateBookings}
-                className="h-12 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 sm:h-auto sm:min-h-full sm:min-w-[150px] md:px-5"
+                className="h-12 rounded-xl bg-[var(--bookinaja-600)] px-4 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 hover:bg-[var(--bookinaja-700)] sm:h-auto sm:min-h-full sm:min-w-[150px] md:px-5"
               >
                 <Plus size={16} strokeWidth={4} /> New Booking
               </Button>
@@ -288,7 +288,7 @@ export default function BookingsPage() {
         </div>
       </div>
 
-      <Card className="rounded-2xl border-slate-200 bg-white p-3 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:p-4">
+      <Card className="rounded-2xl border-slate-200 bg-white p-3 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:p-4">
         <div className="space-y-4 lg:hidden">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -559,8 +559,8 @@ export default function BookingsPage() {
           <Skeleton className="h-64 w-full rounded-2xl" />
         </div>
       ) : filteredBookings.length === 0 ? (
-        <div className="flex min-h-[360px] flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center dark:border-white/5 dark:bg-slate-900">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-500 dark:bg-blue-500/10">
+        <div className="flex min-h-[360px] flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center dark:border-white/15 dark:bg-[#0f0f17]">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--bookinaja-50)] text-[var(--bookinaja-600)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-300)]">
             <Box size={30} />
           </div>
           <div>
@@ -574,7 +574,7 @@ export default function BookingsPage() {
           <Button
             onClick={() => canCreateBookings && router.push("/admin/bookings/new")}
             disabled={!canCreateBookings}
-            className="rounded-xl bg-blue-600 text-white hover:bg-blue-700"
+            className="rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
           >
             <Plus className="mr-2 h-4 w-4" />
             New Booking
@@ -589,7 +589,7 @@ export default function BookingsPage() {
             >
               <div className="flex items-center gap-3 px-3">
                 <div className="w-8 h-8 rounded-xl bg-blue-600/10 flex items-center justify-center">
-                  <Layers className="w-4 h-4 text-blue-600" />
+                  <Layers className="w-4 h-4 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-300)]" />
                 </div>
                 <h3 className="font-semibold text-lg text-slate-800 dark:text-slate-200">
                   {resourceName}
@@ -602,7 +602,7 @@ export default function BookingsPage() {
                 </Badge>
               </div>
 
-              <Card className="rounded-2xl md:rounded-2xl border-none shadow-sm overflow-hidden bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5">
+              <Card className="overflow-hidden rounded-2xl border-none bg-white shadow-sm ring-1 ring-slate-100 dark:bg-[#0f0f17] dark:ring-white/12">
                 <div className="overflow-x-auto">
                   <Table className="min-w-[920px]">
                     <TableBody>
@@ -629,7 +629,7 @@ export default function BookingsPage() {
                           </TableCell>
                           <TableCell className="w-[30%]">
                             <div className="flex flex-col">
-                              <div className="flex items-center gap-2 text-blue-600 font-semibold text-[12px] leading-none">
+                              <div className="flex items-center gap-2 text-[12px] font-semibold leading-none text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-300)]">
                                 <Clock size={14} />{" "}
                                 {format(new Date(b.start_time), "HH:mm")} -{" "}
                                 {format(new Date(b.end_time), "HH:mm")}
@@ -700,7 +700,7 @@ export default function BookingsPage() {
                   <Card
                     key={b.id}
                     onClick={() => router.push(`/admin/bookings/${b.id}`)}
-                    className="p-4 md:p-6 rounded-2xl md:rounded-2xl border-none shadow-sm hover:shadow-sm transition-all cursor-pointer group relative overflow-hidden bg-white dark:bg-slate-900 ring-1 ring-slate-100 dark:ring-white/5"
+                    className="relative overflow-hidden rounded-2xl border-none bg-white p-4 shadow-sm ring-1 ring-slate-100 transition-all group cursor-pointer hover:shadow-sm dark:bg-[#0f0f17] dark:ring-white/12 md:p-6"
                   >
                     {isOperationallyActive(b) && (
                       <div
@@ -722,7 +722,7 @@ export default function BookingsPage() {
                       </Badge>
                       <ArrowUpRight
                         size={18}
-                        className="text-slate-200 group-hover:text-blue-600 transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                        className="text-slate-200 transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[var(--bookinaja-600)] dark:group-hover:text-[var(--bookinaja-300)]"
                       />
                     </div>
                     <div className="mb-4">
@@ -737,7 +737,7 @@ export default function BookingsPage() {
                     </div>
 
                     <div className="space-y-1 mb-6">
-                      <h4 className="font-semibold text-base lg:text-lg text-slate-900 dark:text-white leading-tight group-hover:text-blue-600 transition-colors">
+                      <h4 className="text-base font-semibold leading-tight text-slate-900 transition-colors group-hover:text-[var(--bookinaja-600)] dark:text-white dark:group-hover:text-[var(--bookinaja-300)] lg:text-lg">
                         {b.customer_name}
                       </h4>
                       <p className="text-[11px] font-bold text-slate-400 leading-none">
@@ -750,7 +750,7 @@ export default function BookingsPage() {
                         <span className="text-[8px] font-semibold text-slate-400 leading-none mb-1.5">
                           TIME SLOT
                         </span>
-                        <span className="text-[13px] font-semibold text-blue-600 dark:text-blue-400 leading-none">
+                        <span className="text-[13px] font-semibold leading-none text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-300)]">
                           {format(new Date(b.start_time), "HH:mm")} -{" "}
                           {format(new Date(b.end_time), "HH:mm")}
                         </span>

@@ -22,6 +22,11 @@ const (
 	PermissionResourcesCreate = "resources.create"
 	PermissionResourcesUpdate = "resources.update"
 	PermissionResourcesDelete = "resources.delete"
+	PermissionDevicesRead     = "devices.read"
+	PermissionDevicesClaim    = "devices.claim"
+	PermissionDevicesAssign   = "devices.assign"
+	PermissionDevicesControl  = "devices.control"
+	PermissionDevicesManage   = "devices.manage"
 
 	PermissionFnbRead   = "fnb.read"
 	PermissionFnbCreate = "fnb.create"
@@ -66,6 +71,11 @@ var AllowedPermissionKeys = map[string]struct{}{
 	PermissionResourcesCreate: {},
 	PermissionResourcesUpdate: {},
 	PermissionResourcesDelete: {},
+	PermissionDevicesRead:     {},
+	PermissionDevicesClaim:    {},
+	PermissionDevicesAssign:   {},
+	PermissionDevicesControl:  {},
+	PermissionDevicesManage:   {},
 
 	PermissionFnbRead:   {},
 	PermissionFnbCreate: {},
@@ -120,6 +130,11 @@ var permissionImplications = map[string][]string{
 		PermissionResourcesCreate,
 		PermissionResourcesUpdate,
 		PermissionResourcesDelete,
+		PermissionDevicesRead,
+		PermissionDevicesClaim,
+		PermissionDevicesAssign,
+		PermissionDevicesControl,
+		PermissionDevicesManage,
 	},
 	PermissionLegacyFnbManage: {
 		PermissionFnbRead,
@@ -150,14 +165,24 @@ var permissionImplications = map[string][]string{
 	PermissionResourcesCreate: {PermissionResourcesRead},
 	PermissionResourcesUpdate: {PermissionResourcesRead},
 	PermissionResourcesDelete: {PermissionResourcesRead},
-	PermissionFnbCreate:       {PermissionFnbRead},
-	PermissionFnbUpdate:       {PermissionFnbRead},
-	PermissionFnbDelete:       {PermissionFnbRead},
-	PermissionExpensesCreate:  {PermissionExpensesRead},
-	PermissionExpensesUpdate:  {PermissionExpensesRead},
-	PermissionExpensesDelete:  {PermissionExpensesRead},
-	PermissionReceiptsSend:    {PermissionBookingsRead, PermissionPosRead},
-	PermissionReceiptsPrint:   {PermissionBookingsRead, PermissionPosRead},
+	PermissionDevicesClaim:    {PermissionDevicesRead},
+	PermissionDevicesAssign:   {PermissionDevicesRead, PermissionResourcesRead},
+	PermissionDevicesControl:  {PermissionDevicesRead},
+	PermissionDevicesManage: {
+		PermissionDevicesRead,
+		PermissionDevicesClaim,
+		PermissionDevicesAssign,
+		PermissionDevicesControl,
+		PermissionResourcesRead,
+	},
+	PermissionFnbCreate:      {PermissionFnbRead},
+	PermissionFnbUpdate:      {PermissionFnbRead},
+	PermissionFnbDelete:      {PermissionFnbRead},
+	PermissionExpensesCreate: {PermissionExpensesRead},
+	PermissionExpensesUpdate: {PermissionExpensesRead},
+	PermissionExpensesDelete: {PermissionExpensesRead},
+	PermissionReceiptsSend:   {PermissionBookingsRead, PermissionPosRead},
+	PermissionReceiptsPrint:  {PermissionBookingsRead, PermissionPosRead},
 	PermissionAnalyticsRead: {
 		PermissionBookingsRead,
 		PermissionResourcesRead,
@@ -238,6 +263,7 @@ func defaultStaffRoles() []StaffRole {
 				PermissionPosRead,
 				PermissionResourcesRead,
 				PermissionResourcesUpdate,
+				PermissionDevicesRead,
 				PermissionFnbRead,
 				PermissionCustomersRead,
 			},
@@ -260,6 +286,9 @@ func defaultStaffRoles() []StaffRole {
 				PermissionPosCashSettle,
 				PermissionResourcesRead,
 				PermissionResourcesUpdate,
+				PermissionDevicesRead,
+				PermissionDevicesAssign,
+				PermissionDevicesControl,
 				PermissionFnbRead,
 				PermissionFnbUpdate,
 				PermissionCustomersRead,
@@ -292,6 +321,11 @@ func defaultStaffRoles() []StaffRole {
 				PermissionResourcesCreate,
 				PermissionResourcesUpdate,
 				PermissionResourcesDelete,
+				PermissionDevicesRead,
+				PermissionDevicesClaim,
+				PermissionDevicesAssign,
+				PermissionDevicesControl,
+				PermissionDevicesManage,
 				PermissionFnbRead,
 				PermissionFnbCreate,
 				PermissionFnbUpdate,

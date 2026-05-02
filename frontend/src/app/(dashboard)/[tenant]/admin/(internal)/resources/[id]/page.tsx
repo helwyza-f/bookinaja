@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +50,16 @@ export default function ResourceDetailPage() {
     image_url?: string;
     gallery?: string[];
     items?: ResourceItemConfig[];
+    smart_device_summary?: {
+      id: string;
+      device_id: string;
+      device_name: string;
+      pairing_status: string;
+      connection_status: string;
+      is_enabled: boolean;
+      last_seen_at?: string | null;
+      firmware_version?: string;
+    } | null;
   };
 
   const [resource, setResource] = useState<ResourceDetail | null>(null);
@@ -104,7 +115,7 @@ export default function ResourceDetailPage() {
           "response" in err &&
           (err as { response?: { status?: number } }).response?.status === 404
         ) {
-          toast.error("Unit not found");
+          toast.error("Resource tidak ditemukan");
           router.push("/admin/resources");
         }
       } finally {
@@ -143,11 +154,11 @@ export default function ResourceDetailPage() {
         image_url: imageUrl,
         gallery,
       });
-      toast.success("Visual Data Updated");
+      toast.success("Tampilan resource berhasil diperbarui");
       setIsEditMode(false);
       fetchData(false);
     } catch {
-      toast.error("Update failed");
+      toast.error("Gagal memperbarui tampilan resource");
     } finally {
       setIsUpdatingResource(false);
     }
@@ -159,21 +170,21 @@ export default function ResourceDetailPage() {
         ...item,
         is_default: true,
       });
-      toast.success("Main package updated");
+      toast.success("Paket utama berhasil diperbarui");
       fetchData(false);
     } catch {
-      toast.error("Status update failed");
+      toast.error("Gagal memperbarui paket utama");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this item permanently?")) return;
+    if (!confirm("Hapus item ini secara permanen?")) return;
     try {
       await api.delete(`/resources-all/items/${id}`);
-      toast.success("Item deleted");
+      toast.success("Item berhasil dihapus");
       fetchData(false);
     } catch {
-      toast.error("Delete failed");
+      toast.error("Gagal menghapus item");
     }
   };
 
@@ -225,11 +236,11 @@ export default function ResourceDetailPage() {
       icon: <Trophy size={16} className="text-emerald-500" />,
     },
     social_space: {
-      label: "Room Rates",
+      label: "Flexible Rates",
       icon: <Briefcase size={16} className="text-indigo-500" />,
     },
   }[businessCategory] || {
-    label: "Rates Configuration",
+    label: "Pricing Setup",
     icon: <Clock size={16} />,
   };
 
@@ -243,7 +254,7 @@ export default function ResourceDetailPage() {
           <Button
             variant="ghost"
             onClick={() => router.push("/admin/resources")}
-            className="h-10 w-10 p-0 rounded-xl bg-slate-50 dark:bg-slate-900 border-[0.5px] border-slate-200 dark:border-white/10 hover:bg-blue-600 hover:text-white transition-all shrink-0"
+            className="h-10 w-10 shrink-0 rounded-xl border-[0.5px] border-slate-200 bg-slate-50 p-0 transition-all hover:bg-[var(--bookinaja-600)] hover:text-white dark:border-white/15 dark:bg-slate-900"
           >
             <ArrowLeft size={18} strokeWidth={3} />
           </Button>
@@ -252,12 +263,12 @@ export default function ResourceDetailPage() {
               <h1 className="text-xl md:text-4xl font-[1000] italic uppercase tracking-tighter text-slate-950 dark:text-white leading-none">
                 {resource?.name}
               </h1>
-              <Badge className="bg-blue-600 text-white font-black italic text-[8px] px-2 py-0.5 rounded-md uppercase">
+              <Badge className="rounded-md bg-[var(--bookinaja-600)] px-2 py-0.5 text-[8px] font-black italic uppercase text-white">
                 {resource?.category || "General"}
               </Badge>
             </div>
             <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] md:tracking-[0.4em] italic mt-1.5">
-              Asset & Configuration Hub
+              Resource Overview
             </p>
           </div>
         </div>
@@ -267,16 +278,16 @@ export default function ResourceDetailPage() {
             setEditingItem(null);
             setDialogOpen(true);
           }}
-            className="h-11 px-4 md:px-5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic text-[9px] shadow-lg border-b-4 border-blue-800 gap-2 transition-all active:scale-95 w-full md:w-auto"
+            className="h-11 w-full rounded-2xl border-b-4 border-[var(--bookinaja-800)] bg-[var(--bookinaja-600)] px-4 text-[9px] font-black uppercase italic text-white shadow-lg transition-all active:scale-95 hover:bg-[var(--bookinaja-700)] md:w-auto md:px-5 gap-2"
         >
-          <Plus size={16} strokeWidth={4} /> New Config
+          <Plus size={16} strokeWidth={4} /> Tambah Paket
         </Button>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start">
         {/* LEFT: VISUAL (Fixed Width, Compact) */}
         <div className="lg:col-span-4 space-y-5">
-          <Card className="rounded-[1.75rem] md:rounded-[2.5rem] border-[0.5px] border-slate-200 dark:border-white/5 shadow-sm p-4 md:p-6 bg-white dark:bg-slate-900 relative">
+          <Card className="relative rounded-[1.75rem] border-[0.5px] border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:rounded-[2.5rem] md:p-6">
             <div className="absolute top-4 right-4 z-20">
               <Button
                 variant="secondary"
@@ -286,12 +297,12 @@ export default function ResourceDetailPage() {
               >
                 {isEditMode ? (
                   <>
-                    <X size={12} className="mr-1 text-red-500" /> Cancel
+                    <X size={12} className="mr-1 text-red-500" /> Tutup
                   </>
                 ) : (
                   <>
-                    <Settings2 size={12} className="mr-1 text-blue-600" />{" "}
-                    Visuals
+                    <Settings2 size={12} className="mr-1 text-[var(--bookinaja-600)]" />{" "}
+                    Tampilan
                   </>
                 )}
               </Button>
@@ -300,7 +311,7 @@ export default function ResourceDetailPage() {
             {isEditMode ? (
               <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
                 <SingleImageUpload
-                  label="Banner"
+                  label="Banner utama"
                   value={imageUrl}
                   onChange={setImageUrl}
                   endpoint="/resources-all/upload-cover"
@@ -309,7 +320,7 @@ export default function ResourceDetailPage() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="min-h-[100px] rounded-2xl bg-slate-50 dark:bg-slate-800/50 border-none p-4 text-[11px] font-medium leading-relaxed"
-                  placeholder="Unit description..."
+                  placeholder="Tulis deskripsi singkat resource ini..."
                 />
                 <BulkImageUpload
                   values={gallery}
@@ -319,12 +330,12 @@ export default function ResourceDetailPage() {
                 <Button
                   onClick={handleUpdateMarketing}
                   disabled={isUpdatingResource}
-                  className="w-full h-12 rounded-2xl bg-slate-950 dark:bg-blue-600 text-white font-black uppercase text-[10px] tracking-widest border-b-4 border-slate-800 dark:border-blue-800"
+                  className="h-12 w-full rounded-2xl border-b-4 border-slate-800 bg-slate-950 text-[10px] font-black uppercase tracking-widest text-white dark:border-[var(--bookinaja-800)] dark:bg-[var(--bookinaja-600)]"
                 >
                   {isUpdatingResource ? (
                     <Loader2 size={16} className="animate-spin" />
                   ) : (
-                    "Save Visuals"
+                    "Simpan Tampilan"
                   )}
                 </Button>
               </div>
@@ -345,13 +356,13 @@ export default function ResourceDetailPage() {
                 </div>
                 <div className="px-2 space-y-3">
                   <div className="flex items-center gap-2">
-                    <Sparkles size={14} className="text-blue-500" />
+                    <Sparkles size={14} className="text-[var(--bookinaja-600)]" />
                     <h3 className="text-xs font-[1000] uppercase italic tracking-widest dark:text-white">
-                      Marketing Copy
+                      Ringkasan Resource
                     </h3>
                   </div>
-                  <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 leading-relaxed border-l-[3px] border-blue-500/30 pl-4">
-                    {description || "No description set for this asset."}
+                  <p className="border-l-[3px] border-[color:rgba(59,130,246,0.28)] pl-4 text-[11px] font-bold leading-relaxed text-slate-500 dark:text-slate-400">
+                    {description || "Belum ada deskripsi untuk resource ini."}
                   </p>
                 </div>
                 {gallery.length > 0 && (
@@ -377,11 +388,49 @@ export default function ResourceDetailPage() {
 
         {/* RIGHT: CONFIGURATION (High Density Grid) */}
         <div className="lg:col-span-8 space-y-5 md:space-y-6">
+          <Card className="rounded-[1.75rem] border-[0.5px] border-[color:rgba(59,130,246,0.18)] bg-[var(--bookinaja-50)] p-4 shadow-sm dark:border-[color:rgba(96,165,250,0.18)] dark:bg-[color:rgba(59,130,246,0.12)] md:p-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <div className="text-[9px] font-black uppercase tracking-[0.28em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+                  Smart Point
+                </div>
+                {resource?.smart_device_summary ? (
+                  <>
+                    <div className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
+                      {resource.smart_device_summary.device_name}
+                    </div>
+                    <div className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                      {resource.smart_device_summary.device_id} • {resource.smart_device_summary.connection_status}
+                      {resource.smart_device_summary.last_seen_at
+                        ? ` • terlihat ${new Date(resource.smart_device_summary.last_seen_at).toLocaleString("id-ID")}`
+                        : ""}
+                    </div>
+                  </>
+                ) : (
+                  <div className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+                    Resource ini belum punya Smart Point yang terhubung.
+                  </div>
+                )}
+              </div>
+              <Link
+                href={
+                  resource?.smart_device_summary
+                    ? `/admin/devices/${resource.smart_device_summary.id}`
+                    : "/admin/devices"
+                }
+              >
+                <Button className="rounded-2xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
+                  {resource?.smart_device_summary ? "Lihat Smart Point" : "Hubungkan Smart Point"}
+                </Button>
+              </Link>
+            </div>
+          </Card>
+
           {/* MAIN RATES */}
           <section className="space-y-4">
             <div className="flex items-center justify-between px-2">
               <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-slate-950 dark:bg-blue-600 flex items-center justify-center text-white shadow-md">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-950 text-white shadow-md dark:bg-[var(--bookinaja-600)]">
                   <LayoutGrid size={16} />
                 </div>
                 <div>
@@ -389,7 +438,7 @@ export default function ResourceDetailPage() {
                     {configMeta.label}
                   </h2>
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mt-1">
-                    Primary Rental Packages
+                    Paket Utama
                   </p>
                 </div>
               </div>
@@ -400,7 +449,7 @@ export default function ResourceDetailPage() {
                 <Card
                   key={item.id}
                   className={cn(
-                    "group rounded-2xl border-[0.5px] p-4 transition-all bg-white dark:bg-slate-900",
+                    "group rounded-2xl border-[0.5px] bg-white p-4 transition-all dark:bg-[#0f0f17]",
                     item.is_default
                       ? "border-blue-600/50 shadow-lg shadow-blue-500/5 ring-1 ring-blue-500/10"
                       : "border-slate-200 dark:border-white/5 opacity-80 hover:opacity-100",
@@ -411,7 +460,7 @@ export default function ResourceDetailPage() {
                       className={cn(
                         "h-8 w-8 rounded-lg flex items-center justify-center shadow-inner",
                         item.is_default
-                          ? "bg-blue-600 text-white"
+                          ? "bg-[var(--bookinaja-600)] text-white"
                           : "bg-slate-50 dark:bg-slate-800 text-slate-400",
                       )}
                     >
@@ -426,7 +475,7 @@ export default function ResourceDetailPage() {
                         <Button
                           onClick={() => handleSetDefault(item)}
                           variant="ghost"
-                          className="h-7 w-7 p-0 bg-slate-50 dark:bg-slate-800 hover:text-blue-600 rounded-lg"
+                          className="h-7 w-7 rounded-lg bg-slate-50 p-0 hover:text-[var(--bookinaja-600)] dark:bg-slate-800"
                         >
                           <Star size={12} />
                         </Button>
@@ -437,7 +486,7 @@ export default function ResourceDetailPage() {
                           setDialogOpen(true);
                         }}
                         variant="ghost"
-                        className="h-7 w-7 p-0 bg-slate-50 dark:bg-slate-800 hover:text-blue-600 rounded-lg"
+                        className="h-7 w-7 rounded-lg bg-slate-50 p-0 hover:text-[var(--bookinaja-600)] dark:bg-slate-800"
                       >
                         <Edit3 size={12} />
                       </Button>
@@ -454,10 +503,10 @@ export default function ResourceDetailPage() {
                     {item.name}
                   </h4>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-[10px] font-black text-blue-600 italic">
+                    <span className="text-[10px] font-black italic text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
                       Rp
                     </span>
-                    <span className="text-lg md:text-xl font-[1000] text-blue-600 italic tracking-tighter">
+                    <span className="text-lg font-[1000] italic tracking-tighter text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-100)] md:text-xl">
                       {formatIDR(item.price)}
                     </span>
                     <span className="text-[8px] text-slate-400 font-black uppercase ml-1">
@@ -466,7 +515,7 @@ export default function ResourceDetailPage() {
                   </div>
                   {(item.unit_duration || 0) > 0 && (
                     <div className="mt-3 flex items-center gap-1 text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                      <Clock size={10} className="text-blue-500/50" />{" "}
+                      <Clock size={10} className="text-[var(--bookinaja-500)]/70" />{" "}
                       {durationLabel(item.unit_duration)} durasi
                     </div>
                   )}
@@ -483,10 +532,10 @@ export default function ResourceDetailPage() {
               </div>
               <div>
                 <h2 className="text-sm font-[1000] uppercase italic tracking-widest text-slate-900 dark:text-white leading-none">
-                  Add-ons Catalog
+                  Katalog Tambahan
                 </h2>
                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mt-1">
-                  Optional Extras & Gear
+                  Layanan tambahan & perlengkapan
                 </p>
               </div>
             </div>
@@ -495,13 +544,13 @@ export default function ResourceDetailPage() {
               {addonItems.map((item) => (
                 <div
                   key={item.id}
-                  className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/30 border-[0.5px] border-slate-200 dark:border-white/5 flex justify-between items-center group hover:border-blue-500/30 transition-all"
+                  className="group flex items-center justify-between rounded-xl border-[0.5px] border-slate-200 bg-slate-50 p-3.5 transition-all hover:border-[color:rgba(59,130,246,0.28)] dark:border-white/10 dark:bg-white/[0.04]"
                 >
                   <div className="flex flex-col leading-none">
                     <h5 className="font-[1000] uppercase italic text-[10px] md:text-[11px] text-slate-800 dark:text-slate-200 tracking-tight">
                       {item.name}
                     </h5>
-                    <p className="text-blue-600 font-[1000] text-[9px] md:text-[10px] italic mt-1.5">
+                    <p className="mt-1.5 text-[9px] font-[1000] italic text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)] md:text-[10px]">
                       Rp {formatIDR(item.price)}
                     </p>
                   </div>
@@ -513,7 +562,7 @@ export default function ResourceDetailPage() {
                       }}
                       size="icon"
                       variant="ghost"
-                      className="h-7 w-7 text-slate-400 hover:text-blue-600 transition-colors"
+                      className="h-7 w-7 text-slate-400 transition-colors hover:text-[var(--bookinaja-600)]"
                     >
                       <Edit3 size={12} />
                     </Button>

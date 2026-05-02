@@ -112,6 +112,15 @@ func (r *Repository) ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]Re
 		}
 	}
 
+	if len(resources) > 0 {
+		deviceMap, err := r.loadDeviceSummaries(ctx, resourceIDs(resources))
+		if err == nil {
+			for i := range resources {
+				resources[i].SmartDeviceSummary = deviceMap[resources[i].ID]
+			}
+		}
+	}
+
 	// 3. WRITE: Simpan ke Redis (TTL 12 Jam)
 	// Kita simpan dalam satu object bungkus
 	resultToCache := struct {
@@ -272,7 +281,52 @@ func (r *Repository) GetOneWithItems(ctx context.Context, id uuid.UUID) (*Resour
 		res.Items = items
 	}
 
+	deviceMap, err := r.loadDeviceSummaries(ctx, []uuid.UUID{id})
+	if err == nil {
+		res.SmartDeviceSummary = deviceMap[id]
+	}
+
 	return &res, nil
+}
+
+func (r *Repository) loadDeviceSummaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*ResourceDeviceState, error) {
+	if len(ids) == 0 {
+		return map[uuid.UUID]*ResourceDeviceState{}, nil
+	}
+	query, args, err := sqlx.In(`
+		SELECT resource_id, id, device_id, device_name, pairing_status, connection_status, is_enabled, last_seen_at, firmware_version
+		FROM smart_devices
+		WHERE resource_id IN (?) AND tenant_id IS NOT NULL
+		ORDER BY updated_at DESC`, ids)
+	if err != nil {
+		return nil, err
+	}
+	query = r.db.Rebind(query)
+	type row struct {
+		ResourceID uuid.UUID `db:"resource_id"`
+		ResourceDeviceState
+	}
+	var rows []row
+	if err := r.db.SelectContext(ctx, &rows, query, args...); err != nil {
+		return nil, err
+	}
+	result := make(map[uuid.UUID]*ResourceDeviceState, len(rows))
+	for _, row := range rows {
+		if _, exists := result[row.ResourceID]; exists {
+			continue
+		}
+		state := row.ResourceDeviceState
+		result[row.ResourceID] = &state
+	}
+	return result, nil
+}
+
+func resourceIDs(resources []Resource) []uuid.UUID {
+	ids := make([]uuid.UUID, 0, len(resources))
+	for _, item := range resources {
+		ids = append(ids, item.ID)
+	}
+	return ids
 }
 
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {

@@ -10,6 +10,7 @@ import (
 	"github.com/helwiza/backend/internal/platformadmin"
 	"github.com/helwiza/backend/internal/reservation"
 	"github.com/helwiza/backend/internal/resource"
+	"github.com/helwiza/backend/internal/smartdevice"
 	"github.com/helwiza/backend/internal/tenant"
 	"github.com/jmoiron/sqlx"
 )
@@ -26,4 +27,5 @@ type Config struct {
 	BillingHandler     *billing.Handler
 	PlatformHandler    *platformadmin.Handler
 	MidtransHandler    *midtranssvc.Handler
+	SmartDeviceHandler *smartdevice.Handler
 }

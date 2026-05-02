@@ -201,8 +201,8 @@ export default function SettingsBillingSubscribePage() {
           <ArrowLeft className="mr-1 h-4 w-4" />
           Kembali
         </Button>
-      <Badge className="border-none bg-blue-500/10 text-blue-600">
-        Subscription Checkout
+      <Badge className="border-none bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-200)]">
+        Checkout Paket
       </Badge>
       </div>
 
@@ -212,8 +212,8 @@ export default function SettingsBillingSubscribePage() {
         </div>
       )}
 
-      <Card className="relative overflow-hidden border-slate-200 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] sm:p-8">
-        <div className="absolute right-0 top-0 h-40 w-40 translate-x-1/3 -translate-y-1/3 rounded-full bg-blue-500/10 blur-3xl" />
+      <Card className="relative overflow-hidden border-slate-200 bg-white p-5 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-8">
+        <div className="absolute right-0 top-0 h-40 w-40 translate-x-1/3 -translate-y-1/3 rounded-full bg-[color:rgba(59,130,246,0.12)] blur-3xl" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
@@ -231,13 +231,13 @@ export default function SettingsBillingSubscribePage() {
           <div className="flex items-center gap-2 rounded-2xl bg-slate-100 p-1 dark:bg-white/5">
             <button
               onClick={() => setIsAnnual(false)}
-              className={`rounded-xl px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] ${!isAnnual ? "bg-white text-blue-600 shadow dark:bg-slate-900" : "text-slate-400"}`}
+              className={`rounded-xl px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] ${!isAnnual ? "bg-white text-[var(--bookinaja-700)] shadow dark:bg-slate-900 dark:text-[var(--bookinaja-200)]" : "text-slate-400"}`}
             >
               Bulanan
             </button>
             <button
               onClick={() => setIsAnnual(true)}
-              className={`rounded-xl px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] ${isAnnual ? "bg-white text-blue-600 shadow dark:bg-slate-900" : "text-slate-400"}`}
+              className={`rounded-xl px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] ${isAnnual ? "bg-white text-[var(--bookinaja-700)] shadow dark:bg-slate-900 dark:text-[var(--bookinaja-200)]" : "text-slate-400"}`}
             >
               Tahunan
             </button>
@@ -252,7 +252,7 @@ export default function SettingsBillingSubscribePage() {
           return (
             <Card
               key={plan.key}
-              className={`border-slate-200 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] sm:p-7 ${plan.highlight ? "ring-1 ring-blue-500/20" : ""}`}
+              className={`border-slate-200 bg-white p-5 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:p-7 ${plan.highlight ? "ring-1 ring-[color:rgba(59,130,246,0.2)]" : ""}`}
             >
               <div className={`rounded-3xl bg-gradient-to-r ${plan.accent} p-5 text-white`}>
                 <div className="flex items-start justify-between gap-3">
@@ -277,8 +277,8 @@ export default function SettingsBillingSubscribePage() {
 
               <div className="mt-4 space-y-2">
                 {plan.features.map((feature) => (
-                  <div key={feature} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600 dark:border-white/5 dark:bg-white/5 dark:text-slate-300">
-                    <div className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600/10 text-blue-600">
+                  <div key={feature} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
+                    <div className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-200)]">
                       <Check className="h-3.5 w-3.5" />
                     </div>
                     <span>{feature}</span>
@@ -290,7 +290,7 @@ export default function SettingsBillingSubscribePage() {
                 onClick={() => checkout(plan.key)}
                 disabled={checkingMidtrans}
                 variant={plan.highlight ? "default" : "outline"}
-                className={`mt-6 h-12 w-full rounded-2xl ${plan.highlight ? "bg-blue-600 text-white" : ""}`}
+                className={`mt-6 h-12 w-full rounded-2xl ${plan.highlight ? "bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]" : ""}`}
               >
                 <Sparkles className="mr-2 h-4 w-4" />
                 {checkingMidtrans ? "Menyiapkan Midtrans..." : isCurrent ? "Paket Aktif" : `Pilih ${plan.name}`}
@@ -300,13 +300,13 @@ export default function SettingsBillingSubscribePage() {
         })}
       </div>
 
-      <Card className="border-slate-200 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] sm:p-6">
+      <Card className="border-slate-200 bg-white p-5 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:p-6">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Perbandingan Cepat</div>
             <h3 className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">Apa beda Starter dan Pro</h3>
           </div>
-          <Wand2 className="h-5 w-5 text-blue-600" />
+          <Wand2 className="h-5 w-5 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <MiniCompare title="Starter" items={["Cocok untuk uji alur", "Report ringkas", "Batasan fitur lanjutan", "Masih aman dipakai trial"]} />
@@ -319,12 +319,12 @@ export default function SettingsBillingSubscribePage() {
 
 function MiniCompare({ title, items }: { title: string; items: string[] }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/5 dark:bg-white/5">
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
       <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{title}</div>
       <div className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
         {items.map((item) => (
           <div key={item} className="flex items-start gap-2">
-            <ShieldCheck className="mt-0.5 h-4 w-4 text-blue-600" />
+            <ShieldCheck className="mt-0.5 h-4 w-4 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
             <span>{item}</span>
           </div>
         ))}

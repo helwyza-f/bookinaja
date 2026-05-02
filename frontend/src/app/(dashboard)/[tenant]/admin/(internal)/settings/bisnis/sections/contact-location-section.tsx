@@ -82,7 +82,7 @@ export function ContactLocationSection({ profile, saving, onSave }: SectionProps
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <Label className="text-xs font-semibold text-slate-500">{label}</Label>
+      <Label className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-300">{label}</Label>
       {children}
     </div>
   );
