@@ -57,10 +57,10 @@ func (r *Repository) GetDiscoveryFeedSetting(ctx context.Context) (*DiscoveryFee
 func (r *Repository) UpdateDiscoveryFeedSetting(ctx context.Context, enabled bool) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO platform_feature_settings (key, value_json, updated_at)
-		VALUES ('discovery_feed', jsonb_build_object('enable_discovery_posts', $1), NOW())
+		VALUES ('discovery_feed', jsonb_build_object('enable_discovery_posts', $1::boolean), NOW())
 		ON CONFLICT (key)
 		DO UPDATE SET
-			value_json = jsonb_build_object('enable_discovery_posts', $1),
+			value_json = jsonb_build_object('enable_discovery_posts', $1::boolean),
 			updated_at = NOW()`,
 		enabled,
 	)
