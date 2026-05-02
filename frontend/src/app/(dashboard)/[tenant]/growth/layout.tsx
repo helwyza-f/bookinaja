@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
+import { getTenantGrowthSettings } from "@/lib/platform-admin";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GrowthHeader } from "@/components/dashboard/growth-header";
 import { GrowthSidebar } from "@/components/dashboard/growth-sidebar";
@@ -36,6 +37,13 @@ export default function GrowthWorkspaceLayout({
 
         if (userData?.role !== "owner") {
           router.replace("/admin/forbidden");
+          return;
+        }
+
+        const growthSettings = await getTenantGrowthSettings();
+        if (!active) return;
+        if (!growthSettings.enable_discovery_posts) {
+          router.replace("/admin/dashboard");
           return;
         }
 

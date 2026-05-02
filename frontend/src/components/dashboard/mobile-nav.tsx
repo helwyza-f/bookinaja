@@ -18,11 +18,11 @@ import {
 import api from "@/lib/api";
 import { clearTenantSession } from "@/lib/tenant-session";
 import { canAccessAdminRoute } from "@/lib/admin-access";
+import { getTenantGrowthSettings } from "@/lib/platform-admin";
 import {
   growthHubNavItem,
   operationalNavItems,
   settingsNavItems,
-  showGrowthWorkspaceInOperationalNav,
   type AdminNavItem,
 } from "./admin-nav-config";
 
@@ -49,6 +49,7 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
   const [tenantName, setTenantName] = useState<string>(
     String(params.tenant || "HUB"),
   );
+  const [growthVisible, setGrowthVisible] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -63,18 +64,24 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
         if (currentUser?.role !== "owner") {
           if (active) {
             setTenantName(String(params.tenant || "HUB"));
+            setGrowthVisible(false);
           }
           return;
         }
 
         try {
-          const profileRes = await api.get("/admin/profile");
+          const [profileRes, growthRes] = await Promise.all([
+            api.get("/admin/profile"),
+            getTenantGrowthSettings(),
+          ]);
           if (active) {
             setTenantName(profileRes.data?.name || String(params.tenant || "HUB"));
+            setGrowthVisible(Boolean(growthRes.enable_discovery_posts));
           }
         } catch {
           if (active) {
             setTenantName(String(params.tenant || "HUB"));
+            setGrowthVisible(false);
           }
         }
       })
@@ -98,10 +105,10 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
 
   const marketplaceItems = useMemo(
     () =>
-      showGrowthWorkspaceInOperationalNav && canAccessAdminRoute(growthHubNavItem.href, userData)
+      growthVisible && canAccessAdminRoute(growthHubNavItem.href, userData)
         ? [growthHubNavItem]
         : [],
-    [userData],
+    [growthVisible, userData],
   );
 
   const handleLogout = () => {

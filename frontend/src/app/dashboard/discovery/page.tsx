@@ -12,9 +12,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { PageShell } from "@/components/dashboard/page-shell";
 import {
   getPlatformDiscoveryAnalytics,
+  getPlatformDiscoveryFeedSetting,
   getPlatformTenants,
   type PlatformDiscoveryAnalytics,
+  type PlatformDiscoveryFeedSetting,
   type PlatformTenant,
+  updatePlatformDiscoveryFeedSetting,
   updatePlatformTenantDiscovery,
 } from "@/lib/platform-admin";
 
@@ -40,13 +43,22 @@ export default function PlatformDiscoveryPage() {
   const [draft, setDraft] = useState<DiscoveryDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const [analytics, setAnalytics] = useState<PlatformDiscoveryAnalytics | null>(null);
+  const [feedSetting, setFeedSetting] = useState<PlatformDiscoveryFeedSetting>({
+    enable_discovery_posts: false,
+  });
+  const [savingMode, setSavingMode] = useState(false);
 
   useEffect(() => {
-    Promise.all([getPlatformTenants(), getPlatformDiscoveryAnalytics()]).then(
-      ([items, analyticsData]) => {
+    Promise.all([
+      getPlatformTenants(),
+      getPlatformDiscoveryAnalytics(),
+      getPlatformDiscoveryFeedSetting(),
+    ]).then(
+      ([items, analyticsData, setting]) => {
         const sorted = [...items].sort(sortDiscoveryTenants);
         setTenants(sorted);
         setAnalytics(analyticsData);
+        setFeedSetting(setting);
         if (sorted[0]) {
           setSelectedId(sorted[0].id);
           setDraft(toDraft(sorted[0]));
@@ -54,6 +66,26 @@ export default function PlatformDiscoveryPage() {
       },
     );
   }, []);
+
+  const handleFeedModeToggle = async (checked: boolean) => {
+    const previous = feedSetting.enable_discovery_posts;
+    setFeedSetting((current) => ({ ...current, enable_discovery_posts: checked }));
+    setSavingMode(true);
+    try {
+      const response = await updatePlatformDiscoveryFeedSetting(checked);
+      setFeedSetting(response.data?.data || { enable_discovery_posts: checked });
+      toast.success(
+        checked
+          ? "Mode tenant + post di Feed Bookinaja diaktifkan"
+          : "Mode tenant-only di Feed Bookinaja diaktifkan",
+      );
+    } catch {
+      setFeedSetting((current) => ({ ...current, enable_discovery_posts: previous }));
+      toast.error("Gagal memperbarui mode Feed Bookinaja");
+    } finally {
+      setSavingMode(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -171,6 +203,37 @@ export default function PlatformDiscoveryPage() {
       }
     >
       <section className="grid gap-4 xl:grid-cols-2">
+        <Card className="rounded-3xl border-slate-200 p-5 shadow-sm dark:border-white/10 dark:bg-[#0a0a0a]">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[0.25em] text-blue-500">
+                Feed mode
+              </div>
+              <h2 className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
+                Tenant only atau tenant + post
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-500">
+                Atur dari sini kapan Feed Bookinaja hanya menampilkan profil tenant, dan kapan postingan/konten ikut aktif di publik, customer, serta workspace owner.
+              </p>
+            </div>
+            <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="text-right">
+                <div className="text-xs font-semibold text-slate-950 dark:text-white">
+                  {feedSetting.enable_discovery_posts ? "Tenant + Post" : "Tenant Only"}
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  {savingMode ? "Menyimpan perubahan..." : "Owner nav mengikuti mode ini"}
+                </div>
+              </div>
+              <Switch
+                checked={feedSetting.enable_discovery_posts}
+                disabled={savingMode}
+                onCheckedChange={(checked) => void handleFeedModeToggle(checked)}
+              />
+            </div>
+          </div>
+        </Card>
+
         <Card className="rounded-3xl border-slate-200 p-5 shadow-sm dark:border-white/10 dark:bg-[#0a0a0a]">
           <div className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">
             Section CTR

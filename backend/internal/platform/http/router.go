@@ -16,6 +16,7 @@ import (
 // NewRouter menginisialisasi router Gin dengan arsitektur Multi-Tenancy yang tajam.
 func NewRouter(cfg routecfg.Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine {
 	r := gin.Default()
+	r.MaxMultipartMemory = 100 << 20
 
 	r.RedirectTrailingSlash = false
 	r.RedirectFixedPath = false

@@ -193,6 +193,10 @@ export type PlatformDiscoveryFeedSetting = {
   updated_at?: string;
 };
 
+export type TenantGrowthSettings = {
+  enable_discovery_posts: boolean;
+};
+
 type TenantDetailEnvelope = {
   tenant?: PlatformTenantDetail;
   summary?: PlatformTenantDetail["summary"];
@@ -317,6 +321,12 @@ export function getPlatformDiscoveryFeedSetting() {
 export function updatePlatformDiscoveryFeedSetting(enableDiscoveryPosts: boolean) {
   return api.patch("/platform/discovery-feed/settings", {
     enable_discovery_posts: enableDiscoveryPosts,
+  });
+}
+
+export function getTenantGrowthSettings() {
+  return safeGet<TenantGrowthSettings>("/admin/growth/settings", {
+    enable_discovery_posts: false,
   });
 }
 

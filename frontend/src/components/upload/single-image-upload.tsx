@@ -34,29 +34,38 @@ export function SingleImageUpload({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validasi Ukuran (Max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("File terlalu besar (Maks 2MB)");
+    if (!file.type.startsWith("image/")) {
+      toast.error("File harus berupa gambar");
+      return;
+    }
+
+    const preparedFile = await prepareImageForUpload(file).catch(() => file);
+    if (preparedFile.size > 5 * 1024 * 1024) {
+      toast.error("Ukuran gambar setelah diproses masih terlalu besar (Maks 5MB)");
       return;
     }
 
     const formData = new FormData();
-    formData.append("image", file);
+    formData.append("image", preparedFile);
 
     setLoading(true);
     try {
-      const metadata = await extractImageMetadata(file).catch(() => ({} as PostMediaMetadata));
+      const metadata = await extractImageMetadata(preparedFile).catch(() => ({} as PostMediaMetadata));
       const res = await api.post(endpoint, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       onChange(res.data.url);
       onMetadataChange?.({
         ...metadata,
-        mime_type: file.type || metadata.mime_type,
+        mime_type: preparedFile.type || metadata.mime_type,
       });
       toast.success("Gambar berhasil diupload!");
-    } catch (err) {
-      toast.error("Gagal mengupload gambar");
+    } catch (err: any) {
+      toast.error(
+        err?.response?.status === 413
+          ? "Upload ditolak karena file masih terlalu besar untuk server"
+          : "Gagal mengupload gambar",
+      );
     } finally {
       setLoading(false);
     }
@@ -131,7 +140,7 @@ export function SingleImageUpload({
                     Drop Image Here
                   </p>
                   <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-2 leading-none">
-                    Max Size: 2MB
+                    Auto-Compress · Max 5MB
                   </p>
                 </div>
               </div>
@@ -148,6 +157,70 @@ export function SingleImageUpload({
       </div>
     </div>
   );
+}
+
+async function prepareImageForUpload(file: File) {
+  const targetBytes = 950 * 1024;
+  if (file.size <= targetBytes) {
+    return file;
+  }
+
+  const image = await loadImage(file);
+  const maxDimension = 1600;
+  const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return file;
+  }
+  ctx.drawImage(image, 0, 0, width, height);
+
+  const mimeType = file.type === "image/png" ? "image/png" : "image/jpeg";
+  let quality = mimeType === "image/png" ? undefined : 0.82;
+  let blob = await canvasToBlob(canvas, mimeType, quality);
+
+  while (blob.size > targetBytes && mimeType !== "image/png" && quality && quality > 0.45) {
+    quality = Math.max(0.45, quality - 0.08);
+    blob = await canvasToBlob(canvas, mimeType, quality);
+  }
+
+  const nextName = file.name.replace(/\.(png|jpg|jpeg|webp)$/i, mimeType === "image/png" ? ".png" : ".jpg");
+  return new File([blob], nextName, {
+    type: blob.type || mimeType,
+    lastModified: Date.now(),
+  });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality?: number) {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("image compression failed"));
+        return;
+      }
+      resolve(blob);
+    }, type, quality);
+  });
+}
+
+function loadImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("image metadata unavailable"));
+    };
+    image.src = objectUrl;
+  });
 }
 
 function extractImageMetadata(file: File): Promise<PostMediaMetadata> {

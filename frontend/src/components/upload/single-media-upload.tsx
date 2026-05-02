@@ -40,28 +40,35 @@ export function SingleMediaUpload({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > maxSizeMb * 1024 * 1024) {
+    const preparedFile =
+      file.type.startsWith("image/") ? await prepareImageForUpload(file).catch(() => file) : file;
+
+    if (preparedFile.size > maxSizeMb * 1024 * 1024) {
       toast.error(`File terlalu besar (Maks ${maxSizeMb}MB)`);
       return;
     }
 
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", preparedFile);
 
     setLoading(true);
     try {
-      const metadata = await extractMediaMetadata(file).catch(() => ({} as PostMediaMetadata));
+      const metadata = await extractMediaMetadata(preparedFile).catch(() => ({} as PostMediaMetadata));
       const res = await api.post(endpoint, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       onChange(res.data.url);
       onMetadataChange?.({
         ...metadata,
-        mime_type: file.type || metadata.mime_type,
+        mime_type: preparedFile.type || metadata.mime_type,
       });
       toast.success(mediaKind === "video" ? "Video berhasil diupload" : "Media berhasil diupload");
-    } catch {
-      toast.error("Gagal mengupload media");
+    } catch (err: any) {
+      toast.error(
+        err?.response?.status === 413
+          ? "Upload ditolak karena file masih terlalu besar untuk server"
+          : "Gagal mengupload media",
+      );
     } finally {
       setLoading(false);
     }
@@ -191,6 +198,54 @@ async function extractMediaMetadata(file: File): Promise<PostMediaMetadata> {
   }
 
   return { mime_type };
+}
+
+async function prepareImageForUpload(file: File) {
+  const targetBytes = 950 * 1024;
+  if (file.size <= targetBytes) {
+    return file;
+  }
+
+  const image = await loadImage(file);
+  const maxDimension = 1600;
+  const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return file;
+  }
+  ctx.drawImage(image, 0, 0, width, height);
+
+  const mimeType = file.type === "image/png" ? "image/png" : "image/jpeg";
+  let quality = mimeType === "image/png" ? undefined : 0.82;
+  let blob = await canvasToBlob(canvas, mimeType, quality);
+
+  while (blob.size > targetBytes && mimeType !== "image/png" && quality && quality > 0.45) {
+    quality = Math.max(0.45, quality - 0.08);
+    blob = await canvasToBlob(canvas, mimeType, quality);
+  }
+
+  const nextName = file.name.replace(/\.(png|jpg|jpeg|webp)$/i, mimeType === "image/png" ? ".png" : ".jpg");
+  return new File([blob], nextName, {
+    type: blob.type || mimeType,
+    lastModified: Date.now(),
+  });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality?: number) {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("image compression failed"));
+        return;
+      }
+      resolve(blob);
+    }, type, quality);
+  });
 }
 
 function loadImage(file: File): Promise<HTMLImageElement> {

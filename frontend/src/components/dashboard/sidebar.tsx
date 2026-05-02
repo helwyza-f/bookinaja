@@ -32,12 +32,12 @@ import {
 import { clearTenantSession } from "@/lib/tenant-session";
 import api from "@/lib/api";
 import { canAccessAdminRoute, hasPermission } from "@/lib/admin-access";
+import { getTenantGrowthSettings } from "@/lib/platform-admin";
 import { Badge } from "../ui/badge";
 import {
   growthHubNavItem,
   operationalNavItems,
   settingsNavItems,
-  showGrowthWorkspaceInOperationalNav,
 } from "./admin-nav-config";
 
 interface SidebarProps {
@@ -64,6 +64,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
 
   const [userData, setUserData] = useState<SidebarUser | null>(null);
   const [tenantName, setTenantName] = useState<string>(String(params.tenant || "HUB"));
+  const [growthVisible, setGrowthVisible] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -78,18 +79,24 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
         if (currentUser?.role !== "owner") {
           if (active) {
             setTenantName(String(params.tenant || "HUB"));
+            setGrowthVisible(false);
           }
           return;
         }
 
         try {
-          const profileRes = await api.get("/admin/profile");
+          const [profileRes, growthRes] = await Promise.all([
+            api.get("/admin/profile"),
+            getTenantGrowthSettings(),
+          ]);
           if (active) {
             setTenantName(profileRes.data?.name || String(params.tenant || "HUB"));
+            setGrowthVisible(Boolean(growthRes.enable_discovery_posts));
           }
         } catch {
           if (active) {
             setTenantName(String(params.tenant || "HUB"));
+            setGrowthVisible(false);
           }
         }
       })
@@ -216,7 +223,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
           })}
         </div>
 
-        {userData?.role === "owner" && showGrowthWorkspaceInOperationalNav && (
+        {userData?.role === "owner" && growthVisible && (
           <div
             className={cn(
               "border-slate-100 dark:border-white/5",

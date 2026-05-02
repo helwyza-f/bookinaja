@@ -188,6 +188,12 @@ func (s *Service) GetPublicDiscoveryPostDetail(ctx context.Context, postID uuid.
 	}, nil
 }
 
+func (s *Service) GetGrowthSettings(ctx context.Context) map[string]any {
+	return map[string]any{
+		"enable_discovery_posts": s.discoveryPostsEnabled(ctx),
+	}
+}
+
 func (s *Service) discoveryPostsEnabled(ctx context.Context) bool {
 	if s.repo != nil {
 		enabled, found, err := s.repo.GetPlatformBooleanSetting(ctx, "discovery_feed", "enable_discovery_posts")

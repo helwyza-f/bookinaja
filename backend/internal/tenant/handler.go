@@ -164,6 +164,12 @@ func (h *Handler) OwnerDiscoverFeed(c *gin.Context) {
 	c.JSON(http.StatusOK, feed)
 }
 
+func (h *Handler) GetGrowthSettings(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"data": h.service.GetGrowthSettings(c.Request.Context()),
+	})
+}
+
 func (h *Handler) ListTenantPosts(c *gin.Context) {
 	tIDRaw, exists := c.Get("tenantID")
 	if !exists {
