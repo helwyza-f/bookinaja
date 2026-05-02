@@ -80,6 +80,37 @@ func (r *Repository) invalidateStaffCacheByRole(ctx context.Context, tenantID, r
 	}
 }
 
+func (r *Repository) GetPlatformBooleanSetting(ctx context.Context, key string, field string) (bool, bool, error) {
+	var raw json.RawMessage
+	err := r.db.GetContext(ctx, &raw, `
+		SELECT value_json
+		FROM platform_feature_settings
+		WHERE key = $1
+		LIMIT 1`,
+		key,
+	)
+	if err == sql.ErrNoRows {
+		return false, false, nil
+	}
+	if err != nil {
+		return false, false, err
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return false, false, err
+	}
+	value, ok := payload[field]
+	if !ok {
+		return false, false, nil
+	}
+	booleanValue, ok := value.(bool)
+	if !ok {
+		return false, false, nil
+	}
+	return booleanValue, true, nil
+}
+
 // --- CORE REPOSITORY LOGIC ---
 
 func (r *Repository) GetBySlug(ctx context.Context, slug string) (*Tenant, error) {

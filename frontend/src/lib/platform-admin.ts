@@ -188,6 +188,11 @@ export type PlatformDiscoveryAnalytics = {
   underperforming_promoted: DiscoveryAnalyticsSpotlight;
 };
 
+export type PlatformDiscoveryFeedSetting = {
+  enable_discovery_posts: boolean;
+  updated_at?: string;
+};
+
 type TenantDetailEnvelope = {
   tenant?: PlatformTenantDetail;
   summary?: PlatformTenantDetail["summary"];
@@ -300,6 +305,18 @@ export function getPlatformDiscoveryAnalytics() {
     card_variants: [],
     top_featured: {},
     underperforming_promoted: {},
+  });
+}
+
+export function getPlatformDiscoveryFeedSetting() {
+  return safeGet<PlatformDiscoveryFeedSetting>("/platform/discovery-feed/settings", {
+    enable_discovery_posts: false,
+  });
+}
+
+export function updatePlatformDiscoveryFeedSetting(enableDiscoveryPosts: boolean) {
+  return api.patch("/platform/discovery-feed/settings", {
+    enable_discovery_posts: enableDiscoveryPosts,
   });
 }
 

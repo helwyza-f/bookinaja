@@ -14,6 +14,11 @@ type Repository struct {
 	db *sqlx.DB
 }
 
+type DiscoveryFeedSetting struct {
+	EnableDiscoveryPosts bool      `json:"enable_discovery_posts"`
+	UpdatedAt            time.Time `json:"updated_at"`
+}
+
 type revenueReportRow struct {
 	Revenue             float64 `db:"revenue" json:"revenue"`
 	PendingCashflow     float64 `db:"pending_cashflow" json:"pending_cashflow"`
@@ -23,6 +28,44 @@ type revenueReportRow struct {
 }
 
 func NewRepository(db *sqlx.DB) *Repository { return &Repository{db: db} }
+
+func (r *Repository) GetDiscoveryFeedSetting(ctx context.Context) (*DiscoveryFeedSetting, error) {
+	var row struct {
+		ValueJSON json.RawMessage `db:"value_json"`
+		UpdatedAt time.Time       `db:"updated_at"`
+	}
+	err := r.db.GetContext(ctx, &row, `
+		SELECT value_json, updated_at
+		FROM platform_feature_settings
+		WHERE key = 'discovery_feed'
+		LIMIT 1`)
+	if err != nil {
+		return nil, err
+	}
+	var payload struct {
+		EnableDiscoveryPosts bool `json:"enable_discovery_posts"`
+	}
+	if err := json.Unmarshal(row.ValueJSON, &payload); err != nil {
+		return nil, err
+	}
+	return &DiscoveryFeedSetting{
+		EnableDiscoveryPosts: payload.EnableDiscoveryPosts,
+		UpdatedAt:            row.UpdatedAt,
+	}, nil
+}
+
+func (r *Repository) UpdateDiscoveryFeedSetting(ctx context.Context, enabled bool) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO platform_feature_settings (key, value_json, updated_at)
+		VALUES ('discovery_feed', jsonb_build_object('enable_discovery_posts', $1), NOW())
+		ON CONFLICT (key)
+		DO UPDATE SET
+			value_json = jsonb_build_object('enable_discovery_posts', $1),
+			updated_at = NOW()`,
+		enabled,
+	)
+	return err
+}
 
 func (r *Repository) ListTenants(ctx context.Context) ([]map[string]any, error) {
 	rows, err := r.db.QueryxContext(ctx, `
