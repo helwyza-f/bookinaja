@@ -7,6 +7,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Label } from "../ui/label";
+import type { PostMediaMetadata } from "@/lib/discovery";
 
 interface SingleImageUploadProps {
   value: string;
@@ -15,6 +16,7 @@ interface SingleImageUploadProps {
   label?: string;
   className?: string;
   aspect?: "square" | "video" | "auto"; // Fleksibilitas rasio
+  onMetadataChange?: (metadata: PostMediaMetadata) => void;
 }
 
 export function SingleImageUpload({
@@ -24,6 +26,7 @@ export function SingleImageUpload({
   label = "Upload Image",
   className,
   aspect = "square", // DEFAULT: SQUARE (1:1)
+  onMetadataChange,
 }: SingleImageUploadProps) {
   const [loading, setLoading] = useState(false);
 
@@ -42,10 +45,15 @@ export function SingleImageUpload({
 
     setLoading(true);
     try {
+      const metadata = await extractImageMetadata(file).catch(() => ({} as PostMediaMetadata));
       const res = await api.post(endpoint, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       onChange(res.data.url);
+      onMetadataChange?.({
+        ...metadata,
+        mime_type: file.type || metadata.mime_type,
+      });
       toast.success("Gambar berhasil diupload!");
     } catch (err) {
       toast.error("Gagal mengupload gambar");
@@ -87,6 +95,7 @@ export function SingleImageUpload({
                 onClick={(e) => {
                   e.preventDefault();
                   onChange("");
+                  onMetadataChange?.({});
                 }}
               >
                 <Trash2 className="h-5 w-5" />
@@ -139,6 +148,26 @@ export function SingleImageUpload({
       </div>
     </div>
   );
+}
+
+function extractImageMetadata(file: File): Promise<PostMediaMetadata> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      resolve({
+        mime_type: file.type || undefined,
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+      });
+      URL.revokeObjectURL(objectUrl);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("image metadata unavailable"));
+    };
+    image.src = objectUrl;
+  });
 }
 
 // Tambahkan icon Trash2 biar gak error

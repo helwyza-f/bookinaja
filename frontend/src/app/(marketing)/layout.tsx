@@ -19,19 +19,22 @@ export default function MarketingLayout({
 
   // Mencegah hydration mismatch
   useEffect(() => {
-    setMounted(true);
+    const frame = window.requestAnimationFrame(() => setMounted(true));
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };
     window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", handleScroll);
+    };
   }, []);
 
   const navLinks = [
     { name: "Home", href: "/" },
     { name: "Demo", href: "/demos" },
     { name: "Pricing", href: "/pricing" },
-    { name: "Jelajahi Bisnis", href: "/tenants" },
+    { name: "Discovery", href: "/discovery" },
   ];
 
   return (

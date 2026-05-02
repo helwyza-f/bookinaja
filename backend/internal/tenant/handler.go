@@ -97,6 +97,27 @@ func (h *Handler) PublicDiscoverFeed(c *gin.Context) {
 	c.JSON(http.StatusOK, feed)
 }
 
+func (h *Handler) PublicDiscoveryPostDetail(c *gin.Context) {
+	postID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID postingan tidak valid"})
+		return
+	}
+
+	detail, err := h.service.GetPublicDiscoveryPostDetail(c.Request.Context(), postID)
+	if err != nil {
+		log.Printf("public discovery post detail error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil detail postingan"})
+		return
+	}
+	if detail == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Postingan tidak ditemukan"})
+		return
+	}
+
+	c.JSON(http.StatusOK, detail)
+}
+
 func (h *Handler) CustomerDiscoverFeed(c *gin.Context) {
 	customerIDStr, exists := c.Get("customerID")
 	if !exists {

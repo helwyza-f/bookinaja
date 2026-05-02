@@ -25,6 +25,9 @@ export type AdminNavItem = {
   group?: "core" | "growth" | "ops" | "system";
 };
 
+export const showGrowthWorkspaceInOperationalNav =
+  process.env.NEXT_PUBLIC_ENABLE_PROMOSI_BISNIS === "true";
+
 export const growthHubNavItem: AdminNavItem = {
   label: "Promosi Bisnis",
   href: "/growth/feed",

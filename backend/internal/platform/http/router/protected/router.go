@@ -93,6 +93,9 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 					ownerAdmin.POST("/upload", func(c *gin.Context) {
 						upload.HandleSingleUpload(c, "tenants")
 					})
+					ownerAdmin.POST("/upload-media", func(c *gin.Context) {
+						upload.HandleSingleUpload(c, "tenants/media")
+					})
 				}
 
 				billingGroup := ownerArea.Group("/billing")

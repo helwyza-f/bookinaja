@@ -3,7 +3,14 @@ import api from "@/lib/api";
 type DiscoveryEventPayload = {
   tenant_id?: string;
   tenant_slug?: string;
-  event_type: "impression" | "click";
+  event_type:
+    | "impression"
+    | "click"
+    | "detail_view"
+    | "tenant_open"
+    | "booking_start"
+    | "related_click"
+    | "tenant_profile_open_from_related";
   surface: string;
   section_id?: string;
   card_variant?: string;
@@ -32,7 +39,11 @@ export function trackDiscoveryEvent(payload: DiscoveryEventPayload) {
     session_id: getDiscoverySessionId(),
   };
 
-  if (typeof navigator !== "undefined" && payload.event_type === "click" && navigator.sendBeacon) {
+  if (
+    typeof navigator !== "undefined" &&
+    ["click", "tenant_open", "booking_start", "related_click", "tenant_profile_open_from_related"].includes(payload.event_type) &&
+    navigator.sendBeacon
+  ) {
     try {
       const url = `${api.defaults.baseURL}/public/discover/events`;
       const blob = new Blob([JSON.stringify(body)], {

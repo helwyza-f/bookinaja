@@ -189,6 +189,20 @@ function PostItemCard({
               </Button>
             </div>
           </div>
+          <div className="grid gap-2 text-[11px] font-semibold text-slate-500 sm:grid-cols-4">
+            <div className="rounded-xl bg-slate-50 px-3 py-2">
+              {post.impressions_7d || 0} tayang
+            </div>
+            <div className="rounded-xl bg-slate-50 px-3 py-2">
+              {post.clicks_7d || 0} klik
+            </div>
+            <div className="rounded-xl bg-slate-50 px-3 py-2">
+              {(post.ctr_7d || 0).toFixed(1)}% CTR
+            </div>
+            <div className="rounded-xl bg-slate-50 px-3 py-2">
+              {post.booking_starts_7d || 0} mulai booking
+            </div>
+          </div>
         </div>
       </div>
     </Card>

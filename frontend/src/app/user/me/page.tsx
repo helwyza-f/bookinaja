@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Calendar, Clock, Compass, Search, Ticket, Wallet } from "lucide-react";
+import { ArrowRight, Calendar, Clock, Compass, Search, Ticket, Wallet, PlayCircle, Camera, Megaphone } from "lucide-react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
@@ -16,14 +16,20 @@ import { cn } from "@/lib/utils";
 import {
   type DiscoveryFeedResponse,
   type DiscoveryTenant,
+  formatDiscoveryDuration,
   formatStartingPrice,
+  getDiscoveryCardKind,
   getDiscoveryItemBadges,
   getDiscoveryItemCta,
+  getDiscoveryEventMetadata,
+  getDiscoveryItemHref,
   getDiscoveryItemImage,
   getDiscoveryItemLabel,
   getDiscoveryItemReason,
   getDiscoveryItemSummary,
   getDiscoveryItemTitle,
+  isDiscoveryPromoPost,
+  isDiscoveryVideoPost,
   scoreDiscoveryTenant,
 } from "@/lib/discovery";
 import {
@@ -145,6 +151,7 @@ export default function UserDashboardPage() {
       card_variant: cardVariant,
       position_index: positionIndex,
       promo_label: tenant.promo_label,
+      metadata: getDiscoveryEventMetadata(tenant),
     });
   };
 
@@ -394,6 +401,10 @@ function DashboardSkeleton() {
   );
 }
 
+function getDiscoverHref(tenant: DiscoveryTenant) {
+  return getDiscoveryItemHref(tenant) || getTenantUrl(tenant.slug);
+}
+
 function SectionHeader({
   eyebrow,
   title,
@@ -414,6 +425,35 @@ function SectionHeader({
       <p className="max-w-2xl text-sm leading-7 text-slate-500">{description}</p>
     </div>
   );
+}
+
+function DiscoveryTypeChip({ tenant }: { tenant: DiscoveryTenant }) {
+  const cardKind = getDiscoveryCardKind(tenant);
+  if (cardKind === "video") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-950/75 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white">
+        <PlayCircle className="h-3.5 w-3.5" />
+        {formatDiscoveryDuration(tenant.post_duration_seconds) || "Video"}
+      </span>
+    );
+  }
+  if (cardKind === "promo") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-amber-950">
+        <Megaphone className="h-3.5 w-3.5" />
+        Promo
+      </span>
+    );
+  }
+  if (cardKind === "photo") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/85 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-900">
+        <Camera className="h-3.5 w-3.5" />
+        Foto
+      </span>
+    );
+  }
+  return null;
 }
 
 function FeatureHero({
@@ -441,15 +481,23 @@ function FeatureHero({
         <div className="absolute inset-0 bg-gradient-to-tr from-black/78 via-black/50 to-blue-400/18" />
         <div className="relative z-10 flex min-h-[280px] flex-col justify-between p-4 md:p-6">
           <div className="flex items-center justify-between gap-3">
-            <Badge className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white">
-              {getDiscoveryItemLabel(tenant)}
-            </Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white">
+                {getDiscoveryItemLabel(tenant)}
+              </Badge>
+              <DiscoveryTypeChip tenant={tenant} />
+            </div>
             <Badge className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-semibold text-white/90">
               {formatStartingPrice(tenant.starting_price)}
             </Badge>
           </div>
 
           <div className="space-y-3">
+            {tenant.item_kind === "post" ? (
+              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-white/72">
+                Dari {tenant.name}
+              </div>
+            ) : null}
             <h3 className="max-w-2xl text-2xl font-black uppercase leading-[0.95] tracking-[-0.04em] md:text-4xl">
               {getDiscoveryItemTitle(tenant)}
             </h3>
@@ -469,13 +517,14 @@ function FeatureHero({
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm text-white/72">
-              {getDiscoveryItemReason(tenant) ||
-                "Lihat mengapa tempat ini cocok buat dicoba sekarang."}
+            <div className="grid gap-2 text-sm text-white/72 md:grid-cols-3">
+              <span>{getDiscoveryItemReason(tenant) || "Lihat mengapa tempat ini cocok buat dicoba sekarang."}</span>
+              <span>{tenant.item_kind === "post" ? `${tenant.post_detail_views_7d || 0} buka detail` : `${tenant.discovery_clicks_30d || 0} klik / 30 hari`}</span>
+              <span>{tenant.item_kind === "post" ? `${tenant.post_booking_starts_7d || 0} mulai booking` : `${tenant.resource_count || 0} resource aktif`}</span>
             </div>
             <Button asChild className="h-11 rounded-2xl bg-white text-slate-950 hover:bg-white/90">
               <a
-                href={getTenantUrl(tenant.slug)}
+                href={getDiscoverHref(tenant)}
                 onClick={() =>
                   trackDiscoveryEvent({
                     tenant_id: tenant.tenant_id || tenant.id,
@@ -486,6 +535,7 @@ function FeatureHero({
                     card_variant: "hero",
                     position_index: 0,
                     promo_label: tenant.feed_label || tenant.promo_label,
+                    metadata: getDiscoveryEventMetadata(tenant),
                   })
                 }
               >
@@ -514,21 +564,40 @@ function ContentCard({
   useEffect(() => {
     onVisible();
   }, [onVisible]);
+  const isVideo = isDiscoveryVideoPost(tenant);
+  const isPromo = isDiscoveryPromoPost(tenant);
+  const accentWrap = isPromo
+    ? "from-amber-50/80 to-white"
+    : isVideo
+      ? "from-slate-900/5 to-white"
+      : "from-blue-50/70 to-white";
 
   return (
-    <Card className="group overflow-hidden rounded-[1.7rem] border border-blue-100 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-md">
+    <Card className={cn("group overflow-hidden rounded-[1.7rem] border bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-md", isPromo ? "border-amber-200" : "border-blue-100")}>
       <CardContent className="p-0">
-        <div
-          className="h-32 w-full bg-cover bg-center"
-          style={{
-            backgroundImage: getDiscoveryItemImage(tenant)
-              ? `url(${getDiscoveryItemImage(tenant)})`
-              : "linear-gradient(135deg, rgba(13,31,39,0.92), rgba(96,165,250,0.72))",
-          }}
-        />
-        <div className="space-y-4 p-4">
+        <div className="relative h-32 w-full overflow-hidden">
+          <div
+            className="h-full w-full bg-cover bg-center"
+            style={{
+              backgroundImage: getDiscoveryItemImage(tenant)
+                ? `url(${getDiscoveryItemImage(tenant)})`
+                : isPromo
+                  ? "linear-gradient(135deg, rgba(120,53,15,0.92), rgba(245,158,11,0.72))"
+                  : "linear-gradient(135deg, rgba(13,31,39,0.92), rgba(96,165,250,0.72))",
+            }}
+          />
+          <div className="absolute left-3 top-3">
+            <DiscoveryTypeChip tenant={tenant} />
+          </div>
+          {tenant.item_kind === "post" ? (
+            <div className="absolute bottom-3 left-3 rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white">
+              Dari {tenant.name}
+            </div>
+          ) : null}
+        </div>
+        <div className={cn("space-y-4 bg-gradient-to-b p-4", accentWrap)}>
           <div className="flex items-start justify-between gap-3">
-            <Badge className="rounded-full bg-blue-50 text-blue-700">
+            <Badge className={cn("rounded-full", isPromo ? "bg-amber-50 text-amber-700" : "bg-blue-50 text-blue-700")}>
               {getDiscoveryItemLabel(tenant)}
             </Badge>
             <span className="text-[11px] font-semibold text-slate-500">
@@ -537,6 +606,11 @@ function ContentCard({
           </div>
 
           <div>
+            {tenant.item_kind === "post" ? (
+              <div className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">
+                Dari {tenant.name}
+              </div>
+            ) : null}
             <h3 className="line-clamp-2 text-lg font-black uppercase tracking-tight">
               {getDiscoveryItemTitle(tenant)}
             </h3>
@@ -556,12 +630,28 @@ function ContentCard({
             ))}
           </div>
 
+          {isPromo ? (
+            <div className="rounded-2xl bg-amber-100/80 px-3 py-2 text-[11px] font-semibold text-amber-800">
+              Konten promo cocok untuk dorong klik cepat dan momentum singkat.
+            </div>
+          ) : null}
+          {isVideo ? (
+            <div className="rounded-2xl bg-slate-100 px-3 py-2 text-[11px] font-semibold text-slate-700">
+              Video preview {formatDiscoveryDuration(tenant.post_duration_seconds) || "singkat"} sering terasa lebih hidup di feed.
+            </div>
+          ) : null}
+          {!isVideo && !isPromo && tenant.item_kind === "post" ? (
+            <div className="rounded-2xl bg-blue-50 px-3 py-2 text-[11px] font-semibold text-blue-700">
+              Post foto paling bagus untuk nunjukin ambience dan kualitas tempat dengan cepat.
+            </div>
+          ) : null}
+
           <Button
             asChild
             className="h-11 w-full rounded-2xl bg-blue-600 text-sm font-semibold text-white hover:bg-blue-500"
           >
             <a
-              href={getTenantUrl(tenant.slug)}
+              href={getDiscoverHref(tenant)}
               onClick={() =>
                 trackDiscoveryEvent({
                   tenant_id: tenant.tenant_id || tenant.id,
@@ -572,6 +662,7 @@ function ContentCard({
                   card_variant: "content",
                   position_index: index,
                   promo_label: tenant.feed_label || tenant.promo_label,
+                  metadata: getDiscoveryEventMetadata(tenant),
                 })
               }
             >
