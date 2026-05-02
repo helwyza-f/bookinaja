@@ -96,9 +96,29 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 					ownerAdmin.POST("/upload", func(c *gin.Context) {
 						upload.HandleSingleUpload(c, "tenants")
 					})
+					ownerAdmin.POST("/upload/direct/initiate", func(c *gin.Context) {
+						upload.HandleDirectInitiate(c, "tenants")
+					})
+					ownerAdmin.GET("/upload/direct/:uploadID/part-url", upload.HandleDirectPartURL)
+					ownerAdmin.POST("/upload/direct/:uploadID/complete", upload.HandleDirectComplete)
+					ownerAdmin.POST("/upload/chunk/initiate", func(c *gin.Context) {
+						upload.HandleChunkInitiate(c, "tenants")
+					})
+					ownerAdmin.POST("/upload/chunk/:uploadID/part", upload.HandleChunkPart)
+					ownerAdmin.POST("/upload/chunk/:uploadID/complete", upload.HandleChunkComplete)
 					ownerAdmin.POST("/upload-media", func(c *gin.Context) {
 						upload.HandleSingleUpload(c, "tenants/media")
 					})
+					ownerAdmin.POST("/upload-media/direct/initiate", func(c *gin.Context) {
+						upload.HandleDirectInitiate(c, "tenants/media")
+					})
+					ownerAdmin.GET("/upload-media/direct/:uploadID/part-url", upload.HandleDirectPartURL)
+					ownerAdmin.POST("/upload-media/direct/:uploadID/complete", upload.HandleDirectComplete)
+					ownerAdmin.POST("/upload-media/chunk/initiate", func(c *gin.Context) {
+						upload.HandleChunkInitiate(c, "tenants/media")
+					})
+					ownerAdmin.POST("/upload-media/chunk/:uploadID/part", upload.HandleChunkPart)
+					ownerAdmin.POST("/upload-media/chunk/:uploadID/complete", upload.HandleChunkComplete)
 				}
 
 				billingGroup := ownerArea.Group("/billing")

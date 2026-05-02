@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Film, ImagePlus, Loader2, Trash2, Upload } from "lucide-react";
 import type { PostMediaMetadata } from "@/lib/discovery";
+import { uploadFileInChunks } from "@/lib/chunk-upload";
 
 type SingleMediaUploadProps = {
   value: string;
@@ -35,6 +36,7 @@ export function SingleMediaUpload({
   onMetadataChange,
 }: SingleMediaUploadProps) {
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -52,12 +54,23 @@ export function SingleMediaUpload({
     formData.append("file", preparedFile);
 
     setLoading(true);
+    setProgress(0);
     try {
       const metadata = await extractMediaMetadata(preparedFile).catch(() => ({} as PostMediaMetadata));
-      const res = await api.post(endpoint, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+      const res = await uploadFileInChunks(endpoint, preparedFile, setProgress).catch(async (err: any) => {
+        if (err?.response?.status === 404 || err?.response?.status === 405) {
+          const legacyRes = await api.post(endpoint, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+            onUploadProgress: (event) => {
+              const percent = Math.round(((event.loaded ?? 0) / Math.max(preparedFile.size, 1)) * 100);
+              setProgress(Math.min(100, percent));
+            },
+          });
+          return legacyRes.data;
+        }
+        throw err;
       });
-      onChange(res.data.url);
+      onChange(res.url);
       onMetadataChange?.({
         ...metadata,
         mime_type: preparedFile.type || metadata.mime_type,
@@ -71,6 +84,7 @@ export function SingleMediaUpload({
       );
     } finally {
       setLoading(false);
+      setProgress(0);
     }
   };
 
@@ -139,8 +153,14 @@ export function SingleMediaUpload({
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
                 <span className="text-[10px] font-black uppercase text-blue-600 animate-pulse">
-                  Uploading...
+                  Uploading {progress}%
                 </span>
+                <div className="h-2 w-40 overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className="h-full rounded-full bg-blue-600 transition-all"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-4">
