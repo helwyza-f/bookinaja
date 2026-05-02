@@ -20,6 +20,7 @@ Simulator MQTT untuk `Bookinaja Smart Point` yang berdiri sendiri di luar projec
 Catatan:
 - Jangan commit `.env` simulator.
 - Isi `MQTT_USERNAME`, `MQTT_PASSWORD`, dan `DEVICE_SIM_DEVICE_KEY` dari secret manager atau env production kamu, bukan dari example file.
+- Isi `MQTT_CA_CERT_PEM` hanya kalau environment lokal kamu memang butuh custom CA. Untuk kebanyakan laptop, system CA biasanya sudah cukup.
 
 Contoh PowerShell:
 
