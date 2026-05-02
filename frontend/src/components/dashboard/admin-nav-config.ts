@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Megaphone,
   MonitorPlay,
+  Radio,
   Sparkles,
   Users,
   UsersRound,
@@ -71,6 +72,13 @@ export const settingsNavItems: AdminNavItem[] = [
     icon: BarChart3,
     hint: "Grafik & export",
     group: "ops",
+  },
+  {
+    label: "Smart Point",
+    href: "/admin/devices",
+    icon: Radio,
+    hint: "Alat, pairing, status",
+    group: "system",
   },
   {
     label: "Subscription & Billing",

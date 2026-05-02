@@ -337,10 +337,10 @@ export default function ReceiptPrinterSettingsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4 sm:px-6 lg:px-8">
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03] sm:p-5">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0 space-y-1">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
               <ReceiptText className="h-4 w-4" />
               Nota & Printer
             </div>
@@ -370,7 +370,7 @@ export default function ReceiptPrinterSettingsPage() {
               </p>
             </div>
           </div>
-          <Button asChild className="rounded-xl bg-slate-950 text-white hover:bg-slate-800">
+          <Button asChild className="rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
             <Link href="/admin/settings/billing/subscribe">Upgrade Pro</Link>
           </Button>
         </div>
@@ -384,10 +384,10 @@ export default function ReceiptPrinterSettingsPage() {
 
       <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="space-y-4">
-          <Card className="border-slate-200 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+          <Card className="border-slate-200 shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
             <CardHeader className="space-y-2">
               <CardTitle className="flex items-center gap-2 text-base">
-                <Printer className="h-4 w-4 text-blue-600" />
+                <Printer className="h-4 w-4 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
                 Printer Bluetooth
               </CardTitle>
               <CardDescription>
@@ -436,10 +436,10 @@ export default function ReceiptPrinterSettingsPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-slate-200 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+          <Card className="border-slate-200 shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
             <CardHeader className="space-y-2">
               <CardTitle className="flex items-center gap-2 text-base">
-                <Smartphone className="h-4 w-4 text-blue-600" />
+                <Smartphone className="h-4 w-4 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
                 Pesan WhatsApp
               </CardTitle>
               <CardDescription>Teks pendek yang dipakai saat staf kirim nota ke pelanggan.</CardDescription>
@@ -465,7 +465,7 @@ export default function ReceiptPrinterSettingsPage() {
         </div>
 
         <div className="space-y-4">
-          <Card className="border-slate-200 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+          <Card className="border-slate-200 shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
             <CardHeader className="space-y-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -526,7 +526,7 @@ export default function ReceiptPrinterSettingsPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-slate-200 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+          <Card className="border-slate-200 shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
             <CardHeader className="space-y-2">
               <CardTitle className="text-base">Preview Nota</CardTitle>
               <CardDescription>Preview ini memakai contoh transaksi supaya format mudah dicek.</CardDescription>
@@ -578,7 +578,7 @@ function StatusPill({ label, value, active }: { label: string; value: string; ac
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
       <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</div>
-      <div className={cn("mt-1 text-sm font-semibold", active ? "text-blue-700 dark:text-blue-200" : "text-slate-950 dark:text-white")}>
+      <div className={cn("mt-1 text-sm font-semibold", active ? "text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]" : "text-slate-950 dark:text-white")}>
         {value}
       </div>
     </div>

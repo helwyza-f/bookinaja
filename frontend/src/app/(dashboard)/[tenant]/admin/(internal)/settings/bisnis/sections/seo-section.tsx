@@ -69,9 +69,9 @@ export function SeoSection({ profile, saving, onSave }: SectionProps) {
 
 function SearchPreview({ title, description, slug }: { title?: string; description?: string; slug?: string }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-      <p className="truncate text-sm text-[#1a0dab]">{title || "Judul halaman"}</p>
-      <p className="mt-1 truncate text-xs text-[#006621]">https://{slug || "tenant"}.bookinaja.com</p>
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/15 dark:bg-white/[0.03]">
+      <p className="truncate text-sm text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">{title || "Judul halaman"}</p>
+      <p className="mt-1 truncate text-xs text-emerald-700 dark:text-emerald-300">https://{slug || "tenant"}.bookinaja.com</p>
       <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
         {description || "Deskripsi SEO belum diisi."}
       </p>
@@ -82,7 +82,7 @@ function SearchPreview({ title, description, slug }: { title?: string; descripti
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <Label className="text-xs font-semibold text-slate-500">{label}</Label>
+      <Label className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-300">{label}</Label>
       {children}
     </div>
   );

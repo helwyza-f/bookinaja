@@ -65,10 +65,13 @@ export default function BusinessSettingsPage() {
   }
 
   return (
-    <div className="space-y-4 pb-20 ">
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950 md:p-5">
+    <div className="space-y-4 pb-20">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+              Business Setup
+            </div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-950 dark:text-white">
               Pengaturan Bisnis
             </h1>
@@ -79,7 +82,7 @@ export default function BusinessSettingsPage() {
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             {publicUrl ? (
-              <Button asChild variant="outline" className="h-10 rounded-xl">
+              <Button asChild variant="outline" className="h-10 rounded-xl dark:border-white/10 dark:bg-white/[0.03]">
                 <a href={publicUrl} target="_blank" rel="noreferrer">
                   Landing Public
                   <ExternalLink className="ml-2 h-4 w-4" />
@@ -90,7 +93,7 @@ export default function BusinessSettingsPage() {
               type="button"
               variant="outline"
               onClick={fetchProfile}
-              className="h-10 rounded-xl"
+              className="h-10 rounded-xl dark:border-white/10 dark:bg-white/[0.03]"
             >
               <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
@@ -190,7 +193,7 @@ function PreviewCard({
   publicUrl: string;
 }) {
   return (
-    <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950">
+    <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
       <div className="aspect-video bg-slate-100 dark:bg-white/5">
         {profile.featured_image_url || profile.banner_url ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -206,19 +209,19 @@ function PreviewCard({
         )}
       </div>
       <div className="p-4">
-        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-slate-800">
+        <div className="mb-4 rounded-2xl border border-[color:rgba(59,130,246,0.18)] bg-[var(--bookinaja-50)] p-4 text-slate-800 dark:border-[color:rgba(96,165,250,0.18)] dark:bg-[color:rgba(59,130,246,0.12)] dark:text-slate-100">
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-[#1f4b49] text-white">
+            <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--bookinaja-700)] text-white">
               <Sparkles className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-[#1f4b49]">
+              <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-100)]">
                 Discovery Module
               </h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
                   Pengaturan tampilan bisnis, postingan, dan feed customer sekarang punya modul terpisah agar profil bisnis tetap fokus pada identitas dan operasional inti.
               </p>
-              <Button asChild size="sm" className="mt-3 h-9 rounded-xl bg-slate-950 text-white hover:bg-[#1f4b49]">
+              <Button asChild size="sm" className="mt-3 h-9 rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
                   <Link href="/admin/settings/discovery">Buka Promosi Bisnis</Link>
               </Button>
             </div>

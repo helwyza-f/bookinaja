@@ -242,7 +242,7 @@ export default function SettingsAnalyticsPage() {
     return (
       <div className="space-y-4 p-4 pb-20 sm:space-y-6 sm:p-6">
         <HeroHeader onRefresh={() => void fetchAnalytics()} refreshing={refreshing} />
-        <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] sm:p-6">
+        <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <div className="space-y-1">
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Mode Laporan</div>
@@ -264,7 +264,7 @@ export default function SettingsAnalyticsPage() {
             <StarterPanel label="Bookings" />
           </div>
         </Card>
-        <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] sm:p-6">
+        <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:p-6">
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Preview</div>
           <div className="mt-2 text-lg font-semibold text-slate-950 dark:text-white">Section analytics yang tersedia di Pro</div>
           <div className="mt-3 space-y-2 text-sm text-slate-500">
@@ -285,12 +285,12 @@ export default function SettingsAnalyticsPage() {
 
       <div className="flex flex-wrap gap-2">
         {(["7d", "30d", "90d"] as RangeKey[]).map((item) => (
-          <Button key={item} onClick={() => setRange(item)} variant={range === item ? "default" : "outline"} className={cn("h-9 px-3 text-xs font-semibold", range === item ? "bg-blue-600 text-white" : "")}>
+          <Button key={item} onClick={() => setRange(item)} variant={range === item ? "default" : "outline"} className={cn("h-9 px-3 text-xs font-semibold", range === item ? "bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]" : "")}>
             {item === "7d" ? "7 Hari" : item === "30d" ? "30 Hari" : "90 Hari"}
           </Button>
         ))}
         <div className="ml-auto hidden items-center gap-2 text-xs text-slate-400 md:flex">
-          <Clock3 className="h-4 w-4 text-blue-600" />
+          <Clock3 className="h-4 w-4 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
           Sinkron {lastSync || "--:--"}
         </div>
       </div>
@@ -628,9 +628,9 @@ function HeroHeader({ onRefresh, refreshing }: { onRefresh: () => void; refreshi
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="space-y-1">
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
+        <div className="flex items-center gap-2 text-sm font-semibold text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
           <LineChart className="h-4 w-4" />
-          Analytics Owner
+          Analytics Overview
         </div>
         <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">Ringkasan bisnis</h1>
         <p className="max-w-2xl text-sm leading-relaxed text-slate-500">
@@ -642,7 +642,7 @@ function HeroHeader({ onRefresh, refreshing }: { onRefresh: () => void; refreshi
           <RefreshCcw className={cn("h-4 w-4", refreshing && "animate-spin")} />
           Refresh
         </Button>
-        <Button asChild className="w-full gap-2 sm:w-auto">
+        <Button asChild className="w-full gap-2 bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)] sm:w-auto">
           <Link href="/admin/dashboard">
             <ArrowRight className="h-4 w-4" />
             Dashboard
@@ -667,7 +667,7 @@ function SummaryCard({
   loading: boolean;
 }) {
   return (
-    <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a]">
+    <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
           <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</div>
@@ -693,7 +693,7 @@ function MetricMini({ label, value }: { label: string; value: string }) {
 
 function InfoRow({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-white/5 dark:bg-white/5">
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-white/10 dark:bg-white/[0.04]">
       <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{label}</div>
       <div className={cn("text-sm font-semibold", tone)}>{value}</div>
     </div>
@@ -702,7 +702,7 @@ function InfoRow({ label, value, tone }: { label: string; value: string; tone: s
 
 function NoteBox({ title, text }: { title: string; text: string }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/5 dark:bg-white/5">
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
       <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{title}</div>
       <p className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{text}</p>
     </div>
@@ -711,7 +711,7 @@ function NoteBox({ title, text }: { title: string; text: string }) {
 
 function StarterPanel({ label }: { label: string }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/5 dark:bg-white/5">
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
       <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</div>
       <div className="mt-3 h-6 w-24 rounded-lg bg-slate-200 dark:bg-white/10" />
       <div className="mt-2 h-3 w-32 rounded-full bg-slate-200 dark:bg-white/10" />

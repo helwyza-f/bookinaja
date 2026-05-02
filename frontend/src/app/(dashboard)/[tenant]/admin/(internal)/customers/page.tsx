@@ -81,7 +81,7 @@ const tierStyles: Record<string, string> = {
   GOLD: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-400/10 dark:text-amber-200 dark:border-amber-400/20",
   REGULAR:
     "bg-slate-100 text-slate-700 border-slate-200 dark:bg-white/5 dark:text-slate-200 dark:border-white/10",
-  NEW: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-400/10 dark:text-blue-200 dark:border-blue-400/20",
+  NEW: "bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] border-[color:rgba(59,130,246,0.18)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)] dark:border-[color:rgba(96,165,250,0.18)]",
 };
 
 function formatIDR(value?: number) {
@@ -196,14 +196,17 @@ export default function CustomersPage() {
 
   return (
     <div className="mx-auto max-w-350 space-y-4 px-4 pb-20 pt-5 font-plus-jakarta">
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-950 dark:text-white">
-              Customers
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+              Customer Insights
+            </div>
+            <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 dark:text-white">
+              Pelanggan
             </h1>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Customer global Bookinaja yang pernah booking di tenant ini.
+              Lihat pelanggan Bookinaja yang pernah bertransaksi di bisnis ini.
             </p>
           </div>
           <div className="relative w-full lg:max-w-sm">
@@ -284,7 +287,7 @@ export default function CustomersPage() {
                 />
               </div>
               <div className="mt-3 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                <span>Last visit: {formatShortDate(customer.last_visit)}</span>
+                <span>Terakhir datang: {formatShortDate(customer.last_visit)}</span>
                 <ArrowUpRight className="h-4 w-4 text-slate-400" />
               </div>
             </button>
@@ -292,7 +295,7 @@ export default function CustomersPage() {
         )}
       </div>
 
-      <Card className="hidden overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950 md:block">
+      <Card className="hidden overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:block">
         <Table>
           <TableHeader>
             <TableRow className="h-11 bg-slate-50 hover:bg-slate-50 dark:bg-white/5 dark:hover:bg-white/5">
@@ -312,7 +315,7 @@ export default function CustomersPage() {
                 Points global
               </TableHead>
               <TableHead className="text-xs font-semibold text-slate-500">
-                Last visit
+                Terakhir datang
               </TableHead>
               <TableHead className="pr-5 text-right text-xs font-semibold text-slate-500">
                 Aksi
@@ -393,7 +396,7 @@ export default function CustomersPage() {
                   <TableCell className="text-right text-sm font-semibold">
                     Rp {formatIDR(customer.total_spent)}
                   </TableCell>
-                  <TableCell className="text-right text-sm font-semibold text-blue-600">
+                  <TableCell className="text-right text-sm font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
                     {formatIDR(customer.loyalty_points)}
                   </TableCell>
                   <TableCell className="text-sm text-slate-500">
@@ -421,18 +424,18 @@ export default function CustomersPage() {
         <DialogContent className="max-h-[92vh] w-[calc(100vw-2rem)] max-w-none overflow-hidden rounded-2xl border-slate-200 bg-white p-0 shadow-xl dark:border-white/10 dark:bg-slate-950 md:max-w-4xl">
           <VisuallyHidden.Root>
             <DialogHeader>
-              <DialogTitle>Detail customer</DialogTitle>
+              <DialogTitle>Detail pelanggan</DialogTitle>
               <DialogDescription>
-                Profil customer dan riwayat booking tenant.
+                Profil pelanggan dan riwayat transaksi di bisnis ini.
               </DialogDescription>
             </DialogHeader>
           </VisuallyHidden.Root>
 
           {loadingDetail ? (
             <div className="flex h-80 flex-col items-center justify-center gap-3">
-              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+              <Loader2 className="h-6 w-6 animate-spin text-[var(--bookinaja-600)]" />
               <p className="text-sm text-slate-500">
-                Memuat detail customer...
+                Memuat detail pelanggan...
               </p>
             </div>
           ) : customerDetail ? (
@@ -451,11 +454,11 @@ export default function CustomersPage() {
                       <span>{customerDetail.email || "Email belum ada"}</span>
                     </div>
                   </div>
-                  <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-left dark:border-blue-400/20 dark:bg-blue-400/10 md:text-right">
-                    <p className="text-xs font-medium text-blue-700 dark:text-blue-200">
+                  <div className="rounded-xl border border-[color:rgba(59,130,246,0.18)] bg-[var(--bookinaja-50)] px-4 py-3 text-left dark:border-[color:rgba(96,165,250,0.18)] dark:bg-[color:rgba(59,130,246,0.14)] md:text-right">
+                    <p className="text-xs font-medium text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
                       Saldo points global
                     </p>
-                    <p className="text-2xl font-bold text-blue-700 dark:text-blue-100">
+                    <p className="text-2xl font-bold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-100)]">
                       {formatIDR(
                         pointSummary?.balance ?? customerDetail.loyalty_points,
                       )}
@@ -479,13 +482,13 @@ export default function CustomersPage() {
                     value={formatIDR(pointSummary?.earned_at_tenant)}
                   />
                   <Metric
-                    label="Last visit"
+                    label="Terakhir datang"
                     value={formatShortDate(customerDetail.last_visit)}
                   />
                 </div>
 
                 <div className="mt-5 grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
-                  <section className="rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-950">
+                  <section className="rounded-xl border border-slate-200 bg-white dark:border-white/15 dark:bg-[#0f0f17]">
                     <div className="border-b border-slate-200 px-4 py-3 dark:border-white/10">
                       <h3 className="text-sm font-semibold text-slate-950 dark:text-white">
                         Aktivitas points
@@ -508,13 +511,13 @@ export default function CustomersPage() {
                           >
                             <div className="min-w-0">
                               <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
-                                {event.description || "Earn booking"}
+                                {event.description || "Poin dari booking"}
                               </p>
                               <p className="text-xs text-slate-500">
                                 {formatDate(event.created_at)}
                               </p>
                             </div>
-                            <span className="text-sm font-bold text-blue-600">
+                            <span className="text-sm font-bold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
                               +{formatIDR(event.points)}
                             </span>
                           </div>
@@ -523,7 +526,7 @@ export default function CustomersPage() {
                     </div>
                   </section>
 
-                  <section className="rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-950">
+                  <section className="rounded-xl border border-slate-200 bg-white dark:border-white/15 dark:bg-[#0f0f17]">
                     <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-white/10">
                       <h3 className="text-sm font-semibold text-slate-950 dark:text-white">
                         Transaksi terakhir

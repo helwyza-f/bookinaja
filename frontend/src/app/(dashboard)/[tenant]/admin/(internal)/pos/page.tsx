@@ -119,9 +119,9 @@ function SessionCard({
     <button
       onClick={onClick}
       className={cn(
-        "group w-full overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md active:translate-y-0 dark:border-white/10 dark:bg-slate-950",
+        "group w-full overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--bookinaja-300)] hover:shadow-md active:translate-y-0 dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
         isActiveParam &&
-          "border-blue-500 ring-2 ring-blue-500/20 shadow-blue-500/10",
+          "border-[var(--bookinaja-500)] ring-2 ring-[color:rgba(59,130,246,0.18)] shadow-[0_12px_40px_rgba(29,78,216,0.12)]",
         (timeInfo.isUrgent || timeInfo.attention) && "border-amber-300 ring-2 ring-amber-200/70",
         timeInfo.isOver && "border-red-200 bg-red-50/40 dark:border-red-900/60",
       )}
@@ -136,7 +136,7 @@ function SessionCard({
               ? "bg-red-500"
               : timeInfo.isUrgent
                 ? "bg-amber-500"
-                : "bg-blue-600",
+                : "bg-[var(--bookinaja-600)]",
           )}
           style={{ width: `${timeInfo.progress}%` }}
         />
@@ -196,7 +196,7 @@ function SessionCard({
           <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-white/5">
             <p className="text-[11px] font-medium text-slate-500">Waktu</p>
             <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-900 dark:text-slate-100">
-              <Clock className="h-3.5 w-3.5 text-blue-600" />
+              <Clock className="h-3.5 w-3.5 text-[var(--bookinaja-600)]" />
               {format(new Date(session.start_time), "HH:mm")} -{" "}
               {format(new Date(session.end_time), "HH:mm")}
             </p>
@@ -217,11 +217,11 @@ function SessionCard({
               {timeInfo.remaining}
             </p>
           </div>
-          <div className="rounded-xl bg-blue-50 px-3 py-2 dark:bg-blue-950/30">
-            <p className="text-[11px] font-medium text-blue-500">
+          <div className="rounded-xl bg-[var(--bookinaja-50)] px-3 py-2 dark:bg-[color:rgba(59,130,246,0.14)]">
+            <p className="text-[11px] font-medium text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
               {timeInfo.attention ? "Sisa" : "Bill"}
             </p>
-            <p className="mt-1 truncate text-xs font-semibold text-blue-700 dark:text-blue-300">
+            <p className="mt-1 truncate text-xs font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-100)]">
               Rp
               {new Intl.NumberFormat("id-ID").format(
                 timeInfo.attention ? session.balance_due || 0 : session.grand_total || 0,
@@ -236,7 +236,7 @@ function SessionCard({
           </span>
           <ChevronRight
             size={16}
-            className="text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-blue-600"
+            className="text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-[var(--bookinaja-600)]"
           />
         </div>
       </div>
@@ -398,8 +398,8 @@ export default function POSPage() {
 
   if (!isDesktop && selectedSessionId) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-white font-plus-jakarta dark:bg-slate-950">
-        <div className="flex h-14 shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3 dark:border-white/10 dark:bg-slate-950">
+      <div className="fixed inset-0 z-50 flex flex-col bg-white font-plus-jakarta dark:bg-[#0f0f17]">
+        <div className="flex h-14 shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3 dark:border-white/15 dark:bg-[#0f0f17]">
           <Button
             variant="ghost"
             size="icon"
@@ -409,7 +409,7 @@ export default function POSPage() {
             <ChevronLeft className="h-5 w-5" />
           </Button>
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
               POS Control
             </p>
             <h1 className="truncate text-sm font-semibold text-slate-950 dark:text-white">
@@ -440,17 +440,17 @@ export default function POSPage() {
 
   return (
     <div className="mx-auto max-w-360 space-y-4 pb-20 pt-5 px-3 font-plus-jakarta animate-in fade-in duration-300">
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950">
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
         <div className="flex flex-col gap-4 border-b border-slate-100 p-4 md:flex-row md:items-center md:justify-between md:p-5 dark:border-white/10">
           <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-blue-600">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
               <MonitorPlay className="h-4 w-4" />
-              POS Admin
+              POS Desk
             </div>
             <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl dark:text-white">
-              Sesi & Tagihan Aktif
+              Sesi Aktif & Checkout
             </h1>
-            <p className="mt-1 max-w-2xl text-sm text-slate-500">
+            <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-300">
               Pantau sesi berjalan dan booking selesai yang masih perlu pelunasan.
             </p>
           </div>
@@ -491,7 +491,7 @@ export default function POSPage() {
           </div>
           <div className="p-4">
             <p className="text-xs font-medium text-slate-500">Tagihan aktif</p>
-            <p className="mt-1 flex items-center gap-2 text-2xl font-semibold text-blue-700 dark:text-blue-300">
+            <p className="mt-1 flex items-center gap-2 text-2xl font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-100)]">
               <Wallet className="h-4 w-4" />
               Rp{new Intl.NumberFormat("id-ID").format(sessionSummary.revenue)}
             </p>
@@ -515,7 +515,7 @@ export default function POSPage() {
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Cari customer atau unit..."
-              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-medium outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-white/5 dark:text-white"
+              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-medium outline-none transition focus:border-[var(--bookinaja-500)] focus:bg-white focus:ring-4 focus:ring-[color:rgba(59,130,246,0.14)] dark:border-white/10 dark:bg-white/5 dark:text-white"
             />
           </div>
         </div>
@@ -554,7 +554,7 @@ export default function POSPage() {
               </p>
             </div>
           ) : activeSessions.length === 0 ? (
-            <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-white text-center shadow-sm dark:border-white/10 dark:bg-slate-950">
+          <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-white text-center shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
               <MonitorPlay size={38} className="text-slate-300" />
               <h3 className="text-base font-semibold text-slate-700 dark:text-slate-200">
                 Belum ada sesi atau tagihan aktif
@@ -587,7 +587,7 @@ export default function POSPage() {
           )}
         </div>
 
-        <aside className="sticky top-20 hidden h-[calc(100vh-7rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:block dark:border-white/10 dark:bg-slate-950">
+        <aside className="sticky top-20 hidden h-[calc(100vh-7rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:block dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
           {isSheetLoading ? (
             <POSControlSkeleton />
           ) : selectedSession ? (
@@ -605,7 +605,7 @@ export default function POSPage() {
             />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-950/30">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--bookinaja-50)] text-[var(--bookinaja-600)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-200)]">
                 <PanelRightOpen className="h-6 w-6" />
               </div>
               <h2 className="text-lg font-semibold text-slate-900 dark:text-white">

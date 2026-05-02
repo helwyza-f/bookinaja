@@ -30,7 +30,7 @@ export default function GrowthFeedPage() {
     <div className="space-y-4 pb-20">
       <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0">
-          <div className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-600">
+          <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
             Feed Bookinaja
           </div>
           <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">
@@ -41,7 +41,7 @@ export default function GrowthFeedPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button asChild className="h-11 rounded-xl bg-blue-600 px-4 hover:bg-blue-500">
+          <Button asChild className="h-11 rounded-xl bg-[var(--bookinaja-600)] px-4 text-white hover:bg-[var(--bookinaja-700)]">
             <Link href="/growth/posts">Kelola post</Link>
           </Button>
           <Button asChild variant="outline" className="h-11 rounded-xl px-4">
@@ -56,10 +56,10 @@ export default function GrowthFeedPage() {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <section className="space-y-4">
-          <div className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
-                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-600">
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
                   Semua post terbaru
                 </div>
                 <h2 className="mt-2 text-xl font-black tracking-tight text-slate-950">
@@ -97,8 +97,8 @@ export default function GrowthFeedPage() {
             />
           </div>
 
-          <Card className="rounded-[1.75rem] border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-blue-600">
+          <Card className="rounded-[1.75rem] border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
               <Sparkles className="h-4 w-4" />
               Bisnis kamu
             </div>
@@ -124,7 +124,7 @@ export default function GrowthFeedPage() {
               />
             </div>
             <div className="mt-4 flex gap-2">
-              <Button asChild className="h-10 flex-1 rounded-xl bg-blue-600 hover:bg-blue-500">
+              <Button asChild className="h-10 flex-1 rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
                 <Link href="/growth/profile">Rapikan profile</Link>
               </Button>
               <Button asChild variant="outline" className="h-10 flex-1 rounded-xl">
@@ -133,8 +133,8 @@ export default function GrowthFeedPage() {
             </div>
           </Card>
 
-          <Card className="rounded-[1.75rem] border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-blue-600">
+          <Card className="rounded-[1.75rem] border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
               <BarChart3 className="h-4 w-4" />
               Queue kamu
             </div>
@@ -165,11 +165,11 @@ function SimpleChecklistRow({
   label: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
       <span className="text-sm font-semibold text-slate-700">{label}</span>
       <span
         className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-          done ? "bg-blue-100 text-blue-700" : "bg-slate-200 text-slate-500"
+          done ? "bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-200)]" : "bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-slate-300"
         }`}
       >
         {done ? "Siap" : "Perlu"}

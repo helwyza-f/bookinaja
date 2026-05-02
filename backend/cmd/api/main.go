@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"os"
@@ -21,9 +22,11 @@ import (
 	"github.com/helwiza/backend/internal/platform/http"
 	"github.com/helwiza/backend/internal/platform/http/routecfg"
 	midtranssvc "github.com/helwiza/backend/internal/platform/midtrans"
+	platformmqtt "github.com/helwiza/backend/internal/platform/mqtt"
 	"github.com/helwiza/backend/internal/platformadmin"
 	"github.com/helwiza/backend/internal/reservation"
 	"github.com/helwiza/backend/internal/resource"
+	"github.com/helwiza/backend/internal/smartdevice"
 	"github.com/helwiza/backend/internal/tenant"
 	"github.com/joho/godotenv"
 )
@@ -31,6 +34,36 @@ import (
 func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("info: .env file not found, using system environment variables")
+	}
+
+	mqttConfig, mqttErr := platformmqtt.LoadConfig()
+	if mqttErr != nil {
+		log.Fatalf("mqtt config error: %v", mqttErr)
+	}
+	if mqttConfig.Enabled() {
+		if _, tlsErr := mqttConfig.TLSConfig(); tlsErr != nil {
+			log.Fatalf("mqtt tls config error: %v", tlsErr)
+		}
+		log.Printf("mqtt config loaded: broker=%s tls=%t ws=%s", mqttConfig.BrokerAddress(), mqttConfig.UseTLS, mqttConfig.WebSocketAddress())
+	}
+
+	var mqttClient *platformmqtt.Client
+	if mqttConfig.Enabled() {
+		mqttClient, mqttErr = platformmqtt.NewClient(mqttConfig)
+		if mqttErr != nil {
+			log.Fatalf("mqtt client init error: %v", mqttErr)
+		}
+		if mqttConfig.ConnectOnBoot {
+			connectCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+
+			if connectErr := mqttClient.Connect(connectCtx); connectErr != nil {
+				log.Fatalf("mqtt connect error: %v", connectErr)
+			}
+			defer mqttClient.Disconnect(250)
+		} else {
+			log.Printf("mqtt connect on boot disabled: client_id=%s broker=%s", mqttConfig.ClientID, mqttConfig.BrokerAddress())
+		}
 	}
 
 	dbHost := os.Getenv("DB_HOST")
@@ -74,6 +107,7 @@ func main() {
 	billingRepo := billing.NewRepository(db)
 	platformRepo := platformadmin.NewRepository(db)
 	midtransRepo := midtranssvc.NewRepository(db, rdb)
+	smartDeviceRepo := smartdevice.NewRepository(db)
 
 	authSvc := auth.NewService()
 	tenantSvc := tenant.NewService(tenantRepo, authSvc)
@@ -81,10 +115,14 @@ func main() {
 	expenseSvc := expense.NewService(expenseRepo)
 	resourceSvc := resource.NewService(resourceRepo)
 	fnbSvc := fnb.NewService(fnbRepo)
-	reservationSvc := reservation.NewService(reservationRepo, resourceRepo, customerSvc, fnbSvc)
-	scheduler := reservation.NewScheduler(db, reservationRepo)
+	smartDeviceSvc := smartdevice.NewService(smartDeviceRepo, mqttClient)
+	reservationSvc := reservation.NewService(reservationRepo, resourceRepo, customerSvc, fnbSvc, smartDeviceSvc)
+	scheduler := reservation.NewScheduler(db, reservationRepo, smartDeviceSvc)
 	billingSvc := billing.NewService(db, billingRepo)
 	platformSvc := platformadmin.NewService()
+	dispatcher := smartdevice.NewDispatcher(smartDeviceRepo, mqttClient)
+	subscriber := smartdevice.NewSubscriber(smartDeviceSvc, mqttClient)
+	reconciler := smartdevice.NewReconciler(smartDeviceSvc, 90*time.Second)
 
 	authHdl := auth.NewHandler(authSvc, tenantSvc)
 	customerHdl := customer.NewHandler(customerSvc)
@@ -97,6 +135,7 @@ func main() {
 	platformHdl := platformadmin.NewHandler(platformSvc, platformRepo)
 	midtransSvc := midtranssvc.NewService(db, midtransRepo)
 	midtransHdl := midtranssvc.NewHandler(midtransSvc)
+	smartDeviceHdl := smartdevice.NewHandler(smartDeviceSvc)
 
 	routerConfig := routecfg.Config{
 		DB:                 db,
@@ -110,10 +149,18 @@ func main() {
 		BillingHandler:     billingHdl,
 		PlatformHandler:    platformHdl,
 		MidtransHandler:    midtransHdl,
+		SmartDeviceHandler: smartDeviceHdl,
 	}
 
 	r := http.NewRouter(routerConfig, db, rdb)
 
+	if subscriber != nil {
+		if err := subscriber.Start(context.Background()); err != nil {
+			log.Fatalf("mqtt subscriber init error: %v", err)
+		}
+	}
+	dispatcher.Start()
+	reconciler.Start()
 	scheduler.Start()
 
 	port := os.Getenv("PORT")

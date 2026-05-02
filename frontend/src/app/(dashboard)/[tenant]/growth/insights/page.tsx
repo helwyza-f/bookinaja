@@ -41,7 +41,7 @@ export default function GrowthInsightsPage() {
     <div className="space-y-4 pb-20">
       <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-600">
+            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
               Performa
             </div>
           <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">
@@ -86,8 +86,8 @@ export default function GrowthInsightsPage() {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         <section className="space-y-4">
-          <Card className="rounded-[1.75rem] border-slate-200 bg-white p-4 shadow-sm">
-            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-600">
+          <Card className="rounded-[1.75rem] border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
               Faktor utama
             </div>
             <div className="mt-4 space-y-3">
@@ -114,8 +114,8 @@ export default function GrowthInsightsPage() {
             </div>
           </Card>
 
-          <Card className="rounded-[1.75rem] border-slate-200 bg-white p-4 shadow-sm">
-            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-600">
+          <Card className="rounded-[1.75rem] border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
               Funnel nyata
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -143,8 +143,8 @@ export default function GrowthInsightsPage() {
           </Card>
 
           <section className="space-y-3">
-            <div className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-600">
+            <div className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
                 Feed Bookinaja
               </div>
               <h2 className="mt-2 text-xl font-black tracking-tight text-slate-950">
@@ -190,8 +190,8 @@ function FunnelStep({
   hint: string;
 }) {
   return (
-    <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
-      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">
+    <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
         {label}
       </div>
       <div className="mt-2 text-2xl font-black tracking-tight text-slate-950">{value}</div>
@@ -212,8 +212,8 @@ function MetricCard({
   icon: React.ReactNode;
 }) {
   return (
-    <Card className="rounded-[1.5rem] border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">
+    <Card className="rounded-[1.5rem] border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
         {icon}
         {label}
       </div>
@@ -233,10 +233,10 @@ function InsightRow({
   description: string;
 }) {
   return (
-    <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
+    <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm font-semibold text-slate-950">{title}</div>
-        <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-blue-600">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
           {status}
         </div>
       </div>

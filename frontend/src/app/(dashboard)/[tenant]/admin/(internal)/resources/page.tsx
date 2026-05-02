@@ -38,6 +38,15 @@ type ResourceRow = {
   category?: string;
   status?: string;
   items?: ResourceItem[];
+  smart_device_summary?: {
+    id: string;
+    device_id: string;
+    device_name: string;
+    pairing_status: string;
+    connection_status: string;
+    is_enabled: boolean;
+    last_seen_at?: string | null;
+  } | null;
 };
 
 // --- KOMPONEN SKELETON COMPACT ---
@@ -47,7 +56,7 @@ function ResourceSkeleton() {
       {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
         <Card
           key={i}
-          className="rounded-2xl border-none bg-white dark:bg-slate-900 p-5 space-y-4 shadow-sm ring-1 ring-slate-100 dark:ring-white/5"
+          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ring-1 ring-slate-100/80 dark:border-white/15 dark:bg-[#0f0f17] dark:ring-white/5 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] space-y-4"
         >
           <div className="flex justify-between items-center">
             <Skeleton className="h-10 w-10 rounded-xl dark:bg-slate-800" />
@@ -95,10 +104,10 @@ export default function ResourcesPage() {
     if (!confirm(`Hapus ${name} secara permanen?`)) return;
     try {
       await api.delete(`/resources-all/${id}`);
-      toast.success(`${name.toUpperCase()} DELETED`);
+      toast.success(`${name} berhasil dihapus`);
       fetchResources();
     } catch {
-      toast.error("FAILED TO DELETE RESOURCE");
+      toast.error("Gagal menghapus resource");
     }
   };
 
@@ -131,17 +140,17 @@ export default function ResourcesPage() {
     switch (businessCategory) {
       case "gaming_hub":
         return {
-          title: "Gaming Units",
+          title: "Gaming Resources",
           icon: <Gamepad2 size={18} />,
           unit: "STATION",
         };
       case "sport_center":
-        return { title: "Courts", icon: <Trophy size={18} />, unit: "FIELD" };
+        return { title: "Sports Resources", icon: <Trophy size={18} />, unit: "FIELD" };
       case "creative_space":
-        return { title: "Studios", icon: <Camera size={18} />, unit: "ROOM" };
+        return { title: "Creative Resources", icon: <Camera size={18} />, unit: "ROOM" };
       case "social_space":
         return {
-          title: "Workspaces",
+          title: "Social Resources",
           icon: <Briefcase size={18} />,
           unit: "DESK",
         };
@@ -165,28 +174,28 @@ export default function ResourcesPage() {
   };
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-5 md:space-y-6 pb-20 pt-5  px-3 md:px-4 font-plus-jakarta">
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] md:rounded-2xl md:p-5">
+    <div className="mx-auto max-w-[1600px] space-y-5 px-3 pb-20 pt-5 font-plus-jakarta md:space-y-6 md:px-4">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:rounded-2xl md:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--bookinaja-600)] text-white shadow-sm">
               {labels.icon}
             </div>
             <div className="flex flex-col">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-600">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
                 Resource Management
               </div>
               <h1 className="text-xl font-semibold text-slate-950 dark:text-white md:text-3xl">
                 {labels.title}
               </h1>
               <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 md:text-sm">
-                Kelola unit, harga aktif, dan status operasional dalam satu tempat.
+                Kelola resource, paket aktif, dan status operasional dalam satu tempat.
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden rounded-2xl bg-slate-50 px-4 py-3 text-right dark:bg-white/5 md:block">
+            <div className="hidden rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-right dark:border-white/10 dark:bg-white/5 md:block">
               <div className="text-[8px] font-semibold tracking-[0.25em] text-slate-400">
                 Total Resource
               </div>
@@ -206,17 +215,17 @@ export default function ResourcesPage() {
       {loading ? (
         <ResourceSkeleton />
       ) : error ? (
-        <div className="h-80 flex flex-col items-center justify-center bg-red-50/30 dark:bg-red-950/5 rounded-2xl border border-red-100 dark:border-red-900/20">
+        <div className="flex h-80 flex-col items-center justify-center rounded-2xl border border-red-100 bg-red-50/30 dark:border-red-900/20 dark:bg-red-950/5">
           <AlertCircle className="h-10 w-10 text-red-400 mb-4 opacity-40" />
           <h3 className="text-sm font-semibold text-red-900 dark:text-red-400">
-            Sync Failure
+            Gagal memuat resource
           </h3>
           <Button
             onClick={fetchResources}
             variant="ghost"
             className="mt-4 text-[10px] font-semibold hover:bg-red-100 dark:hover:bg-red-900/20"
           >
-            Re-Connect
+            Coba lagi
           </Button>
         </div>
       ) : resources.length > 0 ? (
@@ -230,13 +239,13 @@ export default function ResourcesPage() {
             return (
               <Card
                 key={res.id}
-                className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition-colors hover:border-blue-200 dark:border-white/5 dark:bg-[#0a0a0a]"
+                className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-colors hover:border-[var(--bookinaja-200)] dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
               >
                 <CardContent className="relative z-10 flex flex-1 flex-col p-4 md:p-5">
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="mb-2 flex items-center gap-2">
-                        <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[8px] font-semibold tracking-[0.22em] text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
+                          <span className="inline-flex rounded-full bg-[var(--bookinaja-50)] px-2.5 py-1 text-[8px] font-semibold tracking-[0.22em] text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]">
                           {res.category || labels.unit}
                         </span>
                         <span
@@ -248,7 +257,7 @@ export default function ResourcesPage() {
                           {res.status || "draft"}
                         </span>
                       </div>
-                      <h3 className="truncate text-lg font-semibold text-slate-950 transition-colors group-hover:text-blue-700 dark:text-white dark:group-hover:text-blue-300 md:text-xl">
+                      <h3 className="truncate text-lg font-semibold text-slate-950 transition-colors group-hover:text-[var(--bookinaja-700)] dark:text-white dark:group-hover:text-[var(--bookinaja-300)] md:text-xl">
                         {res.name}
                       </h3>
                       <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
@@ -261,7 +270,7 @@ export default function ResourcesPage() {
                       <Link href={`/admin/resources/${res.id}`} className="w-full">
                         <Button
                           variant="outline"
-                          className="h-9 w-9 md:h-10 md:w-10 rounded-xl border-slate-200 dark:border-white/10 bg-slate-950 text-white hover:bg-blue-600 hover:text-white transition-all p-0 flex items-center justify-center group/btn"
+                          className="h-9 w-9 md:h-10 md:w-10 rounded-xl border-slate-200 bg-slate-950 p-0 text-white transition-all hover:bg-[var(--bookinaja-600)] hover:text-white dark:border-white/15 dark:bg-slate-900 flex items-center justify-center group/btn"
                         >
                           <Settings2
                             size={12}
@@ -282,7 +291,7 @@ export default function ResourcesPage() {
                   </div>
 
                   <div className="mb-5 grid grid-cols-2 gap-2.5">
-                    <div className="rounded-xl bg-slate-50 px-3 py-3 dark:bg-white/5">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/5">
                       <div className="text-[8px] font-semibold tracking-[0.24em] text-slate-400">
                         Paket Aktif
                       </div>
@@ -290,24 +299,31 @@ export default function ResourcesPage() {
                         {mainItems.length}
                       </div>
                     </div>
-                    <div className="rounded-xl bg-slate-50 px-3 py-3 dark:bg-white/5">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/5">
                       <div className="text-[8px] font-semibold tracking-[0.24em] text-slate-400">
-                        Harga Dasar
+                        Smart Point
                       </div>
-                      <div className="mt-1 text-sm font-semibold text-blue-600 dark:text-blue-300">
-                        {mainItems[0] ? `Rp${formatIDR(mainItems[0].price)}` : "-"}
+                      <div className="mt-1 text-sm font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
+                        {res.smart_device_summary
+                          ? res.smart_device_summary.connection_status
+                          : "belum aktif"}
                       </div>
                     </div>
                   </div>
 
                   <div className="mb-5 flex-1 space-y-2">
+                    {res.smart_device_summary && (
+                      <div className="rounded-xl border border-[color:rgba(59,130,246,0.18)] bg-[var(--bookinaja-50)] px-3 py-3 text-[10px] font-semibold text-[var(--bookinaja-700)] dark:border-[color:rgba(96,165,250,0.2)] dark:bg-[color:rgba(59,130,246,0.12)] dark:text-[var(--bookinaja-100)]">
+                        {res.smart_device_summary.device_name} • {res.smart_device_summary.device_id}
+                      </div>
+                    )}
                     {mainItems.slice(0, 3).map((item) => (
                       <div
                         key={item.id}
                         className={cn(
                           "flex items-center justify-between rounded-xl border p-3 transition-all",
                           item.is_default
-                            ? "border-blue-200 bg-blue-50/70 dark:border-blue-800/30 dark:bg-blue-900/10"
+                            ? "border-[color:rgba(59,130,246,0.22)] bg-[var(--bookinaja-50)] dark:border-[color:rgba(96,165,250,0.18)] dark:bg-[color:rgba(59,130,246,0.12)]"
                             : "border-slate-200 bg-slate-50/70 dark:border-white/5 dark:bg-white/[0.03]",
                         )}
                       >
@@ -316,7 +332,7 @@ export default function ResourcesPage() {
                             className={cn(
                               "h-3 w-3 shrink-0",
                               item.is_default
-                                ? "text-blue-600"
+                                ? "text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]"
                                 : "text-slate-300",
                             )}
                             strokeWidth={4}
@@ -325,7 +341,7 @@ export default function ResourcesPage() {
                             {item.name}
                           </span>
                         </div>
-                        <span className="ml-2 whitespace-nowrap text-[9px] font-semibold text-blue-600 dark:text-blue-300 md:text-[10px]">
+                        <span className="ml-2 whitespace-nowrap text-[9px] font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)] md:text-[10px]">
                           Rp{formatIDR(item.price)}
                           {item.price_unit ? `/${priceUnitLabel(item.price_unit)}` : ""}
                         </span>
@@ -341,9 +357,9 @@ export default function ResourcesPage() {
                   <div className="flex items-center justify-end border-t border-slate-100 pt-4 dark:border-white/5">
                     <Link
                       href={`/admin/resources/${res.id}`}
-                      className="text-[10px] font-semibold tracking-widest text-blue-600 dark:text-blue-300"
+                      className="text-[10px] font-semibold tracking-[0.22em] text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]"
                     >
-                      Kelola
+                      Buka Detail
                     </Link>
                   </div>
                 </CardContent>
@@ -353,15 +369,15 @@ export default function ResourcesPage() {
         </div>
       ) : (
         /* 3. EMPTY STATE */
-        <div className="h-[50vh] flex flex-col items-center justify-center bg-white dark:bg-slate-950 rounded-2xl border border-dashed border-slate-200 dark:border-white/10 p-12 text-center">
+        <div className="flex h-[50vh] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-center dark:border-white/15 dark:bg-[#0f0f17]">
           <div className="h-20 w-20 bg-slate-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center mb-6 shadow-inner">
             <Inbox size={32} className="text-slate-200" />
           </div>
           <h3 className="text-2xl font-semibold text-slate-900 dark:text-white">
-            No Assets Found
+            Belum ada resource
           </h3>
           <p className="text-xs font-bold text-slate-400 mt-2 mb-8 tracking-widest">
-            Register your first unit to start digital operation
+            Tambahkan resource pertama untuk mulai mengelola operasional digital
           </p>
           <AddResourceDialog
             category={businessCategory}

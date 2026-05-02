@@ -237,7 +237,7 @@ export default function SettingsCRMPage() {
     <div className="space-y-4 p-4 pb-20 sm:p-6">
       <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
+          <div className="flex items-center gap-2 text-sm font-semibold text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
             <Users className="h-4 w-4" />
             CRM & Marketing
           </div>
@@ -248,7 +248,7 @@ export default function SettingsCRMPage() {
             Pelanggan aktif adalah customer yang sudah booking di Bookinaja. Pelanggan lama hanya daftar kontak migrasi untuk diberi tahu via WhatsApp, bukan akun customer.
           </p>
         </div>
-        <Button variant="outline" onClick={loadAll} className="w-fit gap-2">
+        <Button variant="outline" onClick={loadAll} className="w-fit gap-2 dark:border-white/10 dark:bg-white/[0.03]">
           <RefreshCw className="h-4 w-4" />
           Refresh
         </Button>
@@ -272,7 +272,7 @@ export default function SettingsCRMPage() {
               </p>
             </div>
           </div>
-          <Button asChild className="w-fit rounded-xl bg-slate-950 text-white hover:bg-slate-800">
+          <Button asChild className="w-fit rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
             <Link href="/admin/settings/billing/subscribe">Upgrade Pro</Link>
           </Button>
         </div>
@@ -286,7 +286,7 @@ export default function SettingsCRMPage() {
         </TabsList>
 
         <TabsContent value="migration" className="space-y-4">
-          <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] sm:p-6">
+          <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:p-6">
             <SectionHeader
               icon={<FileUp className="h-5 w-5" />}
               label="Pelanggan lama"
@@ -338,7 +338,7 @@ export default function SettingsCRMPage() {
             </div>
           </Card>
 
-          <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] sm:p-6">
+          <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:p-6">
             <SectionHeader
               icon={<Megaphone className="h-5 w-5" />}
               label="Blast migrasi"
@@ -363,7 +363,7 @@ export default function SettingsCRMPage() {
         </TabsContent>
 
         <TabsContent value="operational" className="space-y-4">
-          <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] sm:p-6">
+          <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:p-6">
             <SectionHeader
               icon={<Users className="h-5 w-5" />}
               label="Pelanggan aktif"
@@ -386,7 +386,7 @@ export default function SettingsCRMPage() {
             </div>
           </Card>
 
-          <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] sm:p-6">
+          <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:p-6">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-base font-semibold text-slate-950 dark:text-white">Sample pelanggan aktif</h2>
               <Badge variant="secondary">{customers.length} customer</Badge>
@@ -434,9 +434,9 @@ export default function SettingsCRMPage() {
 function SectionHeader({ icon, label, title, description }: { icon: React.ReactNode; label: string; title: string; description: string }) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-white">{icon}</div>
+      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--bookinaja-600)] text-white">{icon}</div>
       <div>
-        <Badge className="border-none bg-blue-600 text-[10px] font-semibold uppercase tracking-[0.2em] text-white">{label}</Badge>
+        <Badge className="border-none bg-[var(--bookinaja-600)] text-[10px] font-semibold uppercase tracking-[0.2em] text-white">{label}</Badge>
         <h2 className="mt-2 text-lg font-semibold text-slate-950 dark:text-white">{title}</h2>
         <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">{description}</p>
       </div>
@@ -446,7 +446,7 @@ function SectionHeader({ icon, label, title, description }: { icon: React.ReactN
 
 function Metric({ label, value, compact }: { label: string; value: string; compact?: boolean }) {
   return (
-    <Card className={compact ? "border-0 bg-transparent p-0 shadow-none" : "border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a]"}>
+    <Card className={compact ? "border-0 bg-transparent p-0 shadow-none" : "border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17]"}>
       <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">{label}</div>
       <div className={compact ? "mt-2 text-2xl font-semibold text-slate-950 dark:text-white" : "mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white"}>{value}</div>
     </Card>
@@ -455,14 +455,14 @@ function Metric({ label, value, compact }: { label: string; value: string; compa
 
 function Preview({ rows }: { rows: ImportRow[] }) {
   return (
-    <div className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-white/5">
+    <div className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-white/10 dark:bg-white/[0.03]">
       <div className="text-sm font-semibold text-slate-950 dark:text-white">Preview kontak legacy</div>
       <Separator />
       <div className="max-h-80 space-y-2 overflow-auto pr-1">
         {rows.map((row, index) => {
           const issues = getIssues(row);
           return (
-            <div key={`${index}-${row.phone}`} className="rounded-lg border border-slate-200 p-3 dark:border-white/5">
+            <div key={`${index}-${row.phone}`} className="rounded-lg border border-slate-200 p-3 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="font-medium text-slate-950 dark:text-white">{row.name || "Tanpa nama"}</div>
