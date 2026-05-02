@@ -57,9 +57,12 @@ func (s *Service) GetPublicDiscoverFeed(ctx context.Context) (*PublicDiscoverFee
 	if err != nil {
 		return nil, err
 	}
-	posts, err := s.repo.ListActiveDiscoveryPosts(ctx)
-	if err != nil {
-		return nil, err
+	posts := []TenantPost{}
+	if s.discoveryPostsEnabled(ctx) {
+		posts, err = s.repo.ListActiveDiscoveryPosts(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 	feedItems := s.buildUnifiedDiscoveryFeedItems(items, posts, nil)
 	return s.buildPublicDiscoverFeed(feedItems, false), nil
@@ -76,9 +79,12 @@ func (s *Service) GetCustomerDiscoverFeed(ctx context.Context, customerID uuid.U
 		return nil, err
 	}
 
-	posts, err := s.repo.ListActiveDiscoveryPosts(ctx)
-	if err != nil {
-		return nil, err
+	posts := []TenantPost{}
+	if s.discoveryPostsEnabled(ctx) {
+		posts, err = s.repo.ListActiveDiscoveryPosts(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	personalized := s.personalizeDiscoveryItems(items, signals)
@@ -91,9 +97,12 @@ func (s *Service) GetOwnerDiscoverFeed(ctx context.Context, tenantID uuid.UUID) 
 	if err != nil {
 		return nil, err
 	}
-	posts, err := s.repo.ListActiveDiscoveryPosts(ctx)
-	if err != nil {
-		return nil, err
+	posts := []TenantPost{}
+	if s.discoveryPostsEnabled(ctx) {
+		posts, err = s.repo.ListActiveDiscoveryPosts(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 	feedItems := s.buildUnifiedDiscoveryFeedItems(items, posts, nil)
 	feed := s.buildPublicDiscoverFeed(feedItems, false)
@@ -114,6 +123,17 @@ func (s *Service) GetOwnerDiscoverFeed(ctx context.Context, tenantID uuid.UUID) 
 	}
 
 	return feed, nil
+}
+
+func (s *Service) discoveryPostsEnabled(ctx context.Context) bool {
+	if s.repo != nil {
+		enabled, found, err := s.repo.GetPlatformBooleanSetting(ctx, "discovery_feed", "enable_discovery_posts")
+		if err == nil && found {
+			return enabled
+		}
+	}
+	value := strings.TrimSpace(strings.ToLower(os.Getenv("BOOKINAJA_ENABLE_DISCOVERY_POSTS")))
+	return value == "1" || value == "true" || value == "yes" || value == "on"
 }
 
 func (s *Service) ListTenantPosts(ctx context.Context, tenantID uuid.UUID) ([]TenantPost, error) {

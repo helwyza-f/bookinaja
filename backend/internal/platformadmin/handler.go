@@ -71,6 +71,38 @@ func (h *Handler) DiscoveryAnalytics(c *gin.Context) {
 	respondData(c, data)
 }
 
+func (h *Handler) GetDiscoveryFeedSetting(c *gin.Context) {
+	data, err := h.repo.GetDiscoveryFeedSetting(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	respondData(c, data)
+}
+
+func (h *Handler) UpdateDiscoveryFeedSetting(c *gin.Context) {
+	var req struct {
+		EnableDiscoveryPosts bool `json:"enable_discovery_posts"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "payload pengaturan discovery feed tidak valid"})
+		return
+	}
+	if err := h.repo.UpdateDiscoveryFeedSetting(c.Request.Context(), req.EnableDiscoveryPosts); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	data, err := h.repo.GetDiscoveryFeedSetting(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "pengaturan discovery feed diperbarui",
+		"data":    data,
+	})
+}
+
 func (h *Handler) Tenants(c *gin.Context) {
 	data, err := h.repo.ListTenants(c.Request.Context())
 	if err != nil {
