@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,15 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { hasPermission, isOwner, type AdminSessionUser } from "@/lib/admin-access";
+import { useRealtime } from "@/lib/realtime/use-realtime";
+import {
+  tenantBookingsChannel,
+  tenantDashboardChannel,
+} from "@/lib/realtime/channels";
+import {
+  BOOKING_EVENT_PREFIXES,
+  matchesRealtimePrefix,
+} from "@/lib/realtime/event-types";
 import {
   POSControlHub,
   type POSSessionDetail,
@@ -29,6 +38,7 @@ import {
 import type { FnBMenuItem } from "@/components/pos/fnb-catalog-dialog";
 import { format, differenceInMinutes } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RealtimePill } from "@/components/dashboard/realtime-pill";
 
 type POSSession = {
   id: string;
@@ -261,6 +271,8 @@ export default function POSPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isDesktop, setIsDesktop] = useState(false);
   const [adminUser, setAdminUser] = useState<AdminSessionUser | null>(null);
+  const [tenantId, setTenantId] = useState("");
+  const lastRealtimeToastRef = useRef<string>("");
 
   const canReadBookings = hasPermission(adminUser, "bookings.read");
   const canReadPos = hasPermission(adminUser, "pos.read");
@@ -280,6 +292,7 @@ export default function POSPage() {
       const meRes = await api.get("/auth/me");
       const currentUser = meRes.data?.user || null;
       setAdminUser(currentUser);
+      setTenantId(meRes.data?.user?.tenant_id || "");
 
       const [sessionsRes, menuRes] = await Promise.allSettled([
         hasPermission(currentUser, "pos.read")
@@ -363,6 +376,35 @@ export default function POSPage() {
     );
   };
 
+  const { connected: realtimeConnected, status: realtimeStatus } = useRealtime({
+    enabled: Boolean(tenantId),
+    channels: tenantId
+      ? [tenantBookingsChannel(tenantId), tenantDashboardChannel(tenantId)]
+      : [],
+    onEvent: (event) => {
+      if (!matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) return;
+      fetchData();
+      if (selectedSessionId) {
+        void refreshSelectedSession(selectedSessionId);
+      }
+      const bookingId = String(event.refs?.booking_id || "");
+      if (!selectedSessionId || bookingId !== selectedSessionId) return;
+      const eventKey = `${event.type}:${bookingId}:${event.occurred_at || ""}`;
+      if (lastRealtimeToastRef.current === eventKey) return;
+      lastRealtimeToastRef.current = eventKey;
+      if (event.type === "session.completed") {
+        toast.success("Sesi dipindahkan ke status selesai");
+      } else if (event.type === "payment.cash.settled" || event.type === "payment.settlement.paid") {
+        toast.success("Pembayaran sesi sudah diterima");
+      } else if (event.type === "order.fnb.added") {
+        toast.message("Pesanan F&B baru masuk ke sesi ini");
+      } else if (event.type === "order.addon.added") {
+        toast.message("Add-on baru masuk ke sesi ini");
+      }
+    },
+    onReconnect: fetchData,
+  });
+
   const sessionSummary = useMemo(() => {
     const now = new Date();
     return activeSessions.reduce(
@@ -443,9 +485,12 @@ export default function POSPage() {
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
         <div className="flex flex-col gap-4 border-b border-slate-100 p-4 md:flex-row md:items-center md:justify-between md:p-5 dark:border-white/10">
           <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-              <MonitorPlay className="h-4 w-4" />
-              POS Desk
+            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+              <span className="inline-flex items-center gap-2">
+                <MonitorPlay className="h-4 w-4" />
+                POS Desk
+              </span>
+              <RealtimePill connected={realtimeConnected} status={realtimeStatus} className="normal-case tracking-normal" />
             </div>
             <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl dark:text-white">
               Sesi Aktif & Checkout

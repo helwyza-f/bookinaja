@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AxiosError } from "axios";
 import {
@@ -21,6 +21,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRealtime } from "@/lib/realtime/use-realtime";
+import { RealtimePill } from "@/components/dashboard/realtime-pill";
+import { tenantDevicesChannel } from "@/lib/realtime/channels";
+import {
+  DEVICE_EVENT_PREFIXES,
+  type RealtimeEvent,
+  matchesRealtimePrefix,
+} from "@/lib/realtime/event-types";
 
 type DeviceSummary = {
   id: string;
@@ -101,6 +109,45 @@ function relativeLastSeen(value?: string | null) {
   return `${days} hari lalu`;
 }
 
+function patchDeviceFromEvent(prev: DeviceSummary[], event: RealtimeEvent) {
+  const internalID = String(event.entity_id || "");
+  const deviceID = String(event.summary?.device_id || "");
+  let found = false;
+
+  const next = prev.map((device) => {
+    const matched =
+      (internalID && device.id === internalID) ||
+      (deviceID && device.device_id === deviceID);
+    if (!matched) return device;
+    found = true;
+    return {
+      ...device,
+      device_id: String(event.summary?.device_id ?? device.device_id),
+      device_name: String(event.summary?.device_name ?? device.device_name),
+      pairing_status: String(
+        event.summary?.pairing_status ?? device.pairing_status,
+      ),
+      connection_status: String(
+        event.summary?.connection_status ?? device.connection_status,
+      ),
+      is_enabled:
+        typeof event.summary?.is_enabled === "boolean"
+          ? Boolean(event.summary.is_enabled)
+          : device.is_enabled,
+      resource_id:
+        event.summary?.resource_id === null
+          ? null
+          : String(event.summary?.resource_id ?? device.resource_id ?? ""),
+      last_seen_at: String(
+        event.summary?.last_seen_at ?? device.last_seen_at ?? "",
+      ) || null,
+    };
+  });
+
+  if (found) return next;
+  return prev;
+}
+
 export default function DevicesPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -108,6 +155,7 @@ export default function DevicesPage() {
   const [devices, setDevices] = useState<DeviceSummary[]>([]);
   const [resources, setResources] = useState<ResourceOption[]>([]);
   const [overview, setOverview] = useState<Overview | null>(null);
+  const [tenantId, setTenantId] = useState("");
   const [form, setForm] = useState({
     device_id: "",
     device_name: "",
@@ -115,26 +163,43 @@ export default function DevicesPage() {
     resource_id: "",
   });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const [deviceRes, overviewRes, resourceRes] = await Promise.all([
+      const [deviceRes, overviewRes, resourceRes, meRes] = await Promise.all([
         api.get("/devices"),
         api.get("/devices/overview"),
         api.get("/resources-all"),
+        api.get("/auth/me"),
       ]);
       setDevices(deviceRes.data.items || []);
       setOverview(overviewRes.data || null);
       setResources(resourceRes.data.resources || []);
+      setTenantId(meRes.data?.user?.tenant_id || "");
     } catch {
       toast.error("Gagal memuat data Smart Point");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
+
+  const { connected: realtimeConnected, status: realtimeStatus } = useRealtime({
+    enabled: Boolean(tenantId),
+    channels: tenantId ? [tenantDevicesChannel(tenantId)] : [],
+    onEvent: (event) => {
+      if (matchesRealtimePrefix(event.type, DEVICE_EVENT_PREFIXES)) {
+        setDevices((current) => patchDeviceFromEvent(current, event));
+        setOverview(null);
+        if (event.type === "device.claimed") {
+          fetchData();
+        }
+      }
+    },
+    onReconnect: fetchData,
+  });
 
   const fallbackStats = useMemo(() => {
     const online = devices.filter((item) => item.connection_status === "online").length;
@@ -195,6 +260,9 @@ export default function DevicesPage() {
                   Kelola perangkat notifikasi untuk resource bisnis Anda, cek apakah alat sedang
                   aktif, dan hubungkan ke resource yang sesuai.
                 </p>
+                <div className="mt-3">
+                  <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
+                </div>
               </div>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">

@@ -37,11 +37,19 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { BookingDetailSkeleton } from "@/components/dashboard/booking-detail-skeleton";
 import { hasPermission, isOwner, type AdminSessionUser } from "@/lib/admin-access";
+import { RealtimePill } from "@/components/dashboard/realtime-pill";
 import {
   isReceiptProEnabled,
   printReceiptBluetooth,
   type ReceiptSettings,
 } from "@/lib/receipt";
+import { useRealtime } from "@/lib/realtime/use-realtime";
+import { tenantBookingChannel } from "@/lib/realtime/channels";
+import {
+  BOOKING_EVENT_PREFIXES,
+  type RealtimeEvent,
+  matchesRealtimePrefix,
+} from "@/lib/realtime/event-types";
 
 type BookingOption = {
   id?: string;
@@ -91,6 +99,38 @@ type BookingDetail = {
   events?: BookingEvent[];
 };
 
+function patchBookingDetailFromEvent(
+  current: BookingDetail | null,
+  event: RealtimeEvent,
+) {
+  const bookingID = String(event.refs?.booking_id || event.entity_id || "");
+  if (!current || !bookingID || current.id !== bookingID) return current;
+
+  return {
+    ...current,
+    status: String(event.summary?.status ?? current.status ?? ""),
+    payment_status: String(
+      event.summary?.payment_status ?? current.payment_status ?? "",
+    ),
+    resource_name: String(
+      event.summary?.resource_name ?? current.resource_name ?? "",
+    ),
+    customer_name: String(
+      event.summary?.customer_name ?? current.customer_name ?? "",
+    ),
+    start_time: String(event.summary?.start_time ?? current.start_time),
+    end_time: String(event.summary?.end_time ?? current.end_time),
+    grand_total:
+      typeof event.summary?.grand_total === "number"
+        ? Number(event.summary.grand_total)
+        : current.grand_total,
+    balance_due:
+      typeof event.summary?.balance_due === "number"
+        ? Number(event.summary.balance_due)
+        : current.balance_due,
+  };
+}
+
 export default function BookingDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -101,6 +141,7 @@ export default function BookingDetailPage() {
   const [payOpen, setPayOpen] = useState(false);
   const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings | null>(null);
   const [adminUser, setAdminUser] = useState<AdminSessionUser | null>(null);
+  const [tenantId, setTenantId] = useState("");
 
   const fetchDetail = useCallback(async () => {
     try {
@@ -122,9 +163,27 @@ export default function BookingDetailPage() {
   useEffect(() => {
     api
       .get("/auth/me")
-      .then((res) => setAdminUser(res.data?.user || null))
+      .then((res) => {
+        setAdminUser(res.data?.user || null);
+        setTenantId(res.data?.user?.tenant_id || "");
+      })
       .catch(() => setAdminUser(null));
   }, []);
+
+  const { connected: realtimeConnected, status: realtimeStatus } = useRealtime({
+    enabled: Boolean(tenantId && params.id),
+    channels:
+      tenantId && params.id
+        ? [tenantBookingChannel(tenantId, String(params.id))]
+        : [],
+    onEvent: (event) => {
+      if (matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) {
+        setBooking((current) => patchBookingDetailFromEvent(current, event));
+        fetchDetail();
+      }
+    },
+    onReconnect: fetchDetail,
+  });
 
   useEffect(() => {
     if (!isOwner(adminUser)) return;
@@ -364,6 +423,7 @@ export default function BookingDetailPage() {
             <h1 className="text-xl md:text-4xl lg:text-5xl font-[1000] italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">
               Booking <span className="text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">Detail.</span>
             </h1>
+            <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
             <Badge
               className={cn(
                 "font-black italic text-[9px] uppercase px-3 py-1 rounded-lg border-none shadow-lg",

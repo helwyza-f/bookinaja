@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	platformrealtime "github.com/helwiza/backend/internal/platform/realtime"
 )
 
 var colorPattern = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
@@ -32,12 +33,18 @@ type Publisher interface {
 type Service struct {
 	repo      *Repository
 	publisher Publisher
+	realtime  realtimeBroadcaster
 }
 
-func NewService(repo *Repository, publisher Publisher) *Service {
+type realtimeBroadcaster interface {
+	Publish(channel string, event platformrealtime.Event) error
+}
+
+func NewService(repo *Repository, publisher Publisher, realtime realtimeBroadcaster) *Service {
 	return &Service{
 		repo:      repo,
 		publisher: publisher,
+		realtime:  realtime,
 	}
 }
 
@@ -99,6 +106,7 @@ func (s *Service) Claim(ctx context.Context, tenantID string, actorID *uuid.UUID
 			return nil, err
 		}
 	}
+	s.emitDeviceRealtime("device.claimed", item, map[string]any{"actor_id": actorID})
 	return s.GetDetail(ctx, tenantID, item.ID.String())
 }
 
@@ -131,7 +139,13 @@ func (s *Service) Assign(ctx context.Context, tenantID, deviceID string, actorID
 	if err != nil {
 		return errors.New("ID RESOURCE TIDAK VALID")
 	}
-	return s.repo.AssignResource(ctx, tID, dID, rID, actorID)
+	if err := s.repo.AssignResource(ctx, tID, dID, rID, actorID); err != nil {
+		return err
+	}
+	if item, err := s.repo.FindByTenantAndID(ctx, tID, dID); err == nil {
+		s.emitDeviceRealtime("device.assigned", item, map[string]any{"actor_id": actorID, "resource_id": rID.String()})
+	}
+	return nil
 }
 
 func (s *Service) Unassign(ctx context.Context, tenantID, deviceID string, actorID *uuid.UUID) error {
@@ -143,7 +157,13 @@ func (s *Service) Unassign(ctx context.Context, tenantID, deviceID string, actor
 	if err != nil {
 		return errors.New("ID DEVICE TIDAK VALID")
 	}
-	return s.repo.UnassignResource(ctx, tID, dID, actorID)
+	if err := s.repo.UnassignResource(ctx, tID, dID, actorID); err != nil {
+		return err
+	}
+	if item, err := s.repo.FindByTenantAndID(ctx, tID, dID); err == nil {
+		s.emitDeviceRealtime("device.unassigned", item, map[string]any{"actor_id": actorID})
+	}
+	return nil
 }
 
 func (s *Service) Enable(ctx context.Context, tenantID, deviceID string, actorID *uuid.UUID, enabled bool) error {
@@ -155,7 +175,17 @@ func (s *Service) Enable(ctx context.Context, tenantID, deviceID string, actorID
 	if err != nil {
 		return errors.New("ID DEVICE TIDAK VALID")
 	}
-	return s.repo.SetEnabled(ctx, tID, dID, enabled, actorID)
+	if err := s.repo.SetEnabled(ctx, tID, dID, enabled, actorID); err != nil {
+		return err
+	}
+	if item, err := s.repo.FindByTenantAndID(ctx, tID, dID); err == nil {
+		eventType := "device.enabled"
+		if !enabled {
+			eventType = "device.disabled"
+		}
+		s.emitDeviceRealtime(eventType, item, map[string]any{"actor_id": actorID, "is_enabled": enabled})
+	}
+	return nil
 }
 
 func (s *Service) SendTestCommand(ctx context.Context, tenantID, deviceID string, actorID *uuid.UUID, req TestDeviceReq) (*DeviceCommand, error) {
@@ -256,6 +286,7 @@ func (s *Service) Pair(ctx context.Context, req PairDeviceReq) (*Device, error) 
 	if device.TenantID != nil {
 		_ = s.repo.InsertEvent(ctx, device.ID, device.TenantID, nil, "device", "device.paired", "Device paired", "Device berhasil pairing ke backend.", nil)
 	}
+	s.emitDeviceRealtime("device.paired", device, nil)
 	return device, nil
 }
 
@@ -365,6 +396,7 @@ func (s *Service) HandleStateMessage(ctx context.Context, topic string, payload 
 	}
 	if err == nil && device.TenantID != nil {
 		_ = s.repo.InsertEvent(ctx, device.ID, device.TenantID, nil, "device", "device.state", "State diterima", "Telemetry state terbaru diterima dari device.", nil)
+		s.emitDeviceRealtime("device.state", device, map[string]any{"topic": topic})
 		if previous == nil || previous.ConnectionStatus != "online" {
 			_ = s.ReconcileDesiredStateForDevice(ctx, device)
 		}
@@ -399,6 +431,7 @@ func (s *Service) HandleAckMessage(ctx context.Context, topic string, payload []
 		_ = s.repo.MarkCommandAcked(ctx, commandID)
 		if device, derr := s.repo.FindByTenantAndID(ctx, command.TenantID, command.DeviceID); derr == nil {
 			_ = s.repo.InsertEvent(ctx, device.ID, device.TenantID, nil, "device", "device.ack", "Command di-ack", "Device mengonfirmasi command diterima.", map[string]any{"command_id": commandID})
+			s.emitDeviceCommandRealtime("device_command.acked", device, command, map[string]any{"command_id": commandID.String()})
 		}
 	}
 	return nil
@@ -471,6 +504,9 @@ func (s *Service) tryPublishQueuedCommand(ctx context.Context, command DeviceCom
 
 	_ = s.repo.MarkCommandPublished(ctx, command.ID)
 	_ = s.repo.InsertEvent(ctx, command.DeviceID, &command.TenantID, nil, "system", eventType, "Command terkirim", "Command otomatis berhasil dipublish ke broker.", map[string]any{"command_id": command.ID, "trigger_event": command.TriggerEvent})
+	if device, err := s.repo.FindByTenantAndID(ctx, command.TenantID, command.DeviceID); err == nil {
+		s.emitDeviceCommandRealtime("device_command.sent", device, &command, map[string]any{"command_id": command.ID.String(), "trigger_event": command.TriggerEvent})
+	}
 }
 
 func (s *Service) ReconcileHeartbeats(ctx context.Context, staleAfter time.Duration) error {
@@ -622,4 +658,56 @@ func parseStringField(payload []byte, field string) *string {
 	}
 	trimmed := strings.TrimSpace(value)
 	return &trimmed
+}
+
+func (s *Service) emitDeviceRealtime(eventType string, device *Device, meta map[string]any) {
+	if s.realtime == nil || device == nil || device.TenantID == nil {
+		return
+	}
+	event := platformrealtime.NewEvent(eventType)
+	event.TenantID = device.TenantID.String()
+	event.EntityType = "device"
+	event.EntityID = device.ID.String()
+	event.Summary = map[string]any{
+		"device_id":         device.DeviceID,
+		"device_name":       device.DeviceName,
+		"pairing_status":    device.PairingStatus,
+		"connection_status": device.ConnectionStatus,
+		"is_enabled":        device.IsEnabled,
+		"resource_id":       device.ResourceID,
+		"last_seen_at":      device.LastSeenAt,
+	}
+	event.Refs = map[string]any{
+		"device_id":   device.ID.String(),
+		"resource_id": device.ResourceID,
+	}
+	event.Meta = meta
+	_ = s.realtime.Publish(platformrealtime.TenantDevicesChannel(device.TenantID.String()), event)
+	_ = s.realtime.Publish(platformrealtime.TenantDeviceChannel(device.TenantID.String(), device.ID.String()), event)
+}
+
+func (s *Service) emitDeviceCommandRealtime(eventType string, device *Device, command *DeviceCommand, meta map[string]any) {
+	if s.realtime == nil || device == nil || command == nil || device.TenantID == nil {
+		return
+	}
+	event := platformrealtime.NewEvent(eventType)
+	event.TenantID = device.TenantID.String()
+	event.EntityType = "device_command"
+	event.EntityID = command.ID.String()
+	event.Summary = map[string]any{
+		"device_id":      device.DeviceID,
+		"trigger_event":  command.TriggerEvent,
+		"status":         command.Status,
+		"booking_id":     command.BookingID,
+		"published_at":   command.PublishedAt,
+		"acked_at":       command.AckedAt,
+	}
+	event.Refs = map[string]any{
+		"device_id":        device.ID.String(),
+		"device_command_id": command.ID.String(),
+		"booking_id":       command.BookingID,
+	}
+	event.Meta = meta
+	_ = s.realtime.Publish(platformrealtime.TenantDevicesChannel(device.TenantID.String()), event)
+	_ = s.realtime.Publish(platformrealtime.TenantDeviceChannel(device.TenantID.String(), device.ID.String()), event)
 }

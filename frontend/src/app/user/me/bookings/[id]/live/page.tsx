@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Script from "next/script";
 import { Card } from "@/components/ui/card";
@@ -30,6 +30,13 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
 import { BookingLiveController } from "@/components/customer/booking-live-controller";
+import { useRealtime } from "@/lib/realtime/use-realtime";
+import { customerBookingChannel } from "@/lib/realtime/channels";
+import {
+  BOOKING_EVENT_PREFIXES,
+  matchesRealtimePrefix,
+} from "@/lib/realtime/event-types";
+import { RealtimePill } from "@/components/dashboard/realtime-pill";
 
 export default function CustomerBookingDetail() {
   const params = useParams();
@@ -43,8 +50,10 @@ export default function CustomerBookingDetail() {
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [midtransReady, setMidtransReady] = useState(false);
   const [activating, setActivating] = useState(false);
+  const [customerId, setCustomerId] = useState("");
+  const lastRealtimeToastRef = useRef("");
 
-  const fetchDetail = async () => {
+  const fetchDetail = useCallback(async () => {
     try {
       const res = await api.get(`/user/me/bookings/${params.id}`);
       setBooking(res.data);
@@ -60,18 +69,18 @@ export default function CustomerBookingDetail() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.id, router]);
 
-  const syncSession = async () => {
+  const syncSession = useCallback(async () => {
     try {
       await api.post(`/public/bookings/${params.id}/sync`);
       await fetchDetail();
     } catch {
       // ignore sync errors, UI still loads from booking detail
     }
-  };
+  }, [fetchDetail, params.id]);
 
-  const fetchMenuItems = async (slug?: string) => {
+  const fetchMenuItems = useCallback(async (slug?: string) => {
     if (!slug) return;
     try {
       const menuRes = await api.get("/customer/fnb", { params: { slug } });
@@ -79,9 +88,9 @@ export default function CustomerBookingDetail() {
     } catch {
       setMenuItems([]);
     }
-  };
+  }, []);
 
-  const fetchLiveContext = async () => {
+  const fetchLiveContext = useCallback(async () => {
     try {
       const res = await api.get(`/user/me/bookings/${params.id}/context`);
       if (res.data?.booking) {
@@ -97,7 +106,7 @@ export default function CustomerBookingDetail() {
         setLiveNotice(message);
       }
     }
-  };
+  }, [params.id]);
 
   useEffect(() => {
     if (!params.id) return;
@@ -134,6 +143,16 @@ export default function CustomerBookingDetail() {
       if (cancelled) return;
 
       const detail = await fetchDetail();
+      try {
+        const meRes = await api.get("/me");
+        if (!cancelled) {
+          setCustomerId(meRes.data?.id || "");
+        }
+      } catch {
+        if (!cancelled) {
+          setCustomerId("");
+        }
+      }
       const currentSlug = detail?.tenant_slug;
       if (currentSlug) {
         await fetchMenuItems(currentSlug);
@@ -166,7 +185,52 @@ export default function CustomerBookingDetail() {
       cancelled = true;
       if (cleanup) cleanup();
     };
-  }, [params.id]);
+  }, [fetchDetail, fetchLiveContext, fetchMenuItems, params.id, syncSession]);
+
+  const { connected: realtimeConnected, status: realtimeStatus } = useRealtime({
+    enabled: Boolean(customerId && params.id),
+    channels:
+      customerId && params.id
+        ? [customerBookingChannel(customerId, String(params.id))]
+        : [],
+    onEvent: (event) => {
+      if (!matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) return;
+      setBooking((prev: any) =>
+        prev
+          ? {
+              ...prev,
+              status: event.summary?.status ?? prev.status,
+              payment_status: event.summary?.payment_status ?? prev.payment_status,
+              grand_total: event.summary?.grand_total ?? prev.grand_total,
+              balance_due: event.summary?.balance_due ?? prev.balance_due,
+            }
+          : prev,
+      );
+      const eventKey = `${event.type}:${event.entity_id || ""}:${event.occurred_at || ""}`;
+      if (lastRealtimeToastRef.current !== eventKey) {
+        lastRealtimeToastRef.current = eventKey;
+        if (event.type === "payment.dp.paid") {
+          toast.success("DP sudah diterima");
+        } else if (event.type === "payment.settlement.paid" || event.type === "payment.cash.settled") {
+          toast.success("Pembayaran booking sudah lunas");
+        } else if (event.type === "session.activated") {
+          toast.success("Sesi berhasil dimulai");
+        } else if (event.type === "session.completed") {
+          toast.message("Sesi sudah selesai");
+        } else if (event.type === "order.fnb.added") {
+          toast.message("Pesanan F&B berhasil masuk");
+        } else if (event.type === "order.addon.added") {
+          toast.message("Add-on berhasil ditambahkan");
+        }
+      }
+      void fetchDetail();
+      void fetchLiveContext();
+    },
+    onReconnect: () => {
+      void fetchDetail();
+      void fetchLiveContext();
+    },
+  });
 
   useEffect(() => {
     if (window.snap) {
@@ -489,6 +553,7 @@ export default function CustomerBookingDetail() {
       </nav>
 
       <main className="max-w-xl mx-auto p-4 space-y-4">
+        <RealtimePill connected={realtimeConnected} status={realtimeStatus} className="normal-case tracking-normal" />
         {/* TIMER CONTROLLER */}
         {countdownData && (
           <Card

@@ -23,6 +23,7 @@ import (
 	"github.com/helwiza/backend/internal/platform/http/routecfg"
 	midtranssvc "github.com/helwiza/backend/internal/platform/midtrans"
 	platformmqtt "github.com/helwiza/backend/internal/platform/mqtt"
+	platformrealtime "github.com/helwiza/backend/internal/platform/realtime"
 	"github.com/helwiza/backend/internal/platformadmin"
 	"github.com/helwiza/backend/internal/reservation"
 	"github.com/helwiza/backend/internal/resource"
@@ -115,8 +116,9 @@ func main() {
 	expenseSvc := expense.NewService(expenseRepo)
 	resourceSvc := resource.NewService(resourceRepo)
 	fnbSvc := fnb.NewService(fnbRepo)
-	smartDeviceSvc := smartdevice.NewService(smartDeviceRepo, mqttClient)
-	reservationSvc := reservation.NewService(reservationRepo, resourceRepo, customerSvc, fnbSvc, smartDeviceSvc)
+	realtimeHub := platformrealtime.NewHub()
+	smartDeviceSvc := smartdevice.NewService(smartDeviceRepo, mqttClient, realtimeHub)
+	reservationSvc := reservation.NewService(reservationRepo, resourceRepo, customerSvc, fnbSvc, smartDeviceSvc, realtimeHub)
 	scheduler := reservation.NewScheduler(db, reservationRepo, smartDeviceSvc)
 	billingSvc := billing.NewService(db, billingRepo)
 	platformSvc := platformadmin.NewService()
@@ -133,9 +135,10 @@ func main() {
 	fnbHdl := fnb.NewHandler(fnbSvc)
 	billingHdl := billing.NewHandler(billingSvc)
 	platformHdl := platformadmin.NewHandler(platformSvc, platformRepo)
-	midtransSvc := midtranssvc.NewService(db, midtransRepo)
+	midtransSvc := midtranssvc.NewService(db, midtransRepo, realtimeHub)
 	midtransHdl := midtranssvc.NewHandler(midtransSvc)
 	smartDeviceHdl := smartdevice.NewHandler(smartDeviceSvc)
+	realtimeHdl := platformrealtime.NewHandler(realtimeHub)
 
 	routerConfig := routecfg.Config{
 		DB:                 db,
@@ -150,6 +153,7 @@ func main() {
 		PlatformHandler:    platformHdl,
 		MidtransHandler:    midtransHdl,
 		SmartDeviceHandler: smartDeviceHdl,
+		RealtimeHandler:    realtimeHdl,
 	}
 
 	r := http.NewRouter(routerConfig, db, rdb)

@@ -11,18 +11,24 @@ import (
 	"strings"
 	"time"
 
+	platformrealtime "github.com/helwiza/backend/internal/platform/realtime"
 	"github.com/helwiza/backend/internal/platform/fonnte"
 	"github.com/jmoiron/sqlx"
 	"math/big"
 )
 
 type Service struct {
-	repo *Repository
-	db   *sqlx.DB
+	repo     *Repository
+	db       *sqlx.DB
+	realtime realtimeBroadcaster
 }
 
-func NewService(db *sqlx.DB, repo *Repository) *Service {
-	return &Service{db: db, repo: repo}
+type realtimeBroadcaster interface {
+	Publish(channel string, event platformrealtime.Event) error
+}
+
+func NewService(db *sqlx.DB, repo *Repository, realtime realtimeBroadcaster) *Service {
+	return &Service{db: db, repo: repo, realtime: realtime}
 }
 
 func (s *Service) HandleNotification(ctx context.Context, payload map[string]any) error {
@@ -271,9 +277,45 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 		return err
 	}
 	if notify != nil {
+		eventType := "payment.dp.paid"
+		if notifyMode == "settlement" {
+			eventType = "payment.settlement.paid"
+		}
+		s.emitBookingPaymentRealtime(eventType, *notify, notifyMode)
 		_ = s.sendBookingPaymentWhatsApp(ctx, *notify, notifyMode)
 	}
 	return nil
+}
+
+func (s *Service) emitBookingPaymentRealtime(eventType string, info BookingNotificationContext, mode string) {
+	if s.realtime == nil {
+		return
+	}
+
+	event := platformrealtime.NewEvent(eventType)
+	event.TenantID = info.TenantID.String()
+	event.EntityType = "booking"
+	event.EntityID = info.BookingID.String()
+	event.Summary = map[string]any{
+		"status":         info.Status,
+		"payment_status": info.PaymentStatus,
+		"resource_name":  info.ResourceName,
+		"customer_name":  info.CustomerName,
+		"grand_total":    info.GrandTotal,
+		"balance_due":    info.BalanceDue,
+	}
+	event.Refs = map[string]any{
+		"booking_id":  info.BookingID.String(),
+		"customer_id": info.CustomerID.String(),
+	}
+	event.Meta = map[string]any{
+		"payment_mode": mode,
+	}
+
+	_ = s.realtime.Publish(platformrealtime.TenantBookingsChannel(info.TenantID.String()), event)
+	_ = s.realtime.Publish(platformrealtime.TenantBookingChannel(info.TenantID.String(), info.BookingID.String()), event)
+	_ = s.realtime.Publish(platformrealtime.TenantDashboardChannel(info.TenantID.String()), event)
+	_ = s.realtime.Publish(platformrealtime.CustomerBookingChannel(info.CustomerID.String(), info.BookingID.String()), event)
 }
 
 func (s *Service) sendBookingPaymentWhatsApp(ctx context.Context, info BookingNotificationContext, mode string) error {

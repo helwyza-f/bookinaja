@@ -22,6 +22,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { RealtimePill } from "@/components/dashboard/realtime-pill";
+import { useRealtime } from "@/lib/realtime/use-realtime";
+import { tenantDeviceChannel } from "@/lib/realtime/channels";
+import {
+  DEVICE_EVENT_PREFIXES,
+  type RealtimeEvent,
+  matchesRealtimePrefix,
+} from "@/lib/realtime/event-types";
 
 type ResourceOption = {
   id: string;
@@ -104,6 +112,47 @@ function lastSeenText(value?: string | null) {
   return new Date(value).toLocaleString("id-ID");
 }
 
+function patchDeviceDetailFromEvent(
+  current: DeviceDetail | null,
+  event: RealtimeEvent,
+) {
+  if (!current) return current;
+  const eventInternalID = String(event.entity_id || "");
+  const eventDeviceID = String(event.summary?.device_id || "");
+  if (!eventInternalID && !eventDeviceID) {
+    return current;
+  }
+  const matched =
+    (eventInternalID && current.id === eventInternalID) ||
+    (eventDeviceID && current.device_id === eventDeviceID);
+  if (!matched) {
+    return current;
+  }
+
+  return {
+    ...current,
+    device_id: String(event.summary?.device_id ?? current.device_id),
+    device_name: String(event.summary?.device_name ?? current.device_name),
+    pairing_status: String(
+      event.summary?.pairing_status ?? current.pairing_status,
+    ),
+    connection_status: String(
+      event.summary?.connection_status ?? current.connection_status,
+    ),
+    is_enabled:
+      typeof event.summary?.is_enabled === "boolean"
+        ? Boolean(event.summary.is_enabled)
+        : current.is_enabled,
+    resource_id:
+      event.summary?.resource_id === null
+        ? null
+        : String(event.summary?.resource_id ?? current.resource_id ?? "") || null,
+    last_seen_at: String(
+      event.summary?.last_seen_at ?? current.last_seen_at ?? "",
+    ) || null,
+  };
+}
+
 export default function DeviceDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -111,6 +160,7 @@ export default function DeviceDetailPage() {
   const [saving, setSaving] = useState(false);
   const [device, setDevice] = useState<DeviceDetail | null>(null);
   const [resources, setResources] = useState<ResourceOption[]>([]);
+  const [tenantId, setTenantId] = useState("");
   const [resourceId, setResourceId] = useState("");
   const [testForm, setTestForm] = useState({
     event: "manual_test",
@@ -122,14 +172,16 @@ export default function DeviceDetailPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [deviceRes, resourcesRes] = await Promise.all([
+      const [deviceRes, resourcesRes, meRes] = await Promise.all([
         api.get(`/devices/${params.id}`),
         api.get("/resources-all"),
+        api.get("/auth/me"),
       ]);
       const nextDevice = deviceRes.data;
       setDevice(nextDevice);
       setResourceId(nextDevice.resource_id || "");
       setResources(resourcesRes.data.resources || []);
+      setTenantId(meRes.data?.user?.tenant_id || "");
     } catch {
       toast.error("Gagal memuat detail alat");
       router.push("/admin/devices");
@@ -141,6 +193,23 @@ export default function DeviceDetailPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const { connected: realtimeConnected, status: realtimeStatus } = useRealtime({
+    enabled: Boolean(tenantId && device?.id),
+    channels:
+      tenantId && device?.id
+        ? [tenantDeviceChannel(tenantId, device.id)]
+        : [],
+    onEvent: (event) => {
+      if (matchesRealtimePrefix(event.type, DEVICE_EVENT_PREFIXES)) {
+        setDevice((current) => patchDeviceDetailFromEvent(current, event));
+        if (event.type.startsWith("device_command.")) {
+          fetchData();
+        }
+      }
+    },
+    onReconnect: fetchData,
+  });
 
   const sortedResources = useMemo(
     () => [...resources].sort((a, b) => a.name.localeCompare(b.name)),
@@ -228,6 +297,9 @@ export default function DeviceDetailPage() {
             </div>
             <h1 className="text-2xl font-semibold text-slate-950">{device.device_name}</h1>
             <div className="text-sm text-slate-500">{device.device_id}</div>
+            <div className="mt-2">
+              <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
+            </div>
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
