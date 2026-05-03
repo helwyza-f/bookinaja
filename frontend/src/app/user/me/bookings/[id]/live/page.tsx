@@ -53,6 +53,15 @@ export default function CustomerBookingDetail() {
   const [customerId, setCustomerId] = useState("");
   const lastRealtimeToastRef = useRef("");
 
+  const resolveCustomerId = (payload: any) => {
+    return String(
+      payload?.customer?.id ||
+        payload?.customer_id ||
+        payload?.id ||
+        "",
+    );
+  };
+
   const fetchDetail = useCallback(async () => {
     try {
       const res = await api.get(`/user/me/bookings/${params.id}`);
@@ -146,7 +155,7 @@ export default function CustomerBookingDetail() {
       try {
         const meRes = await api.get("/me");
         if (!cancelled) {
-          setCustomerId(meRes.data?.id || "");
+          setCustomerId(resolveCustomerId(meRes.data));
         }
       } catch {
         if (!cancelled) {
