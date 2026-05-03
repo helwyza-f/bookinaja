@@ -301,7 +301,12 @@ export default function SettingsAnalyticsPage() {
   if (!isProActive && !isStarterTrial) {
     return (
       <div className="space-y-4 p-4 pb-20 sm:space-y-6 sm:p-6">
-        <HeroHeader onRefresh={() => void fetchAnalytics()} refreshing={refreshing} />
+        <HeroHeader
+          onRefresh={() => void fetchAnalytics("background")}
+          refreshing={refreshing}
+          realtimeConnected={realtimeConnected}
+          realtimeStatus={realtimeStatus}
+        />
         <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <div className="space-y-1">
@@ -341,7 +346,12 @@ export default function SettingsAnalyticsPage() {
 
   return (
     <div className="space-y-4 p-4 pb-20 sm:space-y-6 sm:p-6">
-      <HeroHeader onRefresh={() => void fetchAnalytics()} refreshing={refreshing} />
+      <HeroHeader
+        onRefresh={() => void fetchAnalytics("background")}
+        refreshing={refreshing}
+        realtimeConnected={realtimeConnected}
+        realtimeStatus={realtimeStatus}
+      />
 
       <div className="flex flex-wrap gap-2">
         {(["7d", "30d", "90d"] as RangeKey[]).map((item) => (
@@ -684,7 +694,17 @@ export default function SettingsAnalyticsPage() {
   );
 }
 
-function HeroHeader({ onRefresh, refreshing }: { onRefresh: () => void; refreshing: boolean }) {
+function HeroHeader({
+  onRefresh,
+  refreshing,
+  realtimeConnected,
+  realtimeStatus,
+}: {
+  onRefresh: () => void;
+  refreshing: boolean;
+  realtimeConnected: boolean;
+  realtimeStatus: "idle" | "connecting" | "connected" | "reconnecting";
+}) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="space-y-1">
@@ -701,8 +721,8 @@ function HeroHeader({ onRefresh, refreshing }: { onRefresh: () => void; refreshi
         <div className="flex items-center gap-2">
           <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
           <Button onClick={onRefresh} variant="outline" className="w-full gap-2 sm:w-auto">
-          <RefreshCcw className={cn("h-4 w-4", refreshing && "animate-spin")} />
-          Refresh
+            <RefreshCcw className={cn("h-4 w-4", refreshing && "animate-spin")} />
+            Refresh
           </Button>
         </div>
         <Button asChild className="w-full gap-2 bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)] sm:w-auto">
