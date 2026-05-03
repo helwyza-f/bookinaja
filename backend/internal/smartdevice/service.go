@@ -317,7 +317,7 @@ func (s *Service) EnqueueStandbyByResource(ctx context.Context, tenantID, resour
 	if err != nil {
 		return err
 	}
-	return s.repo.CreateCommand(ctx, DeviceCommand{
+	command := DeviceCommand{
 		ID:              commandID,
 		TenantID:        tID,
 		DeviceID:        device.ID,
@@ -332,7 +332,12 @@ func (s *Service) EnqueueStandbyByResource(ctx context.Context, tenantID, resour
 		DedupeKey:       fmt.Sprintf("%s:%s", dedupeKey, now.Format("200601021504")),
 		CreatedAt:       now,
 		UpdatedAt:       now,
-	})
+	}
+	if err := s.repo.CreateCommand(ctx, command); err != nil {
+		return err
+	}
+	s.tryPublishQueuedCommand(ctx, command, "command.sent")
+	return nil
 }
 
 func (s *Service) HandleStateMessage(ctx context.Context, topic string, payload []byte) error {
@@ -426,7 +431,7 @@ func (s *Service) enqueueBookingCommand(ctx context.Context, tenantID, bookingID
 	if err != nil {
 		return err
 	}
-	return s.repo.CreateCommand(ctx, DeviceCommand{
+	command := DeviceCommand{
 		ID:              commandID,
 		TenantID:        tID,
 		DeviceID:        device.ID,
@@ -442,7 +447,30 @@ func (s *Service) enqueueBookingCommand(ctx context.Context, tenantID, bookingID
 		DedupeKey:       fmt.Sprintf("booking:%s:%s", detail.ID.String(), triggerEvent),
 		CreatedAt:       now,
 		UpdatedAt:       now,
-	})
+	}
+	if err := s.repo.CreateCommand(ctx, command); err != nil {
+		return err
+	}
+	s.tryPublishQueuedCommand(ctx, command, "command.sent")
+	return nil
+}
+
+func (s *Service) tryPublishQueuedCommand(ctx context.Context, command DeviceCommand, eventType string) {
+	if s.publisher == nil || !s.publisher.IsConnected() {
+		return
+	}
+	publishCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	if err := s.publisher.Publish(publishCtx, command.CommandTopic, byte(command.QoS), command.Retain, command.Payload); err != nil {
+		retryAt := time.Now().UTC().Add(30 * time.Second)
+		_ = s.repo.MarkCommandRetry(ctx, command.ID, err.Error(), command.PublishAttempts+1, retryAt)
+		_ = s.repo.InsertEvent(ctx, command.DeviceID, &command.TenantID, nil, "system", "command.retry", "Command retry dijadwalkan", "Publish ke broker gagal dan command akan dicoba ulang.", map[string]any{"command_id": command.ID, "error": err.Error()})
+		return
+	}
+
+	_ = s.repo.MarkCommandPublished(ctx, command.ID)
+	_ = s.repo.InsertEvent(ctx, command.DeviceID, &command.TenantID, nil, "system", eventType, "Command terkirim", "Command otomatis berhasil dipublish ke broker.", map[string]any{"command_id": command.ID, "trigger_event": command.TriggerEvent})
 }
 
 func (s *Service) ReconcileHeartbeats(ctx context.Context, staleAfter time.Duration) error {
