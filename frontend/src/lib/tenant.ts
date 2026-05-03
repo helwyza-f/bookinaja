@@ -106,6 +106,46 @@ export function getTenantUrl(
   return `${protocol}//${normalizedSlug}.${root.host}${port}${safePath}${search ? `?${search}` : ""}`;
 }
 
+export function getRootPortalUrl(
+  path = "/",
+  searchParams?: Record<string, string | number | boolean | null | undefined>,
+) {
+  const root = resolveConfiguredRoot();
+  const [pathnamePart, searchPart = ""] = path.split("?");
+  const safePath = pathnamePart.startsWith("/")
+    ? pathnamePart
+    : `/${pathnamePart}`;
+  const mergedSearch = new URLSearchParams(searchPart);
+
+  if (searchParams) {
+    for (const [key, value] of Object.entries(searchParams)) {
+      if (value === undefined || value === null) continue;
+      mergedSearch.set(key, String(value));
+    }
+  }
+
+  const search = mergedSearch.toString();
+
+  if (typeof window !== "undefined") {
+    const url = new URL(window.location.href);
+    url.hostname = root.host;
+    if (root.port) {
+      url.port = root.port;
+    } else {
+      url.port = "";
+    }
+    url.pathname = safePath;
+    url.search = search ? `?${search}` : "";
+    url.hash = "";
+    return url.toString();
+  }
+
+  const protocol =
+    process.env.NODE_ENV === "production" ? "https:" : "http:";
+  const port = root.port ? `:${root.port}` : "";
+  return `${protocol}//${root.host}${port}${safePath}${search ? `?${search}` : ""}`;
+}
+
 function resolveConfiguredRoot() {
   const cleaned = ROOT_DOMAIN || "bookinaja.local";
   const [host, portFromDomain] = cleaned.split(":");
