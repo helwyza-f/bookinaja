@@ -1,214 +1,148 @@
 # Bookinaja
 
-A full-stack SaaS booking platform with Next.js frontend, Go backend, PostgreSQL database, and Redis caching.
+**Bookinaja adalah sistem operasional bisnis booking dan rental yang membantu owner menjalankan usaha dengan lebih rapi, lebih cepat, dan lebih tenang.**
 
-## Overview
+Kami membangun Bookinaja untuk bisnis yang hidup dari jadwal, sesi, resource, customer, pembayaran, dan operasional harian yang tidak boleh berantakan. Mulai dari gaming center, studio, ruang sewa, venue, sampai bisnis berbasis slot waktu lain, Bookinaja dirancang supaya tim bisa bergerak cepat tanpa kehilangan kontrol.
 
-Bookinaja is a multi-tenant booking platform designed for managing reservations, customers, billing, and more. It uses a microservices architecture with clear separation between frontend and backend services.
+## Kenapa Bookinaja
 
-**For detailed architecture, conventions, and implementation notes, see [.github/copilot-instructions.md](.github/copilot-instructions.md)**
+Banyak bisnis booking tumbuh lebih cepat daripada sistem operasionalnya. Di awal semuanya masih bisa ditangani lewat chat, spreadsheet, catatan kasir, dan ingatan tim. Tapi ketika traffic naik, masalah yang muncul biasanya sama:
 
-## Tech Stack
+- booking bentrok
+- status pembayaran tidak sinkron
+- sesi aktif sulit dipantau
+- add-on dan F&B tercatat terpisah
+- owner tidak tahu siapa yang melakukan perubahan
+- tim kerja cepat, tapi jejak operasional tidak transparan
 
-- **Frontend:** Next.js 16 (React 19, TypeScript, Tailwind CSS)
-- **Backend:** Go + Gin HTTP framework
-- **Database:** PostgreSQL (with SQL migrations via golang-migrate)
-- **Cache:** Redis
-- **Deployment:** Docker Compose
+Bookinaja dibuat untuk menutup celah itu.
 
-## Project Structure
+## Nilai Utama
 
-```
-bookinaja/
-├── frontend/          # Next.js frontend application
-│   ├── src/
-│   │   ├── app/       # Next.js App Router (pages, layouts, components)
-│   │   ├── components/# Reusable React components (shadcn/ui)
-│   │   ├── lib/       # Utilities and helpers
-│   │   ├── types/     # TypeScript definitions
-│   │   └── proxy.ts   # Backend API client
-│   └── package.json
-│
-├── backend/              # Go backend application
-│   ├── cmd/api/       # Application entry point
-│   ├── internal/      # Domain packages (auth, reservation, tenant, etc.)
-│   ├── migrations/    # SQL migration files
-│   ├── Makefile       # Development commands
-│   └── go.mod
-│
-├── docker-compose.dev.yml  # Development environment
-├── docker-compose.yml      # Production environment
-└── .github/copilot-instructions.md  # Detailed implementation guide
-```
+### Booking yang lebih rapi
+Booking, konfirmasi, DP, aktivasi sesi, pelunasan, add-on, sampai penutupan sesi tercatat dalam satu alur yang jelas.
 
-## Quick Start
+### Operasional yang lebih tenang
+Tim admin, kasir, dan operator bekerja dari dashboard yang sama. Owner bisa memantau tanpa harus turun ke semua detail manual.
 
-### Option 1: Docker Compose (Recommended)
+### Transparansi yang lebih kuat
+Setiap event penting bisa ditelusuri. Bukan cuma "apa yang berubah", tapi juga "siapa yang melakukannya".
 
-```bash
-# Development (all services with live reload)
-docker-compose -f docker-compose.dev.yml up
+### Pengalaman customer yang lebih modern
+Customer punya portal sendiri untuk melihat booking, status pembayaran, live session, dan update realtime tanpa harus bolak-balik tanya admin.
 
-# Runs:
-# - PostgreSQL on :5432
-# - Redis on :6379
-# - Go backend on :8080
-# - Next.js frontend on :3000
-```
+### Siap bertumbuh
+Bookinaja dibangun sebagai SaaS multi-tenant, jadi fondasinya memang disiapkan untuk banyak tenant, banyak resource, dan ritme operasional yang terus naik.
 
-### Option 2: Local Development
+## Cocok Untuk
 
-**Requirements:**
-- Node.js v20+ (for frontend)
-- Go 1.25+ (for backend)
-- PostgreSQL 15+
-- Redis
+Bookinaja paling cocok untuk bisnis yang menjual:
 
-**Terminal 1 - Frontend:**
-```bash
-cd frontend
-npm install
-npm run dev
-# http://localhost:3000
-```
+- sesi per jam
+- slot waktu
+- unit sewa
+- resource terbatas
+- layanan tambahan saat sesi berjalan
 
-**Terminal 2 - Backend:**
-```bash
-cd backend
-make run
-# http://localhost:8080
-```
+Contohnya:
 
-**Terminal 3 - Database:**
-```bash
-docker-compose -f docker-compose.dev.yml up postgres_db redis_cache
-```
+- gaming lounge dan PlayStation center
+- studio musik
+- studio podcast
+- ruang meeting
+- venue kecil
+- area hiburan berbasis booking
+- bisnis rental lain yang butuh kontrol sesi dan pembayaran
 
-## Build & Deployment
+## Apa yang Dibantu Bookinaja
 
-### Frontend
-```bash
-cd frontend
-npm run build      # Creates .next/ production build
-npm start          # Runs production build
-```
+### 1. Sebelum sesi dimulai
 
-### Backend
-```bash
-cd backend
-make migrate-up    # Apply database migrations
-go build ./cmd/api # Compile binary
-./api              # Run server
-```
+- customer melakukan booking
+- sistem menghitung total, DP, dan sisa pembayaran
+- pembayaran digital bisa dikonfirmasi otomatis
+- booking masuk ke dashboard admin dengan status yang jelas
 
-### Docker (Full Stack)
-```bash
-docker-compose up -d
-# Frontend: http://localhost:3001
-# Backend: http://localhost:8081
-# DB: localhost:5433 (mapped from 5432)
-```
+### 2. Saat sesi berjalan
 
-## Development Commands
+- admin bisa mulai sesi dengan cepat
+- POS bisa menambahkan F&B dan add-on tanpa keluar dari alur booking
+- customer bisa melihat live controller secara realtime
+- Smart Point dan device event bisa ikut tersinkron
 
-### Frontend (frontend/)
-- `npm run dev` - Development server with hot reload
-- `npm run build` - Production build
-- `npm run lint` - Run ESLint
+### 3. Setelah sesi selesai
 
-### Backend (backend/)
-- `make run` - Start development server
-- `make migrate-up` - Apply database migrations
-- `make migrate-down` - Rollback one migration
-- `make db-reset` - Drop and recreate database schema
-- `make test` - Run tests (if configured)
+- pelunasan lebih rapi
+- histori booking tersimpan
+- timeline aktivitas lebih transparan
+- owner punya jejak audit yang lebih jelas
 
-## Database
+## Yang Membuatnya Berbeda
 
-**Connection string (dev):**
-```
-postgres://devuser:devpassword@localhost:5432/bookinaja_dev
-```
+Bookinaja bukan sekadar halaman booking.
 
-**Migrations:**
-- Located in `backend/migrations/`
-- Auto-runs on backend startup
-- Managed with [golang-migrate](https://github.com/golang-migrate/migrate)
+Ia dirancang sebagai **operating system untuk bisnis booking**:
 
-**To create a new migration:**
-```bash
-# Migrations use SQL files: YYYYMMDDHHMMSS_description.up.sql
-# Place in backend/migrations/ and they'll auto-run on next backend start
-```
+- booking engine
+- customer portal
+- POS flow
+- billing dan settlement
+- staff permission
+- audit timeline
+- realtime event system
+- smart device orchestration
 
-## Environment Configuration
+Semua itu bekerja di dalam satu produk yang saling terhubung.
 
-Each service uses `.env` files (not committed to git):
+## Technology, But With Business Purpose
 
-**Frontend (.env.local):**
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8080
-```
+Kami peduli pada teknologi bukan demi terlihat teknis, tapi demi memastikan produk ini:
 
-**Backend (.env):**
-```env
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=devuser
-DB_PASSWORD=devpassword
-DB_NAME=bookinaja_dev
-```
+- cepat dipakai tim harian
+- stabil saat traffic naik
+- transparan untuk owner
+- siap dikembangkan untuk use case baru
 
-Copy `.env.example` files if they exist to get started.
+Di balik produk ini, Bookinaja dibangun dengan stack modern seperti:
 
-## Code Style & Conventions
+- Next.js untuk experience frontend yang cepat
+- Go untuk backend yang efisien dan stabil
+- PostgreSQL untuk data inti operasional
+- Redis untuk performa dan caching
+- WebSocket untuk update realtime
+- MQTT untuk integrasi device dan Smart Point
 
-See [.github/copilot-instructions.md](.github/copilot-instructions.md) for:
-- Next.js patterns and component conventions
-- Go domain-driven design structure
-- Multi-tenancy patterns
-- Error handling practices
-- API integration patterns
+Artinya sederhana: **pengalaman pengguna dibuat terasa ringan, tapi fondasinya cukup kuat untuk operasional serius.**
 
-## Troubleshooting
+## Posisi Bookinaja
 
-### Database Connection Issues
-```bash
-# Check if PostgreSQL is running
-docker-compose -f docker-compose.dev.yml ps
+Bookinaja berdiri di titik tengah yang penting:
 
-# Reset database and migrations
-cd backend && make db-reset
-```
+- cukup sederhana untuk dipakai tim operasional harian
+- cukup kuat untuk dipakai owner yang butuh kontrol, audit, dan visibilitas
 
-### Port Conflicts
-- Dev: Uses standard ports (5432, 6379, 3000, 8080)
-- Prod: Remapped to avoid conflicts (5433, 6380, 3001, 8081)
+Kami tidak ingin hanya membuat "aplikasi booking".
+Kami ingin membangun sistem yang membuat bisnis booking terlihat lebih profesional di mata customer, dan terasa lebih terkendali di mata owner.
 
-### Frontend Build Issues
-```bash
-# Clear Next.js cache
-cd frontend && rm -rf .next && npm run build
-```
+## Visi
 
-### Backend Compilation Issues
-```bash
-# Update dependencies
-cd backend && go mod tidy
-```
+Kami percaya bisnis berbasis booking di Indonesia butuh software yang:
 
-## Contributing
+- terasa modern
+- relevan dengan ritme operasional lokal
+- tidak rumit dipakai
+- tetap punya fondasi teknologi yang kuat
 
-1. Create a feature branch: `git checkout -b feature/your-feature-name`
-2. Make your changes
-3. Commit: `git commit -m "Clear description of changes"`
-4. Push: `git push origin feature/your-feature-name`
-5. Open a pull request
+Itulah arah Bookinaja.
 
-## Resources
+## Untuk Tim Teknis
 
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Go Documentation](https://golang.org/doc)
-- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
-- [Gin Web Framework](https://gin-gonic.com/)
-- [Implementation Guide](.github/copilot-instructions.md)
+README ini sengaja difokuskan sebagai product pitch.
+
+Kalau kamu sedang melihat repo ini dari sisi engineering dan butuh panduan implementasi, arsitektur, atau konvensi pengembangan, lihat:
+
+- [.github/copilot-instructions.md](.github/copilot-instructions.md)
+
+---
+
+**Bookinaja membantu bisnis booking bekerja lebih rapi hari ini, dan lebih siap bertumbuh besok.**
