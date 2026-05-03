@@ -23,9 +23,13 @@ export function useRealtime({
   onEvent,
   onReconnect,
 }: UseRealtimeOptions) {
+  const normalizedChannels = Array.from(
+    new Set(channels.map((channel) => channel.trim()).filter(Boolean)),
+  ).sort();
+  const channelKey = normalizedChannels.join("|");
   const [connected, setConnected] = useState(false);
   const [status, setStatus] = useState<RealtimeStatus>(
-    enabled && channels.length > 0 ? "connecting" : "idle",
+    enabled && normalizedChannels.length > 0 ? "connecting" : "idle",
   );
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
@@ -38,7 +42,9 @@ export function useRealtime({
   });
 
   useEffect(() => {
-    if (!enabled || channels.length === 0) {
+    const channelsForEffect = channelKey ? channelKey.split("|") : [];
+
+    if (!enabled || channelsForEffect.length === 0) {
       didDisconnectRef.current = false;
       return;
     }
@@ -54,12 +60,11 @@ export function useRealtime({
     };
 
     const subscribeCurrentChannels = (socket: WebSocket) => {
-      const nextChannels = channels.filter(Boolean);
-      if (nextChannels.length === 0) return;
+      if (channelsForEffect.length === 0) return;
       socket.send(
         JSON.stringify({
           action: "subscribe",
-          channels: nextChannels,
+          channels: channelsForEffect,
         }),
       );
     };
@@ -121,7 +126,7 @@ export function useRealtime({
         socket.close();
       }
     };
-  }, [channels, enabled]);
+  }, [channelKey, enabled]);
 
   return { connected, status };
 }
