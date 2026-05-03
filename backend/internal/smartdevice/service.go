@@ -576,9 +576,9 @@ type bookingLookup interface {
 }
 
 type BookingProjection struct {
-	ID         uuid.UUID
-	TenantID   uuid.UUID
-	ResourceID uuid.UUID
+	ID         uuid.UUID `db:"id"`
+	TenantID   uuid.UUID `db:"tenant_id"`
+	ResourceID uuid.UUID `db:"resource_id"`
 }
 
 func (s *Service) loadBooking(ctx context.Context, bookingID, tenantID uuid.UUID) (*BookingProjection, error) {
