@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
+import { getRootPortalUrl } from "@/lib/tenant";
 
 type TenantNavbarProfile = {
   name: string;
@@ -17,22 +18,6 @@ type TenantNavbarProps = {
   profile: TenantNavbarProfile;
   tenantSlug?: string;
 };
-
-function getRootPortalUrl(path: string) {
-  if (typeof window === "undefined") return path;
-
-  const url = new URL(window.location.href);
-  const hostParts = url.hostname.split(".").filter(Boolean);
-
-  if (url.hostname !== "localhost" && hostParts.length > 2) {
-    url.hostname = hostParts.slice(-2).join(".");
-  }
-
-  url.pathname = path;
-  url.search = "";
-  url.hash = "";
-  return url.toString();
-}
 
 export function TenantNavbar({ profile }: TenantNavbarProps) {
   const { theme, setTheme } = useTheme();
@@ -113,13 +98,7 @@ export function TenantNavbar({ profile }: TenantNavbarProps) {
 
           <div className="h-6 md:h-10 w-px bg-slate-200 dark:bg-white/10 mx-0.5 md:mx-2" />
 
-          <Link
-            href="/user/login"
-            onClick={(event) => {
-              event.preventDefault();
-              window.location.href = getRootPortalUrl("/user/login");
-            }}
-          >
+          <a href={getRootPortalUrl("/user/login")}>
             <Button
               variant="ghost"
               className="rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-[0.16em] gap-2 hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-black px-2 md:px-5 h-10 md:h-12 transition-all active:scale-95"
@@ -127,7 +106,7 @@ export function TenantNavbar({ profile }: TenantNavbarProps) {
               <UserCircle2 className="h-5 w-5 opacity-80" />
               <span className="hidden md:inline">Customer</span>
             </Button>
-          </Link>
+          </a>
 
           <Link href="/admin/login">
             <Button
