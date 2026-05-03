@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { format, subDays } from "date-fns";
 import {
@@ -23,6 +23,18 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useRealtime } from "@/lib/realtime/use-realtime";
+import { RealtimePill } from "@/components/dashboard/realtime-pill";
+import {
+  tenantBookingsChannel,
+  tenantDashboardChannel,
+  tenantDevicesChannel,
+} from "@/lib/realtime/channels";
+import {
+  BOOKING_EVENT_PREFIXES,
+  DEVICE_EVENT_PREFIXES,
+  matchesRealtimePrefix,
+} from "@/lib/realtime/event-types";
 
 type BookingRow = {
   id: string;
@@ -92,12 +104,17 @@ export default function SettingsAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastSync, setLastSync] = useState("");
+  const [tenantId, setTenantId] = useState("");
+  const hasLoadedRef = useRef(false);
+  const refreshTimerRef = useRef<number | null>(null);
 
-  const fetchAnalytics = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
+  const fetchAnalytics = useCallback(async (mode: "initial" | "background" = "initial") => {
+    const background = mode === "background" && hasLoadedRef.current;
+    if (!background) setLoading(true);
     setRefreshing(true);
     try {
-      const [bookingsRes, expensesRes, resourcesRes, customersRes, subscriptionRes] = await Promise.all([
+      const [meRes, bookingsRes, expensesRes, resourcesRes, customersRes, subscriptionRes] = await Promise.all([
+        api.get("/auth/me"),
         api.get("/bookings"),
         api.get("/expenses", { params: { limit: 100 } }),
         api.get("/resources-all"),
@@ -105,25 +122,68 @@ export default function SettingsAnalyticsPage() {
         api.get("/billing/subscription"),
       ]);
 
+      setTenantId(meRes.data?.user?.tenant_id || "");
       setBookings(Array.isArray(bookingsRes.data) ? bookingsRes.data : []);
       setExpenses(Array.isArray(expensesRes.data) ? expensesRes.data : []);
       setResources(resourcesRes.data?.resources || []);
       setCustomers(Array.isArray(customersRes.data) ? customersRes.data : []);
       setSubscription(subscriptionRes.data || null);
       setLastSync(new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }));
+      hasLoadedRef.current = true;
     } catch {
-      toast.error("Gagal memuat analytics");
+      if (!background) {
+        toast.error("Gagal memuat analytics");
+      }
     } finally {
-      if (!silent) setLoading(false);
+      if (!background) setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
-    void fetchAnalytics();
-    const interval = window.setInterval(() => void fetchAnalytics(true), 60000);
-    return () => window.clearInterval(interval);
+    void fetchAnalytics("initial");
+    return () => {
+      if (refreshTimerRef.current !== null) {
+        window.clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+    };
   }, [fetchAnalytics]);
+
+  const scheduleAnalyticsRefresh = useCallback(
+    (delay = 500) => {
+      if (refreshTimerRef.current !== null) {
+        window.clearTimeout(refreshTimerRef.current);
+      }
+      refreshTimerRef.current = window.setTimeout(() => {
+        refreshTimerRef.current = null;
+        void fetchAnalytics("background");
+      }, delay);
+    },
+    [fetchAnalytics],
+  );
+
+  const { connected: realtimeConnected, status: realtimeStatus } = useRealtime({
+    enabled: Boolean(tenantId),
+    channels: tenantId
+      ? [
+          tenantDashboardChannel(tenantId),
+          tenantBookingsChannel(tenantId),
+          tenantDevicesChannel(tenantId),
+        ]
+      : [],
+    onEvent: (event) => {
+      if (
+        matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES) ||
+        matchesRealtimePrefix(event.type, DEVICE_EVENT_PREFIXES)
+      ) {
+        scheduleAnalyticsRefresh();
+      }
+    },
+    onReconnect: () => {
+      scheduleAnalyticsRefresh(150);
+    },
+  });
 
   const plan = String(subscription?.plan || "").toLowerCase().trim();
   const status = String(subscription?.status || "").toLowerCase().trim();
@@ -638,10 +698,13 @@ function HeroHeader({ onRefresh, refreshing }: { onRefresh: () => void; refreshi
         </p>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-        <Button onClick={onRefresh} variant="outline" className="w-full gap-2 sm:w-auto">
+        <div className="flex items-center gap-2">
+          <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
+          <Button onClick={onRefresh} variant="outline" className="w-full gap-2 sm:w-auto">
           <RefreshCcw className={cn("h-4 w-4", refreshing && "animate-spin")} />
           Refresh
-        </Button>
+          </Button>
+        </div>
         <Button asChild className="w-full gap-2 bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)] sm:w-auto">
           <Link href="/admin/dashboard">
             <ArrowRight className="h-4 w-4" />
