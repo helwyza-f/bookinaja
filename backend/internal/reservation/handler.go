@@ -1,20 +1,74 @@
 package reservation
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/helwiza/backend/internal/auth"
 )
 
 type Handler struct {
-	service *Service
+	service       *Service
+	actorResolver actorResolver
 }
 
-func NewHandler(s *Service) *Handler {
-	return &Handler{service: s}
+type actorResolver interface {
+	GetUserByID(ctx context.Context, id uuid.UUID) (*auth.CheckMeUserResponse, error)
+}
+
+func NewHandler(s *Service, resolver actorResolver) *Handler {
+	return &Handler{service: s, actorResolver: resolver}
+}
+
+func (h *Handler) adminActor(c *gin.Context) ActorContext {
+	actor := ActorContext{Type: "admin"}
+
+	if roleValue, exists := c.Get("userRole"); exists {
+		if role, ok := roleValue.(string); ok {
+			actor.Role = role
+		}
+	}
+
+	userValue, exists := c.Get("userID")
+	if !exists {
+		return actor
+	}
+
+	var userID uuid.UUID
+	switch v := userValue.(type) {
+	case uuid.UUID:
+		userID = v
+	case string:
+		parsed, err := uuid.Parse(v)
+		if err != nil {
+			return actor
+		}
+		userID = parsed
+	default:
+		return actor
+	}
+
+	actor.UserID = &userID
+
+	if h.actorResolver == nil {
+		return actor
+	}
+
+	user, err := h.actorResolver.GetUserByID(c.Request.Context(), userID)
+	if err != nil || user == nil {
+		return actor
+	}
+
+	actor.Name = user.Name
+	actor.Email = user.Email
+	if user.Role != "" {
+		actor.Role = user.Role
+	}
+	return actor
 }
 
 // --- PUBLIC ENDPOINTS (Tanpa Auth / Customer Facing) ---
@@ -149,7 +203,7 @@ func (h *Handler) AddOrder(c *gin.Context) {
 		return
 	}
 
-	err := h.service.AddFnbOrder(c.Request.Context(), bookingID, tenantID, req, "admin")
+	err := h.service.AddFnbOrder(c.Request.Context(), bookingID, tenantID, req, h.adminActor(c))
 	if err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
@@ -172,7 +226,7 @@ func (h *Handler) ExtendSession(c *gin.Context) {
 		return
 	}
 
-	err := h.service.ExtendSession(c.Request.Context(), bookingID, tenantID, req.AdditionalDuration, "admin")
+	err := h.service.ExtendSession(c.Request.Context(), bookingID, tenantID, req.AdditionalDuration, h.adminActor(c))
 	if err != nil {
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		return
@@ -195,7 +249,7 @@ func (h *Handler) AddAddonItem(c *gin.Context) {
 		return
 	}
 
-	err := h.service.AddAddonOrder(c.Request.Context(), bookingID, tenantID, req.ItemID, "admin")
+	err := h.service.AddAddonOrder(c.Request.Context(), bookingID, tenantID, req.ItemID, h.adminActor(c))
 	if err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
@@ -502,7 +556,7 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
-	err := h.service.UpdateStatus(c.Request.Context(), id, tenantID, status, "admin")
+	err := h.service.UpdateStatus(c.Request.Context(), id, tenantID, status, h.adminActor(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "GAGAL UPDATE STATUS"})
 		return
@@ -514,7 +568,7 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 func (h *Handler) SettleCash(c *gin.Context) {
 	id := c.Param("id")
 	tenantID := c.MustGet("tenantID").(string)
-	if err := h.service.SettleCash(c.Request.Context(), id, tenantID); err != nil {
+	if err := h.service.SettleCash(c.Request.Context(), id, tenantID, h.adminActor(c)); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

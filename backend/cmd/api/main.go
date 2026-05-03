@@ -131,7 +131,7 @@ func main() {
 	expenseHdl := expense.NewHandler(expenseSvc)
 	tenantHdl := tenant.NewHandler(tenantSvc)
 	resourceHdl := resource.NewHandler(resourceSvc)
-	reservationHdl := reservation.NewHandler(reservationSvc)
+	reservationHdl := reservation.NewHandler(reservationSvc, tenantSvc)
 	fnbHdl := fnb.NewHandler(fnbSvc)
 	billingHdl := billing.NewHandler(billingSvc)
 	platformHdl := platformadmin.NewHandler(platformSvc, platformRepo)
