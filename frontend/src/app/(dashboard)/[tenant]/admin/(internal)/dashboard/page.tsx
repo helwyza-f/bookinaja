@@ -25,6 +25,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { hasPermission } from "@/lib/admin-access";
 import { toast } from "sonner";
+import { RealtimePill } from "@/components/dashboard/realtime-pill";
+import { useRealtime } from "@/lib/realtime/use-realtime";
+import {
+  tenantBookingsChannel,
+  tenantDashboardChannel,
+  tenantDevicesChannel,
+} from "@/lib/realtime/channels";
+import {
+  BOOKING_EVENT_PREFIXES,
+  DEVICE_EVENT_PREFIXES,
+  matchesRealtimePrefix,
+} from "@/lib/realtime/event-types";
 
 type ResourceRow = {
   id: string;
@@ -77,6 +89,7 @@ type AppUser = {
   role?: string;
   name?: string;
   permission_keys?: string[];
+  tenant_id?: string;
 };
 
 const normalizeBookings = (payload: unknown): BookingRow[] => {
@@ -125,6 +138,7 @@ export default function DashboardPage() {
   const [customersCount, setCustomersCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [lastSyncAt, setLastSyncAt] = useState<string>("");
+  const [tenantId, setTenantId] = useState("");
 
   const ownerOnly = role === "owner";
   const canReadBookings =
@@ -157,6 +171,7 @@ export default function DashboardPage() {
       const currentPermissions = meRes.data?.user?.permission_keys || [];
       setRole(currentRole);
       setPermissions(currentPermissions);
+      setTenantId(meRes.data?.user?.tenant_id || "");
 
       const scope = { role: currentRole, permission_keys: currentPermissions };
       const allowBookings = hasPermission(scope, "bookings.read");
@@ -237,6 +252,28 @@ export default function DashboardPage() {
       document.removeEventListener("visibilitychange", onFocus);
     };
   }, [fetchDashboard]);
+
+  const { connected: realtimeConnected, status: realtimeStatus } = useRealtime({
+    enabled: Boolean(tenantId),
+    channels: tenantId
+      ? [
+          tenantDashboardChannel(tenantId),
+          tenantBookingsChannel(tenantId),
+          tenantDevicesChannel(tenantId),
+        ]
+      : [],
+    onEvent: (event) => {
+      if (
+        matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES) ||
+        matchesRealtimePrefix(event.type, DEVICE_EVENT_PREFIXES)
+      ) {
+        void fetchDashboard();
+      }
+    },
+    onReconnect: () => {
+      void fetchDashboard();
+    },
+  });
 
   const metrics = useMemo(() => {
     const totalResources = resources.length;
@@ -503,6 +540,7 @@ export default function DashboardPage() {
             <Badge className="border-none bg-slate-100 text-[8px] font-semibold tracking-widest text-slate-500 dark:bg-white/5 dark:text-slate-300">
               Sync {lastSyncAt || "--:--"}
             </Badge>
+            <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
           </div>
           <div>
             <h1 className="text-xl font-semibold text-slate-950 dark:text-white md:text-3xl">

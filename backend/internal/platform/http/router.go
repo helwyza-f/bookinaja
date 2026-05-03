@@ -35,6 +35,9 @@ func NewRouter(cfg routecfg.Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine 
 	v1 := r.Group("/api/v1")
 	v1.Use(middleware.TenantIdentifier(db, rdb))
 	{
+		if cfg.RealtimeHandler != nil {
+			v1.GET("/realtime/ws", cfg.RealtimeHandler.ServeWS)
+		}
 		publicrouter.Register(v1, cfg)
 		rootrouter.Register(v1, cfg)
 		guestrouter.Register(v1, cfg)

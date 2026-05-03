@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
@@ -43,6 +43,17 @@ import { cn } from "@/lib/utils";
 import { hasPermission } from "@/lib/admin-access";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRealtime } from "@/lib/realtime/use-realtime";
+import { RealtimePill } from "@/components/dashboard/realtime-pill";
+import {
+  tenantBookingsChannel,
+  tenantDashboardChannel,
+} from "@/lib/realtime/channels";
+import {
+  BOOKING_EVENT_PREFIXES,
+  type RealtimeEvent,
+  matchesRealtimePrefix,
+} from "@/lib/realtime/event-types";
 
 type BookingRow = {
   id: string;
@@ -62,6 +73,7 @@ type BookingRow = {
 type AdminUser = {
   role?: string;
   permission_keys?: string[];
+  tenant_id?: string;
 };
 
 const isOperationallyActive = (booking: BookingRow) => {
@@ -92,6 +104,39 @@ const getBookingStatusMeta = (booking: BookingRow) => {
   };
 };
 
+function patchBookingFromEvent(prev: BookingRow[], event: RealtimeEvent) {
+  const bookingID = String(event.refs?.booking_id || event.entity_id || "");
+  if (!bookingID) return prev;
+
+  let found = false;
+  const next = prev.map((booking) => {
+    if (booking.id !== bookingID) return booking;
+    found = true;
+    return {
+      ...booking,
+      status: String(event.summary?.status ?? booking.status),
+      payment_status: String(
+        event.summary?.payment_status ?? booking.payment_status ?? "",
+      ),
+      resource_name: String(
+        event.summary?.resource_name ?? booking.resource_name ?? "",
+      ),
+      customer_name: String(
+        event.summary?.customer_name ?? booking.customer_name ?? "",
+      ),
+      start_time: String(event.summary?.start_time ?? booking.start_time),
+      end_time: String(event.summary?.end_time ?? booking.end_time),
+      balance_due:
+        typeof event.summary?.balance_due === "number"
+          ? Number(event.summary.balance_due)
+          : booking.balance_due,
+    };
+  });
+
+  if (found) return next;
+  return prev;
+}
+
 export default function BookingsPage() {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
@@ -105,7 +150,7 @@ export default function BookingsPage() {
   );
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
 
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
     setLoading(true);
     try {
       const [meRes, res] = await Promise.all([
@@ -119,11 +164,30 @@ export default function BookingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchBookings();
-  }, []);
+  }, [fetchBookings]);
+
+  const { connected: realtimeConnected, status: realtimeStatus } = useRealtime({
+    enabled: Boolean(adminUser?.tenant_id),
+    channels: adminUser?.tenant_id
+      ? [
+          tenantBookingsChannel(adminUser.tenant_id),
+          tenantDashboardChannel(adminUser.tenant_id),
+        ]
+      : [],
+    onEvent: (event) => {
+      if (matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) {
+        setBookings((current) => patchBookingFromEvent(current, event));
+        if (event.type === "booking.created") {
+          fetchBookings();
+        }
+      }
+    },
+    onReconnect: fetchBookings,
+  });
 
   const canCreateBookings = hasPermission(adminUser, "bookings.create");
 
@@ -244,6 +308,9 @@ export default function BookingsPage() {
               <div className="flex items-start gap-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
                 <MonitorPlay size={14} className="mt-1 shrink-0 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-300)]" />
                 <span>Kelola jadwal, status pembayaran, dan booking per resource.</span>
+              </div>
+              <div className="pt-2">
+                <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
               </div>
             </div>
 

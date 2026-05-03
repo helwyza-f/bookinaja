@@ -14,6 +14,7 @@ import (
 	"github.com/helwiza/backend/internal/fnb"
 	"github.com/helwiza/backend/internal/platform/env"
 	"github.com/helwiza/backend/internal/platform/fonnte"
+	platformrealtime "github.com/helwiza/backend/internal/platform/realtime"
 	"github.com/helwiza/backend/internal/resource"
 )
 
@@ -23,6 +24,7 @@ type Service struct {
 	customerService *customer.Service
 	fnbService      *fnb.Service
 	deviceService   deviceAutomation
+	realtime        realtimeBroadcaster
 }
 
 type deviceAutomation interface {
@@ -30,6 +32,10 @@ type deviceAutomation interface {
 	EnqueueWarning(ctx context.Context, tenantID, bookingID string) error
 	EnqueueTimeout(ctx context.Context, tenantID, bookingID string) error
 	EnqueueStandbyByResource(ctx context.Context, tenantID, resourceID string) error
+}
+
+type realtimeBroadcaster interface {
+	Publish(channel string, event platformrealtime.Event) error
 }
 
 func (s *Service) SendReceiptWhatsApp(ctx context.Context, bookingIDRaw, tenantIDRaw string) (*ReceiptDeliveryResult, error) {
@@ -147,13 +153,14 @@ func formatReceiptIDR(value float64) string {
 	return "Rp " + b.String()
 }
 
-func NewService(r *Repository, resRepo *resource.Repository, custSvc *customer.Service, fnbSvc *fnb.Service, deviceSvc deviceAutomation) *Service {
+func NewService(r *Repository, resRepo *resource.Repository, custSvc *customer.Service, fnbSvc *fnb.Service, deviceSvc deviceAutomation, realtime realtimeBroadcaster) *Service {
 	return &Service{
 		repo:            r,
 		resourceRepo:    resRepo,
 		customerService: custSvc,
 		fnbService:      fnbSvc,
 		deviceService:   deviceSvc,
+		realtime:        realtime,
 	}
 }
 
@@ -279,6 +286,11 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 		return nil, nil, fmt.Errorf("GAGAL MENYIMPAN TRANSAKSI: %w", err)
 	}
 	s.customerService.InvalidateTenantCache(ctx, tID)
+	if detail, detailErr := s.repo.FindByID(ctx, newBooking.ID, tID); detailErr == nil {
+		s.emitBookingRealtime(ctx, "booking.created", detail, map[string]any{
+			"actor_type": "customer",
+		})
+	}
 
 	return &newBooking, cust, nil
 }
@@ -321,6 +333,12 @@ func (s *Service) ExtendSession(ctx context.Context, bookingID string, tenantID 
 	)
 	if err == nil {
 		s.customerService.InvalidateTenantCache(ctx, tID)
+		if detail, detailErr := s.repo.FindByID(ctx, bID, tID); detailErr == nil {
+			s.emitBookingRealtime(ctx, "session.extended", detail, map[string]any{
+				"actor_type":          actorType,
+				"additional_duration": additionalDuration,
+			})
+		}
 	}
 	return err
 }
@@ -347,6 +365,12 @@ func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string,
 		return err
 	}
 	s.customerService.InvalidateTenantCache(ctx, tID)
+
+	if updatedRealtime, realtimeErr := s.repo.FindByID(ctx, bID, tID); realtimeErr == nil {
+		s.emitBookingRealtime(ctx, mapBookingRealtimeType(status), updatedRealtime, map[string]any{
+			"actor_type": actorType,
+		})
+	}
 
 	if status == "active" {
 		updated, findErr := s.repo.FindByID(ctx, bID, tID)
@@ -444,6 +468,10 @@ func (s *Service) SettleCash(ctx context.Context, id, tenantID string) error {
 	if err != nil || detail == nil {
 		return nil
 	}
+	s.emitBookingRealtime(ctx, "payment.cash.settled", detail, map[string]any{
+		"actor_type":     "admin",
+		"settlement_mode": "cash",
+	})
 	_, _ = s.customerService.AwardBookingPoints(ctx, detail.CustomerID, detail.TenantID, detail.ID, int64(detail.GrandTotal))
 
 	tenantSlug, err := s.repo.GetTenantSlug(ctx, tID)
@@ -454,6 +482,56 @@ func (s *Service) SettleCash(ctx context.Context, id, tenantID string) error {
 	msg := waPaymentReceivedMessage(detail.CustomerName, "pelunasan cash", detail.ID.String(), detail.ResourceName, detail.GrandTotal, detail.DepositAmount, detail.PaidAmount, detail.BalanceDue, bookingVerifyURL(tenantSlug, detail.AccessToken.String()))
 	_, _ = fonnte.SendMessage(detail.CustomerPhone, msg)
 	return nil
+}
+
+func (s *Service) emitBookingRealtime(ctx context.Context, eventType string, booking *BookingDetail, meta map[string]any) {
+	if s.realtime == nil || booking == nil {
+		return
+	}
+
+	event := platformrealtime.NewEvent(eventType)
+	event.TenantID = booking.TenantID.String()
+	event.EntityType = "booking"
+	event.EntityID = booking.ID.String()
+	event.Summary = map[string]any{
+		"status":         booking.Status,
+		"payment_status": booking.PaymentStatus,
+		"resource_name":  booking.ResourceName,
+		"customer_name":  booking.CustomerName,
+		"start_time":     booking.StartTime,
+		"end_time":       booking.EndTime,
+		"grand_total":    booking.GrandTotal,
+		"balance_due":    booking.BalanceDue,
+	}
+	event.Refs = map[string]any{
+		"booking_id":  booking.ID.String(),
+		"resource_id": booking.ResourceID.String(),
+		"customer_id": booking.CustomerID.String(),
+	}
+	event.Meta = meta
+
+	_ = s.realtime.Publish(platformrealtime.TenantBookingsChannel(booking.TenantID.String()), event)
+	_ = s.realtime.Publish(platformrealtime.TenantBookingChannel(booking.TenantID.String(), booking.ID.String()), event)
+	_ = s.realtime.Publish(platformrealtime.TenantDashboardChannel(booking.TenantID.String()), event)
+	if booking.CustomerID != uuid.Nil {
+		_ = s.realtime.Publish(platformrealtime.CustomerBookingChannel(booking.CustomerID.String(), booking.ID.String()), event)
+	}
+	_ = ctx
+}
+
+func mapBookingRealtimeType(status string) string {
+	switch status {
+	case "confirmed":
+		return "booking.confirmed"
+	case "active":
+		return "session.activated"
+	case "completed":
+		return "session.completed"
+	case "cancelled":
+		return "booking.cancelled"
+	default:
+		return "booking.updated"
+	}
 }
 
 func (s *Service) ExchangeAccessToken(ctx context.Context, accessToken string) (*BookingDetail, *customer.Customer, string, error) {
@@ -504,6 +582,12 @@ func (s *Service) AddAddonOrder(ctx context.Context, bookingID string, tenantID 
 	err = s.repo.AddAddonOrder(ctx, bID, iID, actorType)
 	if err == nil {
 		s.customerService.InvalidateTenantCache(ctx, tID)
+		if detail, detailErr := s.repo.FindByID(ctx, bID, tID); detailErr == nil {
+			s.emitBookingRealtime(ctx, "order.addon.added", detail, map[string]any{
+				"actor_type": actorType,
+				"item_id":    itemID,
+			})
+		}
 	}
 	return err
 }
@@ -548,6 +632,13 @@ func (s *Service) AddFnbOrder(ctx context.Context, bookingID string, tenantID st
 	err = s.repo.AddFnbOrder(ctx, bID, req.FnbItemID, req.Quantity, actorType)
 	if err == nil {
 		s.customerService.InvalidateTenantCache(ctx, tID)
+		if detail, detailErr := s.repo.FindByID(ctx, bID, tID); detailErr == nil {
+			s.emitBookingRealtime(ctx, "order.fnb.added", detail, map[string]any{
+				"actor_type": actorType,
+				"fnb_item_id": req.FnbItemID,
+				"quantity":    req.Quantity,
+			})
+		}
 	}
 	return err
 }
