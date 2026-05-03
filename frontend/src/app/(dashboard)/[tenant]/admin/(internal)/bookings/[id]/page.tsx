@@ -72,7 +72,11 @@ type BookingOrder = {
 
 type BookingEvent = {
   id: string;
+  actor_user_id?: string;
   actor_type?: string;
+  actor_name?: string;
+  actor_email?: string;
+  actor_role?: string;
   event_type?: string;
   title?: string;
   description?: string;
@@ -129,6 +133,20 @@ function patchBookingDetailFromEvent(
         ? Number(event.summary.balance_due)
         : current.balance_due,
   };
+}
+
+function actorLabel(event: BookingEvent) {
+  const name = String(event.actor_name || "").trim();
+  const role = String(event.actor_role || "").trim();
+  const actorType = String(event.actor_type || "").trim();
+
+  if (name && role) return `${name} • ${role}`;
+  if (name) return name;
+  if (actorType === "admin") return "Tim admin";
+  if (actorType === "customer") return "Customer";
+  if (actorType === "payment") return "Payment gateway";
+  if (actorType === "system") return "Sistem";
+  return actorType || "Sistem";
 }
 
 export default function BookingDetailPage() {
@@ -581,6 +599,12 @@ export default function BookingDetailPage() {
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-slate-950 dark:text-white">{event.title || event.event_type}</div>
                     <div className="mt-1 text-xs leading-5 text-slate-500">{event.description || event.event_type}</div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                      <span>{actorLabel(event)}</span>
+                      {event.actor_email ? (
+                        <span className="hidden sm:inline text-slate-300 dark:text-slate-500">• {event.actor_email}</span>
+                      ) : null}
+                    </div>
                   </div>
                   <Badge className="shrink-0 rounded-full border-none bg-slate-100 text-xs text-slate-600 dark:bg-white/10 dark:text-slate-200">
                     {event.actor_type}

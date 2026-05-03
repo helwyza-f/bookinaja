@@ -82,12 +82,24 @@ type BookingEvent struct {
 	BookingID   uuid.UUID  `db:"booking_id" json:"booking_id"`
 	TenantID    uuid.UUID  `db:"tenant_id" json:"tenant_id"`
 	CustomerID  *uuid.UUID `db:"customer_id" json:"customer_id,omitempty"`
+	ActorUserID *uuid.UUID `db:"actor_user_id" json:"actor_user_id,omitempty"`
 	ActorType   string     `db:"actor_type" json:"actor_type"`
+	ActorName   string     `db:"actor_name" json:"actor_name,omitempty"`
+	ActorEmail  string     `db:"actor_email" json:"actor_email,omitempty"`
+	ActorRole   string     `db:"actor_role" json:"actor_role,omitempty"`
 	EventType   string     `db:"event_type" json:"event_type"`
 	Title       string     `db:"title" json:"title"`
 	Description string     `db:"description" json:"description"`
 	Metadata    []byte     `db:"metadata" json:"metadata"`
 	CreatedAt   time.Time  `db:"created_at" json:"created_at"`
+}
+
+type ActorContext struct {
+	Type   string
+	UserID *uuid.UUID
+	Name   string
+	Email  string
+	Role   string
 }
 
 type ReceiptDeliveryResult struct {

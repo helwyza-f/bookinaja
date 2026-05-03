@@ -23,7 +23,11 @@ type BookingEventInput struct {
 	BookingID   uuid.UUID
 	TenantID    uuid.UUID
 	CustomerID  *uuid.UUID
+	ActorUserID *uuid.UUID
 	ActorType   string
+	ActorName   string
+	ActorEmail  string
+	ActorRole   string
 	EventType   string
 	Title       string
 	Description string
@@ -43,11 +47,23 @@ func (r *Repository) CreateBookingEvent(ctx context.Context, exec sqlx.ExtContex
 	}
 	_, err := exec.ExecContext(ctx, `
 		INSERT INTO booking_events (
-			id, booking_id, tenant_id, customer_id, actor_type, event_type, title, description, metadata, created_at
+			id, booking_id, tenant_id, customer_id, actor_user_id, actor_type, actor_name, actor_email, actor_role, event_type, title, description, metadata, created_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW()
 		)`,
-		uuid.New(), input.BookingID, input.TenantID, input.CustomerID, input.ActorType, input.EventType, input.Title, input.Description, metadata,
+		uuid.New(),
+		input.BookingID,
+		input.TenantID,
+		input.CustomerID,
+		input.ActorUserID,
+		input.ActorType,
+		input.ActorName,
+		input.ActorEmail,
+		input.ActorRole,
+		input.EventType,
+		input.Title,
+		input.Description,
+		metadata,
 	)
 	return err
 }
@@ -105,7 +121,7 @@ func (r *Repository) CheckAvailability(ctx context.Context, resourceID uuid.UUID
 }
 
 // ExtendSessionWithValidation memperbarui Quantity durasi paket utama dan billing secara atomik
-func (r *Repository) ExtendSessionWithValidation(ctx context.Context, bID uuid.UUID, resourceID uuid.UUID, currentEnd, newEnd time.Time, additionalDuration int, actorType string) error {
+func (r *Repository) ExtendSessionWithValidation(ctx context.Context, bID uuid.UUID, resourceID uuid.UUID, currentEnd, newEnd time.Time, additionalDuration int, actor ActorContext) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
@@ -162,7 +178,11 @@ func (r *Repository) ExtendSessionWithValidation(ctx context.Context, bID uuid.U
 		BookingID:   bID,
 		TenantID:    booking.TenantID,
 		CustomerID:  &booking.CustomerID,
-		ActorType:   actorType,
+		ActorUserID: actor.UserID,
+		ActorType:   actor.Type,
+		ActorName:   actor.Name,
+		ActorEmail:  actor.Email,
+		ActorRole:   actor.Role,
 		EventType:   "session.extended",
 		Title:       "Sesi diperpanjang",
 		Description: fmt.Sprintf("Durasi ditambah %d sesi.", additionalDuration),
@@ -318,7 +338,7 @@ func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error
 
 	b.Events = make([]BookingEvent, 0)
 	return r.db.SelectContext(ctx, &b.Events, `
-		SELECT id, booking_id, tenant_id, customer_id, actor_type, event_type, title, description, metadata, created_at
+		SELECT id, booking_id, tenant_id, customer_id, actor_user_id, actor_type, actor_name, actor_email, actor_role, event_type, title, description, metadata, created_at
 		FROM booking_events
 		WHERE booking_id = $1
 		ORDER BY created_at ASC`, b.ID)
@@ -438,7 +458,7 @@ func (r *Repository) FindByIDForCustomerGlobal(ctx context.Context, id, customer
 	return &b, err
 }
 
-func (r *Repository) AddFnbOrder(ctx context.Context, bookingID uuid.UUID, fnbItemID uuid.UUID, qty int, actorType string) error {
+func (r *Repository) AddFnbOrder(ctx context.Context, bookingID uuid.UUID, fnbItemID uuid.UUID, qty int, actor ActorContext) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
@@ -473,7 +493,11 @@ func (r *Repository) AddFnbOrder(ctx context.Context, bookingID uuid.UUID, fnbIt
 		BookingID:   bookingID,
 		TenantID:    booking.TenantID,
 		CustomerID:  &booking.CustomerID,
-		ActorType:   actorType,
+		ActorUserID: actor.UserID,
+		ActorType:   actor.Type,
+		ActorName:   actor.Name,
+		ActorEmail:  actor.Email,
+		ActorRole:   actor.Role,
 		EventType:   "order.fnb_added",
 		Title:       "F&B ditambahkan",
 		Description: fmt.Sprintf("%d item F&B masuk ke tagihan.", qty),
@@ -484,7 +508,7 @@ func (r *Repository) AddFnbOrder(ctx context.Context, bookingID uuid.UUID, fnbIt
 	return tx.Commit()
 }
 
-func (r *Repository) AddAddonOrder(ctx context.Context, bookingID uuid.UUID, itemID uuid.UUID, actorType string) error {
+func (r *Repository) AddAddonOrder(ctx context.Context, bookingID uuid.UUID, itemID uuid.UUID, actor ActorContext) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
@@ -519,7 +543,11 @@ func (r *Repository) AddAddonOrder(ctx context.Context, bookingID uuid.UUID, ite
 		BookingID:   bookingID,
 		TenantID:    booking.TenantID,
 		CustomerID:  &booking.CustomerID,
-		ActorType:   actorType,
+		ActorUserID: actor.UserID,
+		ActorType:   actor.Type,
+		ActorName:   actor.Name,
+		ActorEmail:  actor.Email,
+		ActorRole:   actor.Role,
 		EventType:   "addon.added",
 		Title:       "Add-on ditambahkan",
 		Description: "Layanan tambahan masuk ke tagihan.",
@@ -604,7 +632,7 @@ func (r *Repository) FindActiveSessions(ctx context.Context, tenantID uuid.UUID)
 	return res, nil
 }
 
-func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, status string, actorType string) error {
+func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, status string, actor ActorContext) error {
 	if status == "ongoing" {
 		status = "active"
 	}
@@ -653,7 +681,11 @@ func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, s
 		BookingID:   id,
 		TenantID:    tenantID,
 		CustomerID:  &before.CustomerID,
-		ActorType:   actorType,
+		ActorUserID: actor.UserID,
+		ActorType:   actor.Type,
+		ActorName:   actor.Name,
+		ActorEmail:  actor.Email,
+		ActorRole:   actor.Role,
 		EventType:   eventType,
 		Title:       title,
 		Description: fmt.Sprintf("Status berubah dari %s ke %s.", before.Status, status),
@@ -661,7 +693,7 @@ func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, s
 	})
 }
 
-func (r *Repository) SettlePaymentCash(ctx context.Context, id, tenantID uuid.UUID, cashReceived *float64, notes *string) error {
+func (r *Repository) SettlePaymentCash(ctx context.Context, id, tenantID uuid.UUID, actor ActorContext, cashReceived *float64, notes *string) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
@@ -686,7 +718,11 @@ func (r *Repository) SettlePaymentCash(ctx context.Context, id, tenantID uuid.UU
 		BookingID:   id,
 		TenantID:    tenantID,
 		CustomerID:  &booking.CustomerID,
-		ActorType:   "admin",
+		ActorUserID: actor.UserID,
+		ActorType:   actor.Type,
+		ActorName:   actor.Name,
+		ActorEmail:  actor.Email,
+		ActorRole:   actor.Role,
 		EventType:   "payment.cash.settled",
 		Title:       "Pembayaran cash lunas",
 		Description: "Admin menandai tagihan booking sudah lunas via cash.",

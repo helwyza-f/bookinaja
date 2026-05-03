@@ -38,6 +38,13 @@ type realtimeBroadcaster interface {
 	Publish(channel string, event platformrealtime.Event) error
 }
 
+func actorIDString(id *uuid.UUID) string {
+	if id == nil {
+		return ""
+	}
+	return id.String()
+}
+
 func (s *Service) SendReceiptWhatsApp(ctx context.Context, bookingIDRaw, tenantIDRaw string) (*ReceiptDeliveryResult, error) {
 	bookingID, err := uuid.Parse(bookingIDRaw)
 	if err != nil {
@@ -296,7 +303,7 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 }
 
 // ExtendSession menangani penambahan durasi dari Admin Panel/POS Live Dashboard
-func (s *Service) ExtendSession(ctx context.Context, bookingID string, tenantID string, additionalDuration int, actorType string) error {
+func (s *Service) ExtendSession(ctx context.Context, bookingID string, tenantID string, additionalDuration int, actor ActorContext) error {
 	bID, _ := uuid.Parse(bookingID)
 	tID, _ := uuid.Parse(tenantID)
 
@@ -329,13 +336,16 @@ func (s *Service) ExtendSession(ctx context.Context, bookingID string, tenantID 
 		booking.EndTime,
 		newEndTime,
 		additionalDuration,
-		actorType,
+		actor,
 	)
 	if err == nil {
 		s.customerService.InvalidateTenantCache(ctx, tID)
 		if detail, detailErr := s.repo.FindByID(ctx, bID, tID); detailErr == nil {
 			s.emitBookingRealtime(ctx, "session.extended", detail, map[string]any{
-				"actor_type":          actorType,
+				"actor_type":          actor.Type,
+				"actor_user_id":       actorIDString(actor.UserID),
+				"actor_name":          actor.Name,
+				"actor_role":          actor.Role,
 				"additional_duration": additionalDuration,
 			})
 		}
@@ -344,7 +354,7 @@ func (s *Service) ExtendSession(ctx context.Context, bookingID string, tenantID 
 }
 
 // UpdateStatus menangani transisi status (Ongoing, Completed, dll) & Sinkronisasi CRM Stats
-func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string, actorType string) error {
+func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string, actor ActorContext) error {
 	bID, _ := uuid.Parse(id)
 	tID, _ := uuid.Parse(tenantID)
 	status = strings.ToLower(strings.TrimSpace(status))
@@ -361,14 +371,17 @@ func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string,
 		return err
 	}
 
-	if err := s.repo.UpdateStatus(ctx, bID, tID, status, actorType); err != nil {
+	if err := s.repo.UpdateStatus(ctx, bID, tID, status, actor); err != nil {
 		return err
 	}
 	s.customerService.InvalidateTenantCache(ctx, tID)
 
 	if updatedRealtime, realtimeErr := s.repo.FindByID(ctx, bID, tID); realtimeErr == nil {
 		s.emitBookingRealtime(ctx, mapBookingRealtimeType(status), updatedRealtime, map[string]any{
-			"actor_type": actorType,
+			"actor_type":    actor.Type,
+			"actor_user_id": actorIDString(actor.UserID),
+			"actor_name":    actor.Name,
+			"actor_role":    actor.Role,
 		})
 	}
 
@@ -427,7 +440,7 @@ func (s *Service) ActivateForCustomer(ctx context.Context, bookingID, tenantID, 
 		}
 	}
 
-	if err := s.UpdateStatus(ctx, bookingID, detail.TenantID.String(), "active", "customer"); err != nil {
+	if err := s.UpdateStatus(ctx, bookingID, detail.TenantID.String(), "active", ActorContext{Type: "customer"}); err != nil {
 		return nil, err
 	}
 	return s.GetDetailForCustomer(ctx, bookingID, detail.TenantID.String(), customerID)
@@ -444,13 +457,13 @@ func (s *Service) CompleteForCustomer(ctx context.Context, bookingID, tenantID, 
 		return nil, errors.New("HANYA SESI YANG SEDANG AKTIF YANG BISA DIAKHIRI")
 	}
 
-	if err := s.UpdateStatus(ctx, bookingID, detail.TenantID.String(), "completed", "customer"); err != nil {
+	if err := s.UpdateStatus(ctx, bookingID, detail.TenantID.String(), "completed", ActorContext{Type: "customer"}); err != nil {
 		return nil, err
 	}
 	return s.GetDetailForCustomer(ctx, bookingID, detail.TenantID.String(), customerID)
 }
 
-func (s *Service) SettleCash(ctx context.Context, id, tenantID string) error {
+func (s *Service) SettleCash(ctx context.Context, id, tenantID string, actor ActorContext) error {
 	bID, err := uuid.Parse(id)
 	if err != nil {
 		return errors.New("ID BOOKING TIDAK VALID")
@@ -459,7 +472,7 @@ func (s *Service) SettleCash(ctx context.Context, id, tenantID string) error {
 	if err != nil {
 		return errors.New("ID TENANT TIDAK VALID")
 	}
-	if err := s.repo.SettlePaymentCash(ctx, bID, tID, nil, nil); err != nil {
+	if err := s.repo.SettlePaymentCash(ctx, bID, tID, actor, nil, nil); err != nil {
 		return err
 	}
 	s.customerService.InvalidateTenantCache(ctx, tID)
@@ -469,7 +482,10 @@ func (s *Service) SettleCash(ctx context.Context, id, tenantID string) error {
 		return nil
 	}
 	s.emitBookingRealtime(ctx, "payment.cash.settled", detail, map[string]any{
-		"actor_type":     "admin",
+		"actor_type":      actor.Type,
+		"actor_user_id":   actorIDString(actor.UserID),
+		"actor_name":      actor.Name,
+		"actor_role":      actor.Role,
 		"settlement_mode": "cash",
 	})
 	_, _ = s.customerService.AwardBookingPoints(ctx, detail.CustomerID, detail.TenantID, detail.ID, int64(detail.GrandTotal))
@@ -565,7 +581,7 @@ func (s *Service) ExchangeAccessToken(ctx context.Context, accessToken string) (
 }
 
 // AddAddonOrder menambahkan layanan tambahan (Add-on on-the-spot)
-func (s *Service) AddAddonOrder(ctx context.Context, bookingID string, tenantID string, itemID string, actorType string) error {
+func (s *Service) AddAddonOrder(ctx context.Context, bookingID string, tenantID string, itemID string, actor ActorContext) error {
 	bID, _ := uuid.Parse(bookingID)
 	tID, _ := uuid.Parse(tenantID)
 	iID, _ := uuid.Parse(itemID)
@@ -579,13 +595,16 @@ func (s *Service) AddAddonOrder(ctx context.Context, bookingID string, tenantID 
 		return errors.New("ADD-ON HANYA BISA DITAMBAHKAN PADA SESI YANG SEDANG BERJALAN")
 	}
 
-	err = s.repo.AddAddonOrder(ctx, bID, iID, actorType)
+	err = s.repo.AddAddonOrder(ctx, bID, iID, actor)
 	if err == nil {
 		s.customerService.InvalidateTenantCache(ctx, tID)
 		if detail, detailErr := s.repo.FindByID(ctx, bID, tID); detailErr == nil {
 			s.emitBookingRealtime(ctx, "order.addon.added", detail, map[string]any{
-				"actor_type": actorType,
-				"item_id":    itemID,
+				"actor_type":    actor.Type,
+				"actor_user_id": actorIDString(actor.UserID),
+				"actor_name":    actor.Name,
+				"actor_role":    actor.Role,
+				"item_id":       itemID,
 			})
 		}
 	}
@@ -616,7 +635,7 @@ func (s *Service) GetActiveSessions(ctx context.Context, tenantID string) ([]Boo
 }
 
 // AddFnbOrder integrasi pesanan makanan dari sistem POS ke billing reservasi
-func (s *Service) AddFnbOrder(ctx context.Context, bookingID string, tenantID string, req AddOrderReq, actorType string) error {
+func (s *Service) AddFnbOrder(ctx context.Context, bookingID string, tenantID string, req AddOrderReq, actor ActorContext) error {
 	bID, _ := uuid.Parse(bookingID)
 	tID, _ := uuid.Parse(tenantID)
 
@@ -629,14 +648,17 @@ func (s *Service) AddFnbOrder(ctx context.Context, bookingID string, tenantID st
 		return errors.New("PESANAN HANYA BISA DITAMBAHKAN PADA SESI AKTIF")
 	}
 
-	err = s.repo.AddFnbOrder(ctx, bID, req.FnbItemID, req.Quantity, actorType)
+	err = s.repo.AddFnbOrder(ctx, bID, req.FnbItemID, req.Quantity, actor)
 	if err == nil {
 		s.customerService.InvalidateTenantCache(ctx, tID)
 		if detail, detailErr := s.repo.FindByID(ctx, bID, tID); detailErr == nil {
 			s.emitBookingRealtime(ctx, "order.fnb.added", detail, map[string]any{
-				"actor_type": actorType,
-				"fnb_item_id": req.FnbItemID,
-				"quantity":    req.Quantity,
+				"actor_type":    actor.Type,
+				"actor_user_id": actorIDString(actor.UserID),
+				"actor_name":    actor.Name,
+				"actor_role":    actor.Role,
+				"fnb_item_id":   req.FnbItemID,
+				"quantity":      req.Quantity,
 			})
 		}
 	}
@@ -772,7 +794,7 @@ func (s *Service) CustomerExtendSession(ctx context.Context, bookingID, tenantID
 	if err != nil {
 		return err
 	}
-	return s.ExtendSession(ctx, bookingID, detail.TenantID.String(), additionalDuration, "customer")
+	return s.ExtendSession(ctx, bookingID, detail.TenantID.String(), additionalDuration, ActorContext{Type: "customer"})
 }
 
 func (s *Service) CustomerAddFnbOrder(ctx context.Context, bookingID, tenantID, customerID string, req AddOrderReq) error {
@@ -780,7 +802,7 @@ func (s *Service) CustomerAddFnbOrder(ctx context.Context, bookingID, tenantID, 
 	if err != nil {
 		return err
 	}
-	return s.AddFnbOrder(ctx, bookingID, detail.TenantID.String(), req, "customer")
+	return s.AddFnbOrder(ctx, bookingID, detail.TenantID.String(), req, ActorContext{Type: "customer"})
 }
 
 func (s *Service) CustomerAddAddonOrder(ctx context.Context, bookingID, tenantID, customerID, itemID string) error {
@@ -788,7 +810,7 @@ func (s *Service) CustomerAddAddonOrder(ctx context.Context, bookingID, tenantID
 	if err != nil {
 		return err
 	}
-	return s.AddAddonOrder(ctx, bookingID, detail.TenantID.String(), itemID, "customer")
+	return s.AddAddonOrder(ctx, bookingID, detail.TenantID.String(), itemID, ActorContext{Type: "customer"})
 }
 
 func (s *Service) ListByTenant(ctx context.Context, tenantID, status string) ([]BookingDetail, error) {
