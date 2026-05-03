@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { buildRealtimeURL } from "@/lib/realtime/ws-client";
 import type { RealtimeEvent } from "@/lib/realtime/event-types";
+import { getRealtimeManager } from "@/lib/realtime/manager";
 
 type UseRealtimeOptions = {
   enabled?: boolean;
@@ -23,6 +23,7 @@ export function useRealtime({
   onEvent,
   onReconnect,
 }: UseRealtimeOptions) {
+  const subscriptionIDRef = useRef(`rt-${Math.random().toString(36).slice(2)}`);
   const normalizedChannels = Array.from(
     new Set(channels.map((channel) => channel.trim()).filter(Boolean)),
   ).sort();
@@ -31,9 +32,7 @@ export function useRealtime({
   const [status, setStatus] = useState<RealtimeStatus>(
     enabled && normalizedChannels.length > 0 ? "connecting" : "idle",
   );
-  const socketRef = useRef<WebSocket | null>(null);
-  const reconnectTimerRef = useRef<number | null>(null);
-  const didDisconnectRef = useRef(false);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
   const handleEvent = useEffectEvent((event: RealtimeEvent) => {
     onEvent?.(event);
   });
@@ -42,89 +41,35 @@ export function useRealtime({
   });
 
   useEffect(() => {
+    const manager = getRealtimeManager();
+    return manager.listenStatus((snapshot) => {
+      setConnected(snapshot.connected);
+      setStatus(snapshot.status);
+    });
+  }, []);
+
+  useEffect(() => {
     const channelsForEffect = channelKey ? channelKey.split("|") : [];
 
     if (!enabled || channelsForEffect.length === 0) {
-      didDisconnectRef.current = false;
+      unsubscribeRef.current?.();
+      unsubscribeRef.current = null;
+      setConnected(false);
+      setStatus("idle");
       return;
     }
 
-    let disposed = false;
-    let reconnectAttempt = 0;
-
-    const clearReconnectTimer = () => {
-      if (reconnectTimerRef.current !== null) {
-        window.clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
-    };
-
-    const subscribeCurrentChannels = (socket: WebSocket) => {
-      if (channelsForEffect.length === 0) return;
-      socket.send(
-        JSON.stringify({
-          action: "subscribe",
-          channels: channelsForEffect,
-        }),
-      );
-    };
-
-    const connect = () => {
-      clearReconnectTimer();
-      setStatus(didDisconnectRef.current ? "reconnecting" : "connecting");
-      const socket = new WebSocket(buildRealtimeURL());
-      socketRef.current = socket;
-
-      socket.onopen = () => {
-        if (disposed) return;
-        const wasReconnect = didDisconnectRef.current;
-        reconnectAttempt = 0;
-        setConnected(true);
-        setStatus("connected");
-        didDisconnectRef.current = false;
-        subscribeCurrentChannels(socket);
-        if (wasReconnect) {
-          handleReconnect();
-        }
-      };
-
-      socket.onmessage = (message) => {
-        try {
-          const event = JSON.parse(message.data) as RealtimeEvent;
-          handleEvent(event);
-        } catch {
-          // Ignore malformed realtime frames from older deployments.
-        }
-      };
-
-      socket.onclose = () => {
-        setConnected(false);
-        if (disposed) return;
-        didDisconnectRef.current = true;
-        setStatus("reconnecting");
-        reconnectAttempt += 1;
-        const delay = Math.min(1000 * reconnectAttempt, 10000);
-        reconnectTimerRef.current = window.setTimeout(connect, delay);
-      };
-
-      socket.onerror = () => {
-        socket.close();
-      };
-    };
-
-    connect();
+    const manager = getRealtimeManager();
+    unsubscribeRef.current?.();
+    unsubscribeRef.current = manager.subscribe(subscriptionIDRef.current, {
+      channels: channelsForEffect,
+      onEvent: handleEvent,
+      onReconnect: handleReconnect,
+    });
 
     return () => {
-      disposed = true;
-      clearReconnectTimer();
-      setConnected(false);
-      setStatus("idle");
-      didDisconnectRef.current = false;
-      const socket = socketRef.current;
-      socketRef.current = null;
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.close();
-      }
+      unsubscribeRef.current?.();
+      unsubscribeRef.current = null;
     };
   }, [channelKey, enabled]);
 

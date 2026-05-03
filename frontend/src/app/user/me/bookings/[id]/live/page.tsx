@@ -51,7 +51,11 @@ export default function CustomerBookingDetail() {
   const [midtransReady, setMidtransReady] = useState(false);
   const [activating, setActivating] = useState(false);
   const [customerId, setCustomerId] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const lastRealtimeToastRef = useRef("");
+  const hasLoadedRef = useRef(false);
+  const detailRefreshTimerRef = useRef<number | null>(null);
+  const liveRefreshTimerRef = useRef<number | null>(null);
 
   const resolveCustomerId = (payload: any) => {
     return String(
@@ -62,10 +66,15 @@ export default function CustomerBookingDetail() {
     );
   };
 
-  const fetchDetail = useCallback(async () => {
+  const fetchDetail = useCallback(async (mode: "initial" | "background" = "initial") => {
+    const background = mode === "background" && hasLoadedRef.current;
     try {
+      if (background) {
+        setRefreshing(true);
+      }
       const res = await api.get(`/user/me/bookings/${params.id}`);
       setBooking(res.data);
+      hasLoadedRef.current = true;
       return res.data;
     } catch (err) {
       if (isTenantAuthError(err)) {
@@ -73,10 +82,16 @@ export default function CustomerBookingDetail() {
         router.replace("/user/login");
         return;
       }
-      toast.error("Gagal memuat tiket booking");
-      router.replace("/user/me");
+      if (!background) {
+        toast.error("Gagal memuat tiket booking");
+        router.replace("/user/me");
+      }
     } finally {
-      setLoading(false);
+      if (background) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+      }
     }
   }, [params.id, router]);
 
@@ -117,6 +132,32 @@ export default function CustomerBookingDetail() {
     }
   }, [params.id]);
 
+  const scheduleDetailRefresh = useCallback(
+    (delay = 300) => {
+      if (detailRefreshTimerRef.current !== null) {
+        window.clearTimeout(detailRefreshTimerRef.current);
+      }
+      detailRefreshTimerRef.current = window.setTimeout(() => {
+        detailRefreshTimerRef.current = null;
+        void fetchDetail("background");
+      }, delay);
+    },
+    [fetchDetail],
+  );
+
+  const scheduleLiveContextRefresh = useCallback(
+    (delay = 450) => {
+      if (liveRefreshTimerRef.current !== null) {
+        window.clearTimeout(liveRefreshTimerRef.current);
+      }
+      liveRefreshTimerRef.current = window.setTimeout(() => {
+        liveRefreshTimerRef.current = null;
+        void fetchLiveContext();
+      }, delay);
+    },
+    [fetchLiveContext],
+  );
+
   useEffect(() => {
     if (!params.id) return;
     let cancelled = false;
@@ -151,7 +192,7 @@ export default function CustomerBookingDetail() {
 
       if (cancelled) return;
 
-      const detail = await fetchDetail();
+      const detail = await fetchDetail("initial");
       try {
         const meRes = await api.get("/me");
         if (!cancelled) {
@@ -173,14 +214,8 @@ export default function CustomerBookingDetail() {
 
       if (cancelled) return;
 
-      const interval = setInterval(fetchDetail, 30000);
-      const liveInterval = setInterval(fetchLiveContext, 45000);
-      const syncInterval = setInterval(syncSession, 60000);
       const clock = setInterval(() => setNow(new Date()), 1000);
       return () => {
-        clearInterval(interval);
-        clearInterval(liveInterval);
-        clearInterval(syncInterval);
         clearInterval(clock);
       };
     };
@@ -192,9 +227,17 @@ export default function CustomerBookingDetail() {
 
     return () => {
       cancelled = true;
+      if (detailRefreshTimerRef.current !== null) {
+        window.clearTimeout(detailRefreshTimerRef.current);
+        detailRefreshTimerRef.current = null;
+      }
+      if (liveRefreshTimerRef.current !== null) {
+        window.clearTimeout(liveRefreshTimerRef.current);
+        liveRefreshTimerRef.current = null;
+      }
       if (cleanup) cleanup();
     };
-  }, [fetchDetail, fetchLiveContext, fetchMenuItems, params.id, syncSession]);
+  }, [fetchDetail, fetchLiveContext, fetchMenuItems, params.id]);
 
   const { connected: realtimeConnected, status: realtimeStatus } = useRealtime({
     enabled: Boolean(customerId && params.id),
@@ -232,12 +275,12 @@ export default function CustomerBookingDetail() {
           toast.message("Add-on berhasil ditambahkan");
         }
       }
-      void fetchDetail();
-      void fetchLiveContext();
+      scheduleDetailRefresh();
+      scheduleLiveContextRefresh();
     },
     onReconnect: () => {
-      void fetchDetail();
-      void fetchLiveContext();
+      scheduleDetailRefresh(150);
+      scheduleLiveContextRefresh(250);
     },
   });
 
@@ -562,7 +605,14 @@ export default function CustomerBookingDetail() {
       </nav>
 
       <main className="max-w-xl mx-auto p-4 space-y-4">
-        <RealtimePill connected={realtimeConnected} status={realtimeStatus} className="normal-case tracking-normal" />
+        <div className="flex items-center gap-2">
+          <RealtimePill connected={realtimeConnected} status={realtimeStatus} className="normal-case tracking-normal" />
+          {refreshing ? (
+            <Badge className="border-none bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300 text-[9px] font-bold">
+              Refreshing...
+            </Badge>
+          ) : null}
+        </div>
         {/* TIMER CONTROLLER */}
         {countdownData && (
           <Card

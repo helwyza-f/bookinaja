@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import {
@@ -137,8 +137,11 @@ export default function DashboardPage() {
   );
   const [customersCount, setCustomersCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<string>("");
   const [tenantId, setTenantId] = useState("");
+  const hasLoadedRef = useRef(false);
+  const refreshTimerRef = useRef<number | null>(null);
 
   const ownerOnly = role === "owner";
   const canReadBookings =
@@ -160,8 +163,13 @@ export default function DashboardPage() {
   const canManagePos =
     ownerOnly || hasPermission({ role, permission_keys: permissions }, "pos.read");
 
-  const fetchDashboard = useCallback(async () => {
-    setLoading(true);
+  const fetchDashboard = useCallback(async (mode: "initial" | "background" = "initial") => {
+    const background = mode === "background" && hasLoadedRef.current;
+    if (background) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
 
     try {
       const meRes = await api.get<{ user?: AppUser }>("/auth/me");
@@ -225,33 +233,43 @@ export default function DashboardPage() {
           minute: "2-digit",
         }),
       );
+      hasLoadedRef.current = true;
     } catch {
-      toast.error("Gagal memuat dashboard");
+      if (!background) {
+        toast.error("Gagal memuat dashboard");
+      }
     } finally {
-      setLoading(false);
+      if (background) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    void fetchDashboard();
-
-    const interval = window.setInterval(() => {
-      void fetchDashboard();
-    }, 45000);
-
-    const onFocus = () => {
-      void fetchDashboard();
-    };
-
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onFocus);
+    void fetchDashboard("initial");
 
     return () => {
-      window.clearInterval(interval);
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onFocus);
+      if (refreshTimerRef.current !== null) {
+        window.clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
     };
   }, [fetchDashboard]);
+
+  const scheduleDashboardRefresh = useCallback(
+    (delay = 500) => {
+      if (refreshTimerRef.current !== null) {
+        window.clearTimeout(refreshTimerRef.current);
+      }
+      refreshTimerRef.current = window.setTimeout(() => {
+        refreshTimerRef.current = null;
+        void fetchDashboard("background");
+      }, delay);
+    },
+    [fetchDashboard],
+  );
 
   const { connected: realtimeConnected, status: realtimeStatus } = useRealtime({
     enabled: Boolean(tenantId),
@@ -267,11 +285,11 @@ export default function DashboardPage() {
         matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES) ||
         matchesRealtimePrefix(event.type, DEVICE_EVENT_PREFIXES)
       ) {
-        void fetchDashboard();
+        scheduleDashboardRefresh();
       }
     },
     onReconnect: () => {
-      void fetchDashboard();
+      scheduleDashboardRefresh(150);
     },
   });
 
@@ -538,7 +556,7 @@ export default function DashboardPage() {
               {ownerOnly ? "Owner View" : "Staff View"}
             </Badge>
             <Badge className="border-none bg-slate-100 text-[8px] font-semibold tracking-widest text-slate-500 dark:bg-white/5 dark:text-slate-300">
-              Sync {lastSyncAt || "--:--"}
+              {refreshing ? "Refreshing..." : `Sync ${lastSyncAt || "--:--"}`}
             </Badge>
             <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
           </div>

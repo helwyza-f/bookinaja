@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Script from "next/script";
 import { format } from "date-fns";
@@ -160,23 +160,54 @@ export default function BookingDetailPage() {
   const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings | null>(null);
   const [adminUser, setAdminUser] = useState<AdminSessionUser | null>(null);
   const [tenantId, setTenantId] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const hasLoadedRef = useRef(false);
+  const refreshTimerRef = useRef<number | null>(null);
 
-  const fetchDetail = useCallback(async () => {
+  const fetchDetail = useCallback(async (mode: "initial" | "background" = "initial") => {
+    const background = mode === "background" && hasLoadedRef.current;
     try {
+      if (background) {
+        setRefreshing(true);
+      }
       const res = await api.get(`/bookings/${params.id}`);
       setBooking(res.data);
+      hasLoadedRef.current = true;
     } catch {
-      toast.error("Gagal memuat detail reservasi");
+      if (!background) {
+        toast.error("Gagal memuat detail reservasi");
+      }
     } finally {
-      setLoading(false);
+      if (background) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+      }
     }
   }, [params.id]);
 
   useEffect(() => {
-    fetchDetail();
-    window.addEventListener("focus", fetchDetail);
-    return () => window.removeEventListener("focus", fetchDetail);
+    void fetchDetail("initial");
+    return () => {
+      if (refreshTimerRef.current !== null) {
+        window.clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+    };
   }, [fetchDetail]);
+
+  const scheduleDetailRefresh = useCallback(
+    (delay = 300) => {
+      if (refreshTimerRef.current !== null) {
+        window.clearTimeout(refreshTimerRef.current);
+      }
+      refreshTimerRef.current = window.setTimeout(() => {
+        refreshTimerRef.current = null;
+        void fetchDetail("background");
+      }, delay);
+    },
+    [fetchDetail],
+  );
 
   useEffect(() => {
     api
@@ -197,10 +228,12 @@ export default function BookingDetailPage() {
     onEvent: (event) => {
       if (matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) {
         setBooking((current) => patchBookingDetailFromEvent(current, event));
-        fetchDetail();
+        scheduleDetailRefresh();
       }
     },
-    onReconnect: fetchDetail,
+    onReconnect: () => {
+      scheduleDetailRefresh(150);
+    },
   });
 
   useEffect(() => {
@@ -442,6 +475,11 @@ export default function BookingDetailPage() {
               Booking <span className="text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">Detail.</span>
             </h1>
             <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
+            {refreshing ? (
+              <Badge className="border-none bg-slate-100 text-[8px] font-semibold tracking-widest text-slate-500 dark:bg-white/5 dark:text-slate-300">
+                Refreshing...
+              </Badge>
+            ) : null}
             <Badge
               className={cn(
                 "font-black italic text-[9px] uppercase px-3 py-1 rounded-lg border-none shadow-lg",
