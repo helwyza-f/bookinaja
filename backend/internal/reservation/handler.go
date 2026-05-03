@@ -2,6 +2,8 @@ package reservation
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -265,7 +267,11 @@ func (h *Handler) GetDetail(c *gin.Context) {
 
 	booking, err := h.service.GetDetailForAdmin(c.Request.Context(), id, tenantID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "BOOKING TIDAK DITEMUKAN"})
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "BOOKING TIDAK DITEMUKAN"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, booking)
@@ -288,7 +294,11 @@ func (h *Handler) GetMyDetail(c *gin.Context) {
 
 	booking, err := h.service.GetDetailForCustomer(c.Request.Context(), id, tenantID, customerID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "BOOKING TIDAK DITEMUKAN"})
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "BOOKING TIDAK DITEMUKAN"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, booking)

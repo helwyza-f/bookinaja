@@ -76,9 +76,9 @@ func (r *Repository) CreateBookingEvent(ctx context.Context, exec sqlx.ExtContex
 	_, _ = exec.ExecContext(ctx, `SAVEPOINT optional_booking_event`)
 	_, err := exec.ExecContext(ctx, `
 		INSERT INTO booking_events (
-			id, booking_id, tenant_id, customer_id, actor_type, event_type, title, description, metadata, created_at
+			id, booking_id, tenant_id, customer_id, actor_user_id, actor_type, actor_name, actor_email, actor_role, event_type, title, description, metadata, created_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()
+			$1, $2, $3, $4, NULL, $5, '', '', '', $6, $7, $8, $9, NOW()
 		)`,
 		uuid.New(), booking.BookingID, booking.TenantID, booking.CustomerID, actorType, eventType, title, description, raw,
 	)
