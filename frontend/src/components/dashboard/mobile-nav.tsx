@@ -134,7 +134,7 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
       <SheetContent
         side="left"
         showCloseButton={false}
-        className="w-[84vw] max-w-[320px] gap-0 overflow-hidden border-r border-[var(--sidebar-border)] bg-[var(--card)] p-0 text-slate-950 shadow-xl dark:text-white"
+        className="w-[84vw] max-w-[320px] gap-0 overflow-hidden border-r border-[var(--sidebar-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,250,252,0.98))] p-0 text-slate-950 shadow-xl dark:bg-[linear-gradient(180deg,rgba(11,18,32,0.96),rgba(7,12,23,0.98))] dark:text-white"
       >
         <div className="flex h-full flex-col overflow-hidden">
           <SheetHeader className="border-b border-[var(--sidebar-border)] px-4 py-3 text-left">
@@ -175,8 +175,8 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
                     className={cn(
                       "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                       active
-                        ? "bg-[var(--bookinaja-600)] text-white"
-                        : "text-slate-700 hover:bg-[var(--sidebar-accent)] dark:text-slate-300 dark:hover:bg-white/5",
+                        ? "bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_58%,#0ea5e9_100%)] text-white shadow-[0_18px_40px_rgba(37,99,235,0.22)]"
+                        : "text-slate-700 hover:bg-white/80 dark:text-slate-300 dark:hover:bg-white/5",
                     )}
                   >
                     <item.icon className="h-4 w-4 shrink-0" />
@@ -220,8 +220,8 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
                             className={cn(
                               "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                               active
-                                ? "bg-[var(--bookinaja-600)] text-white"
-                                : "text-slate-700 hover:bg-[var(--sidebar-accent)] dark:text-slate-300 dark:hover:bg-white/5",
+                                ? "bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_58%,#0ea5e9_100%)] text-white shadow-[0_18px_40px_rgba(37,99,235,0.22)]"
+                                : "text-slate-700 hover:bg-white/80 dark:text-slate-300 dark:hover:bg-white/5",
                             )}
                           >
                             <item.icon className="h-4 w-4 shrink-0" />
@@ -263,8 +263,8 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
                         className={cn(
                           "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                           active
-                            ? "bg-[var(--bookinaja-600)] text-white"
-                            : "text-slate-700 hover:bg-[var(--sidebar-accent)] dark:text-slate-300 dark:hover:bg-white/5",
+                            ? "bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_58%,#0ea5e9_100%)] text-white shadow-[0_18px_40px_rgba(37,99,235,0.22)]"
+                            : "text-slate-700 hover:bg-white/80 dark:text-slate-300 dark:hover:bg-white/5",
                         )}
                       >
                         <item.icon className="h-4 w-4 shrink-0" />

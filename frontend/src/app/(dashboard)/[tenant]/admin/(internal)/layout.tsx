@@ -121,11 +121,12 @@ export default function DashboardInternalLayout({
 
   return (
     <TooltipProvider delayDuration={0} skipDelayDuration={0}>
-      <div className="tenant-admin-shell flex min-h-screen overflow-x-hidden bg-slate-50 selection:bg-blue-500/30 dark:bg-[#050505]">
+      <div className="tenant-admin-shell relative flex min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#f8fbff_0%,#eef5ff_22%,#f8fafc_55%,#ffffff_100%)] selection:bg-blue-500/30 dark:bg-[linear-gradient(180deg,#060b16_0%,#0b1220_26%,#0f172a_60%,#05070d_100%)]">
+        <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.10),transparent_24%),radial-gradient(circle_at_top_right,rgba(16,185,129,0.07),transparent_28%)]" />
         {/* SIDEBAR */}
         <aside
           className={cn(
-            "hidden md:flex flex-col fixed inset-y-0 z-50 transition-all duration-200 ease-in-out border-r border-slate-200 dark:border-white/5 bg-white dark:bg-[#0a0a0a]",
+            "hidden md:flex flex-col fixed inset-y-0 z-50 transition-all duration-200 ease-in-out border-r border-slate-200/80 dark:border-white/8 bg-white/88 backdrop-blur-xl dark:bg-[#0b1220]/82",
             isCollapsed ? "w-20" : "w-72",
           )}
         >
@@ -135,11 +136,11 @@ export default function DashboardInternalLayout({
         {/* MAIN CONTENT */}
         <div
           className={cn(
-            "tenant-admin-content flex min-w-0 flex-1 flex-col transition-all duration-200 ease-in-out pb-16 md:pb-0",
+            "tenant-admin-content relative flex min-w-0 flex-1 flex-col transition-all duration-200 ease-in-out pb-16 md:pb-0",
             isCollapsed ? "md:pl-20" : "md:pl-72",
           )}
         >
-          <div className="fixed inset-x-0 top-0 z-40 md:hidden border-b border-slate-200/80 bg-white/95 backdrop-blur dark:border-white/5 dark:bg-[#080808]/95">
+          <div className="fixed inset-x-0 top-0 z-40 md:hidden border-b border-slate-200/80 bg-white/92 backdrop-blur-xl dark:border-white/8 dark:bg-[#0b1220]/90">
             <div className="flex h-17.5 items-center justify-between gap-3 px-4">
               <div className="min-w-0">
                 <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-blue-600">
@@ -168,11 +169,11 @@ export default function DashboardInternalLayout({
 // --- LOADING SKELETON COMPONENT ---
 function DashboardLayoutSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
   return (
-    <div className="tenant-admin-shell flex min-h-screen overflow-x-hidden bg-slate-50 dark:bg-[#050505]">
+    <div className="tenant-admin-shell flex min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#f8fbff_0%,#eef5ff_22%,#f8fafc_55%,#ffffff_100%)] dark:bg-[linear-gradient(180deg,#060b16_0%,#0b1220_26%,#0f172a_60%,#05070d_100%)]">
       {/* Sidebar Shadow Skeleton */}
       <div
         className={cn(
-          "hidden md:flex flex-col border-r border-slate-200 dark:border-white/5 bg-white dark:bg-[#0a0a0a] p-4 transition-all duration-300",
+          "hidden md:flex flex-col border-r border-slate-200/80 dark:border-white/8 bg-white/88 backdrop-blur-xl dark:bg-[#0b1220]/82 p-4 transition-all duration-300",
           isCollapsed ? "w-20" : "w-72",
         )}
       >

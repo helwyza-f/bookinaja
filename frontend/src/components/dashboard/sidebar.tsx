@@ -121,7 +121,8 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   const hasAccess = (href: string) => canAccessAdminRoute(href, userData);
 
   return (
-    <div className="relative flex h-full flex-col border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] font-sans text-[var(--sidebar-foreground)] transition-colors duration-200">
+    <div className="relative flex h-full flex-col border-r border-[var(--sidebar-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(248,250,252,0.92))] font-sans text-[var(--sidebar-foreground)] transition-colors duration-200 dark:bg-[linear-gradient(180deg,rgba(11,18,32,0.88),rgba(7,12,23,0.96))]">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top,rgba(37,99,235,0.16),transparent_58%)]" />
       {/* COLLAPSE TOGGLE BUTTON */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
@@ -137,12 +138,12 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       {/* LOGO AREA - DYNAMIC TENANT LOGO */}
       <div
         className={cn(
-          "flex items-center transition-all shrink-0 px-4",
+          "relative flex items-center transition-all shrink-0 px-4",
           isCollapsed ? "h-18 justify-center" : "h-20 justify-start px-6",
         )}
       >
         <Link href="/admin/dashboard" className="flex items-center gap-3 group">
-          <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-white/5 shadow-inner ring-1 ring-black/5 dark:ring-white/10">
+            <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-white/5 shadow-[0_12px_28px_rgba(15,23,42,0.12)] ring-1 ring-black/5 dark:ring-white/10">
             <div
               className="h-full w-full bg-cover bg-center transition-transform group-hover:scale-110 duration-500"
               style={{ backgroundImage: `url(${tenantLogo})` }}
@@ -172,9 +173,9 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       >
         <div
           className={cn(
-            "flex flex-col",
-            isCollapsed
-              ? "gap-1 rounded-[1.4rem] border border-slate-100 bg-slate-50/80 p-1.5 dark:border-white/8 dark:bg-white/[0.04]"
+          "flex flex-col relative",
+          isCollapsed
+              ? "gap-1 rounded-[1.4rem] border border-slate-100 bg-white/80 p-1.5 shadow-sm dark:border-white/8 dark:bg-white/[0.04]"
               : "gap-1",
           )}
         >
@@ -192,8 +193,8 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                         ? "h-9 w-9 justify-center mx-auto rounded-xl"
                         : "px-3 py-2.5 w-full gap-3 rounded-xl",
                       isActive
-                        ? "bg-[var(--sidebar-primary)] text-[var(--sidebar-primary-foreground)] shadow-sm"
-                        : "text-slate-500 dark:text-slate-300 hover:bg-[var(--sidebar-accent)] dark:hover:bg-white/5 hover:text-[var(--bookinaja-600)] dark:hover:text-white",
+                        ? "bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_58%,#0ea5e9_100%)] text-[var(--sidebar-primary-foreground)] shadow-[0_18px_40px_rgba(37,99,235,0.22)]"
+                        : "text-slate-500 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-white/5 hover:text-[var(--bookinaja-600)] dark:hover:text-white",
                     )}
                   >
                     <route.icon
@@ -248,8 +249,8 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                           : "w-full gap-3 rounded-xl px-3 py-2.5",
                         pathname === growthHubNavItem.href ||
                           pathname.startsWith(`${growthHubNavItem.href}/`)
-                          ? "bg-[var(--sidebar-primary)] text-[var(--sidebar-primary-foreground)] shadow-sm"
-                          : "text-slate-500 hover:bg-[var(--sidebar-accent)] hover:text-[var(--bookinaja-600)] dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white",
+                          ? "bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_58%,#0ea5e9_100%)] text-[var(--sidebar-primary-foreground)] shadow-[0_18px_40px_rgba(37,99,235,0.22)]"
+                          : "text-slate-500 hover:bg-white/80 hover:text-[var(--bookinaja-600)] dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white",
                       )}
                     >
                       <growthHubNavItem.icon
@@ -306,8 +307,8 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                             ? "mx-auto h-9 w-9 justify-center rounded-xl"
                             : "w-full gap-3 rounded-xl px-3 py-2.5",
                           isActive
-                            ? "bg-[var(--sidebar-primary)] text-[var(--sidebar-primary-foreground)] shadow-sm"
-                            : "text-slate-500 hover:bg-[var(--sidebar-accent)] hover:text-[var(--bookinaja-600)] dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white",
+                            ? "bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_58%,#0ea5e9_100%)] text-[var(--sidebar-primary-foreground)] shadow-[0_18px_40px_rgba(37,99,235,0.22)]"
+                            : "text-slate-500 hover:bg-white/80 hover:text-[var(--bookinaja-600)] dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white",
                         )}
                       >
                         <route.icon
@@ -342,7 +343,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       {/* FOOTER: NAV USER POPOVER */}
       <div
         className={cn(
-          "mt-auto border-t border-[var(--sidebar-border)] bg-[var(--sidebar-accent)]/50",
+          "mt-auto border-t border-[var(--sidebar-border)] bg-white/60 dark:bg-white/[0.03]",
           isCollapsed ? "p-2" : "p-3",
         )}
       >
