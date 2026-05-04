@@ -1,10 +1,21 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
+import type { BuilderProfile } from "@/lib/page-builder";
 
-const TenantContext = createContext<any>(null);
+type TenantContextValue = {
+  profile: BuilderProfile | null;
+};
 
-export function TenantProvider({ children, initialData }: any) {
+const TenantContext = createContext<TenantContextValue | null>(null);
+
+export function TenantProvider({
+  children,
+  initialData,
+}: {
+  children: ReactNode;
+  initialData: BuilderProfile | null;
+}) {
   // Kita simpan data awal dari server ke state
   const [profile] = useState(initialData);
 
@@ -15,4 +26,4 @@ export function TenantProvider({ children, initialData }: any) {
   );
 }
 
-export const useTenant = () => useContext(TenantContext);
+export const useTenant = () => useContext(TenantContext) ?? { profile: null };

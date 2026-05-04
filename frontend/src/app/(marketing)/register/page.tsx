@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -83,7 +83,7 @@ function RegisterForm() {
     categoryParam || "gaming_hub",
   );
 
-  const { register, handleSubmit, watch } = useForm<RegisterFormValues>({
+  const { register, handleSubmit, control } = useForm<RegisterFormValues>({
     defaultValues: {
       businessName: "",
       subdomain: "",
@@ -94,7 +94,11 @@ function RegisterForm() {
     },
   });
 
-  const slugValue = watch("subdomain", "");
+  const slugValue = useWatch({
+    control,
+    name: "subdomain",
+    defaultValue: "",
+  });
 
   const onSubmit = async (data: RegisterFormValues) => {
     setLoading(true);

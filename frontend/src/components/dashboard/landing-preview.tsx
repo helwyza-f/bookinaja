@@ -1,8 +1,19 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
+import { MapPin, Clock } from "lucide-react";
 
-import { MapPin, Clock, Star, Calendar } from "lucide-react";
+type LandingPreviewData = {
+  banner_url?: string;
+  logo_url?: string;
+  name?: string;
+  slogan?: string;
+  open_time?: string;
+  close_time?: string;
+  address?: string;
+  gallery?: string[];
+};
 
-export function LandingPreview({ data }: { data: any }) {
+export function LandingPreview({ data }: { data: LandingPreviewData }) {
   return (
     <div className="sticky top-28 flex flex-col items-center">
       <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-4 italic">
@@ -23,12 +34,14 @@ export function LandingPreview({ data }: { data: any }) {
                 "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2069"
               }
               className="absolute inset-0 w-full h-full object-cover opacity-50"
+              alt={data.name || "Banner bisnis"}
             />
             <div className="relative z-10 text-center px-4">
               {data.logo_url && (
                 <img
                   src={data.logo_url}
                   className="h-10 w-10 mx-auto rounded-lg mb-2 shadow-lg"
+                  alt={`${data.name || "Bisnis"} logo`}
                 />
               )}
               <h4 className="text-white text-sm font-black uppercase tracking-tighter truncate">
@@ -69,7 +82,7 @@ export function LandingPreview({ data }: { data: any }) {
                   key={i}
                   className="aspect-square rounded-lg bg-slate-100 overflow-hidden"
                 >
-                  <img src={url} className="w-full h-full object-cover" />
+                  <img src={url} className="w-full h-full object-cover" alt="" />
                 </div>
               ))}
             </div>

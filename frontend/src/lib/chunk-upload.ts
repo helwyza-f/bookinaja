@@ -1,3 +1,4 @@
+import axios from "axios";
 import api from "@/lib/api";
 
 type LegacyChunkInitResponse = {
@@ -37,7 +38,7 @@ export async function uploadFileInChunks(
 ) {
   try {
     return await uploadFileDirectToStorage(endpointBase, file, onProgress);
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (shouldFallbackToLegacy(error)) {
       return uploadFileViaBackendChunks(endpointBase, file, onProgress);
     }
@@ -182,11 +183,14 @@ function uploadBlobToSignedUrl(
   });
 }
 
-function shouldFallbackToLegacy(error: any) {
-  if (error?.response?.status === 404 || error?.response?.status === 405) {
+function shouldFallbackToLegacy(error: unknown) {
+  if (axios.isAxiosError(error) && (error.response?.status === 404 || error.response?.status === 405)) {
     return true;
   }
-  const message = String(error?.message || "").toLowerCase();
+  const message =
+    error instanceof Error
+      ? error.message.toLowerCase()
+      : String(error || "").toLowerCase();
   return (
     message.includes("network error") ||
     message.includes("failed to fetch") ||

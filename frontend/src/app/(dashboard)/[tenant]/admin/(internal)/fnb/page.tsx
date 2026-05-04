@@ -1,5 +1,5 @@
 "use client";
-
+/* eslint-disable @next/next/no-img-element */
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

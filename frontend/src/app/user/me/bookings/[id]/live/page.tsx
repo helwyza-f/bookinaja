@@ -95,15 +95,6 @@ export default function CustomerBookingDetail() {
     }
   }, [params.id, router]);
 
-  const syncSession = useCallback(async () => {
-    try {
-      await api.post(`/public/bookings/${params.id}/sync`);
-      await fetchDetail();
-    } catch {
-      // ignore sync errors, UI still loads from booking detail
-    }
-  }, [fetchDetail, params.id]);
-
   const fetchMenuItems = useCallback(async (slug?: string) => {
     if (!slug) return;
     try {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import {
   BookOpen,
@@ -11,14 +11,9 @@ import {
   Check,
   ShieldCheck,
   CreditCard,
-  ChevronRight,
   Smartphone,
-  ArrowRight,
-  TrendingUp,
   Fingerprint,
-  Sparkles,
   BarChart3,
-  HelpCircle,
   Clock,
   ExternalLink,
   Target,
@@ -35,11 +30,30 @@ import {
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 
+type SectionProps = {
+  id: string;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+};
+
+type FeatureCardProps = {
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+};
+
+type StepItemProps = {
+  number: string;
+  title: string;
+  desc: string;
+};
+
 /**
  * --- SUB-KOMPONEN DESIGN SYSTEM ---
  */
 
-function Section({ id, title, subtitle, children }: any) {
+function Section({ id, title, subtitle, children }: SectionProps) {
   return (
     <section id={id} className="scroll-mt-40 md:scroll-mt-32">
       <div className="space-y-2 px-1">
@@ -57,7 +71,7 @@ function Section({ id, title, subtitle, children }: any) {
   );
 }
 
-function FeatureCard({ icon, title, desc }: any) {
+function FeatureCard({ icon, title, desc }: FeatureCardProps) {
   return (
     <div className="group relative rounded-[2rem] border border-border bg-card/40 backdrop-blur-sm p-6 md:p-8 transition-all hover:border-blue-500/50">
       <div className="relative z-10 space-y-4">
@@ -77,7 +91,7 @@ function FeatureCard({ icon, title, desc }: any) {
   );
 }
 
-function StepItem({ number, title, desc }: any) {
+function StepItem({ number, title, desc }: StepItemProps) {
   return (
     <div className="flex gap-4 md:gap-6 group">
       <div className="flex flex-col items-center">

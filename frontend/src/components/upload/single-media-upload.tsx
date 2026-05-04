@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import axios from "axios";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -57,8 +58,9 @@ export function SingleMediaUpload({
     setProgress(0);
     try {
       const metadata = await extractMediaMetadata(preparedFile).catch(() => ({} as PostMediaMetadata));
-      const res = await uploadFileInChunks(endpoint, preparedFile, setProgress).catch(async (err: any) => {
-        if (err?.response?.status === 404 || err?.response?.status === 405) {
+      const res = await uploadFileInChunks(endpoint, preparedFile, setProgress).catch(async (error: unknown) => {
+        const status = getAxiosStatus(error);
+        if (status === 404 || status === 405) {
           const legacyRes = await api.post(endpoint, formData, {
             headers: { "Content-Type": "multipart/form-data" },
             onUploadProgress: (event) => {
@@ -68,7 +70,7 @@ export function SingleMediaUpload({
           });
           return legacyRes.data;
         }
-        throw err;
+        throw error;
       });
       onChange(res.url);
       onMetadataChange?.({
@@ -76,9 +78,9 @@ export function SingleMediaUpload({
         mime_type: preparedFile.type || metadata.mime_type,
       });
       toast.success(mediaKind === "video" ? "Video berhasil diupload" : "Media berhasil diupload");
-    } catch (err: any) {
+    } catch (error: unknown) {
       toast.error(
-        err?.response?.status === 413
+        getAxiosStatus(error) === 413
           ? "Upload ditolak karena file masih terlalu besar untuk server"
           : "Gagal mengupload media",
       );
@@ -254,6 +256,10 @@ async function prepareImageForUpload(file: File) {
     type: blob.type || mimeType,
     lastModified: Date.now(),
   });
+}
+
+function getAxiosStatus(error: unknown): number | undefined {
+  return axios.isAxiosError(error) ? error.response?.status : undefined;
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality?: number) {

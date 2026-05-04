@@ -27,22 +27,20 @@ import {
   ChevronDown,
   MessageCircle,
   AlertTriangle,
-  Heart,
-  Smartphone,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 
 /* ─────────────────────────────────────────────
    HOOK: Scroll reveal
 ───────────────────────────────────────────── */
 function useReveal(threshold = 0.08) {
-  const ref = useRef<HTMLDivElement>(null);
+  const [node, setNode] = useState<HTMLElement | null>(null);
   const [visible, setVisible] = useState(false);
+
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+    if (!node) return;
     const obs = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -52,10 +50,10 @@ function useReveal(threshold = 0.08) {
       },
       { threshold },
     );
-    obs.observe(el);
+    obs.observe(node);
     return () => obs.disconnect();
-  }, [threshold]);
-  return { ref, visible };
+  }, [node, threshold]);
+  return [setNode, visible] as const;
 }
 
 function revealStyle(visible: boolean, delay = 0): React.CSSProperties {
@@ -77,7 +75,7 @@ function AnimatedCounter({
   suffix?: string;
 }) {
   const [count, setCount] = useState(0);
-  const { ref, visible } = useReveal(0.3);
+  const [setNode, visible] = useReveal(0.3);
   useEffect(() => {
     if (!visible) return;
     let start = 0;
@@ -92,7 +90,7 @@ function AnimatedCounter({
     return () => clearInterval(timer);
   }, [visible, target]);
   return (
-    <span ref={ref}>
+    <span ref={setNode}>
       {count.toLocaleString()}
       {suffix}
     </span>
@@ -103,10 +101,8 @@ function AnimatedCounter({
    THEME HELPERS
 ───────────────────────────────────────────── */
 function useThemeClasses() {
-  const [mounted, setMounted] = useState(false);
   const { resolvedTheme } = useTheme();
-  useEffect(() => setMounted(true), []);
-  const isDark = mounted ? resolvedTheme === "dark" : false;
+  const isDark = resolvedTheme === "dark";
   return {
     isDark,
     bg: isDark ? "bg-[#06080f]" : "bg-slate-50",
@@ -285,19 +281,18 @@ export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [openPersona, setOpenPersona] = useState<number | null>(0);
 
-  const hero = useReveal(0.04);
-  const pain = useReveal(0.06);
-  const solution = useReveal(0.06);
-  const compare = useReveal(0.06);
-  const feat = useReveal(0.06);
-  const persona = useReveal(0.06);
-  const how = useReveal(0.06);
-  const ind = useReveal(0.06);
-  const staff = useReveal(0.06);
-  const founder = useReveal(0.06);
-  const testim = useReveal(0.06);
-  const faq = useReveal(0.06);
-  const cta = useReveal(0.06);
+  const [heroRef, heroVisible] = useReveal(0.04);
+  const [painRef, painVisible] = useReveal(0.06);
+  const [solutionRef, solutionVisible] = useReveal(0.06);
+  const [compareRef, compareVisible] = useReveal(0.06);
+  const [featRef, featVisible] = useReveal(0.06);
+  const [personaRef, personaVisible] = useReveal(0.06);
+  const [howRef, howVisible] = useReveal(0.06);
+  const [indRef, indVisible] = useReveal(0.06);
+  const [staffRef, staffVisible] = useReveal(0.06);
+  const [testimRef, testimVisible] = useReveal(0.06);
+  const [faqRef, faqVisible] = useReveal(0.06);
+  const [ctaRef, ctaVisible] = useReveal(0.06);
 
   return (
     <div
@@ -381,10 +376,10 @@ export default function LandingPage() {
           1. HERO
       ══════════════════════════════ */}
       <section className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 pt-24 sm:pt-24 md:pt-32 pb-10 sm:pb-14 text-center">
-        <div ref={hero.ref} className="space-y-5 sm:space-y-6">
+        <div ref={heroRef} className="space-y-5 sm:space-y-6">
           <div
             className="flex justify-center"
-            style={revealStyle(hero.visible, 0.05)}
+            style={revealStyle(heroVisible, 0.05)}
           >
             <div
               className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 ${isDark ? "border-blue-500/20 bg-blue-500/[0.07]" : "border-blue-300/50 bg-blue-50"}`}
@@ -400,7 +395,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div style={revealStyle(hero.visible, 0.1)}>
+          <div style={revealStyle(heroVisible, 0.1)}>
             <h1
               className={`mx-auto text-[38px] sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-[-0.05em] leading-[0.88] uppercase ${heading}`}
             >
@@ -410,7 +405,7 @@ export default function LandingPage() {
             </h1>
           </div>
 
-          <div style={revealStyle(hero.visible, 0.16)}>
+          <div style={revealStyle(heroVisible, 0.16)}>
             <p
               className={`max-w-sm sm:max-w-2xl mx-auto text-sm sm:text-base md:text-lg font-medium leading-relaxed ${muted}`}
             >
@@ -421,7 +416,7 @@ export default function LandingPage() {
 
           <div
             className="flex flex-col sm:flex-row justify-center items-center gap-3"
-            style={revealStyle(hero.visible, 0.22)}
+            style={revealStyle(heroVisible, 0.22)}
           >
             <Link href="/register" className="w-full sm:w-auto">
               <Button className="w-full sm:w-auto h-12 px-8 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl bg-blue-600 hover:bg-blue-500 text-white border-0 transition-colors duration-200 shadow-lg shadow-blue-600/20">
@@ -441,7 +436,7 @@ export default function LandingPage() {
           {/* Trust micro-copy */}
           <div
             className="flex flex-wrap justify-center gap-4 sm:gap-6"
-            style={revealStyle(hero.visible, 0.27)}
+            style={revealStyle(heroVisible, 0.27)}
           >
             {[
               "✓ Trial 30 hari",
@@ -457,7 +452,7 @@ export default function LandingPage() {
           {/* Social proof avatars */}
           <div
             className="flex justify-center items-center gap-4"
-            style={revealStyle(hero.visible, 0.32)}
+            style={revealStyle(heroVisible, 0.32)}
           >
             <div className="flex -space-x-2">
               {[
@@ -487,7 +482,7 @@ export default function LandingPage() {
         {/* Dashboard preview */}
         <div
           className="relative mt-10 sm:mt-14 mx-auto max-w-5xl"
-          style={revealStyle(hero.visible, 0.38)}
+          style={revealStyle(heroVisible, 0.38)}
         >
           <div
             className={`absolute inset-0 rounded-[2rem] blur-2xl ${isDark ? "bg-blue-600/8" : "bg-blue-400/8"}`}
@@ -666,7 +661,7 @@ export default function LandingPage() {
           2. PAIN SECTION — "Masih Begini?"
       ══════════════════════════════ */}
       <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
-        <div ref={pain.ref} style={revealStyle(pain.visible)}>
+        <div ref={painRef} style={revealStyle(painVisible)}>
           <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
             <SectionBadge
               icon={<AlertTriangle className="h-3 w-3" />}
@@ -762,7 +757,7 @@ export default function LandingPage() {
           3. SOLUTION INTRO
       ══════════════════════════════ */}
       <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        <div ref={solution.ref} style={revealStyle(solution.visible)}>
+        <div ref={solutionRef} style={revealStyle(solutionVisible)}>
           <div
             className={`relative overflow-hidden rounded-[2rem] border px-6 sm:px-12 py-12 sm:py-16 text-center ${isDark ? "bg-blue-600/[0.07] border-blue-500/20" : "bg-blue-50 border-blue-100"}`}
           >
@@ -808,7 +803,7 @@ export default function LandingPage() {
           4. COMPARISON TABLE
       ══════════════════════════════ */}
       <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
-        <div ref={compare.ref} style={revealStyle(compare.visible)}>
+        <div ref={compareRef} style={revealStyle(compareVisible)}>
           <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
             <SectionBadge
               icon={<CheckCircle2 className="h-3 w-3" />}
@@ -951,7 +946,7 @@ export default function LandingPage() {
           5. FEATURES BENTO
       ══════════════════════════════ */}
       <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-8">
-        <div ref={feat.ref} style={revealStyle(feat.visible)}>
+        <div ref={featRef} style={revealStyle(featVisible)}>
           <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
             <SectionBadge
               icon={<Zap className="h-3 w-3 fill-current" />}
@@ -1071,7 +1066,7 @@ export default function LandingPage() {
                 tanpa rekap manual.
               </p>
               <p className="text-emerald-500 text-xs font-black mb-4">
-                → Nggak ada lagi "bayar nanti ya".
+                → Nggak ada lagi &ldquo;bayar nanti ya&rdquo;.
               </p>
               <div className="grid grid-cols-3 gap-2">
                 {["QRIS", "Bank", "OVO", "GoPay", "Dana", "ShopeePay"].map(
@@ -1215,7 +1210,7 @@ export default function LandingPage() {
           7. PERSONA — "Cocok Untuk Kamu Yang..."
       ══════════════════════════════ */}
       <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        <div ref={persona.ref} style={revealStyle(persona.visible)}>
+        <div ref={personaRef} style={revealStyle(personaVisible)}>
           <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
             <SectionBadge
               icon={<Users className="h-3 w-3" />}
@@ -1293,7 +1288,7 @@ export default function LandingPage() {
           8. HOW IT WORKS
       ══════════════════════════════ */}
       <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
-        <div ref={how.ref} style={revealStyle(how.visible)}>
+        <div ref={howRef} style={revealStyle(howVisible)}>
           <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
             <SectionBadge
               icon={<Clock className="h-3 w-3" />}
@@ -1376,7 +1371,7 @@ export default function LandingPage() {
         id="industries"
         className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-8 sm:py-12"
       >
-        <div ref={ind.ref} style={revealStyle(ind.visible)}>
+        <div ref={indRef} style={revealStyle(indVisible)}>
           <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
             <SectionBadge
               icon={<Globe className="h-3 w-3" />}
@@ -1482,9 +1477,9 @@ export default function LandingPage() {
       ══════════════════════════════ */}
       <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         <div
-          ref={staff.ref}
+          ref={staffRef}
           className={`relative overflow-hidden rounded-[2rem] border p-6 sm:p-10 md:p-16 ${isDark ? "bg-white/[0.02] border-white/[0.07]" : "bg-white border-slate-200"}`}
-          style={revealStyle(staff.visible)}
+          style={revealStyle(staffVisible)}
         >
           <div
             className={`absolute inset-0 pointer-events-none ${isDark ? "bg-[radial-gradient(circle_at_100%_0%,rgba(59,130,246,0.06),transparent_55%)]" : "bg-[radial-gradient(circle_at_100%_0%,rgba(59,130,246,0.04),transparent_55%)]"}`}
@@ -1652,7 +1647,7 @@ export default function LandingPage() {
           12. TESTIMONIALS
       ══════════════════════════════ */}
       <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        <div ref={testim.ref} style={revealStyle(testim.visible)}>
+        <div ref={testimRef} style={revealStyle(testimVisible)}>
           <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
             <SectionBadge
               icon={<Star className="h-3 w-3 fill-current" />}
@@ -1712,7 +1707,7 @@ export default function LandingPage() {
                 <p
                   className={`text-sm font-medium leading-relaxed mb-4 italic flex-1 ${isDark ? "text-white/55" : "text-slate-600"}`}
                 >
-                  "{t.text}"
+                  &ldquo;{t.text}&rdquo;
                 </p>
                 <div
                   className={`text-xs font-black px-3 py-1.5 rounded-full mb-5 inline-flex self-start ${isDark ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" : "bg-emerald-50 text-emerald-600 border border-emerald-200"}`}
@@ -1742,7 +1737,7 @@ export default function LandingPage() {
           13. FAQ
       ══════════════════════════════ */}
       <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
-        <div ref={faq.ref} style={revealStyle(faq.visible)}>
+        <div ref={faqRef} style={revealStyle(faqVisible)}>
           <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
             <SectionBadge
               icon={<MessageCircle className="h-3 w-3" />}
@@ -1822,7 +1817,7 @@ export default function LandingPage() {
           14. FINAL CTA
       ══════════════════════════════ */}
       <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 pb-14 sm:pb-24">
-        <div ref={cta.ref} style={revealStyle(cta.visible)}>
+        <div ref={ctaRef} style={revealStyle(ctaVisible)}>
           <div
             className={`relative overflow-hidden rounded-[2rem] border px-6 sm:px-10 py-14 sm:py-24 md:py-32 text-center ${isDark ? "bg-slate-950 border-white/[0.07]" : "bg-white border-slate-200"}`}
           >

@@ -1,9 +1,10 @@
 // src/components/upload/bulk-image-upload.tsx
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, Plus, X, Image as ImageIcon, LayoutGrid } from "lucide-react";
+import { Loader2, Plus, X, LayoutGrid } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -39,7 +40,7 @@ export function BulkImageUpload({
       const newUrls = [...values, ...res.data.urls];
       onChange(newUrls);
       toast.success(`${res.data.urls.length} foto berhasil ditambahkan!`);
-    } catch (err) {
+    } catch {
       toast.error("Gagal upload gallery");
     } finally {
       setLoading(false);

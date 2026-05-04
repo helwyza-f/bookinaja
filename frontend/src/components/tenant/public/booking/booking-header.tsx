@@ -1,11 +1,29 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ImageIcon, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-export function BookingHeader({ resource, activeTheme }: any) {
+type BookingHeaderResource = {
+  image_url?: string;
+  name?: string;
+  category?: string;
+  description?: string;
+};
+
+type BookingHeaderTheme = {
+  gradient: string;
+  bgPrimary: string;
+};
+
+type BookingHeaderProps = {
+  resource?: BookingHeaderResource | null;
+  activeTheme: BookingHeaderTheme;
+};
+
+export function BookingHeader({ resource, activeTheme }: BookingHeaderProps) {
   const router = useRouter();
 
   return (
@@ -77,10 +95,8 @@ export function BookingHeader({ resource, activeTheme }: any) {
 
             {/* Description - Adaptive Color */}
             <p className="text-slate-700 dark:text-slate-400 font-bold italic text-sm md:text-xl max-w-2xl leading-relaxed tracking-tight">
-              "
               {resource?.description ||
                 "High-performance facility for your ultimate experience."}
-              "
             </p>
           </div>
         </div>

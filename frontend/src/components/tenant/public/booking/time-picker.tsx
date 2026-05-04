@@ -3,6 +3,20 @@ import { cn } from "@/lib/utils";
 import { Clock, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
+type BookingTheme = {
+  bgPrimary: string;
+  glow: string;
+};
+
+type TimePickerProps = {
+  availableSlots: string[];
+  selectedTime: string;
+  onSelect: (time: string) => void;
+  isTimeBusy: (time: string) => boolean;
+  busySlots: unknown[];
+  activeTheme: BookingTheme;
+};
+
 export function TimePicker({
   availableSlots,
   selectedTime,
@@ -10,7 +24,7 @@ export function TimePicker({
   isTimeBusy,
   busySlots,
   activeTheme,
-}: any) {
+}: TimePickerProps) {
   return (
     <section className="space-y-6 pt-10 border-t border-slate-100 dark:border-white/5 animate-in fade-in slide-in-from-top-4 duration-500">
       {/* --- HEADER SECTION --- */}

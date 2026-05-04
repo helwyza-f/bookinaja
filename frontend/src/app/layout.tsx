@@ -1,24 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Plus_Jakarta_Sans, Syne } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
-
-// Font Setup sesuai Brand Identity v1.0
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-sans",
-});
-
-const plusJakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-plus-jakarta",
-});
-
-const syne = Syne({
-  subsets: ["latin"],
-  variable: "--font-syne",
-});
 
 // Viewport Config
 export const viewport: Viewport = {
@@ -112,7 +95,7 @@ export default function RootLayout({
     <html lang="id" suppressHydrationWarning>
       <body
         suppressHydrationWarning
-        className={`${inter.variable} ${plusJakarta.variable} ${syne.variable} font-sans antialiased bg-background text-foreground transition-colors duration-300`}
+        className="font-sans antialiased bg-background text-foreground transition-colors duration-300"
       >
         <ThemeProvider
           attribute="class"

@@ -23,7 +23,10 @@ export function useRealtime({
   onEvent,
   onReconnect,
 }: UseRealtimeOptions) {
-  const subscriptionIDRef = useRef(`rt-${Math.random().toString(36).slice(2)}`);
+  const subscriptionIDRef = useRef<string | null>(null);
+  if (subscriptionIDRef.current == null) {
+    subscriptionIDRef.current = `rt-${crypto.randomUUID()}`;
+  }
   const normalizedChannels = Array.from(
     new Set(channels.map((channel) => channel.trim()).filter(Boolean)),
   ).sort();
@@ -54,14 +57,16 @@ export function useRealtime({
     if (!enabled || channelsForEffect.length === 0) {
       unsubscribeRef.current?.();
       unsubscribeRef.current = null;
-      setConnected(false);
-      setStatus("idle");
       return;
     }
 
     const manager = getRealtimeManager();
+    const subscriptionID = subscriptionIDRef.current;
+    if (!subscriptionID) {
+      return;
+    }
     unsubscribeRef.current?.();
-    unsubscribeRef.current = manager.subscribe(subscriptionIDRef.current, {
+    unsubscribeRef.current = manager.subscribe(subscriptionID, {
       channels: channelsForEffect,
       onEvent: handleEvent,
       onReconnect: handleReconnect,
@@ -73,5 +78,10 @@ export function useRealtime({
     };
   }, [channelKey, enabled]);
 
-  return { connected, status };
+  const hasActiveChannels = enabled && normalizedChannels.length > 0;
+
+  return {
+    connected: hasActiveChannels ? connected : false,
+    status: hasActiveChannels ? status : "idle",
+  };
 }

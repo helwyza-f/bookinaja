@@ -49,6 +49,9 @@
 }
 
 :root {
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-plus-jakarta: "Plus Jakarta Sans", "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-syne: "Syne", "Avenir Next", "Segoe UI", system-ui, sans-serif;
   --bookinaja-50: #eff6ff;
   --bookinaja-100: #dbeafe;
   --bookinaja-200: #bfdbfe;
