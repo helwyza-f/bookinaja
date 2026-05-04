@@ -2358,7 +2358,7 @@ function MobilePreviewFrame({
     >
       <div className="absolute left-1/2 top-2.5 z-20 h-6 w-28 -translate-x-1/2 rounded-full bg-[#0c1426]" />
       <div
-        className="overflow-auto pt-2"
+        className="overflow-auto"
         style={{ height: `${basePhoneHeight}px` }}
       >
         {children}

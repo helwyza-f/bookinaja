@@ -106,7 +106,7 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
               loading="eager"
               unoptimized
               sizes="100vw"
-              className="object-contain object-center opacity-100 transition-opacity duration-1000"
+              className="object-cover object-center opacity-100 transition-opacity duration-1000"
             />
           </>
         ) : (
@@ -321,7 +321,7 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
                         loading="eager"
                         unoptimized
                         sizes="(min-width: 1024px) 40vw, 100vw"
-                        className="object-contain object-center"
+                        className="object-cover object-center"
                       />
                     </>
                   </div>

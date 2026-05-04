@@ -64,6 +64,8 @@ export function LandingBuilderRenderer({
   const surfaceClass = getPreviewSurfaceClass(theme);
   const previewFontStyle = getPreviewFontStyle(theme.font_style);
   const themeVisuals = getThemeVisuals(theme);
+  const leadingSection = page.sections.find((section) => section.enabled);
+  const hasLeadingHero = leadingSection?.type === "hero";
 
   const getBestPrice = (resource: BuilderResource) => {
     const mains = resource.items?.filter(
@@ -99,7 +101,15 @@ export function LandingBuilderRenderer({
             radiusStyle: theme.radius_style,
           }}
         />
-        <main className={previewMode === "mobile" ? (embedded ? "pt-24" : "pt-20") : ""}>
+        <main
+          className={
+            previewMode === "mobile" && !hasLeadingHero
+              ? embedded
+                ? "pt-24"
+                : "pt-20"
+              : ""
+          }
+        >
           {page.sections.filter((section) => section.enabled).map((section) =>
             renderSection({
               section,
