@@ -4,3 +4,5 @@
 .env.example
 .env.prod
 bookinaja.pem
+api
+api.exe
