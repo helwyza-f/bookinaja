@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Zap, MousePointer2 } from "lucide-react";
@@ -14,7 +15,7 @@ type TenantHeroProps = {
     features: string[];
     ctaLabel?: string;
   };
-  theme: { primary: string };
+  theme: { primary: string; preset?: string; accent?: string; radiusStyle?: string };
   variant?: "immersive" | "split" | "compact";
 };
 
@@ -26,6 +27,55 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
   const isCompact = variant === "compact";
   const isSplit = variant === "split";
   const singleWordName = !otherNames.trim();
+  const themePreset = theme.preset || "bookinaja-classic";
+  const radiusStyle = theme.radiusStyle || "rounded";
+
+  const heroBackgroundClass =
+    themePreset === "boutique"
+      ? "bg-[radial-gradient(circle_at_top,rgba(15,118,110,0.12),transparent_38%),linear-gradient(180deg,#fffaf2_0%,#f6efe8_58%,#fffdf9_100%)] dark:bg-[radial-gradient(circle_at_top,rgba(15,118,110,0.18),transparent_35%),linear-gradient(180deg,#120f0d_0%,#171412_58%,#0f0c0a_100%)]"
+      : themePreset === "sunset-glow"
+        ? "bg-[radial-gradient(circle_at_top,rgba(234,88,12,0.18),transparent_36%),linear-gradient(180deg,#fff7ed_0%,#ffedd5_54%,#fffaf5_100%)] dark:bg-[radial-gradient(circle_at_top,rgba(249,115,22,0.2),transparent_35%),linear-gradient(180deg,#2a1208_0%,#1f0d06_56%,#120804_100%)]"
+      : themePreset === "playful"
+        ? "bg-[radial-gradient(circle_at_top,rgba(22,163,74,0.18),transparent_36%),linear-gradient(180deg,#f0fdf4_0%,#ecfeff_58%,#ffffff_100%)] dark:bg-[radial-gradient(circle_at_top,rgba(22,163,74,0.22),transparent_35%),linear-gradient(180deg,#04160e_0%,#072116_58%,#03120d_100%)]"
+        : themePreset === "mono-luxe"
+          ? "bg-[radial-gradient(circle_at_top,rgba(71,85,105,0.14),transparent_35%),linear-gradient(180deg,#f8fafc_0%,#e5e7eb_52%,#ffffff_100%)] dark:bg-[radial-gradient(circle_at_top,rgba(148,163,184,0.12),transparent_35%),linear-gradient(180deg,#020617_0%,#0f172a_55%,#020617_100%)]"
+        : themePreset === "dark-pro"
+          ? "bg-[radial-gradient(circle_at_top,rgba(124,58,237,0.16),transparent_34%),linear-gradient(180deg,#f8fafc_0%,#dbeafe_48%,#eef2ff_100%)] dark:bg-[radial-gradient(circle_at_top,rgba(124,58,237,0.24),transparent_34%),linear-gradient(180deg,#020617_0%,#0b1120_52%,#020617_100%)]"
+          : "bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_40%),linear-gradient(180deg,#ffffff_0%,#eff6ff_55%,#ffffff_100%)] dark:bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.22),transparent_35%),linear-gradient(180deg,#020617_0%,#0f172a_55%,#020617_100%)]";
+
+  const overlayClass =
+    themePreset === "dark-pro"
+      ? "bg-slate-950/10 dark:bg-black/54 backdrop-blur-[0.5px]"
+      : themePreset === "mono-luxe"
+        ? "bg-slate-900/8 dark:bg-black/46 backdrop-blur-[0.5px]"
+      : themePreset === "boutique"
+        ? "bg-[#fffaf0]/18 dark:bg-black/38 backdrop-blur-[0.5px]"
+        : themePreset === "sunset-glow"
+          ? "bg-[#fff7ed]/18 dark:bg-black/34 backdrop-blur-[0.5px]"
+        : "bg-white/20 dark:bg-black/40 backdrop-blur-[0.5px]";
+
+  const centerGlowClass =
+    themePreset === "boutique"
+      ? "bg-[radial-gradient(circle_at_center,rgba(255,248,240,0.45)_0%,transparent_72%)] dark:bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.48)_0%,transparent_70%)]"
+      : themePreset === "sunset-glow"
+        ? "bg-[radial-gradient(circle_at_center,rgba(255,237,213,0.42)_0%,transparent_72%)] dark:bg-[radial-gradient(circle_at_center,rgba(124,45,18,0.18)_0%,transparent_70%)]"
+      : themePreset === "dark-pro"
+        ? "bg-[radial-gradient(circle_at_center,rgba(148,163,184,0.14)_0%,transparent_70%)] dark:bg-[radial-gradient(circle_at_center,rgba(2,6,23,0.7)_0%,transparent_70%)]"
+        : themePreset === "mono-luxe"
+          ? "bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.32)_0%,transparent_70%)] dark:bg-[radial-gradient(circle_at_center,rgba(15,23,42,0.56)_0%,transparent_70%)]"
+        : "bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.4)_0%,transparent_70%)] dark:bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.6)_0%,transparent_70%)]";
+
+  const pillRadiusClass =
+    radiusStyle === "square" ? "rounded-[0.9rem]" : radiusStyle === "soft" ? "rounded-[1.2rem]" : "rounded-full";
+
+  const cardRadiusClass =
+    radiusStyle === "square" ? "rounded-[1rem] md:rounded-[1.2rem]" : radiusStyle === "soft" ? "rounded-[1.4rem] md:rounded-[1.8rem]" : "rounded-xl md:rounded-2xl";
+
+  const ctaRadiusClass =
+    radiusStyle === "square" ? "rounded-[1rem] md:rounded-[1.5rem]" : radiusStyle === "soft" ? "rounded-[1.8rem] md:rounded-[2.4rem]" : "rounded-[1.5rem] md:rounded-[3.5rem]";
+
+  const accentShadow =
+    theme.accent ? `0 24px 48px -16px ${theme.accent}26` : `0 20px 40px -10px ${theme.primary}88`;
 
   return (
     <section
@@ -37,22 +87,39 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
       {/* --- BACKGROUND SYSTEM --- */}
       <div className="absolute inset-0 z-0">
         {hasBanner ? (
-          <img
-            src={content.banner}
-            className="w-full h-full object-cover scale-110 motion-safe:animate-[pulse_20s_ease-in-out_infinite] opacity-100 transition-opacity duration-1000"
-            alt="Business Banner"
-          />
+          <>
+            <Image
+              src={content.banner || ""}
+              alt="Business Banner Backdrop"
+              fill
+              priority
+              loading="eager"
+              unoptimized
+              sizes="100vw"
+              className="object-cover object-center scale-110 opacity-45 blur-2xl transition-opacity duration-1000"
+            />
+            <Image
+              src={content.banner || ""}
+              alt="Business Banner"
+              fill
+              priority
+              loading="eager"
+              unoptimized
+              sizes="100vw"
+              className="object-contain object-center opacity-100 transition-opacity duration-1000"
+            />
+          </>
         ) : (
           <div
-            className="h-full w-full bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_40%),linear-gradient(180deg,#ffffff_0%,#eff6ff_55%,#ffffff_100%)] dark:bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.22),transparent_35%),linear-gradient(180deg,#020617_0%,#0f172a_55%,#020617_100%)]"
+            className={cn("h-full w-full", heroBackgroundClass)}
           />
         )}
 
         {/* Adaptive Overlays: Tipis di pinggir, fokus kontras di tengah area teks */}
-        <div className="absolute inset-0 bg-white/20 dark:bg-black/40 backdrop-blur-[0.5px]" />
+        <div className={cn("absolute inset-0", overlayClass)} />
 
         {/* Soft Radial Gradient: Menjaga readability teks tanpa menutupi seluruh gambar */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.4)_0%,transparent_70%)] dark:bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.6)_0%,transparent_70%)]" />
+        <div className={cn("absolute inset-0", centerGlowClass)} />
 
         {/* Dynamic Color Mesh Glow */}
         <div
@@ -77,7 +144,23 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
           <div className={cn("flex flex-col gap-6 md:gap-10", isSplit ? "items-start" : "items-center")}>
           {/* 1. TAGLINE BADGE */}
           <div className="animate-in fade-in slide-in-from-top-6 duration-1000">
-            <Badge className="px-5 py-2.5 rounded-full font-bold text-[10px] md:text-xs uppercase tracking-[0.25em] shadow-2xl border border-white/20 bg-white/20 dark:bg-black/20 text-slate-900 dark:text-white backdrop-blur-xl">
+            <Badge
+              className={cn(
+                "px-5 py-2.5 font-bold text-[10px] md:text-xs uppercase tracking-[0.25em] shadow-2xl border text-slate-900 dark:text-white backdrop-blur-xl",
+                pillRadiusClass,
+                themePreset === "boutique"
+                  ? "border-stone-200/70 bg-[#fff8f1]/70 dark:border-white/10 dark:bg-[#181412]/65"
+                  : themePreset === "sunset-glow"
+                    ? "border-orange-200/70 bg-[#fff7ed]/75 dark:border-orange-500/20 dark:bg-[#241109]/65"
+                  : themePreset === "playful"
+                    ? "border-emerald-100/70 bg-white/70 dark:border-emerald-500/20 dark:bg-[#092014]/65"
+                    : themePreset === "mono-luxe"
+                      ? "border-slate-300/70 bg-white/76 dark:border-white/10 dark:bg-[#0b1120]/62"
+                    : themePreset === "dark-pro"
+                      ? "border-slate-300/70 bg-white/72 dark:border-white/10 dark:bg-slate-950/55 text-slate-900 dark:text-white"
+                      : "border-white/20 bg-white/20 dark:bg-black/20",
+              )}
+            >
               <Sparkles
                 className="h-4 w-4 mr-2.5"
                 style={{ color: theme.primary }}
@@ -130,7 +213,21 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
             {content.features.map((f: string, i: number) => (
               <div
                 key={i}
-                className="flex items-center gap-2 md:gap-3 border border-white/40 dark:border-white/10 px-4 md:px-5 py-2.5 md:py-3 rounded-xl md:rounded-2xl shadow-xl backdrop-blur-2xl bg-white/40 dark:bg-black/20 transition-all hover:-translate-y-1"
+                className={cn(
+                  "flex items-center gap-2 md:gap-3 border px-4 md:px-5 py-2.5 md:py-3 shadow-xl backdrop-blur-2xl transition-all hover:-translate-y-1",
+                  cardRadiusClass,
+                  themePreset === "boutique"
+                    ? "border-stone-200/80 bg-[#fffaf2]/70 dark:border-white/10 dark:bg-[#181412]/65"
+                    : themePreset === "sunset-glow"
+                      ? "border-orange-200/80 bg-[#fff7ed]/72 dark:border-orange-500/20 dark:bg-[#221009]/64"
+                    : themePreset === "playful"
+                      ? "border-emerald-100/80 bg-white/75 dark:border-emerald-500/20 dark:bg-[#082114]/65"
+                      : themePreset === "mono-luxe"
+                        ? "border-slate-300/80 bg-white/78 dark:border-white/10 dark:bg-[#0b1120]/62"
+                      : themePreset === "dark-pro"
+                        ? "border-slate-300/70 bg-white/74 dark:border-white/10 dark:bg-slate-950/55"
+                        : "border-white/40 dark:border-white/10 bg-white/40 dark:bg-black/20",
+                )}
               >
                 <div
                   className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full"
@@ -159,19 +256,22 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
               />
 
               <Button
-                className="w-full md:w-auto h-18 md:h-24 px-12 md:px-24 rounded-[1.5rem] md:rounded-[3.5rem] font-[1000] uppercase italic text-xl md:text-3xl tracking-[0.2em] text-white border-none transition-all active:scale-90 group-hover:scale-[1.03] relative z-10 shadow-2xl overflow-hidden"
+                className={cn(
+                  "w-full md:w-auto h-18 md:h-24 px-12 md:px-24 font-[1000] uppercase italic text-xl md:text-3xl tracking-[0.2em] text-white border-none transition-all active:scale-90 group-hover:scale-[1.03] relative z-10 shadow-2xl overflow-hidden",
+                  ctaRadiusClass,
+                )}
                 style={{
                   backgroundColor: theme.primary,
-                  boxShadow: `0 20px 40px -10px ${theme.primary}88`,
+                  boxShadow: accentShadow,
                 }}
               >
                 {content.ctaLabel || "Lihat Layanan"}
                 <Zap className="ml-5 h-6 w-6 md:h-10 md:w-10 fill-current animate-bounce" />
               </Button>
 
-              <div className={cn("mt-8 flex items-center gap-3 opacity-40 transition-all duration-500 group-hover:opacity-100", isSplit ? "justify-start" : "justify-center")}>
-                <MousePointer2 size={14} className="dark:text-white" />
-                <span className="text-[9px] font-black uppercase tracking-[0.4em] dark:text-white italic">
+              <div className={cn("mt-8 flex items-center gap-3 opacity-50 transition-all duration-500 group-hover:opacity-100", isSplit ? "justify-start" : "justify-center")}>
+                <MousePointer2 size={14} className="text-slate-700 dark:text-white" />
+                <span className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-700 dark:text-white italic">
                   Lompat ke Katalog
                 </span>
               </div>
@@ -180,11 +280,59 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
           </div>
           {isSplit ? (
             <div className="hidden lg:block">
-              <div className="overflow-hidden rounded-[2.5rem] border border-white/30 bg-white/35 p-4 shadow-[0_30px_80px_rgba(15,23,42,0.18)] backdrop-blur-2xl dark:border-white/10 dark:bg-black/20">
+              <div
+                className={cn(
+                  "overflow-hidden border p-4 shadow-[0_30px_80px_rgba(15,23,42,0.18)] backdrop-blur-2xl",
+                  radiusStyle === "square" ? "rounded-[1.4rem]" : radiusStyle === "soft" ? "rounded-[2rem]" : "rounded-[2.5rem]",
+                  themePreset === "boutique"
+                    ? "border-stone-200/70 bg-[#fffaf2]/72 dark:border-white/10 dark:bg-[#181412]/68"
+                    : themePreset === "sunset-glow"
+                      ? "border-orange-200/70 bg-[#fff7ed]/74 dark:border-orange-500/20 dark:bg-[#221009]/68"
+                    : themePreset === "playful"
+                      ? "border-emerald-100/70 bg-white/70 dark:border-emerald-500/20 dark:bg-[#082114]/68"
+                      : themePreset === "mono-luxe"
+                        ? "border-slate-300/70 bg-white/76 dark:border-white/10 dark:bg-[#0b1120]/66"
+                      : themePreset === "dark-pro"
+                        ? "border-slate-300/70 bg-white/74 dark:border-white/10 dark:bg-slate-950/58"
+                        : "border-white/30 bg-white/35 dark:border-white/10 dark:bg-black/20",
+                )}
+              >
                 {hasBanner ? (
-                  <img src={content.banner} alt="Business Banner" className="aspect-[4/5] w-full rounded-[2rem] object-cover" />
+                  <div
+                    className={cn(
+                      "relative aspect-[4/5] w-full overflow-hidden",
+                      radiusStyle === "square" ? "rounded-[1rem]" : radiusStyle === "soft" ? "rounded-[1.6rem]" : "rounded-[2rem]",
+                    )}
+                  >
+                    <>
+                      <Image
+                        src={content.banner || ""}
+                        alt="Business Banner Backdrop"
+                        fill
+                        loading="eager"
+                        unoptimized
+                        sizes="(min-width: 1024px) 40vw, 100vw"
+                        className="object-cover object-center scale-110 opacity-45 blur-xl"
+                      />
+                      <Image
+                        src={content.banner || ""}
+                        alt="Business Banner"
+                        fill
+                        loading="eager"
+                        unoptimized
+                        sizes="(min-width: 1024px) 40vw, 100vw"
+                        className="object-contain object-center"
+                      />
+                    </>
+                  </div>
                 ) : (
-                  <div className="aspect-[4/5] w-full rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_40%),linear-gradient(180deg,#ffffff_0%,#eff6ff_55%,#ffffff_100%)] dark:bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.22),transparent_35%),linear-gradient(180deg,#020617_0%,#0f172a_55%,#020617_100%)]" />
+                  <div
+                    className={cn(
+                      "aspect-[4/5] w-full",
+                      heroBackgroundClass,
+                      radiusStyle === "square" ? "rounded-[1rem]" : radiusStyle === "soft" ? "rounded-[1.6rem]" : "rounded-[2rem]",
+                    )}
+                  />
                 )}
               </div>
             </div>

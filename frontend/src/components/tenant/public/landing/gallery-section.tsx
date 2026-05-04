@@ -1,11 +1,15 @@
 "use client";
 
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Maximize2, Camera } from "lucide-react";
 
 interface GallerySectionProps {
   images: string[];
   primaryColor: string;
+  accentColor?: string;
+  preset?: string;
+  radiusStyle?: string;
   eyebrow?: string;
   title?: string;
   description?: string;
@@ -14,19 +18,82 @@ interface GallerySectionProps {
 export function GallerySection({
   images,
   primaryColor,
+  accentColor,
+  preset = "bookinaja-classic",
+  radiusStyle = "rounded",
   eyebrow,
   title,
   description,
 }: GallerySectionProps) {
   const safeImages = (images || []).filter((url) => Boolean(url?.trim()));
   if (!safeImages.length) return null;
+  const frameRadiusClass =
+    radiusStyle === "square" ? "rounded-[1.25rem] md:rounded-[1.8rem]" : radiusStyle === "soft" ? "rounded-[2.2rem] md:rounded-[2.75rem]" : "rounded-[2rem] md:rounded-[3rem]";
+  const tagRadiusClass =
+    radiusStyle === "square" ? "rounded-[0.9rem]" : radiusStyle === "soft" ? "rounded-[1.15rem]" : "rounded-full";
+  const sectionBackgroundClass =
+    preset === "boutique"
+      ? "bg-[#fffdf9] dark:bg-[#0f0c0a] border-stone-100 dark:border-white/5"
+      : preset === "sunset-glow"
+        ? "bg-[linear-gradient(180deg,#fffaf5_0%,#fff1e8_100%)] dark:bg-[#120804] border-orange-100 dark:border-orange-500/10"
+      : preset === "playful"
+        ? "bg-[linear-gradient(180deg,#f8fffb_0%,#f0fdf4_100%)] dark:bg-[#03120d] border-emerald-100/80 dark:border-emerald-500/10"
+        : preset === "mono-luxe"
+          ? "bg-[linear-gradient(180deg,#ffffff_0%,#eef2f7_100%)] dark:bg-[#020617] border-slate-200 dark:border-white/5"
+        : preset === "dark-pro"
+          ? "bg-[linear-gradient(180deg,#f8fafc_0%,#e2e8f0_100%)] dark:bg-[#020617] border-slate-200 dark:border-white/5"
+          : "bg-white dark:bg-[#050505] border-slate-100 dark:border-white/5";
+  const frameClass =
+    preset === "boutique"
+      ? "border-stone-200 bg-[#fff8f1] shadow-[0_20px_60px_rgba(41,37,36,0.12)]"
+      : preset === "sunset-glow"
+        ? "border-orange-200 bg-[#fff1e8] shadow-[0_20px_60px_rgba(124,45,18,0.14)]"
+      : preset === "playful"
+        ? "border-emerald-100 bg-white shadow-[0_20px_55px_rgba(20,83,45,0.12)]"
+        : preset === "mono-luxe"
+          ? "border-slate-300 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.12)] dark:border-slate-800 dark:bg-[#060d19] dark:shadow-[0_20px_60px_rgba(2,6,23,0.45)]"
+        : preset === "dark-pro"
+          ? "border-slate-300 bg-slate-100 shadow-[0_20px_60px_rgba(15,23,42,0.14)] dark:border-slate-800 dark:bg-transparent dark:shadow-[0_20px_60px_rgba(2,6,23,0.5)]"
+          : "border-slate-100 shadow-lg";
+  const statCardClass =
+    preset === "boutique"
+      ? "rounded-[1.25rem] bg-[#f8f3ec]"
+      : preset === "sunset-glow"
+        ? "rounded-[1.25rem] bg-[#fff1e8]"
+      : preset === "playful"
+        ? "rounded-[1.25rem] bg-emerald-50"
+        : preset === "mono-luxe"
+          ? "rounded-[1rem] bg-slate-100 dark:bg-[#0b1120]"
+        : preset === "dark-pro"
+          ? "rounded-[1rem] bg-white/70 dark:bg-[#0b1120]"
+          : "rounded-2xl bg-slate-50 dark:bg-white/5";
+  const subtleTextClass =
+    preset === "boutique"
+      ? "text-stone-400 dark:text-stone-300"
+      : preset === "sunset-glow"
+        ? "text-orange-500 dark:text-orange-300"
+      : preset === "playful"
+        ? "text-emerald-500 dark:text-emerald-300"
+        : preset === "mono-luxe"
+          ? "text-slate-500 dark:text-slate-300"
+        : "text-slate-400 dark:text-slate-300";
+  const bodyTextClass =
+    preset === "boutique"
+      ? "text-stone-600 dark:text-stone-300"
+      : preset === "sunset-glow"
+        ? "text-orange-900/85 dark:text-orange-100/85"
+      : preset === "playful"
+        ? "text-emerald-800 dark:text-emerald-100"
+        : preset === "mono-luxe"
+          ? "text-slate-800 dark:text-slate-100"
+        : "text-slate-700 dark:text-slate-100";
 
   return (
-    <section className="py-24 md:py-40 bg-white dark:bg-[#050505] px-6 border-t border-slate-100 dark:border-white/5 relative overflow-hidden">
+    <section className={cn("py-24 md:py-40 px-6 border-t relative overflow-hidden", sectionBackgroundClass)}>
       {/* Glow Effect Background */}
       <div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[500px] w-[500px] opacity-[0.03] blur-[120px] pointer-events-none rounded-full"
-        style={{ backgroundColor: primaryColor }}
+        style={{ backgroundColor: accentColor || primaryColor }}
       />
 
       <div className="container mx-auto max-w-7xl relative z-10">
@@ -38,7 +105,20 @@ export function GallerySection({
                 className="h-1.5 w-10 rounded-full"
                 style={{ backgroundColor: primaryColor }}
               />
-              <span className="text-[11px] font-[1000] uppercase tracking-[0.5em] text-slate-400 italic">
+              <span
+                className={cn(
+                  "text-[11px] font-[1000] uppercase tracking-[0.5em] italic",
+                  preset === "boutique"
+                    ? "text-stone-400 dark:text-stone-300"
+                    : preset === "sunset-glow"
+                      ? "text-orange-500 dark:text-orange-300"
+                    : preset === "playful"
+                      ? "text-emerald-500 dark:text-emerald-300"
+                      : preset === "mono-luxe"
+                        ? "text-slate-500 dark:text-slate-300"
+                      : "text-slate-500 dark:text-slate-300",
+                )}
+              >
                 {eyebrow || "Visual Experience"}
               </span>
             </div>
@@ -52,7 +132,7 @@ export function GallerySection({
               )}
             </h2>
             {description ? (
-              <p className="max-w-2xl text-sm font-medium leading-7 text-slate-500 dark:text-slate-400">
+              <p className="max-w-2xl text-sm font-medium leading-7 text-slate-600 dark:text-slate-300">
                 {description}
               </p>
             ) : null}
@@ -60,15 +140,15 @@ export function GallerySection({
 
           <div className="hidden md:flex items-center gap-4 pb-4">
             <div className="flex flex-col items-end">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <span className={cn("text-[10px] font-black uppercase tracking-widest", subtleTextClass)}>
                 Total Assets
               </span>
-              <span className="text-2xl font-[1000] italic leading-none">
+              <span className={cn("text-2xl font-[1000] italic leading-none", bodyTextClass)}>
                 {safeImages.length}
               </span>
             </div>
             <div className="h-12 w-px bg-slate-200 dark:bg-white/10" />
-            <div className="h-12 w-12 rounded-2xl bg-slate-50 dark:bg-white/5 flex items-center justify-center">
+            <div className={cn("h-12 w-12 flex items-center justify-center", statCardClass)}>
               <Camera size={20} style={{ color: primaryColor }} />
             </div>
           </div>
@@ -80,7 +160,9 @@ export function GallerySection({
             <div
               key={i}
               className={cn(
-                "relative overflow-hidden rounded-[2rem] md:rounded-[3rem] group border border-slate-100 dark:border-white/10 shadow-lg",
+                "relative overflow-hidden group border",
+                frameRadiusClass,
+                frameClass,
                 // Logic Bento: Foto pertama besar, sisanya kecil
                 i === 0 && "col-span-2 row-span-2 md:col-span-2 md:row-span-2",
                 i === 1 && "col-span-2 md:col-span-2 md:row-span-1",
@@ -89,10 +171,13 @@ export function GallerySection({
                 i > 3 && "hidden md:block", // Sembunyikan foto lebih dari 4 di mobile biar ga kepanjangan
               )}
             >
-              <img
+              <Image
                 src={url}
                 alt={`Gallery ${i + 1}`}
-                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                fill
+                unoptimized
+                sizes="(min-width: 768px) 25vw, 50vw"
+                className="object-cover object-center transition-transform duration-1000 group-hover:scale-110"
               />
 
               {/* Overlay on Hover */}
@@ -104,7 +189,7 @@ export function GallerySection({
 
               {/* Tagging detail kecil */}
               <div className="absolute bottom-6 left-6 md:bottom-10 md:left-10 opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all duration-500">
-                <p className="text-white font-[1000] uppercase italic text-xs tracking-widest bg-black/20 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
+                <p className={cn("text-white font-[1000] uppercase italic text-xs tracking-widest bg-black/20 backdrop-blur-md px-4 py-2 border border-white/10", tagRadiusClass)}>
                   Shot 0{i + 1}
                 </p>
               </div>

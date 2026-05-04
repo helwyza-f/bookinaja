@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useSyncExternalStore } from "react";
+import { Suspense, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LandingBuilderRenderer } from "@/components/tenant/public/landing/builder-renderer";
@@ -23,6 +23,11 @@ type PreviewDraft = {
   page: LandingPageConfig;
   theme: LandingThemeConfig;
   booking_form: BookingFormConfig;
+};
+
+type DraftMessage = {
+  type: "bookinaja-page-builder-draft";
+  draft: PreviewDraft;
 };
 
 let cachedDraftKey: string | null = null;
@@ -78,17 +83,32 @@ function PageBuilderPreviewInner() {
   const searchParams = useSearchParams();
   const mode = searchParams.get("mode") === "desktop" ? "desktop" : "mobile";
   const draft = useSyncExternalStore(subscribeToDraftStore, readStoredDraft, () => null);
+  const [incomingDraft, setIncomingDraft] = useState<PreviewDraft | null>(null);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data as DraftMessage | undefined;
+      if (!data || data.type !== "bookinaja-page-builder-draft" || !data.draft) return;
+      setIncomingDraft(data.draft);
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
+  const activeDraft = incomingDraft || draft;
 
   const normalizedDraft = useMemo(() => {
-    if (!draft) return null;
+    if (!activeDraft) return null;
     return {
-      profile: draft.profile,
-      resources: draft.resources || [],
-      page: normalizePageBuilderConfig(draft.page),
-      theme: normalizeThemeConfig(draft.theme, draft.profile.primary_color),
-      bookingForm: normalizeBookingFormConfig(draft.booking_form),
+      profile: activeDraft.profile,
+      resources: activeDraft.resources || [],
+      page: normalizePageBuilderConfig(activeDraft.page),
+      theme: normalizeThemeConfig(activeDraft.theme, activeDraft.profile.primary_color),
+      bookingForm: normalizeBookingFormConfig(activeDraft.booking_form),
     };
-  }, [draft]);
+  }, [activeDraft]);
 
   if (!normalizedDraft) {
     return (

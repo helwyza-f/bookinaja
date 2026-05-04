@@ -82,6 +82,7 @@ export type BuilderResource = {
   category?: string;
   description?: string;
   image_url?: string;
+  gallery?: string[];
   items?: BuilderResourceItem[];
 };
 
@@ -258,20 +259,68 @@ export const DEFAULT_BOOKING_FORM_CONFIG: BookingFormConfig = {
   whatsapp_label: "Butuh bantuan cepat? Chat WhatsApp",
 };
 
+function cloneSection(section: BuilderSection): BuilderSection {
+  return {
+    ...section,
+    props: section.props ? structuredClone(section.props) : {},
+  };
+}
+
 export function normalizePageBuilderConfig(input?: Partial<LandingPageConfig> | null) {
+  const defaults = DEFAULT_PAGE_BUILDER_CONFIG.sections.map(cloneSection);
+  const incoming = Array.isArray(input?.sections) ? input.sections : [];
+
+  if (!incoming.length) {
+    return {
+      version: input?.version || DEFAULT_PAGE_BUILDER_CONFIG.version,
+      sections: defaults,
+    } satisfies LandingPageConfig;
+  }
+
+  const defaultsByID = new Map(defaults.map((section) => [section.id, section]));
+  const mergedKnown: BuilderSection[] = [];
+  const usedIncomingIDs = new Set<string>();
+
+  for (const defaultSection of defaults) {
+    const matched = incoming.find((section) => section?.id === defaultSection.id);
+    if (!matched) {
+      mergedKnown.push(defaultSection);
+      continue;
+    }
+
+    usedIncomingIDs.add(matched.id);
+    const normalizedVariant =
+      defaultSection.type === "catalog" && matched.variant === "showcase"
+        ? defaultSection.variant
+        : matched.variant || defaultSection.variant;
+    mergedKnown.push({
+      ...defaultSection,
+      ...matched,
+      type: matched.type || defaultSection.type,
+      label: matched.label || defaultSection.label,
+      variant: normalizedVariant,
+      enabled: matched.enabled !== false,
+      props: {
+        ...(defaultSection.props ? structuredClone(defaultSection.props) : {}),
+        ...((matched.props as Record<string, unknown> | undefined) || {}),
+      },
+    });
+  }
+
+  const customSections = incoming
+    .filter((section): section is BuilderSection => Boolean(section?.id) && !usedIncomingIDs.has(section.id))
+    .map((section) => ({
+      ...section,
+      enabled: section.enabled !== false,
+      props: section.props ? structuredClone(section.props) : {},
+    }));
+
   return {
     version: input?.version || DEFAULT_PAGE_BUILDER_CONFIG.version,
-    sections:
-      input?.sections && input.sections.length
-        ? input.sections.map((section) => ({
-            ...section,
-            enabled: section.enabled !== false,
-            props: section.props || {},
-          }))
-        : DEFAULT_PAGE_BUILDER_CONFIG.sections.map((section) => ({
-            ...section,
-            props: section.props ? structuredClone(section.props) : {},
-          })),
+    sections: [
+      ...mergedKnown,
+      ...customSections.filter((section) => !defaultsByID.has(section.id)),
+    ],
   } satisfies LandingPageConfig;
 }
 

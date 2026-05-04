@@ -1,6 +1,8 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import Script from "next/script";
 import {
   format,
@@ -34,14 +36,9 @@ import {
   Image as ImageIcon,
   Check,
   Plus,
-  Info,
   AlertCircle,
-  Timer,
   Clock,
   Zap,
-  ReceiptText,
-  Wallet,
-  BadgeCheck,
 } from "lucide-react";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -52,6 +49,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useTenant } from "@/context/tenant-context";
 import { syncTenantCookies } from "@/lib/tenant-session";
 import { trackDiscoveryEvent } from "@/lib/discovery-analytics";
+import { normalizeThemeConfig } from "@/lib/page-builder";
+import {
+  getPreviewSurfaceClass,
+  getThemeVisuals,
+} from "@/components/tenant/public/landing/builder-renderer";
 
 export default function ResourceBookingDetail() {
   const params = useParams();
@@ -90,7 +92,7 @@ export default function ResourceBookingDetail() {
       try {
         const resDetail = await api.get(`/public/resources/${params.id}`);
         setResource(resDetail.data);
-      } catch (err) {
+      } catch {
         toast.error("Gagal memuat data unit");
       } finally {
         setLoading(false);
@@ -102,6 +104,19 @@ export default function ResourceBookingDetail() {
   const selectedItem = useMemo(
     () => resource?.items?.find((i: any) => i.id === selectedMainId),
     [resource, selectedMainId],
+  );
+  const activeTheme = useMemo(
+    () =>
+      normalizeThemeConfig(
+        profile?.landing_theme_config,
+        profile?.primary_color,
+      ),
+    [profile],
+  );
+  const themeVisuals = useMemo(() => getThemeVisuals(activeTheme), [activeTheme]);
+  const surfaceClass = useMemo(
+    () => getPreviewSurfaceClass(activeTheme),
+    [activeTheme],
   );
 
   const isInterday = useMemo(() => {
@@ -149,7 +164,7 @@ export default function ResourceBookingDetail() {
             },
           );
           setBusySlots(normalized);
-        } catch (err) {
+        } catch {
           console.error("Gagal sinkron jadwal");
         }
       };
@@ -186,7 +201,7 @@ export default function ResourceBookingDetail() {
       }
     }, 800);
     return () => clearTimeout(timer);
-  }, [custPhone]);
+  }, [custPhone, durationValue]);
 
   const availableSlots = useMemo(() => {
     if (!selectedItem || !profile || isInterday) return [];
@@ -251,7 +266,7 @@ export default function ResourceBookingDetail() {
 
   useEffect(() => {
     if (durationValue > maxAvailableSessions) setDurationValue(1);
-  }, [maxAvailableSessions]);
+  }, [durationValue, maxAvailableSessions]);
 
   const smartTimeline = useMemo(() => {
     if (!selectedTime || !selectedItem || !date) return { start: "", end: "" };
@@ -387,7 +402,12 @@ export default function ResourceBookingDetail() {
   if (loading) return <BookingSkeleton />;
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#050505] font-plus-jakarta pb-[18rem] md:pb-40 transition-colors duration-500 overflow-x-hidden">
+    <div
+      className={cn(
+        "min-h-screen overflow-x-hidden pb-[18rem] font-plus-jakarta transition-colors duration-500 md:pb-40",
+        surfaceClass,
+      )}
+    >
       <Script
         src={
           (
@@ -399,13 +419,15 @@ export default function ResourceBookingDetail() {
         data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
         strategy="afterInteractive"
       />
-      {/* Header Visual */}
-      <div className="relative h-[30vh] md:h-[40vh] w-full bg-slate-900">
+      <div className="relative h-[30vh] w-full bg-slate-900 md:h-[40vh]">
         {resource?.image_url ? (
-          <img
+          <Image
             src={resource.image_url}
-            className="w-full h-full object-cover opacity-60"
             alt="Unit"
+            fill
+            unoptimized
+            sizes="100vw"
+            className="object-cover opacity-60"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-slate-800">
@@ -423,24 +445,40 @@ export default function ResourceBookingDetail() {
           </Button>
         </div>
         <div className="absolute bottom-6 left-5 right-5 z-30 space-y-1">
-          <Badge className="bg-blue-600 text-white italic tracking-widest text-[8px] uppercase py-0 px-2">
+          <Badge
+            className="px-2 py-0 text-[8px] uppercase italic tracking-widest text-white"
+            style={{ backgroundColor: activeTheme.primary_color }}
+          >
             {resource?.category}
           </Badge>
-          <h1 className="text-3xl md:text-6xl font-[950] italic uppercase tracking-tighter text-slate-950 dark:text-white leading-[0.85] break-words">
+          <h1
+            className={cn(
+              "break-words text-3xl font-[950] uppercase italic leading-[0.85] tracking-tighter md:text-6xl",
+              themeVisuals.heroTitleClass,
+            )}
+          >
             {resource?.name}
           </h1>
         </div>
       </div>
 
       <main className="max-w-4xl mx-auto px-3 -translate-y-4 relative z-40 space-y-4">
-        <Card className="rounded-[2rem] md:rounded-[3rem] border-none shadow-2xl p-5 md:p-10 bg-white dark:bg-[#0a0a0a] ring-1 ring-black/5 dark:ring-white/5 space-y-8">
+        <Card
+          className={cn(
+            themeVisuals.panelClass,
+            "space-y-8 rounded-[2rem] p-5 shadow-2xl md:rounded-[3rem] md:p-10",
+          )}
+        >
           {/* STEP 1: PAKET */}
           <section className="space-y-4">
             <div className="flex items-center gap-2 px-1">
-              <span className="bg-slate-950 dark:bg-blue-600 text-white h-6 w-6 rounded-lg flex items-center justify-center text-[10px] font-black italic">
+              <span
+                className="flex h-6 w-6 items-center justify-center rounded-lg text-[10px] font-black italic text-white"
+                style={{ backgroundColor: activeTheme.accent_color }}
+              >
                 01
               </span>
-              <h2 className="text-sm font-[950] uppercase italic dark:text-white">
+              <h2 className={cn("text-sm font-[950] uppercase italic", themeVisuals.titleClass)}>
                 Pilih Layanan
               </h2>
             </div>
@@ -457,26 +495,42 @@ export default function ResourceBookingDetail() {
                     className={cn(
                       "p-4 rounded-[1.2rem] border-[3px] text-left transition-all active:scale-95 relative overflow-hidden",
                       selectedMainId === item.id
-                        ? "border-blue-600 bg-blue-50/50 dark:bg-blue-600/5 shadow-md"
+                        ? "shadow-md"
                         : "border-slate-50 dark:border-white/5 bg-slate-50/50",
                     )}
+                    style={
+                      selectedMainId === item.id
+                        ? {
+                            borderColor: activeTheme.primary_color,
+                            backgroundColor: `${activeTheme.primary_color}12`,
+                          }
+                        : undefined
+                    }
                   >
                     <p
                       className={cn(
                         "text-base font-black uppercase italic tracking-tighter leading-none",
                         selectedMainId === item.id
-                          ? "text-blue-600"
+                          ? ""
                           : "text-slate-900 dark:text-slate-100",
                       )}
+                      style={
+                        selectedMainId === item.id
+                          ? { color: activeTheme.primary_color }
+                          : undefined
+                      }
                     >
                       {item.name}
                     </p>
-                    <p className="text-[9px] font-bold uppercase opacity-60 mt-1.5 leading-none italic tracking-tighter">
+                    <p className={cn("mt-1.5 text-[9px] font-bold uppercase leading-none italic tracking-tighter", themeVisuals.mutedClass)}>
                       Rp {item.price.toLocaleString()} /{" "}
                       {item.price_unit.toUpperCase()}
                     </p>
                     {selectedMainId === item.id && (
-                      <Check className="absolute right-3 top-1/2 -translate-y-1/2 opacity-10 h-8 w-8 text-blue-600" />
+                      <Check
+                        className="absolute right-3 top-1/2 h-8 w-8 -translate-y-1/2 opacity-10"
+                        style={{ color: activeTheme.primary_color }}
+                      />
                     )}
                   </button>
                 ))}
@@ -490,16 +544,19 @@ export default function ResourceBookingDetail() {
           >
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
-                <span className="bg-blue-600 text-white h-6 w-6 rounded-lg flex items-center justify-center text-[10px] font-black italic">
+                <span
+                  className="flex h-6 w-6 items-center justify-center rounded-lg text-[10px] font-black italic text-white"
+                  style={{ backgroundColor: activeTheme.primary_color }}
+                >
                   02
                 </span>
-                <h2 className="text-sm font-[950] uppercase italic dark:text-white">
+                <h2 className={cn("text-sm font-[950] uppercase italic", themeVisuals.titleClass)}>
                   Jadwal Kehadiran
                 </h2>
               </div>
               <Badge
                 variant="outline"
-                className="text-[7px] font-black uppercase border-slate-200 opacity-60"
+                className={cn("text-[7px] font-black uppercase border-slate-200 dark:border-white/10", themeVisuals.mutedClass)}
               >
                 {profile?.open_time} - {profile?.close_time}
               </Badge>
@@ -511,7 +568,10 @@ export default function ResourceBookingDetail() {
                   variant="outline"
                   className="h-14 w-full justify-start rounded-xl bg-slate-50/50 dark:bg-white/5 border-none font-black italic px-5 text-sm shadow-inner transition-all hover:bg-slate-100"
                 >
-                  <CalendarIcon className="mr-2 h-4 w-4 text-blue-600" />
+                  <CalendarIcon
+                    className="mr-2 h-4 w-4"
+                    style={{ color: activeTheme.primary_color }}
+                  />
                   {date ? formattedSelectedDate : "PILIH TANGGAL"}
                 </Button>
               </PopoverTrigger>
@@ -534,11 +594,11 @@ export default function ResourceBookingDetail() {
 
             {date && selectedMainId && !isInterday && (
               <div className="space-y-3">
-                <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">
+                <div className={cn("px-1 text-[10px] font-black uppercase tracking-widest", themeVisuals.eyebrowMutedClass)}>
                   Zona waktu WIB
                 </div>
                 {availableSlots.length === 0 ? (
-                  <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50/30 p-6 text-center text-sm text-slate-500">
+                  <div className={cn("rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50/30 p-6 text-center text-sm dark:border-white/10", themeVisuals.mutedClass)}>
                     Slot tidak tersedia untuk tanggal ini.
                   </div>
                 ) : (
@@ -571,13 +631,21 @@ export default function ResourceBookingDetail() {
                           className={cn(
                             "h-10 rounded-lg border-2 font-black transition-all text-[11px] uppercase italic relative overflow-hidden",
                             isSel
-                              ? "border-blue-600 bg-blue-600 text-white shadow-lg"
-                              : isPast
-                                ? "opacity-10 cursor-not-allowed grayscale"
+                              ? "text-white shadow-lg"
+                            : isPast
+                                ? "opacity-35 cursor-not-allowed grayscale"
                                 : isBusy
-                                  ? "border-red-500/20 bg-red-50/30 text-red-500/30 cursor-not-allowed"
+                                  ? "border-red-500/25 bg-red-50/40 text-red-500/70 dark:bg-red-500/10 dark:text-red-300/80 cursor-not-allowed"
                                   : "bg-white dark:bg-[#111] border-slate-100 dark:border-white/5 text-slate-900 dark:text-white",
                           )}
+                          style={
+                            isSel
+                              ? {
+                                  borderColor: activeTheme.primary_color,
+                                  backgroundColor: activeTheme.primary_color,
+                                }
+                              : undefined
+                          }
                         >
                           {time}
                         </button>
@@ -591,7 +659,7 @@ export default function ResourceBookingDetail() {
             {isInterday && (
               <div className="p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10 flex items-center gap-3 animate-in slide-in-from-top-2">
                 <ShieldCheck className="text-emerald-500 h-5 w-5 shrink-0" />
-                <p className="text-[10px] font-black text-emerald-600 uppercase italic">
+                <p className={cn("text-[10px] font-black uppercase italic", themeVisuals.strongBodyClass)}>
                   Akses harian aktif otomatis dari jam buka toko
                 </p>
               </div>
@@ -607,14 +675,23 @@ export default function ResourceBookingDetail() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-2 text-emerald-500">
-                    <span className="bg-emerald-500 text-white h-6 w-6 rounded-lg flex items-center justify-center text-[10px] font-black italic">
+                    <span
+                      className="flex h-6 w-6 items-center justify-center rounded-lg text-[10px] font-black italic text-white"
+                      style={{ backgroundColor: activeTheme.primary_color }}
+                    >
                       03
                     </span>
-                    <h2 className="text-sm font-[950] uppercase italic">
+                    <h2 className={cn("text-sm font-[950] uppercase italic", themeVisuals.titleClass)}>
                       Pilih Durasi
                     </h2>
                   </div>
-                  <Badge className="bg-emerald-500/10 text-emerald-500 border-none font-black italic rounded-full text-[8px] tracking-widest uppercase">
+                  <Badge
+                    className="rounded-full border-none text-[8px] font-black uppercase italic tracking-widest"
+                    style={{
+                      backgroundColor: `${activeTheme.primary_color}16`,
+                      color: activeTheme.primary_color,
+                    }}
+                  >
                     {maxAvailableSessions} Slot Tersedia
                   </Badge>
                 </div>
@@ -629,12 +706,20 @@ export default function ResourceBookingDetail() {
                       className={cn(
                         "h-14 min-w-[65px] rounded-xl border-[3px] font-black text-xl transition-all italic snap-center flex flex-col items-center justify-center leading-none",
                         durationValue === val
-                          ? "bg-blue-600 border-blue-600 text-white shadow-xl scale-105"
-                          : "bg-slate-50 dark:bg-white/5 border-transparent text-slate-300",
+                          ? "text-white shadow-xl scale-105"
+                          : "bg-slate-50 dark:bg-white/5 border-transparent text-slate-500 dark:text-slate-300",
                       )}
+                      style={
+                        durationValue === val
+                          ? {
+                              backgroundColor: activeTheme.primary_color,
+                              borderColor: activeTheme.primary_color,
+                            }
+                          : undefined
+                      }
                     >
                       {val}{" "}
-                      <span className="text-[7px] mt-1 font-bold not-italic opacity-60 uppercase">
+                      <span className="mt-1 text-[7px] font-bold uppercase not-italic text-slate-500 dark:text-slate-300">
                         {isInterday
                           ? selectedItem.price_unit.substring(0, 3)
                           : "SESS"}
@@ -644,8 +729,8 @@ export default function ResourceBookingDetail() {
                 </div>
 
                 {/* DETAILED TIMELINE BOX */}
-                <div className="bg-slate-950 dark:bg-blue-600/10 p-5 rounded-[2rem] border-none shadow-xl space-y-4 relative overflow-hidden">
-                  <div className="flex items-center gap-2 text-blue-400 dark:text-blue-500 mb-2">
+                <div className={cn(themeVisuals.innerPanelClass, "relative overflow-hidden rounded-[2rem] border-none p-5 shadow-xl space-y-4")}>
+                  <div className="mb-2 flex items-center gap-2" style={{ color: activeTheme.primary_color }}>
                     <Clock size={14} />
                     <span className="text-[10px] font-black uppercase tracking-widest italic">
                       Rangkuman Jadwal
@@ -653,24 +738,27 @@ export default function ResourceBookingDetail() {
                   </div>
                   <div className="grid grid-cols-2 gap-6 relative z-10">
                     <div className="space-y-1">
-                      <span className="text-[8px] font-black text-slate-500 dark:text-blue-400/50 uppercase tracking-widest">
+                      <span className={cn("text-[8px] font-black uppercase tracking-widest", themeVisuals.eyebrowMutedClass)}>
                         Waktu Mulai
                       </span>
-                      <p className="text-lg font-black text-white leading-none italic">
+                      <p className={cn("text-lg font-black leading-none italic", themeVisuals.titleClass)}>
                         {smartTimeline.start}
                       </p>
-                      <p className="text-[9px] font-bold text-slate-400 opacity-60">
+                      <p className={cn("text-[9px] font-bold", themeVisuals.mutedClass)}>
                         {smartTimeline.fullDate}
                       </p>
                     </div>
                     <div className="space-y-1 text-right border-l border-white/5 pl-6">
-                      <span className="text-[8px] font-black text-slate-500 dark:text-blue-400/50 uppercase tracking-widest">
+                      <span className={cn("text-[8px] font-black uppercase tracking-widest", themeVisuals.eyebrowMutedClass)}>
                         Waktu Selesai
                       </span>
-                      <p className="text-lg font-black text-blue-500 leading-none italic">
+                      <p
+                        className="text-lg font-black leading-none italic"
+                        style={{ color: activeTheme.primary_color }}
+                      >
                         {smartTimeline.end}
                       </p>
-                      <p className="text-[9px] font-bold text-slate-400 opacity-60 italic">
+                      <p className={cn("text-[9px] font-bold italic", themeVisuals.mutedClass)}>
                         {isInterday ? "Akses Berakhir" : smartTimeline.fullDate}
                       </p>
                     </div>
@@ -681,7 +769,7 @@ export default function ResourceBookingDetail() {
 
               {/* ADDONS */}
               <div className="space-y-4 pt-2">
-                <h2 className="text-[11px] font-black uppercase italic flex items-center gap-2 dark:text-white px-1 opacity-50">
+                <h2 className={cn("flex items-center gap-2 px-1 text-[11px] font-black uppercase italic", themeVisuals.mutedClass)}>
                   <Plus size={14} /> Tambahan (Optional)
                 </h2>
                 <div className="grid grid-cols-1 gap-2 px-1">
@@ -702,15 +790,23 @@ export default function ResourceBookingDetail() {
                           className={cn(
                             "p-3 rounded-xl border-2 transition-all flex items-center justify-between active:scale-95",
                             isSel
-                              ? "border-orange-500 bg-orange-50 dark:bg-orange-500/10 shadow-sm"
+                              ? "shadow-sm"
                               : "border-slate-50 dark:border-white/5 bg-slate-50/50",
                           )}
+                          style={
+                            isSel
+                              ? {
+                                  borderColor: activeTheme.primary_color,
+                                  backgroundColor: `${activeTheme.primary_color}12`,
+                                }
+                              : undefined
+                          }
                         >
                           <div className="text-left leading-none">
                             <p className="font-black uppercase text-[10px] italic dark:text-white leading-none">
                               {item.name}
                             </p>
-                            <p className="text-[8px] font-bold opacity-60 mt-1 leading-none">
+                            <p className={cn("mt-1 text-[8px] font-bold leading-none", themeVisuals.mutedClass)}>
                               +Rp {item.price.toLocaleString()}
                             </p>
                           </div>
@@ -718,9 +814,14 @@ export default function ResourceBookingDetail() {
                             className={cn(
                               "h-6 w-6 rounded-lg flex items-center justify-center transition-colors shadow-sm",
                               isSel
-                                ? "bg-orange-500 text-white"
+                                ? "text-white"
                                 : "bg-white dark:bg-white/10 border",
                             )}
+                            style={
+                              isSel
+                                ? { backgroundColor: activeTheme.primary_color }
+                                : undefined
+                            }
                           >
                             {isSel ? (
                               <Check size={12} strokeWidth={4} />
@@ -738,16 +839,19 @@ export default function ResourceBookingDetail() {
               <div className="space-y-6 pt-8 border-t-4 border-slate-50 dark:border-white/5 animate-in fade-in duration-1000">
                 <div className="space-y-1">
                   <h2 className="text-xl font-[1000] italic uppercase tracking-tighter dark:text-white leading-none">
-                    Konfirmasi <span className="text-blue-600">Boking</span>
+                    Konfirmasi{" "}
+                    <span style={{ color: activeTheme.primary_color }}>
+                      Boking
+                    </span>
                   </h2>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic opacity-60">
+                  <p className={cn("text-[9px] font-bold uppercase tracking-widest italic", themeVisuals.mutedClass)}>
                     E-Ticket dikirim via WhatsApp
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-[9px] font-black uppercase text-slate-400 ml-1">
+                    <Label className={cn("ml-1 text-[9px] font-black uppercase", themeVisuals.eyebrowMutedClass)}>
                       WhatsApp Aktif
                     </Label>
                     <div className="relative">
@@ -759,11 +863,18 @@ export default function ResourceBookingDetail() {
                         className={cn(
                           "h-14 rounded-xl bg-slate-50 dark:bg-black border-none font-black px-6 text-lg shadow-inner",
                           phoneStatus === "valid"
-                            ? "ring-2 ring-emerald-500"
+                            ? "ring-2"
                             : phoneStatus === "invalid"
                               ? "ring-2 ring-red-500"
                               : "",
                         )}
+                        style={
+                          phoneStatus === "valid"
+                            ? {
+                                boxShadow: `0 0 0 2px ${activeTheme.primary_color}`,
+                              }
+                            : undefined
+                        }
                         placeholder="08..."
                       />
                       <div className="absolute right-4 top-1/2 -translate-y-1/2">
@@ -781,7 +892,7 @@ export default function ResourceBookingDetail() {
                   </div>
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between px-1">
-                      <Label className="text-[9px] font-black uppercase text-slate-400">
+                      <Label className={cn("text-[9px] font-black uppercase", themeVisuals.eyebrowMutedClass)}>
                         Nama Sesuai KTP
                       </Label>
                       {isReturning && (
@@ -811,12 +922,15 @@ export default function ResourceBookingDetail() {
         <div className="mx-auto max-w-4xl px-3 py-3 md:px-4 md:py-4">
           <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
             <div className="space-y-2">
-              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest italic opacity-60">
+              <span className={cn("text-[8px] font-black uppercase tracking-widest italic", themeVisuals.mutedClass)}>
                 Estimasi Total Booking
               </span>
               <div className="flex flex-wrap items-end gap-2">
                 <div className="flex items-baseline gap-0.5">
-                  <span className="text-blue-600 text-sm font-bold tracking-tighter">
+                  <span
+                    className="text-sm font-bold tracking-tighter"
+                    style={{ color: activeTheme.primary_color }}
+                  >
                     Rp
                   </span>
                   <h3 className="text-2xl md:text-3xl font-[1000] italic text-slate-950 dark:text-white tracking-tighter leading-none">
@@ -824,15 +938,24 @@ export default function ResourceBookingDetail() {
                   </h3>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Badge className="rounded-full bg-emerald-500 text-white text-[8px] font-black uppercase italic px-3 py-1 border-none">
+                  <Badge
+                    className="rounded-full border-none px-3 py-1 text-[8px] font-black uppercase italic text-white"
+                    style={{ backgroundColor: activeTheme.primary_color }}
+                  >
                     DP Rp{estimateDeposit().toLocaleString()}
                   </Badge>
-                  <Badge className="rounded-full bg-blue-600/10 text-blue-600 text-[8px] font-black uppercase italic px-3 py-1 border-none">
+                  <Badge
+                    className="rounded-full border-none px-3 py-1 text-[8px] font-black uppercase italic"
+                    style={{
+                      backgroundColor: `${activeTheme.primary_color}16`,
+                      color: activeTheme.primary_color,
+                    }}
+                  >
                     Sisa Rp{estimateBalance().toLocaleString()}
                   </Badge>
                 </div>
               </div>
-              <p className="max-w-md text-[10px] font-bold text-slate-500 dark:text-slate-400 italic leading-relaxed">
+              <p className={cn("max-w-md text-[10px] font-bold italic leading-relaxed", themeVisuals.mutedClass)}>
                 Customer bayar DP dulu via Midtrans. Sisa tagihan tetap tampil
                 di tiket dan bisa dilunasi setelah sesi selesai.
               </p>
@@ -845,7 +968,12 @@ export default function ResourceBookingDetail() {
                 !custName
               }
               onClick={handleBooking}
-              className="h-14 md:h-16 w-full md:w-auto md:px-10 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-[1000] uppercase italic text-sm shadow-xl transition-all active:scale-95 gap-2 border-b-4 border-blue-800 active:border-b-0"
+              className="h-14 md:h-16 w-full md:w-auto md:px-10 rounded-2xl text-white font-[1000] uppercase italic text-sm shadow-xl transition-all active:scale-95 gap-2 active:border-b-0"
+              style={{
+                backgroundColor: activeTheme.primary_color,
+                borderBottom: `4px solid ${activeTheme.accent_color}`,
+                boxShadow: `0 14px 28px -10px ${activeTheme.primary_color}80`,
+              }}
             >
               {isSubmitting ? (
                 <Loader2 className="animate-spin size-5" />

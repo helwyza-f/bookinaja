@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Sun, Moon, UserCircle2, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
@@ -16,6 +17,12 @@ type TenantNavbarProfile = {
 
 type TenantNavbarProps = {
   profile: TenantNavbarProfile;
+  landingTheme?: {
+    primary: string;
+    accent?: string;
+    preset?: string;
+    radiusStyle?: string;
+  };
   tenantSlug?: string;
   previewMode?: "desktop" | "mobile";
   embedded?: boolean;
@@ -23,10 +30,11 @@ type TenantNavbarProps = {
 
 export function TenantNavbar({
   profile,
+  landingTheme,
   previewMode = "desktop",
   embedded = false,
 }: TenantNavbarProps) {
-  const { theme, setTheme } = useTheme();
+  const { theme: mode, setTheme } = useTheme();
   const [scrolled, setScrolled] = useState(false);
   const isCompactPreview = embedded && previewMode === "mobile";
 
@@ -36,7 +44,52 @@ export function TenantNavbar({
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const primaryColor = profile.primary_color || "#3b82f6";
+  const primaryColor = landingTheme?.primary || profile.primary_color || "#3b82f6";
+  const accentColor = landingTheme?.accent || primaryColor;
+  const preset = landingTheme?.preset || "bookinaja-classic";
+  const radiusStyle = landingTheme?.radiusStyle || "rounded";
+  const navRadiusClass =
+    radiusStyle === "square"
+      ? isCompactPreview
+        ? "rounded-[1rem]"
+        : "rounded-b-[1.4rem] md:rounded-[1.7rem]"
+      : radiusStyle === "soft"
+        ? isCompactPreview
+          ? "rounded-[1.5rem]"
+          : "rounded-b-[2.2rem] md:rounded-[2.5rem]"
+        : isCompactPreview
+          ? "rounded-[1.7rem]"
+          : "rounded-b-[2rem] md:rounded-[2.5rem]";
+  const controlRadiusClass =
+    radiusStyle === "square"
+      ? "rounded-[0.9rem] md:rounded-[1rem]"
+      : radiusStyle === "soft"
+        ? "rounded-[1.2rem] md:rounded-[1.4rem]"
+        : "rounded-xl md:rounded-2xl";
+  const surfaceClass =
+    preset === "boutique"
+      ? scrolled && !isCompactPreview
+        ? "bg-[#fffaf2]/88 dark:bg-[#171412]/86 backdrop-blur-3xl border-b md:border border-stone-200/80 dark:border-white/10 shadow-[0_8px_30px_rgb(41,37,36,0.12)]"
+        : "bg-[#fff8f1]/55 dark:bg-[#171412]/55 backdrop-blur-xl border-b md:border border-stone-200/70 dark:border-white/10 shadow-lg"
+      : preset === "sunset-glow"
+        ? scrolled && !isCompactPreview
+          ? "bg-[#fff7ed]/88 dark:bg-[#1f0d06]/86 backdrop-blur-3xl border-b md:border border-orange-200/80 dark:border-orange-500/20 shadow-[0_8px_30px_rgb(124,45,18,0.14)]"
+          : "bg-[#fff7ed]/56 dark:bg-[#1f0d06]/56 backdrop-blur-xl border-b md:border border-orange-200/70 dark:border-orange-500/20 shadow-lg"
+      : preset === "playful"
+        ? scrolled && !isCompactPreview
+          ? "bg-white/86 dark:bg-[#082114]/82 backdrop-blur-3xl border-b md:border border-emerald-100/80 dark:border-emerald-500/20 shadow-[0_8px_30px_rgb(20,83,45,0.12)]"
+          : "bg-white/55 dark:bg-[#082114]/55 backdrop-blur-xl border-b md:border border-emerald-100/80 dark:border-emerald-500/20 shadow-lg"
+        : preset === "mono-luxe"
+          ? scrolled && !isCompactPreview
+            ? "bg-white/88 dark:bg-[#060d19]/86 backdrop-blur-3xl border-b md:border border-slate-300/80 dark:border-white/10 shadow-[0_8px_30px_rgb(15,23,42,0.12)]"
+            : "bg-white/60 dark:bg-[#0b1120]/56 backdrop-blur-xl border-b md:border border-slate-300/70 dark:border-white/10 shadow-lg"
+        : preset === "dark-pro"
+          ? scrolled && !isCompactPreview
+            ? "bg-slate-50/88 dark:bg-[#060d19]/86 backdrop-blur-3xl border-b md:border border-slate-300/80 dark:border-white/10 shadow-[0_8px_30px_rgb(15,23,42,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)]"
+            : "bg-white/50 dark:bg-[#0b1120]/55 backdrop-blur-xl border-b md:border border-slate-300/70 dark:border-white/10 shadow-lg"
+          : scrolled && !isCompactPreview
+            ? "bg-white/70 dark:bg-black/50 backdrop-blur-3xl border-b md:border border-slate-200/50 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)]"
+            : "bg-white/20 dark:bg-white/5 backdrop-blur-xl border-b md:border border-white/30 dark:border-white/10 shadow-lg";
 
   return (
     <div
@@ -53,11 +106,10 @@ export function TenantNavbar({
         className={cn(
           "mx-auto flex items-center justify-between transition-all duration-500",
           isCompactPreview
-            ? "h-[68px] max-w-none rounded-[1.7rem] px-3"
-            : "max-w-5xl h-[72px] md:h-[84px] px-4 md:px-8 rounded-b-[2rem] md:rounded-[2.5rem]",
-          scrolled && !isCompactPreview
-            ? "bg-white/70 dark:bg-black/50 backdrop-blur-3xl border-b md:border border-slate-200/50 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)]"
-            : "bg-white/20 dark:bg-white/5 backdrop-blur-xl border-b md:border border-white/30 dark:border-white/10 shadow-lg",
+            ? "h-[68px] max-w-none px-3"
+            : "max-w-5xl h-[72px] md:h-[84px] px-4 md:px-8",
+          navRadiusClass,
+          surfaceClass,
         )}
       >
         {/* Branding Section */}
@@ -65,15 +117,18 @@ export function TenantNavbar({
           <div
             className={cn(
               "flex items-center justify-center text-white shadow-2xl rotate-3 shrink-0 overflow-hidden transition-all group-hover:rotate-0 group-hover:scale-110 duration-500",
-              isCompactPreview ? "h-9 w-9 rounded-xl" : "h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl",
+              isCompactPreview ? "h-9 w-9 rounded-xl" : cn("h-10 w-10 md:h-12 md:w-12", controlRadiusClass),
             )}
-            style={{ backgroundColor: primaryColor }}
+            style={{ backgroundColor: primaryColor, boxShadow: `0 14px 30px ${accentColor}33` }}
           >
             {profile.logo_url ? (
-              <img
+              <Image
                 src={profile.logo_url}
-                className="w-full h-full object-cover bg-white/5"
                 alt="Logo"
+                fill
+                unoptimized
+                sizes="48px"
+                className="object-cover object-center bg-white/5"
               />
             ) : (
               <span className="font-black italic text-lg md:text-xl ">
@@ -115,16 +170,27 @@ export function TenantNavbar({
         {/* Actions Section */}
         <div className={cn("flex items-center", isCompactPreview ? "gap-1.5" : "gap-2 md:gap-4")}>
           <button
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            onClick={() => setTheme(mode === "dark" ? "light" : "dark")}
             className={cn(
-              "bg-white/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 transition-all border border-slate-200/50 dark:border-white/5 shadow-sm flex items-center justify-center",
+              "transition-all border shadow-sm flex items-center justify-center",
+              preset === "boutique"
+                ? "bg-[#fffaf2]/90 dark:bg-[#201a17] hover:bg-white dark:hover:bg-[#2a221d] border-stone-200/80 dark:border-white/10"
+                : preset === "sunset-glow"
+                  ? "bg-[#fff7ed]/90 dark:bg-[#241109] hover:bg-[#fffaf5] dark:hover:bg-[#2a140b] border-orange-200/80 dark:border-orange-500/20"
+                : preset === "playful"
+                  ? "bg-white/90 dark:bg-[#0b2417] hover:bg-emerald-50 dark:hover:bg-[#123321] border-emerald-100/80 dark:border-emerald-500/20"
+                  : preset === "mono-luxe"
+                    ? "bg-white/92 dark:bg-[#0b1120] hover:bg-slate-100 dark:hover:bg-slate-800 border-slate-300/80 dark:border-white/10"
+                  : preset === "dark-pro"
+                    ? "bg-slate-100 dark:bg-[#0b1120] hover:bg-slate-200 dark:hover:bg-slate-800 border-slate-300 dark:border-white/10"
+                    : "bg-white/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 border-slate-200/50 dark:border-white/5",
               isCompactPreview
                 ? "min-w-[34px] rounded-xl p-2"
-                : "p-2 md:p-3.5 rounded-xl md:rounded-2xl min-w-[36px] md:min-w-[40px]",
+                : cn("p-2 md:p-3.5 min-w-[36px] md:min-w-[40px]", controlRadiusClass),
             )}
             suppressHydrationWarning
           >
-            {theme === "dark" ? (
+            {mode === "dark" ? (
               <Sun className="h-5 w-5 text-yellow-500 animate-in zoom-in duration-300" />
             ) : (
               <Moon className="h-5 w-5 text-blue-600 animate-in zoom-in duration-300" />
@@ -140,7 +206,7 @@ export function TenantNavbar({
                 "font-black uppercase tracking-[0.16em] gap-2 hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-black transition-all active:scale-95",
                 isCompactPreview
                   ? "h-9 rounded-xl px-2"
-                  : "rounded-xl md:rounded-2xl text-[10px] md:text-xs px-2 md:px-5 h-10 md:h-12",
+                  : cn("text-[10px] md:text-xs px-2 md:px-5 h-10 md:h-12", controlRadiusClass),
               )}
             >
               <UserCircle2 className="h-5 w-5 opacity-80" />
@@ -154,11 +220,11 @@ export function TenantNavbar({
                 "font-black uppercase tracking-[0.16em] transition-all active:scale-95 shadow-lg border-none text-white",
                 isCompactPreview
                   ? "h-9 rounded-xl px-2.5"
-                  : "rounded-xl md:rounded-2xl text-[10px] md:text-xs h-10 md:h-12 px-2.5 md:px-6",
+                  : cn("text-[10px] md:text-xs h-10 md:h-12 px-2.5 md:px-6", controlRadiusClass),
               )}
               style={{
                 backgroundColor: primaryColor,
-                boxShadow: `0 10px 25px -5px ${primaryColor}66`,
+                boxShadow: `0 10px 25px -5px ${accentColor}66`,
               }}
             >
               <LayoutDashboard className={cn("h-5 w-5", isCompactPreview ? "" : "md:mr-2")} />

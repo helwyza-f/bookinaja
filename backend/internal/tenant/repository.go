@@ -1207,6 +1207,7 @@ func (r *Repository) ListResourcesWithItems(ctx context.Context, tenantID uuid.U
 	query := `
 		SELECT 
 			r.id::text as id, r.name, r.category, r.status, r.description, r.image_url,
+			COALESCE(array_to_json(r.gallery), '[]'::json) as gallery,
 			COALESCE(json_agg(json_build_object(
 				'id', i.id::text, 'name', i.name, 'item_type', i.item_type,
 				'price', i.price, 'price_unit', i.price_unit, 'unit_duration', i.unit_duration
@@ -1234,6 +1235,12 @@ func (r *Repository) ListResourcesWithItems(ctx context.Context, tenantID uuid.U
 			var itemsArray []map[string]interface{}
 			if err := json.Unmarshal(itemsBytes, &itemsArray); err == nil {
 				res["items"] = itemsArray
+			}
+		}
+		if galleryBytes, ok := res["gallery"].([]byte); ok {
+			var galleryArray []string
+			if err := json.Unmarshal(galleryBytes, &galleryArray); err == nil {
+				res["gallery"] = galleryArray
 			}
 		}
 		results = append(results, res)

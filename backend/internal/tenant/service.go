@@ -78,15 +78,9 @@ func (s *Service) UpdatePageBuilder(ctx context.Context, actorUserID, id uuid.UU
 		return nil, errors.New("tenant tidak ditemukan")
 	}
 
-	if page.Version == 0 || len(page.Sections) == 0 {
-		page = DefaultLandingPageConfig()
-	}
-	if strings.TrimSpace(theme.PrimaryColor) == "" {
-		theme = DefaultLandingThemeConfig(tenant.PrimaryColor)
-	}
-	if strings.TrimSpace(form.CTAButtonLabel) == "" {
-		form = DefaultBookingFormConfig()
-	}
+	page = NormalizeLandingPageConfig(page)
+	theme = NormalizeLandingThemeConfig(theme, tenant.PrimaryColor)
+	form = NormalizeBookingFormConfig(form)
 
 	pageJSON, _ := json.Marshal(page)
 	themeJSON, _ := json.Marshal(theme)
@@ -152,13 +146,7 @@ func (s *Service) decodeLandingPageConfig(tenant *Tenant) LandingPageConfig {
 		return config
 	}
 	_ = json.Unmarshal(tenant.LandingPageConfig, &config)
-	if config.Version == 0 {
-		config.Version = 1
-	}
-	if len(config.Sections) == 0 {
-		config.Sections = DefaultLandingPageConfig().Sections
-	}
-	return config
+	return NormalizeLandingPageConfig(config)
 }
 
 func (s *Service) decodeLandingThemeConfig(tenant *Tenant) LandingThemeConfig {
@@ -170,10 +158,10 @@ func (s *Service) decodeLandingThemeConfig(tenant *Tenant) LandingThemeConfig {
 		return config
 	}
 	_ = json.Unmarshal(tenant.LandingThemeConfig, &config)
-	if strings.TrimSpace(config.PrimaryColor) == "" && tenant != nil {
-		config.PrimaryColor = tenant.PrimaryColor
+	if tenant != nil {
+		return NormalizeLandingThemeConfig(config, tenant.PrimaryColor)
 	}
-	return config
+	return NormalizeLandingThemeConfig(config, "")
 }
 
 func (s *Service) decodeBookingFormConfig(tenant *Tenant) BookingFormConfig {
@@ -182,13 +170,7 @@ func (s *Service) decodeBookingFormConfig(tenant *Tenant) BookingFormConfig {
 		return config
 	}
 	_ = json.Unmarshal(tenant.BookingFormConfig, &config)
-	if strings.TrimSpace(config.CTAButtonLabel) == "" {
-		config.CTAButtonLabel = DefaultBookingFormConfig().CTAButtonLabel
-	}
-	if strings.TrimSpace(config.WhatsappLabel) == "" {
-		config.WhatsappLabel = DefaultBookingFormConfig().WhatsappLabel
-	}
-	return config
+	return NormalizeBookingFormConfig(config)
 }
 
 func (s *Service) ListPublicTenants(ctx context.Context) ([]TenantDirectoryItem, error) {

@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -328,6 +329,126 @@ func DefaultBookingFormConfig() BookingFormConfig {
 		ShowWhatsappHelp: true,
 		WhatsappLabel:    "Butuh bantuan cepat? Chat WhatsApp",
 	}
+}
+
+func cloneLandingBuilderSection(section LandingBuilderSection) LandingBuilderSection {
+	cloned := section
+	if section.Props != nil {
+		cloned.Props = make(map[string]interface{}, len(section.Props))
+		for key, value := range section.Props {
+			cloned.Props[key] = value
+		}
+	}
+	return cloned
+}
+
+func NormalizeLandingPageConfig(input LandingPageConfig) LandingPageConfig {
+	defaultConfig := DefaultLandingPageConfig()
+	defaultSections := make([]LandingBuilderSection, 0, len(defaultConfig.Sections))
+	defaultsByID := make(map[string]LandingBuilderSection, len(defaultConfig.Sections))
+	for _, section := range defaultConfig.Sections {
+		cloned := cloneLandingBuilderSection(section)
+		defaultSections = append(defaultSections, cloned)
+		defaultsByID[section.ID] = cloned
+	}
+
+	if input.Version == 0 {
+		input.Version = defaultConfig.Version
+	}
+	if len(input.Sections) == 0 {
+		input.Sections = defaultSections
+		return input
+	}
+
+	incomingByID := make(map[string]LandingBuilderSection, len(input.Sections))
+	customSections := make([]LandingBuilderSection, 0)
+	for _, section := range input.Sections {
+		if strings.TrimSpace(section.ID) == "" {
+			continue
+		}
+		if _, exists := defaultsByID[section.ID]; exists {
+			incomingByID[section.ID] = section
+			continue
+		}
+		if section.Props == nil {
+			section.Props = map[string]interface{}{}
+		}
+		customSections = append(customSections, section)
+	}
+
+	merged := make([]LandingBuilderSection, 0, len(defaultSections)+len(customSections))
+	for _, defaultSection := range defaultSections {
+		incoming, exists := incomingByID[defaultSection.ID]
+		if !exists {
+			merged = append(merged, defaultSection)
+			continue
+		}
+
+		props := map[string]interface{}{}
+		for key, value := range defaultSection.Props {
+			props[key] = value
+		}
+		for key, value := range incoming.Props {
+			props[key] = value
+		}
+
+		merged = append(merged, LandingBuilderSection{
+			ID:      defaultSection.ID,
+			Type:    firstNonEmptyBuilderString(incoming.Type, defaultSection.Type),
+			Label:   firstNonEmptyBuilderString(incoming.Label, defaultSection.Label),
+			Enabled: incoming.Enabled,
+			Variant: firstNonEmptyBuilderString(incoming.Variant, defaultSection.Variant),
+			Props:   props,
+		})
+	}
+
+	input.Sections = append(merged, customSections...)
+	return input
+}
+
+func NormalizeLandingThemeConfig(input LandingThemeConfig, primary string) LandingThemeConfig {
+	config := DefaultLandingThemeConfig(primary)
+	if strings.TrimSpace(input.Preset) != "" {
+		config.Preset = input.Preset
+	}
+	if strings.TrimSpace(input.PrimaryColor) != "" {
+		config.PrimaryColor = input.PrimaryColor
+	}
+	if strings.TrimSpace(input.AccentColor) != "" {
+		config.AccentColor = input.AccentColor
+	}
+	if strings.TrimSpace(input.SurfaceStyle) != "" {
+		config.SurfaceStyle = input.SurfaceStyle
+	}
+	if strings.TrimSpace(input.FontStyle) != "" {
+		config.FontStyle = input.FontStyle
+	}
+	if strings.TrimSpace(input.RadiusStyle) != "" {
+		config.RadiusStyle = input.RadiusStyle
+	}
+	return config
+}
+
+func NormalizeBookingFormConfig(input BookingFormConfig) BookingFormConfig {
+	config := DefaultBookingFormConfig()
+	if strings.TrimSpace(input.CTAButtonLabel) != "" {
+		config.CTAButtonLabel = input.CTAButtonLabel
+	}
+	if strings.TrimSpace(input.WhatsappLabel) != "" {
+		config.WhatsappLabel = input.WhatsappLabel
+	}
+	config.StickyMobileCTA = input.StickyMobileCTA
+	config.ShowWhatsappHelp = input.ShowWhatsappHelp
+	return config
+}
+
+func firstNonEmptyBuilderString(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 type TenantDirectoryItem struct {

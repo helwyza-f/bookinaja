@@ -70,6 +70,7 @@ export default function TenantPublicLanding() {
         pageConfig={freshProfile?.landing_page_config}
         themeConfig={freshProfile?.landing_theme_config}
         bookingFormConfig={freshProfile?.booking_form_config}
+        embedded
       />
     </div>
   );
