@@ -48,6 +48,7 @@ import { toast } from "sonner";
 type POSLineItem = {
   id?: string;
   item_name: string;
+  item_type?: string;
   quantity: number;
   unit_price?: number;
   price_at_booking?: number;
@@ -100,7 +101,9 @@ export function POSControlHub({
   const [fnbOpen, setFnbOpen] = useState(false);
   const [extendOpen, setExtendOpen] = useState(false);
   const [addonsOpen, setAddonsOpen] = useState(false);
-  const [itemsOpen, setItemsOpen] = useState(false);
+  const [servicesOpen, setServicesOpen] = useState(true);
+  const [addonsSummaryOpen, setAddonsSummaryOpen] = useState(false);
+  const [fnbSummaryOpen, setFnbSummaryOpen] = useState(false);
   const [now, setNow] = useState(new Date());
   const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings | null>(null);
 
@@ -199,6 +202,22 @@ export function POSControlHub({
     return Object.values(groups);
   }, [session.options]);
 
+  const groupedServices = useMemo(
+    () =>
+      groupedOptions.filter((item) =>
+        ["main_option", "main", "console_option"].includes(String(item.item_type || "")),
+      ),
+    [groupedOptions],
+  );
+
+  const groupedAddons = useMemo(
+    () =>
+      groupedOptions.filter((item) =>
+        ["add_on", "addon"].includes(String(item.item_type || "")),
+      ),
+    [groupedOptions],
+  );
+
   const groupedFnb = useMemo(() => {
     if (!session.orders) return [];
     const groups = session.orders.reduce<Record<string, POSOrderItem>>((acc, item) => {
@@ -213,6 +232,90 @@ export function POSControlHub({
     return Object.values(groups);
   }, [session.orders]);
 
+  const renderSummarySection = ({
+    title,
+    caption,
+    icon,
+    tone,
+    count,
+    total,
+    open,
+    setOpen,
+    emptyMessage,
+    children,
+  }: {
+    title: string;
+    caption: string;
+    icon: React.ReactNode;
+    tone: "slate" | "emerald" | "orange";
+    count: number;
+    total: number;
+    open: boolean;
+    setOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    emptyMessage: string;
+    children: React.ReactNode;
+  }) => {
+    const toneClass =
+      tone === "emerald"
+        ? "text-emerald-600 dark:text-emerald-300"
+        : tone === "orange"
+        ? "text-orange-600 dark:text-orange-300"
+        : "text-slate-700 dark:text-slate-200";
+    const pillClass =
+      tone === "emerald"
+        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200"
+        : tone === "orange"
+        ? "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-200"
+        : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200";
+
+    return (
+      <section className="rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.03]">
+        <button
+          type="button"
+          onClick={() => setOpen((prev) => !prev)}
+          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left sm:pointer-events-none sm:cursor-default"
+        >
+          <div className="min-w-0">
+            <div className={cn("flex items-center gap-2 text-sm font-semibold", toneClass)}>
+              {icon}
+              <span>{title}</span>
+            </div>
+            <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{caption}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className={cn("rounded-full px-2.5 py-1 text-[11px] font-semibold", pillClass)}>
+              {count} item
+            </span>
+            <span className="hidden text-xs font-semibold text-slate-500 dark:text-slate-400 sm:inline">
+              Rp{formatIDR(total)}
+            </span>
+            <span className="sm:hidden">
+              {open ? (
+                <ChevronUp className="h-4 w-4 text-slate-400" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-slate-400" />
+              )}
+            </span>
+          </div>
+        </button>
+        <div
+          className={cn(
+            "border-t border-slate-100 px-4 py-4 dark:border-white/5",
+            !open && "hidden sm:block",
+          )}
+        >
+          {count > 0 ? (
+            <div className="space-y-3">{children}</div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-slate-200 px-3 py-4 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
+              {emptyMessage}
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  };
+
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-white font-plus-jakarta dark:bg-slate-950">
       <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-4 dark:border-white/10 dark:bg-slate-950">
@@ -225,8 +328,8 @@ export function POSControlHub({
               <h2 className="truncate pr-2 text-base font-semibold leading-tight text-slate-950 dark:text-white">
                 {session.customer_name || "Customer"}
               </h2>
-              <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
-                <p className="truncate pr-1 font-medium text-blue-600">
+              <div className="mt-1 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <p className="truncate pr-1 font-medium text-blue-600 dark:text-blue-300">
                   {session.resource_name || "Unit"}
                 </p>
                 <span className="h-1 w-1 rounded-full bg-slate-300" />
@@ -319,100 +422,113 @@ export function POSControlHub({
         </div>
       )}
 
-      {/* 3. MAIN BILLING AREA */}
-      <div className="flex-1 bg-white dark:bg-slate-950 overflow-y-auto pr-1 scrollbar-hide scroll-smooth">
-        <div className="p-4 sm:p-6 space-y-4 sm:space-y-8">
-          <button
-            type="button"
-            onClick={() => setItemsOpen((prev) => !prev)}
-            className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left dark:border-white/10 dark:bg-white/[0.03] sm:hidden"
-          >
-            <div>
-              <div className="text-sm font-semibold text-slate-950 dark:text-white">Detail item</div>
-              <div className="text-xs text-slate-500">{groupedOptions.length + groupedFnb.length} item dalam billing</div>
-            </div>
-            {itemsOpen ? <ChevronUp className="h-4 w-4 text-slate-500" /> : <ChevronDown className="h-4 w-4 text-slate-500" />}
-          </button>
-          <div className={cn("space-y-8", !itemsOpen && "hidden sm:block")}>
-          {/* RENTAL SECTION */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-white/5 pb-2">
-              <Package className="w-3.5 h-3.5 text-slate-400" />
-              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic pr-1">
-                Rental & Equipment
-              </span>
-            </div>
-            <div className="space-y-4">
-              {groupedOptions.map((opt) => (
-                <div
-                  key={opt.id}
-                  className="group animate-in fade-in slide-in-from-right-2"
-                >
-                  <div className="flex justify-between items-end gap-2">
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase italic truncate max-w-[180px] pr-2">
-                      {opt.item_name}
-                    </span>
-                    <div className="flex-1 mb-1 border-b border-dotted border-slate-200 dark:border-white/5" />
-                    <span className="text-xs font-black text-blue-600 dark:text-blue-400 italic min-w-[30px] text-right pr-2">
-                      x{opt.quantity}
-                    </span>
-                    <span className="text-xs font-black text-slate-950 dark:text-white min-w-[80px] text-right pr-1">
-                      Rp{formatIDR(opt.total_price)}
-                    </span>
-                  </div>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase italic mt-1 block pr-1">
-                    @ Rp{formatIDR(opt.unitPrice)}
-                  </span>
-                </div>
-              ))}
+      <div className="flex-1 overflow-y-auto bg-white pr-1 scrollbar-hide scroll-smooth dark:bg-slate-950">
+        <div className="space-y-4 p-4 sm:space-y-5 sm:p-6">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="flex items-start gap-3">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
+              <div>
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                  Ringkasan billing sesi
+                </p>
+                <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                  {isOutstanding
+                    ? "Sesi sudah selesai. Fokus utama sekarang adalah menutup sisa tagihan."
+                    : "Gunakan panel per kategori agar kasir tetap cepat saat menambah layanan, add-on, atau F&B."}
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* F&B SECTION */}
-          {groupedFnb.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 border-b border-slate-100 dark:border-white/5 pb-2">
-                <ShoppingCart className="w-3.5 h-3.5 text-blue-600/40" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-blue-600/40 italic pr-1">
-                  Konsumsi F&B
+          {renderSummarySection({
+            title: "Layanan",
+            caption: "Paket utama dan item sewa sesi",
+            icon: <Package className="h-4 w-4" />,
+            tone: "slate",
+            count: groupedServices.length,
+            total: groupedServices.reduce((sum, item) => sum + Number(item.total_price || 0), 0),
+            open: servicesOpen,
+            setOpen: setServicesOpen,
+            emptyMessage: "Belum ada item layanan di billing sesi ini.",
+            children: groupedServices.map((opt) => (
+              <div
+                key={opt.id || `${opt.item_name}-${opt.item_type}`}
+                className="flex items-start justify-between gap-3 rounded-xl bg-slate-50/90 px-3 py-3 dark:bg-white/[0.03]"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                    {opt.item_name}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {opt.quantity}x • Rp{formatIDR(opt.unitPrice)}
+                  </p>
+                </div>
+                <span className="shrink-0 text-sm font-semibold text-slate-900 dark:text-white">
+                  Rp{formatIDR(opt.total_price)}
                 </span>
               </div>
-              <div className="space-y-4">
-                {groupedFnb.map((order) => (
-                  <div
-                    key={order.fnb_item_id}
-                    className="group animate-in fade-in slide-in-from-right-2"
-                  >
-                    <div className="flex justify-between items-end gap-2">
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase italic truncate max-w-[180px] pr-2">
-                        {order.item_name}
-                      </span>
-                      <div className="flex-1 mb-1 border-b border-dotted border-slate-200 dark:border-white/5" />
-                      <span className="text-xs font-black text-blue-600 dark:text-blue-400 italic min-w-[30px] text-right pr-2">
-                        x{order.quantity}
-                      </span>
-                      <span className="text-xs font-black text-slate-950 dark:text-white min-w-[80px] text-right pr-1">
-                        Rp{formatIDR(order.subtotal)}
-                      </span>
-                    </div>
-                    <span className="text-[9px] font-bold text-slate-400 uppercase italic mt-1 block pr-1">
-                      @ Rp{formatIDR(order.price_at_purchase)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+            )),
+          })}
 
-          <div className="p-5 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-white/5 flex gap-3 items-start mb-6">
-            <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-            <p className="text-[9px] font-bold text-slate-400 uppercase italic leading-relaxed tracking-tight pr-2">
-              {isOutstanding
-                ? "Selesaikan pelunasan untuk menutup transaksi ini."
-                : "Lakukan finalisasi pembayaran di menu checkout untuk melepaskan unit."}
-            </p>
-          </div>
-          </div>
+          {renderSummarySection({
+            title: "Add-on",
+            caption: "Tambahan manual di luar paket utama",
+            icon: <Package className="h-4 w-4" />,
+            tone: "emerald",
+            count: groupedAddons.length,
+            total: groupedAddons.reduce((sum, item) => sum + Number(item.total_price || 0), 0),
+            open: addonsSummaryOpen,
+            setOpen: setAddonsSummaryOpen,
+            emptyMessage: "Belum ada add-on tambahan untuk sesi ini.",
+            children: groupedAddons.map((opt) => (
+              <div
+                key={opt.id || `${opt.item_name}-${opt.item_type}`}
+                className="flex items-start justify-between gap-3 rounded-xl bg-emerald-50/60 px-3 py-3 dark:bg-emerald-500/[0.05]"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                    {opt.item_name}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {opt.quantity}x • Rp{formatIDR(opt.unitPrice)}
+                  </p>
+                </div>
+                <span className="shrink-0 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                  Rp{formatIDR(opt.total_price)}
+                </span>
+              </div>
+            )),
+          })}
+
+          {renderSummarySection({
+            title: "F&B",
+            caption: "Pesanan makanan dan minuman customer",
+            icon: <ShoppingCart className="h-4 w-4" />,
+            tone: "orange",
+            count: groupedFnb.length,
+            total: groupedFnb.reduce((sum, item) => sum + Number(item.subtotal || 0), 0),
+            open: fnbSummaryOpen,
+            setOpen: setFnbSummaryOpen,
+            emptyMessage: "Belum ada pesanan F&B untuk sesi ini.",
+            children: groupedFnb.map((order) => (
+              <div
+                key={order.fnb_item_id}
+                className="flex items-start justify-between gap-3 rounded-xl bg-orange-50/60 px-3 py-3 dark:bg-orange-500/[0.05]"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                    {order.item_name}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {order.quantity}x • Rp{formatIDR(order.price_at_purchase)}
+                  </p>
+                </div>
+                <span className="shrink-0 text-sm font-semibold text-orange-700 dark:text-orange-300">
+                  Rp{formatIDR(order.subtotal)}
+                </span>
+              </div>
+            )),
+          })}
         </div>
       </div>
 

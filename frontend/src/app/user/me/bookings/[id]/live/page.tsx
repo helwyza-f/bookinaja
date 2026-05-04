@@ -543,6 +543,54 @@ export default function CustomerBookingDetail() {
   const isPending = sessionStatus === "pending";
   const hasPaidDp = paymentStatus === "partial_paid" || paymentStatus === "paid" || paymentStatus === "settled" || depositAmount === 0;
   const isTimeReached = now >= new Date(booking?.start_time || "");
+  const bookingReference = String(booking?.id || "").slice(0, 8).toUpperCase();
+  const timelineSection = (
+    <Card className="rounded-[2rem] border border-slate-200/80 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0c0c0c]">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
+            History
+          </p>
+          <p className="mt-1 text-base font-semibold text-slate-950 dark:text-white">
+            Riwayat booking
+          </p>
+        </div>
+        <Badge className="border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200 text-[10px] font-semibold">
+          {booking.events?.length || 0} event
+        </Badge>
+      </div>
+      <div className="space-y-3">
+        {(booking.events || []).length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-center text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
+            Timeline belum tersedia untuk booking lama.
+          </div>
+        ) : (
+          booking.events.map((event: any) => (
+            <div key={event.id} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 dark:border-white/5 dark:bg-white/[0.03]">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-950 dark:text-white">
+                    {event.title || event.event_type}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                    {event.description || event.event_type}
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-medium text-slate-500 dark:bg-white/10 dark:text-slate-300">
+                  {event.actor_type}
+                </span>
+              </div>
+              <p className="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
+                {event.created_at
+                  ? format(parseISO(event.created_at), "dd MMM yyyy, HH:mm", { locale: idLocale })
+                  : "-"}
+              </p>
+            </div>
+          ))
+        )}
+      </div>
+    </Card>
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#050505] font-plus-jakarta pb-24 transition-colors overflow-x-hidden">
@@ -559,7 +607,7 @@ export default function CustomerBookingDetail() {
         onLoad={() => setMidtransReady(true)}
         onError={() => setMidtransReady(false)}
       />
-      <nav className="h-16 flex items-center justify-between px-4 sticky top-0 z-50 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b dark:border-white/5">
+      <nav className="hidden h-16 items-center justify-between px-4 sticky top-0 z-50 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b dark:border-white/5">
         <Button
           variant="ghost"
           size="icon"
@@ -591,6 +639,53 @@ export default function CustomerBookingDetail() {
       </nav>
 
       <main className="max-w-xl mx-auto p-4 space-y-4">
+        <Card className="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white shadow-sm dark:border-white/10 dark:bg-[#0c0c0c]">
+          <div className="bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.16),_transparent_45%),linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.98))] p-5 dark:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.25),_transparent_45%),linear-gradient(135deg,rgba(15,23,42,0.92),rgba(2,6,23,0.96))]">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-300">
+                  <MapPin size={14} />
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.24em]">
+                    {booking.tenant_name || "Portal customer"}
+                  </span>
+                </div>
+                <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                  {booking.resource_name}
+                </h1>
+                <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                  Ref {bookingReference} • status sesi {booking.status} • pembayaran {paymentLabel.toLowerCase()}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-11 w-11 rounded-2xl border-slate-200 bg-white/80 dark:border-white/10 dark:bg-white/5"
+                onClick={copyMagicLink}
+              >
+                {copied ? (
+                  <CheckCircle2 size={18} className="text-emerald-500" />
+                ) : (
+                  <Copy size={18} className="text-slate-500 dark:text-slate-300" />
+                )}
+              </Button>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-white/80 px-4 py-3 shadow-sm ring-1 ring-black/5 dark:bg-white/5 dark:ring-white/10">
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Tanggal</p>
+                <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+                  {format(parseISO(booking.start_time), "dd MMMM yyyy", { locale: idLocale })}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-white/80 px-4 py-3 shadow-sm ring-1 ring-black/5 dark:bg-white/5 dark:ring-white/10">
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Jam sesi</p>
+                <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+                  {format(parseISO(booking.start_time), "HH:mm")} - {format(parseISO(booking.end_time), "HH:mm")}
+                </p>
+              </div>
+            </div>
+          </div>
+        </Card>
+
         <div className="flex items-center gap-2">
           <RealtimePill connected={realtimeConnected} status={realtimeStatus} className="normal-case tracking-normal" />
           {refreshing ? (
@@ -603,19 +698,21 @@ export default function CustomerBookingDetail() {
         {countdownData && (
           <Card
             className={cn(
-              "border-none rounded-[2rem] overflow-hidden shadow-2xl p-6 text-white transition-all duration-500",
-              countdownData.type === "LIVE" ? "bg-slate-950" : "bg-blue-600",
+              "overflow-hidden rounded-[2rem] border p-6 text-white shadow-lg transition-all duration-500",
+              countdownData.type === "LIVE"
+                ? "border-slate-900 bg-slate-950"
+                : "border-blue-500/20 bg-[linear-gradient(135deg,#2563eb,#1d4ed8)]",
             )}
           >
-            <div className="flex justify-between items-start ">
+            <div className="flex items-start justify-between gap-4">
               <div className="space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-widest opacity-60">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.24em] opacity-70">
                   {countdownData.label}
                 </span>
                 <div className="flex items-baseline gap-1.5">
                   <span
                     className={cn(
-                      "text-4xl font-[1000] italic tabular-nums tracking-tighter leading-none",
+                      "text-4xl font-semibold tabular-nums tracking-tight leading-none",
                       countdownData.type === "LIVE" &&
                         countdownData.isCritical &&
                         "text-red-500 animate-pulse",
@@ -627,7 +724,7 @@ export default function CustomerBookingDetail() {
               </div>
               <Badge
                 className={cn(
-                  "text-[8px] font-black uppercase italic border-none px-3 py-1",
+                  "border-none px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]",
                   countdownData.type === "LIVE"
                     ? "bg-blue-600 animate-pulse"
                     : "bg-white text-blue-600 shadow-xl",
@@ -647,19 +744,19 @@ export default function CustomerBookingDetail() {
           </div>
         )}
 
-        <Card className="rounded-[2rem] border-none shadow-sm ring-1 ring-black/5 dark:ring-white/5 bg-white dark:bg-[#0c0c0c] p-4 space-y-4">
+        <Card className="rounded-[2rem] border border-slate-200/80 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0c0c0c] space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
-                Live Controller
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
+                Kontrol sesi
               </p>
-              <p className="mt-1 text-sm font-[1000] italic text-slate-900 dark:text-white">
-                Kontrol sesi aktif, F&B, dan add-on
+              <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                Semua aksi live dikelompokkan di sini
               </p>
             </div>
             <Badge
               className={cn(
-                "border-none px-3 py-1 text-[8px] font-black uppercase italic",
+                "border-none px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]",
                 isLiveSession ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-200",
               )}
             >
@@ -727,7 +824,7 @@ export default function CustomerBookingDetail() {
         </Card>
 
         {/* UNIFIED INFO CARD */}
-        <Card className="rounded-[2rem] p-0 overflow-hidden border-none shadow-sm ring-1 ring-black/5 dark:ring-white/5 bg-white dark:bg-[#0c0c0c]">
+        <Card className="rounded-[2rem] overflow-hidden border border-slate-200/80 bg-white shadow-sm dark:border-white/10 dark:bg-[#0c0c0c]">
           <div className="p-6 space-y-6">
             <div className="flex items-start justify-between text-left leading-none gap-4">
               <div className="space-y-1 min-w-0">
@@ -795,7 +892,7 @@ export default function CustomerBookingDetail() {
           </div>
         </Card>
 
-        <Card className="rounded-[2rem] border-none bg-white p-4 shadow-sm ring-1 ring-black/5 dark:bg-[#0c0c0c] dark:ring-white/5">
+        <Card className="hidden rounded-[2rem] border-none bg-white p-4 shadow-sm ring-1 ring-black/5 dark:bg-[#0c0c0c] dark:ring-white/5">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
@@ -1042,6 +1139,8 @@ export default function CustomerBookingDetail() {
             )}
           </div>
         </Card>
+
+        {timelineSection}
 
         {/* BOTTOM ACTIONS */}
         <div className="rounded-[2rem] bg-white dark:bg-[#0c0c0c] border dark:border-white/5 shadow-sm px-5 py-4 flex items-center justify-between gap-4">

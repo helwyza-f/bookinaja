@@ -347,6 +347,65 @@ export default function BookingDetailPage() {
               ? "Booking selesai dan lunas."
               : "Booking sudah dibatalkan.";
 
+  const timelineSection = (
+    <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
+            History booking
+          </p>
+          <h2 className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
+            Timeline aktivitas
+          </h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Riwayat tetap tersedia, tapi sekarang diletakkan di bawah agar fokus operasional tetap di aksi dan billing.
+          </p>
+        </div>
+        <Badge variant="outline" className="w-fit rounded-full">
+          {booking?.events?.length || 0} event
+        </Badge>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {(booking?.events || []).length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500 dark:border-white/10">
+            Timeline belum tersedia untuk booking lama.
+          </div>
+        ) : (
+          (booking?.events || []).map((event) => (
+            <div key={event.id} className="rounded-xl border border-slate-200 p-3 dark:border-white/10">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                    {event.title || event.event_type}
+                  </div>
+                  <div className="mt-1 text-xs leading-5 text-slate-500">
+                    {event.description || event.event_type}
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                    <span>{actorLabel(event)}</span>
+                    {event.actor_email ? (
+                      <span className="hidden sm:inline text-slate-300 dark:text-slate-500">
+                        {event.actor_email}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                <Badge className="shrink-0 rounded-full border-none bg-slate-100 text-xs text-slate-600 dark:bg-white/10 dark:text-slate-200">
+                  {event.actor_type}
+                </Badge>
+              </div>
+              <div className="mt-2 text-xs text-slate-400">
+                {event.created_at
+                  ? format(new Date(event.created_at), "dd MMM yyyy, HH:mm", { locale: localeID })
+                  : "-"}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </Card>
+  );
+
   const waitForSnap = async () => {
     if (window.snap) return window.snap;
     const started = Date.now();
@@ -615,7 +674,7 @@ export default function BookingDetailPage() {
         </div>
       </header>
 
-      <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <Card className="hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-base font-semibold text-slate-950 dark:text-white">Timeline booking</h2>
@@ -905,6 +964,7 @@ export default function BookingDetailPage() {
           </Card>
         </div>
       </div>
+      {timelineSection}
     </div>
   );
 }

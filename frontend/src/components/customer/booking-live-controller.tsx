@@ -68,10 +68,10 @@ function MobileSheet({
         </div>
         <div className="p-4 sm:pt-6 border-b dark:border-white/5 flex items-center justify-between shrink-0">
           <div className="min-w-0">
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-600 italic">
-              Customer Live
+            <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+              Aksi sesi
             </p>
-            <h3 className="text-lg font-[1000] uppercase italic tracking-tighter dark:text-white">
+            <h3 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
               {title}
             </h3>
           </div>
@@ -165,36 +165,48 @@ export function BookingLiveController({
           disabled={!active}
           onClick={() => setExtendOpen(true)}
           variant="outline"
-          className="h-12 rounded-xl justify-start gap-2 text-xs font-semibold"
+          className="h-auto min-h-16 flex-col items-start rounded-2xl border-slate-200 bg-white px-3 py-3 text-left text-xs font-semibold dark:border-white/10 dark:bg-white/[0.03]"
         >
           <Timer size={16} className="text-blue-600" />
-          Tambah Jam
+          <span>Tambah durasi</span>
+          <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            Perpanjang sesi aktif
+          </span>
         </Button>
         <Button
           disabled={!active}
           onClick={() => setFnbOpen(true)}
           variant="outline"
-          className="h-12 rounded-xl justify-start gap-2 text-xs font-semibold"
+          className="h-auto min-h-16 flex-col items-start rounded-2xl border-slate-200 bg-white px-3 py-3 text-left text-xs font-semibold dark:border-white/10 dark:bg-white/[0.03]"
         >
           <Coffee size={16} className="text-orange-500" />
-          Pesan Makan
+          <span>Pesan F&B</span>
+          <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            Tambah menu ke billing
+          </span>
         </Button>
         <Button
           disabled={!active}
           onClick={() => setAddonOpen(true)}
           variant="outline"
-          className="h-12 rounded-xl justify-start gap-2 text-xs font-semibold"
+          className="h-auto min-h-16 flex-col items-start rounded-2xl border-slate-200 bg-white px-3 py-3 text-left text-xs font-semibold dark:border-white/10 dark:bg-white/[0.03]"
         >
           <PlusCircle size={16} className="text-emerald-500" />
-          Add-on
+          <span>Tambah add-on</span>
+          <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            Aktivasi item tambahan
+          </span>
         </Button>
         <Button
           disabled={!active}
           onClick={onComplete}
-          className="h-12 rounded-xl justify-start gap-2 bg-slate-950 text-xs font-semibold text-white hover:bg-slate-800"
+          className="h-auto min-h-16 flex-col items-start rounded-2xl bg-slate-950 px-3 py-3 text-left text-xs font-semibold text-white hover:bg-slate-800"
         >
           <ReceiptText size={16} />
-          Akhiri Sesi
+          <span>Akhiri sesi</span>
+          <span className="text-[11px] font-medium text-slate-300">
+            Tutup sesi dan lanjut cek tagihan
+          </span>
         </Button>
       </div>
 
