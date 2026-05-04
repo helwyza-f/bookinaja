@@ -5,20 +5,48 @@ import { Sparkles, Zap, MousePointer2 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-export function TenantHero({ profile, content, theme }: any) {
+type TenantHeroProps = {
+  profile: { name: string; slogan?: string };
+  content: {
+    banner?: string;
+    tagline: string;
+    description: string;
+    features: string[];
+    ctaLabel?: string;
+  };
+  theme: { primary: string };
+  variant?: "immersive" | "split" | "compact";
+};
+
+export function TenantHero({ profile, content, theme, variant = "immersive" }: TenantHeroProps) {
   const nameParts = profile.name.split(" ");
   const firstName = nameParts[0];
   const otherNames = nameParts.slice(1).join(" ");
+  const hasBanner = Boolean(content.banner?.trim());
+  const isCompact = variant === "compact";
+  const isSplit = variant === "split";
+  const singleWordName = !otherNames.trim();
 
   return (
-    <section className="relative min-h-[100dvh] flex items-center justify-center overflow-hidden bg-white dark:bg-[#050505]">
+    <section
+      className={cn(
+        "relative flex items-center justify-center overflow-hidden bg-white dark:bg-[#050505]",
+        isCompact ? "min-h-[80dvh]" : "min-h-[100dvh]",
+      )}
+    >
       {/* --- BACKGROUND SYSTEM --- */}
       <div className="absolute inset-0 z-0">
-        <img
-          src={content.banner}
-          className="w-full h-full object-cover scale-110 motion-safe:animate-[pulse_20s_ease-in-out_infinite] opacity-100 transition-opacity duration-1000"
-          alt="Business Banner"
-        />
+        {hasBanner ? (
+          <img
+            src={content.banner}
+            className="w-full h-full object-cover scale-110 motion-safe:animate-[pulse_20s_ease-in-out_infinite] opacity-100 transition-opacity duration-1000"
+            alt="Business Banner"
+          />
+        ) : (
+          <div
+            className="h-full w-full bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_40%),linear-gradient(180deg,#ffffff_0%,#eff6ff_55%,#ffffff_100%)] dark:bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.22),transparent_35%),linear-gradient(180deg,#020617_0%,#0f172a_55%,#020617_100%)]"
+          />
+        )}
 
         {/* Adaptive Overlays: Tipis di pinggir, fokus kontras di tengah area teks */}
         <div className="absolute inset-0 bg-white/20 dark:bg-black/40 backdrop-blur-[0.5px]" />
@@ -39,8 +67,14 @@ export function TenantHero({ profile, content, theme }: any) {
       </div>
 
       {/* --- CONTENT LAYER --- */}
-      <div className="relative z-20 w-full max-w-5xl mx-auto px-6 md:px-12 text-center pt-32 pb-24">
-        <div className="flex flex-col items-center gap-6 md:gap-10">
+      <div
+        className={cn(
+          "relative z-20 mx-auto w-full max-w-6xl px-6 pb-24 pt-32 md:px-12",
+          isSplit ? "text-left" : "text-center",
+        )}
+      >
+        <div className={cn("gap-6 md:gap-10", isSplit ? "grid items-center lg:grid-cols-[1.05fr_0.95fr]" : "flex flex-col items-center")}>
+          <div className={cn("flex flex-col gap-6 md:gap-10", isSplit ? "items-start" : "items-center")}>
           {/* 1. TAGLINE BADGE */}
           <div className="animate-in fade-in slide-in-from-top-6 duration-1000">
             <Badge className="px-5 py-2.5 rounded-full font-bold text-[10px] md:text-xs uppercase tracking-[0.25em] shadow-2xl border border-white/20 bg-white/20 dark:bg-black/20 text-slate-900 dark:text-white backdrop-blur-xl">
@@ -53,39 +87,46 @@ export function TenantHero({ profile, content, theme }: any) {
           </div>
 
           {/* 2. MEGA HEADING SYSTEM */}
-          <div className="w-full py-4 select-none px-4">
-            <h1 className="text-[12vw] md:text-[7rem] font-[1000] uppercase italic tracking-tighter leading-[0.9] text-slate-950 dark:text-white drop-shadow-2xl">
+          <div className={cn("w-full select-none", isSplit ? "px-0 py-2" : "px-4 py-4")}>
+            <h1
+              className={cn(
+                "font-[1000] uppercase italic tracking-tighter leading-[0.9] text-slate-950 dark:text-white drop-shadow-2xl",
+                isCompact
+                  ? "text-[11vw] md:text-[5.75rem]"
+                  : isSplit
+                    ? "text-[11vw] md:text-[6rem]"
+                    : "text-[12vw] md:text-[7rem]",
+              )}
+            >
               <span className="block animate-in slide-in-from-bottom-10 duration-700">
                 {firstName}
               </span>
-              <span
-                className="inline-block pb-2 animate-in slide-in-from-bottom-10 duration-1000 delay-150"
-                style={{
-                  color: theme.primary,
-                  textShadow: `0 10px 40px ${theme.primary}66`,
-                }}
-              >
-                {otherNames || "Hub"}
-              </span>
+              {!singleWordName ? (
+                <span
+                  className="inline-block pb-2 animate-in slide-in-from-bottom-10 duration-1000 delay-150"
+                  style={{
+                    color: theme.primary,
+                    textShadow: `0 10px 40px ${theme.primary}66`,
+                  }}
+                >
+                  {otherNames}
+                </span>
+              ) : null}
             </h1>
           </div>
 
           {/* 3. DYNAMIC MARKETING COPY */}
-          <div className="max-w-3xl animate-in fade-in duration-1000 delay-500 space-y-5 px-6">
+          <div className={cn("animate-in fade-in duration-1000 delay-500 space-y-5", isSplit ? "max-w-xl px-0" : "max-w-3xl px-6")}>
             <h2 className="text-xl md:text-3xl font-black italic text-slate-800 dark:text-white leading-snug tracking-tight uppercase">
               {content.tagline}
             </h2>
-            <p className="text-sm md:text-base font-medium text-slate-600 dark:text-slate-300 max-w-2xl mx-auto leading-relaxed drop-shadow-sm">
+            <p className={cn("text-sm md:text-base font-medium text-slate-600 dark:text-slate-300 leading-relaxed drop-shadow-sm", isSplit ? "max-w-xl" : "mx-auto max-w-2xl")}>
               {content.description}
             </p>
           </div>
 
           {/* 4. DYNAMIC FEATURE PILLS */}
-          <div
-            className={cn(
-              "flex flex-wrap justify-center gap-3 md:gap-4 px-4 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-700",
-            )}
-          >
+          <div className={cn("flex flex-wrap gap-3 px-4 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-700 md:gap-4", isSplit ? "justify-start px-0" : "justify-center")}>
             {content.features.map((f: string, i: number) => (
               <div
                 key={i}
@@ -106,7 +147,7 @@ export function TenantHero({ profile, content, theme }: any) {
           </div>
 
           {/* 5. ELITE CTA BUTTON */}
-          <div className="pt-10 w-full md:w-auto animate-in zoom-in-95 duration-1000 delay-1000 px-6">
+          <div className={cn("animate-in zoom-in-95 duration-1000 delay-1000", isSplit ? "w-full pt-6 px-0 md:w-auto" : "w-full px-6 pt-10 md:w-auto")}>
             <Link
               href="#catalog"
               className="w-full inline-block group relative"
@@ -124,11 +165,11 @@ export function TenantHero({ profile, content, theme }: any) {
                   boxShadow: `0 20px 40px -10px ${theme.primary}88`,
                 }}
               >
-                Lihat Layanan
+                {content.ctaLabel || "Lihat Layanan"}
                 <Zap className="ml-5 h-6 w-6 md:h-10 md:w-10 fill-current animate-bounce" />
               </Button>
 
-              <div className="mt-8 flex items-center justify-center gap-3 opacity-40 group-hover:opacity-100 transition-all duration-500">
+              <div className={cn("mt-8 flex items-center gap-3 opacity-40 transition-all duration-500 group-hover:opacity-100", isSplit ? "justify-start" : "justify-center")}>
                 <MousePointer2 size={14} className="dark:text-white" />
                 <span className="text-[9px] font-black uppercase tracking-[0.4em] dark:text-white italic">
                   Lompat ke Katalog
@@ -136,6 +177,18 @@ export function TenantHero({ profile, content, theme }: any) {
               </div>
             </Link>
           </div>
+          </div>
+          {isSplit ? (
+            <div className="hidden lg:block">
+              <div className="overflow-hidden rounded-[2.5rem] border border-white/30 bg-white/35 p-4 shadow-[0_30px_80px_rgba(15,23,42,0.18)] backdrop-blur-2xl dark:border-white/10 dark:bg-black/20">
+                {hasBanner ? (
+                  <img src={content.banner} alt="Business Banner" className="aspect-[4/5] w-full rounded-[2rem] object-cover" />
+                ) : (
+                  <div className="aspect-[4/5] w-full rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_40%),linear-gradient(180deg,#ffffff_0%,#eff6ff_55%,#ffffff_100%)] dark:bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.22),transparent_35%),linear-gradient(180deg,#020617_0%,#0f172a_55%,#020617_100%)]" />
+                )}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 

@@ -13,6 +13,7 @@ export default async function proxy(req: NextRequest) {
   if (
     path.startsWith("/_next") ||
     path.startsWith("/api") ||
+    path.startsWith("/preview") ||
     path === "/favicon.ico" ||
     path === "/site.webmanifest" ||
     isStaticFile

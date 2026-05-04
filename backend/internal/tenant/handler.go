@@ -16,6 +16,12 @@ type Handler struct {
 	service *Service
 }
 
+type PageBuilderUpdateReq struct {
+	Page        LandingPageConfig  `json:"page"`
+	Theme       LandingThemeConfig `json:"theme"`
+	BookingForm BookingFormConfig  `json:"booking_form"`
+}
+
 func NewHandler(s *Service) *Handler {
 	return &Handler{service: s}
 }
@@ -414,6 +420,46 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Profil diperbarui", "data": updated})
+}
+
+func (h *Handler) GetPageBuilder(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	state, err := h.service.GetPageBuilder(c.Request.Context(), tID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Gagal mengambil page builder"})
+		return
+	}
+	c.JSON(http.StatusOK, state)
+}
+
+func (h *Handler) UpdatePageBuilder(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	actorRaw := c.GetString("userID")
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	actorID, _ := uuid.Parse(actorRaw)
+
+	var req PageBuilderUpdateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data builder tidak valid"})
+		return
+	}
+
+	state, err := h.service.UpdatePageBuilder(c.Request.Context(), actorID, tID, req.Page, req.Theme, req.BookingForm)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Page builder diperbarui", "data": state})
 }
 
 func (h *Handler) UpdateReceiptSettings(c *gin.Context) {

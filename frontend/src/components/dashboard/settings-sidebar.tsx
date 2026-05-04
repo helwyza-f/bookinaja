@@ -5,11 +5,11 @@ import { cn } from "@/lib/utils";
 import {
   BadgeCheck,
   BarChart3,
-  BriefcaseBusiness,
   CreditCard,
   Megaphone,
   ShieldCheck,
   UsersRound,
+  Wand2,
 } from "lucide-react";
 
 type SettingsSidebarProps = {
@@ -20,10 +20,10 @@ type SettingsSidebarProps = {
 
 const items = [
   {
-    label: "Konfigurasi Bisnis",
-    href: "/admin/settings/bisnis",
-    icon: BriefcaseBusiness,
-    hint: "Brand, SEO, landing",
+    label: "Landing Page Studio",
+    href: "/admin/settings/page-builder",
+    icon: Wand2,
+    hint: "Konten, layout, tema, preview",
   },
   {
     label: "Manajemen Pegawai",

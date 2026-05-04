@@ -1,15 +1,25 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { LayoutGrid, Maximize2, Camera } from "lucide-react";
+import { Maximize2, Camera } from "lucide-react";
 
 interface GallerySectionProps {
   images: string[];
   primaryColor: string;
+  eyebrow?: string;
+  title?: string;
+  description?: string;
 }
 
-export function GallerySection({ images, primaryColor }: GallerySectionProps) {
-  if (!images || images.length === 0) return null;
+export function GallerySection({
+  images,
+  primaryColor,
+  eyebrow,
+  title,
+  description,
+}: GallerySectionProps) {
+  const safeImages = (images || []).filter((url) => Boolean(url?.trim()));
+  if (!safeImages.length) return null;
 
   return (
     <section className="py-24 md:py-40 bg-white dark:bg-[#050505] px-6 border-t border-slate-100 dark:border-white/5 relative overflow-hidden">
@@ -29,12 +39,23 @@ export function GallerySection({ images, primaryColor }: GallerySectionProps) {
                 style={{ backgroundColor: primaryColor }}
               />
               <span className="text-[11px] font-[1000] uppercase tracking-[0.5em] text-slate-400 italic">
-                Visual Experience
+                {eyebrow || "Visual Experience"}
               </span>
             </div>
             <h2 className="text-5xl md:text-8xl font-[1000] uppercase italic tracking-tighter leading-none text-slate-950 dark:text-white">
-              Inside <span style={{ color: primaryColor }}>The Hub.</span>
+              {title ? (
+                title
+              ) : (
+                <>
+                  Inside <span style={{ color: primaryColor }}>The Hub.</span>
+                </>
+              )}
             </h2>
+            {description ? (
+              <p className="max-w-2xl text-sm font-medium leading-7 text-slate-500 dark:text-slate-400">
+                {description}
+              </p>
+            ) : null}
           </div>
 
           <div className="hidden md:flex items-center gap-4 pb-4">
@@ -43,7 +64,7 @@ export function GallerySection({ images, primaryColor }: GallerySectionProps) {
                 Total Assets
               </span>
               <span className="text-2xl font-[1000] italic leading-none">
-                {images.length}
+                {safeImages.length}
               </span>
             </div>
             <div className="h-12 w-px bg-slate-200 dark:bg-white/10" />
@@ -55,7 +76,7 @@ export function GallerySection({ images, primaryColor }: GallerySectionProps) {
 
         {/* Bento Grid Layout */}
         <div className="grid grid-cols-2 md:grid-cols-4 md:grid-rows-2 gap-4 md:gap-6 h-auto md:h-[800px]">
-          {images.map((url, i) => (
+          {safeImages.map((url, i) => (
             <div
               key={i}
               className={cn(

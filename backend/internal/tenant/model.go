@@ -1,7 +1,9 @@
 package tenant
 
 import (
+	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -104,6 +106,95 @@ type AuditLogEntry struct {
 	CreatedAt    time.Time       `db:"created_at" json:"created_at"`
 }
 
+type JSONB []byte
+
+func (j JSONB) Value() (driver.Value, error) {
+	if len(j) == 0 {
+		return []byte("{}"), nil
+	}
+	if !json.Valid(j) {
+		return nil, fmt.Errorf("invalid jsonb payload")
+	}
+	return []byte(j), nil
+}
+
+func (j *JSONB) Scan(src any) error {
+	switch value := src.(type) {
+	case nil:
+		*j = JSONB(`{}`)
+		return nil
+	case []byte:
+		*j = append((*j)[:0], value...)
+		return nil
+	case string:
+		*j = append((*j)[:0], value...)
+		return nil
+	default:
+		return fmt.Errorf("unsupported jsonb source %T", src)
+	}
+}
+
+func (j JSONB) MarshalJSON() ([]byte, error) {
+	if len(j) == 0 {
+		return []byte(`{}`), nil
+	}
+	if json.Valid(j) {
+		return j, nil
+	}
+	return json.Marshal(string(j))
+}
+
+func (j *JSONB) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 {
+		*j = JSONB(`{}`)
+		return nil
+	}
+	if !json.Valid(data) {
+		return fmt.Errorf("invalid jsonb payload")
+	}
+	*j = append((*j)[:0], data...)
+	return nil
+}
+
+type LandingBuilderSection struct {
+	ID      string                 `json:"id"`
+	Type    string                 `json:"type"`
+	Label   string                 `json:"label"`
+	Enabled bool                   `json:"enabled"`
+	Variant string                 `json:"variant,omitempty"`
+	Props   map[string]interface{} `json:"props,omitempty"`
+}
+
+type LandingPageConfig struct {
+	Version  int                     `json:"version"`
+	Sections []LandingBuilderSection `json:"sections"`
+}
+
+type LandingThemeConfig struct {
+	Preset       string `json:"preset"`
+	PrimaryColor string `json:"primary_color"`
+	AccentColor  string `json:"accent_color"`
+	SurfaceStyle string `json:"surface_style"`
+	FontStyle    string `json:"font_style"`
+	RadiusStyle  string `json:"radius_style"`
+}
+
+type BookingFormConfig struct {
+	CTAButtonLabel   string `json:"cta_button_label"`
+	StickyMobileCTA  bool   `json:"sticky_mobile_cta"`
+	ShowWhatsappHelp bool   `json:"show_whatsapp_help"`
+	WhatsappLabel    string `json:"whatsapp_label"`
+}
+
+type PageBuilderState struct {
+	Profile       *Tenant            `json:"profile"`
+	Page          LandingPageConfig  `json:"page"`
+	Theme         LandingThemeConfig `json:"theme"`
+	BookingForm   BookingFormConfig  `json:"booking_form"`
+	PreviewURL    string             `json:"preview_url"`
+	PreviewMobile bool               `json:"preview_mobile"`
+}
+
 // Tenant adalah jantung dari sistem Multi-Tenant lo, menyimpan data branding dan konfigurasi publik
 type Tenant struct {
 	ID               uuid.UUID `db:"id" json:"id"`
@@ -142,6 +233,11 @@ type Tenant struct {
 	// --- SEO METADATA ---
 	MetaTitle       string `db:"meta_title" json:"meta_title"`
 	MetaDescription string `db:"meta_description" json:"meta_description"`
+
+	// --- LANDING PAGE BUILDER ---
+	LandingPageConfig  JSONB `db:"landing_page_config" json:"landing_page_config"`
+	LandingThemeConfig JSONB `db:"landing_theme_config" json:"landing_theme_config"`
+	BookingFormConfig  JSONB `db:"booking_form_config" json:"booking_form_config"`
 
 	// --- CUSTOMER DISCOVERY FEED ---
 	DiscoveryHeadline    string         `db:"discovery_headline" json:"discovery_headline"`
@@ -182,6 +278,56 @@ type Tenant struct {
 	PayoutWhatsApp      string     `db:"payout_whatsapp" json:"payout_whatsapp"`
 
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
+}
+
+func DefaultLandingPageConfig() LandingPageConfig {
+	return LandingPageConfig{
+		Version: 1,
+		Sections: []LandingBuilderSection{
+			{ID: "hero", Type: "hero", Label: "Hero", Enabled: true, Variant: "immersive"},
+			{ID: "highlights", Type: "highlights", Label: "Keunggulan", Enabled: true, Variant: "pills"},
+			{ID: "catalog", Type: "catalog", Label: "Katalog", Enabled: true, Variant: "cards"},
+			{ID: "gallery", Type: "gallery", Label: "Galeri", Enabled: true, Variant: "bento"},
+			{ID: "testimonials", Type: "testimonials", Label: "Testimoni", Enabled: false, Variant: "cards", Props: map[string]interface{}{
+				"items": []map[string]interface{}{
+					{"name": "Customer pertama", "quote": "Pelayanan cepat dan proses booking mudah."},
+					{"name": "Customer kedua", "quote": "Tempatnya rapi dan cocok untuk booking ulang."},
+				},
+			}},
+			{ID: "faq", Type: "faq", Label: "FAQ", Enabled: false, Variant: "accordion", Props: map[string]interface{}{
+				"items": []map[string]interface{}{
+					{"question": "Bagaimana cara booking?", "answer": "Pilih resource, tentukan jadwal, lalu lanjutkan checkout."},
+					{"question": "Apakah bisa hubungi WhatsApp?", "answer": "Bisa. Tombol WhatsApp akan tampil jika nomor bisnis sudah diisi."},
+				},
+			}},
+			{ID: "about", Type: "about", Label: "Tentang Bisnis", Enabled: true, Variant: "split"},
+			{ID: "contact", Type: "contact", Label: "Kontak & Lokasi", Enabled: true, Variant: "panel"},
+			{ID: "booking_form", Type: "booking_form", Label: "Form Booking", Enabled: true, Variant: "sticky_cta"},
+		},
+	}
+}
+
+func DefaultLandingThemeConfig(primary string) LandingThemeConfig {
+	if primary == "" {
+		primary = "#3b82f6"
+	}
+	return LandingThemeConfig{
+		Preset:       "bookinaja-classic",
+		PrimaryColor: primary,
+		AccentColor:  "#0f1f4a",
+		SurfaceStyle: "soft",
+		FontStyle:    "bold",
+		RadiusStyle:  "rounded",
+	}
+}
+
+func DefaultBookingFormConfig() BookingFormConfig {
+	return BookingFormConfig{
+		CTAButtonLabel:   "Cek Ketersediaan",
+		StickyMobileCTA:  true,
+		ShowWhatsappHelp: true,
+		WhatsappLabel:    "Butuh bantuan cepat? Chat WhatsApp",
+	}
 }
 
 type TenantDirectoryItem struct {
@@ -239,39 +385,39 @@ type DiscoveryFeedItem struct {
 	ItemKind string    `json:"item_kind"`
 	TenantID uuid.UUID `json:"tenant_id"`
 	TenantDirectoryItem
-	FeedTitle             string     `json:"feed_title"`
-	FeedSummary           string     `json:"feed_summary"`
-	FeedImageURL          string     `json:"feed_image_url"`
-	FeedLabel             string     `json:"feed_label"`
-	FeedReason            string     `json:"feed_reason"`
-	FeedTags              []string   `json:"feed_tags"`
-	FeedBadges            []string   `json:"feed_badges"`
-	FeedCTA               string     `json:"feed_cta"`
-	FeedScore             int        `json:"feed_score"`
-	PersonalizationScore  int        `json:"personalization_score"`
-	PostImpressions7d     int64      `json:"post_impressions_7d,omitempty"`
-	PostClicks7d          int64      `json:"post_clicks_7d,omitempty"`
-	PostCTR7d             float64    `json:"post_ctr_7d,omitempty"`
-	PostDetailViews7d     int64      `json:"post_detail_views_7d,omitempty"`
-	PostTenantOpens7d     int64      `json:"post_tenant_opens_7d,omitempty"`
-	PostRelatedClicks7d   int64      `json:"post_related_clicks_7d,omitempty"`
-	PostRelatedTenantOpens7d int64   `json:"post_related_tenant_opens_7d,omitempty"`
-	PostBookingStarts7d   int64      `json:"post_booking_starts_7d,omitempty"`
-	PostLastInteractionAt *time.Time `json:"post_last_interaction_at,omitempty"`
-	PostID                *uuid.UUID `json:"post_id,omitempty"`
-	PostType              string     `json:"post_type,omitempty"`
-	PostStatus            string     `json:"post_status,omitempty"`
-	PostVisibility        string     `json:"post_visibility,omitempty"`
-	PostCaption           string     `json:"post_caption,omitempty"`
-	PostCoverMediaURL     string     `json:"post_cover_media_url,omitempty"`
-	PostThumbnailURL      string     `json:"post_thumbnail_url,omitempty"`
-	PostPosterURL         string     `json:"post_poster_url,omitempty"`
-	PostMimeType          string     `json:"post_mime_type,omitempty"`
-	PostStreamURLHLS      string     `json:"post_stream_url_hls,omitempty"`
-	PostDurationSeconds   int        `json:"post_duration_seconds,omitempty"`
-	PostWidth             int        `json:"post_width,omitempty"`
-	PostHeight            int        `json:"post_height,omitempty"`
-	PostPublishedAt       *time.Time `json:"post_published_at,omitempty"`
+	FeedTitle                string     `json:"feed_title"`
+	FeedSummary              string     `json:"feed_summary"`
+	FeedImageURL             string     `json:"feed_image_url"`
+	FeedLabel                string     `json:"feed_label"`
+	FeedReason               string     `json:"feed_reason"`
+	FeedTags                 []string   `json:"feed_tags"`
+	FeedBadges               []string   `json:"feed_badges"`
+	FeedCTA                  string     `json:"feed_cta"`
+	FeedScore                int        `json:"feed_score"`
+	PersonalizationScore     int        `json:"personalization_score"`
+	PostImpressions7d        int64      `json:"post_impressions_7d,omitempty"`
+	PostClicks7d             int64      `json:"post_clicks_7d,omitempty"`
+	PostCTR7d                float64    `json:"post_ctr_7d,omitempty"`
+	PostDetailViews7d        int64      `json:"post_detail_views_7d,omitempty"`
+	PostTenantOpens7d        int64      `json:"post_tenant_opens_7d,omitempty"`
+	PostRelatedClicks7d      int64      `json:"post_related_clicks_7d,omitempty"`
+	PostRelatedTenantOpens7d int64      `json:"post_related_tenant_opens_7d,omitempty"`
+	PostBookingStarts7d      int64      `json:"post_booking_starts_7d,omitempty"`
+	PostLastInteractionAt    *time.Time `json:"post_last_interaction_at,omitempty"`
+	PostID                   *uuid.UUID `json:"post_id,omitempty"`
+	PostType                 string     `json:"post_type,omitempty"`
+	PostStatus               string     `json:"post_status,omitempty"`
+	PostVisibility           string     `json:"post_visibility,omitempty"`
+	PostCaption              string     `json:"post_caption,omitempty"`
+	PostCoverMediaURL        string     `json:"post_cover_media_url,omitempty"`
+	PostThumbnailURL         string     `json:"post_thumbnail_url,omitempty"`
+	PostPosterURL            string     `json:"post_poster_url,omitempty"`
+	PostMimeType             string     `json:"post_mime_type,omitempty"`
+	PostStreamURLHLS         string     `json:"post_stream_url_hls,omitempty"`
+	PostDurationSeconds      int        `json:"post_duration_seconds,omitempty"`
+	PostWidth                int        `json:"post_width,omitempty"`
+	PostHeight               int        `json:"post_height,omitempty"`
+	PostPublishedAt          *time.Time `json:"post_published_at,omitempty"`
 }
 
 type PublicDiscoverySection struct {
@@ -313,45 +459,45 @@ type TenantDiscoveryProfile struct {
 }
 
 type TenantPost struct {
-	ID            uuid.UUID       `db:"id" json:"id"`
-	TenantID      uuid.UUID       `db:"tenant_id" json:"tenant_id"`
-	AuthorUserID  *uuid.UUID      `db:"author_user_id" json:"author_user_id,omitempty"`
-	Type          string          `db:"type" json:"type"`
-	Title         string          `db:"title" json:"title"`
-	Caption       string          `db:"caption" json:"caption"`
-	CoverMediaURL string          `db:"cover_media_url" json:"cover_media_url"`
-	ThumbnailURL  string          `db:"thumbnail_url" json:"thumbnail_url"`
-	CTA           string          `db:"cta" json:"cta"`
-	Status        string          `db:"status" json:"status"`
-	Visibility    string          `db:"visibility" json:"visibility"`
-	StartsAt      *time.Time      `db:"starts_at" json:"starts_at"`
-	EndsAt        *time.Time      `db:"ends_at" json:"ends_at"`
-	PublishedAt   *time.Time      `db:"published_at" json:"published_at"`
-	Metadata      json.RawMessage `db:"metadata" json:"metadata"`
-	Impressions7d int64           `db:"-" json:"impressions_7d,omitempty"`
-	Clicks7d      int64           `db:"-" json:"clicks_7d,omitempty"`
-	CTR7d         float64         `db:"-" json:"ctr_7d,omitempty"`
-	DetailViews7d int64           `db:"-" json:"detail_views_7d,omitempty"`
-	TenantOpens7d int64           `db:"-" json:"tenant_opens_7d,omitempty"`
-	RelatedClicks7d int64         `db:"-" json:"related_clicks_7d,omitempty"`
-	RelatedTenantOpens7d int64    `db:"-" json:"related_tenant_opens_7d,omitempty"`
-	BookingStarts7d int64         `db:"-" json:"booking_starts_7d,omitempty"`
-	LastInteractionAt *time.Time  `db:"-" json:"last_interaction_at,omitempty"`
-	CreatedAt     time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt     time.Time       `db:"updated_at" json:"updated_at"`
+	ID                   uuid.UUID       `db:"id" json:"id"`
+	TenantID             uuid.UUID       `db:"tenant_id" json:"tenant_id"`
+	AuthorUserID         *uuid.UUID      `db:"author_user_id" json:"author_user_id,omitempty"`
+	Type                 string          `db:"type" json:"type"`
+	Title                string          `db:"title" json:"title"`
+	Caption              string          `db:"caption" json:"caption"`
+	CoverMediaURL        string          `db:"cover_media_url" json:"cover_media_url"`
+	ThumbnailURL         string          `db:"thumbnail_url" json:"thumbnail_url"`
+	CTA                  string          `db:"cta" json:"cta"`
+	Status               string          `db:"status" json:"status"`
+	Visibility           string          `db:"visibility" json:"visibility"`
+	StartsAt             *time.Time      `db:"starts_at" json:"starts_at"`
+	EndsAt               *time.Time      `db:"ends_at" json:"ends_at"`
+	PublishedAt          *time.Time      `db:"published_at" json:"published_at"`
+	Metadata             json.RawMessage `db:"metadata" json:"metadata"`
+	Impressions7d        int64           `db:"-" json:"impressions_7d,omitempty"`
+	Clicks7d             int64           `db:"-" json:"clicks_7d,omitempty"`
+	CTR7d                float64         `db:"-" json:"ctr_7d,omitempty"`
+	DetailViews7d        int64           `db:"-" json:"detail_views_7d,omitempty"`
+	TenantOpens7d        int64           `db:"-" json:"tenant_opens_7d,omitempty"`
+	RelatedClicks7d      int64           `db:"-" json:"related_clicks_7d,omitempty"`
+	RelatedTenantOpens7d int64           `db:"-" json:"related_tenant_opens_7d,omitempty"`
+	BookingStarts7d      int64           `db:"-" json:"booking_starts_7d,omitempty"`
+	LastInteractionAt    *time.Time      `db:"-" json:"last_interaction_at,omitempty"`
+	CreatedAt            time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt            time.Time       `db:"updated_at" json:"updated_at"`
 }
 
 type TenantPostMetric struct {
-	PostID            uuid.UUID  `db:"post_id" json:"post_id"`
-	Impressions7d     int64      `db:"impressions_7d" json:"impressions_7d"`
-	Clicks7d          int64      `db:"clicks_7d" json:"clicks_7d"`
-	CTR7d             float64    `db:"ctr_7d" json:"ctr_7d"`
-	DetailViews7d     int64      `db:"detail_views_7d" json:"detail_views_7d"`
-	TenantOpens7d     int64      `db:"tenant_opens_7d" json:"tenant_opens_7d"`
-	RelatedClicks7d   int64      `db:"related_clicks_7d" json:"related_clicks_7d"`
-	RelatedTenantOpens7d int64   `db:"related_tenant_opens_7d" json:"related_tenant_opens_7d"`
-	BookingStarts7d   int64      `db:"booking_starts_7d" json:"booking_starts_7d"`
-	LastInteractionAt *time.Time `db:"last_interaction_at" json:"last_interaction_at"`
+	PostID               uuid.UUID  `db:"post_id" json:"post_id"`
+	Impressions7d        int64      `db:"impressions_7d" json:"impressions_7d"`
+	Clicks7d             int64      `db:"clicks_7d" json:"clicks_7d"`
+	CTR7d                float64    `db:"ctr_7d" json:"ctr_7d"`
+	DetailViews7d        int64      `db:"detail_views_7d" json:"detail_views_7d"`
+	TenantOpens7d        int64      `db:"tenant_opens_7d" json:"tenant_opens_7d"`
+	RelatedClicks7d      int64      `db:"related_clicks_7d" json:"related_clicks_7d"`
+	RelatedTenantOpens7d int64      `db:"related_tenant_opens_7d" json:"related_tenant_opens_7d"`
+	BookingStarts7d      int64      `db:"booking_starts_7d" json:"booking_starts_7d"`
+	LastInteractionAt    *time.Time `db:"last_interaction_at" json:"last_interaction_at"`
 }
 
 type TenantPostMediaMetadata struct {
