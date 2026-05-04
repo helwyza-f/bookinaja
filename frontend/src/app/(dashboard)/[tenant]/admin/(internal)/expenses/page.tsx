@@ -25,6 +25,10 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DashboardMetricCard,
+  DashboardPanel,
+} from "@/components/dashboard/analytics-kit";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { hasPermission, type AdminSessionUser } from "@/lib/admin-access";
@@ -194,75 +198,82 @@ export default function ExpensesPage() {
       label: "Total pengeluaran",
       value: `Rp ${formatIDR(Number(summary.total || 0))}`,
       icon: Banknote,
-      tone: "bg-slate-950 text-white dark:bg-[var(--bookinaja-600)] dark:text-white",
+      tone: "indigo" as const,
+      hint: "total pada rentang filter aktif",
     },
     {
       label: "Jumlah catatan",
       value: String(summary.entries || filteredItems.length),
       icon: ReceiptText,
-      tone: "bg-white text-slate-950 dark:bg-[#0f0f17] dark:text-white",
+      tone: "emerald" as const,
+      hint: "record yang tercatat",
+    },
+    {
+      label: "Kategori aktif",
+      value: category === "all" ? "Semua" : category,
+      icon: Search,
+      tone: "amber" as const,
+      hint: "filter kategori saat ini",
     },
   ];
 
   return (
     <div className="mx-auto max-w-[1440px] space-y-4 pb-20 px-3 pt-5 font-plus-jakarta animate-in fade-in duration-300 md:px-4">
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-        <div className="flex flex-col gap-4 border-b border-slate-100 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between md:p-5">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white dark:bg-white dark:text-slate-950">
-            <Banknote size={18} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-              Pengeluaran
+      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.95)_40%,rgba(255,247,237,0.9))] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(12,31,54,0.94)_45%,rgba(67,20,7,0.82))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-6">
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.18),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(251,191,36,0.14),transparent_58%)]" />
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl space-y-3">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.24em] text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-200">
+              <Banknote className="h-3.5 w-3.5 text-blue-600 dark:text-blue-300" />
+              Expense Ledger
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-3xl">
-              Buku Pengeluaran
-            </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Catat biaya operasional, struk, dan kategori pengeluaran.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-stretch">
-          {stats.map((item) => (
-            <div
-              key={item.label}
-              className={cn(
-                "flex items-center gap-2 rounded-xl border px-3 py-2 shadow-sm",
-                item.tone,
-              )}
-            >
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                  {item.label}
-                </p>
-                {loading ? (
-                  <Skeleton className="mt-1 h-4 w-24 rounded-full bg-slate-100 dark:bg-white/10" />
-                ) : (
-                  <p className="mt-1 truncate text-sm font-semibold leading-none">
-                    {item.value}
-                  </p>
-                )}
-              </div>
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 dark:bg-black/5">
-                <item.icon className="h-4 w-4" />
-              </div>
+            <div>
+              <h1 className="text-3xl font-[950] tracking-tight text-slate-950 dark:text-white sm:text-4xl">
+                Pengeluaran rapi, cepat dibaca, dan siap ditelusuri.
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                Catat biaya operasional, buka detail, dan audit struk dalam ritme visual yang sama dengan dashboard lain.
+              </p>
             </div>
-          ))}
-
+          </div>
           <Button
             onClick={openCreate}
             disabled={!canCreateExpenses}
-            className="col-span-2 h-10 rounded-xl bg-[var(--bookinaja-600)] px-4 text-sm font-semibold text-white shadow-sm gap-2 transition-all hover:bg-[var(--bookinaja-700)] active:scale-95 sm:col-span-1 sm:w-auto"
+            className="h-12 rounded-[1.2rem] bg-slate-950 px-5 text-sm font-bold text-white shadow-[0_18px_40px_rgba(15,23,42,0.22)] hover:bg-[var(--bookinaja-700)] dark:bg-white dark:text-slate-950"
           >
-            <Plus size={15} /> Tambah Pengeluaran
+            <Plus size={15} className="mr-2" />
+            Tambah Pengeluaran
           </Button>
         </div>
-        </div>
+      </div>
 
-        <div className="p-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {stats.map((item) => (
+          <DashboardMetricCard
+            key={item.label}
+            label={item.label}
+            value={item.value}
+            hint={item.hint}
+            icon={item.icon}
+            tone={item.tone}
+            loading={loading}
+          />
+        ))}
+        <DashboardMetricCard
+          label="Rentang Aktif"
+          value={`${formatExpenseDate(from)} - ${formatExpenseDate(to)}`}
+          hint="periode yang sedang dianalisis"
+          icon={CalendarIcon}
+          tone="slate"
+          loading={loading}
+        />
+      </div>
+
+      <DashboardPanel
+        eyebrow="Filter Ledger"
+        title="Cari pengeluaran berdasarkan kategori dan periode"
+        description="Filter dipisah dari tabel supaya tim bisa scan angka ringkas dulu, lalu masuk ke record ketika memang perlu."
+      >
         <div className="grid gap-2.5 lg:grid-cols-[minmax(0,1.4fr)_0.95fr_0.95fr_0.95fr_auto]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -297,14 +308,13 @@ export default function ExpensesPage() {
               "h-10 rounded-xl px-4 text-sm font-semibold lg:w-auto",
               isFilterActive
                 ? "text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
-                : "text-slate-300",
+              : "text-slate-300",
             )}
           >
             Reset
           </Button>
         </div>
-        </div>
-      </section>
+      </DashboardPanel>
 
       {loading ? (
         <div className="space-y-3">
@@ -330,7 +340,11 @@ export default function ExpensesPage() {
           </Button>
         </div>
       ) : (
-        <>
+        <DashboardPanel
+          eyebrow="Expense Records"
+          title="Daftar pengeluaran yang siap ditindak"
+          description="Mode mobile menampilkan kartu padat, sementara desktop mempertahankan tabel untuk scan cepat dan aksi edit."
+        >
           <div className="grid gap-3 md:hidden">
             {filteredItems.map((expense) => (
               <Card
@@ -399,7 +413,7 @@ export default function ExpensesPage() {
             ))}
           </div>
 
-          <Card className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:block">
+          <Card className="hidden overflow-hidden rounded-[1.8rem] border border-slate-200/80 bg-white/95 shadow-[0_18px_55px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-[#0f1117]/96 dark:shadow-[0_24px_70px_rgba(0,0,0,0.24)] md:block">
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-100 dark:border-white/5">
@@ -485,7 +499,7 @@ export default function ExpensesPage() {
               </TableBody>
             </Table>
           </Card>
-        </>
+        </DashboardPanel>
       )}
 
       <ExpenseDialog

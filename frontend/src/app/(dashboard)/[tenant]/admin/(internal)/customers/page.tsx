@@ -17,6 +17,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  DashboardMetricCard,
+  DashboardPanel,
+} from "@/components/dashboard/analytics-kit";
+import {
   Table,
   TableBody,
   TableCell,
@@ -25,7 +29,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { ArrowUpRight, Loader2, Phone, Search } from "lucide-react";
+import {
+  ArrowUpRight,
+  Coins,
+  Loader2,
+  Phone,
+  Search,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { toast } from "sonner";
 
 type CustomerRow = {
@@ -196,51 +208,76 @@ export default function CustomersPage() {
 
   return (
     <div className="mx-auto max-w-350 space-y-4 px-4 pb-20 pt-5 font-plus-jakarta">
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-              Customer Insights
+      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.95)_40%,rgba(255,247,237,0.9))] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(12,31,54,0.94)_45%,rgba(67,20,7,0.82))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-6">
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.18),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(96,165,250,0.22),transparent_58%)]" />
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl space-y-3">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.24em] text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-200">
+              <Users className="h-3.5 w-3.5 text-blue-600 dark:text-blue-300" />
+              Customer Intelligence
             </div>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 dark:text-white">
-              Pelanggan
-            </h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Lihat pelanggan Bookinaja yang pernah bertransaksi di bisnis ini.
-            </p>
+            <div>
+              <h1 className="text-3xl font-[950] tracking-tight text-slate-950 dark:text-white sm:text-4xl">
+                Pelanggan, visit, dan loyalty terlihat lebih jelas.
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                Gunakan satu halaman ini untuk memindai profil pelanggan, pola transaksi, dan saldo points tanpa tenggelam di tabel.
+              </p>
+            </div>
           </div>
           <div className="relative w-full lg:max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Cari nama, WhatsApp, email, tier..."
-              className="h-10 rounded-xl border-slate-200 bg-slate-50 pl-9 text-sm dark:border-white/10 dark:bg-white/5"
+              className="h-12 rounded-[1.2rem] border-white/70 bg-white/85 pl-10 text-sm shadow-sm dark:border-white/10 dark:bg-white/[0.06]"
             />
           </div>
         </div>
+      </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
-          <Metric
-            label="Customer"
-            value={loading ? "-" : formatIDR(stats.customers)}
-          />
-          <Metric
-            label="Visit di tenant ini"
-            value={formatIDR(stats.totalVisits)}
-          />
-          <Metric
-            label="Spend di tenant ini"
-            value={`Rp ${formatIDR(stats.tenantSpend)}`}
-          />
-          <Metric
-            label="Saldo points global"
-            value={formatIDR(stats.globalPoints)}
-          />
-        </div>
-      </section>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <DashboardMetricCard
+          label="Customer"
+          value={loading ? "..." : formatIDR(stats.customers)}
+          hint="profil yang pernah bertransaksi"
+          icon={Users}
+          tone="indigo"
+          loading={loading}
+        />
+        <DashboardMetricCard
+          label="Visit Tenant"
+          value={formatIDR(stats.totalVisits)}
+          hint="akumulasi kunjungan tenant ini"
+          icon={Phone}
+          tone="emerald"
+          loading={loading}
+        />
+        <DashboardMetricCard
+          label="Spend Tenant"
+          value={`Rp ${formatIDR(stats.tenantSpend)}`}
+          hint="nilai transaksi pelanggan"
+          icon={Wallet}
+          tone="amber"
+          loading={loading}
+        />
+        <DashboardMetricCard
+          label="Saldo Points"
+          value={formatIDR(stats.globalPoints)}
+          hint="points global seluruh customer"
+          icon={Coins}
+          tone="rose"
+          loading={loading}
+        />
+      </div>
 
-      <div className="grid gap-2 md:hidden">
+      <DashboardPanel
+        eyebrow="Customer List"
+        title="Daftar pelanggan dan sinyal transaksi"
+        description="Bagian ini menjaga density tetap nyaman: search di atas, ringkasan di header, lalu daftar utama untuk action detail."
+      >
+        <div className="grid gap-2 md:hidden">
         {loading ? (
           Array.from({ length: 5 }).map((_, index) => (
             <Card
@@ -293,9 +330,9 @@ export default function CustomersPage() {
             </button>
           ))
         )}
-      </div>
+        </div>
 
-      <Card className="hidden overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:block">
+        <Card className="hidden overflow-hidden rounded-[1.8rem] border-slate-200/80 bg-white/95 shadow-[0_18px_55px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-[#0f1117]/96 dark:shadow-[0_24px_70px_rgba(0,0,0,0.24)] md:block">
         <Table>
           <TableHeader>
             <TableRow className="h-11 bg-slate-50 hover:bg-slate-50 dark:bg-white/5 dark:hover:bg-white/5">
@@ -418,7 +455,8 @@ export default function CustomersPage() {
             )}
           </TableBody>
         </Table>
-      </Card>
+        </Card>
+      </DashboardPanel>
 
       <Dialog open={!!selectedId} onOpenChange={closeDetail}>
         <DialogContent className="max-h-[92vh] w-[calc(100vw-2rem)] max-w-none overflow-hidden rounded-2xl border-slate-200 bg-white p-0 shadow-xl dark:border-white/10 dark:bg-slate-950 md:max-w-4xl">

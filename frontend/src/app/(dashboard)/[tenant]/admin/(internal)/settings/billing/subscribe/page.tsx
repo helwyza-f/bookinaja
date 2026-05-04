@@ -7,6 +7,10 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  DashboardMetricCard,
+  DashboardPanel,
+} from "@/components/dashboard/analytics-kit";
 import api from "@/lib/api";
 import { ArrowLeft, Check, Sparkles, Wand2, ShieldCheck } from "lucide-react";
 
@@ -201,9 +205,9 @@ export default function SettingsBillingSubscribePage() {
           <ArrowLeft className="mr-1 h-4 w-4" />
           Kembali
         </Button>
-      <Badge className="border-none bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-200)]">
-        Checkout Paket
-      </Badge>
+        <Badge className="border-none bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-200)]">
+          Checkout Paket
+        </Badge>
       </div>
 
       {!midtransReady && (
@@ -212,8 +216,8 @@ export default function SettingsBillingSubscribePage() {
         </div>
       )}
 
-      <Card className="relative overflow-hidden border-slate-200 bg-white p-5 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-8">
-        <div className="absolute right-0 top-0 h-40 w-40 translate-x-1/3 -translate-y-1/3 rounded-full bg-[color:rgba(59,130,246,0.12)] blur-3xl" />
+      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.95)_40%,rgba(236,253,245,0.92))] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(12,31,54,0.94)_45%,rgba(4,47,46,0.88))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-8">
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.18),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.16),transparent_58%)]" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
@@ -243,7 +247,38 @@ export default function SettingsBillingSubscribePage() {
             </button>
           </div>
         </div>
-      </Card>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <DashboardMetricCard
+          label="Plan Aktif"
+          value={activeLabel}
+          hint="paket yang sedang terpasang"
+          icon={Sparkles}
+          tone="indigo"
+        />
+        <DashboardMetricCard
+          label="Status"
+          value={statusLabel}
+          hint="status langganan saat ini"
+          icon={ShieldCheck}
+          tone="emerald"
+        />
+        <DashboardMetricCard
+          label="Billing Mode"
+          value={isAnnual ? "Tahunan" : "Bulanan"}
+          hint="mode harga yang sedang dibandingkan"
+          icon={Wand2}
+          tone="amber"
+        />
+        <DashboardMetricCard
+          label="Midtrans"
+          value={midtransReady ? "Siap" : "Memuat"}
+          hint="kesiapan checkout payment"
+          icon={Check}
+          tone="slate"
+        />
+      </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
         {PLANS.map((plan) => {
@@ -300,19 +335,16 @@ export default function SettingsBillingSubscribePage() {
         })}
       </div>
 
-      <Card className="border-slate-200 bg-white p-5 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:p-6">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Perbandingan Cepat</div>
-            <h3 className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">Apa beda Starter dan Pro</h3>
-          </div>
-          <Wand2 className="h-5 w-5 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
-        </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
+      <DashboardPanel
+        eyebrow="Quick Compare"
+        title="Apa beda Starter dan Pro"
+        description="Perbandingan singkat ini menjaga fokus ke keputusan utama sebelum pengguna masuk ke checkout."
+      >
+        <div className="grid gap-3 md:grid-cols-2">
           <MiniCompare title="Starter" items={["Cocok untuk uji alur", "Report ringkas", "Batasan fitur lanjutan", "Masih aman dipakai trial"]} />
           <MiniCompare title="Pro" items={["Analytics penuh", "F&B dan add-on report", "Blast WhatsApp", "Akses staff dan role"]} />
         </div>
-      </Card>
+      </DashboardPanel>
     </div>
   );
 }

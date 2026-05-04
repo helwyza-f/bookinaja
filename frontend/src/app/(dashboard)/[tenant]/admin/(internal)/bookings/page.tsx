@@ -46,6 +46,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useRealtime } from "@/lib/realtime/use-realtime";
 import { RealtimePill } from "@/components/dashboard/realtime-pill";
 import {
+  DashboardMetricCard,
+  DashboardPanel,
+} from "@/components/dashboard/analytics-kit";
+import {
   tenantBookingsChannel,
   tenantDashboardChannel,
 } from "@/lib/realtime/channels";
@@ -290,72 +294,100 @@ export default function BookingsPage() {
       0,
     );
     const activeSess = filteredBookings.filter(isOperationallyActive).length;
-    return { totalRevenue, activeSess };
-  }, [filteredBookings]);
+    const needsSettlement = filteredBookings.filter((booking) => {
+      return (
+        String(booking.status || "").toLowerCase() === "completed" &&
+        Number(booking.balance_due || 0) > 0
+      );
+    }).length;
+    return {
+      totalRevenue,
+      activeSess,
+      needsSettlement,
+      resourceCount: Object.keys(groupedData).length,
+    };
+  }, [filteredBookings, groupedData]);
 
-  const bookingCountLabel = `${filteredBookings.length} booking`;
+  const bookingCountLabel = `${filteredBookings.length} booking aktif di tampilan`;
+  const selectedDateLabel = selectedDate
+    ? format(selectedDate, "dd MMM yyyy")
+    : "Semua tanggal";
 
   return (
     <div className="mx-auto w-full space-y-4 px-3 pb-20 pt-5 font-plus-jakarta md:px-4">
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-        <div className="h-1 bg-[var(--bookinaja-600)]" />
-        <div className="p-4 md:p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="max-w-2xl space-y-1">
-              <h1 className="text-2xl font-semibold text-slate-900 dark:text-white md:text-3xl">
-                Bookings
+      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.95)_42%,rgba(236,253,245,0.92))] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(12,31,54,0.94)_42%,rgba(4,47,46,0.88))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-6">
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.18),transparent_60%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.22),transparent_60%)]" />
+        <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+          <div className="max-w-3xl space-y-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.24em] text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-200">
+              <MonitorPlay className="h-3.5 w-3.5 text-blue-600 dark:text-blue-300" />
+              Booking Operations
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-3xl font-[950] tracking-tight text-slate-950 dark:text-white sm:text-4xl">
+                Kelola booking dengan ritme yang lebih cepat dan rapi.
               </h1>
-              <div className="flex items-start gap-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                <MonitorPlay size={14} className="mt-1 shrink-0 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-300)]" />
-                <span>Kelola jadwal, status pembayaran, dan booking per resource.</span>
-              </div>
-              <div className="pt-2">
-                <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
+              <p className="max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                Pantau jadwal, pembayaran, dan status sesi per resource dalam satu alur kerja yang lebih mudah dipindai.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
+              <div className="rounded-full border border-white/70 bg-white/85 px-3 py-1.5 text-[11px] font-semibold text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-300">
+                Fokus tanggal: {selectedDateLabel}
               </div>
             </div>
+          </div>
 
-            <div className="grid w-full gap-2 sm:grid-cols-[1fr_1fr_auto] lg:w-auto lg:min-w-[520px]">
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/5">
-                <div className="flex flex-col">
-                  <span className="mb-0.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
-                    Total Revenue
-                  </span>
-                  <span className="text-base font-semibold text-slate-950 dark:text-white">
-                    Rp {formatIDR(stats.totalRevenue)}
-                  </span>
-                </div>
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--bookinaja-600)] text-white">
-                  <Wallet size={16} />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/5">
-                <div className="flex flex-col">
-                  <span className="mb-0.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
-                    Active Slot
-                  </span>
-                  <span className="text-base font-semibold text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-300)]">
-                    {stats.activeSess} Units
-                  </span>
-                </div>
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-[var(--bookinaja-600)] dark:bg-white/10 dark:text-[var(--bookinaja-300)]">
-                  <TrendingUp size={16} />
-                </div>
-              </div>
-
-              <Button
-                onClick={() => canCreateBookings && router.push(`/admin/bookings/new`)}
-                disabled={!canCreateBookings}
-                className="h-12 rounded-xl bg-[var(--bookinaja-600)] px-4 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 hover:bg-[var(--bookinaja-700)] sm:h-auto sm:min-h-full sm:min-w-[150px] md:px-5"
-              >
-                <Plus size={16} strokeWidth={4} /> New Booking
-              </Button>
-            </div>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              onClick={() => canCreateBookings && router.push(`/admin/bookings/new`)}
+              disabled={!canCreateBookings}
+              className="h-12 rounded-[1.2rem] bg-slate-950 px-5 text-sm font-bold text-white shadow-[0_18px_40px_rgba(15,23,42,0.22)] hover:bg-[var(--bookinaja-700)] dark:bg-white dark:text-slate-950"
+            >
+              <Plus size={16} strokeWidth={4} className="mr-2" />
+              New Booking
+            </Button>
           </div>
         </div>
       </div>
 
-      <Card className="rounded-2xl border-slate-200 bg-white p-3 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:p-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <DashboardMetricCard
+          label="Revenue Tampil"
+          value={`Rp ${formatIDR(stats.totalRevenue)}`}
+          hint="akumulasi booking pada filter aktif"
+          icon={Wallet}
+          tone="indigo"
+        />
+        <DashboardMetricCard
+          label="Sesi Operasional"
+          value={`${stats.activeSess} unit`}
+          hint="aktif atau perlu pelunasan"
+          icon={TrendingUp}
+          tone="emerald"
+        />
+        <DashboardMetricCard
+          label="Perlu Pelunasan"
+          value={String(stats.needsSettlement)}
+          hint="booking selesai dengan saldo tersisa"
+          icon={Clock}
+          tone="amber"
+        />
+        <DashboardMetricCard
+          label="Resource Terdampak"
+          value={String(stats.resourceCount)}
+          hint="resource yang muncul di tampilan"
+          icon={Layers}
+          tone="slate"
+        />
+      </div>
+
+      <DashboardPanel
+        eyebrow="Filter Workspace"
+        title="Cari, saring, lalu pilih mode kerja"
+        description="Kontrol ini dipisah dari area data supaya scanning lebih cepat saat operasional lagi padat."
+      >
         <div className="space-y-4 lg:hidden">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -617,7 +649,7 @@ export default function BookingsPage() {
             </Button>
           </div>
         </div>
-      </Card>
+      </DashboardPanel>
 
       {/* 3. DYNAMIC CONTENT AREA */}
       {loading ? (
@@ -652,24 +684,39 @@ export default function BookingsPage() {
           {Object.entries(groupedData).map(([resourceName, sessions]) => (
             <div
               key={resourceName}
-              className="space-y-3 "
+              className="space-y-3"
             >
-              <div className="flex items-center gap-3 px-3">
-                <div className="w-8 h-8 rounded-xl bg-blue-600/10 flex items-center justify-center">
+              <div className="flex items-center gap-3 px-1">
+                <div className="flex h-9 w-9 items-center justify-center rounded-[1rem] bg-blue-600/10">
                   <Layers className="w-4 h-4 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-300)]" />
                 </div>
-                <h3 className="font-semibold text-lg text-slate-800 dark:text-slate-200">
-                  {resourceName}
-                </h3>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                    Resource lane
+                  </div>
+                  <h3 className="font-semibold text-lg text-slate-800 dark:text-slate-200">
+                    {resourceName}
+                  </h3>
+                </div>
                 <Badge
                   variant="outline"
-                  className="text-[10px] font-semibold border-slate-100 dark:border-white/5 text-slate-400"
+                  className="text-[10px] font-semibold border-slate-200/70 bg-white/80 text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300"
                 >
-                  {sessions.length} Booking
+                  {sessions.length} booking
                 </Badge>
               </div>
 
-              <Card className="overflow-hidden rounded-2xl border-none bg-white shadow-sm ring-1 ring-slate-100 dark:bg-[#0f0f17] dark:ring-white/12">
+              <Card className="overflow-hidden rounded-[1.8rem] border border-slate-200/80 bg-white/95 shadow-[0_18px_55px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-[#0f1117]/96 dark:shadow-[0_24px_70px_rgba(0,0,0,0.24)]">
+                <div className="border-b border-slate-100/80 px-5 py-3 dark:border-white/8">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                      Antrian dan status pembayaran
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      klik baris untuk buka detail
+                    </div>
+                  </div>
+                </div>
                 <div className="overflow-x-auto">
                   <Table className="min-w-[920px]">
                     <TableBody>
@@ -677,11 +724,11 @@ export default function BookingsPage() {
                         <TableRow
                           key={b.id}
                           onClick={() => router.push(`/admin/bookings/${b.id}`)}
-                          className="border-slate-50 dark:border-white/5 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 group cursor-pointer transition-colors"
+                          className="group cursor-pointer border-slate-100/80 hover:bg-blue-50/40 dark:border-white/6 dark:hover:bg-white/[0.03]"
                         >
-                          <TableCell className="pl-10 py-6 w-[35%]">
+                          <TableCell className="w-[35%] pl-8 py-5">
                             <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
+                              <div className="flex h-12 w-12 items-center justify-center rounded-[1rem] bg-slate-50 text-slate-400 shadow-sm transition-all group-hover:bg-blue-600 group-hover:text-white dark:bg-white/[0.04]">
                                 <User size={20} />
                               </div>
                               <div className="flex flex-col">
@@ -694,21 +741,16 @@ export default function BookingsPage() {
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell className="w-[30%]">
+                          <TableCell className="w-[28%]">
                             <div className="flex flex-col">
                               <div className="flex items-center gap-2 text-[12px] font-semibold leading-none text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-300)]">
-                                <Clock size={14} />{" "}
-                                {format(new Date(b.start_time), "HH:mm")} -{" "}
-                                {format(new Date(b.end_time), "HH:mm")}
+                                <Clock size={14} />
+                                {format(new Date(b.start_time), "HH:mm")} - {format(new Date(b.end_time), "HH:mm")}
                               </div>
-                              <span className="text-[10px] font-bold text-slate-400 mt-1.5">
-                                {format(
-                                  new Date(b.start_time),
-                                  "dd MMMM yyyy",
-                                  {
-                                    locale: id,
-                                  },
-                                )}
+                              <span className="mt-1.5 text-[10px] font-bold text-slate-400">
+                                {format(new Date(b.start_time), "dd MMMM yyyy", {
+                                  locale: id,
+                                })}
                               </span>
                             </div>
                           </TableCell>
@@ -732,9 +774,9 @@ export default function BookingsPage() {
                               {getPaymentMeta(b).label}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-right pr-10">
+                          <TableCell className="pr-8 text-right">
                             <div className="flex flex-col items-end">
-                              <span className="text-[10px] font-semibold text-slate-400 mb-1">
+                              <span className="mb-1 text-[10px] font-semibold text-slate-400">
                                 Billing
                               </span>
                               <span className="text-lg font-semibold text-slate-950 dark:text-white leading-none">
@@ -752,58 +794,73 @@ export default function BookingsPage() {
           ))}
         </div>
       ) : (
-        /* GRID VIEW COMPACT */
-        <div className="space-y-12">
+        <div className="space-y-10">
           {Object.entries(groupedData).map(([resourceName, sessions]) => (
             <div key={resourceName} className="space-y-5">
-              <div className="flex items-center gap-3 px-3">
-                <h3 className="font-semibold text-xl text-slate-800 dark:text-slate-200">
-                  {resourceName}
-                </h3>
+              <div className="flex items-center gap-3 px-1">
+                <div className="min-w-0">
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                    Resource lane
+                  </div>
+                  <h3 className="font-semibold text-xl text-slate-800 dark:text-slate-200">
+                    {resourceName}
+                  </h3>
+                </div>
                 <div className="flex-1 h-[1px] bg-slate-100 dark:bg-white/5" />
+                <Badge
+                  variant="outline"
+                  className="rounded-full border-slate-200/70 bg-white/85 text-[10px] font-semibold text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300"
+                >
+                  {sessions.length} booking
+                </Badge>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 {sessions.map((b) => (
                   <Card
                     key={b.id}
                     onClick={() => router.push(`/admin/bookings/${b.id}`)}
-                    className="relative overflow-hidden rounded-2xl border-none bg-white p-4 shadow-sm ring-1 ring-slate-100 transition-all group cursor-pointer hover:shadow-sm dark:bg-[#0f0f17] dark:ring-white/12 md:p-6"
+                    className="group relative cursor-pointer overflow-hidden rounded-[1.8rem] border border-slate-200/80 bg-white/95 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.06)] transition-all hover:-translate-y-0.5 hover:shadow-[0_22px_50px_rgba(15,23,42,0.1)] dark:border-white/10 dark:bg-[#0f1117]/96 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)] md:p-6"
                   >
                     {isOperationallyActive(b) && (
                       <div
                         className={cn(
-                          "absolute top-0 left-0 w-full h-1.5",
+                          "absolute left-0 top-0 h-1.5 w-full",
                           b.status === "completed" ? "bg-amber-500" : "bg-emerald-500",
                         )}
                       />
                     )}
 
-                    <div className="flex justify-between items-start mb-5">
-                      <Badge
-                        className={cn(
-                          "font-semibold text-[9px] px-3 py-1 rounded-full shadow-sm",
-                          getBookingStatusMeta(b).className,
-                        )}
-                      >
-                        {getBookingStatusMeta(b).label}
-                      </Badge>
+                    <div className="mb-5 flex items-start justify-between">
+                      <div className="space-y-2">
+                        <Badge
+                          className={cn(
+                            "font-semibold text-[9px] px-3 py-1 rounded-full shadow-sm",
+                            getBookingStatusMeta(b).className,
+                          )}
+                        >
+                          {getBookingStatusMeta(b).label}
+                        </Badge>
+                        <div>
+                          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            Payment
+                          </div>
+                          <Badge
+                            className={cn(
+                              "mt-2 font-semibold text-[9px] px-3 py-1 rounded-full border-none shadow-sm",
+                              getPaymentMeta(b).className,
+                            )}
+                          >
+                            {getPaymentMeta(b).label}
+                          </Badge>
+                        </div>
+                      </div>
                       <ArrowUpRight
                         size={18}
                         className="text-slate-200 transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[var(--bookinaja-600)] dark:group-hover:text-[var(--bookinaja-300)]"
                       />
                     </div>
-                    <div className="mb-4">
-                      <Badge
-                        className={cn(
-                          "font-semibold text-[9px] px-3 py-1 rounded-full border-none shadow-sm",
-                          getPaymentMeta(b).className,
-                        )}
-                      >
-                        bayar: {getPaymentMeta(b).label}
-                      </Badge>
-                    </div>
 
-                    <div className="space-y-1 mb-6">
+                    <div className="mb-6 space-y-1">
                       <h4 className="text-base font-semibold leading-tight text-slate-900 transition-colors group-hover:text-[var(--bookinaja-600)] dark:text-white dark:group-hover:text-[var(--bookinaja-300)] lg:text-lg">
                         {b.customer_name}
                       </h4>
@@ -812,7 +869,7 @@ export default function BookingsPage() {
                       </p>
                     </div>
 
-                    <div className="pt-5 border-t border-slate-50 dark:border-white/5 flex justify-between items-end">
+                    <div className="flex items-end justify-between border-t border-slate-100 pt-5 dark:border-white/6">
                       <div className="flex flex-col">
                         <span className="text-[8px] font-semibold text-slate-400 leading-none mb-1.5">
                           TIME SLOT

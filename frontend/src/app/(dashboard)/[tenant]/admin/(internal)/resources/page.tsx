@@ -18,6 +18,10 @@ import {
   Check,
 } from "lucide-react";
 import { AddResourceDialog } from "@/components/resources/add-resources-dialog";
+import {
+  DashboardMetricCard,
+  DashboardPanel,
+} from "@/components/dashboard/analytics-kit";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -169,46 +173,87 @@ export default function ResourcesPage() {
       case "maintenance":
         return "bg-rose-500/10 text-rose-600 dark:text-rose-300";
       default:
-        return "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-300";
+      return "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-300";
     }
   };
 
+  const totalPackages = resources.reduce((sum, resource) => {
+    return (
+      sum +
+      (resource.items?.filter((item) =>
+        ["main_option", "main", "console_option"].includes(item.item_type),
+      ).length || 0)
+    );
+  }, 0);
+  const availableResources = resources.filter(
+    (resource) => String(resource.status || "").toLowerCase() === "available",
+  ).length;
+  const smartDeviceCount = resources.filter(
+    (resource) => resource.smart_device_summary,
+  ).length;
+
   return (
     <div className="mx-auto max-w-[1600px] space-y-5 px-3 pb-20 pt-5 font-plus-jakarta md:space-y-6 md:px-4">
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:rounded-2xl md:p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--bookinaja-600)] text-white shadow-sm">
+      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.95)_42%,rgba(240,253,244,0.92))] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(12,31,54,0.94)_45%,rgba(20,83,45,0.72))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] md:p-6">
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.18),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.16),transparent_58%)]" />
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[1.2rem] bg-slate-950 text-white shadow-[0_18px_40px_rgba(15,23,42,0.18)] dark:bg-white dark:text-slate-950">
               {labels.icon}
             </div>
-            <div className="flex flex-col">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+            <div className="space-y-2">
+              <div className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-300">
                 Resource Management
               </div>
-              <h1 className="text-xl font-semibold text-slate-950 dark:text-white md:text-3xl">
+              <h1 className="text-3xl font-[950] tracking-tight text-slate-950 dark:text-white sm:text-4xl">
                 {labels.title}
               </h1>
-              <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 md:text-sm">
-                Kelola resource, paket aktif, dan status operasional dalam satu tempat.
+              <p className="max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                Kelola resource, paket harga, dan koneksi smart device dengan struktur yang lebih mudah dipindai oleh tim operasional.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-right dark:border-white/10 dark:bg-white/5 md:block">
-              <div className="text-[8px] font-semibold tracking-[0.25em] text-slate-400">
-                Total Resource
-              </div>
-              <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
-                {resources.length} {labels.unit}
-              </div>
-            </div>
-            <AddResourceDialog
-              category={businessCategory}
-              onRefresh={fetchResources}
-            />
-          </div>
+          <AddResourceDialog
+            category={businessCategory}
+            onRefresh={fetchResources}
+          />
         </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <DashboardMetricCard
+          label="Total Resource"
+          value={`${resources.length} ${labels.unit}`}
+          hint="resource terdaftar di tenant"
+          icon={Layers}
+          tone="indigo"
+          loading={loading}
+        />
+        <DashboardMetricCard
+          label="Status Available"
+          value={String(availableResources)}
+          hint="resource siap dipakai"
+          icon={Check}
+          tone="emerald"
+          loading={loading}
+        />
+        <DashboardMetricCard
+          label="Paket Aktif"
+          value={String(totalPackages)}
+          hint="opsi harga utama aktif"
+          icon={Settings2}
+          tone="amber"
+          loading={loading}
+        />
+        <DashboardMetricCard
+          label="Smart Device"
+          value={String(smartDeviceCount)}
+          hint="resource terhubung perangkat"
+          icon={Gamepad2}
+          tone="slate"
+          loading={loading}
+        />
       </div>
 
       {/* 2. GRID CONTENT */}
@@ -229,7 +274,12 @@ export default function ResourcesPage() {
           </Button>
         </div>
       ) : resources.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-5">
+        <DashboardPanel
+          eyebrow="Resource Catalog"
+          title="Kartu resource dengan status dan paket yang konsisten"
+          description="Setiap kartu menjaga hierarchy yang sama: status, nama resource, paket aktif, lalu action di bagian bawah."
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:gap-5">
           {resources.map((res) => {
             const mainItems =
               res.items?.filter((i) =>
@@ -366,7 +416,8 @@ export default function ResourcesPage() {
               </Card>
             );
           })}
-        </div>
+          </div>
+        </DashboardPanel>
       ) : (
         /* 3. EMPTY STATE */
         <div className="flex h-[50vh] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-center dark:border-white/15 dark:bg-[#0f0f17]">
