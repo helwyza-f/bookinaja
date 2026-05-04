@@ -45,6 +45,7 @@ export type BuilderProfile = {
   slug: string;
   business_category?: string;
   business_type?: string;
+  description?: string;
   slogan?: string;
   tagline?: string;
   about_us?: string;
