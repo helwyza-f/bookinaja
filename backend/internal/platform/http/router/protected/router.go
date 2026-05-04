@@ -85,6 +85,8 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				{
 					ownerAdmin.GET("/profile", cfg.TenantHandler.GetProfile)
 					ownerAdmin.PUT("/profile", cfg.TenantHandler.UpdateProfile)
+					ownerAdmin.GET("/page-builder", cfg.TenantHandler.GetPageBuilder)
+					ownerAdmin.PUT("/page-builder", cfg.TenantHandler.UpdatePageBuilder)
 					ownerAdmin.GET("/growth/settings", cfg.TenantHandler.GetGrowthSettings)
 					ownerAdmin.GET("/growth/feed", cfg.TenantHandler.OwnerDiscoverFeed)
 					ownerAdmin.GET("/growth/posts", cfg.TenantHandler.ListTenantPosts)

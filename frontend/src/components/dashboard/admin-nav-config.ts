@@ -1,6 +1,5 @@
 import {
   BarChart3,
-  BriefcaseBusiness,
   CalendarDays,
   CreditCard,
   Link2,
@@ -15,6 +14,7 @@ import {
   UsersRound,
   Banknote,
   Utensils,
+  Wand2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -46,10 +46,10 @@ export const operationalNavItems: AdminNavItem[] = [
 
 export const settingsNavItems: AdminNavItem[] = [
   {
-    label: "Konfigurasi Bisnis",
-    href: "/admin/settings/bisnis",
-    icon: BriefcaseBusiness,
-    hint: "Brand, SEO, landing",
+    label: "Landing Page Studio",
+    href: "/admin/settings/page-builder",
+    icon: Wand2,
+    hint: "Konten, layout, tema, preview",
     group: "core",
   },
   {
@@ -114,7 +114,7 @@ export const growthNavItems: AdminNavItem[] = [
   {
     label: "Tampilan Bisnis",
     href: "/growth/profile",
-    icon: BriefcaseBusiness,
+    icon: Wand2,
     hint: "Yang dilihat customer",
     group: "growth",
   },

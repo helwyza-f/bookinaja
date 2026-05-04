@@ -451,6 +451,7 @@ func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) erro
 			id, name, slug, business_category, business_type, 
 			plan, subscription_status, subscription_current_period_start, subscription_current_period_end,
 			slogan, tagline, about_us, features, primary_color,
+			landing_page_config, landing_theme_config, booking_form_config,
 			discovery_headline, discovery_subheadline, discovery_tags, discovery_badges, promo_label, featured_image_url, highlight_copy,
 			discovery_featured, discovery_promoted, discovery_priority, promo_starts_at, promo_ends_at,
 			receipt_title, receipt_subtitle, receipt_footer, receipt_whatsapp_text, receipt_template,
@@ -461,6 +462,7 @@ func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) erro
 			:id, :name, :slug, :business_category, :business_type, 
 			:plan, :subscription_status, :subscription_current_period_start, :subscription_current_period_end,
 			:slogan, :tagline, :about_us, :features, :primary_color,
+			:landing_page_config, :landing_theme_config, :booking_form_config,
 			:discovery_headline, :discovery_subheadline, :discovery_tags, :discovery_badges, :promo_label, :featured_image_url, :highlight_copy,
 			:discovery_featured, :discovery_promoted, :discovery_priority, :promo_starts_at, :promo_ends_at,
 			:receipt_title, :receipt_subtitle, :receipt_footer, :receipt_whatsapp_text, :receipt_template,
@@ -515,6 +517,7 @@ func (r *Repository) Update(ctx context.Context, t Tenant) error {
             features=:features, address=:address, open_time=:open_time, 
             close_time=:close_time, logo_url=:logo_url, banner_url=:banner_url, 
             gallery=:gallery, business_category=:business_category, primary_color=:primary_color, 
+            landing_page_config=:landing_page_config, landing_theme_config=:landing_theme_config, booking_form_config=:booking_form_config,
             whatsapp_number=:whatsapp_number, instagram_url=:instagram_url, 
             tiktok_url=:tiktok_url, map_iframe_url=:map_iframe_url, 
             meta_title=:meta_title, meta_description=:meta_description,
@@ -1204,6 +1207,7 @@ func (r *Repository) ListResourcesWithItems(ctx context.Context, tenantID uuid.U
 	query := `
 		SELECT 
 			r.id::text as id, r.name, r.category, r.status, r.description, r.image_url,
+			COALESCE(array_to_json(r.gallery), '[]'::json) as gallery,
 			COALESCE(json_agg(json_build_object(
 				'id', i.id::text, 'name', i.name, 'item_type', i.item_type,
 				'price', i.price, 'price_unit', i.price_unit, 'unit_duration', i.unit_duration
@@ -1231,6 +1235,12 @@ func (r *Repository) ListResourcesWithItems(ctx context.Context, tenantID uuid.U
 			var itemsArray []map[string]interface{}
 			if err := json.Unmarshal(itemsBytes, &itemsArray); err == nil {
 				res["items"] = itemsArray
+			}
+		}
+		if galleryBytes, ok := res["gallery"].([]byte); ok {
+			var galleryArray []string
+			if err := json.Unmarshal(galleryBytes, &galleryArray); err == nil {
+				res["gallery"] = galleryArray
 			}
 		}
 		results = append(results, res)

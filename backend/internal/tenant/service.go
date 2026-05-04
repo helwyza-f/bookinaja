@@ -36,12 +36,141 @@ func NewService(r *Repository, authService *auth.Service) *Service {
 // GetPublicProfile Baru: Jalur cepat buat ambil tema & identitas (Granular)
 func (s *Service) GetPublicProfile(ctx context.Context, slug string) (*Tenant, error) {
 	// Repo ini harus sudah punya logic Cache-Aside Redis
-	return s.repo.GetBySlug(ctx, slug)
+	tenant, err := s.repo.GetBySlug(ctx, slug)
+	if err != nil || tenant == nil {
+		return tenant, err
+	}
+	s.applyBuilderDefaults(tenant)
+	return tenant, nil
 }
 
 // GetPublicLandingData mengambil full data (Profile + Resources)
 func (s *Service) GetPublicLandingData(ctx context.Context, slug string) (map[string]interface{}, error) {
-	return s.repo.GetPublicLandingData(ctx, slug)
+	data, err := s.repo.GetPublicLandingData(ctx, slug)
+	if err != nil {
+		return nil, err
+	}
+	if tenant, ok := data["profile"].(*Tenant); ok && tenant != nil {
+		s.applyBuilderDefaults(tenant)
+	}
+	return data, nil
+}
+
+func (s *Service) GetPageBuilder(ctx context.Context, id uuid.UUID) (*PageBuilderState, error) {
+	tenant, err := s.repo.GetByID(ctx, id)
+	if err != nil || tenant == nil {
+		return nil, errors.New("tenant tidak ditemukan")
+	}
+	s.applyBuilderDefaults(tenant)
+	return &PageBuilderState{
+		Profile:       tenant,
+		Page:          s.decodeLandingPageConfig(tenant),
+		Theme:         s.decodeLandingThemeConfig(tenant),
+		BookingForm:   s.decodeBookingFormConfig(tenant),
+		PreviewURL:    fmt.Sprintf("https://%s.bookinaja.com", tenant.Slug),
+		PreviewMobile: true,
+	}, nil
+}
+
+func (s *Service) UpdatePageBuilder(ctx context.Context, actorUserID, id uuid.UUID, page LandingPageConfig, theme LandingThemeConfig, form BookingFormConfig) (*PageBuilderState, error) {
+	tenant, err := s.repo.GetByID(ctx, id)
+	if err != nil || tenant == nil {
+		return nil, errors.New("tenant tidak ditemukan")
+	}
+
+	page = NormalizeLandingPageConfig(page)
+	theme = NormalizeLandingThemeConfig(theme, tenant.PrimaryColor)
+	form = NormalizeBookingFormConfig(form)
+
+	pageJSON, _ := json.Marshal(page)
+	themeJSON, _ := json.Marshal(theme)
+	formJSON, _ := json.Marshal(form)
+	tenant.LandingPageConfig = JSONB(pageJSON)
+	tenant.LandingThemeConfig = JSONB(themeJSON)
+	tenant.BookingFormConfig = JSONB(formJSON)
+
+	if err := s.repo.Update(ctx, *tenant); err != nil {
+		return nil, err
+	}
+
+	metadata, _ := json.Marshal(map[string]any{
+		"sections":      len(page.Sections),
+		"theme_preset":  theme.Preset,
+		"primary_color": theme.PrimaryColor,
+	})
+	_ = s.repo.CreateAuditLog(ctx, AuditLog{
+		ID:           uuid.New(),
+		TenantID:     id,
+		ActorUserID:  &actorUserID,
+		Action:       "update_page_builder",
+		ResourceType: "tenant",
+		ResourceID:   &id,
+		Metadata:     metadata,
+		CreatedAt:    time.Now().UTC(),
+	})
+
+	return &PageBuilderState{
+		Profile:       tenant,
+		Page:          page,
+		Theme:         theme,
+		BookingForm:   form,
+		PreviewURL:    fmt.Sprintf("https://%s.bookinaja.com", tenant.Slug),
+		PreviewMobile: true,
+	}, nil
+}
+
+func (s *Service) applyBuilderDefaults(tenant *Tenant) {
+	if tenant == nil {
+		return
+	}
+	if len(tenant.LandingPageConfig) == 0 || string(tenant.LandingPageConfig) == "{}" {
+		if payload, err := json.Marshal(DefaultLandingPageConfig()); err == nil {
+			tenant.LandingPageConfig = JSONB(payload)
+		}
+	}
+	if len(tenant.LandingThemeConfig) == 0 || string(tenant.LandingThemeConfig) == "{}" {
+		if payload, err := json.Marshal(DefaultLandingThemeConfig(tenant.PrimaryColor)); err == nil {
+			tenant.LandingThemeConfig = JSONB(payload)
+		}
+	}
+	if len(tenant.BookingFormConfig) == 0 || string(tenant.BookingFormConfig) == "{}" {
+		if payload, err := json.Marshal(DefaultBookingFormConfig()); err == nil {
+			tenant.BookingFormConfig = JSONB(payload)
+		}
+	}
+}
+
+func (s *Service) decodeLandingPageConfig(tenant *Tenant) LandingPageConfig {
+	config := DefaultLandingPageConfig()
+	if tenant == nil || len(tenant.LandingPageConfig) == 0 {
+		return config
+	}
+	_ = json.Unmarshal(tenant.LandingPageConfig, &config)
+	return NormalizeLandingPageConfig(config)
+}
+
+func (s *Service) decodeLandingThemeConfig(tenant *Tenant) LandingThemeConfig {
+	config := DefaultLandingThemeConfig("")
+	if tenant != nil {
+		config = DefaultLandingThemeConfig(tenant.PrimaryColor)
+	}
+	if tenant == nil || len(tenant.LandingThemeConfig) == 0 {
+		return config
+	}
+	_ = json.Unmarshal(tenant.LandingThemeConfig, &config)
+	if tenant != nil {
+		return NormalizeLandingThemeConfig(config, tenant.PrimaryColor)
+	}
+	return NormalizeLandingThemeConfig(config, "")
+}
+
+func (s *Service) decodeBookingFormConfig(tenant *Tenant) BookingFormConfig {
+	config := DefaultBookingFormConfig()
+	if tenant == nil || len(tenant.BookingFormConfig) == 0 {
+		return config
+	}
+	_ = json.Unmarshal(tenant.BookingFormConfig, &config)
+	return NormalizeBookingFormConfig(config)
 }
 
 func (s *Service) ListPublicTenants(ctx context.Context) ([]TenantDirectoryItem, error) {
@@ -1777,7 +1906,12 @@ func (s *Service) Login(ctx context.Context, email, password, tenantSlug string)
 }
 
 func (s *Service) GetProfile(ctx context.Context, id uuid.UUID) (*Tenant, error) {
-	return s.repo.GetByID(ctx, id)
+	tenant, err := s.repo.GetByID(ctx, id)
+	if err != nil || tenant == nil {
+		return tenant, err
+	}
+	s.applyBuilderDefaults(tenant)
+	return tenant, nil
 }
 
 func (s *Service) GetReceiptSettings(ctx context.Context, id uuid.UUID) (*Tenant, error) {
@@ -1908,6 +2042,9 @@ func (s *Service) UpdateReferralPayout(ctx context.Context, actorUserID uuid.UUI
 	req.PrinterEndpoint = curr.PrinterEndpoint
 	req.PrinterAutoPrint = curr.PrinterAutoPrint
 	req.PrinterStatus = curr.PrinterStatus
+	req.LandingPageConfig = curr.LandingPageConfig
+	req.LandingThemeConfig = curr.LandingThemeConfig
+	req.BookingFormConfig = curr.BookingFormConfig
 	req.CreatedAt = curr.CreatedAt
 	if err := s.repo.Update(ctx, req); err != nil {
 		return nil, err
@@ -1939,6 +2076,9 @@ func (s *Service) UpdateProfile(ctx context.Context, actorUserID uuid.UUID, id u
 	req.PayoutAccountName = curr.PayoutAccountName
 	req.PayoutAccountNumber = curr.PayoutAccountNumber
 	req.PayoutWhatsApp = curr.PayoutWhatsApp
+	req.LandingPageConfig = curr.LandingPageConfig
+	req.LandingThemeConfig = curr.LandingThemeConfig
+	req.BookingFormConfig = curr.BookingFormConfig
 	req.CreatedAt = curr.CreatedAt
 
 	if err := s.repo.Update(ctx, req); err != nil {
@@ -2013,6 +2153,9 @@ func (s *Service) UpdateReceiptSettings(ctx context.Context, actorUserID uuid.UU
 	req.PayoutAccountName = curr.PayoutAccountName
 	req.PayoutAccountNumber = curr.PayoutAccountNumber
 	req.PayoutWhatsApp = curr.PayoutWhatsApp
+	req.LandingPageConfig = curr.LandingPageConfig
+	req.LandingThemeConfig = curr.LandingThemeConfig
+	req.BookingFormConfig = curr.BookingFormConfig
 	req.CreatedAt = curr.CreatedAt
 
 	if err := s.repo.Update(ctx, req); err != nil {

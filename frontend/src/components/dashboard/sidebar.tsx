@@ -60,7 +60,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   const pathname = usePathname();
   const params = useParams();
   const router = useRouter();
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
 
   const [userData, setUserData] = useState<SidebarUser | null>(null);
   const [tenantName, setTenantName] = useState<string>(String(params.tenant || "HUB"));
@@ -174,7 +174,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
           className={cn(
             "flex flex-col",
             isCollapsed
-              ? "gap-1 rounded-[1.4rem] border border-slate-100 bg-slate-50/80 p-1.5"
+              ? "gap-1 rounded-[1.4rem] border border-slate-100 bg-slate-50/80 p-1.5 dark:border-white/8 dark:bg-white/[0.04]"
               : "gap-1",
           )}
         >
@@ -433,17 +433,17 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                 </DropdownMenuItem>
               )}
 
-              <DropdownMenuItem
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="rounded-xl px-3 py-3 cursor-pointer text-slate-600 dark:text-slate-300 hover:bg-[var(--sidebar-accent)] dark:hover:bg-white/5 focus:bg-[var(--sidebar-accent)] dark:focus:bg-white/5 transition-all"
-              >
-                {theme === "dark" ? (
+                <DropdownMenuItem
+                  onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+                  className="rounded-xl px-3 py-3 cursor-pointer text-slate-600 dark:text-slate-300 hover:bg-[var(--sidebar-accent)] dark:hover:bg-white/5 focus:bg-[var(--sidebar-accent)] dark:focus:bg-white/5 transition-all"
+                >
+                {resolvedTheme === "dark" ? (
                   <Sun className="mr-3 h-4 w-4 text-amber-500 fill-amber-500/20" />
                 ) : (
                   <Moon className="mr-3 h-4 w-4 text-[var(--bookinaja-600)] fill-[color:rgba(18,146,255,0.18)]" />
                 )}
                 <span className="text-xs font-semibold">
-                  Tampilan {theme === "dark" ? "Terang" : "Gelap"}
+                  Tampilan {resolvedTheme === "dark" ? "Terang" : "Gelap"}
                 </span>
               </DropdownMenuItem>
             </DropdownMenuGroup>
