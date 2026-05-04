@@ -3,6 +3,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { RealtimeEvent } from "@/lib/realtime/event-types";
 import { getRealtimeManager } from "@/lib/realtime/manager";
+import { createRuntimeId } from "@/lib/runtime-id";
 
 type UseRealtimeOptions = {
   enabled?: boolean;
@@ -25,7 +26,7 @@ export function useRealtime({
 }: UseRealtimeOptions) {
   const subscriptionIDRef = useRef<string | null>(null);
   if (subscriptionIDRef.current == null) {
-    subscriptionIDRef.current = `rt-${crypto.randomUUID()}`;
+    subscriptionIDRef.current = createRuntimeId("rt");
   }
   const normalizedChannels = Array.from(
     new Set(channels.map((channel) => channel.trim()).filter(Boolean)),

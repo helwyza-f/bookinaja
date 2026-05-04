@@ -1,4 +1,5 @@
 import api from "@/lib/api";
+import { createRuntimeId } from "@/lib/runtime-id";
 
 type DiscoveryEventPayload = {
   tenant_id?: string;
@@ -25,10 +26,7 @@ export function getDiscoverySessionId() {
   if (typeof window === "undefined") return "server";
   const existing = window.sessionStorage.getItem(sessionKey);
   if (existing) return existing;
-  const next =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `session-${Date.now()}`;
+  const next = createRuntimeId("session");
   window.sessionStorage.setItem(sessionKey, next);
   return next;
 }
