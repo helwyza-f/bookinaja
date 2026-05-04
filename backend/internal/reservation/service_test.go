@@ -32,3 +32,57 @@ func TestValidateBookingTransitionAllowsCompletionOnlyFromActive(t *testing.T) {
 		t.Fatal("validateBookingTransition() error = nil, want invalid completion error")
 	}
 }
+
+func TestResolveBookingLifecycleUsesPendingAndDepositForScheduled(t *testing.T) {
+	status, deposit, paid, balance, paymentStatus, paymentMethod := resolveBookingLifecycle(
+		CreateBookingReq{BookingMode: "scheduled"},
+		true,
+		120000,
+	)
+
+	if status != "pending" {
+		t.Fatalf("status = %s, want pending", status)
+	}
+	if deposit <= 0 {
+		t.Fatalf("deposit = %f, want positive deposit", deposit)
+	}
+	if paid != 0 {
+		t.Fatalf("paid = %f, want 0", paid)
+	}
+	if paymentStatus != "pending" {
+		t.Fatalf("paymentStatus = %s, want pending", paymentStatus)
+	}
+	if paymentMethod != "" {
+		t.Fatalf("paymentMethod = %s, want empty", paymentMethod)
+	}
+	if balance != 120000-deposit {
+		t.Fatalf("balance = %f, want %f", balance, 120000-deposit)
+	}
+}
+
+func TestResolveBookingLifecycleBypassesDepositForWalkIn(t *testing.T) {
+	status, deposit, paid, balance, paymentStatus, paymentMethod := resolveBookingLifecycle(
+		CreateBookingReq{BookingMode: "walkin"},
+		true,
+		150000,
+	)
+
+	if status != "active" {
+		t.Fatalf("status = %s, want active", status)
+	}
+	if deposit != 0 {
+		t.Fatalf("deposit = %f, want 0", deposit)
+	}
+	if paid != 0 {
+		t.Fatalf("paid = %f, want 0", paid)
+	}
+	if balance != 150000 {
+		t.Fatalf("balance = %f, want 150000", balance)
+	}
+	if paymentStatus != "unpaid" {
+		t.Fatalf("paymentStatus = %s, want unpaid", paymentStatus)
+	}
+	if paymentMethod != "" {
+		t.Fatalf("paymentMethod = %s, want empty", paymentMethod)
+	}
+}

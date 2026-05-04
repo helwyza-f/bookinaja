@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   format,
   addMinutes,
@@ -79,8 +79,31 @@ type ApiError = {
   };
 };
 
+type BookingMode = "scheduled" | "walkin";
+
+function resolveRecommendedWalkInSlot(slots: string[], targetDate?: Date) {
+  if (!targetDate || slots.length === 0) return "";
+  const now = new Date();
+  const sameDay = isSameDay(targetDate, now);
+  if (!sameDay) return slots[0] || "";
+
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  let candidate = slots[0] || "";
+  for (const slot of slots) {
+    const [hours, minutes] = slot.split(":").map(Number);
+    const slotMinutes = hours * 60 + minutes;
+    if (slotMinutes <= currentMinutes) {
+      candidate = slot;
+      continue;
+    }
+    return candidate || slot;
+  }
+  return candidate;
+}
+
 export default function NewManualBookingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const packageRef = useRef<HTMLDivElement | null>(null);
   const scheduleRef = useRef<HTMLDivElement | null>(null);
   const summaryRef = useRef<HTMLDivElement | null>(null);
@@ -99,6 +122,9 @@ export default function NewManualBookingPage() {
   const [durationValue, setDurationValue] = useState(1);
   const [selectedMainId, setSelectedMainId] = useState("");
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+  const [bookingMode, setBookingMode] = useState<BookingMode>(
+    searchParams.get("mode") === "walkin" ? "walkin" : "scheduled",
+  );
 
   const scrollToSection = (ref: React.RefObject<HTMLDivElement | null>) => {
     window.setTimeout(() => {
@@ -201,6 +227,11 @@ export default function NewManualBookingPage() {
     return slots;
   }, [selectedItem, isInterday]);
 
+  const recommendedWalkInSlot = useMemo(() => {
+    if (bookingMode !== "walkin") return "";
+    return resolveRecommendedWalkInSlot(availableSlots, date);
+  }, [availableSlots, bookingMode, date]);
+
   const maxAvailableSessions = useMemo(() => {
     if (!selectedTime || !selectedItem || isInterday) return 12;
     const [h, m] = selectedTime.split(":").map(Number);
@@ -217,6 +248,14 @@ export default function NewManualBookingPage() {
   useEffect(() => {
     if (durationValue > maxAvailableSessions) setDurationValue(1);
   }, [durationValue, maxAvailableSessions]);
+
+  useEffect(() => {
+    if (bookingMode !== "walkin") return;
+    setDate(new Date());
+    if (!selectedTime && recommendedWalkInSlot) {
+      setSelectedTime(recommendedWalkInSlot);
+    }
+  }, [bookingMode, recommendedWalkInSlot, selectedTime]);
 
   // 5. Timeline Summary
   const timelineSummary = useMemo(() => {
@@ -260,7 +299,7 @@ export default function NewManualBookingPage() {
     setIsSubmitting(true);
     try {
       const fullDate = parse(selectedTime, "HH:mm", date || new Date());
-      await api.post("/bookings/manual", {
+      const res = await api.post("/bookings/manual", {
         tenant_id: currentResource.tenant_id,
         resource_id: selectedResourceId,
         customer_name: custName.toUpperCase(),
@@ -268,9 +307,18 @@ export default function NewManualBookingPage() {
         item_ids: [selectedMainId, ...selectedAddons],
         start_time: formatISO(fullDate),
         duration: durationValue,
+        booking_mode: bookingMode,
       });
-      toast.success("Reservasi Berhasil Disimpan");
-      router.push("/admin/bookings");
+      toast.success(
+        bookingMode === "walkin"
+          ? "Sesi walk-in berhasil dibuat"
+          : "Reservasi berhasil disimpan",
+      );
+      const redirectPath =
+        bookingMode === "walkin"
+          ? `/admin/pos?active=${res.data?.booking_id || res.data?.booking?.id || ""}`
+          : "/admin/bookings";
+      router.push(redirectPath);
     } catch (err: unknown) {
       toast.error((err as ApiError).response?.data?.error || "Gagal menyimpan");
     } finally {
@@ -323,13 +371,48 @@ export default function NewManualBookingPage() {
               </Button>
               <div>
                 <h1 className="text-xl font-semibold text-slate-900 dark:text-white md:text-3xl">
-                  Booking Manual
+                  {bookingMode === "walkin" ? "Walk-in Sekarang" : "Booking Terjadwal"}
                 </h1>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Input walk-in, pilih jadwal, dan simpan reservasi dari admin.
+                  {bookingMode === "walkin"
+                    ? "Buka sesi langsung tanpa DP lalu lanjutkan billing dari POS."
+                    : "Catat booking yang akan datang dan tetap ikuti flow konfirmasi + DP."}
                 </p>
               </div>
             </div>
+            <div className="flex flex-col gap-3 md:min-w-[420px]">
+              <div className="flex rounded-2xl bg-slate-100 p-1 dark:bg-white/5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBookingMode("scheduled");
+                    setSelectedTime("");
+                  }}
+                  className={cn(
+                    "flex-1 rounded-[1rem] px-4 py-2.5 text-xs font-semibold transition-all",
+                    bookingMode === "scheduled"
+                      ? "bg-white text-slate-950 shadow-sm dark:bg-slate-900 dark:text-white"
+                      : "text-slate-500 dark:text-slate-300",
+                  )}
+                >
+                  Scheduled booking
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBookingMode("walkin");
+                    setSelectedTime("");
+                  }}
+                  className={cn(
+                    "flex-1 rounded-[1rem] px-4 py-2.5 text-xs font-semibold transition-all",
+                    bookingMode === "walkin"
+                      ? "bg-white text-slate-950 shadow-sm dark:bg-slate-900 dark:text-white"
+                      : "text-slate-500 dark:text-slate-300",
+                  )}
+                >
+                  Walk-in / right away
+                </button>
+              </div>
             <div className="grid grid-cols-4 gap-2 md:min-w-[420px]">
               {steps.map((step, index) => (
                 <div
@@ -349,6 +432,7 @@ export default function NewManualBookingPage() {
                   </div>
                 </div>
               ))}
+            </div>
             </div>
           </div>
         </header>
@@ -473,7 +557,11 @@ export default function NewManualBookingPage() {
                       mode="single"
                       selected={date}
                       onSelect={setDate}
-                      disabled={(d) => d < startOfToday()}
+                      disabled={(d) =>
+                        bookingMode === "walkin"
+                          ? !isSameDay(d, new Date())
+                          : d < startOfToday()
+                      }
                     />
                   </PopoverContent>
                 </Popover>
@@ -529,6 +617,7 @@ export default function NewManualBookingPage() {
                           return tm >= s.start_min && tm < s.end_min;
                         });
                         const isPast =
+                          bookingMode !== "walkin" &&
                           isSameDay(date!, new Date()) &&
                           isBefore(parse(t, "HH:mm", date!), new Date());
                         const isSel = selectedTime === t;
@@ -630,18 +719,26 @@ export default function NewManualBookingPage() {
                           Status awal otomatis
                         </p>
                         <p className="mt-1 text-sm font-semibold text-white">
-                          Pending, belum aktif
+                          {bookingMode === "walkin"
+                            ? "Aktif sekarang, lanjut di POS"
+                            : "Pending, menunggu jadwal & aktivasi"}
                         </p>
                       </div>
-                      <Badge className="border-none bg-orange-600 text-white text-[10px] font-semibold">
-                        pending
+                      <Badge
+                        className={cn(
+                          "border-none text-[10px] font-semibold",
+                          bookingMode === "walkin"
+                            ? "bg-emerald-600 text-white"
+                            : "bg-orange-600 text-white",
+                        )}
+                      >
+                        {bookingMode === "walkin" ? "active" : "pending"}
                       </Badge>
                     </div>
                     <p className="mt-3 text-[10px] font-bold leading-relaxed text-orange-50/85">
-                      Semua booking manual tetap mengikuti flow DP. Jika unit
-                      sedang kosong dan customer langsung masuk, sesi bisa
-                      diaktifkan manual nanti dari detail booking atau oleh
-                      admin.
+                      {bookingMode === "walkin"
+                        ? "Mode walk-in langsung membuka sesi tanpa DP. Tagihan tetap berjalan, lalu pelunasan dilakukan dari POS atau saat sesi selesai."
+                        : "Mode scheduled dipakai untuk transaksi yang akan datang. Booking masuk sebagai pending dan tetap mengikuti flow konfirmasi serta pembayaran DP."}
                     </p>
                   </div>
                 </div>
@@ -700,7 +797,7 @@ export default function NewManualBookingPage() {
                     </span>
                   </div>
                   <Badge className="border-none bg-orange-600 px-3 py-1 text-[10px] font-semibold">
-                    pending
+                    {bookingMode === "walkin" ? "active / unpaid" : "pending / dp"}
                   </Badge>
                 </div>
                 <Zap className="absolute right-[-15px] top-[-15px] size-24 opacity-5 text-white -rotate-12" />
@@ -715,7 +812,8 @@ export default function NewManualBookingPage() {
                   <Loader2 className="animate-spin" />
                 ) : (
                   <>
-                    Simpan Booking <ChevronRight size={22} strokeWidth={4} />
+                    {bookingMode === "walkin" ? "Buka Sesi Sekarang" : "Simpan Booking"}
+                    <ChevronRight size={22} strokeWidth={4} />
                   </>
                 )}
               </Button>

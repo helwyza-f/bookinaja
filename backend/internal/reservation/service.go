@@ -252,40 +252,35 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 		}
 	}
 
-	// 7. SEMUA BOOKING SELALU DIMULAI DARI PENDING.
-	// Aktivasi sesi dilakukan manual oleh customer/admin saat memang sudah siap masuk.
-	_ = isManualWalkIn
-	bookingStatus := "pending"
-
-	depositAmount := calculateDepositAmount(grandTotal)
-	paidAmount := float64(0)
-	balanceDue := grandTotal
-	if depositAmount > 0 {
-		balanceDue = grandTotal - depositAmount
-		if balanceDue < 0 {
-			balanceDue = 0
-		}
+	bookingStatus, depositAmount, paidAmount, balanceDue, paymentStatus, paymentMethod :=
+		resolveBookingLifecycle(req, isManualWalkIn, grandTotal)
+	nowUTC := time.Now().UTC()
+	var sessionActivatedAt *time.Time
+	var lastStatusChangedAt *time.Time
+	if bookingStatus == "active" {
+		sessionActivatedAt = &nowUTC
+		lastStatusChangedAt = &nowUTC
 	}
-	paymentStatus := "pending"
-	paymentMethod := ""
 
 	// 8. KONSTRUKSI MODEL BOOKING
 	newBooking := Booking{
-		ID:            uuid.New(),
-		TenantID:      tID,
-		CustomerID:    cust.ID,
-		ResourceID:    rID,
-		StartTime:     start,
-		EndTime:       end,
-		AccessToken:   uuid.New(),
-		Status:        bookingStatus, // Gunakan status hasil seleksi
-		GrandTotal:    grandTotal,
-		DepositAmount: depositAmount,
-		PaidAmount:    paidAmount,
-		BalanceDue:    balanceDue,
-		PaymentStatus: paymentStatus,
-		PaymentMethod: paymentMethod,
-		CreatedAt:     time.Now().UTC(),
+		ID:                  uuid.New(),
+		TenantID:            tID,
+		CustomerID:          cust.ID,
+		ResourceID:          rID,
+		StartTime:           start,
+		EndTime:             end,
+		AccessToken:         uuid.New(),
+		Status:              bookingStatus, // Gunakan status hasil seleksi
+		GrandTotal:          grandTotal,
+		DepositAmount:       depositAmount,
+		PaidAmount:          paidAmount,
+		BalanceDue:          balanceDue,
+		PaymentStatus:       paymentStatus,
+		PaymentMethod:       paymentMethod,
+		SessionActivatedAt:  sessionActivatedAt,
+		LastStatusChangedAt: lastStatusChangedAt,
+		CreatedAt:           time.Now().UTC(),
 	}
 
 	// 9. EKSEKUSI PENYIMPANAN
@@ -1046,6 +1041,23 @@ func calculateDepositAmount(grandTotal float64) float64 {
 		dp = grandTotal
 	}
 	return dp
+}
+
+func resolveBookingLifecycle(req CreateBookingReq, isManualWalkIn bool, grandTotal float64) (status string, depositAmount float64, paidAmount float64, balanceDue float64, paymentStatus string, paymentMethod string) {
+	mode := strings.ToLower(strings.TrimSpace(req.BookingMode))
+	if isManualWalkIn && mode == "walkin" {
+		return "active", 0, 0, grandTotal, "unpaid", ""
+	}
+
+	depositAmount = calculateDepositAmount(grandTotal)
+	balanceDue = grandTotal
+	if depositAmount > 0 {
+		balanceDue = grandTotal - depositAmount
+		if balanceDue < 0 {
+			balanceDue = 0
+		}
+	}
+	return "pending", depositAmount, 0, balanceDue, "pending", ""
 }
 
 func validateBookingTransition(currentStatus, nextStatus, paymentStatus string, depositAmount float64) error {

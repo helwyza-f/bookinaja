@@ -325,10 +325,10 @@ export default function BookingsPage() {
             </div>
             <div className="space-y-2">
               <h1 className="text-3xl font-[950] tracking-tight text-slate-950 dark:text-white sm:text-4xl">
-                Kelola booking dengan ritme yang lebih cepat dan rapi.
+                Kelola booking terjadwal tanpa mencampur sesi walk-in.
               </h1>
               <p className="max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                Pantau jadwal, pembayaran, dan status sesi per resource dalam satu alur kerja yang lebih mudah dipindai.
+                Halaman ini fokus untuk booking yang akan datang, konfirmasi, dan kesiapan sesi. Walk-in dan transaksi langsung dibuka lewat flow terpisah supaya operasional tetap jelas.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
@@ -341,12 +341,20 @@ export default function BookingsPage() {
 
           <div className="flex flex-wrap gap-3">
             <Button
-              onClick={() => canCreateBookings && router.push(`/admin/bookings/new`)}
+              onClick={() => canCreateBookings && router.push(`/admin/bookings/new?mode=scheduled`)}
               disabled={!canCreateBookings}
               className="h-12 rounded-[1.2rem] bg-slate-950 px-5 text-sm font-bold text-white shadow-[0_18px_40px_rgba(15,23,42,0.22)] hover:bg-[var(--bookinaja-700)] dark:bg-white dark:text-slate-950"
             >
               <Plus size={16} strokeWidth={4} className="mr-2" />
-              New Booking
+              Booking Terjadwal
+            </Button>
+            <Button
+              onClick={() => canCreateBookings && router.push(`/admin/bookings/new?mode=walkin`)}
+              disabled={!canCreateBookings}
+              variant="outline"
+              className="h-12 rounded-[1.2rem] border-slate-200/80 bg-white/80 px-5 text-sm font-bold text-slate-950 hover:bg-white dark:border-white/10 dark:bg-white/[0.06] dark:text-white"
+            >
+              Walk-in Sekarang
             </Button>
           </div>
         </div>
@@ -671,12 +679,12 @@ export default function BookingsPage() {
             </p>
           </div>
           <Button
-            onClick={() => canCreateBookings && router.push("/admin/bookings/new")}
+            onClick={() => canCreateBookings && router.push("/admin/bookings/new?mode=scheduled")}
             disabled={!canCreateBookings}
             className="rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
           >
             <Plus className="mr-2 h-4 w-4" />
-            New Booking
+            Booking Terjadwal
           </Button>
         </div>
       ) : viewMode === "list" ? (
@@ -819,7 +827,7 @@ export default function BookingsPage() {
                   <Card
                     key={b.id}
                     onClick={() => router.push(`/admin/bookings/${b.id}`)}
-                    className="group relative cursor-pointer overflow-hidden rounded-[1.8rem] border border-slate-200/80 bg-white/95 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.06)] transition-all hover:-translate-y-0.5 hover:shadow-[0_22px_50px_rgba(15,23,42,0.1)] dark:border-white/10 dark:bg-[#0f1117]/96 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)] md:p-6"
+                    className="group relative cursor-pointer overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white/95 p-3.5 shadow-[0_16px_40px_rgba(15,23,42,0.06)] transition-all hover:-translate-y-0.5 hover:shadow-[0_22px_50px_rgba(15,23,42,0.1)] dark:border-white/10 dark:bg-[#0f1117]/96 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)] md:rounded-[1.8rem] md:p-6"
                   >
                     {isOperationallyActive(b) && (
                       <div
@@ -830,7 +838,7 @@ export default function BookingsPage() {
                       />
                     )}
 
-                    <div className="mb-5 flex items-start justify-between">
+                    <div className="mb-4 flex items-start justify-between md:mb-5">
                       <div className="space-y-2">
                         <Badge
                           className={cn(
@@ -860,21 +868,21 @@ export default function BookingsPage() {
                       />
                     </div>
 
-                    <div className="mb-6 space-y-1">
-                      <h4 className="text-base font-semibold leading-tight text-slate-900 transition-colors group-hover:text-[var(--bookinaja-600)] dark:text-white dark:group-hover:text-[var(--bookinaja-300)] lg:text-lg">
+                    <div className="mb-4 space-y-1 md:mb-6">
+                      <h4 className="text-sm font-semibold leading-tight text-slate-900 transition-colors group-hover:text-[var(--bookinaja-600)] dark:text-white dark:group-hover:text-[var(--bookinaja-300)] md:text-base lg:text-lg">
                         {b.customer_name}
                       </h4>
-                      <p className="text-[11px] font-bold text-slate-400 leading-none">
+                      <p className="text-[10px] font-bold text-slate-400 leading-none">
                         {b.customer_phone}
                       </p>
                     </div>
 
-                    <div className="flex items-end justify-between border-t border-slate-100 pt-5 dark:border-white/6">
+                    <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 dark:border-white/6 md:flex md:items-end md:justify-between md:pt-5">
                       <div className="flex flex-col">
                         <span className="text-[8px] font-semibold text-slate-400 leading-none mb-1.5">
                           TIME SLOT
                         </span>
-                        <span className="text-[13px] font-semibold leading-none text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-300)]">
+                        <span className="text-[12px] font-semibold leading-none text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-300)] md:text-[13px]">
                           {format(new Date(b.start_time), "HH:mm")} -{" "}
                           {format(new Date(b.end_time), "HH:mm")}
                         </span>
@@ -883,7 +891,7 @@ export default function BookingsPage() {
                         <span className="text-[8px] font-semibold text-slate-400 mb-1.5 leading-none">
                           TOTAL
                         </span>
-                        <span className="text-base font-semibold text-slate-950 dark:text-white leading-none block">
+                        <span className="block text-sm font-semibold text-slate-950 dark:text-white leading-none md:text-base">
                           Rp{formatIDR(b.total_resource + b.total_fnb)}
                         </span>
                       </div>

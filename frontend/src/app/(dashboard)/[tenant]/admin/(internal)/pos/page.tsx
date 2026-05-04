@@ -129,7 +129,7 @@ function SessionCard({
     <button
       onClick={onClick}
       className={cn(
-        "group w-full overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--bookinaja-300)] hover:shadow-md active:translate-y-0 dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+        "group w-full overflow-hidden rounded-[1.3rem] border bg-white text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--bookinaja-300)] hover:shadow-md active:translate-y-0 dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:rounded-2xl",
         isActiveParam &&
           "border-[var(--bookinaja-500)] ring-2 ring-[color:rgba(59,130,246,0.18)] shadow-[0_12px_40px_rgba(29,78,216,0.12)]",
         (timeInfo.isUrgent || timeInfo.attention) && "border-amber-300 ring-2 ring-amber-200/70",
@@ -152,7 +152,7 @@ function SessionCard({
         />
       </div>
 
-      <div className="p-4">
+      <div className="p-3.5 md:p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -168,13 +168,13 @@ function SessionCard({
                       : "bg-emerald-500",
                 )}
               />
-              <p className="truncate text-sm font-semibold text-slate-950 dark:text-white">
+              <p className="truncate text-[13px] font-semibold text-slate-950 dark:text-white md:text-sm">
                 {session.resource_name || "Unit"}
               </p>
             </div>
             <div className="mt-3 flex items-center gap-2 text-slate-500 dark:text-slate-400">
               <UserIcon className="h-4 w-4 shrink-0" />
-              <h3 className="truncate text-base font-semibold text-slate-900 dark:text-slate-100">
+              <h3 className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100 md:text-base">
                 {session.customer_name || "Customer"}
               </h3>
             </div>
@@ -202,7 +202,7 @@ function SessionCard({
           </Badge>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className="mt-3 grid grid-cols-2 gap-2 md:mt-4 md:grid-cols-3">
           <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-white/5">
             <p className="text-[11px] font-medium text-slate-500">Waktu</p>
             <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-900 dark:text-slate-100">
@@ -227,7 +227,7 @@ function SessionCard({
               {timeInfo.remaining}
             </p>
           </div>
-          <div className="rounded-xl bg-[var(--bookinaja-50)] px-3 py-2 dark:bg-[color:rgba(59,130,246,0.14)]">
+          <div className="col-span-2 rounded-xl bg-[var(--bookinaja-50)] px-3 py-2 dark:bg-[color:rgba(59,130,246,0.14)] md:col-span-1">
             <p className="text-[11px] font-medium text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
               {timeInfo.attention ? "Sisa" : "Bill"}
             </p>
@@ -240,7 +240,7 @@ function SessionCard({
           </div>
         </div>
 
-        <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-white/10">
+        <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-white/10 md:mt-4">
           <span className="text-xs font-medium text-slate-500">
             {timeInfo.attention ? "Buka checkout" : "Buka kontrol sesi"}
           </span>
@@ -493,10 +493,10 @@ export default function POSPage() {
               <RealtimePill connected={realtimeConnected} status={realtimeStatus} className="normal-case tracking-normal" />
             </div>
             <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl dark:text-white">
-              Sesi Aktif & Checkout
+              POS untuk sesi aktif dan pelunasan
             </h1>
             <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-300">
-              Pantau sesi berjalan dan booking selesai yang masih perlu pelunasan.
+              Halaman ini khusus sesi yang sedang berjalan atau sudah selesai tapi belum lunas. Booking terjadwal tetap dikelola dari halaman booking.
             </p>
           </div>
           <Button
@@ -513,13 +513,13 @@ export default function POSPage() {
         </div>
 
         <div className="grid grid-cols-2 border-b border-slate-100 md:grid-cols-4 dark:border-white/10">
-          <div className="border-r border-slate-100 p-4 dark:border-white/10">
+          <div className="border-r border-slate-100 p-3.5 dark:border-white/10 md:p-4">
             <p className="text-xs font-medium text-slate-500">Perlu ditangani</p>
             <p className="mt-1 text-2xl font-semibold text-slate-950 dark:text-white">
               {activeSessions.length}
             </p>
           </div>
-          <div className="border-r border-slate-100 p-4 dark:border-white/10">
+          <div className="border-r border-slate-100 p-3.5 dark:border-white/10 md:p-4">
             <p className="text-xs font-medium text-slate-500">
               Pelunasan
             </p>
@@ -528,13 +528,13 @@ export default function POSPage() {
               <AlertTriangle className="h-4 w-4" />
             </p>
           </div>
-          <div className="border-r border-slate-100 p-4 dark:border-white/10">
+          <div className="border-r border-slate-100 p-3.5 dark:border-white/10 md:p-4">
             <p className="text-xs font-medium text-slate-500">Urgent/Overtime</p>
             <p className="mt-1 text-2xl font-semibold text-red-600">
               {sessionSummary.urgent + sessionSummary.overtime}
             </p>
           </div>
-          <div className="p-4">
+          <div className="p-3.5 md:p-4">
             <p className="text-xs font-medium text-slate-500">Tagihan aktif</p>
             <p className="mt-1 flex items-center gap-2 text-2xl font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-100)]">
               <Wallet className="h-4 w-4" />

@@ -205,11 +205,13 @@ func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []u
 	queryBooking := `
 		INSERT INTO bookings (
 			id, tenant_id, customer_id, resource_id, start_time, end_time, access_token,
-			status, grand_total, deposit_amount, paid_amount, balance_due, payment_status, payment_method, created_at
+			status, grand_total, deposit_amount, paid_amount, balance_due, payment_status, payment_method,
+			session_activated_at, last_status_changed_at, created_at
 		)
 		VALUES (
 			:id, :tenant_id, :customer_id, :resource_id, :start_time, :end_time, :access_token,
-			:status, :grand_total, :deposit_amount, :paid_amount, :balance_due, :payment_status, :payment_method, :created_at
+			:status, :grand_total, :deposit_amount, :paid_amount, :balance_due, :payment_status, :payment_method,
+			:session_activated_at, :last_status_changed_at, :created_at
 		)`
 
 	_, err = tx.NamedExecContext(ctx, queryBooking, b)
@@ -238,14 +240,20 @@ func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []u
 			}
 		}
 	}
+	createTitle := "Booking dibuat"
+	createDescription := "Booking tercatat dan menunggu pembayaran DP."
+	if b.Status == "active" && b.DepositAmount == 0 {
+		createTitle = "Sesi walk-in dimulai"
+		createDescription = "Sesi langsung aktif tanpa DP dan siap dilanjutkan ke POS."
+	}
 	if err := r.CreateBookingEvent(ctx, tx, BookingEventInput{
 		BookingID:   b.ID,
 		TenantID:    b.TenantID,
 		CustomerID:  &b.CustomerID,
 		ActorType:   "customer",
 		EventType:   "booking.created",
-		Title:       "Booking dibuat",
-		Description: "Booking tercatat dan menunggu pembayaran DP.",
+		Title:       createTitle,
+		Description: createDescription,
 		Metadata:    map[string]any{"grand_total": b.GrandTotal, "deposit_amount": b.DepositAmount, "start_time": b.StartTime, "end_time": b.EndTime},
 	}); err != nil {
 		return err

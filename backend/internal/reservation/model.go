@@ -47,6 +47,7 @@ type CreateBookingReq struct {
 	StartTime     string   `json:"start_time" binding:"required"`
 	Duration      int      `json:"duration" binding:"required,min=1"`
 	Status        string   `json:"status"` // Tambahkan ini: opsional (pending, active, confirmed)
+	BookingMode   string   `json:"booking_mode"`
 }
 
 type OrderItem struct {

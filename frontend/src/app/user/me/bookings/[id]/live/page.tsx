@@ -315,12 +315,7 @@ export default function CustomerBookingDetail() {
     const start = parseISO(booking.start_time);
     const end = parseISO(booking.end_time);
 
-    if (
-      isActiveStatus ||
-      (now >= start &&
-        now < end &&
-        !["completed", "cancelled"].includes(booking.status))
-    ) {
+    if (isActiveStatus) {
       const diff = differenceInSeconds(end, now);
       return {
         type: "LIVE",
@@ -686,7 +681,7 @@ export default function CustomerBookingDetail() {
                 {!hasPaidDp 
                   ? "⚠️ Selesaikan pembayaran DP terlebih dahulu untuk bisa mengaktifkan sesi ini."
                   : !isTimeReached 
-                    ? "🕒 Waktu sesi belum dimulai. Tombol aktivasi akan menyala otomatis saat jam mulai tiba." 
+                    ? "🕒 Waktu sesi belum dimulai. Aktivasi tetap dilakukan manual saat jam mulai sudah tiba." 
                     : "✅ Waktu sesi telah tiba! Aktifkan sesi sekarang jika Anda sudah siap."}
               </p>
               <Button
@@ -848,7 +843,9 @@ export default function CustomerBookingDetail() {
                 Pembayaran Booking
               </p>
               <p className="mt-1 text-sm font-[1000] italic text-slate-900 dark:text-white">
-                DP tetap dipakai untuk semua booking
+                {depositAmount > 0
+                  ? "Booking ini memakai flow DP"
+                  : "Booking ini bisa langsung bayar di akhir sesi"}
               </p>
             </div>
           </div>
@@ -881,9 +878,11 @@ export default function CustomerBookingDetail() {
           </div>
 
           <div className="rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50/80 dark:bg-white/5 px-4 py-3 text-[11px] font-bold leading-relaxed text-slate-700 dark:text-slate-200">
-            {paymentStatus === "pending"
-              ? `Bayar DP dulu sebesar Rp ${depositAmount.toLocaleString()} supaya status pembayaran booking sinkron.`
-              : `DP sudah tercatat. Sisa pembayaran akan muncul terpisah di bagian pelunasan setelah rincian item.`}
+            {depositAmount > 0
+              ? paymentStatus === "pending"
+                ? `Bayar DP dulu sebesar Rp ${depositAmount.toLocaleString()} supaya booking bisa masuk ke flow aktivasi sesi.`
+                : `DP sudah tercatat. Sisa pembayaran akan muncul terpisah di bagian pelunasan setelah rincian item.`
+              : "Booking ini tidak membutuhkan DP. Pelunasan dilakukan dari tagihan akhir sesi."}
           </div>
 
           {paymentStatus === "pending" && depositAmount > 0 && (
