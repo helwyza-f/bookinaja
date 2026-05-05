@@ -117,12 +117,26 @@ export default function CustomerBookingDetail() {
   const fetchMenuItems = useCallback(async (slug?: string) => {
     if (!slug) return;
     try {
-      const menuRes = await api.get("/customer/fnb", { params: { slug } });
-      setMenuItems(menuRes.data || []);
+      const menuRes = await api.get("/customer/fnb", {
+        params: { slug, booking_id: params.id },
+      });
+      const items = Array.isArray(menuRes.data) ? menuRes.data : [];
+      if (items.length > 0) {
+        setMenuItems(items);
+        return;
+      }
+
+      const fallbackRes = await api.get("/public/fnb", { params: { slug } });
+      setMenuItems(Array.isArray(fallbackRes.data) ? fallbackRes.data : []);
     } catch {
-      setMenuItems([]);
+      try {
+        const fallbackRes = await api.get("/public/fnb", { params: { slug } });
+        setMenuItems(Array.isArray(fallbackRes.data) ? fallbackRes.data : []);
+      } catch {
+        setMenuItems([]);
+      }
     }
-  }, []);
+  }, [params.id]);
 
   const fetchLiveContext = useCallback(async () => {
     const status = String(booking?.status || "").toLowerCase();
@@ -535,41 +549,31 @@ export default function CustomerBookingDetail() {
       : "Tanpa DP.";
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24 dark:bg-[#060911]">
-      <div className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur dark:border-white/10 dark:bg-[#060911]/90">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-10 w-10 rounded-2xl"
-            onClick={() => router.push(`/user/me/bookings/${booking.id}`)}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div className="min-w-0 text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-600 dark:text-blue-300">
-              Live Controller
-            </p>
-            <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-              Ref {bookingReference}
-            </p>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-10 w-10 rounded-2xl"
-            onClick={copyMagicLink}
-          >
-            {copied ? (
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-            ) : (
-              <Copy className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
+    <div className="mx-auto max-w-3xl space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <Button
+          variant="ghost"
+          className="h-10 rounded-2xl px-3"
+          onClick={() => router.push(`/user/me/bookings/${booking.id}`)}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Booking
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-10 w-10 rounded-2xl"
+          onClick={copyMagicLink}
+        >
+          {copied ? (
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+          ) : (
+            <Copy className="h-4 w-4" />
+          )}
+        </Button>
       </div>
 
-      <main className="mx-auto max-w-3xl space-y-4 px-4 py-4">
+      <div className="space-y-4">
         <Card className="rounded-[1.75rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
           <div className="space-y-4 p-4">
             <div className="flex items-start justify-between gap-3">
@@ -583,6 +587,9 @@ export default function CustomerBookingDetail() {
                 </h1>
                 <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
                   {booking.tenant_name || "Bookinaja"}
+                </p>
+                <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                  Ref {bookingReference}
                 </p>
               </div>
               <RealtimePill
@@ -888,7 +895,7 @@ export default function CustomerBookingDetail() {
         >
           Simpan sebagai PDF
         </Button>
-      </main>
+      </div>
     </div>
   );
 }
@@ -969,14 +976,12 @@ function EmptyState({ label }: { label: string }) {
 
 function TicketSkeleton() {
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-4 dark:bg-[#060911]">
-      <div className="mx-auto max-w-3xl space-y-4">
-        <Skeleton className="h-14 rounded-[1.5rem]" />
-        <Skeleton className="h-40 rounded-[1.75rem]" />
-        <Skeleton className="h-28 rounded-[1.75rem]" />
-        <Skeleton className="h-48 rounded-[1.75rem]" />
-        <Skeleton className="h-56 rounded-[1.75rem]" />
-      </div>
+    <div className="mx-auto max-w-3xl space-y-4">
+      <Skeleton className="h-10 rounded-[1.25rem]" />
+      <Skeleton className="h-40 rounded-[1.5rem]" />
+      <Skeleton className="h-28 rounded-[1.5rem]" />
+      <Skeleton className="h-48 rounded-[1.5rem]" />
+      <Skeleton className="h-56 rounded-[1.5rem]" />
     </div>
   );
 }

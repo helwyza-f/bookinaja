@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/helwiza/backend/internal/auth"
+	"github.com/helwiza/backend/internal/fnb"
 )
 
 type Handler struct {
@@ -315,14 +316,35 @@ func (h *Handler) GetCustomerResources(c *gin.Context) {
 }
 
 func (h *Handler) GetCustomerFnb(c *gin.Context) {
-	tenantID := c.MustGet("tenantID").(string)
+	tenantID := optionalTenantID(c)
+	bookingID := c.Query("booking_id")
 	search := c.Query("q")
-	items, err := h.service.GetCustomerFnbMenu(c.Request.Context(), tenantID, search)
+	customerIDValue, exists := c.Get("customerID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	customerID, ok := customerIDValue.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+
+	if bookingID != "" {
+		scopedItems, err := h.service.GetCustomerFnbMenuByBooking(c.Request.Context(), bookingID, tenantID, customerID, search)
+		if err == nil {
+			c.JSON(http.StatusOK, scopedItems)
+			return
+		}
+	}
+
+	var scopedItems []fnb.Item
+	scopedItems, err := h.service.GetCustomerFnbMenu(c.Request.Context(), tenantID, search)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "GAGAL MENGAMBIL MENU"})
 		return
 	}
-	c.JSON(http.StatusOK, items)
+	c.JSON(http.StatusOK, scopedItems)
 }
 
 func (h *Handler) CustomerBookingAvailability(c *gin.Context) {

@@ -60,7 +60,7 @@ export default function UserHistoryPage() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
+      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-3.5 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
         <p className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-600 dark:text-blue-300">
           Riwayat
         </p>

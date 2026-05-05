@@ -99,18 +99,18 @@ export default function UserBookingDetailPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-3xl space-y-4 px-4 py-4">
+      <div className="mx-auto max-w-3xl space-y-4">
         <Skeleton className="h-14 rounded-[1.5rem]" />
-        <Skeleton className="h-56 rounded-[1.75rem]" />
-        <Skeleton className="h-44 rounded-[1.75rem]" />
+        <Skeleton className="h-56 rounded-[1.5rem]" />
+        <Skeleton className="h-44 rounded-[1.5rem]" />
       </div>
     );
   }
 
   if (!booking) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-10">
-        <Card className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#10141f]">
+      <div className="mx-auto max-w-3xl py-10">
+        <Card className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
           Booking tidak ditemukan.
         </Card>
       </div>
@@ -118,18 +118,18 @@ export default function UserBookingDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 px-4 py-4">
+    <div className="mx-auto max-w-3xl space-y-3">
       <div className="flex items-center justify-between gap-2">
         <Button
           variant="ghost"
           onClick={() => router.push("/user/me/active")}
-          className="h-11 rounded-2xl px-3"
+          className="h-10 rounded-2xl px-3"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Booking Aktif
+          Aktif
         </Button>
         {tenantUrl ? (
-          <Button asChild variant="outline" className="h-11 rounded-2xl">
+          <Button asChild variant="outline" className="h-10 rounded-2xl px-3">
             <Link href={tenantUrl} target="_blank" rel="noreferrer">
               Tenant
               <ExternalLink className="ml-2 h-4 w-4" />
@@ -138,19 +138,20 @@ export default function UserBookingDetailPage() {
         ) : null}
       </div>
 
-      <Card className="rounded-[1.75rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
-        <CardContent className="space-y-5 p-4">
+      <Card className="rounded-[1.5rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
+        <CardContent className="space-y-4 p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-blue-600 dark:text-blue-300">
-                Booking Detail
+                Booking
               </p>
               <h1 className="mt-1 line-clamp-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">
                 {booking.resource_name || booking.resource || "Booking"}
               </h1>
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                {booking.tenant_name || "Tenant"}
-                {booking.tenant_slug ? ` · ${booking.tenant_slug}` : ""}
+                {[booking.tenant_name || "Tenant", booking.tenant_slug]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
               <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                 Ref {String(booking.id || "").slice(0, 8).toUpperCase()}
@@ -185,18 +186,18 @@ export default function UserBookingDetailPage() {
             />
           </div>
 
-          <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-3.5 dark:border-white/10 dark:bg-white/[0.04]">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-              Langkah berikutnya
+              Langkah
             </p>
             <p className="mt-2 text-sm font-medium leading-6 text-slate-700 dark:text-slate-200">
               {nextStep}
             </p>
           </div>
 
-          <div className="rounded-[1.25rem] border border-blue-100 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/10">
+          <div className="rounded-[1.25rem] border border-blue-100 bg-blue-50 p-3.5 dark:border-blue-500/20 dark:bg-blue-500/10">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
-              Status pembayaran
+              Bayar
             </p>
             <p className="mt-2 text-sm leading-6 text-blue-900 dark:text-blue-100">
               {paymentMeta.hint}
@@ -209,7 +210,7 @@ export default function UserBookingDetailPage() {
               className="h-12 rounded-2xl bg-slate-950 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950"
             >
               <Link href={liveUrl || "#"}>
-                Buka Live Controller
+                Live
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
@@ -219,7 +220,7 @@ export default function UserBookingDetailPage() {
               disabled={Number(booking.deposit_amount || 0) <= 0}
               className="h-12 rounded-2xl"
             >
-              Cek Halaman Bayar
+              Bayar
             </Button>
           </div>
         </CardContent>
@@ -288,8 +289,7 @@ function sessionMeta(status?: string) {
   }
   return {
     label: status || "pending",
-    className:
-      "rounded-full bg-amber-500 text-white",
+    className: "rounded-full bg-amber-500 text-white",
   };
 }
 
