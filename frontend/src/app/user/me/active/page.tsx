@@ -67,17 +67,17 @@ export default function UserActiveBookingsPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-3xl space-y-3 px-4 py-4">
-        <Skeleton className="h-24 rounded-[1.75rem]" />
-        <Skeleton className="h-36 rounded-[1.75rem]" />
-        <Skeleton className="h-36 rounded-[1.75rem]" />
+      <div className="space-y-3">
+        <Skeleton className="h-20 rounded-[1.5rem]" />
+        <Skeleton className="h-32 rounded-[1.5rem]" />
+        <Skeleton className="h-32 rounded-[1.5rem]" />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 px-4 py-4">
-      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
+    <div className="mx-auto max-w-3xl space-y-3">
+      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-3.5 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-blue-600 dark:text-blue-300">
@@ -92,24 +92,24 @@ export default function UserActiveBookingsPage() {
           </Badge>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-2">
-            <MetricTile
-              label="Live"
-              value={String(bookings.length)}
-              icon={Radio}
-              tone="blue"
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <MetricTile
+            label="Live"
+            value={String(bookings.length)}
+            icon={Radio}
+            tone="blue"
           />
-            <MetricTile
-              label="Tenant"
-              value={String(tenantCount)}
-              icon={ReceiptText}
-              tone="slate"
-            />
-            <MetricTile
-              label="Status"
-              value={bookings.length ? "Live" : "Idle"}
-              icon={Wallet}
-              tone="emerald"
+          <MetricTile
+            label="Tenant"
+            value={String(tenantCount)}
+            icon={ReceiptText}
+            tone="slate"
+          />
+          <MetricTile
+            label="Status"
+            value={bookings.length ? "Live" : "Idle"}
+            icon={Wallet}
+            tone="emerald"
           />
         </div>
       </section>
@@ -143,7 +143,7 @@ function ActiveBookingRow({ booking }: { booking: BookingItem }) {
   const tenantUrl = booking.tenant_slug ? getTenantUrl(booking.tenant_slug) : null;
 
   return (
-    <Card className="rounded-[1.35rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#10141f]">
+    <Card className="rounded-[1.35rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
       <CardContent className="space-y-3 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">

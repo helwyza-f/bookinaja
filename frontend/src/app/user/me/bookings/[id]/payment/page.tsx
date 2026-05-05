@@ -398,9 +398,9 @@ export default function BookingPaymentPage() {
 
   if (loading || paymentAccessError) {
     return (
-      <div className="mx-auto max-w-3xl space-y-4 px-4 py-6">
-        <Skeleton className="h-20 rounded-[2rem]" />
-        <Skeleton className="h-96 rounded-[2rem]" />
+      <div className="mx-auto max-w-3xl space-y-4">
+        <Skeleton className="h-20 rounded-[1.5rem]" />
+        <Skeleton className="h-96 rounded-[1.5rem]" />
       </div>
     );
   }
@@ -408,7 +408,7 @@ export default function BookingPaymentPage() {
   if (!booking) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-6 dark:bg-[#050505]">
+    <div className="mx-auto max-w-3xl space-y-3">
       <Script
         src={
           (process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION || "").toLowerCase() === "true"
@@ -420,17 +420,16 @@ export default function BookingPaymentPage() {
         onLoad={() => setMidtransReady(true)}
         onError={() => setMidtransReady(false)}
       />
-      <div className="mx-auto max-w-3xl space-y-4">
-        <Button
-          variant="ghost"
-          onClick={() => router.push(`/user/me/bookings/${params.id}/live`)}
-          className="rounded-2xl"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Kembali ke Live Controller
-        </Button>
+      <Button
+        variant="ghost"
+        onClick={() => router.push(`/user/me/bookings/${params.id}/live`)}
+        className="h-10 rounded-2xl px-3"
+      >
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Live
+      </Button>
 
-        <Card className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#0c0c0c]">
+      <Card className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="border-none bg-slate-950 text-white">
@@ -450,7 +449,7 @@ export default function BookingPaymentPage() {
             </h1>
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
               <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Total</p>
               <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">
@@ -472,10 +471,10 @@ export default function BookingPaymentPage() {
               </p>
             </div>
           </div>
-        </Card>
+      </Card>
 
-        {pendingManualAttempt ? (
-          <Card className="rounded-[2rem] border border-amber-200 bg-white p-5 shadow-sm dark:border-amber-500/20 dark:bg-[#0c0c0c]">
+      {pendingManualAttempt ? (
+        <Card className="rounded-[1.5rem] border border-amber-200 bg-white p-4 shadow-sm dark:border-amber-500/20 dark:bg-[#0b0f19]">
             <div className="space-y-4">
               <div className="flex items-start gap-3">
                 <div className="rounded-2xl bg-amber-100 p-3 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200">
@@ -552,9 +551,9 @@ export default function BookingPaymentPage() {
                 </Button>
               </div>
             </div>
-          </Card>
-        ) : (
-          <Card className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#0c0c0c]">
+        </Card>
+      ) : (
+        <Card className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
             <div className="space-y-4">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
@@ -766,9 +765,8 @@ export default function BookingPaymentPage() {
                     : `Kirim ${selectedMethodDetail?.display_name || "Manual"}`}
               </Button>
             </div>
-          </Card>
-        )}
-      </div>
+        </Card>
+      )}
     </div>
   );
 }

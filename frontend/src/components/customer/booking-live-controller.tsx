@@ -47,6 +47,17 @@ type ControllerProps = {
   onComplete?: () => void;
 };
 
+type ConfirmState =
+  | {
+      kind: "extend" | "fnb" | "addon" | "complete";
+      title: string;
+      description: string;
+      confirmLabel: string;
+      tone: "blue" | "orange" | "emerald" | "slate";
+      action: () => Promise<void> | void;
+    }
+  | null;
+
 function MobileSheet({
   open,
   onClose,
@@ -115,6 +126,8 @@ export function BookingLiveController({
   const [menuCart, setMenuCart] = useState<Record<string, CatalogItem & { quantity: number }>>({});
   const [addonCart, setAddonCart] = useState<Record<string, CatalogItem & { quantity: number }>>({});
   const [selectedExtend, setSelectedExtend] = useState<number>(1);
+  const [confirmState, setConfirmState] = useState<ConfirmState>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!extendError) return;
@@ -162,6 +175,29 @@ export function BookingLiveController({
     0,
   );
 
+  const openConfirm = (next: ConfirmState) => {
+    setConfirmState(next);
+  };
+
+  const runConfirmedAction = async () => {
+    if (!confirmState) return;
+    setSubmitting(true);
+    try {
+      await confirmState.action();
+      setConfirmState(null);
+    } catch (error) {
+      const err = error as ApiError;
+      const message = String(err?.response?.data?.error || err?.message || "Aksi gagal");
+      if (confirmState.kind === "extend" && message.toLowerCase().includes("max extension")) {
+        setExtendError("MAX SESSION REACHED");
+      } else {
+        toast.error(message);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2">
@@ -191,7 +227,19 @@ export function BookingLiveController({
           title="Akhiri Sesi"
           icon={ReceiptText}
           tone="slate"
-          onClick={onComplete}
+          onClick={() => {
+            if (!onComplete) return;
+            openConfirm({
+              kind: "complete",
+              title: "Akhiri sesi",
+              description: "Sesi akan ditutup dan pelunasan akan mengikuti status tagihan booking.",
+              confirmLabel: "Akhiri sesi",
+              tone: "slate",
+              action: async () => {
+                await onComplete();
+              },
+            });
+          }}
           filled
         />
       </div>
@@ -233,20 +281,19 @@ export function BookingLiveController({
           </div>
           <Button
             className="h-12 w-full rounded-2xl bg-blue-600 text-white hover:bg-blue-500"
-            onClick={async () => {
-              try {
-                await onExtend(selectedExtend);
-                setExtendError(null);
-                setExtendOpen(false);
-              } catch (error) {
-                const err = error as ApiError;
-                const message = String(err?.response?.data?.error || err?.message || "");
-                if (message.toLowerCase().includes("max extension")) {
-                  setExtendError("MAX SESSION REACHED");
-                } else {
-                  setExtendError("EXTEND GAGAL");
-                }
-              }
+            onClick={() => {
+              openConfirm({
+                kind: "extend",
+                title: "Konfirmasi tambah durasi",
+                description: `Tambah ${selectedExtend} ${unitDuration === 60 ? "jam" : "sesi"} dan update billing booking sekarang.`,
+                confirmLabel: "Tambah durasi",
+                tone: "blue",
+                action: async () => {
+                  await onExtend(selectedExtend);
+                  setExtendError(null);
+                  setExtendOpen(false);
+                },
+              });
             }}
           >
             Konfirmasi tambah durasi
@@ -270,10 +317,19 @@ export function BookingLiveController({
         actionLabel="Kirim pesanan"
         accent="orange"
         onSubmit={async () => {
-          await onOrderFnb(menuItemsInCart);
-          setMenuCart({});
-          setMenuSearch("");
-          setFnbOpen(false);
+          openConfirm({
+            kind: "fnb",
+            title: "Kirim pesanan F&B",
+            description: `${menuItemsInCart.length} item akan masuk ke booking dengan total Rp ${formatIDR(menuTotal)}.`,
+            confirmLabel: "Kirim pesanan",
+            tone: "orange",
+            action: async () => {
+              await onOrderFnb(menuItemsInCart);
+              setMenuCart({});
+              setMenuSearch("");
+              setFnbOpen(false);
+            },
+          });
         }}
       />
 
@@ -293,13 +349,99 @@ export function BookingLiveController({
         actionLabel="Simpan add-on"
         accent="emerald"
         onSubmit={async () => {
-          await onOrderAddon(addonItemsInCart);
-          setAddonCart({});
-          setAddonSearch("");
-          setAddonOpen(false);
+          openConfirm({
+            kind: "addon",
+            title: "Tambahkan add-on",
+            description: `${addonItemsInCart.length} item add-on akan ditambahkan ke booking dengan total Rp ${formatIDR(addonTotal)}.`,
+            confirmLabel: "Tambahkan",
+            tone: "emerald",
+            action: async () => {
+              await onOrderAddon(addonItemsInCart);
+              setAddonCart({});
+              setAddonSearch("");
+              setAddonOpen(false);
+            },
+          });
         }}
       />
+
+      <ConfirmSheet
+        open={Boolean(confirmState)}
+        onClose={() => {
+          if (submitting) return;
+          setConfirmState(null);
+        }}
+        title={confirmState?.title || ""}
+        description={confirmState?.description || ""}
+        confirmLabel={confirmState?.confirmLabel || "Lanjutkan"}
+        tone={confirmState?.tone || "slate"}
+        submitting={submitting}
+        onConfirm={runConfirmedAction}
+      />
     </div>
+  );
+}
+
+function ConfirmSheet({
+  open,
+  onClose,
+  title,
+  description,
+  confirmLabel,
+  tone,
+  submitting,
+  onConfirm,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  description: string;
+  confirmLabel: string;
+  tone: "blue" | "orange" | "emerald" | "slate";
+  submitting: boolean;
+  onConfirm: () => Promise<void>;
+}) {
+  return (
+    <MobileSheet open={open} onClose={onClose} title={title} eyebrow="Konfirmasi">
+      <div className="space-y-4 p-4">
+        <div
+          className={cn(
+            "rounded-[1.25rem] border px-4 py-3 text-sm leading-6",
+            tone === "blue" && "border-blue-100 bg-blue-50 text-blue-900 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100",
+            tone === "orange" && "border-orange-100 bg-orange-50 text-orange-900 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-100",
+            tone === "emerald" && "border-emerald-100 bg-emerald-50 text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-100",
+            tone === "slate" && "border-slate-200 bg-slate-50 text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200",
+          )}
+        >
+          {description}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-12 rounded-2xl"
+            onClick={onClose}
+            disabled={submitting}
+          >
+            Batal
+          </Button>
+          <Button
+            type="button"
+            className={cn(
+              "h-12 rounded-2xl text-white",
+              tone === "blue" && "bg-blue-600 hover:bg-blue-500",
+              tone === "orange" && "bg-orange-500 hover:bg-orange-400",
+              tone === "emerald" && "bg-emerald-600 hover:bg-emerald-500",
+              tone === "slate" && "bg-slate-950 hover:bg-slate-800 dark:bg-white dark:text-slate-950",
+            )}
+            onClick={() => void onConfirm()}
+            disabled={submitting}
+          >
+            {submitting ? "Memproses..." : confirmLabel}
+          </Button>
+        </div>
+      </div>
+    </MobileSheet>
   );
 }
 

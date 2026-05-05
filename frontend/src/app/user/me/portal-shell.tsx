@@ -21,6 +21,7 @@ export function CustomerPortalShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const headerMeta = resolveHeaderMeta(pathname);
 
   const handleLogout = () => {
     clearTenantSession({ keepTenantSlug: true });
@@ -28,15 +29,15 @@ export function CustomerPortalShell({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-950 transition-colors dark:bg-[#060911] dark:text-white">
+    <div className="min-h-screen bg-slate-100/80 text-slate-950 transition-colors dark:bg-[#060911] dark:text-white">
       <div className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/92 backdrop-blur-xl dark:border-white/10 dark:bg-[#060911]/92">
-        <div className="mx-auto flex h-15 max-w-6xl items-center justify-between gap-3 px-4 md:px-6">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-3 md:px-5">
           <div className="min-w-0">
             <div className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-600 dark:text-blue-300">
-              Customer
+              {headerMeta.eyebrow}
             </div>
-            <div className="truncate text-sm font-bold uppercase tracking-tight text-slate-950 dark:text-white">
-              Bookinaja
+            <div className="truncate text-sm font-semibold tracking-tight text-slate-950 dark:text-white">
+              {headerMeta.title}
             </div>
           </div>
 
@@ -67,14 +68,14 @@ export function CustomerPortalShell({
             variant="outline"
             size="icon"
             onClick={handleLogout}
-            className="rounded-2xl dark:border-white/10 dark:bg-white/[0.03]"
+            className="h-10 w-10 rounded-2xl border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.03]"
           >
             <LogOut className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      <main className="mx-auto max-w-6xl px-4 pb-24 pt-4 md:px-6 md:pb-10 md:pt-6">
+      <main className="w-full px-3 pb-24 pt-3 md:mx-auto md:max-w-6xl md:px-5 md:pb-8 md:pt-5">
         {children}
       </main>
 
@@ -103,4 +104,26 @@ export function CustomerPortalShell({
       </nav>
     </div>
   );
+}
+
+function resolveHeaderMeta(pathname: string) {
+  if (pathname.startsWith("/user/me/bookings/") && pathname.includes("/payment")) {
+    return { eyebrow: "Customer", title: "Pembayaran" };
+  }
+  if (pathname.startsWith("/user/me/bookings/") && pathname.includes("/live")) {
+    return { eyebrow: "Customer", title: "Live" };
+  }
+  if (pathname.startsWith("/user/me/bookings/")) {
+    return { eyebrow: "Customer", title: "Booking" };
+  }
+  if (pathname.startsWith("/user/me/active")) {
+    return { eyebrow: "Customer", title: "Aktif" };
+  }
+  if (pathname.startsWith("/user/me/history")) {
+    return { eyebrow: "Customer", title: "Riwayat" };
+  }
+  if (pathname.startsWith("/user/me/settings")) {
+    return { eyebrow: "Customer", title: "Profil" };
+  }
+  return { eyebrow: "Customer", title: "Home" };
 }

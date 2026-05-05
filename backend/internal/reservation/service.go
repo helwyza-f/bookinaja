@@ -772,6 +772,14 @@ func (s *Service) GetCustomerFnbMenu(ctx context.Context, tenantID string, searc
 	return s.fnbService.GetMenu(ctx, tID, search)
 }
 
+func (s *Service) GetCustomerFnbMenuByBooking(ctx context.Context, bookingID, tenantID, customerID, search string) ([]fnb.Item, error) {
+	detail, err := s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID)
+	if err != nil {
+		return nil, err
+	}
+	return s.GetCustomerFnbMenu(ctx, detail.TenantID.String(), search)
+}
+
 func (s *Service) GetCustomerAvailabilityByBooking(ctx context.Context, bookingID, tenantID, customerID string, date time.Time) ([]map[string]string, error) {
 	detail, err := s.ensureCustomerLiveSessionAccessible(ctx, bookingID, tenantID, customerID)
 	if err != nil {
