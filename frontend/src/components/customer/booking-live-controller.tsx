@@ -3,6 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
@@ -402,20 +410,37 @@ function ConfirmSheet({
   onConfirm: () => Promise<void>;
 }) {
   return (
-    <MobileSheet open={open} onClose={onClose} title={title} eyebrow="Konfirmasi">
-      <div className="space-y-4 p-4">
-        <div
-          className={cn(
-            "rounded-[1.25rem] border px-4 py-3 text-sm leading-6",
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && !submitting) onClose();
+      }}
+    >
+      <DialogContent className="max-w-sm overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-0 text-left dark:border-white/10 dark:bg-[#0b1020]">
+        <DialogHeader className="px-5 pb-0 pt-5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
+            Konfirmasi
+          </p>
+          <DialogTitle className="text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
+            {title}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 px-5 pb-5 pt-1">
+          <div
+            className={cn(
+              "rounded-[1.25rem] border px-4 py-3 text-sm leading-6",
             tone === "blue" && "border-blue-100 bg-blue-50 text-blue-900 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100",
             tone === "orange" && "border-orange-100 bg-orange-50 text-orange-900 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-100",
             tone === "emerald" && "border-emerald-100 bg-emerald-50 text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-100",
-            tone === "slate" && "border-slate-200 bg-slate-50 text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200",
-          )}
-        >
-          {description}
+              tone === "slate" && "border-slate-200 bg-slate-50 text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200",
+            )}
+          >
+            <DialogDescription className="text-sm leading-6 text-inherit">
+              {description}
+            </DialogDescription>
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <DialogFooter className="grid grid-cols-2 gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 dark:border-white/10 dark:bg-white/[0.03] sm:grid-cols-2 sm:justify-normal">
           <Button
             type="button"
             variant="outline"
@@ -439,9 +464,9 @@ function ConfirmSheet({
           >
             {submitting ? "Memproses..." : confirmLabel}
           </Button>
-        </div>
-      </div>
-    </MobileSheet>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

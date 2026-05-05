@@ -413,12 +413,14 @@ func (r *Repository) FindByIDForCustomer(ctx context.Context, id, tenantID, cust
 	}
 	query := `
 		SELECT 
-			b.*, c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
+			b.*, t.name as tenant_name, t.slug as tenant_slug,
+			c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
 			COALESCE(ri.price, 0) as unit_price, 
 			COALESCE(ri.unit_duration, 60) as unit_duration,
 			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) as total_resource,
 			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_fnb
 		FROM bookings b
+		JOIN tenants t ON t.id = b.tenant_id
 		JOIN customers c ON b.customer_id = c.id
 		JOIN resources res ON b.resource_id = res.id
 		LEFT JOIN booking_options bo ON bo.booking_id = b.id

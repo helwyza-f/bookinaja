@@ -115,13 +115,12 @@ export default function CustomerBookingDetail() {
   }, [params.id, router]);
 
   const fetchMenuItems = useCallback(async (slug?: string) => {
-    if (!slug) return;
     try {
       const menuRes = await api.get("/customer/fnb", {
-        params: { slug, booking_id: params.id },
+        params: { booking_id: params.id, ...(slug ? { slug } : {}) },
       });
       const items = Array.isArray(menuRes.data) ? menuRes.data : [];
-      if (items.length > 0) {
+      if (items.length > 0 || !slug) {
         setMenuItems(items);
         return;
       }
@@ -129,6 +128,10 @@ export default function CustomerBookingDetail() {
       const fallbackRes = await api.get("/public/fnb", { params: { slug } });
       setMenuItems(Array.isArray(fallbackRes.data) ? fallbackRes.data : []);
     } catch {
+      if (!slug) {
+        setMenuItems([]);
+        return;
+      }
       try {
         const fallbackRes = await api.get("/public/fnb", { params: { slug } });
         setMenuItems(Array.isArray(fallbackRes.data) ? fallbackRes.data : []);
@@ -228,11 +231,7 @@ export default function CustomerBookingDetail() {
       }
 
       const currentSlug = detail?.tenant_slug;
-      if (currentSlug) {
-        await fetchMenuItems(currentSlug);
-      } else {
-        setTimeout(() => fetchMenuItems(booking?.tenant_slug), 2000);
-      }
+      await fetchMenuItems(currentSlug || booking?.tenant_slug);
       await fetchLiveContext();
 
       if (cancelled) return;
@@ -433,6 +432,24 @@ export default function CustomerBookingDetail() {
         Number(item.totalPrice || 0) / Math.max(Number(item.quantity || 1), 1),
     }));
   }, [booking?.options]);
+
+  const groupedMainOptions = useMemo(
+    () =>
+      groupedOptions.filter((item: any) =>
+        ["main", "main_option", "console_option"].includes(
+          String(item.item_type || "").toLowerCase(),
+        ),
+      ),
+    [groupedOptions],
+  );
+
+  const groupedAddonOptions = useMemo(
+    () =>
+      groupedOptions.filter(
+        (item: any) => String(item.item_type || "").toLowerCase() === "add_on",
+      ),
+    [groupedOptions],
+  );
 
   const groupedOrders = useMemo(() => {
     if (!booking?.orders) return [];
@@ -639,17 +656,17 @@ export default function CustomerBookingDetail() {
         </Card>
 
         {countdownData ? (
-          <Card
+          <div
             className={cn(
               "rounded-[1.75rem] border p-4 shadow-sm",
               countdownData.type === "LIVE"
-                ? "border-slate-950 bg-slate-950 text-white dark:border-slate-800 dark:bg-slate-950"
-                : "border-blue-200 bg-blue-600 text-white dark:border-blue-500/20 dark:bg-blue-600",
+                ? "border-slate-900 bg-slate-950 text-white dark:border-white/10 dark:bg-[#0e1628]"
+                : "border-cyan-300 bg-cyan-500 text-white dark:border-cyan-400/40 dark:bg-cyan-500",
             )}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-70">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
                   {countdownData.label}
                 </p>
                 <p
@@ -661,14 +678,14 @@ export default function CustomerBookingDetail() {
                   {countdownData.h}:{countdownData.m}:{countdownData.s}
                 </p>
               </div>
-              <Badge className="border-none bg-white/10 text-white">
+              <Badge className="border-none bg-white/12 text-white dark:bg-white/12">
                 {countdownData.type === "LIVE" ? "Sesi berjalan" : "Menunggu mulai"}
               </Badge>
             </div>
             {countdownData.type === "LIVE" && countdownData.isCritical ? (
-              <p className="mt-3 text-sm text-amber-100">Waktu hampir habis.</p>
+              <p className="mt-3 text-sm text-amber-200">Waktu hampir habis.</p>
             ) : null}
-          </Card>
+          </div>
         ) : null}
 
         {paymentNotice ? (
@@ -798,7 +815,7 @@ export default function CustomerBookingDetail() {
               </p>
             </div>
             <Badge className="border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
-              {groupedOptions.length + groupedOrders.length} item
+              {groupedMainOptions.length + groupedAddonOptions.length + groupedOrders.length} item
             </Badge>
           </div>
 
@@ -806,19 +823,38 @@ export default function CustomerBookingDetail() {
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                 <Wallet className="h-4 w-4 text-blue-600" />
-                Rental & add-on
+                Layanan utama
               </div>
-              {groupedOptions.length ? (
-                groupedOptions.map((opt: any) => (
+              {groupedMainOptions.length ? (
+                groupedMainOptions.map((opt: any) => (
                   <LineRow
                     key={`${opt.item_name}-${opt.item_type}`}
                     title={opt.item_name}
-                    subtitle={`${opt.quantity} ${opt.item_type.includes("main") ? getUnitLabel(booking.unit_duration) : "unit"} · Rp ${Number(opt.unitPrice || 0).toLocaleString("id-ID")}`}
+                    subtitle={`${opt.quantity} ${getUnitLabel(booking.unit_duration)} · Rp ${Number(opt.unitPrice || 0).toLocaleString("id-ID")}`}
                     value={`Rp ${Number(opt.totalPrice || 0).toLocaleString("id-ID")}`}
                   />
                 ))
               ) : (
-                <EmptyState label="Belum ada item rental atau add-on tambahan." />
+                <EmptyState label="Belum ada layanan utama." />
+              )}
+            </div>
+
+            <div className="space-y-2 border-t border-slate-200 pt-4 dark:border-white/10">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+                <CreditCard className="h-4 w-4 text-emerald-600" />
+                Add-on
+              </div>
+              {groupedAddonOptions.length ? (
+                groupedAddonOptions.map((opt: any) => (
+                  <LineRow
+                    key={`${opt.item_name}-${opt.item_type}`}
+                    title={opt.item_name}
+                    subtitle={`${opt.quantity} unit · Rp ${Number(opt.unitPrice || 0).toLocaleString("id-ID")}`}
+                    value={`Rp ${Number(opt.totalPrice || 0).toLocaleString("id-ID")}`}
+                  />
+                ))
+              ) : (
+                <EmptyState label="Belum ada add-on." />
               )}
             </div>
 
@@ -985,3 +1021,4 @@ function TicketSkeleton() {
     </div>
   );
 }
+
