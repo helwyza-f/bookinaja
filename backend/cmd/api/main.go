@@ -163,6 +163,9 @@ func main() {
 			log.Fatalf("mqtt subscriber init error: %v", err)
 		}
 	}
+	if err := smartDeviceSvc.BootstrapMissingCommands(context.Background()); err != nil {
+		log.Printf("smart device bootstrap skipped: %v", err)
+	}
 	dispatcher.Start()
 	reconciler.Start()
 	scheduler.Start()
