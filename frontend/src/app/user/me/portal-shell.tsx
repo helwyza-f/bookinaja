@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { Compass, History, LogOut, Settings, Ticket } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Compass, History, Moon, Settings, SunMedium, Ticket } from "lucide-react";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { clearTenantSession } from "@/lib/tenant-session";
 
 const navItems = [
   { href: "/user/me", label: "Home", icon: Compass },
@@ -20,13 +20,9 @@ export function CustomerPortalShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
   const headerMeta = resolveHeaderMeta(pathname);
-
-  const handleLogout = () => {
-    clearTenantSession({ keepTenantSlug: true });
-    router.push("/user/login");
-  };
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
 
   return (
     <div className="min-h-screen bg-slate-100/80 text-slate-950 transition-colors dark:bg-[#060911] dark:text-white">
@@ -67,10 +63,11 @@ export function CustomerPortalShell({
             type="button"
             variant="outline"
             size="icon"
-            onClick={handleLogout}
+            onClick={() => setTheme(isDark ? "light" : "dark")}
             className="h-10 w-10 rounded-2xl border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.03]"
+            aria-label={isDark ? "Pakai mode terang" : "Pakai mode gelap"}
           >
-            <LogOut className="h-4 w-4" />
+            {isDark ? <SunMedium className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
         </div>
       </div>
