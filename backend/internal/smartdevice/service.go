@@ -143,6 +143,9 @@ func (s *Service) Assign(ctx context.Context, tenantID, deviceID string, actorID
 		return err
 	}
 	if item, err := s.repo.FindByTenantAndID(ctx, tID, dID); err == nil {
+		if bootstrapErr := s.ensureBootstrapCommand(ctx, item); bootstrapErr != nil {
+			return bootstrapErr
+		}
 		s.emitDeviceRealtime("device.assigned", item, map[string]any{"actor_id": actorID, "resource_id": rID.String()})
 	}
 	return nil
@@ -179,6 +182,11 @@ func (s *Service) Enable(ctx context.Context, tenantID, deviceID string, actorID
 		return err
 	}
 	if item, err := s.repo.FindByTenantAndID(ctx, tID, dID); err == nil {
+		if enabled {
+			if bootstrapErr := s.ensureBootstrapCommand(ctx, item); bootstrapErr != nil {
+				return bootstrapErr
+			}
+		}
 		eventType := "device.enabled"
 		if !enabled {
 			eventType = "device.disabled"
@@ -285,9 +293,25 @@ func (s *Service) Pair(ctx context.Context, req PairDeviceReq) (*Device, error) 
 	}
 	if device.TenantID != nil {
 		_ = s.repo.InsertEvent(ctx, device.ID, device.TenantID, nil, "device", "device.paired", "Device paired", "Device berhasil pairing ke backend.", nil)
+		if bootstrapErr := s.ensureBootstrapCommand(ctx, device); bootstrapErr != nil {
+			return nil, bootstrapErr
+		}
 	}
 	s.emitDeviceRealtime("device.paired", device, nil)
 	return device, nil
+}
+
+func (s *Service) BootstrapMissingCommands(ctx context.Context) error {
+	items, err := s.repo.ListBootstrapCandidates(ctx)
+	if err != nil {
+		return err
+	}
+	for i := range items {
+		if err := s.ensureBootstrapCommand(ctx, &items[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Service) EnqueueSessionStart(ctx context.Context, tenantID, bookingID string) error {
@@ -544,6 +568,20 @@ func (s *Service) ReconcileDesiredStateForDevice(ctx context.Context, device *De
 	return s.EnqueueStandbyByResource(ctx, device.TenantID.String(), device.ResourceID.String())
 }
 
+func (s *Service) ensureBootstrapCommand(ctx context.Context, device *Device) error {
+	if device == nil || device.TenantID == nil || device.ResourceID == nil || !device.IsEnabled {
+		return nil
+	}
+	hasHistory, err := s.repo.HasCommandHistory(ctx, device.ID)
+	if err != nil {
+		return err
+	}
+	if hasHistory {
+		return nil
+	}
+	return s.ReconcileDesiredStateForDevice(ctx, device)
+}
+
 func (s *Service) buildPayload(commandID uuid.UUID, device Device, req TestDeviceReq, issuedAt time.Time, bookingID string, resourceID string) ([]byte, string, string, error) {
 	event := strings.TrimSpace(req.Event)
 	if event == "" {
@@ -565,16 +603,19 @@ func (s *Service) buildPayload(commandID uuid.UUID, device Device, req TestDevic
 	if !colorPattern.MatchString(color) {
 		return nil, "", "", errors.New("FORMAT COLOR HEX TIDAK VALID")
 	}
+	audioIndex := req.AudioIndex
+	if audioIndex < 0 {
+		return nil, "", "", errors.New("AUDIO INDEX TIDAK VALID")
+	}
 	volume := req.Volume
-	if volume <= 0 {
+	if volume < 0 {
+		return nil, "", "", errors.New("VOLUME TIDAK VALID")
+	}
+	if volume == 0 && !(audioIndex == 0 || strings.EqualFold(event, "standby") || lightMode == "off") {
 		volume = 20
 	}
 	if volume > 30 {
 		return nil, "", "", errors.New("VOLUME MAKSIMAL 30")
-	}
-	audioIndex := req.AudioIndex
-	if audioIndex < 0 {
-		return nil, "", "", errors.New("AUDIO INDEX TIDAK VALID")
 	}
 	dedupeKey := fmt.Sprintf("%s:%s:%d", event, device.ID.String(), issuedAt.UnixMilli())
 	payload := CommandPayload{
@@ -695,17 +736,17 @@ func (s *Service) emitDeviceCommandRealtime(eventType string, device *Device, co
 	event.EntityType = "device_command"
 	event.EntityID = command.ID.String()
 	event.Summary = map[string]any{
-		"device_id":      device.DeviceID,
-		"trigger_event":  command.TriggerEvent,
-		"status":         command.Status,
-		"booking_id":     command.BookingID,
-		"published_at":   command.PublishedAt,
-		"acked_at":       command.AckedAt,
+		"device_id":     device.DeviceID,
+		"trigger_event": command.TriggerEvent,
+		"status":        command.Status,
+		"booking_id":    command.BookingID,
+		"published_at":  command.PublishedAt,
+		"acked_at":      command.AckedAt,
 	}
 	event.Refs = map[string]any{
-		"device_id":        device.ID.String(),
+		"device_id":         device.ID.String(),
 		"device_command_id": command.ID.String(),
-		"booking_id":       command.BookingID,
+		"booking_id":        command.BookingID,
 	}
 	event.Meta = meta
 	_ = s.realtime.Publish(platformrealtime.TenantDevicesChannel(device.TenantID.String()), event)

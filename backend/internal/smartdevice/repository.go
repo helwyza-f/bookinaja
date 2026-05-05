@@ -107,6 +107,40 @@ func (r *Repository) FindByDeviceID(ctx context.Context, deviceID string) (*Devi
 	return &item, nil
 }
 
+func (r *Repository) ListBootstrapCandidates(ctx context.Context) ([]Device, error) {
+	var items []Device
+	err := r.db.SelectContext(ctx, &items, `
+		SELECT d.*
+		FROM smart_devices d
+		WHERE d.tenant_id IS NOT NULL
+		  AND d.resource_id IS NOT NULL
+		  AND d.is_enabled = true
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM smart_device_commands c
+			WHERE c.device_id = d.id
+		  )
+		ORDER BY d.created_at ASC`)
+	if err != nil {
+		return nil, err
+	}
+	normalizeDevices(items)
+	return items, nil
+}
+
+func (r *Repository) HasCommandHistory(ctx context.Context, deviceID uuid.UUID) (bool, error) {
+	var exists bool
+	if err := r.db.GetContext(ctx, &exists, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM smart_device_commands
+			WHERE device_id = $1
+		)`, deviceID); err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
 func (r *Repository) UpsertClaim(ctx context.Context, tenantID uuid.UUID, actorID *uuid.UUID, deviceID, deviceName, deviceKeyHash string) (*Device, error) {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
