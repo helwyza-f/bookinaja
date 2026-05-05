@@ -120,7 +120,7 @@ func main() {
 	smartDeviceSvc := smartdevice.NewService(smartDeviceRepo, mqttClient, realtimeHub)
 	reservationSvc := reservation.NewService(reservationRepo, resourceRepo, customerSvc, fnbSvc, smartDeviceSvc, realtimeHub)
 	scheduler := reservation.NewScheduler(db, reservationRepo, smartDeviceSvc)
-	billingSvc := billing.NewService(db, billingRepo)
+	billingSvc := billing.NewService(db, billingRepo, realtimeHub)
 	platformSvc := platformadmin.NewService()
 	dispatcher := smartdevice.NewDispatcher(smartDeviceRepo, mqttClient)
 	subscriber := smartdevice.NewSubscriber(smartDeviceSvc, mqttClient)

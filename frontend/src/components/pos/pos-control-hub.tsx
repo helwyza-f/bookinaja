@@ -75,6 +75,17 @@ export type POSSessionDetail = ExtendSession & {
   balance_due?: number;
   paid_amount?: number;
   grand_total?: number;
+  payment_methods?: Array<{
+    code: string;
+    display_name: string;
+    verification_type: string;
+  }>;
+  payment_attempts?: Array<{
+    id: string;
+    method_label: string;
+    status: string;
+    payment_scope: string;
+  }>;
   options?: POSLineItem[];
   orders?: POSOrderItem[];
 };
@@ -133,6 +144,11 @@ export function POSControlHub({
   const isPaymentSettled =
     paymentStatus === "settled" ||
     (paymentStatus === "paid" && Number(session.balance_due || 0) === 0);
+  const paymentMethods = session.payment_methods || [];
+  const pendingPaymentAttempts =
+    (session.payment_attempts || []).filter(
+      (item) => item.status === "submitted" || item.status === "awaiting_verification",
+    );
 
   const handleReceiptAction = async (mode: "whatsapp" | "print" | "both") => {
     if (!canUseReceipt) {
@@ -556,6 +572,23 @@ export function POSControlHub({
             <ChevronUp className="w-4 h-4 animate-bounce group-hover:scale-125 transition-transform" />
           </Button>
         </div>
+        {isOutstanding && paymentMethods.length > 0 ? (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {paymentMethods.map((method) => (
+              <span
+                key={method.code}
+                className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-slate-200"
+              >
+                {method.display_name}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {pendingPaymentAttempts.length > 0 ? (
+          <div className="mb-3 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[11px] font-semibold text-amber-100">
+            Ada {pendingPaymentAttempts.length} pembayaran manual yang menunggu verifikasi admin.
+          </div>
+        ) : null}
         {isPaymentSettled && canUseReceiptActions && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

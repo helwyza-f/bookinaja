@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	platformrealtime "github.com/helwiza/backend/internal/platform/realtime"
 	"github.com/helwiza/backend/internal/platform/fonnte"
+	platformrealtime "github.com/helwiza/backend/internal/platform/realtime"
 	"github.com/jmoiron/sqlx"
 	"math/big"
 )
@@ -143,6 +143,18 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 			if err != nil {
 				return err
 			}
+			attempt, err := s.repo.GetBookingPaymentAttemptByGatewayOrderID(ctx, tx, orderID)
+			if err != nil {
+				return err
+			}
+			bookingMethod := paymentType
+			if attempt != nil && strings.TrimSpace(attempt.MethodCode) != "" {
+				bookingMethod = attempt.MethodCode
+			}
+			var bookingMethodPtr *string
+			if bookingMethod != "" {
+				bookingMethodPtr = &bookingMethod
+			}
 			isSettlement := paymentKind == "due"
 			bookingInfo, err := s.repo.GetBookingNotificationContext(ctx, tx, bookingID)
 			if err != nil {
@@ -154,10 +166,15 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 			logCommon.TenantID = &bookingInfo.TenantID
 			logCommon.ProcessingStatus = "processed"
 			if isSettlement {
-				if err := s.repo.UpdateBookingSettlementFromMidtrans(ctx, tx, bookingID, newStatus, txIDPtr, paymentTypePtr, payload); err != nil {
+				if err := s.repo.UpdateBookingSettlementFromMidtrans(ctx, tx, bookingID, newStatus, txIDPtr, bookingMethodPtr, payload); err != nil {
 					logCommon.ProcessingStatus = "failed"
 					logCommon.ErrorMessage = err.Error()
 					return s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon)
+				}
+				if attempt != nil && isFinalStatus {
+					if err := s.repo.MarkBookingPaymentAttemptStatus(ctx, tx, attempt.ID, "paid", txIDPtr, nil); err != nil {
+						return err
+					}
 				}
 				if isFinalStatus {
 					if err := s.repo.CreateBookingEvent(ctx, tx, bookingInfo, "payment", "payment.settlement.paid", "Pelunasan digital diterima", "Midtrans mengonfirmasi pembayaran pelunasan.", map[string]any{"order_id": orderID, "status": newStatus, "payment_type": paymentType}); err != nil {
@@ -209,10 +226,15 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 				}
 				return nil
 			}
-			if err := s.repo.UpdateBookingPaymentFromMidtrans(ctx, tx, bookingID, newStatus, txIDPtr, paymentTypePtr, payload); err != nil {
+			if err := s.repo.UpdateBookingPaymentFromMidtrans(ctx, tx, bookingID, newStatus, txIDPtr, bookingMethodPtr, payload); err != nil {
 				logCommon.ProcessingStatus = "failed"
 				logCommon.ErrorMessage = err.Error()
 				return s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon)
+			}
+			if attempt != nil && isFinalStatus {
+				if err := s.repo.MarkBookingPaymentAttemptStatus(ctx, tx, attempt.ID, "paid", txIDPtr, nil); err != nil {
+					return err
+				}
 			}
 			if isFinalStatus {
 				if err := s.repo.CreateBookingEvent(ctx, tx, bookingInfo, "payment", "payment.dp.paid", "DP digital diterima", "Midtrans mengonfirmasi pembayaran DP.", map[string]any{"order_id": orderID, "status": newStatus, "payment_type": paymentType}); err != nil {

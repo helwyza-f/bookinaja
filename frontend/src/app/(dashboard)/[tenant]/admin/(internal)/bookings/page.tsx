@@ -93,8 +93,12 @@ const isOperationallyActive = (booking: BookingRow) => {
 };
 
 const getBookingStatusMeta = (booking: BookingRow) => {
+  const paymentStatus = String(booking.payment_status || "").toLowerCase();
   if (isOperationallyActive(booking) && booking.status === "completed") {
     return { label: "Perlu Pelunasan", className: "bg-amber-500 text-white" };
+  }
+  if (paymentStatus === "awaiting_verification") {
+    return { label: "Menunggu Verifikasi", className: "bg-amber-500 text-white" };
   }
   if (booking.status === "active" || booking.status === "ongoing") {
     return { label: "Aktif", className: "bg-emerald-500 text-white" };
@@ -220,6 +224,12 @@ export default function BookingsPage() {
     const depositAmount = Number(booking?.deposit_amount || 0);
     const balanceDue = Number(booking?.balance_due || 0);
 
+    if (status === "awaiting_verification") {
+      return {
+        label: "Menunggu Verifikasi Admin",
+        className: "bg-amber-500 text-white",
+      };
+    }
     if (status === "settled" || (status === "paid" && balanceDue === 0)) {
       return { label: "Lunas", className: "bg-emerald-500 text-white" };
     }

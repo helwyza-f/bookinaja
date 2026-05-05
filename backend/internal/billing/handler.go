@@ -159,10 +159,147 @@ func (h *Handler) BookingCheckout(c *gin.Context) {
 	if mode == "" {
 		mode = c.Query("type")
 	}
-	res, err := h.svc.CheckoutBookingPayment(c.Request.Context(), tenantID, tenantSlug, bID, mode)
+	method := c.Query("method")
+	if method == "" {
+		var req BookingCheckoutReq
+		_ = c.ShouldBindJSON(&req)
+		if req.Method != "" {
+			method = req.Method
+		}
+	}
+	res, err := h.svc.CheckoutBookingPayment(c.Request.Context(), tenantID, tenantSlug, bID, mode, method)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) ListTenantPaymentMethods(c *gin.Context) {
+	tenantIDVal, ok := c.Get("tenantID")
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID missing"})
+		return
+	}
+	tenantID, err := uuid.Parse(tenantIDVal.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID invalid"})
+		return
+	}
+	items, err := h.svc.ListTenantPaymentMethods(c.Request.Context(), tenantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
+func (h *Handler) SubmitManualBookingPayment(c *gin.Context) {
+	var req BookingPaymentManualSubmitReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "payload invalid"})
+		return
+	}
+
+	if req.BookingID == "" {
+		req.BookingID = c.Param("id")
+	}
+	bookingID, err := uuid.Parse(req.BookingID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bookingID invalid"})
+		return
+	}
+
+	var tenantID uuid.UUID
+	if tenantIDVal, ok := c.Get("tenantID"); ok {
+		tenantID, err = uuid.Parse(tenantIDVal.(string))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID invalid"})
+			return
+		}
+	} else {
+		tenantID, err = h.svc.ResolveBookingTenantID(c.Request.Context(), bookingID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID missing"})
+			return
+		}
+	}
+
+	var customerID *uuid.UUID
+	if raw, exists := c.Get("customerID"); exists {
+		if parsed, err := uuid.Parse(raw.(string)); err == nil {
+			customerID = &parsed
+		}
+	}
+
+	res, err := h.svc.SubmitManualBookingPayment(c.Request.Context(), tenantID, bookingID, customerID, req.Scope, req.Method, req.Note, req.ProofURL)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) VerifyManualBookingPayment(c *gin.Context) {
+	tenantIDVal, ok := c.Get("tenantID")
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID missing"})
+		return
+	}
+	tenantID, err := uuid.Parse(tenantIDVal.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID invalid"})
+		return
+	}
+	attemptID, err := uuid.Parse(c.Param("attempt_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "attemptID invalid"})
+		return
+	}
+	var req BookingPaymentVerificationReq
+	_ = c.ShouldBindJSON(&req)
+	if err := h.svc.VerifyManualBookingPayment(c.Request.Context(), tenantID, attemptID, true, req.Notes); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Pembayaran manual diverifikasi"})
+}
+
+func (h *Handler) RejectManualBookingPayment(c *gin.Context) {
+	tenantIDVal, ok := c.Get("tenantID")
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID missing"})
+		return
+	}
+	tenantID, err := uuid.Parse(tenantIDVal.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID invalid"})
+		return
+	}
+	attemptID, err := uuid.Parse(c.Param("attempt_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "attemptID invalid"})
+		return
+	}
+	var req BookingPaymentVerificationReq
+	_ = c.ShouldBindJSON(&req)
+	if err := h.svc.VerifyManualBookingPayment(c.Request.Context(), tenantID, attemptID, false, req.Notes); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Pembayaran manual ditolak"})
+}
+
+func (h *Handler) ListBookingPaymentAttempts(c *gin.Context) {
+	bookingID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bookingID invalid"})
+		return
+	}
+	items, err := h.svc.ListBookingPaymentAttempts(c.Request.Context(), bookingID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
 }

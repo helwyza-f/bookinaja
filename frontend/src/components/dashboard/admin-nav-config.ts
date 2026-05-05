@@ -2,6 +2,7 @@ import {
   BarChart3,
   CalendarDays,
   CreditCard,
+  Landmark,
   Link2,
   Printer,
   Grid2x2,
@@ -78,6 +79,13 @@ export const settingsNavItems: AdminNavItem[] = [
     href: "/admin/devices",
     icon: Radio,
     hint: "Alat, pairing, status",
+    group: "system",
+  },
+  {
+    label: "Metode Bayar",
+    href: "/admin/settings/payment-methods",
+    icon: Landmark,
+    hint: "Transfer, QRIS, cash, gateway",
     group: "system",
   },
   {

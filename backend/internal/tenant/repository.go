@@ -579,6 +579,43 @@ func (r *Repository) Update(ctx context.Context, t Tenant) error {
 	return nil
 }
 
+func (r *Repository) ListPaymentMethods(ctx context.Context, tenantID uuid.UUID) ([]TenantPaymentMethod, error) {
+	var items []TenantPaymentMethod
+	err := r.db.SelectContext(ctx, &items, `
+		SELECT id, tenant_id, code, display_name, category, verification_type, provider, instructions, is_active, sort_order, metadata, created_at, updated_at
+		FROM tenant_payment_methods
+		WHERE tenant_id = $1
+		ORDER BY sort_order ASC, created_at ASC`,
+		tenantID,
+	)
+	return items, err
+}
+
+func (r *Repository) ReplacePaymentMethods(ctx context.Context, tenantID uuid.UUID, items []TenantPaymentMethod) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM tenant_payment_methods WHERE tenant_id = $1`, tenantID); err != nil {
+		return err
+	}
+
+	for _, item := range items {
+		if _, err := tx.NamedExecContext(ctx, `
+			INSERT INTO tenant_payment_methods (
+				id, tenant_id, code, display_name, category, verification_type, provider, instructions, is_active, sort_order, metadata, created_at, updated_at
+			) VALUES (
+				:id, :tenant_id, :code, :display_name, :category, :verification_type, :provider, :instructions, :is_active, :sort_order, :metadata, :created_at, :updated_at
+			)`, item); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
 func (r *Repository) GetByReferralCode(ctx context.Context, code string) (*Tenant, error) {
 	var t Tenant
 	err := r.db.GetContext(ctx, &t, `SELECT * FROM tenants WHERE LOWER(TRIM(referral_code)) = $1 LIMIT 1`, strings.ToLower(strings.TrimSpace(code)))

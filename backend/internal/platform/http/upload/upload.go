@@ -22,7 +22,11 @@ func HandleSingleUpload(c *gin.Context, folderPrefix string) {
 		return
 	}
 
-	tenantID := c.MustGet("tenantID").(string)
+	tenantID, ok := tenantIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusForbidden, gin.H{"error": "tenantID missing"})
+		return
+	}
 
 	s3, err := storage.NewS3Client()
 	if err != nil {
@@ -91,7 +95,11 @@ func HandleBulkUpload(c *gin.Context, folderPrefix string) {
 		return
 	}
 
-	tenantID := c.MustGet("tenantID").(string)
+	tenantID, ok := tenantIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusForbidden, gin.H{"error": "tenantID missing"})
+		return
+	}
 
 	s3, err := storage.NewS3Client()
 	if err != nil {
@@ -109,4 +117,18 @@ func HandleBulkUpload(c *gin.Context, folderPrefix string) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"urls": urls})
+}
+
+func tenantIDFromContext(c *gin.Context) (string, bool) {
+	raw, exists := c.Get("tenantID")
+	if !exists {
+		return "", false
+	}
+
+	tenantID := strings.TrimSpace(raw.(string))
+	if tenantID == "" {
+		return "", false
+	}
+
+	return tenantID, true
 }

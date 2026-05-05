@@ -3,7 +3,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Script from "next/script";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,6 @@ import {
   CheckCircle2,
   Share2,
   Clock,
-  CreditCard,
 } from "lucide-react";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -48,7 +46,6 @@ export default function CustomerBookingDetail() {
   const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
   const [liveNotice, setLiveNotice] = useState<string | null>(null);
   const [menuItems, setMenuItems] = useState<any[]>([]);
-  const [midtransReady, setMidtransReady] = useState(false);
   const [activating, setActivating] = useState(false);
   const [customerId, setCustomerId] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -106,6 +103,11 @@ export default function CustomerBookingDetail() {
   }, []);
 
   const fetchLiveContext = useCallback(async () => {
+    const status = String(booking?.status || "").toLowerCase();
+    if (status !== "active" && status !== "ongoing") {
+      setLiveNotice(null);
+      return;
+    }
     try {
       const res = await api.get(`/user/me/bookings/${params.id}/context`);
       if (res.data?.booking) {
@@ -121,7 +123,7 @@ export default function CustomerBookingDetail() {
         setLiveNotice(message);
       }
     }
-  }, [params.id]);
+  }, [booking?.status, params.id]);
 
   const scheduleDetailRefresh = useCallback(
     (delay = 300) => {
@@ -254,6 +256,10 @@ export default function CustomerBookingDetail() {
         lastRealtimeToastRef.current = eventKey;
         if (event.type === "payment.dp.paid") {
           toast.success("DP sudah diterima");
+        } else if (event.type === "payment.awaiting_verification") {
+          toast.message("Pembayaran menunggu verifikasi admin");
+        } else if (event.type === "payment.manual.rejected") {
+          toast.error("Pembayaran manual ditolak admin");
         } else if (event.type === "payment.settlement.paid" || event.type === "payment.cash.settled") {
           toast.success("Pembayaran booking sudah lunas");
         } else if (event.type === "session.activated") {
@@ -275,12 +281,6 @@ export default function CustomerBookingDetail() {
     },
   });
 
-  useEffect(() => {
-    if (window.snap) {
-      setMidtransReady(true);
-    }
-  }, []);
-
   const isActiveStatus = useMemo(
     () => booking?.status === "active" || booking?.status === "ongoing",
     [booking],
@@ -291,8 +291,31 @@ export default function CustomerBookingDetail() {
   const paidAmount = Number(booking?.paid_amount || 0);
   const paymentStatus = (booking?.payment_status || "").toLowerCase();
   const sessionStatus = (booking?.status || "").toLowerCase();
+  const paymentAttempts = useMemo(
+    () => booking?.payment_attempts || [],
+    [booking?.payment_attempts],
+  );
+  const pendingManualDpAttempt = useMemo(
+    () =>
+      paymentAttempts.find(
+        (item: any) =>
+          item?.payment_scope === "deposit" &&
+          (item?.status === "submitted" || item?.status === "awaiting_verification"),
+      ),
+    [paymentAttempts],
+  );
+  const pendingManualSettlementAttempt = useMemo(
+    () =>
+      paymentAttempts.find(
+        (item: any) =>
+          item?.payment_scope === "settlement" &&
+          (item?.status === "submitted" || item?.status === "awaiting_verification"),
+      ),
+    [paymentAttempts],
+  );
   const paymentLabel = useMemo(() => {
     if (paymentStatus === "settled") return "Lunas";
+    if (paymentStatus === "awaiting_verification") return "Menunggu Verifikasi";
     if (paymentStatus === "partial_paid") return "DP Masuk";
     if (paymentStatus === "paid") return balanceDue > 0 ? "DP Masuk" : "Lunas";
     if (paymentStatus === "pending") return "Menunggu DP";
@@ -306,6 +329,8 @@ export default function CustomerBookingDetail() {
       ? "bg-emerald-500 text-white"
       : paymentStatus === "partial_paid" || paymentStatus === "paid"
         ? "bg-blue-600 text-white"
+        : paymentStatus === "awaiting_verification"
+          ? "bg-amber-500 text-white"
         : paymentStatus === "expired" || paymentStatus === "failed"
           ? "bg-red-500 text-white"
           : "bg-orange-500 text-white";
@@ -404,40 +429,6 @@ export default function CustomerBookingDetail() {
     return "Sesi";
   };
 
-  const handlePayBooking = async (mode: "dp" | "settlement") => {
-    try {
-      const res = await api.post(
-        `/public/bookings/${params.id}/checkout?mode=${mode}&slug=${booking.tenant_slug}`,
-      );
-      const snap = await waitForSnap();
-      if (!snap) return;
-      snap.pay(res.data.snap_token, {
-        onSuccess: () => {
-          setPaymentNotice(
-            mode === "dp"
-              ? "DP sudah dibayar. Sistem sedang memperbarui status booking."
-              : "Pelunasan sudah dibayar. Sistem sedang memperbarui status booking.",
-          );
-          toast.success(mode === "dp" ? "DP berhasil dibayar" : "Pelunasan berhasil dibayar");
-          fetchDetail();
-          setTimeout(fetchDetail, 4000);
-        },
-        onPending: () => {
-          setPaymentNotice("Pembayaran masih menunggu konfirmasi Midtrans.");
-          toast.message("Pembayaran tertunda");
-          fetchDetail();
-        },
-        onError: () => {
-          setPaymentNotice("Pembayaran gagal atau dibatalkan.");
-          toast.error("Pembayaran gagal");
-        },
-        onClose: () => fetchDetail(),
-      });
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Gagal membuka pembayaran");
-    }
-  };
-
   const handleActivateSession = async () => {
     setActivating(true);
     try {
@@ -453,47 +444,6 @@ export default function CustomerBookingDetail() {
     }
   };
 
-  const waitForSnap = async () => {
-    if (window.snap) return window.snap;
-    const started = Date.now();
-    while (Date.now() - started < 5000) {
-      if (window.snap) return window.snap;
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-    const injected = await loadMidtransSnap();
-    if (injected) return injected;
-    toast.error("Midtrans belum siap. Coba tunggu sebentar lalu ulangi.");
-    return null;
-  };
-
-  const loadMidtransSnap = async () => {
-    if (window.snap) return window.snap;
-    if (typeof window === "undefined") return null;
-
-    const existing = (window as any).__midtransSnapPromise as Promise<any> | undefined;
-    if (existing) return existing;
-
-    const promise = new Promise<any>((resolve) => {
-      const script = document.createElement("script");
-      script.src =
-        (
-          process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION || ""
-        ).toLowerCase() === "true"
-          ? "https://app.midtrans.com/snap/snap.js"
-          : "https://app.sandbox.midtrans.com/snap/snap.js";
-      script.setAttribute(
-        "data-client-key",
-        process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "",
-      );
-      script.async = true;
-      script.onload = () => resolve(window.snap || null);
-      script.onerror = () => resolve(null);
-      document.head.appendChild(script);
-    });
-
-    (window as any).__midtransSnapPromise = promise;
-    return promise;
-  };
 
   const handleAddFnb = async (cartItems: any[]) => {
     for (const item of cartItems) {
@@ -594,19 +544,6 @@ export default function CustomerBookingDetail() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#050505] font-plus-jakarta pb-24 transition-colors overflow-x-hidden">
-      <Script
-        src={
-          (
-            process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION || ""
-          ).toLowerCase() === "true"
-            ? "https://app.midtrans.com/snap/snap.js"
-            : "https://app.sandbox.midtrans.com/snap/snap.js"
-        }
-        data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
-        strategy="afterInteractive"
-        onLoad={() => setMidtransReady(true)}
-        onError={() => setMidtransReady(false)}
-      />
       <nav className="hidden h-16 items-center justify-between px-4 sticky top-0 z-50 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b dark:border-white/5">
         <Button
           variant="ghost"
@@ -940,64 +877,63 @@ export default function CustomerBookingDetail() {
                 Pembayaran Booking
               </p>
               <p className="mt-1 text-sm font-[1000] italic text-slate-900 dark:text-white">
-                {depositAmount > 0
-                  ? "Booking ini memakai flow DP"
-                  : "Booking ini bisa langsung bayar di akhir sesi"}
+                Flow pembayaran dipisah ke halaman khusus
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 p-4">
-              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
-                Total
-              </p>
+              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">Total</p>
               <p className="mt-2 text-sm font-[1000] italic text-slate-950 dark:text-white">
                 Rp {Number(booking.grand_total || 0).toLocaleString()}
               </p>
             </div>
             <div className="rounded-2xl bg-emerald-500/5 border border-emerald-500/10 p-4">
-              <p className="text-[8px] font-black uppercase tracking-widest text-emerald-600 italic">
-                DP
-              </p>
+              <p className="text-[8px] font-black uppercase tracking-widest text-emerald-600 italic">DP</p>
               <p className="mt-2 text-sm font-[1000] italic text-emerald-600">
                 Rp {depositAmount.toLocaleString()}
               </p>
             </div>
             <div className="rounded-2xl bg-slate-950 text-white border border-slate-800 p-4">
-              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
-                Status
-              </p>
-              <p className="mt-2 text-sm font-[1000] italic">
-                {paymentLabel}
-              </p>
+              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">Status</p>
+              <p className="mt-2 text-sm font-[1000] italic">{paymentLabel}</p>
             </div>
           </div>
 
           <div className="rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50/80 dark:bg-white/5 px-4 py-3 text-[11px] font-bold leading-relaxed text-slate-700 dark:text-slate-200">
             {depositAmount > 0
-              ? paymentStatus === "pending"
-                ? `Bayar DP dulu sebesar Rp ${depositAmount.toLocaleString()} supaya booking bisa masuk ke flow aktivasi sesi.`
-                : `DP sudah tercatat. Sisa pembayaran akan muncul terpisah di bagian pelunasan setelah rincian item.`
-              : "Booking ini tidak membutuhkan DP. Pelunasan dilakukan dari tagihan akhir sesi."}
+              ? paymentStatus === "awaiting_verification"
+                ? `DP sedang menunggu verifikasi admin. Referensi pembayaran: ${pendingManualDpAttempt?.reference_code || "-"}.`
+                : paymentStatus === "pending"
+                  ? `Booking ini butuh DP sebesar Rp ${depositAmount.toLocaleString()} sebelum sesi bisa diaktifkan.`
+                  : "DP sudah tercatat. Kalau masih ada sisa, pelunasan tersedia di halaman pembayaran khusus."
+              : "Booking ini tidak membutuhkan DP. Jika ada sisa tagihan, pelunasan tetap diproses dari halaman pembayaran khusus."}
           </div>
 
-          {paymentStatus === "pending" && depositAmount > 0 && (
+          <div className="grid gap-3 sm:grid-cols-2">
             <Button
-              onClick={() => handlePayBooking("dp")}
-              disabled={!midtransReady}
-              className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-300 disabled:text-slate-600 text-white font-[1000] uppercase italic tracking-widest text-sm shadow-lg gap-2"
+              onClick={() => router.push(`/user/me/bookings/${booking.id}/payment?scope=deposit`)}
+              disabled={depositAmount <= 0 || paymentStatus !== "pending"}
+              className="h-12 rounded-2xl bg-blue-600 text-white hover:bg-blue-500"
             >
-              <CreditCard size={16} />
-              {midtransReady ? "Bayar DP Booking" : "Menyiapkan Midtrans..."}
+              Buka Halaman DP
             </Button>
-          )}
+            <Button
+              onClick={() => router.push(`/user/me/bookings/${booking.id}/payment?scope=settlement`)}
+              disabled={sessionStatus !== "completed" || balanceDue <= 0}
+              variant="outline"
+              className="h-12 rounded-2xl"
+            >
+              Buka Halaman Pelunasan
+            </Button>
+          </div>
 
-          {paymentNotice && (
+          {paymentNotice ? (
             <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/15 px-4 py-3 text-[11px] font-bold text-emerald-700 dark:text-emerald-200">
               {paymentNotice}
             </div>
-          )}
+          ) : null}
         </Card>
 
         <Card className="rounded-[2rem] border-none shadow-sm ring-1 ring-black/5 dark:ring-white/5 bg-white dark:bg-[#0c0c0c] p-4 space-y-5">
@@ -1080,7 +1016,7 @@ export default function CustomerBookingDetail() {
                   Pelunasan Sesi
                 </p>
                 <p className="mt-1 text-sm font-[1000] italic text-slate-900 dark:text-white">
-                  Bayar settlement di bagian paling bawah
+                  Proses pelunasan dibuka di halaman pembayaran khusus
                 </p>
               </div>
               <Badge className={cn("border-none px-3 py-1 text-[8px] font-black uppercase italic", paymentStateTone)}>
@@ -1117,14 +1053,21 @@ export default function CustomerBookingDetail() {
 
             {sessionStatus === "completed" ? (
               (paymentStatus === "partial_paid" || (paymentStatus === "paid" && balanceDue > 0)) ? (
-                <Button
-                  onClick={() => handlePayBooking("settlement")}
-                  disabled={!midtransReady}
-                  className="w-full h-14 rounded-2xl bg-slate-950 hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-600 text-white font-[1000] uppercase italic tracking-widest text-sm shadow-lg gap-2"
-                >
-                  <CreditCard size={16} />
-                  {midtransReady ? "Bayar Settlement" : "Menyiapkan Midtrans..."}
-                </Button>
+                <div className="space-y-3 rounded-[1.75rem] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                  <p className="text-[11px] font-bold leading-relaxed text-slate-700 dark:text-slate-200">
+                    Sesi selesai dan masih ada sisa tagihan. Lanjutkan pembayaran dari halaman khusus pelunasan supaya flow-nya lebih fokus.
+                  </p>
+                  <Button
+                    onClick={() => router.push(`/user/me/bookings/${booking.id}/payment?scope=settlement`)}
+                    className="h-12 w-full rounded-2xl bg-slate-950 text-white hover:bg-slate-800"
+                  >
+                    Buka Halaman Pelunasan
+                  </Button>
+                </div>
+              ) : paymentStatus === "awaiting_verification" && pendingManualSettlementAttempt ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] font-bold leading-relaxed text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100">
+                  Pelunasan manual sudah dikirim dan sedang menunggu verifikasi admin. Ref {pendingManualSettlementAttempt.reference_code}.
+                </div>
               ) : (
                 <div className="rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50/80 dark:bg-white/5 px-4 py-3 text-[11px] font-bold leading-relaxed text-slate-700 dark:text-slate-200">
                   {balanceDue > 0

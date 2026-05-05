@@ -54,6 +54,10 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			user.GET("/me/bookings/:id/availability", cfg.ReservationHandler.CustomerBookingAvailability)
 			user.POST("/me/bookings/:id/activate", cfg.ReservationHandler.CustomerActivate)
 			user.POST("/me/bookings/:id/complete", cfg.ReservationHandler.CustomerCompleteSession)
+			user.POST("/me/bookings/:id/upload-proof", func(c *gin.Context) {
+				upload.HandleSingleUpload(c, "payments/proofs")
+			})
+			user.POST("/me/bookings/:id/manual-payment", cfg.BillingHandler.SubmitManualBookingPayment)
 			user.POST("/me/bookings/:id/extend", cfg.ReservationHandler.CustomerExtendSession)
 			user.POST("/me/bookings/:id/orders", cfg.ReservationHandler.CustomerAddOrder)
 			user.POST("/me/bookings/:id/addons", cfg.ReservationHandler.CustomerAddAddonItem)
@@ -68,6 +72,10 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			customerArea.GET("/bookings/:id/availability", cfg.ReservationHandler.CustomerBookingAvailability)
 			customerArea.POST("/bookings/:id/activate", cfg.ReservationHandler.CustomerActivate)
 			customerArea.POST("/bookings/:id/complete", cfg.ReservationHandler.CustomerCompleteSession)
+			customerArea.POST("/bookings/:id/upload-proof", func(c *gin.Context) {
+				upload.HandleSingleUpload(c, "payments/proofs")
+			})
+			customerArea.POST("/bookings/:id/manual-payment", cfg.BillingHandler.SubmitManualBookingPayment)
 			customerArea.POST("/bookings/:id/extend", cfg.ReservationHandler.CustomerExtendSession)
 			customerArea.POST("/bookings/:id/orders", cfg.ReservationHandler.CustomerAddOrder)
 			customerArea.POST("/bookings/:id/addons", cfg.ReservationHandler.CustomerAddAddonItem)
@@ -95,6 +103,8 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 					ownerAdmin.DELETE("/growth/posts/:id", cfg.TenantHandler.DeleteTenantPost)
 					ownerAdmin.GET("/receipt-settings", cfg.TenantHandler.GetReceiptSettings)
 					ownerAdmin.PUT("/receipt-settings", cfg.TenantHandler.UpdateReceiptSettings)
+					ownerAdmin.GET("/payment-methods", cfg.TenantHandler.GetPaymentMethods)
+					ownerAdmin.PUT("/payment-methods", cfg.TenantHandler.UpdatePaymentMethods)
 					ownerAdmin.POST("/upload", func(c *gin.Context) {
 						upload.HandleSingleUpload(c, "tenants")
 					})
@@ -202,8 +212,12 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			{
 				bookings.GET("", middleware.RequirePermission(tenant.PermissionBookingsRead), cfg.ReservationHandler.ListAll)
 				bookings.GET("/:id", middleware.RequirePermission(tenant.PermissionBookingsRead), cfg.ReservationHandler.GetDetail)
+				bookings.GET("/:id/payment-attempts", middleware.RequirePermission(tenant.PermissionBookingsRead), cfg.BillingHandler.ListBookingPaymentAttempts)
 				bookings.PUT("/:id/status", middleware.RequireBookingStatusPermission(), cfg.ReservationHandler.UpdateStatus)
 				bookings.POST("/:id/settle-cash", middleware.RequirePermission(tenant.PermissionPosCashSettle), cfg.ReservationHandler.SettleCash)
+				bookings.POST("/:id/manual-payment", middleware.RequirePermission(tenant.PermissionPosCashSettle), cfg.BillingHandler.SubmitManualBookingPayment)
+				bookings.POST("/payment-attempts/:attempt_id/verify", middleware.RequirePermission(tenant.PermissionPosCashSettle), cfg.BillingHandler.VerifyManualBookingPayment)
+				bookings.POST("/payment-attempts/:attempt_id/reject", middleware.RequirePermission(tenant.PermissionPosCashSettle), cfg.BillingHandler.RejectManualBookingPayment)
 				bookings.POST("/:id/receipt/send", middleware.RequirePermission(tenant.PermissionReceiptsSend), cfg.ReservationHandler.SendReceiptWhatsApp)
 				bookings.POST("/manual", middleware.RequirePermission(tenant.PermissionBookingsCreate), cfg.ReservationHandler.Create)
 				bookings.GET("/pos/active", middleware.RequirePermission(tenant.PermissionPosRead), cfg.ReservationHandler.GetActiveSessions)

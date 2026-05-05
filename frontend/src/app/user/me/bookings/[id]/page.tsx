@@ -12,6 +12,37 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Calendar, Clock, ExternalLink } from "lucide-react";
 
+function paymentStatusMeta(status?: string) {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "awaiting_verification") {
+    return {
+      label: "Menunggu Verifikasi Admin",
+      className: "rounded-full bg-amber-500 text-white uppercase",
+      hint: "Bukti pembayaranmu sudah dikirim dan sedang direview admin tenant.",
+    };
+  }
+  if (normalized === "partial_paid") {
+    return {
+      label: "DP Sudah Masuk",
+      className: "rounded-full bg-blue-600 text-white uppercase",
+      hint: "DP sudah tercatat. Sisa tagihan bisa dibayar nanti sesuai alur booking.",
+    };
+  }
+  if (normalized === "settled" || normalized === "paid") {
+    return {
+      label: "Pembayaran Tercatat",
+      className: "rounded-full bg-emerald-600 text-white uppercase",
+      hint: "Pembayaran booking sudah tercatat di sistem.",
+    };
+  }
+  return {
+    label: status || "unpaid",
+    className:
+      "rounded-full bg-slate-100 text-slate-700 uppercase dark:bg-white/10 dark:text-slate-200",
+    hint: "Status pembayaran akan berubah otomatis setelah customer membayar atau admin memverifikasi pembayaran manual.",
+  };
+}
+
 export default function UserBookingDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -53,6 +84,7 @@ export default function UserBookingDetailPage() {
     if (!booking?.id) return null;
     return `/user/me/bookings/${booking.id}/live`;
   }, [booking?.id]);
+  const paymentMeta = paymentStatusMeta(booking?.payment_status);
 
   if (loading) {
     return (
@@ -125,9 +157,10 @@ export default function UserBookingDetailPage() {
               <Badge className="rounded-full bg-blue-600 text-white uppercase">
                 {booking.status || "pending"}
               </Badge>
-              <Badge className="rounded-full bg-slate-100 text-slate-700 uppercase dark:bg-white/10 dark:text-slate-200">
-                {booking.payment_status || "unpaid"}
-              </Badge>
+              <Badge className={paymentMeta.className}>{paymentMeta.label}</Badge>
+            </div>
+            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-white/5 dark:bg-white/[0.05] dark:text-slate-300">
+              {paymentMeta.hint}
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">

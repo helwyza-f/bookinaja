@@ -34,8 +34,14 @@ func AuthMiddleware(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Customer token bersifat platform-level, jadi tidak perlu tenant cross-check.
+		// Customer token tidak perlu tenant cross-check berbasis subdomain,
+		// tapi beberapa route (mis. upload proof) tetap butuh tenantID untuk storage path.
 		if custID, ok := claims["customer_id"]; ok && custID != nil {
+			if activeTenantID := c.GetString("tenantID"); activeTenantID == "" {
+				if tokenTenantID := strings.TrimSpace(fmt.Sprintf("%v", claims["tenant_id"])); tokenTenantID != "" && tokenTenantID != "<nil>" {
+					c.Set("tenantID", tokenTenantID)
+				}
+			}
 			setAuthContext(c, claims)
 			c.Next()
 			return
