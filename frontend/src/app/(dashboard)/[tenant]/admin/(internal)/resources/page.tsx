@@ -194,8 +194,8 @@ export default function ResourcesPage() {
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-5 px-3 pb-20 pt-5 font-plus-jakarta md:space-y-6 md:px-4">
-      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.95)_42%,rgba(240,253,244,0.92))] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(12,31,54,0.94)_45%,rgba(20,83,45,0.72))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] md:p-6">
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.18),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.16),transparent_58%)]" />
+      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(238,252,249,0.95)_42%,rgba(240,253,244,0.92))] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(10,24,26,0.96),rgba(8,30,31,0.94)_45%,rgba(20,83,45,0.72))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] md:p-6">
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.2),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.16),transparent_58%)]" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[1.2rem] bg-slate-950 text-white shadow-[0_18px_40px_rgba(15,23,42,0.18)] dark:bg-white dark:text-slate-950">
@@ -203,14 +203,11 @@ export default function ResourcesPage() {
             </div>
             <div className="space-y-2">
               <div className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-300">
-                Resource Management
+                Resources
               </div>
               <h1 className="text-3xl font-[950] tracking-tight text-slate-950 dark:text-white sm:text-4xl">
                 {labels.title}
               </h1>
-              <p className="max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                Kelola resource, paket harga, dan koneksi smart device dengan struktur yang lebih mudah dipindai oleh tim operasional.
-              </p>
             </div>
           </div>
 
@@ -223,17 +220,17 @@ export default function ResourcesPage() {
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <DashboardMetricCard
-          label="Total Resource"
+          label="Total"
           value={`${resources.length} ${labels.unit}`}
-          hint="resource terdaftar di tenant"
+          hint="Terdaftar"
           icon={Layers}
           tone="indigo"
           loading={loading}
         />
         <DashboardMetricCard
-          label="Status Available"
+          label="Available"
           value={String(availableResources)}
-          hint="resource siap dipakai"
+          hint="Siap"
           icon={Check}
           tone="emerald"
           loading={loading}
@@ -241,7 +238,7 @@ export default function ResourcesPage() {
         <DashboardMetricCard
           label="Paket Aktif"
           value={String(totalPackages)}
-          hint="opsi harga utama aktif"
+          hint="Aktif"
           icon={Settings2}
           tone="amber"
           loading={loading}
@@ -249,7 +246,7 @@ export default function ResourcesPage() {
         <DashboardMetricCard
           label="Smart Device"
           value={String(smartDeviceCount)}
-          hint="resource terhubung perangkat"
+          hint="Terhubung"
           icon={Gamepad2}
           tone="slate"
           loading={loading}
@@ -275,9 +272,8 @@ export default function ResourcesPage() {
         </div>
       ) : resources.length > 0 ? (
         <DashboardPanel
-          eyebrow="Resource Catalog"
-          title="Kartu resource dengan status dan paket yang konsisten"
-          description="Setiap kartu menjaga hierarchy yang sama: status, nama resource, paket aktif, lalu action di bagian bawah."
+          eyebrow="Catalog"
+          title="Daftar resource"
         >
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:gap-5">
           {resources.map((res) => {

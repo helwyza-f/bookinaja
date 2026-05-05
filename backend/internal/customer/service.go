@@ -2,6 +2,7 @@ package customer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -11,11 +12,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/helwiza/backend/internal/platform/fonnte"
+	"github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
 
 const pointRupiahDivisor int64 = 10000
+
+const (
+	otpScopeAuth          = "auth"
+	otpScopeResetPassword = "reset-password"
+	otpScopeChangePhone   = "change-phone"
+)
 
 type Service struct {
 	repo  *Repository
@@ -33,6 +41,8 @@ func NewService(r *Repository, rdb *redis.Client) *Service {
 
 // RequestOTP menangani alur permintaan login: Cek user -> Gen OTP -> Redis -> WhatsApp.
 func (s *Service) RequestOTP(ctx context.Context, phone string) error {
+	phone = normalizePhone(phone)
+
 	cust, err := s.repo.FindByPhone(ctx, phone)
 	if err != nil || cust == nil {
 		return fmt.Errorf("nomor WhatsApp ini belum terhubung ke akun Bookinaja. Silakan daftar dulu atau lanjut booking sebagai pelanggan baru")
@@ -41,11 +51,13 @@ func (s *Service) RequestOTP(ctx context.Context, phone string) error {
 		return fmt.Errorf("akun ini belum aktif. Selesaikan verifikasi WhatsApp dari halaman daftar terlebih dahulu")
 	}
 
-	return s.sendOTP(ctx, cust.Phone, cust.Name, "login")
+	return s.sendOTP(ctx, otpRedisKey(otpScopeAuth, cust.Phone), cust.Phone, cust.Name, "login")
 }
 
 func (s *Service) ResendRegistrationOTP(ctx context.Context, phone string) error {
-	cust, err := s.repo.FindByPhone(ctx, strings.TrimSpace(phone))
+	phone = normalizePhone(phone)
+
+	cust, err := s.repo.FindByPhone(ctx, phone)
 	if err != nil {
 		return fmt.Errorf("kami belum bisa menyiapkan kode verifikasi saat ini")
 	}
@@ -56,25 +68,17 @@ func (s *Service) ResendRegistrationOTP(ctx context.Context, phone string) error
 		return fmt.Errorf("akun ini sudah aktif. Silakan langsung masuk ke Bookinaja")
 	}
 
-	return s.sendOTP(ctx, cust.Phone, cust.Name, "register")
+	return s.sendOTP(ctx, otpRedisKey(otpScopeAuth, cust.Phone), cust.Phone, cust.Name, "register")
 }
 
 // VerifyOTP memvalidasi kode dari customer dan mengembalikan data profil untuk JWT.
 func (s *Service) VerifyOTP(ctx context.Context, phone, code string) (*Customer, error) {
-	key := fmt.Sprintf("otp:%s", phone)
+	phone = normalizePhone(phone)
+	code = strings.TrimSpace(code)
 
-	savedCode, err := s.redis.Get(ctx, key).Result()
-	if err == redis.Nil {
-		return nil, fmt.Errorf("kode verifikasi sudah kedaluwarsa. Silakan kirim ulang OTP")
-	} else if err != nil {
-		return nil, fmt.Errorf("verifikasi sedang mengalami kendala. Silakan coba lagi sebentar")
+	if err := s.consumeOTP(ctx, otpRedisKey(otpScopeAuth, phone), code); err != nil {
+		return nil, err
 	}
-
-	if savedCode != code {
-		return nil, fmt.Errorf("kode verifikasi belum sesuai. Coba periksa lagi")
-	}
-
-	s.redis.Del(ctx, key)
 
 	cust, err := s.repo.FindByPhone(ctx, phone)
 	if err != nil || cust == nil {
@@ -89,6 +93,52 @@ func (s *Service) VerifyOTP(ctx context.Context, phone, code string) (*Customer,
 	}
 
 	return cust, nil
+}
+
+func (s *Service) RequestPasswordResetOTP(ctx context.Context, phone string) error {
+	phone = normalizePhone(phone)
+
+	cust, err := s.repo.FindByPhone(ctx, phone)
+	if err != nil {
+		return fmt.Errorf("kami belum bisa menyiapkan reset password saat ini")
+	}
+	if cust == nil {
+		return fmt.Errorf("nomor WhatsApp ini belum terhubung ke akun Bookinaja")
+	}
+	if !cust.IsVerified() {
+		return fmt.Errorf("akun ini belum aktif. Selesaikan verifikasi WhatsApp terlebih dahulu")
+	}
+
+	return s.sendOTP(ctx, otpRedisKey(otpScopeResetPassword, cust.Phone), cust.Phone, cust.Name, "reset-password")
+}
+
+func (s *Service) VerifyPasswordResetOTP(ctx context.Context, phone, code, newPassword string) error {
+	phone = normalizePhone(phone)
+	code = strings.TrimSpace(code)
+	newPassword = strings.TrimSpace(newPassword)
+	if len(newPassword) < 6 {
+		return fmt.Errorf("password baru minimal 6 karakter")
+	}
+
+	if err := s.consumeOTP(ctx, otpRedisKey(otpScopeResetPassword, phone), code); err != nil {
+		return err
+	}
+
+	cust, err := s.repo.FindByPhone(ctx, phone)
+	if err != nil || cust == nil {
+		return fmt.Errorf("akun pelanggan belum ditemukan")
+	}
+
+	hashedPassword, err := hashPassword(&newPassword)
+	if err != nil || hashedPassword == nil {
+		return fmt.Errorf("password baru belum berhasil diamankan")
+	}
+
+	if _, err := s.repo.UpdatePasswordHash(ctx, cust.ID, *hashedPassword); err != nil {
+		return fmt.Errorf("password belum berhasil direset")
+	}
+
+	return nil
 }
 
 // --- CORE CUSTOMER LOGIC ---
@@ -208,7 +258,7 @@ func (s *Service) StartRegistration(ctx context.Context, req RegisterReq) (*Cust
 		return nil, fmt.Errorf("data pendaftaran belum bisa dibaca kembali")
 	}
 
-	if err := s.sendOTP(ctx, created.Phone, created.Name, "register"); err != nil {
+	if err := s.sendOTP(ctx, otpRedisKey(otpScopeAuth, created.Phone), created.Phone, created.Name, "register"); err != nil {
 		return nil, err
 	}
 
@@ -432,12 +482,126 @@ func (s *Service) UpdateAccount(ctx context.Context, customerID string, req Upda
 		return nil, fmt.Errorf("id customer tidak valid")
 	}
 
+	if req.Name != nil {
+		name := strings.TrimSpace(*req.Name)
+		req.Name = &name
+	}
+	if req.Email != nil {
+		email := strings.TrimSpace(*req.Email)
+		req.Email = &email
+	}
+	if req.AvatarURL != nil {
+		avatarURL := strings.TrimSpace(*req.AvatarURL)
+		req.AvatarURL = &avatarURL
+	}
+
 	updated, err := s.repo.UpdateProfile(ctx, cID, req)
 	if err != nil {
 		return nil, err
 	}
 	if updated == nil {
 		return nil, fmt.Errorf("customer tidak ditemukan")
+	}
+	return updated, nil
+}
+
+func (s *Service) UpdatePassword(ctx context.Context, customerID string, req UpdatePasswordReq) (*Customer, error) {
+	cID, err := uuid.Parse(customerID)
+	if err != nil {
+		return nil, fmt.Errorf("id customer tidak valid")
+	}
+
+	currentPassword := strings.TrimSpace(req.CurrentPassword)
+	newPassword := strings.TrimSpace(req.NewPassword)
+	if currentPassword == "" || newPassword == "" {
+		return nil, fmt.Errorf("password lama dan password baru wajib diisi")
+	}
+	if len(newPassword) < 6 {
+		return nil, fmt.Errorf("password baru minimal 6 karakter")
+	}
+
+	cust, err := s.repo.FindByID(ctx, cID)
+	if err != nil || cust == nil {
+		return nil, fmt.Errorf("profil pelanggan tidak ditemukan")
+	}
+	if cust.Password == nil || strings.TrimSpace(*cust.Password) == "" {
+		return nil, fmt.Errorf("akun ini belum punya password. Pakai reset via OTP untuk membuat password baru")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(*cust.Password), []byte(currentPassword)); err != nil {
+		return nil, fmt.Errorf("password lama belum sesuai")
+	}
+
+	hashedPassword, err := hashPassword(&newPassword)
+	if err != nil || hashedPassword == nil {
+		return nil, fmt.Errorf("password baru belum berhasil diamankan")
+	}
+
+	updated, err := s.repo.UpdatePasswordHash(ctx, cID, *hashedPassword)
+	if err != nil {
+		return nil, fmt.Errorf("password belum berhasil diperbarui")
+	}
+	if updated == nil {
+		return nil, fmt.Errorf("profil pelanggan tidak ditemukan")
+	}
+	return updated, nil
+}
+
+func (s *Service) RequestPhoneChangeOTP(ctx context.Context, customerID string, newPhone string) error {
+	cID, err := uuid.Parse(customerID)
+	if err != nil {
+		return fmt.Errorf("id customer tidak valid")
+	}
+
+	newPhone = normalizePhone(newPhone)
+	if len(newPhone) < 9 {
+		return fmt.Errorf("nomor WhatsApp baru belum valid")
+	}
+
+	cust, err := s.repo.FindByID(ctx, cID)
+	if err != nil || cust == nil {
+		return fmt.Errorf("profil pelanggan tidak ditemukan")
+	}
+	if normalizePhone(cust.Phone) == newPhone {
+		return fmt.Errorf("nomor WhatsApp baru masih sama dengan nomor sekarang")
+	}
+
+	existing, err := s.repo.FindByPhone(ctx, newPhone)
+	if err != nil {
+		return fmt.Errorf("kami belum bisa memeriksa nomor WhatsApp baru saat ini")
+	}
+	if existing != nil && existing.ID != cust.ID {
+		return fmt.Errorf("nomor WhatsApp ini sudah dipakai akun lain")
+	}
+
+	key := otpRedisKey(otpScopeChangePhone, cID.String()+":"+newPhone)
+	return s.sendOTP(ctx, key, newPhone, cust.Name, "change-phone")
+}
+
+func (s *Service) VerifyPhoneChangeOTP(ctx context.Context, customerID string, req VerifyPhoneChangeReq) (*Customer, error) {
+	cID, err := uuid.Parse(customerID)
+	if err != nil {
+		return nil, fmt.Errorf("id customer tidak valid")
+	}
+
+	newPhone := normalizePhone(req.NewPhone)
+	if len(newPhone) < 9 {
+		return nil, fmt.Errorf("nomor WhatsApp baru belum valid")
+	}
+
+	if err := s.consumeOTP(ctx, otpRedisKey(otpScopeChangePhone, cID.String()+":"+newPhone), strings.TrimSpace(req.Code)); err != nil {
+		return nil, err
+	}
+
+	updated, err := s.repo.UpdatePhone(ctx, cID, newPhone)
+	if err != nil {
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			return nil, fmt.Errorf("nomor WhatsApp ini sudah dipakai akun lain")
+		}
+		return nil, fmt.Errorf("nomor WhatsApp belum berhasil diperbarui")
+	}
+	if updated == nil {
+		return nil, fmt.Errorf("profil pelanggan tidak ditemukan")
 	}
 	return updated, nil
 }
@@ -538,17 +702,13 @@ func (s *Service) GetPointSummary(ctx context.Context, id, tenantID string, limi
 	}, nil
 }
 
-func (s *Service) sendOTP(ctx context.Context, phone, name, purpose string) error {
+func (s *Service) sendOTP(ctx context.Context, key, phone, name, purpose string) error {
 	otpCode := fmt.Sprintf("%06d", rand.New(rand.NewSource(time.Now().UnixNano())).Intn(1000000))
-	key := fmt.Sprintf("otp:%s", phone)
 	if err := s.redis.Set(ctx, key, otpCode, 5*time.Minute).Err(); err != nil {
 		return fmt.Errorf("sistem verifikasi sedang sibuk. Silakan coba lagi sebentar")
 	}
 
-	actionLabel := "login"
-	if purpose == "register" {
-		actionLabel = "aktivasi akun"
-	}
+	actionLabel := mapOTPPurposeLabel(purpose)
 	msg := fmt.Sprintf(
 		"Halo *%s*,\n\nKode OTP %s Anda adalah: *%s*\n\nKode ini berlaku selama 5 menit. Jangan berikan kode ini kepada siapapun termasuk pihak staff.",
 		name,
@@ -571,6 +731,38 @@ func (s *Service) sendOTP(ctx context.Context, phone, name, purpose string) erro
 	return nil
 }
 
+func (s *Service) consumeOTP(ctx context.Context, key, code string) error {
+	savedCode, err := s.redis.Get(ctx, key).Result()
+	if err == redis.Nil {
+		return fmt.Errorf("kode verifikasi sudah kedaluwarsa. Silakan kirim ulang OTP")
+	}
+	if err != nil {
+		return fmt.Errorf("verifikasi sedang mengalami kendala. Silakan coba lagi sebentar")
+	}
+	if savedCode != code {
+		return fmt.Errorf("kode verifikasi belum sesuai. Coba periksa lagi")
+	}
+	s.redis.Del(ctx, key)
+	return nil
+}
+
+func otpRedisKey(scope, subject string) string {
+	return fmt.Sprintf("otp:%s:%s", scope, subject)
+}
+
+func mapOTPPurposeLabel(purpose string) string {
+	switch purpose {
+	case "register":
+		return "aktivasi akun"
+	case "reset-password":
+		return "reset password"
+	case "change-phone":
+		return "pergantian nomor WhatsApp"
+	default:
+		return "login"
+	}
+}
+
 func hashPassword(password *string) (*string, error) {
 	if password == nil || strings.TrimSpace(*password) == "" {
 		return nil, nil
@@ -587,4 +779,15 @@ func hashPassword(password *string) (*string, error) {
 
 func timePtr(t time.Time) *time.Time {
 	return &t
+}
+
+func normalizePhone(phone string) string {
+	var builder strings.Builder
+	builder.Grow(len(phone))
+	for _, ch := range strings.TrimSpace(phone) {
+		if ch >= '0' && ch <= '9' {
+			builder.WriteRune(ch)
+		}
+	}
+	return builder.String()
 }

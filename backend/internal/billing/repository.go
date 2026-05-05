@@ -315,15 +315,20 @@ func (r *Repository) MarkBookingPaymentAttemptStatus(ctx context.Context, exec s
 	return err
 }
 
-func (r *Repository) ListBookingPaymentAttempts(ctx context.Context, bookingID uuid.UUID) ([]BookingPaymentAttempt, error) {
+func (r *Repository) ListBookingPaymentAttempts(ctx context.Context, bookingID uuid.UUID, tenantID uuid.UUID) ([]BookingPaymentAttempt, error) {
 	var items []BookingPaymentAttempt
-	err := r.db.SelectContext(ctx, &items, `
+	query := `
 		SELECT *
 		FROM booking_payment_attempts
 		WHERE booking_id = $1
-		ORDER BY created_at DESC`,
-		bookingID,
-	)
+	`
+	args := []any{bookingID}
+	if tenantID != uuid.Nil {
+		query += ` AND tenant_id = $2`
+		args = append(args, tenantID)
+	}
+	query += ` ORDER BY created_at DESC`
+	err := r.db.SelectContext(ctx, &items, query, args...)
 	return items, err
 }
 

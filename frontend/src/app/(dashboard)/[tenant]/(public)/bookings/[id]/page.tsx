@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import Script from "next/script";
 import {
   format,
   isBefore,
@@ -323,6 +322,37 @@ export default function ResourceBookingDetail() {
   const estimateBalance = () =>
     Math.max(0, calculateTotal() - estimateDeposit());
 
+  const buildCustomerAccessRedirect = (
+    accessToken: string,
+    fallbackRedirect: string,
+    nextStep?: "payment",
+    scope?: "deposit" | "settlement",
+  ) => {
+    const baseUrl = accessToken
+      ? `/user/verify?code=${encodeURIComponent(accessToken)}`
+      : fallbackRedirect;
+
+    if (!nextStep) return baseUrl;
+
+    const isAbsolute =
+      baseUrl.startsWith("http://") || baseUrl.startsWith("https://");
+
+    try {
+      const parsed = isAbsolute
+        ? new URL(baseUrl)
+        : new URL(baseUrl, "https://bookinaja.local");
+      parsed.searchParams.set("next", nextStep);
+      if (scope) {
+        parsed.searchParams.set("scope", scope);
+      }
+
+      if (isAbsolute) return parsed.toString();
+      return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    } catch {
+      return baseUrl;
+    }
+  };
+
   const handleBooking = async () => {
     if (phoneStatus !== "valid")
       return toast.error("Nomor WhatsApp tidak valid");
@@ -364,33 +394,25 @@ export default function ResourceBookingDetail() {
         });
       }
       syncTenantCookies(params.tenant as string);
-      const verifyRedirect =
+      const defaultRedirect =
         res.data.redirect_url ||
         `/user/verify?code=${encodeURIComponent(booking.access_token || "")}`;
       if ((booking.deposit_amount || 0) > 0) {
-        const checkout = await api.post(
-          `/public/bookings/${res.data.booking_id}/checkout`,
+        const verifyRedirect = buildCustomerAccessRedirect(
+          String(booking.access_token || ""),
+          defaultRedirect,
+          "payment",
+          "deposit",
         );
-        const snap = (window as any).snap;
-        if (!snap) {
-          toast.error("Midtrans belum siap. Coba refresh halaman.");
-          return;
-        }
-        snap.pay(checkout.data.snap_token, {
-          onSuccess: () => {
-            toast.success("DP berhasil dibayar");
-            router.push(verifyRedirect);
-          },
-          onPending: () => {
-            toast.message("Pembayaran DP tertunda");
-            router.push(verifyRedirect);
-          },
-          onError: () => toast.error("Pembayaran DP gagal"),
-          onClose: () => router.push(verifyRedirect),
-        });
+        toast.success("Booking dibuat. Pilih metode pembayaran DP untuk melanjutkan.");
+        setTimeout(() => router.push(verifyRedirect), 800);
         return;
       }
-      toast.success("Boking Berhasil Dibuat!");
+      const verifyRedirect = buildCustomerAccessRedirect(
+        String(booking.access_token || ""),
+        defaultRedirect,
+      );
+      toast.success("Booking berhasil dibuat!");
       setTimeout(() => router.push(verifyRedirect), 800);
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Gagal membuat reservasi");
@@ -408,17 +430,6 @@ export default function ResourceBookingDetail() {
         surfaceClass,
       )}
     >
-      <Script
-        src={
-          (
-            process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION || ""
-          ).toLowerCase() === "true"
-            ? "https://app.midtrans.com/snap/snap.js"
-            : "https://app.sandbox.midtrans.com/snap/snap.js"
-        }
-        data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
-        strategy="afterInteractive"
-      />
       <div className="relative h-[30vh] w-full bg-slate-900 md:h-[40vh]">
         {resource?.image_url ? (
           <Image
@@ -956,8 +967,9 @@ export default function ResourceBookingDetail() {
                 </div>
               </div>
               <p className={cn("max-w-md text-[10px] font-bold italic leading-relaxed", themeVisuals.mutedClass)}>
-                Customer bayar DP dulu via Midtrans. Sisa tagihan tetap tampil
-                di tiket dan bisa dilunasi setelah sesi selesai.
+                Setelah booking tersimpan, customer akan masuk ke tiket dan
+                memilih metode pembayaran yang tenant sediakan untuk DP atau
+                pelunasan.
               </p>
             </div>
             <Button
@@ -980,7 +992,7 @@ export default function ResourceBookingDetail() {
               ) : (
                 <>
                   {estimateDeposit() > 0
-                    ? "SIMPAN & BAYAR DP"
+                    ? "SIMPAN & LANJUT BAYAR"
                     : "SIMPAN BOOKING"}{" "}
                   <ChevronRight strokeWidth={4} size={18} />
                 </>

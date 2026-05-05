@@ -467,12 +467,23 @@ func (s *Service) SettleCash(ctx context.Context, id, tenantID string, actor Act
 	if err != nil {
 		return errors.New("ID TENANT TIDAK VALID")
 	}
+	detail, err := s.repo.FindByID(ctx, bID, tID)
+	if err != nil || detail == nil {
+		return errors.New("BOOKING TIDAK DITEMUKAN")
+	}
+	status := strings.ToLower(strings.TrimSpace(detail.Status))
+	if status != "completed" {
+		return errors.New("PELUNASAN CASH HANYA TERSEDIA SETELAH SESI SELESAI")
+	}
+	if detail.BalanceDue <= 0 || strings.EqualFold(strings.TrimSpace(detail.PaymentStatus), "settled") {
+		return errors.New("BOOKING INI SUDAH TIDAK MEMILIKI SISA TAGIHAN")
+	}
 	if err := s.repo.SettlePaymentCash(ctx, bID, tID, actor, nil, nil); err != nil {
 		return err
 	}
 	s.customerService.InvalidateTenantCache(ctx, tID)
 
-	detail, err := s.repo.FindByID(ctx, bID, tID)
+	detail, err = s.repo.FindByID(ctx, bID, tID)
 	if err != nil || detail == nil {
 		return nil
 	}

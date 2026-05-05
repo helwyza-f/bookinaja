@@ -244,22 +244,18 @@ export default function DevicesPage() {
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-5 px-3 pb-20 pt-4 font-plus-jakarta md:px-4">
-      <Card className="overflow-hidden rounded-[28px] border-slate-200 bg-gradient-to-br from-sky-50 via-white to-white shadow-sm dark:border-white/10 dark:from-sky-950/30 dark:via-slate-950 dark:to-slate-950">
+      <Card className="overflow-hidden rounded-[28px] border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(238,252,249,0.95)_42%,rgba(241,248,255,0.9))] shadow-sm dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(10,24,26,0.96),rgba(8,30,31,0.94)_45%,rgba(9,25,41,0.82))]">
         <CardContent className="space-y-5 p-5 md:p-7">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-600 text-white">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--bookinaja-600)] text-white">
                 <Radio className="h-5 w-5" />
               </div>
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-sky-600">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--bookinaja-600)]">
                   Settings
                 </div>
                 <h1 className="text-2xl font-semibold text-slate-950">Smart Point</h1>
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
-                  Kelola perangkat notifikasi untuk resource bisnis Anda, cek apakah alat sedang
-                  aktif, dan hubungkan ke resource yang sesuai.
-                </p>
                 <div className="mt-3">
                   <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
                 </div>
@@ -271,11 +267,11 @@ export default function DevicesPage() {
                 Refresh
               </Button>
               <Button
-                className="w-full bg-sky-600 hover:bg-sky-700 sm:w-auto"
+                className="w-full bg-[var(--bookinaja-600)] hover:bg-[var(--bookinaja-700)] sm:w-auto"
                 onClick={() => setShowClaimForm((prev) => !prev)}
               >
                 <Plus className="mr-2 h-4 w-4" />
-                {showClaimForm ? "Tutup form" : "Tambah Smart Point"}
+                {showClaimForm ? "Tutup" : "Tambah"}
               </Button>
             </div>
           </div>
@@ -285,28 +281,28 @@ export default function DevicesPage() {
               {
                 label: "Alat aktif",
                 value: overview?.online_devices ?? fallbackStats.online,
-                helper: "Sedang terhubung",
+                helper: "Online",
                 icon: Wifi,
                 tone: "text-emerald-700",
               },
               {
                 label: "Sudah dipasang",
                 value: overview?.assigned_devices ?? fallbackStats.assigned,
-                helper: "Sudah terkait ke resource",
+                helper: "Terpasang",
                 icon: ShieldCheck,
-                tone: "text-sky-700",
+                tone: "text-[var(--bookinaja-700)]",
               },
               {
                 label: "Belum aktif",
                 value: overview?.offline_devices ?? fallbackStats.offline,
-                helper: "Perlu dicek bila dibutuhkan",
+                helper: "Offline",
                 icon: WifiOff,
                 tone: "text-rose-700",
               },
               {
                 label: "Nonaktif",
                 value: overview?.disabled_devices ?? fallbackStats.disabled,
-                helper: "Tidak menerima perintah",
+                helper: "Dimatikan",
                 icon: Power,
                 tone: "text-slate-700",
               },
@@ -328,17 +324,14 @@ export default function DevicesPage() {
           </div>
 
           {showClaimForm && (
-            <div className="rounded-2xl border border-sky-100 bg-white p-4 md:p-5 dark:border-sky-900/40 dark:bg-slate-950/80">
+            <div className="rounded-2xl border border-[var(--bookinaja-100)] bg-white p-4 dark:border-[var(--bookinaja-900)]/40 dark:bg-slate-950/80 md:p-5">
               <div className="mb-4 flex items-start gap-3">
-                <div className="rounded-2xl bg-sky-100 p-2 text-sky-700">
+                <div className="rounded-2xl bg-[var(--bookinaja-100)] p-2 text-[var(--bookinaja-700)]">
                   <CircleHelp className="h-4 w-4" />
                 </div>
                 <div>
-                  <div className="font-semibold text-slate-900">Tambah Smart Point baru</div>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">
-                    Masukkan kode alat, kunci perangkat, lalu pilih resource jika alat ingin
-                    langsung dipasang sekarang.
-                  </p>
+                  <div className="font-semibold text-slate-900">Tambah Smart Point</div>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">Kode, kunci, lalu pilih resource.</p>
                 </div>
               </div>
 
@@ -376,7 +369,7 @@ export default function DevicesPage() {
                 <Button
                   onClick={handleClaim}
                   disabled={submitting}
-                  className="w-full bg-sky-600 hover:bg-sky-700 sm:w-auto"
+                  className="w-full bg-[var(--bookinaja-600)] hover:bg-[var(--bookinaja-700)] sm:w-auto"
                 >
                   {submitting ? "Menyimpan..." : "Simpan Smart Point"}
                 </Button>

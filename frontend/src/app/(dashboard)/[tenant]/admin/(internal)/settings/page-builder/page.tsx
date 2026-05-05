@@ -2286,7 +2286,7 @@ function CollapsibleSidebarCard({
 }) {
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2 rounded-[1.4rem] border border-slate-200 bg-white px-3 py-3 text-left shadow-sm transition-colors hover:bg-slate-50 dark:border-white/15 dark:bg-[#0f0f17] dark:hover:bg-white/[0.04]">
+        <div className="flex items-center gap-2 rounded-[1rem] border border-slate-200 bg-white px-3 py-3 text-left shadow-sm transition-colors hover:bg-slate-50 dark:border-white/15 dark:bg-[#0f0f17] dark:hover:bg-white/[0.04] sm:rounded-[1.4rem]">
         <button
           type="button"
           onClick={onToggle}
@@ -2297,9 +2297,9 @@ function CollapsibleSidebarCard({
               {icon}
               {title}
             </div>
-            <div className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
-              {description}
-            </div>
+              <div className="mt-1 hidden truncate text-xs text-slate-500 dark:text-slate-400 sm:block">
+                {description}
+              </div>
           </div>
           <div className="rounded-xl border border-slate-200 p-1.5 text-slate-500 dark:border-white/10 dark:text-slate-300">
             {open ? (
@@ -2493,29 +2493,24 @@ function MobilePageBuilderExperience({
 }) {
   return (
     <div className="space-y-4 pb-16">
-      <Card className="overflow-hidden rounded-[2rem] border-slate-200/90 bg-[linear-gradient(180deg,#ffffff,rgba(248,250,252,0.96))] p-5 shadow-[0_22px_60px_rgba(15,23,42,0.08)] dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(8,12,24,0.98))] dark:shadow-[0_22px_60px_rgba(2,6,23,0.42)]">
+      <Card className="overflow-hidden rounded-[1.35rem] border-slate-200/90 bg-[linear-gradient(180deg,#ffffff,rgba(241,252,250,0.96))] p-4 shadow-[0_18px_42px_rgba(15,23,42,0.06)] dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(10,24,26,0.96),rgba(8,12,24,0.98))] dark:shadow-[0_18px_42px_rgba(2,6,23,0.34)] sm:rounded-[2rem] sm:p-5 sm:shadow-[0_22px_60px_rgba(15,23,42,0.08)] dark:sm:shadow-[0_22px_60px_rgba(2,6,23,0.42)]">
         <div className="space-y-4">
           <div className="inline-flex items-center gap-2 rounded-full border border-[var(--bookinaja-200)] bg-[var(--bookinaja-50)] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.24em] text-[var(--bookinaja-700)] shadow-sm dark:border-[rgba(96,165,250,0.24)] dark:bg-[rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]">
             <Wand2 className="h-3.5 w-3.5" />
-            Mobile Companion
+            Mobile
           </div>
 
           <div>
             <h1 className="text-2xl font-black tracking-tight text-slate-950 dark:text-white">
-              Cek landing dari mobile, desain penuh di desktop
+              Review mobile
             </h1>
-            <p className="mt-2 text-sm leading-7 text-slate-500 dark:text-slate-400">
-              Versi mobile ini dibuat untuk review cepat, publish, dan cek
-              preview. Workspace builder penuh tetap paling nyaman dipakai di
-              desktop.
-            </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
             <MobileStatusPill
               tone={hasUnpublishedChanges ? "warning" : "success"}
               label={
-                hasUnpublishedChanges ? "Draft belum publish" : "Draft sinkron"
+                hasUnpublishedChanges ? "Draft berubah" : "Sinkron"
               }
             />
             <MobileStatusPill tone="neutral" label={`Theme: ${themeLabel}`} />
@@ -2534,16 +2529,14 @@ function MobilePageBuilderExperience({
         </div>
       </Card>
 
-      <Card className="rounded-[1.75rem] border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-4 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,12,24,0.98))]">
+      <Card className="rounded-[1.35rem] border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-4 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,12,24,0.98))] sm:rounded-[1.75rem]">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
               Preview Source
             </div>
             <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              {selectedSectionLabel
-                ? `Section terakhir: ${selectedSectionLabel}`
-                : "Lihat hasil draft atau live"}
+              {selectedSectionLabel ? `Section: ${selectedSectionLabel}` : "Draft / live"}
             </div>
           </div>
           <MobileSegmentedControl
@@ -2584,13 +2577,13 @@ function MobilePageBuilderExperience({
             className="h-11 rounded-2xl"
           >
             <ArrowDown className="mr-2 h-4 w-4 rotate-45" />
-            Reset Draft
+            Reset
           </Button>
           {previewUrl ? (
             <Button asChild variant="outline" className="h-11 rounded-2xl">
               <a href={previewUrl} target="_blank" rel="noreferrer">
                 <ChevronRight className="mr-2 h-4 w-4" />
-                Halaman Publik
+                Publik
               </a>
             </Button>
           ) : (
@@ -2601,20 +2594,18 @@ function MobilePageBuilderExperience({
               className="h-11 rounded-2xl"
             >
               <ChevronRight className="mr-2 h-4 w-4" />
-              Halaman Publik
+              Publik
             </Button>
           )}
         </div>
       </Card>
 
-      <Card className="overflow-hidden rounded-[2rem] border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] shadow-[0_24px_60px_rgba(15,23,42,0.08)] dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(8,12,24,0.98))] dark:shadow-[0_24px_60px_rgba(2,6,23,0.42)]">
+      <Card className="overflow-hidden rounded-[1.35rem] border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] shadow-[0_18px_42px_rgba(15,23,42,0.06)] dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(8,12,24,0.98))] dark:shadow-[0_18px_42px_rgba(2,6,23,0.34)] sm:rounded-[2rem] sm:shadow-[0_24px_60px_rgba(2,6,23,0.42)]">
         <div className="border-b border-slate-200/90 px-4 py-3 dark:border-white/10">
           <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-            Preview Mobile
+            Preview
           </div>
-          <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Review cepat hasil landing dari layar kecil.
-          </div>
+          <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">Layar kecil.</div>
         </div>
         <div className="bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.08),transparent_32%),linear-gradient(180deg,rgba(241,245,249,0.92),rgba(248,250,252,1))] p-3 dark:bg-[radial-gradient(circle_at_top,rgba(96,165,250,0.12),transparent_25%),linear-gradient(180deg,rgba(10,15,28,0.98),rgba(5,5,10,1))]">
           <MobilePreviewFrame scaleMode="fit">

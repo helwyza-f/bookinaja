@@ -108,21 +108,18 @@ export default function SettingsBillingPage() {
 
   return (
     <div className="space-y-4 p-4 pb-20 sm:space-y-6 sm:p-6">
-      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.95)_40%,rgba(236,253,245,0.92))] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(12,31,54,0.94)_45%,rgba(4,47,46,0.88))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-6">
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.18),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.16),transparent_58%)]" />
+      <div className="relative overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(238,252,249,0.95)_40%,rgba(236,253,245,0.92))] p-4 shadow-[0_18px_42px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(10,24,26,0.96),rgba(8,30,31,0.94)_45%,rgba(4,47,46,0.88))] dark:shadow-[0_18px_42px_rgba(0,0,0,0.24)] sm:rounded-[2rem] sm:p-6 sm:shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:sm:shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.2),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.16),transparent_58%)]" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl space-y-3">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.24em] text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-200">
-              <Sparkles className="h-3.5 w-3.5 text-blue-600 dark:text-blue-300" />
-              Billing Overview
+              <Sparkles className="h-3.5 w-3.5 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
+              Billing
             </div>
             <div>
               <h1 className="text-3xl font-[950] tracking-tight text-slate-950 dark:text-white sm:text-4xl">
-                Status paket, invoice, dan upgrade ada dalam satu ritme.
+                Billing
               </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                Lihat kondisi subscription dulu, lalu lanjut ke histori pembayaran dan langkah upgrade tanpa pindah konteks visual.
-              </p>
             </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -140,7 +137,7 @@ export default function SettingsBillingPage() {
             >
               <Link href="/admin/settings/billing/subscribe">
                 <CreditCard className="h-4 w-4" />
-                Upgrade / Ganti Paket
+                Upgrade
               </Link>
             </Button>
           </div>
@@ -151,7 +148,7 @@ export default function SettingsBillingPage() {
         <BillingSkeleton />
       ) : (
         <>
-          <Card className="relative overflow-hidden rounded-[2rem] border-slate-200/80 bg-white/95 p-5 shadow-[0_18px_55px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[#0f1117]/96 dark:shadow-[0_24px_70px_rgba(0,0,0,0.24)] sm:p-7">
+          <Card className="relative overflow-hidden rounded-[1.35rem] border-slate-200/80 bg-white/95 p-4 shadow-[0_14px_38px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-[#0f1117]/96 dark:shadow-[0_18px_42px_rgba(0,0,0,0.24)] sm:rounded-[2rem] sm:p-7 sm:shadow-[0_24px_70px_rgba(0,0,0,0.24)]">
             <div className="absolute right-0 top-0 h-40 w-40 translate-x-1/3 -translate-y-1/3 rounded-full bg-[color:rgba(59,130,246,0.12)] blur-3xl" />
             <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
               <div className="space-y-4">
@@ -185,10 +182,10 @@ export default function SettingsBillingPage() {
                 </h2>
                 <p className="max-w-2xl text-sm leading-relaxed text-slate-500">
                   {isTrial
-                    ? "Masa uji coba masih berjalan. Ini momen terbaik untuk cek alur booking, CRM, billing, dan analytics sebelum upgrade."
+                    ? "Trial aktif."
                     : isActive
-                      ? "Langganan aktif dan siap menopang operasional harian."
-                      : "Langganan belum aktif atau sudah habis. Upgrade untuk membuka fitur penuh."}
+                      ? "Langganan aktif."
+                      : "Belum aktif."}
                 </p>
               </div>
 
@@ -216,14 +213,14 @@ export default function SettingsBillingPage() {
             <DashboardMetricCard
               label="Invoice"
               value={String(orders.length)}
-              hint="dokumen pembayaran"
+              hint="Invoice"
               icon={History}
               tone="indigo"
             />
             <DashboardMetricCard
               label="Total Bayar"
               value={`Rp ${formatIDR(totalPaid)}`}
-              hint="akumulasi invoice"
+              hint="Total"
               icon={ReceiptText}
               tone="emerald"
             />
@@ -234,14 +231,14 @@ export default function SettingsBillingPage() {
                   ? "Berjalan"
                   : "-"
               }
-              hint="periode subscription"
+              hint="Periode"
               icon={CalendarClock}
               tone="amber"
             />
             <DashboardMetricCard
               label="Plan Sekarang"
               value={(sub?.plan || "-").toUpperCase()}
-              hint={isPro ? "fitur penuh aktif" : "mode terbatas"}
+              hint={isPro ? "Pro" : "Starter"}
               icon={BadgeCheck}
               tone="slate"
             />
@@ -250,18 +247,17 @@ export default function SettingsBillingPage() {
           <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
             <DashboardPanel
               eyebrow="Quick Actions"
-              title="Upgrade dan akses riwayat pembayaran"
-              description="Aksi yang paling sering dipakai diletakkan terpisah agar tim bisa bergerak tanpa scanning panjang."
+              title="Aksi"
             >
               <div className="grid gap-3 sm:grid-cols-2">
                 <QuickAction
                   title="Upgrade Paket"
-                  desc="Buka plan Pro dan aktifkan fitur lanjutan."
+                  desc="Pilih paket"
                   href="/admin/settings/billing/subscribe"
                 />
                 <QuickAction
                   title="Lihat Order"
-                  desc="Pantau histori invoice dan status pembayaran."
+                  desc="Invoice"
                   href="#invoice-history"
                 />
               </div>
@@ -269,8 +265,7 @@ export default function SettingsBillingPage() {
 
             <DashboardPanel
               eyebrow="Plan Snapshot"
-              title="Apa yang sedang aktif sekarang"
-              description="Ringkasan singkat untuk status paket, masa aktif, dan total histori pembayaran."
+              title="Snapshot"
             >
               <div className="space-y-2 rounded-[1.5rem] border border-slate-200/80 bg-slate-50/70 px-4 py-4 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03]">
                 <div>- Status: {statusLabel}</div>
@@ -285,7 +280,6 @@ export default function SettingsBillingPage() {
           <DashboardPanel
             eyebrow="Invoice History"
             title="Riwayat invoice"
-            description="Semua invoice ditampilkan dalam kartu yang mudah dipindai untuk nominal, tanggal, dan status."
           >
             <Card
               id="invoice-history"
@@ -380,7 +374,7 @@ function QuickAction({
       <div className="text-sm font-semibold text-slate-950 dark:text-white">
         {title}
       </div>
-      <p className="mt-1 text-sm leading-relaxed text-slate-500">{desc}</p>
+      <p className="mt-1 hidden text-sm leading-relaxed text-slate-500 xl:block">{desc}</p>
       <div className="mt-3 flex items-center gap-1 text-xs font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
         Buka
         <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />

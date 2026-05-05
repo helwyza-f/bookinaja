@@ -199,41 +199,38 @@ export default function ExpensesPage() {
       value: `Rp ${formatIDR(Number(summary.total || 0))}`,
       icon: Banknote,
       tone: "indigo" as const,
-      hint: "total pada rentang filter aktif",
+      hint: "Filter",
     },
     {
       label: "Jumlah catatan",
       value: String(summary.entries || filteredItems.length),
       icon: ReceiptText,
       tone: "emerald" as const,
-      hint: "record yang tercatat",
+      hint: "Catatan",
     },
     {
       label: "Kategori aktif",
       value: category === "all" ? "Semua" : category,
       icon: Search,
       tone: "amber" as const,
-      hint: "filter kategori saat ini",
+      hint: "Aktif",
     },
   ];
 
   return (
     <div className="mx-auto max-w-[1440px] space-y-4 pb-20 px-3 pt-5 font-plus-jakarta animate-in fade-in duration-300 md:px-4">
-      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.95)_40%,rgba(255,247,237,0.9))] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(12,31,54,0.94)_45%,rgba(67,20,7,0.82))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-6">
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.18),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(251,191,36,0.14),transparent_58%)]" />
+      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(238,252,249,0.95)_40%,rgba(255,247,237,0.9))] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(10,24,26,0.96),rgba(8,30,31,0.94)_45%,rgba(49,25,14,0.82))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-6">
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.2),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.14),transparent_58%)]" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl space-y-3">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.24em] text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-200">
-              <Banknote className="h-3.5 w-3.5 text-blue-600 dark:text-blue-300" />
-              Expense Ledger
+              <Banknote className="h-3.5 w-3.5 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
+              Expenses
             </div>
             <div>
               <h1 className="text-3xl font-[950] tracking-tight text-slate-950 dark:text-white sm:text-4xl">
-                Pengeluaran rapi, cepat dibaca, dan siap ditelusuri.
+                Expenses
               </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                Catat biaya operasional, buka detail, dan audit struk dalam ritme visual yang sama dengan dashboard lain.
-              </p>
             </div>
           </div>
           <Button
@@ -242,7 +239,7 @@ export default function ExpensesPage() {
             className="h-12 rounded-[1.2rem] bg-slate-950 px-5 text-sm font-bold text-white shadow-[0_18px_40px_rgba(15,23,42,0.22)] hover:bg-[var(--bookinaja-700)] dark:bg-white dark:text-slate-950"
           >
             <Plus size={15} className="mr-2" />
-            Tambah Pengeluaran
+            Tambah
           </Button>
         </div>
       </div>
@@ -262,7 +259,7 @@ export default function ExpensesPage() {
         <DashboardMetricCard
           label="Rentang Aktif"
           value={`${formatExpenseDate(from)} - ${formatExpenseDate(to)}`}
-          hint="periode yang sedang dianalisis"
+          hint="Periode"
           icon={CalendarIcon}
           tone="slate"
           loading={loading}
@@ -270,7 +267,7 @@ export default function ExpensesPage() {
       </div>
 
       <DashboardPanel
-        eyebrow="Filter Ledger"
+        eyebrow="Filter"
         title="Cari pengeluaran berdasarkan kategori dan periode"
         description="Filter dipisah dari tabel supaya tim bisa scan angka ringkas dulu, lalu masuk ke record ketika memang perlu."
       >

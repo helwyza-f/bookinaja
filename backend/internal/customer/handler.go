@@ -1,13 +1,17 @@
 package customer
 
 import (
+	"errors"
+	"mime/multipart"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/helwiza/backend/internal/platform/fonnte"
+	"github.com/helwiza/backend/internal/platform/storage"
 )
 
 type Handler struct {
@@ -105,6 +109,36 @@ func (h *Handler) CustomerLoginEmail(c *gin.Context) {
 		"token":    tokenString,
 		"customer": cust,
 	})
+}
+
+func (h *Handler) RequestPasswordResetOTP(c *gin.Context) {
+	var req RequestPasswordResetReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nomor WhatsApp wajib diisi"})
+		return
+	}
+
+	if err := h.service.RequestPasswordResetOTP(c.Request.Context(), req.Phone); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Kode reset password sudah dikirim ke WhatsApp kamu"})
+}
+
+func (h *Handler) VerifyPasswordResetOTP(c *gin.Context) {
+	var req VerifyPasswordResetReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data reset password belum lengkap"})
+		return
+	}
+
+	if err := h.service.VerifyPasswordResetOTP(c.Request.Context(), req.Phone, req.Code, req.NewPassword); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Password berhasil direset. Silakan login dengan password baru"})
 }
 
 func (h *Handler) CustomerRegister(c *gin.Context) {
@@ -209,6 +243,117 @@ func (h *Handler) UpdateMe(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Profil diperbarui", "customer": updated})
+}
+
+func (h *Handler) UpdateMyPassword(c *gin.Context) {
+	customerIDStr, exists := c.Get("customerID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid, silakan login kembali"})
+		return
+	}
+
+	var req UpdatePasswordReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data password tidak valid"})
+		return
+	}
+
+	updated, err := h.service.UpdatePassword(c.Request.Context(), customerIDStr.(string), req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Password berhasil diperbarui", "customer": updated})
+}
+
+func (h *Handler) RequestMyPhoneChange(c *gin.Context) {
+	customerIDStr, exists := c.Get("customerID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid, silakan login kembali"})
+		return
+	}
+
+	var req RequestPhoneChangeReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nomor WhatsApp baru wajib diisi"})
+		return
+	}
+
+	if err := h.service.RequestPhoneChangeOTP(c.Request.Context(), customerIDStr.(string), req.NewPhone); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "OTP pergantian nomor sudah dikirim ke WhatsApp baru kamu"})
+}
+
+func (h *Handler) VerifyMyPhoneChange(c *gin.Context) {
+	customerIDStr, exists := c.Get("customerID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid, silakan login kembali"})
+		return
+	}
+
+	var req VerifyPhoneChangeReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data verifikasi nomor belum lengkap"})
+		return
+	}
+
+	updated, err := h.service.VerifyPhoneChangeOTP(c.Request.Context(), customerIDStr.(string), req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Nomor WhatsApp berhasil diperbarui", "customer": updated})
+}
+
+func (h *Handler) UploadMyAvatar(c *gin.Context) {
+	customerIDStr, exists := c.Get("customerID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid, silakan login kembali"})
+		return
+	}
+
+	file, err := firstImageFormFile(c, "image", "file", "avatar")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "File avatar tidak ditemukan"})
+		return
+	}
+	if err := validateAvatarUpload(file); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	s3, err := storage.NewS3Client()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal inisialisasi storage"})
+		return
+	}
+
+	url, err := s3.UploadFile(c.Request.Context(), file, "customers/avatars/"+customerIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal upload foto profil"})
+		return
+	}
+
+	updated, err := h.service.UpdateAccount(c.Request.Context(), customerIDStr.(string), UpdateProfileReq{
+		AvatarURL: &url,
+	})
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":   "Foto profil berhasil diperbarui",
+		"url":       url,
+		"mime_type": strings.ToLower(strings.TrimSpace(file.Header.Get("Content-Type"))),
+		"size":      file.Size,
+		"customer":  updated,
+	})
 }
 
 // ValidatePhone untuk live validation nomor WA via Fonnte API (Cek aktif/enggak)
@@ -382,4 +527,29 @@ func (h *Handler) SearchByPhone(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, cust)
+}
+
+func firstImageFormFile(c *gin.Context, keys ...string) (*multipart.FileHeader, error) {
+	for _, key := range keys {
+		file, err := c.FormFile(key)
+		if err == nil {
+			return file, nil
+		}
+	}
+	return nil, http.ErrMissingFile
+}
+
+func validateAvatarUpload(file *multipart.FileHeader) error {
+	contentType := strings.ToLower(strings.TrimSpace(file.Header.Get("Content-Type")))
+	if !strings.HasPrefix(contentType, "image/") {
+		return errors.New("foto profil harus berupa gambar")
+	}
+	if file.Size <= 0 {
+		return errors.New("ukuran foto profil tidak valid")
+	}
+	const maxImageBytes = 5 * 1024 * 1024
+	if file.Size > maxImageBytes {
+		return errors.New("ukuran gambar melebihi 5MB")
+	}
+	return nil
 }

@@ -30,6 +30,15 @@ export default function BookingPaymentPage() {
 
   const scope = searchParams.get("scope") === "settlement" ? "settlement" : "deposit";
 
+  const supportsMethodForScope = useCallback(
+    (method: any) => {
+      if (!method || method.is_active === false) return false;
+      if (scope === "deposit" && method.code === "cash") return false;
+      return true;
+    },
+    [scope],
+  );
+
   const fetchDetail = useCallback(async () => {
     try {
       const res = await api.get(`/user/me/bookings/${params.id}`);
@@ -60,8 +69,8 @@ export default function BookingPaymentPage() {
   }, []);
 
   const paymentMethods = useMemo(
-    () => (booking?.payment_methods || []).filter((item: any) => item?.is_active !== false),
-    [booking?.payment_methods],
+    () => (booking?.payment_methods || []).filter((item: any) => supportsMethodForScope(item)),
+    [booking?.payment_methods, supportsMethodForScope],
   );
   const paymentAttempts = useMemo(
     () => booking?.payment_attempts || [],
@@ -94,9 +103,66 @@ export default function BookingPaymentPage() {
       : Number(booking.balance_due || 0);
   }, [booking, scope]);
 
+  const paymentAccessError = useMemo(() => {
+    if (!booking) return "";
+    const bookingStatus = String(booking.status || "").toLowerCase();
+    const bookingPaymentStatus = String(booking.payment_status || "").toLowerCase();
+
+    if (scope === "settlement") {
+      if (bookingStatus !== "completed") {
+        return "Pelunasan baru tersedia setelah sesi selesai.";
+      }
+      if (Number(booking.balance_due || 0) <= 0 || bookingPaymentStatus === "settled") {
+        return "Booking ini sudah tidak memiliki sisa tagihan.";
+      }
+      if (paymentMethods.length === 0) {
+        return "Tenant belum menyiapkan metode pembayaran untuk pelunasan.";
+      }
+      return "";
+    }
+
+    if (Number(booking.deposit_amount || 0) <= 0) {
+      return "Booking ini tidak membutuhkan DP.";
+    }
+    if (bookingPaymentStatus !== "pending") {
+      return "Halaman DP hanya tersedia sebelum pembayaran DP tercatat.";
+    }
+    if (paymentMethods.length === 0) {
+      return "Tenant belum menyiapkan metode pembayaran untuk DP.";
+    }
+    return "";
+  }, [booking, paymentMethods.length, scope]);
+
+  const paymentAccessNoticeCode = useMemo(() => {
+    if (!booking) return "";
+    const bookingStatus = String(booking.status || "").toLowerCase();
+    const bookingPaymentStatus = String(booking.payment_status || "").toLowerCase();
+
+    if (scope === "settlement") {
+      if (bookingStatus !== "completed") return "settlement_locked";
+      if (Number(booking.balance_due || 0) <= 0 || bookingPaymentStatus === "settled") {
+        return "no_balance_due";
+      }
+      if (paymentMethods.length === 0) return "settlement_methods_unavailable";
+      return "";
+    }
+
+    if (Number(booking.deposit_amount || 0) <= 0) return "deposit_not_required";
+    if (bookingPaymentStatus !== "pending") return "deposit_unavailable";
+    if (paymentMethods.length === 0) return "deposit_methods_unavailable";
+    return "";
+  }, [booking, paymentMethods.length, scope]);
+
   const paymentStatus = String(booking?.payment_status || "").toLowerCase();
   const sessionStatus = String(booking?.status || "").toLowerCase();
   const pendingAttemptStatus = String(pendingManualAttempt?.status || "").toLowerCase();
+
+  useEffect(() => {
+    if (!booking || !paymentAccessError) return;
+    router.replace(
+      `/user/me/bookings/${params.id}/live${paymentAccessNoticeCode ? `?notice=${paymentAccessNoticeCode}` : ""}`,
+    );
+  }, [booking, params.id, paymentAccessError, paymentAccessNoticeCode, router]);
 
   const paymentStatusLabel =
     paymentStatus === "awaiting_verification"
@@ -109,8 +175,18 @@ export default function BookingPaymentPage() {
 
   const pendingAttemptHint =
     scope === "deposit"
-      ? "DP manual kamu sudah masuk antrean review admin. Booking baru bisa lanjut ke tahap berikutnya setelah admin memverifikasi pembayaran ini."
-      : "Pelunasan manual kamu sudah masuk antrean review admin. Status booking akan diperbarui setelah admin memverifikasi pembayaran ini.";
+      ? "DP menunggu verifikasi admin."
+      : "Pelunasan menunggu verifikasi admin.";
+
+  const selectedMethodRequiresProof =
+    selectedMethodDetail?.verification_type === "manual" &&
+    selectedMethodDetail?.code !== "cash";
+
+  useEffect(() => {
+    if (selectedMethodDetail?.code === "cash" && manualProofUrl) {
+      setManualProofUrl("");
+    }
+  }, [manualProofUrl, selectedMethodDetail?.code]);
 
   const getPaymentMethodIcon = (code: string) => {
     if (code === "qris_static") return QrCode;
@@ -141,21 +217,21 @@ export default function BookingPaymentPage() {
 
   const instructionCta =
     selectedMethodDetail?.code === "bank_transfer"
-      ? "Sudah transfer? lanjut upload bukti di langkah berikutnya."
+      ? "Transfer lalu upload bukti."
       : selectedMethodDetail?.code === "qris_static"
-        ? "Sudah scan dan bayar QRIS? lanjut kirim bukti sekarang."
+        ? "Scan lalu upload bukti."
         : selectedMethodDetail?.code === "cash"
-          ? "Sudah bayar ke kasir? lanjut konfirmasi pembayaran."
-          : "Kalau sudah siap, lanjutkan ke gateway pembayaran.";
+          ? "Bayar lalu konfirmasi."
+          : "Lanjut ke gateway.";
 
   const confirmationHint =
     selectedMethodDetail?.code === "bank_transfer"
-      ? "Pastikan bukti transfer terlihat jelas agar admin bisa verifikasi lebih cepat."
+      ? "Bukti transfer harus jelas."
       : selectedMethodDetail?.code === "qris_static"
-        ? "Upload screenshot atau bukti transaksi QRIS agar verifikasi admin lebih cepat."
+        ? "Upload bukti transaksi."
         : selectedMethodDetail?.code === "cash"
-          ? "Tambahkan catatan singkat jika pembayaran dilakukan langsung di lokasi."
-          : "Kamu akan diarahkan ke gateway aman untuk menyelesaikan pembayaran.";
+          ? "Catatan opsional."
+          : "Kamu akan diarahkan ke gateway.";
 
   const renderInstructionPanel = (method: any) => {
     if (!method) return null;
@@ -184,7 +260,7 @@ export default function BookingPaymentPage() {
             </div>
           </div>
           <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-6 text-blue-900 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100">
-            Transfer tepat sebesar <span className="font-semibold">Rp {amount.toLocaleString("id-ID")}</span> ke rekening di atas, lalu lanjutkan ke langkah upload bukti pembayaran.
+            Transfer Rp <span className="font-semibold">{amount.toLocaleString("id-ID")}</span>.
           </div>
         </div>
       );
@@ -207,7 +283,7 @@ export default function BookingPaymentPage() {
             </div>
           )}
           <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-6 text-blue-900 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100">
-            Scan QRIS di atas dari aplikasi e-wallet atau mobile banking kamu, selesaikan pembayaran, lalu lanjutkan ke langkah upload bukti pembayaran.
+            Scan QRIS lalu upload bukti.
           </div>
         </div>
       );
@@ -216,14 +292,14 @@ export default function BookingPaymentPage() {
     if (method.code === "cash") {
       return (
         <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-6 text-blue-900 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100">
-          Datang ke lokasi tenant dan lakukan pembayaran langsung ke kasir atau admin, lalu lanjutkan ke langkah konfirmasi pembayaran.
+          Cash tanpa upload bukti.
         </div>
       );
     }
 
     return (
       <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-6 text-blue-900 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100">
-        Pembayaran akan diproses otomatis oleh gateway setelah kamu lanjutkan ke langkah berikutnya.
+        Pembayaran diproses otomatis.
       </div>
     );
   };
@@ -262,15 +338,25 @@ export default function BookingPaymentPage() {
 
   const handlePay = async () => {
     if (!booking || !selectedMethodDetail) return;
+    if (paymentAccessError) {
+      router.replace(
+        `/user/me/bookings/${params.id}/live${paymentAccessNoticeCode ? `?notice=${paymentAccessNoticeCode}` : ""}`,
+      );
+      return;
+    }
     if (pendingManualAttempt) {
       toast.message("Masih ada pembayaran manual yang menunggu verifikasi admin");
+      return;
+    }
+    if (selectedMethodRequiresProof && !manualProofUrl.trim()) {
+      toast.error("Upload bukti bayar dulu sebelum mengirim pembayaran manual");
       return;
     }
     setProcessing(true);
     try {
       if (selectedMethodDetail.verification_type === "auto") {
         const res = await api.post(
-          `/public/bookings/${params.id}/checkout?mode=${scope === "deposit" ? "dp" : "settlement"}&method=${selectedMethodDetail.code}&slug=${booking.tenant_slug}`,
+          `/public/bookings/${params.id}/checkout?mode=${scope === "deposit" ? "dp" : "settlement"}&method=${selectedMethodDetail.code}`,
         );
         const snap = await waitForSnap();
         if (!snap) {
@@ -310,7 +396,7 @@ export default function BookingPaymentPage() {
     }
   };
 
-  if (loading) {
+  if (loading || paymentAccessError) {
     return (
       <div className="mx-auto max-w-3xl space-y-4 px-4 py-6">
         <Skeleton className="h-20 rounded-[2rem]" />
@@ -362,9 +448,6 @@ export default function BookingPaymentPage() {
             <h1 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
               {booking.resource_name}
             </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Pilih metode pembayaran yang paling nyaman. Halaman ini khusus untuk proses bayar agar alurnya lebih fokus dan minim distraksi.
-            </p>
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -407,7 +490,7 @@ export default function BookingPaymentPage() {
                       {pendingAttemptStatus === "awaiting_verification" ? "Menunggu Verifikasi" : pendingManualAttempt.status}
                     </Badge>
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                     {pendingAttemptHint}
                   </p>
                 </div>
@@ -459,13 +542,13 @@ export default function BookingPaymentPage() {
                   className="h-11 flex-1 rounded-2xl"
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh Status
+                  Refresh
                 </Button>
                 <Button
                   onClick={() => router.push(`/user/me/bookings/${params.id}/live`)}
                   className="h-11 flex-1 rounded-2xl bg-slate-950 text-white hover:bg-slate-800"
                 >
-                  Kembali ke Live Controller
+                  Kembali
                 </Button>
               </div>
             </div>
@@ -475,14 +558,11 @@ export default function BookingPaymentPage() {
             <div className="space-y-4">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
-                  Pilih metode
-                </p>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Metode aktif ini diatur oleh tenant dan akan dipakai untuk {scope === "deposit" ? "DP" : "pelunasan"} booking kamu.
+                  Metode
                 </p>
               </div>
 
-              <div className="grid gap-3">
+              <div className="grid gap-2">
                 {paymentMethods.map((method: any) => {
                   const Icon = getPaymentMethodIcon(method.code);
                   const selected = selectedMethod === method.code;
@@ -511,7 +591,7 @@ export default function BookingPaymentPage() {
                               {method.verification_type === "auto" ? "Otomatis" : "Manual"}
                             </span>
                           </div>
-                          <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                          <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
                             {getPaymentMethodMeta(method)}
                           </p>
                         </div>
@@ -545,100 +625,106 @@ export default function BookingPaymentPage() {
                       <p className="text-sm font-semibold">
                         {selectedMethodDetail.verification_type === "auto"
                           ? "Langkah 3 · Lanjutkan Pembayaran"
-                          : "Langkah 3 · Upload Bukti dan Konfirmasi"}
+                          : selectedMethodDetail.code === "cash"
+                            ? "Langkah 3 · Konfirmasi Pembayaran Cash"
+                            : "Langkah 3 · Upload Bukti dan Konfirmasi"}
                       </p>
                     </div>
                     <div className="mt-3 rounded-2xl bg-white px-3 py-2 text-[11px] font-medium text-slate-600 dark:bg-white/5 dark:text-slate-300">
                       {selectedMethodDetail.verification_type === "auto"
-                        ? "Kamu akan diarahkan ke gateway, lalu status booking diperbarui otomatis setelah pembayaran berhasil."
-                        : "Setelah bukti dikirim, admin tenant akan memverifikasi sebelum status booking diperbarui."}
+                        ? "Status otomatis."
+                        : selectedMethodDetail.code === "cash"
+                          ? "Admin akan cek cash."
+                          : "Admin akan verifikasi."}
                     </div>
-                    <p className="mt-3 text-xs leading-6 text-slate-500 dark:text-slate-400">
+                    <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
                       {confirmationHint}
                     </p>
 
                     {selectedMethodDetail.verification_type !== "auto" ? (
                       <div className="mt-4 space-y-4">
-                        <div className="rounded-[1.5rem] border border-blue-200 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/10">
-                          <div className="space-y-2">
-                            <label className="text-sm font-semibold text-slate-900 dark:text-white">
-                              Upload bukti bayar
-                            </label>
-                            <p className="text-xs leading-6 text-slate-600 dark:text-slate-300">
-                              Ini yang paling penting agar admin bisa memverifikasi pembayaran kamu dengan cepat.
-                            </p>
-                            <label className="mt-2 block cursor-pointer">
-                              <input
-                                type="file"
-                                accept="image/*"
-                                disabled={proofUploading}
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) void uploadManualProof(file);
-                                }}
-                                className="hidden"
-                              />
-                              <div className="rounded-[1.5rem] border border-dashed border-blue-300 bg-white/90 p-5 text-center transition hover:border-blue-500 hover:bg-white dark:border-blue-400/30 dark:bg-slate-950/40 dark:hover:border-blue-300">
-                                {proofUploading ? (
-                                  <div className="space-y-3">
-                                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-white">
-                                      <Upload className="h-6 w-6 animate-pulse" />
-                                    </div>
-                                    <div>
-                                      <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                                        Mengupload bukti bayar...
-                                      </p>
-                                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                        Tunggu sebentar, kami sedang menyimpan gambar kamu
-                                      </p>
-                                    </div>
-                                  </div>
-                                ) : manualProofUrl ? (
-                                  <div className="space-y-3">
-                                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-600 text-white">
-                                      <CheckCircle2 className="h-6 w-6" />
-                                    </div>
-                                    <div>
-                                      <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                                        Bukti bayar berhasil diupload
-                                      </p>
-                                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                        Tekan area ini kalau kamu ingin mengganti gambar
-                                      </p>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="space-y-3">
-                                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-200">
-                                      <ImagePlus className="h-6 w-6" />
-                                    </div>
-                                    <div>
-                                      <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                                        Upload screenshot atau foto bukti bayar
-                                      </p>
-                                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                        PNG atau JPG paling jelas untuk verifikasi admin
-                                      </p>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </label>
-                            {manualProofUrl ? (
-                              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/5">
-                                <img
-                                  src={manualProofUrl}
-                                  alt="Bukti pembayaran"
-                                  className="max-h-64 w-full rounded-xl object-cover"
+                        {selectedMethodRequiresProof ? (
+                          <div className="rounded-[1.5rem] border border-blue-200 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/10">
+                            <div className="space-y-2">
+                              <label className="text-sm font-semibold text-slate-900 dark:text-white">
+                                Bukti bayar
+                              </label>
+                              <label className="mt-2 block cursor-pointer">
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  disabled={proofUploading}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) void uploadManualProof(file);
+                                  }}
+                                  className="hidden"
                                 />
-                              </div>
-                            ) : null}
+                                <div className="rounded-[1.5rem] border border-dashed border-blue-300 bg-white/90 p-5 text-center transition hover:border-blue-500 hover:bg-white dark:border-blue-400/30 dark:bg-slate-950/40 dark:hover:border-blue-300">
+                                  {proofUploading ? (
+                                    <div className="space-y-3">
+                                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-white">
+                                        <Upload className="h-6 w-6 animate-pulse" />
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                                          Mengupload...
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ) : manualProofUrl ? (
+                                    <div className="space-y-3">
+                                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-600 text-white">
+                                        <CheckCircle2 className="h-6 w-6" />
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                                          Bukti terupload
+                                        </p>
+                                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                          Tap untuk ganti
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-3">
+                                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-200">
+                                        <ImagePlus className="h-6 w-6" />
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                                          Upload bukti
+                                        </p>
+                                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                          PNG / JPG
+                                        </p>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </label>
+                              {manualProofUrl ? (
+                                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/5">
+                                  <img
+                                    src={manualProofUrl}
+                                    alt="Bukti pembayaran"
+                                    className="max-h-64 w-full rounded-xl object-cover"
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="rounded-[1.5rem] border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-6 text-blue-900 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100">
+                            Cash tanpa upload bukti.
+                          </div>
+                        )}
 
                         <div className="space-y-2">
                           <label className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                            Catatan pembayaran opsional
+                            {selectedMethodDetail.code === "cash"
+                              ? "Catatan cash"
+                              : "Catatan opsional"}
                           </label>
                           <textarea
                             value={manualPaymentNote}
@@ -647,10 +733,12 @@ export default function BookingPaymentPage() {
                             className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none dark:border-white/10 dark:bg-slate-950/40"
                             placeholder={
                               selectedMethodDetail.code === "bank_transfer"
-                                ? "Misal: transfer dari BCA pukul 13:20"
+                                ? "Transfer BCA 13:20"
                                 : selectedMethodDetail.code === "qris_static"
-                                  ? "Misal: bayar via GoPay pukul 13:25"
-                                  : "Tambahkan catatan bila perlu"
+                                  ? "GoPay 13:25"
+                                  : selectedMethodDetail.code === "cash"
+                                    ? "Bayar ke kasir 19:10"
+                                  : "Catatan"
                             }
                           />
                         </div>
@@ -671,9 +759,11 @@ export default function BookingPaymentPage() {
                 <CreditCard className="mr-2 h-4 w-4" />
                 {selectedMethodDetail?.verification_type === "auto"
                   ? midtransReady
-                    ? `Bayar ${scope === "deposit" ? "DP" : "Pelunasan"} via ${selectedMethodDetail?.display_name || "Gateway"}`
+                    ? `Bayar via ${selectedMethodDetail?.display_name || "Gateway"}`
                     : "Menyiapkan gateway..."
-                  : `Saya Sudah Bayar ${scope === "deposit" ? "DP" : "Pelunasan"} via ${selectedMethodDetail?.display_name || "Manual"}`}
+                  : selectedMethodDetail?.code === "cash"
+                    ? "Konfirmasi Cash"
+                    : `Kirim ${selectedMethodDetail?.display_name || "Manual"}`}
               </Button>
             </div>
           </Card>

@@ -121,8 +121,8 @@ export default function DashboardInternalLayout({
 
   return (
     <TooltipProvider delayDuration={0} skipDelayDuration={0}>
-      <div className="tenant-admin-shell relative flex min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#f8fbff_0%,#eef5ff_22%,#f8fafc_55%,#ffffff_100%)] selection:bg-blue-500/30 dark:bg-[linear-gradient(180deg,#060b16_0%,#0b1220_26%,#0f172a_60%,#05070d_100%)]">
-        <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.10),transparent_24%),radial-gradient(circle_at_top_right,rgba(16,185,129,0.07),transparent_28%)]" />
+      <div className="tenant-admin-shell relative flex min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#f7fffe_0%,#ecfbf9_20%,#f6fbfb_52%,#ffffff_100%)] selection:bg-[var(--bookinaja-400)]/30 dark:bg-[linear-gradient(180deg,#051316_0%,#091b20_24%,#0b1820_56%,#04090b_100%)]">
+        <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(129,216,208,0.14),transparent_24%),radial-gradient(circle_at_top_right,rgba(30,143,146,0.10),transparent_28%)]" />
         {/* SIDEBAR */}
         <aside
           className={cn(
@@ -140,11 +140,11 @@ export default function DashboardInternalLayout({
             isCollapsed ? "md:pl-20" : "md:pl-72",
           )}
         >
-          <div className="fixed inset-x-0 top-0 z-40 md:hidden border-b border-slate-200/80 bg-white/92 backdrop-blur-xl dark:border-white/8 dark:bg-[#0b1220]/90">
+          <div className="fixed inset-x-0 top-0 z-40 border-b border-slate-200/80 bg-white/92 backdrop-blur-xl dark:border-white/8 dark:bg-[#091b20]/90 md:hidden">
             <div className="flex h-17.5 items-center justify-between gap-3 px-4">
               <div className="min-w-0">
-                <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-blue-600">
-                  Admin Tenant
+                <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-600)]">
+                  Admin
                 </div>
                 <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">
                   {pageTitle}
@@ -169,7 +169,7 @@ export default function DashboardInternalLayout({
 // --- LOADING SKELETON COMPONENT ---
 function DashboardLayoutSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
   return (
-    <div className="tenant-admin-shell flex min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#f8fbff_0%,#eef5ff_22%,#f8fafc_55%,#ffffff_100%)] dark:bg-[linear-gradient(180deg,#060b16_0%,#0b1220_26%,#0f172a_60%,#05070d_100%)]">
+    <div className="tenant-admin-shell flex min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#f7fffe_0%,#ecfbf9_20%,#f6fbfb_52%,#ffffff_100%)] dark:bg-[linear-gradient(180deg,#051316_0%,#091b20_24%,#0b1820_56%,#04090b_100%)]">
       {/* Sidebar Shadow Skeleton */}
       <div
         className={cn(

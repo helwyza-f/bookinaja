@@ -117,22 +117,6 @@ func (h *Handler) ListOrders(c *gin.Context) {
 
 // POST /api/v1/billing/bookings/checkout
 func (h *Handler) BookingCheckout(c *gin.Context) {
-	tenantIDVal, ok := c.Get("tenantID")
-	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID missing"})
-		return
-	}
-	tenantIDStr, ok := tenantIDVal.(string)
-	if !ok || tenantIDStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID invalid"})
-		return
-	}
-	tenantID, err := uuid.Parse(tenantIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID invalid"})
-		return
-	}
-
 	tenantSlugVal, _ := c.Get("tenantSlug")
 	tenantSlug, _ := tenantSlugVal.(string)
 	if tenantSlug == "" {
@@ -153,6 +137,26 @@ func (h *Handler) BookingCheckout(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bookingID invalid"})
 		return
+	}
+
+	var tenantID uuid.UUID
+	if tenantIDVal, ok := c.Get("tenantID"); ok {
+		tenantIDStr, ok := tenantIDVal.(string)
+		if !ok || tenantIDStr == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID invalid"})
+			return
+		}
+		tenantID, err = uuid.Parse(tenantIDStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID invalid"})
+			return
+		}
+	} else {
+		tenantID, err = h.svc.ResolveBookingTenantID(c.Request.Context(), bID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID missing"})
+			return
+		}
 	}
 
 	mode := c.Query("mode")
@@ -291,12 +295,22 @@ func (h *Handler) RejectManualBookingPayment(c *gin.Context) {
 }
 
 func (h *Handler) ListBookingPaymentAttempts(c *gin.Context) {
+	tenantIDVal, ok := c.Get("tenantID")
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID missing"})
+		return
+	}
+	tenantID, err := uuid.Parse(tenantIDVal.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID invalid"})
+		return
+	}
 	bookingID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bookingID invalid"})
 		return
 	}
-	items, err := h.svc.ListBookingPaymentAttempts(c.Request.Context(), bookingID)
+	items, err := h.svc.ListBookingPaymentAttempts(c.Request.Context(), tenantID, bookingID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

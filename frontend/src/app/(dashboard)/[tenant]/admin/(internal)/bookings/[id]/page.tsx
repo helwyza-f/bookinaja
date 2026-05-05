@@ -9,6 +9,7 @@ import { id as localeID } from "date-fns/locale";
 import {
   ArrowLeft,
   Calendar,
+  CheckCircle2,
   Clock,
   User,
   Phone,
@@ -33,7 +34,6 @@ import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -412,9 +412,6 @@ export default function BookingDetailPage() {
           <h2 className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
             Timeline aktivitas
           </h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Riwayat tetap tersedia, tapi sekarang diletakkan di bawah agar fokus operasional tetap di aksi dan billing.
-          </p>
         </div>
         <Badge variant="outline" className="w-fit rounded-full">
           {booking?.events?.length || 0} event
@@ -645,7 +642,7 @@ export default function BookingDetailPage() {
           <div className="flex flex-col gap-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Next action</div>
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Aksi</div>
                 <div className="mt-1 text-sm font-medium leading-5 text-slate-700 dark:text-slate-200">{nextActionHint}</div>
               </div>
               <Badge className="shrink-0 rounded-full border-none bg-slate-950 px-3 py-1 text-xs font-semibold text-white">
@@ -655,6 +652,7 @@ export default function BookingDetailPage() {
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {canConfirm && (
                 <Button onClick={() => handleUpdateStatus("confirmed")} disabled={updating || !canConfirmBooking} variant="outline" className="h-10 rounded-xl">
+                  <ShieldCheck className="mr-2 h-4 w-4" />
                   Konfirmasi
                 </Button>
               )}
@@ -665,11 +663,13 @@ export default function BookingDetailPage() {
               )}
               {(status === "pending" || status === "confirmed") && (
                 <Button onClick={() => handleUpdateStatus("active")} disabled={updating || !canStart || !canStartSession} className="h-10 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700">
+                  <Zap className="mr-2 h-4 w-4" />
                   Mulai Sesi
                 </Button>
               )}
               {canComplete && (
                 <Button onClick={() => handleUpdateStatus("completed")} disabled={updating || !canCompleteSession} className="h-10 rounded-xl bg-slate-950 text-white hover:bg-slate-800">
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
                   Akhiri Sesi
                 </Button>
               )}
@@ -730,9 +730,6 @@ export default function BookingDetailPage() {
             <DialogTitle className="text-left text-xl font-semibold tracking-tight text-slate-950 dark:text-white">
               Pilih Metode Pelunasan
             </DialogTitle>
-            <DialogDescription className="text-left text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Pilih jalur pembayaran yang paling sesuai untuk menyelesaikan sisa tagihan booking ini.
-            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-5 px-5 py-5">
@@ -760,10 +757,7 @@ export default function BookingDetailPage() {
             <div className="space-y-3">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
-                  Opsi Pembayaran
-                </p>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Setiap metode punya alur yang berbeda. Pilih satu opsi untuk melihat instruksi dan tindakan berikutnya.
+                  Metode
                 </p>
               </div>
 
@@ -799,10 +793,10 @@ export default function BookingDetailPage() {
                               {method.verification_type === "auto" ? "Otomatis" : "Manual"}
                             </Badge>
                           </div>
-                          <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                          <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
                             {method.verification_type === "auto"
-                              ? "Pembayaran diverifikasi otomatis setelah gateway mengonfirmasi transaksi."
-                              : "Pembayaran akan masuk antrean review admin setelah bukti atau konfirmasi dikirim."}
+                              ? "Otomatis"
+                              : "Verifikasi admin"}
                           </p>
                         </div>
                         <div
@@ -1009,7 +1003,9 @@ export default function BookingDetailPage() {
                     </div>
                   ) : (
                     <div className="mt-4 rounded-xl border border-dashed border-slate-200 px-3 py-3 text-xs text-slate-500 dark:border-white/10 dark:text-slate-400">
-                      Customer belum melampirkan bukti bayar.
+                      {attempt.method_code === "cash"
+                        ? "Pembayaran cash tidak membutuhkan bukti upload. Review catatan customer lalu lanjut verifikasi bila pembayaran sudah diterima."
+                        : "Customer belum melampirkan bukti bayar."}
                     </div>
                   )}
                   <div className="mt-4 grid gap-3">

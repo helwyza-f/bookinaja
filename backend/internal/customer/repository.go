@@ -13,7 +13,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type Repository struct {
@@ -388,17 +387,18 @@ func (r *Repository) UpdateProfile(ctx context.Context, id uuid.UUID, req Update
 		args = append(args, strings.TrimSpace(*req.Email))
 		argIdx++
 	}
-	if req.Password != nil && strings.TrimSpace(*req.Password) != "" {
-		hashed, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
-		if err != nil {
-			return nil, fmt.Errorf("gagal mengamankan password pelanggan: %w", err)
+	if req.AvatarURL != nil {
+		avatarURL := strings.TrimSpace(*req.AvatarURL)
+		if avatarURL == "" {
+			setClauses = append(setClauses, fmt.Sprintf("avatar_url = NULL"))
+		} else {
+			setClauses = append(setClauses, fmt.Sprintf("avatar_url = $%d", argIdx))
+			args = append(args, avatarURL)
+			argIdx++
 		}
-		setClauses = append(setClauses, fmt.Sprintf("password = $%d", argIdx))
-		args = append(args, string(hashed))
-		argIdx++
 	}
 
-	if len(args) == 0 {
+	if len(args) == 0 && len(setClauses) == 1 {
 		return r.FindByID(ctx, id)
 	}
 
@@ -418,6 +418,42 @@ func (r *Repository) UpdateProfile(ctx context.Context, id uuid.UUID, req Update
 			return nil, nil
 		}
 		return nil, wrapCustomerRepoErr("repo: gagal update customer", err)
+	}
+	r.InvalidateCustomerMembershipCache(ctx, id)
+	return &c, nil
+}
+
+func (r *Repository) UpdatePasswordHash(ctx context.Context, id uuid.UUID, hashedPassword string) (*Customer, error) {
+	var c Customer
+	if err := r.db.GetContext(ctx, &c, `
+		UPDATE customers
+		SET password = $1,
+			updated_at = NOW()
+		WHERE id = $2
+		RETURNING *`, hashedPassword, id); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, wrapCustomerRepoErr("repo: gagal update password customer", err)
+	}
+	r.InvalidateCustomerMembershipCache(ctx, id)
+	return &c, nil
+}
+
+func (r *Repository) UpdatePhone(ctx context.Context, id uuid.UUID, phone string) (*Customer, error) {
+	var c Customer
+	if err := r.db.GetContext(ctx, &c, `
+		UPDATE customers
+		SET phone = $1,
+			account_status = 'verified',
+			phone_verified_at = NOW(),
+			updated_at = NOW()
+		WHERE id = $2
+		RETURNING *`, phone, id); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, wrapCustomerRepoErr("repo: gagal update nomor WhatsApp customer", err)
 	}
 	r.InvalidateCustomerMembershipCache(ctx, id)
 	return &c, nil

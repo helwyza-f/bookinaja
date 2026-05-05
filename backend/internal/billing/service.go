@@ -147,9 +147,8 @@ func (s *Service) CheckoutBookingPayment(ctx context.Context, tenantID uuid.UUID
 		if amount <= 0 {
 			return BookingCheckoutRes{}, errors.New("booking ini sudah lunas")
 		}
-		status := strings.ToLower(strings.TrimSpace(booking.Status))
-		if status == "active" || status == "ongoing" {
-			return BookingCheckoutRes{}, errors.New("SESI HARUS DIAKHIRI TERLEBIH DAHULU SEBELUM MELAKUKAN PELUNASAN")
+		if err := validateBookingSettlementState(booking.Status); err != nil {
+			return BookingCheckoutRes{}, err
 		}
 	} else {
 		if booking.DepositAmount <= 0 {
@@ -231,6 +230,9 @@ func (s *Service) SubmitManualBookingPayment(ctx context.Context, tenantID uuid.
 		scope = "deposit"
 	}
 	scope = strings.TrimSpace(scope)
+	if err := validateManualMethodForScope(method.Code, scope); err != nil {
+		return BookingCheckoutRes{}, err
+	}
 
 	amount := int64(booking.DepositAmount)
 	display := "DP"
@@ -239,6 +241,9 @@ func (s *Service) SubmitManualBookingPayment(ctx context.Context, tenantID uuid.
 		amount = int64(booking.BalanceDue)
 		if amount <= 0 {
 			return BookingCheckoutRes{}, errors.New("booking ini sudah lunas")
+		}
+		if err := validateBookingSettlementState(booking.Status); err != nil {
+			return BookingCheckoutRes{}, err
 		}
 	} else if booking.DepositAmount <= 0 {
 		return BookingCheckoutRes{}, errors.New("booking ini tidak memiliki DP yang perlu dibayar")
@@ -332,8 +337,18 @@ func (s *Service) VerifyManualBookingPayment(ctx context.Context, tenantID, atte
 			previousBookingStatus := getMetadataString(meta, "previous_booking_status", "pending")
 			previousPaidAmount := getMetadataFloat(meta, "previous_paid_amount")
 			previousBalanceDue := getMetadataFloat(meta, "previous_balance_due")
-			if err := s.repo.RestoreBookingPaymentStatus(ctx, tx, attempt.BookingID, previousPaymentStatus, previousPaidAmount, previousBalanceDue, previousBookingStatus); err != nil {
+			currentBooking, err := s.repo.GetBookingForPayment(ctx, tx, attempt.BookingID, tenantID)
+			if err != nil {
 				return err
+			}
+			if strings.EqualFold(strings.TrimSpace(currentBooking.PaymentStatus), "awaiting_verification") {
+				statusToKeep := previousBookingStatus
+				if !strings.EqualFold(strings.TrimSpace(currentBooking.Status), strings.TrimSpace(previousBookingStatus)) {
+					statusToKeep = currentBooking.Status
+				}
+				if err := s.repo.RestoreBookingPaymentStatus(ctx, tx, attempt.BookingID, previousPaymentStatus, previousPaidAmount, previousBalanceDue, statusToKeep); err != nil {
+					return err
+				}
 			}
 			status := "rejected"
 			if err := s.repo.MarkBookingPaymentAttemptStatus(ctx, tx, attempt.ID, status, nil, &adminNote); err != nil {
@@ -381,8 +396,8 @@ func (s *Service) VerifyManualBookingPayment(ctx context.Context, tenantID, atte
 	return nil
 }
 
-func (s *Service) ListBookingPaymentAttempts(ctx context.Context, bookingID uuid.UUID) ([]BookingPaymentAttempt, error) {
-	return s.repo.ListBookingPaymentAttempts(ctx, bookingID)
+func (s *Service) ListBookingPaymentAttempts(ctx context.Context, tenantID, bookingID uuid.UUID) ([]BookingPaymentAttempt, error) {
+	return s.repo.ListBookingPaymentAttempts(ctx, bookingID, tenantID)
 }
 
 func (s *Service) GetSubscription(ctx context.Context, tenantID uuid.UUID) (SubscriptionInfo, error) {
@@ -573,6 +588,27 @@ func getMetadataFloat(meta map[string]any, key string) float64 {
 	default:
 		return 0
 	}
+}
+
+func validateBookingSettlementState(status string) error {
+	status = strings.ToLower(strings.TrimSpace(status))
+	switch status {
+	case "active", "ongoing":
+		return errors.New("SESI HARUS DIAKHIRI TERLEBIH DAHULU SEBELUM MELAKUKAN PELUNASAN")
+	case "completed":
+		return nil
+	default:
+		return errors.New("pelunasan hanya tersedia setelah sesi selesai")
+	}
+}
+
+func validateManualMethodForScope(methodCode, scope string) error {
+	methodCode = strings.ToLower(strings.TrimSpace(methodCode))
+	scope = strings.ToLower(strings.TrimSpace(scope))
+	if scope == "deposit" && methodCode == "cash" {
+		return errors.New("cash / bayar di tempat tidak tersedia untuk pembayaran DP")
+	}
+	return nil
 }
 
 func buildLedgerDedupeKey(sourceType, orderID, transactionID, status, paymentType string) string {

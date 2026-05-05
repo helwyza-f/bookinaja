@@ -12,6 +12,9 @@ export default function UserVerifyClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [message, setMessage] = useState("Memproses akses booking...");
+  const nextStep = searchParams.get("next");
+  const paymentScope =
+    searchParams.get("scope") === "settlement" ? "settlement" : "deposit";
 
   useEffect(() => {
     const code = searchParams.get("code") || searchParams.get("token");
@@ -37,6 +40,13 @@ export default function UserVerifyClient() {
           "customer_auth",
           res.data.customer_token,
         );
+
+        if (nextStep === "payment") {
+          router.replace(
+            `/user/me/bookings/${res.data.booking_id}/payment?scope=${paymentScope}`,
+          );
+          return;
+        }
 
         const redirectUrl =
           res.data.redirect_url || `/user/me/bookings/${res.data.booking_id}`;
@@ -65,7 +75,7 @@ export default function UserVerifyClient() {
     return () => {
       cancelled = true;
     };
-  }, [router, searchParams]);
+  }, [nextStep, paymentScope, router, searchParams]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 text-white">

@@ -239,14 +239,11 @@ export default function SettingsCRMPage() {
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
             <Users className="h-4 w-4" />
-            CRM & Marketing
+            CRM
           </div>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
-            Pisahkan migrasi dan operasional
+            CRM
           </h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-            Pelanggan aktif adalah customer yang sudah booking di Bookinaja. Pelanggan lama hanya daftar kontak migrasi untuk diberi tahu via WhatsApp, bukan akun customer.
-          </p>
         </div>
         <Button variant="outline" onClick={loadAll} className="w-fit gap-2 dark:border-white/10 dark:bg-white/[0.03]">
           <RefreshCw className="h-4 w-4" />
@@ -266,10 +263,8 @@ export default function SettingsCRMPage() {
           <div className="flex gap-3">
             <Lock className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
-              <div className="text-sm font-semibold">Migrasi dan blast CRM tersedia di paket Pro.</div>
-              <p className="mt-1 text-xs leading-5 opacity-80">
-                Halaman tetap bisa diakses agar benefit Pro jelas, tapi import dan blast terkunci sampai upgrade.
-              </p>
+              <div className="text-sm font-semibold">Fitur CRM Pro</div>
+              <p className="mt-1 text-xs leading-5 opacity-80">Import dan blast butuh Pro aktif.</p>
             </div>
           </div>
           <Button asChild className="w-fit rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
@@ -290,8 +285,8 @@ export default function SettingsCRMPage() {
             <SectionHeader
               icon={<FileUp className="h-5 w-5" />}
               label="Pelanggan lama"
-              title="Input kontak lama untuk migrasi"
-              description="CSV cukup nama dan nomor HP. Data ini tidak membuat akun Bookinaja dan tidak masuk ke tabel customers aktif."
+              title="Kontak lama"
+              description="CSV: nama & nomor."
             />
 
             <div className="mt-5 grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
@@ -326,7 +321,7 @@ export default function SettingsCRMPage() {
                   </div>
                   <Button onClick={handleImportLegacy} disabled={busy || !isProActive} className="gap-2">
                     <Upload className="h-4 w-4" />
-                    Simpan pelanggan lama
+                    Simpan
                   </Button>
                 </div>
                 {importResult && (
@@ -342,8 +337,8 @@ export default function SettingsCRMPage() {
             <SectionHeader
               icon={<Megaphone className="h-5 w-5" />}
               label="Blast migrasi"
-              title="Kirim pengumuman ke pelanggan lama"
-              description="Target blast ini hanya kontak legacy yang kamu import di tab migrasi."
+              title="Blast legacy"
+              description="Target: kontak legacy."
             />
             <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_260px]">
               <Textarea
@@ -355,7 +350,7 @@ export default function SettingsCRMPage() {
                 <Metric label="Target legacy" value={String(legacyContacts.length)} compact />
                 <Button onClick={() => handleBlast("legacy")} disabled={busy || !isProActive} className="mt-4 w-full gap-2">
                   <Megaphone className="h-4 w-4" />
-                  Blast pelanggan lama
+                  Blast legacy
                 </Button>
               </div>
             </div>
@@ -367,8 +362,8 @@ export default function SettingsCRMPage() {
             <SectionHeader
               icon={<Users className="h-5 w-5" />}
               label="Pelanggan aktif"
-              title="Blast operational ke customer tenant"
-              description="Target ini adalah customer yang benar-benar sudah booking di tenant ini. Beda dari pelanggan lama migrasi."
+              title="Blast aktif"
+              description="Target: customer tenant."
             />
             <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_260px]">
               <Textarea
@@ -380,7 +375,7 @@ export default function SettingsCRMPage() {
                 <Metric label="Target aktif" value={String(customers.length)} compact />
                 <Button onClick={() => handleBlast("active")} disabled={busy || !isProActive} className="mt-4 w-full gap-2">
                   <Megaphone className="h-4 w-4" />
-                  Blast pelanggan aktif
+                  Blast aktif
                 </Button>
               </div>
             </div>
@@ -405,7 +400,6 @@ export default function SettingsCRMPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-slate-950 dark:text-white">History CRM</h2>
-                <p className="text-sm text-slate-500">Import legacy, blast legacy, dan blast pelanggan aktif.</p>
               </div>
               <Badge variant="secondary">{crmHistory.length} record</Badge>
             </div>

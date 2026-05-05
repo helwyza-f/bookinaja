@@ -306,11 +306,6 @@ export default function PaymentMethodsSettingsPage() {
             <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
               Metode pembayaran tenant
             </h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-              Atur metode pembayaran yang muncul di customer dan POS untuk DP
-              maupun pelunasan. Edit hanya saat diperlukan, sisanya tetap ringkas
-              untuk dipantau.
-            </p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-white/10 dark:bg-white/5">
             <div className="text-slate-500">Metode aktif</div>
@@ -342,7 +337,7 @@ export default function PaymentMethodsSettingsPage() {
                   <div className="mt-0.5 rounded-2xl bg-slate-100 p-3 text-slate-700 dark:bg-white/10 dark:text-white">
                     <Icon className="h-5 w-5" />
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0" title={renderCompactDetails(currentItem)}>
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
                         {currentItem.display_name}
@@ -358,14 +353,14 @@ export default function PaymentMethodsSettingsPage() {
                       </span>
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-white/5 dark:text-slate-300">
                         {currentItem.verification_type === "auto"
-                          ? "Auto verification"
-                          : "Manual verification"}
+                          ? "Otomatis"
+                          : "Manual"}
                       </span>
                     </div>
-                    <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                       {currentItem.verification_type === "auto"
-                        ? "Pembayaran diverifikasi otomatis oleh gateway."
-                        : "Pembayaran menunggu verifikasi admin setelah customer melakukan pembayaran."}
+                        ? "Gateway"
+                        : "Verifikasi admin"}
                     </p>
                     {!isEditing ? (
                       <>
@@ -384,9 +379,6 @@ export default function PaymentMethodsSettingsPage() {
                             </div>
                           ))}
                         </div>
-                        <p className="mt-3 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">
-                          {renderCompactDetails(currentItem)}
-                        </p>
                       </>
                     ) : null}
                   </div>

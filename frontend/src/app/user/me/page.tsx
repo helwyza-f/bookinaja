@@ -2,7 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Calendar, Clock, Compass, Search, Ticket, Wallet, PlayCircle, Camera, Megaphone } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarDays,
+  History,
+  PlayCircle,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Ticket,
+  UserCircle2,
+  Wallet,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
@@ -20,19 +31,14 @@ import {
   formatStartingPrice,
   getDiscoveryByline,
   getDiscoveryCardKind,
-  getDiscoveryItemBadges,
-  getDiscoveryItemCta,
   getDiscoveryEventMetadata,
   getDiscoveryItemHref,
   getDiscoveryItemImage,
-  getDiscoveryItemReason,
   getDiscoveryItemSummary,
   getDiscoveryItemTitle,
   getDiscoverySurfaceLabel,
   isDiscoveryBusiness,
   isDiscoveryPost,
-  isDiscoveryPromoPost,
-  isDiscoveryVideoPost,
   scoreDiscoveryTenant,
 } from "@/lib/discovery";
 import {
@@ -45,6 +51,9 @@ type CustomerDashboard = {
     id?: string;
     name?: string;
     tier?: string;
+    phone?: string;
+    email?: string;
+    avatar_url?: string | null;
   };
   points?: number;
   point_activity?: PointEvent[];
@@ -111,13 +120,29 @@ export default function UserDashboardPage() {
     };
   }, [router]);
 
+  const customer = data?.customer;
+  const customerInitials = useMemo(() => {
+    return String(customer?.name || "CU")
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() || "")
+      .join("");
+  }, [customer?.name]);
   const activeBookings = useMemo(() => data?.active_bookings || [], [data?.active_bookings]);
   const pointActivity = useMemo(() => data?.point_activity || [], [data?.point_activity]);
-  const categories = useMemo(() => [FILTER_ALL, ...(discoverFeed?.quick_categories || [])], [discoverFeed?.quick_categories]);
+  const history = useMemo(() => data?.past_history || [], [data?.past_history]);
+  const categories = useMemo(
+    () => [FILTER_ALL, ...(discoverFeed?.quick_categories || [])],
+    [discoverFeed?.quick_categories],
+  );
 
   const discoverCandidates = useMemo(() => {
     const map = new Map<string, DiscoveryTenant>();
-    [ ...(discoverFeed?.featured || []), ...((discoverFeed?.sections || []).flatMap((section) => section.items)) ].forEach((item) => map.set(item.id, item));
+    [
+      ...(discoverFeed?.featured || []),
+      ...((discoverFeed?.sections || []).flatMap((section) => section.items)),
+    ].forEach((item) => map.set(item.id, item));
     return Array.from(map.values());
   }, [discoverFeed]);
 
@@ -126,22 +151,23 @@ export default function UserDashboardPage() {
       .filter((tenant) => {
         const matchesCategory =
           activeCategory === FILTER_ALL ||
-          `${tenant.business_category || tenant.business_type || ""}`.toLowerCase() === activeCategory.toLowerCase();
+          `${tenant.business_category || tenant.business_type || ""}`.toLowerCase() ===
+            activeCategory.toLowerCase();
         return matchesCategory && scoreDiscoveryTenant(tenant, query) > -100;
       })
       .sort((left, right) => scoreDiscoveryTenant(right, query) - scoreDiscoveryTenant(left, query));
   }, [activeCategory, discoverCandidates, query]);
 
   const featuredTenant = personalizedDiscoveries[0] || null;
-  const contentRecommendations = personalizedDiscoveries.filter(isDiscoveryPost).slice(0, 4);
-  const businessRecommendations = personalizedDiscoveries.filter(isDiscoveryBusiness).slice(0, 4);
+  const discoveryGrid = personalizedDiscoveries.slice(0, 6);
+
   const markImpression = (
     tenant: DiscoveryTenant,
     sectionId: string,
     cardVariant: string,
     positionIndex: number,
   ) => {
-    const key = discoveryImpressionKey(["customer-hub", sectionId, cardVariant, tenant.id]);
+    const key = discoveryImpressionKey([sectionId, cardVariant, tenant.id]);
     if (seenImpressions[key]) return;
     setSeenImpressions((prev) => ({ ...prev, [key]: true }));
     trackDiscoveryEvent({
@@ -162,18 +188,131 @@ export default function UserDashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <section className="space-y-4">
-        <div className="space-y-2">
-          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-600">
-            Home Feed
+    <div className="space-y-4">
+      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-600 dark:text-blue-300">
+              Home
+            </p>
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">
+              Halo, {customer?.name?.split(" ")[0] || "Customer"}
+            </h1>
+          </div>
+          <Link
+            href="/user/me/settings"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-white"
+          >
+            {customer?.avatar_url ? (
+              <span
+                className="h-full w-full rounded-2xl bg-cover bg-center"
+                style={{ backgroundImage: `url(${customer.avatar_url})` }}
+              />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center rounded-2xl bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.22),_transparent_45%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(37,99,235,0.88))] text-sm font-semibold text-white">
+                {customerInitials || "CU"}
+              </span>
+            )}
+          </Link>
+        </div>
+
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <MetricCard
+            label="Points"
+            value={String(data?.points || 0)}
+            icon={Wallet}
+            tone="blue"
+          />
+          <MetricCard
+            label="Tier"
+            value={customer?.tier || "NEW"}
+            icon={Sparkles}
+            tone="emerald"
+          />
+          <MetricCard
+            label="Aktif"
+            value={String(activeBookings.length)}
+            icon={Ticket}
+            tone="slate"
+          />
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <QuickLink href="/user/me/active" label="Booking Aktif" icon={PlayCircle} />
+          <QuickLink href="/user/me/history" label="Riwayat" icon={History} />
+          <QuickLink href="/user/me/settings" label="Profil" icon={UserCircle2} />
+          <QuickLink href="/user/me/settings?sheet=password" label="Keamanan" icon={ShieldCheck} />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
+              Lanjutkan
+            </p>
+            <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
+              Booking aktif kamu
+            </h2>
+          </div>
+          {activeBookings.length ? (
+            <Button asChild variant="ghost" className="h-10 rounded-2xl px-3">
+              <Link href="/user/me/active">Lihat semua</Link>
+            </Button>
+          ) : null}
+        </div>
+
+        {activeBookings.length ? (
+          <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
+            {activeBookings.slice(0, 5).map((booking) => (
+              <Link
+                key={booking.id}
+                href={`/user/me/bookings/${booking.id}/live`}
+                className="min-w-[240px] flex-none rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#10141f]"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <Badge className="rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200">
+                    {booking.status || "active"}
+                  </Badge>
+                  <span className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                    {booking.tenant_name || "Tenant"}
+                  </span>
+                </div>
+                <div className="mt-3 line-clamp-2 text-base font-semibold tracking-tight text-slate-950 dark:text-white">
+                  {booking.resource || "Booking"}
+                </div>
+                <div className="mt-2 flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400">
+                  <span className="flex items-center gap-1">
+                    <CalendarDays className="h-3.5 w-3.5" />
+                    {booking.date
+                      ? new Date(booking.date).toLocaleDateString("id-ID", {
+                          day: "numeric",
+                          month: "short",
+                        })
+                      : "-"}
+                  </span>
+                  <span>Rp {Number(booking.grand_total || 0).toLocaleString("id-ID")}</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <Card className="rounded-[1.5rem] border-dashed border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
+            <CardContent className="p-4 text-sm leading-6 text-slate-500 dark:text-slate-400">
+              Belum ada booking aktif. Bagian discovery di bawah jadi pintu tercepat untuk mulai cari tempat baru.
+            </CardContent>
+          </Card>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
+            Discovery
           </p>
-          <h1 className="text-2xl font-black uppercase tracking-[-0.04em] md:text-3xl">
-            Temukan tempat berikutnya lebih cepat.
-          </h1>
-          <p className="max-w-2xl text-sm leading-7 text-slate-500">
-            Fokus utamanya sekarang ada di feed discovery. Booking aktif, riwayat, dan pengaturan akun tetap ada, tapi tidak lagi memenuhi layar utama.
-          </p>
+          <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
+            Cari tempat berikutnya
+          </h2>
         </div>
 
         <div className="relative">
@@ -182,7 +321,7 @@ export default function UserDashboardPage() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={discoverFeed?.hero?.search_hint || "Cari tempat, kategori, atau aktivitas"}
-            className="h-12 rounded-2xl border-slate-200 bg-white pl-11 text-sm"
+            className="h-12 rounded-2xl border-slate-200 bg-white pl-11 text-sm dark:border-white/10 dark:bg-[#10141f]"
           />
         </div>
 
@@ -192,10 +331,10 @@ export default function UserDashboardPage() {
               key={category}
               onClick={() => setActiveCategory(category)}
               className={cn(
-                "whitespace-nowrap rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] transition-all",
+                "whitespace-nowrap rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] transition-all",
                 activeCategory === category
                   ? "bg-blue-600 text-white"
-                  : "bg-blue-50 text-slate-600 hover:bg-blue-100",
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/10 dark:text-slate-200",
               )}
             >
               {category}
@@ -211,181 +350,95 @@ export default function UserDashboardPage() {
         />
       ) : null}
 
-      <section className="space-y-3">
-        <SectionHeader
-          eyebrow="Lanjutkan"
-          title="Yang masih aktif buat kamu"
-          description="Ringkasan kecil supaya kamu bisa lanjut booking tanpa mengalahkan feed utama."
-        />
-        <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
-          {activeBookings.length ? (
-            activeBookings.slice(0, 5).map((booking) => (
-              <Link
-                key={booking.id}
-                href={`/user/me/bookings/${booking.id}`}
-                className="min-w-[240px] flex-none rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <Badge className="rounded-full bg-blue-50 text-blue-700">
-                    {booking.status || "active"}
-                  </Badge>
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-                    {booking.tenant_name || "Tenant"}
-                  </span>
-                </div>
-                <div className="mt-3 text-base font-black uppercase tracking-tight">
-                  {booking.resource || "Booking"}
-                </div>
-                <div className="mt-2 flex gap-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5" />
-                    {booking.date
-                      ? new Date(booking.date).toLocaleDateString("id-ID", {
-                          day: "numeric",
-                          month: "short",
-                        })
-                      : "-"}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3.5 w-3.5" />
-                    {booking.date
-                      ? new Date(booking.date).toLocaleTimeString("id-ID", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : "-"}
-                  </span>
-                </div>
-              </Link>
-            ))
-          ) : (
-            <div className="w-full rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-sm text-slate-500">
-              Belum ada booking aktif. Fokus utama kamu sekarang bisa langsung ke feed discovery di bawah.
-            </div>
-          )}
-        </div>
-        {activeBookings.length ? (
-          <Button asChild variant="outline" className="h-11 rounded-2xl">
-            <Link href="/user/me/active">Lihat semua booking aktif</Link>
-          </Button>
-        ) : null}
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {discoveryGrid.map((tenant, index) => (
+          <DiscoveryCard
+            key={tenant.id}
+            tenant={tenant}
+            index={index}
+            onVisible={() => markImpression(tenant, "home-grid", "compact", index)}
+          />
+        ))}
       </section>
 
-      {contentRecommendations.length > 0 ? (
-        <section className="space-y-3">
-          <SectionHeader
-            eyebrow="Konten"
-            title="Postingan tenant yang paling nyambung"
-            description="Ini area khusus konten, jadi kamu tahu yang sedang kamu lihat adalah postingan, bukan profil bisnis."
-          />
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {contentRecommendations.map((tenant, index) => (
-              <ContentCard
-                key={tenant.id}
-                tenant={tenant}
-                sectionId="recommended-content"
-                index={index}
-                onVisible={() => markImpression(tenant, "recommended-content", "compact", index)}
-              />
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {businessRecommendations.length > 0 ? (
-        <section className="space-y-3">
-          <SectionHeader
-            eyebrow="Profil Bisnis"
-            title="Bisnis yang paling masuk buat kamu"
-            description="Bagian ini fokus ke profil bisnis supaya kamu bisa membandingkan tempat tanpa tercampur konten post."
-          />
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {businessRecommendations.map((tenant, index) => (
-              <BusinessCard
-                key={tenant.id}
-                tenant={tenant}
-                sectionId="recommended-business"
-                index={index}
-                onVisible={() => markImpression(tenant, "recommended-business", "business", index)}
-              />
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <section className="grid gap-3 md:grid-cols-[1.2fr_0.8fr]">
-        <Card className="rounded-[1.8rem] border-blue-100 bg-white shadow-sm">
-          <CardContent className="p-4">
+      <section className="grid gap-3 md:grid-cols-2">
+        <Card className="rounded-[1.5rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
+          <CardContent className="space-y-3 p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-600">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                   Loyalty
                 </p>
-                <h3 className="mt-1 text-lg font-black uppercase tracking-tight">
-                  Points & activity
-                </h3>
+                <p className="mt-1 text-base font-semibold text-slate-950 dark:text-white">
+                  Aktivitas points terakhir
+                </p>
               </div>
-              <div className="rounded-2xl bg-blue-600 px-3 py-2 text-right text-white">
-                <div className="text-[10px] font-black uppercase tracking-[0.12em]">Total</div>
-                <div className="mt-1 flex items-center gap-2 text-base font-black">
-                  <Wallet className="h-4 w-4" />
-                  {(data?.points || 0).toLocaleString("id-ID")}
-                </div>
-              </div>
+              <Badge className="rounded-full border-none bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-200">
+                {(data?.points || 0).toLocaleString("id-ID")}
+              </Badge>
             </div>
-            <div className="mt-4 space-y-3">
-              {pointActivity.length ? (
-                pointActivity.slice(0, 4).map((event) => (
-                  <div key={event.id} className="flex items-center justify-between rounded-2xl bg-slate-50 p-3">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-bold text-slate-950">
-                        {event.tenant_name || "Bookinaja"}
-                      </div>
-                      <div className="mt-1 text-xs text-slate-500">
-                        {new Date(event.created_at).toLocaleDateString("id-ID", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </div>
-                    </div>
-                    <div className="text-sm font-black text-blue-600">+{event.points}</div>
+            {pointActivity.length ? (
+              pointActivity.slice(0, 3).map((event) => (
+                <div
+                  key={event.id}
+                  className="flex items-center justify-between rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-950 dark:text-white">
+                      {event.tenant_name || "Bookinaja"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      {new Date(event.created_at).toLocaleDateString("id-ID", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </p>
                   </div>
-                ))
-              ) : (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                  Aktivitas loyalty akan muncul setelah booking dan pembayaran mulai berjalan.
+                  <p className="text-sm font-semibold text-blue-600 dark:text-blue-300">
+                    +{event.points}
+                  </p>
                 </div>
-              )}
-            </div>
+              ))
+            ) : (
+              <EmptyCard label="Aktivitas loyalty akan muncul setelah booking dan pembayaran mulai berjalan." />
+            )}
           </CardContent>
         </Card>
 
-        <Card className="rounded-[1.8rem] border-blue-100 bg-white shadow-sm">
+        <Card className="rounded-[1.5rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
           <CardContent className="space-y-3 p-4">
-            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-600">
-              Akun
-            </p>
-            <div className="rounded-2xl bg-slate-50 p-4">
-              <div className="text-base font-black uppercase tracking-tight">
-                {data?.customer?.name || "Customer"}
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                  Riwayat cepat
+                </p>
+                <p className="mt-1 text-base font-semibold text-slate-950 dark:text-white">
+                  Booking terakhir kamu
+                </p>
               </div>
-              <div className="mt-1 text-sm text-slate-500">
-                Tier {data?.customer?.tier || "Member"}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <QuickStat label="Aktif" value={String(activeBookings.length)} icon={<Ticket className="h-4 w-4" />} />
-              <QuickStat label="History" value={String(data?.past_history?.length || 0)} icon={<Compass className="h-4 w-4" />} />
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Button asChild variant="outline" className="h-11 rounded-2xl">
-                <Link href="/user/me/history">Lihat Riwayat</Link>
-              </Button>
-              <Button asChild variant="outline" className="h-11 rounded-2xl">
-                <Link href="/user/me/settings">Pengaturan Akun</Link>
+              <Button asChild variant="ghost" className="h-10 rounded-2xl px-3">
+                <Link href="/user/me/history">Buka riwayat</Link>
               </Button>
             </div>
+            {history.length ? (
+              history.slice(0, 3).map((booking) => (
+                <Link
+                  key={booking.id}
+                  href={`/user/me/bookings/${booking.id}`}
+                  className="block rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-3 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.06]"
+                >
+                  <p className="text-sm font-medium text-slate-950 dark:text-white">
+                    {booking.resource || "Booking"}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {booking.tenant_name || "Tenant"} · Rp {Number(booking.grand_total || 0).toLocaleString("id-ID")}
+                  </p>
+                </Link>
+              ))
+            ) : (
+              <EmptyCard label="Riwayat booking belum ada. Setelah mulai booking, daftar ini akan membantu repeat order lebih cepat." />
+            )}
           </CardContent>
         </Card>
       </section>
@@ -396,75 +449,16 @@ export default function UserDashboardPage() {
 function DashboardSkeleton() {
   return (
     <div className="space-y-4">
-      <Skeleton className="h-24 rounded-[2rem] bg-white" />
-      <Skeleton className="h-72 rounded-[2rem] bg-white" />
-      <Skeleton className="h-32 rounded-[2rem] bg-white" />
-      <Skeleton className="h-80 rounded-[2rem] bg-white" />
+      <Skeleton className="h-32 rounded-[1.75rem]" />
+      <Skeleton className="h-32 rounded-[1.75rem]" />
+      <Skeleton className="h-64 rounded-[1.75rem]" />
+      <Skeleton className="h-60 rounded-[1.75rem]" />
     </div>
   );
 }
 
 function getDiscoverHref(tenant: DiscoveryTenant) {
   return getDiscoveryItemHref(tenant) || getTenantUrl(tenant.slug);
-}
-
-function SectionHeader({
-  eyebrow,
-  title,
-  description,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="space-y-1">
-      <div className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-600">
-        {eyebrow}
-      </div>
-      <h2 className="text-xl font-black uppercase tracking-[-0.03em] md:text-2xl">
-        {title}
-      </h2>
-      <p className="max-w-2xl text-sm leading-7 text-slate-500">{description}</p>
-    </div>
-  );
-}
-
-function DiscoveryTypeChip({ tenant }: { tenant: DiscoveryTenant }) {
-  const cardKind = getDiscoveryCardKind(tenant);
-  if (tenant.item_kind !== "post") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
-        <Compass className="h-3.5 w-3.5" />
-        Bisnis
-      </span>
-    );
-  }
-  if (cardKind === "video") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-950/75 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white">
-        <PlayCircle className="h-3.5 w-3.5" />
-        {formatDiscoveryDuration(tenant.post_duration_seconds) || "Video"}
-      </span>
-    );
-  }
-  if (cardKind === "promo") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-amber-950">
-        <Megaphone className="h-3.5 w-3.5" />
-        Promo
-      </span>
-    );
-  }
-  if (cardKind === "photo") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/85 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-900">
-        <Camera className="h-3.5 w-3.5" />
-        Foto
-      </span>
-    );
-  }
-  return null;
 }
 
 function FeatureHero({
@@ -479,7 +473,7 @@ function FeatureHero({
   }, [onVisible]);
 
   return (
-    <Card className="overflow-hidden rounded-[2rem] border-0 bg-slate-950 text-white shadow-[0_22px_60px_rgba(15,23,42,0.22)]">
+    <Card className="overflow-hidden rounded-[1.75rem] border-0 bg-slate-950 text-white shadow-[0_22px_60px_rgba(15,23,42,0.22)] dark:bg-[#0b1222]">
       <CardContent className="relative p-0">
         <div
           className="absolute inset-0 bg-cover bg-center opacity-45"
@@ -489,171 +483,124 @@ function FeatureHero({
               : "linear-gradient(135deg, rgba(13,31,39,0.94), rgba(29,78,216,0.65))",
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-tr from-black/78 via-black/50 to-blue-400/18" />
-        <div className="relative z-10 flex min-h-[280px] flex-col justify-between p-4 md:p-6">
+        <div className="absolute inset-0 bg-gradient-to-tr from-black/78 via-black/45 to-blue-400/15" />
+        <div className="relative z-10 flex min-h-[250px] flex-col justify-between p-4">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white">
-                {getDiscoverySurfaceLabel(tenant)}
-              </Badge>
-              <DiscoveryTypeChip tenant={tenant} />
-            </div>
-            <Badge className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-semibold text-white/90">
+            <Badge className="rounded-full bg-white/10 text-white">
+              {getDiscoverySurfaceLabel(tenant)}
+            </Badge>
+            <Badge className="rounded-full border border-white/15 bg-white/10 text-white/90">
               {formatStartingPrice(tenant.starting_price)}
             </Badge>
           </div>
 
           <div className="space-y-3">
-            <div className="text-[11px] font-black uppercase tracking-[0.18em] text-white/72">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/75">
               {getDiscoveryByline(tenant)}
             </div>
-            <h3 className="max-w-2xl text-2xl font-black uppercase leading-[0.95] tracking-[-0.04em] md:text-4xl">
+            <h3 className="max-w-2xl text-2xl font-semibold tracking-tight">
               {getDiscoveryItemTitle(tenant)}
             </h3>
-            <p className="max-w-2xl text-sm leading-7 text-white/85">
+            <p className="max-w-2xl text-sm leading-6 text-white/85">
               {getDiscoveryItemSummary(tenant)}
             </p>
-            <div className="flex flex-wrap gap-2">
-              {getDiscoveryItemBadges(tenant).slice(0, 3).map((item) => (
-                <span
-                  key={item}
-                  className="rounded-full bg-white/12 px-3 py-1 text-[11px] font-semibold text-white/92"
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="grid gap-2 text-sm text-white/72 md:grid-cols-3">
-              <span>{getDiscoveryItemReason(tenant) || "Lihat mengapa tempat ini cocok buat dicoba sekarang."}</span>
-              <span>{tenant.item_kind === "post" ? `${tenant.post_detail_views_7d || 0} buka detail` : `${tenant.discovery_clicks_30d || 0} klik / 30 hari`}</span>
-              <span>{tenant.item_kind === "post" ? `${tenant.post_booking_starts_7d || 0} mulai booking` : `${tenant.resource_count || 0} resource aktif`}</span>
-            </div>
-            <Button asChild className="h-11 rounded-2xl bg-white text-slate-950 hover:bg-white/90">
-              <a
-                href={getDiscoverHref(tenant)}
-                onClick={() =>
-                  trackDiscoveryEvent({
-                    tenant_id: tenant.tenant_id || tenant.id,
-                    tenant_slug: tenant.slug,
-                    event_type: "click",
-                    surface: "customer-hub",
-                    section_id: "home-hero",
-                    card_variant: "hero",
-                    position_index: 0,
-                    promo_label: tenant.feed_label || tenant.promo_label,
-                    metadata: getDiscoveryEventMetadata(tenant),
-                  })
-                }
-              >
-                {getDiscoveryItemCta(tenant)}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </a>
-            </Button>
-          </div>
+          <Button asChild className="h-11 rounded-2xl bg-white text-slate-950 hover:bg-white/90">
+            <a
+              href={getDiscoverHref(tenant)}
+              onClick={() =>
+                trackDiscoveryEvent({
+                  tenant_id: tenant.tenant_id || tenant.id,
+                  tenant_slug: tenant.slug,
+                  event_type: "click",
+                  surface: "customer-hub",
+                  section_id: "home-hero",
+                  card_variant: "hero",
+                  position_index: 0,
+                  promo_label: tenant.feed_label || tenant.promo_label,
+                  metadata: getDiscoveryEventMetadata(tenant),
+                })
+              }
+            >
+              Lihat sekarang
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </a>
+          </Button>
         </div>
       </CardContent>
     </Card>
   );
 }
 
-function ContentCard({
+function DiscoveryCard({
   tenant,
-  sectionId,
   index,
   onVisible,
 }: {
   tenant: DiscoveryTenant;
-  sectionId: string;
   index: number;
   onVisible: () => void;
 }) {
   useEffect(() => {
     onVisible();
   }, [onVisible]);
-  const isVideo = isDiscoveryVideoPost(tenant);
-  const isPromo = isDiscoveryPromoPost(tenant);
-  const accentWrap = isPromo
-    ? "from-amber-50/80 to-white"
-    : isVideo
-      ? "from-slate-900/5 to-white"
-      : "from-blue-50/70 to-white";
+
+  const isBusiness = isDiscoveryBusiness(tenant);
+  const cardKind = getDiscoveryCardKind(tenant);
+  const isVideo = cardKind === "video";
 
   return (
-    <Card className={cn("group overflow-hidden rounded-[1.7rem] border bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-md", isPromo ? "border-amber-200" : "border-blue-100")}>
-      <CardContent className="p-0">
-        <div className="relative h-32 w-full overflow-hidden">
-          <div
-            className="h-full w-full bg-cover bg-center"
-            style={{
-              backgroundImage: getDiscoveryItemImage(tenant)
-                ? `url(${getDiscoveryItemImage(tenant)})`
-                : isPromo
-                  ? "linear-gradient(135deg, rgba(120,53,15,0.92), rgba(245,158,11,0.72))"
-                  : "linear-gradient(135deg, rgba(13,31,39,0.92), rgba(96,165,250,0.72))",
-            }}
-          />
-          <div className="absolute left-3 top-3">
-            <DiscoveryTypeChip tenant={tenant} />
-          </div>
-          <div className="absolute bottom-3 left-3 rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white">
-            {getDiscoveryByline(tenant)}
-          </div>
-        </div>
-        <div className={cn("space-y-4 bg-gradient-to-b p-4", accentWrap)}>
+    <Card className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#10141f]">
+      <CardContent className="space-y-4 p-0">
+        <div
+          className="h-32 bg-cover bg-center"
+          style={{
+            backgroundImage: getDiscoveryItemImage(tenant)
+              ? `url(${getDiscoveryItemImage(tenant)})`
+              : isBusiness
+                ? "linear-gradient(135deg, rgba(5,46,43,0.92), rgba(15,118,110,0.72))"
+                : "linear-gradient(135deg, rgba(13,31,39,0.92), rgba(59,130,246,0.72))",
+          }}
+        />
+
+        <div className="space-y-3 px-4 pb-4">
           <div className="flex items-start justify-between gap-3">
-            <Badge className={cn("rounded-full", isPromo ? "bg-amber-50 text-amber-700" : "bg-blue-50 text-blue-700")}>
-              {getDiscoverySurfaceLabel(tenant)}
-            </Badge>
-            <span className="text-[11px] font-semibold text-slate-500">
+            <div>
+              <Badge className="rounded-full bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
+                {getDiscoverySurfaceLabel(tenant)}
+              </Badge>
+              <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+                {getDiscoveryByline(tenant)}
+              </p>
+            </div>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               {formatStartingPrice(tenant.starting_price)}
             </span>
           </div>
 
           <div>
-            <div className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">
-              {getDiscoveryByline(tenant)}
-            </div>
-            <h3 className="line-clamp-2 text-lg font-black uppercase tracking-tight">
+            <h3 className="line-clamp-2 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
               {getDiscoveryItemTitle(tenant)}
             </h3>
-            <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">
+            <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
               {getDiscoveryItemSummary(tenant)}
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            {getDiscoveryItemBadges(tenant).slice(0, 2).map((item) => (
-              <span
-                key={item}
-                className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600"
-              >
-                {item}
-              </span>
-            ))}
+          <div className="rounded-[1.25rem] bg-slate-50 px-3 py-2 text-[11px] text-slate-600 dark:bg-white/[0.04] dark:text-slate-300">
+            {isBusiness
+              ? `${tenant.resource_count || 0} resource siap dibooking`
+              : isVideo
+                ? `Video ${formatDiscoveryDuration(tenant.post_duration_seconds) || "singkat"}`
+                : isDiscoveryPost(tenant)
+                  ? "Postingan tenant yang layak dicek"
+                  : "Tempat ini sedang relevan buat kamu"}
           </div>
-
-          {isPromo ? (
-            <div className="rounded-2xl bg-amber-100/80 px-3 py-2 text-[11px] font-semibold text-amber-800">
-              Konten promo cocok untuk dorong klik cepat dan momentum singkat.
-            </div>
-          ) : null}
-          {isVideo ? (
-            <div className="rounded-2xl bg-slate-100 px-3 py-2 text-[11px] font-semibold text-slate-700">
-              Video preview {formatDiscoveryDuration(tenant.post_duration_seconds) || "singkat"} sering terasa lebih hidup di feed.
-            </div>
-          ) : null}
-          {!isVideo && !isPromo && tenant.item_kind === "post" ? (
-            <div className="rounded-2xl bg-blue-50 px-3 py-2 text-[11px] font-semibold text-blue-700">
-              Post foto paling bagus untuk nunjukin ambience dan kualitas tempat dengan cepat.
-            </div>
-          ) : null}
 
           <Button
             asChild
-            className="h-11 w-full rounded-2xl bg-blue-600 text-sm font-semibold text-white hover:bg-blue-500"
+            className="h-11 w-full rounded-2xl bg-slate-950 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950"
           >
             <a
               href={getDiscoverHref(tenant)}
@@ -663,15 +610,15 @@ function ContentCard({
                   tenant_slug: tenant.slug,
                   event_type: "click",
                   surface: "customer-hub",
-                  section_id: sectionId,
-                  card_variant: "content",
+                  section_id: "home-grid",
+                  card_variant: "compact",
                   position_index: index,
                   promo_label: tenant.feed_label || tenant.promo_label,
                   metadata: getDiscoveryEventMetadata(tenant),
                 })
               }
             >
-              {getDiscoveryItemCta(tenant)}
+              Buka
               <ArrowRight className="ml-2 h-4 w-4" />
             </a>
           </Button>
@@ -681,112 +628,61 @@ function ContentCard({
   );
 }
 
-function BusinessCard({
-  tenant,
-  sectionId,
-  index,
-  onVisible,
-}: {
-  tenant: DiscoveryTenant;
-  sectionId: string;
-  index: number;
-  onVisible: () => void;
-}) {
-  useEffect(() => {
-    onVisible();
-  }, [onVisible]);
-
-  return (
-    <Card className="group overflow-hidden rounded-[1.7rem] border border-emerald-100 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-md">
-      <CardContent className="p-0">
-        <div className="relative h-32 overflow-hidden bg-[linear-gradient(135deg,#052e2b_0%,#0f766e_55%,#99f6e4_100%)]">
-          {getDiscoveryItemImage(tenant) ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={getDiscoveryItemImage(tenant)}
-              alt={tenant.name}
-              className="h-full w-full object-cover opacity-40"
-            />
-          ) : null}
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/45 to-transparent" />
-          <div className="absolute left-3 top-3">
-            <DiscoveryTypeChip tenant={tenant} />
-          </div>
-        </div>
-        <div className="space-y-4 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">
-                {getDiscoveryByline(tenant)}
-              </div>
-              <h3 className="mt-2 line-clamp-2 text-lg font-black uppercase tracking-tight text-slate-950">
-                {getDiscoveryItemTitle(tenant)}
-              </h3>
-            </div>
-            <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
-              {formatStartingPrice(tenant.starting_price)}
-            </span>
-          </div>
-
-          <p className="line-clamp-2 text-sm leading-6 text-slate-600">
-            {getDiscoveryItemSummary(tenant)}
-          </p>
-
-          <div className="grid gap-2 rounded-2xl bg-emerald-50/80 px-3 py-3 text-[11px] font-semibold text-slate-600">
-            <span>{getDiscoveryItemReason(tenant) || "Profil bisnis ini paling pas untuk kamu bandingkan sekarang."}</span>
-            <div className="flex items-center justify-between gap-3 uppercase tracking-[0.12em] text-slate-500">
-              <span>{tenant.resource_count || 0} resource</span>
-              <span>
-                {tenant.open_time && tenant.close_time
-                  ? `${tenant.open_time} - ${tenant.close_time}`
-                  : "Jam operasional"}
-              </span>
-            </div>
-          </div>
-
-          <Button asChild className="h-11 w-full rounded-2xl bg-slate-950 text-white hover:bg-slate-900">
-            <a
-              href={getDiscoverHref(tenant)}
-              onClick={() =>
-                trackDiscoveryEvent({
-                  tenant_id: tenant.tenant_id || tenant.id,
-                  tenant_slug: tenant.slug,
-                  event_type: "click",
-                  surface: "customer-hub",
-                  section_id: sectionId,
-                  card_variant: "business",
-                  position_index: index,
-                  promo_label: tenant.feed_label || tenant.promo_label,
-                  metadata: getDiscoveryEventMetadata(tenant),
-                })
-              }
-            >
-              Lihat profil bisnis
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </a>
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function QuickStat({
+function MetricCard({
   label,
   value,
-  icon,
+  icon: Icon,
+  tone,
 }: {
   label: string;
   value: string;
-  icon: React.ReactNode;
+  icon: React.ComponentType<{ className?: string }>;
+  tone: "blue" | "emerald" | "slate";
 }) {
   return (
-    <div className="rounded-2xl bg-slate-50 p-3">
-      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">
-        {icon}
+    <div
+      className={cn(
+        "rounded-2xl border px-3 py-3",
+        tone === "blue" && "border-blue-100 bg-blue-50 dark:border-blue-500/20 dark:bg-blue-500/10",
+        tone === "emerald" && "border-emerald-100 bg-emerald-50 dark:border-emerald-500/20 dark:bg-emerald-500/10",
+        tone === "slate" && "border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/[0.04]",
+      )}
+    >
+      <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+        <Icon className="h-3.5 w-3.5" />
         {label}
       </div>
-      <div className="mt-2 text-lg font-black text-slate-950">{value}</div>
+      <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function QuickLink({
+  href,
+  label,
+  icon: Icon,
+}: {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200"
+    >
+      <Icon className="h-4 w-4 text-blue-600 dark:text-blue-300" />
+      {label}
+    </Link>
+  );
+}
+
+function EmptyCard({ label }: { label: string }) {
+  return (
+    <div className="rounded-[1.25rem] border border-dashed border-slate-200 px-4 py-5 text-sm leading-6 text-slate-500 dark:border-white/10 dark:text-slate-400">
+      {label}
     </div>
   );
 }

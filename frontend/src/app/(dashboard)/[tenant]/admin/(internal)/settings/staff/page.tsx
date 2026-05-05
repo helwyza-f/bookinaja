@@ -311,23 +311,20 @@ export default function StaffSettingsPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-sm font-semibold text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
             <Users className="h-4 w-4" />
-            Manajemen Pegawai
+            Staff
           </div>
           <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
-            Role dan akses pegawai
+            Staff & Role
           </h1>
-          <p className="max-w-xl text-sm leading-relaxed text-slate-500">
-            Tambahkan pegawai, pilih role operasional, dan atur permission per domain kerja. Owner tetap terpisah dengan akses penuh di level bisnis.
-          </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <Button variant="outline" onClick={openCreateRole} className="w-full gap-2 sm:w-auto dark:border-white/10 dark:bg-white/[0.03]">
             <UserCog className="h-4 w-4" />
-            Role Baru
+            Role
           </Button>
           <Button onClick={openCreateStaff} className="w-full gap-2 bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)] sm:w-auto">
             <Plus className="h-4 w-4" />
-            Tambah Pegawai
+            Tambah
           </Button>
         </div>
       </div>
@@ -339,15 +336,12 @@ export default function StaffSettingsPage() {
       )}
 
       <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr] xl:gap-6">
-        <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+        <Card className="rounded-xl border-slate-200 bg-white p-3 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:rounded-2xl sm:p-4">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h2 className="text-sm font-semibold text-slate-950 dark:text-white">
                 Daftar Pegawai
               </h2>
-              <p className="text-xs text-slate-500">
-                Klik edit untuk mengganti data atau role.
-              </p>
             </div>
             <Button variant="outline" size="sm" onClick={loadData} className="gap-2">
               <RotateCcw className="h-4 w-4" />
@@ -436,7 +430,7 @@ export default function StaffSettingsPage() {
               staff.map((item) => {
                 const role = item.role_id ? roleMap[item.role_id] : undefined;
                 return (
-                  <div key={item.id} className="rounded-xl border border-slate-200 p-3 dark:border-white/5">
+                  <div key={item.id} className="rounded-lg border border-slate-200 p-3 dark:border-white/5">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="truncate font-medium text-slate-950 dark:text-white">{item.name}</div>
@@ -470,15 +464,12 @@ export default function StaffSettingsPage() {
           </div>
         </Card>
 
-        <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+        <Card className="rounded-xl border-slate-200 bg-white p-3 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:rounded-2xl sm:p-4">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h2 className="text-sm font-semibold text-slate-950 dark:text-white">
                 Role Default dan Custom
               </h2>
-              <p className="text-xs text-slate-500">
-                Role di sini yang dipilih saat tambah atau edit pegawai.
-              </p>
             </div>
             <Button variant="outline" size="sm" onClick={openCreateRole} className="gap-2">
               <Plus className="h-4 w-4" />
@@ -487,20 +478,17 @@ export default function StaffSettingsPage() {
           </div>
 
           <div className="space-y-3">
-            <div className="rounded-xl border border-[color:rgba(59,130,246,0.18)] bg-[var(--bookinaja-50)] p-3 dark:border-[color:rgba(96,165,250,0.18)] dark:bg-[color:rgba(59,130,246,0.12)]">
+            <div className="rounded-lg border border-[color:rgba(59,130,246,0.18)] bg-[var(--bookinaja-50)] p-3 dark:border-[color:rgba(96,165,250,0.18)] dark:bg-[color:rgba(59,130,246,0.12)]">
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-100)]">
-                Preset Role Umum
+                Preset
               </div>
-              <p className="mt-2 text-xs leading-5 text-slate-500">
-                Lima preset ini disusun dari tanggung jawab operasional yang umum dipakai lintas bisnis. Owner tidak dipilih di sini karena owner selalu punya akses penuh dan berdiri di luar role staff.
-              </p>
               <div className="mt-3 space-y-3">
                 {RECOMMENDED_ROLE_PRESETS.map((preset) => (
                   <div key={preset.name} className="rounded-lg border border-white/70 bg-white/80 p-3 dark:border-white/10 dark:bg-white/[0.04]">
                     <div className="text-sm font-semibold text-slate-950 dark:text-white">
                       {preset.name}
                     </div>
-                    <div className="mt-1 text-xs leading-5 text-slate-500">
+                    <div className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
                       {preset.summary}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -572,11 +560,7 @@ export default function StaffSettingsPage() {
         <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingStaff ? "Edit Pegawai" : "Tambah Pegawai"}</DialogTitle>
-            <DialogDescription>
-              {editingStaff
-                ? "Ubah data pegawai dan pilih role yang sesuai."
-                : "Buat pegawai baru lalu pilih role default atau custom."}
-            </DialogDescription>
+            <DialogDescription>{editingStaff ? "Edit staff" : "Tambah staff"}</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4">
@@ -633,7 +617,7 @@ export default function StaffSettingsPage() {
               Batal
             </Button>
             <Button onClick={submitStaff} disabled={saving}>
-              {editingStaff ? "Simpan Perubahan" : "Simpan Pegawai"}
+              {editingStaff ? "Simpan" : "Tambah"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -643,9 +627,7 @@ export default function StaffSettingsPage() {
         <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingRole ? "Edit Role" : "Buat Role"}</DialogTitle>
-            <DialogDescription>
-              Atur nama role, deskripsi, dan permission yang melekat ke role ini.
-            </DialogDescription>
+            <DialogDescription>Atur role</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4">

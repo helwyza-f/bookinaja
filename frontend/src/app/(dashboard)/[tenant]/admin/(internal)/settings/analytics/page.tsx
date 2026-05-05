@@ -547,7 +547,6 @@ export default function SettingsAnalyticsPage() {
         <DashboardDonutPanel
           eyebrow="Expense mix"
           title="Komposisi pengeluaran"
-          description="Distribusi kategori expense dibuat donut supaya struktur biaya lebih cepat dibaca daripada daftar linear biasa."
           totalLabel="Total expense"
           totalValue={`Rp ${formatIDR(summary.expenseTotal)}`}
           segments={expenseSegments}
@@ -564,7 +563,6 @@ export default function SettingsAnalyticsPage() {
         <DashboardLeaderboardPanel
           eyebrow="Resource leaderboard"
           title="Resource paling menghasilkan"
-          description="Leaderboard menggabungkan frequency dan revenue supaya operator tahu unit mana yang paling layak diprioritaskan."
           rows={resourceRows}
           emptyText="Belum ada booking pada rentang ini."
         />
@@ -572,7 +570,6 @@ export default function SettingsAnalyticsPage() {
         <DashboardLeaderboardPanel
           eyebrow="Customer value"
           title="Customer dengan lifetime value tertinggi"
-          description="Panel ini menjaga fokus CRM: siapa yang paling bernilai dan kapan terakhir mereka aktif."
           rows={customerRows}
           emptyText="Belum ada customer untuk dirangking."
         />
@@ -582,7 +579,6 @@ export default function SettingsAnalyticsPage() {
         <DashboardLeaderboardPanel
           eyebrow="Latest bookings"
           title="Transaksi terbaru"
-          description="List aktivitas dibuat konsisten dengan leaderboard agar ritme visual tetap rapi di seluruh dashboard."
           rows={bookingRows}
           emptyText="Belum ada booking untuk rentang ini."
         />
@@ -590,7 +586,6 @@ export default function SettingsAnalyticsPage() {
         <DashboardPanel
           eyebrow="Operational reading"
           title="Bacaan cepat untuk owner"
-          description="Ringkasan kanan dipakai untuk interpretasi, bukan hanya angka mentah. Ini membantu dashboard terasa seperti alat keputusan, bukan kumpulan widget."
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <InfoChip label="Subscription" value={`${String(subscription?.plan || "-").toUpperCase()} • ${String(subscription?.status || "-")}`} />
@@ -616,7 +611,6 @@ export default function SettingsAnalyticsPage() {
         <DashboardPanel
           eyebrow="Addon watch"
           title="Pendapatan tambahan dari F&B dan add-on"
-          description="Section ini dipisah khusus agar owner bisa cepat melihat kontribusi non-core booking tanpa mengganggu chart utama."
           actions={
             <Button asChild variant="outline" className="rounded-2xl">
               <Link href="/admin/dashboard">
@@ -679,25 +673,20 @@ function AnalyticsHero({
   realtimeStatus: "idle" | "connecting" | "connected" | "reconnecting";
 }) {
   return (
-    <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,1),rgba(241,245,249,0.96))] p-5 shadow-[0_24px_80px_rgba(15,23,42,0.09)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(15,17,23,0.98),rgba(9,12,20,0.98))] dark:shadow-[0_28px_90px_rgba(0,0,0,0.28)] sm:p-7">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.12),transparent_32%)]" />
+    <div className="relative overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,1),rgba(240,252,250,0.96))] p-4 shadow-[0_18px_42px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(10,24,26,0.98),rgba(6,16,18,0.98))] dark:shadow-[0_18px_42px_rgba(0,0,0,0.24)] sm:rounded-[2rem] sm:p-7 sm:shadow-[0_28px_90px_rgba(0,0,0,0.28)]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.2),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(30,143,146,0.12),transparent_32%)]" />
       <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <Badge className="rounded-full border-none bg-[var(--bookinaja-600)] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white">
-              Analytics overview
+              Analytics
             </Badge>
             <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
           </div>
           <div>
             <h1 className="text-3xl font-[950] tracking-tight text-slate-950 dark:text-white sm:text-4xl">
-              Laporan bisnis yang lebih terstruktur
+              Analytics
             </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300 sm:text-base">
-              Layout analytics dirombak dengan prinsip dashboard yang lebih kuat:
-              KPI penting di atas, chart utama sebagai fokus visual, lalu komposisi
-              dan leaderboard di bawah untuk keputusan yang lebih cepat.
-            </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">

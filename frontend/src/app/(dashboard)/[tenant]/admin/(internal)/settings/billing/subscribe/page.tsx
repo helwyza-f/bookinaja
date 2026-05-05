@@ -216,8 +216,8 @@ export default function SettingsBillingSubscribePage() {
         </div>
       )}
 
-      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.95)_40%,rgba(236,253,245,0.92))] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(12,31,54,0.94)_45%,rgba(4,47,46,0.88))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-8">
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.18),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.16),transparent_58%)]" />
+      <div className="relative overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(238,252,249,0.95)_40%,rgba(236,253,245,0.92))] p-4 shadow-[0_18px_42px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(10,24,26,0.96),rgba(8,30,31,0.94)_45%,rgba(4,47,46,0.88))] dark:shadow-[0_18px_42px_rgba(0,0,0,0.24)] sm:rounded-[2rem] sm:p-8 sm:shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:sm:shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.2),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.16),transparent_58%)]" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
@@ -227,9 +227,6 @@ export default function SettingsBillingSubscribePage() {
             <h1 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-5xl">
               Upgrade Paket
             </h1>
-            <p className="max-w-2xl text-sm leading-relaxed text-slate-500">
-              Pilih paket yang paling pas untuk alur operasional, pelanggan, analytics, dan reporting.
-            </p>
           </div>
 
           <div className="flex items-center gap-2 rounded-2xl bg-slate-100 p-1 dark:bg-white/5">
@@ -253,28 +250,28 @@ export default function SettingsBillingSubscribePage() {
         <DashboardMetricCard
           label="Plan Aktif"
           value={activeLabel}
-          hint="paket yang sedang terpasang"
+          hint="Aktif"
           icon={Sparkles}
           tone="indigo"
         />
         <DashboardMetricCard
           label="Status"
           value={statusLabel}
-          hint="status langganan saat ini"
+          hint="Langganan"
           icon={ShieldCheck}
           tone="emerald"
         />
         <DashboardMetricCard
           label="Billing Mode"
           value={isAnnual ? "Tahunan" : "Bulanan"}
-          hint="mode harga yang sedang dibandingkan"
+          hint="Harga"
           icon={Wand2}
           tone="amber"
         />
         <DashboardMetricCard
           label="Midtrans"
           value={midtransReady ? "Siap" : "Memuat"}
-          hint="kesiapan checkout payment"
+          hint="Checkout"
           icon={Check}
           tone="slate"
         />
@@ -299,7 +296,7 @@ export default function SettingsBillingSubscribePage() {
                     <Badge className="border-none bg-white/15 text-white">Rekomendasi</Badge>
                   )}
                 </div>
-                <p className="mt-3 max-w-md text-sm leading-relaxed text-white/80">{plan.description}</p>
+                <p className="mt-3 hidden max-w-md text-sm leading-relaxed text-white/80 md:block">{plan.description}</p>
               </div>
 
               <div className="mt-6 flex items-end gap-2">
@@ -328,7 +325,7 @@ export default function SettingsBillingSubscribePage() {
                 className={`mt-6 h-12 w-full rounded-2xl ${plan.highlight ? "bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]" : ""}`}
               >
                 <Sparkles className="mr-2 h-4 w-4" />
-                {checkingMidtrans ? "Menyiapkan Midtrans..." : isCurrent ? "Paket Aktif" : `Pilih ${plan.name}`}
+                {checkingMidtrans ? "Menyiapkan..." : isCurrent ? "Aktif" : `Pilih ${plan.name}`}
               </Button>
             </Card>
           );
@@ -336,9 +333,8 @@ export default function SettingsBillingSubscribePage() {
       </div>
 
       <DashboardPanel
-        eyebrow="Quick Compare"
-        title="Apa beda Starter dan Pro"
-        description="Perbandingan singkat ini menjaga fokus ke keputusan utama sebelum pengguna masuk ke checkout."
+        eyebrow="Compare"
+        title="Starter vs Pro"
       >
         <div className="grid gap-3 md:grid-cols-2">
           <MiniCompare title="Starter" items={["Cocok untuk uji alur", "Report ringkas", "Batasan fitur lanjutan", "Masih aman dipakai trial"]} />
