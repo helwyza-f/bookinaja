@@ -482,22 +482,19 @@ export default function POSPage() {
 
   return (
     <div className="mx-auto max-w-360 space-y-4 pb-20 pt-5 px-3 font-plus-jakarta animate-in fade-in duration-300">
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(238,252,249,0.94))] shadow-sm dark:border-white/15 dark:bg-[linear-gradient(135deg,rgba(10,24,26,0.98),rgba(15,15,23,0.96))] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
         <div className="flex flex-col gap-4 border-b border-slate-100 p-4 md:flex-row md:items-center md:justify-between md:p-5 dark:border-white/10">
           <div>
             <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
               <span className="inline-flex items-center gap-2">
                 <MonitorPlay className="h-4 w-4" />
-                POS Desk
+                POS
               </span>
               <RealtimePill connected={realtimeConnected} status={realtimeStatus} className="normal-case tracking-normal" />
             </div>
             <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl dark:text-white">
-              POS untuk sesi aktif dan pelunasan
+              POS
             </h1>
-            <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-300">
-              Halaman ini khusus sesi yang sedang berjalan atau sudah selesai tapi belum lunas. Booking terjadwal tetap dikelola dari halaman booking.
-            </p>
           </div>
           <Button
             variant="outline"
@@ -605,7 +602,7 @@ export default function POSPage() {
                 Belum ada sesi atau tagihan aktif
               </h3>
               <p className="max-w-sm text-sm text-slate-500">
-                Sesi berjalan dan transaksi selesai yang belum lunas akan tampil di sini.
+                  Sesi aktif & pelunasan tampil di sini.
               </p>
             </div>
           ) : filteredSessions.length === 0 ? (
@@ -615,7 +612,7 @@ export default function POSPage() {
                 Sesi tidak ditemukan
               </h3>
               <p className="text-sm text-slate-500">
-                Coba cari dengan nama customer atau unit lain.
+                  Coba nama customer atau unit lain.
               </p>
             </div>
           ) : (

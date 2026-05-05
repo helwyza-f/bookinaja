@@ -14,6 +14,7 @@ type CheckoutReq struct {
 type BookingCheckoutReq struct {
 	BookingID string `json:"booking_id" binding:"required"`
 	Mode      string `json:"mode"`
+	Method    string `json:"method"`
 }
 
 type CheckoutRes struct {
@@ -35,6 +36,63 @@ type BookingCheckoutRes struct {
 	Currency     string  `json:"currency"`
 	BookingID    string  `json:"booking_id"`
 	DisplayLabel string  `json:"display_label"`
+	MethodCode   string  `json:"method_code"`
+	MethodLabel  string  `json:"method_label"`
+	Status       string  `json:"status"`
+	Instructions string  `json:"instructions,omitempty"`
+	Reference    string  `json:"reference,omitempty"`
+	ProofUpload  bool    `json:"proof_upload"`
+}
+
+type PaymentMethodOption struct {
+	Code             string `db:"code" json:"code"`
+	DisplayName      string `db:"display_name" json:"display_name"`
+	Category         string `db:"category" json:"category"`
+	VerificationType string `db:"verification_type" json:"verification_type"`
+	Provider         string `db:"provider" json:"provider"`
+	Instructions     string `db:"instructions" json:"instructions"`
+	IsActive         bool   `db:"is_active" json:"is_active"`
+	SortOrder        int    `db:"sort_order" json:"sort_order"`
+	Metadata         []byte `db:"metadata" json:"metadata"`
+}
+
+type BookingPaymentAttempt struct {
+	ID                   uuid.UUID  `db:"id" json:"id"`
+	BookingID            uuid.UUID  `db:"booking_id" json:"booking_id"`
+	TenantID             uuid.UUID  `db:"tenant_id" json:"tenant_id"`
+	CustomerID           *uuid.UUID `db:"customer_id" json:"customer_id,omitempty"`
+	MethodCode           string     `db:"method_code" json:"method_code"`
+	MethodLabel          string     `db:"method_label" json:"method_label"`
+	Category             string     `db:"category" json:"category"`
+	VerificationType     string     `db:"verification_type" json:"verification_type"`
+	PaymentScope         string     `db:"payment_scope" json:"payment_scope"`
+	Amount               int64      `db:"amount" json:"amount"`
+	Status               string     `db:"status" json:"status"`
+	ReferenceCode        string     `db:"reference_code" json:"reference_code"`
+	GatewayOrderID       string     `db:"gateway_order_id" json:"gateway_order_id"`
+	GatewayTransactionID string     `db:"gateway_transaction_id" json:"gateway_transaction_id"`
+	PayerNote            string     `db:"payer_note" json:"payer_note"`
+	AdminNote            string     `db:"admin_note" json:"admin_note"`
+	ProofURL             string     `db:"proof_url" json:"proof_url"`
+	Metadata             []byte     `db:"metadata" json:"metadata"`
+	SubmittedAt          *time.Time `db:"submitted_at" json:"submitted_at"`
+	VerifiedAt           *time.Time `db:"verified_at" json:"verified_at"`
+	RejectedAt           *time.Time `db:"rejected_at" json:"rejected_at"`
+	ExpiresAt            *time.Time `db:"expires_at" json:"expires_at"`
+	CreatedAt            time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt            time.Time  `db:"updated_at" json:"updated_at"`
+}
+
+type BookingPaymentManualSubmitReq struct {
+	BookingID string `json:"booking_id" binding:"required"`
+	Scope     string `json:"scope"`
+	Method    string `json:"method" binding:"required"`
+	Note      string `json:"note"`
+	ProofURL  string `json:"proof_url"`
+}
+
+type BookingPaymentVerificationReq struct {
+	Notes string `json:"notes"`
 }
 
 type SubscriptionInfo struct {

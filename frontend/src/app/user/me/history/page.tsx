@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Calendar, ReceiptText } from "lucide-react";
+import { ArrowRight, Calendar, ReceiptText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
@@ -51,43 +51,50 @@ export default function UserHistoryPage() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-20 rounded-[2rem] bg-white" />
-        <Skeleton className="h-28 rounded-[2rem] bg-white" />
-        <Skeleton className="h-28 rounded-[2rem] bg-white" />
+        <Skeleton className="h-20 rounded-[1.5rem]" />
+        <Skeleton className="h-24 rounded-[1.35rem]" />
+        <Skeleton className="h-24 rounded-[1.35rem]" />
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <section className="space-y-2">
-        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-600">
+      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
+        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-600 dark:text-blue-300">
           Riwayat
         </p>
-        <h1 className="text-2xl font-black uppercase tracking-[-0.04em] md:text-3xl">
-          Booking yang sudah selesai
-        </h1>
-        <p className="max-w-2xl text-sm leading-7 text-slate-500">
-          Lihat kembali tempat yang pernah kamu booking dan gunakan itu sebagai pintu cepat untuk repeat order berikutnya.
-        </p>
+        <div className="mt-1 flex items-center justify-between gap-3">
+          <h1 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
+            Booking selesai
+          </h1>
+          <Badge className="rounded-full border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
+            {history.length} item
+          </Badge>
+        </div>
       </section>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {history.length ? (
           history.map((booking) => (
             <Card
               key={booking.id}
-              className="rounded-[1.6rem] border-blue-100 bg-white shadow-sm"
+              className="rounded-[1.35rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#10141f]"
             >
-              <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <CardContent className="flex items-center justify-between gap-3 p-4">
                 <div className="min-w-0">
-                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">
-                    {booking.tenant_name || "Tenant"}
+                  <div className="flex items-center gap-2">
+                    <Badge className="rounded-full bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
+                      {booking.status || "done"}
+                    </Badge>
+                    <span className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                      {booking.tenant_name || "Tenant"}
+                    </span>
                   </div>
-                  <div className="mt-2 truncate text-base font-black uppercase tracking-tight">
+                  <div className="mt-2 truncate text-sm font-semibold text-slate-950 dark:text-white">
                     {booking.resource || "Booking"}
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  <div className="mt-2 flex flex-wrap gap-3 text-[11px] font-medium text-slate-500 dark:text-slate-400">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3.5 w-3.5" />
                       {formatDate(booking.date)}
@@ -99,21 +106,18 @@ export default function UserHistoryPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Badge className="rounded-full bg-slate-100 text-slate-700">
-                    {booking.status || "done"}
-                  </Badge>
-                  <Button asChild variant="outline" className="h-10 rounded-2xl">
-                    <Link href={`/user/me/bookings/${booking.id}`}>Detail</Link>
-                  </Button>
-                </div>
+                <Button asChild variant="outline" className="h-10 w-10 shrink-0 rounded-2xl p-0">
+                  <Link href={`/user/me/bookings/${booking.id}`}>
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
               </CardContent>
             </Card>
           ))
         ) : (
-          <Card className="rounded-[1.8rem] border-dashed border-slate-200 bg-white shadow-sm">
-            <CardContent className="p-6 text-sm leading-7 text-slate-500">
-              Riwayat booking belum ada. Setelah mulai booking, daftar ini akan jadi tempat paling cepat untuk mengingat bisnis yang pernah kamu pakai.
+          <Card className="rounded-[1.5rem] border-dashed border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
+            <CardContent className="p-5 text-sm text-slate-500 dark:text-slate-400">
+              Belum ada riwayat booking.
             </CardContent>
           </Card>
         )}

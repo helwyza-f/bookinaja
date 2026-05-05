@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import Script from "next/script";
 import { format } from "date-fns";
 import { id as localeID } from "date-fns/locale";
 import {
   ArrowLeft,
   Calendar,
+  CheckCircle2,
   Clock,
   User,
   Phone,
@@ -22,11 +24,20 @@ import {
   Trash2,
   MessageCircle,
   Printer,
+  ExternalLink,
+  ImageIcon,
 } from "lucide-react";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -83,6 +94,28 @@ type BookingEvent = {
   created_at?: string;
 };
 
+type BookingPaymentMethod = {
+  code: string;
+  display_name: string;
+  verification_type: string;
+  instructions?: string;
+};
+
+type BookingPaymentAttempt = {
+  id: string;
+  method_code: string;
+  method_label: string;
+  payment_scope: string;
+  status: string;
+  reference_code: string;
+  amount?: number;
+  proof_url?: string;
+  payer_note?: string;
+  admin_note?: string;
+  submitted_at?: string;
+  verified_at?: string;
+};
+
 type BookingDetail = {
   id: string;
   status?: string;
@@ -98,6 +131,8 @@ type BookingDetail = {
   balance_due?: number;
   total_fnb?: number;
   access_token?: string;
+  payment_methods?: BookingPaymentMethod[];
+  payment_attempts?: BookingPaymentAttempt[];
   options?: BookingOption[];
   orders?: BookingOrder[];
   events?: BookingEvent[];
@@ -157,10 +192,13 @@ export default function BookingDetailPage() {
   const [updating, setUpdating] = useState(false);
   const [midtransReady, setMidtransReady] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
+  const [selectedSettlementMethod, setSelectedSettlementMethod] = useState("midtrans");
   const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings | null>(null);
   const [adminUser, setAdminUser] = useState<AdminSessionUser | null>(null);
   const [tenantId, setTenantId] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [attemptNotes, setAttemptNotes] = useState<Record<string, string>>({});
+  const [processingAttemptId, setProcessingAttemptId] = useState<string | null>(null);
   const hasLoadedRef = useRef(false);
   const refreshTimerRef = useRef<number | null>(null);
 
@@ -313,13 +351,26 @@ export default function BookingDetailPage() {
   };
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
+  const paymentMethods = booking?.payment_methods || [];
+  const selectedSettlementMethodDetail =
+    paymentMethods.find((item) => item.code === selectedSettlementMethod) || paymentMethods[0];
+  const pendingManualAttempts =
+    (booking?.payment_attempts || []).filter(
+      (item) => item.status === "submitted" || item.status === "awaiting_verification",
+    );
+  const pendingManualDpAttempt = pendingManualAttempts.find(
+    (item) => item.payment_scope === "deposit",
+  );
+  const pendingManualSettlementAttempt = pendingManualAttempts.find(
+    (item) => item.payment_scope === "settlement",
+  );
   const isPaymentSettled =
     booking?.payment_status === "settled" ||
     (booking?.payment_status === "paid" && Number(booking?.balance_due || 0) === 0);
   const status = String(booking?.status || "").toLowerCase();
   const paymentStatus = String(booking?.payment_status || "").toLowerCase();
   const hasPaidDp = paymentStatus === "partial_paid" || paymentStatus === "paid" || paymentStatus === "settled" || Number(booking?.deposit_amount || 0) === 0;
-  const canConfirm = status === "pending";
+  const canConfirm = status === "pending" && paymentStatus !== "awaiting_verification";
   const canStart = (status === "pending" || status === "confirmed") && hasPaidDp;
   const canComplete = status === "active";
   const canSettle = status === "completed" && !isPaymentSettled && Number(booking?.balance_due || 0) > 0;
@@ -333,7 +384,11 @@ export default function BookingDetailPage() {
   const canOperatePos = hasPermission(adminUser, "pos.read");
   const canSendReceipt = hasPermission(adminUser, "receipts.send");
   const canPrintReceipt = hasPermission(adminUser, "receipts.print");
-  const nextActionHint = !hasPaidDp
+  const nextActionHint = paymentStatus === "awaiting_verification" && pendingManualDpAttempt
+    ? "DP manual sudah dikirim customer dan sedang menunggu verifikasi admin."
+    : paymentStatus === "awaiting_verification" && pendingManualSettlementAttempt
+    ? "Pelunasan manual sudah dikirim customer dan sedang menunggu verifikasi admin."
+    : !hasPaidDp
     ? "DP belum tercatat. Sesi belum bisa dimulai."
     : status === "pending"
       ? "DP masuk. Konfirmasi booking atau mulaikan sesi saat customer hadir."
@@ -357,9 +412,6 @@ export default function BookingDetailPage() {
           <h2 className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
             Timeline aktivitas
           </h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Riwayat tetap tersedia, tapi sekarang diletakkan di bawah agar fokus operasional tetap di aksi dan billing.
-          </p>
         </div>
         <Badge variant="outline" className="w-fit rounded-full">
           {booking?.events?.length || 0} event
@@ -416,27 +468,42 @@ export default function BookingDetailPage() {
     return null;
   };
 
-  const handlePayment = async (mode: "settlement") => {
+  const handlePayment = async (
+    mode: "settlement",
+    methodCode: string,
+    verificationType: string,
+  ) => {
     if (!booking) return;
     try {
-      const snap = await waitForSnap();
-      if (!snap) {
-        toast.error("Midtrans belum siap");
+      if (verificationType === "auto") {
+        const snap = await waitForSnap();
+        if (!snap) {
+          toast.error("Midtrans belum siap");
+          return;
+        }
+        const res = await api.post(
+          `/billing/bookings/checkout?mode=${mode}&method=${methodCode}`,
+          { booking_id: booking.id },
+        );
+        snap.pay(res.data.snap_token, {
+          onSuccess: () => {
+            toast.success("Pelunasan berhasil");
+            fetchDetail();
+          },
+          onPending: () => toast.message("Pembayaran menunggu konfirmasi"),
+          onError: () => toast.error("Pembayaran gagal"),
+          onClose: () => fetchDetail(),
+        });
         return;
       }
-      const res = await api.post(
-        `/billing/bookings/checkout?mode=${mode}`,
-        { booking_id: booking.id },
-      );
-      snap.pay(res.data.snap_token, {
-        onSuccess: () => {
-          toast.success("Pelunasan berhasil");
-          fetchDetail();
-        },
-        onPending: () => toast.message("Pembayaran menunggu konfirmasi"),
-        onError: () => toast.error("Pembayaran gagal"),
-        onClose: () => fetchDetail(),
+
+      const res = await api.post(`/bookings/${booking.id}/manual-payment`, {
+        booking_id: booking.id,
+        scope: "settlement",
+        method: methodCode,
       });
+      toast.success(`Pelunasan manual masuk antrean verifikasi (${res.data.reference})`);
+      fetchDetail();
     } catch (error) {
       const err = error as { response?: { data?: { error?: string } } };
       toast.error(err.response?.data?.error || "Gagal membuka pembayaran");
@@ -452,6 +519,23 @@ export default function BookingDetailPage() {
     } catch (error) {
       const err = error as { response?: { data?: { error?: string } } };
       toast.error(err.response?.data?.error || "Gagal memproses cash settlement");
+    }
+  };
+
+  const handleVerifyManualAttempt = async (attemptID: string, approve: boolean) => {
+    try {
+      setProcessingAttemptId(attemptID);
+      await api.post(`/bookings/payment-attempts/${attemptID}/${approve ? "verify" : "reject"}`, {
+        notes: String(attemptNotes[attemptID] || "").trim(),
+      });
+      toast.success(approve ? "Pembayaran manual diverifikasi" : "Pembayaran manual ditolak");
+      setAttemptNotes((current) => ({ ...current, [attemptID]: "" }));
+      fetchDetail();
+    } catch (error) {
+      const err = error as { response?: { data?: { error?: string } } };
+      toast.error(err.response?.data?.error || "Gagal memproses verifikasi");
+    } finally {
+      setProcessingAttemptId(null);
     }
   };
 
@@ -558,7 +642,7 @@ export default function BookingDetailPage() {
           <div className="flex flex-col gap-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Next action</div>
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Aksi</div>
                 <div className="mt-1 text-sm font-medium leading-5 text-slate-700 dark:text-slate-200">{nextActionHint}</div>
               </div>
               <Badge className="shrink-0 rounded-full border-none bg-slate-950 px-3 py-1 text-xs font-semibold text-white">
@@ -568,6 +652,7 @@ export default function BookingDetailPage() {
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {canConfirm && (
                 <Button onClick={() => handleUpdateStatus("confirmed")} disabled={updating || !canConfirmBooking} variant="outline" className="h-10 rounded-xl">
+                  <ShieldCheck className="mr-2 h-4 w-4" />
                   Konfirmasi
                 </Button>
               )}
@@ -578,16 +663,18 @@ export default function BookingDetailPage() {
               )}
               {(status === "pending" || status === "confirmed") && (
                 <Button onClick={() => handleUpdateStatus("active")} disabled={updating || !canStart || !canStartSession} className="h-10 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700">
+                  <Zap className="mr-2 h-4 w-4" />
                   Mulai Sesi
                 </Button>
               )}
               {canComplete && (
                 <Button onClick={() => handleUpdateStatus("completed")} disabled={updating || !canCompleteSession} className="h-10 rounded-xl bg-slate-950 text-white hover:bg-slate-800">
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
                   Akhiri Sesi
                 </Button>
               )}
               {canSettle && (
-                <Button onClick={() => setPayOpen((prev) => !prev)} disabled={updating || !canSettleCash} className="h-10 rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
+                <Button onClick={() => setPayOpen(true)} disabled={updating || !canSettleCash} className="h-10 rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
                   <CreditCard className="mr-2 h-4 w-4" /> Pelunasan
                 </Button>
               )}
@@ -634,45 +721,344 @@ export default function BookingDetailPage() {
             </div>
           </div>
 
-          {canSettle && payOpen && canSettleCash && (
-            <div className="relative">
-                <div className="absolute right-0 mt-3 w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-white/15 dark:bg-[#0f0f17] sm:w-80">
-                  <div className="space-y-3">
-                    <div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Ringkasan Pelunasan</p>
-                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <p className="text-slate-500">Total</p>
-                          <p className="font-semibold text-slate-900 dark:text-white">Rp {formatIDR(booking.grand_total || 0)}</p>
+        </div>
+      </header>
+
+      <Dialog open={canSettle && payOpen && canSettleCash} onOpenChange={setPayOpen}>
+        <DialogContent className="max-w-[calc(100%-1.5rem)] rounded-[1.75rem] border border-slate-200 bg-white p-0 shadow-[0_30px_120px_rgba(15,23,42,0.28)] dark:border-white/10 dark:bg-[#0f0f17] sm:max-w-2xl">
+          <DialogHeader className="border-b border-slate-200 px-5 py-5 dark:border-white/10">
+            <DialogTitle className="text-left text-xl font-semibold tracking-tight text-slate-950 dark:text-white">
+              Pilih Metode Pelunasan
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-5 px-5 py-5">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Total Booking</p>
+                <p className="mt-2 text-base font-semibold text-slate-950 dark:text-white">
+                  Rp {formatIDR(booking?.grand_total || 0)}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Sudah Dibayar</p>
+                <p className="mt-2 text-base font-semibold text-slate-950 dark:text-white">
+                  Rp {formatIDR(booking?.paid_amount || 0)}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/10">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-blue-500 dark:text-blue-200">Sisa Dilunasi</p>
+                <p className="mt-2 text-base font-semibold text-blue-900 dark:text-blue-100">
+                  Rp {formatIDR(booking?.balance_due || 0)}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
+                  Metode
+                </p>
+              </div>
+
+              <div className="grid gap-3">
+                {paymentMethods.map((method) => {
+                  const selected = selectedSettlementMethod === method.code;
+                  return (
+                    <button
+                      key={method.code}
+                      type="button"
+                      onClick={() => setSelectedSettlementMethod(method.code)}
+                      className={cn(
+                        "w-full rounded-[1.5rem] border px-4 py-4 text-left transition-all",
+                        selected
+                          ? "border-blue-500 bg-blue-50 ring-2 ring-blue-500/15 dark:border-blue-400 dark:bg-blue-500/10"
+                          : "border-slate-200 bg-white hover:border-slate-300 dark:border-white/10 dark:bg-white/[0.03]",
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-semibold text-slate-950 dark:text-white">
+                              {method.display_name}
+                            </p>
+                            <Badge
+                              className={cn(
+                                "border-none",
+                                method.verification_type === "auto"
+                                  ? "bg-slate-950 text-white"
+                                  : "bg-amber-500 text-white",
+                              )}
+                            >
+                              {method.verification_type === "auto" ? "Otomatis" : "Manual"}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                            {method.verification_type === "auto"
+                              ? "Otomatis"
+                              : "Verifikasi admin"}
+                          </p>
                         </div>
-                        <div>
-                          <p className="text-slate-500">Sisa</p>
-                          <p className="font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">Rp {formatIDR(booking.balance_due || 0)}</p>
+                        <div
+                          className={cn(
+                            "mt-0.5 h-5 w-5 rounded-full border-2 transition-all",
+                            selected
+                              ? "border-blue-600 bg-blue-600 shadow-[inset_0_0_0_4px_white]"
+                              : "border-slate-300 bg-white dark:border-white/20 dark:bg-transparent",
+                          )}
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {selectedSettlementMethodDetail ? (
+              <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-slate-950 dark:text-white">
+                    {selectedSettlementMethodDetail.display_name}
+                  </p>
+                  <Badge
+                    className={cn(
+                      "border-none",
+                      selectedSettlementMethodDetail.verification_type === "auto"
+                        ? "bg-slate-950 text-white"
+                        : "bg-amber-500 text-white",
+                    )}
+                  >
+                    {selectedSettlementMethodDetail.verification_type === "auto" ? "Auto Verify" : "Manual Review"}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                  {selectedSettlementMethodDetail.instructions || "Instruksi pembayaran akan mengikuti metode yang dipilih."}
+                </p>
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs leading-6 text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+                  {selectedSettlementMethodDetail.verification_type === "auto"
+                    ? "Customer akan diarahkan ke gateway, dan status pelunasan akan diperbarui otomatis setelah pembayaran berhasil."
+                    : selectedSettlementMethodDetail.code === "cash"
+                      ? "Pakai opsi ini jika pembayaran dilakukan langsung di tempat. Admin bisa langsung menandai lunas tanpa menunggu review tambahan."
+                      : "Pakai opsi ini jika customer membayar manual. Sistem akan membuat antrean verifikasi agar tim bisa review bukti pembayaran."}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-2 border-t border-slate-200 px-5 py-4 dark:border-white/10 sm:flex-row sm:justify-end">
+            <Button variant="outline" onClick={() => setPayOpen(false)} className="h-11 rounded-2xl">
+              Batal
+            </Button>
+            {selectedSettlementMethod === "cash" ? (
+              <Button
+                onClick={() => {
+                  setPayOpen(false);
+                  handleCashSettlement();
+                }}
+                className="h-11 rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700"
+              >
+                Tandai Cash Lunas
+              </Button>
+            ) : (
+              <Button
+                onClick={() => {
+                  setPayOpen(false);
+                  handlePayment(
+                    "settlement",
+                    selectedSettlementMethodDetail?.code || "midtrans",
+                    selectedSettlementMethodDetail?.verification_type || "auto",
+                  );
+                }}
+                disabled={
+                  selectedSettlementMethodDetail?.verification_type === "auto" &&
+                  !midtransReady
+                }
+                className="h-11 rounded-2xl bg-slate-950 text-white hover:bg-slate-800"
+              >
+                {selectedSettlementMethodDetail?.verification_type === "auto"
+                  ? midtransReady
+                    ? `Lanjut via ${selectedSettlementMethodDetail?.display_name || "Gateway"}`
+                    : "Menyiapkan Gateway"
+                  : `Buat Transaksi ${selectedSettlementMethodDetail?.display_name || "Manual"}`}
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {pendingManualAttempts.length > 0 ? (
+        <Card className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm dark:border-amber-500/20 dark:bg-amber-950/20">
+          <div className="flex flex-col gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-700 dark:text-amber-200">
+                Pending Transactions
+              </p>
+              <p className="mt-1 text-sm text-amber-800 dark:text-amber-100">
+                Ada pembayaran manual yang menunggu persetujuan admin. Review bukti bayar, nominal, dan catatan customer sebelum mengambil keputusan.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-2xl border border-amber-200 bg-white p-4 dark:border-amber-500/20 dark:bg-[#0f0f17]">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Total Pending</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
+                  {pendingManualAttempts.length}
+                </p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  transaksi manual perlu review
+                </p>
+              </div>
+              <div className="rounded-2xl border border-amber-200 bg-white p-4 dark:border-amber-500/20 dark:bg-[#0f0f17]">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">DP Pending</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
+                  {pendingManualAttempts.filter((item) => item.payment_scope === "deposit").length}
+                </p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  memblokir mulai sesi sampai diverifikasi
+                </p>
+              </div>
+              <div className="rounded-2xl border border-amber-200 bg-white p-4 dark:border-amber-500/20 dark:bg-[#0f0f17]">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Pelunasan Pending</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
+                  {pendingManualAttempts.filter((item) => item.payment_scope === "settlement").length}
+                </p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  booking selesai menunggu approval
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {pendingManualAttempts.map((attempt) => (
+                <div
+                  key={attempt.id}
+                  className="rounded-2xl border border-amber-200 bg-white p-4 dark:border-amber-500/20 dark:bg-[#0f0f17]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                          {attempt.method_label}
                         </div>
+                        <Badge
+                          className={cn(
+                            "border-none",
+                            attempt.payment_scope === "settlement"
+                              ? "bg-blue-600 text-white"
+                              : "bg-slate-950 text-white",
+                          )}
+                        >
+                          {attempt.payment_scope === "settlement" ? "Pelunasan" : "DP"}
+                        </Badge>
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Ref {attempt.reference_code}
                       </div>
                     </div>
+                    <Badge className="border-none bg-amber-500 text-white">
+                      {attempt.status === "awaiting_verification" ? "Perlu Review" : attempt.status}
+                    </Badge>
+                  </div>
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5">
+                      <p className="text-[10px] uppercase tracking-[0.16em] text-slate-400">Nominal</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+                        Rp {formatIDR(Number(attempt.amount || 0))}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5">
+                      <p className="text-[10px] uppercase tracking-[0.16em] text-slate-400">Dikirim</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+                        {attempt.submitted_at
+                          ? format(new Date(attempt.submitted_at), "dd MMM yyyy, HH:mm", { locale: localeID })
+                          : "-"}
+                      </p>
+                    </div>
+                  </div>
+                  {attempt.proof_url ? (
+                    <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5">
+                      <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2 dark:border-white/10">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                          <ImageIcon className="h-3.5 w-3.5" />
+                          Bukti bayar customer
+                        </div>
+                        <a
+                          href={attempt.proof_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--bookinaja-600)] hover:underline dark:text-[var(--bookinaja-200)]"
+                        >
+                          Buka penuh
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      </div>
+                      <a href={attempt.proof_url} target="_blank" rel="noreferrer">
+                        <Image
+                          src={attempt.proof_url}
+                          alt={`Bukti bayar ${attempt.reference_code}`}
+                          width={1200}
+                          height={900}
+                          unoptimized
+                          className="aspect-[4/3] w-full object-cover"
+                        />
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-xl border border-dashed border-slate-200 px-3 py-3 text-xs text-slate-500 dark:border-white/10 dark:text-slate-400">
+                      {attempt.method_code === "cash"
+                        ? "Pembayaran cash tidak membutuhkan bukti upload. Review catatan customer lalu lanjut verifikasi bila pembayaran sudah diterima."
+                        : "Customer belum melampirkan bukti bayar."}
+                    </div>
+                  )}
+                  <div className="mt-4 grid gap-3">
+                    <div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5">
+                      <p className="text-[10px] uppercase tracking-[0.16em] text-slate-400">Catatan customer</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-700 dark:text-slate-300">
+                        {attempt.payer_note || "Tidak ada catatan dari customer."}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                        Catatan admin
+                      </p>
+                      <Textarea
+                        value={attemptNotes[attempt.id] || ""}
+                        onChange={(event) =>
+                          setAttemptNotes((current) => ({
+                            ...current,
+                            [attempt.id]: event.target.value,
+                          }))
+                        }
+                        placeholder={
+                          attempt.payment_scope === "settlement"
+                            ? "Opsional: mis. nominal cocok, siap dilunasi."
+                            : "Opsional: mis. bukti sesuai, DP siap dikonfirmasi."
+                        }
+                        className="min-h-[84px] rounded-xl border-slate-200 bg-white text-sm dark:border-white/10 dark:bg-white/[0.03]"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex gap-2">
                     <Button
-                      onClick={() => {
-                        setPayOpen(false);
-                        handlePayment("settlement");
-                      }}
-                      disabled={!midtransReady}
-                      className="h-10 w-full rounded-xl bg-slate-950 text-white hover:bg-slate-800"
+                      onClick={() => handleVerifyManualAttempt(attempt.id, true)}
+                      disabled={processingAttemptId === attempt.id}
+                      className="h-9 flex-1 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
                     >
-                      {midtransReady ? "Bayar via Midtrans" : "Menyiapkan Midtrans"}
+                      {processingAttemptId === attempt.id ? "Memproses..." : "Verifikasi"}
                     </Button>
                     <Button
-                      onClick={handleCashSettlement}
-                      className="h-10 w-full rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+                      onClick={() => handleVerifyManualAttempt(attempt.id, false)}
+                      disabled={processingAttemptId === attempt.id}
+                      variant="outline"
+                      className="h-9 flex-1 rounded-xl border-red-200 text-red-600 hover:bg-red-50"
                     >
-                      Bayar Cash
+                      Tolak
                     </Button>
                   </div>
                 </div>
+              ))}
             </div>
-          )}
-        </div>
-      </header>
+          </div>
+        </Card>
+      ) : null}
 
       <Card className="hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

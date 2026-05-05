@@ -145,11 +145,8 @@ export default function FnbManagementPage() {
                 Katalog F&B
               </div>
               <h1 className="text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl dark:text-white">
-                Menu dan produk
+                Menu
               </h1>
-              <p className="mt-1 text-sm text-slate-500">
-                Kelola item yang tampil di kasir, lengkap dengan kategori, foto, dan status ketersediaan.
-              </p>
             </div>
           </div>
 
@@ -161,7 +158,7 @@ export default function FnbManagementPage() {
               className="h-10 rounded-xl border-slate-200 dark:border-white/15 dark:bg-white/[0.03]"
             >
               <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-              Muat ulang
+              Refresh
             </Button>
             <Button
               onClick={() => {
@@ -170,7 +167,7 @@ export default function FnbManagementPage() {
               }}
               className="h-10 rounded-xl bg-[var(--bookinaja-600)] px-4 font-semibold text-white hover:bg-[var(--bookinaja-700)]"
             >
-              <Plus className="mr-2 h-4 w-4" /> Tambah item
+              <Plus className="mr-2 h-4 w-4" /> Tambah
             </Button>
           </div>
         </div>
@@ -198,7 +195,7 @@ export default function FnbManagementPage() {
             <Input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Cari nama menu, kategori, atau deskripsi..."
+              placeholder="Cari menu / kategori"
               className="h-11 rounded-xl bg-slate-50 pl-10 dark:border-white/15 dark:bg-white/[0.04]"
             />
           </div>

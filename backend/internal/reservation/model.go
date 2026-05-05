@@ -1,6 +1,9 @@
 package reservation
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -62,20 +65,52 @@ type OrderItem struct {
 
 type BookingDetail struct {
 	Booking
-	TenantName     string                `db:"tenant_name" json:"tenant_name"`
-	TenantSlug     string                `db:"tenant_slug" json:"tenant_slug"`
-	CustomerName   string                `db:"customer_name" json:"customer_name"`
-	CustomerPhone  string                `db:"customer_phone" json:"customer_phone"`
-	ResourceName   string                `db:"resource_name" json:"resource_name"`
-	UnitPrice      float64               `db:"unit_price" json:"unit_price"`
-	UnitDuration   int                   `db:"unit_duration" json:"unit_duration"`
-	TotalResource  float64               `db:"total_resource" json:"total_resource"`
-	TotalFnb       float64               `db:"total_fnb" json:"total_fnb"`
-	GrandTotal     float64               `db:"grand_total" json:"grand_total"`
-	ResourceAddons []ResourceItemSimple  `json:"resource_addons"`
-	Options        []BookingOptionDetail `json:"options"`
-	Orders         []OrderItem           `json:"orders"`
-	Events         []BookingEvent        `json:"events"`
+	TenantName      string                         `db:"tenant_name" json:"tenant_name"`
+	TenantSlug      string                         `db:"tenant_slug" json:"tenant_slug"`
+	CustomerName    string                         `db:"customer_name" json:"customer_name"`
+	CustomerPhone   string                         `db:"customer_phone" json:"customer_phone"`
+	ResourceName    string                         `db:"resource_name" json:"resource_name"`
+	UnitPrice       float64                        `db:"unit_price" json:"unit_price"`
+	UnitDuration    int                            `db:"unit_duration" json:"unit_duration"`
+	TotalResource   float64                        `db:"total_resource" json:"total_resource"`
+	TotalFnb        float64                        `db:"total_fnb" json:"total_fnb"`
+	GrandTotal      float64                        `db:"grand_total" json:"grand_total"`
+	ResourceAddons  []ResourceItemSimple           `json:"resource_addons"`
+	PaymentMethods  []BookingPaymentMethod         `json:"payment_methods"`
+	PaymentAttempts []BookingPaymentAttemptSummary `json:"payment_attempts"`
+	Options         []BookingOptionDetail          `json:"options"`
+	Orders          []OrderItem                    `json:"orders"`
+	Events          []BookingEvent                 `json:"events"`
+}
+
+type BookingPaymentMethod struct {
+	Code             string `json:"code" db:"code"`
+	DisplayName      string `json:"display_name" db:"display_name"`
+	Category         string `json:"category" db:"category"`
+	VerificationType string `json:"verification_type" db:"verification_type"`
+	Provider         string `json:"provider" db:"provider"`
+	Instructions     string `json:"instructions" db:"instructions"`
+	IsActive         bool   `json:"is_active" db:"is_active"`
+	SortOrder        int    `json:"sort_order" db:"sort_order"`
+	Metadata         JSONB  `json:"metadata" db:"metadata"`
+}
+
+type BookingPaymentAttemptSummary struct {
+	ID               uuid.UUID  `json:"id" db:"id"`
+	MethodCode       string     `json:"method_code" db:"method_code"`
+	MethodLabel      string     `json:"method_label" db:"method_label"`
+	VerificationType string     `json:"verification_type" db:"verification_type"`
+	PaymentScope     string     `json:"payment_scope" db:"payment_scope"`
+	Amount           int64      `json:"amount" db:"amount"`
+	Status           string     `json:"status" db:"status"`
+	ReferenceCode    string     `json:"reference_code" db:"reference_code"`
+	PayerNote        string     `json:"payer_note" db:"payer_note"`
+	AdminNote        string     `json:"admin_note" db:"admin_note"`
+	ProofURL         string     `json:"proof_url" db:"proof_url"`
+	CreatedAt        time.Time  `json:"created_at" db:"created_at"`
+	SubmittedAt      *time.Time `json:"submitted_at" db:"submitted_at"`
+	VerifiedAt       *time.Time `json:"verified_at" db:"verified_at"`
+	RejectedAt       *time.Time `json:"rejected_at" db:"rejected_at"`
 }
 
 type BookingEvent struct {
@@ -93,6 +128,56 @@ type BookingEvent struct {
 	Description string     `db:"description" json:"description"`
 	Metadata    []byte     `db:"metadata" json:"metadata"`
 	CreatedAt   time.Time  `db:"created_at" json:"created_at"`
+}
+
+type JSONB []byte
+
+func (j JSONB) Value() (driver.Value, error) {
+	if len(j) == 0 {
+		return []byte("{}"), nil
+	}
+	if !json.Valid(j) {
+		return nil, fmt.Errorf("invalid jsonb payload")
+	}
+	return []byte(j), nil
+}
+
+func (j *JSONB) Scan(src any) error {
+	switch value := src.(type) {
+	case nil:
+		*j = JSONB(`{}`)
+		return nil
+	case []byte:
+		*j = append((*j)[:0], value...)
+		return nil
+	case string:
+		*j = append((*j)[:0], value...)
+		return nil
+	default:
+		return fmt.Errorf("unsupported jsonb source %T", src)
+	}
+}
+
+func (j JSONB) MarshalJSON() ([]byte, error) {
+	if len(j) == 0 {
+		return []byte(`{}`), nil
+	}
+	if json.Valid(j) {
+		return j, nil
+	}
+	return json.Marshal(string(j))
+}
+
+func (j *JSONB) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 {
+		*j = JSONB(`{}`)
+		return nil
+	}
+	if !json.Valid(data) {
+		return fmt.Errorf("invalid jsonb payload")
+	}
+	*j = append((*j)[:0], data...)
+	return nil
 }
 
 type ActorContext struct {

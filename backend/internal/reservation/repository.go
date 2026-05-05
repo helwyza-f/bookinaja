@@ -306,6 +306,24 @@ func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*Boo
 
 // HydrateBooking mengisi data relasi (options & orders) ke dalam objek BookingDetail
 func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error {
+	b.PaymentMethods = make([]BookingPaymentMethod, 0)
+	if err := r.db.SelectContext(ctx, &b.PaymentMethods, `
+		SELECT code, display_name, category, verification_type, provider, instructions, is_active, sort_order, metadata
+		FROM tenant_payment_methods
+		WHERE tenant_id = $1 AND is_active = true
+		ORDER BY sort_order ASC, created_at ASC`, b.TenantID); err != nil {
+		return err
+	}
+
+	b.PaymentAttempts = make([]BookingPaymentAttemptSummary, 0)
+	if err := r.db.SelectContext(ctx, &b.PaymentAttempts, `
+		SELECT id, method_code, method_label, verification_type, payment_scope, amount, status, reference_code, payer_note, admin_note, proof_url, created_at, submitted_at, verified_at, rejected_at
+		FROM booking_payment_attempts
+		WHERE booking_id = $1
+		ORDER BY created_at DESC`, b.ID); err != nil {
+		return err
+	}
+
 	// 1. Load Options (Layanan/Unit)
 	b.Options = make([]BookingOptionDetail, 0)
 	err := r.db.SelectContext(ctx, &b.Options, `

@@ -452,13 +452,13 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-5 px-3 pb-20 pt-5 font-plus-jakarta md:px-4">
-      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,1),rgba(241,245,249,0.96))] p-5 shadow-[0_24px_80px_rgba(15,23,42,0.09)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(15,17,23,0.98),rgba(9,12,20,0.98))] dark:shadow-[0_28px_90px_rgba(0,0,0,0.28)] sm:p-7">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.18),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.12),transparent_34%)]" />
+      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,1),rgba(240,252,250,0.96))] p-5 shadow-[0_24px_80px_rgba(15,23,42,0.09)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(10,24,26,0.98),rgba(6,16,18,0.98))] dark:shadow-[0_28px_90px_rgba(0,0,0,0.28)] sm:p-7">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.22),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(30,143,146,0.14),transparent_34%)]" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="rounded-full border-none bg-[var(--bookinaja-600)] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white">
-                {ownerOnly ? "Owner view" : "Staff view"}
+                {ownerOnly ? "Owner" : "Staff"}
               </Badge>
               <Badge className="rounded-full border-none bg-white/85 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-700 shadow-sm dark:bg-white/10 dark:text-slate-100">
                 {refreshing ? "Refreshing..." : `Sync ${lastSyncAt || "--:--"}`}
@@ -467,11 +467,8 @@ export default function DashboardPage() {
             </div>
             <div>
               <h1 className="text-3xl font-[950] tracking-tight text-slate-950 dark:text-white sm:text-4xl">
-                Dashboard operasional
+                Dashboard
               </h1>
-              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300 sm:text-base">
-                Layout dashboard diperjelas dengan hierarchy baru: kondisi bisnis hari ini di atas, tren mingguan di tengah, lalu resource dan booking yang butuh perhatian di bawah.
-              </p>
             </div>
           </div>
 
@@ -502,7 +499,7 @@ export default function DashboardPage() {
           <DashboardMetricCard
             label="Today Revenue"
             value={`Rp ${formatIDR(metrics.todayRevenue)}`}
-            hint="revenue harian"
+            hint="Hari ini"
             icon={TrendingUp}
             tone="indigo"
             loading={loading}
@@ -512,7 +509,7 @@ export default function DashboardPage() {
           <DashboardMetricCard
             label="Today Bookings"
             value={metrics.todayBookings.toString()}
-            hint="booking masuk hari ini"
+            hint="Hari ini"
             icon={CalendarClock}
             tone="emerald"
             loading={loading}
@@ -522,7 +519,7 @@ export default function DashboardPage() {
           <DashboardMetricCard
             label="Active Sessions"
             value={metrics.activeSessions.toString()}
-            hint={`${metrics.occupiedPercent}% occupancy`}
+            hint={`${metrics.occupiedPercent}% okupansi`}
             icon={Clock3}
             tone="cyan"
             loading={loading}
@@ -532,7 +529,7 @@ export default function DashboardPage() {
           <DashboardMetricCard
             label="Customers"
             value={customersCount.toString()}
-            hint="database terkini"
+            hint="Tersimpan"
             icon={Users}
             tone="slate"
             loading={loading}

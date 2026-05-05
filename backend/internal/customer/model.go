@@ -8,12 +8,13 @@ import (
 
 // Customer adalah entitas pelanggan platform-level yang dipakai lintas tenant.
 type Customer struct {
-	ID       uuid.UUID  `db:"id" json:"id"`
-	TenantID *uuid.UUID `db:"tenant_id" json:"tenant_id,omitempty"`
-	Name     string     `db:"name" json:"name"`
-	Phone    string     `db:"phone" json:"phone"`
-	Email    *string    `db:"email" json:"email"`
-	Password *string    `db:"password" json:"-"`
+	ID        uuid.UUID  `db:"id" json:"id"`
+	TenantID  *uuid.UUID `db:"tenant_id" json:"tenant_id,omitempty"`
+	Name      string     `db:"name" json:"name"`
+	Phone     string     `db:"phone" json:"phone"`
+	Email     *string    `db:"email" json:"email"`
+	Password  *string    `db:"password" json:"-"`
+	AvatarURL *string    `db:"avatar_url" json:"avatar_url,omitempty"`
 
 	// CRM Fields (Physical Data - Persistent)
 	Tier            string     `db:"tier" json:"tier"` // NEW, REGULAR, GOLD, VIP
@@ -47,9 +48,33 @@ type VerifyOtpReq struct {
 }
 
 type UpdateProfileReq struct {
-	Name     *string `json:"name"`
-	Email    *string `json:"email"`
-	Password *string `json:"password"`
+	Name      *string `json:"name"`
+	Email     *string `json:"email"`
+	AvatarURL *string `json:"avatar_url"`
+}
+
+type UpdatePasswordReq struct {
+	CurrentPassword string `json:"current_password" binding:"required"`
+	NewPassword     string `json:"new_password" binding:"required"`
+}
+
+type RequestPasswordResetReq struct {
+	Phone string `json:"phone" binding:"required"`
+}
+
+type VerifyPasswordResetReq struct {
+	Phone       string `json:"phone" binding:"required"`
+	Code        string `json:"code" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required"`
+}
+
+type RequestPhoneChangeReq struct {
+	NewPhone string `json:"new_phone" binding:"required"`
+}
+
+type VerifyPhoneChangeReq struct {
+	NewPhone string `json:"new_phone" binding:"required"`
+	Code     string `json:"code" binding:"required"`
 }
 
 type AuthResponse struct {

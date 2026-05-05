@@ -1918,6 +1918,162 @@ func (s *Service) GetReceiptSettings(ctx context.Context, id uuid.UUID) (*Tenant
 	return s.repo.GetByID(ctx, id)
 }
 
+func defaultTenantPaymentMethods() []TenantPaymentMethod {
+	return []TenantPaymentMethod{
+		{
+			Code:             "midtrans",
+			DisplayName:      "Midtrans / QRIS Gateway",
+			Category:         "gateway",
+			VerificationType: "auto",
+			Provider:         "midtrans",
+			Instructions:     "Pembayaran diverifikasi otomatis oleh gateway Midtrans.",
+			IsActive:         true,
+			SortOrder:        10,
+			Metadata:         JSONB(`{}`),
+		},
+		{
+			Code:             "bank_transfer",
+			DisplayName:      "Transfer Bank",
+			Category:         "manual",
+			VerificationType: "manual",
+			Provider:         "bank_transfer",
+			Instructions:     "Transfer ke rekening tenant lalu kirim bukti bayar untuk diverifikasi admin.",
+			IsActive:         false,
+			SortOrder:        20,
+			Metadata:         JSONB(`{}`),
+		},
+		{
+			Code:             "qris_static",
+			DisplayName:      "QRIS Static",
+			Category:         "manual",
+			VerificationType: "manual",
+			Provider:         "qris_static",
+			Instructions:     "Scan QRIS tenant lalu kirim bukti bayar untuk diverifikasi admin.",
+			IsActive:         false,
+			SortOrder:        30,
+			Metadata:         JSONB(`{}`),
+		},
+		{
+			Code:             "cash",
+			DisplayName:      "Cash / Bayar di Tempat",
+			Category:         "manual",
+			VerificationType: "manual",
+			Provider:         "cash",
+			Instructions:     "Pembayaran diterima langsung oleh admin atau kasir tenant.",
+			IsActive:         true,
+			SortOrder:        40,
+			Metadata:         JSONB(`{}`),
+		},
+	}
+}
+
+func normalizeTenantPaymentMethodInput(input TenantPaymentMethodInput) TenantPaymentMethodInput {
+	input.Code = strings.ToLower(strings.TrimSpace(input.Code))
+	input.DisplayName = strings.TrimSpace(input.DisplayName)
+	input.Category = strings.ToLower(strings.TrimSpace(input.Category))
+	input.VerificationType = strings.ToLower(strings.TrimSpace(input.VerificationType))
+	input.Provider = strings.ToLower(strings.TrimSpace(input.Provider))
+	input.Instructions = strings.TrimSpace(input.Instructions)
+
+	if input.DisplayName == "" {
+		input.DisplayName = strings.ToUpper(strings.ReplaceAll(input.Code, "_", " "))
+	}
+	if input.Category == "" {
+		input.Category = "manual"
+	}
+	if input.VerificationType == "" {
+		input.VerificationType = "manual"
+	}
+	if input.Provider == "" {
+		input.Provider = input.Code
+	}
+	if input.Metadata == nil {
+		input.Metadata = map[string]interface{}{}
+	}
+	return input
+}
+
+func (s *Service) GetPaymentMethods(ctx context.Context, id uuid.UUID) ([]TenantPaymentMethod, error) {
+	items, err := s.repo.ListPaymentMethods(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if len(items) > 0 {
+		return items, nil
+	}
+
+	defaults := defaultTenantPaymentMethods()
+	now := time.Now().UTC()
+	seed := make([]TenantPaymentMethod, 0, len(defaults))
+	for _, item := range defaults {
+		item.ID = uuid.New()
+		item.TenantID = id
+		item.CreatedAt = now
+		item.UpdatedAt = now
+		seed = append(seed, item)
+	}
+	if err := s.repo.ReplacePaymentMethods(ctx, id, seed); err != nil {
+		return nil, err
+	}
+	return seed, nil
+}
+
+func (s *Service) UpdatePaymentMethods(ctx context.Context, actorUserID uuid.UUID, id uuid.UUID, req TenantPaymentMethodUpdateReq) ([]TenantPaymentMethod, error) {
+	if len(req.Items) == 0 {
+		return nil, errors.New("minimal satu metode pembayaran harus dikirim")
+	}
+
+	items := make([]TenantPaymentMethod, 0, len(req.Items))
+	seen := map[string]bool{}
+	now := time.Now().UTC()
+	for index, raw := range req.Items {
+		item := normalizeTenantPaymentMethodInput(raw)
+		if item.Code == "" {
+			return nil, errors.New("kode metode pembayaran wajib diisi")
+		}
+		if seen[item.Code] {
+			return nil, fmt.Errorf("metode pembayaran duplikat: %s", item.Code)
+		}
+		seen[item.Code] = true
+		meta, _ := json.Marshal(item.Metadata)
+		items = append(items, TenantPaymentMethod{
+			ID:               uuid.New(),
+			TenantID:         id,
+			Code:             item.Code,
+			DisplayName:      item.DisplayName,
+			Category:         item.Category,
+			VerificationType: item.VerificationType,
+			Provider:         item.Provider,
+			Instructions:     item.Instructions,
+			IsActive:         item.IsActive,
+			SortOrder:        index + 1,
+			Metadata:         JSONB(meta),
+			CreatedAt:        now,
+			UpdatedAt:        now,
+		})
+	}
+
+	if err := s.repo.ReplacePaymentMethods(ctx, id, items); err != nil {
+		return nil, err
+	}
+
+	metadata, _ := json.Marshal(map[string]any{
+		"payment_methods_count": len(items),
+	})
+	_ = s.repo.CreateAuditLog(ctx, AuditLog{
+		ID:           uuid.New(),
+		TenantID:     id,
+		ActorUserID:  &actorUserID,
+		Action:       "update_payment_methods",
+		ResourceType: "tenant_payment_methods",
+		ResourceID:   nil,
+		Metadata:     metadata,
+		CreatedAt:    now,
+	})
+
+	return items, nil
+}
+
 func (s *Service) GetReferralSummary(ctx context.Context, id uuid.UUID) (map[string]any, error) {
 	tenant, err := s.repo.GetByID(ctx, id)
 	if err != nil || tenant == nil {

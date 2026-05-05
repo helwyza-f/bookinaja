@@ -3,6 +3,9 @@ package billing
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -134,4 +137,267 @@ func (r *Repository) GetBookingForPayment(ctx context.Context, exec sqlx.ExtCont
 		bookingID, tenantID,
 	)
 	return booking, err
+}
+
+func (r *Repository) GetTenantIDByBookingID(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID) (uuid.UUID, error) {
+	var tenantID uuid.UUID
+	err := sqlx.GetContext(ctx, exec, &tenantID, `
+		SELECT tenant_id
+		FROM bookings
+		WHERE id = $1
+		LIMIT 1`,
+		bookingID,
+	)
+	return tenantID, err
+}
+
+func (r *Repository) ApplyManualDepositPayment(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID, methodCode string) error {
+	_, err := exec.ExecContext(ctx, `
+		UPDATE bookings
+		SET payment_status = CASE
+				WHEN deposit_amount > 0 THEN 'partial_paid'
+				ELSE 'paid'
+			END,
+			status = CASE
+				WHEN status = 'pending' THEN 'confirmed'
+				ELSE status
+			END,
+			payment_method = $2,
+			paid_amount = GREATEST(paid_amount, deposit_amount),
+			balance_due = GREATEST(grand_total - GREATEST(paid_amount, deposit_amount), 0),
+			last_status_changed_at = CASE
+				WHEN status = 'pending' THEN NOW()
+				ELSE last_status_changed_at
+			END
+		WHERE id = $1`,
+		bookingID, methodCode,
+	)
+	return err
+}
+
+func (r *Repository) ApplyManualSettlementPayment(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID, methodCode string) error {
+	_, err := exec.ExecContext(ctx, `
+		UPDATE bookings
+		SET payment_status = 'settled',
+			status = CASE
+				WHEN status IN ('pending', 'confirmed', 'active') THEN 'completed'
+				ELSE status
+			END,
+			payment_method = $2,
+			paid_amount = grand_total,
+			balance_due = 0,
+			settled_at = COALESCE(settled_at, NOW()),
+			completed_at = CASE
+				WHEN status IN ('pending', 'confirmed', 'active') THEN COALESCE(completed_at, NOW())
+				ELSE completed_at
+			END,
+			last_status_changed_at = CASE
+				WHEN status IN ('pending', 'confirmed', 'active') THEN NOW()
+				ELSE last_status_changed_at
+			END
+		WHERE id = $1`,
+		bookingID, methodCode,
+	)
+	return err
+}
+
+func (r *Repository) ListTenantPaymentMethods(ctx context.Context, tenantID uuid.UUID) ([]PaymentMethodOption, error) {
+	var items []PaymentMethodOption
+	err := r.db.SelectContext(ctx, &items, `
+		SELECT code, display_name, category, verification_type, provider, instructions, is_active, sort_order, metadata
+		FROM tenant_payment_methods
+		WHERE tenant_id = $1 AND is_active = true
+		ORDER BY sort_order ASC, created_at ASC`,
+		tenantID,
+	)
+	return items, err
+}
+
+func (r *Repository) GetTenantPaymentMethod(ctx context.Context, exec sqlx.ExtContext, tenantID uuid.UUID, code string) (PaymentMethodOption, error) {
+	var item PaymentMethodOption
+	err := sqlx.GetContext(ctx, exec, &item, `
+		SELECT code, display_name, category, verification_type, provider, instructions, is_active, sort_order, metadata
+		FROM tenant_payment_methods
+		WHERE tenant_id = $1 AND code = $2 AND is_active = true
+		LIMIT 1`,
+		tenantID, code,
+	)
+	return item, err
+}
+
+func (r *Repository) CreateBookingPaymentAttempt(ctx context.Context, exec sqlx.ExtContext, item BookingPaymentAttempt) error {
+	_, err := exec.ExecContext(ctx, `
+		INSERT INTO booking_payment_attempts (
+			id, booking_id, tenant_id, customer_id, method_code, method_label, category, verification_type, payment_scope,
+			amount, status, reference_code, gateway_order_id, gateway_transaction_id, payer_note, admin_note, proof_url,
+			metadata, submitted_at, verified_at, rejected_at, expires_at, created_at, updated_at
+		) VALUES (
+			$1,$2,$3,$4,$5,$6,$7,$8,$9,
+			$10,$11,$12,$13,$14,$15,$16,$17,
+			$18,$19,$20,$21,$22,$23,$24
+		)`,
+		item.ID, item.BookingID, item.TenantID, item.CustomerID, item.MethodCode, item.MethodLabel, item.Category, item.VerificationType, item.PaymentScope,
+		item.Amount, item.Status, item.ReferenceCode, item.GatewayOrderID, item.GatewayTransactionID, item.PayerNote, item.AdminNote, item.ProofURL,
+		item.Metadata, item.SubmittedAt, item.VerifiedAt, item.RejectedAt, item.ExpiresAt, item.CreatedAt, item.UpdatedAt,
+	)
+	return err
+}
+
+func (r *Repository) HasPendingManualPaymentAttempt(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID, scope string) (bool, error) {
+	var total int
+	err := sqlx.GetContext(ctx, exec, &total, `
+		SELECT COUNT(*)
+		FROM booking_payment_attempts
+		WHERE booking_id = $1
+		  AND payment_scope = $2
+		  AND verification_type = 'manual'
+		  AND status IN ('submitted', 'awaiting_verification')
+		LIMIT 1`,
+		bookingID, strings.TrimSpace(scope),
+	)
+	return total > 0, err
+}
+
+func (r *Repository) MarkBookingAwaitingVerification(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID) error {
+	_, err := exec.ExecContext(ctx, `
+		UPDATE bookings
+		SET payment_status = 'awaiting_verification'
+		WHERE id = $1`,
+		bookingID,
+	)
+	return err
+}
+
+func (r *Repository) RestoreBookingPaymentStatus(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID, paymentStatus string, paidAmount, balanceDue float64, status string) error {
+	_, err := exec.ExecContext(ctx, `
+		UPDATE bookings
+		SET payment_status = $2,
+			paid_amount = $3,
+			balance_due = $4,
+			status = $5
+		WHERE id = $1`,
+		bookingID, paymentStatus, paidAmount, balanceDue, status,
+	)
+	return err
+}
+
+func (r *Repository) GetBookingPaymentAttemptByGatewayOrderID(ctx context.Context, exec sqlx.ExtContext, orderID string) (*BookingPaymentAttempt, error) {
+	var item BookingPaymentAttempt
+	err := sqlx.GetContext(ctx, exec, &item, `
+		SELECT *
+		FROM booking_payment_attempts
+		WHERE gateway_order_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1`,
+		orderID,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
+func (r *Repository) MarkBookingPaymentAttemptStatus(ctx context.Context, exec sqlx.ExtContext, id uuid.UUID, status string, transactionID, adminNote *string) error {
+	_, err := exec.ExecContext(ctx, `
+		UPDATE booking_payment_attempts
+		SET status = $2::text,
+			gateway_transaction_id = CASE WHEN $3::text IS NOT NULL THEN $3::text ELSE gateway_transaction_id END,
+			admin_note = CASE WHEN $4::text IS NOT NULL THEN $4::text ELSE admin_note END,
+			verified_at = CASE WHEN $2::text IN ('paid', 'verified', 'settled') THEN COALESCE(verified_at, NOW()) ELSE verified_at END,
+			rejected_at = CASE WHEN $2::text = 'rejected' THEN COALESCE(rejected_at, NOW()) ELSE rejected_at END,
+			updated_at = NOW()
+		WHERE id = $1`,
+		id, status, transactionID, adminNote,
+	)
+	return err
+}
+
+func (r *Repository) ListBookingPaymentAttempts(ctx context.Context, bookingID uuid.UUID, tenantID uuid.UUID) ([]BookingPaymentAttempt, error) {
+	var items []BookingPaymentAttempt
+	query := `
+		SELECT *
+		FROM booking_payment_attempts
+		WHERE booking_id = $1
+	`
+	args := []any{bookingID}
+	if tenantID != uuid.Nil {
+		query += ` AND tenant_id = $2`
+		args = append(args, tenantID)
+	}
+	query += ` ORDER BY created_at DESC`
+	err := r.db.SelectContext(ctx, &items, query, args...)
+	return items, err
+}
+
+func (r *Repository) ListPendingManualPaymentAttempts(ctx context.Context, tenantID uuid.UUID) ([]BookingPaymentAttempt, error) {
+	var items []BookingPaymentAttempt
+	err := r.db.SelectContext(ctx, &items, `
+		SELECT *
+		FROM booking_payment_attempts
+		WHERE tenant_id = $1
+		  AND verification_type = 'manual'
+		  AND status IN ('submitted', 'awaiting_verification')
+		ORDER BY created_at DESC`,
+		tenantID,
+	)
+	return items, err
+}
+
+func (r *Repository) GetBookingNotificationContext(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID) (BookingNotificationContext, error) {
+	var ctxData BookingNotificationContext
+	err := sqlx.GetContext(ctx, exec, &ctxData, `
+		SELECT
+			b.id AS booking_id,
+			b.tenant_id,
+			b.customer_id,
+			b.access_token,
+			c.name AS customer_name,
+			c.phone AS customer_phone,
+			t.slug AS tenant_slug,
+			res.name AS resource_name,
+			b.grand_total,
+			b.deposit_amount,
+			b.paid_amount,
+			b.balance_due,
+			b.payment_status,
+			b.status
+		FROM bookings b
+		JOIN customers c ON c.id = b.customer_id
+		JOIN tenants t ON t.id = b.tenant_id
+		JOIN resources res ON res.id = b.resource_id
+		WHERE b.id = $1
+		LIMIT 1`,
+		bookingID,
+	)
+	return ctxData, err
+}
+
+func (r *Repository) GetBookingPaymentAttempt(ctx context.Context, exec sqlx.ExtContext, attemptID, tenantID uuid.UUID) (BookingPaymentAttempt, error) {
+	var item BookingPaymentAttempt
+	err := sqlx.GetContext(ctx, exec, &item, `
+		SELECT *
+		FROM booking_payment_attempts
+		WHERE id = $1 AND tenant_id = $2
+		LIMIT 1`,
+		attemptID, tenantID,
+	)
+	return item, err
+}
+
+func buildReferenceCode(prefix string) string {
+	return fmt.Sprintf("%s-%d", prefix, time.Now().UnixNano())
+}
+
+func decodePaymentMethodMetadata(raw []byte) map[string]any {
+	if len(raw) == 0 {
+		return map[string]any{}
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return map[string]any{}
+	}
+	return payload
 }

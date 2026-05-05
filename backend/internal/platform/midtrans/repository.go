@@ -18,6 +18,11 @@ type Repository struct {
 	rdb *redis.Client
 }
 
+type BookingPaymentAttempt struct {
+	ID         uuid.UUID `db:"id"`
+	MethodCode string    `db:"method_code"`
+}
+
 func NewRepository(db *sqlx.DB, rdb ...*redis.Client) *Repository {
 	var client *redis.Client
 	if len(rdb) > 0 {
@@ -232,6 +237,40 @@ func (r *Repository) CreateMidtransNotificationLog(ctx context.Context, exec sql
 		log.TenantID, log.BookingID, log.OrderID, log.TransactionID, log.TransactionStatus, log.FraudStatus,
 		log.PaymentType, log.GrossAmount, log.SignatureValid, log.ProcessingStatus, log.ErrorMessage,
 		log.RawPayload, log.ReceivedAt, log.ProcessedAt,
+	)
+	return err
+}
+
+func (r *Repository) GetBookingPaymentAttemptByGatewayOrderID(ctx context.Context, exec sqlx.ExtContext, orderID string) (*BookingPaymentAttempt, error) {
+	var item BookingPaymentAttempt
+	err := sqlx.GetContext(ctx, exec, &item, `
+		SELECT id, method_code
+		FROM booking_payment_attempts
+		WHERE gateway_order_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1`,
+		orderID,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
+func (r *Repository) MarkBookingPaymentAttemptStatus(ctx context.Context, exec sqlx.ExtContext, attemptID uuid.UUID, status string, transactionID, adminNote *string) error {
+	_, err := exec.ExecContext(ctx, `
+		UPDATE booking_payment_attempts
+		SET status = $2::text,
+			gateway_transaction_id = CASE WHEN $3::text IS NOT NULL THEN $3::text ELSE gateway_transaction_id END,
+			admin_note = CASE WHEN $4::text IS NOT NULL THEN $4::text ELSE admin_note END,
+			verified_at = CASE WHEN $2::text IN ('paid', 'verified', 'settled') THEN COALESCE(verified_at, NOW()) ELSE verified_at END,
+			rejected_at = CASE WHEN $2::text = 'rejected' THEN COALESCE(rejected_at, NOW()) ELSE rejected_at END,
+			updated_at = NOW()
+		WHERE id = $1`,
+		attemptID, status, transactionID, adminNote,
 	)
 	return err
 }

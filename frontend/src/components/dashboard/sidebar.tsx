@@ -121,8 +121,8 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   const hasAccess = (href: string) => canAccessAdminRoute(href, userData);
 
   return (
-    <div className="relative flex h-full flex-col border-r border-[var(--sidebar-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(248,250,252,0.92))] font-sans text-[var(--sidebar-foreground)] transition-colors duration-200 dark:bg-[linear-gradient(180deg,rgba(11,18,32,0.88),rgba(7,12,23,0.96))]">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top,rgba(37,99,235,0.16),transparent_58%)]" />
+    <div className="relative flex h-full flex-col border-r border-[var(--sidebar-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(243,252,251,0.94))] font-sans text-[var(--sidebar-foreground)] transition-colors duration-200 dark:bg-[linear-gradient(180deg,rgba(9,27,32,0.9),rgba(5,17,21,0.97))]">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top,rgba(129,216,208,0.18),transparent_58%)]" />
       {/* COLLAPSE TOGGLE BUTTON */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
@@ -193,7 +193,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                         ? "h-9 w-9 justify-center mx-auto rounded-xl"
                         : "px-3 py-2.5 w-full gap-3 rounded-xl",
                       isActive
-                        ? "bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_58%,#0ea5e9_100%)] text-[var(--sidebar-primary-foreground)] shadow-[0_18px_40px_rgba(37,99,235,0.22)]"
+                        ? "bg-[linear-gradient(135deg,#0d2b2f_0%,#1e8f92_58%,#81d8d0_100%)] text-[var(--sidebar-primary-foreground)] shadow-[0_18px_40px_rgba(30,143,146,0.24)]"
                         : "text-slate-500 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-white/5 hover:text-[var(--bookinaja-600)] dark:hover:text-white",
                     )}
                   >
@@ -249,7 +249,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                           : "w-full gap-3 rounded-xl px-3 py-2.5",
                         pathname === growthHubNavItem.href ||
                           pathname.startsWith(`${growthHubNavItem.href}/`)
-                          ? "bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_58%,#0ea5e9_100%)] text-[var(--sidebar-primary-foreground)] shadow-[0_18px_40px_rgba(37,99,235,0.22)]"
+                          ? "bg-[linear-gradient(135deg,#0d2b2f_0%,#1e8f92_58%,#81d8d0_100%)] text-[var(--sidebar-primary-foreground)] shadow-[0_18px_40px_rgba(30,143,146,0.24)]"
                           : "text-slate-500 hover:bg-white/80 hover:text-[var(--bookinaja-600)] dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white",
                       )}
                     >
@@ -307,7 +307,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                             ? "mx-auto h-9 w-9 justify-center rounded-xl"
                             : "w-full gap-3 rounded-xl px-3 py-2.5",
                           isActive
-                            ? "bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_58%,#0ea5e9_100%)] text-[var(--sidebar-primary-foreground)] shadow-[0_18px_40px_rgba(37,99,235,0.22)]"
+                            ? "bg-[linear-gradient(135deg,#0d2b2f_0%,#1e8f92_58%,#81d8d0_100%)] text-[var(--sidebar-primary-foreground)] shadow-[0_18px_40px_rgba(30,143,146,0.24)]"
                             : "text-slate-500 hover:bg-white/80 hover:text-[var(--bookinaja-600)] dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white",
                         )}
                       >
@@ -441,7 +441,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                 {resolvedTheme === "dark" ? (
                   <Sun className="mr-3 h-4 w-4 text-amber-500 fill-amber-500/20" />
                 ) : (
-                  <Moon className="mr-3 h-4 w-4 text-[var(--bookinaja-600)] fill-[color:rgba(18,146,255,0.18)]" />
+                  <Moon className="mr-3 h-4 w-4 text-[var(--bookinaja-600)] fill-[color:rgba(129,216,208,0.22)]" />
                 )}
                 <span className="text-xs font-semibold">
                   Tampilan {resolvedTheme === "dark" ? "Terang" : "Gelap"}

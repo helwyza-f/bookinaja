@@ -187,6 +187,46 @@ type BookingFormConfig struct {
 	WhatsappLabel    string `json:"whatsapp_label"`
 }
 
+type TenantPaymentMethod struct {
+	ID               uuid.UUID `db:"id" json:"id"`
+	TenantID         uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	Code             string    `db:"code" json:"code"`
+	DisplayName      string    `db:"display_name" json:"display_name"`
+	Category         string    `db:"category" json:"category"`
+	VerificationType string    `db:"verification_type" json:"verification_type"`
+	Provider         string    `db:"provider" json:"provider"`
+	Instructions     string    `db:"instructions" json:"instructions"`
+	IsActive         bool      `db:"is_active" json:"is_active"`
+	SortOrder        int       `db:"sort_order" json:"sort_order"`
+	Metadata         JSONB     `db:"metadata" json:"metadata"`
+	CreatedAt        time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt        time.Time `db:"updated_at" json:"updated_at"`
+}
+
+type TenantPaymentMethodMeta struct {
+	BankName      string `json:"bank_name,omitempty"`
+	AccountName   string `json:"account_name,omitempty"`
+	AccountNumber string `json:"account_number,omitempty"`
+	QRImageURL    string `json:"qr_image_url,omitempty"`
+	FooterNote    string `json:"footer_note,omitempty"`
+}
+
+type TenantPaymentMethodInput struct {
+	Code             string                 `json:"code"`
+	DisplayName      string                 `json:"display_name"`
+	Category         string                 `json:"category"`
+	VerificationType string                 `json:"verification_type"`
+	Provider         string                 `json:"provider"`
+	Instructions     string                 `json:"instructions"`
+	IsActive         bool                   `json:"is_active"`
+	SortOrder        int                    `json:"sort_order"`
+	Metadata         map[string]interface{} `json:"metadata"`
+}
+
+type TenantPaymentMethodUpdateReq struct {
+	Items []TenantPaymentMethodInput `json:"items" binding:"required"`
+}
+
 type PageBuilderState struct {
 	Profile       *Tenant            `json:"profile"`
 	Page          LandingPageConfig  `json:"page"`

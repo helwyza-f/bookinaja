@@ -2,6 +2,7 @@ import {
   BarChart3,
   CalendarDays,
   CreditCard,
+  Landmark,
   Link2,
   Printer,
   Grid2x2,
@@ -27,47 +28,47 @@ export type AdminNavItem = {
 };
 
 export const growthHubNavItem: AdminNavItem = {
-  label: "Promosi Bisnis",
+  label: "Promosi",
   href: "/growth/feed",
   icon: Sparkles,
-  hint: "Feed, konten, performa",
+  hint: "Feed & performa",
   group: "growth",
 };
 
 export const operationalNavItems: AdminNavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
   { label: "Bookings", icon: CalendarDays, href: "/admin/bookings" },
-  { label: "POS / Kasir", icon: MonitorPlay, href: "/admin/pos" },
+  { label: "POS", icon: MonitorPlay, href: "/admin/pos" },
   { label: "Resources", icon: Grid2x2, href: "/admin/resources" },
-  { label: "F&B / Menu", icon: Utensils, href: "/admin/fnb" },
+  { label: "Menu", icon: Utensils, href: "/admin/fnb" },
   { label: "Pengeluaran", icon: Banknote, href: "/admin/expenses" },
   { label: "Customers", icon: Users, href: "/admin/customers" },
 ];
 
 export const settingsNavItems: AdminNavItem[] = [
   {
-    label: "Landing Page Studio",
+    label: "Landing",
     href: "/admin/settings/page-builder",
     icon: Wand2,
-    hint: "Konten, layout, tema, preview",
+    hint: "Konten & tema",
     group: "core",
   },
   {
-    label: "Manajemen Pegawai",
+    label: "Staff",
     href: "/admin/settings/staff",
     icon: UsersRound,
-    hint: "Staff, RBAC, aktivitas",
+    hint: "Staff & RBAC",
     group: "ops",
   },
   {
-    label: "CRM & Marketing",
+    label: "CRM",
     href: "/admin/settings/crm",
     icon: Megaphone,
-    hint: "Migrasi & blast WA",
+    hint: "Blast & migrasi",
     group: "growth",
   },
   {
-    label: "Laporan & Analitik",
+    label: "Analitik",
     href: "/admin/settings/analytics",
     icon: BarChart3,
     hint: "Grafik & export",
@@ -77,21 +78,28 @@ export const settingsNavItems: AdminNavItem[] = [
     label: "Smart Point",
     href: "/admin/devices",
     icon: Radio,
-    hint: "Alat, pairing, status",
+    hint: "Alat & pairing",
     group: "system",
   },
   {
-    label: "Subscription & Billing",
+    label: "Metode Bayar",
+    href: "/admin/settings/payment-methods",
+    icon: Landmark,
+    hint: "Transfer & gateway",
+    group: "system",
+  },
+  {
+    label: "Billing",
     href: "/admin/settings/billing",
     icon: CreditCard,
-    hint: "Paket SaaS & Midtrans",
+    hint: "Paket & Midtrans",
     group: "system",
   },
   {
-    label: "Nota & Printer",
+    label: "Nota",
     href: "/admin/settings/nota",
     icon: Printer,
-    hint: "Struk, WhatsApp, printer",
+    hint: "Struk & printer",
     group: "system",
   },
   {

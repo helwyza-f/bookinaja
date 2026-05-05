@@ -106,6 +106,7 @@ export default function NewManualBookingPage() {
   const searchParams = useSearchParams();
   const packageRef = useRef<HTMLDivElement | null>(null);
   const scheduleRef = useRef<HTMLDivElement | null>(null);
+  const durationRef = useRef<HTMLDivElement | null>(null);
   const summaryRef = useRef<HTMLDivElement | null>(null);
   const [resources, setResources] = useState<ResourceRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,6 +134,18 @@ export default function NewManualBookingPage() {
         block: "start",
       });
     }, 80);
+  };
+
+  const handleTimeSelection = (time: string) => {
+    setSelectedTime(time);
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 1023px)").matches
+    ) {
+      scrollToSection(durationRef);
+      return;
+    }
+    scrollToSection(summaryRef);
   };
 
   // 1. Fetch Resources
@@ -568,46 +581,7 @@ export default function NewManualBookingPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-                <div className="flex flex-col items-center justify-center rounded-2xl bg-slate-50 p-4 dark:bg-white/5 lg:col-span-4">
-                  <span className="mb-4 text-center text-xs font-semibold text-slate-400">
-                    Jumlah Unit / Sesi
-                  </span>
-                  <div className="flex items-center gap-6">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() =>
-                        setDurationValue((d) => Math.max(1, d - 1))
-                      }
-                      className="h-10 w-10 rounded-xl shadow-sm dark:bg-white/5 dark:border-white/10 dark:text-white"
-                    >
-                      -
-                    </Button>
-                    <span className="text-5xl font-semibold tabular-nums leading-none text-blue-600 md:text-6xl">
-                      {durationValue}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() =>
-                        setDurationValue((d) =>
-                          Math.min(maxAvailableSessions, d + 1),
-                        )
-                      }
-                      className="h-10 w-10 rounded-xl shadow-sm dark:bg-white/5 dark:border-white/10 dark:text-white"
-                    >
-                      +
-                    </Button>
-                  </div>
-                  <Badge
-                    variant="secondary"
-                    className="mt-4 px-4 py-1 text-[10px] font-semibold dark:bg-white/5 dark:text-slate-400"
-                  >
-                    Slot Maks: {maxAvailableSessions}
-                  </Badge>
-                </div>
-
-                <div className="lg:col-span-8">
+                <div className="order-1 lg:col-span-8">
                   {!isInterday ? (
                     <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-6">
                       {availableSlots.map((t) => {
@@ -626,10 +600,7 @@ export default function NewManualBookingPage() {
                           <button
                             key={t}
                             disabled={isBusy || isPast}
-                            onClick={() => {
-                              setSelectedTime(t);
-                              scrollToSection(summaryRef);
-                            }}
+                            onClick={() => handleTimeSelection(t)}
                             className={cn(
                               "relative flex h-11 items-center justify-center rounded-xl border text-xs font-semibold transition-all",
                               isSel
@@ -654,6 +625,48 @@ export default function NewManualBookingPage() {
                     </div>
                   )}
                 </div>
+
+                <div
+                  ref={durationRef}
+                  className="order-2 flex flex-col items-center justify-center rounded-2xl bg-slate-50 p-4 dark:bg-white/5 lg:col-span-4"
+                >
+                  <span className="mb-4 text-center text-xs font-semibold text-slate-400 dark:text-slate-300">
+                    Jumlah Unit / Sesi
+                  </span>
+                  <div className="flex items-center gap-6">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() =>
+                        setDurationValue((d) => Math.max(1, d - 1))
+                      }
+                      className="h-10 w-10 rounded-xl border-slate-200 bg-white text-slate-900 shadow-sm hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                    >
+                      -
+                    </Button>
+                    <span className="text-5xl font-semibold tabular-nums leading-none text-[var(--bookinaja-600)] md:text-6xl">
+                      {durationValue}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() =>
+                        setDurationValue((d) =>
+                          Math.min(maxAvailableSessions, d + 1),
+                        )
+                      }
+                      className="h-10 w-10 rounded-xl border-slate-200 bg-white text-slate-900 shadow-sm hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                    >
+                      +
+                    </Button>
+                  </div>
+                  <Badge
+                    variant="secondary"
+                    className="mt-4 px-4 py-1 text-[10px] font-semibold dark:bg-white/5 dark:text-slate-300"
+                  >
+                    Slot Maks: {maxAvailableSessions}
+                  </Badge>
+                </div>
               </div>
             </Card>
           </div>
@@ -666,59 +679,62 @@ export default function NewManualBookingPage() {
               !selectedTime && "pointer-events-none opacity-70",
             )}
           >
-            <Card className="space-y-5 rounded-2xl border border-slate-800 bg-slate-950 p-4 text-white shadow-xl md:p-6">
+            <Card className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 shadow-sm dark:border-white/10 dark:bg-[#0f172a] dark:text-white dark:shadow-xl md:p-6">
               {/* CUSTOMER INFO */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <p className="text-xs font-semibold text-slate-400">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-white/5">
+                  <p className="text-xs font-semibold text-slate-400 dark:text-slate-300">
                     Profil Pelanggan
                   </p>
-                  <Smartphone size={16} className="text-blue-500" />
+                  <Smartphone
+                    size={16}
+                    className="text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-300)]"
+                  />
                 </div>
                 <div className="space-y-4">
                   <div className="relative group">
-                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                     <Input
                       placeholder="NOMOR WHATSAPP (08...)"
                       value={custPhone}
                       onChange={(e) =>
                         setCustPhone(e.target.value.replace(/\D/g, ""))
                       }
-                      className="h-12 rounded-xl border-white/10 bg-white/5 pl-12 text-sm font-semibold text-white placeholder:text-slate-600 focus-visible:ring-blue-600"
+                      className="h-12 rounded-xl border-slate-200 bg-slate-50 pl-12 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus-visible:ring-[var(--bookinaja-500)] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-600"
                     />
                     {isReturning && (
-                      <Badge className="absolute right-3 top-1/2 -translate-y-1/2 border-none bg-blue-600 text-[10px] font-semibold">
+                      <Badge className="absolute right-3 top-1/2 -translate-y-1/2 border-none bg-[var(--bookinaja-600)] text-[10px] font-semibold text-white">
                         Member
                       </Badge>
                     )}
                   </div>
                   <div className="relative group">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                     <Input
                       placeholder="NAMA LENGKAP"
                       value={custName}
                       onChange={(e) =>
                         setCustName(e.target.value.toUpperCase())
                       }
-                      className="h-12 rounded-xl border-white/10 bg-white/5 pl-12 text-sm font-semibold text-white placeholder:text-slate-600 focus-visible:ring-blue-600"
+                      className="h-12 rounded-xl border-slate-200 bg-slate-50 pl-12 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus-visible:ring-[var(--bookinaja-500)] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-600"
                     />
                   </div>
                 </div>
               </div>
 
               {/* FLOW & ADDONS */}
-              <div className="space-y-5 pt-4 border-t border-white/5">
+              <div className="space-y-5 border-t border-slate-100 pt-4 dark:border-white/5">
                 <div className="space-y-3">
-                  <p className="text-xs font-semibold text-slate-400">
+                  <p className="text-xs font-semibold text-slate-400 dark:text-slate-300">
                     Flow Booking
                   </p>
-                  <div className="rounded-2xl border border-orange-500/15 bg-orange-500/10 px-4 py-4">
+                  <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-4 dark:border-orange-500/15 dark:bg-orange-500/10">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-[10px] font-semibold text-orange-200">
+                        <p className="text-[10px] font-semibold text-orange-500 dark:text-orange-200">
                           Status awal otomatis
                         </p>
-                        <p className="mt-1 text-sm font-semibold text-white">
+                        <p className="mt-1 text-sm font-semibold text-orange-900 dark:text-white">
                           {bookingMode === "walkin"
                             ? "Aktif sekarang, lanjut di POS"
                             : "Pending, menunggu jadwal & aktivasi"}
@@ -735,7 +751,7 @@ export default function NewManualBookingPage() {
                         {bookingMode === "walkin" ? "active" : "pending"}
                       </Badge>
                     </div>
-                    <p className="mt-3 text-[10px] font-bold leading-relaxed text-orange-50/85">
+                    <p className="mt-3 text-[10px] font-bold leading-relaxed text-orange-700 dark:text-orange-50/85">
                       {bookingMode === "walkin"
                         ? "Mode walk-in langsung membuka sesi tanpa DP. Tagihan tetap berjalan, lalu pelunasan dilakukan dari POS atau saat sesi selesai."
                         : "Mode scheduled dipakai untuk transaksi yang akan datang. Booking masuk sebagai pending dan tetap mengikuti flow konfirmasi serta pembayaran DP."}
@@ -744,7 +760,7 @@ export default function NewManualBookingPage() {
                 </div>
 
                 <div className="space-y-3">
-                  <p className="text-xs font-semibold text-slate-400">
+                  <p className="text-xs font-semibold text-slate-400 dark:text-slate-300">
                     Layanan Tambahan
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -765,8 +781,8 @@ export default function NewManualBookingPage() {
                             className={cn(
                               "rounded-lg px-3.5 py-2 text-[10px] font-semibold transition-all",
                               active
-                                ? "bg-blue-600 text-white"
-                                : "bg-white/5 text-slate-500 hover:text-slate-300",
+                                ? "bg-[var(--bookinaja-600)] text-white"
+                                : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:bg-white/5 dark:text-slate-500 dark:hover:text-slate-300",
                             )}
                           >
                             {addon.name}
@@ -778,21 +794,21 @@ export default function NewManualBookingPage() {
               </div>
 
               {/* TOTAL BILL */}
-              <div className="relative space-y-4 overflow-hidden rounded-2xl border border-white/5 bg-white/5 p-4 shadow-inner md:p-5">
+              <div className="relative space-y-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-inner dark:border-white/5 dark:bg-white/5 md:p-5">
                 <div className="relative z-10">
-                  <p className="mb-1 text-[10px] font-semibold text-slate-400">
+                  <p className="mb-1 text-[10px] font-semibold text-slate-400 dark:text-slate-400">
                     Estimasi Tagihan
                   </p>
-                  <p className="text-3xl font-semibold leading-none text-white md:text-4xl">
+                  <p className="text-3xl font-semibold leading-none text-slate-950 dark:text-white md:text-4xl">
                     Rp{calculateTotal().toLocaleString()}
                   </p>
                 </div>
-                <div className="relative z-10 pt-4 border-t border-white/5 flex items-center justify-between gap-4">
+                <div className="relative z-10 flex items-center justify-between gap-4 border-t border-slate-200 pt-4 dark:border-white/5">
                   <div className="flex flex-col">
-                    <span className="text-[7px] font-semibold text-slate-500 tracking-[0.2em] leading-none mb-1.5">
+                    <span className="mb-1.5 text-[7px] font-semibold leading-none tracking-[0.2em] text-slate-500 dark:text-slate-500">
                       Timeline
                     </span>
-                    <span className="text-xs font-semibold text-blue-400">
+                    <span className="text-xs font-semibold text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-300)]">
                       {timelineSummary}
                     </span>
                   </div>
@@ -800,13 +816,13 @@ export default function NewManualBookingPage() {
                     {bookingMode === "walkin" ? "active / unpaid" : "pending / dp"}
                   </Badge>
                 </div>
-                <Zap className="absolute right-[-15px] top-[-15px] size-24 opacity-5 text-white -rotate-12" />
+                <Zap className="absolute right-[-15px] top-[-15px] size-24 -rotate-12 text-slate-900/5 dark:text-white/5" />
               </div>
 
               <Button
                 onClick={handleSave}
                 disabled={isSubmitting || !selectedTime || !custName}
-                className="h-14 w-full rounded-2xl bg-blue-600 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-blue-500 active:scale-95 md:h-16 md:text-base"
+                className="h-14 w-full rounded-2xl bg-[var(--bookinaja-600)] text-sm font-semibold text-white shadow-lg shadow-[color:rgba(30,143,146,0.2)] transition-all hover:bg-[var(--bookinaja-500)] active:scale-95 md:h-16 md:text-base"
               >
                 {isSubmitting ? (
                   <Loader2 className="animate-spin" />

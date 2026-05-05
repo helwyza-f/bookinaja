@@ -132,6 +132,36 @@
   --hero-glow: rgba(59, 130, 246, 0.22);
 }
 
+.tenant-admin-shell {
+  --bookinaja-50: #eefcf9;
+  --bookinaja-100: #d5f7f3;
+  --bookinaja-200: #afece6;
+  --bookinaja-300: #81d8d0;
+  --bookinaja-400: #5cc5bf;
+  --bookinaja-500: #36b2ae;
+  --bookinaja-600: #1e8f92;
+  --bookinaja-700: #196f72;
+  --bookinaja-900: #18484b;
+  --bookinaja-950: #0d2b2f;
+  --primary: #36b2ae;
+  --primary-foreground: #f7fffe;
+  --ring: #5cc5bf;
+  --sidebar-primary: #1e8f92;
+  --sidebar-primary-foreground: #f7fffe;
+  --sidebar-ring: #5cc5bf;
+  --hero-glow: rgba(129, 216, 208, 0.18);
+}
+
+.dark .tenant-admin-shell {
+  --primary: #5cc5bf;
+  --primary-foreground: #042022;
+  --ring: #81d8d0;
+  --sidebar-primary: #5cc5bf;
+  --sidebar-primary-foreground: #042022;
+  --sidebar-ring: #81d8d0;
+  --hero-glow: rgba(129, 216, 208, 0.24);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

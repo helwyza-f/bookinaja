@@ -17,6 +17,14 @@ import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { getTenantMismatchMessage } from "@/lib/tenant-session";
 
@@ -50,6 +58,13 @@ export default function UserLoginClient() {
   const [otp, setOtp] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotStep, setForgotStep] = useState<"request" | "verify">("request");
+  const [forgotPhone, setForgotPhone] = useState("");
+  const [forgotCode, setForgotCode] = useState("");
+  const [forgotPassword, setForgotPassword] = useState("");
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   const nextPath = searchParams.get("next") || "/user/me";
 
@@ -146,6 +161,56 @@ export default function UserLoginClient() {
       toast.error(getErrorMessage(error, "Gagal masuk"));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRequestForgotPassword = async () => {
+    const cleanedPhone = forgotPhone.replace(/\D/g, "");
+    if (!cleanedPhone || cleanedPhone.length < 9) {
+      toast.error("Nomor WhatsApp belum valid");
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      await api.post("/public/customer/password/reset/request", {
+        phone: cleanedPhone,
+      });
+      setForgotPhone(cleanedPhone);
+      setForgotStep("verify");
+      toast.success("OTP reset password dikirim ke WhatsApp");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Gagal mengirim OTP reset password"));
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleVerifyForgotPassword = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (forgotPassword !== forgotConfirmPassword) {
+      toast.error("Konfirmasi password baru belum sama");
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      await api.post("/public/customer/password/reset/verify", {
+        phone: forgotPhone.replace(/\D/g, ""),
+        code: forgotCode.replace(/\D/g, ""),
+        new_password: forgotPassword,
+      });
+      toast.success("Password berhasil direset. Silakan login.");
+      setForgotOpen(false);
+      setForgotStep("request");
+      setForgotCode("");
+      setForgotPassword("");
+      setForgotConfirmPassword("");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Gagal mereset password"));
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -353,6 +418,16 @@ export default function UserLoginClient() {
                     </div>
                   </label>
 
+                  <div className="-mt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setForgotOpen(true)}
+                      className="text-sm font-medium text-[#1d4ed8] underline-offset-4 hover:underline dark:text-sky-300"
+                    >
+                      Lupa password?
+                    </button>
+                  </div>
+
                   <Button
                     type="submit"
                     disabled={loading}
@@ -383,6 +458,148 @@ export default function UserLoginClient() {
           </Card>
         </div>
       </div>
+
+      <Sheet
+        open={forgotOpen}
+        onOpenChange={(open) => {
+          setForgotOpen(open);
+          if (!open) {
+            setForgotStep("request");
+            setForgotCode("");
+            setForgotPassword("");
+            setForgotConfirmPassword("");
+          }
+        }}
+      >
+        <SheetContent
+          side="bottom"
+          className="max-h-[90vh] overflow-y-auto rounded-t-[2rem] border-0 bg-white px-0 pb-0 pt-0 dark:bg-[#0b0f19]"
+        >
+          <SheetHeader className="border-b border-slate-200/80 pb-4 dark:border-white/10">
+            <SheetTitle>Reset password customer</SheetTitle>
+            <SheetDescription>
+              Pakai OTP WhatsApp untuk membuat password baru kalau kamu lupa password lama.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="space-y-4 px-4">
+            {forgotStep === "request" ? (
+              <>
+                <label className="block space-y-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-[#1d4ed8] dark:text-sky-300">
+                    Nomor WhatsApp
+                  </span>
+                  <div className="relative mt-2">
+                    <Phone className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1d4ed8] dark:text-sky-300" />
+                    <Input
+                      type="tel"
+                      inputMode="tel"
+                      value={forgotPhone}
+                      onChange={(e) => setForgotPhone(e.target.value.replace(/\D/g, ""))}
+                      placeholder="08xxxxxxxxxx"
+                      className="h-12 rounded-2xl border-[#1d4ed826] bg-white/90 pl-11 text-base shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-[#3b82f6] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-500"
+                    />
+                  </div>
+                </label>
+
+                <Button
+                  type="button"
+                  onClick={handleRequestForgotPassword}
+                  disabled={forgotLoading}
+                  className="h-12 w-full rounded-2xl bg-gradient-to-r from-[#1d4ed8] to-[#3b82f6] text-white shadow-xl shadow-blue-500/20 hover:from-[#1741b8] hover:to-[#2563eb]"
+                >
+                  {forgotLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <MessageSquareText className="mr-2 h-4 w-4" />
+                  )}
+                  Kirim OTP reset
+                </Button>
+              </>
+            ) : (
+              <form onSubmit={handleVerifyForgotPassword} className="space-y-4">
+                <div className="rounded-2xl border border-[#1d4ed81a] bg-[#eff6ff] px-4 py-3 text-sm text-[#334155] dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+                  OTP dikirim ke <span className="font-semibold">{forgotPhone}</span>.
+                </div>
+
+                <label className="block space-y-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-[#1d4ed8] dark:text-sky-300">
+                    OTP 6 digit
+                  </span>
+                  <div className="relative mt-2">
+                    <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1d4ed8] dark:text-sky-300" />
+                    <Input
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={forgotCode}
+                      onChange={(e) => setForgotCode(e.target.value.replace(/\D/g, ""))}
+                      placeholder="6 digit"
+                      className="h-12 rounded-2xl border-[#1d4ed826] bg-white/90 pl-11 text-base tracking-[0.32em] shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-[#3b82f6] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-500"
+                    />
+                  </div>
+                </label>
+
+                <label className="block space-y-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-[#1d4ed8] dark:text-sky-300">
+                    Password baru
+                  </span>
+                  <div className="relative mt-2">
+                    <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1d4ed8] dark:text-sky-300" />
+                    <Input
+                      type="password"
+                      value={forgotPassword}
+                      onChange={(e) => setForgotPassword(e.target.value)}
+                      placeholder="Minimal 6 karakter"
+                      className="h-12 rounded-2xl border-[#1d4ed826] bg-white/90 pl-11 text-base shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-[#3b82f6] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-500"
+                    />
+                  </div>
+                </label>
+
+                <label className="block space-y-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-[#1d4ed8] dark:text-sky-300">
+                    Ulangi password baru
+                  </span>
+                  <div className="relative mt-2">
+                    <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1d4ed8] dark:text-sky-300" />
+                    <Input
+                      type="password"
+                      value={forgotConfirmPassword}
+                      onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                      placeholder="Ketik ulang password baru"
+                      className="h-12 rounded-2xl border-[#1d4ed826] bg-white/90 pl-11 text-base shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-[#3b82f6] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-500"
+                    />
+                  </div>
+                </label>
+
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-12 flex-1 rounded-2xl"
+                    onClick={() => setForgotStep("request")}
+                  >
+                    Ganti nomor
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={forgotLoading}
+                    className="h-12 flex-1 rounded-2xl bg-gradient-to-r from-[#0f1f4a] to-[#1d4ed8] text-white shadow-xl shadow-blue-500/20 hover:from-[#0b1838] hover:to-[#1741b8]"
+                  >
+                    {forgotLoading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <ArrowRight className="mr-2 h-4 w-4" />
+                    )}
+                    Reset
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+
+          <SheetFooter className="border-t border-slate-200/80 bg-white dark:border-white/10 dark:bg-[#0b0f19]" />
+        </SheetContent>
+      </Sheet>
     </main>
   );
 }

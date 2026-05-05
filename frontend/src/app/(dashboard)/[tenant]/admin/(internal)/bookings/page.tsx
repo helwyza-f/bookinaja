@@ -93,8 +93,12 @@ const isOperationallyActive = (booking: BookingRow) => {
 };
 
 const getBookingStatusMeta = (booking: BookingRow) => {
+  const paymentStatus = String(booking.payment_status || "").toLowerCase();
   if (isOperationallyActive(booking) && booking.status === "completed") {
     return { label: "Perlu Pelunasan", className: "bg-amber-500 text-white" };
+  }
+  if (paymentStatus === "awaiting_verification") {
+    return { label: "Menunggu Verifikasi", className: "bg-amber-500 text-white" };
   }
   if (booking.status === "active" || booking.status === "ongoing") {
     return { label: "Aktif", className: "bg-emerald-500 text-white" };
@@ -220,6 +224,12 @@ export default function BookingsPage() {
     const depositAmount = Number(booking?.deposit_amount || 0);
     const balanceDue = Number(booking?.balance_due || 0);
 
+    if (status === "awaiting_verification") {
+      return {
+        label: "Menunggu Verifikasi Admin",
+        className: "bg-amber-500 text-white",
+      };
+    }
     if (status === "settled" || (status === "paid" && balanceDue === 0)) {
       return { label: "Lunas", className: "bg-emerald-500 text-white" };
     }
@@ -315,21 +325,18 @@ export default function BookingsPage() {
 
   return (
     <div className="mx-auto w-full space-y-4 px-3 pb-20 pt-5 font-plus-jakarta md:px-4">
-      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.95)_42%,rgba(236,253,245,0.92))] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(12,31,54,0.94)_42%,rgba(4,47,46,0.88))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-6">
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.18),transparent_60%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.22),transparent_60%)]" />
+      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(238,252,249,0.95)_42%,rgba(237,249,248,0.92))] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(10,24,26,0.96),rgba(8,30,31,0.94)_42%,rgba(6,39,40,0.88))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-6">
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.22),transparent_60%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.22),transparent_60%)]" />
         <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl space-y-4">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.24em] text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-200">
-              <MonitorPlay className="h-3.5 w-3.5 text-blue-600 dark:text-blue-300" />
-              Booking Operations
+              <MonitorPlay className="h-3.5 w-3.5 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
+              Booking
             </div>
             <div className="space-y-2">
               <h1 className="text-3xl font-[950] tracking-tight text-slate-950 dark:text-white sm:text-4xl">
-                Kelola booking terjadwal tanpa mencampur sesi walk-in.
+                Booking
               </h1>
-              <p className="max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                Halaman ini fokus untuk booking yang akan datang, konfirmasi, dan kesiapan sesi. Walk-in dan transaksi langsung dibuka lewat flow terpisah supaya operasional tetap jelas.
-              </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
@@ -346,7 +353,7 @@ export default function BookingsPage() {
               className="h-12 rounded-[1.2rem] bg-slate-950 px-5 text-sm font-bold text-white shadow-[0_18px_40px_rgba(15,23,42,0.22)] hover:bg-[var(--bookinaja-700)] dark:bg-white dark:text-slate-950"
             >
               <Plus size={16} strokeWidth={4} className="mr-2" />
-              Booking Terjadwal
+              Jadwal
             </Button>
             <Button
               onClick={() => canCreateBookings && router.push(`/admin/bookings/new?mode=walkin`)}
@@ -354,7 +361,7 @@ export default function BookingsPage() {
               variant="outline"
               className="h-12 rounded-[1.2rem] border-slate-200/80 bg-white/80 px-5 text-sm font-bold text-slate-950 hover:bg-white dark:border-white/10 dark:bg-white/[0.06] dark:text-white"
             >
-              Walk-in Sekarang
+              Walk-in
             </Button>
           </div>
         </div>
@@ -364,43 +371,42 @@ export default function BookingsPage() {
         <DashboardMetricCard
           label="Revenue Tampil"
           value={`Rp ${formatIDR(stats.totalRevenue)}`}
-          hint="akumulasi booking pada filter aktif"
+          hint="Filter aktif"
           icon={Wallet}
           tone="indigo"
         />
         <DashboardMetricCard
           label="Sesi Operasional"
           value={`${stats.activeSess} unit`}
-          hint="aktif atau perlu pelunasan"
+          hint="Aktif"
           icon={TrendingUp}
           tone="emerald"
         />
         <DashboardMetricCard
           label="Perlu Pelunasan"
           value={String(stats.needsSettlement)}
-          hint="booking selesai dengan saldo tersisa"
+          hint="Saldo sisa"
           icon={Clock}
           tone="amber"
         />
         <DashboardMetricCard
           label="Resource Terdampak"
           value={String(stats.resourceCount)}
-          hint="resource yang muncul di tampilan"
+          hint="Terlihat"
           icon={Layers}
           tone="slate"
         />
       </div>
 
       <DashboardPanel
-        eyebrow="Filter Workspace"
-        title="Cari, saring, lalu pilih mode kerja"
-        description="Kontrol ini dipisah dari area data supaya scanning lebih cepat saat operasional lagi padat."
+        eyebrow="Filter"
+        title="Cari & saring"
       >
         <div className="space-y-4 lg:hidden">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
-              placeholder="Search customer name or phone..."
+              placeholder="Cari customer / WA"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-11 h-11 md:h-14 rounded-2xl border-none bg-slate-50 dark:bg-slate-800/50 font-semibold text-[10px] md:text-xs shadow-inner focus:ring-2 focus:ring-blue-600/20"

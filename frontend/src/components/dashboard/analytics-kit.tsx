@@ -90,9 +90,9 @@ const toneMap: Record<
 > = {
   indigo: {
     shell:
-      "border-blue-200/70 bg-[linear-gradient(180deg,rgba(239,246,255,0.98),rgba(255,255,255,0.98))] dark:border-blue-500/20 dark:bg-[linear-gradient(180deg,rgba(9,23,55,0.92),rgba(15,23,42,0.98))]",
-    icon: "bg-blue-600 text-white shadow-[0_18px_35px_rgba(37,99,235,0.28)]",
-    glow: "from-blue-500/15 via-cyan-500/10 to-transparent",
+      "border-[color:rgba(129,216,208,0.45)] bg-[linear-gradient(180deg,rgba(238,252,249,0.98),rgba(255,255,255,0.98))] dark:border-[color:rgba(129,216,208,0.2)] dark:bg-[linear-gradient(180deg,rgba(7,35,38,0.94),rgba(10,24,26,0.98))]",
+    icon: "bg-[var(--bookinaja-600)] text-white shadow-[0_18px_35px_rgba(30,143,146,0.26)]",
+    glow: "from-[color:rgba(129,216,208,0.18)] via-[color:rgba(92,197,191,0.10)] to-transparent",
   },
   emerald: {
     shell:
@@ -114,9 +114,9 @@ const toneMap: Record<
   },
   cyan: {
     shell:
-      "border-cyan-200/70 bg-[linear-gradient(180deg,rgba(236,254,255,0.98),rgba(255,255,255,0.98))] dark:border-cyan-500/20 dark:bg-[linear-gradient(180deg,rgba(9,33,42,0.94),rgba(15,23,42,0.98))]",
-    icon: "bg-cyan-500 text-white shadow-[0_18px_35px_rgba(6,182,212,0.26)]",
-    glow: "from-cyan-400/18 via-sky-400/10 to-transparent",
+      "border-[color:rgba(129,216,208,0.45)] bg-[linear-gradient(180deg,rgba(236,252,250,0.98),rgba(255,255,255,0.98))] dark:border-[color:rgba(129,216,208,0.2)] dark:bg-[linear-gradient(180deg,rgba(5,37,39,0.94),rgba(10,24,26,0.98))]",
+    icon: "bg-[var(--bookinaja-500)] text-white shadow-[0_18px_35px_rgba(54,178,174,0.24)]",
+    glow: "from-[color:rgba(129,216,208,0.18)] via-[color:rgba(92,197,191,0.10)] to-transparent",
   },
   slate: {
     shell:
@@ -140,7 +140,7 @@ export function DashboardMetricCard({
   return (
     <Card
       className={cn(
-        "relative overflow-hidden rounded-[1.9rem] border p-4 shadow-[0_18px_55px_rgba(15,23,42,0.08)] dark:shadow-[0_22px_60px_rgba(0,0,0,0.28)]",
+        "relative overflow-hidden rounded-[1.35rem] border p-3.5 shadow-[0_14px_38px_rgba(15,23,42,0.06)] dark:shadow-[0_18px_42px_rgba(0,0,0,0.24)] sm:rounded-[1.9rem] sm:p-4 sm:shadow-[0_18px_55px_rgba(15,23,42,0.08)] dark:sm:shadow-[0_22px_60px_rgba(0,0,0,0.28)]",
         colors.shell,
       )}
     >
@@ -160,7 +160,7 @@ export function DashboardMetricCard({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {hint ? (
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-300">
+              <span className="hidden text-[11px] font-medium text-slate-500 dark:text-slate-300 xl:inline">
                 {hint}
               </span>
             ) : null}
@@ -173,10 +173,7 @@ export function DashboardMetricCard({
         </div>
         {Icon ? (
           <div
-            className={cn(
-              "flex h-11 w-11 shrink-0 items-center justify-center rounded-[1.1rem]",
-              colors.icon,
-            )}
+            className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.95rem] sm:h-11 sm:w-11 sm:rounded-[1.1rem]", colors.icon)}
           >
             <Icon className="h-5 w-5" />
           </div>
@@ -197,7 +194,7 @@ export function DashboardPanel({
   return (
     <Card
       className={cn(
-        "rounded-[2rem] border-slate-200/80 bg-white/95 p-5 shadow-[0_18px_55px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[#0f1117]/96 dark:shadow-[0_24px_70px_rgba(0,0,0,0.28)] sm:p-6",
+        "rounded-[1.35rem] border-slate-200/80 bg-white/95 p-4 shadow-[0_14px_38px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-[#0f1117]/96 dark:shadow-[0_18px_42px_rgba(0,0,0,0.24)] sm:rounded-[2rem] sm:p-6 sm:shadow-[0_18px_55px_rgba(15,23,42,0.08)] dark:sm:shadow-[0_24px_70px_rgba(0,0,0,0.28)]",
         className,
       )}
     >
@@ -214,7 +211,7 @@ export function DashboardPanel({
                 {title}
               </h2>
               {description ? (
-                <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-500 dark:text-slate-300">
+                <p className="mt-1 hidden max-w-2xl text-xs leading-relaxed text-slate-500 dark:text-slate-300 xl:block">
                   {description}
                 </p>
               ) : null}

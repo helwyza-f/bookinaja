@@ -228,7 +228,7 @@ export default function ReferralSettingsPage() {
 
   return (
     <div className="space-y-4 p-3 pb-24 sm:space-y-6 sm:p-6">
-      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:rounded-3xl sm:p-6">
         <div className="flex flex-col gap-4">
           <div className="flex items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white">
@@ -237,11 +237,8 @@ export default function ReferralSettingsPage() {
             <div className="min-w-0 flex-1 space-y-1">
               <div className="text-xs font-black uppercase tracking-[0.3em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">Referral</div>
               <h1 className="text-2xl font-semibold leading-tight tracking-tight text-slate-950 dark:text-white sm:text-3xl">
-                Kode referral, konversi, dan saldo bonus
+                Referral
               </h1>
-              <p className="max-w-3xl text-sm leading-relaxed text-slate-500">
-                Bagikan link referral ke customer aktif. Bonus Rp100.000 masuk sekali saat tenant yang direfer benar-benar subscribe pertama kali.
-              </p>
             </div>
           </div>
 
@@ -257,7 +254,7 @@ export default function ReferralSettingsPage() {
               className="w-full justify-center"
             >
               <Banknote className="mr-2 h-4 w-4" />
-              Ajukan Pencairan
+              Cairkan
             </Button>
             <Button
               asChild
@@ -266,7 +263,7 @@ export default function ReferralSettingsPage() {
             >
               <Link href="/admin/settings/billing">
                 <ExternalLink className="mr-2 h-4 w-4" />
-                Cek Billing
+                Billing
               </Link>
             </Button>
           </div>
@@ -286,7 +283,7 @@ export default function ReferralSettingsPage() {
           { label: "Saldo tersedia", value: `Rp ${formatIDR(summary?.available_balance)}`, icon: Wallet },
           { label: "Menunggu cair", value: `Rp ${formatIDR(summary?.pending_withdrawal)}`, icon: ShieldCheck },
         ].map((item) => (
-          <Card key={item.label} className="border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
+          <Card key={item.label} className="rounded-xl border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:rounded-2xl">
             <CardContent className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1">
@@ -301,10 +298,10 @@ export default function ReferralSettingsPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <Card className="border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
+        <Card className="rounded-xl border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:rounded-2xl">
           <CardHeader className="space-y-2">
             <CardTitle className="text-base">Link referral</CardTitle>
-            <CardDescription>Copy link ini lalu bagikan ke customer aktif yang ingin kamu refer.</CardDescription>
+            <CardDescription>Copy & bagikan.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
@@ -317,7 +314,7 @@ export default function ReferralSettingsPage() {
                   <Copy className="mr-2 h-4 w-4" />
                   Salin Link
                 </Button>
-                <div className="min-w-0 flex-1 rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500 dark:border-white/10">
+                <div className="min-w-0 flex-1 rounded-xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500 dark:border-white/10 sm:rounded-2xl">
                   {referralUrl || "Link akan muncul setelah data referral tersedia"}
                 </div>
               </div>
@@ -343,20 +340,18 @@ export default function ReferralSettingsPage() {
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="flex items-center gap-2 text-sm font-semibold text-slate-950 dark:text-white">
                 <BadgeCheck className="h-4 w-4 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
-                Kapan bonus masuk?
+                Bonus masuk
               </div>
-              <p className="mt-2 text-sm leading-relaxed text-slate-500">
-                Bonus muncul sekali saja, tepat saat tenant yang direfer berhasil jadi subscriber aktif untuk pertama kali.
-              </p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-500">Saat tenant jadi subscriber aktif pertama kali.</p>
             </div>
 
           </CardContent>
         </Card>
 
-        <Card className="border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
+        <Card className="rounded-xl border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:rounded-2xl">
           <CardHeader className="space-y-2">
             <CardTitle className="text-base">Rekening pencairan</CardTitle>
-            <CardDescription>Rekening tujuan transfer bonus referral.</CardDescription>
+            <CardDescription>Tujuan bonus.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {payoutReady ? (
@@ -382,9 +377,7 @@ export default function ReferralSettingsPage() {
                 <div className="mt-3 text-sm font-semibold text-slate-950 dark:text-white">
                   Rekening pencairan belum diatur
                 </div>
-                <p className="mx-auto mt-1 max-w-xs text-sm text-slate-500">
-                  Tambahkan rekening dulu sebelum ajukan pencairan referral.
-                </p>
+                <p className="mx-auto mt-1 max-w-xs text-sm text-slate-500">Tambah rekening dulu.</p>
               </div>
             )}
 
@@ -411,17 +404,17 @@ export default function ReferralSettingsPage() {
                   : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200",
               )}
             >
-              {payoutReady ? "Rekening pencairan sudah lengkap." : "Lengkapi rekening pencairan sebelum ajukan request."}
+                {payoutReady ? "Rekening siap." : "Lengkapi rekening dulu."}
             </div>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <Card className="border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
+        <Card className="rounded-xl border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:rounded-2xl">
           <CardHeader>
             <CardTitle className="text-base">Daftar referral</CardTitle>
-            <CardDescription>Status trial dan subscription customer yang kamu refer.</CardDescription>
+            <CardDescription>Status referral.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {loading ? (
@@ -475,10 +468,10 @@ export default function ReferralSettingsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
+        <Card className="rounded-xl border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:rounded-2xl">
           <CardHeader>
             <CardTitle className="text-base">Riwayat pencairan</CardTitle>
-            <CardDescription>Request yang pernah diajukan dan status prosesnya.</CardDescription>
+            <CardDescription>Status pencairan.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {withdrawals.length === 0 ? (
@@ -509,9 +502,7 @@ export default function ReferralSettingsPage() {
         <DialogContent className="max-w-lg rounded-2xl">
           <DialogHeader>
             <DialogTitle>{payoutReady ? "Edit rekening pencairan" : "Tambah rekening pencairan"}</DialogTitle>
-            <DialogDescription>
-              Data ini dipakai tim Bookinaja untuk transfer bonus referral.
-            </DialogDescription>
+            <DialogDescription>Data pencairan.</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-3">
@@ -559,7 +550,7 @@ export default function ReferralSettingsPage() {
             </Button>
             <Button type="button" onClick={savePayout} disabled={saving}>
               <Download className="mr-2 h-4 w-4" />
-              Simpan Rekening
+              Simpan
             </Button>
           </DialogFooter>
         </DialogContent>

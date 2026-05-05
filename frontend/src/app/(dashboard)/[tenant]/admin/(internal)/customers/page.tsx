@@ -208,21 +208,18 @@ export default function CustomersPage() {
 
   return (
     <div className="mx-auto max-w-350 space-y-4 px-4 pb-20 pt-5 font-plus-jakarta">
-      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.95)_40%,rgba(255,247,237,0.9))] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(12,31,54,0.94)_45%,rgba(67,20,7,0.82))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-6">
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.18),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(96,165,250,0.22),transparent_58%)]" />
+      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(238,252,249,0.95)_40%,rgba(255,248,240,0.9))] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(10,24,26,0.96),rgba(8,30,31,0.94)_45%,rgba(49,25,14,0.82))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-6">
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.22),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.2),transparent_58%)]" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl space-y-3">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.24em] text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-200">
-              <Users className="h-3.5 w-3.5 text-blue-600 dark:text-blue-300" />
-              Customer Intelligence
+              <Users className="h-3.5 w-3.5 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
+              Customers
             </div>
             <div>
               <h1 className="text-3xl font-[950] tracking-tight text-slate-950 dark:text-white sm:text-4xl">
-                Pelanggan, visit, dan loyalty terlihat lebih jelas.
+                Customers
               </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                Gunakan satu halaman ini untuk memindai profil pelanggan, pola transaksi, dan saldo points tanpa tenggelam di tabel.
-              </p>
             </div>
           </div>
           <div className="relative w-full lg:max-w-sm">
@@ -230,7 +227,7 @@ export default function CustomersPage() {
             <Input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Cari nama, WhatsApp, email, tier..."
+              placeholder="Cari nama / WA / email"
               className="h-12 rounded-[1.2rem] border-white/70 bg-white/85 pl-10 text-sm shadow-sm dark:border-white/10 dark:bg-white/[0.06]"
             />
           </div>
@@ -241,7 +238,7 @@ export default function CustomersPage() {
         <DashboardMetricCard
           label="Customer"
           value={loading ? "..." : formatIDR(stats.customers)}
-          hint="profil yang pernah bertransaksi"
+          hint="Tersimpan"
           icon={Users}
           tone="indigo"
           loading={loading}
@@ -249,7 +246,7 @@ export default function CustomersPage() {
         <DashboardMetricCard
           label="Visit Tenant"
           value={formatIDR(stats.totalVisits)}
-          hint="akumulasi kunjungan tenant ini"
+          hint="Tenant"
           icon={Phone}
           tone="emerald"
           loading={loading}
@@ -257,7 +254,7 @@ export default function CustomersPage() {
         <DashboardMetricCard
           label="Spend Tenant"
           value={`Rp ${formatIDR(stats.tenantSpend)}`}
-          hint="nilai transaksi pelanggan"
+          hint="Belanja"
           icon={Wallet}
           tone="amber"
           loading={loading}
@@ -265,7 +262,7 @@ export default function CustomersPage() {
         <DashboardMetricCard
           label="Saldo Points"
           value={formatIDR(stats.globalPoints)}
-          hint="points global seluruh customer"
+          hint="Global"
           icon={Coins}
           tone="rose"
           loading={loading}
@@ -273,9 +270,8 @@ export default function CustomersPage() {
       </div>
 
       <DashboardPanel
-        eyebrow="Customer List"
-        title="Daftar pelanggan dan sinyal transaksi"
-        description="Bagian ini menjaga density tetap nyaman: search di atas, ringkasan di header, lalu daftar utama untuk action detail."
+        eyebrow="List"
+        title="Daftar customer"
       >
         <div className="grid gap-2 md:hidden">
         {loading ? (

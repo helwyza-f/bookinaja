@@ -11,7 +11,7 @@ const navItems = [
   { href: "/user/me", label: "Home", icon: Compass },
   { href: "/user/me/active", label: "Aktif", icon: Ticket },
   { href: "/user/me/history", label: "Riwayat", icon: History },
-  { href: "/user/me/settings", label: "Akun", icon: Settings },
+  { href: "/user/me/settings", label: "Profil", icon: Settings },
 ];
 
 export function CustomerPortalShell({
@@ -28,14 +28,14 @@ export function CustomerPortalShell({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-950">
-      <div className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/92 backdrop-blur-xl">
+    <div className="min-h-screen bg-slate-50 text-slate-950 transition-colors dark:bg-[#060911] dark:text-white">
+      <div className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/92 backdrop-blur-xl dark:border-white/10 dark:bg-[#060911]/92">
         <div className="mx-auto flex h-15 max-w-6xl items-center justify-between gap-3 px-4 md:px-6">
           <div className="min-w-0">
-            <div className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-600">
-              Portal Customer
+            <div className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-600 dark:text-blue-300">
+              Customer
             </div>
-            <div className="truncate text-sm font-bold uppercase tracking-tight">
+            <div className="truncate text-sm font-bold uppercase tracking-tight text-slate-950 dark:text-white">
               Bookinaja
             </div>
           </div>
@@ -52,7 +52,7 @@ export function CustomerPortalShell({
                     "inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition-all",
                     active
                       ? "bg-blue-600 text-white shadow-sm"
-                      : "text-slate-500 hover:bg-blue-50 hover:text-blue-700",
+                      : "text-slate-500 hover:bg-blue-50 hover:text-blue-700 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white",
                   )}
                 >
                   <Icon className="h-3.5 w-3.5" />
@@ -67,7 +67,7 @@ export function CustomerPortalShell({
             variant="outline"
             size="icon"
             onClick={handleLogout}
-            className="rounded-2xl"
+            className="rounded-2xl dark:border-white/10 dark:bg-white/[0.03]"
           >
             <LogOut className="h-4 w-4" />
           </Button>
@@ -78,7 +78,7 @@ export function CustomerPortalShell({
         {children}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/96 px-2 py-2 backdrop-blur-xl md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/96 px-2 py-2 backdrop-blur-xl dark:border-white/10 dark:bg-[#060911]/96 md:hidden">
         <div className="grid grid-cols-4 gap-2">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -91,7 +91,7 @@ export function CustomerPortalShell({
                   "flex flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[10px] font-black uppercase tracking-[0.12em] transition-all",
                   active
                     ? "bg-blue-600 text-white shadow-sm"
-                    : "text-slate-500 hover:bg-blue-50 hover:text-blue-700",
+                    : "text-slate-500 hover:bg-blue-50 hover:text-blue-700 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white",
                 )}
               >
                 <Icon className="h-4 w-4" />

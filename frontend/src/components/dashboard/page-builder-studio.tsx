@@ -34,27 +34,24 @@ export function PageBuilderStudioHeader({
   onResetDraft,
 }: StudioHeaderProps) {
   return (
-    <section className="relative overflow-hidden rounded-[2rem] border border-slate-200/90 bg-[linear-gradient(180deg,#ffffff,rgba(248,250,252,0.96))] p-5 shadow-[0_22px_60px_rgba(15,23,42,0.08)] dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(8,12,24,0.98))] dark:shadow-[0_22px_60px_rgba(2,6,23,0.42)]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(15,23,42,0.05),transparent_30%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(96,165,250,0.2),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.04),transparent_24%)]" />
+    <section className="relative overflow-hidden rounded-[1.35rem] border border-slate-200/90 bg-[linear-gradient(180deg,#ffffff,rgba(241,252,250,0.96))] p-4 shadow-[0_18px_42px_rgba(15,23,42,0.06)] dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(10,24,26,0.96),rgba(8,12,24,0.98))] dark:shadow-[0_18px_42px_rgba(2,6,23,0.34)] sm:rounded-[2rem] sm:p-5 sm:shadow-[0_22px_60px_rgba(15,23,42,0.08)] dark:sm:shadow-[0_22px_60px_rgba(2,6,23,0.42)]">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.18),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(13,43,47,0.06),transparent_30%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.2),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.04),transparent_24%)]" />
       <div className="relative flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0 max-w-3xl">
           <div className="inline-flex items-center gap-2 rounded-full border border-[var(--bookinaja-200)] bg-[var(--bookinaja-50)] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.24em] text-[var(--bookinaja-700)] shadow-sm dark:border-[rgba(96,165,250,0.24)] dark:bg-[rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]">
             <Sparkles className="h-3.5 w-3.5" />
-            Landing Page Studio
+            Landing
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <h1 className="text-3xl font-black tracking-tight text-slate-950 dark:text-white">
-              Kelola landing page dalam satu editor
+            <h1 className="text-2xl font-black tracking-tight text-slate-950 dark:text-white sm:text-3xl">
+              Page Builder
             </h1>
             {lastPublishedLabel ? <StatusPill tone="neutral" label={`Published ${lastPublishedLabel}`} compact /> : null}
           </div>
-          <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-500 dark:text-slate-400">
-            Edit draft, cek preview, lalu publish saat tampilannya sudah siap.
-          </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <StatusPill
               tone={hasUnpublishedChanges ? "warning" : "success"}
-              label={hasUnpublishedChanges ? "Draft belum publish" : "Draft sinkron"}
+              label={hasUnpublishedChanges ? "Draft berubah" : "Sinkron"}
             />
             <StatusPill
               tone="neutral"
@@ -64,14 +61,14 @@ export function PageBuilderStudioHeader({
         </div>
 
         <div className="xl:min-w-[22rem] xl:max-w-[24rem]">
-          <div className="rounded-[1.45rem] border border-slate-200/80 bg-white/88 p-3 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="rounded-[1.2rem] border border-slate-200/80 bg-white/88 p-3 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/[0.04] sm:rounded-[1.45rem]">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
                   Publish
                 </div>
                 <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
-                  {hasUnpublishedChanges ? "Draft siap dipublish" : "Belum ada perubahan"}
+                  {hasUnpublishedChanges ? "Siap publish" : "Belum ada perubahan"}
                 </div>
               </div>
               <Button
@@ -143,7 +140,7 @@ export function PageBuilderPreviewToolbar({
     <div className="flex flex-col gap-3 border-b border-slate-200/90 bg-slate-50/70 px-5 py-4 dark:border-white/10 dark:bg-white/[0.02] lg:flex-row lg:items-center lg:justify-between">
       <div className="min-w-0">
         <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-          Live Preview
+          Preview
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
           <span>{activeCount} section aktif</span>

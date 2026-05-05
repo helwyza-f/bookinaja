@@ -2,24 +2,22 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import Script from "next/script";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  ChevronLeft,
-  MapPin,
-  Zap,
-  ReceiptText,
+  ArrowLeft,
   CalendarDays,
-  UtensilsCrossed,
-  PlusCircle,
-  Copy,
   CheckCircle2,
-  Share2,
-  Clock,
+  Clock3,
+  Copy,
   CreditCard,
+  MapPin,
+  ReceiptText,
+  UtensilsCrossed,
+  Wallet,
+  Zap,
 } from "lucide-react";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -41,6 +39,7 @@ import { RealtimePill } from "@/components/dashboard/realtime-pill";
 export default function CustomerBookingDetail() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [booking, setBooking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -48,7 +47,6 @@ export default function CustomerBookingDetail() {
   const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
   const [liveNotice, setLiveNotice] = useState<string | null>(null);
   const [menuItems, setMenuItems] = useState<any[]>([]);
-  const [midtransReady, setMidtransReady] = useState(false);
   const [activating, setActivating] = useState(false);
   const [customerId, setCustomerId] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -58,20 +56,41 @@ export default function CustomerBookingDetail() {
   const liveRefreshTimerRef = useRef<number | null>(null);
 
   const resolveCustomerId = (payload: any) => {
-    return String(
-      payload?.customer?.id ||
-        payload?.customer_id ||
-        payload?.id ||
-        "",
-    );
+    return String(payload?.customer?.id || payload?.customer_id || payload?.id || "");
   };
+
+  useEffect(() => {
+    const notice = String(searchParams.get("notice") || "").trim();
+    if (!notice) return;
+    if (notice === "settlement_locked") {
+      setPaymentNotice("Pelunasan baru tersedia setelah sesi selesai. Akhiri sesi dulu lalu lanjut ke halaman pelunasan.");
+      return;
+    }
+    if (notice === "no_balance_due") {
+      setPaymentNotice("Booking ini sudah tidak memiliki sisa tagihan untuk dilunasi.");
+      return;
+    }
+    if (notice === "deposit_not_required") {
+      setPaymentNotice("Booking ini tidak membutuhkan DP. Kamu bisa langsung pantau sesi dari halaman ini.");
+      return;
+    }
+    if (notice === "deposit_unavailable") {
+      setPaymentNotice("Halaman DP hanya tersedia sebelum pembayaran DP tercatat.");
+      return;
+    }
+    if (notice === "deposit_methods_unavailable") {
+      setPaymentNotice("Tenant belum menyiapkan metode pembayaran untuk DP.");
+      return;
+    }
+    if (notice === "settlement_methods_unavailable") {
+      setPaymentNotice("Tenant belum menyiapkan metode pembayaran untuk pelunasan.");
+    }
+  }, [searchParams]);
 
   const fetchDetail = useCallback(async (mode: "initial" | "background" = "initial") => {
     const background = mode === "background" && hasLoadedRef.current;
     try {
-      if (background) {
-        setRefreshing(true);
-      }
+      if (background) setRefreshing(true);
       const res = await api.get(`/user/me/bookings/${params.id}`);
       setBooking(res.data);
       hasLoadedRef.current = true;
@@ -106,6 +125,11 @@ export default function CustomerBookingDetail() {
   }, []);
 
   const fetchLiveContext = useCallback(async () => {
+    const status = String(booking?.status || "").toLowerCase();
+    if (status !== "active" && status !== "ongoing") {
+      setLiveNotice(null);
+      return;
+    }
     try {
       const res = await api.get(`/user/me/bookings/${params.id}/context`);
       if (res.data?.booking) {
@@ -117,11 +141,9 @@ export default function CustomerBookingDetail() {
       setLiveNotice(null);
     } catch (err: any) {
       const message = String(err?.response?.data?.error || "");
-      if (message) {
-        setLiveNotice(message);
-      }
+      if (message) setLiveNotice(message);
     }
-  }, [params.id]);
+  }, [booking?.status, params.id]);
 
   const scheduleDetailRefresh = useCallback(
     (delay = 300) => {
@@ -173,8 +195,8 @@ export default function CustomerBookingDetail() {
         } catch (error: unknown) {
           if (cancelled) return;
           const message =
-            (error as { response?: { data?: { error?: string } } })?.response?.data
-              ?.error || "Gagal memverifikasi akses booking";
+            (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+            "Gagal memverifikasi akses booking";
           toast.error(message);
           router.replace("/user/login");
           return;
@@ -186,19 +208,15 @@ export default function CustomerBookingDetail() {
       const detail = await fetchDetail("initial");
       try {
         const meRes = await api.get("/me");
-        if (!cancelled) {
-          setCustomerId(resolveCustomerId(meRes.data));
-        }
+        if (!cancelled) setCustomerId(resolveCustomerId(meRes.data));
       } catch {
-        if (!cancelled) {
-          setCustomerId("");
-        }
+        if (!cancelled) setCustomerId("");
       }
+
       const currentSlug = detail?.tenant_slug;
       if (currentSlug) {
         await fetchMenuItems(currentSlug);
       } else {
-        // Fallback or retry
         setTimeout(() => fetchMenuItems(booking?.tenant_slug), 2000);
       }
       await fetchLiveContext();
@@ -206,9 +224,7 @@ export default function CustomerBookingDetail() {
       if (cancelled) return;
 
       const clock = setInterval(() => setNow(new Date()), 1000);
-      return () => {
-        clearInterval(clock);
-      };
+      return () => clearInterval(clock);
     };
 
     let cleanup: (() => void) | void;
@@ -254,7 +270,14 @@ export default function CustomerBookingDetail() {
         lastRealtimeToastRef.current = eventKey;
         if (event.type === "payment.dp.paid") {
           toast.success("DP sudah diterima");
-        } else if (event.type === "payment.settlement.paid" || event.type === "payment.cash.settled") {
+        } else if (event.type === "payment.awaiting_verification") {
+          toast.message("Pembayaran menunggu verifikasi admin");
+        } else if (event.type === "payment.manual.rejected") {
+          toast.error("Pembayaran manual ditolak admin");
+        } else if (
+          event.type === "payment.settlement.paid" ||
+          event.type === "payment.cash.settled"
+        ) {
           toast.success("Pembayaran booking sudah lunas");
         } else if (event.type === "session.activated") {
           toast.success("Sesi berhasil dimulai");
@@ -275,12 +298,6 @@ export default function CustomerBookingDetail() {
     },
   });
 
-  useEffect(() => {
-    if (window.snap) {
-      setMidtransReady(true);
-    }
-  }, []);
-
   const isActiveStatus = useMemo(
     () => booking?.status === "active" || booking?.status === "ongoing",
     [booking],
@@ -289,10 +306,34 @@ export default function CustomerBookingDetail() {
   const depositAmount = Number(booking?.deposit_amount || 0);
   const balanceDue = Number(booking?.balance_due || 0);
   const paidAmount = Number(booking?.paid_amount || 0);
-  const paymentStatus = (booking?.payment_status || "").toLowerCase();
-  const sessionStatus = (booking?.status || "").toLowerCase();
+  const paymentStatus = String(booking?.payment_status || "").toLowerCase();
+  const sessionStatus = String(booking?.status || "").toLowerCase();
+  const paymentAttempts = useMemo(
+    () => booking?.payment_attempts || [],
+    [booking?.payment_attempts],
+  );
+  const pendingManualDpAttempt = useMemo(
+    () =>
+      paymentAttempts.find(
+        (item: any) =>
+          item?.payment_scope === "deposit" &&
+          (item?.status === "submitted" || item?.status === "awaiting_verification"),
+      ),
+    [paymentAttempts],
+  );
+  const pendingManualSettlementAttempt = useMemo(
+    () =>
+      paymentAttempts.find(
+        (item: any) =>
+          item?.payment_scope === "settlement" &&
+          (item?.status === "submitted" || item?.status === "awaiting_verification"),
+      ),
+    [paymentAttempts],
+  );
+
   const paymentLabel = useMemo(() => {
     if (paymentStatus === "settled") return "Lunas";
+    if (paymentStatus === "awaiting_verification") return "Menunggu Verifikasi";
     if (paymentStatus === "partial_paid") return "DP Masuk";
     if (paymentStatus === "paid") return balanceDue > 0 ? "DP Masuk" : "Lunas";
     if (paymentStatus === "pending") return "Menunggu DP";
@@ -300,15 +341,26 @@ export default function CustomerBookingDetail() {
     if (paymentStatus === "failed") return "Gagal Bayar";
     return "Belum Dibayar";
   }, [paymentStatus, balanceDue]);
+
   const paymentStateTone =
-    paymentStatus === "settled" ||
-    (paymentStatus === "paid" && balanceDue === 0)
+    paymentStatus === "settled" || (paymentStatus === "paid" && balanceDue === 0)
       ? "bg-emerald-500 text-white"
       : paymentStatus === "partial_paid" || paymentStatus === "paid"
         ? "bg-blue-600 text-white"
-        : paymentStatus === "expired" || paymentStatus === "failed"
-          ? "bg-red-500 text-white"
-          : "bg-orange-500 text-white";
+        : paymentStatus === "awaiting_verification"
+          ? "bg-amber-500 text-white"
+          : paymentStatus === "expired" || paymentStatus === "failed"
+            ? "bg-red-500 text-white"
+            : "bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-200";
+
+  const sessionTone =
+    sessionStatus === "active" || sessionStatus === "ongoing"
+      ? "bg-emerald-500 text-white"
+      : sessionStatus === "completed"
+        ? "bg-slate-950 text-white dark:bg-white/15"
+        : sessionStatus === "confirmed"
+          ? "bg-blue-600 text-white"
+          : "bg-amber-500 text-white";
 
   const countdownData = useMemo(() => {
     if (!booking) return null;
@@ -319,7 +371,7 @@ export default function CustomerBookingDetail() {
       const diff = differenceInSeconds(end, now);
       return {
         type: "LIVE",
-        label: "Sisa Waktu Sesi",
+        label: "Sisa waktu sesi",
         h: String(Math.max(0, Math.floor(diff / 3600))).padStart(2, "0"),
         m: String(Math.max(0, Math.floor((diff % 3600) / 60))).padStart(2, "0"),
         s: String(Math.max(0, diff % 60)).padStart(2, "0"),
@@ -329,12 +381,12 @@ export default function CustomerBookingDetail() {
 
     if (
       now < start &&
-      !["completed", "cancelled", "active", "ongoing"].includes(booking.status)
+      !["completed", "cancelled", "active", "ongoing"].includes(String(booking.status))
     ) {
       const diff = differenceInSeconds(start, now);
       return {
         type: "WAITING",
-        label: "Sesi Dimulai Dalam",
+        label: "Mulai dalam",
         h: String(Math.floor(diff / 3600)).padStart(2, "0"),
         m: String(Math.floor((diff % 3600) / 60)).padStart(2, "0"),
         s: String(diff % 60).padStart(2, "0"),
@@ -342,7 +394,7 @@ export default function CustomerBookingDetail() {
     }
     return null;
   }, [booking, now, isActiveStatus]);
-  const isLiveSession = countdownData?.type === "LIVE";
+
   const groupedOptions = useMemo(() => {
     if (!booking?.options) return [];
     const groups = booking.options.reduce((acc: any, item: any) => {
@@ -392,9 +444,7 @@ export default function CustomerBookingDetail() {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(url);
       setCopied(true);
-      toast.success("Tautan Berhasil Disalin", {
-        description: "Simpan tautan ini untuk akses instan ke e-tiket Anda.",
-      });
+      toast.success("Tautan booking disalin");
       setTimeout(() => setCopied(false), 2000);
     }
   };
@@ -404,45 +454,11 @@ export default function CustomerBookingDetail() {
     return "Sesi";
   };
 
-  const handlePayBooking = async (mode: "dp" | "settlement") => {
-    try {
-      const res = await api.post(
-        `/public/bookings/${params.id}/checkout?mode=${mode}&slug=${booking.tenant_slug}`,
-      );
-      const snap = await waitForSnap();
-      if (!snap) return;
-      snap.pay(res.data.snap_token, {
-        onSuccess: () => {
-          setPaymentNotice(
-            mode === "dp"
-              ? "DP sudah dibayar. Sistem sedang memperbarui status booking."
-              : "Pelunasan sudah dibayar. Sistem sedang memperbarui status booking.",
-          );
-          toast.success(mode === "dp" ? "DP berhasil dibayar" : "Pelunasan berhasil dibayar");
-          fetchDetail();
-          setTimeout(fetchDetail, 4000);
-        },
-        onPending: () => {
-          setPaymentNotice("Pembayaran masih menunggu konfirmasi Midtrans.");
-          toast.message("Pembayaran tertunda");
-          fetchDetail();
-        },
-        onError: () => {
-          setPaymentNotice("Pembayaran gagal atau dibatalkan.");
-          toast.error("Pembayaran gagal");
-        },
-        onClose: () => fetchDetail(),
-      });
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Gagal membuka pembayaran");
-    }
-  };
-
   const handleActivateSession = async () => {
     setActivating(true);
     try {
       await api.post(`/user/me/bookings/${params.id}/activate`);
-      setPaymentNotice("Sesi berhasil diaktifkan manual.");
+      setPaymentNotice("Sesi berhasil diaktifkan.");
       toast.success("Sesi berhasil diaktifkan");
       await fetchDetail();
       await fetchLiveContext();
@@ -453,48 +469,6 @@ export default function CustomerBookingDetail() {
     }
   };
 
-  const waitForSnap = async () => {
-    if (window.snap) return window.snap;
-    const started = Date.now();
-    while (Date.now() - started < 5000) {
-      if (window.snap) return window.snap;
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-    const injected = await loadMidtransSnap();
-    if (injected) return injected;
-    toast.error("Midtrans belum siap. Coba tunggu sebentar lalu ulangi.");
-    return null;
-  };
-
-  const loadMidtransSnap = async () => {
-    if (window.snap) return window.snap;
-    if (typeof window === "undefined") return null;
-
-    const existing = (window as any).__midtransSnapPromise as Promise<any> | undefined;
-    if (existing) return existing;
-
-    const promise = new Promise<any>((resolve) => {
-      const script = document.createElement("script");
-      script.src =
-        (
-          process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION || ""
-        ).toLowerCase() === "true"
-          ? "https://app.midtrans.com/snap/snap.js"
-          : "https://app.sandbox.midtrans.com/snap/snap.js";
-      script.setAttribute(
-        "data-client-key",
-        process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "",
-      );
-      script.async = true;
-      script.onload = () => resolve(window.snap || null);
-      script.onerror = () => resolve(null);
-      document.head.appendChild(script);
-    });
-
-    (window as any).__midtransSnapPromise = promise;
-    return promise;
-  };
-
   const handleAddFnb = async (cartItems: any[]) => {
     for (const item of cartItems) {
       await api.post(`/user/me/bookings/${params.id}/orders`, {
@@ -502,7 +476,7 @@ export default function CustomerBookingDetail() {
         quantity: item.quantity,
       });
     }
-    toast.success("Pesanan FnB ditambahkan");
+    toast.success("Pesanan F&B ditambahkan");
     await fetchDetail();
   };
 
@@ -514,7 +488,7 @@ export default function CustomerBookingDetail() {
         });
       }
     }
-    toast.success("Addon ditambahkan");
+    toast.success("Add-on ditambahkan");
     await fetchDetail();
   };
 
@@ -522,14 +496,14 @@ export default function CustomerBookingDetail() {
     await api.post(`/user/me/bookings/${params.id}/extend`, {
       additional_duration: count,
     });
-    toast.success("Session diperpanjang");
+    toast.success("Sesi diperpanjang");
     await fetchDetail();
   };
 
   const handleCompleteSession = async () => {
     try {
       await api.post(`/user/me/bookings/${params.id}/complete`);
-      setPaymentNotice("Sesi telah diakhiri. Silakan cek detail pelunasan di bawah.");
+      setPaymentNotice("Sesi telah diakhiri. Cek pelunasan di bagian pembayaran.");
       toast.success("Sesi berhasil diakhiri");
       await fetchDetail();
       await fetchLiveContext();
@@ -539,280 +513,207 @@ export default function CustomerBookingDetail() {
   };
 
   if (loading) return <TicketSkeleton />;
+  if (!booking) return null;
 
-  const isPending = sessionStatus === "pending";
-  const hasPaidDp = paymentStatus === "partial_paid" || paymentStatus === "paid" || paymentStatus === "settled" || depositAmount === 0;
+  const hasPaidDp =
+    paymentStatus === "partial_paid" ||
+    paymentStatus === "paid" ||
+    paymentStatus === "settled" ||
+    depositAmount === 0;
   const isTimeReached = now >= new Date(booking?.start_time || "");
   const bookingReference = String(booking?.id || "").slice(0, 8).toUpperCase();
-  const timelineSection = (
-    <Card className="rounded-[2rem] border border-slate-200/80 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0c0c0c]">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
-            History
-          </p>
-          <p className="mt-1 text-base font-semibold text-slate-950 dark:text-white">
-            Riwayat booking
-          </p>
-        </div>
-        <Badge className="border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200 text-[10px] font-semibold">
-          {booking.events?.length || 0} event
-        </Badge>
-      </div>
-      <div className="space-y-3">
-        {(booking.events || []).length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-center text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
-            Timeline belum tersedia untuk booking lama.
-          </div>
-        ) : (
-          booking.events.map((event: any) => (
-            <div key={event.id} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 dark:border-white/5 dark:bg-white/[0.03]">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-950 dark:text-white">
-                    {event.title || event.event_type}
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                    {event.description || event.event_type}
-                  </p>
-                </div>
-                <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-medium text-slate-500 dark:bg-white/10 dark:text-slate-300">
-                  {event.actor_type}
-                </span>
-              </div>
-              <p className="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
-                {event.created_at
-                  ? format(parseISO(event.created_at), "dd MMM yyyy, HH:mm", { locale: idLocale })
-                  : "-"}
-              </p>
-            </div>
-          ))
-        )}
-      </div>
-    </Card>
-  );
+  const shouldShowActivation =
+    !isActiveStatus && sessionStatus !== "completed" && sessionStatus !== "cancelled";
+
+  const paymentGuidance =
+    depositAmount > 0
+      ? paymentStatus === "awaiting_verification"
+        ? `DP menunggu verifikasi. Ref ${pendingManualDpAttempt?.reference_code || "-"}.`
+        : paymentStatus === "pending"
+          ? `DP Rp ${depositAmount.toLocaleString("id-ID")} belum dibayar.`
+          : "DP sudah masuk."
+      : "Tanpa DP.";
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#050505] font-plus-jakarta pb-24 transition-colors overflow-x-hidden">
-      <Script
-        src={
-          (
-            process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION || ""
-          ).toLowerCase() === "true"
-            ? "https://app.midtrans.com/snap/snap.js"
-            : "https://app.sandbox.midtrans.com/snap/snap.js"
-        }
-        data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
-        strategy="afterInteractive"
-        onLoad={() => setMidtransReady(true)}
-        onError={() => setMidtransReady(false)}
-      />
-      <nav className="hidden h-16 items-center justify-between px-4 sticky top-0 z-50 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b dark:border-white/5">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="rounded-full"
-          onClick={() => router.push("/user/me")}
-        >
-          <ChevronLeft size={20} />
-        </Button>
-        <div className="flex flex-col items-center">
-          <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 italic leading-none">
-            E-Tiket Digital
-          </span>
-          <span className="text-[9px] font-bold text-slate-400 uppercase mt-1 leading-none">
-            REF: {booking.id.slice(0, 8)}
-          </span>
+    <div className="min-h-screen bg-slate-50 pb-24 dark:bg-[#060911]">
+      <div className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur dark:border-white/10 dark:bg-[#060911]/90">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 rounded-2xl"
+            onClick={() => router.push(`/user/me/bookings/${booking.id}`)}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="min-w-0 text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-600 dark:text-blue-300">
+              Live Controller
+            </p>
+            <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+              Ref {bookingReference}
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 rounded-2xl"
+            onClick={copyMagicLink}
+          >
+            {copied ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="rounded-full"
-          onClick={copyMagicLink}
-        >
-          {copied ? (
-            <CheckCircle2 size={18} className="text-emerald-500" />
-          ) : (
-            <Copy size={18} className="text-slate-400" />
-          )}
-        </Button>
-      </nav>
+      </div>
 
-      <main className="max-w-xl mx-auto p-4 space-y-4">
-        <Card className="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white shadow-sm dark:border-white/10 dark:bg-[#0c0c0c]">
-          <div className="bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.16),_transparent_45%),linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.98))] p-5 dark:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.25),_transparent_45%),linear-gradient(135deg,rgba(15,23,42,0.92),rgba(2,6,23,0.96))]">
+      <main className="mx-auto max-w-3xl space-y-4 px-4 py-4">
+        <Card className="rounded-[1.75rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
+          <div className="space-y-4 p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-300">
-                  <MapPin size={14} />
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.24em]">
-                    {booking.tenant_name || "Portal customer"}
-                  </span>
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-300">
+                  <MapPin className="h-3.5 w-3.5" />
+                  Live
                 </div>
-                <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                <h1 className="mt-1 line-clamp-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">
                   {booking.resource_name}
                 </h1>
-                <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                  Ref {bookingReference} • status sesi {booking.status} • pembayaran {paymentLabel.toLowerCase()}
+                <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
+                  {booking.tenant_name || "Bookinaja"}
                 </p>
               </div>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-11 w-11 rounded-2xl border-slate-200 bg-white/80 dark:border-white/10 dark:bg-white/5"
-                onClick={copyMagicLink}
-              >
-                {copied ? (
-                  <CheckCircle2 size={18} className="text-emerald-500" />
-                ) : (
-                  <Copy size={18} className="text-slate-500 dark:text-slate-300" />
-                )}
-              </Button>
+              <RealtimePill
+                connected={realtimeConnected}
+                status={realtimeStatus}
+                className="normal-case tracking-normal"
+              />
             </div>
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-white/80 px-4 py-3 shadow-sm ring-1 ring-black/5 dark:bg-white/5 dark:ring-white/10">
-                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Tanggal</p>
-                <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
-                  {format(parseISO(booking.start_time), "dd MMMM yyyy", { locale: idLocale })}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-white/80 px-4 py-3 shadow-sm ring-1 ring-black/5 dark:bg-white/5 dark:ring-white/10">
-                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Jam sesi</p>
-                <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
-                  {format(parseISO(booking.start_time), "HH:mm")} - {format(parseISO(booking.end_time), "HH:mm")}
-                </p>
-              </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Badge className={cn("border-none", sessionTone)}>
+                Sesi: {booking.status}
+              </Badge>
+              <Badge className={cn("border-none", paymentStateTone)}>
+                Bayar: {paymentLabel}
+              </Badge>
+              {refreshing ? (
+                <Badge className="border-none bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                  Refreshing
+                </Badge>
+              ) : null}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <MiniStat
+                icon={CalendarDays}
+                label="Tanggal"
+                value={format(parseISO(booking.start_time), "dd MMM yyyy", { locale: idLocale })}
+              />
+              <MiniStat
+                icon={Clock3}
+                label="Jam"
+                value={`${format(parseISO(booking.start_time), "HH:mm")} - ${format(parseISO(booking.end_time), "HH:mm")}`}
+              />
+              <MiniStat
+                icon={Wallet}
+                label="Total"
+                value={`Rp ${Number(booking.grand_total || 0).toLocaleString("id-ID")}`}
+              />
+              <MiniStat
+                icon={CreditCard}
+                label="Sisa"
+                value={`Rp ${balanceDue.toLocaleString("id-ID")}`}
+              />
             </div>
           </div>
         </Card>
 
-        <div className="flex items-center gap-2">
-          <RealtimePill connected={realtimeConnected} status={realtimeStatus} className="normal-case tracking-normal" />
-          {refreshing ? (
-            <Badge className="border-none bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300 text-[9px] font-bold">
-              Refreshing...
-            </Badge>
-          ) : null}
-        </div>
-        {/* TIMER CONTROLLER */}
-        {countdownData && (
+        {countdownData ? (
           <Card
             className={cn(
-              "overflow-hidden rounded-[2rem] border p-6 text-white shadow-lg transition-all duration-500",
+              "rounded-[1.75rem] border p-4 shadow-sm",
               countdownData.type === "LIVE"
-                ? "border-slate-900 bg-slate-950"
-                : "border-blue-500/20 bg-[linear-gradient(135deg,#2563eb,#1d4ed8)]",
+                ? "border-slate-950 bg-slate-950 text-white dark:border-slate-800 dark:bg-slate-950"
+                : "border-blue-200 bg-blue-600 text-white dark:border-blue-500/20 dark:bg-blue-600",
             )}
           >
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-1">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.24em] opacity-70">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-70">
                   {countdownData.label}
-                </span>
-                <div className="flex items-baseline gap-1.5">
-                  <span
-                    className={cn(
-                      "text-4xl font-semibold tabular-nums tracking-tight leading-none",
-                      countdownData.type === "LIVE" &&
-                        countdownData.isCritical &&
-                        "text-red-500 animate-pulse",
-                    )}
-                  >
-                    {countdownData.h}:{countdownData.m}:{countdownData.s}
-                  </span>
-                </div>
+                </p>
+                <p
+                  className={cn(
+                    "mt-2 text-3xl font-semibold tabular-nums tracking-tight",
+                    countdownData.type === "LIVE" && countdownData.isCritical && "text-amber-300",
+                  )}
+                >
+                  {countdownData.h}:{countdownData.m}:{countdownData.s}
+                </p>
               </div>
-              <Badge
-                className={cn(
-                  "border-none px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]",
-                  countdownData.type === "LIVE"
-                    ? "bg-blue-600 animate-pulse"
-                    : "bg-white text-blue-600 shadow-xl",
-                )}
-              >
-                {countdownData.type === "LIVE"
-                  ? "Sesi Berjalan"
-                  : "Masa Tunggu"}
+              <Badge className="border-none bg-white/10 text-white">
+                {countdownData.type === "LIVE" ? "Sesi berjalan" : "Menunggu mulai"}
               </Badge>
             </div>
+            {countdownData.type === "LIVE" && countdownData.isCritical ? (
+              <p className="mt-3 text-sm text-amber-100">Waktu hampir habis.</p>
+            ) : null}
           </Card>
-        )}
+        ) : null}
 
-        {isLiveSession && countdownData && countdownData.isCritical && (
-          <div className="rounded-2xl border border-amber-500/15 bg-amber-500/10 p-4 text-[11px] font-bold text-amber-700 dark:text-amber-200 animate-pulse">
-            ⚠️ Waktu sesi hampir habis (kurang dari 5 menit). Segera perpanjang sesi jika diperlukan.
-          </div>
-        )}
+        {paymentNotice ? (
+          <NoticeCard tone="emerald">{paymentNotice}</NoticeCard>
+        ) : null}
 
-        <Card className="rounded-[2rem] border border-slate-200/80 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0c0c0c] space-y-4">
-          <div className="flex items-center justify-between gap-3">
+        {liveNotice ? <NoticeCard tone="amber">{liveNotice}</NoticeCard> : null}
+
+        {shouldShowActivation ? (
+          <Card className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                  Aktivasi sesi
+                </p>
+                <p className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-200">
+                  {!hasPaidDp
+                    ? "Bayar DP dulu."
+                    : !isTimeReached
+                      ? "Belum masuk jam mulai."
+                      : "Siap diaktifkan."}
+                </p>
+              </div>
+              <Badge className="border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
+                {hasPaidDp ? "Siap" : "Tertahan"}
+              </Badge>
+            </div>
+            <Button
+              onClick={handleActivateSession}
+              disabled={activating || !hasPaidDp || !isTimeReached}
+              className="mt-4 h-12 w-full rounded-2xl bg-emerald-600 text-white hover:bg-emerald-500 disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-white/10"
+            >
+              <Zap className="mr-2 h-4 w-4" />
+              {activating ? "Mengaktifkan..." : "Aktifkan"}
+            </Button>
+          </Card>
+        ) : null}
+
+        <Card className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
+          <div className="mb-4 flex items-start justify-between gap-3">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
-                Kontrol sesi
-              </p>
-              <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
-                Semua aksi live dikelompokkan di sini
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                Kontrol live
               </p>
             </div>
-            <Badge
-              className={cn(
-                "border-none px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]",
-                isLiveSession ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-200",
-              )}
-            >
-              {isLiveSession ? "aktif" : "belum aktif"}
+            <Badge className={cn("border-none", isActiveStatus ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200")}>
+              {isActiveStatus ? "Aktif" : "Belum aktif"}
             </Badge>
           </div>
 
-          {!isLiveSession && sessionStatus !== "completed" && sessionStatus !== "cancelled" && (
-            <div className={cn("rounded-2xl border p-4 space-y-3",
-              !hasPaidDp ? "border-amber-500/15 bg-amber-500/10" :
-              !isTimeReached ? "border-blue-500/15 bg-blue-500/10" :
-              "border-emerald-500/15 bg-emerald-500/10"
-            )}>
-              <p className={cn("text-[11px] font-bold leading-relaxed",
-                !hasPaidDp ? "text-amber-700 dark:text-amber-200" :
-                !isTimeReached ? "text-blue-700 dark:text-blue-200" :
-                "text-emerald-700 dark:text-emerald-200"
-              )}>
-                {!hasPaidDp 
-                  ? "⚠️ Selesaikan pembayaran DP terlebih dahulu untuk bisa mengaktifkan sesi ini."
-                  : !isTimeReached 
-                    ? "🕒 Waktu sesi belum dimulai. Aktivasi tetap dilakukan manual saat jam mulai sudah tiba." 
-                    : "✅ Waktu sesi telah tiba! Aktifkan sesi sekarang jika Anda sudah siap."}
-              </p>
-              <Button
-                onClick={handleActivateSession}
-                disabled={activating || !hasPaidDp || !isTimeReached}
-                className={cn(
-                  "h-12 w-full rounded-2xl text-white font-[1000] uppercase italic tracking-widest text-xs gap-2 shadow-sm transition-all",
-                  (!hasPaidDp || !isTimeReached)
-                    ? "bg-slate-300 dark:bg-white/10 text-slate-500 cursor-not-allowed"
-                    : "bg-emerald-600 hover:bg-emerald-500"
-                )}
-              >
-                <Zap size={15} />
-                {activating ? "Mengaktifkan..." : "Aktifkan Sesi Sekarang"}
-              </Button>
-            </div>
-          )}
-
-          {sessionStatus === "completed" && (
-            <div className="rounded-2xl border border-blue-500/15 bg-blue-500/10 p-4">
-              <p className="text-[11px] font-bold text-blue-700 dark:text-blue-200 text-center">
-                Sesi telah berakhir. Silakan cek detail pelunasan di bawah jika ada sisa tagihan.
-              </p>
-            </div>
-          )}
-
-          {liveNotice && !isLiveSession && (
-            <div className="rounded-2xl border border-amber-500/15 bg-amber-500/10 px-4 py-3 text-[11px] font-bold text-amber-700 dark:text-amber-200">
-              {liveNotice}
-            </div>
-          )}
-
           <BookingLiveController
-            active={isLiveSession}
+            active={isActiveStatus}
             booking={booking}
             menuItems={menuItems}
             addonItems={booking?.resource_addons || []}
@@ -823,360 +724,258 @@ export default function CustomerBookingDetail() {
           />
         </Card>
 
-        {/* UNIFIED INFO CARD */}
-        <Card className="rounded-[2rem] overflow-hidden border border-slate-200/80 bg-white shadow-sm dark:border-white/10 dark:bg-[#0c0c0c]">
-          <div className="p-6 space-y-6">
-            <div className="flex items-start justify-between text-left leading-none gap-4">
-              <div className="space-y-1 min-w-0">
-                <div className="flex items-center gap-2 text-blue-600 mb-1">
-                  <MapPin size={14} />
-                  <span className="text-[10px] font-black uppercase tracking-widest italic">
-                    {booking.tenant_name || "Booking Detail"}
-                  </span>
-                </div>
-                <h3 className="text-2xl font-[1000] uppercase dark:text-white italic tracking-tighter line-clamp-2">
-                  {booking.resource_name}
-                </h3>
-                <div className="flex flex-wrap items-center gap-2 pt-2">
-                  <Badge
-                    className={cn(
-                      "rounded-lg border-none font-black italic text-[9px] px-3 py-1 uppercase shadow-sm",
-                      isPending
-                        ? "bg-blue-600 text-white"
-                        : sessionStatus === "completed"
-                          ? "bg-slate-800 text-slate-400"
-                          : "bg-emerald-600 text-white",
-                    )}
-                  >
-                    sesi: {booking.status}
-                  </Badge>
-                  <Badge
-                    className={cn(
-                      "rounded-lg border-none font-black italic text-[9px] px-3 py-1 uppercase shadow-sm",
-                      paymentStateTone,
-                    )}
-                  >
-                    bayar: {paymentLabel}
-                  </Badge>
-                </div>
+        <Card className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                Pembayaran
+              </p>
+            </div>
+            <Badge className={cn("border-none", paymentStateTone)}>{paymentLabel}</Badge>
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <MiniStat
+              icon={ReceiptText}
+              label="Total"
+              value={`Rp ${Number(booking.grand_total || 0).toLocaleString("id-ID")}`}
+            />
+            <MiniStat
+              icon={Wallet}
+              label="Dibayar"
+              value={`Rp ${paidAmount.toLocaleString("id-ID")}`}
+            />
+            <MiniStat
+              icon={CreditCard}
+              label="Sisa"
+              value={`Rp ${balanceDue.toLocaleString("id-ID")}`}
+            />
+          </div>
+
+          <div className="mt-4 rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200">
+            {paymentGuidance}
+          </div>
+
+          {paymentStatus === "awaiting_verification" && pendingManualSettlementAttempt ? (
+            <div className="mt-3 rounded-[1.25rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100">
+              Pelunasan menunggu verifikasi. Ref {pendingManualSettlementAttempt.reference_code}.
+            </div>
+          ) : null}
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <Button
+              onClick={() => router.push(`/user/me/bookings/${booking.id}/payment?scope=deposit`)}
+              disabled={depositAmount <= 0 || paymentStatus !== "pending"}
+              className="h-auto min-h-[78px] flex-col items-start justify-between rounded-2xl bg-blue-600 px-4 py-3 text-left text-white hover:bg-blue-500"
+            >
+              <Wallet className="h-4 w-4" />
+              <span className="text-sm font-semibold">Bayar DP</span>
+            </Button>
+            <Button
+              onClick={() => router.push(`/user/me/bookings/${booking.id}/payment?scope=settlement`)}
+              disabled={sessionStatus !== "completed" || balanceDue <= 0}
+              variant="outline"
+              className="h-auto min-h-[78px] flex-col items-start justify-between rounded-2xl px-4 py-3 text-left"
+            >
+              <CreditCard className="h-4 w-4" />
+              <span className="text-sm font-semibold">Pelunasan</span>
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                Ringkasan booking
+              </p>
+            </div>
+            <Badge className="border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
+              {groupedOptions.length + groupedOrders.length} item
+            </Badge>
+          </div>
+
+          <div className="mt-4 space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+                <Wallet className="h-4 w-4 text-blue-600" />
+                Rental & add-on
               </div>
+              {groupedOptions.length ? (
+                groupedOptions.map((opt: any) => (
+                  <LineRow
+                    key={`${opt.item_name}-${opt.item_type}`}
+                    title={opt.item_name}
+                    subtitle={`${opt.quantity} ${opt.item_type.includes("main") ? getUnitLabel(booking.unit_duration) : "unit"} · Rp ${Number(opt.unitPrice || 0).toLocaleString("id-ID")}`}
+                    value={`Rp ${Number(opt.totalPrice || 0).toLocaleString("id-ID")}`}
+                  />
+                ))
+              ) : (
+                <EmptyState label="Belum ada item rental atau add-on tambahan." />
+              )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4 pt-6 border-t dark:border-white/5">
-              <div className="space-y-1 text-left leading-none">
-                <div className="flex items-center gap-1.5 opacity-40 mb-1">
-                  <CalendarDays size={12} />
-                  <span className="text-[9px] font-black uppercase italic tracking-widest">
-                    Tanggal
-                  </span>
-                </div>
-                <p className="text-xs font-black dark:text-white uppercase italic">
-                  {format(parseISO(booking.start_time), "dd MMMM yyyy", {
-                    locale: idLocale,
-                  })}
-                </p>
+            <div className="space-y-2 border-t border-slate-200 pt-4 dark:border-white/10">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+                <UtensilsCrossed className="h-4 w-4 text-orange-500" />
+                Pesanan F&B
               </div>
-              <div className="space-y-1 border-l dark:border-white/5 pl-4 text-left leading-none">
-                <div className="flex items-center gap-1.5 opacity-40 mb-1">
-                  <Clock size={12} />
-                  <span className="text-[9px] font-black uppercase italic tracking-widest">
-                    Waktu Sesi
-                  </span>
-                </div>
-                <p className="text-xs font-black dark:text-white uppercase italic">
-                  {format(parseISO(booking.start_time), "HH:mm")} —{" "}
-                  {format(parseISO(booking.end_time), "HH:mm")}
-                </p>
-              </div>
+              {groupedOrders.length ? (
+                groupedOrders.map((order: any) => (
+                  <LineRow
+                    key={String(order.item_name || "").toLowerCase()}
+                    title={order.item_name}
+                    subtitle={`${order.quantity} porsi · Rp ${Number(order.price_at_purchase || 0).toLocaleString("id-ID")}`}
+                    value={`Rp ${Number(order.subtotal || 0).toLocaleString("id-ID")}`}
+                  />
+                ))
+              ) : (
+                <EmptyState label="Belum ada pesanan F&B." />
+              )}
             </div>
           </div>
         </Card>
 
-        <Card className="hidden rounded-[2rem] border-none bg-white p-4 shadow-sm ring-1 ring-black/5 dark:bg-[#0c0c0c] dark:ring-white/5">
-          <div className="mb-4 flex items-center justify-between gap-3">
+        <Card className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
+          <div className="mb-4 flex items-start justify-between gap-3">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                 Timeline
               </p>
-              <p className="mt-1 text-sm font-[1000] italic text-slate-900 dark:text-white">
-                Aktivitas booking kamu
-              </p>
             </div>
-            <Badge className="border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200 text-[8px] font-black uppercase italic">
+            <Badge className="border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
               {booking.events?.length || 0} event
             </Badge>
           </div>
-          <div className="space-y-3">
-            {(booking.events || []).length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-center text-[11px] font-bold text-slate-400 dark:border-white/10">
-                Timeline belum tersedia untuk booking lama.
-              </div>
-            ) : (
+
+          <div className="space-y-2">
+            {(booking.events || []).length ? (
               booking.events.map((event: any) => (
-                <div key={event.id} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 dark:border-white/5 dark:bg-white/[0.03]">
+                <div
+                  key={event.id}
+                  className="rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-xs font-black text-slate-950 dark:text-white">{event.title || event.event_type}</p>
-                      <p className="mt-1 text-[11px] font-bold leading-5 text-slate-500">{event.description || event.event_type}</p>
+                      <p className="text-sm font-semibold text-slate-950 dark:text-white">
+                        {event.title || event.event_type}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                        {event.description || event.event_type}
+                      </p>
                     </div>
-                    <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[9px] font-black uppercase text-slate-500 dark:bg-white/10">
+                    <Badge className="border-none bg-white text-slate-600 dark:bg-white/10 dark:text-slate-200">
                       {event.actor_type}
-                    </span>
+                    </Badge>
                   </div>
-                  <p className="mt-2 text-[10px] font-bold text-slate-400">
-                    {event.created_at ? format(parseISO(event.created_at), "dd MMM yyyy, HH:mm", { locale: idLocale }) : "-"}
+                  <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+                    {event.created_at
+                      ? format(parseISO(event.created_at), "dd MMM yyyy, HH:mm", { locale: idLocale })
+                      : "-"}
                   </p>
                 </div>
               ))
-            )}
-          </div>
-        </Card>
-
-        <Card className="rounded-[2rem] border-none shadow-sm ring-1 ring-black/5 dark:ring-white/5 bg-white dark:bg-[#0c0c0c] p-4 space-y-4">
-          <div className="flex items-center gap-2">
-            <ReceiptText size={16} className="text-blue-600" />
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
-                Pembayaran Booking
-              </p>
-              <p className="mt-1 text-sm font-[1000] italic text-slate-900 dark:text-white">
-                {depositAmount > 0
-                  ? "Booking ini memakai flow DP"
-                  : "Booking ini bisa langsung bayar di akhir sesi"}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 p-4">
-              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
-                Total
-              </p>
-              <p className="mt-2 text-sm font-[1000] italic text-slate-950 dark:text-white">
-                Rp {Number(booking.grand_total || 0).toLocaleString()}
-              </p>
-            </div>
-            <div className="rounded-2xl bg-emerald-500/5 border border-emerald-500/10 p-4">
-              <p className="text-[8px] font-black uppercase tracking-widest text-emerald-600 italic">
-                DP
-              </p>
-              <p className="mt-2 text-sm font-[1000] italic text-emerald-600">
-                Rp {depositAmount.toLocaleString()}
-              </p>
-            </div>
-            <div className="rounded-2xl bg-slate-950 text-white border border-slate-800 p-4">
-              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
-                Status
-              </p>
-              <p className="mt-2 text-sm font-[1000] italic">
-                {paymentLabel}
-              </p>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50/80 dark:bg-white/5 px-4 py-3 text-[11px] font-bold leading-relaxed text-slate-700 dark:text-slate-200">
-            {depositAmount > 0
-              ? paymentStatus === "pending"
-                ? `Bayar DP dulu sebesar Rp ${depositAmount.toLocaleString()} supaya booking bisa masuk ke flow aktivasi sesi.`
-                : `DP sudah tercatat. Sisa pembayaran akan muncul terpisah di bagian pelunasan setelah rincian item.`
-              : "Booking ini tidak membutuhkan DP. Pelunasan dilakukan dari tagihan akhir sesi."}
-          </div>
-
-          {paymentStatus === "pending" && depositAmount > 0 && (
-            <Button
-              onClick={() => handlePayBooking("dp")}
-              disabled={!midtransReady}
-              className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-300 disabled:text-slate-600 text-white font-[1000] uppercase italic tracking-widest text-sm shadow-lg gap-2"
-            >
-              <CreditCard size={16} />
-              {midtransReady ? "Bayar DP Booking" : "Menyiapkan Midtrans..."}
-            </Button>
-          )}
-
-          {paymentNotice && (
-            <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/15 px-4 py-3 text-[11px] font-bold text-emerald-700 dark:text-emerald-200">
-              {paymentNotice}
-            </div>
-          )}
-        </Card>
-
-        <Card className="rounded-[2rem] border-none shadow-sm ring-1 ring-black/5 dark:ring-white/5 bg-white dark:bg-[#0c0c0c] p-4 space-y-5">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <PlusCircle size={16} className="text-blue-600" />
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
-                  Rental & Add-ons
-                </p>
-              </div>
-              <Badge className="border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200 text-[8px] font-black uppercase italic">
-                {groupedOptions.length} item
-              </Badge>
-            </div>
-
-            {groupedOptions.map((opt: any) => (
-              <div
-                key={`${opt.item_name}-${opt.item_type}`}
-                className="flex justify-between items-start gap-4 rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50/60 dark:bg-white/[0.03] p-4"
-              >
-                <div className="min-w-0">
-                  <p className="font-black text-[11px] dark:text-white uppercase leading-none italic tracking-tight">
-                    {opt.item_name}
-                  </p>
-                  <p className="mt-2 text-[10px] font-bold text-slate-400 uppercase">
-                    {opt.quantity} {opt.item_type.includes("main") ? getUnitLabel(booking.unit_duration) : "unit"} x Rp {Number(opt.unitPrice || 0).toLocaleString()}
-                  </p>
-                </div>
-                <span className="text-xs font-[1000] dark:text-white italic pt-1 whitespace-nowrap">
-                  Rp {Number(opt.totalPrice || 0).toLocaleString()}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div className="space-y-3 border-t dark:border-white/5 pt-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <UtensilsCrossed size={16} className="text-orange-500" />
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
-                  Rental F&B
-                </p>
-              </div>
-              <Badge className="border-none bg-orange-100 text-orange-700 dark:bg-orange-500/10 dark:text-orange-200 text-[8px] font-black uppercase italic">
-                {groupedOrders.length} item
-              </Badge>
-            </div>
-
-            {groupedOrders.length > 0 ? (
-              groupedOrders.map((order: any) => (
-                <div
-                  key={String(order.item_name || "").toLowerCase()}
-                  className="flex justify-between items-start gap-4 rounded-2xl border border-orange-500/10 bg-orange-50/40 dark:bg-orange-500/[0.03] p-4"
-                >
-                  <div className="min-w-0">
-                    <p className="font-black text-[11px] dark:text-white uppercase leading-none italic tracking-tight">
-                      {order.item_name}
-                    </p>
-                    <p className="mt-2 text-[10px] font-bold text-orange-600/70 uppercase">
-                      {order.quantity} porsi x Rp {Number(order.price_at_purchase || 0).toLocaleString()}
-                    </p>
-                  </div>
-                  <span className="text-xs font-[1000] text-orange-600 italic pt-1 whitespace-nowrap">
-                    Rp {Number(order.subtotal || 0).toLocaleString()}
-                  </span>
-                </div>
-              ))
             ) : (
-              <div className="rounded-2xl border border-dashed border-slate-200 dark:border-white/10 px-4 py-6 text-center text-[11px] font-bold text-slate-400">
-                Belum ada pesanan F&B
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-4 border-t dark:border-white/5 pt-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
-                  Pelunasan Sesi
-                </p>
-                <p className="mt-1 text-sm font-[1000] italic text-slate-900 dark:text-white">
-                  Bayar settlement di bagian paling bawah
-                </p>
-              </div>
-              <Badge className={cn("border-none px-3 py-1 text-[8px] font-black uppercase italic", paymentStateTone)}>
-                {paymentLabel}
-              </Badge>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 p-4">
-                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
-                  Dibayar
-                </p>
-                <p className="mt-2 text-sm font-[1000] italic text-slate-950 dark:text-white">
-                  Rp {paidAmount.toLocaleString()}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-blue-500/5 border border-blue-500/10 p-4">
-                <p className="text-[8px] font-black uppercase tracking-widest text-blue-600 italic">
-                  Sisa
-                </p>
-                <p className="mt-2 text-sm font-[1000] italic text-blue-600">
-                  Rp {balanceDue.toLocaleString()}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-slate-950 text-white border border-slate-800 p-4">
-                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">
-                  Total
-                </p>
-                <p className="mt-2 text-sm font-[1000] italic">
-                  Rp {Number(booking.grand_total || 0).toLocaleString()}
-                </p>
-              </div>
-            </div>
-
-            {sessionStatus === "completed" ? (
-              (paymentStatus === "partial_paid" || (paymentStatus === "paid" && balanceDue > 0)) ? (
-                <Button
-                  onClick={() => handlePayBooking("settlement")}
-                  disabled={!midtransReady}
-                  className="w-full h-14 rounded-2xl bg-slate-950 hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-600 text-white font-[1000] uppercase italic tracking-widest text-sm shadow-lg gap-2"
-                >
-                  <CreditCard size={16} />
-                  {midtransReady ? "Bayar Settlement" : "Menyiapkan Midtrans..."}
-                </Button>
-              ) : (
-                <div className="rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50/80 dark:bg-white/5 px-4 py-3 text-[11px] font-bold leading-relaxed text-slate-700 dark:text-slate-200">
-                  {balanceDue > 0
-                    ? "Settlement akan tersedia setelah DP tercatat."
-                    : "Tidak ada sisa pembayaran untuk sesi ini."}
-                </div>
-              )
-            ) : (
-              <div className="rounded-2xl border border-blue-500/15 bg-blue-500/10 px-4 py-3 text-[11px] font-bold leading-relaxed text-blue-700 dark:text-blue-200 text-center">
-                🕒 Tombol pelunasan akan muncul setelah sesi berakhir.
-              </div>
+              <EmptyState label="Timeline belum tersedia untuk booking ini." />
             )}
           </div>
         </Card>
 
-        {timelineSection}
-
-        {/* BOTTOM ACTIONS */}
-        <div className="rounded-[2rem] bg-white dark:bg-[#0c0c0c] border dark:border-white/5 shadow-sm px-5 py-4 flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <span className="block text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic mb-1">
-              Quick Actions
-            </span>
-            <p className="text-xs font-bold italic text-slate-700 dark:text-slate-200 leading-relaxed">
-              PDF tetap tersedia dari halaman ini.
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            className="h-11 rounded-xl border-slate-200 dark:border-white/10 dark:text-white text-[10px] font-black uppercase italic gap-2 tracking-widest hover:bg-slate-100 transition-all"
-            onClick={() => window.print()}
-          >
-            <Share2 size={16} /> PDF
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          className="h-12 w-full rounded-2xl"
+          onClick={() => window.print()}
+        >
+          Simpan sebagai PDF
+        </Button>
       </main>
+    </div>
+  );
+}
+
+function MiniStat({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+        <Icon className="h-3.5 w-3.5" />
+        {label}
+      </div>
+      <p className="mt-2 text-xs font-semibold leading-5 text-slate-950 dark:text-white">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function NoticeCard({
+  tone,
+  children,
+}: {
+  tone: "emerald" | "amber";
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-[1.25rem] border px-4 py-3 text-sm leading-6",
+        tone === "emerald" &&
+          "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-100",
+        tone === "amber" &&
+          "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100",
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+function LineRow({
+  title,
+  subtitle,
+  value,
+}: {
+  title: string;
+  subtitle: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-slate-950 dark:text-white">{title}</p>
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
+      </div>
+      <p className="shrink-0 text-sm font-semibold text-slate-950 dark:text-white">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function EmptyState({ label }: { label: string }) {
+  return (
+    <div className="rounded-[1.25rem] border border-dashed border-slate-200 px-4 py-5 text-center text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
+      {label}
     </div>
   );
 }
 
 function TicketSkeleton() {
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#050505] p-4 space-y-6">
-      <div className="max-w-xl mx-auto space-y-4">
-        <div className="flex justify-between items-center">
-          <Skeleton className="h-8 w-8 rounded-full bg-slate-200 dark:bg-white/5" />
-          <Skeleton className="h-6 w-32 rounded-lg bg-slate-200 dark:bg-white/5" />
-          <Skeleton className="h-8 w-8 rounded-full bg-slate-200 dark:bg-white/5" />
-        </div>
-        <Skeleton className="h-64 w-full rounded-[2rem] bg-slate-200 dark:bg-white/5" />
-        <Skeleton className="h-64 w-full rounded-[2rem] bg-slate-200 dark:bg-white/5" />
-        <Skeleton className="h-48 w-full rounded-[2rem] bg-slate-200 dark:bg-white/5" />
+    <div className="min-h-screen bg-slate-50 px-4 py-4 dark:bg-[#060911]">
+      <div className="mx-auto max-w-3xl space-y-4">
+        <Skeleton className="h-14 rounded-[1.5rem]" />
+        <Skeleton className="h-40 rounded-[1.75rem]" />
+        <Skeleton className="h-28 rounded-[1.75rem]" />
+        <Skeleton className="h-48 rounded-[1.75rem]" />
+        <Skeleton className="h-56 rounded-[1.75rem]" />
       </div>
     </div>
   );

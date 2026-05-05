@@ -134,7 +134,7 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
       <SheetContent
         side="left"
         showCloseButton={false}
-        className="w-[84vw] max-w-[320px] gap-0 overflow-hidden border-r border-[var(--sidebar-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,250,252,0.98))] p-0 text-slate-950 shadow-xl dark:bg-[linear-gradient(180deg,rgba(11,18,32,0.96),rgba(7,12,23,0.98))] dark:text-white"
+        className="w-[84vw] max-w-[320px] gap-0 overflow-hidden border-r border-[var(--sidebar-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(243,252,251,0.98))] p-0 text-slate-950 shadow-xl dark:bg-[linear-gradient(180deg,rgba(9,27,32,0.96),rgba(5,17,21,0.98))] dark:text-white"
       >
         <div className="flex h-full flex-col overflow-hidden">
           <SheetHeader className="border-b border-[var(--sidebar-border)] px-4 py-3 text-left">
@@ -175,24 +175,12 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
                     className={cn(
                       "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                       active
-                        ? "bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_58%,#0ea5e9_100%)] text-white shadow-[0_18px_40px_rgba(37,99,235,0.22)]"
+                        ? "bg-[linear-gradient(135deg,#0d2b2f_0%,#1e8f92_58%,#81d8d0_100%)] text-white shadow-[0_18px_40px_rgba(30,143,146,0.24)]"
                         : "text-slate-700 hover:bg-white/80 dark:text-slate-300 dark:hover:bg-white/5",
                     )}
                   >
                     <item.icon className="h-4 w-4 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium">{item.label}</div>
-                      {item.hint ? (
-                        <div
-                          className={cn(
-                            "mt-0.5 truncate text-xs",
-                            active ? "text-blue-100" : "text-slate-400",
-                          )}
-                        >
-                          {item.hint}
-                        </div>
-                      ) : null}
-                    </div>
+                    <div className="min-w-0 flex-1 truncate font-medium">{item.label}</div>
                   </Link>
                 );
               })}
@@ -220,24 +208,12 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
                             className={cn(
                               "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                               active
-                                ? "bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_58%,#0ea5e9_100%)] text-white shadow-[0_18px_40px_rgba(37,99,235,0.22)]"
+                                ? "bg-[linear-gradient(135deg,#0d2b2f_0%,#1e8f92_58%,#81d8d0_100%)] text-white shadow-[0_18px_40px_rgba(30,143,146,0.24)]"
                                 : "text-slate-700 hover:bg-white/80 dark:text-slate-300 dark:hover:bg-white/5",
                             )}
                           >
                             <item.icon className="h-4 w-4 shrink-0" />
-                            <div className="min-w-0 flex-1">
-                              <div className="truncate font-medium">{item.label}</div>
-                              {item.hint ? (
-                                <div
-                                  className={cn(
-                                    "mt-0.5 truncate text-xs",
-                                    active ? "text-blue-100" : "text-slate-400",
-                                  )}
-                                >
-                                  {item.hint}
-                                </div>
-                              ) : null}
-                            </div>
+                            <div className="min-w-0 flex-1 truncate font-medium">{item.label}</div>
                           </Link>
                         );
                       })}
@@ -263,24 +239,12 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
                         className={cn(
                           "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                           active
-                            ? "bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_58%,#0ea5e9_100%)] text-white shadow-[0_18px_40px_rgba(37,99,235,0.22)]"
+                            ? "bg-[linear-gradient(135deg,#0d2b2f_0%,#1e8f92_58%,#81d8d0_100%)] text-white shadow-[0_18px_40px_rgba(30,143,146,0.24)]"
                             : "text-slate-700 hover:bg-white/80 dark:text-slate-300 dark:hover:bg-white/5",
                         )}
                       >
                         <item.icon className="h-4 w-4 shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate font-medium">{item.label}</div>
-                          {item.hint ? (
-                            <div
-                              className={cn(
-                                "mt-0.5 truncate text-xs",
-                                active ? "text-blue-100" : "text-slate-400",
-                              )}
-                            >
-                              {item.hint}
-                            </div>
-                          ) : null}
-                        </div>
+                        <div className="min-w-0 flex-1 truncate font-medium">{item.label}</div>
                       </Link>
                     );
                   })}

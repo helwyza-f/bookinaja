@@ -396,6 +396,21 @@ func (h *Handler) GetReceiptSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, p)
 }
 
+func (h *Handler) GetPaymentMethods(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	items, err := h.service.GetPaymentMethods(c.Request.Context(), tID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil metode pembayaran"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
 // UpdateProfile
 func (h *Handler) UpdateProfile(c *gin.Context) {
 	tIDRaw, exists := c.Get("tenantID")
@@ -485,6 +500,31 @@ func (h *Handler) UpdateReceiptSettings(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Pengaturan nota diperbarui", "data": updated})
+}
+
+func (h *Handler) UpdatePaymentMethods(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	actorRaw := c.GetString("userID")
+
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	actorID, _ := uuid.Parse(actorRaw)
+	var req TenantPaymentMethodUpdateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data metode pembayaran tidak valid"})
+		return
+	}
+
+	items, err := h.service.UpdatePaymentMethods(c.Request.Context(), actorID, tID, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Metode pembayaran diperbarui", "items": items})
 }
 
 func (h *Handler) GetReferralSummary(c *gin.Context) {
