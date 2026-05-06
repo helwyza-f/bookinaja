@@ -116,6 +116,9 @@ type BookingDetail = {
   resource_name?: string;
   start_time: string;
   end_time: string;
+  promo_code?: string;
+  original_grand_total?: number;
+  discount_amount?: number;
   grand_total?: number;
   deposit_amount?: number;
   paid_amount?: number;
@@ -455,6 +458,9 @@ export default function BookingDetailPage() {
   const canOperatePos = hasPermission(adminUser, "pos.read");
   const canSendReceipt = hasPermission(adminUser, "receipts.send");
   const canPrintReceipt = hasPermission(adminUser, "receipts.print");
+  const hasPromo =
+    Number(booking?.discount_amount || 0) > 0 &&
+    String(booking?.promo_code || "").trim() !== "";
 
   const timelineSection = (
     <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
@@ -1067,6 +1073,56 @@ export default function BookingDetailPage() {
                   </div>
                 )}
               </div>
+
+              {hasPromo ? (
+                <div className="border-t border-slate-100 pt-5 dark:border-white/10">
+                  <div className="flex items-center gap-2 text-slate-950 dark:text-white">
+                    <CreditCard className="h-4 w-4 text-emerald-500" />
+                    <p className="text-sm font-semibold">Promo</p>
+                  </div>
+                  <div className="mt-3 rounded-[1.5rem] border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-200">
+                          {booking.promo_code}
+                        </div>
+                        <div className="mt-1 text-sm text-emerald-800 dark:text-emerald-100">
+                          Potongan ini sudah masuk ke total booking.
+                        </div>
+                      </div>
+                      <Badge className="bg-emerald-600 text-white">
+                        -Rp {formatIDR(Number(booking.discount_amount || 0))}
+                      </Badge>
+                    </div>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                      <div className="rounded-xl border border-emerald-200/80 bg-white/80 px-3 py-2 dark:border-emerald-500/20 dark:bg-black/10">
+                        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700/80 dark:text-emerald-200/80">
+                          Sebelum promo
+                        </div>
+                        <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+                          Rp {formatIDR(Number(booking.original_grand_total || 0))}
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-emerald-200/80 bg-white/80 px-3 py-2 dark:border-emerald-500/20 dark:bg-black/10">
+                        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700/80 dark:text-emerald-200/80">
+                          Diskon
+                        </div>
+                        <div className="mt-1 text-sm font-semibold text-emerald-700 dark:text-emerald-200">
+                          -Rp {formatIDR(Number(booking.discount_amount || 0))}
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-emerald-200/80 bg-white/80 px-3 py-2 dark:border-emerald-500/20 dark:bg-black/10">
+                        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700/80 dark:text-emerald-200/80">
+                          Setelah promo
+                        </div>
+                        <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+                          Rp {formatIDR(Number(booking.grand_total || 0))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </Card>
 
@@ -1092,6 +1148,16 @@ export default function BookingDetailPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-left">
+                {hasPromo ? (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-3 dark:border-amber-400/10 dark:bg-amber-400/10">
+                    <p className="text-[8px] font-black italic uppercase tracking-widest text-amber-700 dark:text-amber-200/80">
+                      Promo
+                    </p>
+                    <p className="mt-2 text-sm font-black italic text-amber-700 dark:text-amber-200">
+                      -Rp{formatIDR(booking.discount_amount || 0)}
+                    </p>
+                  </div>
+                ) : null}
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 dark:border-white/10 dark:bg-white/5">
                   <p className="text-[8px] font-black italic uppercase tracking-widest text-slate-400 dark:text-slate-500">
                     Total

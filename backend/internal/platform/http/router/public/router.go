@@ -22,6 +22,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 		public.GET("/validate-customer", cfg.CustomerHandler.ValidateCustomer)
 		public.GET("/bookings/:id", cfg.ReservationHandler.GetPublicDetailByToken)
 		public.POST("/bookings", cfg.ReservationHandler.Create)
+		public.POST("/promos/preview", cfg.PromoHandler.Preview)
 		public.POST("/bookings/exchange", cfg.ReservationHandler.ExchangeAccessToken)
 		public.GET("/payment-methods", cfg.BillingHandler.ListTenantPaymentMethods)
 		public.POST("/bookings/:id/checkout", cfg.BillingHandler.BookingCheckout)

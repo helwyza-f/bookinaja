@@ -69,6 +69,12 @@ export default function BookingPaymentPage() {
     () => booking?.payment_attempts || [],
     [booking?.payment_attempts],
   );
+  const hasPromo = useMemo(
+    () =>
+      Number(booking?.discount_amount || 0) > 0 &&
+      String(booking?.promo_code || "").trim() !== "",
+    [booking?.discount_amount, booking?.promo_code],
+  );
   const pendingManualAttempt = useMemo(
     () =>
       paymentAttempts.find(
@@ -449,6 +455,38 @@ export default function BookingPaymentPage() {
               </p>
             </div>
           </div>
+
+          {hasPromo ? (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-200">
+                    Promo
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+                    {booking.promo_code}
+                  </p>
+                </div>
+                <Badge className="border-none bg-emerald-600 text-white">
+                  -Rp {Number(booking.discount_amount || 0).toLocaleString("id-ID")}
+                </Badge>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded-2xl border border-emerald-200/70 bg-white/80 p-3 dark:border-emerald-400/20 dark:bg-black/10">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-slate-400">Sebelum</p>
+                  <p className="mt-1 font-semibold text-slate-950 dark:text-white">
+                    Rp {Number(booking.original_grand_total || 0).toLocaleString("id-ID")}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-emerald-200/70 bg-white/80 p-3 dark:border-emerald-400/20 dark:bg-black/10">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-slate-400">Sesudah</p>
+                  <p className="mt-1 font-semibold text-slate-950 dark:text-white">
+                    Rp {Number(booking.grand_total || 0).toLocaleString("id-ID")}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       </Card>
 

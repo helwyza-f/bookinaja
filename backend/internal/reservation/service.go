@@ -2,6 +2,7 @@ package reservation
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -15,6 +16,7 @@ import (
 	"github.com/helwiza/backend/internal/platform/env"
 	"github.com/helwiza/backend/internal/platform/fonnte"
 	platformrealtime "github.com/helwiza/backend/internal/platform/realtime"
+	"github.com/helwiza/backend/internal/promo"
 	"github.com/helwiza/backend/internal/resource"
 )
 
@@ -23,6 +25,7 @@ type Service struct {
 	resourceRepo    *resource.Repository
 	customerService *customer.Service
 	fnbService      *fnb.Service
+	promoService    *promo.Service
 	deviceService   deviceAutomation
 	realtime        realtimeBroadcaster
 }
@@ -160,12 +163,13 @@ func formatReceiptIDR(value float64) string {
 	return "Rp " + b.String()
 }
 
-func NewService(r *Repository, resRepo *resource.Repository, custSvc *customer.Service, fnbSvc *fnb.Service, deviceSvc deviceAutomation, realtime realtimeBroadcaster) *Service {
+func NewService(r *Repository, resRepo *resource.Repository, custSvc *customer.Service, fnbSvc *fnb.Service, promoSvc *promo.Service, deviceSvc deviceAutomation, realtime realtimeBroadcaster) *Service {
 	return &Service{
 		repo:            r,
 		resourceRepo:    resRepo,
 		customerService: custSvc,
 		fnbService:      fnbSvc,
+		promoService:    promoSvc,
 		deviceService:   deviceSvc,
 		realtime:        realtime,
 	}
@@ -252,8 +256,51 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 		}
 	}
 
+	originalGrandTotal := grandTotal
+	discountAmount := 0.0
+	var promoID *uuid.UUID
+	var promoSnapshot JSONB
+	var redemption *PromoRedemptionInput
+	if s.promoService != nil && strings.TrimSpace(req.PromoCode) != "" {
+		applyResult, err := s.promoService.Apply(ctx, promo.ApplyInput{
+			TenantID:   tID,
+			ResourceID: rID,
+			StartTime:  start,
+			EndTime:    end,
+			Subtotal:   grandTotal,
+			CustomerID: &cust.ID,
+			Code:       req.PromoCode,
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		rawSnapshot, err := json.Marshal(applyResult.Snapshot)
+		if err != nil {
+			return nil, nil, fmt.Errorf("GAGAL MENYIAPKAN SNAPSHOT PROMO: %w", err)
+		}
+		grandTotal = applyResult.FinalAmount
+		discountAmount = applyResult.DiscountAmount
+		originalGrandTotal = applyResult.OriginalAmount
+		promoID = &applyResult.Promo.ID
+		req.PromoCode = applyResult.Promo.Code
+		promoSnapshot = JSONB(rawSnapshot)
+		redemption = &PromoRedemptionInput{
+			PromoID:         applyResult.Promo.ID,
+			CustomerID:      cust.ID,
+			PromoCode:       applyResult.Promo.Code,
+			DiscountAmount:  applyResult.DiscountAmount,
+			OriginalAmount:  applyResult.OriginalAmount,
+			FinalAmount:     applyResult.FinalAmount,
+			SnapshotPayload: rawSnapshot,
+		}
+	}
+
+	dpEnabled, dpPercentage, err := s.repo.ResolveDepositPolicy(ctx, tID, rID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("GAGAL MEMUAT PENGATURAN DP: %w", err)
+	}
 	bookingStatus, depositAmount, paidAmount, balanceDue, paymentStatus, paymentMethod :=
-		resolveBookingLifecycle(req, isManualWalkIn, grandTotal)
+		resolveBookingLifecycle(req, isManualWalkIn, grandTotal, dpEnabled, dpPercentage)
 	nowUTC := time.Now().UTC()
 	var sessionActivatedAt *time.Time
 	var lastStatusChangedAt *time.Time
@@ -272,6 +319,11 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 		EndTime:             end,
 		AccessToken:         uuid.New(),
 		Status:              bookingStatus, // Gunakan status hasil seleksi
+		PromoID:             promoID,
+		PromoCode:           strings.TrimSpace(req.PromoCode),
+		OriginalGrandTotal:  originalGrandTotal,
+		DiscountAmount:      discountAmount,
+		PromoSnapshot:       promoSnapshot,
 		GrandTotal:          grandTotal,
 		DepositAmount:       depositAmount,
 		PaidAmount:          paidAmount,
@@ -284,7 +336,7 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 	}
 
 	// 9. EKSEKUSI PENYIMPANAN
-	if err := s.repo.CreateWithItems(ctx, newBooking, itemUUIDs, req.Duration); err != nil {
+	if err := s.repo.CreateWithItems(ctx, newBooking, itemUUIDs, req.Duration, redemption); err != nil {
 		return nil, nil, fmt.Errorf("GAGAL MENYIMPAN TRANSAKSI: %w", err)
 	}
 	s.customerService.InvalidateTenantCache(ctx, tID)
@@ -1051,8 +1103,14 @@ func waSessionReminderMessage(name, resourceName string, minutes int, startTime 
 	)
 }
 
-func calculateDepositAmount(grandTotal float64) float64 {
-	dp := math.Round(grandTotal * 0.4)
+func calculateDepositAmount(grandTotal float64, enabled bool, percentage float64) float64 {
+	if !enabled || grandTotal <= 0 {
+		return 0
+	}
+	if percentage <= 0 {
+		return 0
+	}
+	dp := math.Round(grandTotal * (percentage / 100))
 	if dp < 10000 {
 		dp = 10000
 	}
@@ -1062,13 +1120,13 @@ func calculateDepositAmount(grandTotal float64) float64 {
 	return dp
 }
 
-func resolveBookingLifecycle(req CreateBookingReq, isManualWalkIn bool, grandTotal float64) (status string, depositAmount float64, paidAmount float64, balanceDue float64, paymentStatus string, paymentMethod string) {
+func resolveBookingLifecycle(req CreateBookingReq, isManualWalkIn bool, grandTotal float64, dpEnabled bool, dpPercentage float64) (status string, depositAmount float64, paidAmount float64, balanceDue float64, paymentStatus string, paymentMethod string) {
 	mode := strings.ToLower(strings.TrimSpace(req.BookingMode))
 	if isManualWalkIn && mode == "walkin" {
 		return "active", 0, 0, grandTotal, "unpaid", ""
 	}
 
-	depositAmount = calculateDepositAmount(grandTotal)
+	depositAmount = calculateDepositAmount(grandTotal, dpEnabled, dpPercentage)
 	balanceDue = grandTotal
 	if depositAmount > 0 {
 		balanceDue = grandTotal - depositAmount

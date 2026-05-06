@@ -210,7 +210,24 @@ func (r *Repository) ListTenantPaymentMethods(ctx context.Context, tenantID uuid
 		ORDER BY sort_order ASC, created_at ASC`,
 		tenantID,
 	)
-	return items, err
+	if err != nil {
+		return nil, err
+	}
+	if len(items) == 0 {
+		if err := r.seedDefaultTenantPaymentMethods(ctx, tenantID); err != nil {
+			return nil, err
+		}
+		if err := r.db.SelectContext(ctx, &items, `
+			SELECT code, display_name, category, verification_type, provider, instructions, is_active, sort_order, metadata
+			FROM tenant_payment_methods
+			WHERE tenant_id = $1 AND is_active = true
+			ORDER BY sort_order ASC, created_at ASC`,
+			tenantID,
+		); err != nil {
+			return nil, err
+		}
+	}
+	return items, nil
 }
 
 func (r *Repository) GetTenantPaymentMethod(ctx context.Context, exec sqlx.ExtContext, tenantID uuid.UUID, code string) (PaymentMethodOption, error) {
@@ -222,7 +239,48 @@ func (r *Repository) GetTenantPaymentMethod(ctx context.Context, exec sqlx.ExtCo
 		LIMIT 1`,
 		tenantID, code,
 	)
+	if err == sql.ErrNoRows {
+		if seedErr := r.seedDefaultTenantPaymentMethods(ctx, tenantID); seedErr != nil {
+			return item, seedErr
+		}
+		err = sqlx.GetContext(ctx, exec, &item, `
+			SELECT code, display_name, category, verification_type, provider, instructions, is_active, sort_order, metadata
+			FROM tenant_payment_methods
+			WHERE tenant_id = $1 AND code = $2 AND is_active = true
+			LIMIT 1`,
+			tenantID, code,
+		)
+	}
 	return item, err
+}
+
+func defaultTenantPaymentMethodOptions() []PaymentMethodOption {
+	return []PaymentMethodOption{
+		{Code: "midtrans", DisplayName: "Midtrans / QRIS Gateway", Category: "gateway", VerificationType: "auto", Provider: "midtrans", Instructions: "Pembayaran diverifikasi otomatis oleh gateway Midtrans.", IsActive: true, SortOrder: 10, Metadata: []byte(`{}`)},
+		{Code: "bank_transfer", DisplayName: "Transfer Bank", Category: "manual", VerificationType: "manual", Provider: "bank_transfer", Instructions: "Transfer ke rekening tenant lalu kirim bukti bayar untuk diverifikasi admin.", IsActive: false, SortOrder: 20, Metadata: []byte(`{}`)},
+		{Code: "qris_static", DisplayName: "QRIS Static", Category: "manual", VerificationType: "manual", Provider: "qris_static", Instructions: "Scan QRIS tenant lalu kirim bukti bayar untuk diverifikasi admin.", IsActive: false, SortOrder: 30, Metadata: []byte(`{}`)},
+		{Code: "cash", DisplayName: "Cash / Bayar di Tempat", Category: "manual", VerificationType: "manual", Provider: "cash", Instructions: "Pembayaran diterima langsung oleh admin atau kasir tenant.", IsActive: true, SortOrder: 40, Metadata: []byte(`{}`)},
+	}
+}
+
+func (r *Repository) seedDefaultTenantPaymentMethods(ctx context.Context, tenantID uuid.UUID) error {
+	now := time.Now().UTC()
+	for _, item := range defaultTenantPaymentMethodOptions() {
+		if _, err := r.db.ExecContext(ctx, `
+			INSERT INTO tenant_payment_methods (
+				id, tenant_id, code, display_name, category, verification_type, provider,
+				instructions, is_active, sort_order, metadata, created_at, updated_at
+			) VALUES (
+				$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13
+			)
+			ON CONFLICT (tenant_id, code) DO NOTHING`,
+			uuid.New(), tenantID, item.Code, item.DisplayName, item.Category, item.VerificationType, item.Provider,
+			item.Instructions, item.IsActive, item.SortOrder, item.Metadata, now, now,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *Repository) CreateBookingPaymentAttempt(ctx context.Context, exec sqlx.ExtContext, item BookingPaymentAttempt) error {

@@ -123,6 +123,15 @@ export default function NewManualBookingPage() {
   const [durationValue, setDurationValue] = useState(1);
   const [selectedMainId, setSelectedMainId] = useState("");
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoPreview, setPromoPreview] = useState<{
+    valid?: boolean;
+    label?: string;
+    message?: string;
+    discount_amount?: number;
+    final_amount?: number;
+  } | null>(null);
+  const [isCheckingPromo, setIsCheckingPromo] = useState(false);
   const [bookingMode, setBookingMode] = useState<BookingMode>(
     searchParams.get("mode") === "walkin" ? "walkin" : "scheduled",
   );
@@ -306,6 +315,41 @@ export default function NewManualBookingPage() {
     return selectedItem.price * durationValue + addonsPrice;
   };
 
+  const totalAfterPromo = () =>
+    promoPreview?.valid ? Number(promoPreview.final_amount || 0) : calculateTotal();
+
+  useEffect(() => {
+    setPromoPreview(null);
+  }, [selectedResourceId, selectedMainId, selectedAddons, selectedTime, date, durationValue]);
+
+  const handlePromoPreview = async () => {
+    if (!promoCode.trim()) return toast.error("Masukkan kode promo.");
+    if (!selectedResourceId || !selectedMainId || !selectedTime || !date) {
+      return toast.error("Pilih unit, layanan, dan jadwal dulu.");
+    }
+    setIsCheckingPromo(true);
+    try {
+      const fullDate = parse(selectedTime, "HH:mm", date);
+      const res = await api.post("/public/promos/preview", {
+        code: promoCode.trim().toUpperCase(),
+        resource_id: selectedResourceId,
+        start_time: formatISO(fullDate),
+        end_time: formatISO(fullDate),
+        subtotal: calculateTotal(),
+      });
+      setPromoPreview(res.data);
+      if (res.data?.valid) {
+        toast.success("Promo berhasil diterapkan.");
+      } else {
+        toast.error(res.data?.message || "Promo tidak berlaku.");
+      }
+    } catch (err: unknown) {
+      toast.error((err as ApiError).response?.data?.error || "Gagal memvalidasi promo");
+    } finally {
+      setIsCheckingPromo(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!selectedTime || !custName || !custPhone || !currentResource)
       return toast.error("Data belum lengkap");
@@ -321,6 +365,7 @@ export default function NewManualBookingPage() {
         start_time: formatISO(fullDate),
         duration: durationValue,
         booking_mode: bookingMode,
+        promo_code: promoPreview?.valid ? promoCode.trim().toUpperCase() : "",
       });
       toast.success(
         bookingMode === "walkin"
@@ -793,16 +838,47 @@ export default function NewManualBookingPage() {
                 </div>
               </div>
 
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-slate-400 dark:text-slate-300">
+                  Promo Booking
+                </p>
+                <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+                  <Input
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                    placeholder="Masukkan voucher"
+                    className="h-11 rounded-xl border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5"
+                  />
+                  <Button type="button" onClick={handlePromoPreview} disabled={isCheckingPromo} className="h-11 rounded-xl bg-violet-600 text-white hover:bg-violet-700">
+                    {isCheckingPromo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
+                    Cek Promo
+                  </Button>
+                </div>
+                {promoPreview?.valid && (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
+                    {promoPreview.label || promoCode} aktif • Potongan Rp{Number(promoPreview.discount_amount || 0).toLocaleString()}
+                  </div>
+                )}
+              </div>
+
               {/* TOTAL BILL */}
               <div className="relative space-y-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-inner dark:border-white/5 dark:bg-white/5 md:p-5">
                 <div className="relative z-10">
                   <p className="mb-1 text-[10px] font-semibold text-slate-400 dark:text-slate-400">
                     Estimasi Tagihan
                   </p>
-                  <p className="text-3xl font-semibold leading-none text-slate-950 dark:text-white md:text-4xl">
-                    Rp{calculateTotal().toLocaleString()}
+                <p className="text-3xl font-semibold leading-none text-slate-950 dark:text-white md:text-4xl">
+                  Rp{totalAfterPromo().toLocaleString()}
+                </p>
+                {promoPreview?.valid && (
+                  <p className="mt-2 text-xs font-semibold text-emerald-600 dark:text-emerald-300">
+                    Diskon Rp{Number(promoPreview.discount_amount || 0).toLocaleString()}
                   </p>
-                </div>
+                )}
+                <p className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                  DP final mengikuti policy tenant dan override resource saat booking disimpan.
+                </p>
+              </div>
                 <div className="relative z-10 flex items-center justify-between gap-4 border-t border-slate-200 pt-4 dark:border-white/5">
                   <div className="flex flex-col">
                     <span className="mb-1.5 text-[7px] font-semibold leading-none tracking-[0.2em] text-slate-500 dark:text-slate-500">

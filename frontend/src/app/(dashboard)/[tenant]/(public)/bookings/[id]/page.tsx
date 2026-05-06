@@ -76,6 +76,9 @@ export default function ResourceBookingDetail() {
   const [durationValue, setDurationValue] = useState(1);
   const [selectedMainId, setSelectedMainId] = useState("");
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoPreview, setPromoPreview] = useState<any | null>(null);
+  const [isCheckingPromo, setIsCheckingPromo] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // UI States
@@ -313,14 +316,12 @@ export default function ResourceBookingDetail() {
     return mainPrice + addonsPrice;
   };
 
-  const estimateDeposit = () => {
-    const total = calculateTotal();
-    if (!total) return 0;
-    return Math.min(total, Math.max(10000, Math.round(total * 0.4)));
-  };
+  const totalAfterPromo = () =>
+    promoPreview?.valid ? Number(promoPreview.final_amount || 0) : calculateTotal();
 
-  const estimateBalance = () =>
-    Math.max(0, calculateTotal() - estimateDeposit());
+  useEffect(() => {
+    setPromoPreview(null);
+  }, [selectedMainId, selectedAddons, selectedTime, date, durationValue]);
 
   const buildCustomerAccessRedirect = (
     accessToken: string,
@@ -370,6 +371,7 @@ export default function ResourceBookingDetail() {
         item_ids: [selectedMainId, ...selectedAddons],
         start_time: formatISO(fullDate),
         duration: durationValue,
+        promo_code: promoPreview?.valid ? promoCode.trim().toUpperCase() : "",
       };
 
       const res = await api.post("/public/bookings", payload);
@@ -418,6 +420,35 @@ export default function ResourceBookingDetail() {
       toast.error(err.response?.data?.error || "Gagal membuat reservasi");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handlePromoPreview = async () => {
+    if (!promoCode.trim()) return toast.error("Masukkan kode promo dulu.");
+    if (!selectedTime || !selectedMainId || !date) {
+      return toast.error("Pilih layanan dan jadwal dulu.");
+    }
+    setIsCheckingPromo(true);
+    try {
+      const fullDate = parse(selectedTime, "HH:mm", date);
+      const res = await api.post("/public/promos/preview", {
+        tenant_id: resource.tenant_id,
+        code: promoCode.trim().toUpperCase(),
+        resource_id: resource.id,
+        start_time: formatISO(fullDate),
+        end_time: formatISO(fullDate),
+        subtotal: calculateTotal(),
+      });
+      setPromoPreview(res.data);
+      if (res.data?.valid) {
+        toast.success("Promo berhasil diterapkan.");
+      } else {
+        toast.error(res.data?.message || "Promo tidak berlaku.");
+      }
+    } catch {
+      toast.error("Gagal memvalidasi promo.");
+    } finally {
+      setIsCheckingPromo(false);
     }
   };
 
@@ -861,6 +892,33 @@ export default function ResourceBookingDetail() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-2">
+                    <Label className={cn("ml-1 text-[9px] font-black uppercase", themeVisuals.eyebrowMutedClass)}>
+                      Kode Promo
+                    </Label>
+                    <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+                      <Input
+                        value={promoCode}
+                        onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                        className="h-12 rounded-xl bg-slate-50 dark:bg-black border-none px-6 font-black uppercase tracking-[0.18em] shadow-inner"
+                        placeholder="VOUCHER"
+                      />
+                      <Button
+                        type="button"
+                        onClick={handlePromoPreview}
+                        disabled={isCheckingPromo}
+                        className="h-12 rounded-xl px-4 text-xs font-black uppercase"
+                        style={{ backgroundColor: activeTheme.primary_color }}
+                      >
+                        {isCheckingPromo ? <Loader2 className="h-4 w-4 animate-spin" /> : "Pakai Promo"}
+                      </Button>
+                    </div>
+                    {promoPreview?.valid && (
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[11px] font-bold text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
+                        {promoPreview.label || promoCode} aktif • Potongan Rp {Number(promoPreview.discount_amount || 0).toLocaleString()}
+                      </div>
+                    )}
+                  </div>
                   <div className="space-y-1.5">
                     <Label className={cn("ml-1 text-[9px] font-black uppercase", themeVisuals.eyebrowMutedClass)}>
                       WhatsApp Aktif
@@ -945,15 +1003,20 @@ export default function ResourceBookingDetail() {
                     Rp
                   </span>
                   <h3 className="text-2xl md:text-3xl font-[1000] italic text-slate-950 dark:text-white tracking-tighter leading-none">
-                    {calculateTotal().toLocaleString()}
+                    {totalAfterPromo().toLocaleString()}
                   </h3>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  {promoPreview?.valid && (
+                    <Badge className="rounded-full border-none bg-emerald-500 px-3 py-1 text-[8px] font-black uppercase italic text-white">
+                      Diskon Rp{Number(promoPreview.discount_amount || 0).toLocaleString()}
+                    </Badge>
+                  )}
                   <Badge
                     className="rounded-full border-none px-3 py-1 text-[8px] font-black uppercase italic text-white"
                     style={{ backgroundColor: activeTheme.primary_color }}
                   >
-                    DP Rp{estimateDeposit().toLocaleString()}
+                    DP ikut policy tenant
                   </Badge>
                   <Badge
                     className="rounded-full border-none px-3 py-1 text-[8px] font-black uppercase italic"
@@ -962,14 +1025,12 @@ export default function ResourceBookingDetail() {
                       color: activeTheme.primary_color,
                     }}
                   >
-                    Sisa Rp{estimateBalance().toLocaleString()}
+                    Final dihitung server
                   </Badge>
                 </div>
               </div>
               <p className={cn("max-w-md text-[10px] font-bold italic leading-relaxed", themeVisuals.mutedClass)}>
-                Setelah booking tersimpan, customer akan masuk ke tiket dan
-                memilih metode pembayaran yang tenant sediakan untuk DP atau
-                pelunasan.
+                Setelah booking tersimpan, sistem akan menghitung DP sesuai policy tenant dan resource, lalu customer lanjut ke tiket pembayaran.
               </p>
             </div>
             <Button
@@ -991,9 +1052,7 @@ export default function ResourceBookingDetail() {
                 <Loader2 className="animate-spin size-5" />
               ) : (
                 <>
-                  {estimateDeposit() > 0
-                    ? "SIMPAN & LANJUT BAYAR"
-                    : "SIMPAN BOOKING"}{" "}
+                  SIMPAN & LANJUT{" "}
                   <ChevronRight strokeWidth={4} size={18} />
                 </>
               )}

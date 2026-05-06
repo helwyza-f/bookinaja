@@ -181,6 +181,89 @@ func (r *Repository) GetPublicLandingData(ctx context.Context, slug string) (map
 	return result, nil
 }
 
+func (r *Repository) GetDepositSettings(ctx context.Context, tenantID uuid.UUID) (*TenantDepositSetting, error) {
+	var setting TenantDepositSetting
+	err := r.db.GetContext(ctx, &setting, `
+		SELECT tenant_id, dp_enabled, dp_percentage, created_at, updated_at
+		FROM tenant_deposit_settings
+		WHERE tenant_id = $1
+		LIMIT 1`, tenantID)
+	if err == sql.ErrNoRows {
+		now := time.Now().UTC()
+		setting = TenantDepositSetting{
+			TenantID:     tenantID,
+			DPEnabled:    true,
+			DPPercentage: 40,
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		}
+		if _, insertErr := r.db.ExecContext(ctx, `
+			INSERT INTO tenant_deposit_settings (tenant_id, dp_enabled, dp_percentage, created_at, updated_at)
+			VALUES ($1, $2, $3, NOW(), NOW())
+			ON CONFLICT (tenant_id) DO NOTHING`, tenantID, true, 40); insertErr != nil {
+			return nil, insertErr
+		}
+	} else if err != nil {
+		return nil, err
+	}
+
+	var overrides []ResourceDepositOverride
+	if err := r.db.SelectContext(ctx, &overrides, `
+		SELECT o.id, o.tenant_id, o.resource_id, COALESCE(r.name, '') AS resource_name,
+			o.override_dp, o.dp_enabled, o.dp_percentage, o.created_at, o.updated_at
+		FROM tenant_resource_deposit_overrides o
+		LEFT JOIN resources r ON r.id = o.resource_id
+		WHERE o.tenant_id = $1
+		ORDER BY COALESCE(r.name, '') ASC`, tenantID); err != nil {
+		return nil, err
+	}
+	setting.ResourceConfigs = overrides
+	return &setting, nil
+}
+
+func (r *Repository) UpsertDepositSettings(ctx context.Context, tenantID uuid.UUID, req TenantDepositSettingUpdateReq) (*TenantDepositSetting, error) {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO tenant_deposit_settings (tenant_id, dp_enabled, dp_percentage, created_at, updated_at)
+		VALUES ($1, $2, $3, NOW(), NOW())
+		ON CONFLICT (tenant_id) DO UPDATE
+		SET dp_enabled = EXCLUDED.dp_enabled,
+			dp_percentage = EXCLUDED.dp_percentage,
+			updated_at = NOW()`,
+		tenantID, req.DPEnabled, req.DPPercentage,
+	); err != nil {
+		return nil, err
+	}
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM tenant_resource_deposit_overrides WHERE tenant_id = $1`, tenantID); err != nil {
+		return nil, err
+	}
+	for _, item := range req.ResourceConfigs {
+		resourceID, parseErr := uuid.Parse(strings.TrimSpace(item.ResourceID))
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO tenant_resource_deposit_overrides (
+				id, tenant_id, resource_id, override_dp, dp_enabled, dp_percentage, created_at, updated_at
+			) VALUES ($1,$2,$3,$4,$5,$6,NOW(),NOW())`,
+			uuid.New(), tenantID, resourceID, item.OverrideDP, item.DPEnabled, item.DPPercentage,
+		); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return r.GetDepositSettings(ctx, tenantID)
+}
+
 func (r *Repository) ListPublicTenants(ctx context.Context) ([]TenantDirectoryItem, error) {
 	var items []TenantDirectoryItem
 	cacheKey := r.getPublicTenantsCacheKey()

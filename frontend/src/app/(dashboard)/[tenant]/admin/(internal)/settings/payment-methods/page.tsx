@@ -4,11 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import type { AxiosError } from "axios";
 import {
   CheckCircle2,
+  ChevronDown,
   Edit3,
   Landmark,
   Link2,
   QrCode,
   Save,
+  Settings2,
   Wallet,
   X,
 } from "lucide-react";
@@ -21,6 +23,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { SingleImageUpload } from "@/components/upload/single-image-upload";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 type PaymentMethodItem = {
   code: string;
@@ -38,6 +41,25 @@ type PaymentMethodItem = {
     qr_image_url?: string;
     footer_note?: string;
   };
+};
+
+type ResourceItem = {
+  id: string;
+  name: string;
+};
+
+type DepositOverrideItem = {
+  resource_id: string;
+  resource_name?: string;
+  override_dp: boolean;
+  dp_enabled: boolean;
+  dp_percentage: number;
+};
+
+type DepositSettings = {
+  dp_enabled: boolean;
+  dp_percentage: number;
+  resource_configs: DepositOverrideItem[];
 };
 
 const defaults: PaymentMethodItem[] = [
@@ -90,33 +112,84 @@ const defaults: PaymentMethodItem[] = [
   },
 ];
 
-const iconMap = {
-  qris_static: QrCode,
-  cash: Wallet,
-  default: Landmark,
+const methodTone: Record<string, string> = {
+  midtrans: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-200",
+  bank_transfer: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200",
+  qris_static: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200",
+  cash: "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200",
 };
 
 const labelMap: Record<string, string> = {
-  bank_transfer: "Transfer bank manual",
-  qris_static: "QRIS static manual",
-  cash: "Bayar langsung di lokasi",
-  midtrans: "Gateway otomatis",
+  midtrans: "Otomatis",
+  bank_transfer: "Manual",
+  qris_static: "Manual",
+  cash: "Manual",
+};
+
+const methodSummary = (item: PaymentMethodItem) => {
+  if (item.code === "bank_transfer") {
+    return [
+      item.metadata?.bank_name,
+      item.metadata?.account_number,
+      item.metadata?.account_name,
+    ]
+      .filter(Boolean)
+      .join(" • ") || "Rekening belum diatur";
+  }
+  if (item.code === "qris_static") {
+    return item.metadata?.qr_image_url ? "QRIS siap dipakai customer" : "QRIS belum diatur";
+  }
+  if (item.code === "cash") {
+    return "Konfirmasi langsung ke kasir atau admin";
+  }
+  return "Snap Midtrans untuk DP dan pelunasan otomatis";
+};
+
+const methodIcon = (code: string) => {
+  if (code === "qris_static") return QrCode;
+  if (code === "cash") return Wallet;
+  return Landmark;
 };
 
 export default function PaymentMethodsSettingsPage() {
   const [items, setItems] = useState<PaymentMethodItem[]>(defaults);
+  const [resources, setResources] = useState<ResourceItem[]>([]);
+  const [depositSettings, setDepositSettings] = useState<DepositSettings>({
+    dp_enabled: true,
+    dp_percentage: 40,
+    resource_configs: [],
+  });
   const [editingCode, setEditingCode] = useState<string | null>(null);
   const [draftItem, setDraftItem] = useState<PaymentMethodItem | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [savingMethodCode, setSavingMethodCode] = useState<string | null>(null);
+  const [savingDeposit, setSavingDeposit] = useState(false);
+  const [showDepositOverrides, setShowDepositOverrides] = useState(false);
+  const [editingDeposit, setEditingDeposit] = useState(false);
 
   useEffect(() => {
-    api
-      .get("/admin/payment-methods")
-      .then((res) => {
-        setItems(res.data?.items?.length ? res.data.items : defaults);
+    Promise.all([
+      api.get("/admin/payment-methods"),
+      api.get("/admin/deposit-settings"),
+      api.get("/resources-all"),
+    ])
+      .then(([paymentRes, depositRes, resourceRes]) => {
+        setItems(paymentRes.data?.items?.length ? paymentRes.data.items : defaults);
+        setDepositSettings({
+          dp_enabled: Boolean(depositRes.data?.dp_enabled ?? true),
+          dp_percentage: Number(depositRes.data?.dp_percentage ?? 40),
+          resource_configs: Array.isArray(depositRes.data?.resource_configs)
+            ? depositRes.data.resource_configs
+            : [],
+        });
+        const resourceItems = Array.isArray(resourceRes.data?.resources)
+          ? resourceRes.data.resources
+          : Array.isArray(resourceRes.data)
+            ? resourceRes.data
+            : [];
+        setResources(resourceItems);
       })
-      .catch(() => toast.error("Gagal memuat metode pembayaran"))
+      .catch(() => toast.error("Gagal memuat pengaturan pembayaran"))
       .finally(() => setLoading(false));
   }, []);
 
@@ -125,42 +198,29 @@ export default function PaymentMethodsSettingsPage() {
     [items],
   );
 
+  const overrideCount = useMemo(
+    () => depositSettings.resource_configs.filter((item) => item.override_dp).length,
+    [depositSettings.resource_configs],
+  );
+
   const getMethodValidationErrors = (item: PaymentMethodItem) => {
     const errors: string[] = [];
-
-    if (!item.display_name.trim()) {
-      errors.push("Nama tampil wajib diisi.");
-    }
-
-    if (!item.instructions.trim()) {
-      errors.push("Instruksi pembayaran wajib diisi.");
-    }
-
+    if (!item.display_name.trim()) errors.push("Nama tampil wajib diisi.");
+    if (!item.instructions.trim()) errors.push("Instruksi pembayaran wajib diisi.");
     if (item.code === "bank_transfer") {
-      if (!item.metadata?.bank_name?.trim()) {
-        errors.push("Nama bank wajib diisi.");
-      }
-      if (!item.metadata?.account_name?.trim()) {
-        errors.push("Nama pemilik rekening wajib diisi.");
-      }
-      if (!item.metadata?.account_number?.trim()) {
-        errors.push("Nomor rekening wajib diisi.");
-      }
+      if (!item.metadata?.bank_name?.trim()) errors.push("Nama bank wajib diisi.");
+      if (!item.metadata?.account_name?.trim()) errors.push("Nama pemilik rekening wajib diisi.");
+      if (!item.metadata?.account_number?.trim()) errors.push("Nomor rekening wajib diisi.");
     }
-
     if (item.code === "qris_static" && !item.metadata?.qr_image_url?.trim()) {
-      errors.push("URL gambar QRIS wajib diisi.");
+      errors.push("Gambar QRIS wajib diisi.");
     }
-
     return errors;
   };
 
   const startEditing = (item: PaymentMethodItem) => {
     setEditingCode(item.code);
-    setDraftItem({
-      ...item,
-      metadata: { ...(item.metadata || {}) },
-    });
+    setDraftItem({ ...item, metadata: { ...(item.metadata || {}) } });
   };
 
   const cancelEditing = () => {
@@ -170,10 +230,7 @@ export default function PaymentMethodsSettingsPage() {
 
   const updateDraft = (patch: Partial<PaymentMethodItem>) => {
     setDraftItem((current) => {
-      if (!current) {
-        return current;
-      }
-
+      if (!current) return current;
       return {
         ...current,
         ...patch,
@@ -185,381 +242,633 @@ export default function PaymentMethodsSettingsPage() {
     });
   };
 
-  const saveDraft = async () => {
-    if (!draftItem) {
-      return;
-    }
-
-    const errors = draftItem.is_active ? getMethodValidationErrors(draftItem) : [];
-    if (errors.length > 0) {
-      toast.error("Lengkapi data metode pembayaran sebelum menyimpan.");
-      return;
-    }
-
-    const nextItems = items.map((item) =>
-      item.code === draftItem.code ? draftItem : item,
-    );
-
-    setSaving(true);
+  const saveItems = async (nextItems: PaymentMethodItem[], successMessage: string, code?: string) => {
+    setSavingMethodCode(code || "all");
     try {
       await api.put("/admin/payment-methods", { items: nextItems });
       setItems(nextItems);
-      setEditingCode(null);
-      setDraftItem(null);
-      toast.success("Metode pembayaran berhasil diperbarui");
+      toast.success(successMessage);
+      return true;
     } catch (error) {
       const err = error as AxiosError<{ error?: string }>;
-      toast.error(
-        err.response?.data?.error || "Gagal menyimpan metode pembayaran",
-      );
+      toast.error(err.response?.data?.error || "Gagal menyimpan metode pembayaran");
+      return false;
     } finally {
-      setSaving(false);
+      setSavingMethodCode(null);
     }
   };
 
-  const toggleDraftMethod = (checked: boolean) => {
-    if (!draftItem) {
-      return;
-    }
-
-    if (!checked) {
-      updateDraft({ is_active: false });
-      return;
-    }
-
-    const errors = getMethodValidationErrors({
-      ...draftItem,
-      is_active: true,
-    });
-
+  const saveDraft = async () => {
+    if (!draftItem) return;
+    const errors = draftItem.is_active ? getMethodValidationErrors(draftItem) : [];
     if (errors.length > 0) {
-      toast.error(`Lengkapi ${draftItem.display_name} sebelum diaktifkan.`);
+      toast.error("Lengkapi data metode ini dulu.");
       return;
     }
+    const nextItems = items.map((item) => (item.code === draftItem.code ? draftItem : item));
+    const ok = await saveItems(nextItems, "Metode pembayaran diperbarui", draftItem.code);
+    if (ok) cancelEditing();
+  };
 
-    updateDraft({ is_active: true });
+  const toggleMethod = async (item: PaymentMethodItem, checked: boolean) => {
+    if (checked) {
+      const errors = getMethodValidationErrors({ ...item, is_active: true });
+      if (errors.length > 0) {
+        startEditing(item);
+        toast.error(`Lengkapi ${item.display_name} sebelum diaktifkan.`);
+        return;
+      }
+    }
+    const nextItems = items.map((entry) =>
+      entry.code === item.code ? { ...entry, is_active: checked } : entry,
+    );
+    await saveItems(
+      nextItems,
+      checked ? `${item.display_name} diaktifkan` : `${item.display_name} dinonaktifkan`,
+      item.code,
+    );
   };
 
   const draftErrors =
     draftItem && draftItem.is_active ? getMethodValidationErrors(draftItem) : [];
 
-  const renderCompactDetails = (item: PaymentMethodItem) => {
-    if (item.code === "bank_transfer") {
-      const bankSummary = [
-        item.metadata?.bank_name,
-        item.metadata?.account_number,
-        item.metadata?.account_name,
-      ]
-        .filter(Boolean)
-        .join(" • ");
+  const getOverride = (resourceId: string) =>
+    depositSettings.resource_configs.find((item) => item.resource_id === resourceId);
 
-      return bankSummary || "Rekening belum diatur.";
-    }
-
-    if (item.code === "qris_static") {
-      return item.metadata?.qr_image_url
-        ? "QRIS static sudah terpasang."
-        : "QRIS belum diatur.";
-    }
-
-    return item.instructions;
+  const updateDepositOverride = (resource: ResourceItem, patch: Partial<DepositOverrideItem>) => {
+    setDepositSettings((current) => {
+      const existing = current.resource_configs.find((item) => item.resource_id === resource.id);
+      const nextItem: DepositOverrideItem = {
+        resource_id: resource.id,
+        resource_name: resource.name,
+        override_dp: existing?.override_dp ?? false,
+        dp_enabled: existing?.dp_enabled ?? current.dp_enabled,
+        dp_percentage: existing?.dp_percentage ?? current.dp_percentage,
+        ...patch,
+      };
+      const nextItems = current.resource_configs.filter((item) => item.resource_id !== resource.id);
+      if (nextItem.override_dp) nextItems.push(nextItem);
+      return { ...current, resource_configs: nextItems };
+    });
   };
 
-  const renderCompactMeta = (item: PaymentMethodItem) => {
-    if (item.code === "bank_transfer") {
-      return [
-        { label: "Bank", value: item.metadata?.bank_name || "-" },
-        { label: "Rekening", value: item.metadata?.account_number || "-" },
-        { label: "A/N", value: item.metadata?.account_name || "-" },
-      ];
+  const saveDepositSettings = async () => {
+    if (depositSettings.dp_percentage < 0 || depositSettings.dp_percentage > 100) {
+      toast.error("Persentase DP default harus 0 - 100.");
+      return;
     }
-
-    if (item.code === "qris_static") {
-      return [
-        {
-          label: "QRIS",
-          value: item.metadata?.qr_image_url ? "Tersambung" : "Belum diatur",
-        },
-        {
-          label: "Link",
-          value: item.metadata?.qr_image_url ? "Siap dipakai customer" : "-",
-        },
-      ];
+    if (depositSettings.resource_configs.some((item) => item.dp_percentage < 0 || item.dp_percentage > 100)) {
+      toast.error("Persentase DP resource harus 0 - 100.");
+      return;
     }
-
-    return [
-      {
-        label: "Tipe",
-        value: labelMap[item.code] || item.category,
-      },
-    ];
+    setSavingDeposit(true);
+    try {
+      const payload = {
+        dp_enabled: depositSettings.dp_enabled,
+        dp_percentage: Number(depositSettings.dp_percentage || 0),
+        resource_configs: depositSettings.resource_configs.map((item) => ({
+          resource_id: item.resource_id,
+          override_dp: item.override_dp,
+          dp_enabled: item.dp_enabled,
+          dp_percentage: Number(item.dp_percentage || 0),
+        })),
+      };
+      const res = await api.put("/admin/deposit-settings", payload);
+      setDepositSettings({
+        dp_enabled: Boolean(res.data?.data?.dp_enabled ?? payload.dp_enabled),
+        dp_percentage: Number(res.data?.data?.dp_percentage ?? payload.dp_percentage),
+        resource_configs: Array.isArray(res.data?.data?.resource_configs)
+          ? res.data.data.resource_configs
+          : payload.resource_configs,
+      });
+      setEditingDeposit(false);
+      toast.success("Pengaturan DP diperbarui");
+    } catch (error) {
+      const err = error as AxiosError<{ error?: string }>;
+      toast.error(err.response?.data?.error || "Gagal menyimpan pengaturan DP");
+    } finally {
+      setSavingDeposit(false);
+    }
   };
 
   return (
-    <div className="space-y-4">
-      <Card className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <div className="space-y-4 pb-12">
+      <Card className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-              Payment Settings
+              Payment Ops
             </p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
-              Metode pembayaran tenant
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">
+              Metode bayar dan DP
             </h1>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Atur metode aktif dulu, detail hanya dibuka saat perlu.
+            </p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-white/10 dark:bg-white/5">
-            <div className="text-slate-500">Metode aktif</div>
-            <div className="mt-1 text-2xl font-semibold text-slate-950 dark:text-white">
-              {activeCount}
-            </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-right dark:border-white/10 dark:bg-white/5">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Aktif</p>
+            <p className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">{activeCount}</p>
           </div>
         </div>
       </Card>
 
-      {items.map((item) => {
-        const isEditing = editingCode === item.code && draftItem;
-        const currentItem = isEditing ? draftItem : item;
-        const Icon =
-          item.code === "qris_static"
-            ? iconMap.qris_static
-            : item.code === "cash"
-              ? iconMap.cash
-              : iconMap.default;
+      <Card className="rounded-[1.75rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
+        <div className="border-b border-slate-100 p-4 dark:border-white/5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                Metode Bayar
+              </p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Toggle cepat untuk operasional. Edit hanya saat butuh detail.
+              </p>
+            </div>
+          </div>
+        </div>
 
-        return (
-          <Card
-            key={item.code}
-            className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm transition dark:border-white/10 dark:bg-[#0f0f17]"
-          >
-            <div className="flex flex-col gap-4 p-5">
-              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                <div className="flex min-w-0 items-start gap-3">
-                  <div className="mt-0.5 rounded-2xl bg-slate-100 p-3 text-slate-700 dark:bg-white/10 dark:text-white">
-                    <Icon className="h-5 w-5" />
+        <div className="space-y-3 p-4">
+          {items.map((item) => {
+            const isEditing = editingCode === item.code && draftItem;
+            const currentItem = isEditing ? draftItem : item;
+            const Icon = methodIcon(item.code);
+            const busy = savingMethodCode === item.code || savingMethodCode === "all";
+            const ready = getMethodValidationErrors(item).length === 0;
+
+            return (
+              <div
+                key={item.code}
+                className="rounded-[1.35rem] border border-slate-200 bg-slate-50/70 p-3 dark:border-white/10 dark:bg-white/[0.03]"
+              >
+                <div className="flex items-start gap-3">
+                  <div className={cn("rounded-2xl p-3", methodTone[item.code] || methodTone.cash)}>
+                    <Icon className="h-4 w-4" />
                   </div>
-                  <div className="min-w-0" title={renderCompactDetails(currentItem)}>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
-                        {currentItem.display_name}
-                      </h2>
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-medium ${
-                          currentItem.is_active
-                            ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-500/20"
-                            : "bg-slate-100 text-slate-600 ring-1 ring-slate-200 dark:bg-white/5 dark:text-slate-300 dark:ring-white/10"
-                        }`}
-                      >
-                        {currentItem.is_active ? "Aktif" : "Nonaktif"}
-                      </span>
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-white/5 dark:text-slate-300">
-                        {currentItem.verification_type === "auto"
-                          ? "Otomatis"
-                          : "Manual"}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                      {currentItem.verification_type === "auto"
-                        ? "Gateway"
-                        : "Verifikasi admin"}
-                    </p>
-                    {!isEditing ? (
-                      <>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {renderCompactMeta(currentItem).map((meta) => (
-                            <div
-                              key={`${currentItem.code}-${meta.label}`}
-                              className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-white/10 dark:bg-white/5"
-                            >
-                              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">
-                                {meta.label}
-                              </p>
-                              <p className="mt-1 font-medium text-slate-700 dark:text-slate-200">
-                                {meta.value}
-                              </p>
-                            </div>
-                          ))}
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h2 className="text-sm font-semibold text-slate-950 dark:text-white">
+                            {currentItem.display_name}
+                          </h2>
+                          <span
+                            className={cn(
+                              "rounded-full px-2.5 py-1 text-[11px] font-semibold",
+                              currentItem.is_active
+                                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200"
+                                : "bg-slate-200 text-slate-600 dark:bg-white/10 dark:text-slate-300",
+                            )}
+                          >
+                            {currentItem.is_active ? "Aktif" : "Nonaktif"}
+                          </span>
+                          <span className="rounded-full bg-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                            {labelMap[currentItem.code] || currentItem.verification_type}
+                          </span>
                         </div>
-                      </>
-                    ) : null}
+                        <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                          {methodSummary(currentItem)}
+                        </p>
+                      </div>
+
+                      {!isEditing ? (
+                        <Switch
+                          checked={item.is_active}
+                          disabled={busy || loading}
+                          onCheckedChange={(checked) => void toggleMethod(item, checked)}
+                        />
+                      ) : null}
+                    </div>
+
+                    {!isEditing ? (
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <div className="flex flex-wrap gap-2">
+                          {item.code === "bank_transfer" ? (
+                            <MiniChip label={item.metadata?.bank_name || "Bank belum diatur"} />
+                          ) : null}
+                          {item.code === "qris_static" ? (
+                            <MiniChip label={item.metadata?.qr_image_url ? "QRIS siap" : "QRIS kosong"} />
+                          ) : null}
+                          {item.code === "midtrans" ? <MiniChip label="DP & settlement auto" /> : null}
+                          {item.code === "cash" ? <MiniChip label="Tanpa bukti upload" /> : null}
+                          <MiniChip label={ready ? "Siap dipakai" : "Perlu dilengkapi"} tone={ready ? "emerald" : "amber"} />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => startEditing(item)}
+                          disabled={editingCode !== null || busy}
+                          className="h-9 rounded-xl px-3 text-xs"
+                        >
+                          <Edit3 className="mr-1.5 h-3.5 w-3.5" />
+                          Edit
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-[1.25rem] border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/[0.03]">
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <Field label="Nama tampil">
+                            <Input
+                              value={currentItem.display_name}
+                              onChange={(e) => updateDraft({ display_name: e.target.value })}
+                              disabled={busy}
+                            />
+                          </Field>
+
+                          <Field label="Aktif">
+                            <div className="flex h-10 items-center justify-between rounded-xl border border-slate-200 px-3 dark:border-white/10">
+                              <span className="text-sm text-slate-600 dark:text-slate-300">
+                                {currentItem.is_active ? "Siap dipakai customer" : "Disembunyikan"}
+                              </span>
+                              <Switch
+                                checked={currentItem.is_active}
+                                onCheckedChange={(checked) => updateDraft({ is_active: checked })}
+                                disabled={busy}
+                              />
+                            </div>
+                          </Field>
+
+                          {currentItem.code === "bank_transfer" ? (
+                            <>
+                              <Field label="Nama bank">
+                                <Input
+                                  value={currentItem.metadata?.bank_name || ""}
+                                  onChange={(e) => updateDraft({ metadata: { bank_name: e.target.value } })}
+                                  disabled={busy}
+                                />
+                              </Field>
+                              <Field label="Atas nama">
+                                <Input
+                                  value={currentItem.metadata?.account_name || ""}
+                                  onChange={(e) => updateDraft({ metadata: { account_name: e.target.value } })}
+                                  disabled={busy}
+                                />
+                              </Field>
+                              <Field label="Nomor rekening" className="md:col-span-2">
+                                <Input
+                                  value={currentItem.metadata?.account_number || ""}
+                                  onChange={(e) => updateDraft({ metadata: { account_number: e.target.value } })}
+                                  disabled={busy}
+                                />
+                              </Field>
+                            </>
+                          ) : null}
+
+                          {currentItem.code === "qris_static" ? (
+                            <Field label="QRIS" className="md:col-span-2">
+                              <div className="space-y-3">
+                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.03]">
+                                  <SingleImageUpload
+                                    value={currentItem.metadata?.qr_image_url || ""}
+                                    onChange={(url) => updateDraft({ metadata: { qr_image_url: url } })}
+                                    endpoint="/admin/upload-media"
+                                    label=""
+                                    aspect="square"
+                                  />
+                                </div>
+                                <Input
+                                  value={currentItem.metadata?.qr_image_url || ""}
+                                  onChange={(e) => updateDraft({ metadata: { qr_image_url: e.target.value } })}
+                                  disabled={busy}
+                                  placeholder="Atau isi URL gambar QRIS"
+                                />
+                                {currentItem.metadata?.qr_image_url ? (
+                                  <a
+                                    href={currentItem.metadata.qr_image_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-2 text-xs font-medium text-blue-600"
+                                  >
+                                    <Link2 className="h-3.5 w-3.5" />
+                                    Preview QRIS
+                                  </a>
+                                ) : null}
+                              </div>
+                            </Field>
+                          ) : null}
+
+                          <Field label="Instruksi" className="md:col-span-2">
+                            <Textarea
+                              value={currentItem.instructions}
+                              onChange={(e) => updateDraft({ instructions: e.target.value })}
+                              rows={3}
+                              disabled={busy}
+                            />
+                          </Field>
+                        </div>
+
+                        <div className="mt-3">
+                          {draftErrors.length > 0 ? (
+                            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100">
+                              {draftErrors.join(" ")}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-100">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Siap dipakai.
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="mt-4 flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={cancelEditing}
+                            disabled={busy}
+                            className="h-10 flex-1 rounded-xl"
+                          >
+                            <X className="mr-1.5 h-3.5 w-3.5" />
+                            Batal
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={() => void saveDraft()}
+                            disabled={busy}
+                            className="h-10 flex-1 rounded-xl bg-blue-600 text-white hover:bg-blue-500"
+                          >
+                            <Save className="mr-1.5 h-3.5 w-3.5" />
+                            {busy ? "Menyimpan..." : "Simpan"}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
 
-                {!isEditing ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => startEditing(item)}
-                    disabled={loading || saving || editingCode !== null}
-                    className="h-11 rounded-2xl px-4"
-                  >
-                    <Edit3 className="mr-2 h-4 w-4" />
-                    Edit
-                  </Button>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-slate-500">Aktif</span>
-                    <Switch
-                      checked={currentItem.is_active}
-                      onCheckedChange={toggleDraftMethod}
-                      disabled={saving}
-                    />
-                  </div>
-                )}
+      <Card className="rounded-[1.75rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
+        <div className="border-b border-slate-100 p-4 dark:border-white/5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                Deposit Policy
+              </p>
+              <h2 className="mt-1 text-base font-semibold text-slate-950 dark:text-white">
+                DP default dan override resource
+              </h2>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <MiniChip label={depositSettings.dp_enabled ? "DP aktif" : "DP nonaktif"} tone={depositSettings.dp_enabled ? "emerald" : "slate"} />
+              <MiniChip label={`${depositSettings.dp_percentage}% default`} />
+              <MiniChip label={`${overrideCount} override`} />
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-2">
+              <MiniChip label={depositSettings.dp_enabled ? "DP aktif" : "DP nonaktif"} tone={depositSettings.dp_enabled ? "emerald" : "slate"} />
+              <MiniChip label={`${depositSettings.dp_percentage}% default`} />
+              <MiniChip label={`${overrideCount} override`} />
+            </div>
+            {!editingDeposit ? (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setEditingDeposit(true)}
+                className="h-9 rounded-xl px-3 text-xs"
+              >
+                <Edit3 className="mr-1.5 h-3.5 w-3.5" />
+                Edit
+              </Button>
+            ) : null}
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-[1.1fr_0.9fr]">
+            <div className="rounded-[1.35rem] border border-slate-200 bg-slate-50/70 p-3 dark:border-white/10 dark:bg-white/[0.03]">
+              <div>
+                <p className="text-sm font-semibold text-slate-950 dark:text-white">DP default tenant</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Dipakai kalau resource belum punya override.
+                </p>
               </div>
 
-              {isEditing ? (
-                <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/5">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>Nama Tampil</Label>
-                      <Input
-                        value={currentItem.display_name}
-                        onChange={(e) =>
-                          updateDraft({ display_name: e.target.value })
-                        }
-                        disabled={saving}
-                      />
-                    </div>
-
-                    {currentItem.code === "bank_transfer" ? (
-                      <>
-                        <div className="space-y-2">
-                          <Label>Nama Bank</Label>
-                          <Input
-                            value={currentItem.metadata?.bank_name || ""}
-                            onChange={(e) =>
-                              updateDraft({
-                                metadata: { bank_name: e.target.value },
-                              })
-                            }
-                            disabled={saving}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Nama Pemilik Rekening</Label>
-                          <Input
-                            value={currentItem.metadata?.account_name || ""}
-                            onChange={(e) =>
-                              updateDraft({
-                                metadata: { account_name: e.target.value },
-                              })
-                            }
-                            disabled={saving}
-                          />
-                        </div>
-                        <div className="space-y-2 md:col-span-2">
-                          <Label>Nomor Rekening</Label>
-                          <Input
-                            value={currentItem.metadata?.account_number || ""}
-                            onChange={(e) =>
-                              updateDraft({
-                                metadata: { account_number: e.target.value },
-                              })
-                            }
-                            disabled={saving}
-                          />
-                        </div>
-                      </>
-                    ) : null}
-
-                    {currentItem.code === "qris_static" ? (
-                      <div className="space-y-2 md:col-span-2">
-                        <Label>Upload Gambar QRIS</Label>
-                        <SingleImageUpload
-                          value={currentItem.metadata?.qr_image_url || ""}
-                          onChange={(url) =>
-                            updateDraft({
-                              metadata: { qr_image_url: url },
-                            })
-                          }
-                          endpoint="/admin/upload-media"
-                          label=""
-                          aspect="square"
-                        />
-                        <div className="space-y-2">
-                          <Label>Atau isi URL Gambar QRIS</Label>
-                          <Input
-                            value={currentItem.metadata?.qr_image_url || ""}
-                            onChange={(e) =>
-                              updateDraft({
-                                metadata: { qr_image_url: e.target.value },
-                              })
-                            }
-                            disabled={saving}
-                          />
-                        </div>
-                        {currentItem.metadata?.qr_image_url ? (
-                          <a
-                            href={currentItem.metadata.qr_image_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 text-xs font-medium text-blue-600"
-                          >
-                            <Link2 className="h-3.5 w-3.5" />
-                            Preview link QRIS
-                          </a>
-                        ) : null}
-                      </div>
-                    ) : null}
-
-                    <div className="space-y-2 md:col-span-2">
-                      <Label>Instruksi Pembayaran</Label>
-                      <Textarea
-                        value={currentItem.instructions}
-                        onChange={(e) =>
-                          updateDraft({ instructions: e.target.value })
-                        }
-                        rows={4}
-                        disabled={saving}
-                      />
-                    </div>
+              {!editingDeposit ? (
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/[0.04]">
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-slate-400">Status</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+                      {depositSettings.dp_enabled ? "Aktif" : "Nonaktif"}
+                    </p>
                   </div>
-
-                  {draftErrors.length > 0 ? (
-                    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100">
-                      <p className="font-medium">
-                        Lengkapi data berikut sebelum metode ini diaktifkan:
-                      </p>
-                      <ul className="mt-2 list-disc pl-5">
-                        {draftErrors.map((error) => (
-                          <li key={error}>{error}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : (
-                    <div className="mt-4 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-100">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Konfigurasi metode ini sudah lengkap.
-                    </div>
-                  )}
-
-                  <div className="mt-4 flex justify-end gap-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={cancelEditing}
-                      disabled={saving}
-                      className="h-11 rounded-2xl px-5"
-                    >
-                      <X className="mr-2 h-4 w-4" />
-                      Batal
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={saveDraft}
-                      disabled={saving}
-                      className="h-11 rounded-2xl bg-blue-600 px-5 text-white hover:bg-blue-500"
-                    >
-                      <Save className="mr-2 h-4 w-4" />
-                      {saving ? "Menyimpan..." : "Simpan"}
-                    </Button>
+                  <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/[0.04]">
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-slate-400">Persentase</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+                      {depositSettings.dp_percentage}%
+                    </p>
                   </div>
                 </div>
-              ) : null}
+              ) : (
+                <div className="mt-3 space-y-3">
+                  <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/[0.04]">
+                    <span className="text-sm text-slate-600 dark:text-slate-300">DP default aktif</span>
+                    <Switch
+                      checked={depositSettings.dp_enabled}
+                      onCheckedChange={(checked) =>
+                        setDepositSettings((current) => ({ ...current, dp_enabled: checked }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Persentase default</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={depositSettings.dp_percentage}
+                      onChange={(event) =>
+                        setDepositSettings((current) => ({
+                          ...current,
+                          dp_percentage: Number(event.target.value || 0),
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+              )}
             </div>
-          </Card>
-        );
-      })}
+
+            <div className="rounded-[1.35rem] border border-slate-200 bg-slate-50/70 p-3 dark:border-white/10 dark:bg-white/[0.03]">
+              <p className="text-sm font-semibold text-slate-950 dark:text-white">Ringkas</p>
+              <div className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2 dark:bg-white/[0.04]">
+                  <span>Status</span>
+                  <span className="font-semibold">{depositSettings.dp_enabled ? "Aktif" : "Nonaktif"}</span>
+                </div>
+                <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2 dark:bg-white/[0.04]">
+                  <span>Default</span>
+                  <span className="font-semibold">{depositSettings.dp_percentage}%</span>
+                </div>
+                <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2 dark:bg-white/[0.04]">
+                  <span>Override</span>
+                  <span className="font-semibold">{overrideCount} resource</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowDepositOverrides((current) => !current)}
+            disabled={!editingDeposit}
+            className="flex w-full items-center justify-between rounded-[1.2rem] border border-slate-200 bg-slate-50/70 px-4 py-3 text-left dark:border-white/10 dark:bg-white/[0.03]"
+          >
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-slate-900/5 p-2 dark:bg-white/10">
+                <Settings2 className="h-4 w-4 text-slate-600 dark:text-slate-200" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-950 dark:text-white">Override resource</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  {editingDeposit
+                    ? "Buka hanya kalau ada resource yang ingin beda dari default."
+                    : "Masuk edit mode untuk mengubah override resource."}
+                </p>
+              </div>
+            </div>
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 text-slate-500 transition-transform",
+                showDepositOverrides && "rotate-180",
+              )}
+            />
+          </button>
+
+          {editingDeposit && showDepositOverrides ? (
+            <div className="space-y-3">
+              {resources.map((resource) => {
+                const override = getOverride(resource.id);
+                return (
+                  <div
+                    key={resource.id}
+                    className="rounded-[1.25rem] border border-slate-200 bg-slate-50/60 p-3 dark:border-white/10 dark:bg-white/[0.03]"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-950 dark:text-white">
+                          {resource.name}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          {override?.override_dp
+                            ? `${override.dp_enabled ? "DP aktif" : "DP nonaktif"} • ${override.dp_percentage}%`
+                            : "Ikut default tenant"}
+                        </p>
+                      </div>
+                      <Switch
+                        checked={Boolean(override?.override_dp)}
+                        onCheckedChange={(checked) =>
+                          updateDepositOverride(resource, {
+                            override_dp: checked,
+                            dp_enabled: checked ? (override?.dp_enabled ?? depositSettings.dp_enabled) : depositSettings.dp_enabled,
+                            dp_percentage: checked ? (override?.dp_percentage ?? depositSettings.dp_percentage) : depositSettings.dp_percentage,
+                          })
+                        }
+                      />
+                    </div>
+
+                    {override?.override_dp ? (
+                      <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/[0.04]">
+                          <span className="text-sm text-slate-600 dark:text-slate-300">DP aktif</span>
+                          <Switch
+                            checked={override.dp_enabled}
+                            onCheckedChange={(checked) =>
+                              updateDepositOverride(resource, { dp_enabled: checked })
+                            }
+                          />
+                        </div>
+                        <div>
+                          <Label>Persentase</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={override.dp_percentage}
+                            onChange={(event) =>
+                              updateDepositOverride(resource, {
+                                dp_percentage: Number(event.target.value || 0),
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {editingDeposit ? (
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEditingDeposit(false);
+                  setShowDepositOverrides(false);
+                }}
+                disabled={savingDeposit}
+                className="h-10 flex-1 rounded-xl"
+              >
+                <X className="mr-1.5 h-3.5 w-3.5" />
+                Batal
+              </Button>
+              <Button
+                onClick={() => void saveDepositSettings()}
+                disabled={savingDeposit}
+                className="h-10 flex-1 rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
+              >
+                <Save className="mr-1.5 h-3.5 w-3.5" />
+                {savingDeposit ? "Menyimpan..." : "Simpan DP"}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      </Card>
     </div>
+  );
+}
+
+function Field({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("space-y-2", className)}>
+      <Label>{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+function MiniChip({
+  label,
+  tone = "slate",
+}: {
+  label: string;
+  tone?: "slate" | "emerald" | "amber";
+}) {
+  const tones = {
+    slate: "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300",
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200",
+    amber: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200",
+  };
+
+  return (
+    <span className={cn("rounded-full border px-2.5 py-1 text-[11px] font-semibold", tones[tone])}>
+      {label}
+    </span>
   );
 }

@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -195,7 +197,7 @@ func (r *Repository) ExtendSessionWithValidation(ctx context.Context, bID uuid.U
 }
 
 // CreateWithItems menyimpan data booking beserta pilihan item dengan Quantity dinamis
-func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []uuid.UUID, duration int) error {
+func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []uuid.UUID, duration int, redemption *PromoRedemptionInput) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("repo: gagal memulai transaksi: %w", err)
@@ -205,12 +207,14 @@ func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []u
 	queryBooking := `
 		INSERT INTO bookings (
 			id, tenant_id, customer_id, resource_id, start_time, end_time, access_token,
-			status, grand_total, deposit_amount, paid_amount, balance_due, payment_status, payment_method,
+			status, promo_id, promo_code, original_grand_total, discount_amount, promo_snapshot,
+			grand_total, deposit_amount, paid_amount, balance_due, payment_status, payment_method,
 			session_activated_at, last_status_changed_at, created_at
 		)
 		VALUES (
 			:id, :tenant_id, :customer_id, :resource_id, :start_time, :end_time, :access_token,
-			:status, :grand_total, :deposit_amount, :paid_amount, :balance_due, :payment_status, :payment_method,
+			:status, :promo_id, :promo_code, :original_grand_total, :discount_amount, :promo_snapshot,
+			:grand_total, :deposit_amount, :paid_amount, :balance_due, :payment_status, :payment_method,
 			:session_activated_at, :last_status_changed_at, :created_at
 		)`
 
@@ -238,6 +242,30 @@ func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []u
 			if err != nil {
 				return err
 			}
+		}
+	}
+	if redemption != nil {
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO tenant_promo_redemptions (
+				id, promo_id, tenant_id, booking_id, customer_id, promo_code, discount_amount,
+				original_amount, final_amount, snapshot, status, redeemed_at, created_at
+			) VALUES (
+				$1, $2, $3, $4, $5, $6, $7,
+				$8, $9, $10, 'redeemed', NOW(), NOW()
+			)`,
+			uuid.New(),
+			redemption.PromoID,
+			b.TenantID,
+			b.ID,
+			redemption.CustomerID,
+			redemption.PromoCode,
+			redemption.DiscountAmount,
+			redemption.OriginalAmount,
+			redemption.FinalAmount,
+			redemption.SnapshotPayload,
+		)
+		if err != nil {
+			return err
 		}
 	}
 	createTitle := "Booking dibuat"
@@ -314,6 +342,18 @@ func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error
 		ORDER BY sort_order ASC, created_at ASC`, b.TenantID); err != nil {
 		return err
 	}
+	if len(b.PaymentMethods) == 0 {
+		if err := r.seedDefaultTenantPaymentMethods(ctx, b.TenantID); err != nil {
+			return err
+		}
+		if err := r.db.SelectContext(ctx, &b.PaymentMethods, `
+			SELECT code, display_name, category, verification_type, provider, instructions, is_active, sort_order, metadata
+			FROM tenant_payment_methods
+			WHERE tenant_id = $1 AND is_active = true
+			ORDER BY sort_order ASC, created_at ASC`, b.TenantID); err != nil {
+			return err
+		}
+	}
 
 	b.PaymentAttempts = make([]BookingPaymentAttemptSummary, 0)
 	if err := r.db.SelectContext(ctx, &b.PaymentAttempts, `
@@ -368,6 +408,32 @@ func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error
 		FROM booking_events
 		WHERE booking_id = $1
 		ORDER BY created_at ASC`, b.ID)
+}
+
+func (r *Repository) seedDefaultTenantPaymentMethods(ctx context.Context, tenantID uuid.UUID) error {
+	now := time.Now().UTC()
+	defaults := []BookingPaymentMethod{
+		{Code: "midtrans", DisplayName: "Midtrans / QRIS Gateway", Category: "gateway", VerificationType: "auto", Provider: "midtrans", Instructions: "Pembayaran diverifikasi otomatis oleh gateway Midtrans.", IsActive: true, SortOrder: 10, Metadata: JSONB(`{}`)},
+		{Code: "bank_transfer", DisplayName: "Transfer Bank", Category: "manual", VerificationType: "manual", Provider: "bank_transfer", Instructions: "Transfer ke rekening tenant lalu kirim bukti bayar untuk diverifikasi admin.", IsActive: false, SortOrder: 20, Metadata: JSONB(`{}`)},
+		{Code: "qris_static", DisplayName: "QRIS Static", Category: "manual", VerificationType: "manual", Provider: "qris_static", Instructions: "Scan QRIS tenant lalu kirim bukti bayar untuk diverifikasi admin.", IsActive: false, SortOrder: 30, Metadata: JSONB(`{}`)},
+		{Code: "cash", DisplayName: "Cash / Bayar di Tempat", Category: "manual", VerificationType: "manual", Provider: "cash", Instructions: "Pembayaran diterima langsung oleh admin atau kasir tenant.", IsActive: true, SortOrder: 40, Metadata: JSONB(`{}`)},
+	}
+	for _, item := range defaults {
+		if _, err := r.db.ExecContext(ctx, `
+			INSERT INTO tenant_payment_methods (
+				id, tenant_id, code, display_name, category, verification_type, provider,
+				instructions, is_active, sort_order, metadata, created_at, updated_at
+			) VALUES (
+				$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13
+			)
+			ON CONFLICT (tenant_id, code) DO NOTHING`,
+			uuid.New(), tenantID, item.Code, item.DisplayName, item.Category, item.VerificationType, item.Provider,
+			item.Instructions, item.IsActive, item.SortOrder, item.Metadata, now, now,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // GetByToken menarik detail untuk pengecekan status tiket customer (Hydrated)
@@ -587,25 +653,192 @@ func (r *Repository) AddAddonOrder(ctx context.Context, bookingID uuid.UUID, ite
 }
 
 func (r *Repository) recalculateBookingTotalsTx(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID) error {
+	var booking Booking
+	if err := sqlx.GetContext(ctx, exec, &booking, `
+		SELECT * FROM bookings WHERE id = $1 LIMIT 1`, bookingID); err != nil {
+		return err
+	}
+
+	var originalTotal float64
+	if err := sqlx.GetContext(ctx, exec, &originalTotal, `
+		SELECT
+			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = $1), 0)
+			+ COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = $1), 0)`, bookingID); err != nil {
+		return err
+	}
+
+	discountAmount := booking.DiscountAmount
+	if shouldFloatPromoDiscount(booking.PromoSnapshot) {
+		discountAmount = calculatePromoDiscountFromSnapshot(booking.PromoSnapshot, originalTotal)
+	}
+	grandTotal := math.Max(originalTotal-discountAmount, 0)
+	paidAmount := booking.PaidAmount
+	if booking.PaymentStatus == "partial_paid" || booking.PaymentStatus == "paid" || booking.PaymentStatus == "settled" {
+		paidAmount = math.Max(booking.PaidAmount, booking.DepositAmount)
+	}
+	balanceDue := math.Max(grandTotal-paidAmount, 0)
+
 	_, err := exec.ExecContext(ctx, `
 		UPDATE bookings
-		SET
-			grand_total = COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = $1), 0)
-				+ COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = $1), 0),
-			paid_amount = CASE
-				WHEN payment_status IN ('partial_paid', 'paid', 'settled') THEN GREATEST(paid_amount, deposit_amount)
-				ELSE paid_amount
-			END,
-			balance_due = GREATEST(
-				COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = $1), 0)
-				+ COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = $1), 0)
-				- paid_amount,
-				0
-			)
+		SET original_grand_total = $2,
+			discount_amount = $3,
+			grand_total = $4,
+			paid_amount = $5,
+			balance_due = $6
 		WHERE id = $1`,
-		bookingID,
+		bookingID, originalTotal, discountAmount, grandTotal, paidAmount, balanceDue,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+
+	if shouldFloatPromoDiscount(booking.PromoSnapshot) && booking.PromoID != nil {
+		updatedSnapshot, err := updatePromoSnapshotAmounts(booking.PromoSnapshot, originalTotal, discountAmount, grandTotal)
+		if err != nil {
+			return err
+		}
+		if _, err := exec.ExecContext(ctx, `
+			UPDATE bookings
+			SET promo_snapshot = $2
+			WHERE id = $1`,
+			bookingID, updatedSnapshot,
+		); err != nil {
+			return err
+		}
+		if _, err := exec.ExecContext(ctx, `
+			UPDATE tenant_promo_redemptions
+			SET discount_amount = $2,
+				original_amount = $3,
+				final_amount = $4,
+				snapshot = $5
+			WHERE booking_id = $1 AND promo_id = $6`,
+			bookingID, discountAmount, originalTotal, grandTotal, updatedSnapshot, *booking.PromoID,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Repository) ResolveDepositPolicy(ctx context.Context, tenantID, resourceID uuid.UUID) (bool, float64, error) {
+	type depositSetting struct {
+		DPEnabled    bool    `db:"dp_enabled"`
+		DPPercentage float64 `db:"dp_percentage"`
+	}
+	var resourceOverride struct {
+		OverrideDP   bool    `db:"override_dp"`
+		DPEnabled    bool    `db:"dp_enabled"`
+		DPPercentage float64 `db:"dp_percentage"`
+	}
+	if err := r.db.GetContext(ctx, &resourceOverride, `
+		SELECT override_dp, dp_enabled, dp_percentage
+		FROM tenant_resource_deposit_overrides
+		WHERE tenant_id = $1 AND resource_id = $2
+		LIMIT 1`, tenantID, resourceID); err == nil {
+		if resourceOverride.OverrideDP {
+			return resourceOverride.DPEnabled, resourceOverride.DPPercentage, nil
+		}
+	} else if err != sql.ErrNoRows {
+		return false, 0, err
+	}
+
+	var tenantSetting depositSetting
+	if err := r.db.GetContext(ctx, &tenantSetting, `
+		SELECT dp_enabled, dp_percentage
+		FROM tenant_deposit_settings
+		WHERE tenant_id = $1
+		LIMIT 1`, tenantID); err == nil {
+		return tenantSetting.DPEnabled, tenantSetting.DPPercentage, nil
+	} else if err != sql.ErrNoRows {
+		return false, 0, err
+	}
+
+	if _, err := r.db.ExecContext(ctx, `
+		INSERT INTO tenant_deposit_settings (tenant_id, dp_enabled, dp_percentage, created_at, updated_at)
+		VALUES ($1, true, 40, NOW(), NOW())
+		ON CONFLICT (tenant_id) DO NOTHING`, tenantID); err != nil {
+		return false, 0, err
+	}
+	return true, 40, nil
+}
+
+func updatePromoSnapshotAmounts(snapshot JSONB, originalTotal, discountAmount, finalAmount float64) (JSONB, error) {
+	if len(snapshot) == 0 {
+		return JSONB(`{}`), nil
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(snapshot, &payload); err != nil {
+		return nil, err
+	}
+	payload["applied_discount_amount"] = discountAmount
+	payload["original_amount"] = originalTotal
+	payload["final_amount"] = finalAmount
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	return JSONB(raw), nil
+}
+
+func shouldFloatPromoDiscount(snapshot JSONB) bool {
+	if len(snapshot) == 0 {
+		return false
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(snapshot, &payload); err != nil {
+		return false
+	}
+	return strings.EqualFold(toString(payload["discount_behavior"]), "floating")
+}
+
+func calculatePromoDiscountFromSnapshot(snapshot JSONB, originalTotal float64) float64 {
+	if len(snapshot) == 0 || originalTotal <= 0 {
+		return 0
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(snapshot, &payload); err != nil {
+		return 0
+	}
+	discountType := strings.ToLower(toString(payload["discount_type"]))
+	discountValue := toFloat(payload["discount_value"])
+	maxDiscount := toFloat(payload["max_discount_amount"])
+
+	var discount float64
+	if discountType == "percentage" {
+		discount = math.Round(originalTotal * discountValue / 100)
+	} else {
+		discount = math.Round(discountValue)
+	}
+	if maxDiscount > 0 && discount > maxDiscount {
+		discount = maxDiscount
+	}
+	if discount > originalTotal {
+		return originalTotal
+	}
+	return discount
+}
+
+func toFloat(value any) float64 {
+	switch v := value.(type) {
+	case float64:
+		return v
+	case int:
+		return float64(v)
+	case int64:
+		return float64(v)
+	case json.Number:
+		f, _ := v.Float64()
+		return f
+	default:
+		return 0
+	}
+}
+
+func toString(value any) string {
+	if text, ok := value.(string); ok {
+		return strings.TrimSpace(text)
+	}
+	return ""
 }
 
 func (r *Repository) FindActiveSessions(ctx context.Context, tenantID uuid.UUID) ([]BookingDetail, error) {

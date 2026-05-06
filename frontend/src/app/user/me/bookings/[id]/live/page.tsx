@@ -343,6 +343,12 @@ export default function CustomerBookingDetail() {
       ),
     [paymentAttempts],
   );
+  const hasPromo = useMemo(
+    () =>
+      Number(booking?.discount_amount || 0) > 0 &&
+      String(booking?.promo_code || "").trim() !== "",
+    [booking?.discount_amount, booking?.promo_code],
+  );
 
   const paymentLabel = useMemo(() => {
     if (paymentStatus === "settled") return "Lunas";
@@ -787,6 +793,24 @@ export default function CustomerBookingDetail() {
           <div className="mt-4 rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200">
             {paymentGuidance}
           </div>
+
+          {hasPromo ? (
+            <div className="mt-3 rounded-[1.25rem] border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-200">
+                    Promo
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+                    {booking.promo_code}
+                  </p>
+                </div>
+                <Badge className="border-none bg-emerald-600 text-white">
+                  -Rp {Number(booking.discount_amount || 0).toLocaleString("id-ID")}
+                </Badge>
+              </div>
+            </div>
+          ) : null}
 
           {paymentStatus === "awaiting_verification" && pendingManualSettlementAttempt ? (
             <div className="mt-3 rounded-[1.25rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100">

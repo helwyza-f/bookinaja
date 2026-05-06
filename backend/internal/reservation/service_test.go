@@ -3,14 +3,20 @@ package reservation
 import "testing"
 
 func TestCalculateDepositAmountUsesMinimumThreshold(t *testing.T) {
-	if got := calculateDepositAmount(12000); got != 10000 {
+	if got := calculateDepositAmount(12000, true, 40); got != 10000 {
 		t.Fatalf("calculateDepositAmount(12000) = %f, want 10000", got)
 	}
 }
 
 func TestCalculateDepositAmountNeverExceedsGrandTotal(t *testing.T) {
-	if got := calculateDepositAmount(8000); got != 8000 {
+	if got := calculateDepositAmount(8000, true, 40); got != 8000 {
 		t.Fatalf("calculateDepositAmount(8000) = %f, want 8000", got)
+	}
+}
+
+func TestCalculateDepositAmountCanBeDisabled(t *testing.T) {
+	if got := calculateDepositAmount(120000, false, 40); got != 0 {
+		t.Fatalf("calculateDepositAmount(120000, false, 40) = %f, want 0", got)
 	}
 }
 
@@ -38,6 +44,8 @@ func TestResolveBookingLifecycleUsesPendingAndDepositForScheduled(t *testing.T) 
 		CreateBookingReq{BookingMode: "scheduled"},
 		true,
 		120000,
+		true,
+		40,
 	)
 
 	if status != "pending" {
@@ -65,6 +73,8 @@ func TestResolveBookingLifecycleBypassesDepositForWalkIn(t *testing.T) {
 		CreateBookingReq{BookingMode: "walkin"},
 		true,
 		150000,
+		true,
+		40,
 	)
 
 	if status != "active" {

@@ -18,6 +18,11 @@ type Booking struct {
 	EndTime             time.Time  `db:"end_time" json:"end_time"`
 	AccessToken         uuid.UUID  `db:"access_token" json:"access_token"`
 	Status              string     `db:"status" json:"status"` // pending, active, ongoing, completed, cancelled
+	PromoID             *uuid.UUID `db:"promo_id" json:"promo_id,omitempty"`
+	PromoCode           string     `db:"promo_code" json:"promo_code,omitempty"`
+	OriginalGrandTotal  float64    `db:"original_grand_total" json:"original_grand_total"`
+	DiscountAmount      float64    `db:"discount_amount" json:"discount_amount"`
+	PromoSnapshot       JSONB      `db:"promo_snapshot" json:"promo_snapshot"`
 	GrandTotal          float64    `db:"grand_total" json:"grand_total"`
 	DepositAmount       float64    `db:"deposit_amount" json:"deposit_amount"`
 	PaidAmount          float64    `db:"paid_amount" json:"paid_amount"`
@@ -49,6 +54,7 @@ type CreateBookingReq struct {
 	ItemIDs       []string `json:"item_ids"`
 	StartTime     string   `json:"start_time" binding:"required"`
 	Duration      int      `json:"duration" binding:"required,min=1"`
+	PromoCode     string   `json:"promo_code"`
 	Status        string   `json:"status"` // Tambahkan ini: opsional (pending, active, confirmed)
 	BookingMode   string   `json:"booking_mode"`
 }
@@ -75,6 +81,7 @@ type BookingDetail struct {
 	TotalResource   float64                        `db:"total_resource" json:"total_resource"`
 	TotalFnb        float64                        `db:"total_fnb" json:"total_fnb"`
 	GrandTotal      float64                        `db:"grand_total" json:"grand_total"`
+	DiscountAmount  float64                        `db:"discount_amount" json:"discount_amount"`
 	ResourceAddons  []ResourceItemSimple           `json:"resource_addons"`
 	PaymentMethods  []BookingPaymentMethod         `json:"payment_methods"`
 	PaymentAttempts []BookingPaymentAttemptSummary `json:"payment_attempts"`
@@ -191,6 +198,16 @@ type ActorContext struct {
 type ReceiptDeliveryResult struct {
 	Message string `json:"message"`
 	Target  string `json:"target"`
+}
+
+type PromoRedemptionInput struct {
+	PromoID         uuid.UUID
+	CustomerID      uuid.UUID
+	PromoCode       string
+	DiscountAmount  float64
+	OriginalAmount  float64
+	FinalAmount     float64
+	SnapshotPayload []byte
 }
 
 type ReceiptContext struct {

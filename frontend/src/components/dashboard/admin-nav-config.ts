@@ -10,6 +10,7 @@ import {
   Megaphone,
   MonitorPlay,
   Radio,
+  TicketPercent,
   Sparkles,
   Users,
   UsersRound,
@@ -87,6 +88,13 @@ export const settingsNavItems: AdminNavItem[] = [
     icon: Landmark,
     hint: "Transfer & gateway",
     group: "system",
+  },
+  {
+    label: "Promo",
+    href: "/admin/settings/promo",
+    icon: TicketPercent,
+    hint: "Voucher & diskon",
+    group: "growth",
   },
   {
     label: "Billing",

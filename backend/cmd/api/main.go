@@ -25,6 +25,7 @@ import (
 	platformmqtt "github.com/helwiza/backend/internal/platform/mqtt"
 	platformrealtime "github.com/helwiza/backend/internal/platform/realtime"
 	"github.com/helwiza/backend/internal/platformadmin"
+	"github.com/helwiza/backend/internal/promo"
 	"github.com/helwiza/backend/internal/reservation"
 	"github.com/helwiza/backend/internal/resource"
 	"github.com/helwiza/backend/internal/smartdevice"
@@ -105,6 +106,7 @@ func main() {
 	resourceRepo := resource.NewRepository(db, rdb)
 	reservationRepo := reservation.NewRepository(db)
 	fnbRepo := fnb.NewRepository(db, rdb)
+	promoRepo := promo.NewRepository(db)
 	billingRepo := billing.NewRepository(db)
 	platformRepo := platformadmin.NewRepository(db)
 	midtransRepo := midtranssvc.NewRepository(db, rdb)
@@ -116,9 +118,10 @@ func main() {
 	expenseSvc := expense.NewService(expenseRepo)
 	resourceSvc := resource.NewService(resourceRepo)
 	fnbSvc := fnb.NewService(fnbRepo)
+	promoSvc := promo.NewService(promoRepo)
 	realtimeHub := platformrealtime.NewHub()
 	smartDeviceSvc := smartdevice.NewService(smartDeviceRepo, mqttClient, realtimeHub)
-	reservationSvc := reservation.NewService(reservationRepo, resourceRepo, customerSvc, fnbSvc, smartDeviceSvc, realtimeHub)
+	reservationSvc := reservation.NewService(reservationRepo, resourceRepo, customerSvc, fnbSvc, promoSvc, smartDeviceSvc, realtimeHub)
 	scheduler := reservation.NewScheduler(db, reservationRepo, smartDeviceSvc)
 	billingSvc := billing.NewService(db, billingRepo, realtimeHub)
 	platformSvc := platformadmin.NewService()
@@ -133,6 +136,7 @@ func main() {
 	resourceHdl := resource.NewHandler(resourceSvc)
 	reservationHdl := reservation.NewHandler(reservationSvc, tenantSvc)
 	fnbHdl := fnb.NewHandler(fnbSvc)
+	promoHdl := promo.NewHandler(promoSvc)
 	billingHdl := billing.NewHandler(billingSvc)
 	platformHdl := platformadmin.NewHandler(platformSvc, platformRepo)
 	midtransSvc := midtranssvc.NewService(db, midtransRepo, realtimeHub)
@@ -148,6 +152,7 @@ func main() {
 		CustomerHandler:    customerHdl,
 		AuthHandler:        authHdl,
 		FnbHandler:         fnbHdl,
+		PromoHandler:       promoHdl,
 		ExpenseHandler:     expenseHdl,
 		BillingHandler:     billingHdl,
 		PlatformHandler:    platformHdl,
