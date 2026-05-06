@@ -38,13 +38,35 @@ function paymentStatusMeta(status?: string) {
   }
   if (normalized === "settled" || normalized === "paid") {
     return {
-      label: "Pembayaran Tercatat",
+      label: "Lunas",
       className: "rounded-full bg-emerald-600 text-white",
       hint: "Pembayaran booking sudah masuk di sistem.",
     };
   }
+  if (normalized === "pending") {
+    return {
+      label: "Menunggu Pembayaran",
+      className:
+        "rounded-full bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200",
+      hint: "Selesaikan pembayaran sesuai metode yang dipilih agar booking bisa lanjut diproses.",
+    };
+  }
+  if (normalized === "expired") {
+    return {
+      label: "Kadaluarsa",
+      className: "rounded-full bg-red-500 text-white",
+      hint: "Pembayaran sebelumnya sudah lewat batas waktu. Silakan mulai lagi dari halaman pembayaran.",
+    };
+  }
+  if (normalized === "failed") {
+    return {
+      label: "Gagal",
+      className: "rounded-full bg-red-500 text-white",
+      hint: "Pembayaran belum berhasil diproses. Coba ulangi dengan metode yang sama atau pilih metode lain.",
+    };
+  }
   return {
-    label: status || "pending",
+    label: "Menunggu Pembayaran",
     className:
       "rounded-full bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200",
     hint: "Status pembayaran akan berubah otomatis setelah customer membayar atau admin memverifikasi pembayaran manual.",
@@ -287,8 +309,14 @@ function sessionMeta(status?: string) {
       className: "rounded-full bg-blue-600 text-white",
     };
   }
+  if (normalized === "cancelled") {
+    return {
+      label: "Dibatalkan",
+      className: "rounded-full bg-red-500 text-white",
+    };
+  }
   return {
-    label: status || "pending",
+    label: "Menunggu",
     className: "rounded-full bg-amber-500 text-white",
   };
 }

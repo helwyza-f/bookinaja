@@ -166,11 +166,6 @@ export default function BookingPaymentPage() {
           ? "Tercatat"
           : booking?.payment_status || "pending";
 
-  const pendingAttemptHint =
-    scope === "deposit"
-      ? "DP menunggu verifikasi admin."
-      : "Pelunasan menunggu verifikasi admin.";
-
   const selectedMethodRequiresProof =
     selectedMethodDetail?.verification_type === "manual" &&
     selectedMethodDetail?.code !== "cash";
@@ -181,13 +176,6 @@ export default function BookingPaymentPage() {
       : selectedMethodDetail?.code === "cash"
         ? "Bayar lalu konfirmasi."
         : "Upload lalu kirim.";
-
-  const confirmationHint =
-    selectedMethodDetail?.verification_type === "auto"
-      ? "Redirect ke Midtrans."
-      : selectedMethodDetail?.code === "cash"
-        ? "Catatan opsional."
-        : "Bukti harus jelas.";
 
   useEffect(() => {
     if (selectedMethodDetail?.code === "cash" && manualProofUrl) {
@@ -272,7 +260,7 @@ export default function BookingPaymentPage() {
             </div>
           )}
           <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs font-medium text-blue-900 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100">
-            Scan lalu upload.
+            Scan QR lalu lanjut kirim.
           </div>
         </div>
       );
@@ -466,7 +454,7 @@ export default function BookingPaymentPage() {
 
       {pendingManualAttempt ? (
         <Card className="rounded-[1.5rem] border border-amber-200 bg-white p-4 shadow-sm dark:border-amber-500/20 dark:bg-[#0b0f19]">
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex items-start gap-3">
                 <div className="rounded-2xl bg-amber-100 p-3 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200">
                   <Clock3 className="h-5 w-5" />
@@ -480,9 +468,6 @@ export default function BookingPaymentPage() {
                       {pendingAttemptStatus === "awaiting_verification" ? "Menunggu Verifikasi" : pendingManualAttempt.status}
                     </Badge>
                   </div>
-                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                    {pendingAttemptHint}
-                  </p>
                 </div>
               </div>
 
@@ -503,9 +488,6 @@ export default function BookingPaymentPage() {
 
               {pendingManualAttempt.proof_url ? (
                 <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
-                    Bukti bayar terkirim
-                  </p>
                   <div className="mt-3 overflow-hidden rounded-[1.25rem] border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
                     <img
                       src={pendingManualAttempt.proof_url}
@@ -518,9 +500,6 @@ export default function BookingPaymentPage() {
 
               {pendingManualAttempt.payer_note ? (
                 <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
-                    Catatan yang kamu kirim
-                  </p>
                   <p className="mt-2">{pendingManualAttempt.payer_note}</p>
                 </div>
               ) : null}
@@ -545,7 +524,7 @@ export default function BookingPaymentPage() {
         </Card>
       ) : (
         <Card className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-blue-600" />
                 <p className="text-sm font-semibold text-slate-950 dark:text-white">Metode</p>
@@ -591,13 +570,13 @@ export default function BookingPaymentPage() {
               </div>
 
               {selectedMethodDetail ? (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
                     <div className="flex items-center gap-2 text-slate-900 dark:text-white">
                       <ArrowRight className="h-4 w-4 text-blue-600" />
-                      <p className="text-sm font-semibold">Detail</p>
+                      <p className="text-sm font-semibold">Instruksi</p>
                     </div>
-                    <p className="mt-2 text-[11px] leading-5 text-slate-500 dark:text-slate-400">
+                    <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
                       {selectedMethodDetail.instructions || getPaymentMethodMeta(selectedMethodDetail)}
                     </p>
                     <div className="mt-4">
@@ -615,8 +594,8 @@ export default function BookingPaymentPage() {
                         {selectedMethodDetail.verification_type === "auto"
                           ? "Checkout"
                           : selectedMethodDetail.code === "cash"
-                            ? "Konfirmasi"
-                            : "Bukti"}
+                          ? "Konfirmasi"
+                            : "Kirim"}
                       </p>
                     </div>
                     <div className="mt-3 rounded-2xl bg-white px-3 py-2 text-[11px] font-medium text-slate-600 dark:bg-white/5 dark:text-slate-300">
@@ -626,18 +605,11 @@ export default function BookingPaymentPage() {
                           ? "Dicek admin."
                           : "Dicek admin."}
                     </div>
-                    <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-                      {confirmationHint}
-                    </p>
-
                     {selectedMethodDetail.verification_type !== "auto" ? (
-                      <div className="mt-4 space-y-4">
+                      <div className="mt-4 space-y-3">
                         {selectedMethodRequiresProof ? (
                           <div className="rounded-[1.5rem] border border-blue-200 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/10">
                             <div className="space-y-2">
-                              <label className="text-sm font-semibold text-slate-900 dark:text-white">
-                                Bukti bayar
-                              </label>
                               <label className="mt-2 block cursor-pointer">
                                 <input
                                   type="file"
@@ -649,9 +621,9 @@ export default function BookingPaymentPage() {
                                   }}
                                   className="hidden"
                                 />
-                                <div className="rounded-[1.5rem] border border-dashed border-blue-300 bg-white/90 p-5 text-center transition hover:border-blue-500 hover:bg-white dark:border-blue-400/30 dark:bg-slate-950/40 dark:hover:border-blue-300">
+                                <div className="overflow-hidden rounded-[1.5rem] border border-dashed border-blue-300 bg-white/90 transition hover:border-blue-500 hover:bg-white dark:border-blue-400/30 dark:bg-slate-950/40 dark:hover:border-blue-300">
                                   {proofUploading ? (
-                                    <div className="space-y-3">
+                                    <div className="space-y-3 p-5 text-center">
                                       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-white">
                                         <Upload className="h-6 w-6 animate-pulse" />
                                       </div>
@@ -662,21 +634,34 @@ export default function BookingPaymentPage() {
                                       </div>
                                     </div>
                                   ) : manualProofUrl ? (
-                                    <div className="space-y-3">
-                                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-600 text-white">
-                                        <CheckCircle2 className="h-6 w-6" />
-                                      </div>
-                                      <div>
-                                        <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                                    <div>
+                                      <div className="relative">
+                                        <img
+                                          src={manualProofUrl}
+                                          alt="Bukti pembayaran"
+                                          className="max-h-72 w-full object-cover"
+                                        />
+                                        <div className="absolute left-3 top-3 flex items-center gap-2 rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white shadow-lg">
+                                          <CheckCircle2 className="h-3.5 w-3.5" />
                                           Bukti terupload
-                                        </p>
-                                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                          Tap untuk ganti
-                                        </p>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center justify-between gap-3 p-4">
+                                        <div>
+                                          <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                                            Bukti bayar
+                                          </p>
+                                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                            Tap untuk ganti
+                                          </p>
+                                        </div>
+                                        <div className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-200">
+                                          Ganti
+                                        </div>
                                       </div>
                                     </div>
                                   ) : (
-                                    <div className="space-y-3">
+                                    <div className="space-y-3 p-5 text-center">
                                       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-200">
                                         <ImagePlus className="h-6 w-6" />
                                       </div>
@@ -692,15 +677,6 @@ export default function BookingPaymentPage() {
                                   )}
                                 </div>
                               </label>
-                              {manualProofUrl ? (
-                                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/5">
-                                  <img
-                                    src={manualProofUrl}
-                                    alt="Bukti pembayaran"
-                                    className="max-h-64 w-full rounded-xl object-cover"
-                                  />
-                                </div>
-                              ) : null}
                             </div>
                           </div>
                         ) : (
@@ -722,12 +698,12 @@ export default function BookingPaymentPage() {
                             className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none dark:border-white/10 dark:bg-slate-950/40"
                             placeholder={
                               selectedMethodDetail.code === "bank_transfer"
-                                ? "Transfer BCA 13:20"
+                                ? "Contoh: transfer BCA 13:20"
                                 : selectedMethodDetail.code === "qris_static"
-                                  ? "GoPay 13:25"
+                                  ? "Contoh: QRIS 13:25"
                                   : selectedMethodDetail.code === "cash"
-                                    ? "Bayar ke kasir"
-                                  : "Catatan"
+                                    ? "Contoh: bayar ke kasir"
+                                  : "Opsional"
                             }
                           />
                         </div>

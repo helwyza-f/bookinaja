@@ -349,11 +349,19 @@ export default function CustomerBookingDetail() {
     if (paymentStatus === "awaiting_verification") return "Menunggu Verifikasi";
     if (paymentStatus === "partial_paid") return "DP Masuk";
     if (paymentStatus === "paid") return balanceDue > 0 ? "DP Masuk" : "Lunas";
-    if (paymentStatus === "pending") return "Menunggu DP";
-    if (paymentStatus === "expired") return "DP Kadaluarsa";
-    if (paymentStatus === "failed") return "Gagal Bayar";
-    return "Belum Dibayar";
+    if (paymentStatus === "pending") return "Menunggu Pembayaran";
+    if (paymentStatus === "expired") return "Kadaluarsa";
+    if (paymentStatus === "failed") return "Gagal";
+    return "Menunggu Pembayaran";
   }, [paymentStatus, balanceDue]);
+
+  const sessionLabel = useMemo(() => {
+    if (sessionStatus === "active" || sessionStatus === "ongoing") return "Sedang Berjalan";
+    if (sessionStatus === "completed") return "Selesai";
+    if (sessionStatus === "confirmed") return "Siap Mulai";
+    if (sessionStatus === "cancelled") return "Dibatalkan";
+    return "Menunggu";
+  }, [sessionStatus]);
 
   const paymentStateTone =
     paymentStatus === "settled" || (paymentStatus === "paid" && balanceDue === 0)
@@ -618,7 +626,7 @@ export default function CustomerBookingDetail() {
 
             <div className="flex flex-wrap gap-2">
               <Badge className={cn("border-none", sessionTone)}>
-                Sesi: {booking.status}
+                Sesi: {sessionLabel}
               </Badge>
               <Badge className={cn("border-none", paymentStateTone)}>
                 Bayar: {paymentLabel}
@@ -1021,4 +1029,3 @@ function TicketSkeleton() {
     </div>
   );
 }
-
