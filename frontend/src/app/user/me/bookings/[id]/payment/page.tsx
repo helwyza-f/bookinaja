@@ -21,7 +21,6 @@ export default function BookingPaymentPage() {
   const searchParams = useSearchParams();
   const [booking, setBooking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [midtransReady, setMidtransReady] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState("midtrans");
   const [manualPaymentNote, setManualPaymentNote] = useState("");
   const [manualProofUrl, setManualProofUrl] = useState("");
@@ -61,12 +60,6 @@ export default function BookingPaymentPage() {
       void fetchDetail();
     }
   }, [fetchDetail, params.id]);
-
-  useEffect(() => {
-    if (window.snap) {
-      setMidtransReady(true);
-    }
-  }, []);
 
   const paymentMethods = useMemo(
     () => (booking?.payment_methods || []).filter((item: any) => supportsMethodForScope(item)),
@@ -182,6 +175,20 @@ export default function BookingPaymentPage() {
     selectedMethodDetail?.verification_type === "manual" &&
     selectedMethodDetail?.code !== "cash";
 
+  const instructionCta =
+    selectedMethodDetail?.verification_type === "auto"
+      ? "Lanjut checkout."
+      : selectedMethodDetail?.code === "cash"
+        ? "Bayar lalu konfirmasi."
+        : "Upload lalu kirim.";
+
+  const confirmationHint =
+    selectedMethodDetail?.verification_type === "auto"
+      ? "Redirect ke Midtrans."
+      : selectedMethodDetail?.code === "cash"
+        ? "Catatan opsional."
+        : "Bukti harus jelas.";
+
   useEffect(() => {
     if (selectedMethodDetail?.code === "cash" && manualProofUrl) {
       setManualProofUrl("");
@@ -202,7 +209,7 @@ export default function BookingPaymentPage() {
         method.metadata?.account_number,
         method.metadata?.account_name,
       ].filter(Boolean);
-      return parts.join(" • ") || "Detail rekening belum lengkap";
+      return parts.join(" · ") || "Detail rekening belum lengkap";
     }
     if (method.code === "qris_static") {
       return method.metadata?.qr_image_url
@@ -215,31 +222,13 @@ export default function BookingPaymentPage() {
     return "Verifikasi otomatis via gateway";
   };
 
-  const instructionCta =
-    selectedMethodDetail?.code === "bank_transfer"
-      ? "Transfer lalu upload bukti."
-      : selectedMethodDetail?.code === "qris_static"
-        ? "Scan lalu upload bukti."
-        : selectedMethodDetail?.code === "cash"
-          ? "Bayar lalu konfirmasi."
-          : "Lanjut ke gateway.";
-
-  const confirmationHint =
-    selectedMethodDetail?.code === "bank_transfer"
-      ? "Bukti transfer harus jelas."
-      : selectedMethodDetail?.code === "qris_static"
-        ? "Upload bukti transaksi."
-        : selectedMethodDetail?.code === "cash"
-          ? "Catatan opsional."
-          : "Kamu akan diarahkan ke gateway.";
-
   const renderInstructionPanel = (method: any) => {
     if (!method) return null;
 
     if (method.code === "bank_transfer") {
       return (
         <div className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <div className="rounded-2xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/5">
               <p className="text-[10px] uppercase tracking-[0.16em] text-slate-400">Bank</p>
               <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
@@ -259,8 +248,8 @@ export default function BookingPaymentPage() {
               </p>
             </div>
           </div>
-          <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-6 text-blue-900 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100">
-            Transfer Rp <span className="font-semibold">{amount.toLocaleString("id-ID")}</span>.
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs font-medium text-blue-900 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100">
+            Transfer Rp {amount.toLocaleString("id-ID")}
           </div>
         </div>
       );
@@ -278,12 +267,12 @@ export default function BookingPaymentPage() {
               />
             </div>
           ) : (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100">
-              QRIS belum tersedia. Hubungi tenant untuk instruksi pembayaran lain.
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100">
+              QRIS belum tersedia.
             </div>
           )}
-          <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-6 text-blue-900 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100">
-            Scan QRIS lalu upload bukti.
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs font-medium text-blue-900 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100">
+            Scan lalu upload.
           </div>
         </div>
       );
@@ -291,15 +280,15 @@ export default function BookingPaymentPage() {
 
     if (method.code === "cash") {
       return (
-        <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-6 text-blue-900 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100">
-          Cash tanpa upload bukti.
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs font-medium text-blue-900 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100">
+          Cash, tanpa upload.
         </div>
       );
     }
 
     return (
-      <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-6 text-blue-900 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100">
-        Pembayaran diproses otomatis.
+      <div className="rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-xs font-medium text-cyan-900 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-100">
+        Checkout di Midtrans.
       </div>
     );
   };
@@ -358,6 +347,10 @@ export default function BookingPaymentPage() {
         const res = await api.post(
           `/public/bookings/${params.id}/checkout?mode=${scope === "deposit" ? "dp" : "settlement"}&method=${selectedMethodDetail.code}`,
         );
+        if (res.data?.redirect_url) {
+          window.location.assign(res.data.redirect_url);
+          return;
+        }
         const snap = await waitForSnap();
         if (!snap) {
           setProcessing(false);
@@ -417,8 +410,6 @@ export default function BookingPaymentPage() {
         }
         data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
         strategy="afterInteractive"
-        onLoad={() => setMidtransReady(true)}
-        onError={() => setMidtransReady(false)}
       />
       <Button
         variant="ghost"
@@ -430,47 +421,47 @@ export default function BookingPaymentPage() {
       </Button>
 
       <Card className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge className="border-none bg-slate-950 text-white">
-                {scope === "deposit" ? "Pembayaran DP" : "Pelunasan Booking"}
-              </Badge>
-              <Badge className="border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
-                {paymentStatusLabel}
-              </Badge>
-              {sessionStatus ? (
-                <Badge className="border-none bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-200">
-                  sesi {sessionStatus}
-                </Badge>
-              ) : null}
-            </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
-              {booking.resource_name}
-            </h1>
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className="border-none bg-slate-950 text-white">
+              {scope === "deposit" ? "DP" : "Pelunasan"}
+            </Badge>
+            <Badge className="border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
+              {paymentStatusLabel}
+            </Badge>
           </div>
-
-          <div className="mt-4 grid gap-2 sm:grid-cols-3">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Total</p>
-              <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                {booking.resource_name}
+              </p>
+              <h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                Rp {amount.toLocaleString("id-ID")}
+              </h1>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-right dark:border-white/10 dark:bg-white/5">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-slate-400">Total</p>
+              <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
                 Rp {Number(booking.grand_total || 0).toLocaleString("id-ID")}
               </p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">
-                {scope === "deposit" ? "DP" : "Sisa Bayar"}
-              </p>
-              <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">
-                Rp {amount.toLocaleString("id-ID")}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
               <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Status</p>
-              <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">
+              <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
                 {paymentStatusLabel}
               </p>
             </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Sesi</p>
+              <p className="mt-1 text-sm font-semibold capitalize text-slate-950 dark:text-white">
+                {sessionStatus || "-"}
+              </p>
+            </div>
           </div>
+        </div>
       </Card>
 
       {pendingManualAttempt ? (
@@ -555,10 +546,9 @@ export default function BookingPaymentPage() {
       ) : (
         <Card className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
             <div className="space-y-4">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
-                  Metode
-                </p>
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-blue-600" />
+                <p className="text-sm font-semibold text-slate-950 dark:text-white">Metode</p>
               </div>
 
               <div className="grid gap-2">
@@ -587,10 +577,10 @@ export default function BookingPaymentPage() {
                               {method.display_name}
                             </p>
                             <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:bg-white/10 dark:text-slate-300">
-                              {method.verification_type === "auto" ? "Otomatis" : "Manual"}
+                              {method.verification_type === "auto" ? "Auto" : "Manual"}
                             </span>
                           </div>
-                          <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                          <p className="mt-1 text-[11px] leading-5 text-slate-500 dark:text-slate-400">
                             {getPaymentMethodMeta(method)}
                           </p>
                         </div>
@@ -605,10 +595,10 @@ export default function BookingPaymentPage() {
                   <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
                     <div className="flex items-center gap-2 text-slate-900 dark:text-white">
                       <ArrowRight className="h-4 w-4 text-blue-600" />
-                      <p className="text-sm font-semibold">Langkah 2 · Instruksi Pembayaran</p>
+                      <p className="text-sm font-semibold">Detail</p>
                     </div>
-                    <p className="mt-2 text-xs leading-6 text-slate-500 dark:text-slate-400">
-                      {selectedMethodDetail.instructions}
+                    <p className="mt-2 text-[11px] leading-5 text-slate-500 dark:text-slate-400">
+                      {selectedMethodDetail.instructions || getPaymentMethodMeta(selectedMethodDetail)}
                     </p>
                     <div className="mt-4">
                       {renderInstructionPanel(selectedMethodDetail)}
@@ -623,18 +613,18 @@ export default function BookingPaymentPage() {
                       <ArrowRight className="h-4 w-4 text-blue-600" />
                       <p className="text-sm font-semibold">
                         {selectedMethodDetail.verification_type === "auto"
-                          ? "Langkah 3 · Lanjutkan Pembayaran"
+                          ? "Checkout"
                           : selectedMethodDetail.code === "cash"
-                            ? "Langkah 3 · Konfirmasi Pembayaran Cash"
-                            : "Langkah 3 · Upload Bukti dan Konfirmasi"}
+                            ? "Konfirmasi"
+                            : "Bukti"}
                       </p>
                     </div>
                     <div className="mt-3 rounded-2xl bg-white px-3 py-2 text-[11px] font-medium text-slate-600 dark:bg-white/5 dark:text-slate-300">
                       {selectedMethodDetail.verification_type === "auto"
-                        ? "Status otomatis."
+                        ? "Auto."
                         : selectedMethodDetail.code === "cash"
-                          ? "Admin akan cek cash."
-                          : "Admin akan verifikasi."}
+                          ? "Dicek admin."
+                          : "Dicek admin."}
                     </div>
                     <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
                       {confirmationHint}
@@ -715,7 +705,7 @@ export default function BookingPaymentPage() {
                           </div>
                         ) : (
                           <div className="rounded-[1.5rem] border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-6 text-blue-900 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100">
-                            Cash tanpa upload bukti.
+                            Cash, tanpa upload.
                           </div>
                         )}
 
@@ -736,7 +726,7 @@ export default function BookingPaymentPage() {
                                 : selectedMethodDetail.code === "qris_static"
                                   ? "GoPay 13:25"
                                   : selectedMethodDetail.code === "cash"
-                                    ? "Bayar ke kasir 19:10"
+                                    ? "Bayar ke kasir"
                                   : "Catatan"
                             }
                           />
@@ -749,17 +739,12 @@ export default function BookingPaymentPage() {
 
               <Button
                 onClick={handlePay}
-                disabled={
-                  processing ||
-                  (selectedMethodDetail?.verification_type === "auto" && !midtransReady)
-                }
+                disabled={processing}
                 className="h-14 w-full rounded-2xl bg-blue-600 text-white hover:bg-blue-500"
               >
                 <CreditCard className="mr-2 h-4 w-4" />
                 {selectedMethodDetail?.verification_type === "auto"
-                  ? midtransReady
-                    ? `Bayar via ${selectedMethodDetail?.display_name || "Gateway"}`
-                    : "Menyiapkan gateway..."
+                  ? "Lanjut ke Midtrans"
                   : selectedMethodDetail?.code === "cash"
                     ? "Konfirmasi Cash"
                     : `Kirim ${selectedMethodDetail?.display_name || "Manual"}`}
