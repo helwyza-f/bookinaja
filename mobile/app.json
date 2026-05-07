@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Bookinaja",
+    "slug": "bookinaja-mobile",
+    "scheme": "bookinaja",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "experiments": {
+      "typedRoutes": true
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.bookinaja.mobile"
+    },
+    "android": {
+      "package": "com.bookinaja.mobile",
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

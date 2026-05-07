@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"strings"
 	"time"
 
@@ -128,6 +129,9 @@ func isRootDomain(host, slug string) bool {
 func GetSlugFromHost(host string) string {
 	h := normalizeHost(host)
 	if h == "" {
+		return ""
+	}
+	if net.ParseIP(h) != nil {
 		return ""
 	}
 	parts := strings.Split(h, ".")
