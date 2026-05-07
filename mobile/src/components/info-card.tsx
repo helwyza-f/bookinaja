@@ -19,19 +19,29 @@ export function InfoCard({
       style={[
         compact ? styles.cardCompact : styles.card,
         {
-          backgroundColor: theme.colors.card,
+          backgroundColor: compact ? theme.colors.surface : theme.colors.card,
           borderColor: theme.colors.border,
+          shadowColor: theme.colors.foreground,
         },
       ]}
     >
-      <Text
-        style={[
-          compact ? styles.labelCompact : styles.label,
-          { color: theme.colors.foregroundMuted },
-        ]}
-      >
-        {label}
-      </Text>
+      <View style={styles.topRow}>
+        <View
+          style={[
+            styles.accentPill,
+            { backgroundColor: theme.colors.accentSoft },
+          ]}
+        >
+          <Text
+            style={[
+              compact ? styles.labelCompact : styles.label,
+              { color: theme.colors.accent },
+            ]}
+          >
+            {label}
+          </Text>
+        </View>
+      </View>
       <Text
         style={[
           compact ? styles.valueCompact : styles.value,
@@ -57,42 +67,56 @@ export function InfoCard({
 const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
-    borderRadius: 22,
-    padding: 14,
-    gap: 6,
+    borderRadius: 24,
+    padding: 16,
+    gap: 8,
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 5,
   },
   cardCompact: {
     borderWidth: 1,
-    borderRadius: 18,
+    borderRadius: 20,
     padding: 12,
-    gap: 4,
+    gap: 6,
+  },
+  topRow: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+  },
+  accentPill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
   label: {
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1.4,
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 1.6,
     textTransform: "uppercase",
   },
   labelCompact: {
-    fontSize: 9,
-    fontWeight: "700",
-    letterSpacing: 1.2,
+    fontSize: 8,
+    fontWeight: "800",
+    letterSpacing: 1.4,
     textTransform: "uppercase",
   },
   value: {
-    fontSize: 17,
-    fontWeight: "800",
+    fontSize: 16,
+    fontWeight: "900",
+    letterSpacing: -0.3,
   },
   valueCompact: {
-    fontSize: 14,
-    fontWeight: "800",
+    fontSize: 13,
+    fontWeight: "900",
   },
   hint: {
     fontSize: 12,
-    lineHeight: 17,
+    lineHeight: 18,
   },
   hintCompact: {
-    fontSize: 11,
+    fontSize: 10,
     lineHeight: 15,
   },
 });

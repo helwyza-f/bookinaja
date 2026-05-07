@@ -59,16 +59,48 @@ export default function CustomerExploreScreen() {
     <ScreenShell
       eyebrow={hero?.eyebrow || "Jelajah"}
       title={hero?.title || "Temukan tenant"}
-      subtitle={hero?.description || "Cari tempat dan kategori untuk booking berikutnya."}
+      subtitle={hero?.description || "Cari tempat dan kategori dengan tampilan yang lebih hidup dan enak dipindai."}
     >
-      <View style={[styles.searchBar, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-        <Feather name="search" size={18} color={theme.colors.foregroundMuted} />
+      <View
+        style={[
+          styles.searchBar,
+          {
+            backgroundColor: theme.colors.card,
+            borderColor: theme.colors.border,
+            shadowColor: theme.colors.foreground,
+          },
+        ]}
+      >
+        <View style={[styles.searchIconWrap, { backgroundColor: theme.colors.accentSoft }]}>
+          <Feather name="search" size={16} color={theme.colors.accent} />
+        </View>
         <TextInput
           value={query}
           onChangeText={setQuery}
           placeholder={hero?.search_hint || "Cari tenant, kategori, atau aktivitas"}
           placeholderTextColor={theme.colors.foregroundMuted}
           style={[styles.input, { color: theme.colors.foreground }]}
+        />
+      </View>
+
+      <View style={styles.insightRow}>
+        <InsightChip
+          label="Kategori"
+          value={quickCategories.length - 1}
+          tone="accent"
+          theme={theme}
+        />
+        <InsightChip
+          label="Tenant"
+          value={items.length}
+          tone="highlight"
+          theme={theme}
+        />
+        <InsightChip
+          label="Tampil"
+          value={filteredItems.length}
+          tone="ink"
+          theme={theme}
         />
       </View>
 
@@ -82,12 +114,12 @@ export default function CustomerExploreScreen() {
               style={[
                 styles.categoryChip,
                 {
-                  backgroundColor: active ? theme.colors.accent : theme.colors.card,
+                  backgroundColor: active ? theme.colors.accent : theme.colors.surface,
                   borderColor: active ? theme.colors.accent : theme.colors.border,
                 },
               ]}
             >
-              <Text style={[styles.categoryText, { color: active ? "#FFFFFF" : theme.colors.foreground }]}>
+              <Text style={[styles.categoryText, { color: active ? theme.colors.accentContrast : theme.colors.foreground }]}>
                 {category}
               </Text>
             </Pressable>
@@ -154,16 +186,50 @@ export default function CustomerExploreScreen() {
 const styles = StyleSheet.create({
   searchBar: {
     minHeight: 52,
-    borderRadius: 20,
+    borderRadius: 24,
     borderWidth: 1,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
+  },
+  searchIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
   },
   input: {
     flex: 1,
     fontSize: 14,
+  },
+  insightRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  insightChip: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 4,
+  },
+  insightLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  },
+  insightValue: {
+    fontSize: 16,
+    fontWeight: "900",
+    letterSpacing: -0.4,
   },
   categoryRow: {
     flexDirection: "row",
@@ -186,19 +252,55 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   sectionHeader: {
-    gap: 2,
+    gap: 4,
   },
   sectionEyebrow: {
     fontSize: 10,
     fontWeight: "700",
-    letterSpacing: 1.4,
+    letterSpacing: 1.6,
     textTransform: "uppercase",
   },
   sectionTitle: {
-    fontSize: 17,
-    fontWeight: "800",
+    fontSize: 18,
+    fontWeight: "900",
   },
   stack: {
     gap: 12,
   },
 });
+
+function InsightChip({
+  label,
+  value,
+  tone,
+  theme,
+}: {
+  label: string;
+  value: number;
+  tone: "accent" | "highlight" | "ink";
+  theme: ReturnType<typeof useAppTheme>;
+}) {
+  const palette =
+    tone === "highlight"
+      ? { background: theme.colors.highlightSoft, text: theme.colors.highlight }
+      : tone === "ink"
+        ? { background: theme.colors.inkSoft, text: theme.colors.primary }
+        : { background: theme.colors.accentSoft, text: theme.colors.accent };
+
+  return (
+    <View
+      style={[
+        styles.insightChip,
+        {
+          backgroundColor: palette.background,
+          borderColor: theme.colors.border,
+        },
+      ]}
+    >
+      <Text style={[styles.insightLabel, { color: theme.colors.foregroundMuted }]}>
+        {label}
+      </Text>
+      <Text style={[styles.insightValue, { color: palette.text }]}>{value}</Text>
+    </View>
+  );
+}

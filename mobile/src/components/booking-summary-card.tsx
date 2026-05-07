@@ -64,6 +64,10 @@ export function BookingSummaryCard({
   const sessionMeta = getSessionStatusMeta(booking.status);
   const sessionTone = toneStyles(theme, sessionMeta.tone);
   const paymentTone = toneStyles(theme, paymentMeta.tone);
+  const progressText =
+    booking.balance_due > 0
+      ? `${formatMoney(booking.paid_amount)} dibayar`
+      : "Pembayaran sudah lengkap";
 
   return (
     <Pressable
@@ -74,11 +78,24 @@ export function BookingSummaryCard({
         {
           backgroundColor: theme.colors.card,
           borderColor: theme.colors.border,
+          shadowColor: theme.colors.foreground,
           padding: compact ? 14 : 16,
           opacity: onPress ? 1 : 0.98,
         },
       ]}
     >
+      <View
+        style={[
+          styles.topAccent,
+          { backgroundColor: theme.colors.tintSoft, borderColor: theme.colors.border },
+        ]}
+      >
+        <Text style={[styles.topAccentText, { color: theme.colors.accent }]}>
+          Booking snapshot
+        </Text>
+        <View style={[styles.topAccentDot, { backgroundColor: theme.colors.highlight }]} />
+      </View>
+
       <View style={styles.header}>
         <View style={styles.copy}>
           <Text style={[styles.tenant, { color: theme.colors.foregroundMuted }]} numberOfLines={1}>
@@ -96,6 +113,25 @@ export function BookingSummaryCard({
             <Feather name="arrow-up-right" size={16} color={theme.colors.foreground} />
           </View>
         ) : null}
+      </View>
+
+      <View
+        style={[
+          styles.summaryRibbon,
+          { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.border },
+        ]}
+      >
+        <View style={styles.summaryCopy}>
+          <Text style={[styles.summaryLabel, { color: theme.colors.foregroundMuted }]}>
+            Total belanja
+          </Text>
+          <Text style={[styles.summaryValue, { color: theme.colors.foreground }]}>
+            {formatMoney(booking.grand_total)}
+          </Text>
+        </View>
+        <Text style={[styles.summaryHint, { color: theme.colors.accent }]}>
+          {progressText}
+        </Text>
       </View>
 
       <View style={styles.badges}>
@@ -138,9 +174,34 @@ function MetricCell({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 22,
+    borderRadius: 28,
     borderWidth: 1,
+    gap: 12,
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6,
+  },
+  topAccent: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 10,
+  },
+  topAccentText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+  },
+  topAccentDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
   },
   header: {
     flexDirection: "row",
@@ -150,28 +211,60 @@ const styles = StyleSheet.create({
   },
   copy: {
     flex: 1,
-    gap: 3,
+    gap: 4,
   },
   tenant: {
     fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1.3,
+    fontWeight: "800",
+    letterSpacing: 1.5,
     textTransform: "uppercase",
   },
   title: {
-    fontSize: 17,
-    fontWeight: "800",
+    fontSize: 18,
+    fontWeight: "900",
   },
   ref: {
     fontSize: 11,
     fontWeight: "600",
   },
   arrowWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 16,
+    width: 38,
+    height: 38,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+  },
+  summaryRibbon: {
+    borderRadius: 22,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  summaryCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  summaryLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
+  },
+  summaryValue: {
+    fontSize: 18,
+    fontWeight: "900",
+    letterSpacing: -0.4,
+  },
+  summaryHint: {
+    maxWidth: 110,
+    textAlign: "right",
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: "700",
   },
   badges: {
     flexDirection: "row",
@@ -180,8 +273,8 @@ const styles = StyleSheet.create({
   },
   badge: {
     borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   badgeText: {
     fontSize: 10,
@@ -194,19 +287,19 @@ const styles = StyleSheet.create({
   },
   metric: {
     width: "48%",
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
-    padding: 10,
-    gap: 3,
+    padding: 12,
+    gap: 4,
   },
   metricLabel: {
     fontSize: 10,
     fontWeight: "700",
-    letterSpacing: 1,
+    letterSpacing: 1.1,
     textTransform: "uppercase",
   },
   metricValue: {
-    fontSize: 14,
-    fontWeight: "800",
+    fontSize: 15,
+    fontWeight: "900",
   },
 });
