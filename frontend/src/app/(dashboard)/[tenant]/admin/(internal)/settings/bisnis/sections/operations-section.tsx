@@ -11,6 +11,7 @@ export function OperationsSection({ profile, saving, onSave }: SectionProps) {
   const [draft, setDraft] = useState({
     open_time: profile.open_time || "09:00",
     close_time: profile.close_time || "21:00",
+    timezone: profile.timezone || "Asia/Jakarta",
     primary_color: profile.primary_color || "#3b82f6",
   });
   const [editing, setEditing] = useState(false);
@@ -19,6 +20,7 @@ export function OperationsSection({ profile, saving, onSave }: SectionProps) {
     setDraft({
       open_time: profile.open_time || "09:00",
       close_time: profile.close_time || "21:00",
+      timezone: profile.timezone || "Asia/Jakarta",
       primary_color: profile.primary_color || "#3b82f6",
     });
   };
@@ -43,6 +45,7 @@ export function OperationsSection({ profile, saving, onSave }: SectionProps) {
         <ViewGrid>
           <ViewItem label="Jam buka" value={profile.open_time} />
           <ViewItem label="Jam tutup" value={profile.close_time} />
+          <ViewItem label="Timezone" value={profile.timezone || "Asia/Jakarta"} />
           <ViewItem
             label="Warna utama"
             value={
@@ -55,12 +58,15 @@ export function OperationsSection({ profile, saving, onSave }: SectionProps) {
         </ViewGrid>
       }
     >
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Field label="Jam buka">
           <Input value={draft.open_time} onChange={(event) => setDraft({ ...draft, open_time: event.target.value })} placeholder="09:00" />
         </Field>
         <Field label="Jam tutup">
           <Input value={draft.close_time} onChange={(event) => setDraft({ ...draft, close_time: event.target.value })} placeholder="21:00" />
+        </Field>
+        <Field label="Timezone">
+          <Input value={draft.timezone} onChange={(event) => setDraft({ ...draft, timezone: event.target.value })} placeholder="Asia/Jakarta" />
         </Field>
         <Field label="Warna utama">
           <div className="flex gap-2">

@@ -20,6 +20,7 @@ import (
 )
 
 const freeTrialDuration = 30 * 24 * time.Hour
+const defaultTenantTimezone = "Asia/Jakarta"
 
 type Service struct {
 	repo        *Repository
@@ -31,6 +32,17 @@ func NewService(r *Repository, authService *auth.Service) *Service {
 		repo:        r,
 		authService: authService,
 	}
+}
+
+func normalizeTenantTimezone(value string) (string, error) {
+	timezone := strings.TrimSpace(value)
+	if timezone == "" {
+		timezone = defaultTenantTimezone
+	}
+	if _, err := time.LoadLocation(timezone); err != nil {
+		return "", fmt.Errorf("timezone tenant tidak valid")
+	}
+	return timezone, nil
 }
 
 // GetPublicProfile Baru: Jalur cepat buat ambil tema & identitas (Granular)
@@ -2018,6 +2030,25 @@ func (s *Service) GetPaymentMethods(ctx context.Context, id uuid.UUID) ([]Tenant
 	return seed, nil
 }
 
+func (s *Service) GetDepositSettings(ctx context.Context, id uuid.UUID) (*TenantDepositSetting, error) {
+	return s.repo.GetDepositSettings(ctx, id)
+}
+
+func (s *Service) UpdateDepositSettings(ctx context.Context, id uuid.UUID, req TenantDepositSettingUpdateReq) (*TenantDepositSetting, error) {
+	if req.DPPercentage < 0 || req.DPPercentage > 100 {
+		return nil, errors.New("persentase DP default harus di antara 0 - 100")
+	}
+	for _, item := range req.ResourceConfigs {
+		if strings.TrimSpace(item.ResourceID) == "" {
+			return nil, errors.New("resource override tidak valid")
+		}
+		if item.DPPercentage < 0 || item.DPPercentage > 100 {
+			return nil, errors.New("persentase DP resource harus di antara 0 - 100")
+		}
+	}
+	return s.repo.UpsertDepositSettings(ctx, id, req)
+}
+
 func (s *Service) UpdatePaymentMethods(ctx context.Context, actorUserID uuid.UUID, id uuid.UUID, req TenantPaymentMethodUpdateReq) ([]TenantPaymentMethod, error) {
 	if len(req.Items) == 0 {
 		return nil, errors.New("minimal satu metode pembayaran harus dikirim")
@@ -2184,6 +2215,7 @@ func (s *Service) UpdateReferralPayout(ctx context.Context, actorUserID uuid.UUI
 	req.MetaDescription = curr.MetaDescription
 	req.OpenTime = curr.OpenTime
 	req.CloseTime = curr.CloseTime
+	req.Timezone = curr.Timezone
 	req.ReferralCode = curr.ReferralCode
 	req.ReferredByTenantID = curr.ReferredByTenantID
 	req.ReceiptTitle = curr.ReceiptTitle
@@ -2202,6 +2234,7 @@ func (s *Service) UpdateReferralPayout(ctx context.Context, actorUserID uuid.UUI
 	req.LandingThemeConfig = curr.LandingThemeConfig
 	req.BookingFormConfig = curr.BookingFormConfig
 	req.CreatedAt = curr.CreatedAt
+	req.Timezone = curr.Timezone
 	if err := s.repo.Update(ctx, req); err != nil {
 		return nil, err
 	}
@@ -2236,6 +2269,14 @@ func (s *Service) UpdateProfile(ctx context.Context, actorUserID uuid.UUID, id u
 	req.LandingThemeConfig = curr.LandingThemeConfig
 	req.BookingFormConfig = curr.BookingFormConfig
 	req.CreatedAt = curr.CreatedAt
+	if strings.TrimSpace(req.Timezone) == "" {
+		req.Timezone = curr.Timezone
+	}
+
+	req.Timezone, err = normalizeTenantTimezone(req.Timezone)
+	if err != nil {
+		return nil, err
+	}
 
 	if err := s.repo.Update(ctx, req); err != nil {
 		return nil, err
@@ -2303,6 +2344,7 @@ func (s *Service) UpdateReceiptSettings(ctx context.Context, actorUserID uuid.UU
 	req.MetaDescription = curr.MetaDescription
 	req.OpenTime = curr.OpenTime
 	req.CloseTime = curr.CloseTime
+	req.Timezone = curr.Timezone
 	req.ReferralCode = curr.ReferralCode
 	req.ReferredByTenantID = curr.ReferredByTenantID
 	req.PayoutBankName = curr.PayoutBankName

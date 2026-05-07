@@ -59,6 +59,7 @@ export type ExtendSession = {
   customer_name?: string;
   start_time: string;
   end_time: string;
+  timezone?: string;
   unit_duration?: number;
   unit_price?: number;
   price_unit?: string;
@@ -73,32 +74,58 @@ export function ExtendSessionDialog({
   const [busySlots, setBusySlots] = useState<BusySlot[]>([]);
   const [loadingSchedule, setLoadingSchedule] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [now] = useState(new Date());
+  const [now, setNow] = useState(new Date());
   const [selectedExtension, setSelectedExtension] = useState<{
     count: number;
     time: string;
   } | null>(null);
+  const tenantTimezone = session?.timezone || "Asia/Jakarta";
+  const tenantNow = useMemo(
+    () => getTenantNow(now, tenantTimezone),
+    [now, tenantTimezone],
+  );
+  const sessionStartDate = useMemo(
+    () =>
+      session
+        ? normalizeCalendarDate(
+            toTenantWallClock(new Date(session.start_time), tenantTimezone),
+          )
+        : null,
+    [session, tenantTimezone],
+  );
+  const sessionEndDate = useMemo(
+    () =>
+      session
+        ? toTenantWallClock(new Date(session.end_time), tenantTimezone)
+        : null,
+    [session, tenantTimezone],
+  );
 
-  // Helper untuk konversi UTC dari API ke Date Object lokal pada tanggal sesi
-  const getLocalDateFromUTC = (utcTimeStr: string, baseDate: Date) => {
-    const [hours, minutes] = utcTimeStr.split(":").map(Number);
+  useEffect(() => {
+    if (!open) return undefined;
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, [open]);
+
+  // Busy slot API sudah dikirim dalam jam lokal tenant, jadi cukup ditempel ke calendar date tenant.
+  const getTenantTimeDate = (timeValue: string, baseDate: Date) => {
+    const [hours, minutes] = timeValue.split(":").map(Number);
     const d = new Date(baseDate);
-    d.setUTCHours(hours, minutes, 0, 0);
+    d.setHours(hours, minutes, 0, 0);
     return d;
   };
 
   useEffect(() => {
-    if (open && session) {
+    if (open && session && sessionStartDate) {
       setLoadingSchedule(true);
-      const sessionDate = new Date(session.start_time);
-      const dateParam = format(sessionDate, "yyyy-MM-dd");
+      const dateParam = format(sessionStartDate, "yyyy-MM-dd");
 
       api
         .get(`/guest/availability/${session.resource_id}?date=${dateParam}`)
         .then((res) => {
           const mappedSlots = (res.data.busy_slots || []).map((slot: BusySlotResponse) => {
-            const startDate = getLocalDateFromUTC(slot.start_time, sessionDate);
-            const endDate = getLocalDateFromUTC(slot.end_time, sessionDate);
+            const startDate = getTenantTimeDate(slot.start_time, sessionStartDate);
+            const endDate = getTenantTimeDate(slot.end_time, sessionStartDate);
             return {
               ...slot,
               start_date: startDate,
@@ -114,26 +141,25 @@ export function ExtendSessionDialog({
 
       setSelectedExtension(null);
     }
-  }, [open, session]);
+  }, [open, session, sessionStartDate]);
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
 
   // --- LOGIC: TIME TABLE GRID ---
   const timeSlots = useMemo(() => {
-    if (!session) return [];
+    if (!session || !sessionStartDate) return [];
     const slots = [];
-    const sessionDate = new Date(session.start_time);
-    let current = new Date(sessionDate);
+    let current = new Date(sessionStartDate);
     current.setHours(9, 0, 0, 0);
 
-    const endLimit = new Date(sessionDate);
+    const endLimit = new Date(sessionStartDate);
     endLimit.setHours(23, 30, 0, 0);
 
     const interval = session.unit_duration || 30;
 
     while (isBefore(current, addMinutes(endLimit, 1))) {
       const timeStr = format(current, "HH:mm");
-      const isPassed = isSameDay(current, now) && isBefore(current, now);
+      const isPassed = isSameDay(current, tenantNow) && isBefore(current, tenantNow);
 
       // Cek tabrakan menggunakan perbandingan waktu murni (Date Object)
       const busySlot = busySlots.find(
@@ -152,13 +178,13 @@ export function ExtendSessionDialog({
       current = addMinutes(current, interval);
     }
     return slots;
-  }, [busySlots, session, now]);
+  }, [busySlots, session, sessionStartDate, tenantNow]);
 
   // --- LOGIC: DYNAMIC EXTENSION OPTIONS (Fix Collision) ---
   const extensionOptions = useMemo(() => {
-    if (!session) return [];
+    if (!session || !sessionEndDate) return [];
     const options = [];
-    const currentEndTimeDate = new Date(session.end_time);
+    const currentEndTimeDate = new Date(sessionEndDate);
     const unitDuration = session.unit_duration || 60;
 
     // Cari bokingan orang lain yang mulainya SETELAH sesi kita berakhir
@@ -170,7 +196,9 @@ export function ExtendSessionDialog({
     const limitDate =
       futureBookings.length > 0
         ? futureBookings[0].start_date
-        : new Date(new Date(session.end_time).setHours(23, 59, 59, 999));
+        : new Date(
+            new Date(sessionEndDate).setHours(23, 59, 59, 999),
+          );
 
     for (let i = 1; i <= 4; i++) {
       const extensionMinutes = unitDuration * i;
@@ -186,7 +214,7 @@ export function ExtendSessionDialog({
       });
     }
     return options;
-  }, [session, busySlots]);
+  }, [session, busySlots, sessionEndDate]);
 
   const handleConfirmExtend = async () => {
     if (!selectedExtension) return;
@@ -220,7 +248,7 @@ export function ExtendSessionDialog({
               <p className="mt-1 truncate pr-2 text-xs font-medium text-slate-400">
                 Unit:{" "}
                 <span className="text-blue-400">{session?.resource_name}</span>{" "}
-                • {session?.customer_name}
+                | {session?.customer_name}
               </p>
             </div>
           </div>
@@ -230,7 +258,7 @@ export function ExtendSessionDialog({
                 Current End
               </p>
               <p className="text-xl font-black italic text-emerald-400 leading-none pr-1">
-                {session && format(new Date(session.end_time), "HH:mm")}
+                {sessionEndDate && format(sessionEndDate, "HH:mm")}
               </p>
             </div>
             <Button
@@ -438,4 +466,50 @@ export function ExtendSessionDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function normalizeCalendarDate(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+}
+
+function getTimeZoneParts(date: Date, timezone = "Asia/Jakarta") {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = formatter.formatToParts(date);
+  const pick = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value || "0");
+
+  return {
+    year: pick("year"),
+    month: pick("month"),
+    day: pick("day"),
+    hour: pick("hour"),
+    minute: pick("minute"),
+    second: pick("second"),
+  };
+}
+
+function getTenantNow(date: Date, timezone = "Asia/Jakarta") {
+  const parts = getTimeZoneParts(date, timezone);
+  return new Date(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+    0,
+  );
+}
+
+function toTenantWallClock(date: Date, timezone = "Asia/Jakarta") {
+  return getTenantNow(date, timezone);
 }

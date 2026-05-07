@@ -7,8 +7,9 @@ import (
 	"github.com/helwiza/backend/internal/expense"
 	"github.com/helwiza/backend/internal/fnb"
 	midtranssvc "github.com/helwiza/backend/internal/platform/midtrans"
-	"github.com/helwiza/backend/internal/platformadmin"
 	"github.com/helwiza/backend/internal/platform/realtime"
+	"github.com/helwiza/backend/internal/platformadmin"
+	"github.com/helwiza/backend/internal/promo"
 	"github.com/helwiza/backend/internal/reservation"
 	"github.com/helwiza/backend/internal/resource"
 	"github.com/helwiza/backend/internal/smartdevice"
@@ -30,4 +31,5 @@ type Config struct {
 	MidtransHandler    *midtranssvc.Handler
 	SmartDeviceHandler *smartdevice.Handler
 	RealtimeHandler    *realtime.Handler
+	PromoHandler       *promo.Handler
 }

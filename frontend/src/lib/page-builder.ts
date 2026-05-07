@@ -53,6 +53,7 @@ export type BuilderProfile = {
   address?: string;
   open_time?: string;
   close_time?: string;
+  timezone?: string;
   primary_color?: string;
   logo_url?: string;
   banner_url?: string;

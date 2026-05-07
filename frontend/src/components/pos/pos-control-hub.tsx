@@ -67,6 +67,7 @@ export type POSSessionDetail = ExtendSession & {
   customer_name?: string;
   customer_phone?: string;
   resource_name?: string;
+  timezone?: string;
   resource_addons?: AddonItem[];
   start_time: string;
   end_time: string;
@@ -133,6 +134,9 @@ export function POSControlHub({
   }, [canUseReceiptActions]);
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
+  const sessionTimezone = session.timezone || "Asia/Jakarta";
+  const sessionStartLabel = formatTenantTime(session.start_time, sessionTimezone, "HH:mm");
+  const sessionEndLabel = formatTenantTime(session.end_time, sessionTimezone, "HH:mm");
   const sessionStatus = String(session.status || "").toLowerCase();
   const paymentStatus = String(session.payment_status || "").toLowerCase();
   const balanceDue = Number(session.balance_due || 0);
@@ -349,10 +353,7 @@ export function POSControlHub({
                   {session.resource_name || "Unit"}
                 </p>
                 <span className="h-1 w-1 rounded-full bg-slate-300" />
-                <span className="font-mono">
-                  {format(new Date(session.start_time), "HH:mm")}—
-                  {format(new Date(session.end_time), "HH:mm")}
-                </span>
+                <span className="font-mono">{sessionStartLabel} - {sessionEndLabel}</span>
                 {isOutstanding ? (
                   <>
                     <span className="h-1 w-1 rounded-full bg-slate-300" />
@@ -476,7 +477,7 @@ export function POSControlHub({
                     {opt.item_name}
                   </p>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    {opt.quantity}x • Rp{formatIDR(opt.unitPrice)}
+                    {opt.quantity}x @ Rp{formatIDR(opt.unitPrice)}
                   </p>
                 </div>
                 <span className="shrink-0 text-sm font-semibold text-slate-900 dark:text-white">
@@ -506,7 +507,7 @@ export function POSControlHub({
                     {opt.item_name}
                   </p>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    {opt.quantity}x • Rp{formatIDR(opt.unitPrice)}
+                    {opt.quantity}x @ Rp{formatIDR(opt.unitPrice)}
                   </p>
                 </div>
                 <span className="shrink-0 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
@@ -536,7 +537,7 @@ export function POSControlHub({
                     {order.item_name}
                   </p>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    {order.quantity}x • Rp{formatIDR(order.price_at_purchase)}
+                    {order.quantity}x @ Rp{formatIDR(order.price_at_purchase)}
                   </p>
                 </div>
                 <span className="shrink-0 text-sm font-semibold text-orange-700 dark:text-orange-300">
@@ -664,4 +665,50 @@ export function POSControlHub({
       />
     </div>
   );
+}
+
+function getTimeZoneParts(date: Date, timezone = "Asia/Jakarta") {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = formatter.formatToParts(date);
+  const pick = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value || "0");
+
+  return {
+    year: pick("year"),
+    month: pick("month"),
+    day: pick("day"),
+    hour: pick("hour"),
+    minute: pick("minute"),
+    second: pick("second"),
+  };
+}
+
+function toTenantWallClock(dateValue: string, timezone = "Asia/Jakarta") {
+  const parts = getTimeZoneParts(new Date(dateValue), timezone);
+  return new Date(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+    0,
+  );
+}
+
+function formatTenantTime(
+  dateValue: string,
+  timezone = "Asia/Jakarta",
+  pattern = "HH:mm",
+) {
+  return format(toTenantWallClock(dateValue, timezone), pattern);
 }

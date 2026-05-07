@@ -118,6 +118,9 @@ export default function UserBookingDetailPage() {
   const paymentMeta = paymentStatusMeta(booking?.payment_status);
   const sessionLabel = sessionMeta(booking?.status);
   const nextStep = resolveNextStep(booking);
+  const hasPromo =
+    Number(booking?.discount_amount || 0) > 0 &&
+    String(booking?.promo_code || "").trim() !== "";
 
   if (loading) {
     return (
@@ -208,6 +211,50 @@ export default function UserBookingDetailPage() {
             />
           </div>
 
+          {hasPromo ? (
+            <div className="rounded-[1.25rem] border border-emerald-200 bg-emerald-50 p-3.5 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-200">
+                    Promo
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                    {booking.promo_code}
+                  </p>
+                </div>
+                <Badge className="bg-emerald-600 text-white">
+                  -Rp {Number(booking.discount_amount || 0).toLocaleString("id-ID")}
+                </Badge>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                <div className="rounded-xl border border-emerald-200/80 bg-white/80 p-2 dark:border-emerald-500/20 dark:bg-black/10">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-700/80 dark:text-emerald-200/80">
+                    Sebelum
+                  </div>
+                  <div className="mt-1 font-semibold text-slate-950 dark:text-white">
+                    Rp {Number(booking.original_grand_total || 0).toLocaleString("id-ID")}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-emerald-200/80 bg-white/80 p-2 dark:border-emerald-500/20 dark:bg-black/10">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-700/80 dark:text-emerald-200/80">
+                    Diskon
+                  </div>
+                  <div className="mt-1 font-semibold text-emerald-700 dark:text-emerald-200">
+                    -Rp {Number(booking.discount_amount || 0).toLocaleString("id-ID")}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-emerald-200/80 bg-white/80 p-2 dark:border-emerald-500/20 dark:bg-black/10">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-700/80 dark:text-emerald-200/80">
+                    Total
+                  </div>
+                  <div className="mt-1 font-semibold text-slate-950 dark:text-white">
+                    Rp {Number(booking.grand_total || 0).toLocaleString("id-ID")}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-3.5 dark:border-white/10 dark:bg-white/[0.04]">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
               Langkah
@@ -284,6 +331,9 @@ type BookingDetail = {
   payment_status?: string;
   start_time?: string;
   end_time?: string;
+  promo_code?: string;
+  original_grand_total?: number;
+  discount_amount?: number;
   grand_total?: number;
   deposit_amount?: number;
   balance_due?: number;

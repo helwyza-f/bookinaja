@@ -6,6 +6,7 @@ import {
   BadgeCheck,
   BarChart3,
   CreditCard,
+  TicketPercent,
   Megaphone,
   ShieldCheck,
   UsersRound,
@@ -48,6 +49,12 @@ const items = [
     href: "/admin/devices",
     icon: BadgeCheck,
     hint: "Perangkat & status",
+  },
+  {
+    label: "Promo Customer",
+    href: "/admin/settings/promo",
+    icon: TicketPercent,
+    hint: "Voucher, rule, kuota",
   },
   {
     label: "Subscription & Billing",

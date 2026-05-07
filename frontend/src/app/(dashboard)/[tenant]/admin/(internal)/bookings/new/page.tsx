@@ -7,8 +7,6 @@ import {
   addMinutes,
   parse,
   isBefore,
-  startOfToday,
-  formatISO,
   isSameDay,
   addDays,
   addWeeks,
@@ -43,6 +41,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { useTenant } from "@/context/tenant-context";
 
 type ResourceItem = {
   id: string;
@@ -81,13 +80,16 @@ type ApiError = {
 
 type BookingMode = "scheduled" | "walkin";
 
-function resolveRecommendedWalkInSlot(slots: string[], targetDate?: Date) {
-  if (!targetDate || slots.length === 0) return "";
-  const now = new Date();
-  const sameDay = isSameDay(targetDate, now);
+function resolveRecommendedWalkInSlot(
+  slots: string[],
+  targetDate?: Date,
+  nowDate?: Date,
+) {
+  if (!targetDate || !nowDate || slots.length === 0) return "";
+  const sameDay = isSameDay(targetDate, nowDate);
   if (!sameDay) return slots[0] || "";
 
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const currentMinutes = nowDate.getHours() * 60 + nowDate.getMinutes();
   let candidate = slots[0] || "";
   for (const slot of slots) {
     const [hours, minutes] = slot.split(":").map(Number);
@@ -104,6 +106,7 @@ function resolveRecommendedWalkInSlot(slots: string[], targetDate?: Date) {
 export default function NewManualBookingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { profile } = useTenant();
   const packageRef = useRef<HTMLDivElement | null>(null);
   const scheduleRef = useRef<HTMLDivElement | null>(null);
   const durationRef = useRef<HTMLDivElement | null>(null);
@@ -116,13 +119,22 @@ export default function NewManualBookingPage() {
 
   // Form State
   const [selectedResourceId, setSelectedResourceId] = useState("");
-  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [date, setDate] = useState<Date | undefined>(undefined);
   const [custName, setCustName] = useState("");
   const [custPhone, setCustPhone] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
   const [durationValue, setDurationValue] = useState(1);
   const [selectedMainId, setSelectedMainId] = useState("");
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoPreview, setPromoPreview] = useState<{
+    valid?: boolean;
+    label?: string;
+    message?: string;
+    discount_amount?: number;
+    final_amount?: number;
+  } | null>(null);
+  const [isCheckingPromo, setIsCheckingPromo] = useState(false);
   const [bookingMode, setBookingMode] = useState<BookingMode>(
     searchParams.get("mode") === "walkin" ? "walkin" : "scheduled",
   );
@@ -176,6 +188,20 @@ export default function NewManualBookingPage() {
       selectedItem.price_unit || "",
     );
   }, [selectedItem]);
+
+  const tenantTimezone = profile?.timezone || "Asia/Jakarta";
+  const tenantNow = useMemo(
+    () => getTenantNow(new Date(), tenantTimezone),
+    [tenantTimezone],
+  );
+  const tenantToday = useMemo(
+    () => getTenantToday(new Date(), tenantTimezone),
+    [tenantTimezone],
+  );
+
+  useEffect(() => {
+    setDate((current) => current ?? getTenantToday(new Date(), tenantTimezone));
+  }, [tenantTimezone]);
 
   // 2. Load Availability & Auto-select Interday
   useEffect(() => {
@@ -242,8 +268,8 @@ export default function NewManualBookingPage() {
 
   const recommendedWalkInSlot = useMemo(() => {
     if (bookingMode !== "walkin") return "";
-    return resolveRecommendedWalkInSlot(availableSlots, date);
-  }, [availableSlots, bookingMode, date]);
+    return resolveRecommendedWalkInSlot(availableSlots, date, tenantNow);
+  }, [availableSlots, bookingMode, date, tenantNow]);
 
   const maxAvailableSessions = useMemo(() => {
     if (!selectedTime || !selectedItem || isInterday) return 12;
@@ -264,11 +290,11 @@ export default function NewManualBookingPage() {
 
   useEffect(() => {
     if (bookingMode !== "walkin") return;
-    setDate(new Date());
+    setDate(tenantToday);
     if (!selectedTime && recommendedWalkInSlot) {
       setSelectedTime(recommendedWalkInSlot);
     }
-  }, [bookingMode, recommendedWalkInSlot, selectedTime]);
+  }, [bookingMode, recommendedWalkInSlot, selectedTime, tenantToday]);
 
   // 5. Timeline Summary
   const timelineSummary = useMemo(() => {
@@ -306,21 +332,62 @@ export default function NewManualBookingPage() {
     return selectedItem.price * durationValue + addonsPrice;
   };
 
+  const totalAfterPromo = () =>
+    promoPreview?.valid ? Number(promoPreview.final_amount || 0) : calculateTotal();
+
+  useEffect(() => {
+    setPromoPreview(null);
+  }, [selectedResourceId, selectedMainId, selectedAddons, selectedTime, date, durationValue]);
+
+  const handlePromoPreview = async () => {
+    if (!promoCode.trim()) return toast.error("Masukkan kode promo.");
+    if (!selectedResourceId || !selectedMainId || !selectedTime || !date) {
+      return toast.error("Pilih unit, layanan, dan jadwal dulu.");
+    }
+    setIsCheckingPromo(true);
+    try {
+      const fullDate = buildTenantDateTime(date, selectedTime, tenantTimezone);
+      const res = await api.post("/public/promos/preview", {
+        code: promoCode.trim().toUpperCase(),
+        resource_id: selectedResourceId,
+        start_time: fullDate.toISOString(),
+        end_time: fullDate.toISOString(),
+        subtotal: calculateTotal(),
+      });
+      setPromoPreview(res.data);
+      if (res.data?.valid) {
+        toast.success("Promo berhasil diterapkan.");
+      } else {
+        toast.error(res.data?.message || "Promo tidak berlaku.");
+      }
+    } catch (err: unknown) {
+      toast.error((err as ApiError).response?.data?.error || "Gagal memvalidasi promo");
+    } finally {
+      setIsCheckingPromo(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!selectedTime || !custName || !custPhone || !currentResource)
       return toast.error("Data belum lengkap");
     setIsSubmitting(true);
     try {
-      const fullDate = parse(selectedTime, "HH:mm", date || new Date());
+      const effectiveDate = date || tenantToday;
+      const fullDate = buildTenantDateTime(
+        effectiveDate,
+        selectedTime,
+        tenantTimezone,
+      );
       const res = await api.post("/bookings/manual", {
         tenant_id: currentResource.tenant_id,
         resource_id: selectedResourceId,
         customer_name: custName.toUpperCase(),
         customer_phone: custPhone,
         item_ids: [selectedMainId, ...selectedAddons],
-        start_time: formatISO(fullDate),
+        start_time: fullDate.toISOString(),
         duration: durationValue,
         booking_mode: bookingMode,
+        promo_code: promoPreview?.valid ? promoCode.trim().toUpperCase() : "",
       });
       toast.success(
         bookingMode === "walkin"
@@ -566,14 +633,16 @@ export default function NewManualBookingPage() {
                     className="w-auto overflow-hidden rounded-2xl border-none p-0 shadow-lg"
                     align="end"
                   >
-                    <Calendar
+                      <Calendar
                       mode="single"
                       selected={date}
-                      onSelect={setDate}
+                      onSelect={(value) =>
+                        setDate(value ? normalizeCalendarDate(value) : value)
+                      }
                       disabled={(d) =>
                         bookingMode === "walkin"
-                          ? !isSameDay(d, new Date())
-                          : d < startOfToday()
+                          ? !isSameDay(normalizeCalendarDate(d), tenantToday)
+                          : normalizeCalendarDate(d) < tenantToday
                       }
                     />
                   </PopoverContent>
@@ -592,8 +661,8 @@ export default function NewManualBookingPage() {
                         });
                         const isPast =
                           bookingMode !== "walkin" &&
-                          isSameDay(date!, new Date()) &&
-                          isBefore(parse(t, "HH:mm", date!), new Date());
+                          isSameDay(date!, tenantToday) &&
+                          isBefore(parse(t, "HH:mm", date!), tenantNow);
                         const isSel = selectedTime === t;
 
                         return (
@@ -793,16 +862,47 @@ export default function NewManualBookingPage() {
                 </div>
               </div>
 
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-slate-400 dark:text-slate-300">
+                  Promo Booking
+                </p>
+                <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+                  <Input
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                    placeholder="Masukkan voucher"
+                    className="h-11 rounded-xl border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5"
+                  />
+                  <Button type="button" onClick={handlePromoPreview} disabled={isCheckingPromo} className="h-11 rounded-xl bg-violet-600 text-white hover:bg-violet-700">
+                    {isCheckingPromo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
+                    Cek Promo
+                  </Button>
+                </div>
+                {promoPreview?.valid && (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
+                    {promoPreview.label || promoCode} aktif • Potongan Rp{Number(promoPreview.discount_amount || 0).toLocaleString()}
+                  </div>
+                )}
+              </div>
+
               {/* TOTAL BILL */}
               <div className="relative space-y-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-inner dark:border-white/5 dark:bg-white/5 md:p-5">
                 <div className="relative z-10">
                   <p className="mb-1 text-[10px] font-semibold text-slate-400 dark:text-slate-400">
                     Estimasi Tagihan
                   </p>
-                  <p className="text-3xl font-semibold leading-none text-slate-950 dark:text-white md:text-4xl">
-                    Rp{calculateTotal().toLocaleString()}
+                <p className="text-3xl font-semibold leading-none text-slate-950 dark:text-white md:text-4xl">
+                  Rp{totalAfterPromo().toLocaleString()}
+                </p>
+                {promoPreview?.valid && (
+                  <p className="mt-2 text-xs font-semibold text-emerald-600 dark:text-emerald-300">
+                    Diskon Rp{Number(promoPreview.discount_amount || 0).toLocaleString()}
                   </p>
-                </div>
+                )}
+                <p className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                  DP final mengikuti policy tenant dan override resource saat booking disimpan.
+                </p>
+              </div>
                 <div className="relative z-10 flex items-center justify-between gap-4 border-t border-slate-200 pt-4 dark:border-white/5">
                   <div className="flex flex-col">
                     <span className="mb-1.5 text-[7px] font-semibold leading-none tracking-[0.2em] text-slate-500 dark:text-slate-500">
@@ -839,4 +939,101 @@ export default function NewManualBookingPage() {
       </div>
     </div>
   );
+}
+
+function normalizeCalendarDate(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+}
+
+function getTimeZoneParts(date: Date, timezone = "Asia/Jakarta") {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = formatter.formatToParts(date);
+  const pick = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value || "0");
+
+  return {
+    year: pick("year"),
+    month: pick("month"),
+    day: pick("day"),
+    hour: pick("hour"),
+    minute: pick("minute"),
+    second: pick("second"),
+  };
+}
+
+function getTenantNow(date: Date, timezone = "Asia/Jakarta") {
+  const parts = getTimeZoneParts(date, timezone);
+  return new Date(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+    0,
+  );
+}
+
+function getTenantToday(date: Date, timezone = "Asia/Jakarta") {
+  return normalizeCalendarDate(getTenantNow(date, timezone));
+}
+
+function parseTimeZoneOffsetMinutes(offsetLabel: string) {
+  if (offsetLabel === "GMT" || offsetLabel === "UTC") return 0;
+
+  const match = offsetLabel.match(/(?:GMT|UTC)([+-])(\d{1,2})(?::?(\d{2}))?/);
+  if (!match) return 0;
+
+  const sign = match[1] === "-" ? -1 : 1;
+  const hours = Number(match[2] || "0");
+  const minutes = Number(match[3] || "0");
+  return sign * (hours * 60 + minutes);
+}
+
+function getTimeZoneOffsetMinutes(date: Date, timezone = "Asia/Jakarta") {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    timeZoneName: "shortOffset",
+    hour: "2-digit",
+  });
+  const label =
+    formatter.formatToParts(date).find((part) => part.type === "timeZoneName")
+      ?.value || "GMT";
+  return parseTimeZoneOffsetMinutes(label);
+}
+
+function buildTenantDateTime(
+  date: Date,
+  timeValue: string,
+  timezone = "Asia/Jakarta",
+) {
+  const [hour, minute] = timeValue.split(":").map(Number);
+  const baseUtc = Date.UTC(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    hour || 0,
+    minute || 0,
+    0,
+    0,
+  );
+
+  const offset = getTimeZoneOffsetMinutes(new Date(baseUtc), timezone);
+  let utcMillis = baseUtc - offset * 60 * 1000;
+
+  const refinedOffset = getTimeZoneOffsetMinutes(new Date(utcMillis), timezone);
+  if (refinedOffset !== offset) {
+    utcMillis = baseUtc - refinedOffset * 60 * 1000;
+  }
+
+  return new Date(utcMillis);
 }

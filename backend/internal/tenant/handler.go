@@ -411,6 +411,21 @@ func (h *Handler) GetPaymentMethods(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": items})
 }
 
+func (h *Handler) GetDepositSettings(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	item, err := h.service.GetDepositSettings(c.Request.Context(), tID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil pengaturan DP"})
+		return
+	}
+	c.JSON(http.StatusOK, item)
+}
+
 // UpdateProfile
 func (h *Handler) UpdateProfile(c *gin.Context) {
 	tIDRaw, exists := c.Get("tenantID")
@@ -525,6 +540,26 @@ func (h *Handler) UpdatePaymentMethods(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Metode pembayaran diperbarui", "items": items})
+}
+
+func (h *Handler) UpdateDepositSettings(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	var req TenantDepositSettingUpdateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data DP tidak valid"})
+		return
+	}
+	item, err := h.service.UpdateDepositSettings(c.Request.Context(), tID, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Pengaturan DP diperbarui", "data": item})
 }
 
 func (h *Handler) GetReferralSummary(c *gin.Context) {

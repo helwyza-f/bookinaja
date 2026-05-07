@@ -171,6 +171,11 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 					logCommon.ErrorMessage = err.Error()
 					return s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon)
 				}
+				if isFinalStatus {
+					if err := s.repo.UpdatePromoRedemptionStatus(ctx, tx, bookingID, "redeemed"); err != nil {
+						return err
+					}
+				}
 				if attempt != nil && isFinalStatus {
 					if err := s.repo.MarkBookingPaymentAttemptStatus(ctx, tx, attempt.ID, "paid", txIDPtr, nil); err != nil {
 						return err
@@ -230,6 +235,11 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 				logCommon.ProcessingStatus = "failed"
 				logCommon.ErrorMessage = err.Error()
 				return s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon)
+			}
+			if isFinalStatus {
+				if err := s.repo.UpdatePromoRedemptionStatus(ctx, tx, bookingID, "redeemed"); err != nil {
+					return err
+				}
 			}
 			if attempt != nil && isFinalStatus {
 				if err := s.repo.MarkBookingPaymentAttemptStatus(ctx, tx, attempt.ID, "paid", txIDPtr, nil); err != nil {
@@ -355,34 +365,38 @@ func (s *Service) sendBookingPaymentWhatsApp(ctx context.Context, info BookingNo
 	if remaining < 0 {
 		remaining = 0
 	}
-	statusLine := ""
-	if remaining <= 0 {
-		statusLine = "\n✅ *Booking sudah LUNAS!*"
-	} else {
-		statusLine = fmt.Sprintf("\n💳 Sisa bayar: Rp %d", int64(remaining+0.5))
+	statusLine := "Status pembayaran: booking kamu sudah lunas."
+	if remaining > 0 {
+		statusLine = fmt.Sprintf("Status pembayaran: sisa tagihan kamu masih %s.", formatMoney(remaining))
 	}
 
 	ref := info.BookingID.String()
 	if len(ref) >= 8 {
 		ref = strings.ToUpper(ref[:8])
+	} else {
+		ref = strings.ToUpper(ref)
 	}
 
 	msg := fmt.Sprintf(
-		"💵 *Pembayaran Diterima*\n\n"+
+		"Pembayaran Diterima\n\n"+
 			"Halo *%s*, %s\n\n"+
-			"🔖 Ref: *%s*\n"+
-			"🎯 Unit: *%s*\n"+
-			"💰 Total: Rp %d\n"+
-			"💰 DP: Rp %d\n"+
-			"💰 Dibayar: Rp %d%s\n\n"+
+			"Ref         : *%s*\n"+
+			"Unit        : *%s*\n\n"+
+			"Ringkasan pembayaran\n"+
+			"Total       : %s\n"+
+			"DP          : %s\n"+
+			"Sudah bayar : %s\n"+
+			"Sisa bayar  : %s\n\n"+
+			"%s\n\n"+
 			"Buka detail booking:\n%s",
 		info.CustomerName,
 		paymentNote,
 		ref,
 		info.ResourceName,
-		int64(info.GrandTotal+0.5),
-		int64(info.DepositAmount+0.5),
-		int64(info.PaidAmount+0.5),
+		formatMoney(info.GrandTotal),
+		formatMoney(info.DepositAmount),
+		formatMoney(info.PaidAmount),
+		formatMoney(remaining),
 		statusLine,
 		detailURL,
 	)
@@ -390,6 +404,21 @@ func (s *Service) sendBookingPaymentWhatsApp(ctx context.Context, info BookingNo
 	return nil
 }
 
+func formatMoney(v float64) string {
+	val := int64(math.Round(v))
+	raw := fmt.Sprintf("%d", val)
+	if len(raw) <= 3 {
+		return "Rp " + raw
+	}
+	var b strings.Builder
+	for i, r := range raw {
+		if i > 0 && (len(raw)-i)%3 == 0 {
+			b.WriteString(".")
+		}
+		b.WriteRune(r)
+	}
+	return "Rp " + b.String()
+}
 func appProtocol() string {
 	if p := strings.TrimSpace(os.Getenv("APP_PROTOCOL")); p != "" {
 		return p

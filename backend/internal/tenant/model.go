@@ -227,6 +227,40 @@ type TenantPaymentMethodUpdateReq struct {
 	Items []TenantPaymentMethodInput `json:"items" binding:"required"`
 }
 
+type TenantDepositSetting struct {
+	TenantID        uuid.UUID                 `db:"tenant_id" json:"tenant_id"`
+	DPEnabled       bool                      `db:"dp_enabled" json:"dp_enabled"`
+	DPPercentage    float64                   `db:"dp_percentage" json:"dp_percentage"`
+	CreatedAt       time.Time                 `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time                 `db:"updated_at" json:"updated_at"`
+	ResourceConfigs []ResourceDepositOverride `json:"resource_configs,omitempty"`
+}
+
+type ResourceDepositOverride struct {
+	ID           uuid.UUID `db:"id" json:"id"`
+	TenantID     uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	ResourceID   uuid.UUID `db:"resource_id" json:"resource_id"`
+	ResourceName string    `db:"resource_name" json:"resource_name"`
+	OverrideDP   bool      `db:"override_dp" json:"override_dp"`
+	DPEnabled    bool      `db:"dp_enabled" json:"dp_enabled"`
+	DPPercentage float64   `db:"dp_percentage" json:"dp_percentage"`
+	CreatedAt    time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt    time.Time `db:"updated_at" json:"updated_at"`
+}
+
+type ResourceDepositOverrideInput struct {
+	ResourceID   string  `json:"resource_id"`
+	OverrideDP   bool    `json:"override_dp"`
+	DPEnabled    bool    `json:"dp_enabled"`
+	DPPercentage float64 `json:"dp_percentage"`
+}
+
+type TenantDepositSettingUpdateReq struct {
+	DPEnabled       bool                           `json:"dp_enabled"`
+	DPPercentage    float64                        `json:"dp_percentage"`
+	ResourceConfigs []ResourceDepositOverrideInput `json:"resource_configs"`
+}
+
 type PageBuilderState struct {
 	Profile       *Tenant            `json:"profile"`
 	Page          LandingPageConfig  `json:"page"`
@@ -297,6 +331,7 @@ type Tenant struct {
 	// --- OPERATIONAL ---
 	OpenTime  string `db:"open_time" json:"open_time"`
 	CloseTime string `db:"close_time" json:"close_time"`
+	Timezone  string `db:"timezone" json:"timezone"`
 
 	// --- RECEIPT & PRINTER SETTINGS ---
 	ReceiptTitle        string     `db:"receipt_title" json:"receipt_title"`

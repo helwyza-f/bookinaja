@@ -657,7 +657,19 @@ func bookingDetailURL(tenantSlug, accessToken string) string {
 }
 
 func formatMoney(v float64) string {
-	return fmt.Sprintf("%d", int64(v+0.5))
+	val := int64(math.Round(v))
+	raw := fmt.Sprintf("%d", val)
+	if len(raw) <= 3 {
+		return "Rp " + raw
+	}
+	var b strings.Builder
+	for i, r := range raw {
+		if i > 0 && (len(raw)-i)%3 == 0 {
+			b.WriteString(".")
+		}
+		b.WriteRune(r)
+	}
+	return "Rp " + b.String()
 }
 
 func waPaymentReceivedMessage(name, note, bookingID, resourceName string, grandTotal, depositAmount, paidAmount, balanceDue float64, detailURL string) string {
@@ -665,16 +677,37 @@ func waPaymentReceivedMessage(name, note, bookingID, resourceName string, grandT
 	if remaining < 0 {
 		remaining = 0
 	}
+	ref := bookingID
+	if len(ref) >= 8 {
+		ref = strings.ToUpper(ref[:8])
+	} else {
+		ref = strings.ToUpper(ref)
+	}
+	statusLine := "Status pembayaran: booking kamu sudah lunas."
+	if remaining > 0 {
+		statusLine = fmt.Sprintf("Status pembayaran: sisa tagihan kamu masih %s.", formatMoney(remaining))
+	}
 	return fmt.Sprintf(
-		"Halo %s, %s\n\nNomor booking: %s\nUnit: %s\nTotal: Rp %s\nDP: Rp %s\nSudah dibayar: Rp %s\nSisa: Rp %s\n\nBuka detail booking di sini:\n%s",
+		"Pembayaran Diterima\n\n"+
+			"Halo *%s*, %s\n\n"+
+			"Ref         : *%s*\n"+
+			"Unit        : *%s*\n\n"+
+			"Ringkasan pembayaran\n"+
+			"Total       : %s\n"+
+			"DP          : %s\n"+
+			"Sudah bayar : %s\n"+
+			"Sisa bayar  : %s\n\n"+
+			"%s\n\n"+
+			"Buka detail booking:\n%s",
 		name,
 		note,
-		bookingID,
+		ref,
 		resourceName,
 		formatMoney(grandTotal),
 		formatMoney(depositAmount),
 		formatMoney(paidAmount),
 		formatMoney(remaining),
+		statusLine,
 		detailURL,
 	)
 }
