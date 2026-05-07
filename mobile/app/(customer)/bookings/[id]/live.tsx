@@ -1,13 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocalSearchParams, router } from "expo-router";
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   Modal,
+  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
@@ -33,7 +37,13 @@ import {
 } from "@/features/customer/status";
 
 type ActionSheetKind = "extend" | "fnb" | "addon" | null;
-type ConfirmActionKind = "activate" | "complete" | null;
+type ConfirmActionKind =
+  | "activate"
+  | "complete"
+  | "extend"
+  | "submit_fnb"
+  | "submit_addon"
+  | null;
 
 function formatMoney(value?: number) {
   return `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
@@ -101,6 +111,68 @@ function resolvePaymentNotice(notice?: string) {
   return null;
 }
 
+function getVisibleLiveContextError(error: unknown, enabled: boolean) {
+  if (!enabled || !error) return null;
+  const message =
+    error instanceof Error ? error.message : typeof error === "string" ? error : "";
+
+  if (!message) return "Live context belum bisa dimuat.";
+  if (message === "LIVE CONTROLLER HANYA BISA DIAKSES SAAT SESI AKTIF") return null;
+  return message;
+}
+
+function getSolidTonePalette(
+  theme: ReturnType<typeof useAppTheme>,
+  tone: "primary" | "accent" | "success" | "warning" | "danger" | "muted",
+) {
+  if (tone === "primary") {
+    const backgroundColor = theme.mode === "dark" ? theme.colors.inkSoft : theme.colors.primary;
+    return {
+      backgroundColor,
+      borderColor: backgroundColor,
+      textColor: theme.mode === "dark" ? theme.colors.foreground : theme.colors.primaryForeground,
+    };
+  }
+
+  if (tone === "accent") {
+    return {
+      backgroundColor: theme.colors.accent,
+      borderColor: theme.colors.accent,
+      textColor: theme.colors.accentContrast,
+    };
+  }
+
+  if (tone === "success") {
+    return {
+      backgroundColor: theme.colors.success,
+      borderColor: theme.colors.success,
+      textColor: theme.mode === "dark" ? theme.colors.primaryForeground : "#FFFFFF",
+    };
+  }
+
+  if (tone === "warning") {
+    return {
+      backgroundColor: theme.colors.warning,
+      borderColor: theme.colors.warning,
+      textColor: theme.colors.primaryForeground,
+    };
+  }
+
+  if (tone === "danger") {
+    return {
+      backgroundColor: theme.colors.danger,
+      borderColor: theme.colors.danger,
+      textColor: "#FFFFFF",
+    };
+  }
+
+  return {
+    backgroundColor: theme.colors.foregroundMuted,
+    borderColor: theme.colors.foregroundMuted,
+    textColor: theme.mode === "dark" ? theme.colors.background : "#FFFFFF",
+  };
+}
+
 export default function CustomerLiveScreen() {
   const theme = useAppTheme();
   const params = useLocalSearchParams<{ id: string; notice?: string }>();
@@ -139,6 +211,11 @@ export default function CustomerLiveScreen() {
   const [menuCart, setMenuCart] = useState<Record<string, { id: string; name: string; price: number; quantity: number }>>({});
   const [addonCart, setAddonCart] = useState<Record<string, { id: string; name: string; price: number; quantity: number }>>({});
   const [confirmAction, setConfirmAction] = useState<ConfirmActionKind>(null);
+  const [sheetConfirmAction, setSheetConfirmAction] = useState<
+    Extract<ConfirmActionKind, "extend" | "submit_fnb" | "submit_addon"> | null
+  >(null);
+  const [bookingSummaryOpen, setBookingSummaryOpen] = useState(false);
+  const [bookingHistoryOpen, setBookingHistoryOpen] = useState(false);
 
   useEffect(() => {
     setPaymentNotice(resolvePaymentNotice(String(params.notice || "").trim()));
@@ -163,7 +240,13 @@ export default function CustomerLiveScreen() {
       ...liveBooking,
     };
   }, [detailBooking, liveContext.data?.booking]);
-  const paymentAttempts = booking?.payment_attempts || [];
+  const paymentAttempts = Array.isArray((booking as any)?.payment_attempts)
+    ? ((booking as any).payment_attempts as any[])
+    : [];
+  const visibleLiveContextError = getVisibleLiveContextError(
+    liveContext.error,
+    shouldFetchLiveContext,
+  );
   const paymentStatus = String(booking?.payment_status || "").toLowerCase();
   const sessionStatus = String(booking?.status || "").toLowerCase();
   const isActiveStatus = sessionStatus === "active" || sessionStatus === "ongoing";
@@ -204,6 +287,12 @@ export default function CustomerLiveScreen() {
       item?.payment_scope === "settlement" &&
       (item?.status === "submitted" || item?.status === "awaiting_verification"),
   );
+  const effectivePendingManualDpAttempt =
+    resolvedPaymentStatus === "awaiting_verification" ? pendingManualDpAttempt : null;
+  const effectivePendingManualSettlementAttempt =
+    resolvedPaymentStatus === "awaiting_verification"
+      ? pendingManualSettlementAttempt
+      : null;
 
   const countdownData = useMemo(() => {
     if (!booking) return null;
@@ -249,22 +338,146 @@ export default function CustomerLiveScreen() {
     depositAmount === 0;
   const isTimeReached = now >= new Date(booking?.start_time || booking?.date || Date.now());
 
-  const paymentGuidance =
-    pendingManualSettlementAttempt
-      ? `Pelunasan menunggu verifikasi. Ref ${pendingManualSettlementAttempt?.reference_code || "-"}.`
-      : pendingManualDpAttempt
-        ? `DP menunggu verifikasi. Ref ${pendingManualDpAttempt?.reference_code || "-"}.`
-        : depositAmount > 0
-          ? resolvedPaymentStatus === "pending"
-            ? `DP ${formatMoney(depositAmount)} belum dibayar.`
-            : resolvedPaymentStatus === "settled"
-              ? "Booking sudah lunas."
-              : "DP sudah masuk."
-          : "Tanpa DP.";
+  const canPayDeposit =
+    depositAmount > 0 &&
+    resolvedPaymentStatus === "pending" &&
+    !effectivePendingManualDpAttempt;
+  const canPaySettlement =
+    sessionStatus === "completed" &&
+    balanceDue > 0 &&
+    !effectivePendingManualSettlementAttempt;
+  const showActivationGate = shouldShowActivation && hasPaidDp;
+  const canActivateSession = showActivationGate && isTimeReached;
+  const showLiveControls = isActiveStatus;
+
+  const nextStep = useMemo(() => {
+    if (effectivePendingManualSettlementAttempt) {
+      return {
+        eyebrow: "Verifikasi",
+        title: "Pelunasan sedang diverifikasi",
+        description: `Admin sedang memeriksa pembayaranmu. Ref ${effectivePendingManualSettlementAttempt.reference_code || "-"}.`,
+        tone: "warning" as const,
+        action: null,
+      };
+    }
+
+    if (effectivePendingManualDpAttempt) {
+      return {
+        eyebrow: "Verifikasi",
+        title: "DP sedang diverifikasi",
+        description: `Setelah diverifikasi, aktivasi sesi akan tersedia otomatis. Ref ${effectivePendingManualDpAttempt.reference_code || "-"}.`,
+        tone: "warning" as const,
+        action: null,
+      };
+    }
+
+    if (canPayDeposit) {
+      return {
+        eyebrow: "Pembayaran",
+        title: "Selesaikan DP dulu",
+        description: `Bayar DP ${formatMoney(depositAmount)} untuk mengamankan booking ini sebelum aktivasi sesi muncul.`,
+        tone: "accent" as const,
+        action: "deposit" as const,
+      };
+    }
+
+    if (canPaySettlement) {
+      return {
+        eyebrow: "Pembayaran",
+        title: "Lunasi sisa tagihan",
+        description: `Sesi sudah selesai. Lunasi ${formatMoney(balanceDue)} untuk menutup transaksi ini.`,
+        tone: "accent" as const,
+        action: "settlement" as const,
+      };
+    }
+
+    if (showActivationGate && !canActivateSession) {
+      return {
+        eyebrow: "Aktivasi",
+        title: "Tunggu jadwal mulai",
+        description: "Pembayaran sudah aman. Tombol aktivasi akan muncul saat jam booking dimulai.",
+        tone: "neutral" as const,
+        action: null,
+      };
+    }
+
+    if (canActivateSession) {
+      return {
+        eyebrow: "Aktivasi",
+        title: "Sesi siap diaktifkan",
+        description: "Jam booking sudah masuk. Aktifkan sesi untuk membuka kontrol live.",
+        tone: "success" as const,
+        action: "activate" as const,
+      };
+    }
+
+    if (showLiveControls) {
+      return {
+        eyebrow: "Live",
+        title: "Sesi sedang berjalan",
+        description: "Tambah durasi, pesan F&B, add-on, atau akhiri sesi dari kontrol live.",
+        tone: "success" as const,
+        action: null,
+      };
+    }
+
+    if (resolvedPaymentStatus === "settled" && balanceDue <= 0) {
+      return {
+        eyebrow: "Selesai",
+        title: "Booking sudah lunas",
+        description: "Tidak ada tindakan pembayaran yang perlu dilakukan lagi.",
+        tone: "success" as const,
+        action: null,
+      };
+    }
+
+    return {
+      eyebrow: "Booking",
+      title: "Booking tersimpan",
+      description: "Pantau status booking dan lanjutkan saat langkah berikutnya sudah tersedia.",
+      tone: "neutral" as const,
+      action: null,
+    };
+  }, [
+    balanceDue,
+    canActivateSession,
+    canPayDeposit,
+    canPaySettlement,
+    depositAmount,
+    effectivePendingManualDpAttempt,
+    effectivePendingManualSettlementAttempt,
+    resolvedPaymentStatus,
+    showActivationGate,
+    showLiveControls,
+  ]);
+  const primarySolid = getSolidTonePalette(theme, "primary");
+  const accentSolid = getSolidTonePalette(theme, "accent");
+  const successSolid = getSolidTonePalette(theme, "success");
+  const mutedSolid = getSolidTonePalette(theme, "muted");
+
+  const bookingOptions = useMemo(
+    () => (Array.isArray((booking as any)?.options) ? ((booking as any).options as any[]) : []),
+    [booking],
+  );
+  const bookingOrdersRaw = useMemo(
+    () => (Array.isArray((booking as any)?.orders) ? ((booking as any).orders as any[]) : []),
+    [booking],
+  );
+  const bookingEvents = useMemo(
+    () => (Array.isArray((booking as any)?.events) ? ((booking as any).events as any[]) : []),
+    [booking],
+  );
+  const resourceAddons = useMemo(
+    () =>
+      Array.isArray((booking as any)?.resource_addons)
+        ? ((booking as any).resource_addons as any[])
+        : [],
+    [booking],
+  );
 
   const groupedOptions = useMemo(() => {
-    if (!(booking as any)?.options?.length) return [];
-    const groups = ((booking as any).options as any[]).reduce((acc: Record<string, any>, item) => {
+    if (!bookingOptions.length) return [];
+    const groups = bookingOptions.reduce((acc: Record<string, any>, item) => {
       const itemType = String(item.item_type || "").toLowerCase();
       const key = `${String(item.item_name || "").trim().toLowerCase()}::${itemType}`;
       if (!acc[key]) {
@@ -286,7 +499,7 @@ export default function CustomerLiveScreen() {
         Number(item.unit_price || 0) ||
         Number(item.totalPrice || 0) / Math.max(Number(item.quantity || 1), 1),
     }));
-  }, [booking]);
+  }, [bookingOptions]);
 
   const groupedMainOptions = useMemo(
     () =>
@@ -307,8 +520,8 @@ export default function CustomerLiveScreen() {
   );
 
   const groupedOrders = useMemo(() => {
-    if (!(booking as any)?.orders?.length) return [];
-    const groups = ((booking as any).orders as any[]).reduce((acc, item) => {
+    if (!bookingOrdersRaw.length) return [];
+    const groups = bookingOrdersRaw.reduce((acc, item) => {
       const key = String(item.item_name || item.product_name || "Pesanan").toLowerCase();
       if (!acc[key]) {
         acc[key] = {
@@ -327,24 +540,24 @@ export default function CustomerLiveScreen() {
       return acc;
     }, {} as Record<string, any>);
     return Object.values(groups);
-  }, [booking]);
+  }, [bookingOrdersRaw]);
 
   const bookingItemCount =
     groupedMainOptions.length + groupedAddonOptions.length + groupedOrders.length;
 
   const menuItems = useMemo(
     () =>
-      (fnbMenu.data || []).filter((item) =>
+      (Array.isArray(fnbMenu.data) ? fnbMenu.data : []).filter((item) =>
         `${item.name} ${item.category || ""}`.toLowerCase().includes(menuSearch.toLowerCase()),
       ),
     [fnbMenu.data, menuSearch],
   );
   const addonItems = useMemo(
     () =>
-      ((booking?.resource_addons || []) as any[]).filter((item) =>
+      resourceAddons.filter((item) =>
         `${item.name || item.item_name || ""}`.toLowerCase().includes(addonSearch.toLowerCase()),
       ),
-    [addonSearch, booking?.resource_addons],
+    [addonSearch, resourceAddons],
   );
 
   const bumpCart = (
@@ -372,6 +585,8 @@ export default function CustomerLiveScreen() {
   const addonItemsInCart = Object.values(addonCart);
   const menuTotal = menuItemsInCart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const addonTotal = addonItemsInCart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const menuItemCount = menuItemsInCart.reduce((sum, item) => sum + item.quantity, 0);
+  const addonItemCount = addonItemsInCart.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleActivateSession = async () => {
     try {
@@ -403,10 +618,15 @@ export default function CustomerLiveScreen() {
     }
   };
 
+  const closeSheet = () => {
+    setSheet(null);
+    setSheetConfirmAction(null);
+  };
+
   const handleExtend = async () => {
     try {
       await extend.mutateAsync(selectedExtend);
-      setSheet(null);
+      closeSheet();
       await Promise.all([detail.refetch(), liveContext.refetch()]);
     } catch (error) {
       appToast.error(
@@ -422,7 +642,7 @@ export default function CustomerLiveScreen() {
         await addOrder.mutateAsync({ fnb_item_id: item.id, quantity: item.quantity });
       }
       setMenuCart({});
-      setSheet(null);
+      closeSheet();
       await detail.refetch();
     } catch (error) {
       appToast.error(
@@ -440,7 +660,7 @@ export default function CustomerLiveScreen() {
         }
       }
       setAddonCart({});
-      setSheet(null);
+      closeSheet();
       await detail.refetch();
     } catch (error) {
       appToast.error(
@@ -452,7 +672,7 @@ export default function CustomerLiveScreen() {
 
   if (detail.isLoading || !booking) {
     return (
-      <ScreenShell eyebrow="Customer" title="Live" subtitle="Memuat live booking...">
+      <ScreenShell headerVariant="none" eyebrow="Customer" title="Live" subtitle="Memuat live booking...">
         <View style={styles.loading}>
           <ActivityIndicator color={theme.colors.accent} />
           <Text style={{ color: theme.colors.foregroundMuted }}>Memuat live booking...</Text>
@@ -463,19 +683,30 @@ export default function CustomerLiveScreen() {
 
   return (
     <ScreenShell
+      headerVariant="none"
       eyebrow="Customer"
       title="Live"
       subtitle="Kontrol sesi dan pembayaran."
     >
-      <Pressable onPress={() => router.back()} style={styles.backRow}>
-        <Feather name="arrow-left" size={16} color={theme.colors.foreground} />
-        <Text style={[styles.backText, { color: theme.colors.foreground }]}>Booking</Text>
-      </Pressable>
+      <View style={styles.topRow}>
+        <Pressable
+          onPress={() => router.back()}
+          style={[
+            styles.backButton,
+            { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
+          ]}
+        >
+          <Feather name="arrow-left" size={16} color={theme.colors.foreground} />
+          <Text style={[styles.backButtonText, { color: theme.colors.foreground }]}>Booking</Text>
+        </Pressable>
+      </View>
 
       <View style={[styles.hero, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
         <View style={styles.heroTop}>
           <View style={styles.heroCopy}>
-            <Text style={[styles.heroEyebrow, { color: theme.colors.accent }]}>Live</Text>
+            <Text style={[styles.heroEyebrow, { color: theme.colors.accent }]}>
+              {nextStep.eyebrow}
+            </Text>
             <Text style={[styles.heroTitle, { color: theme.colors.foreground }]}>
               {booking.resource_name || booking.resource || "Booking"}
             </Text>
@@ -486,9 +717,49 @@ export default function CustomerLiveScreen() {
               Ref {String(booking.id || "").slice(0, 8).toUpperCase()}
             </Text>
           </View>
-          <View style={[styles.livePill, { backgroundColor: theme.colors.successSoft, borderColor: theme.colors.success }]}>
-            <Text style={[styles.livePillText, { color: theme.colors.success }]}>
-              {realtime.connected ? "Realtime aktif" : "Sinkronisasi"}
+          <View
+            style={[
+              styles.livePill,
+              {
+                backgroundColor:
+                  nextStep.tone === "warning"
+                    ? theme.colors.warningSoft
+                    : nextStep.tone === "accent"
+                      ? theme.colors.accentSoft
+                    : nextStep.tone === "success"
+                      ? theme.colors.successSoft
+                      : theme.colors.surfaceAlt,
+                borderColor:
+                  nextStep.tone === "warning"
+                    ? theme.colors.warning
+                    : nextStep.tone === "accent"
+                      ? theme.colors.accent
+                    : nextStep.tone === "success"
+                      ? theme.colors.success
+                      : theme.colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.livePillText,
+                {
+                  color:
+                    nextStep.tone === "warning"
+                      ? theme.colors.warning
+                      : nextStep.tone === "accent"
+                        ? theme.colors.accent
+                      : nextStep.tone === "success"
+                        ? theme.colors.success
+                        : theme.colors.foregroundMuted,
+                },
+              ]}
+            >
+              {showLiveControls
+                ? realtime.connected
+                  ? "Realtime aktif"
+                  : "Sinkronisasi"
+                : nextStep.title}
             </Text>
           </View>
         </View>
@@ -515,19 +786,49 @@ export default function CustomerLiveScreen() {
           style={[
             styles.countdownCard,
             countdownData.type === "LIVE"
-              ? { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }
-              : { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
+              ? { backgroundColor: primarySolid.backgroundColor, borderColor: primarySolid.borderColor }
+              : { backgroundColor: accentSolid.backgroundColor, borderColor: accentSolid.borderColor },
           ]}
         >
           <View style={styles.countdownTop}>
             <View>
-              <Text style={styles.countdownLabel}>{countdownData.label}</Text>
-              <Text style={[styles.countdownValue, countdownData.type === "LIVE" && countdownData.isCritical ? styles.countdownCritical : null]}>
+              <Text
+                style={[
+                  styles.countdownLabel,
+                  { color: countdownData.type === "LIVE" ? primarySolid.textColor : accentSolid.textColor },
+                ]}
+              >
+                {countdownData.label}
+              </Text>
+              <Text
+                style={[
+                  styles.countdownValue,
+                  { color: countdownData.type === "LIVE" ? primarySolid.textColor : accentSolid.textColor },
+                  countdownData.type === "LIVE" && countdownData.isCritical ? styles.countdownCritical : null,
+                ]}
+              >
                 {countdownData.h}:{countdownData.m}:{countdownData.s}
               </Text>
             </View>
-            <View style={styles.countdownBadge}>
-              <Text style={styles.countdownBadgeText}>
+            <View
+              style={[
+                styles.countdownBadge,
+                {
+                  backgroundColor:
+                    countdownData.type === "LIVE"
+                      ? "rgba(255,255,255,0.12)"
+                      : theme.mode === "dark"
+                        ? "rgba(7,21,28,0.14)"
+                        : "rgba(255,255,255,0.12)",
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.countdownBadgeText,
+                  { color: countdownData.type === "LIVE" ? primarySolid.textColor : accentSolid.textColor },
+                ]}
+              >
                 {countdownData.type === "LIVE" ? "Sesi berjalan" : "Menunggu mulai"}
               </Text>
             </View>
@@ -539,78 +840,51 @@ export default function CustomerLiveScreen() {
       ) : null}
 
       {paymentNotice ? <NoticeCard tone="emerald" text={paymentNotice} theme={theme} /> : null}
-      {liveContext.error ? (
+      {visibleLiveContextError ? (
         <NoticeCard
           tone="amber"
-          text={liveContext.error instanceof Error ? liveContext.error.message : "Live context belum bisa dimuat."}
+          text={visibleLiveContextError}
           theme={theme}
         />
       ) : null}
-      {pendingManualDpAttempt ? (
+      {effectivePendingManualDpAttempt ? (
         <NoticeCard
           tone="amber"
-          text={`DP menunggu verifikasi. Ref ${pendingManualDpAttempt.reference_code || "-"}.`}
+          text={`DP menunggu verifikasi. Ref ${effectivePendingManualDpAttempt.reference_code || "-"}.`}
           theme={theme}
         />
       ) : null}
-      {pendingManualSettlementAttempt ? (
+      {effectivePendingManualSettlementAttempt ? (
         <NoticeCard
           tone="amber"
-          text={`Pelunasan menunggu verifikasi. Ref ${pendingManualSettlementAttempt.reference_code || "-"}.`}
+          text={`Pelunasan menunggu verifikasi. Ref ${effectivePendingManualSettlementAttempt.reference_code || "-"}.`}
           theme={theme}
         />
       ) : null}
 
-      {shouldShowActivation ? (
-        <View style={[styles.sectionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-          <View style={styles.sectionTop}>
-            <View>
-              <Text style={[styles.sectionEyebrow, { color: theme.colors.foregroundMuted }]}>Aktivasi sesi</Text>
-              <Text style={[styles.sectionBody, { color: theme.colors.foreground }]}>
-                {!hasPaidDp ? "Bayar DP dulu." : !isTimeReached ? "Belum masuk jam." : "Siap diaktifkan."}
-              </Text>
-            </View>
-            <StatusBadge label={hasPaidDp ? "Siap" : "Tertahan"} tone={hasPaidDp ? "success" : "neutral"} theme={theme} />
+      <View style={[styles.sectionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+        <View style={styles.sectionTop}>
+          <View>
+            <Text style={[styles.sectionEyebrow, { color: theme.colors.foregroundMuted }]}>
+              Langkah berikutnya
+            </Text>
+            <Text style={[styles.sectionBody, { color: theme.colors.foreground }]}>
+              {nextStep.title}
+            </Text>
           </View>
-          <Pressable
-            onPress={() => setConfirmAction("activate")}
-            disabled={activate.isPending || !hasPaidDp || !isTimeReached}
-            style={[
-              styles.primaryFullButton,
-              {
-                backgroundColor: activate.isPending || !hasPaidDp || !isTimeReached ? theme.colors.foregroundMuted : theme.colors.success,
-              },
-            ]}
-          >
-            <Text style={styles.primaryFullButtonText}>{activate.isPending ? "Mengaktifkan..." : "Aktifkan"}</Text>
-          </Pressable>
-        </View>
-      ) : null}
-
-      <View style={[styles.sectionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-        <View style={styles.sectionTop}>
-          <Text style={[styles.sectionEyebrow, { color: theme.colors.foregroundMuted }]}>Kontrol live</Text>
-          <StatusBadge label={isActiveStatus ? "Aktif" : "Belum aktif"} tone={isActiveStatus ? "success" : "neutral"} theme={theme} />
-        </View>
-
-        <View style={styles.actionGrid}>
-          <ActionTile title="Tambah Durasi" icon="clock" active={isActiveStatus} theme={theme} onPress={() => setSheet("extend")} />
-          <ActionTile title="Pesan F&B" icon="coffee" active={isActiveStatus} theme={theme} onPress={() => setSheet("fnb")} />
-          <ActionTile title="Tambah Add-on" icon="plus-circle" active={isActiveStatus} theme={theme} onPress={() => setSheet("addon")} />
-          <ActionTile title="Akhiri Sesi" icon="x-circle" active={isActiveStatus} theme={theme} filled onPress={() => setConfirmAction("complete")} />
-        </View>
-      </View>
-
-      <View style={[styles.sectionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-        <View style={styles.sectionTop}>
-          <Text style={[styles.sectionEyebrow, { color: theme.colors.foregroundMuted }]}>Pembayaran</Text>
-          <StatusBadge label={paymentLabel} tone={paymentMeta.tone} theme={theme} />
-        </View>
-
-        <View style={styles.paymentStatsRow}>
-          <PaymentStat label="Total" value={formatMoney(booking.grand_total)} theme={theme} />
-          <PaymentStat label="Dibayar" value={formatMoney(paidAmount)} theme={theme} />
-          <PaymentStat label="Sisa" value={formatMoney(balanceDue)} theme={theme} />
+          <StatusBadge
+            label={paymentLabel}
+            tone={
+              nextStep.tone === "warning"
+                ? "warning"
+                : nextStep.tone === "success"
+                  ? "success"
+                  : nextStep.tone === "accent"
+                    ? "info"
+                    : "neutral"
+            }
+            theme={theme}
+          />
         </View>
 
         <View
@@ -620,8 +894,14 @@ export default function CustomerLiveScreen() {
           ]}
         >
           <Text style={[styles.inlineHint, { color: theme.colors.foregroundMuted }]}>
-            {paymentGuidance}
+            {nextStep.description}
           </Text>
+        </View>
+
+        <View style={styles.paymentStatsRow}>
+          <PaymentStat label="Total" value={formatMoney(booking.grand_total)} theme={theme} />
+          <PaymentStat label="Dibayar" value={formatMoney(paidAmount)} theme={theme} />
+          <PaymentStat label="Sisa" value={formatMoney(balanceDue)} theme={theme} />
         </View>
 
         {hasPromo ? (
@@ -632,7 +912,9 @@ export default function CustomerLiveScreen() {
                 <Text style={[styles.promoCode, { color: theme.colors.foreground }]}>{booking.promo_code}</Text>
               </View>
               <View style={[styles.promoBadge, { backgroundColor: theme.colors.success }]}>
-                <Text style={styles.promoBadgeText}>-{formatMoney(booking.discount_amount)}</Text>
+                <Text style={[styles.promoBadgeText, { color: successSolid.textColor }]}>
+                  -{formatMoney(booking.discount_amount)}
+                </Text>
               </View>
             </View>
             <View style={styles.promoMetricRow}>
@@ -643,15 +925,7 @@ export default function CustomerLiveScreen() {
           </View>
         ) : null}
 
-        {paymentStatus === "awaiting_verification" && pendingManualSettlementAttempt ? (
-          <NoticeCard
-            tone="amber"
-            text={`Pelunasan menunggu verifikasi. Ref ${pendingManualSettlementAttempt.reference_code}.`}
-            theme={theme}
-          />
-        ) : null}
-
-        <View style={styles.rowButtons}>
+        {nextStep.action === "deposit" ? (
           <Pressable
             onPress={() =>
               router.push({
@@ -659,35 +933,13 @@ export default function CustomerLiveScreen() {
                 params: { id: bookingId, scope: "deposit" },
               })
             }
-            disabled={depositAmount <= 0 || paymentStatus !== "pending" || Boolean(pendingManualDpAttempt)}
-            style={[
-              styles.primaryButton,
-              {
-                backgroundColor:
-                  depositAmount <= 0 || paymentStatus !== "pending" || Boolean(pendingManualDpAttempt)
-                    ? theme.colors.surfaceAlt
-                    : theme.colors.accent,
-                borderColor:
-                  depositAmount <= 0 || paymentStatus !== "pending" || Boolean(pendingManualDpAttempt)
-                    ? theme.colors.border
-                    : theme.colors.accent,
-              },
-            ]}
+            style={[styles.primaryFullButton, { backgroundColor: accentSolid.backgroundColor }]}
           >
-            <Text
-              style={[
-                styles.primaryButtonText,
-                {
-                  color:
-                    depositAmount <= 0 || paymentStatus !== "pending" || Boolean(pendingManualDpAttempt)
-                      ? theme.colors.foregroundMuted
-                      : "#FFFFFF",
-                },
-              ]}
-            >
-              Bayar DP
-            </Text>
+            <Text style={[styles.primaryFullButtonText, { color: accentSolid.textColor }]}>Bayar DP</Text>
           </Pressable>
+        ) : null}
+
+        {nextStep.action === "settlement" ? (
           <Pressable
             onPress={() =>
               router.push({
@@ -695,29 +947,65 @@ export default function CustomerLiveScreen() {
                 params: { id: bookingId, scope: "settlement" },
               })
             }
-            disabled={sessionStatus !== "completed" || balanceDue <= 0 || Boolean(pendingManualSettlementAttempt)}
+            style={[styles.primaryFullButton, { backgroundColor: primarySolid.backgroundColor }]}
+          >
+            <Text style={[styles.primaryFullButtonText, { color: primarySolid.textColor }]}>Bayar Pelunasan</Text>
+          </Pressable>
+        ) : null}
+
+        {nextStep.action === "activate" ? (
+          <Pressable
+            onPress={() => setConfirmAction("activate")}
+            disabled={activate.isPending}
             style={[
-              styles.secondaryButton,
+              styles.primaryFullButton,
               {
-                backgroundColor: theme.colors.surfaceAlt,
-                borderColor: theme.colors.border,
-                opacity:
-                  sessionStatus !== "completed" || balanceDue <= 0 || Boolean(pendingManualSettlementAttempt)
-                    ? 0.6
-                    : 1,
+                backgroundColor: activate.isPending ? mutedSolid.backgroundColor : successSolid.backgroundColor,
               },
             ]}
           >
-            <Text style={[styles.secondaryButtonText, { color: theme.colors.foreground }]}>Pelunasan</Text>
+            <Text
+              style={[
+                styles.primaryFullButtonText,
+                { color: activate.isPending ? mutedSolid.textColor : successSolid.textColor },
+              ]}
+            >
+              {activate.isPending ? "Mengaktifkan..." : "Aktifkan Sesi"}
+            </Text>
           </Pressable>
-        </View>
+        ) : null}
       </View>
 
-      <View style={[styles.sectionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-        <View style={styles.sectionTop}>
-          <Text style={[styles.sectionEyebrow, { color: theme.colors.foregroundMuted }]}>Ringkasan booking</Text>
-          <StatusBadge label={`${bookingItemCount} item`} tone="neutral" theme={theme} />
+      {showLiveControls ? (
+        <View style={[styles.sectionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+          <View style={styles.blockSection}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionEyebrow, { color: theme.colors.foregroundMuted }]}>Kontrol live</Text>
+              <StatusBadge label="Aktif" tone="success" theme={theme} />
+            </View>
+            <Text style={[styles.inlineHint, { color: theme.colors.foreground }]}>
+              Kelola sesi aktif tanpa berpindah dari layar ini.
+            </Text>
+          </View>
+
+          <View style={styles.actionGrid}>
+            <ActionTile title="Tambah Durasi" icon="clock" active theme={theme} onPress={() => setSheet("extend")} />
+            <ActionTile title="Pesan F&B" icon="coffee" active theme={theme} onPress={() => setSheet("fnb")} />
+            <ActionTile title="Tambah Add-on" icon="plus-circle" active theme={theme} onPress={() => setSheet("addon")} />
+            <ActionTile title="Akhiri Sesi" icon="x-circle" active theme={theme} filled onPress={() => setConfirmAction("complete")} />
+          </View>
         </View>
+      ) : null}
+
+      <CollapsibleSection
+        eyebrow="Ringkasan booking"
+        title="Lihat item booking"
+        badge={`${bookingItemCount} item`}
+        open={bookingSummaryOpen}
+        onToggle={() => setBookingSummaryOpen((current) => !current)}
+        theme={theme}
+      >
+        <View style={[styles.sectionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
 
         <View style={styles.blockSection}>
           <Text style={[styles.blockTitle, { color: theme.colors.foreground }]}>Layanan utama</Text>
@@ -727,7 +1015,7 @@ export default function CustomerLiveScreen() {
                 <LineRow
                   key={`${opt.item_name}-${opt.item_type}`}
                   title={opt.item_name}
-                  subtitle={`${opt.quantity} ${getUnitLabel((booking as any)?.unit_duration)} · ${formatMoney(opt.unitPrice || 0)}`}
+                  subtitle={`${opt.quantity} ${getUnitLabel((booking as any)?.unit_duration)} | ${formatMoney(opt.unitPrice || 0)}`}
                   value={formatMoney(opt.totalPrice || 0)}
                   theme={theme}
                 />
@@ -746,7 +1034,7 @@ export default function CustomerLiveScreen() {
                 <LineRow
                   key={`${opt.item_name}-${opt.item_type}`}
                   title={opt.item_name}
-                  subtitle={`${opt.quantity} unit · ${formatMoney(opt.unitPrice || 0)}`}
+                  subtitle={`${opt.quantity} unit | ${formatMoney(opt.unitPrice || 0)}`}
                   value={formatMoney(opt.totalPrice || 0)}
                   theme={theme}
                 />
@@ -765,7 +1053,7 @@ export default function CustomerLiveScreen() {
                 <LineRow
                   key={String(order.item_name || "").toLowerCase()}
                   title={order.item_name}
-                  subtitle={`${order.quantity} porsi · ${formatMoney(order.price_at_purchase || 0)}`}
+                  subtitle={`${order.quantity} porsi | ${formatMoney(order.price_at_purchase || 0)}`}
                   value={formatMoney(order.subtotal || 0)}
                   theme={theme}
                 />
@@ -776,138 +1064,292 @@ export default function CustomerLiveScreen() {
           </View>
         </View>
 
-        {(booking as any)?.events?.length ? (
-          <View style={styles.blockSection}>
-            <Text style={[styles.blockTitle, { color: theme.colors.foreground }]}>Timeline</Text>
-            <View style={styles.stack}>
-              {(booking as any).events.slice(0, 4).map((event: any) => (
-                <View
-                  key={event.id}
-                  style={[styles.eventCard, { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.border }]}
-                >
-                  <View style={styles.eventTop}>
-                    <Text style={[styles.eventTitle, { color: theme.colors.foreground }]}>
-                      {event.title || "Aktivitas booking"}
-                    </Text>
-                    <Text style={[styles.eventActor, { color: theme.colors.foregroundMuted }]} numberOfLines={1}>
-                      {event.actor_type || "system"}
+        </View>
+      </CollapsibleSection>
+
+      {bookingEvents.length ? (
+        <CollapsibleSection
+          eyebrow="History"
+          title="Lihat timeline booking"
+          badge={`${bookingEvents.length} event`}
+          open={bookingHistoryOpen}
+          onToggle={() => setBookingHistoryOpen((current) => !current)}
+          theme={theme}
+        >
+          <View style={[styles.sectionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+            <View style={styles.blockSection}>
+              <Text style={[styles.blockTitle, { color: theme.colors.foreground }]}>Timeline booking</Text>
+              <View style={styles.stack}>
+                {bookingEvents.slice(0, 4).map((event: any) => (
+                  <View
+                    key={event.id}
+                    style={[styles.eventCard, { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.border }]}
+                  >
+                    <View style={styles.eventTop}>
+                      <Text style={[styles.eventTitle, { color: theme.colors.foreground }]}>
+                        {event.title || "Aktivitas booking"}
+                      </Text>
+                      <Text style={[styles.eventActor, { color: theme.colors.foregroundMuted }]} numberOfLines={1}>
+                        {event.actor_type || "system"}
+                      </Text>
+                    </View>
+                    <Text style={[styles.eventDescription, { color: theme.colors.foregroundMuted }]} numberOfLines={2}>
+                      {event.description || "Status booking berubah."}
                     </Text>
                   </View>
-                  <Text style={[styles.eventDescription, { color: theme.colors.foregroundMuted }]} numberOfLines={2}>
-                    {event.description || "Status booking berubah."}
-                  </Text>
-                </View>
-              ))}
+                ))}
+              </View>
             </View>
           </View>
-        ) : null}
-      </View>
+        </CollapsibleSection>
+      ) : null}
 
       <SheetModal
         open={sheet === "extend"}
-        onClose={() => setSheet(null)}
+        onClose={closeSheet}
         title="Tambah durasi sesi"
+        subtitle="Pilih durasi tambahan tanpa meninggalkan layar live."
+        size="medium"
         theme={theme}
       >
-        <InfoCard label="Live Action" value="Pilih tambahan durasi. Sistem akan langsung menambah billing booking customer." />
-        <View style={styles.optionGrid}>
-          {[1, 2, 3, 4].map((count) => (
+        {sheetConfirmAction === "extend" ? (
+          <View style={styles.stack}>
+            <InfoCard
+              label="Konfirmasi"
+              value={`Tambah ${selectedExtend} ${extendUnitLabel}`}
+              hint={`Biaya tambahan ${formatMoney(Number(booking.unit_price || 0) * selectedExtend)} akan langsung masuk ke billing sesi ini.`}
+              compact
+            />
+            <View style={styles.confirmSheetActions}>
+              <Pressable
+                onPress={() => setSheetConfirmAction(null)}
+                style={[
+                  styles.confirmSheetSecondary,
+                  { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.border },
+                ]}
+              >
+                <Text style={[styles.confirmSheetSecondaryText, { color: theme.colors.foreground }]}>
+                  Kembali
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => void handleExtend()}
+                style={[styles.confirmSheetPrimary, { backgroundColor: accentSolid.backgroundColor }]}
+              >
+                <Text style={[styles.confirmSheetPrimaryText, { color: accentSolid.textColor }]}>
+                  {extend.isPending ? "Memproses..." : "Ya, tambah"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <>
+            <InfoCard
+              label="Live action"
+              value="Tambahan durasi akan langsung menambah billing sesi ini."
+              compact
+            />
+            <View style={styles.optionGrid}>
+              {[1, 2, 3, 4].map((count) => (
+                <Pressable
+                  key={count}
+                  onPress={() => setSelectedExtend(count)}
+                  style={[
+                    styles.optionCard,
+                    {
+                      backgroundColor: selectedExtend === count ? theme.colors.accentSoft : theme.colors.card,
+                      borderColor: selectedExtend === count ? theme.colors.accent : theme.colors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.optionTitle, { color: theme.colors.foreground }]}>
+                    +{count} {extendUnitLabel}
+                  </Text>
+                  <Text style={[styles.optionHint, { color: theme.colors.foregroundMuted }]}>
+                    {formatMoney(Number(booking.unit_price || 0) * count)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
             <Pressable
-              key={count}
-              onPress={() => setSelectedExtend(count)}
-              style={[
-                styles.optionCard,
-                {
-                  backgroundColor: selectedExtend === count ? theme.colors.accentSoft : theme.colors.card,
-                  borderColor: selectedExtend === count ? theme.colors.accent : theme.colors.border,
-                },
-              ]}
+              onPress={() => setSheetConfirmAction("extend")}
+              style={[styles.primaryFullButton, { backgroundColor: accentSolid.backgroundColor }]}
             >
-              <Text style={[styles.optionTitle, { color: theme.colors.foreground }]}>
-                +{count} {extendUnitLabel}
-              </Text>
-              <Text style={[styles.optionHint, { color: theme.colors.foregroundMuted }]}>
-                {formatMoney(Number(booking.unit_price || 0) * count)}
+              <Text style={[styles.primaryFullButtonText, { color: accentSolid.textColor }]}>
+                {extend.isPending ? "Memproses..." : "Tambah durasi"}
               </Text>
             </Pressable>
-          ))}
-        </View>
-        <Pressable onPress={() => void handleExtend()} style={[styles.primaryFullButton, { backgroundColor: theme.colors.accent }]}>
-          <Text style={styles.primaryFullButtonText}>{extend.isPending ? "Memproses..." : "Tambah durasi"}</Text>
-        </Pressable>
+          </>
+        )}
       </SheetModal>
 
-      <SheetModal open={sheet === "fnb"} onClose={() => setSheet(null)} title="Pesan F&B" theme={theme}>
-        <TextInput
-          value={menuSearch}
-          onChangeText={setMenuSearch}
-          placeholder="Cari menu..."
-          placeholderTextColor={theme.colors.foregroundMuted}
-          style={[styles.searchInput, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, color: theme.colors.foreground }]}
-        />
-        <ScrollView style={{ maxHeight: 340 }} contentContainerStyle={styles.stack}>
-          {menuItems.map((item) => {
-            const quantity = menuCart[item.id]?.quantity || 0;
-            return (
-              <CounterRow
-                key={item.id}
-                title={item.name}
-                subtitle={item.category || "Menu"}
-                value={formatMoney(Number(item.price || 0))}
-                quantity={quantity}
-                theme={theme}
-                onMinus={() => bumpCart(setMenuCart, item.id, { id: item.id, name: item.name, price: Number(item.price || 0) }, -1)}
-                onPlus={() => bumpCart(setMenuCart, item.id, { id: item.id, name: item.name, price: Number(item.price || 0) }, 1)}
-              />
-            );
-          })}
-        </ScrollView>
-        <InfoCard label="Total F&B" value={formatMoney(menuTotal)} />
-        <Pressable
-          onPress={() => void handleSubmitFnb()}
-          disabled={menuItemsInCart.length === 0}
-          style={[styles.primaryFullButton, { backgroundColor: menuItemsInCart.length === 0 ? theme.colors.foregroundMuted : theme.colors.accent }]}
-        >
-          <Text style={styles.primaryFullButtonText}>{addOrder.isPending ? "Memproses..." : "Tambahkan pesanan"}</Text>
-        </Pressable>
+      <SheetModal
+        open={sheet === "fnb"}
+        onClose={closeSheet}
+        title="Pesan F&B"
+        subtitle="Tambah makanan dan minuman tanpa meninggalkan sesi."
+        size="tall"
+        theme={theme}
+      >
+        {sheetConfirmAction === "submit_fnb" ? (
+          <View style={styles.stack}>
+            <InfoCard
+              label="Konfirmasi F&B"
+              value={`${menuItemCount} item siap ditambahkan`}
+              hint={`Total ${formatMoney(menuTotal)} akan masuk ke billing sesi ini.`}
+              compact
+            />
+            <View style={styles.confirmSheetActions}>
+              <Pressable
+                onPress={() => setSheetConfirmAction(null)}
+                style={[
+                  styles.confirmSheetSecondary,
+                  { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.border },
+                ]}
+              >
+                <Text style={[styles.confirmSheetSecondaryText, { color: theme.colors.foreground }]}>
+                  Kembali
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => void handleSubmitFnb()}
+                style={[styles.confirmSheetPrimary, { backgroundColor: accentSolid.backgroundColor }]}
+              >
+                <Text style={[styles.confirmSheetPrimaryText, { color: accentSolid.textColor }]}>
+                  {addOrder.isPending ? "Memproses..." : "Ya, kirim"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <>
+            <TextInput
+              value={menuSearch}
+              onChangeText={setMenuSearch}
+              placeholder="Cari menu..."
+              placeholderTextColor={theme.colors.foregroundMuted}
+              style={[styles.searchInput, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, color: theme.colors.foreground }]}
+            />
+            <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.stack}>
+              {menuItems.map((item) => {
+                const quantity = menuCart[item.id]?.quantity || 0;
+                return (
+                  <CounterRow
+                    key={item.id}
+                    title={item.name}
+                    subtitle={item.category || "Menu"}
+                    value={formatMoney(Number(item.price || 0))}
+                    quantity={quantity}
+                    theme={theme}
+                    onMinus={() => bumpCart(setMenuCart, item.id, { id: item.id, name: item.name, price: Number(item.price || 0) }, -1)}
+                    onPlus={() => bumpCart(setMenuCart, item.id, { id: item.id, name: item.name, price: Number(item.price || 0) }, 1)}
+                  />
+                );
+              })}
+            </ScrollView>
+            <InfoCard
+              label="Total F&B"
+              value={formatMoney(menuTotal)}
+              hint="Pesanan akan masuk ke billing live booking."
+              compact
+            />
+            <Pressable
+              onPress={() => setSheetConfirmAction("submit_fnb")}
+              disabled={menuItemsInCart.length === 0}
+              style={[styles.primaryFullButton, { backgroundColor: menuItemsInCart.length === 0 ? mutedSolid.backgroundColor : accentSolid.backgroundColor }]}
+            >
+              <Text style={[styles.primaryFullButtonText, { color: menuItemsInCart.length === 0 ? mutedSolid.textColor : accentSolid.textColor }]}>
+                {addOrder.isPending ? "Memproses..." : "Tambahkan pesanan"}
+              </Text>
+            </Pressable>
+          </>
+        )}
       </SheetModal>
 
-      <SheetModal open={sheet === "addon"} onClose={() => setSheet(null)} title="Tambah Add-on" theme={theme}>
-        <TextInput
-          value={addonSearch}
-          onChangeText={setAddonSearch}
-          placeholder="Cari add-on..."
-          placeholderTextColor={theme.colors.foregroundMuted}
-          style={[styles.searchInput, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, color: theme.colors.foreground }]}
-        />
-        <ScrollView style={{ maxHeight: 340 }} contentContainerStyle={styles.stack}>
-          {addonItems.map((item: any) => {
-            const key = String(item.id);
-            const quantity = addonCart[key]?.quantity || 0;
-            const title = item.name || item.item_name || "Add-on";
-            const price = Number(item.price || item.unit_price || 0);
-            return (
-              <CounterRow
-                key={key}
-                title={title}
-                subtitle="Add-on"
-                value={formatMoney(price)}
-                quantity={quantity}
-                theme={theme}
-                onMinus={() => bumpCart(setAddonCart, key, { id: key, name: title, price }, -1)}
-                onPlus={() => bumpCart(setAddonCart, key, { id: key, name: title, price }, 1)}
-              />
-            );
-          })}
-        </ScrollView>
-        <InfoCard label="Total Add-on" value={formatMoney(addonTotal)} />
-        <Pressable
-          onPress={() => void handleSubmitAddon()}
-          disabled={addonItemsInCart.length === 0}
-          style={[styles.primaryFullButton, { backgroundColor: addonItemsInCart.length === 0 ? theme.colors.foregroundMuted : theme.colors.accent }]}
-        >
-          <Text style={styles.primaryFullButtonText}>{addAddon.isPending ? "Memproses..." : "Tambahkan add-on"}</Text>
-        </Pressable>
+      <SheetModal
+        open={sheet === "addon"}
+        onClose={closeSheet}
+        title="Tambah add-on"
+        subtitle="Pilih add-on tambahan untuk sesi yang sedang berjalan."
+        size="tall"
+        theme={theme}
+      >
+        {sheetConfirmAction === "submit_addon" ? (
+          <View style={styles.stack}>
+            <InfoCard
+              label="Konfirmasi add-on"
+              value={`${addonItemCount} item siap ditambahkan`}
+              hint={`Total ${formatMoney(addonTotal)} akan masuk ke billing sesi ini.`}
+              compact
+            />
+            <View style={styles.confirmSheetActions}>
+              <Pressable
+                onPress={() => setSheetConfirmAction(null)}
+                style={[
+                  styles.confirmSheetSecondary,
+                  { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.border },
+                ]}
+              >
+                <Text style={[styles.confirmSheetSecondaryText, { color: theme.colors.foreground }]}>
+                  Kembali
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => void handleSubmitAddon()}
+                style={[styles.confirmSheetPrimary, { backgroundColor: accentSolid.backgroundColor }]}
+              >
+                <Text style={[styles.confirmSheetPrimaryText, { color: accentSolid.textColor }]}>
+                  {addAddon.isPending ? "Memproses..." : "Ya, tambahkan"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <>
+            <TextInput
+              value={addonSearch}
+              onChangeText={setAddonSearch}
+              placeholder="Cari add-on..."
+              placeholderTextColor={theme.colors.foregroundMuted}
+              style={[styles.searchInput, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, color: theme.colors.foreground }]}
+            />
+            <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.stack}>
+              {addonItems.map((item: any) => {
+                const key = String(item.id);
+                const quantity = addonCart[key]?.quantity || 0;
+                const title = item.name || item.item_name || "Add-on";
+                const price = Number(item.price || item.unit_price || 0);
+                return (
+                  <CounterRow
+                    key={key}
+                    title={title}
+                    subtitle="Add-on"
+                    value={formatMoney(price)}
+                    quantity={quantity}
+                    theme={theme}
+                    onMinus={() => bumpCart(setAddonCart, key, { id: key, name: title, price }, -1)}
+                    onPlus={() => bumpCart(setAddonCart, key, { id: key, name: title, price }, 1)}
+                  />
+                );
+              })}
+            </ScrollView>
+            <InfoCard
+              label="Total add-on"
+              value={formatMoney(addonTotal)}
+              hint="Add-on baru akan ikut tercatat di billing sesi."
+              compact
+            />
+            <Pressable
+              onPress={() => setSheetConfirmAction("submit_addon")}
+              disabled={addonItemsInCart.length === 0}
+              style={[styles.primaryFullButton, { backgroundColor: addonItemsInCart.length === 0 ? mutedSolid.backgroundColor : accentSolid.backgroundColor }]}
+            >
+              <Text style={[styles.primaryFullButtonText, { color: addonItemsInCart.length === 0 ? mutedSolid.textColor : accentSolid.textColor }]}>
+                {addAddon.isPending ? "Memproses..." : "Tambahkan add-on"}
+              </Text>
+            </Pressable>
+          </>
+        )}
       </SheetModal>
 
       <ConfirmModal
@@ -936,6 +1378,51 @@ export default function CustomerLiveScreen() {
           await handleCompleteSession();
         }}
       />
+
+      <ConfirmModal
+        open={confirmAction === "extend"}
+        title="Tambah durasi sesi?"
+        description={`Tambahkan ${selectedExtend} ${extendUnitLabel} dengan biaya ${formatMoney(
+          Number(booking.unit_price || 0) * selectedExtend,
+        )}.`}
+        confirmLabel={extend.isPending ? "Memproses..." : "Ya, tambah"}
+        theme={theme}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={async () => {
+          setConfirmAction(null);
+          await handleExtend();
+        }}
+      />
+
+      <ConfirmModal
+        open={confirmAction === "submit_fnb"}
+        title="Kirim pesanan F&B?"
+        description={`${menuItemCount} item akan ditambahkan ke billing sesi ini dengan total ${formatMoney(
+          menuTotal,
+        )}.`}
+        confirmLabel={addOrder.isPending ? "Memproses..." : "Ya, kirim"}
+        theme={theme}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={async () => {
+          setConfirmAction(null);
+          await handleSubmitFnb();
+        }}
+      />
+
+      <ConfirmModal
+        open={confirmAction === "submit_addon"}
+        title="Tambahkan add-on?"
+        description={`${addonItemCount} item add-on akan masuk ke billing sesi ini dengan total ${formatMoney(
+          addonTotal,
+        )}.`}
+        confirmLabel={addAddon.isPending ? "Memproses..." : "Ya, tambahkan"}
+        theme={theme}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={async () => {
+          setConfirmAction(null);
+          await handleSubmitAddon();
+        }}
+      />
     </ScreenShell>
   );
 }
@@ -951,18 +1438,18 @@ function StatusBadge({
 }) {
   const style =
     tone === "success"
-      ? { backgroundColor: theme.colors.success, color: "#FFFFFF" }
+      ? getSolidTonePalette(theme, "success")
       : tone === "warning"
-        ? { backgroundColor: theme.colors.warning, color: "#FFFFFF" }
+        ? getSolidTonePalette(theme, "warning")
         : tone === "danger"
-          ? { backgroundColor: theme.colors.danger, color: "#FFFFFF" }
+          ? getSolidTonePalette(theme, "danger")
           : tone === "info"
-            ? { backgroundColor: theme.colors.accent, color: "#FFFFFF" }
-            : { backgroundColor: theme.colors.surfaceAlt, color: theme.colors.foreground };
+            ? getSolidTonePalette(theme, "accent")
+            : { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.surfaceAlt, textColor: theme.colors.foreground };
 
   return (
     <View style={[styles.statusBadge, { backgroundColor: style.backgroundColor }]}>
-      <Text style={[styles.statusBadgeText, { color: style.color }]}>{label}</Text>
+      <Text style={[styles.statusBadgeText, { color: style.textColor }]}>{label}</Text>
     </View>
   );
 }
@@ -1062,6 +1549,56 @@ function PaymentStat({
   );
 }
 
+function CollapsibleSection({
+  eyebrow,
+  title,
+  badge,
+  open,
+  onToggle,
+  children,
+  theme,
+}: {
+  eyebrow: string;
+  title: string;
+  badge?: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+  theme: ReturnType<typeof useAppTheme>;
+}) {
+  return (
+    <View style={styles.stack}>
+      <Pressable
+        onPress={onToggle}
+        style={[styles.collapseHeader, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
+      >
+        <View style={styles.sectionTop}>
+          <View style={styles.rowCopy}>
+            <Text style={[styles.sectionEyebrow, { color: theme.colors.foregroundMuted }]}>{eyebrow}</Text>
+            <Text style={[styles.blockTitle, { color: theme.colors.foreground }]}>{title}</Text>
+          </View>
+          <View style={styles.collapseMeta}>
+            {badge ? <StatusBadge label={badge} tone="neutral" theme={theme} /> : null}
+            <View
+              style={[
+                styles.collapseIconWrap,
+                { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.border },
+              ]}
+            >
+              <Feather
+                name={open ? "chevron-up" : "chevron-down"}
+                size={16}
+                color={theme.colors.foreground}
+              />
+            </View>
+          </View>
+        </View>
+      </Pressable>
+      {open ? children : null}
+    </View>
+  );
+}
+
 function LineRow({
   title,
   subtitle,
@@ -1129,6 +1666,7 @@ function ActionTile({
   filled?: boolean;
   onPress: () => void;
 }) {
+  const filledPalette = getSolidTonePalette(theme, "primary");
   return (
     <Pressable
       onPress={onPress}
@@ -1136,12 +1674,15 @@ function ActionTile({
       style={[
         styles.actionTile,
         filled
-          ? { backgroundColor: active ? theme.colors.primary : theme.colors.foregroundMuted, borderColor: active ? theme.colors.primary : theme.colors.foregroundMuted }
+          ? {
+              backgroundColor: active ? filledPalette.backgroundColor : theme.colors.foregroundMuted,
+              borderColor: active ? filledPalette.borderColor : theme.colors.foregroundMuted,
+            }
           : { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.border, opacity: active ? 1 : 0.58 },
       ]}
     >
-      <Feather name={icon} size={18} color={filled ? "#FFFFFF" : theme.colors.foreground} />
-      <Text style={[styles.actionTileText, { color: filled ? "#FFFFFF" : theme.colors.foreground }]}>{title}</Text>
+      <Feather name={icon} size={18} color={filled ? filledPalette.textColor : theme.colors.foreground} />
+      <Text style={[styles.actionTileText, { color: filled ? filledPalette.textColor : theme.colors.foreground }]}>{title}</Text>
     </Pressable>
   );
 }
@@ -1150,27 +1691,177 @@ function SheetModal({
   open,
   onClose,
   title,
+  subtitle,
+  size = "tall",
   children,
   theme,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
+  subtitle?: string;
+  size?: "compact" | "medium" | "tall";
   children: React.ReactNode;
   theme: ReturnType<typeof useAppTheme>;
 }) {
+  const { height } = useWindowDimensions();
+  const [mounted, setMounted] = useState(open);
+  const translateY = useRef(new Animated.Value(height)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const maxSheetHeight =
+    size === "compact"
+      ? Math.min(height * 0.46, 380)
+      : size === "medium"
+        ? Math.min(height * 0.58, 500)
+        : Math.min(height * 0.8, 680);
+  const hiddenOffset = maxSheetHeight + 120;
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      translateY.setValue(hiddenOffset);
+      backdropOpacity.setValue(0);
+      Animated.parallel([
+        Animated.spring(translateY, {
+          toValue: 0,
+          damping: 20,
+          mass: 0.95,
+          stiffness: 170,
+          useNativeDriver: true,
+        }),
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 220,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]).start();
+      return;
+    }
+
+    if (!mounted) return;
+    Animated.parallel([
+      Animated.timing(translateY, {
+        toValue: hiddenOffset,
+        duration: 180,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropOpacity, {
+        toValue: 0,
+        duration: 160,
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      if (finished) {
+        setMounted(false);
+      }
+    });
+  }, [backdropOpacity, hiddenOffset, mounted, open, translateY]);
+
+  const closeWithAnimation = () => {
+    Animated.parallel([
+      Animated.timing(translateY, {
+        toValue: hiddenOffset,
+        duration: 180,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropOpacity, {
+        toValue: 0,
+        duration: 160,
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      if (finished) {
+        setMounted(false);
+        onClose();
+      }
+    });
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        Math.abs(gestureState.dy) > 6 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          translateY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > maxSheetHeight * 0.18 || gestureState.vy > 1.1) {
+          closeWithAnimation();
+          return;
+        }
+        Animated.spring(translateY, {
+          toValue: 0,
+          damping: 20,
+          mass: 0.95,
+          stiffness: 180,
+          useNativeDriver: true,
+        }).start();
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(translateY, {
+          toValue: 0,
+          damping: 20,
+          mass: 0.95,
+          stiffness: 180,
+          useNativeDriver: true,
+        }).start();
+      },
+    }),
+  ).current;
+
+  if (!mounted) return null;
+
   return (
-    <Modal visible={open} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={[styles.modalBackdrop, { backgroundColor: theme.colors.overlay }]}>
-        <View style={[styles.modalCard, { backgroundColor: theme.colors.background, borderColor: theme.colors.border }]}>
+    <Modal visible transparent animationType="none" onRequestClose={closeWithAnimation}>
+      <View style={styles.modalRoot} pointerEvents="box-none">
+        <Animated.View
+          style={[
+            styles.modalBackdrop,
+            {
+              backgroundColor: theme.colors.overlay,
+              opacity: backdropOpacity,
+            },
+          ]}
+        >
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={closeWithAnimation} />
+        </Animated.View>
+        <Animated.View
+          style={[
+            styles.modalCard,
+            {
+              backgroundColor: theme.colors.background,
+              borderColor: theme.colors.border,
+              maxHeight: maxSheetHeight,
+              transform: [{ translateY }],
+            },
+          ]}
+        >
+          <View style={styles.modalHandleWrap} {...panResponder.panHandlers}>
+            <View style={[styles.modalHandle, { backgroundColor: theme.colors.border }]} />
+          </View>
           <View style={styles.modalHeader}>
-            <Text style={[styles.modalTitle, { color: theme.colors.foreground }]}>{title}</Text>
-            <Pressable onPress={onClose} style={[styles.modalClose, { backgroundColor: theme.colors.surfaceAlt }]}>
+            <View style={styles.modalHeaderCopy}>
+              <Text style={[styles.modalTitle, { color: theme.colors.foreground }]}>{title}</Text>
+              {subtitle ? (
+                <Text style={[styles.modalSubtitle, { color: theme.colors.foregroundMuted }]}>
+                  {subtitle}
+                </Text>
+              ) : null}
+            </View>
+            <Pressable
+              onPress={closeWithAnimation}
+              style={[styles.modalClose, { backgroundColor: theme.colors.surfaceAlt }]}
+            >
               <Feather name="x" size={18} color={theme.colors.foreground} />
             </Pressable>
           </View>
           <View style={styles.modalBody}>{children}</View>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -1195,6 +1886,10 @@ function ConfirmModal({
   theme: ReturnType<typeof useAppTheme>;
   destructive?: boolean;
 }) {
+  const confirmPalette = destructive
+    ? getSolidTonePalette(theme, "primary")
+    : getSolidTonePalette(theme, "success");
+
   return (
     <Modal visible={open} animationType="fade" transparent onRequestClose={onClose}>
       <View style={[styles.confirmBackdrop, { backgroundColor: theme.colors.overlay }]}>
@@ -1225,12 +1920,14 @@ function ConfirmModal({
               style={[
                 styles.confirmPrimaryButton,
                 {
-                  backgroundColor: destructive ? theme.colors.primary : theme.colors.success,
-                  borderColor: destructive ? theme.colors.primary : theme.colors.success,
+                  backgroundColor: confirmPalette.backgroundColor,
+                  borderColor: confirmPalette.borderColor,
                 },
               ]}
             >
-              <Text style={styles.confirmPrimaryText}>{confirmLabel}</Text>
+              <Text style={[styles.confirmPrimaryText, { color: confirmPalette.textColor }]}>
+                {confirmLabel}
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -1283,13 +1980,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 24,
   },
-  backRow: {
+  topRow: {
+    marginTop: 10,
+  },
+  backButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    alignSelf: "flex-start",
+    minHeight: 40,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 14,
   },
-  backText: {
-    fontSize: 14,
+  backButtonText: {
+    fontSize: 13,
     fontWeight: "800",
   },
   hero: {
@@ -1465,6 +2170,31 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 12,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  collapseHeader: {
+    borderWidth: 1,
+    borderRadius: 22,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  collapseMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  collapseIconWrap: {
+    width: 32,
+    height: 32,
+    borderWidth: 1,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
   },
   sectionEyebrow: {
     fontSize: 10,
@@ -1688,9 +2418,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
-  modalBackdrop: {
+  modalRoot: {
     flex: 1,
     justifyContent: "flex-end",
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
   },
   confirmBackdrop: {
     flex: 1,
@@ -1744,23 +2477,43 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   modalCard: {
+    width: "100%",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderWidth: 1,
     borderBottomWidth: 0,
-    maxHeight: "82%",
+    overflow: "hidden",
+  },
+  modalHandleWrap: {
+    alignItems: "center",
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  modalHandle: {
+    width: 48,
+    height: 5,
+    borderRadius: 999,
   },
   modalHeader: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 10,
     paddingBottom: 12,
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  modalHeaderCopy: {
+    flex: 1,
+    gap: 4,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: "900",
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    lineHeight: 17,
   },
   modalClose: {
     width: 36,
@@ -1771,8 +2524,42 @@ const styles = StyleSheet.create({
   },
   modalBody: {
     paddingHorizontal: 16,
-    paddingBottom: 24,
+    paddingBottom: 28,
     gap: 12,
+    flexShrink: 1,
+  },
+  confirmSheetActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  confirmSheetSecondary: {
+    flex: 1,
+    minHeight: 52,
+    borderWidth: 1,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  confirmSheetSecondaryText: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  confirmSheetPrimary: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  confirmSheetPrimaryText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  sheetScroll: {
+    flexGrow: 0,
+    minHeight: 140,
+    maxHeight: 320,
   },
   optionGrid: {
     flexDirection: "row",

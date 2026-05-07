@@ -12,6 +12,23 @@ export const customerKeys = {
   bookingFnb: (bookingId: string) => ["customer", "booking", bookingId, "fnb"] as const,
 };
 
+export function patchCustomerDashboardBooking(
+  previous: CustomerDashboard | undefined,
+  bookingId: string,
+  patch: Partial<CustomerBookingDetail>,
+) {
+  if (!previous) return previous;
+
+  const applyPatch = (items: CustomerDashboard["active_bookings"]) =>
+    items.map((item) => (item.id === bookingId ? { ...item, ...patch } : item));
+
+  return {
+    ...previous,
+    active_bookings: applyPatch(previous.active_bookings),
+    past_history: applyPatch(previous.past_history),
+  };
+}
+
 export function useCustomerDashboardQuery(enabled = true) {
   const token = useSessionStore((state) => state.token);
   const role = useSessionStore((state) => state.role);

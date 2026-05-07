@@ -5,32 +5,39 @@ import { useToastStore, type ToastTone } from "@/stores/toast-store";
 
 function toneStyles(
   tone: ToastTone,
-  colors: ReturnType<typeof useAppTheme>["colors"],
+  theme: ReturnType<typeof useAppTheme>,
 ) {
+  const { colors, mode } = theme;
+  const baseSurface = mode === "dark" ? colors.surface : colors.card;
+
   if (tone === "success") {
     return {
-      backgroundColor: colors.successSoft,
+      backgroundColor: baseSurface,
       borderColor: colors.success,
+      accentColor: colors.success,
       iconColor: colors.success,
     };
   }
   if (tone === "warning") {
     return {
-      backgroundColor: colors.warningSoft,
+      backgroundColor: baseSurface,
       borderColor: colors.warning,
+      accentColor: colors.warning,
       iconColor: colors.warning,
     };
   }
   if (tone === "error") {
     return {
-      backgroundColor: colors.dangerSoft,
+      backgroundColor: baseSurface,
       borderColor: colors.danger,
+      accentColor: colors.danger,
       iconColor: colors.danger,
     };
   }
   return {
-    backgroundColor: colors.accentSoft,
+    backgroundColor: baseSurface,
     borderColor: colors.accent,
+    accentColor: colors.accent,
     iconColor: colors.accent,
   };
 }
@@ -53,7 +60,7 @@ export function AppToastHost() {
     <View pointerEvents="box-none" style={styles.viewport}>
       <View style={styles.stack}>
         {toasts.map((toast) => {
-          const tone = toneStyles(toast.tone, theme.colors);
+          const tone = toneStyles(toast.tone, theme);
           return (
             <Pressable
               key={toast.id}
@@ -67,6 +74,7 @@ export function AppToastHost() {
                 },
               ]}
             >
+              <View style={[styles.accentBar, { backgroundColor: tone.accentColor }]} />
               <View style={[styles.iconWrap, { backgroundColor: theme.colors.background }]}>
                 <Feather name={toneIcon(toast.tone)} size={16} color={tone.iconColor} />
               </View>
@@ -100,6 +108,7 @@ const styles = StyleSheet.create({
   toast: {
     borderWidth: 1,
     borderRadius: 22,
+    overflow: "hidden",
     paddingHorizontal: 14,
     paddingVertical: 14,
     flexDirection: "row",
@@ -109,6 +118,13 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 10 },
     elevation: 7,
+  },
+  accentBar: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
   },
   iconWrap: {
     width: 28,

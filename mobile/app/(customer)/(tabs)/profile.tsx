@@ -17,40 +17,51 @@ export default function CustomerProfileScreen() {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() || "")
     .join("");
+  const raisedSurface = theme.mode === "dark" ? theme.colors.surface : theme.colors.card;
 
   return (
     <ScreenShell
+      headerVariant="minimal"
       eyebrow="Profil"
       title="Akun customer"
-      subtitle="Ringkasan akun dan akses cepat ke bookingmu."
     >
-      <View style={[styles.hero, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-        <View style={[styles.avatar, { backgroundColor: theme.colors.accent }]}>
-          <Text style={styles.avatarText}>{initials || "CU"}</Text>
+      <View
+        style={[
+          styles.profileCard,
+          { backgroundColor: raisedSurface, borderColor: theme.colors.border },
+        ]}
+      >
+        <View style={styles.profileTop}>
+          <View style={[styles.avatar, { backgroundColor: theme.colors.accent }]}>
+            <Text style={[styles.avatarText, { color: theme.colors.accentContrast }]}>{initials || "CU"}</Text>
+          </View>
+          <View style={styles.profileCopy}>
+            <Text style={[styles.profileTitle, { color: theme.colors.foreground }]}>
+              {customer?.name || "Customer"}
+            </Text>
+            <Text style={[styles.profileHint, { color: theme.colors.foregroundMuted }]}>
+              {customer?.email || customer?.phone || "Data akun akan tersinkron di sini."}
+            </Text>
+          </View>
         </View>
-        <View style={styles.heroCopy}>
-          <Text style={[styles.heroTitle, { color: theme.colors.foreground }]}>{customer?.name || "Customer"}</Text>
-          <Text style={[styles.heroHint, { color: theme.colors.foregroundMuted }]}>
-            {customer?.email || customer?.phone || "Data akun akan tersinkron di sini."}
-          </Text>
-        </View>
-      </View>
 
-      <View style={styles.metrics}>
-        <MetricTile label="Poin" value={String(dashboard.data?.points || 0)} theme={theme} />
-        <MetricTile
-          label="Tier"
-          value={String(customer?.tier || "NEW").toUpperCase()}
-          theme={theme}
-        />
-        <MetricTile
-          label="Riwayat"
-          value={String(dashboard.data?.past_history?.length || 0)}
-          theme={theme}
-        />
+        <View style={styles.metricRow}>
+          <MetricTile label="Poin" value={String(dashboard.data?.points || 0)} theme={theme} />
+          <MetricTile
+            label="Tier"
+            value={String(customer?.tier || "NEW").toUpperCase()}
+            theme={theme}
+          />
+          <MetricTile
+            label="Riwayat"
+            value={String(dashboard.data?.past_history?.length || 0)}
+            theme={theme}
+          />
+        </View>
       </View>
 
       <View style={styles.section}>
+        <Text style={[styles.sectionEyebrow, { color: theme.colors.foregroundMuted }]}>Akun</Text>
         <Text style={[styles.sectionTitle, { color: theme.colors.foreground }]}>Info akun</Text>
         <InfoRow label="Nama" value={customer?.name || "-"} theme={theme} />
         <InfoRow label="Email" value={customer?.email || "-"} theme={theme} />
@@ -58,6 +69,7 @@ export default function CustomerProfileScreen() {
       </View>
 
       <View style={styles.section}>
+        <Text style={[styles.sectionEyebrow, { color: theme.colors.foregroundMuted }]}>Aksi</Text>
         <Text style={[styles.sectionTitle, { color: theme.colors.foreground }]}>Aksi cepat</Text>
         <ActionCard
           label="Riwayat booking"
@@ -80,7 +92,7 @@ export default function CustomerProfileScreen() {
           void signOut();
           router.replace("/(auth)/login");
         }}
-        style={[styles.logout, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
+        style={[styles.logout, { backgroundColor: raisedSurface, borderColor: theme.colors.border }]}
       >
         <Text style={[styles.logoutText, { color: theme.colors.foreground }]}>Keluar</Text>
       </Pressable>
@@ -98,7 +110,7 @@ function MetricTile({
   theme: ReturnType<typeof useAppTheme>;
 }) {
   return (
-    <View style={[styles.metricTile, { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.border }]}>
+    <View style={[styles.metricTile, { backgroundColor: theme.mode === "dark" ? theme.colors.surface : theme.colors.surfaceAlt, borderColor: theme.colors.border }]}>
       <Text style={[styles.metricLabel, { color: theme.colors.foregroundMuted }]}>{label}</Text>
       <Text style={[styles.metricValue, { color: theme.colors.foreground }]}>{value}</Text>
     </View>
@@ -115,7 +127,7 @@ function InfoRow({
   theme: ReturnType<typeof useAppTheme>;
 }) {
   return (
-    <View style={[styles.infoRow, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+    <View style={[styles.infoRow, { backgroundColor: theme.mode === "dark" ? theme.colors.surface : theme.colors.card, borderColor: theme.colors.border }]}>
       <Text style={[styles.infoLabel, { color: theme.colors.foregroundMuted }]}>{label}</Text>
       <Text style={[styles.infoValue, { color: theme.colors.foreground }]}>{value}</Text>
     </View>
@@ -135,12 +147,14 @@ function ActionCard({
   theme: ReturnType<typeof useAppTheme>;
   onPress: () => void;
 }) {
+  const iconSurface = theme.mode === "dark" ? theme.colors.surface : theme.colors.surfaceAlt;
+  const cardSurface = theme.mode === "dark" ? theme.colors.surface : theme.colors.card;
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.action, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
+      style={[styles.action, { backgroundColor: cardSurface, borderColor: theme.colors.border }]}
     >
-      <View style={[styles.actionIcon, { backgroundColor: theme.colors.surfaceAlt }]}>
+      <View style={[styles.actionIcon, { backgroundColor: iconSurface }]}>
         <Feather name={icon} size={16} color={theme.colors.foreground} />
       </View>
       <View style={styles.actionCopy}>
@@ -153,17 +167,20 @@ function ActionCard({
 }
 
 const styles = StyleSheet.create({
-  hero: {
+  profileCard: {
     borderWidth: 1,
     borderRadius: 24,
     padding: 16,
+    gap: 14,
+  },
+  profileTop: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
   },
   avatar: {
-    width: 52,
-    height: 52,
+    width: 50,
+    height: 50,
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
@@ -173,39 +190,49 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "800",
   },
-  heroCopy: {
+  profileCopy: {
     flex: 1,
     gap: 4,
   },
-  heroTitle: {
+  profileTitle: {
     fontSize: 19,
     fontWeight: "800",
   },
-  heroHint: {
+  profileHint: {
     fontSize: 13,
     lineHeight: 18,
   },
-  metrics: {
+  metricRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
   metricTile: {
-    flex: 1,
+    minWidth: "31%",
     borderWidth: 1,
     borderRadius: 18,
-    padding: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     gap: 3,
   },
   metricLabel: {
-    fontSize: 10,
-    fontWeight: "700",
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 1,
+    textTransform: "uppercase",
   },
   metricValue: {
-    fontSize: 14,
-    fontWeight: "800",
+    fontSize: 15,
+    fontWeight: "900",
   },
   section: {
     gap: 10,
+  },
+  sectionEyebrow: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
   },
   sectionTitle: {
     fontSize: 17,

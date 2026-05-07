@@ -37,7 +37,7 @@ function getPaymentMethodMeta(method: any) {
       method.metadata?.account_number,
       method.metadata?.account_name,
     ].filter(Boolean);
-    return parts.join(" · ") || "Detail rekening belum lengkap";
+    return parts.join(" | ") || "Detail rekening belum lengkap";
   }
   if (method.code === "qris_static") {
     return method.metadata?.qr_image_url
@@ -57,16 +57,52 @@ function getPaymentMethodIcon(code: string): React.ComponentProps<typeof Feather
   return "zap";
 }
 
-function resolveSessionLabel(sessionStatus: string) {
-  if (sessionStatus === "active" || sessionStatus === "ongoing") return "Sedang Berjalan";
-  if (sessionStatus === "completed") return "Selesai";
-  if (sessionStatus === "confirmed") return "Siap Mulai";
-  if (sessionStatus === "cancelled") return "Dibatalkan";
-  return "Menunggu";
-}
-
 function resolveSubtitle(scope: "deposit" | "settlement") {
   return scope === "deposit" ? "Pilih metode lalu bayar." : "Pilih metode lalu lunasi.";
+}
+
+function getSolidTonePalette(
+  theme: ReturnType<typeof useAppTheme>,
+  tone: "primary" | "accent" | "success" | "warning" | "muted",
+) {
+  if (tone === "primary") {
+    const backgroundColor = theme.mode === "dark" ? theme.colors.inkSoft : theme.colors.primary;
+    return {
+      backgroundColor,
+      borderColor: backgroundColor,
+      textColor: theme.mode === "dark" ? theme.colors.foreground : theme.colors.primaryForeground,
+    };
+  }
+
+  if (tone === "accent") {
+    return {
+      backgroundColor: theme.colors.accent,
+      borderColor: theme.colors.accent,
+      textColor: theme.colors.accentContrast,
+    };
+  }
+
+  if (tone === "success") {
+    return {
+      backgroundColor: theme.colors.success,
+      borderColor: theme.colors.success,
+      textColor: theme.mode === "dark" ? theme.colors.primaryForeground : "#FFFFFF",
+    };
+  }
+
+  if (tone === "warning") {
+    return {
+      backgroundColor: theme.colors.warning,
+      borderColor: theme.colors.warning,
+      textColor: theme.colors.primaryForeground,
+    };
+  }
+
+  return {
+    backgroundColor: theme.colors.foregroundMuted,
+    borderColor: theme.colors.foregroundMuted,
+    textColor: theme.mode === "dark" ? theme.colors.background : "#FFFFFF",
+  };
 }
 
 export default function CustomerPaymentScreen() {
@@ -87,10 +123,12 @@ export default function CustomerPaymentScreen() {
   const [selectedMethod, setSelectedMethod] = useState("midtrans");
   const [manualPaymentNote, setManualPaymentNote] = useState("");
   const [manualProofUrl, setManualProofUrl] = useState("");
+  const primarySolid = getSolidTonePalette(theme, "primary");
+  const accentSolid = getSolidTonePalette(theme, "accent");
 
   const paymentMethods = useMemo(
     () =>
-      (booking?.payment_methods || []).filter((item) => {
+      (Array.isArray(booking?.payment_methods) ? booking.payment_methods : []).filter((item) => {
         if (!item || item.is_active === false) return false;
         if (scope === "deposit" && item.code === "cash") return false;
         return true;
@@ -113,7 +151,10 @@ export default function CustomerPaymentScreen() {
     return scope === "deposit" ? Number(booking.deposit_amount || 0) : Number(booking.balance_due || 0);
   }, [booking, scope]);
 
-  const paymentAttempts = useMemo(() => booking?.payment_attempts || [], [booking?.payment_attempts]);
+  const paymentAttempts = useMemo(
+    () => (Array.isArray(booking?.payment_attempts) ? booking.payment_attempts : []),
+    [booking?.payment_attempts],
+  );
   const pendingManualAttempt = useMemo(
     () =>
       paymentAttempts.find(
@@ -132,18 +173,6 @@ export default function CustomerPaymentScreen() {
     depositAmount: booking?.deposit_amount,
   });
   const sessionStatus = String(booking?.status || "").toLowerCase();
-  const sessionLabel = resolveSessionLabel(sessionStatus);
-  const hasPromo =
-    Number(booking?.discount_amount || 0) > 0 && String(booking?.promo_code || "").trim() !== "";
-
-  const paymentStatusLabel =
-    paymentStatus === "awaiting_verification"
-      ? "Menunggu Verifikasi"
-      : paymentStatus === "partial_paid"
-        ? "DP Tercatat"
-        : paymentStatus === "settled" || paymentStatus === "paid"
-          ? "Lunas"
-          : booking?.payment_status || "pending";
 
   const paymentAccessNoticeCode = useMemo(() => {
     if (!booking) return "";
@@ -321,6 +350,7 @@ export default function CustomerPaymentScreen() {
   if (detail.isLoading || !booking || paymentAccessNoticeCode) {
     return (
       <ScreenShell
+        headerVariant="minimal"
         eyebrow="Pembayaran"
         title={scope === "deposit" ? "Bayar DP" : "Pelunasan"}
         subtitle="Memuat halaman pembayaran..."
@@ -335,6 +365,7 @@ export default function CustomerPaymentScreen() {
 
   return (
     <ScreenShell
+      headerVariant="minimal"
       eyebrow="Pembayaran"
       title={scope === "deposit" ? "Bayar DP" : "Pelunasan"}
       subtitle={resolveSubtitle(scope)}
@@ -356,51 +387,24 @@ export default function CustomerPaymentScreen() {
             >
               {booking.resource_name || booking.resource || "Booking"}
             </Text>
+            <Text style={[styles.summaryHint, { color: theme.colors.foregroundMuted }]}>
+              {scope === "deposit"
+                ? "Selesaikan DP untuk mengamankan booking ini."
+                : "Lunasi sisa tagihan sebelum menutup transaksi."}
+            </Text>
           </View>
           <View
             style={[
               styles.amountPill,
               { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.border },
             ]}
-          >
-            <Text style={[styles.amountLabel, { color: theme.colors.foregroundMuted }]}>Nominal</Text>
-            <Text style={[styles.amountValue, { color: theme.colors.foreground }]}>
-              {formatMoney(amount)}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.summaryStats}>
-          <MiniInfoCard label="Status" value={paymentStatusLabel} theme={theme} />
-          <MiniInfoCard label="Sesi" value={sessionLabel} theme={theme} />
-          <MiniInfoCard label="Total" value={formatMoney(booking.grand_total)} theme={theme} />
-        </View>
-
-        {hasPromo ? (
-          <View
-            style={[
-              styles.promoCard,
-              {
-                backgroundColor: theme.colors.successSoft,
-                borderColor: theme.colors.success,
-              },
-            ]}
-          >
-            <View style={styles.promoHeader}>
-              <View>
-                <Text style={[styles.promoEyebrow, { color: theme.colors.success }]}>Promo</Text>
-                <Text style={[styles.promoCode, { color: theme.colors.foreground }]}>{booking.promo_code}</Text>
-              </View>
-              <View style={[styles.promoBadge, { backgroundColor: theme.colors.success }]}>
-                <Text style={styles.promoBadgeText}>-{formatMoney(booking.discount_amount)}</Text>
-              </View>
-            </View>
-            <View style={styles.summaryStats}>
-              <MiniInfoCard label="Sebelum" value={formatMoney(booking.original_grand_total)} theme={theme} />
-              <MiniInfoCard label="Sesudah" value={formatMoney(booking.grand_total)} theme={theme} />
+            >
+              <Text style={[styles.amountLabel, { color: theme.colors.foregroundMuted }]}>Nominal</Text>
+              <Text style={[styles.amountValue, { color: theme.colors.foreground }]}>
+                {formatMoney(amount)}
+              </Text>
             </View>
           </View>
-        ) : null}
       </View>
 
       {pendingManualAttempt ? (
@@ -422,7 +426,7 @@ export default function CustomerPaymentScreen() {
                 Menunggu verifikasi
               </Text>
               <Text style={[styles.pendingHint, { color: theme.colors.foregroundMuted }]}>
-                Ref {pendingManualAttempt.reference_code || "-"} · {pendingManualAttempt.method_label || selectedMethodDetail?.display_name || "-"}
+                Ref {pendingManualAttempt.reference_code || "-"} | {pendingManualAttempt.method_label || selectedMethodDetail?.display_name || "-"}
               </Text>
             </View>
           </View>
@@ -446,9 +450,9 @@ export default function CustomerPaymentScreen() {
             </Pressable>
             <Pressable
               onPress={() => router.back()}
-              style={[styles.primaryButton, { backgroundColor: theme.colors.primary }]}
+              style={[styles.primaryButton, { backgroundColor: primarySolid.backgroundColor }]}
             >
-              <Text style={styles.primaryButtonText}>Kembali</Text>
+              <Text style={[styles.primaryButtonText, { color: primarySolid.textColor }]}>Kembali</Text>
             </Pressable>
           </View>
         </View>
@@ -479,13 +483,13 @@ export default function CustomerPaymentScreen() {
                     <View
                       style={[
                         styles.methodIcon,
-                        { backgroundColor: selected ? theme.colors.accent : theme.colors.surfaceAlt },
+                        { backgroundColor: selected ? accentSolid.backgroundColor : theme.colors.surfaceAlt },
                       ]}
                     >
                       <Feather
                         name={icon}
                         size={16}
-                        color={selected ? "#FFFFFF" : theme.colors.foreground}
+                        color={selected ? accentSolid.textColor : theme.colors.foreground}
                       />
                     </View>
                     <View style={styles.methodCopy}>
@@ -588,10 +592,13 @@ export default function CustomerPaymentScreen() {
                 disabled={checkout.isPending || submitManual.isPending}
                 style={[
                   styles.primaryButton,
-                  { backgroundColor: theme.colors.primary, opacity: checkout.isPending || submitManual.isPending ? 0.7 : 1 },
+                  {
+                    backgroundColor: primarySolid.backgroundColor,
+                    opacity: checkout.isPending || submitManual.isPending ? 0.7 : 1,
+                  },
                 ]}
               >
-                <Text style={styles.primaryButtonText}>
+                <Text style={[styles.primaryButtonText, { color: primarySolid.textColor }]}>
                   {checkout.isPending || submitManual.isPending
                     ? "Memproses..."
                     : selectedMethodDetail.verification_type === "auto"
@@ -667,6 +674,10 @@ const styles = StyleSheet.create({
   resourceName: {
     fontSize: 18,
     fontWeight: "800",
+  },
+  summaryHint: {
+    fontSize: 12,
+    lineHeight: 17,
   },
   amountPill: {
     minWidth: 118,

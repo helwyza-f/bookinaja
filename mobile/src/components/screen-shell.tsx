@@ -9,6 +9,7 @@ type ScreenShellProps = {
   children: React.ReactNode;
   scroll?: boolean;
   contentStyle?: ViewStyle;
+  headerVariant?: "card" | "minimal" | "none";
 };
 
 export function ScreenShell({
@@ -18,8 +19,73 @@ export function ScreenShell({
   children,
   scroll = true,
   contentStyle,
+  headerVariant = "card",
 }: ScreenShellProps) {
   const theme = useAppTheme();
+
+  const header =
+    headerVariant === "none" ? null : headerVariant === "minimal" ? (
+      <View style={styles.minimalHeader}>
+        {eyebrow ? (
+          <Text style={[styles.minimalEyebrow, { color: theme.colors.accent }]}>
+            {eyebrow}
+          </Text>
+        ) : null}
+        <Text style={[styles.minimalTitle, { color: theme.colors.foreground }]}>
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text
+            style={[
+              styles.minimalSubtitle,
+              { color: theme.colors.foregroundMuted },
+            ]}
+          >
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+    ) : (
+      <View
+        style={[
+          styles.headerCard,
+          {
+            backgroundColor: theme.colors.card,
+            borderColor: theme.colors.border,
+            shadowColor: theme.colors.foreground,
+          },
+        ]}
+      >
+        <View style={styles.headerTop}>
+          {eyebrow ? (
+            <Text style={[styles.eyebrow, { color: theme.colors.accent }]}>
+              {eyebrow}
+            </Text>
+          ) : (
+            <View />
+          )}
+          <View
+            style={[
+              styles.headerDot,
+              { backgroundColor: theme.colors.highlight },
+            ]}
+          />
+        </View>
+        <Text style={[styles.title, { color: theme.colors.foreground }]}>
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text
+            style={[
+              styles.subtitle,
+              { color: theme.colors.foregroundMuted },
+            ]}
+          >
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+    );
 
   return (
     <SafeAreaView
@@ -59,46 +125,8 @@ export function ScreenShell({
               },
               contentStyle,
             ]}
-          >
-            <View
-              style={[
-                styles.headerCard,
-                {
-                  backgroundColor: theme.colors.card,
-                  borderColor: theme.colors.border,
-                  shadowColor: theme.colors.foreground,
-                },
-              ]}
             >
-              <View style={styles.headerTop}>
-                {eyebrow ? (
-                  <Text style={[styles.eyebrow, { color: theme.colors.accent }]}>
-                    {eyebrow}
-                  </Text>
-                ) : (
-                  <View />
-                )}
-                <View
-                  style={[
-                    styles.headerDot,
-                    { backgroundColor: theme.colors.highlight },
-                  ]}
-                />
-              </View>
-              <Text style={[styles.title, { color: theme.colors.foreground }]}>
-                {title}
-              </Text>
-              {subtitle ? (
-                <Text
-                  style={[
-                    styles.subtitle,
-                    { color: theme.colors.foregroundMuted },
-                  ]}
-                >
-                  {subtitle}
-                </Text>
-              ) : null}
-            </View>
+            {header}
             {children}
           </ScrollView>
         ) : (
@@ -111,46 +139,8 @@ export function ScreenShell({
               },
               contentStyle,
             ]}
-          >
-            <View
-              style={[
-                styles.headerCard,
-                {
-                  backgroundColor: theme.colors.card,
-                  borderColor: theme.colors.border,
-                  shadowColor: theme.colors.foreground,
-                },
-              ]}
             >
-              <View style={styles.headerTop}>
-                {eyebrow ? (
-                  <Text style={[styles.eyebrow, { color: theme.colors.accent }]}>
-                    {eyebrow}
-                  </Text>
-                ) : (
-                  <View />
-                )}
-                <View
-                  style={[
-                    styles.headerDot,
-                    { backgroundColor: theme.colors.highlight },
-                  ]}
-                />
-              </View>
-              <Text style={[styles.title, { color: theme.colors.foreground }]}>
-                {title}
-              </Text>
-              {subtitle ? (
-                <Text
-                  style={[
-                    styles.subtitle,
-                    { color: theme.colors.foregroundMuted },
-                  ]}
-                >
-                  {subtitle}
-                </Text>
-              ) : null}
-            </View>
+            {header}
             {children}
           </View>
         )}
@@ -199,6 +189,27 @@ const styles = StyleSheet.create({
   },
   content: {
     gap: 16,
+  },
+  minimalHeader: {
+    marginTop: 12,
+    gap: 4,
+    paddingHorizontal: 2,
+  },
+  minimalEyebrow: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 2.1,
+    textTransform: "uppercase",
+  },
+  minimalTitle: {
+    fontSize: 24,
+    fontWeight: "900",
+    letterSpacing: -0.9,
+  },
+  minimalSubtitle: {
+    fontSize: 13,
+    lineHeight: 19,
+    maxWidth: "92%",
   },
   headerCard: {
     marginTop: 8,

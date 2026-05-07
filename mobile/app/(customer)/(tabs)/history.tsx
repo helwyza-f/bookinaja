@@ -10,18 +10,19 @@ export default function CustomerHistoryScreen() {
   const theme = useAppTheme();
   const dashboard = useCustomerDashboardQuery();
   const history = dashboard.data?.past_history || [];
+  const tenantCount = new Set(history.map((booking) => booking.tenant_slug).filter(Boolean)).size;
 
   return (
-    <ScreenShell eyebrow="Riwayat" title="Booking selesai" subtitle="Semua booking yang sudah selesai ada di sini.">
+    <ScreenShell headerVariant="minimal" eyebrow="Riwayat" title="Booking selesai">
       {dashboard.isLoading ? (
         <View style={styles.loading}>
           <ActivityIndicator color={theme.colors.accent} />
           <Text style={{ color: theme.colors.foregroundMuted }}>Memuat riwayat booking...</Text>
         </View>
       ) : (
-        <View style={[styles.hero, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-          <Text style={[styles.heroLabel, { color: theme.colors.foregroundMuted }]}>Riwayat</Text>
-          <Text style={[styles.heroValue, { color: theme.colors.foreground }]}>{history.length} item</Text>
+        <View style={styles.metaRow}>
+          <StatPill label="Riwayat" value={String(history.length)} theme={theme} />
+          <StatPill label="Tenant" value={String(tenantCount)} theme={theme} />
         </View>
       )}
 
@@ -32,6 +33,7 @@ export default function CustomerHistoryScreen() {
               key={booking.id}
               booking={booking}
               compact
+              variant="history"
               onPress={() =>
                 router.push({
                   pathname: "/(customer)/bookings/[id]",
@@ -52,6 +54,32 @@ export default function CustomerHistoryScreen() {
   );
 }
 
+function StatPill({
+  label,
+  value,
+  theme,
+}: {
+  label: string;
+  value: string;
+  theme: ReturnType<typeof useAppTheme>;
+}) {
+  const backgroundColor = theme.mode === "dark" ? theme.colors.surface : theme.colors.surfaceAlt;
+  return (
+    <View
+      style={[
+        styles.statPill,
+        {
+          backgroundColor,
+          borderColor: theme.colors.border,
+        },
+      ]}
+    >
+      <Text style={[styles.statLabel, { color: theme.colors.foregroundMuted }]}>{label}</Text>
+      <Text style={[styles.statValue, { color: theme.colors.foreground }]}>{value}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   loading: {
     gap: 10,
@@ -59,21 +87,28 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 24,
   },
-  hero: {
-    borderWidth: 1,
-    borderRadius: 22,
-    padding: 14,
-    gap: 4,
+  metaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
   },
-  heroLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1.4,
+  statPill: {
+    minWidth: "31%",
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 3,
+  },
+  statLabel: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 1,
     textTransform: "uppercase",
   },
-  heroValue: {
-    fontSize: 18,
-    fontWeight: "800",
+  statValue: {
+    fontSize: 15,
+    fontWeight: "900",
   },
   stack: {
     gap: 12,

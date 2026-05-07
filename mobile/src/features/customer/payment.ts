@@ -1,6 +1,7 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api/client";
-import { customerKeys } from "./queries";
+import { customerKeys, patchCustomerDashboardBooking } from "./queries";
+import type { CustomerBookingDetail, CustomerDashboard } from "./types";
 
 export type CustomerLiveContext = {
   booking: Record<string, unknown>;
@@ -47,7 +48,36 @@ export function useUploadBookingProofMutation(bookingId: string) {
   });
 }
 
+function useSyncBookingCaches(bookingId: string) {
+  const queryClient = useQueryClient();
+
+  const syncFromDetail = (patch?: Partial<CustomerBookingDetail>) => {
+    const detail = queryClient.getQueryData<CustomerBookingDetail>(
+      customerKeys.bookingDetail(bookingId),
+    );
+
+    const nextDetail = patch ? { ...detail, ...patch } : detail;
+    if (nextDetail) {
+      queryClient.setQueryData(customerKeys.bookingDetail(bookingId), nextDetail);
+      queryClient.setQueryData<CustomerDashboard | undefined>(customerKeys.dashboard, (previous) =>
+        patchCustomerDashboardBooking(previous, bookingId, nextDetail),
+      );
+    }
+
+    void queryClient.invalidateQueries({ queryKey: customerKeys.bookingDetail(bookingId) });
+    void queryClient.invalidateQueries({ queryKey: customerKeys.bookingContext(bookingId) });
+    void queryClient.invalidateQueries({ queryKey: customerKeys.bookingFnb(bookingId) });
+    void queryClient.invalidateQueries({ queryKey: customerKeys.dashboard });
+  };
+
+  return {
+    syncFromDetail,
+  };
+}
+
 export function useBookingCheckoutMutation(bookingId: string) {
+  const { syncFromDetail } = useSyncBookingCaches(bookingId);
+
   return useMutation({
     mutationFn: (payload: { scope: "deposit" | "settlement"; method: string }) =>
       apiRequest<{
@@ -67,10 +97,15 @@ export function useBookingCheckoutMutation(bookingId: string) {
           method: payload.method,
         },
       }),
+    onSuccess: () => {
+      syncFromDetail();
+    },
   });
 }
 
 export function useSubmitManualBookingPaymentMutation(bookingId: string) {
+  const { syncFromDetail } = useSyncBookingCaches(bookingId);
+
   return useMutation({
     mutationFn: (payload: {
       scope: "deposit" | "settlement";
@@ -87,7 +122,7 @@ export function useSubmitManualBookingPaymentMutation(bookingId: string) {
         status?: string;
         instructions?: string;
         reference?: string;
-        proof_upload?: boolean;
+          proof_upload?: boolean;
       }>(`/user/me/bookings/${bookingId}/manual-payment`, {
         method: "POST",
         body: JSON.stringify({
@@ -98,34 +133,52 @@ export function useSubmitManualBookingPaymentMutation(bookingId: string) {
           proof_url: payload.proof_url || "",
         }),
       }),
+    onSuccess: () => {
+      syncFromDetail();
+    },
   });
 }
 
 export function useActivateBookingMutation(bookingId: string) {
+  const { syncFromDetail } = useSyncBookingCaches(bookingId);
+
   return useMutation({
     mutationFn: () =>
       apiRequest<{ message?: string }>(`/user/me/bookings/${bookingId}/activate`, {
         method: "POST",
       }),
+    onSuccess: () => {
+      syncFromDetail();
+    },
   });
 }
 
 export function useCompleteBookingMutation(bookingId: string) {
+  const { syncFromDetail } = useSyncBookingCaches(bookingId);
+
   return useMutation({
     mutationFn: () =>
       apiRequest<{ message?: string }>(`/user/me/bookings/${bookingId}/complete`, {
         method: "POST",
       }),
+    onSuccess: () => {
+      syncFromDetail();
+    },
   });
 }
 
 export function useExtendBookingMutation(bookingId: string) {
+  const { syncFromDetail } = useSyncBookingCaches(bookingId);
+
   return useMutation({
     mutationFn: (additionalDuration: number) =>
       apiRequest<{ message?: string }>(`/user/me/bookings/${bookingId}/extend`, {
         method: "POST",
         body: JSON.stringify({ additional_duration: additionalDuration }),
       }),
+    onSuccess: () => {
+      syncFromDetail();
+    },
   });
 }
 
@@ -141,21 +194,31 @@ export function useCustomerFnbMenuQuery(bookingId: string, enabled = true) {
 }
 
 export function useAddBookingOrderMutation(bookingId: string) {
+  const { syncFromDetail } = useSyncBookingCaches(bookingId);
+
   return useMutation({
     mutationFn: (payload: { fnb_item_id: string; quantity: number }) =>
       apiRequest<{ message?: string }>(`/user/me/bookings/${bookingId}/orders`, {
         method: "POST",
         body: JSON.stringify(payload),
       }),
+    onSuccess: () => {
+      syncFromDetail();
+    },
   });
 }
 
 export function useAddBookingAddonMutation(bookingId: string) {
+  const { syncFromDetail } = useSyncBookingCaches(bookingId);
+
   return useMutation({
     mutationFn: (itemId: string) =>
       apiRequest<{ message?: string }>(`/user/me/bookings/${bookingId}/addons`, {
         method: "POST",
         body: JSON.stringify({ item_id: itemId }),
       }),
+    onSuccess: () => {
+      syncFromDetail();
+    },
   });
 }

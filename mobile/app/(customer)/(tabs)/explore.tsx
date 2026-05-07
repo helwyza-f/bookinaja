@@ -54,12 +54,14 @@ export default function CustomerExploreScreen() {
   }, [activeCategory, items, query]);
 
   const hero = feed.data?.hero;
+  const chipSurface = theme.mode === "dark" ? theme.colors.surfaceAlt : theme.colors.surface;
+  const metaNeutralSurface = theme.mode === "dark" ? theme.colors.card : theme.colors.surface;
 
   return (
     <ScreenShell
+      headerVariant="minimal"
       eyebrow={hero?.eyebrow || "Jelajah"}
-      title={hero?.title || "Temukan tenant"}
-      subtitle={hero?.description || "Cari tempat dan kategori dengan tampilan yang lebih hidup dan enak dipindai."}
+      title={hero?.title || "Cari tenant"}
     >
       <View
         style={[
@@ -83,25 +85,33 @@ export default function CustomerExploreScreen() {
         />
       </View>
 
-      <View style={styles.insightRow}>
-        <InsightChip
-          label="Kategori"
-          value={quickCategories.length - 1}
-          tone="accent"
-          theme={theme}
-        />
-        <InsightChip
-          label="Tenant"
-          value={items.length}
-          tone="highlight"
-          theme={theme}
-        />
-        <InsightChip
-          label="Tampil"
-          value={filteredItems.length}
-          tone="ink"
-          theme={theme}
-        />
+      <View style={styles.metaRow}>
+        <View
+          style={[
+            styles.metaPill,
+            {
+              backgroundColor: theme.colors.accentSoft,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.metaText, { color: theme.colors.accent }]}>
+            {filteredItems.length} tenant tampil
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.metaPill,
+            {
+              backgroundColor: metaNeutralSurface,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.metaText, { color: theme.colors.foregroundMuted }]}>
+            {Math.max(quickCategories.length - 1, 0)} kategori
+          </Text>
+        </View>
       </View>
 
       <View style={styles.categoryRow}>
@@ -114,7 +124,7 @@ export default function CustomerExploreScreen() {
               style={[
                 styles.categoryChip,
                 {
-                  backgroundColor: active ? theme.colors.accent : theme.colors.surface,
+                  backgroundColor: active ? theme.colors.accent : chipSurface,
                   borderColor: active ? theme.colors.accent : theme.colors.border,
                 },
               ]}
@@ -208,28 +218,20 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
   },
-  insightRow: {
+  metaRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
-  insightChip: {
-    flex: 1,
+  metaPill: {
     borderWidth: 1,
-    borderRadius: 18,
+    borderRadius: 999,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 4,
+    paddingVertical: 8,
   },
-  insightLabel: {
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-  },
-  insightValue: {
-    fontSize: 16,
-    fontWeight: "900",
-    letterSpacing: -0.4,
+  metaText: {
+    fontSize: 12,
+    fontWeight: "700",
   },
   categoryRow: {
     flexDirection: "row",
@@ -268,39 +270,3 @@ const styles = StyleSheet.create({
     gap: 12,
   },
 });
-
-function InsightChip({
-  label,
-  value,
-  tone,
-  theme,
-}: {
-  label: string;
-  value: number;
-  tone: "accent" | "highlight" | "ink";
-  theme: ReturnType<typeof useAppTheme>;
-}) {
-  const palette =
-    tone === "highlight"
-      ? { background: theme.colors.highlightSoft, text: theme.colors.highlight }
-      : tone === "ink"
-        ? { background: theme.colors.inkSoft, text: theme.colors.primary }
-        : { background: theme.colors.accentSoft, text: theme.colors.accent };
-
-  return (
-    <View
-      style={[
-        styles.insightChip,
-        {
-          backgroundColor: palette.background,
-          borderColor: theme.colors.border,
-        },
-      ]}
-    >
-      <Text style={[styles.insightLabel, { color: theme.colors.foregroundMuted }]}>
-        {label}
-      </Text>
-      <Text style={[styles.insightValue, { color: palette.text }]}>{value}</Text>
-    </View>
-  );
-}

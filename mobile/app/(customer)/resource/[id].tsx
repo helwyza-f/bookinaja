@@ -141,7 +141,7 @@ function buildCalendarCells(anchor: Date) {
   const lastOfMonth = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
   const startPadding = firstOfMonth.getDay();
   const daysInMonth = lastOfMonth.getDate();
-  const cells: Array<Date | null> = [];
+  const cells: (Date | null)[] = [];
 
   for (let index = 0; index < startPadding; index += 1) {
     cells.push(null);
@@ -181,11 +181,13 @@ function StepTitle({
   step,
   title,
   accent,
+  theme,
   right,
 }: {
   step: string;
   title: string;
   accent: string;
+  theme: ReturnType<typeof useAppTheme>;
   right?: React.ReactNode;
 }) {
   return (
@@ -194,7 +196,7 @@ function StepTitle({
         <View style={[styles.stepPill, { backgroundColor: accent }]}>
           <Text style={styles.stepPillText}>{step}</Text>
         </View>
-        <Text style={styles.stepTitle}>{title}</Text>
+        <Text style={[styles.stepTitle, { color: theme.colors.foreground }]}>{title}</Text>
       </View>
       {right}
     </View>
@@ -215,8 +217,10 @@ export default function ResourceBookingScreen() {
   const promoPreview = usePromoPreviewMutation();
   const promoResetRef = useRef(promoPreview.reset);
   promoResetRef.current = promoPreview.reset;
+  const previousInterdayRef = useRef(false);
 
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [resourceDetailOpen, setResourceDetailOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
@@ -255,6 +259,8 @@ export default function ResourceBookingScreen() {
     [resource.data?.items],
   );
   const interday = isInterdayUnit(selectedMainItem?.price_unit);
+  const resourceSurface = theme.mode === "dark" ? theme.colors.surface : theme.colors.card;
+  const insetSurface = theme.mode === "dark" ? theme.colors.surfaceAlt : theme.colors.surface;
 
   const selectedDateKey = useMemo(() => toDateKey(selectedDate), [selectedDate]);
   const dateOptions = useMemo(() => buildDateOptions(new Date(), 10), []);
@@ -288,19 +294,18 @@ export default function ResourceBookingScreen() {
   useEffect(() => {
     if (interday && profile.data?.open_time) {
       setSelectedTime(profile.data.open_time);
-      return;
-    }
-
-    if (!interday && selectedTime) {
+    } else if (previousInterdayRef.current && !interday) {
       setSelectedTime("");
     }
+
+    previousInterdayRef.current = interday;
   }, [interday, profile.data?.open_time]);
 
   useEffect(() => {
-    if (selectedTime) setSelectedTime("");
-    if (durationValue !== 1) setDurationValue(1);
-    if (selectedAddons.length > 0) setSelectedAddons([]);
-    if (promoCode) setPromoCode("");
+    setSelectedTime("");
+    setDurationValue(1);
+    setSelectedAddons([]);
+    setPromoCode("");
     promoResetRef.current();
   }, [selectedDateKey, selectedMainId]);
 
@@ -424,6 +429,45 @@ export default function ResourceBookingScreen() {
   const totalAfterPromo = promoPreview.data?.valid
     ? Number(promoPreview.data.final_amount || subtotal)
     : subtotal;
+
+  const resourceGallery = useMemo(() => {
+    const images = [resource.data?.image_url, ...((resource.data?.gallery || []) as string[])]
+      .filter((image): image is string => Boolean(image))
+      .filter((image, index, array) => array.indexOf(image) === index);
+    return images;
+  }, [resource.data?.gallery, resource.data?.image_url]);
+
+  const resourceFacts = useMemo(
+    () => [
+      {
+        icon: "grid" as const,
+        label: "Kategori",
+        value: resource.data?.category || "Resource",
+      },
+      {
+        icon: "layers" as const,
+        label: "Pilihan layanan",
+        value: `${mainItems.length} paket utama`,
+      },
+      {
+        icon: "plus-circle" as const,
+        label: "Add-on",
+        value: addonItems.length ? `${addonItems.length} tambahan` : "Tanpa add-on",
+      },
+      {
+        icon: "clock" as const,
+        label: "Operasional",
+        value: `${profile.data?.open_time || "--:--"} - ${profile.data?.close_time || "--:--"}`,
+      },
+    ],
+    [addonItems.length, mainItems.length, profile.data?.close_time, profile.data?.open_time, resource.data?.category],
+  );
+
+  const resourceDescription = useMemo(() => {
+    const source = String(resource.data?.description || "").trim();
+    if (!source) return "";
+    return source.length > 240 ? `${source.slice(0, 237).trim()}...` : source;
+  }, [resource.data?.description]);
 
   const toggleAddon = (itemId: string) => {
     setSelectedAddons((prev) =>
@@ -601,8 +645,99 @@ export default function ResourceBookingScreen() {
           </View>
         </View>
 
+        <View
+          style={[
+            styles.detailCard,
+            { backgroundColor: resourceSurface, borderColor: theme.colors.border },
+          ]}
+        >
+          <Pressable onPress={() => setResourceDetailOpen((current) => !current)} style={styles.detailHeader}>
+            <View style={styles.detailHeaderCopy}>
+              <Text style={[styles.blockLabel, { color: theme.colors.foregroundMuted }]}>
+                Detail resource
+              </Text>
+              <Text style={[styles.detailTitle, { color: theme.colors.foreground }]}>
+                Kenali unit ini dulu
+              </Text>
+              <Text style={[styles.detailHint, { color: theme.colors.foregroundMuted }]}>
+                {resourceGallery.length
+                  ? `${resourceGallery.length} foto | ${mainItems.length} layanan utama`
+                  : `${mainItems.length} layanan utama | ${addonItems.length} add-on`}
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.detailToggle,
+                { backgroundColor: insetSurface, borderColor: theme.colors.border },
+              ]}
+            >
+              <Feather
+                name={resourceDetailOpen ? "chevron-up" : "chevron-down"}
+                size={18}
+                color={theme.colors.foreground}
+              />
+            </View>
+          </Pressable>
+
+          {resourceDetailOpen ? (
+            <View style={styles.detailContent}>
+              {resourceGallery.length ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.galleryTrack}
+                >
+                  {resourceGallery.map((image, index) => (
+                    <Image
+                      key={`${image}-${index}`}
+                      source={{ uri: image }}
+                      style={index === 0 ? styles.galleryLead : styles.galleryThumb}
+                      resizeMode="cover"
+                    />
+                  ))}
+                </ScrollView>
+              ) : null}
+
+              {resourceDescription ? (
+                <View
+                  style={[
+                    styles.inlineStory,
+                    { backgroundColor: insetSurface, borderColor: theme.colors.border },
+                  ]}
+                >
+                  <Text style={[styles.inlineStoryText, { color: theme.colors.foregroundMuted }]}>
+                    {resourceDescription}
+                  </Text>
+                </View>
+              ) : null}
+
+              <View style={styles.factGrid}>
+                {resourceFacts.map((fact) => (
+                  <View
+                    key={fact.label}
+                    style={[
+                      styles.factCard,
+                      { backgroundColor: insetSurface, borderColor: theme.colors.border },
+                    ]}
+                  >
+                    <View style={[styles.factIcon, { backgroundColor: theme.colors.accentSoft }]}>
+                      <Feather name={fact.icon} size={15} color={theme.colors.accent} />
+                    </View>
+                    <Text style={[styles.factLabel, { color: theme.colors.foregroundMuted }]}>
+                      {fact.label}
+                    </Text>
+                    <Text style={[styles.factValue, { color: theme.colors.foreground }]}>
+                      {fact.value}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+        </View>
+
         <View style={styles.section}>
-          <StepTitle step="01" title="Pilih layanan" accent={theme.colors.accent} />
+          <StepTitle step="01" title="Pilih layanan" accent={theme.colors.accent} theme={theme} />
           <View style={styles.stack}>
             {mainItems.map((item) => {
               const active = selectedMainItem?.id === item.id;
@@ -659,11 +794,12 @@ export default function ResourceBookingScreen() {
         </View>
 
         <View style={styles.section}>
-          <StepTitle
-            step="02"
-            title="Pilih jadwal"
-            accent={theme.colors.accent}
-            right={
+            <StepTitle
+              step="02"
+              title="Pilih jadwal"
+              accent={theme.colors.accent}
+              theme={theme}
+              right={
               <Pressable
                 onPress={() => setCalendarOpen(true)}
                 style={[
@@ -854,6 +990,7 @@ export default function ResourceBookingScreen() {
               step="03"
               title="Pilih durasi"
               accent={theme.colors.accent}
+              theme={theme}
               right={
                 <View
                   style={[
@@ -961,7 +1098,24 @@ export default function ResourceBookingScreen() {
 
         {addonItems.length > 0 ? (
           <View style={styles.section}>
-            <StepTitle step="04" title="Add-on" accent={theme.colors.accent} />
+            <StepTitle
+              step="04"
+              title="Add-on"
+              accent={theme.colors.accent}
+              theme={theme}
+              right={
+                <View
+                  style={[
+                    styles.optionalBadge,
+                    { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.border },
+                  ]}
+                >
+                  <Text style={[styles.optionalBadgeText, { color: theme.colors.foregroundMuted }]}>
+                    Opsional
+                  </Text>
+                </View>
+              }
+            />
             <View style={styles.stack}>
               {addonItems.map((item) => {
                 const active = selectedAddons.includes(item.id);
@@ -1019,7 +1173,7 @@ export default function ResourceBookingScreen() {
         ) : null}
 
         <View style={styles.section}>
-          <StepTitle step="05" title="Konfirmasi" accent={theme.colors.accent} />
+          <StepTitle step="05" title="Konfirmasi" accent={theme.colors.accent} theme={theme} />
           <View
             style={[
               styles.confirmCard,
@@ -1222,18 +1376,45 @@ export default function ResourceBookingScreen() {
             ]}
           >
             <View style={styles.calendarHeader}>
-              <Text style={[styles.calendarTitle, { color: theme.colors.foreground }]}>
-                Pilih tanggal
-              </Text>
-              <Pressable
-                onPress={() => setCalendarOpen(false)}
-                style={[
-                  styles.calendarClose,
-                  { backgroundColor: theme.colors.surfaceAlt },
-                ]}
-              >
-                <Feather name="x" size={16} color={theme.colors.foregroundMuted} />
-              </Pressable>
+              <View style={styles.calendarHeaderCopy}>
+                <Text style={[styles.calendarTitle, { color: theme.colors.foreground }]}>
+                  Pilih tanggal
+                </Text>
+                <Text style={[styles.calendarSelectedText, { color: theme.colors.foregroundMuted }]}>
+                  {new Intl.DateTimeFormat("id-ID", {
+                    weekday: "long",
+                    day: "2-digit",
+                    month: "long",
+                  }).format(selectedDate)}
+                </Text>
+              </View>
+              <View style={styles.calendarHeaderActions}>
+                <Pressable
+                  onPress={() => {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    setSelectedDate(today);
+                    setCalendarMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+                  }}
+                  style={[
+                    styles.calendarTodayButton,
+                    { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accent },
+                  ]}
+                >
+                  <Text style={[styles.calendarTodayText, { color: theme.colors.accent }]}>
+                    Hari ini
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setCalendarOpen(false)}
+                  style={[
+                    styles.calendarClose,
+                    { backgroundColor: theme.colors.surfaceAlt },
+                  ]}
+                >
+                  <Feather name="x" size={16} color={theme.colors.foregroundMuted} />
+                </Pressable>
+              </View>
             </View>
 
             <View style={styles.calendarMonthRow}>
@@ -1287,35 +1468,40 @@ export default function ResourceBookingScreen() {
 
                 const active = toDateKey(cell) === selectedDateKey;
                 const disabled = toDateKey(cell) < toDateKey(new Date());
+                const isToday = toDateKey(cell) === toDateKey(new Date());
                 return (
-                  <Pressable
-                    key={toDateKey(cell)}
-                    disabled={disabled}
-                    onPress={() => {
-                      setSelectedDate(cell);
-                      setCalendarOpen(false);
-                    }}
-                    style={[
-                      styles.calendarCell,
-                      styles.calendarDay,
-                      {
-                        backgroundColor: active
-                          ? theme.colors.accent
-                          : theme.colors.surface,
-                        borderColor: active ? theme.colors.accent : theme.colors.border,
-                        opacity: disabled ? 0.35 : 1,
-                      },
-                    ]}
-                  >
-                    <Text
+                  <View key={toDateKey(cell)} style={styles.calendarCell}>
+                    <Pressable
+                      disabled={disabled}
+                      onPress={() => {
+                        setSelectedDate(cell);
+                        setCalendarOpen(false);
+                      }}
                       style={[
-                        styles.calendarDayText,
-                        { color: active ? "#FFFFFF" : theme.colors.foreground },
+                        styles.calendarDay,
+                        {
+                          backgroundColor: active
+                            ? theme.colors.accent
+                            : theme.colors.surface,
+                          borderColor: active
+                            ? theme.colors.accent
+                            : isToday
+                              ? theme.colors.accentSoft
+                              : theme.colors.border,
+                          opacity: disabled ? 0.28 : 1,
+                        },
                       ]}
                     >
-                      {cell.getDate()}
-                    </Text>
-                  </Pressable>
+                      <Text
+                        style={[
+                          styles.calendarDayText,
+                          { color: active ? theme.colors.accentContrast : theme.colors.foreground },
+                        ]}
+                      >
+                        {cell.getDate()}
+                      </Text>
+                    </Pressable>
+                  </View>
                 );
               })}
             </View>
@@ -1426,6 +1612,94 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
+  detailCard: {
+    borderWidth: 1,
+    borderRadius: 24,
+    padding: 14,
+    gap: 12,
+  },
+  detailHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  detailHeaderCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  detailTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  detailHint: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  detailToggle: {
+    width: 36,
+    height: 36,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  detailContent: {
+    gap: 12,
+  },
+  galleryTrack: {
+    gap: 10,
+    paddingRight: 10,
+  },
+  galleryLead: {
+    width: 214,
+    height: 144,
+    borderRadius: 20,
+  },
+  galleryThumb: {
+    width: 110,
+    height: 144,
+    borderRadius: 20,
+  },
+  inlineStory: {
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 14,
+  },
+  inlineStoryText: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  factGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  factCard: {
+    width: "48%",
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 12,
+    gap: 8,
+  },
+  factIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  factLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
+  },
+  factValue: {
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 18,
+  },
   section: {
     gap: 12,
   },
@@ -1455,7 +1729,6 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 17,
     fontWeight: "800",
-    color: "#0F172A",
   },
   calendarTrigger: {
     minHeight: 38,
@@ -1623,6 +1896,16 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   availabilityBadgeText: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  optionalBadge: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  optionalBadgeText: {
     fontSize: 11,
     fontWeight: "800",
   },
@@ -1797,23 +2080,49 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderBottomWidth: 0,
     paddingHorizontal: 18,
-    paddingTop: 16,
+    paddingTop: 18,
     paddingBottom: 24,
-    gap: 14,
+    gap: 16,
   },
   calendarHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
+    gap: 12,
+  },
+  calendarHeaderCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  calendarHeaderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   calendarTitle: {
-    fontSize: 18,
+    fontSize: 20,
+    fontWeight: "900",
+  },
+  calendarSelectedText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  calendarTodayButton: {
+    minHeight: 34,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  calendarTodayText: {
+    fontSize: 11,
     fontWeight: "800",
   },
   calendarClose: {
     width: 34,
     height: 34,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1823,43 +2132,45 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   monthArrow: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
   monthTitle: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: "800",
     textTransform: "capitalize",
   },
   weekdaysRow: {
     flexDirection: "row",
+    marginTop: 2,
   },
   weekdayLabel: {
-    width: `${100 / 7}%`,
+    flex: 1,
     textAlign: "center",
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11,
+    fontWeight: "800",
   },
   calendarGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
   },
   calendarCell: {
-    width: `${100 / 7}%`,
+    width: "14.2857%",
     aspectRatio: 1,
-    padding: 4,
+    padding: 2,
   },
   calendarDay: {
+    flex: 1,
     borderWidth: 1,
-    borderRadius: 18,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
   calendarDayText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "800",
   },
 });

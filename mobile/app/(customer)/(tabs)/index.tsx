@@ -22,12 +22,11 @@ export default function CustomerHomeScreen() {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() || "")
     .join("");
-
   return (
     <ScreenShell
+      headerVariant="minimal"
       eyebrow="Home"
       title={`Halo, ${customer?.name?.split(" ")[0] || "Customer"}`}
-      subtitle="Lanjutkan sesi aktif atau cari spot seru berikutnya."
     >
       {dashboard.isLoading ? (
         <View style={styles.loading}>
@@ -37,7 +36,7 @@ export default function CustomerHomeScreen() {
       ) : (
         <View
           style={[
-            styles.hero,
+            styles.overviewCard,
             {
               backgroundColor: theme.colors.card,
               borderColor: theme.colors.border,
@@ -45,29 +44,13 @@ export default function CustomerHomeScreen() {
             },
           ]}
         >
-          <View
-            style={[
-              styles.heroGlow,
-              { backgroundColor: theme.colors.brandGlow },
-            ]}
-          />
-          <View style={styles.heroTop}>
-            <View style={styles.heroCopy}>
-              <View
-                style={[
-                  styles.heroEyebrowPill,
-                  { backgroundColor: theme.colors.accentSoft },
-                ]}
-              >
-                <Text style={[styles.heroEyebrow, { color: theme.colors.accent }]}>
-                  Customer hub
-                </Text>
-              </View>
-              <Text style={[styles.heroTitle, { color: theme.colors.foreground }]}>
-                Booking yang rapi, cepat, dan tetap stylish
+          <View style={styles.overviewTop}>
+            <View style={styles.overviewCopy}>
+              <Text style={[styles.overviewEyebrow, { color: theme.colors.accent }]}>
+                Customer hub
               </Text>
-              <Text style={[styles.heroHint, { color: theme.colors.foregroundMuted }]}>
-                Semua akses penting kamu dikemas dalam satu layar yang lebih enak dilihat.
+              <Text style={[styles.overviewTitle, { color: theme.colors.foreground }]}>
+                Lanjutkan booking atau cari tenant baru.
               </Text>
             </View>
             <View style={[styles.avatar, { backgroundColor: theme.colors.accent }]}>
@@ -75,25 +58,22 @@ export default function CustomerHomeScreen() {
             </View>
           </View>
 
-          <View style={styles.metrics}>
-            <MetricTile
+          <View style={styles.overviewMeta}>
+            <MetricPill
               label="Points"
               value={String(dashboard.data?.points || 0)}
-              hint="Reward"
               tone="accent"
               theme={theme}
             />
-            <MetricTile
+            <MetricPill
               label="Tier"
               value={customer?.tier || "NEW"}
-              hint="Member"
               tone="highlight"
               theme={theme}
             />
-            <MetricTile
+            <MetricPill
               label="Aktif"
               value={String(dashboard.data?.active_bookings?.length || 0)}
-              hint="Booking"
               tone="ink"
               theme={theme}
             />
@@ -146,7 +126,7 @@ export default function CustomerHomeScreen() {
             booking={activeBooking}
             onPress={() =>
               router.push({
-                pathname: "/(customer)/bookings/[id]",
+                pathname: "/(customer)/bookings/[id]/live",
                 params: { id: activeBooking.id },
               })
             }
@@ -195,16 +175,14 @@ export default function CustomerHomeScreen() {
   );
 }
 
-function MetricTile({
+function MetricPill({
   label,
   value,
-  hint,
   tone,
   theme,
 }: {
   label: string;
   value: string;
-  hint: string;
   tone: "accent" | "highlight" | "ink";
   theme: ReturnType<typeof useAppTheme>;
 }) {
@@ -212,14 +190,14 @@ function MetricTile({
     tone === "highlight"
       ? { background: theme.colors.highlightSoft, value: theme.colors.highlight }
       : tone === "ink"
-        ? { background: theme.colors.inkSoft, value: theme.colors.primary }
+        ? { background: theme.colors.inkSoft, value: theme.mode === "dark" ? theme.colors.foreground : theme.colors.primary }
         : { background: theme.colors.accentSoft, value: theme.colors.accent };
+  const borderColor = theme.mode === "dark" ? "transparent" : theme.colors.border;
 
   return (
-    <View style={[styles.metricTile, { backgroundColor: palette.background, borderColor: theme.colors.border }]}>
+    <View style={[styles.metricPill, { backgroundColor: palette.background, borderColor }]}>
       <Text style={[styles.metricLabel, { color: theme.colors.foregroundMuted }]}>{label}</Text>
       <Text style={[styles.metricValue, { color: palette.value }]}>{value}</Text>
-      <Text style={[styles.metricHint, { color: theme.colors.foregroundMuted }]}>{hint}</Text>
     </View>
   );
 }
@@ -245,13 +223,14 @@ function QuickLink({
       : tone === "ink"
         ? { background: theme.colors.inkSoft, icon: theme.colors.primary }
         : { background: theme.colors.accentSoft, icon: theme.colors.accent };
+  const softSurface = theme.mode === "dark" ? theme.colors.surfaceAlt : theme.colors.surface;
 
   return (
     <Pressable
       onPress={onPress}
       style={[
         styles.quickLink,
-        { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+        { backgroundColor: softSurface, borderColor: theme.colors.border },
       ]}
     >
       <View style={[styles.quickLinkIcon, { backgroundColor: palette.background }]}>
@@ -272,93 +251,71 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 24,
   },
-  hero: {
+  overviewCard: {
     borderWidth: 1,
-    borderRadius: 30,
-    padding: 18,
-    gap: 16,
-    overflow: "hidden",
+    borderRadius: 26,
+    padding: 16,
+    gap: 14,
     shadowOpacity: 0.08,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 10 },
     elevation: 6,
   },
-  heroGlow: {
-    position: "absolute",
-    width: 180,
-    height: 180,
-    borderRadius: 999,
-    top: -70,
-    right: -40,
-  },
-  heroTop: {
+  overviewTop: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
   },
-  heroCopy: {
+  overviewCopy: {
     flex: 1,
-    gap: 8,
+    gap: 4,
   },
-  heroEyebrowPill: {
-    alignSelf: "flex-start",
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  heroEyebrow: {
+  overviewEyebrow: {
     fontSize: 9,
     fontWeight: "800",
     letterSpacing: 1.8,
     textTransform: "uppercase",
   },
-  heroTitle: {
-    fontSize: 24,
-    fontWeight: "900",
-    letterSpacing: -0.8,
+  overviewTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    lineHeight: 24,
   },
-  heroHint: {
-    fontSize: 13,
-    lineHeight: 19,
-    maxWidth: "92%",
+  overviewMeta: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
   },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "900",
   },
-  metrics: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  metricTile: {
-    flex: 1,
+  metricPill: {
+    minWidth: "31%",
     borderWidth: 1,
-    borderRadius: 20,
-    padding: 12,
-    gap: 4,
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 3,
   },
   metricLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "800",
     letterSpacing: 1,
     textTransform: "uppercase",
   },
   metricValue: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "900",
-  },
-  metricHint: {
-    fontSize: 11,
-    fontWeight: "600",
   },
   quickLinks: {
     flexDirection: "row",
@@ -367,7 +324,7 @@ const styles = StyleSheet.create({
   },
   quickLink: {
     width: "48%",
-    minHeight: 76,
+    minHeight: 72,
     borderWidth: 1,
     borderRadius: 20,
     paddingHorizontal: 12,

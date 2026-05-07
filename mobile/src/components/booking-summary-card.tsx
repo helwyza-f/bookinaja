@@ -35,28 +35,54 @@ function formatTimeRange(start?: string, end?: string | null) {
   return `${startLabel} - ${endLabel}`;
 }
 
-function toneStyles(theme: ReturnType<typeof useAppTheme>, tone: "success" | "warning" | "danger" | "info" | "neutral") {
-  switch (tone) {
-    case "success":
-      return { backgroundColor: theme.colors.success, color: "#FFFFFF" };
-    case "warning":
-      return { backgroundColor: theme.colors.warning, color: "#FFFFFF" };
-    case "danger":
-      return { backgroundColor: theme.colors.danger, color: "#FFFFFF" };
-    case "info":
-      return { backgroundColor: theme.colors.accent, color: "#FFFFFF" };
-    default:
-      return { backgroundColor: theme.colors.surfaceAlt, color: theme.colors.foreground };
+function getSolidTonePalette(
+  theme: ReturnType<typeof useAppTheme>,
+  tone: "success" | "warning" | "danger" | "info" | "neutral",
+) {
+  if (tone === "success") {
+    return {
+      backgroundColor: theme.colors.success,
+      textColor: theme.mode === "dark" ? theme.colors.primaryForeground : "#FFFFFF",
+    };
   }
+  if (tone === "warning") {
+    return {
+      backgroundColor: theme.colors.warning,
+      textColor: theme.colors.primaryForeground,
+    };
+  }
+  if (tone === "danger") {
+    return {
+      backgroundColor: theme.colors.danger,
+      textColor: "#FFFFFF",
+    };
+  }
+  if (tone === "info") {
+    return {
+      backgroundColor: theme.colors.accent,
+      textColor: theme.colors.accentContrast,
+    };
+  }
+  return {
+    backgroundColor: theme.colors.surfaceAlt,
+    textColor: theme.colors.foreground,
+  };
+}
+
+function toneStyles(theme: ReturnType<typeof useAppTheme>, tone: "success" | "warning" | "danger" | "info" | "neutral") {
+  const palette = getSolidTonePalette(theme, tone);
+  return { backgroundColor: palette.backgroundColor, color: palette.textColor };
 }
 
 export function BookingSummaryCard({
   booking,
   compact = false,
+  variant = "default",
   onPress,
 }: {
   booking: CustomerBookingSummary;
   compact?: boolean;
+  variant?: "default" | "history";
   onPress?: () => void;
 }) {
   const theme = useAppTheme();
@@ -64,10 +90,10 @@ export function BookingSummaryCard({
   const sessionMeta = getSessionStatusMeta(booking.status);
   const sessionTone = toneStyles(theme, sessionMeta.tone);
   const paymentTone = toneStyles(theme, paymentMeta.tone);
-  const progressText =
-    booking.balance_due > 0
-      ? `${formatMoney(booking.paid_amount)} dibayar`
-      : "Pembayaran sudah lengkap";
+  const isHistory = variant === "history";
+  const accentPanelBackground = theme.mode === "dark" ? theme.colors.surfaceAlt : theme.colors.tintSoft;
+  const summaryPanelBackground = theme.mode === "dark" ? theme.colors.surface : theme.colors.surfaceAlt;
+  const metricBackground = theme.mode === "dark" ? theme.colors.surface : theme.colors.surfaceAlt;
 
   return (
     <Pressable
@@ -87,11 +113,11 @@ export function BookingSummaryCard({
       <View
         style={[
           styles.topAccent,
-          { backgroundColor: theme.colors.tintSoft, borderColor: theme.colors.border },
+          { backgroundColor: accentPanelBackground, borderColor: theme.colors.border },
         ]}
       >
         <Text style={[styles.topAccentText, { color: theme.colors.accent }]}>
-          Booking snapshot
+          {isHistory ? "Riwayat booking" : "Booking snapshot"}
         </Text>
         <View style={[styles.topAccentDot, { backgroundColor: theme.colors.highlight }]} />
       </View>
@@ -109,7 +135,7 @@ export function BookingSummaryCard({
           </Text>
         </View>
         {onPress ? (
-          <View style={[styles.arrowWrap, { backgroundColor: theme.colors.surfaceAlt }]}>
+          <View style={[styles.arrowWrap, { backgroundColor: metricBackground }]}>
             <Feather name="arrow-up-right" size={16} color={theme.colors.foreground} />
           </View>
         ) : null}
@@ -118,19 +144,19 @@ export function BookingSummaryCard({
       <View
         style={[
           styles.summaryRibbon,
-          { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.border },
+          { backgroundColor: summaryPanelBackground, borderColor: theme.colors.border },
         ]}
       >
         <View style={styles.summaryCopy}>
           <Text style={[styles.summaryLabel, { color: theme.colors.foregroundMuted }]}>
-            Total belanja
+            {isHistory ? "Total akhir" : "Total belanja"}
           </Text>
           <Text style={[styles.summaryValue, { color: theme.colors.foreground }]}>
             {formatMoney(booking.grand_total)}
           </Text>
         </View>
         <Text style={[styles.summaryHint, { color: theme.colors.accent }]}>
-          {progressText}
+          {isHistory ? formatDate(booking.date) : booking.balance_due > 0 ? `${formatMoney(booking.paid_amount)} dibayar` : "Pembayaran sudah lengkap"}
         </Text>
       </View>
 
@@ -146,8 +172,16 @@ export function BookingSummaryCard({
       <View style={styles.grid}>
         <MetricCell label="Tanggal" value={formatDate(booking.date)} theme={theme} />
         <MetricCell label="Jam" value={formatTimeRange(booking.date, booking.end_date)} theme={theme} />
-        <MetricCell label="DP" value={formatMoney(booking.deposit_amount)} theme={theme} />
-        <MetricCell label="Sisa" value={formatMoney(booking.balance_due)} theme={theme} />
+        <MetricCell
+          label={isHistory ? "Total" : "DP"}
+          value={formatMoney(isHistory ? booking.grand_total : booking.deposit_amount)}
+          theme={theme}
+        />
+        <MetricCell
+          label={isHistory ? "Dibayar" : "Sisa"}
+          value={formatMoney(isHistory ? booking.paid_amount : booking.balance_due)}
+          theme={theme}
+        />
       </View>
     </Pressable>
   );
@@ -163,7 +197,15 @@ function MetricCell({
   theme: ReturnType<typeof useAppTheme>;
 }) {
   return (
-    <View style={[styles.metric, { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.border }]}>
+    <View
+      style={[
+        styles.metric,
+        {
+          backgroundColor: theme.mode === "dark" ? theme.colors.surface : theme.colors.surfaceAlt,
+          borderColor: theme.colors.border,
+        },
+      ]}
+    >
       <Text style={[styles.metricLabel, { color: theme.colors.foregroundMuted }]}>{label}</Text>
       <Text style={[styles.metricValue, { color: theme.colors.foreground }]} numberOfLines={1}>
         {value}

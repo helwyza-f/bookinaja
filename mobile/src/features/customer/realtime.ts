@@ -9,8 +9,8 @@ import {
 } from "@/lib/realtime/event-types";
 import { useRealtime } from "@/lib/realtime/use-realtime";
 import { useSessionStore } from "@/stores/session-store";
-import { customerKeys } from "./queries";
-import type { CustomerBookingDetail } from "./types";
+import { customerKeys, patchCustomerDashboardBooking } from "./queries";
+import type { CustomerBookingDetail, CustomerDashboard } from "./types";
 
 type Options = {
   bookingId: string;
@@ -57,6 +57,24 @@ function patchBookingSummary(
   };
 }
 
+function dashboardPatchFromEvent(
+  previous: CustomerDashboard | undefined,
+  bookingId: string,
+  event: RealtimeEvent,
+) {
+  const summary = event.summary || {};
+  if (!Object.keys(summary).length) return previous;
+
+  return patchCustomerDashboardBooking(previous, bookingId, {
+    status: String(summary.status ?? ""),
+    payment_status: String(summary.payment_status ?? ""),
+    grand_total: Number(summary.grand_total ?? 0),
+    balance_due: Number(summary.balance_due ?? 0),
+    paid_amount: Number(summary.paid_amount ?? 0),
+    deposit_amount: Number(summary.deposit_amount ?? 0),
+  });
+}
+
 export function useCustomerBookingRealtime({
   bookingId,
   enabled = true,
@@ -76,11 +94,18 @@ export function useCustomerBookingRealtime({
         customerKeys.bookingDetail(bookingId),
         (previous) => patchBookingSummary(previous, event),
       );
+      queryClient.setQueryData<CustomerDashboard | undefined>(
+        customerKeys.dashboard,
+        (previous) => dashboardPatchFromEvent(previous, bookingId, event),
+      );
 
       if (
         event.type.startsWith("session.") ||
         event.type.startsWith("payment.")
       ) {
+        void queryClient.invalidateQueries({
+          queryKey: customerKeys.bookingDetail(bookingId),
+        });
         void queryClient.invalidateQueries({
           queryKey: customerKeys.bookingContext(bookingId),
         });
@@ -96,6 +121,17 @@ export function useCustomerBookingRealtime({
         });
         void queryClient.invalidateQueries({
           queryKey: customerKeys.bookingFnb(bookingId),
+        });
+      }
+
+      if (
+        event.type.startsWith("session.") ||
+        event.type.startsWith("payment.") ||
+        event.type.startsWith("order.") ||
+        event.type.startsWith("booking.")
+      ) {
+        void queryClient.invalidateQueries({
+          queryKey: customerKeys.dashboard,
         });
       }
 
@@ -123,6 +159,9 @@ export function useCustomerBookingRealtime({
     });
     void queryClient.invalidateQueries({
       queryKey: customerKeys.bookingContext(bookingId),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: customerKeys.dashboard,
     });
     onReconnect?.();
   }, [bookingId, onReconnect, queryClient]);

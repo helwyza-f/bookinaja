@@ -20,6 +20,8 @@ export function DiscoveryTenantCard({
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() || "")
     .join("");
+  const mediaFallback = theme.mode === "dark" ? theme.colors.surfaceAlt : theme.colors.inkSoft;
+  const ctaBackground = theme.mode === "dark" ? theme.colors.surfaceAlt : theme.colors.tintSoft;
 
   return (
     <Pressable
@@ -40,7 +42,7 @@ export function DiscoveryTenantCard({
           <View
             style={[
               styles.imageFallback,
-              { backgroundColor: theme.colors.inkSoft },
+              { backgroundColor: mediaFallback },
             ]}
           >
             <View
@@ -86,7 +88,7 @@ export function DiscoveryTenantCard({
               <Text style={[styles.price, { color: theme.colors.foreground }]}>Lihat detail</Text>
             </View>
           )}
-          <View style={[styles.ctaPill, { backgroundColor: theme.colors.tintSoft, borderColor: theme.colors.border }]}>
+          <View style={[styles.ctaPill, { backgroundColor: ctaBackground, borderColor: theme.colors.border }]}>
             <Text style={[styles.ctaText, { color: theme.colors.accent }]}>Buka</Text>
           </View>
         </View>
