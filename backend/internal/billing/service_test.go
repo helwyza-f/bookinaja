@@ -532,3 +532,31 @@ func TestVerifyManualBookingPaymentRejectPreservesConcurrentBookingStatus(t *tes
 		t.Fatalf("ExpectationsWereMet() error = %v", err)
 	}
 }
+
+func TestWaPaymentReceivedMessageUsesReadableSummary(t *testing.T) {
+	got := waPaymentReceivedMessage(
+		"Rina",
+		"Pelunasan booking kamu sudah diterima.",
+		"booking-12345678",
+		"VIP Room",
+		300000,
+		120000,
+		300000,
+		0,
+		"https://bookinaja.test/detail",
+	)
+
+	for _, want := range []string{
+		"Ringkasan pembayaran",
+		"Ref         : *BOOKING-*",
+		"Total       : Rp 300.000",
+		"DP          : Rp 120.000",
+		"Sudah bayar : Rp 300.000",
+		"Sisa bayar  : Rp 0",
+		"Status pembayaran: booking kamu sudah lunas.",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("message missing %q in %q", want, got)
+		}
+	}
+}

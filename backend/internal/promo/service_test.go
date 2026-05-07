@@ -216,6 +216,75 @@ func TestValidateApplyCustomerLimitReached(t *testing.T) {
 	}
 }
 
+func TestValidateApplyUsesLocalStartForWeekdayAndTimeChecks(t *testing.T) {
+	wib := time.FixedZone("WIB", 7*60*60)
+	startRule := "08:00:00"
+	endRule := "10:00:00"
+	promo := &Promo{
+		ID:            uuid.New(),
+		Code:          "MORNING",
+		Name:          "Morning Promo",
+		DiscountType:  "fixed",
+		DiscountValue: 10000,
+		IsActive:      true,
+		ValidWeekdays: IntArray{6},
+		TimeStart:     &startRule,
+		TimeEnd:       &endRule,
+	}
+
+	input := ApplyInput{
+		ResourceID: uuid.New(),
+		StartTime:  time.Date(2026, time.May, 9, 1, 30, 0, 0, time.UTC),
+		LocalStart: time.Date(2026, time.May, 9, 8, 30, 0, 0, wib),
+		EndTime:    time.Date(2026, time.May, 9, 2, 30, 0, 0, time.UTC),
+		Subtotal:   120000,
+	}
+
+	if err := NewService(nil).validateApply(context.Background(), promo, input); err != nil {
+		t.Fatalf("validateApply() error = %v, want nil", err)
+	}
+}
+
+func TestValidateApplyUsesTenantTimezoneByDefault(t *testing.T) {
+	svc, mock, cleanup := newPromoTestService(t)
+	defer cleanup()
+
+	tenantID := uuid.New()
+	startRule := "08:00:00"
+	endRule := "10:00:00"
+	promo := &Promo{
+		ID:            uuid.New(),
+		TenantID:      tenantID,
+		Code:          "MORNING",
+		Name:          "Morning Promo",
+		DiscountType:  "fixed",
+		DiscountValue: 10000,
+		IsActive:      true,
+		ValidWeekdays: IntArray{6},
+		TimeStart:     &startRule,
+		TimeEnd:       &endRule,
+	}
+
+	mock.ExpectQuery(`SELECT COALESCE\(NULLIF\(BTRIM\(timezone\), ''\), 'Asia/Jakarta'\)`).
+		WithArgs(tenantID).
+		WillReturnRows(sqlmock.NewRows([]string{"timezone"}).AddRow("Asia/Jakarta"))
+
+	input := ApplyInput{
+		TenantID:   tenantID,
+		ResourceID: uuid.New(),
+		StartTime:  time.Date(2026, time.May, 9, 1, 30, 0, 0, time.UTC),
+		EndTime:    time.Date(2026, time.May, 9, 2, 30, 0, 0, time.UTC),
+		Subtotal:   120000,
+	}
+
+	if err := svc.validateApply(context.Background(), promo, input); err != nil {
+		t.Fatalf("validateApply() error = %v, want nil", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("sql expectations: %v", err)
+	}
+}
+
 func TestCalculateDiscountRespectsMaximumAndOriginalAmount(t *testing.T) {
 	maxDiscount := int64(20000)
 	promo := &Promo{

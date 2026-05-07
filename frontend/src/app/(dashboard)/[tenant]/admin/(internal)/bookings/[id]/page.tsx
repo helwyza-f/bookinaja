@@ -24,6 +24,7 @@ import {
   Printer,
   ExternalLink,
   ImageIcon,
+  type LucideIcon,
 } from "lucide-react";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -237,6 +238,93 @@ function adminPaymentStatusMeta(status?: string, balanceDue?: number) {
   };
 }
 
+type AdminControlCardProps = {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  onClick?: () => void;
+  disabled?: boolean;
+  className?: string;
+  tone?: "neutral" | "primary" | "success" | "dark";
+};
+
+function AdminControlCard({
+  title,
+  description,
+  icon: Icon,
+  onClick,
+  disabled,
+  className,
+  tone = "neutral",
+}: AdminControlCardProps) {
+  const toneClass =
+    tone === "primary"
+      ? "border-blue-200 bg-linear-to-br from-blue-50 via-white to-cyan-50 text-slate-950 hover:border-blue-300 hover:bg-blue-50 dark:border-blue-500/30 dark:from-blue-950/35 dark:via-slate-950 dark:to-cyan-950/20 dark:text-white"
+      : tone === "success"
+        ? "border-emerald-200 bg-linear-to-br from-emerald-500 via-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 dark:border-emerald-400/20"
+        : tone === "dark"
+          ? "border-slate-900 bg-linear-to-br from-slate-900 via-slate-900 to-slate-800 text-white hover:from-slate-800 hover:to-slate-700 dark:border-white/10"
+          : "border-slate-200 bg-white text-slate-950 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-[#151826] dark:text-white dark:hover:bg-[#1b1f31]";
+
+  const iconToneClass =
+    tone === "success"
+      ? "bg-white/16 text-white ring-1 ring-white/15"
+      : tone === "dark"
+        ? "bg-white/10 text-white ring-1 ring-white/10"
+        : tone === "primary"
+          ? "bg-blue-600 text-white ring-1 ring-blue-500/20"
+          : "bg-slate-100 text-slate-700 ring-1 ring-slate-200 dark:bg-white/10 dark:text-white dark:ring-white/10";
+
+  const descriptionClass =
+    tone === "success" || tone === "dark"
+      ? "text-white/78"
+      : "text-slate-500 dark:text-slate-400";
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "group h-auto min-h-[104px] flex-col items-stretch justify-start rounded-[1.45rem] border px-0 py-0 text-left shadow-sm transition-all duration-200",
+        "disabled:cursor-not-allowed disabled:opacity-55",
+        toneClass,
+        className,
+      )}
+    >
+      <div className="flex h-full flex-col justify-between gap-4 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <span
+            className={cn(
+              "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl",
+              iconToneClass,
+            )}
+          >
+            <Icon className="h-4.5 w-4.5" />
+          </span>
+          <span
+            className={cn(
+              "text-[10px] font-semibold uppercase tracking-[0.16em]",
+              tone === "success" || tone === "dark"
+                ? "text-white/65"
+                : "text-slate-400 dark:text-slate-500",
+            )}
+          >
+            Kontrol
+          </span>
+        </div>
+        <div>
+          <div className="text-[15px] font-semibold leading-tight">{title}</div>
+          <p className={cn("mt-2 text-xs leading-5", descriptionClass)}>
+            {description}
+          </p>
+        </div>
+      </div>
+    </Button>
+  );
+}
+
 export default function BookingDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -436,6 +524,7 @@ export default function BookingDetailPage() {
     (booking?.payment_attempts || []).filter(
       (item) => item.status === "submitted" || item.status === "awaiting_verification",
     );
+  const hasPendingManualVerification = pendingManualAttempts.length > 0;
   const isPaymentSettled =
     booking?.payment_status === "settled" ||
     (booking?.payment_status === "paid" && Number(booking?.balance_due || 0) === 0);
@@ -447,7 +536,12 @@ export default function BookingDetailPage() {
   const canConfirm = status === "pending" && paymentStatus !== "awaiting_verification";
   const canStart = (status === "pending" || status === "confirmed") && hasPaidDp;
   const canComplete = status === "active";
-  const canSettle = status === "completed" && !isPaymentSettled && Number(booking?.balance_due || 0) > 0;
+  const canSettle =
+    status === "completed" &&
+    !isPaymentSettled &&
+    !hasPendingManualVerification &&
+    paymentStatus !== "awaiting_verification" &&
+    Number(booking?.balance_due || 0) > 0;
   const isFinal = status === "completed" || status === "cancelled";
   const canUseReceipt = isReceiptProEnabled(receiptSettings);
   const canConfirmBooking = hasPermission(adminUser, "bookings.confirm");
@@ -461,6 +555,15 @@ export default function BookingDetailPage() {
   const hasPromo =
     Number(booking?.discount_amount || 0) > 0 &&
     String(booking?.promo_code || "").trim() !== "";
+  const hasAdminControls =
+    canConfirm ||
+    status === "active" ||
+    status === "pending" ||
+    status === "confirmed" ||
+    canComplete ||
+    canSettle ||
+    (isPaymentSettled && (canSendReceipt || canPrintReceipt)) ||
+    (!isFinal && canCancelBooking);
 
   const timelineSection = (
     <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
@@ -519,7 +622,7 @@ export default function BookingDetailPage() {
   );
 
   const pendingTransactionsSection = pendingManualAttempts.length > 0 ? (
-    <Card className="rounded-[1.75rem] border border-amber-200 bg-amber-50/80 p-4 shadow-sm dark:border-amber-500/20 dark:bg-amber-950/20 xl:col-span-4 xl:p-5">
+    <Card className="rounded-[1.75rem] border border-amber-200 bg-amber-50/80 p-4 shadow-sm dark:border-amber-500/20 dark:bg-amber-950/20 xl:p-5">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-700 dark:text-amber-200">
@@ -686,17 +789,17 @@ export default function BookingDetailPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 px-3 pb-20 pt-3 font-plus-jakarta md:space-y-5 md:px-4 lg:px-6 animate-in fade-in duration-500">
-      <div className="space-y-4 xl:grid xl:grid-cols-12 xl:items-start xl:gap-6 xl:space-y-0">
+      <div className="space-y-4 xl:grid xl:grid-cols-12 xl:items-stretch xl:gap-6 xl:space-y-0">
         <Button
           variant="ghost"
           onClick={() => router.push("/admin/bookings")}
-          className="h-auto px-0 text-[10px] font-black uppercase tracking-[0.24em] text-slate-400 xl:col-span-12"
+          className="h-auto justify-start self-start px-0 text-[10px] font-black uppercase tracking-[0.24em] text-slate-400 xl:hidden"
         >
           <ArrowLeft className="mr-2 h-3.5 w-3.5" />
           Kembali ke daftar
         </Button>
 
-        <Card className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] xl:col-span-8 xl:p-6">
+        <Card className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] xl:col-span-8 xl:h-full xl:p-6">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-600)]">
@@ -749,94 +852,126 @@ export default function BookingDetailPage() {
           </div>
         </Card>
 
-        {pendingTransactionsSection}
+        {(pendingTransactionsSection || hasAdminControls) && (
+          <div className="xl:col-span-4 xl:flex xl:h-full xl:flex-col xl:gap-4">
+          {pendingTransactionsSection}
 
-        <Card className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] xl:col-span-4 xl:p-5">
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                Kontrol Admin
-              </p>
-            </div>
-            <Badge className={cn("border-none", sessionStatusMeta.className)}>
-              {sessionStatusMeta.label}
-            </Badge>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 xl:grid-cols-2">
-            {canConfirm && (
-              <Button onClick={() => handleUpdateStatus("confirmed")} disabled={updating || !canConfirmBooking} variant="outline" className="h-auto min-h-[88px] flex-col items-start justify-between rounded-2xl px-4 py-3 text-left xl:min-h-[72px] xl:px-3 xl:py-2.5">
-                <ShieldCheck className="h-4 w-4" />
-                <span className="text-sm font-semibold">Konfirmasi</span>
-              </Button>
-            )}
-            {status === "active" && (
-              <Button onClick={() => router.push(`/admin/pos?active=${booking.id}`)} disabled={!canOperatePos} variant="outline" className="h-auto min-h-[88px] flex-col items-start justify-between rounded-2xl px-4 py-3 text-left xl:min-h-[72px] xl:px-3 xl:py-2.5">
-                <Zap className="h-4 w-4" />
-                <span className="text-sm font-semibold">POS</span>
-              </Button>
-            )}
-            {(status === "pending" || status === "confirmed") && (
-              <Button onClick={() => handleUpdateStatus("active")} disabled={updating || !canStart || !canStartSession} className="h-auto min-h-[88px] flex-col items-start justify-between rounded-2xl bg-emerald-600 px-4 py-3 text-left text-white hover:bg-emerald-700 xl:min-h-[72px] xl:px-3 xl:py-2.5">
-                <Zap className="h-4 w-4" />
-                <span className="text-sm font-semibold">Mulai Sesi</span>
-              </Button>
-            )}
-            {canComplete && (
-              <Button onClick={() => handleUpdateStatus("completed")} disabled={updating || !canCompleteSession} className="h-auto min-h-[88px] flex-col items-start justify-between rounded-2xl bg-slate-900 px-4 py-3 text-left text-white hover:bg-slate-800 xl:min-h-[72px] xl:px-3 xl:py-2.5">
-                <CheckCircle2 className="h-4 w-4" />
-                <span className="text-sm font-semibold">Akhiri Sesi</span>
-              </Button>
-            )}
-            {canSettle && (
-              <Button onClick={() => router.push(`/admin/bookings/${booking.id}/payment`)} disabled={updating || !canSettleCash} variant="outline" className="h-auto min-h-[88px] flex-col items-start justify-between rounded-2xl px-4 py-3 text-left xl:min-h-[72px] xl:px-3 xl:py-2.5">
-                <CreditCard className="h-4 w-4" />
-                <span className="text-sm font-semibold">Pelunasan</span>
-              </Button>
-            )}
-            {isPaymentSettled && (canSendReceipt || canPrintReceipt) && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="h-auto min-h-[88px] flex-col items-start justify-between rounded-2xl px-4 py-3 text-left xl:min-h-[72px] xl:px-3 xl:py-2.5">
-                    <Receipt className="h-4 w-4" />
-                    <span className="text-sm font-semibold">Nota</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 dark:bg-[#0f0f17]">
-                  {!canUseReceipt && (
-                    <DropdownMenuItem onClick={() => router.push("/admin/settings/billing/subscribe")} className="rounded-xl text-amber-700">
-                      Upgrade Pro untuk pakai nota
-                    </DropdownMenuItem>
+          {hasAdminControls && (
+            <Card className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] xl:flex-1 xl:p-5">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                    Kontrol Admin
+                  </p>
+                </div>
+                <Badge
+                  className={cn(
+                    "w-fit rounded-full border-none px-3 py-1.5 text-sm font-semibold shadow-sm",
+                    sessionStatusMeta.className,
                   )}
-                  <DropdownMenuItem onClick={() => handleReceiptAction("whatsapp")} className="rounded-xl" disabled={!canUseReceipt || !canSendReceipt}>
-                    <MessageCircle size={14} className="mr-2" /> Kirim nota WA
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleReceiptAction("print")} className="rounded-xl" disabled={!canUseReceipt || !canPrintReceipt}>
-                    <Printer size={14} className="mr-2" /> Cetak nota fisik
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleReceiptAction("both")} className="rounded-xl" disabled={!canUseReceipt || !canSendReceipt || !canPrintReceipt}>
-                    <Receipt size={14} className="mr-2" /> WA + cetak
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-            {!isFinal && canCancelBooking && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="h-auto min-h-[88px] flex-col items-start justify-between rounded-2xl px-4 py-3 text-left xl:min-h-[72px] xl:px-3 xl:py-2.5">
-                    <MoreVertical className="h-4 w-4" />
-                    <span className="text-sm font-semibold">Lainnya</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52 rounded-2xl p-2 dark:bg-[#0f0f17]">
-                  <DropdownMenuItem onClick={() => handleUpdateStatus("cancelled")} className="rounded-xl text-red-600">
-                    <Trash2 size={14} className="mr-2" /> Batalkan booking
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
-        </Card>
+                >
+                  {sessionStatusMeta.label}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {canConfirm && (
+                  <AdminControlCard
+                    title="Konfirmasi"
+                    description="Siapkan booking untuk dijalankan."
+                    icon={ShieldCheck}
+                    onClick={() => handleUpdateStatus("confirmed")}
+                    disabled={updating || !canConfirmBooking}
+                    tone="primary"
+                  />
+                )}
+                {status === "active" && (
+                  <AdminControlCard
+                    title="POS"
+                    description="Buka panel live sesi."
+                    icon={Zap}
+                    onClick={() => router.push(`/admin/pos?active=${booking.id}`)}
+                    disabled={!canOperatePos}
+                    tone="primary"
+                  />
+                )}
+                {(status === "pending" || status === "confirmed") && (
+                  <AdminControlCard
+                    title="Mulai Sesi"
+                    description="Aktifkan sesi customer."
+                    icon={Zap}
+                    onClick={() => handleUpdateStatus("active")}
+                    disabled={updating || !canStart || !canStartSession}
+                    tone="success"
+                  />
+                )}
+                {canComplete && (
+                  <AdminControlCard
+                    title="Akhiri Sesi"
+                    description="Tutup sesi dan siapkan billing."
+                    icon={CheckCircle2}
+                    onClick={() => handleUpdateStatus("completed")}
+                    disabled={updating || !canCompleteSession}
+                    tone="dark"
+                  />
+                )}
+                {canSettle && (
+                  <AdminControlCard
+                    title="Pelunasan"
+                    description="Selesaikan sisa tagihan."
+                    icon={CreditCard}
+                    onClick={() => router.push(`/admin/bookings/${booking.id}/payment`)}
+                    disabled={updating || !canSettleCash}
+                  />
+                )}
+                {isPaymentSettled && (canSendReceipt || canPrintReceipt) && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <AdminControlCard
+                        title="Nota"
+                        description="Kirim atau cetak nota."
+                        icon={Receipt}
+                      />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 dark:bg-[#0f0f17]">
+                      {!canUseReceipt && (
+                        <DropdownMenuItem onClick={() => router.push("/admin/settings/billing/subscribe")} className="rounded-xl text-amber-700">
+                          Upgrade Pro untuk pakai nota
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => handleReceiptAction("whatsapp")} className="rounded-xl" disabled={!canUseReceipt || !canSendReceipt}>
+                        <MessageCircle size={14} className="mr-2" /> Kirim nota WA
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleReceiptAction("print")} className="rounded-xl" disabled={!canUseReceipt || !canPrintReceipt}>
+                        <Printer size={14} className="mr-2" /> Cetak nota fisik
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleReceiptAction("both")} className="rounded-xl" disabled={!canUseReceipt || !canSendReceipt || !canPrintReceipt}>
+                        <Receipt size={14} className="mr-2" /> WA + cetak
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                {!isFinal && canCancelBooking && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <AdminControlCard
+                        title="Lainnya"
+                        description="Aksi tambahan booking."
+                        icon={MoreVertical}
+                      />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52 rounded-2xl p-2 dark:bg-[#0f0f17]">
+                      <DropdownMenuItem onClick={() => handleUpdateStatus("cancelled")} className="rounded-xl text-red-600">
+                        <Trash2 size={14} className="mr-2" /> Batalkan booking
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
+            </Card>
+          )}
+        </div>
+        )}
       </div>
 
       <Card className="hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">

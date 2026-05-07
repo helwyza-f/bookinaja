@@ -2,7 +2,6 @@ package reservation
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"time"
 
@@ -21,6 +20,8 @@ type Scheduler struct {
 type sessionJob struct {
 	ID            string    `db:"id"`
 	TenantID      string    `db:"tenant_id"`
+	TenantName    string    `db:"tenant_name"`
+	Timezone      string    `db:"timezone"`
 	CustomerID    string    `db:"customer_id"`
 	CustomerName  string    `db:"customer_name"`
 	CustomerPhone string    `db:"customer_phone"`
@@ -66,10 +67,11 @@ func (s *Scheduler) runOnce(ctx context.Context) {
 
 	var jobs []sessionJob
 	err := s.db.SelectContext(ctx, &jobs, `
-		SELECT b.id, b.tenant_id, c.name AS customer_name, c.phone AS customer_phone,
+		SELECT b.id, b.tenant_id, t.name AS tenant_name, COALESCE(NULLIF(BTRIM(t.timezone), ''), 'Asia/Jakarta') AS timezone, c.name AS customer_name, c.phone AS customer_phone,
 			b.customer_id, res.name AS resource_name, b.resource_id, b.start_time, b.end_time, b.access_token,
 			b.status
 		FROM bookings b
+		JOIN tenants t ON t.id = b.tenant_id
 		JOIN customers c ON c.id = b.customer_id
 		JOIN resources res ON res.id = b.resource_id
 		WHERE b.status IN ('pending', 'confirmed', 'active', 'ongoing')
@@ -119,23 +121,7 @@ func (s *Scheduler) sendReminder(job sessionJob, minutes int) error {
 		tenantSlug = "tenant"
 	}
 	url := bookingVerifyURL(tenantSlug, job.AccessToken)
-
-	loc, lerr := time.LoadLocation("Asia/Jakarta")
-	if lerr != nil {
-		loc = time.FixedZone("WIB", 7*60*60)
-	}
-
-	msg := fmt.Sprintf(
-		"⏳ *Reminder: %d Menit Lagi!*\n\n"+
-			"Halo *%s*, sesi booking kamu untuk *%s* mulai *%d menit lagi* (%s).\n\n"+
-			"Buka detail booking:\n%s",
-		minutes,
-		job.CustomerName,
-		job.ResourceName,
-		minutes,
-		job.StartTime.In(loc).Format("02 Jan 2006, 15:04 WIB"),
-		url,
-	)
+	msg := waSessionReminderMessage(job.CustomerName, job.TenantName, job.ResourceName, minutes, job.StartTime, url, job.Timezone)
 	_, sendErr := fonnte.SendMessage(job.CustomerPhone, msg)
 	return sendErr
 }

@@ -79,6 +79,16 @@ func (r *Repository) GetTenantSlug(ctx context.Context, tenantID uuid.UUID) (str
 	return slug, nil
 }
 
+func (r *Repository) GetTenantTimezone(ctx context.Context, tenantID uuid.UUID) (string, error) {
+	var timezone string
+	err := r.db.GetContext(ctx, &timezone, `
+		SELECT COALESCE(NULLIF(BTRIM(timezone), ''), 'Asia/Jakarta')
+		FROM tenants
+		WHERE id = $1
+		LIMIT 1`, tenantID)
+	return timezone, err
+}
+
 func (r *Repository) GetTenantIDByBookingID(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
 	var tID uuid.UUID
 	err := r.db.GetContext(ctx, &tID, `SELECT tenant_id FROM bookings WHERE id = $1 LIMIT 1`, id)
@@ -251,7 +261,9 @@ func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []u
 				original_amount, final_amount, snapshot, status, redeemed_at, created_at
 			) VALUES (
 				$1, $2, $3, $4, $5, $6, $7,
-				$8, $9, $10, 'redeemed', NOW(), NOW()
+				$8, $9, $10, $11,
+				CASE WHEN $11 = 'redeemed' THEN NOW() ELSE NULL END,
+				NOW()
 			)`,
 			uuid.New(),
 			redemption.PromoID,
@@ -263,6 +275,7 @@ func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []u
 			redemption.OriginalAmount,
 			redemption.FinalAmount,
 			redemption.SnapshotPayload,
+			initialPromoRedemptionStatus(b),
 		)
 		if err != nil {
 			return err
@@ -298,13 +311,16 @@ func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*Boo
 	// Kita pake versi asli lo yang stabil, tapi kita lock DISTINCT biar gak duplikat item
 	query := `
 		SELECT 
-			b.*, c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
+			b.*, t.name as tenant_name, t.slug as tenant_slug,
+			COALESCE(NULLIF(BTRIM(t.timezone), ''), 'Asia/Jakarta') as timezone,
+			c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
 			COALESCE(ri.price, 0) as unit_price, 
 			COALESCE(ri.unit_duration, 60) as unit_duration,
 			-- Subquery tetap yang paling akurat buat totalan biaya
 			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) as total_resource,
 			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_fnb
 		FROM bookings b
+		JOIN tenants t ON t.id = b.tenant_id
 		JOIN customers c ON b.customer_id = c.id
 		JOIN resources res ON b.resource_id = res.id
 		LEFT JOIN booking_options bo ON bo.booking_id = b.id
@@ -441,6 +457,7 @@ func (r *Repository) GetByToken(ctx context.Context, token uuid.UUID) (*BookingD
 	var b BookingDetail
 	query := `
 		SELECT b.*, t.name as tenant_name, t.slug as tenant_slug,
+		COALESCE(NULLIF(BTRIM(t.timezone), ''), 'Asia/Jakarta') as timezone,
 		c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
 		COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) as total_resource,
 		COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_fnb
@@ -480,6 +497,7 @@ func (r *Repository) FindByIDForCustomer(ctx context.Context, id, tenantID, cust
 	query := `
 		SELECT 
 			b.*, t.name as tenant_name, t.slug as tenant_slug,
+			COALESCE(NULLIF(BTRIM(t.timezone), ''), 'Asia/Jakarta') as timezone,
 			c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
 			COALESCE(ri.price, 0) as unit_price, 
 			COALESCE(ri.unit_duration, 60) as unit_duration,
@@ -520,6 +538,7 @@ func (r *Repository) FindByIDForCustomerGlobal(ctx context.Context, id, customer
 	query := `
 		SELECT 
 			b.*, t.name as tenant_name, t.slug as tenant_slug,
+			COALESCE(NULLIF(BTRIM(t.timezone), ''), 'Asia/Jakarta') as timezone,
 			c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
 			COALESCE(ri.price, 0) as unit_price, 
 			COALESCE(ri.unit_duration, 60) as unit_duration,
@@ -846,6 +865,7 @@ func (r *Repository) FindActiveSessions(ctx context.Context, tenantID uuid.UUID)
 	query := `
 		SELECT 
 			b.*, t.name as tenant_name, t.slug as tenant_slug,
+			COALESCE(NULLIF(BTRIM(t.timezone), ''), 'Asia/Jakarta') as timezone,
 			c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
 			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) as total_resource,
 			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_fnb
@@ -922,6 +942,11 @@ func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, s
 	if _, err := r.db.ExecContext(ctx, query, status, id, tenantID); err != nil {
 		return err
 	}
+	if redemptionStatus, ok := promoRedemptionStatusForBooking(status); ok {
+		if err := r.updatePromoRedemptionStatus(ctx, r.db, id, redemptionStatus); err != nil {
+			return err
+		}
+	}
 	eventType := "booking.status_changed"
 	title := "Status booking diperbarui"
 	switch status {
@@ -952,6 +977,38 @@ func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, s
 		Description: fmt.Sprintf("Status berubah dari %s ke %s.", before.Status, status),
 		Metadata:    map[string]any{"from_status": before.Status, "to_status": status},
 	})
+}
+
+func (r *Repository) updatePromoRedemptionStatus(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID, status string) error {
+	_, err := exec.ExecContext(ctx, `
+		UPDATE tenant_promo_redemptions
+		SET status = $2::varchar(20),
+			redeemed_at = CASE
+				WHEN $2::varchar(20) = 'redeemed' THEN COALESCE(redeemed_at, NOW())
+				ELSE redeemed_at
+			END
+		WHERE booking_id = $1`,
+		bookingID, status,
+	)
+	return err
+}
+
+func initialPromoRedemptionStatus(booking Booking) string {
+	if strings.EqualFold(strings.TrimSpace(booking.Status), "active") {
+		return "redeemed"
+	}
+	return "reserved"
+}
+
+func promoRedemptionStatusForBooking(status string) (string, bool) {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "active", "completed":
+		return "redeemed", true
+	case "cancelled":
+		return "released", true
+	default:
+		return "", false
+	}
 }
 
 func (r *Repository) SettlePaymentCash(ctx context.Context, id, tenantID uuid.UUID, actor ActorContext, cashReceived *float64, notes *string) error {
@@ -1054,10 +1111,13 @@ func (r *Repository) ListUpcoming(ctx context.Context, resourceID uuid.UUID, fro
 func (r *Repository) FindAllByTenant(ctx context.Context, tenantID uuid.UUID, status string) ([]BookingDetail, error) {
 	var res []BookingDetail
 	query := `
-		SELECT b.*, c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
+		SELECT b.*, t.name as tenant_name, t.slug as tenant_slug,
+		COALESCE(NULLIF(BTRIM(t.timezone), ''), 'Asia/Jakarta') as timezone,
+		c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
 		COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) as total_resource,
 		COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_fnb
 		FROM bookings b
+		JOIN tenants t ON t.id = b.tenant_id
 		JOIN customers c ON b.customer_id = c.id
 		JOIN resources res ON b.resource_id = res.id
 		WHERE b.tenant_id = $1`
@@ -1095,6 +1155,7 @@ func (r *Repository) GetReceiptContext(ctx context.Context, bookingID, tenantID 
 			t.name AS tenant_name,
 			t.plan AS tenant_plan,
 			t.subscription_status AS tenant_status,
+			COALESCE(NULLIF(BTRIM(t.timezone), ''), 'Asia/Jakarta') AS timezone,
 			t.receipt_title,
 			t.receipt_subtitle,
 			t.receipt_footer,

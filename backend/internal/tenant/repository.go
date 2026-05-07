@@ -212,7 +212,7 @@ func (r *Repository) GetDepositSettings(ctx context.Context, tenantID uuid.UUID)
 		SELECT o.id, o.tenant_id, o.resource_id, COALESCE(r.name, '') AS resource_name,
 			o.override_dp, o.dp_enabled, o.dp_percentage, o.created_at, o.updated_at
 		FROM tenant_resource_deposit_overrides o
-		LEFT JOIN resources r ON r.id = o.resource_id
+		LEFT JOIN resources r ON r.id = o.resource_id AND r.tenant_id = o.tenant_id
 		WHERE o.tenant_id = $1
 		ORDER BY COALESCE(r.name, '') ASC`, tenantID); err != nil {
 		return nil, err
@@ -247,6 +247,20 @@ func (r *Repository) UpsertDepositSettings(ctx context.Context, tenantID uuid.UU
 		resourceID, parseErr := uuid.Parse(strings.TrimSpace(item.ResourceID))
 		if parseErr != nil {
 			return nil, parseErr
+		}
+		var resourceOwned bool
+		if err := tx.GetContext(ctx, &resourceOwned, `
+			SELECT EXISTS(
+				SELECT 1
+				FROM resources
+				WHERE id = $1 AND tenant_id = $2
+			)`,
+			resourceID, tenantID,
+		); err != nil {
+			return nil, err
+		}
+		if !resourceOwned {
+			return nil, fmt.Errorf("resource override deposit tidak valid untuk tenant ini")
 		}
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO tenant_resource_deposit_overrides (
@@ -598,7 +612,7 @@ func (r *Repository) Update(ctx context.Context, t Tenant) error {
         UPDATE tenants SET 
             name=:name, slogan=:slogan, tagline=:tagline, about_us=:about_us, 
             features=:features, address=:address, open_time=:open_time, 
-            close_time=:close_time, logo_url=:logo_url, banner_url=:banner_url, 
+            close_time=:close_time, timezone=:timezone, logo_url=:logo_url, banner_url=:banner_url, 
             gallery=:gallery, business_category=:business_category, primary_color=:primary_color, 
             landing_page_config=:landing_page_config, landing_theme_config=:landing_theme_config, booking_form_config=:booking_form_config,
             whatsapp_number=:whatsapp_number, instagram_url=:instagram_url, 

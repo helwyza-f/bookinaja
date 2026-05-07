@@ -11,6 +11,7 @@ export type TenantProfile = {
   address: string;
   open_time: string;
   close_time: string;
+  timezone: string;
   primary_color: string;
   logo_url: string;
   banner_url: string;
@@ -46,6 +47,7 @@ export const defaultTenantProfile: TenantProfile = {
   address: "",
   open_time: "09:00",
   close_time: "21:00",
+  timezone: "Asia/Jakarta",
   primary_color: "#3b82f6",
   logo_url: "",
   banner_url: "",

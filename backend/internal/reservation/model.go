@@ -73,6 +73,7 @@ type BookingDetail struct {
 	Booking
 	TenantName      string                         `db:"tenant_name" json:"tenant_name"`
 	TenantSlug      string                         `db:"tenant_slug" json:"tenant_slug"`
+	Timezone        string                         `db:"timezone" json:"timezone"`
 	CustomerName    string                         `db:"customer_name" json:"customer_name"`
 	CustomerPhone   string                         `db:"customer_phone" json:"customer_phone"`
 	ResourceName    string                         `db:"resource_name" json:"resource_name"`
@@ -215,6 +216,7 @@ type ReceiptContext struct {
 	TenantName          string  `db:"tenant_name"`
 	TenantPlan          string  `db:"tenant_plan"`
 	TenantStatus        string  `db:"tenant_status"`
+	Timezone            string  `db:"timezone"`
 	ReceiptTitle        string  `db:"receipt_title"`
 	ReceiptSubtitle     string  `db:"receipt_subtitle"`
 	ReceiptFooter       string  `db:"receipt_footer"`

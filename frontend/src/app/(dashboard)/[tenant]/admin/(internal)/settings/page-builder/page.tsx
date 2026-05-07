@@ -2080,7 +2080,7 @@ function BusinessStudioPanel({
                 className="min-h-24"
               />
             </Field>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-3">
               <Field label="Jam buka">
                 <Input
                   value={profile.open_time || ""}
@@ -2095,6 +2095,15 @@ function BusinessStudioPanel({
                   onChange={(event) =>
                     onProfilePatch({ close_time: event.target.value })
                   }
+                />
+              </Field>
+              <Field label="Timezone">
+                <Input
+                  value={profile.timezone || "Asia/Jakarta"}
+                  onChange={(event) =>
+                    onProfilePatch({ timezone: event.target.value })
+                  }
+                  placeholder="Asia/Jakarta"
                 />
               </Field>
             </div>
@@ -2120,6 +2129,7 @@ function BusinessStudioPanel({
                   address: profile.address,
                   open_time: profile.open_time,
                   close_time: profile.close_time,
+                  timezone: profile.timezone,
                   whatsapp_number: profile.whatsapp_number,
                 },
                 persistBuilder: true,

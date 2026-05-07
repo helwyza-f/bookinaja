@@ -126,7 +126,7 @@ func renderReceiptTemplate(receipt *ReceiptContext) string {
 		"customer_phone":   defaultString(receipt.CustomerPhone, "-"),
 		"booking_id":       strings.ToUpper(receipt.ID.String()[:8]),
 		"resource_name":    defaultString(receipt.ResourceName, "Unit"),
-		"booking_time":     formatReceiptTime(receipt.StartTime, receipt.EndTime),
+		"booking_time":     formatReceiptTime(receipt.StartTime, receipt.EndTime, receipt.Timezone),
 		"grand_total":      formatReceiptIDR(receipt.GrandTotal),
 		"deposit_amount":   formatReceiptIDR(receipt.DepositAmount),
 		"paid_amount":      formatReceiptIDR(receipt.PaidAmount),
@@ -147,8 +147,8 @@ func defaultString(value, fallback string) string {
 	return value
 }
 
-func formatReceiptTime(start, end time.Time) string {
-	return fmt.Sprintf("%s %s-%s", start.Format("02 Jan 2006"), start.Format("15:04"), end.Format("15:04"))
+func formatReceiptTime(start, end time.Time, timezone string) string {
+	return formatBookingWindow(start, end, timezone)
 }
 
 func formatReceiptIDR(value float64) string {
@@ -190,14 +190,12 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 	tID := resDetail.TenantID
 
 	// 2. PARSE WAKTU MULAI (ISO8601)
-	start, err := time.Parse(time.RFC3339, req.StartTime)
+	tenantLocation := s.resolveTenantLocation(ctx, tID)
+	start, err := parseBookingStartTime(req.StartTime, tenantLocation)
 	if err != nil {
-		layout := "2006-01-02T15:04:05"
-		start, err = time.ParseInLocation(layout, req.StartTime, time.Local)
-		if err != nil {
-			return nil, nil, errors.New("FORMAT WAKTU SALAH, GUNAKAN STANDAR ISO8601")
-		}
+		return nil, nil, errors.New("FORMAT WAKTU SALAH, GUNAKAN STANDAR ISO8601")
 	}
+	localStart := start
 	start = start.UTC() // Database konsisten menggunakan UTC
 
 	// 3. HITUNG END TIME BERDASARKAN DURASI UNIT
@@ -267,6 +265,7 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 			ResourceID: rID,
 			StartTime:  start,
 			EndTime:    end,
+			LocalStart: localStart,
 			Subtotal:   grandTotal,
 			CustomerID: &cust.ID,
 			Code:       req.PromoCode,
@@ -608,6 +607,26 @@ func mapBookingRealtimeType(status string) string {
 	}
 }
 
+func (s *Service) resolveTenantLocation(ctx context.Context, tenantID uuid.UUID) *time.Location {
+	if s != nil && s.repo != nil && tenantID != uuid.Nil {
+		if timezone, err := s.repo.GetTenantTimezone(ctx, tenantID); err == nil {
+			if location, loadErr := time.LoadLocation(strings.TrimSpace(timezone)); loadErr == nil {
+				return location
+			}
+		}
+	}
+	return time.Local
+}
+
+func parseBookingStartTime(raw string, location *time.Location) (time.Time, error) {
+	start, err := time.Parse(time.RFC3339, raw)
+	if err == nil {
+		return start, nil
+	}
+	layout := "2006-01-02T15:04:05"
+	return time.ParseInLocation(layout, raw, location)
+}
+
 func (s *Service) ExchangeAccessToken(ctx context.Context, accessToken string) (*BookingDetail, *customer.Customer, string, error) {
 	tokenUUID, err := uuid.Parse(accessToken)
 	if err != nil {
@@ -731,9 +750,11 @@ func (s *Service) GetAvailability(ctx context.Context, resourceID string, date t
 		return nil, errors.New("ID UNIT TIDAK VALID")
 	}
 
-	location, err := time.LoadLocation("Asia/Jakarta")
-	if err != nil {
-		location = time.FixedZone("WIB", 7*60*60)
+	location := locationForTimezone("Asia/Jakarta")
+	if s != nil && s.resourceRepo != nil {
+		if resDetail, resErr := s.resourceRepo.GetOneWithItems(ctx, rID); resErr == nil {
+			location = locationForTimezone(s.resolveTenantTimezone(ctx, resDetail.TenantID))
+		}
 	}
 	localDate := date.In(location)
 	startOfDay := time.Date(localDate.Year(), localDate.Month(), localDate.Day(), 0, 0, 0, 0, location)
@@ -923,8 +944,9 @@ func (s *Service) SendBookingConfirmation(ctx context.Context, booking *Booking,
 		return nil
 	}
 
+	timezone := s.resolveTenantTimezone(ctx, booking.TenantID)
 	detailURL := bookingVerifyURL(tenantSlug, booking.AccessToken.String())
-	msg := waBookingCreatedMessage(cust.Name, booking.ID.String(), booking.StartTime, booking.EndTime, booking.DepositAmount, booking.BalanceDue, detailURL)
+	msg := waBookingCreatedMessage(cust.Name, booking.ID.String(), booking.StartTime, booking.EndTime, booking.GrandTotal, booking.DepositAmount, booking.BalanceDue, detailURL, timezone)
 	if strings.ToLower(strings.TrimSpace(os.Getenv("GIN_MODE"))) != "release" {
 		fmt.Printf("[WA BOOKING] event=booking_created tenant=%s booking=%s phone=%s message_len=%d url=%s\n", tenantSlug, booking.ID.String(), cust.Phone, len(msg), detailURL)
 	}
@@ -936,16 +958,49 @@ func bookingVerifyURL(tenantSlug, accessToken string) string {
 	return env.PlatformURL(fmt.Sprintf("/user/verify?code=%s", accessToken))
 }
 
-func wibLocation() *time.Location {
-	loc, err := time.LoadLocation("Asia/Jakarta")
+func (s *Service) resolveTenantTimezone(ctx context.Context, tenantID uuid.UUID) string {
+	if s != nil && s.repo != nil && tenantID != uuid.Nil {
+		if timezone, err := s.repo.GetTenantTimezone(ctx, tenantID); err == nil && strings.TrimSpace(timezone) != "" {
+			return strings.TrimSpace(timezone)
+		}
+	}
+	return "Asia/Jakarta"
+}
+
+func locationForTimezone(timezone string) *time.Location {
+	timezone = strings.TrimSpace(timezone)
+	if timezone == "" {
+		timezone = "Asia/Jakarta"
+	}
+	loc, err := time.LoadLocation(timezone)
 	if err != nil {
-		loc = time.FixedZone("WIB", 7*60*60)
+		loc, err = time.LoadLocation("Asia/Jakarta")
+		if err != nil {
+			return time.FixedZone("UTC+7", 7*60*60)
+		}
 	}
 	return loc
 }
 
-func formatWIB(t time.Time) string {
-	return t.In(wibLocation()).Format("02 Jan 2006, 15:04 WIB")
+func formatBookingTime(t time.Time, timezone string) string {
+	return t.In(locationForTimezone(timezone)).Format("02 Jan 2006, 15:04 MST")
+}
+
+func formatBookingWindow(start, end time.Time, timezone string) string {
+	loc := locationForTimezone(timezone)
+	localStart := start.In(loc)
+	localEnd := end.In(loc)
+	if localStart.Format("2006-01-02") == localEnd.Format("2006-01-02") {
+		return fmt.Sprintf("%s - %s", localStart.Format("02 Jan 2006, 15:04 MST"), localEnd.Format("15:04 MST"))
+	}
+	return fmt.Sprintf("%s - %s", localStart.Format("02 Jan 2006, 15:04 MST"), localEnd.Format("02 Jan 2006, 15:04 MST"))
+}
+
+func clampBalanceDue(balanceDue float64) float64 {
+	if balanceDue < 0 {
+		return 0
+	}
+	return balanceDue
 }
 
 func formatRupiah(v float64) string {
@@ -975,6 +1030,37 @@ func formatMoney(v float64) string {
 	return fmt.Sprintf("%d", int64(math.Round(v)))
 }
 
+func paymentSummaryLines(grandTotal, depositAmount, paidAmount, balanceDue float64) string {
+	lines := []string{
+		fmt.Sprintf("Total       : %s", formatRupiah(grandTotal)),
+	}
+	if depositAmount > 0 {
+		lines = append(lines, fmt.Sprintf("DP          : %s", formatRupiah(depositAmount)))
+	} else {
+		lines = append(lines, "DP          : Tidak wajib")
+	}
+	lines = append(lines, fmt.Sprintf("Sudah bayar : %s", formatRupiah(paidAmount)))
+	remaining := clampBalanceDue(balanceDue)
+	if remaining <= 0 {
+		lines = append(lines, "Sisa bayar  : LUNAS")
+	} else {
+		lines = append(lines, fmt.Sprintf("Sisa bayar  : %s", formatRupiah(remaining)))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func paymentStatusMessage(depositAmount, balanceDue float64) string {
+	remaining := clampBalanceDue(balanceDue)
+	switch {
+	case remaining <= 0:
+		return "Status pembayaran: booking kamu sudah lunas."
+	case depositAmount > 0:
+		return "Status pembayaran: selesaikan DP agar booking tetap aman."
+	default:
+		return "Status pembayaran: pelunasan dilakukan saat sesi berlangsung."
+	}
+}
+
 func (s *Service) sendSessionStarted(ctx context.Context, booking *BookingDetail) error {
 	if booking == nil {
 		return nil
@@ -984,20 +1070,20 @@ func (s *Service) sendSessionStarted(ctx context.Context, booking *BookingDetail
 		return nil
 	}
 	tenantSlug, _ := s.repo.GetTenantSlug(ctx, booking.TenantID)
+	timezone := s.resolveTenantTimezone(ctx, booking.TenantID)
 	url := bookingVerifyURL(tenantSlug, booking.AccessToken.String())
 	msg := fmt.Sprintf(
-		"🟢 *Sesi Dimulai!*\n\n"+
+		"Sesi Dimulai\n\n"+
 			"Halo *%s*, sesi booking kamu sudah aktif.\n\n"+
-			"📍 *%s* — %s\n"+
-			"🎯 Unit: *%s*\n"+
-			"⏰ %s — %s\n\n"+
+			"Lokasi      : *%s* (%s)\n"+
+			"Unit        : *%s*\n"+
+			"Jadwal      : %s\n\n"+
 			"Kontrol sesi, pesan F&B, dan perpanjang waktu langsung di sini:\n%s",
 		booking.CustomerName,
 		booking.TenantName,
 		booking.TenantSlug,
 		booking.ResourceName,
-		formatWIB(booking.StartTime),
-		booking.EndTime.In(wibLocation()).Format("15:04 WIB"),
+		formatBookingWindow(booking.StartTime, booking.EndTime, timezone),
 		url,
 	)
 	_, _ = fonnte.SendMessage(phone, msg)
@@ -1015,90 +1101,54 @@ func (s *Service) sendSessionReminders(ctx context.Context, booking *BookingDeta
 	now := time.Now().UTC()
 	due := booking.StartTime.Sub(now)
 	tenantSlug, _ := s.repo.GetTenantSlug(ctx, booking.TenantID)
+	timezone := s.resolveTenantTimezone(ctx, booking.TenantID)
 	url := bookingVerifyURL(tenantSlug, booking.AccessToken.String())
 
 	if due <= 20*time.Minute && due > 19*time.Minute && booking.Reminder20MSentAt == nil {
-		msg := fmt.Sprintf(
-			"⏳ *Reminder: %d Menit Lagi!*\n\n"+
-				"Halo *%s*, sesi booking kamu di *%s* mulai *%d menit lagi*.\n\n"+
-				"🎯 Unit: *%s*\n"+
-				"⏰ Mulai: %s\n\n"+
-				"Siap-siap ya! Buka detail booking:\n%s",
-			20,
-			booking.CustomerName,
-			booking.TenantName,
-			20,
-			booking.ResourceName,
-			formatWIB(booking.StartTime),
-			url,
-		)
+		msg := waSessionReminderMessage(booking.CustomerName, booking.TenantName, booking.ResourceName, 20, booking.StartTime, url, timezone)
 		_, _ = fonnte.SendMessage(phone, msg)
 		_ = s.repo.MarkReminderSent(ctx, booking.ID, booking.TenantID, "reminder_20m_sent_at")
 	}
 
 	if due <= 5*time.Minute && due > 4*time.Minute && booking.Reminder5MSentAt == nil {
-		msg := fmt.Sprintf(
-			"🔔 *Reminder: %d Menit Lagi!*\n\n"+
-				"Halo *%s*, sesi kamu di *%s* hampir dimulai!\n\n"+
-				"🎯 Unit: *%s*\n"+
-				"⏰ Mulai: %s\n\n"+
-				"Yuk langsung masuk! Buka detail booking:\n%s",
-			5,
-			booking.CustomerName,
-			booking.TenantName,
-			booking.ResourceName,
-			formatWIB(booking.StartTime),
-			url,
-		)
+		msg := waSessionReminderMessage(booking.CustomerName, booking.TenantName, booking.ResourceName, 5, booking.StartTime, url, timezone)
 		_, _ = fonnte.SendMessage(phone, msg)
 		_ = s.repo.MarkReminderSent(ctx, booking.ID, booking.TenantID, "reminder_5m_sent_at")
 	}
 	return nil
 }
 
-func waBookingCreatedMessage(name, bookingID string, startTime, endTime time.Time, depositAmount, balanceDue float64, detailURL string) string {
-	paymentLine := "Booking ini tanpa DP. Langsung datang saat jadwal sesi."
-	if depositAmount > 0 {
-		paymentLine = fmt.Sprintf(
-			"💰 DP: %s\n💳 Sisa bayar: %s\n\nSegera selesaikan DP agar booking terkonfirmasi.",
-			formatRupiah(depositAmount),
-			formatRupiah(balanceDue),
-		)
-	}
+func waBookingCreatedMessage(name, bookingID string, startTime, endTime time.Time, grandTotal, depositAmount, balanceDue float64, detailURL, timezone string) string {
 	return fmt.Sprintf(
-		"✅ *Booking Berhasil!*\n\n"+
+		"Booking Berhasil\n\n"+
 			"Halo *%s*, booking kamu sudah tercatat.\n\n"+
-			"🔖 Ref: *%s*\n"+
-			"⏰ Mulai: %s\n"+
-			"⏰ Selesai: %s\n\n"+
+			"Ref         : *%s*\n"+
+			"Jadwal      : %s\n\n"+
+			"Ringkasan pembayaran\n%s\n\n"+
 			"%s\n\n"+
 			"Buka e-tiket & kontrol sesi di sini:\n%s",
 		name,
 		shortRef(bookingID),
-		formatWIB(startTime),
-		formatWIB(endTime),
-		paymentLine,
+		formatBookingWindow(startTime, endTime, timezone),
+		paymentSummaryLines(grandTotal, depositAmount, 0, balanceDue),
+		paymentStatusMessage(depositAmount, balanceDue),
 		detailURL,
 	)
 }
 
-func waSessionStartedMessage(name, resourceName, detailURL string) string {
+func waSessionReminderMessage(name, tenantName, resourceName string, minutes int, startTime time.Time, detailURL, timezone string) string {
 	return fmt.Sprintf(
-		"🟢 *Sesi Aktif!*\n\nHalo *%s*, sesi kamu untuk *%s* sekarang sudah berjalan.\n\nBuka live controller:\n%s",
-		name,
-		resourceName,
-		detailURL,
-	)
-}
-
-func waSessionReminderMessage(name, resourceName string, minutes int, startTime time.Time, detailURL string) string {
-	return fmt.Sprintf(
-		"⏳ *Reminder: %d Menit Lagi!*\n\nHalo *%s*, sesi kamu untuk *%s* mulai %d menit lagi (%s).\n\nBuka detail booking:\n%s",
+		"Reminder: %d Menit Lagi\n\n"+
+			"Halo *%s*, sesi kamu di *%s* mulai %d menit lagi.\n\n"+
+			"Unit        : *%s*\n"+
+			"Mulai       : %s\n\n"+
+			"Buka detail booking:\n%s",
 		minutes,
 		name,
-		resourceName,
+		tenantName,
 		minutes,
-		formatWIB(startTime),
+		resourceName,
+		formatBookingTime(startTime, timezone),
 		detailURL,
 	)
 }
@@ -1178,32 +1228,24 @@ func validateBookingTransition(currentStatus, nextStatus, paymentStatus string, 
 }
 
 func waPaymentReceivedMessage(name, note, bookingID, resourceName string, grandTotal, depositAmount, paidAmount, balanceDue float64, detailURL string) string {
-	remaining := balanceDue
-	if remaining < 0 {
-		remaining = 0
-	}
-	statusLine := ""
-	if remaining <= 0 {
-		statusLine = "\n✅ *Booking sudah LUNAS!*"
-	} else {
-		statusLine = fmt.Sprintf("\n💳 Sisa bayar: %s", formatRupiah(remaining))
+	remaining := clampBalanceDue(balanceDue)
+	statusLine := "Status pembayaran: booking kamu sudah lunas."
+	if remaining > 0 {
+		statusLine = fmt.Sprintf("Status pembayaran: sisa tagihan kamu masih %s.", formatRupiah(remaining))
 	}
 	return fmt.Sprintf(
-		"💵 *Pembayaran Diterima*\n\n"+
+		"Pembayaran Diterima\n\n"+
 			"Halo *%s*, %s\n\n"+
-			"🔖 Ref: *%s*\n"+
-			"🎯 Unit: *%s*\n"+
-			"💰 Total: %s\n"+
-			"💰 DP: %s\n"+
-			"💰 Dibayar: %s%s\n\n"+
+			"Ref         : *%s*\n"+
+			"Unit        : *%s*\n\n"+
+			"Ringkasan pembayaran\n%s\n\n"+
+			"%s\n\n"+
 			"Buka detail booking:\n%s",
 		name,
 		note,
 		shortRef(bookingID),
 		resourceName,
-		formatRupiah(grandTotal),
-		formatRupiah(depositAmount),
-		formatRupiah(paidAmount),
+		paymentSummaryLines(grandTotal, depositAmount, paidAmount, balanceDue),
 		statusLine,
 		detailURL,
 	)

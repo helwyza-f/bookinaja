@@ -109,6 +109,16 @@ func (r *Repository) GetByCode(ctx context.Context, tenantID uuid.UUID, code str
 	return &item, nil
 }
 
+func (r *Repository) GetTenantTimezone(ctx context.Context, tenantID uuid.UUID) (string, error) {
+	var timezone string
+	err := r.db.GetContext(ctx, &timezone, `
+		SELECT COALESCE(NULLIF(BTRIM(timezone), ''), 'Asia/Jakarta')
+		FROM tenants
+		WHERE id = $1
+		LIMIT 1`, tenantID)
+	return timezone, err
+}
+
 func (r *Repository) Upsert(ctx context.Context, promo Promo) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {

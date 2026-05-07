@@ -6,14 +6,12 @@ import Image from "next/image";
 import {
   format,
   isBefore,
-  startOfToday,
   parse,
   addMinutes,
   addDays,
   addWeeks,
   addMonths,
   addYears,
-  formatISO,
   isSameDay,
 } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
@@ -69,7 +67,7 @@ export default function ResourceBookingDetail() {
   const step3Ref = useRef<HTMLDivElement>(null);
 
   // Form State
-  const [date, setDate] = useState<Date | undefined>(startOfToday());
+  const [date, setDate] = useState<Date | undefined>(undefined);
   const [custName, setCustName] = useState("");
   const [custPhone, setCustPhone] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
@@ -126,8 +124,19 @@ export default function ResourceBookingDetail() {
     return ["day", "week", "month", "year"].includes(selectedItem.price_unit);
   }, [selectedItem]);
 
-  const wibNow = useMemo(() => getWIBDate(new Date()), []);
-  const todayWIB = useMemo(() => startOfWIBDay(new Date()), []);
+  const tenantTimezone = profile?.timezone || "Asia/Jakarta";
+  const tenantNow = useMemo(
+    () => getTenantNow(new Date(), tenantTimezone),
+    [tenantTimezone],
+  );
+  const tenantToday = useMemo(
+    () => getTenantToday(new Date(), tenantTimezone),
+    [tenantTimezone],
+  );
+
+  useEffect(() => {
+    setDate((current) => current ?? getTenantToday(new Date(), tenantTimezone));
+  }, [tenantTimezone]);
 
   // Smooth Scroll Trigger
   useEffect(() => {
@@ -239,7 +248,7 @@ export default function ResourceBookingDetail() {
 
   const formattedSelectedDate = useMemo(() => {
     if (!date) return "";
-    return formatInWIB(date, "EEEE, dd MMM yyyy");
+    return format(date, "EEEE, dd MMM yyyy", { locale: idLocale });
   }, [date]);
 
   const maxAvailableSessions = useMemo(() => {
@@ -357,19 +366,19 @@ export default function ResourceBookingDetail() {
   const handleBooking = async () => {
     if (phoneStatus !== "valid")
       return toast.error("Nomor WhatsApp tidak valid");
-    if (!custName || !selectedTime)
+    if (!custName || !selectedTime || !date)
       return toast.error("Lengkapi formulir boking");
 
     setIsSubmitting(true);
     try {
-      const fullDate = parse(selectedTime, "HH:mm", date || new Date());
+      const fullDate = buildTenantDateTime(date, selectedTime, tenantTimezone);
       const payload = {
         tenant_id: resource.tenant_id,
         customer_name: custName.toUpperCase(),
         customer_phone: custPhone,
         resource_id: resource.id,
         item_ids: [selectedMainId, ...selectedAddons],
-        start_time: formatISO(fullDate),
+        start_time: fullDate.toISOString(),
         duration: durationValue,
         promo_code: promoPreview?.valid ? promoCode.trim().toUpperCase() : "",
       };
@@ -430,13 +439,13 @@ export default function ResourceBookingDetail() {
     }
     setIsCheckingPromo(true);
     try {
-      const fullDate = parse(selectedTime, "HH:mm", date);
+      const fullDate = buildTenantDateTime(date, selectedTime, tenantTimezone);
       const res = await api.post("/public/promos/preview", {
         tenant_id: resource.tenant_id,
         code: promoCode.trim().toUpperCase(),
         resource_id: resource.id,
-        start_time: formatISO(fullDate),
-        end_time: formatISO(fullDate),
+        start_time: fullDate.toISOString(),
+        end_time: fullDate.toISOString(),
         subtotal: calculateTotal(),
       });
       setPromoPreview(res.data);
@@ -625,10 +634,10 @@ export default function ResourceBookingDetail() {
                   mode="single"
                   selected={date}
                   onSelect={(d) => {
-                    setDate(d ? startOfWIBDay(d) : d);
+                    setDate(d ? normalizeCalendarDate(d) : d);
                     setIsCalendarOpen(false);
                   }}
-                  disabled={(d) => startOfWIBDay(d) < todayWIB}
+                  disabled={(d) => normalizeCalendarDate(d) < tenantToday}
                   className="w-full"
                 />
               </PopoverContent>
@@ -637,7 +646,7 @@ export default function ResourceBookingDetail() {
             {date && selectedMainId && !isInterday && (
               <div className="space-y-3">
                 <div className={cn("px-1 text-[10px] font-black uppercase tracking-widest", themeVisuals.eyebrowMutedClass)}>
-                  Zona waktu WIB
+                  Zona waktu {tenantTimezone}
                 </div>
                 {availableSlots.length === 0 ? (
                   <div className={cn("rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50/30 p-6 text-center text-sm dark:border-white/10", themeVisuals.mutedClass)}>
@@ -650,10 +659,10 @@ export default function ResourceBookingDetail() {
                         const [h, m] = timeStr.split(":").map(Number);
                         const totalMin = h * 60 + m;
                         let past = false;
-                        if (date && isSameDay(date, wibNow)) {
+                        if (date && isSameDay(date, tenantToday)) {
                           if (
                             totalMin <=
-                            wibNow.getHours() * 60 + wibNow.getMinutes()
+                            tenantNow.getHours() * 60 + tenantNow.getMinutes()
                           )
                             past = true;
                         }
@@ -1081,29 +1090,96 @@ function BookingSkeleton() {
   );
 }
 
-function getWIBDate(date: Date) {
-  return new Date(date.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+function normalizeCalendarDate(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
 }
 
-function startOfWIBDay(date: Date) {
-  const wib = getWIBDate(date);
-  return new Date(wib.getFullYear(), wib.getMonth(), wib.getDate(), 0, 0, 0, 0);
+function getTimeZoneParts(date: Date, timezone = "Asia/Jakarta") {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = formatter.formatToParts(date);
+  const pick = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value || "0");
+
+  return {
+    year: pick("year"),
+    month: pick("month"),
+    day: pick("day"),
+    hour: pick("hour"),
+    minute: pick("minute"),
+    second: pick("second"),
+  };
 }
 
-function formatInWIB(date: Date, pattern: string) {
-  const wib = getWIBDate(date);
-  if (pattern === "EEEE, dd MMM yyyy") {
-    return new Intl.DateTimeFormat("id-ID", {
-      timeZone: "Asia/Jakarta",
-      weekday: "long",
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    })
-      .format(wib)
-      .replace(",", "");
+function getTenantNow(date: Date, timezone = "Asia/Jakarta") {
+  const parts = getTimeZoneParts(date, timezone);
+  return new Date(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+    0,
+  );
+}
+
+function getTenantToday(date: Date, timezone = "Asia/Jakarta") {
+  return normalizeCalendarDate(getTenantNow(date, timezone));
+}
+
+function parseTimeZoneOffsetMinutes(offsetLabel: string) {
+  if (offsetLabel === "GMT" || offsetLabel === "UTC") return 0;
+
+  const match = offsetLabel.match(/(?:GMT|UTC)([+-])(\d{1,2})(?::?(\d{2}))?/);
+  if (!match) return 0;
+
+  const sign = match[1] === "-" ? -1 : 1;
+  const hours = Number(match[2] || "0");
+  const minutes = Number(match[3] || "0");
+  return sign * (hours * 60 + minutes);
+}
+
+function getTimeZoneOffsetMinutes(date: Date, timezone = "Asia/Jakarta") {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    timeZoneName: "shortOffset",
+    hour: "2-digit",
+  });
+  const label =
+    formatter.formatToParts(date).find((part) => part.type === "timeZoneName")
+      ?.value || "GMT";
+  return parseTimeZoneOffsetMinutes(label);
+}
+
+function buildTenantDateTime(
+  date: Date,
+  timeValue: string,
+  timezone = "Asia/Jakarta",
+) {
+  const [hour, minute] = timeValue.split(":").map(Number);
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
+  const baseUtc = Date.UTC(year, month, day, hour || 0, minute || 0, 0, 0);
+
+  const offset = getTimeZoneOffsetMinutes(new Date(baseUtc), timezone);
+  let utcMillis = baseUtc - offset * 60 * 1000;
+
+  const refinedOffset = getTimeZoneOffsetMinutes(new Date(utcMillis), timezone);
+  if (refinedOffset !== offset) {
+    utcMillis = baseUtc - refinedOffset * 60 * 1000;
   }
-  return format(wib, pattern);
+
+  return new Date(utcMillis);
 }
 
 function Smartphone({

@@ -196,6 +196,20 @@ func (r *Repository) UpdateBookingSettlementFromMidtrans(ctx context.Context, ex
 	return err
 }
 
+func (r *Repository) UpdatePromoRedemptionStatus(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID, status string) error {
+	_, err := exec.ExecContext(ctx, `
+		UPDATE tenant_promo_redemptions
+		SET status = $2,
+			redeemed_at = CASE
+				WHEN $2 = 'redeemed' THEN NOW()
+				ELSE redeemed_at
+			END
+		WHERE booking_id = $1`,
+		bookingID, status,
+	)
+	return err
+}
+
 func (r *Repository) GetBookingNotificationContext(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID) (BookingNotificationContext, error) {
 	var ctxData BookingNotificationContext
 	err := sqlx.GetContext(ctx, exec, &ctxData, `

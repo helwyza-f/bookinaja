@@ -130,6 +130,7 @@ type ApplyInput struct {
 	ResourceID uuid.UUID
 	StartTime  time.Time
 	EndTime    time.Time
+	LocalStart time.Time
 	Subtotal   float64
 	CustomerID *uuid.UUID
 	Code       string

@@ -331,6 +331,7 @@ type Tenant struct {
 	// --- OPERATIONAL ---
 	OpenTime  string `db:"open_time" json:"open_time"`
 	CloseTime string `db:"close_time" json:"close_time"`
+	Timezone  string `db:"timezone" json:"timezone"`
 
 	// --- RECEIPT & PRINTER SETTINGS ---
 	ReceiptTitle        string     `db:"receipt_title" json:"receipt_title"`

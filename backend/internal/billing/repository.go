@@ -172,7 +172,10 @@ func (r *Repository) ApplyManualDepositPayment(ctx context.Context, exec sqlx.Ex
 		WHERE id = $1`,
 		bookingID, methodCode,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	return r.updatePromoRedemptionStatus(ctx, exec, bookingID, "redeemed")
 }
 
 func (r *Repository) ApplyManualSettlementPayment(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID, methodCode string) error {
@@ -198,7 +201,10 @@ func (r *Repository) ApplyManualSettlementPayment(ctx context.Context, exec sqlx
 		WHERE id = $1`,
 		bookingID, methodCode,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	return r.updatePromoRedemptionStatus(ctx, exec, bookingID, "redeemed")
 }
 
 func (r *Repository) ListTenantPaymentMethods(ctx context.Context, tenantID uuid.UUID) ([]PaymentMethodOption, error) {
@@ -458,4 +464,18 @@ func decodePaymentMethodMetadata(raw []byte) map[string]any {
 		return map[string]any{}
 	}
 	return payload
+}
+
+func (r *Repository) updatePromoRedemptionStatus(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID, status string) error {
+	_, err := exec.ExecContext(ctx, `
+		UPDATE tenant_promo_redemptions
+		SET status = $2::varchar(20),
+			redeemed_at = CASE
+				WHEN $2::varchar(20) = 'redeemed' THEN COALESCE(redeemed_at, NOW())
+				ELSE redeemed_at
+			END
+		WHERE booking_id = $1`,
+		bookingID, status,
+	)
+	return err
 }

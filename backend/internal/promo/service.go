@@ -202,6 +202,7 @@ func (s *Service) buildPromo(tenantID uuid.UUID, promoID *uuid.UUID, actorID *uu
 
 func (s *Service) validateApply(ctx context.Context, promo *Promo, input ApplyInput) error {
 	now := time.Now().UTC()
+	evaluationStart := s.promoEvaluationStart(ctx, input)
 	if !promo.IsActive {
 		return &InvalidPromoError{Code: "PROMO_INACTIVE", Message: "Promo sedang tidak aktif."}
 	}
@@ -215,13 +216,13 @@ func (s *Service) validateApply(ctx context.Context, promo *Promo, input ApplyIn
 		return &InvalidPromoError{Code: "MIN_BOOKING_NOT_MET", Message: "Minimum booking belum terpenuhi."}
 	}
 	if len(promo.ValidWeekdays) > 0 {
-		weekday := isoWeekday(input.StartTime)
+		weekday := isoWeekday(evaluationStart)
 		if !containsWeekday(promo.ValidWeekdays, weekday) {
 			return &InvalidPromoError{Code: "WEEKDAY_NOT_ELIGIBLE", Message: "Promo tidak berlaku di hari ini."}
 		}
 	}
 	if promo.TimeStart != nil && promo.TimeEnd != nil {
-		current := input.StartTime.Format("15:04:05")
+		current := evaluationStart.Format("15:04:05")
 		if current < *promo.TimeStart || current > *promo.TimeEnd {
 			return &InvalidPromoError{Code: "TIME_NOT_ELIGIBLE", Message: "Promo tidak berlaku di jam ini."}
 		}
@@ -257,6 +258,20 @@ func (s *Service) validateApply(ctx context.Context, promo *Promo, input ApplyIn
 		}
 	}
 	return nil
+}
+
+func (s *Service) promoEvaluationStart(ctx context.Context, input ApplyInput) time.Time {
+	if s != nil && s.repo != nil && input.TenantID != uuid.Nil {
+		if timezone, err := s.repo.GetTenantTimezone(ctx, input.TenantID); err == nil {
+			if location, loadErr := time.LoadLocation(strings.TrimSpace(timezone)); loadErr == nil {
+				return input.StartTime.In(location)
+			}
+		}
+	}
+	if !input.LocalStart.IsZero() {
+		return input.LocalStart
+	}
+	return input.StartTime
 }
 
 func calculateDiscount(promo *Promo, original float64) float64 {

@@ -46,6 +46,7 @@ type POSSession = {
   customer_name?: string;
   start_time: string;
   end_time: string;
+  timezone?: string;
   status?: string;
   payment_status?: string;
   balance_due?: number;
@@ -94,6 +95,9 @@ function SessionCard({
   isActiveParam: boolean;
 }) {
   const [now, setNow] = useState(new Date());
+  const sessionTimezone = session.timezone || "Asia/Jakarta";
+  const startLabel = formatTenantTime(session.start_time, sessionTimezone, "HH:mm");
+  const endLabel = formatTenantTime(session.end_time, sessionTimezone, "HH:mm");
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 10000);
@@ -207,8 +211,7 @@ function SessionCard({
             <p className="text-[11px] font-medium text-slate-500">Waktu</p>
             <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-900 dark:text-slate-100">
               <Clock className="h-3.5 w-3.5 text-[var(--bookinaja-600)]" />
-              {format(new Date(session.start_time), "HH:mm")} -{" "}
-              {format(new Date(session.end_time), "HH:mm")}
+              {startLabel} - {endLabel}
             </p>
           </div>
           <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-white/5">
@@ -663,4 +666,50 @@ export default function POSPage() {
 
     </div>
   );
+}
+
+function getTimeZoneParts(date: Date, timezone = "Asia/Jakarta") {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = formatter.formatToParts(date);
+  const pick = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value || "0");
+
+  return {
+    year: pick("year"),
+    month: pick("month"),
+    day: pick("day"),
+    hour: pick("hour"),
+    minute: pick("minute"),
+    second: pick("second"),
+  };
+}
+
+function toTenantWallClock(dateValue: string, timezone = "Asia/Jakarta") {
+  const parts = getTimeZoneParts(new Date(dateValue), timezone);
+  return new Date(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+    0,
+  );
+}
+
+function formatTenantTime(
+  dateValue: string,
+  timezone = "Asia/Jakarta",
+  pattern = "HH:mm",
+) {
+  return format(toTenantWallClock(dateValue, timezone), pattern);
 }
