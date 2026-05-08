@@ -14,7 +14,13 @@ export type CustomerLiveContext = {
 export function useCustomerLiveContextQuery(bookingId: string, enabled = true) {
   return useQuery({
     queryKey: customerKeys.bookingContext(bookingId),
-    queryFn: () => apiRequest<CustomerLiveContext>(`/user/me/bookings/${bookingId}/context`),
+    queryFn: async () => {
+      const data = await apiRequest<CustomerLiveContext>(`/user/me/bookings/${bookingId}/context`);
+      return {
+        ...data,
+        busy_slots: Array.isArray(data?.busy_slots) ? data.busy_slots : [],
+      };
+    },
     enabled: enabled && Boolean(bookingId),
     retry: false,
     refetchInterval: 30000,
@@ -185,10 +191,15 @@ export function useExtendBookingMutation(bookingId: string) {
 export function useCustomerFnbMenuQuery(bookingId: string, enabled = true) {
   return useQuery({
     queryKey: customerKeys.bookingFnb(bookingId),
-    queryFn: () =>
-      apiRequest<{ id: string; name: string; price?: number; category?: string }[]>("/customer/fnb", {
-        query: { booking_id: bookingId },
-      }),
+    queryFn: async () => {
+      const data = await apiRequest<{ id: string; name: string; price?: number; category?: string }[] | null>(
+        "/customer/fnb",
+        {
+          query: { booking_id: bookingId },
+        },
+      );
+      return Array.isArray(data) ? data : [];
+    },
     enabled: enabled && Boolean(bookingId),
   });
 }

@@ -12,6 +12,29 @@ export const customerKeys = {
   bookingFnb: (bookingId: string) => ["customer", "booking", bookingId, "fnb"] as const,
 };
 
+function normalizeArray<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function normalizeDashboard(data: CustomerDashboard): CustomerDashboard {
+  return {
+    ...data,
+    active_bookings: normalizeArray(data.active_bookings),
+    past_history: normalizeArray(data.past_history),
+  };
+}
+
+function normalizeBookingDetail(data: CustomerBookingDetail): CustomerBookingDetail {
+  return {
+    ...data,
+    payment_methods: normalizeArray(data.payment_methods),
+    payment_attempts: normalizeArray(data.payment_attempts),
+    options: normalizeArray(data.options),
+    orders: normalizeArray(data.orders),
+    events: normalizeArray(data.events),
+  };
+}
+
 export function patchCustomerDashboardBooking(
   previous: CustomerDashboard | undefined,
   bookingId: string,
@@ -20,7 +43,7 @@ export function patchCustomerDashboardBooking(
   if (!previous) return previous;
 
   const applyPatch = (items: CustomerDashboard["active_bookings"]) =>
-    items.map((item) => (item.id === bookingId ? { ...item, ...patch } : item));
+    normalizeArray(items).map((item) => (item.id === bookingId ? { ...item, ...patch } : item));
 
   return {
     ...previous,
@@ -35,7 +58,7 @@ export function useCustomerDashboardQuery(enabled = true) {
 
   return useQuery({
     queryKey: customerKeys.dashboard,
-    queryFn: () => apiRequest<CustomerDashboard>("/user/me"),
+    queryFn: async () => normalizeDashboard(await apiRequest<CustomerDashboard>("/user/me")),
     enabled: enabled && role === "customer" && Boolean(token),
   });
 }
@@ -47,7 +70,8 @@ export function useCustomerBookingDetailQuery(bookingId: string, enabled = true)
 
   const query = useQuery<CustomerBookingDetail>({
     queryKey: customerKeys.bookingDetail(bookingId),
-    queryFn: () => apiRequest<CustomerBookingDetail>(`/user/me/bookings/${bookingId}`),
+    queryFn: async () =>
+      normalizeBookingDetail(await apiRequest<CustomerBookingDetail>(`/user/me/bookings/${bookingId}`)),
     enabled: enabled && role === "customer" && Boolean(token) && Boolean(bookingId),
   });
 
