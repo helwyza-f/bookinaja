@@ -2,6 +2,7 @@
   "expo": {
     "name": "Bookinaja",
     "slug": "bookinaja-mobile",
+    "icon": "./assets/icon.png",
     "scheme": [
       "bookinaja",
       "com.googleusercontent.apps.39127355505-69ph15i21481t87eoktnj2462h6ofp5h",
@@ -15,15 +16,22 @@
       "typedRoutes": true
     },
     "plugins": [
+      "expo-dev-client",
       "expo-router",
       "expo-font"
     ],
     "assetBundlePatterns": [
       "**/*"
     ],
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#08111f"
+    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.bookinaja.mobile",
+      "icon": "./assets/icon.png",
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true,
@@ -34,6 +42,10 @@
     },
     "android": {
       "package": "com.bookinaja.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#08111f"
+      },
       "edgeToEdgeEnabled": true
     },
     "web": {
