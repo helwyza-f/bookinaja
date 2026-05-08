@@ -17,10 +17,13 @@ type RegisterReq struct {
 	TenantSlug       string `json:"tenant_slug" binding:"required"`
 	BusinessCategory string `json:"business_category" binding:"required"` // gaming_hub, creative_space, dll
 	BusinessType     string `json:"business_type"`
+	BootstrapMode    string `json:"bootstrap_mode"`
 	ReferralCode     string `json:"referral_code"`
 	AdminName        string `json:"admin_name" binding:"required"`
 	AdminEmail       string `json:"admin_email" binding:"required,email"`
 	AdminPass        string `json:"admin_password" binding:"required,min=6"`
+	WhatsappNumber   string `json:"whatsapp_number"`
+	Timezone         string `json:"timezone"`
 }
 
 // LoginReq digunakan untuk autentikasi Admin/Owner ke dashboard

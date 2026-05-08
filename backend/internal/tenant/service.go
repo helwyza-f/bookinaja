@@ -22,6 +22,41 @@ import (
 const freeTrialDuration = 30 * 24 * time.Hour
 const defaultTenantTimezone = "Asia/Jakarta"
 
+const (
+	tenantBootstrapBlank   = "blank"
+	tenantBootstrapStarter = "starter"
+	tenantBootstrapFull    = "full_template"
+)
+
+type tenantTemplateCatalog struct {
+	Resources  []tenantTemplateResource `json:"resources"`
+	MainItems  []tenantTemplateItem     `json:"main_items"`
+	UnitAddons []tenantTemplateItem     `json:"unit_addons"`
+	FnbCatalog []tenantTemplateFnbItem  `json:"fnb_catalog"`
+}
+
+type tenantTemplateResource struct {
+	Name        string `json:"name"`
+	Category    string `json:"category"`
+	Description string `json:"description"`
+	ImageURL    string `json:"image_url"`
+}
+
+type tenantTemplateItem struct {
+	Name         string  `json:"name"`
+	Price        float64 `json:"price"`
+	PriceUnit    string  `json:"price_unit"`
+	UnitDuration int     `json:"unit_duration"`
+	IsDefault    bool    `json:"is_default"`
+}
+
+type tenantTemplateFnbItem struct {
+	Name     string  `json:"name"`
+	Price    float64 `json:"price"`
+	Category string  `json:"category"`
+	ImageURL string  `json:"image_url"`
+}
+
 type Service struct {
 	repo        *Repository
 	authService *auth.Service
@@ -43,6 +78,17 @@ func normalizeTenantTimezone(value string) (string, error) {
 		return "", fmt.Errorf("timezone tenant tidak valid")
 	}
 	return timezone, nil
+}
+
+func normalizeTenantBootstrapMode(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case tenantBootstrapBlank:
+		return tenantBootstrapBlank
+	case tenantBootstrapFull, "full", "template":
+		return tenantBootstrapFull
+	default:
+		return tenantBootstrapStarter
+	}
 }
 
 // GetPublicProfile Baru: Jalur cepat buat ambil tema & identitas (Granular)
@@ -1625,7 +1671,21 @@ func minInt(a, b int) int {
 
 // Register menangani pendaftaran tenant baru & inisialisasi default branding
 func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error) {
-	slug := strings.ToLower(strings.TrimSpace(req.TenantSlug))
+	req.TenantName = strings.TrimSpace(req.TenantName)
+	req.TenantSlug = strings.TrimSpace(req.TenantSlug)
+	req.BusinessCategory = strings.TrimSpace(req.BusinessCategory)
+	req.BusinessType = strings.TrimSpace(req.BusinessType)
+	req.ReferralCode = strings.TrimSpace(req.ReferralCode)
+	req.AdminName = strings.TrimSpace(req.AdminName)
+	req.AdminEmail = strings.TrimSpace(req.AdminEmail)
+	req.WhatsappNumber = strings.TrimSpace(req.WhatsappNumber)
+
+	slug := strings.ToLower(req.TenantSlug)
+	bootstrapMode := normalizeTenantBootstrapMode(req.BootstrapMode)
+	timezone, err := normalizeTenantTimezone(req.Timezone)
+	if err != nil {
+		return nil, err
+	}
 
 	// 1. Validasi keberadaan slug dan email
 	slugEx, emailEx, err := s.repo.Exists(ctx, slug, req.AdminEmail)
@@ -1658,31 +1718,31 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 	}
 
 	// --- DYNAMIC DEFAULT BRANDING ---
+	displayType := strings.TrimSpace(req.BusinessType)
+	if displayType == "" {
+		displayType = prettifyLabel(req.BusinessCategory)
+	}
 	defaultColor := "#3b82f6"
-	defaultTagline := "Professional Booking System"
-	defaultSlogan := "Control your branch, grow your business"
-	defaultAbout := "Kami menyediakan layanan berkualitas dengan sistem manajemen modern."
+	defaultTagline := fmt.Sprintf("Booking online yang lebih rapi untuk %s", req.TenantName)
+	defaultSlogan := fmt.Sprintf("Mulai jalankan %s dengan setup yang lebih ringan dan operasional yang lebih tertata", strings.ToLower(displayType))
+	defaultAbout := fmt.Sprintf("%s memakai Bookinaja untuk merapikan booking, jadwal, pembayaran, dan pengalaman customer sejak hari pertama.", req.TenantName)
 	var defaultFeatures pq.StringArray
 
 	switch req.BusinessCategory {
 	case "gaming_hub":
 		defaultColor = "#2563eb"
-		defaultTagline = "The Ultimate Arena for Pro Players"
-		defaultSlogan = "Experience Gaming at its Peak"
-		defaultAbout = "Pusat gaming dengan spesifikasi PC tertinggi dan koneksi internet stabil."
-		defaultFeatures = pq.StringArray{"RTX 4090 Ready", "Internet 1Gbps", "Pro Peripherals", "240Hz Monitor"}
+		defaultFeatures = pq.StringArray{"Booking per jam", "Kontrol resource lebih rapi", "Paket durasi fleksibel", "Operasional kasir lebih cepat"}
 	case "creative_space":
 		defaultColor = "#e11d48"
-		defaultTagline = "Studio Creative for Unlimited Ideas"
-		defaultFeatures = pq.StringArray{"Pro Lighting", "Set Aesthetic", "High-End Camera", "Private Studio"}
+		defaultFeatures = pq.StringArray{"Kalender studio lebih jelas", "Slot booking lebih rapi", "Add-on lebih mudah dijual", "Follow-up customer lebih cepat"}
 	case "sport_center":
 		defaultColor = "#10b981"
-		defaultTagline = "World Class Sports Facility"
-		defaultFeatures = pq.StringArray{"Vinyl Court", "Locker Room", "Standard Inter", "Training Gear"}
+		defaultFeatures = pq.StringArray{"Jadwal lapangan lebih tertib", "DP lebih mudah diatur", "Slot peak hour lebih jelas", "Booking ulang lebih cepat"}
 	case "social_space":
 		defaultColor = "#4f46e5"
-		defaultTagline = "Elite Space for Collaboration"
-		defaultFeatures = pq.StringArray{"Fast Wi-Fi", "Free Coffee", "Focus Zone", "Meeting Room"}
+		defaultFeatures = pq.StringArray{"Reservasi ruangan lebih rapi", "Paket durasi lebih fleksibel", "Customer repeat lebih mudah", "Landing bisnis siap dipakai"}
+	default:
+		defaultFeatures = pq.StringArray{"Booking lebih rapi", "Dashboard operasional siap pakai", "Pembayaran lebih terstruktur", "Customer management lebih jelas"}
 	}
 
 	tenant := Tenant{
@@ -1700,11 +1760,13 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 		AboutUs:                        defaultAbout,
 		Features:                       defaultFeatures,
 		PrimaryColor:                   defaultColor,
+		WhatsappNumber:                 req.WhatsappNumber,
+		Timezone:                       timezone,
 		DiscoveryHeadline:              defaultTagline,
-		DiscoverySubheadline:           "Temukan pengalaman yang paling cocok untuk rencana berikutnya.",
+		DiscoverySubheadline:           fmt.Sprintf("Lihat %s, jadwal, dan penawaran awal dari %s.", strings.ToLower(displayType), req.TenantName),
 		DiscoveryTags:                  pq.StringArray{prettifyLabel(req.BusinessCategory)},
 		DiscoveryBadges:                pq.StringArray{},
-		PromoLabel:                     "Baru di Bookinaja",
+		PromoLabel:                     mapBootstrapPromoLabel(bootstrapMode),
 		DiscoveryFeatured:              false,
 		DiscoveryPromoted:              false,
 		DiscoveryPriority:              0,
@@ -1738,7 +1800,7 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 	}
 
 	// 4. Seeding Template Asynchronous
-	go s.SeedTemplate(context.Background(), tID, req.BusinessCategory)
+	go s.SeedTemplate(context.Background(), tID, req.BusinessCategory, bootstrapMode)
 
 	return &tenant, nil
 }
@@ -1764,40 +1826,20 @@ func ptrTime(t time.Time) *time.Time {
 
 // SeedTemplate menyuntikkan data awal berdasarkan kategori bisnis
 // SeedTemplate menyuntikkan data awal berdasarkan kategori bisnis
-func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category string) {
+func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category string, mode string) {
+	mode = normalizeTenantBootstrapMode(mode)
+	if mode == tenantBootstrapBlank {
+		log.Printf("[SEEDER] bootstrap mode blank: tenant %s created without sample data", tenantID)
+		return
+	}
+
 	file, err := os.ReadFile("internal/tenant/templates.json")
 	if err != nil {
 		log.Printf("[SEEDER] Error read template file: %v", err)
 		return
 	}
 
-	var allTemplates map[string]struct {
-		Resources []struct {
-			Name        string `json:"name"`
-			Category    string `json:"category"`
-			Description string `json:"description"`
-			ImageURL    string `json:"image_url"`
-		} `json:"resources"`
-		MainItems []struct {
-			Name         string  `json:"name"`
-			Price        float64 `json:"price"`
-			PriceUnit    string  `json:"price_unit"`
-			UnitDuration int     `json:"unit_duration"`
-			IsDefault    bool    `json:"is_default"`
-		} `json:"main_items"`
-		UnitAddons []struct {
-			Name         string  `json:"name"`
-			Price        float64 `json:"price"`
-			PriceUnit    string  `json:"price_unit"`
-			UnitDuration int     `json:"unit_duration"`
-		} `json:"unit_addons"`
-		FnbCatalog []struct {
-			Name     string  `json:"name"`
-			Price    float64 `json:"price"`
-			Category string  `json:"category"`
-			ImageURL string  `json:"image_url"`
-		} `json:"fnb_catalog"`
-	}
+	var allTemplates map[string]tenantTemplateCatalog
 
 	if err := json.Unmarshal(file, &allTemplates); err != nil {
 		log.Printf("[SEEDER] Error unmarshal template: %v", err)
@@ -1809,6 +1851,7 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 		log.Printf("[SEEDER] Category %s template not found", category)
 		return
 	}
+	tpl = reduceTenantTemplateByMode(tpl, mode)
 
 	emptyMeta := json.RawMessage("{}")
 
@@ -1876,7 +1919,7 @@ func (s *Service) SeedTemplate(ctx context.Context, tenantID uuid.UUID, category
 		log.Printf("[SEEDER] DB Error fnb: %v", err)
 	}
 
-	log.Printf("[SEEDER] ✅ SUCCESS: Template %s applied for tenant %s", category, tenantID)
+	log.Printf("[SEEDER] bootstrap=%s template=%s applied for tenant %s", mode, category, tenantID)
 }
 
 func (s *Service) getDefaultDuration(unit string) int {
@@ -1887,6 +1930,76 @@ func (s *Service) getDefaultDuration(unit string) int {
 		return 1440
 	default:
 		return 0
+	}
+}
+
+func reduceTenantTemplateByMode(tpl tenantTemplateCatalog, mode string) tenantTemplateCatalog {
+	mode = normalizeTenantBootstrapMode(mode)
+	switch mode {
+	case tenantBootstrapFull:
+		return tpl
+	case tenantBootstrapBlank:
+		return tenantTemplateCatalog{}
+	default:
+		return tenantTemplateCatalog{
+			Resources:  cloneTenantTemplateResources(tpl.Resources, 1),
+			MainItems:  cloneTenantTemplateItems(tpl.MainItems, 2),
+			UnitAddons: cloneTenantTemplateItems(tpl.UnitAddons, 1),
+			FnbCatalog: cloneTenantTemplateFnbItems(tpl.FnbCatalog, 2),
+		}
+	}
+}
+
+func cloneTenantTemplateResources(items []tenantTemplateResource, limit int) []tenantTemplateResource {
+	if limit <= 0 || len(items) == 0 {
+		return []tenantTemplateResource{}
+	}
+	if len(items) < limit {
+		limit = len(items)
+	}
+	out := make([]tenantTemplateResource, 0, limit)
+	for _, item := range items[:limit] {
+		out = append(out, item)
+	}
+	return out
+}
+
+func cloneTenantTemplateItems(items []tenantTemplateItem, limit int) []tenantTemplateItem {
+	if limit <= 0 || len(items) == 0 {
+		return []tenantTemplateItem{}
+	}
+	if len(items) < limit {
+		limit = len(items)
+	}
+	out := make([]tenantTemplateItem, 0, limit)
+	for _, item := range items[:limit] {
+		out = append(out, item)
+	}
+	return out
+}
+
+func cloneTenantTemplateFnbItems(items []tenantTemplateFnbItem, limit int) []tenantTemplateFnbItem {
+	if limit <= 0 || len(items) == 0 {
+		return []tenantTemplateFnbItem{}
+	}
+	if len(items) < limit {
+		limit = len(items)
+	}
+	out := make([]tenantTemplateFnbItem, 0, limit)
+	for _, item := range items[:limit] {
+		out = append(out, item)
+	}
+	return out
+}
+
+func mapBootstrapPromoLabel(mode string) string {
+	switch normalizeTenantBootstrapMode(mode) {
+	case tenantBootstrapBlank:
+		return "Mulai dari kosong"
+	case tenantBootstrapFull:
+		return "Template lengkap siap edit"
+	default:
+		return "Starter kit siap pakai"
 	}
 }
 

@@ -71,13 +71,17 @@ export default function TenantLoginPage() {
 
       const plan = searchParams.get("plan");
       const interval = searchParams.get("interval");
+      const welcome = searchParams.get("welcome");
       if (plan || interval) {
         const qp = new URLSearchParams();
         if (plan) qp.set("plan", plan);
         if (interval) qp.set("interval", interval);
+        if (welcome) qp.set("welcome", welcome);
         router.push(`/admin/billing?${qp.toString()}`);
       } else {
-        router.push("/admin/dashboard");
+        const qp = new URLSearchParams();
+        if (welcome) qp.set("welcome", welcome);
+        router.push(qp.toString() ? `/admin/dashboard?${qp.toString()}` : "/admin/dashboard");
       }
     } catch (error: unknown) {
       const message =

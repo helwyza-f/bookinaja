@@ -31,11 +31,14 @@ import { cn } from "@/lib/utils";
 
 type RegisterFormValues = {
   businessName: string;
+  businessType: string;
   subdomain: string;
   referralCode: string;
   fullName: string;
   email: string;
   password: string;
+  whatsappNumber: string;
+  timezone: string;
 };
 
 const CATEGORIES = [
@@ -69,6 +72,33 @@ const CATEGORIES = [
   },
 ];
 
+const BOOTSTRAP_OPTIONS = [
+  {
+    id: "starter",
+    name: "Starter Cepat",
+    desc: "Direkomendasikan untuk bisnis yang ingin langsung lihat alur dasar tanpa katalog terlalu ramai.",
+    bullets: ["1 resource awal", "paket harga inti", "contoh F&B ringan"],
+  },
+  {
+    id: "blank",
+    name: "Mulai Kosong",
+    desc: "Cocok kalau kamu ingin setup katalog, harga, dan resource sepenuhnya dari nol.",
+    bullets: ["tanpa sample data", "lebih bersih", "lebih manual"],
+  },
+  {
+    id: "full_template",
+    name: "Template Lengkap",
+    desc: "Cocok untuk eksplorasi cepat kalau kamu ingin lihat gambaran katalog lebih penuh sejak awal.",
+    bullets: ["resource lebih banyak", "addon lebih lengkap", "contoh F&B lebih penuh"],
+  },
+] as const;
+
+const TIMEZONE_OPTIONS = [
+  { value: "Asia/Jakarta", label: "WIB (Asia/Jakarta)" },
+  { value: "Asia/Makassar", label: "WITA (Asia/Makassar)" },
+  { value: "Asia/Jayapura", label: "WIT (Asia/Jayapura)" },
+];
+
 // Sub-component untuk menangani form logic agar Suspense bekerja dengan baik
 function RegisterForm() {
   const [loading, setLoading] = useState(false);
@@ -82,15 +112,19 @@ function RegisterForm() {
   const [selectedCategory, setSelectedCategory] = useState(
     categoryParam || "gaming_hub",
   );
+  const [selectedBootstrapMode, setSelectedBootstrapMode] = useState("starter");
 
   const { register, handleSubmit, control } = useForm<RegisterFormValues>({
     defaultValues: {
       businessName: "",
+      businessType: "",
       subdomain: "",
       referralCode: referralParam || "",
       fullName: "",
       email: "",
       password: "",
+      whatsappNumber: "",
+      timezone: "Asia/Jakarta",
     },
   });
 
@@ -107,12 +141,16 @@ function RegisterForm() {
       tenant_slug: data.subdomain.toLowerCase().trim(),
       business_category: selectedCategory,
       business_type:
+        data.businessType.trim() ||
         CATEGORIES.find((c) => c.id === selectedCategory)?.name ||
         "Universal Booking",
+      bootstrap_mode: selectedBootstrapMode,
       referral_code: data.referralCode?.trim() || "",
       admin_name: data.fullName,
       admin_email: data.email,
       admin_password: data.password,
+      whatsapp_number: data.whatsappNumber.trim(),
+      timezone: data.timezone,
     };
 
     const promise = api.post("/register", payload);
@@ -121,6 +159,7 @@ function RegisterForm() {
       loading: "Membangun infrastruktur cloud bisnis Anda...",
       success: (res) => {
         const loginURL = new URL(res.data.login_url);
+        loginURL.searchParams.set("welcome", "1");
         if (planParam) loginURL.searchParams.set("plan", planParam);
         if (intervalParam) loginURL.searchParams.set("interval", intervalParam);
         setTimeout(() => (window.location.href = loginURL.toString()), 1500);
@@ -164,6 +203,23 @@ function RegisterForm() {
                 required
               />
             </div>
+          </div>
+
+          <div className="space-y-3">
+            <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
+              Jenis Bisnis Lebih Spesifik
+            </Label>
+            <div className="relative">
+              <Briefcase className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40" />
+              <Input
+                placeholder="Contoh: Rental PS5, Self Photo Studio, Lapangan Futsal"
+                className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold pl-14 focus:ring-4 focus:ring-blue-600/5"
+                {...register("businessType")}
+              />
+            </div>
+            <p className="px-4 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/70">
+              Opsional, tapi membantu agar copy awal dan setup tenant terasa lebih nyambung.
+            </p>
           </div>
 
           <div className="space-y-3">
@@ -296,11 +352,62 @@ function RegisterForm() {
         </div>
       </div>
 
-      {/* 3. ACCESS SECTION */}
+      {/* 3. BOOTSTRAP SECTION */}
       <div className="space-y-6">
         <div className="flex items-center gap-4 group">
           <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white font-black text-sm shadow-lg shadow-blue-600/20 group-hover:scale-110 transition-transform">
             3
+          </span>
+          <Label className="font-syne text-[11px] font-bold uppercase tracking-[0.3em] text-blue-500">
+            Mode Mulai
+          </Label>
+          <div className="h-px flex-1 bg-border/60" />
+        </div>
+        <div className="grid grid-cols-1 gap-4">
+          {BOOTSTRAP_OPTIONS.map((option) => (
+            <div
+              key={option.id}
+              onClick={() => setSelectedBootstrapMode(option.id)}
+              className={cn(
+                "relative cursor-pointer rounded-[2rem] border-2 p-6 transition-all duration-500",
+                selectedBootstrapMode === option.id
+                  ? "border-blue-600 bg-blue-600/5 ring-8 ring-blue-600/5 shadow-2xl"
+                  : "border-border/40 bg-secondary/10 hover:border-blue-500/30",
+              )}
+            >
+              {selectedBootstrapMode === option.id ? (
+                <div className="absolute top-0 right-0 p-4 bg-blue-600 rounded-bl-[1.5rem] shadow-xl animate-in fade-in zoom-in">
+                  <Check className="h-4 w-4 text-white stroke-[4]" />
+                </div>
+              ) : null}
+              <div className="space-y-3">
+                <p className="text-sm font-black uppercase tracking-tight text-foreground">
+                  {option.name}
+                </p>
+                <p className="text-xs font-medium leading-relaxed text-muted-foreground">
+                  {option.desc}
+                </p>
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {option.bullets.map((bullet) => (
+                    <span
+                      key={bullet}
+                      className="rounded-full border border-border/60 px-3 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-muted-foreground"
+                    >
+                      {bullet}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 4. ACCESS SECTION */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-4 group">
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white font-black text-sm shadow-lg shadow-blue-600/20 group-hover:scale-110 transition-transform">
+            4
           </span>
           <Label className="font-syne text-[11px] font-bold uppercase tracking-[0.3em] text-blue-500">
             Akses Kredensial
@@ -337,6 +444,37 @@ function RegisterForm() {
                   required
                 />
               </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
+                WhatsApp Bisnis
+              </Label>
+              <div className="relative">
+                <Mail className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40" />
+                <Input
+                  placeholder="Contoh: 08123456789"
+                  className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold pl-14 focus:ring-4 focus:ring-blue-600/5"
+                  {...register("whatsappNumber")}
+                />
+              </div>
+            </div>
+            <div className="space-y-3">
+              <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
+                Zona Waktu Operasional
+              </Label>
+              <select
+                className="h-16 w-full rounded-2xl border border-border/60 bg-secondary/20 px-5 text-sm font-bold text-foreground focus:ring-4 focus:ring-blue-600/5"
+                {...register("timezone")}
+              >
+                {TIMEZONE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
