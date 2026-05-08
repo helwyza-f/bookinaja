@@ -139,6 +139,20 @@ func (r *Repository) ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]Re
 	return resources, businessCategory, businessType, nil
 }
 
+func (r *Repository) ListSummariesByTenant(ctx context.Context, tenantID uuid.UUID) ([]ResourceSummary, error) {
+	var items []ResourceSummary
+	err := r.db.SelectContext(ctx, &items, `
+		SELECT id, name, status
+		FROM resources
+		WHERE tenant_id = $1 AND status != 'deleted'
+		ORDER BY created_at DESC
+	`, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 // Create menyisipkan resource baru
 func (r *Repository) Create(ctx context.Context, res Resource) (*Resource, error) {
 	query := `

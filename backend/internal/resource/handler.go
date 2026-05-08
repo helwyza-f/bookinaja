@@ -47,8 +47,8 @@ func (h *Handler) GetPublicDetail(c *gin.Context) {
 // GetByID mengambil satu detail resource untuk dashboard admin
 func (h *Handler) GetByID(c *gin.Context) {
 	id := c.Param("id")
-	
-	// Kita gunakan fungsi yang sama dengan public detail karena 
+
+	// Kita gunakan fungsi yang sama dengan public detail karena
 	// strukturnya identik (Resource + Items), tapi lewat jalur admin.
 	res, err := h.service.GetResourceDetail(c.Request.Context(), id)
 	if err != nil {
@@ -64,7 +64,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 // Create menangani pembuatan unit utama (POST /api/v1/resources-all)
 func (h *Handler) Create(c *gin.Context) {
 	tenantID := c.MustGet("tenantID").(string)
-	
+
 	var req struct {
 		Name        string `json:"name" binding:"required"`
 		Category    string `json:"category"`
@@ -78,14 +78,14 @@ func (h *Handler) Create(c *gin.Context) {
 	}
 
 	res, err := h.service.CreateResource(
-		c.Request.Context(), 
-		tenantID, 
-		req.Name, 
-		req.Category, 
-		req.Description, 
+		c.Request.Context(),
+		tenantID,
+		req.Name,
+		req.Category,
+		req.Description,
 		req.ImageURL,
 	)
-	
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -96,8 +96,8 @@ func (h *Handler) Create(c *gin.Context) {
 // Update menangani perubahan data utama unit (PUT /resources-all/:id)
 func (h *Handler) Update(c *gin.Context) {
 	id := c.Param("id")
-	var req Resource 
-	
+	var req Resource
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -122,16 +122,26 @@ func (h *Handler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, resources)
 }
 
+func (h *Handler) ListSummary(c *gin.Context) {
+	tenantID := c.MustGet("tenantID").(string)
+	items, err := h.service.ListResourceSummaries(c.Request.Context(), tenantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
 // AddItem menambahkan opsi harga/addons ke resource (POST /resources-all/:id/items)
 func (h *Handler) AddItem(c *gin.Context) {
 	resourceID := c.Param("id")
-	
+
 	var req struct {
 		Name         string  `json:"name" binding:"required"`
-		Price        float64 `json:"price" binding:"required"`      
-		PriceUnit    string  `json:"price_unit" binding:"required"` 
-		UnitDuration int     `json:"unit_duration"`                 
-		ItemType     string  `json:"item_type" binding:"required"`  
+		Price        float64 `json:"price" binding:"required"`
+		PriceUnit    string  `json:"price_unit" binding:"required"`
+		UnitDuration int     `json:"unit_duration"`
+		ItemType     string  `json:"item_type" binding:"required"`
 		IsDefault    bool    `json:"is_default"`
 	}
 
@@ -150,12 +160,12 @@ func (h *Handler) AddItem(c *gin.Context) {
 		req.IsDefault,
 		req.UnitDuration,
 	)
-	
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	c.JSON(http.StatusCreated, item)
 }
 
@@ -183,7 +193,7 @@ func (h *Handler) Delete(c *gin.Context) {
 // UpdateItem menangani update detail item (PUT /resources-all/items/:id)
 func (h *Handler) UpdateItem(c *gin.Context) {
 	id := c.Param("id")
-	var req ResourceItem 
+	var req ResourceItem
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

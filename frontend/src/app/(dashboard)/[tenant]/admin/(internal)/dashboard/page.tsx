@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { format } from "date-fns";
 import { useSearchParams } from "next/navigation";
@@ -8,11 +9,8 @@ import {
   Activity,
   ArrowRight,
   Banknote,
-  Building2,
   CalendarClock,
-  CheckCircle2,
   Clock3,
-  ImagePlus,
   Monitor,
   PanelsTopLeft,
   RefreshCcw,
@@ -20,7 +18,6 @@ import {
   TrendingUp,
   Users,
   Wallet,
-  X,
   type LucideIcon,
 } from "lucide-react";
 import api from "@/lib/api";
@@ -50,19 +47,14 @@ import {
   DashboardStatStrip,
 } from "@/components/dashboard/analytics-kit";
 
+const OwnerOnboardingProgressCard = dynamic(
+  () => import("@/components/dashboard/owner-onboarding-progress-card"),
+);
+
 type ResourceRow = {
   id: string;
   name: string;
   status?: string;
-  items?: {
-    id: string;
-    name: string;
-    item_type: string;
-    price: number;
-    price_unit?: string;
-    unit_duration?: number;
-    is_default?: boolean;
-  }[];
 };
 
 type SessionRow = {
@@ -104,38 +96,6 @@ type SubscriptionRow = {
   plan?: string;
   status?: string;
   current_period_end?: string;
-};
-
-type TenantProfile = {
-  id?: string;
-  name?: string;
-  tagline?: string;
-  slogan?: string;
-  about_us?: string;
-  logo_url?: string;
-  banner_url?: string;
-  whatsapp_number?: string;
-  timezone?: string;
-  created_at?: string;
-};
-
-type PaymentMethodRow = {
-  code: string;
-  is_active?: boolean;
-  metadata?: {
-    account_number?: string;
-    qr_image_url?: string;
-  };
-};
-
-type OnboardingStep = {
-  id: string;
-  label: string;
-  description: string;
-  href: string;
-  icon: LucideIcon;
-  complete: boolean;
-  required?: boolean;
 };
 
 type AppUser = {
@@ -184,14 +144,11 @@ export default function DashboardPage() {
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
-  const [tenantProfile, setTenantProfile] = useState<TenantProfile | null>(null);
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodRow[]>([]);
   const [customersCount, setCustomersCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<string>("");
   const [tenantId, setTenantId] = useState("");
-  const [showOnboarding, setShowOnboarding] = useState(true);
   const hasLoadedRef = useRef(false);
   const refreshTimerRef = useRef<number | null>(null);
 
@@ -229,7 +186,7 @@ export default function DashboardPage() {
       const allowCustomers = hasPermission(scope, "customers.read");
 
       const [resourcesRes, sessionsRes, bookingsRes, customersRes] = await Promise.allSettled([
-        allowResources ? api.get("/resources-all") : Promise.resolve(null),
+        allowResources ? api.get("/resources-all/summary") : Promise.resolve(null),
         allowBookings ? api.get("/bookings/pos/active") : Promise.resolve(null),
         allowBookings ? api.get("/bookings") : Promise.resolve(null),
         allowCustomers ? api.get("/customers") : Promise.resolve(null),
@@ -237,7 +194,7 @@ export default function DashboardPage() {
 
       setResources(
         resourcesRes.status === "fulfilled"
-          ? resourcesRes.value?.data?.resources || []
+          ? resourcesRes.value?.data?.items || []
           : [],
       );
       setSessions(
@@ -255,21 +212,15 @@ export default function DashboardPage() {
       );
 
       if (currentRole === "owner") {
-        const [ordersRes, subscriptionRes, profileRes, paymentMethodsRes] = await Promise.all([
+        const [ordersRes, subscriptionRes] = await Promise.all([
           api.get("/billing/orders?limit=6"),
           api.get("/billing/subscription"),
-          api.get("/admin/profile"),
-          api.get("/admin/payment-methods"),
         ]);
         setOrders(ordersRes.data?.orders || []);
         setSubscription(subscriptionRes.data || null);
-        setTenantProfile(profileRes.data || null);
-        setPaymentMethods(paymentMethodsRes.data?.items || []);
       } else {
         setOrders([]);
         setSubscription(null);
-        setTenantProfile(null);
-        setPaymentMethods([]);
       }
 
       setLastSyncAt(
@@ -457,103 +408,7 @@ export default function DashboardPage() {
   }, [bookings, resources]);
 
   const topResourceToday = resourceStats[0] || null;
-
-  const onboardingSteps = useMemo<OnboardingStep[]>(() => {
-    if (!ownerOnly) return [];
-
-    const hasBusinessIdentity = Boolean(
-      tenantProfile?.tagline?.trim() ||
-        tenantProfile?.slogan?.trim() ||
-        tenantProfile?.about_us?.trim(),
-    );
-    const hasBusinessContact = Boolean(
-      tenantProfile?.whatsapp_number?.trim() && tenantProfile?.timezone?.trim(),
-    );
-    const hasVisualIdentity = Boolean(
-      tenantProfile?.logo_url?.trim() || tenantProfile?.banner_url?.trim(),
-    );
-    const resourcesCount = resources.length;
-    const pricePackagesCount = resources.reduce((sum, resource) => {
-      const packageCount =
-        resource.items?.filter((item) =>
-          ["main_option", "main", "console_option"].includes(item.item_type),
-        ).length || 0;
-      return sum + packageCount;
-    }, 0);
-    const paymentReady = paymentMethods.some((method) => {
-      if (!method.is_active) return false;
-      if (method.code === "bank_transfer") {
-        return Boolean(method.metadata?.account_number?.trim());
-      }
-      if (method.code === "qris_static") {
-        return Boolean(method.metadata?.qr_image_url?.trim());
-      }
-      return true;
-    });
-
-    return [
-      {
-        id: "brand",
-        label: "Lengkapi identitas bisnis",
-        description: "Isi copy dasar, kontak WhatsApp, timezone, dan visual awal supaya tenant publik tidak terasa kosong.",
-        href: "/admin/settings/page-builder?workspace=content",
-        icon: Building2,
-        complete: hasBusinessIdentity && hasBusinessContact && hasVisualIdentity,
-        required: true,
-      },
-      {
-        id: "resources",
-        label: "Tambah resource dan harga",
-        description: "Pastikan minimal ada resource utama dan paket harga aktif sebelum mulai menerima booking serius.",
-        href: "/admin/resources",
-        icon: Monitor,
-        complete: resourcesCount > 0 && pricePackagesCount > 0,
-        required: true,
-      },
-      {
-        id: "payments",
-        label: "Review metode bayar dan DP",
-        description: "Aktifkan metode yang memang mau dipakai tenant ini, lalu pastikan setting DP-nya sudah cocok.",
-        href: "/admin/settings/payment-methods",
-        icon: Wallet,
-        complete: paymentReady,
-      },
-      {
-        id: "landing",
-        label: "Rapikan landing page",
-        description: "Atur hero, CTA, dan section awal supaya owner bisa langsung share halaman booking ke customer.",
-        href: "/admin/settings/page-builder?workspace=theme",
-        icon: ImagePlus,
-        complete: hasVisualIdentity && hasBusinessIdentity,
-      },
-    ];
-  }, [ownerOnly, paymentMethods, resources, tenantProfile]);
-
-  const completedOnboardingSteps = onboardingSteps.filter((step) => step.complete).length;
-  const requiredOnboardingSteps = onboardingSteps.filter((step) => step.required);
-  const requiredOnboardingIncomplete = requiredOnboardingSteps.some((step) => !step.complete);
-  const onboardingProgress = onboardingSteps.length
-    ? Math.round((completedOnboardingSteps / onboardingSteps.length) * 100)
-    : 100;
-  const onboardingDismissKey = tenantId ? `tenant-onboarding-dismissed:${tenantId}` : "";
   const onboardingWelcome = searchParams.get("welcome") === "1";
-
-  useEffect(() => {
-    if (!ownerOnly || !tenantId || !onboardingSteps.length) return;
-    if (requiredOnboardingIncomplete || onboardingWelcome) {
-      const dismissed = window.localStorage.getItem(onboardingDismissKey) === "1";
-      setShowOnboarding(!dismissed);
-      return;
-    }
-    setShowOnboarding(false);
-  }, [
-    onboardingDismissKey,
-    onboardingSteps,
-    onboardingWelcome,
-    ownerOnly,
-    requiredOnboardingIncomplete,
-    tenantId,
-  ]);
 
   const quickActions = ownerOnly
     ? [
@@ -647,49 +502,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {ownerOnly && showOnboarding && onboardingSteps.length ? (
-        <DashboardPanel
-          eyebrow={onboardingWelcome ? "Welcome setup" : "Onboarding owner"}
-          title="Tenant baru kamu belum selesai disiapkan"
-          description="Checklist ini sengaja pendek dan langsung mengarah ke halaman setup yang memang sudah ada, jadi owner baru tidak perlu menebak langkah berikutnya."
-          actions={
-            <Button
-              type="button"
-              variant="ghost"
-              className="rounded-xl"
-              onClick={() => {
-                if (onboardingDismissKey) {
-                  window.localStorage.setItem(onboardingDismissKey, "1");
-                }
-                setShowOnboarding(false);
-              }}
-            >
-              <X className="mr-2 h-4 w-4" />
-              Sembunyikan
-            </Button>
-          }
-        >
-          <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
-            <div className="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                    Progress
-                  </div>
-                  <div className="mt-2 text-3xl font-[950] tracking-tight text-slate-950 dark:text-white">
-                    {onboardingProgress}%
-                  </div>
-                </div>
-                <Badge className="rounded-full border-none bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-700 shadow-sm dark:bg-white/10 dark:text-slate-100">
-                  {completedOnboardingSteps}/{onboardingSteps.length} selesai
-                </Badge>
-              </div>
-              <div className="mt-4 h-3 rounded-full bg-slate-200 dark:bg-white/10">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-400"
-                  style={{ width: `${Math.max(onboardingProgress, 6)}%` }}
-                />
-              </div>
+      {ownerOnly && tenantId ? (
+        <OwnerOnboardingProgressCard tenantId={tenantId} welcome={onboardingWelcome} />
+      ) : null}
+      {/*
+ 
               <div className="mt-4 space-y-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                 <p>
                   Fokus dulu ke identitas bisnis dan katalog resource. Dua area ini paling berpengaruh ke rasa “siap live”.
@@ -699,76 +516,7 @@ export default function DashboardPage() {
                 </p>
               </div>
             </div>
-
-            <div className="space-y-3">
-              {onboardingSteps.map((step, index) => (
-                <div
-                  key={step.id}
-                  className={cn(
-                    "rounded-[1.4rem] border p-4 transition-colors",
-                    step.complete
-                      ? "border-emerald-200 bg-emerald-50/80 dark:border-emerald-500/20 dark:bg-emerald-500/10"
-                      : "border-slate-200/80 bg-white/90 dark:border-white/10 dark:bg-white/[0.03]",
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={cn(
-                        "flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem]",
-                        step.complete
-                          ? "bg-emerald-600 text-white"
-                          : "bg-slate-950 text-white dark:bg-white dark:text-slate-950",
-                      )}
-                    >
-                      {step.complete ? (
-                        <CheckCircle2 className="h-5 w-5" />
-                      ) : (
-                        <step.icon className="h-5 w-5" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                          Step {index + 1}
-                        </div>
-                        {step.required ? (
-                          <Badge className="rounded-full border-none bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700 dark:bg-amber-500/15 dark:text-amber-200">
-                            Prioritas
-                          </Badge>
-                        ) : null}
-                      </div>
-                      <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
-                        {step.label}
-                      </div>
-                      <div className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                        {step.description}
-                      </div>
-                      <div className="mt-3">
-                        <Button
-                          asChild
-                          size="sm"
-                          className={cn(
-                            "rounded-xl",
-                            step.complete
-                              ? "bg-emerald-600 text-white hover:bg-emerald-500"
-                              : "bg-slate-950 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100",
-                          )}
-                        >
-                          <Link href={step.href}>
-                            {step.complete ? "Review lagi" : "Lanjut setup"}
-                            <ArrowRight className="ml-2 h-4 w-4" />
-                          </Link>
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </DashboardPanel>
-      ) : null}
-
+      */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {ownerOnly ? (
           <DashboardMetricCard

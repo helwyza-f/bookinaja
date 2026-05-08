@@ -94,6 +94,14 @@ func (s *Service) ListResources(ctx context.Context, tenantID string) (any, erro
 	}, nil
 }
 
+func (s *Service) ListResourceSummaries(ctx context.Context, tenantID string) ([]ResourceSummary, error) {
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return s.repo.ListSummariesByTenant(ctx, tID)
+}
+
 // AddResourceItem menambahkan opsi harga/layanan/addons ke dalam resource
 func (s *Service) AddResourceItem(ctx context.Context, resID, name string, price float64, priceUnit, iType string, isDefault bool, customDuration int) (*ResourceItem, error) {
 	rID, err := uuid.Parse(resID)

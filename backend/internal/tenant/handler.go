@@ -411,6 +411,23 @@ func (h *Handler) GetPaymentMethods(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": items})
 }
 
+func (h *Handler) GetOnboardingProgress(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+
+	tID, _ := uuid.Parse(tIDRaw.(string))
+	progress, err := h.service.GetOnboardingProgress(c.Request.Context(), tID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil progress onboarding"})
+		return
+	}
+
+	c.JSON(http.StatusOK, progress)
+}
+
 func (h *Handler) GetDepositSettings(c *gin.Context) {
 	tIDRaw, exists := c.Get("tenantID")
 	if !exists {

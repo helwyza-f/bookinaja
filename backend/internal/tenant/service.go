@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"sort"
 	"strings"
@@ -2037,6 +2038,73 @@ func (s *Service) GetProfile(ctx context.Context, id uuid.UUID) (*Tenant, error)
 	}
 	s.applyBuilderDefaults(tenant)
 	return tenant, nil
+}
+
+func (s *Service) GetOnboardingProgress(ctx context.Context, id uuid.UUID) (*TenantOnboardingProgress, error) {
+	snapshot, err := s.repo.GetOnboardingSnapshot(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	steps := []TenantOnboardingStep{
+		{
+			ID:          "brand",
+			Label:       "Lengkapi identitas bisnis",
+			Description: "Isi copy dasar, kontak WhatsApp, timezone, dan visual awal.",
+			Href:        "/admin/settings/page-builder?workspace=content",
+			Complete:    snapshot.HasBusinessIdentity && snapshot.HasBusinessContact && snapshot.HasVisualIdentity,
+			Required:    true,
+		},
+		{
+			ID:          "resources",
+			Label:       "Tambah resource dan harga",
+			Description: "Siapkan resource utama dan minimal satu paket harga aktif.",
+			Href:        "/admin/resources",
+			Complete:    snapshot.ResourcesCount > 0 && snapshot.PricePackagesCount > 0,
+			Required:    true,
+		},
+		{
+			ID:          "payments",
+			Label:       "Review metode bayar",
+			Description: "Aktifkan metode yang memang siap dipakai customer.",
+			Href:        "/admin/settings/payment-methods",
+			Complete:    snapshot.PaymentReady,
+			Required:    false,
+		},
+		{
+			ID:          "landing",
+			Label:       "Rapikan landing page",
+			Description: "Pastikan hero dan visual awal sudah enak dibagikan.",
+			Href:        "/admin/settings/page-builder?workspace=theme",
+			Complete:    snapshot.HasVisualIdentity && snapshot.HasBusinessIdentity,
+			Required:    false,
+		},
+	}
+
+	completed := 0
+	requiredIncomplete := false
+	for _, step := range steps {
+		if step.Complete {
+			completed++
+			continue
+		}
+		if step.Required {
+			requiredIncomplete = true
+		}
+	}
+
+	progress := 100
+	if len(steps) > 0 {
+		progress = int(math.Round((float64(completed) / float64(len(steps))) * 100))
+	}
+
+	return &TenantOnboardingProgress{
+		ProgressPercent:    progress,
+		CompletedSteps:     completed,
+		TotalSteps:         len(steps),
+		RequiredIncomplete: requiredIncomplete,
+		Steps:              steps,
+	}, nil
 }
 
 func (s *Service) GetReceiptSettings(ctx context.Context, id uuid.UUID) (*Tenant, error) {

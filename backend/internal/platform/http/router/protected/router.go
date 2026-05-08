@@ -97,6 +97,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				ownerAdmin := ownerArea.Group("/admin")
 				{
 					ownerAdmin.GET("/profile", cfg.TenantHandler.GetProfile)
+					ownerAdmin.GET("/onboarding-progress", cfg.TenantHandler.GetOnboardingProgress)
 					ownerAdmin.PUT("/profile", cfg.TenantHandler.UpdateProfile)
 					ownerAdmin.GET("/page-builder", cfg.TenantHandler.GetPageBuilder)
 					ownerAdmin.PUT("/page-builder", cfg.TenantHandler.UpdatePageBuilder)
@@ -178,6 +179,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 
 			resources := adminArea.Group("/resources-all")
 			{
+				resources.GET("/summary", middleware.RequirePermission(tenant.PermissionResourcesRead), cfg.ResourceHandler.ListSummary)
 				resources.GET("", middleware.RequirePermission(tenant.PermissionResourcesRead), cfg.ResourceHandler.List)
 				resources.GET("/:id", middleware.RequirePermission(tenant.PermissionResourcesRead), cfg.ResourceHandler.GetByID)
 				resources.POST("", middleware.RequirePermission(tenant.PermissionResourcesCreate), cfg.ResourceHandler.Create)
