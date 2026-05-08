@@ -49,6 +49,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			user.GET("/me", cfg.CustomerHandler.GetMe)
 			user.GET("/me/discover/feed", cfg.TenantHandler.CustomerDiscoverFeed)
 			user.PUT("/me", cfg.CustomerHandler.UpdateMe)
+			user.POST("/me/google/link", cfg.CustomerHandler.LinkMyGoogle)
 			user.POST("/me/avatar", cfg.CustomerHandler.UploadMyAvatar)
 			user.POST("/me/password", cfg.CustomerHandler.UpdateMyPassword)
 			user.POST("/me/phone/request-change", cfg.CustomerHandler.RequestMyPhoneChange)

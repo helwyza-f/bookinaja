@@ -1,10 +1,23 @@
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect } from "react";
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { Controller, useForm } from "react-hook-form";
+import * as AuthSession from "expo-auth-session";
+import * as WebBrowser from "expo-web-browser";
 import { ScreenShell } from "@/components/screen-shell";
 import { useSessionStore } from "@/stores/session-store";
 import { useAppTheme } from "@/theme";
-import { useCustomerEmailLoginMutation } from "@/features/auth/mutations";
+import {
+  useCustomerEmailLoginMutation,
+  useCustomerGoogleLoginMutation,
+} from "@/features/auth/mutations";
+import {
+  GOOGLE_ANDROID_CLIENT_ID,
+  GOOGLE_IOS_CLIENT_ID,
+  GOOGLE_WEB_CLIENT_ID,
+} from "@/constants/app";
+
+WebBrowser.maybeCompleteAuthSession();
 
 type LoginForm = {
   email: string;
@@ -15,6 +28,27 @@ export default function LoginScreen() {
   const theme = useAppTheme();
   const signInAsRole = useSessionStore((state) => state.signInAsRole);
   const customerLogin = useCustomerEmailLoginMutation();
+  const googleLogin = useCustomerGoogleLoginMutation();
+  const discovery = AuthSession.useAutoDiscovery("https://accounts.google.com");
+  const redirectUri = AuthSession.makeRedirectUri({ scheme: "bookinaja" });
+  const googleClientId =
+    Platform.OS === "ios"
+      ? GOOGLE_IOS_CLIENT_ID || GOOGLE_WEB_CLIENT_ID
+      : Platform.OS === "android"
+        ? GOOGLE_ANDROID_CLIENT_ID || GOOGLE_WEB_CLIENT_ID
+        : GOOGLE_WEB_CLIENT_ID;
+  const [request, response, promptAsync] = AuthSession.useAuthRequest(
+    {
+      clientId: googleClientId,
+      responseType: AuthSession.ResponseType.IdToken,
+      scopes: ["openid", "profile", "email"],
+      redirectUri,
+      extraParams: {
+        nonce: String(Date.now()),
+      },
+    },
+    discovery,
+  );
   const { control, handleSubmit } = useForm<LoginForm>({
     defaultValues: {
       email: "",
@@ -39,6 +73,30 @@ export default function LoginScreen() {
     await customerLogin.mutateAsync(values);
     router.replace("/(customer)/(tabs)");
   });
+
+  useEffect(() => {
+    if (response?.type !== "success") return;
+    const idToken =
+      typeof response.params?.id_token === "string"
+        ? response.params.id_token
+        : "";
+    if (!idToken) return;
+
+    void googleLogin.mutateAsync(idToken).then((result) => {
+      if (result.status === "authenticated") {
+        router.replace("/(customer)/(tabs)");
+        return;
+      }
+      router.push({
+        pathname: "/(auth)/google-claim",
+        params: {
+          claimToken: result.claim_token,
+          name: result.profile?.name || "",
+          email: result.profile?.email || "",
+        },
+      });
+    });
+  }, [googleLogin, response]);
 
   return (
     <ScreenShell
@@ -131,6 +189,28 @@ export default function LoginScreen() {
           <Pressable onPress={() => router.push("/(auth)/login-phone")} hitSlop={8} style={styles.secondaryLinkWrap}>
             <Text style={[styles.secondaryLink, { color: theme.colors.accent }]}>Masuk via No. HP dan OTP</Text>
           </Pressable>
+
+          <Pressable
+            onPress={() => void promptAsync()}
+            disabled={!request || googleLogin.isPending}
+            style={[
+              styles.googleButton,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+                opacity: !request || googleLogin.isPending ? 0.7 : 1,
+              },
+            ]}
+          >
+            <Text style={[styles.googleButtonText, { color: theme.colors.foreground }]}>
+              {googleLogin.isPending ? "Memproses Google..." : "Masuk dengan Google"}
+            </Text>
+          </Pressable>
+          {googleLogin.error ? (
+            <Text style={[styles.error, { color: theme.colors.danger }]}>
+              {googleLogin.error instanceof Error ? googleLogin.error.message : "Google login gagal"}
+            </Text>
+          ) : null}
         </View>
 
         <View
@@ -205,6 +285,17 @@ const styles = StyleSheet.create({
   },
   secondaryLink: {
     fontSize: 13,
+    fontWeight: "700",
+  },
+  googleButton: {
+    minHeight: 48,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  googleButtonText: {
+    fontSize: 14,
     fontWeight: "700",
   },
   adminRow: {

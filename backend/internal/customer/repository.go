@@ -92,28 +92,57 @@ func (r *Repository) Upsert(ctx context.Context, c Customer) (uuid.UUID, error) 
 		INSERT INTO customers (
 			id, name, phone, email, password,
 			total_visits, total_spent, tier, loyalty_points,
-			account_status, phone_verified_at,
+			account_status, account_stage, registration_source, phone_verified_at,
+			silent_registered_at, profile_completed_at, marketing_opt_in,
+			birth_date, gender, city, province, country_code, google_subject,
+			last_login_method, last_login_at,
 			created_at, updated_at
 		)
 		VALUES (
 			$1, $2, $3, $4, $5,
 			0, 0, 'NEW', 0,
-			$6, $7,
+			$6, $7, $8, $9,
+			$10, $11, $12,
+			$13, $14, $15, $16, $17, $18,
+			$19, $20,
 			NOW(), NOW()
 		)
 		ON CONFLICT (phone)
 		DO UPDATE SET
-			name = EXCLUDED.name,
+			name = CASE
+				WHEN COALESCE(BTRIM(customers.name), '') = '' THEN EXCLUDED.name
+				ELSE customers.name
+			END,
 			email = COALESCE(EXCLUDED.email, customers.email),
 			password = COALESCE(EXCLUDED.password, customers.password),
 			account_status = COALESCE(EXCLUDED.account_status, customers.account_status),
+			account_stage = CASE
+				WHEN customers.account_stage = 'suspended' THEN customers.account_stage
+				ELSE COALESCE(EXCLUDED.account_stage, customers.account_stage)
+			END,
+			registration_source = COALESCE(NULLIF(customers.registration_source, ''), EXCLUDED.registration_source),
 			phone_verified_at = COALESCE(EXCLUDED.phone_verified_at, customers.phone_verified_at),
+			silent_registered_at = COALESCE(customers.silent_registered_at, EXCLUDED.silent_registered_at),
+			profile_completed_at = COALESCE(EXCLUDED.profile_completed_at, customers.profile_completed_at),
+			marketing_opt_in = customers.marketing_opt_in OR EXCLUDED.marketing_opt_in,
+			birth_date = COALESCE(EXCLUDED.birth_date, customers.birth_date),
+			gender = COALESCE(EXCLUDED.gender, customers.gender),
+			city = COALESCE(EXCLUDED.city, customers.city),
+			province = COALESCE(EXCLUDED.province, customers.province),
+			country_code = COALESCE(NULLIF(EXCLUDED.country_code, ''), customers.country_code),
+			google_subject = COALESCE(EXCLUDED.google_subject, customers.google_subject),
+			last_login_method = COALESCE(EXCLUDED.last_login_method, customers.last_login_method),
+			last_login_at = COALESCE(EXCLUDED.last_login_at, customers.last_login_at),
 			updated_at = NOW()
 		RETURNING id`
 
 	var id uuid.UUID
 	err := r.db.QueryRowContext(ctx, query,
-		c.ID, c.Name, c.Phone, c.Email, c.Password, c.AccountStatus, c.PhoneVerifiedAt,
+		c.ID, c.Name, c.Phone, c.Email, c.Password,
+		c.AccountStatus, c.AccountStage, c.RegistrationSource, c.PhoneVerifiedAt,
+		c.SilentRegisteredAt, c.ProfileCompletedAt, c.MarketingOptIn,
+		c.BirthDate, c.Gender, c.City, c.Province, c.CountryCode, c.GoogleSubject,
+		c.LastLoginMethod, c.LastLoginAt,
 	).Scan(&id)
 
 	if err != nil {
@@ -128,30 +157,67 @@ func (r *Repository) Upsert(ctx context.Context, c Customer) (uuid.UUID, error) 
 func (r *Repository) UpsertPendingRegistration(ctx context.Context, c Customer) (uuid.UUID, error) {
 	query := `
 		INSERT INTO customers (
-			id, name, phone, email, password,
+			id, name, phone, email, password, avatar_url,
 			total_visits, total_spent, tier, loyalty_points,
-			account_status, phone_verified_at,
+			account_status, account_stage, registration_source, phone_verified_at,
+			marketing_opt_in, birth_date, gender, city, province, country_code,
+			google_subject,
 			created_at, updated_at
 		)
 		VALUES (
-			$1, $2, $3, $4, $5,
+			$1, $2, $3, $4, $5, $6,
 			0, 0, 'NEW', 0,
-			'unverified', NULL,
+			'unverified', 'provisioned', $7, NULL,
+			$8, $9, $10, $11, $12, $13, $14,
 			NOW(), NOW()
 		)
 		ON CONFLICT (phone)
 		DO UPDATE SET
 			name = EXCLUDED.name,
-			email = EXCLUDED.email,
-			password = EXCLUDED.password,
+			email = COALESCE(EXCLUDED.email, customers.email),
+			password = COALESCE(EXCLUDED.password, customers.password),
+			avatar_url = COALESCE(customers.avatar_url, EXCLUDED.avatar_url),
 			account_status = 'unverified',
+			account_stage = CASE
+				WHEN customers.account_stage = 'suspended' THEN customers.account_stage
+				ELSE 'provisioned'
+			END,
+			registration_source = CASE
+				WHEN COALESCE(customers.registration_source, '') = '' THEN EXCLUDED.registration_source
+				ELSE customers.registration_source
+			END,
 			phone_verified_at = NULL,
+			marketing_opt_in = customers.marketing_opt_in OR EXCLUDED.marketing_opt_in,
+			birth_date = COALESCE(EXCLUDED.birth_date, customers.birth_date),
+			gender = COALESCE(EXCLUDED.gender, customers.gender),
+			city = COALESCE(EXCLUDED.city, customers.city),
+			province = COALESCE(EXCLUDED.province, customers.province),
+			country_code = COALESCE(NULLIF(EXCLUDED.country_code, ''), customers.country_code),
+			google_subject = COALESCE(EXCLUDED.google_subject, customers.google_subject),
 			updated_at = NOW()
 		WHERE COALESCE(customers.account_status, 'verified') != 'verified'
+		   OR COALESCE(customers.account_stage, 'provisioned') = 'provisioned'
 		RETURNING id`
 
 	var id uuid.UUID
-	err := r.db.QueryRowContext(ctx, query, c.ID, c.Name, c.Phone, c.Email, c.Password).Scan(&id)
+	err := r.db.QueryRowContext(
+		ctx,
+		query,
+		c.ID,
+		c.Name,
+		c.Phone,
+		c.Email,
+		c.Password,
+		c.AvatarURL,
+		c.RegistrationSource,
+		c.MarketingOptIn,
+		c.BirthDate,
+		c.Gender,
+		c.City,
+		c.Province,
+		c.CountryCode,
+		c.GoogleSubject,
+	).Scan(&id)
 	if err != nil {
 		return uuid.Nil, wrapCustomerRepoErr("repo: gagal simpan registrasi pending", err)
 	}
@@ -263,7 +329,15 @@ func (r *Repository) MarkPhoneVerified(ctx context.Context, id uuid.UUID) error 
 		UPDATE customers
 		SET
 			account_status = 'verified',
+			account_stage = CASE
+				WHEN account_stage = 'suspended' THEN account_stage
+				ELSE 'active'
+			END,
 			phone_verified_at = COALESCE(phone_verified_at, NOW()),
+			profile_completed_at = CASE
+				WHEN profile_completed_at IS NULL AND COALESCE(BTRIM(name), '') <> '' THEN NOW()
+				ELSE profile_completed_at
+			END,
 			updated_at = NOW()
 		WHERE id = $1
 	`, id)
@@ -361,13 +435,26 @@ func (r *Repository) FindByPhone(ctx context.Context, phone string) (*Customer, 
 
 func (r *Repository) FindByEmail(ctx context.Context, email string) (*Customer, error) {
 	var c Customer
-	query := `SELECT * FROM customers WHERE email = $1 LIMIT 1`
-	err := r.db.GetContext(ctx, &c, query, email)
+	query := `SELECT * FROM customers WHERE LOWER(email) = LOWER($1) LIMIT 1`
+	err := r.db.GetContext(ctx, &c, query, strings.TrimSpace(email))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, wrapCustomerRepoErr("repo: gagal cari customer by email", err)
+	}
+	return &c, nil
+}
+
+func (r *Repository) FindByGoogleSubject(ctx context.Context, subject string) (*Customer, error) {
+	var c Customer
+	query := `SELECT * FROM customers WHERE google_subject = $1 LIMIT 1`
+	err := r.db.GetContext(ctx, &c, query, strings.TrimSpace(subject))
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, wrapCustomerRepoErr("repo: gagal cari customer by google subject", err)
 	}
 	return &c, nil
 }
@@ -397,10 +484,45 @@ func (r *Repository) UpdateProfile(ctx context.Context, id uuid.UUID, req Update
 			argIdx++
 		}
 	}
+	if req.BirthDate != nil {
+		setClauses = append(setClauses, fmt.Sprintf("birth_date = $%d", argIdx))
+		args = append(args, *req.BirthDate)
+		argIdx++
+	}
+	if req.Gender != nil {
+		setClauses = append(setClauses, fmt.Sprintf("gender = $%d", argIdx))
+		args = append(args, strings.TrimSpace(*req.Gender))
+		argIdx++
+	}
+	if req.City != nil {
+		setClauses = append(setClauses, fmt.Sprintf("city = $%d", argIdx))
+		args = append(args, strings.TrimSpace(*req.City))
+		argIdx++
+	}
+	if req.Province != nil {
+		setClauses = append(setClauses, fmt.Sprintf("province = $%d", argIdx))
+		args = append(args, strings.TrimSpace(*req.Province))
+		argIdx++
+	}
+	if req.CountryCode != nil {
+		setClauses = append(setClauses, fmt.Sprintf("country_code = $%d", argIdx))
+		args = append(args, strings.ToUpper(strings.TrimSpace(*req.CountryCode)))
+		argIdx++
+	}
+	if req.MarketingOptIn != nil {
+		setClauses = append(setClauses, fmt.Sprintf("marketing_opt_in = $%d", argIdx))
+		args = append(args, *req.MarketingOptIn)
+		argIdx++
+	}
 
 	if len(args) == 0 && len(setClauses) == 1 {
 		return r.FindByID(ctx, id)
 	}
+
+	setClauses = append(setClauses, `profile_completed_at = CASE
+		WHEN profile_completed_at IS NULL AND COALESCE(BTRIM(name), '') <> '' THEN NOW()
+		ELSE profile_completed_at
+	END`)
 
 	query := fmt.Sprintf(`
 		UPDATE customers
@@ -428,6 +550,11 @@ func (r *Repository) UpdatePasswordHash(ctx context.Context, id uuid.UUID, hashe
 	if err := r.db.GetContext(ctx, &c, `
 		UPDATE customers
 		SET password = $1,
+			account_stage = CASE
+				WHEN account_stage = 'suspended' THEN account_stage
+				ELSE 'active'
+			END,
+			profile_completed_at = COALESCE(profile_completed_at, NOW()),
 			updated_at = NOW()
 		WHERE id = $2
 		RETURNING *`, hashedPassword, id); err != nil {
@@ -446,7 +573,12 @@ func (r *Repository) UpdatePhone(ctx context.Context, id uuid.UUID, phone string
 		UPDATE customers
 		SET phone = $1,
 			account_status = 'verified',
+			account_stage = CASE
+				WHEN account_stage = 'suspended' THEN account_stage
+				ELSE 'active'
+			END,
 			phone_verified_at = NOW(),
+			profile_completed_at = COALESCE(profile_completed_at, NOW()),
 			updated_at = NOW()
 		WHERE id = $2
 		RETURNING *`, phone, id); err != nil {
@@ -457,6 +589,67 @@ func (r *Repository) UpdatePhone(ctx context.Context, id uuid.UUID, phone string
 	}
 	r.InvalidateCustomerMembershipCache(ctx, id)
 	return &c, nil
+}
+
+func (r *Repository) LinkGoogleIdentity(ctx context.Context, id uuid.UUID, subject string, email, name, avatarURL *string) (*Customer, error) {
+	var c Customer
+	if err := r.db.GetContext(ctx, &c, `
+		UPDATE customers
+		SET google_subject = $1,
+			email = COALESCE($2, email),
+			name = CASE
+				WHEN COALESCE(BTRIM(name), '') = '' AND COALESCE(BTRIM($3), '') <> '' THEN $3
+				ELSE name
+			END,
+			avatar_url = CASE
+				WHEN COALESCE(BTRIM(avatar_url), '') = '' AND COALESCE(BTRIM($4), '') <> '' THEN $4
+				ELSE avatar_url
+			END,
+			account_stage = CASE
+				WHEN account_stage = 'suspended' THEN account_stage
+				ELSE 'active'
+			END,
+			registration_source = CASE
+				WHEN COALESCE(BTRIM(registration_source), '') = '' THEN 'google'
+				WHEN registration_source = 'booking' THEN 'google'
+				ELSE registration_source
+			END,
+			profile_completed_at = COALESCE(profile_completed_at, NOW()),
+			updated_at = NOW()
+		WHERE id = $5
+		RETURNING *`,
+		strings.TrimSpace(subject),
+		email,
+		name,
+		avatarURL,
+		id,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, wrapCustomerRepoErr("repo: gagal link google identity", err)
+	}
+	r.InvalidateCustomerMembershipCache(ctx, id)
+	return &c, nil
+}
+
+func (r *Repository) TouchLogin(ctx context.Context, id uuid.UUID, method string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE customers
+		SET last_login_method = $2,
+			last_login_at = NOW(),
+			account_stage = CASE
+				WHEN account_stage = 'suspended' THEN account_stage
+				ELSE 'active'
+			END,
+			updated_at = NOW()
+		WHERE id = $1`,
+		id, strings.TrimSpace(method),
+	)
+	if err == nil {
+		r.InvalidateCustomerMembershipCache(ctx, id)
+	}
+	return err
 }
 
 // --- FUNGSI LAINNYA ---

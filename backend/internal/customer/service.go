@@ -2,6 +2,7 @@ package customer
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -15,6 +16,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
+	"google.golang.org/api/idtoken"
 )
 
 const pointRupiahDivisor int64 = 10000
@@ -24,6 +26,16 @@ const (
 	otpScopeResetPassword = "reset-password"
 	otpScopeChangePhone   = "change-phone"
 )
+
+const googleClaimTTL = 15 * time.Minute
+
+type googleIdentity struct {
+	Subject       string  `json:"subject"`
+	Email         *string `json:"email,omitempty"`
+	Name          string  `json:"name"`
+	AvatarURL     *string `json:"avatar_url,omitempty"`
+	EmailVerified bool    `json:"email_verified"`
+}
 
 type Service struct {
 	repo  *Repository
@@ -85,14 +97,15 @@ func (s *Service) VerifyOTP(ctx context.Context, phone, code string) (*Customer,
 		return nil, fmt.Errorf("akun pelanggan belum ditemukan")
 	}
 
-	if !cust.IsVerified() {
+	if !cust.IsVerified() || cust.IsProvisioned() {
 		if err := s.repo.MarkPhoneVerified(ctx, cust.ID); err != nil {
 			return nil, fmt.Errorf("akun belum berhasil diaktifkan. Silakan coba lagi")
 		}
-		return s.repo.FindByID(ctx, cust.ID)
 	}
-
-	return cust, nil
+	if err := s.repo.TouchLogin(ctx, cust.ID, "otp"); err != nil {
+		return nil, fmt.Errorf("sesi login belum berhasil dicatat")
+	}
+	return s.repo.FindByID(ctx, cust.ID)
 }
 
 func (s *Service) RequestPasswordResetOTP(ctx context.Context, phone string) error {
@@ -156,6 +169,7 @@ func (s *Service) CheckExistence(ctx context.Context, phone string) (*Customer, 
 
 // Register menangani pendaftaran via Booking (Silent) atau manual Admin.
 func (s *Service) Register(ctx context.Context, req RegisterReq) (*Customer, error) {
+	req = sanitizeRegisterReq(req)
 	var hashedPassword *string
 	if req.Password != nil && strings.TrimSpace(*req.Password) != "" {
 		hashed, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
@@ -167,17 +181,21 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Customer, err
 	}
 
 	cust := Customer{
-		ID:              uuid.New(),
-		Name:            req.Name,
-		Phone:           req.Phone,
-		Email:           req.Email,
-		Password:        hashedPassword,
-		AccountStatus:   "verified",
-		PhoneVerifiedAt: timePtr(time.Now().UTC()),
-		Tier:            "NEW",
-		TotalVisits:     0,
-		TotalSpent:      0,
-		LoyaltyPoints:   0,
+		ID:                 uuid.New(),
+		Name:               req.Name,
+		Phone:              req.Phone,
+		Email:              req.Email,
+		Password:           hashedPassword,
+		AccountStatus:      "verified",
+		AccountStage:       "active",
+		RegistrationSource: "manual",
+		PhoneVerifiedAt:    timePtr(time.Now().UTC()),
+		ProfileCompletedAt: timePtr(time.Now().UTC()),
+		CountryCode:        "ID",
+		Tier:               "NEW",
+		TotalVisits:        0,
+		TotalSpent:         0,
+		LoyaltyPoints:      0,
 	}
 
 	id, err := s.repo.Upsert(ctx, cust)
@@ -189,6 +207,8 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Customer, err
 }
 
 func (s *Service) LoginWithEmail(ctx context.Context, email, password string) (*Customer, error) {
+	email = strings.TrimSpace(email)
+	password = strings.TrimSpace(password)
 	cust, err := s.repo.FindByEmail(ctx, email)
 	if err != nil || cust == nil {
 		return nil, fmt.Errorf("email ini belum terdaftar di Bookinaja")
@@ -205,10 +225,176 @@ func (s *Service) LoginWithEmail(ctx context.Context, email, password string) (*
 		return nil, fmt.Errorf("password belum sesuai")
 	}
 
-	return cust, nil
+	if err := s.repo.TouchLogin(ctx, cust.ID, "password"); err != nil {
+		return nil, fmt.Errorf("sesi login belum berhasil dicatat")
+	}
+	return s.repo.FindByID(ctx, cust.ID)
+}
+
+func (s *Service) LoginWithGoogle(ctx context.Context, idTokenRaw string) (*GoogleAuthResponse, error) {
+	identity, err := s.verifyGoogleIdentity(ctx, idTokenRaw)
+	if err != nil {
+		return nil, err
+	}
+
+	if linked, err := s.repo.FindByGoogleSubject(ctx, identity.Subject); err == nil && linked != nil {
+		if err := s.repo.TouchLogin(ctx, linked.ID, "google"); err != nil {
+			return nil, fmt.Errorf("sesi login Google belum berhasil dicatat")
+		}
+		fresh, _ := s.repo.FindByID(ctx, linked.ID)
+		return &GoogleAuthResponse{
+			Status:   "authenticated",
+			Customer: fresh,
+			Message:  "Login Google berhasil.",
+		}, nil
+	}
+
+	if identity.Email != nil && strings.TrimSpace(*identity.Email) != "" {
+		existing, err := s.repo.FindByEmail(ctx, *identity.Email)
+		if err != nil {
+			return nil, fmt.Errorf("kami belum bisa memeriksa akun Google saat ini")
+		}
+		if existing != nil {
+			linked, err := s.repo.LinkGoogleIdentity(ctx, existing.ID, identity.Subject, identity.Email, &identity.Name, identity.AvatarURL)
+			if err != nil {
+				return nil, fmt.Errorf("akun Google belum berhasil dihubungkan")
+			}
+			if linked == nil {
+				return nil, fmt.Errorf("akun pelanggan tidak ditemukan")
+			}
+			if err := s.repo.TouchLogin(ctx, linked.ID, "google"); err != nil {
+				return nil, fmt.Errorf("sesi login Google belum berhasil dicatat")
+			}
+			fresh, _ := s.repo.FindByID(ctx, linked.ID)
+			return &GoogleAuthResponse{
+				Status:   "authenticated",
+				Customer: fresh,
+				Message:  "Akun Google berhasil dihubungkan.",
+			}, nil
+		}
+	}
+
+	claimToken := uuid.NewString()
+	if err := s.storeGoogleClaim(ctx, claimToken, identity); err != nil {
+		return nil, fmt.Errorf("claim akun Google belum berhasil disiapkan")
+	}
+
+	return &GoogleAuthResponse{
+		Status:     "needs_phone",
+		ClaimToken: claimToken,
+		Profile: GoogleProfilePreview{
+			Name:      identity.Name,
+			Email:     identity.Email,
+			AvatarURL: identity.AvatarURL,
+		},
+		Message: "Lengkapi nomor WhatsApp untuk menyelesaikan pendaftaran.",
+	}, nil
+}
+
+func (s *Service) ClaimGoogleAccount(ctx context.Context, req GoogleClaimReq) (*Customer, error) {
+	identity, err := s.readGoogleClaim(ctx, req.ClaimToken)
+	if err != nil {
+		return nil, err
+	}
+
+	phone := normalizePhone(req.Phone)
+	if phone == "" {
+		return nil, fmt.Errorf("nomor WhatsApp wajib diisi")
+	}
+
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		name = strings.TrimSpace(identity.Name)
+	}
+	if name == "" {
+		name = "Customer Bookinaja"
+	}
+
+	existingByPhone, err := s.repo.FindByPhone(ctx, phone)
+	if err != nil {
+		return nil, fmt.Errorf("kami belum bisa memeriksa nomor WhatsApp saat ini")
+	}
+	if existingByPhone != nil && existingByPhone.IsVerified() && !existingByPhone.IsProvisioned() {
+		return nil, fmt.Errorf("nomor WhatsApp ini sudah terdaftar. Masuk dulu lalu hubungkan Google dari akun yang sama")
+	}
+
+	cust := Customer{
+		ID:                 uuid.New(),
+		Name:               name,
+		Phone:              phone,
+		Email:              identity.Email,
+		AccountStatus:      "unverified",
+		AccountStage:       "provisioned",
+		RegistrationSource: "google",
+		GoogleSubject:      &identity.Subject,
+		AvatarURL:          identity.AvatarURL,
+		CountryCode:        "ID",
+		Tier:               "NEW",
+		LoyaltyPoints:      0,
+	}
+	if req.MarketingOptIn != nil {
+		cust.MarketingOptIn = *req.MarketingOptIn
+	}
+
+	id, err := s.repo.UpsertPendingRegistration(ctx, cust)
+	if err != nil {
+		return nil, fmt.Errorf("claim akun Google belum berhasil disimpan")
+	}
+
+	created, err := s.repo.FindByID(ctx, id)
+	if err != nil || created == nil {
+		return nil, fmt.Errorf("akun Google belum bisa dibaca kembali")
+	}
+
+	if err := s.sendOTP(ctx, otpRedisKey(otpScopeAuth, created.Phone), created.Phone, created.Name, "register"); err != nil {
+		return nil, err
+	}
+
+	return created, nil
+}
+
+func (s *Service) LinkGoogleForCustomer(ctx context.Context, customerID string, idTokenRaw string) (*Customer, error) {
+	cID, err := uuid.Parse(customerID)
+	if err != nil {
+		return nil, fmt.Errorf("id customer tidak valid")
+	}
+
+	current, err := s.repo.FindByID(ctx, cID)
+	if err != nil || current == nil {
+		return nil, fmt.Errorf("profil pelanggan tidak ditemukan")
+	}
+
+	identity, err := s.verifyGoogleIdentity(ctx, idTokenRaw)
+	if err != nil {
+		return nil, err
+	}
+
+	if linked, err := s.repo.FindByGoogleSubject(ctx, identity.Subject); err == nil && linked != nil && linked.ID != cID {
+		return nil, fmt.Errorf("akun Google ini sudah terhubung ke akun Bookinaja lain")
+	}
+
+	if identity.Email != nil && strings.TrimSpace(*identity.Email) != "" {
+		existingEmail, err := s.repo.FindByEmail(ctx, *identity.Email)
+		if err != nil {
+			return nil, fmt.Errorf("kami belum bisa memeriksa email Google saat ini")
+		}
+		if existingEmail != nil && existingEmail.ID != cID {
+			return nil, fmt.Errorf("email Google ini sudah dipakai akun Bookinaja lain")
+		}
+	}
+
+	updated, err := s.repo.LinkGoogleIdentity(ctx, cID, identity.Subject, identity.Email, &identity.Name, identity.AvatarURL)
+	if err != nil {
+		return nil, fmt.Errorf("akun Google belum berhasil dihubungkan")
+	}
+	if updated == nil {
+		return nil, fmt.Errorf("profil pelanggan tidak ditemukan")
+	}
+	return updated, nil
 }
 
 func (s *Service) StartRegistration(ctx context.Context, req RegisterReq) (*Customer, error) {
+	req = sanitizeRegisterReq(req)
 	if req.Email != nil && strings.TrimSpace(*req.Email) != "" {
 		email := strings.TrimSpace(*req.Email)
 		req.Email = &email
@@ -226,7 +412,7 @@ func (s *Service) StartRegistration(ctx context.Context, req RegisterReq) (*Cust
 	if err != nil {
 		return nil, fmt.Errorf("kami belum bisa memeriksa nomor WhatsApp saat ini")
 	}
-	if existingByPhone != nil && existingByPhone.IsVerified() {
+	if existingByPhone != nil && existingByPhone.IsVerified() && !existingByPhone.IsProvisioned() {
 		return nil, fmt.Errorf("nomor WhatsApp ini sudah terdaftar")
 	}
 
@@ -236,16 +422,22 @@ func (s *Service) StartRegistration(ctx context.Context, req RegisterReq) (*Cust
 	}
 
 	cust := Customer{
-		ID:            uuid.New(),
-		Name:          strings.TrimSpace(req.Name),
-		Phone:         strings.TrimSpace(req.Phone),
-		Email:         req.Email,
-		Password:      hashedPassword,
-		AccountStatus: "unverified",
-		Tier:          "NEW",
-		TotalVisits:   0,
-		TotalSpent:    0,
-		LoyaltyPoints: 0,
+		ID:                 uuid.New(),
+		Name:               strings.TrimSpace(req.Name),
+		Phone:              strings.TrimSpace(req.Phone),
+		Email:              req.Email,
+		Password:           hashedPassword,
+		AccountStatus:      "unverified",
+		AccountStage:       "provisioned",
+		RegistrationSource: "manual",
+		CountryCode:        "ID",
+		Tier:               "NEW",
+		TotalVisits:        0,
+		TotalSpent:         0,
+		LoyaltyPoints:      0,
+	}
+	if existingByPhone != nil && strings.TrimSpace(existingByPhone.RegistrationSource) != "" {
+		cust.RegistrationSource = existingByPhone.RegistrationSource
 	}
 
 	id, err := s.repo.UpsertPendingRegistration(ctx, cust)
@@ -468,11 +660,13 @@ func (s *Service) GetDashboardData(ctx context.Context, customerID uuid.UUID) (*
 	pointActivity, _ := s.repo.ListPointActivity(ctx, customerID, nil, 8)
 
 	return &CustomerDashboardData{
-		Customer:       *cust,
-		Points:         cust.LoyaltyPoints,
-		PointActivity:  pointActivity,
-		ActiveBookings: active,
-		PastHistory:    past,
+		Customer:          *cust,
+		Points:            cust.LoyaltyPoints,
+		PointActivity:     pointActivity,
+		ProfileCompletion: calculateProfileCompletion(*cust),
+		IdentityMethods:   customerIdentityMethods(*cust),
+		ActiveBookings:    active,
+		PastHistory:       past,
 	}, nil
 }
 
@@ -489,10 +683,51 @@ func (s *Service) UpdateAccount(ctx context.Context, customerID string, req Upda
 	if req.Email != nil {
 		email := strings.TrimSpace(*req.Email)
 		req.Email = &email
+		existing, err := s.repo.FindByEmail(ctx, email)
+		if err != nil {
+			return nil, fmt.Errorf("kami belum bisa memeriksa email saat ini")
+		}
+		if existing != nil && existing.ID != cID {
+			return nil, fmt.Errorf("email ini sudah dipakai akun lain")
+		}
 	}
 	if req.AvatarURL != nil {
 		avatarURL := strings.TrimSpace(*req.AvatarURL)
 		req.AvatarURL = &avatarURL
+	}
+	if req.BirthDate != nil {
+		value := strings.TrimSpace(*req.BirthDate)
+		if value == "" {
+			req.BirthDate = nil
+		} else if _, err := time.Parse("2006-01-02", value); err != nil {
+			return nil, fmt.Errorf("format tanggal lahir harus YYYY-MM-DD")
+		} else {
+			req.BirthDate = &value
+		}
+	}
+	if req.Gender != nil {
+		gender := strings.ToLower(strings.TrimSpace(*req.Gender))
+		if gender == "" {
+			req.Gender = nil
+		} else {
+			req.Gender = &gender
+		}
+	}
+	if req.City != nil {
+		city := strings.TrimSpace(*req.City)
+		req.City = &city
+	}
+	if req.Province != nil {
+		province := strings.TrimSpace(*req.Province)
+		req.Province = &province
+	}
+	if req.CountryCode != nil {
+		code := strings.ToUpper(strings.TrimSpace(*req.CountryCode))
+		if code == "" {
+			req.CountryCode = nil
+		} else {
+			req.CountryCode = &code
+		}
 	}
 
 	updated, err := s.repo.UpdateProfile(ctx, cID, req)
@@ -606,6 +841,69 @@ func (s *Service) VerifyPhoneChangeOTP(ctx context.Context, customerID string, r
 	return updated, nil
 }
 
+func sanitizeRegisterReq(req RegisterReq) RegisterReq {
+	req.Name = strings.TrimSpace(req.Name)
+	req.Phone = normalizePhone(req.Phone)
+	if req.Email != nil {
+		email := strings.TrimSpace(*req.Email)
+		if email == "" {
+			req.Email = nil
+		} else {
+			req.Email = &email
+		}
+	}
+	if req.Password != nil {
+		password := strings.TrimSpace(*req.Password)
+		if password == "" {
+			req.Password = nil
+		} else {
+			req.Password = &password
+		}
+	}
+	return req
+}
+
+func customerIdentityMethods(c Customer) []string {
+	methods := []string{"phone"}
+	if c.Email != nil && strings.TrimSpace(*c.Email) != "" {
+		methods = append(methods, "email")
+	}
+	if c.GoogleSubject != nil && strings.TrimSpace(*c.GoogleSubject) != "" {
+		methods = append(methods, "google")
+	}
+	return methods
+}
+
+func calculateProfileCompletion(c Customer) int {
+	total := 8
+	completed := 0
+	if strings.TrimSpace(c.Name) != "" {
+		completed++
+	}
+	if strings.TrimSpace(c.Phone) != "" {
+		completed++
+	}
+	if c.Email != nil && strings.TrimSpace(*c.Email) != "" {
+		completed++
+	}
+	if c.AvatarURL != nil && strings.TrimSpace(*c.AvatarURL) != "" {
+		completed++
+	}
+	if c.BirthDate != nil {
+		completed++
+	}
+	if c.Gender != nil && strings.TrimSpace(*c.Gender) != "" {
+		completed++
+	}
+	if c.City != nil && strings.TrimSpace(*c.City) != "" {
+		completed++
+	}
+	if c.Province != nil && strings.TrimSpace(*c.Province) != "" {
+		completed++
+	}
+	return int(math.Round((float64(completed) / float64(total)) * 100))
+}
+
 // --- UTILITIES ---
 
 func (s *Service) ListByTenant(ctx context.Context, tenantID string) ([]Customer, error) {
@@ -618,6 +916,113 @@ func (s *Service) ListByTenant(ctx context.Context, tenantID string) ([]Customer
 
 func (s *Service) InvalidateTenantCache(ctx context.Context, tenantID uuid.UUID) {
 	s.repo.InvalidateTenantCache(ctx, tenantID)
+}
+
+func (s *Service) verifyGoogleIdentity(ctx context.Context, rawToken string) (*googleIdentity, error) {
+	rawToken = strings.TrimSpace(rawToken)
+	if rawToken == "" {
+		return nil, fmt.Errorf("token Google wajib diisi")
+	}
+
+	var lastErr error
+	for _, audience := range googleAudiences() {
+		payload, err := idtoken.Validate(ctx, rawToken, audience)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		identity := &googleIdentity{
+			Subject: payload.Subject,
+		}
+		if payload.Claims != nil {
+			if email, _ := payload.Claims["email"].(string); strings.TrimSpace(email) != "" {
+				email = strings.TrimSpace(email)
+				identity.Email = &email
+			}
+			if name, _ := payload.Claims["name"].(string); strings.TrimSpace(name) != "" {
+				identity.Name = strings.TrimSpace(name)
+			}
+			if picture, _ := payload.Claims["picture"].(string); strings.TrimSpace(picture) != "" {
+				picture = strings.TrimSpace(picture)
+				identity.AvatarURL = &picture
+			}
+			switch value := payload.Claims["email_verified"].(type) {
+			case bool:
+				identity.EmailVerified = value
+			case string:
+				identity.EmailVerified = strings.EqualFold(strings.TrimSpace(value), "true")
+			}
+		}
+
+		if strings.TrimSpace(identity.Subject) == "" {
+			return nil, fmt.Errorf("identitas Google belum valid")
+		}
+		if identity.Name == "" && identity.Email != nil {
+			identity.Name = strings.Split(strings.TrimSpace(*identity.Email), "@")[0]
+		}
+		return identity, nil
+	}
+
+	if lastErr != nil {
+		return nil, fmt.Errorf("token Google tidak valid")
+	}
+	return nil, fmt.Errorf("Google client ID belum dikonfigurasi")
+}
+
+func googleAudiences() []string {
+	raw := []string{
+		os.Getenv("GOOGLE_CLIENT_ID_WEB"),
+		os.Getenv("GOOGLE_CLIENT_ID_IOS"),
+		os.Getenv("GOOGLE_CLIENT_ID_ANDROID"),
+	}
+	out := make([]string, 0, len(raw))
+	seen := map[string]struct{}{}
+	for _, item := range raw {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		if _, exists := seen[item]; exists {
+			continue
+		}
+		seen[item] = struct{}{}
+		out = append(out, item)
+	}
+	return out
+}
+
+func googleClaimRedisKey(token string) string {
+	return fmt.Sprintf("customer:google-claim:%s", strings.TrimSpace(token))
+}
+
+func (s *Service) storeGoogleClaim(ctx context.Context, claimToken string, identity *googleIdentity) error {
+	if s.redis == nil {
+		return fmt.Errorf("redis belum siap untuk claim akun Google")
+	}
+	raw, err := json.Marshal(identity)
+	if err != nil {
+		return err
+	}
+	return s.redis.Set(ctx, googleClaimRedisKey(claimToken), raw, googleClaimTTL).Err()
+}
+
+func (s *Service) readGoogleClaim(ctx context.Context, claimToken string) (*googleIdentity, error) {
+	if s.redis == nil {
+		return nil, fmt.Errorf("claim akun Google belum tersedia")
+	}
+	raw, err := s.redis.Get(ctx, googleClaimRedisKey(claimToken)).Bytes()
+	if err == redis.Nil {
+		return nil, fmt.Errorf("claim akun Google sudah kedaluwarsa. Silakan login Google lagi")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("claim akun Google belum bisa dibaca")
+	}
+	var identity googleIdentity
+	if err := json.Unmarshal(raw, &identity); err != nil {
+		return nil, fmt.Errorf("claim akun Google tidak valid")
+	}
+	return &identity, nil
 }
 
 func (s *Service) GetByPhone(ctx context.Context, phone string) (*Customer, error) {

@@ -6,6 +6,8 @@ export type CustomerProfile = {
   avatar_url?: string | null;
   tier?: string;
   loyalty_points?: number;
+  account_stage?: string;
+  registration_source?: string;
 };
 
 export type CustomerBookingSummary = {
@@ -29,6 +31,8 @@ export type CustomerBookingSummary = {
 export type CustomerDashboard = {
   customer: CustomerProfile;
   points: number;
+  profile_completion: number;
+  identity_methods: string[];
   active_bookings: CustomerBookingSummary[];
   past_history: CustomerBookingSummary[];
 };

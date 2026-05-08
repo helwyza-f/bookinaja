@@ -1,16 +1,52 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect } from "react";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
+import * as AuthSession from "expo-auth-session";
+import * as WebBrowser from "expo-web-browser";
 import { Feather } from "@expo/vector-icons";
 import { ScreenShell } from "@/components/screen-shell";
 import { useSessionStore } from "@/stores/session-store";
 import { useAppTheme } from "@/theme";
 import { useCustomerDashboardQuery } from "@/features/customer/queries";
+import { useCustomerGoogleLinkMutation } from "@/features/auth/mutations";
+import {
+  GOOGLE_ANDROID_CLIENT_ID,
+  GOOGLE_IOS_CLIENT_ID,
+  GOOGLE_WEB_CLIENT_ID,
+} from "@/constants/app";
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function CustomerProfileScreen() {
   const theme = useAppTheme();
   const signOut = useSessionStore((state) => state.signOut);
   const dashboard = useCustomerDashboardQuery();
+  const googleLink = useCustomerGoogleLinkMutation();
+  const discovery = AuthSession.useAutoDiscovery("https://accounts.google.com");
+  const redirectUri = AuthSession.makeRedirectUri({ scheme: "bookinaja" });
+  const googleClientId =
+    Platform.OS === "ios"
+      ? GOOGLE_IOS_CLIENT_ID || GOOGLE_WEB_CLIENT_ID
+      : Platform.OS === "android"
+        ? GOOGLE_ANDROID_CLIENT_ID || GOOGLE_WEB_CLIENT_ID
+        : GOOGLE_WEB_CLIENT_ID;
+  const [request, response, promptAsync] = AuthSession.useAuthRequest(
+    {
+      clientId: googleClientId,
+      responseType: AuthSession.ResponseType.IdToken,
+      scopes: ["openid", "profile", "email"],
+      redirectUri,
+      extraParams: {
+        nonce: String(Date.now()),
+      },
+    },
+    discovery,
+  );
   const customer = dashboard.data?.customer;
+  const identityMethods = dashboard.data?.identity_methods || [];
+  const profileCompletion = dashboard.data?.profile_completion || 0;
+  const isGoogleLinked = identityMethods.includes("google");
+  const accountStage = customer?.account_stage || "provisioned";
   const initials = String(customer?.name || "CU")
     .split(" ")
     .filter(Boolean)
@@ -18,6 +54,17 @@ export default function CustomerProfileScreen() {
     .map((part) => part[0]?.toUpperCase() || "")
     .join("");
   const raisedSurface = theme.mode === "dark" ? theme.colors.surface : theme.colors.card;
+
+  useEffect(() => {
+    if (response?.type !== "success") return;
+    const idToken =
+      typeof response.params?.id_token === "string"
+        ? response.params.id_token
+        : "";
+    if (!idToken) return;
+
+    void googleLink.mutateAsync(idToken);
+  }, [googleLink, response]);
 
   return (
     <ScreenShell
@@ -53,8 +100,8 @@ export default function CustomerProfileScreen() {
             theme={theme}
           />
           <MetricTile
-            label="Riwayat"
-            value={String(dashboard.data?.past_history?.length || 0)}
+            label="Profil"
+            value={`${profileCompletion}%`}
             theme={theme}
           />
         </View>
@@ -66,6 +113,38 @@ export default function CustomerProfileScreen() {
         <InfoRow label="Nama" value={customer?.name || "-"} theme={theme} />
         <InfoRow label="Email" value={customer?.email || "-"} theme={theme} />
         <InfoRow label="WhatsApp" value={customer?.phone || "-"} theme={theme} />
+        <InfoRow
+          label="Status akun"
+          value={accountStage === "active" ? "Aktif" : "Perlu dilengkapi"}
+          theme={theme}
+        />
+        <InfoRow
+          label="Metode login"
+          value={identityMethods.length > 0 ? identityMethods.join(" · ") : "phone"}
+          theme={theme}
+        />
+      </View>
+
+      <View style={styles.section}>
+        <Text style={[styles.sectionEyebrow, { color: theme.colors.foregroundMuted }]}>Koneksi</Text>
+        <Text style={[styles.sectionTitle, { color: theme.colors.foreground }]}>Identitas terhubung</Text>
+        <ActionCard
+          label={isGoogleLinked ? "Google sudah terhubung" : "Hubungkan Google"}
+          hint={
+            isGoogleLinked
+              ? "Akun ini sudah bisa dipakai untuk login dengan Google."
+              : "Tambahkan Google agar login lebih cepat di device lain."
+          }
+          icon="chrome"
+          theme={theme}
+          disabled={isGoogleLinked || !request || googleLink.isPending}
+          onPress={() => void promptAsync()}
+        />
+        {googleLink.error ? (
+          <Text style={[styles.inlineError, { color: theme.colors.danger }]}>
+            {googleLink.error instanceof Error ? googleLink.error.message : "Google belum berhasil dihubungkan"}
+          </Text>
+        ) : null}
       </View>
 
       <View style={styles.section}>
@@ -140,19 +219,29 @@ function ActionCard({
   icon,
   theme,
   onPress,
+  disabled = false,
 }: {
   label: string;
   hint: string;
   icon: React.ComponentProps<typeof Feather>["name"];
   theme: ReturnType<typeof useAppTheme>;
   onPress: () => void;
+  disabled?: boolean;
 }) {
   const iconSurface = theme.mode === "dark" ? theme.colors.surface : theme.colors.surfaceAlt;
   const cardSurface = theme.mode === "dark" ? theme.colors.surface : theme.colors.card;
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.action, { backgroundColor: cardSurface, borderColor: theme.colors.border }]}
+      disabled={disabled}
+      style={[
+        styles.action,
+        {
+          backgroundColor: cardSurface,
+          borderColor: theme.colors.border,
+          opacity: disabled ? 0.65 : 1,
+        },
+      ]}
     >
       <View style={[styles.actionIcon, { backgroundColor: iconSurface }]}>
         <Feather name={icon} size={16} color={theme.colors.foreground} />
@@ -237,6 +326,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 17,
     fontWeight: "800",
+  },
+  inlineError: {
+    fontSize: 12,
+    lineHeight: 17,
   },
   infoRow: {
     borderWidth: 1,

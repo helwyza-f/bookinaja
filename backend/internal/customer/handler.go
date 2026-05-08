@@ -111,6 +111,54 @@ func (h *Handler) CustomerLoginEmail(c *gin.Context) {
 	})
 }
 
+func (h *Handler) CustomerGoogleLogin(c *gin.Context) {
+	var req GoogleLoginReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Token Google wajib diisi"})
+		return
+	}
+
+	result, err := h.service.LoginWithGoogle(c.Request.Context(), req.IDToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	if result.Status != "authenticated" || result.Customer == nil {
+		c.JSON(http.StatusOK, result)
+		return
+	}
+
+	tokenString, err := GenerateAuthToken(result.Customer.ID.String(), "", "", time.Hour*72)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Sesi Google belum berhasil dibuat. Silakan coba lagi"})
+		return
+	}
+
+	result.Token = tokenString
+	c.JSON(http.StatusOK, result)
+}
+
+func (h *Handler) CustomerGoogleClaim(c *gin.Context) {
+	var req GoogleClaimReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data claim Google belum lengkap"})
+		return
+	}
+
+	cust, err := h.service.ClaimGoogleAccount(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":  "Kami kirim OTP ke WhatsApp kamu untuk menyelesaikan claim akun Google.",
+		"phone":    cust.Phone,
+		"customer": cust,
+	})
+}
+
 func (h *Handler) RequestPasswordResetOTP(c *gin.Context) {
 	var req RequestPasswordResetReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -161,6 +209,30 @@ func (h *Handler) CustomerRegister(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":  "Pendaftaran hampir selesai. Verifikasi WhatsApp untuk mengaktifkan akun Bookinaja kamu.",
+		"phone":    cust.Phone,
+		"customer": cust,
+	})
+}
+
+func (h *Handler) CustomerClaimAccount(c *gin.Context) {
+	var req RegisterReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data claim akun belum lengkap"})
+		return
+	}
+	if req.Phone == "" || req.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nama lengkap dan nomor WhatsApp wajib diisi"})
+		return
+	}
+
+	cust, err := h.service.StartRegistration(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":  "Kami kirim OTP untuk claim akun kamu. Verifikasi dulu agar akun Bookinaja aktif penuh.",
 		"phone":    cust.Phone,
 		"customer": cust,
 	})
@@ -265,6 +337,28 @@ func (h *Handler) UpdateMyPassword(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Password berhasil diperbarui", "customer": updated})
+}
+
+func (h *Handler) LinkMyGoogle(c *gin.Context) {
+	customerIDStr, exists := c.Get("customerID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid, silakan login kembali"})
+		return
+	}
+
+	var req GoogleLoginReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Token Google wajib diisi"})
+		return
+	}
+
+	updated, err := h.service.LinkGoogleForCustomer(c.Request.Context(), customerIDStr.(string), req.IDToken)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Akun Google berhasil dihubungkan", "customer": updated})
 }
 
 func (h *Handler) RequestMyPhoneChange(c *gin.Context) {

@@ -183,23 +183,34 @@ func (r *Repository) GetTenantIDByBookingID(ctx context.Context, id uuid.UUID) (
 func (r *Repository) GetOrCreateCustomer(ctx context.Context, tenantID uuid.UUID, name, phone string) (uuid.UUID, error) {
 	_ = tenantID
 	var customerID uuid.UUID
-	queryFind := `SELECT id FROM customers WHERE phone = $1 LIMIT 1`
-	err := r.db.GetContext(ctx, &customerID, queryFind, phone)
-
-	if err == sql.ErrNoRows {
-		customerID = uuid.New()
-		queryInsert := `
-			INSERT INTO customers (
-				id, name, phone, total_visits, total_spent, tier, loyalty_points, created_at, updated_at
-			) VALUES (
-				$1, $2, $3, 0, 0, 'NEW', 0, NOW(), NOW()
-			)`
-		_, err = r.db.ExecContext(ctx, queryInsert, customerID, name, phone)
-		if err != nil {
-			return uuid.Nil, err
-		}
+	query := `
+		INSERT INTO customers (
+			id, name, phone, total_visits, total_spent, tier, loyalty_points,
+			account_status, account_stage, registration_source, silent_registered_at,
+			phone_verified_at, country_code, created_at, updated_at
+		) VALUES (
+			$1, $2, $3, 0, 0, 'NEW', 0,
+			'verified', 'provisioned', 'booking', NOW(),
+			NOW(), 'ID', NOW(), NOW()
+		)
+		ON CONFLICT (phone)
+		DO UPDATE SET
+			name = CASE
+				WHEN COALESCE(BTRIM(customers.name), '') = '' THEN EXCLUDED.name
+				ELSE customers.name
+			END,
+			silent_registered_at = COALESCE(customers.silent_registered_at, NOW()),
+			registration_source = COALESCE(NULLIF(customers.registration_source, ''), 'booking'),
+			account_stage = CASE
+				WHEN COALESCE(customers.account_stage, '') = '' THEN 'provisioned'
+				ELSE customers.account_stage
+			END,
+			updated_at = NOW()
+		RETURNING id`
+	if err := r.db.GetContext(ctx, &customerID, query, uuid.New(), name, phone); err != nil {
+		return uuid.Nil, err
 	}
-	return customerID, err
+	return customerID, nil
 }
 
 // CheckAvailability memastikan tidak ada bentrokan waktu pada resource tertentu
