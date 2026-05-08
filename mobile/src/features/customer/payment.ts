@@ -5,10 +5,10 @@ import type { CustomerBookingDetail, CustomerDashboard } from "./types";
 
 export type CustomerLiveContext = {
   booking: Record<string, unknown>;
-  busy_slots: Array<{
+  busy_slots: {
     start_time: string;
     end_time: string;
-  }>;
+  }[];
 };
 
 export function useCustomerLiveContextQuery(bookingId: string, enabled = true) {
@@ -186,7 +186,7 @@ export function useCustomerFnbMenuQuery(bookingId: string, enabled = true) {
   return useQuery({
     queryKey: customerKeys.bookingFnb(bookingId),
     queryFn: () =>
-      apiRequest<Array<{ id: string; name: string; price?: number; category?: string }>>("/customer/fnb", {
+      apiRequest<{ id: string; name: string; price?: number; category?: string }[]>("/customer/fnb", {
         query: { booking_id: bookingId },
       }),
     enabled: enabled && Boolean(bookingId),

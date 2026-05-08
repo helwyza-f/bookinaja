@@ -298,6 +298,10 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 	if err != nil {
 		return nil, nil, fmt.Errorf("GAGAL MEMUAT PENGATURAN DP: %w", err)
 	}
+	var promoCode *string
+	if code := strings.TrimSpace(req.PromoCode); code != "" {
+		promoCode = &code
+	}
 	bookingStatus, depositAmount, paidAmount, balanceDue, paymentStatus, paymentMethod :=
 		resolveBookingLifecycle(req, isManualWalkIn, grandTotal, dpEnabled, dpPercentage)
 	nowUTC := time.Now().UTC()
@@ -319,7 +323,7 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 		AccessToken:         uuid.New(),
 		Status:              bookingStatus, // Gunakan status hasil seleksi
 		PromoID:             promoID,
-		PromoCode:           strings.TrimSpace(req.PromoCode),
+		PromoCode:           promoCode,
 		OriginalGrandTotal:  originalGrandTotal,
 		DiscountAmount:      discountAmount,
 		PromoSnapshot:       promoSnapshot,
