@@ -54,6 +54,15 @@ type ResourceRow = {
   id: string;
   name: string;
   status?: string;
+  items?: {
+    id: string;
+    name: string;
+    item_type: string;
+    price: number;
+    price_unit?: string;
+    unit_duration?: number;
+    is_default?: boolean;
+  }[];
 };
 
 type SessionRow = {
