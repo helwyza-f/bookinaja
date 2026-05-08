@@ -74,3 +74,12 @@ export const GOOGLE_IOS_CLIENT_ID =
   process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "";
 export const GOOGLE_ANDROID_CLIENT_ID =
   process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || "";
+
+function reverseGoogleClientScheme(clientId: string) {
+  const normalized = clientId.trim().replace(/\.apps\.googleusercontent\.com$/, "");
+  if (!normalized) return "";
+  return `com.googleusercontent.apps.${normalized}`;
+}
+
+export const GOOGLE_IOS_REDIRECT_SCHEME = reverseGoogleClientScheme(GOOGLE_IOS_CLIENT_ID);
+export const GOOGLE_ANDROID_REDIRECT_SCHEME = reverseGoogleClientScheme(GOOGLE_ANDROID_CLIENT_ID);

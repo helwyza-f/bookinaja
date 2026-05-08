@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import * as AuthSession from "expo-auth-session";
@@ -11,7 +11,9 @@ import { useCustomerDashboardQuery } from "@/features/customer/queries";
 import { useCustomerGoogleLinkMutation } from "@/features/auth/mutations";
 import {
   GOOGLE_ANDROID_CLIENT_ID,
+  GOOGLE_ANDROID_REDIRECT_SCHEME,
   GOOGLE_IOS_CLIENT_ID,
+  GOOGLE_IOS_REDIRECT_SCHEME,
   GOOGLE_WEB_CLIENT_ID,
 } from "@/constants/app";
 
@@ -22,8 +24,17 @@ export default function CustomerProfileScreen() {
   const signOut = useSessionStore((state) => state.signOut);
   const dashboard = useCustomerDashboardQuery();
   const googleLink = useCustomerGoogleLinkMutation();
+  const [googleLinkError, setGoogleLinkError] = useState("");
   const discovery = AuthSession.useAutoDiscovery("https://accounts.google.com");
-  const redirectUri = AuthSession.makeRedirectUri({ scheme: "bookinaja" });
+  const redirectUri = AuthSession.makeRedirectUri({
+    scheme: "bookinaja",
+    native:
+      Platform.OS === "ios"
+        ? `${GOOGLE_IOS_REDIRECT_SCHEME}:/oauthredirect`
+        : Platform.OS === "android"
+          ? `${GOOGLE_ANDROID_REDIRECT_SCHEME}:/oauthredirect`
+          : undefined,
+  });
   const googleClientId =
     Platform.OS === "ios"
       ? GOOGLE_IOS_CLIENT_ID || GOOGLE_WEB_CLIENT_ID
@@ -33,11 +44,11 @@ export default function CustomerProfileScreen() {
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
       clientId: googleClientId,
-      responseType: AuthSession.ResponseType.IdToken,
+      responseType: AuthSession.ResponseType.Code,
       scopes: ["openid", "profile", "email"],
       redirectUri,
       extraParams: {
-        nonce: String(Date.now()),
+        prompt: "select_account",
       },
     },
     discovery,
@@ -57,14 +68,43 @@ export default function CustomerProfileScreen() {
 
   useEffect(() => {
     if (response?.type !== "success") return;
-    const idToken =
-      typeof response.params?.id_token === "string"
-        ? response.params.id_token
+    if (!discovery) return;
+    const code =
+      typeof response.params?.code === "string"
+        ? response.params.code
         : "";
-    if (!idToken) return;
+    const codeVerifier = request?.codeVerifier || "";
+    if (!code || !codeVerifier) {
+      setGoogleLinkError("Google belum berhasil diproses.");
+      return;
+    }
 
-    void googleLink.mutateAsync(idToken);
-  }, [googleLink, response]);
+    void (async () => {
+      try {
+        setGoogleLinkError("");
+        const tokenResponse = await AuthSession.exchangeCodeAsync(
+          {
+            clientId: googleClientId,
+            code,
+            redirectUri,
+            extraParams: {
+              code_verifier: codeVerifier,
+            },
+          },
+          discovery,
+        );
+        const idToken = tokenResponse.idToken || "";
+        if (!idToken) {
+          throw new Error("Google belum mengirim identitas akun.");
+        }
+        await googleLink.mutateAsync(idToken);
+      } catch (error) {
+        setGoogleLinkError(
+          error instanceof Error ? error.message : "Google belum berhasil dihubungkan.",
+        );
+      }
+    })();
+  }, [discovery, googleClientId, googleLink, redirectUri, request?.codeVerifier, response]);
 
   return (
     <ScreenShell
@@ -138,9 +178,16 @@ export default function CustomerProfileScreen() {
           icon="chrome"
           theme={theme}
           disabled={isGoogleLinked || !request || googleLink.isPending}
-          onPress={() => void promptAsync()}
+          onPress={() => {
+            setGoogleLinkError("");
+            void promptAsync();
+          }}
         />
-        {googleLink.error ? (
+        {googleLinkError ? (
+          <Text style={[styles.inlineError, { color: theme.colors.danger }]}>
+            {googleLinkError}
+          </Text>
+        ) : googleLink.error ? (
           <Text style={[styles.inlineError, { color: theme.colors.danger }]}>
             {googleLink.error instanceof Error ? googleLink.error.message : "Google belum berhasil dihubungkan"}
           </Text>

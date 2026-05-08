@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { Controller, useForm } from "react-hook-form";
@@ -13,7 +13,9 @@ import {
 } from "@/features/auth/mutations";
 import {
   GOOGLE_ANDROID_CLIENT_ID,
+  GOOGLE_ANDROID_REDIRECT_SCHEME,
   GOOGLE_IOS_CLIENT_ID,
+  GOOGLE_IOS_REDIRECT_SCHEME,
   GOOGLE_WEB_CLIENT_ID,
 } from "@/constants/app";
 
@@ -29,8 +31,17 @@ export default function LoginScreen() {
   const signInAsRole = useSessionStore((state) => state.signInAsRole);
   const customerLogin = useCustomerEmailLoginMutation();
   const googleLogin = useCustomerGoogleLoginMutation();
+  const [googleAuthError, setGoogleAuthError] = useState("");
   const discovery = AuthSession.useAutoDiscovery("https://accounts.google.com");
-  const redirectUri = AuthSession.makeRedirectUri({ scheme: "bookinaja" });
+  const redirectUri = AuthSession.makeRedirectUri({
+    scheme: "bookinaja",
+    native:
+      Platform.OS === "ios"
+        ? `${GOOGLE_IOS_REDIRECT_SCHEME}:/oauthredirect`
+        : Platform.OS === "android"
+          ? `${GOOGLE_ANDROID_REDIRECT_SCHEME}:/oauthredirect`
+          : undefined,
+  });
   const googleClientId =
     Platform.OS === "ios"
       ? GOOGLE_IOS_CLIENT_ID || GOOGLE_WEB_CLIENT_ID
@@ -40,11 +51,11 @@ export default function LoginScreen() {
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
       clientId: googleClientId,
-      responseType: AuthSession.ResponseType.IdToken,
+      responseType: AuthSession.ResponseType.Code,
       scopes: ["openid", "profile", "email"],
       redirectUri,
       extraParams: {
-        nonce: String(Date.now()),
+        prompt: "select_account",
       },
     },
     discovery,
@@ -76,27 +87,56 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (response?.type !== "success") return;
-    const idToken =
-      typeof response.params?.id_token === "string"
-        ? response.params.id_token
+    if (!discovery) return;
+    const code =
+      typeof response.params?.code === "string"
+        ? response.params.code
         : "";
-    if (!idToken) return;
+    const codeVerifier = request?.codeVerifier || "";
+    if (!code || !codeVerifier) {
+      setGoogleAuthError("Login Google belum berhasil diproses.");
+      return;
+    }
 
-    void googleLogin.mutateAsync(idToken).then((result) => {
-      if (result.status === "authenticated") {
-        router.replace("/(customer)/(tabs)");
-        return;
+    void (async () => {
+      try {
+        setGoogleAuthError("");
+        const tokenResponse = await AuthSession.exchangeCodeAsync(
+          {
+            clientId: googleClientId,
+            code,
+            redirectUri,
+            extraParams: {
+              code_verifier: codeVerifier,
+            },
+          },
+          discovery,
+        );
+        const idToken = tokenResponse.idToken || "";
+        if (!idToken) {
+          throw new Error("Google belum mengirim identitas akun.");
+        }
+
+        const result = await googleLogin.mutateAsync(idToken);
+        if (result.status === "authenticated") {
+          router.replace("/(customer)/(tabs)");
+          return;
+        }
+        router.push({
+          pathname: "/(auth)/google-claim",
+          params: {
+            claimToken: result.claim_token,
+            name: result.profile?.name || "",
+            email: result.profile?.email || "",
+          },
+        });
+      } catch (error) {
+        setGoogleAuthError(
+          error instanceof Error ? error.message : "Google login belum berhasil.",
+        );
       }
-      router.push({
-        pathname: "/(auth)/google-claim",
-        params: {
-          claimToken: result.claim_token,
-          name: result.profile?.name || "",
-          email: result.profile?.email || "",
-        },
-      });
-    });
-  }, [googleLogin, response]);
+    })();
+  }, [discovery, googleClientId, googleLogin, redirectUri, request?.codeVerifier, response]);
 
   return (
     <ScreenShell
@@ -191,7 +231,10 @@ export default function LoginScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => void promptAsync()}
+            onPress={() => {
+              setGoogleAuthError("");
+              void promptAsync();
+            }}
             disabled={!request || googleLogin.isPending}
             style={[
               styles.googleButton,
@@ -206,7 +249,9 @@ export default function LoginScreen() {
               {googleLogin.isPending ? "Memproses Google..." : "Masuk dengan Google"}
             </Text>
           </Pressable>
-          {googleLogin.error ? (
+          {googleAuthError ? (
+            <Text style={[styles.error, { color: theme.colors.danger }]}>{googleAuthError}</Text>
+          ) : googleLogin.error ? (
             <Text style={[styles.error, { color: theme.colors.danger }]}>
               {googleLogin.error instanceof Error ? googleLogin.error.message : "Google login gagal"}
             </Text>
