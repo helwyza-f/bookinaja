@@ -159,33 +159,33 @@ func (r *Repository) UpdateBookingPaymentFromMidtrans(ctx context.Context, exec 
 	_, err := exec.ExecContext(ctx, `
 		UPDATE bookings
 		SET payment_status = CASE
-				WHEN $2 IN ('paid', 'settled') AND balance_due > 0 THEN 'partial_paid'
-				WHEN $2 IN ('paid', 'settled') THEN 'settled'
-				ELSE $2
+				WHEN $2::text IN ('paid', 'settled') AND balance_due > 0 THEN 'partial_paid'
+				WHEN $2::text IN ('paid', 'settled') THEN 'settled'
+				ELSE $2::text
 			END,
 			status = CASE
-				WHEN status = 'pending' AND $2 IN ('paid', 'settled') THEN 'confirmed'
+				WHEN status = 'pending' AND $2::text IN ('paid', 'settled') THEN 'confirmed'
 				ELSE status
 			END,
-			payment_method = COALESCE($3, payment_method),
+			payment_method = COALESCE($3::text, payment_method),
 			paid_amount = CASE
-				WHEN $2 IN ('paid', 'settled') AND balance_due > 0 THEN deposit_amount
-				WHEN $2 IN ('paid', 'settled') THEN grand_total
-				WHEN $2 = 'partial_paid' THEN deposit_amount
+				WHEN $2::text IN ('paid', 'settled') AND balance_due > 0 THEN deposit_amount
+				WHEN $2::text IN ('paid', 'settled') THEN grand_total
+				WHEN $2::text = 'partial_paid' THEN deposit_amount
 				ELSE paid_amount
 			END,
 			balance_due = CASE
-				WHEN $2 IN ('paid', 'settled') AND balance_due > 0 THEN GREATEST(grand_total - deposit_amount, 0)
-				WHEN $2 = 'paid' OR $2 = 'settled' THEN 0
-				WHEN $2 = 'partial_paid' THEN GREATEST(grand_total - deposit_amount, 0)
+				WHEN $2::text IN ('paid', 'settled') AND balance_due > 0 THEN GREATEST(grand_total - deposit_amount, 0)
+				WHEN $2::text = 'paid' OR $2::text = 'settled' THEN 0
+				WHEN $2::text = 'partial_paid' THEN GREATEST(grand_total - deposit_amount, 0)
 				ELSE balance_due
 			END,
 			settled_at = CASE
-				WHEN $2 IN ('paid', 'settled') AND balance_due <= 0 THEN COALESCE(settled_at, NOW())
+				WHEN $2::text IN ('paid', 'settled') AND balance_due <= 0 THEN COALESCE(settled_at, NOW())
 				ELSE settled_at
 			END,
 			last_status_changed_at = CASE
-				WHEN status = 'pending' AND $2 IN ('paid', 'settled') THEN NOW()
+				WHEN status = 'pending' AND $2::text IN ('paid', 'settled') THEN NOW()
 				ELSE last_status_changed_at
 			END
 		WHERE id = $1`,
@@ -202,32 +202,32 @@ func (r *Repository) UpdateBookingSettlementFromMidtrans(ctx context.Context, ex
 	_, err := exec.ExecContext(ctx, `
 		UPDATE bookings
 		SET payment_status = CASE
-				WHEN $2 IN ('paid', 'settled') THEN 'settled'
-				ELSE $2
+				WHEN $2::text IN ('paid', 'settled') THEN 'settled'
+				ELSE $2::text
 			END,
 			status = CASE
-				WHEN status IN ('pending', 'confirmed', 'active') AND $2 IN ('paid', 'settled') THEN 'completed'
+				WHEN status IN ('pending', 'confirmed', 'active') AND $2::text IN ('paid', 'settled') THEN 'completed'
 				ELSE status
 			END,
-			payment_method = COALESCE($3, payment_method),
+			payment_method = COALESCE($3::text, payment_method),
 			paid_amount = CASE
-				WHEN $2 IN ('paid', 'settled') THEN grand_total
+				WHEN $2::text IN ('paid', 'settled') THEN grand_total
 				ELSE paid_amount
 			END,
 			balance_due = CASE
-				WHEN $2 IN ('paid', 'settled') THEN 0
+				WHEN $2::text IN ('paid', 'settled') THEN 0
 				ELSE balance_due
 			END,
 			settled_at = CASE
-				WHEN $2 IN ('paid', 'settled') THEN COALESCE(settled_at, NOW())
+				WHEN $2::text IN ('paid', 'settled') THEN COALESCE(settled_at, NOW())
 				ELSE settled_at
 			END,
 			completed_at = CASE
-				WHEN status IN ('pending', 'confirmed', 'active') AND $2 IN ('paid', 'settled') THEN COALESCE(completed_at, NOW())
+				WHEN status IN ('pending', 'confirmed', 'active') AND $2::text IN ('paid', 'settled') THEN COALESCE(completed_at, NOW())
 				ELSE completed_at
 			END,
 			last_status_changed_at = CASE
-				WHEN status IN ('pending', 'confirmed', 'active') AND $2 IN ('paid', 'settled') THEN NOW()
+				WHEN status IN ('pending', 'confirmed', 'active') AND $2::text IN ('paid', 'settled') THEN NOW()
 				ELSE last_status_changed_at
 			END
 		WHERE id = $1`,
