@@ -243,9 +243,9 @@ func (r *Repository) UpdateBookingSettlementFromMidtrans(ctx context.Context, ex
 func (r *Repository) UpdatePromoRedemptionStatus(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID, status string) error {
 	_, err := exec.ExecContext(ctx, `
 		UPDATE tenant_promo_redemptions
-		SET status = $2,
+		SET status = $2::varchar(20),
 			redeemed_at = CASE
-				WHEN $2 = 'redeemed' THEN NOW()
+				WHEN $2::varchar(20) = 'redeemed' THEN NOW()
 				ELSE redeemed_at
 			END
 		WHERE booking_id = $1`,
