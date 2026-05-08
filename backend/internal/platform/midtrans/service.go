@@ -36,15 +36,6 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 	statusCode := fmt.Sprintf("%v", payload["status_code"])
 	grossAmount := fmt.Sprintf("%v", payload["gross_amount"])
 	signatureKey, _ := payload["signature_key"].(string)
-
-	if orderID == "" || statusCode == "" || grossAmount == "" || signatureKey == "" {
-		return errors.New("invalid midtrans payload")
-	}
-
-	if !VerifySignature(orderID, statusCode, grossAmount, signatureKey, os.Getenv("MIDTRANS_SERVER_KEY")) {
-		return errors.New("invalid midtrans signature")
-	}
-
 	transactionStatus := strings.ToLower(fmt.Sprintf("%v", payload["transaction_status"]))
 	fraudStatus := strings.ToLower(fmt.Sprintf("%v", payload["fraud_status"]))
 	paymentType := strings.TrimSpace(fmt.Sprintf("%v", payload["payment_type"]))
@@ -54,6 +45,37 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 	}
 	if transactionID == "<nil>" {
 		transactionID = ""
+	}
+
+	logFailure := func(message string, signatureValid bool) {
+		_ = s.repo.CreateMidtransNotificationLogDirect(ctx, MidtransNotificationLog{
+			OrderID:           orderID,
+			TransactionID:     transactionID,
+			TransactionStatus: transactionStatus,
+			FraudStatus:       fraudStatus,
+			PaymentType:       paymentType,
+			GrossAmount:       parseMidtransAmount(grossAmount),
+			SignatureValid:    signatureValid,
+			ProcessingStatus:  "failed",
+			ErrorMessage:      message,
+			RawPayload:        mustJSON(payload),
+			ReceivedAt:        time.Now().UTC(),
+		})
+	}
+
+	if orderID == "" || statusCode == "" || grossAmount == "" || signatureKey == "" {
+		logFailure("invalid midtrans payload", false)
+		return errors.New("invalid midtrans payload")
+	}
+
+	serverKey := strings.TrimSpace(os.Getenv("MIDTRANS_SERVER_KEY"))
+	if serverKey == "" {
+		logFailure("MIDTRANS_SERVER_KEY is missing", false)
+		return errors.New("midtrans server key is missing")
+	}
+	if !VerifySignature(orderID, statusCode, grossAmount, signatureKey, serverKey) {
+		logFailure("invalid midtrans signature", false)
+		return errors.New("invalid midtrans signature")
 	}
 
 	newStatus := mapMidtransStatus(transactionStatus, fraudStatus)
@@ -141,6 +163,11 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 		if strings.HasPrefix(orderID, "bk-") {
 			bookingID, paymentKind, err := ParseBookingOrderID(orderID)
 			if err != nil {
+				logCommon.ProcessingStatus = "failed"
+				logCommon.ErrorMessage = err.Error()
+				if logErr := s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon); logErr != nil {
+					return logErr
+				}
 				return err
 			}
 			attempt, err := s.repo.GetBookingPaymentAttemptByGatewayOrderID(ctx, tx, orderID)

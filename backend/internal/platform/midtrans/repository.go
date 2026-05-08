@@ -299,6 +299,25 @@ func (r *Repository) CreateMidtransNotificationLog(ctx context.Context, exec sql
 	return err
 }
 
+func (r *Repository) CreateMidtransNotificationLogDirect(ctx context.Context, log MidtransNotificationLog) error {
+	if r.db == nil {
+		return nil
+	}
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO midtrans_notification_logs (
+			tenant_id, booking_id, order_id, transaction_id, transaction_status, fraud_status,
+			payment_type, gross_amount, signature_valid, processing_status, error_message,
+			raw_payload, received_at, processed_at
+		) VALUES (
+			$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,COALESCE($13, NOW()), $14
+		)`,
+		log.TenantID, log.BookingID, log.OrderID, log.TransactionID, log.TransactionStatus, log.FraudStatus,
+		log.PaymentType, log.GrossAmount, log.SignatureValid, log.ProcessingStatus, log.ErrorMessage,
+		log.RawPayload, log.ReceivedAt, log.ProcessedAt,
+	)
+	return err
+}
+
 func (r *Repository) GetBookingPaymentAttemptByGatewayOrderID(ctx context.Context, exec sqlx.ExtContext, orderID string) (*BookingPaymentAttempt, error) {
 	var item BookingPaymentAttempt
 	err := sqlx.GetContext(ctx, exec, &item, `

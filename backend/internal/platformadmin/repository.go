@@ -651,7 +651,7 @@ func (r *Repository) ListMidtransNotificationLogsByTenantID(ctx context.Context,
 			l.id::text,
 			CASE
 				WHEN l.order_id LIKE 'sub-%' THEN 'subscription'
-				WHEN l.order_id LIKE 'book-%' THEN 'booking'
+				WHEN l.order_id LIKE 'bk-%' THEN 'booking'
 				ELSE 'unknown'
 			END AS source_type,
 			l.received_at,
