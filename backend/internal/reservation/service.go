@@ -302,6 +302,8 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 	if code := strings.TrimSpace(req.PromoCode); code != "" {
 		promoCode = &code
 	}
+	var originalGrandTotalValue *float64
+	originalGrandTotalValue = &originalGrandTotal
 	bookingStatus, depositAmount, paidAmount, balanceDue, paymentStatus, paymentMethod :=
 		resolveBookingLifecycle(req, isManualWalkIn, grandTotal, dpEnabled, dpPercentage)
 	nowUTC := time.Now().UTC()
@@ -324,7 +326,7 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 		Status:              bookingStatus, // Gunakan status hasil seleksi
 		PromoID:             promoID,
 		PromoCode:           promoCode,
-		OriginalGrandTotal:  originalGrandTotal,
+		OriginalGrandTotal:  originalGrandTotalValue,
 		DiscountAmount:      discountAmount,
 		PromoSnapshot:       promoSnapshot,
 		GrandTotal:          grandTotal,

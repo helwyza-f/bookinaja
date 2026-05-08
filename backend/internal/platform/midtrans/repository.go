@@ -65,6 +65,48 @@ func (r *Repository) invalidateBookingTenantCache(ctx context.Context, exec sqlx
 	).Err()
 }
 
+func (r *Repository) invalidateReservationBookingCache(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID) {
+	if r.rdb == nil {
+		return
+	}
+
+	type bookingCacheRow struct {
+		ID          uuid.UUID  `db:"id"`
+		TenantID    uuid.UUID  `db:"tenant_id"`
+		CustomerID  *uuid.UUID `db:"customer_id"`
+		AccessToken uuid.UUID  `db:"access_token"`
+		Status      string     `db:"status"`
+	}
+
+	var row bookingCacheRow
+	if err := sqlx.GetContext(ctx, exec, &row, `
+		SELECT id, tenant_id, customer_id, access_token, status
+		FROM bookings
+		WHERE id = $1
+		LIMIT 1`, bookingID); err != nil {
+		return
+	}
+
+	status := strings.ToLower(strings.TrimSpace(row.Status))
+	if status == "" {
+		status = "all"
+	}
+
+	keys := []string{
+		fmt.Sprintf("reservation:booking:admin:%s:%s", row.ID.String(), row.TenantID.String()),
+		fmt.Sprintf("reservation:booking:active:%s", row.TenantID.String()),
+		fmt.Sprintf("reservation:booking:list:%s:all", row.TenantID.String()),
+		fmt.Sprintf("reservation:booking:list:%s:%s", row.TenantID.String(), status),
+	}
+	if row.AccessToken != uuid.Nil {
+		keys = append(keys, fmt.Sprintf("reservation:booking:public:%s", row.AccessToken.String()))
+	}
+	if row.CustomerID != nil && *row.CustomerID != uuid.Nil {
+		keys = append(keys, fmt.Sprintf("reservation:booking:customer:%s:%s", row.ID.String(), row.CustomerID.String()))
+	}
+	_ = r.rdb.Del(ctx, keys...).Err()
+}
+
 func (r *Repository) CreateBookingEvent(ctx context.Context, exec sqlx.ExtContext, booking BookingNotificationContext, actorType, eventType, title, description string, metadata map[string]any) error {
 	var tableName sql.NullString
 	if err := sqlx.GetContext(ctx, exec, &tableName, `SELECT to_regclass('public.booking_events')::text`); err != nil {
@@ -151,6 +193,7 @@ func (r *Repository) UpdateBookingPaymentFromMidtrans(ctx context.Context, exec 
 	)
 	if err == nil {
 		r.invalidateBookingTenantCache(ctx, exec, bookingID)
+		r.invalidateReservationBookingCache(ctx, exec, bookingID)
 	}
 	return err
 }
@@ -192,6 +235,7 @@ func (r *Repository) UpdateBookingSettlementFromMidtrans(ctx context.Context, ex
 	)
 	if err == nil {
 		r.invalidateBookingTenantCache(ctx, exec, bookingID)
+		r.invalidateReservationBookingCache(ctx, exec, bookingID)
 	}
 	return err
 }

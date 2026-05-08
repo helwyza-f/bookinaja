@@ -20,7 +20,7 @@ type Booking struct {
 	Status              string     `db:"status" json:"status"` // pending, active, ongoing, completed, cancelled
 	PromoID             *uuid.UUID `db:"promo_id" json:"promo_id,omitempty"`
 	PromoCode           *string    `db:"promo_code" json:"promo_code,omitempty"`
-	OriginalGrandTotal  float64    `db:"original_grand_total" json:"original_grand_total"`
+	OriginalGrandTotal  *float64   `db:"original_grand_total" json:"original_grand_total,omitempty"`
 	DiscountAmount      float64    `db:"discount_amount" json:"discount_amount"`
 	PromoSnapshot       JSONB      `db:"promo_snapshot" json:"promo_snapshot"`
 	GrandTotal          float64    `db:"grand_total" json:"grand_total"`
