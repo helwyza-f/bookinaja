@@ -13,8 +13,14 @@ jobs:
 
       - name: Create Environment Files
         run: |
-          echo "${{ secrets.BE_ENV }}" > backend/.env
-          echo "${{ secrets.FE_ENV }}" > frontend/.env
+          printf '%s\n' "${{ secrets.BE_ENV }}" > backend/.env
+          printf '%s\n' "${{ secrets.FE_ENV }}" > frontend/.env
+          if [ -n "${{ secrets.BE_MQTT_CA_CERT_PEM }}" ]; then
+            sed -i '/^MQTT_CA_CERT_PATH=/d' backend/.env
+            sed -i '/^MQTT_CA_CERT_PEM=/d' backend/.env
+            printf 'MQTT_CA_CERT_PATH=\n' >> backend/.env
+            printf 'MQTT_CA_CERT_PEM=%s\n' "${{ secrets.BE_MQTT_CA_CERT_PEM }}" >> backend/.env
+          fi
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -60,8 +66,14 @@ jobs:
       # --- 1. GENERATE .ENV DARI SECRETS ---
       - name: Create Environment Files
         run: |
-          echo "${{ secrets.BE_ENV }}" > backend/.env
-          echo "${{ secrets.FE_ENV }}" > frontend/.env
+          printf '%s\n' "${{ secrets.BE_ENV }}" > backend/.env
+          printf '%s\n' "${{ secrets.FE_ENV }}" > frontend/.env
+          if [ -n "${{ secrets.BE_MQTT_CA_CERT_PEM }}" ]; then
+            sed -i '/^MQTT_CA_CERT_PATH=/d' backend/.env
+            sed -i '/^MQTT_CA_CERT_PEM=/d' backend/.env
+            printf 'MQTT_CA_CERT_PATH=\n' >> backend/.env
+            printf 'MQTT_CA_CERT_PEM=%s\n' "${{ secrets.BE_MQTT_CA_CERT_PEM }}" >> backend/.env
+          fi
 
       # --- 2. BUILD BACKEND (GO) ---
       - name: Setup Go
