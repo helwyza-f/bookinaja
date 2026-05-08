@@ -423,6 +423,32 @@ Strategi mobile:
 - tenant context explicit
 - logout dan tenant mismatch ditangani native-friendly
 
+## Google Auth Setup Notes
+
+Google login Android di Bookinaja sekarang memakai native SDK, bukan browser redirect.
+
+Konfigurasi yang harus selalu cocok:
+- Android package name: `com.bookinaja.mobile`
+- Native Android client ID untuk app: `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`
+- Web client ID untuk backend token verification dan native sign-in handshake: `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
+- Backend verifier audiences:
+  - `GOOGLE_CLIENT_ID_WEB`
+  - `GOOGLE_CLIENT_ID_IOS`
+  - `GOOGLE_CLIENT_ID_ANDROID`
+
+Debug SHA-1 laptop Windows saat ini:
+- `5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25`
+
+Debug SHA-256 laptop Windows saat ini:
+- `FA:C6:17:45:DC:09:03:78:6F:B9:ED:E6:2A:96:2B:39:9F:73:48:F0:BB:6F:89:9B:83:32:66:75:91:03:3B:9C`
+
+Checklist saat menambah machine baru atau release signing:
+1. Ambil SHA-1 dan SHA-256 dari keystore yang benar.
+2. Daftarkan fingerprint itu ke Android OAuth client atau Firebase project yang dipakai.
+3. Pastikan client ID Android milik package `com.bookinaja.mobile`, bukan package lain.
+4. Bedakan debug keystore lokal dan release keystore produksi; keduanya butuh fingerprint sendiri.
+5. Kalau Google login sukses di akun Google tetapi backend menolak token, cek variabel `GOOGLE_CLIENT_ID_*` di backend terlebih dahulu.
+
 ## Payment Strategy
 
 Booking payment di mobile tetap mengikuti sistem produk sekarang:

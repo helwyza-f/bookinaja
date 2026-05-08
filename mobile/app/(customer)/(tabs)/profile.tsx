@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
-import * as AuthSession from "expo-auth-session";
-import * as WebBrowser from "expo-web-browser";
 import { Feather } from "@expo/vector-icons";
 import { ScreenShell } from "@/components/screen-shell";
 import { useSessionStore } from "@/stores/session-store";
@@ -10,14 +8,10 @@ import { useAppTheme } from "@/theme";
 import { useCustomerDashboardQuery } from "@/features/customer/queries";
 import { useCustomerGoogleLinkMutation } from "@/features/auth/mutations";
 import {
-  GOOGLE_ANDROID_CLIENT_ID,
-  GOOGLE_ANDROID_REDIRECT_SCHEME,
-  GOOGLE_IOS_CLIENT_ID,
-  GOOGLE_IOS_REDIRECT_SCHEME,
-  GOOGLE_WEB_CLIENT_ID,
-} from "@/constants/app";
-
-WebBrowser.maybeCompleteAuthSession();
+  configureGoogleNativeSignIn,
+  getGoogleIdToken,
+  signOutGoogleNative,
+} from "@/features/auth/google-native";
 
 export default function CustomerProfileScreen() {
   const theme = useAppTheme();
@@ -25,34 +19,6 @@ export default function CustomerProfileScreen() {
   const dashboard = useCustomerDashboardQuery();
   const googleLink = useCustomerGoogleLinkMutation();
   const [googleLinkError, setGoogleLinkError] = useState("");
-  const discovery = AuthSession.useAutoDiscovery("https://accounts.google.com");
-  const redirectUri = AuthSession.makeRedirectUri({
-    scheme: "bookinaja",
-    native:
-      Platform.OS === "ios"
-        ? `${GOOGLE_IOS_REDIRECT_SCHEME}:/oauthredirect`
-        : Platform.OS === "android"
-          ? `${GOOGLE_ANDROID_REDIRECT_SCHEME}:/oauthredirect`
-          : undefined,
-  });
-  const googleClientId =
-    Platform.OS === "ios"
-      ? GOOGLE_IOS_CLIENT_ID || GOOGLE_WEB_CLIENT_ID
-      : Platform.OS === "android"
-        ? GOOGLE_ANDROID_CLIENT_ID || GOOGLE_WEB_CLIENT_ID
-        : GOOGLE_WEB_CLIENT_ID;
-  const [request, response, promptAsync] = AuthSession.useAuthRequest(
-    {
-      clientId: googleClientId,
-      responseType: AuthSession.ResponseType.Code,
-      scopes: ["openid", "profile", "email"],
-      redirectUri,
-      extraParams: {
-        prompt: "select_account",
-      },
-    },
-    discovery,
-  );
   const customer = dashboard.data?.customer;
   const identityMethods = dashboard.data?.identity_methods || [];
   const profileCompletion = dashboard.data?.profile_completion || 0;
@@ -67,44 +33,20 @@ export default function CustomerProfileScreen() {
   const raisedSurface = theme.mode === "dark" ? theme.colors.surface : theme.colors.card;
 
   useEffect(() => {
-    if (response?.type !== "success") return;
-    if (!discovery) return;
-    const code =
-      typeof response.params?.code === "string"
-        ? response.params.code
-        : "";
-    const codeVerifier = request?.codeVerifier || "";
-    if (!code || !codeVerifier) {
-      setGoogleLinkError("Google belum berhasil diproses.");
-      return;
-    }
+    configureGoogleNativeSignIn();
+  }, []);
 
-    void (async () => {
-      try {
-        setGoogleLinkError("");
-        const tokenResponse = await AuthSession.exchangeCodeAsync(
-          {
-            clientId: googleClientId,
-            code,
-            redirectUri,
-            extraParams: {
-              code_verifier: codeVerifier,
-            },
-          },
-          discovery,
-        );
-        const idToken = tokenResponse.idToken || "";
-        if (!idToken) {
-          throw new Error("Google belum mengirim identitas akun.");
-        }
-        await googleLink.mutateAsync(idToken);
-      } catch (error) {
-        setGoogleLinkError(
-          error instanceof Error ? error.message : "Google belum berhasil dihubungkan.",
-        );
-      }
-    })();
-  }, [discovery, googleClientId, googleLink, redirectUri, request?.codeVerifier, response]);
+  const handleGoogleLink = async () => {
+    try {
+      setGoogleLinkError("");
+      const idToken = await getGoogleIdToken();
+      await googleLink.mutateAsync(idToken);
+    } catch (error) {
+      setGoogleLinkError(
+        error instanceof Error ? error.message : "Google belum berhasil dihubungkan.",
+      );
+    }
+  };
 
   return (
     <ScreenShell
@@ -177,10 +119,9 @@ export default function CustomerProfileScreen() {
           }
           icon="chrome"
           theme={theme}
-          disabled={isGoogleLinked || !request || googleLink.isPending}
+          disabled={isGoogleLinked || googleLink.isPending}
           onPress={() => {
-            setGoogleLinkError("");
-            void promptAsync();
+            void handleGoogleLink();
           }}
         />
         {googleLinkError ? (
@@ -215,8 +156,11 @@ export default function CustomerProfileScreen() {
 
       <Pressable
         onPress={() => {
-          void signOut();
-          router.replace("/(auth)/login");
+          void (async () => {
+            await signOutGoogleNative();
+            await signOut();
+            router.replace("/(auth)/login");
+          })();
         }}
         style={[styles.logout, { backgroundColor: raisedSurface, borderColor: theme.colors.border }]}
       >

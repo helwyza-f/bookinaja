@@ -18,7 +18,11 @@ export default function GoogleClaimScreen() {
     email?: string;
   }>();
   const claim = useCustomerGoogleClaimMutation();
-  const { control, handleSubmit } = useForm<ClaimForm>({
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ClaimForm>({
     defaultValues: {
       name: typeof params.name === "string" ? params.name : "",
       phone: "",
@@ -27,10 +31,15 @@ export default function GoogleClaimScreen() {
 
   const onSubmit = handleSubmit(async (values) => {
     const claimToken = typeof params.claimToken === "string" ? params.claimToken : "";
+    if (!claimToken) {
+      throw new Error("Sesi Google sudah habis. Login Google lagi untuk mulai ulang.");
+    }
+
+    const normalizedPhone = normalizePhone(values.phone);
     const result = await claim.mutateAsync({
       claimToken,
-      name: values.name,
-      phone: values.phone,
+      name: values.name.trim(),
+      phone: normalizedPhone,
     });
     router.replace({
       pathname: "/(auth)/verify-phone",
@@ -60,12 +69,19 @@ export default function GoogleClaimScreen() {
         <Controller
           control={control}
           name="name"
-          rules={{ required: true }}
+          rules={{
+            validate: (value) =>
+              value.trim().length > 0 ? true : "Nama lengkap wajib diisi",
+          }}
           render={({ field: { onChange, value } }) => (
             <TextInput
               value={value}
               onChangeText={onChange}
               placeholder="Nama lengkap"
+              autoCapitalize="words"
+              autoCorrect={false}
+              autoFocus={!params.name}
+              editable={!claim.isPending}
               placeholderTextColor={theme.colors.foregroundMuted}
               style={[
                 styles.input,
@@ -78,18 +94,32 @@ export default function GoogleClaimScreen() {
             />
           )}
         />
+        {errors.name ? (
+          <Text style={[styles.error, { color: theme.colors.danger }]}>{errors.name.message}</Text>
+        ) : null}
 
         <Controller
           control={control}
           name="phone"
-          rules={{ required: true }}
+          rules={{
+            validate: (value) => {
+              const normalized = normalizePhone(value);
+              if (!normalized) return "Nomor WhatsApp wajib diisi";
+              if (normalized.length < 9) return "Nomor WhatsApp belum valid";
+              return true;
+            },
+          }}
           render={({ field: { onChange, value } }) => (
             <TextInput
               value={value}
-              onChangeText={onChange}
+              onChangeText={(nextValue) => onChange(formatPhoneInput(nextValue))}
               placeholder="Nomor WhatsApp"
+              autoFocus={!!params.name}
+              editable={!claim.isPending}
               placeholderTextColor={theme.colors.foregroundMuted}
               keyboardType="phone-pad"
+              textContentType="telephoneNumber"
+              returnKeyType="done"
               style={[
                 styles.input,
                 {
@@ -101,6 +131,13 @@ export default function GoogleClaimScreen() {
             />
           )}
         />
+        {errors.phone ? (
+          <Text style={[styles.error, { color: theme.colors.danger }]}>{errors.phone.message}</Text>
+        ) : (
+          <Text style={[styles.hint, { color: theme.colors.foregroundMuted }]}>
+            Pakai nomor WhatsApp aktif. Boleh mulai dengan 08 atau 62.
+          </Text>
+        )}
 
         <Pressable
           onPress={() => void onSubmit()}
@@ -162,4 +199,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
   },
+  hint: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
 });
+
+function normalizePhone(value: string) {
+  return value.replace(/\D+/g, "");
+}
+
+function formatPhoneInput(value: string) {
+  const digits = normalizePhone(value).slice(0, 15);
+  if (!digits) return "";
+  if (digits.length <= 4) return digits;
+  if (digits.length <= 8) return `${digits.slice(0, 4)} ${digits.slice(4)}`;
+  if (digits.length <= 12) return `${digits.slice(0, 4)} ${digits.slice(4, 8)} ${digits.slice(8)}`;
+  return `${digits.slice(0, 4)} ${digits.slice(4, 8)} ${digits.slice(8, 12)} ${digits.slice(12)}`;
+}

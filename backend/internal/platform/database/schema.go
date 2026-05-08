@@ -29,13 +29,13 @@ func EnsureCoreSchema(db *sql.DB) error {
 		return nil
 	}
 
-	if err := verifyCoreTables(db); err == nil {
+	if err := runMigration(db); err != nil {
 		lastSchemaCheck = time.Now()
-		lastSchemaResult = nil
-		return nil
+		lastSchemaResult = err
+		return err
 	}
 
-	if err := runMigration(db); err != nil {
+	if err := verifyCoreTables(db); err != nil {
 		lastSchemaCheck = time.Now()
 		lastSchemaResult = err
 		return err

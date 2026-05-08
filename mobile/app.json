@@ -4,9 +4,7 @@
     "slug": "bookinaja-mobile",
     "icon": "./assets/icon.png",
     "scheme": [
-      "bookinaja",
-      "com.googleusercontent.apps.39127355505-69ph15i21481t87eoktnj2462h6ofp5h",
-      "com.googleusercontent.apps.39127355505-pp4rj37f5qa4mag36dj597j03o2mkvjm"
+      "bookinaja"
     ],
     "version": "0.1.0",
     "orientation": "portrait",
@@ -18,7 +16,13 @@
     "plugins": [
       "expo-dev-client",
       "expo-router",
-      "expo-font"
+      "expo-font",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.39127355505-69ph15i21481t87eoktnj2462h6ofp5h"
+        }
+      ]
     ],
     "assetBundlePatterns": [
       "**/*"

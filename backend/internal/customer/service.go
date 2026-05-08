@@ -2,9 +2,11 @@ package customer
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"math/rand"
 	"os"
@@ -37,16 +39,21 @@ type googleIdentity struct {
 	EmailVerified bool    `json:"email_verified"`
 }
 
+type googleIdentityVerifier func(context.Context, string) (*googleIdentity, error)
+
 type Service struct {
-	repo  *Repository
-	redis *redis.Client // Redis untuk OTP & Caching
+	repo                   *Repository
+	redis                  *redis.Client // Redis untuk OTP & Caching
+	verifyGoogleIdentityFn googleIdentityVerifier
 }
 
 func NewService(r *Repository, rdb *redis.Client) *Service {
-	return &Service{
+	svc := &Service{
 		repo:  r,
 		redis: rdb,
 	}
+	svc.verifyGoogleIdentityFn = svc.defaultVerifyGoogleIdentity
+	return svc
 }
 
 // --- AUTH & OTP LOGIC (REDIS + FONNTE) ---
@@ -232,7 +239,7 @@ func (s *Service) LoginWithEmail(ctx context.Context, email, password string) (*
 }
 
 func (s *Service) LoginWithGoogle(ctx context.Context, idTokenRaw string) (*GoogleAuthResponse, error) {
-	identity, err := s.verifyGoogleIdentity(ctx, idTokenRaw)
+	identity, err := s.verifyGoogleIdentityFn(ctx, idTokenRaw)
 	if err != nil {
 		return nil, err
 	}
@@ -301,6 +308,9 @@ func (s *Service) ClaimGoogleAccount(ctx context.Context, req GoogleClaimReq) (*
 	if phone == "" {
 		return nil, fmt.Errorf("nomor WhatsApp wajib diisi")
 	}
+	if len(phone) < 9 {
+		return nil, fmt.Errorf("nomor WhatsApp belum valid")
+	}
 
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
@@ -338,7 +348,8 @@ func (s *Service) ClaimGoogleAccount(ctx context.Context, req GoogleClaimReq) (*
 
 	id, err := s.repo.UpsertPendingRegistration(ctx, cust)
 	if err != nil {
-		return nil, fmt.Errorf("claim akun Google belum berhasil disimpan")
+		log.Printf("customer google claim save failed phone=%s subject=%s err=%v", maskPhone(phone), identity.Subject, err)
+		return nil, translateGoogleClaimPersistError(err)
 	}
 
 	created, err := s.repo.FindByID(ctx, id)
@@ -364,7 +375,7 @@ func (s *Service) LinkGoogleForCustomer(ctx context.Context, customerID string, 
 		return nil, fmt.Errorf("profil pelanggan tidak ditemukan")
 	}
 
-	identity, err := s.verifyGoogleIdentity(ctx, idTokenRaw)
+	identity, err := s.verifyGoogleIdentityFn(ctx, idTokenRaw)
 	if err != nil {
 		return nil, err
 	}
@@ -385,7 +396,8 @@ func (s *Service) LinkGoogleForCustomer(ctx context.Context, customerID string, 
 
 	updated, err := s.repo.LinkGoogleIdentity(ctx, cID, identity.Subject, identity.Email, &identity.Name, identity.AvatarURL)
 	if err != nil {
-		return nil, fmt.Errorf("akun Google belum berhasil dihubungkan")
+		log.Printf("customer google link failed customer_id=%s subject=%s err=%v", cID.String(), identity.Subject, err)
+		return nil, translateGoogleLinkError(err)
 	}
 	if updated == nil {
 		return nil, fmt.Errorf("profil pelanggan tidak ditemukan")
@@ -918,7 +930,7 @@ func (s *Service) InvalidateTenantCache(ctx context.Context, tenantID uuid.UUID)
 	s.repo.InvalidateTenantCache(ctx, tenantID)
 }
 
-func (s *Service) verifyGoogleIdentity(ctx context.Context, rawToken string) (*googleIdentity, error) {
+func (s *Service) defaultVerifyGoogleIdentity(ctx context.Context, rawToken string) (*googleIdentity, error) {
 	rawToken = strings.TrimSpace(rawToken)
 	if rawToken == "" {
 		return nil, fmt.Errorf("token Google wajib diisi")
@@ -1195,4 +1207,37 @@ func normalizePhone(phone string) string {
 		}
 	}
 	return builder.String()
+}
+
+func translateGoogleClaimPersistError(err error) error {
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("nomor WhatsApp ini sudah dipakai akun aktif. Masuk dulu lalu hubungkan Google dari profil akun yang sama")
+	}
+	if isUniqueConstraint(err, "uniq_customers_google_subject") {
+		return fmt.Errorf("akun Google ini sudah pernah terhubung ke akun Bookinaja lain. Coba login Google lagi atau masuk ke akun yang sudah terhubung")
+	}
+	return fmt.Errorf("claim akun Google belum berhasil disimpan. Coba login Google lagi sebentar lagi")
+}
+
+func translateGoogleLinkError(err error) error {
+	if isUniqueConstraint(err, "uniq_customers_google_subject") {
+		return fmt.Errorf("akun Google ini sudah terhubung ke akun Bookinaja lain")
+	}
+	return fmt.Errorf("akun Google belum berhasil dihubungkan")
+}
+
+func isUniqueConstraint(err error, constraint string) bool {
+	var pqErr *pq.Error
+	if !errors.As(err, &pqErr) || pqErr.Code != "23505" {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(pqErr.Constraint), strings.TrimSpace(constraint))
+}
+
+func maskPhone(phone string) string {
+	phone = normalizePhone(phone)
+	if len(phone) <= 4 {
+		return phone
+	}
+	return strings.Repeat("*", len(phone)-4) + phone[len(phone)-4:]
 }
