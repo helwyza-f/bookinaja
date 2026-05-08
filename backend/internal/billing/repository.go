@@ -10,14 +10,81 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/redis/go-redis/v9"
 )
 
 type Repository struct {
-	db *sqlx.DB
+	db  *sqlx.DB
+	rdb *redis.Client
 }
 
-func NewRepository(db *sqlx.DB) *Repository {
-	return &Repository{db: db}
+func NewRepository(db *sqlx.DB, rdb ...*redis.Client) *Repository {
+	var client *redis.Client
+	if len(rdb) > 0 {
+		client = rdb[0]
+	}
+	return &Repository{db: db, rdb: client}
+}
+
+func reservationPublicBookingCacheKey(token uuid.UUID) string {
+	return fmt.Sprintf("reservation:booking:public:%s", token.String())
+}
+
+func reservationCustomerBookingCacheKey(bookingID, customerID uuid.UUID) string {
+	return fmt.Sprintf("reservation:booking:customer:%s:%s", bookingID.String(), customerID.String())
+}
+
+func reservationAdminBookingCacheKey(bookingID, tenantID uuid.UUID) string {
+	return fmt.Sprintf("reservation:booking:admin:%s:%s", bookingID.String(), tenantID.String())
+}
+
+func reservationActiveSessionsCacheKey(tenantID uuid.UUID) string {
+	return fmt.Sprintf("reservation:booking:active:%s", tenantID.String())
+}
+
+func reservationTenantBookingsCacheKey(tenantID uuid.UUID, status string) string {
+	status = strings.ToLower(strings.TrimSpace(status))
+	if status == "" {
+		status = "all"
+	}
+	return fmt.Sprintf("reservation:booking:list:%s:%s", tenantID.String(), status)
+}
+
+func (r *Repository) InvalidateReservationBookingCache(ctx context.Context, bookingID uuid.UUID) {
+	if r.rdb == nil {
+		return
+	}
+
+	type bookingCacheRow struct {
+		ID          uuid.UUID  `db:"id"`
+		TenantID    uuid.UUID  `db:"tenant_id"`
+		CustomerID  *uuid.UUID `db:"customer_id"`
+		AccessToken uuid.UUID  `db:"access_token"`
+		Status      string     `db:"status"`
+	}
+
+	var row bookingCacheRow
+	if err := r.db.GetContext(ctx, &row, `
+		SELECT id, tenant_id, customer_id, access_token, status
+		FROM bookings
+		WHERE id = $1
+		LIMIT 1`, bookingID); err != nil {
+		return
+	}
+
+	keys := []string{
+		reservationAdminBookingCacheKey(row.ID, row.TenantID),
+		reservationActiveSessionsCacheKey(row.TenantID),
+		reservationTenantBookingsCacheKey(row.TenantID, ""),
+		reservationTenantBookingsCacheKey(row.TenantID, row.Status),
+	}
+	if row.AccessToken != uuid.Nil {
+		keys = append(keys, reservationPublicBookingCacheKey(row.AccessToken))
+	}
+	if row.CustomerID != nil && *row.CustomerID != uuid.Nil {
+		keys = append(keys, reservationCustomerBookingCacheKey(row.ID, *row.CustomerID))
+	}
+	_ = r.rdb.Del(ctx, keys...).Err()
 }
 
 func (r *Repository) CreateOrder(ctx context.Context, exec sqlx.ExtContext, order BillingOrder) error {

@@ -188,6 +188,7 @@ func (s *Service) CheckoutBookingPayment(ctx context.Context, tenantID uuid.UUID
 	if err := s.repo.CreateBookingPaymentAttempt(ctx, s.db, attempt); err != nil {
 		return BookingCheckoutRes{}, err
 	}
+	s.repo.InvalidateReservationBookingCache(ctx, bookingID)
 
 	return BookingCheckoutRes{
 		OrderID:      orderID,
@@ -295,6 +296,7 @@ func (s *Service) SubmitManualBookingPayment(ctx context.Context, tenantID uuid.
 	}); err != nil {
 		return BookingCheckoutRes{}, err
 	}
+	s.repo.InvalidateReservationBookingCache(ctx, bookingID)
 
 	if info, err := s.repo.GetBookingNotificationContext(ctx, s.db, bookingID); err == nil {
 		s.emitManualPaymentRealtime("payment.awaiting_verification", info, scope, reference, method)
@@ -389,6 +391,9 @@ func (s *Service) VerifyManualBookingPayment(ctx context.Context, tenantID, atte
 	})
 	if err != nil {
 		return err
+	}
+	if info != nil {
+		s.repo.InvalidateReservationBookingCache(ctx, info.BookingID)
 	}
 	if info != nil {
 		s.emitManualPaymentRealtime(eventType, *info, paymentScope, "", PaymentMethodOption{})

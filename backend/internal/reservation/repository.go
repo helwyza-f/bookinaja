@@ -11,14 +11,98 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/redis/go-redis/v9"
 )
 
 type Repository struct {
-	db *sqlx.DB
+	db  *sqlx.DB
+	rdb *redis.Client
 }
 
-func NewRepository(db *sqlx.DB) *Repository {
-	return &Repository{db: db}
+func NewRepository(db *sqlx.DB, rdb ...*redis.Client) *Repository {
+	var client *redis.Client
+	if len(rdb) > 0 {
+		client = rdb[0]
+	}
+	return &Repository{db: db, rdb: client}
+}
+
+func (r *Repository) cacheGet(ctx context.Context, key string, dest any) bool {
+	if r.rdb == nil {
+		return false
+	}
+	val, err := r.rdb.Get(ctx, key).Result()
+	if err != nil {
+		return false
+	}
+	return json.Unmarshal([]byte(val), dest) == nil
+}
+
+func (r *Repository) cacheSet(ctx context.Context, key string, value any, ttl time.Duration) {
+	if r.rdb == nil {
+		return
+	}
+	if raw, err := json.Marshal(value); err == nil {
+		_ = r.rdb.Set(ctx, key, raw, ttl).Err()
+	}
+}
+
+func reservationPublicBookingCacheKey(token uuid.UUID) string {
+	return fmt.Sprintf("reservation:booking:public:%s", token.String())
+}
+
+func reservationCustomerBookingCacheKey(bookingID, customerID uuid.UUID) string {
+	return fmt.Sprintf("reservation:booking:customer:%s:%s", bookingID.String(), customerID.String())
+}
+
+func reservationAdminBookingCacheKey(bookingID, tenantID uuid.UUID) string {
+	return fmt.Sprintf("reservation:booking:admin:%s:%s", bookingID.String(), tenantID.String())
+}
+
+func reservationActiveSessionsCacheKey(tenantID uuid.UUID) string {
+	return fmt.Sprintf("reservation:booking:active:%s", tenantID.String())
+}
+
+func reservationTenantBookingsCacheKey(tenantID uuid.UUID, status string) string {
+	status = strings.ToLower(strings.TrimSpace(status))
+	if status == "" {
+		status = "all"
+	}
+	return fmt.Sprintf("reservation:booking:list:%s:%s", tenantID.String(), status)
+}
+
+func (r *Repository) InvalidateBookingCache(ctx context.Context, booking Booking) {
+	if r.rdb == nil {
+		return
+	}
+	keys := []string{
+		reservationActiveSessionsCacheKey(booking.TenantID),
+		reservationTenantBookingsCacheKey(booking.TenantID, ""),
+		reservationTenantBookingsCacheKey(booking.TenantID, booking.Status),
+	}
+	if booking.AccessToken != uuid.Nil {
+		keys = append(keys, reservationPublicBookingCacheKey(booking.AccessToken))
+	}
+	if booking.CustomerID != uuid.Nil {
+		keys = append(keys, reservationCustomerBookingCacheKey(booking.ID, booking.CustomerID))
+	}
+	keys = append(keys, reservationAdminBookingCacheKey(booking.ID, booking.TenantID))
+	_ = r.rdb.Del(ctx, keys...).Err()
+}
+
+func (r *Repository) InvalidateBookingCacheByID(ctx context.Context, bookingID uuid.UUID) {
+	if r.rdb == nil {
+		return
+	}
+	var booking Booking
+	if err := r.db.GetContext(ctx, &booking, `
+		SELECT *
+		FROM bookings
+		WHERE id = $1
+		LIMIT 1`, bookingID); err != nil {
+		return
+	}
+	r.InvalidateBookingCache(ctx, booking)
 }
 
 type BookingEventInput struct {
@@ -203,7 +287,11 @@ func (r *Repository) ExtendSessionWithValidation(ctx context.Context, bID uuid.U
 		return err
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	r.InvalidateBookingCacheByID(ctx, bID)
+	return nil
 }
 
 // CreateWithItems menyimpan data booking beserta pilihan item dengan Quantity dinamis
@@ -299,11 +387,23 @@ func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []u
 	}); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	r.InvalidateBookingCache(ctx, b)
+	return nil
 }
 
 // FindByID menarik detail lengkap booking untuk Dashboard Admin & POS
 func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*BookingDetail, error) {
+	cacheKey := reservationAdminBookingCacheKey(id, tenantID)
+	if tenantID != uuid.Nil {
+		var cached BookingDetail
+		if r.cacheGet(ctx, cacheKey, &cached) {
+			return &cached, nil
+		}
+	}
+
 	var b BookingDetail
 	if err := r.recalculateBookingTotalsTx(ctx, r.db, id); err != nil {
 		return nil, err
@@ -345,6 +445,9 @@ func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*Boo
 
 	// Hydrate data relasi
 	err = r.HydrateBooking(ctx, &b)
+	if err == nil && tenantID != uuid.Nil {
+		r.cacheSet(ctx, cacheKey, b, 2*time.Minute)
+	}
 	return &b, err
 }
 
@@ -454,6 +557,12 @@ func (r *Repository) seedDefaultTenantPaymentMethods(ctx context.Context, tenant
 
 // GetByToken menarik detail untuk pengecekan status tiket customer (Hydrated)
 func (r *Repository) GetByToken(ctx context.Context, token uuid.UUID) (*BookingDetail, error) {
+	cacheKey := reservationPublicBookingCacheKey(token)
+	var cached BookingDetail
+	if r.cacheGet(ctx, cacheKey, &cached) {
+		return &cached, nil
+	}
+
 	var b BookingDetail
 	query := `
 		SELECT b.*, t.name as tenant_name, t.slug as tenant_slug,
@@ -482,12 +591,21 @@ func (r *Repository) GetByToken(ctx context.Context, token uuid.UUID) (*BookingD
 		}
 	}
 	err = r.HydrateBooking(ctx, &b)
+	if err == nil {
+		r.cacheSet(ctx, cacheKey, b, 2*time.Minute)
+	}
 	return &b, err
 }
 
 func (r *Repository) FindByIDForCustomer(ctx context.Context, id, tenantID, customerID uuid.UUID) (*BookingDetail, error) {
 	if tenantID == uuid.Nil {
 		return r.FindByIDForCustomerGlobal(ctx, id, customerID)
+	}
+
+	cacheKey := reservationCustomerBookingCacheKey(id, customerID)
+	var cached BookingDetail
+	if r.cacheGet(ctx, cacheKey, &cached) {
+		return &cached, nil
 	}
 
 	var b BookingDetail
@@ -527,10 +645,19 @@ func (r *Repository) FindByIDForCustomer(ctx context.Context, id, tenantID, cust
 		}
 	}
 	err = r.HydrateBooking(ctx, &b)
+	if err == nil {
+		r.cacheSet(ctx, cacheKey, b, 2*time.Minute)
+	}
 	return &b, err
 }
 
 func (r *Repository) FindByIDForCustomerGlobal(ctx context.Context, id, customerID uuid.UUID) (*BookingDetail, error) {
+	cacheKey := reservationCustomerBookingCacheKey(id, customerID)
+	var cached BookingDetail
+	if r.cacheGet(ctx, cacheKey, &cached) {
+		return &cached, nil
+	}
+
 	var b BookingDetail
 	if err := r.recalculateBookingTotalsTx(ctx, r.db, id); err != nil {
 		return nil, err
@@ -568,6 +695,9 @@ func (r *Repository) FindByIDForCustomerGlobal(ctx context.Context, id, customer
 		}
 	}
 	err = r.HydrateBooking(ctx, &b)
+	if err == nil {
+		r.cacheSet(ctx, cacheKey, b, 2*time.Minute)
+	}
 	return &b, err
 }
 
@@ -618,7 +748,11 @@ func (r *Repository) AddFnbOrder(ctx context.Context, bookingID uuid.UUID, fnbIt
 	}); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	r.InvalidateBookingCacheByID(ctx, bookingID)
+	return nil
 }
 
 func (r *Repository) AddAddonOrder(ctx context.Context, bookingID uuid.UUID, itemID uuid.UUID, actor ActorContext) error {
@@ -668,7 +802,11 @@ func (r *Repository) AddAddonOrder(ctx context.Context, bookingID uuid.UUID, ite
 	}); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	r.InvalidateBookingCacheByID(ctx, bookingID)
+	return nil
 }
 
 func (r *Repository) recalculateBookingTotalsTx(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID) error {
@@ -861,6 +999,12 @@ func toString(value any) string {
 }
 
 func (r *Repository) FindActiveSessions(ctx context.Context, tenantID uuid.UUID) ([]BookingDetail, error) {
+	cacheKey := reservationActiveSessionsCacheKey(tenantID)
+	var cached []BookingDetail
+	if r.cacheGet(ctx, cacheKey, &cached) {
+		return cached, nil
+	}
+
 	var res []BookingDetail
 	query := `
 		SELECT 
@@ -910,6 +1054,7 @@ func (r *Repository) FindActiveSessions(ctx context.Context, tenantID uuid.UUID)
 		res[i].Options = []BookingOptionDetail{}
 		res[i].Orders = []OrderItem{}
 	}
+	r.cacheSet(ctx, cacheKey, res, 30*time.Second)
 	return res, nil
 }
 
@@ -963,7 +1108,7 @@ func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, s
 		eventType = "booking.cancelled"
 		title = "Booking dibatalkan"
 	}
-	return r.CreateBookingEvent(ctx, r.db, BookingEventInput{
+	if err := r.CreateBookingEvent(ctx, r.db, BookingEventInput{
 		BookingID:   id,
 		TenantID:    tenantID,
 		CustomerID:  &before.CustomerID,
@@ -976,7 +1121,11 @@ func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, s
 		Title:       title,
 		Description: fmt.Sprintf("Status berubah dari %s ke %s.", before.Status, status),
 		Metadata:    map[string]any{"from_status": before.Status, "to_status": status},
-	})
+	}); err != nil {
+		return err
+	}
+	r.InvalidateBookingCacheByID(ctx, id)
+	return nil
 }
 
 func (r *Repository) updatePromoRedemptionStatus(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID, status string) error {
@@ -1048,7 +1197,11 @@ func (r *Repository) SettlePaymentCash(ctx context.Context, id, tenantID uuid.UU
 	}); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	r.InvalidateBookingCacheByID(ctx, id)
+	return nil
 }
 
 func (r *Repository) UpdateSessionActivatedAt(ctx context.Context, id, tenantID uuid.UUID) error {
@@ -1058,6 +1211,9 @@ func (r *Repository) UpdateSessionActivatedAt(ctx context.Context, id, tenantID 
 		WHERE id = $1 AND tenant_id = $2 AND session_activated_at IS NULL`,
 		id, tenantID,
 	)
+	if err == nil {
+		r.InvalidateBookingCacheByID(ctx, id)
+	}
 	return err
 }
 
@@ -1098,7 +1254,11 @@ func (r *Repository) MarkReminderSent(ctx context.Context, id, tenantID uuid.UUI
 			return err
 		}
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	r.InvalidateBookingCacheByID(ctx, id)
+	return nil
 }
 
 func (r *Repository) ListUpcoming(ctx context.Context, resourceID uuid.UUID, from time.Time) ([]Booking, error) {
@@ -1109,6 +1269,12 @@ func (r *Repository) ListUpcoming(ctx context.Context, resourceID uuid.UUID, fro
 }
 
 func (r *Repository) FindAllByTenant(ctx context.Context, tenantID uuid.UUID, status string) ([]BookingDetail, error) {
+	cacheKey := reservationTenantBookingsCacheKey(tenantID, status)
+	var cached []BookingDetail
+	if r.cacheGet(ctx, cacheKey, &cached) {
+		return cached, nil
+	}
+
 	var res []BookingDetail
 	query := `
 		SELECT b.*, t.name as tenant_name, t.slug as tenant_slug,
@@ -1144,6 +1310,7 @@ func (r *Repository) FindAllByTenant(ctx context.Context, tenantID uuid.UUID, st
 			}
 		}
 	}
+	r.cacheSet(ctx, cacheKey, res, 30*time.Second)
 	return res, nil
 }
 
