@@ -46,7 +46,7 @@ export type CustomerBookingDetail = CustomerBookingSummary & {
   original_grand_total?: number;
   discount_amount?: number;
   promo_code?: string;
-  payment_methods?: Array<{
+  payment_methods?: {
     code: string;
     display_name: string;
     category: string;
@@ -56,8 +56,8 @@ export type CustomerBookingDetail = CustomerBookingSummary & {
     is_active: boolean;
     sort_order: number;
     metadata?: Record<string, unknown>;
-  }>;
-  payment_attempts?: Array<{
+  }[];
+  payment_attempts?: {
     id: string;
     method_code: string;
     method_label: string;
@@ -73,8 +73,8 @@ export type CustomerBookingDetail = CustomerBookingSummary & {
     submitted_at?: string | null;
     verified_at?: string | null;
     rejected_at?: string | null;
-  }>;
-  options?: Array<{
+  }[];
+  options?: {
     id: string;
     item_name?: string;
     quantity?: number;
@@ -82,8 +82,8 @@ export type CustomerBookingDetail = CustomerBookingSummary & {
     item_type?: string;
     unit_price?: number;
     price_at_booking?: number;
-  }>;
-  orders?: Array<{
+  }[];
+  orders?: {
     id: string;
     product_name?: string;
     qty?: number;
@@ -92,8 +92,8 @@ export type CustomerBookingDetail = CustomerBookingSummary & {
     subtotal?: number;
     price_at_purchase?: number;
     status?: string;
-  }>;
-  events?: Array<{
+  }[];
+  events?: {
     id: string;
     actor_type?: string;
     actor_name?: string;
@@ -101,5 +101,5 @@ export type CustomerBookingDetail = CustomerBookingSummary & {
     title?: string;
     description?: string;
     created_at?: string;
-  }>;
+  }[];
 };

@@ -19,7 +19,14 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.bookinaja.mobile"
+      "bundleIdentifier": "com.bookinaja.mobile",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSAllowsLocalNetworking": true
+        },
+        "NSLocalNetworkUsageDescription": "Bookinaja membutuhkan akses jaringan lokal saat development untuk terhubung ke backend di komputer ini."
+      }
     },
     "android": {
       "package": "com.bookinaja.mobile",
