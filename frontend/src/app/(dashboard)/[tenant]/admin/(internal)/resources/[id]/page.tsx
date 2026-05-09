@@ -8,6 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   ArrowLeft,
   Plus,
   Trash2,
@@ -41,6 +48,7 @@ type ResourceDetail = {
   id: string;
   name: string;
   category?: string;
+  operating_mode?: string;
   description?: string;
   image_url?: string;
   gallery?: string[];
@@ -73,6 +81,7 @@ export default function ResourceDetailPage() {
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [gallery, setGallery] = useState<string[]>([]);
+  const [operatingMode, setOperatingMode] = useState("timed");
 
   const fetchData = useCallback(
     async (useCache = true) => {
@@ -92,6 +101,7 @@ export default function ResourceDetailPage() {
               setDescription(found.description || "");
               setImageUrl(found.image_url || "");
               setGallery(found.gallery || []);
+              setOperatingMode(found.operating_mode || "timed");
               setLoading(false);
             }
           }
@@ -103,6 +113,7 @@ export default function ResourceDetailPage() {
         setDescription(data.description || "");
         setImageUrl(data.image_url || "");
         setGallery(data.gallery || []);
+        setOperatingMode(data.operating_mode || "timed");
       } catch (err: unknown) {
         if (
           typeof err === "object" &&
@@ -148,6 +159,7 @@ export default function ResourceDetailPage() {
         description,
         image_url: imageUrl,
         gallery,
+        operating_mode: operatingMode,
       });
       toast.success("Tampilan resource berhasil diperbarui");
       setIsEditMode(false);
@@ -240,6 +252,26 @@ export default function ResourceDetailPage() {
       icon: <Clock size={16} />,
     };
 
+  const operatingModeMeta = (() => {
+    switch (operatingMode) {
+      case "direct_sale":
+        return {
+          label: "Direct sale",
+          description: "Resource ini dijual langsung lewat POS tanpa slot waktu.",
+        };
+      case "hybrid":
+        return {
+          label: "Hybrid",
+          description: "Resource ini bisa dipakai sebagai booking berbasis waktu dan direct sale.",
+        };
+      default:
+        return {
+          label: "Timed",
+          description: "Resource ini memakai jadwal, sesi, dan lifecycle waktu.",
+        };
+    }
+  })();
+
   if (loading && !resource) return <ResourceDetailLoading />;
 
   return (
@@ -260,6 +292,9 @@ export default function ResourceDetailPage() {
               </h1>
               <Badge className="rounded-md bg-[var(--bookinaja-600)] px-2 py-0.5 text-[10px] font-medium text-white">
                 {resource?.category || "General"}
+              </Badge>
+              <Badge className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                {operatingModeMeta.label}
               </Badge>
             </div>
             <p className="mt-1.5 text-xs text-slate-500">
@@ -310,6 +345,24 @@ export default function ResourceDetailPage() {
                   onChange={setImageUrl}
                   endpoint="/resources-all/upload-cover"
                 />
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Mode operasional
+                  </div>
+                  <Select value={operatingMode} onValueChange={setOperatingMode}>
+                    <SelectTrigger className="h-11 w-full rounded-xl border-slate-200 bg-slate-50 px-4 text-sm font-semibold dark:border-white/10 dark:bg-slate-900/50">
+                      <SelectValue placeholder="Pilih mode operasional" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="timed">Timed - pakai slot dan jadwal</SelectItem>
+                      <SelectItem value="direct_sale">Direct sale - jual langsung di POS</SelectItem>
+                      <SelectItem value="hybrid">Hybrid - bisa timed dan direct sale</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                    {operatingModeMeta.description}
+                  </p>
+                </div>
                 <Textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -354,6 +407,12 @@ export default function ResourceDetailPage() {
                     <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
                       Ringkasan resource
                     </h3>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-white/10 dark:bg-slate-900/30 dark:text-slate-300">
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      {operatingModeMeta.label}
+                    </span>{" "}
+                    · {operatingModeMeta.description}
                   </div>
                   <p className="border-l-2 border-[color:rgba(59,130,246,0.28)] pl-4 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
                     {description || "Belum ada deskripsi untuk resource ini."}
@@ -581,6 +640,7 @@ export default function ResourceDetailPage() {
         resourceId={resourceId}
         resourceName={resource?.name || "Unit"}
         businessCategory={businessCategory}
+        operatingMode={operatingMode}
         onSuccess={() => fetchData(false)}
       />
     </div>

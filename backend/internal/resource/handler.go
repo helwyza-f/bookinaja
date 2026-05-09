@@ -66,10 +66,11 @@ func (h *Handler) Create(c *gin.Context) {
 	tenantID := c.MustGet("tenantID").(string)
 
 	var req struct {
-		Name        string `json:"name" binding:"required"`
-		Category    string `json:"category"`
-		Description string `json:"description"`
-		ImageURL    string `json:"image_url"`
+		Name          string `json:"name" binding:"required"`
+		Category      string `json:"category"`
+		Description   string `json:"description"`
+		ImageURL      string `json:"image_url"`
+		OperatingMode string `json:"operating_mode"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -84,6 +85,7 @@ func (h *Handler) Create(c *gin.Context) {
 		req.Category,
 		req.Description,
 		req.ImageURL,
+		req.OperatingMode,
 	)
 
 	if err != nil {

@@ -16,6 +16,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Plus, Loader2, Info, LayoutGrid, ChevronRight } from "lucide-react";
 import api from "@/lib/api";
 import { Badge } from "../ui/badge";
@@ -23,6 +30,7 @@ import { Badge } from "../ui/badge";
 type ResourceFormValues = {
   name: string;
   category: string;
+  operating_mode: string;
 };
 
 interface AddResourceDialogProps {
@@ -42,6 +50,7 @@ export function AddResourceDialog({
     defaultValues: {
       name: "",
       category: "",
+      operating_mode: "timed",
     },
   });
 
@@ -83,6 +92,7 @@ export function AddResourceDialog({
     const payload = {
       name: data.name.toUpperCase(),
       category: data.category ? data.category.toUpperCase() : "",
+      operating_mode: data.operating_mode || "timed",
     };
 
     try {
@@ -132,6 +142,7 @@ export function AddResourceDialog({
             onSubmit={handleSubmit(onSubmit)}
             className="space-y-5 pt-4 relative z-10"
           >
+            <input type="hidden" {...register("operating_mode")} />
             {/* INPUT NAMA */}
             <div className="space-y-3">
               <Label className="px-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
@@ -145,6 +156,40 @@ export function AddResourceDialog({
                 required
                 autoComplete="off"
               />
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  MODE OPERASIONAL
+                </Label>
+                <Badge
+                  variant="secondary"
+                  className="border-none bg-blue-50 px-2 py-0 text-[10px] font-semibold text-blue-600"
+                >
+                  DEFAULT TIMED
+                </Badge>
+              </div>
+              <Select
+                defaultValue="timed"
+                onValueChange={(value) => setValue("operating_mode", value)}
+              >
+                <SelectTrigger className="h-12 w-full rounded-xl border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-900 focus:ring-4 focus:ring-blue-600/10 dark:border-white/10 dark:bg-white/5 dark:text-white">
+                  <SelectValue placeholder="Pilih mode operasional" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="timed">Timed - pakai jadwal dan slot</SelectItem>
+                  <SelectItem value="direct_sale">Direct sale - POS tanpa slot</SelectItem>
+                  <SelectItem value="hybrid">Hybrid - bisa keduanya</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="flex items-start gap-2 px-2">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />
+                <p className="text-xs leading-relaxed text-slate-500">
+                  Timed cocok untuk lapangan atau room booking. Direct sale cocok
+                  untuk cafe, barber, atau counter tanpa slot waktu.
+                </p>
+              </div>
             </div>
 
             {/* INPUT KATEGORI - OPTIONAL */}

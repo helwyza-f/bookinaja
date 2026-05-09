@@ -17,8 +17,25 @@ func NewService(r *Repository) *Service {
 	return &Service{repo: r}
 }
 
+const (
+	OperatingModeTimed      = "timed"
+	OperatingModeDirectSale = "direct_sale"
+	OperatingModeHybrid     = "hybrid"
+)
+
+func NormalizeOperatingMode(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case OperatingModeDirectSale:
+		return OperatingModeDirectSale
+	case OperatingModeHybrid:
+		return OperatingModeHybrid
+	default:
+		return OperatingModeTimed
+	}
+}
+
 // CreateResource membuat unit utama dengan informasi visual untuk marketing
-func (s *Service) CreateResource(ctx context.Context, tenantID, name, category, description, imageURL string) (*Resource, error) {
+func (s *Service) CreateResource(ctx context.Context, tenantID, name, category, description, imageURL, operatingMode string) (*Resource, error) {
 	tID, err := uuid.Parse(tenantID)
 	if err != nil {
 		return nil, err
@@ -28,15 +45,16 @@ func (s *Service) CreateResource(ctx context.Context, tenantID, name, category, 
 	emptyMeta := json.RawMessage("{}")
 
 	res := Resource{
-		ID:          uuid.New(),
-		TenantID:    tID,
-		Name:        name,
-		Category:    category,
-		Description: description,
-		ImageURL:    imageURL,
-		Gallery:     []string{}, // [] bukan null
-		Status:      "available",
-		Metadata:    &emptyMeta,
+		ID:            uuid.New(),
+		TenantID:      tID,
+		Name:          name,
+		Category:      category,
+		OperatingMode: NormalizeOperatingMode(operatingMode),
+		Description:   description,
+		ImageURL:      imageURL,
+		Gallery:       []string{}, // [] bukan null
+		Status:        "available",
+		Metadata:      &emptyMeta,
 	}
 
 	created, err := s.repo.Create(ctx, res)
@@ -62,6 +80,11 @@ func (s *Service) UpdateResource(ctx context.Context, id string, req Resource) e
 
 	req.ID = resID
 	req.TenantID = existing.TenantID // Proteksi: jangan ubah kepemilikan tenant
+	if strings.TrimSpace(req.OperatingMode) == "" {
+		req.OperatingMode = existing.OperatingMode
+	} else {
+		req.OperatingMode = NormalizeOperatingMode(req.OperatingMode)
+	}
 
 	if req.Metadata == nil {
 		req.Metadata = existing.Metadata

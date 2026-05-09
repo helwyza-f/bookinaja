@@ -50,6 +50,7 @@ interface ManageItemDialogProps {
   resourceId: string;
   resourceName: string;
   businessCategory: string;
+  operatingMode?: string;
   onSuccess: () => void;
 }
 
@@ -70,6 +71,7 @@ export function ManageItemDialog({
   resourceId,
   resourceName,
   businessCategory,
+  operatingMode = "timed",
   onSuccess,
 }: ManageItemDialogProps) {
   // Form States
@@ -92,12 +94,13 @@ export function ManageItemDialog({
       setIsDefault(Boolean(editingItem.is_default));
       // Mapping dari backend type ke UI state
       setItemType(editingItem.item_type === "main_option" ? "main" : "add_on");
-      setPriceUnit(editingItem.price_unit || "hour");
-      setUnitDuration(editingItem.unit_duration || 60);
+      const defaultUnit = operatingMode === "direct_sale" ? "pcs" : "hour";
+      setPriceUnit(editingItem.price_unit || defaultUnit);
+      setUnitDuration(editingItem.unit_duration || (defaultUnit === "pcs" ? 0 : 60));
     } else {
       resetForm();
     }
-  }, [editingItem, open]);
+  }, [editingItem, open, operatingMode]);
 
   const resetForm = () => {
     setName("");
@@ -105,8 +108,8 @@ export function ManageItemDialog({
     setRawPrice(0);
     setIsDefault(false);
     setItemType("main");
-    setPriceUnit("hour");
-    setUnitDuration(60);
+    setPriceUnit(operatingMode === "direct_sale" ? "pcs" : "hour");
+    setUnitDuration(operatingMode === "direct_sale" ? 0 : 60);
   };
 
   const handlePriceChange = (val: string) => {
@@ -223,8 +226,9 @@ export function ManageItemDialog({
               value={itemType}
               onValueChange={(v) => {
                 setItemType(v);
-                setPriceUnit(v === "main" ? "hour" : "pcs");
-                setUnitDuration(v === "main" ? 60 : 0);
+                const mainUnit = operatingMode === "direct_sale" ? "pcs" : "hour";
+                setPriceUnit(v === "main" ? mainUnit : "pcs");
+                setUnitDuration(v === "main" ? (mainUnit === "pcs" ? 0 : 60) : 0);
               }}
               className="grid grid-cols-2 gap-2.5"
             >
@@ -328,11 +332,17 @@ export function ManageItemDialog({
                 <SelectContent className="rounded-xl font-bold uppercase">
                   {itemType === "main" ? (
                     <>
-                      {TIME_UNIT_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
+                      {operatingMode === "direct_sale" ? (
+                        <SelectItem value="pcs">Per Pcs / Unit</SelectItem>
+                      ) : (
+                        <>
+                          {TIME_UNIT_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
                     </>
                   ) : (
                     <SelectItem value="pcs">Per Pcs / Unit</SelectItem>
@@ -343,7 +353,7 @@ export function ManageItemDialog({
           </div>
 
           {/* DURASI SESI (Dinamis) */}
-          {itemType === "main" && priceUnit === "session" && (
+          {itemType === "main" && operatingMode !== "direct_sale" && priceUnit === "session" && (
             <div className="space-y-1.5 animate-in slide-in-from-top-2">
               <Label className="text-[9px] font-black uppercase tracking-widest text-blue-600 px-1 italic">
                 DURASI PER SESI (MENIT)
@@ -358,13 +368,20 @@ export function ManageItemDialog({
             </div>
           )}
 
-          {itemType === "main" && priceUnit !== "session" && (
+          {itemType === "main" && operatingMode !== "direct_sale" && priceUnit !== "session" && (
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-[10px] font-semibold text-slate-500 dark:border-white/10 dark:bg-white/5">
               Durasi otomatis: {unitDuration.toLocaleString("id-ID")} menit per{" "}
               {TIME_UNIT_OPTIONS.find((option) => option.value === priceUnit)
                 ?.label.toLowerCase()
                 .replace("per ", "") || "unit"}
               .
+            </div>
+          )}
+
+          {itemType === "main" && operatingMode === "direct_sale" && (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-[10px] font-semibold text-slate-500 dark:border-white/10 dark:bg-white/5">
+              Resource direct sale tidak memakai durasi sesi. Item utama akan
+              langsung masuk katalog POS sebagai item jual.
             </div>
           )}
 

@@ -9,14 +9,15 @@ import (
 )
 
 type Resource struct {
-	ID          uuid.UUID      `db:"id" json:"id"`
-	TenantID    uuid.UUID      `db:"tenant_id" json:"tenant_id"`
-	Name        string         `db:"name" json:"name"`
-	Category    string         `db:"category" json:"category"`
-	Description string         `db:"description" json:"description"`
-	ImageURL    string         `db:"image_url" json:"image_url"`
-	Gallery     pq.StringArray `db:"gallery" json:"gallery"`
-	Status      string         `db:"status" json:"status"`
+	ID            uuid.UUID      `db:"id" json:"id"`
+	TenantID      uuid.UUID      `db:"tenant_id" json:"tenant_id"`
+	Name          string         `db:"name" json:"name"`
+	Category      string         `db:"category" json:"category"`
+	OperatingMode string         `db:"operating_mode" json:"operating_mode"`
+	Description   string         `db:"description" json:"description"`
+	ImageURL      string         `db:"image_url" json:"image_url"`
+	Gallery       pq.StringArray `db:"gallery" json:"gallery"`
+	Status        string         `db:"status" json:"status"`
 	// FIX: Gunakan pointer agar bisa handle NULL dari DB
 	Metadata           *json.RawMessage     `db:"metadata" json:"metadata"`
 	Items              []ResourceItem       `db:"-" json:"items"`
@@ -25,10 +26,11 @@ type Resource struct {
 }
 
 type ResourceSummary struct {
-	ID       uuid.UUID `db:"id" json:"id"`
-	Name     string    `db:"name" json:"name"`
-	Status   string    `db:"status" json:"status"`
-	Category string    `db:"category" json:"category"`
+	ID            uuid.UUID `db:"id" json:"id"`
+	Name          string    `db:"name" json:"name"`
+	Status        string    `db:"status" json:"status"`
+	Category      string    `db:"category" json:"category"`
+	OperatingMode string    `db:"operating_mode" json:"operating_mode"`
 }
 
 type ResourceListItem struct {
@@ -36,6 +38,7 @@ type ResourceListItem struct {
 	Name            string    `db:"name" json:"name"`
 	Category        string    `db:"category" json:"category"`
 	Status          string    `db:"status" json:"status"`
+	OperatingMode   string    `db:"operating_mode" json:"operating_mode"`
 	ImageURL        string    `db:"image_url" json:"image_url"`
 	Description     string    `db:"description" json:"description"`
 	MainOptionCount int       `db:"main_option_count" json:"main_option_count"`
@@ -52,19 +55,21 @@ type ResourcePricingItem struct {
 }
 
 type ResourcePricingCatalogItem struct {
-	ResourceID   uuid.UUID             `json:"resource_id"`
-	ResourceName string                `json:"resource_name"`
-	Category     string                `json:"category"`
-	Status       string                `json:"status"`
-	MainItems    []ResourcePricingItem `json:"main_items"`
+	ResourceID    uuid.UUID             `json:"resource_id"`
+	ResourceName  string                `json:"resource_name"`
+	Category      string                `json:"category"`
+	Status        string                `json:"status"`
+	OperatingMode string                `json:"operating_mode"`
+	MainItems     []ResourcePricingItem `json:"main_items"`
 }
 
 type ResourceAddonCatalogItem struct {
-	ResourceID   uuid.UUID      `json:"resource_id"`
-	ResourceName string         `json:"resource_name"`
-	Category     string         `json:"category"`
-	Status       string         `json:"status"`
-	Addons       []ResourceItem `json:"addons"`
+	ResourceID    uuid.UUID      `json:"resource_id"`
+	ResourceName  string         `json:"resource_name"`
+	Category      string         `json:"category"`
+	Status        string         `json:"status"`
+	OperatingMode string         `json:"operating_mode"`
+	Addons        []ResourceItem `json:"addons"`
 }
 
 type ResourceDeviceMapItem struct {
@@ -72,6 +77,7 @@ type ResourceDeviceMapItem struct {
 	ResourceName     string     `db:"resource_name" json:"resource_name"`
 	Category         string     `db:"category" json:"category"`
 	Status           string     `db:"status" json:"status"`
+	OperatingMode    string     `db:"operating_mode" json:"operating_mode"`
 	SmartDeviceID    *uuid.UUID `db:"device_uuid" json:"device_uuid,omitempty"`
 	DeviceID         string     `db:"device_id" json:"device_id"`
 	DeviceName       string     `db:"device_name" json:"device_name"`

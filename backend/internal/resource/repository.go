@@ -142,7 +142,7 @@ func (r *Repository) ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]Re
 func (r *Repository) ListSummariesByTenant(ctx context.Context, tenantID uuid.UUID) ([]ResourceSummary, error) {
 	var items []ResourceSummary
 	err := r.db.SelectContext(ctx, &items, `
-		SELECT id, name, status, category
+		SELECT id, name, status, category, operating_mode
 		FROM resources
 		WHERE tenant_id = $1 AND status != 'deleted'
 		ORDER BY created_at DESC
@@ -158,6 +158,7 @@ func (r *Repository) ListAdminByTenant(ctx context.Context, tenantID uuid.UUID) 
 			r.name,
 			r.category,
 			r.status,
+			r.operating_mode,
 			COALESCE(r.image_url, '') AS image_url,
 			COALESCE(r.description, '') AS description,
 			COUNT(ri.id) FILTER (WHERE ri.item_type IN ('main_option', 'main', 'console_option')) AS main_option_count,
@@ -165,7 +166,7 @@ func (r *Repository) ListAdminByTenant(ctx context.Context, tenantID uuid.UUID) 
 		FROM resources r
 		LEFT JOIN resource_items ri ON ri.resource_id = r.id
 		WHERE r.tenant_id = $1 AND r.status != 'deleted'
-		GROUP BY r.id, r.name, r.category, r.status, r.image_url, r.description, r.created_at
+		GROUP BY r.id, r.name, r.category, r.status, r.operating_mode, r.image_url, r.description, r.created_at
 		ORDER BY r.created_at DESC
 	`, tenantID)
 	return items, err
@@ -173,16 +174,17 @@ func (r *Repository) ListAdminByTenant(ctx context.Context, tenantID uuid.UUID) 
 
 func (r *Repository) ListPricingCatalogByTenant(ctx context.Context, tenantID uuid.UUID) ([]ResourcePricingCatalogItem, error) {
 	type row struct {
-		ResourceID   uuid.UUID `db:"resource_id"`
-		ResourceName string    `db:"resource_name"`
-		Category     string    `db:"category"`
-		Status       string    `db:"status"`
-		ItemID       uuid.UUID `db:"item_id"`
-		ItemName     string    `db:"item_name"`
-		Price        float64   `db:"price"`
-		PriceUnit    string    `db:"price_unit"`
-		UnitDuration int       `db:"unit_duration"`
-		IsDefault    bool      `db:"is_default"`
+		ResourceID    uuid.UUID `db:"resource_id"`
+		ResourceName  string    `db:"resource_name"`
+		Category      string    `db:"category"`
+		Status        string    `db:"status"`
+		OperatingMode string    `db:"operating_mode"`
+		ItemID        uuid.UUID `db:"item_id"`
+		ItemName      string    `db:"item_name"`
+		Price         float64   `db:"price"`
+		PriceUnit     string    `db:"price_unit"`
+		UnitDuration  int       `db:"unit_duration"`
+		IsDefault     bool      `db:"is_default"`
 	}
 
 	var rows []row
@@ -192,6 +194,7 @@ func (r *Repository) ListPricingCatalogByTenant(ctx context.Context, tenantID uu
 			r.name AS resource_name,
 			r.category,
 			r.status,
+			r.operating_mode,
 			ri.id AS item_id,
 			ri.name AS item_name,
 			ri.price,
@@ -215,11 +218,12 @@ func (r *Repository) ListPricingCatalogByTenant(ctx context.Context, tenantID uu
 		idx, exists := indexByResource[row.ResourceID]
 		if !exists {
 			items = append(items, ResourcePricingCatalogItem{
-				ResourceID:   row.ResourceID,
-				ResourceName: row.ResourceName,
-				Category:     row.Category,
-				Status:       row.Status,
-				MainItems:    []ResourcePricingItem{},
+				ResourceID:    row.ResourceID,
+				ResourceName:  row.ResourceName,
+				Category:      row.Category,
+				Status:        row.Status,
+				OperatingMode: row.OperatingMode,
+				MainItems:     []ResourcePricingItem{},
 			})
 			idx = len(items) - 1
 			indexByResource[row.ResourceID] = idx
@@ -239,18 +243,19 @@ func (r *Repository) ListPricingCatalogByTenant(ctx context.Context, tenantID uu
 
 func (r *Repository) ListAddonCatalogByTenant(ctx context.Context, tenantID uuid.UUID) ([]ResourceAddonCatalogItem, error) {
 	type row struct {
-		ResourceID   uuid.UUID        `db:"resource_id"`
-		ResourceName string           `db:"resource_name"`
-		Category     string           `db:"category"`
-		Status       string           `db:"status"`
-		ItemID       uuid.UUID        `db:"item_id"`
-		ItemName     string           `db:"item_name"`
-		Price        float64          `db:"price"`
-		PriceUnit    string           `db:"price_unit"`
-		UnitDuration int              `db:"unit_duration"`
-		ItemType     string           `db:"item_type"`
-		IsDefault    bool             `db:"is_default"`
-		Metadata     *json.RawMessage `db:"metadata"`
+		ResourceID    uuid.UUID        `db:"resource_id"`
+		ResourceName  string           `db:"resource_name"`
+		Category      string           `db:"category"`
+		Status        string           `db:"status"`
+		OperatingMode string           `db:"operating_mode"`
+		ItemID        uuid.UUID        `db:"item_id"`
+		ItemName      string           `db:"item_name"`
+		Price         float64          `db:"price"`
+		PriceUnit     string           `db:"price_unit"`
+		UnitDuration  int              `db:"unit_duration"`
+		ItemType      string           `db:"item_type"`
+		IsDefault     bool             `db:"is_default"`
+		Metadata      *json.RawMessage `db:"metadata"`
 	}
 
 	var rows []row
@@ -260,6 +265,7 @@ func (r *Repository) ListAddonCatalogByTenant(ctx context.Context, tenantID uuid
 			r.name AS resource_name,
 			r.category,
 			r.status,
+			r.operating_mode,
 			ri.id AS item_id,
 			ri.name AS item_name,
 			ri.price,
@@ -286,11 +292,12 @@ func (r *Repository) ListAddonCatalogByTenant(ctx context.Context, tenantID uuid
 		idx, exists := indexByResource[row.ResourceID]
 		if !exists {
 			items = append(items, ResourceAddonCatalogItem{
-				ResourceID:   row.ResourceID,
-				ResourceName: row.ResourceName,
-				Category:     row.Category,
-				Status:       row.Status,
-				Addons:       []ResourceItem{},
+				ResourceID:    row.ResourceID,
+				ResourceName:  row.ResourceName,
+				Category:      row.Category,
+				Status:        row.Status,
+				OperatingMode: row.OperatingMode,
+				Addons:        []ResourceItem{},
 			})
 			idx = len(items) - 1
 			indexByResource[row.ResourceID] = idx
@@ -323,6 +330,7 @@ func (r *Repository) ListDeviceMapByTenant(ctx context.Context, tenantID uuid.UU
 			r.name AS resource_name,
 			r.category,
 			r.status,
+			r.operating_mode,
 			sd.id AS device_uuid,
 			COALESCE(sd.device_id, '') AS device_id,
 			COALESCE(sd.device_name, '') AS device_name,
@@ -346,11 +354,11 @@ func (r *Repository) Create(ctx context.Context, res Resource) (*Resource, error
 	query := `
         INSERT INTO resources (
             id, tenant_id, name, category, description, 
-            image_url, gallery, status, metadata
+            operating_mode, image_url, gallery, status, metadata
         ) 
         VALUES (
             :id, :tenant_id, :name, :category, :description, 
-            :image_url, :gallery, :status, :metadata
+            :operating_mode, :image_url, :gallery, :status, :metadata
         )`
 	_, err := r.db.NamedExecContext(ctx, query, res)
 	// Cache akan di-invalidate di level Service
@@ -365,6 +373,7 @@ func (r *Repository) Update(ctx context.Context, res Resource) error {
             name = :name, 
             category = :category, 
             description = :description, 
+            operating_mode = :operating_mode,
             image_url = :image_url, 
             gallery = :gallery, 
             status = :status, 

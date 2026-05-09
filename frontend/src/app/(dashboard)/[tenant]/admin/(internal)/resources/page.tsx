@@ -32,6 +32,7 @@ type ResourceRow = {
   name: string;
   category?: string;
   status?: string;
+  operating_mode?: string;
   description?: string;
   image_url?: string;
   main_option_count?: number;
@@ -200,6 +201,29 @@ export default function ResourcesPage() {
     }
   };
 
+  const operatingModeMeta = (mode?: string) => {
+    switch (mode) {
+      case "direct_sale":
+        return {
+          label: "Direct sale",
+          className:
+            "bg-amber-500/10 text-amber-700 dark:bg-amber-500/15 dark:text-amber-200",
+        };
+      case "hybrid":
+        return {
+          label: "Hybrid",
+          className:
+            "bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-200",
+        };
+      default:
+        return {
+          label: "Timed",
+          className:
+            "bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]",
+        };
+    }
+  };
+
   const totalPackages = resources.reduce((sum, resource) => {
     return sum + Number(resource.main_option_count || 0);
   }, 0);
@@ -296,6 +320,7 @@ export default function ResourcesPage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:gap-4">
           {resources.map((res) => {
             const mainItemsCount = Number(res.main_option_count || 0);
+            const modeMeta = operatingModeMeta(res.operating_mode);
 
             return (
               <Card
@@ -306,8 +331,16 @@ export default function ResourcesPage() {
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="mb-2 flex items-center gap-2">
-                          <span className="inline-flex rounded-full bg-[var(--bookinaja-50)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]">
+                        <span className="inline-flex rounded-full bg-[var(--bookinaja-50)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]">
                           {res.category || labels.unit}
+                        </span>
+                        <span
+                          className={cn(
+                            "inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+                            modeMeta.className,
+                          )}
+                        >
+                          {modeMeta.label}
                         </span>
                         <span
                           className={cn(
@@ -351,7 +384,7 @@ export default function ResourcesPage() {
                   <div className="mb-4 grid grid-cols-2 gap-2">
                     <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900/30">
                       <div className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                        Paket Aktif
+                        {res.operating_mode === "direct_sale" ? "Item jual" : "Paket Aktif"}
                       </div>
                       <div className="mt-1 text-base font-semibold text-slate-950 dark:text-white">
                         {mainItemsCount}
@@ -379,9 +412,11 @@ export default function ResourcesPage() {
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 overflow-hidden">
                           <Check className="h-3 w-3 shrink-0 text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]" strokeWidth={4} />
-                          <span className="truncate text-[11px] font-medium text-slate-700 dark:text-slate-300">
-                            Paket harga utama
-                          </span>
+                        <span className="truncate text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                            {res.operating_mode === "direct_sale"
+                              ? "Katalog utama"
+                              : "Paket harga utama"}
+                        </span>
                         </div>
                         <span className="ml-2 whitespace-nowrap text-[11px] font-medium text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
                           {mainItemsCount} paket
