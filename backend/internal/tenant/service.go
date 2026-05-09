@@ -2030,6 +2030,94 @@ func (s *Service) Login(ctx context.Context, email, password, tenantSlug string)
 	return &LoginResponse{Token: token, User: *u}, nil
 }
 
+func (s *Service) GetAdminBootstrap(ctx context.Context, userID, tenantID uuid.UUID) (*AdminBootstrapResponse, error) {
+	item, err := s.repo.GetAdminBootstrap(ctx, userID, tenantID)
+	if err != nil || item == nil {
+		return item, err
+	}
+	if item.User.Role != "owner" {
+		item.Features.EnableDiscoveryPosts = false
+	}
+	return item, nil
+}
+
+func (s *Service) GetTenantIdentity(ctx context.Context, tenantID uuid.UUID) (*TenantIdentity, error) {
+	return s.repo.GetTenantIdentity(ctx, tenantID)
+}
+
+func (s *Service) GetTenantDiscoveryProfile(ctx context.Context, tenantID uuid.UUID) (*TenantDiscoveryProfileSettings, error) {
+	return s.repo.GetTenantDiscoveryProfile(ctx, tenantID)
+}
+
+func (s *Service) GetReferralPayoutSettings(ctx context.Context, tenantID uuid.UUID) (*TenantReferralPayoutSettings, error) {
+	return s.repo.GetReferralPayoutSettings(ctx, tenantID)
+}
+
+func (s *Service) GetTenantOnboardingSummary(ctx context.Context, tenantID uuid.UUID) (*TenantOnboardingSummary, error) {
+	snapshot, err := s.repo.GetTenantOnboardingSnapshot(ctx, tenantID)
+	if err != nil || snapshot == nil {
+		return nil, err
+	}
+
+	steps := []TenantOnboardingStep{
+		{
+			ID:          "identity",
+			Label:       "Lengkapi identitas bisnis",
+			Description: "Isi copy dasar, WhatsApp bisnis, timezone, dan identitas publik tenant.",
+			Href:        "/admin/settings/page-builder",
+			Complete:    snapshot.HasBusinessIdentity && snapshot.HasBusinessContact,
+			Required:    true,
+		},
+		{
+			ID:          "resources",
+			Label:       "Tambah resource dan harga",
+			Description: "Pastikan tenant punya resource aktif dan minimal satu paket harga utama.",
+			Href:        "/admin/resources",
+			Complete:    snapshot.ResourcesCount > 0 && snapshot.PricePackagesCount > 0,
+			Required:    true,
+		},
+		{
+			ID:          "payments",
+			Label:       "Review metode pembayaran",
+			Description: "Aktifkan metode bayar yang bisa dipakai customer sejak hari pertama.",
+			Href:        "/admin/settings/payment-methods",
+			Complete:    snapshot.PaymentReady,
+			Required:    true,
+		},
+		{
+			ID:          "branding",
+			Label:       "Rapikan visual landing page",
+			Description: "Tambahkan logo atau banner supaya halaman publik tenant tidak terasa kosong.",
+			Href:        "/admin/settings/page-builder",
+			Complete:    snapshot.HasVisualIdentity,
+			Required:    false,
+		},
+	}
+
+	completed := 0
+	for _, step := range steps {
+		if step.Complete {
+			completed++
+		}
+	}
+
+	progress := 0
+	if len(steps) > 0 {
+		progress = int(float64(completed) / float64(len(steps)) * 100)
+	}
+
+	return &TenantOnboardingSummary{
+		HasBusinessIdentity: snapshot.HasBusinessIdentity,
+		HasBusinessContact:  snapshot.HasBusinessContact,
+		HasVisualIdentity:   snapshot.HasVisualIdentity,
+		ResourcesCount:      snapshot.ResourcesCount,
+		PricePackagesCount:  snapshot.PricePackagesCount,
+		PaymentReady:        snapshot.PaymentReady,
+		ProgressPercent:     progress,
+		Steps:               steps,
+	}, nil
+}
+
 func (s *Service) GetProfile(ctx context.Context, id uuid.UUID) (*Tenant, error) {
 	tenant, err := s.repo.GetByID(ctx, id)
 	if err != nil || tenant == nil {

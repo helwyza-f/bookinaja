@@ -379,7 +379,7 @@ export default function PageBuilderPage() {
     try {
       const [builderRes, resourceRes] = await Promise.all([
         api.get<PageBuilderState>("/admin/page-builder"),
-        api.get("/resources-all"),
+        api.get("/admin/resources/list"),
       ]);
       const data = builderRes.data;
       const normalizedPage = normalizePageBuilderConfig(data.page);
@@ -404,7 +404,7 @@ export default function PageBuilderPage() {
       );
       setLastPublishedAt(new Date());
       setPreviewUrl(data.preview_url);
-      setResources(resourceRes.data?.resources || resourceRes.data || []);
+      setResources(resourceRes.data?.items || resourceRes.data || []);
       setSelectedSectionId(normalizedPage.sections[0]?.id || "hero");
       setExpandedSectionId(null);
     } catch {

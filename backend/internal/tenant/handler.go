@@ -381,6 +381,126 @@ func (h *Handler) GetProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, p)
 }
 
+func (h *Handler) GetAdminBootstrap(c *gin.Context) {
+	tIDRaw, tenantExists := c.Get("tenantID")
+	uIDRaw, userExists := c.Get("userID")
+	if !tenantExists || !userExists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+
+	tenantID, err := uuid.Parse(tIDRaw.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tenant tidak valid"})
+		return
+	}
+	userID, err := uuid.Parse(uIDRaw.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID user tidak valid"})
+		return
+	}
+
+	item, err := h.service.GetAdminBootstrap(c.Request.Context(), userID, tenantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memuat bootstrap admin"})
+		return
+	}
+	if item == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi admin tidak valid, silakan login lagi"})
+		return
+	}
+
+	c.JSON(http.StatusOK, item)
+}
+
+func (h *Handler) GetTenantIdentity(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+
+	tID, err := uuid.Parse(tIDRaw.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tenant tidak valid"})
+		return
+	}
+
+	item, err := h.service.GetTenantIdentity(c.Request.Context(), tID)
+	if err != nil || item == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Profil identitas tenant tidak ditemukan"})
+		return
+	}
+
+	c.JSON(http.StatusOK, item)
+}
+
+func (h *Handler) GetTenantDiscoveryProfile(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+
+	tID, err := uuid.Parse(tIDRaw.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tenant tidak valid"})
+		return
+	}
+
+	item, err := h.service.GetTenantDiscoveryProfile(c.Request.Context(), tID)
+	if err != nil || item == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Profil discovery tenant tidak ditemukan"})
+		return
+	}
+
+	c.JSON(http.StatusOK, item)
+}
+
+func (h *Handler) GetReferralPayoutSettings(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+
+	tID, err := uuid.Parse(tIDRaw.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tenant tidak valid"})
+		return
+	}
+
+	item, err := h.service.GetReferralPayoutSettings(c.Request.Context(), tID)
+	if err != nil || item == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Pengaturan payout referral tidak ditemukan"})
+		return
+	}
+
+	c.JSON(http.StatusOK, item)
+}
+
+func (h *Handler) GetTenantOnboardingSummary(c *gin.Context) {
+	tIDRaw, exists := c.Get("tenantID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		return
+	}
+
+	tID, err := uuid.Parse(tIDRaw.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tenant tidak valid"})
+		return
+	}
+
+	item, err := h.service.GetTenantOnboardingSummary(c.Request.Context(), tID)
+	if err != nil || item == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Ringkasan onboarding tenant tidak ditemukan"})
+		return
+	}
+
+	c.JSON(http.StatusOK, item)
+}
+
 func (h *Handler) GetReceiptSettings(c *gin.Context) {
 	tIDRaw, exists := c.Get("tenantID")
 	if !exists {

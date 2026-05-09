@@ -139,6 +139,208 @@ func (r *Repository) ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]Re
 	return resources, businessCategory, businessType, nil
 }
 
+func (r *Repository) ListSummariesByTenant(ctx context.Context, tenantID uuid.UUID) ([]ResourceSummary, error) {
+	var items []ResourceSummary
+	err := r.db.SelectContext(ctx, &items, `
+		SELECT id, name, status, category
+		FROM resources
+		WHERE tenant_id = $1 AND status != 'deleted'
+		ORDER BY created_at DESC
+	`, tenantID)
+	return items, err
+}
+
+func (r *Repository) ListAdminByTenant(ctx context.Context, tenantID uuid.UUID) ([]ResourceListItem, error) {
+	var items []ResourceListItem
+	err := r.db.SelectContext(ctx, &items, `
+		SELECT
+			r.id,
+			r.name,
+			r.category,
+			r.status,
+			COALESCE(r.image_url, '') AS image_url,
+			COALESCE(r.description, '') AS description,
+			COUNT(ri.id) FILTER (WHERE ri.item_type IN ('main_option', 'main', 'console_option')) AS main_option_count,
+			COUNT(ri.id) FILTER (WHERE ri.item_type = 'add_on') AS addon_count
+		FROM resources r
+		LEFT JOIN resource_items ri ON ri.resource_id = r.id
+		WHERE r.tenant_id = $1 AND r.status != 'deleted'
+		GROUP BY r.id, r.name, r.category, r.status, r.image_url, r.description, r.created_at
+		ORDER BY r.created_at DESC
+	`, tenantID)
+	return items, err
+}
+
+func (r *Repository) ListPricingCatalogByTenant(ctx context.Context, tenantID uuid.UUID) ([]ResourcePricingCatalogItem, error) {
+	type row struct {
+		ResourceID   uuid.UUID `db:"resource_id"`
+		ResourceName string    `db:"resource_name"`
+		Category     string    `db:"category"`
+		Status       string    `db:"status"`
+		ItemID       uuid.UUID `db:"item_id"`
+		ItemName     string    `db:"item_name"`
+		Price        float64   `db:"price"`
+		PriceUnit    string    `db:"price_unit"`
+		UnitDuration int       `db:"unit_duration"`
+		IsDefault    bool      `db:"is_default"`
+	}
+
+	var rows []row
+	err := r.db.SelectContext(ctx, &rows, `
+		SELECT
+			r.id AS resource_id,
+			r.name AS resource_name,
+			r.category,
+			r.status,
+			ri.id AS item_id,
+			ri.name AS item_name,
+			ri.price,
+			ri.price_unit,
+			ri.unit_duration,
+			ri.is_default
+		FROM resources r
+		JOIN resource_items ri ON ri.resource_id = r.id
+		WHERE r.tenant_id = $1
+		  AND r.status != 'deleted'
+		  AND ri.item_type IN ('main_option', 'main', 'console_option')
+		ORDER BY r.created_at DESC, ri.is_default DESC, ri.price ASC
+	`, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]ResourcePricingCatalogItem, 0)
+	indexByResource := make(map[uuid.UUID]int)
+	for _, row := range rows {
+		idx, exists := indexByResource[row.ResourceID]
+		if !exists {
+			items = append(items, ResourcePricingCatalogItem{
+				ResourceID:   row.ResourceID,
+				ResourceName: row.ResourceName,
+				Category:     row.Category,
+				Status:       row.Status,
+				MainItems:    []ResourcePricingItem{},
+			})
+			idx = len(items) - 1
+			indexByResource[row.ResourceID] = idx
+		}
+		items[idx].MainItems = append(items[idx].MainItems, ResourcePricingItem{
+			ID:           row.ItemID,
+			Name:         row.ItemName,
+			Price:        row.Price,
+			PriceUnit:    row.PriceUnit,
+			UnitDuration: row.UnitDuration,
+			IsDefault:    row.IsDefault,
+		})
+	}
+
+	return items, nil
+}
+
+func (r *Repository) ListAddonCatalogByTenant(ctx context.Context, tenantID uuid.UUID) ([]ResourceAddonCatalogItem, error) {
+	type row struct {
+		ResourceID   uuid.UUID        `db:"resource_id"`
+		ResourceName string           `db:"resource_name"`
+		Category     string           `db:"category"`
+		Status       string           `db:"status"`
+		ItemID       uuid.UUID        `db:"item_id"`
+		ItemName     string           `db:"item_name"`
+		Price        float64          `db:"price"`
+		PriceUnit    string           `db:"price_unit"`
+		UnitDuration int              `db:"unit_duration"`
+		ItemType     string           `db:"item_type"`
+		IsDefault    bool             `db:"is_default"`
+		Metadata     *json.RawMessage `db:"metadata"`
+	}
+
+	var rows []row
+	err := r.db.SelectContext(ctx, &rows, `
+		SELECT
+			r.id AS resource_id,
+			r.name AS resource_name,
+			r.category,
+			r.status,
+			ri.id AS item_id,
+			ri.name AS item_name,
+			ri.price,
+			ri.price_unit,
+			ri.unit_duration,
+			ri.item_type,
+			ri.is_default,
+			ri.metadata
+		FROM resources r
+		JOIN resource_items ri ON ri.resource_id = r.id
+		WHERE r.tenant_id = $1
+		  AND r.status != 'deleted'
+		  AND ri.item_type = 'add_on'
+		ORDER BY r.created_at DESC, ri.price ASC
+	`, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	emptyJSON := json.RawMessage("{}")
+	items := make([]ResourceAddonCatalogItem, 0)
+	indexByResource := make(map[uuid.UUID]int)
+	for _, row := range rows {
+		idx, exists := indexByResource[row.ResourceID]
+		if !exists {
+			items = append(items, ResourceAddonCatalogItem{
+				ResourceID:   row.ResourceID,
+				ResourceName: row.ResourceName,
+				Category:     row.Category,
+				Status:       row.Status,
+				Addons:       []ResourceItem{},
+			})
+			idx = len(items) - 1
+			indexByResource[row.ResourceID] = idx
+		}
+		metadata := row.Metadata
+		if metadata == nil {
+			metadata = &emptyJSON
+		}
+		items[idx].Addons = append(items[idx].Addons, ResourceItem{
+			ID:           row.ItemID,
+			ResourceID:   row.ResourceID,
+			Name:         row.ItemName,
+			Price:        row.Price,
+			PriceUnit:    row.PriceUnit,
+			UnitDuration: row.UnitDuration,
+			ItemType:     row.ItemType,
+			IsDefault:    row.IsDefault,
+			Metadata:     metadata,
+		})
+	}
+
+	return items, nil
+}
+
+func (r *Repository) ListDeviceMapByTenant(ctx context.Context, tenantID uuid.UUID) ([]ResourceDeviceMapItem, error) {
+	var items []ResourceDeviceMapItem
+	err := r.db.SelectContext(ctx, &items, `
+		SELECT
+			r.id AS resource_id,
+			r.name AS resource_name,
+			r.category,
+			r.status,
+			sd.id AS device_uuid,
+			COALESCE(sd.device_id, '') AS device_id,
+			COALESCE(sd.device_name, '') AS device_name,
+			COALESCE(sd.pairing_status, '') AS pairing_status,
+			COALESCE(sd.connection_status, '') AS connection_status,
+			COALESCE(sd.is_enabled, false) AS is_enabled,
+			sd.last_seen_at,
+			COALESCE(sd.firmware_version, '') AS firmware_version
+		FROM resources r
+		LEFT JOIN smart_devices sd
+			ON sd.resource_id = r.id
+		   AND sd.tenant_id = r.tenant_id
+		WHERE r.tenant_id = $1 AND r.status != 'deleted'
+		ORDER BY r.created_at DESC, sd.updated_at DESC NULLS LAST
+	`, tenantID)
+	return items, err
+}
+
 // Create menyisipkan resource baru
 func (r *Repository) Create(ctx context.Context, res Resource) (*Resource, error) {
 	query := `

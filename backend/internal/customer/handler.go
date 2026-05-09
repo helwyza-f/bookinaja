@@ -549,6 +549,17 @@ func (h *Handler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, customers)
 }
 
+func (h *Handler) Count(c *gin.Context) {
+	tenantID := c.MustGet("tenantID").(string)
+	total, err := h.service.CountByTenant(c.Request.Context(), tenantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"count": total})
+}
+
 // GetByID detail untuk Modal di Admin
 func (h *Handler) GetByID(c *gin.Context) {
 	id := c.Param("id")

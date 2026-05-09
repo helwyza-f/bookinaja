@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BookingDetailSkeleton } from "@/components/dashboard/booking-detail-skeleton";
 import { RealtimePill } from "@/components/dashboard/realtime-pill";
+import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useRealtime } from "@/lib/realtime/use-realtime";
@@ -125,13 +126,13 @@ function paymentMeta(status?: string, balanceDue?: number) {
 export default function AdminBookingPaymentPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const { user } = useAdminSession();
   const [booking, setBooking] = useState<BookingDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [midtransReady, setMidtransReady] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState("midtrans");
   const [processing, setProcessing] = useState(false);
-  const [tenantId, setTenantId] = useState("");
   const hasLoadedRef = useRef(false);
   const refreshTimerRef = useRef<number | null>(null);
   const lastRealtimeToastRef = useRef("");
@@ -154,10 +155,6 @@ export default function AdminBookingPaymentPage() {
 
   useEffect(() => {
     void fetchDetail("initial");
-    api
-      .get("/auth/me")
-      .then((res) => setTenantId(res.data?.user?.tenant_id || ""))
-      .catch(() => setTenantId(""));
 
     return () => {
       if (refreshTimerRef.current !== null) {
@@ -165,6 +162,8 @@ export default function AdminBookingPaymentPage() {
       }
     };
   }, [fetchDetail]);
+
+  const tenantId = user?.tenant_id || "";
 
   const scheduleDetailRefresh = useCallback((delay = 250) => {
     if (refreshTimerRef.current !== null) window.clearTimeout(refreshTimerRef.current);
@@ -379,13 +378,13 @@ export default function AdminBookingPaymentPage() {
       </Button>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        <Card className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] xl:col-span-8 xl:p-6">
+        <Card className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] xl:col-span-8 xl:p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-600)]">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-600)]">
                 Payment Admin
               </p>
-              <h1 className="mt-2 text-2xl font-[950] tracking-tight text-slate-950 dark:text-white">
+              <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">
                 {booking.resource_name || "Booking"}
               </h1>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -414,30 +413,30 @@ export default function AdminBookingPaymentPage() {
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
-            <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
               <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Tanggal</div>
               <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">
                 {booking.start_time ? format(new Date(booking.start_time), "dd MMM yyyy", { locale: localeID }) : "-"}
               </p>
             </div>
-            <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
               <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Jam</div>
               <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">
                 {booking.start_time ? format(new Date(booking.start_time), "HH:mm") : "-"} - {booking.end_time ? format(new Date(booking.end_time), "HH:mm") : "-"}
               </p>
             </div>
-            <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
               <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Sudah Dibayar</div>
               <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">Rp {formatMoney(booking.paid_amount)}</p>
             </div>
-            <div className="rounded-[1.25rem] border border-blue-200 bg-blue-50 px-3 py-3 dark:border-blue-500/20 dark:bg-blue-500/10">
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-3 dark:border-blue-500/20 dark:bg-blue-500/10">
               <div className="text-[11px] font-medium text-blue-600 dark:text-blue-200">Sisa Pelunasan</div>
               <p className="mt-2 text-sm font-semibold text-blue-900 dark:text-blue-100">Rp {formatMoney(balanceDue)}</p>
             </div>
           </div>
         </Card>
 
-        <Card className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] xl:col-span-4 xl:p-5">
+        <Card className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] xl:col-span-4 xl:p-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
             Next Action
           </p>
@@ -447,13 +446,13 @@ export default function AdminBookingPaymentPage() {
           <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
             {nextAction.description}
           </p>
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
             Yang sering dipakai: gateway, cash, transfer bank, QRIS static.
           </div>
         </Card>
 
         {pendingAttempt ? (
-          <Card className="rounded-[1.75rem] border border-amber-200 bg-amber-50/80 p-4 shadow-sm dark:border-amber-500/20 dark:bg-amber-950/20 xl:col-span-4 xl:p-5">
+          <Card className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 shadow-sm dark:border-amber-500/20 dark:bg-amber-950/20 xl:col-span-4 xl:p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-700 dark:text-amber-200">
@@ -466,7 +465,7 @@ export default function AdminBookingPaymentPage() {
               <Badge className="border-none bg-amber-500 text-white">Review</Badge>
             </div>
             <div className="mt-4 space-y-3">
-              <div className="rounded-xl border border-amber-200 bg-white px-3 py-3 text-sm dark:border-amber-500/20 dark:bg-[#0f0f17]">
+              <div className="rounded-lg border border-amber-200 bg-white px-3 py-3 text-sm dark:border-amber-500/20 dark:bg-[#0f0f17]">
                 <div className="font-medium text-slate-950 dark:text-white">
                   Rp {formatMoney(pendingAttempt.amount)}
                 </div>
@@ -490,7 +489,7 @@ export default function AdminBookingPaymentPage() {
                 <Button
                   onClick={() => handleVerify(pendingAttempt.id, true)}
                   disabled={processing}
-                  className="h-10 flex-1 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+                  className="h-10 flex-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
                 >
                   Verifikasi
                 </Button>
@@ -498,7 +497,7 @@ export default function AdminBookingPaymentPage() {
                   onClick={() => handleVerify(pendingAttempt.id, false)}
                   disabled={processing}
                   variant="outline"
-                  className="h-10 flex-1 rounded-xl border-red-200 text-red-600 hover:bg-red-50"
+                  className="h-10 flex-1 rounded-lg border-red-200 text-red-600 hover:bg-red-50"
                 >
                   Tolak
                 </Button>
@@ -507,7 +506,7 @@ export default function AdminBookingPaymentPage() {
           </Card>
         ) : null}
 
-        <Card className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] xl:col-span-8 xl:p-6">
+        <Card className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] xl:col-span-8 xl:p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
@@ -537,7 +536,7 @@ export default function AdminBookingPaymentPage() {
                       type="button"
                       onClick={() => setSelectedMethod(method.code)}
                       className={cn(
-                        "rounded-[1.5rem] border px-4 py-4 text-left transition-all",
+                        "rounded-lg border px-4 py-4 text-left transition-colors",
                         selected
                           ? "border-blue-500 bg-blue-50 ring-2 ring-blue-500/15 dark:border-blue-400 dark:bg-blue-500/10"
                           : "border-slate-200 bg-slate-50/70 hover:border-slate-300 dark:border-white/10 dark:bg-white/[0.03]",
@@ -585,7 +584,7 @@ export default function AdminBookingPaymentPage() {
                       type="button"
                       onClick={() => setSelectedMethod(method.code)}
                       className={cn(
-                        "rounded-[1.5rem] border px-4 py-4 text-left transition-all",
+                        "rounded-lg border px-4 py-4 text-left transition-colors",
                         selectedMethod === method.code
                           ? "border-blue-500 bg-blue-50 ring-2 ring-blue-500/15 dark:border-blue-400 dark:bg-blue-500/10"
                           : "border-slate-200 bg-slate-50/70 hover:border-slate-300 dark:border-white/10 dark:bg-white/[0.03]",
@@ -604,7 +603,7 @@ export default function AdminBookingPaymentPage() {
             ) : null}
 
             {selectedMethodDetail ? (
-              <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-slate-950 dark:text-white">
                     {selectedMethodDetail.display_name}
@@ -638,7 +637,7 @@ export default function AdminBookingPaymentPage() {
                 ) : null}
 
                 {selectedMethodDetail.code === "qris_static" && selectedMethodDetail.metadata?.qr_image_url ? (
-                  <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
+                  <div className="mt-3 overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={selectedMethodDetail.metadata.qr_image_url}
@@ -648,7 +647,7 @@ export default function AdminBookingPaymentPage() {
                   </div>
                 ) : null}
 
-                <div className="mt-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+                <div className="mt-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
                   {selectedMethodDetail.instructions || "Gunakan metode ini sesuai alur operasional tenant."}
                 </div>
 
@@ -656,7 +655,7 @@ export default function AdminBookingPaymentPage() {
                   <Button
                     onClick={handleProceed}
                     disabled={Boolean(disabledReason || pendingAttempt || processing || (selectedMethodDetail.verification_type === "auto" && !midtransReady))}
-                    className="h-11 rounded-2xl bg-slate-950 text-white hover:bg-slate-800"
+                    className="h-11 rounded-lg bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
                   >
                     {selectedMethodDetail.code === "cash"
                       ? "Tandai Cash Diterima"
@@ -667,7 +666,7 @@ export default function AdminBookingPaymentPage() {
                   <Button
                     variant="outline"
                     onClick={() => router.push(`/admin/bookings/${booking.id}`)}
-                    className="h-11 rounded-2xl"
+                    className="h-11 rounded-lg"
                   >
                     Kembali ke Detail
                   </Button>
@@ -677,7 +676,7 @@ export default function AdminBookingPaymentPage() {
           </div>
         </Card>
 
-        <Card className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] xl:col-span-12">
+        <Card className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] xl:col-span-12">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
@@ -691,7 +690,7 @@ export default function AdminBookingPaymentPage() {
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {settlementAttempts.length > 0 ? (
               settlementAttempts.map((attempt) => (
-                <div key={attempt.id} className="rounded-[1.5rem] border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                <div key={attempt.id} className="rounded-lg border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-slate-950 dark:text-white">
@@ -714,7 +713,7 @@ export default function AdminBookingPaymentPage() {
                 </div>
               ))
             ) : (
-              <div className="rounded-[1.5rem] border border-dashed border-slate-200 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
+              <div className="rounded-lg border border-dashed border-slate-200 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
                 Belum ada riwayat pelunasan.
               </div>
             )}

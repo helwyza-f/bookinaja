@@ -94,6 +94,46 @@ func (s *Service) ListResources(ctx context.Context, tenantID string) (any, erro
 	}, nil
 }
 
+func (s *Service) ListResourceSummaries(ctx context.Context, tenantID string) ([]ResourceSummary, error) {
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return s.repo.ListSummariesByTenant(ctx, tID)
+}
+
+func (s *Service) ListAdminResources(ctx context.Context, tenantID string) ([]ResourceListItem, error) {
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return s.repo.ListAdminByTenant(ctx, tID)
+}
+
+func (s *Service) ListPricingCatalog(ctx context.Context, tenantID string) ([]ResourcePricingCatalogItem, error) {
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return s.repo.ListPricingCatalogByTenant(ctx, tID)
+}
+
+func (s *Service) ListAddonCatalog(ctx context.Context, tenantID string) ([]ResourceAddonCatalogItem, error) {
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return s.repo.ListAddonCatalogByTenant(ctx, tID)
+}
+
+func (s *Service) ListDeviceMap(ctx context.Context, tenantID string) ([]ResourceDeviceMapItem, error) {
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return s.repo.ListDeviceMapByTenant(ctx, tID)
+}
+
 // AddResourceItem menambahkan opsi harga/layanan/addons ke dalam resource
 func (s *Service) AddResourceItem(ctx context.Context, resID, name string, price float64, priceUnit, iType string, isDefault bool, customDuration int) (*ResourceItem, error) {
 	rID, err := uuid.Parse(resID)

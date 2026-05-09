@@ -40,6 +40,33 @@ import {
   DashboardStatStrip,
   EmptyPanel,
 } from "@/components/dashboard/analytics-kit";
+import { useAdminSession } from "@/components/dashboard/admin-session-context";
+
+type BookingSummaryRow = {
+  revenue?: number;
+  addon_revenue?: number;
+  bookings_count?: number;
+  average_ticket?: number;
+  daily_series?: BookingSummaryPoint[];
+  resource_leaders?: BookingResourceLeader[];
+  recent_bookings?: BookingRow[];
+  addon_bookings?: BookingRow[];
+};
+
+type BookingSummaryPoint = {
+  date: string;
+  label: string;
+  revenue?: number;
+  bookings_count?: number;
+};
+
+type BookingResourceLeader = {
+  id: string;
+  name: string;
+  bookings_count?: number;
+  revenue?: number;
+  last_booking_at?: string;
+};
 
 type BookingRow = {
   id: string;
@@ -59,11 +86,6 @@ type ExpenseRow = {
   category: string;
   amount: number;
   expense_date: string;
-};
-
-type ResourceRow = {
-  id: string;
-  name: string;
 };
 
 type CustomerRow = {
@@ -105,44 +127,33 @@ const formatPeriodEnd = (value?: string) => {
 };
 
 export default function SettingsAnalyticsPage() {
+  const { user } = useAdminSession();
   const [range, setRange] = useState<RangeKey>("30d");
-  const [bookings, setBookings] = useState<BookingRow[]>([]);
+  const [bookingSummary, setBookingSummary] = useState<BookingSummaryRow | null>(null);
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
-  const [resources, setResources] = useState<ResourceRow[]>([]);
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastSync, setLastSync] = useState("");
-  const [tenantId, setTenantId] = useState("");
   const hasLoadedRef = useRef(false);
   const refreshTimerRef = useRef<number | null>(null);
+  const tenantId = user?.tenant_id || "";
 
   const fetchAnalytics = useCallback(async (mode: "initial" | "background" = "initial") => {
     const background = mode === "background" && hasLoadedRef.current;
     if (!background) setLoading(true);
     setRefreshing(true);
     try {
-      const [
-        meRes,
-        bookingsRes,
-        expensesRes,
-        resourcesRes,
-        customersRes,
-        subscriptionRes,
-      ] = await Promise.all([
-        api.get("/auth/me"),
-        api.get("/bookings"),
+      const [bookingsRes, expensesRes, customersRes, subscriptionRes] = await Promise.all([
+        api.get("/bookings/analytics-summary", { params: { days: rangeDays(range) } }),
         api.get("/expenses", { params: { limit: 100 } }),
-        api.get("/resources-all"),
         api.get("/customers"),
         api.get("/billing/subscription"),
       ]);
 
-      setTenantId(meRes.data?.user?.tenant_id || "");
-      setBookings(Array.isArray(bookingsRes.data) ? bookingsRes.data : []);
+      setBookingSummary(bookingsRes.data || null);
       setExpenses(Array.isArray(expensesRes.data) ? expensesRes.data : []);
-      setResources(resourcesRes.data?.resources || []);
       setCustomers(Array.isArray(customersRes.data) ? customersRes.data : []);
       setSubscription(subscriptionRes.data || null);
       setLastSync(
@@ -160,7 +171,7 @@ export default function SettingsAnalyticsPage() {
       if (!background) setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [range]);
 
   useEffect(() => {
     void fetchAnalytics("initial");
@@ -215,48 +226,30 @@ export default function SettingsAnalyticsPage() {
   const isStarterTrial =
     plan === "starter" && alive && (status === "trial" || status === "active");
 
-  const rangeStart = useMemo(
-    () => subDays(new Date(), rangeDays(range) - 1),
-    [range],
-  );
   const rangeLabel =
     range === "7d" ? "7 hari terakhir" : range === "90d" ? "90 hari terakhir" : "30 hari terakhir";
-
-  const filteredBookings = useMemo(
-    () =>
-      bookings.filter((booking) => {
-        const date = parseSafeDate(booking.start_time || booking.created_at);
-        return !!date && date >= rangeStart;
-      }),
-    [bookings, rangeStart],
-  );
 
   const filteredExpenses = useMemo(
     () =>
       expenses.filter((expense) => {
         const date = parseSafeDate(expense.expense_date);
-        return !!date && date >= rangeStart;
+        if (!date) return false;
+        return date >= subDays(new Date(), rangeDays(range) - 1);
       }),
-    [expenses, rangeStart],
+    [expenses, range],
   );
 
   const summary = useMemo(() => {
-    const revenue = filteredBookings.reduce(
-      (sum, booking) => sum + getBookingTotal(booking),
-      0,
-    );
-    const addonRevenue = filteredBookings.reduce(
-      (sum, booking) => sum + getAddonTotal(booking),
-      0,
-    );
+    const revenue = Number(bookingSummary?.revenue || 0);
+    const addonRevenue = Number(bookingSummary?.addon_revenue || 0);
     const expenseTotal = filteredExpenses.reduce(
       (sum, expense) => sum + Number(expense.amount || 0),
       0,
     );
     const netProfit = revenue - expenseTotal;
-    const bookingsCount = filteredBookings.length;
+    const bookingsCount = Number(bookingSummary?.bookings_count || 0);
     const expenseCount = filteredExpenses.length;
-    const averageTicket = bookingsCount > 0 ? revenue / bookingsCount : 0;
+    const averageTicket = Number(bookingSummary?.average_ticket || 0);
     const profitMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
     const expenseRatio = revenue > 0 ? (expenseTotal / revenue) * 100 : 0;
     const addonRatio = revenue > 0 ? (addonRevenue / revenue) * 100 : 0;
@@ -273,83 +266,27 @@ export default function SettingsAnalyticsPage() {
       expenseRatio,
       addonRatio,
     };
-  }, [filteredBookings, filteredExpenses]);
+  }, [bookingSummary, filteredExpenses]);
 
   const dailySeries = useMemo(() => {
-    const days = rangeDays(range);
-    return Array.from({ length: days }).map((_, index) => {
-      const date = subDays(new Date(), days - 1 - index);
-      const key = format(date, "yyyy-MM-dd");
-      const revenue = filteredBookings.reduce((sum, booking) => {
-        const dateValue = parseSafeDate(booking.start_time || booking.created_at);
-        return dateValue && format(dateValue, "yyyy-MM-dd") === key
-          ? sum + getBookingTotal(booking)
-          : sum;
-      }, 0);
+    return (bookingSummary?.daily_series || []).map((point) => {
+      const key = point.date;
       const expenseTotal = filteredExpenses.reduce((sum, expense) => {
         const dateValue = parseSafeDate(expense.expense_date);
         return dateValue && format(dateValue, "yyyy-MM-dd") === key
           ? sum + Number(expense.amount || 0)
           : sum;
       }, 0);
-      const bookingsCount = filteredBookings.filter((booking) => {
-        const dateValue = parseSafeDate(booking.start_time || booking.created_at);
-        return dateValue ? format(dateValue, "yyyy-MM-dd") === key : false;
-      }).length;
+      const bookingsCount = Number(point.bookings_count || 0);
       return {
-        label: format(date, "dd/MM"),
-        primary: revenue,
+        label: point.label,
+        primary: Number(point.revenue || 0),
         secondary: expenseTotal,
         tertiary: bookingsCount,
         meta: `${bookingsCount} booking`,
       };
     });
-  }, [filteredBookings, filteredExpenses, range]);
-
-  const resourceStats = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        id: string;
-        name: string;
-        bookingsCount: number;
-        revenue: number;
-        lastBookingAt: string | null;
-      }
-    >();
-
-    resources.forEach((resource) =>
-      map.set(resource.name, {
-        id: resource.id,
-        name: resource.name,
-        bookingsCount: 0,
-        revenue: 0,
-        lastBookingAt: null,
-      }),
-    );
-
-    filteredBookings.forEach((booking) => {
-      const name = booking.resource_name || "Unknown";
-      const date = parseSafeDate(booking.start_time || booking.created_at);
-      const current = map.get(name) || {
-        id: name,
-        name,
-        bookingsCount: 0,
-        revenue: 0,
-        lastBookingAt: null,
-      };
-      current.bookingsCount += 1;
-      current.revenue += getBookingTotal(booking);
-      if (date && (!current.lastBookingAt || date > new Date(current.lastBookingAt))) {
-        current.lastBookingAt = date.toISOString();
-      }
-      map.set(name, current);
-    });
-
-    return Array.from(map.values()).sort(
-      (a, b) => b.revenue - a.revenue || b.bookingsCount - a.bookingsCount,
-    );
-  }, [filteredBookings, resources]);
+  }, [bookingSummary, filteredExpenses]);
 
   const categoryBreakdown = useMemo(() => {
     const map = new Map<string, { amount: number; count: number }>();
@@ -365,15 +302,8 @@ export default function SettingsAnalyticsPage() {
   }, [filteredExpenses]);
 
   const recentBookings = useMemo(
-    () =>
-      [...filteredBookings]
-        .sort(
-          (a, b) =>
-            (parseSafeDate(b.start_time || b.created_at)?.getTime() || 0) -
-            (parseSafeDate(a.start_time || a.created_at)?.getTime() || 0),
-        )
-        .slice(0, 8),
-    [filteredBookings],
+    () => bookingSummary?.recent_bookings || [],
+    [bookingSummary],
   );
 
   const topCustomers = useMemo(
@@ -387,12 +317,8 @@ export default function SettingsAnalyticsPage() {
   );
 
   const addonBookings = useMemo(
-    () =>
-      [...filteredBookings]
-        .filter((booking) => getAddonTotal(booking) > 0)
-        .sort((a, b) => getAddonTotal(b) - getAddonTotal(a))
-        .slice(0, 6),
-    [filteredBookings],
+    () => bookingSummary?.addon_bookings || [],
+    [bookingSummary],
   );
 
   const expenseSegments = useMemo(
@@ -413,18 +339,19 @@ export default function SettingsAnalyticsPage() {
   );
 
   const resourceRows = useMemo(() => {
-    const maxRevenue = Math.max(...resourceStats.map((item) => item.revenue), 1);
-    return resourceStats.slice(0, 8).map((resource) => ({
+    const resourceLeaders = bookingSummary?.resource_leaders || [];
+    const maxRevenue = Math.max(...resourceLeaders.map((item) => Number(item.revenue || 0)), 1);
+    return resourceLeaders.slice(0, 8).map((resource) => ({
       id: resource.id,
       title: resource.name,
-      subtitle: resource.lastBookingAt
-        ? `last ${format(parseSafeDate(resource.lastBookingAt) || new Date(), "dd MMM HH:mm")}`
+      subtitle: resource.last_booking_at
+        ? `last ${format(parseSafeDate(resource.last_booking_at) || new Date(), "dd MMM HH:mm")}`
         : "belum ada booking",
       value: `Rp ${formatIDR(resource.revenue)}`,
-      meta: `${resource.bookingsCount} booking`,
-      progress: (resource.revenue / maxRevenue) * 100,
+      meta: `${resource.bookings_count || 0} booking`,
+      progress: (Number(resource.revenue || 0) / maxRevenue) * 100,
     }));
-  }, [resourceStats]);
+  }, [bookingSummary]);
 
   const customerRows = useMemo(() => {
     const maxSpend = Math.max(...topCustomers.map((item) => Number(item.total_spent || 0)), 1);

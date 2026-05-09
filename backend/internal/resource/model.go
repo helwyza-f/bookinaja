@@ -24,6 +24,64 @@ type Resource struct {
 	CreatedAt          time.Time            `db:"created_at" json:"created_at"`
 }
 
+type ResourceSummary struct {
+	ID       uuid.UUID `db:"id" json:"id"`
+	Name     string    `db:"name" json:"name"`
+	Status   string    `db:"status" json:"status"`
+	Category string    `db:"category" json:"category"`
+}
+
+type ResourceListItem struct {
+	ID              uuid.UUID `db:"id" json:"id"`
+	Name            string    `db:"name" json:"name"`
+	Category        string    `db:"category" json:"category"`
+	Status          string    `db:"status" json:"status"`
+	ImageURL        string    `db:"image_url" json:"image_url"`
+	Description     string    `db:"description" json:"description"`
+	MainOptionCount int       `db:"main_option_count" json:"main_option_count"`
+	AddonCount      int       `db:"addon_count" json:"addon_count"`
+}
+
+type ResourcePricingItem struct {
+	ID           uuid.UUID `db:"id" json:"id"`
+	Name         string    `db:"name" json:"name"`
+	Price        float64   `db:"price" json:"price"`
+	PriceUnit    string    `db:"price_unit" json:"price_unit"`
+	UnitDuration int       `db:"unit_duration" json:"unit_duration"`
+	IsDefault    bool      `db:"is_default" json:"is_default"`
+}
+
+type ResourcePricingCatalogItem struct {
+	ResourceID   uuid.UUID             `json:"resource_id"`
+	ResourceName string                `json:"resource_name"`
+	Category     string                `json:"category"`
+	Status       string                `json:"status"`
+	MainItems    []ResourcePricingItem `json:"main_items"`
+}
+
+type ResourceAddonCatalogItem struct {
+	ResourceID   uuid.UUID      `json:"resource_id"`
+	ResourceName string         `json:"resource_name"`
+	Category     string         `json:"category"`
+	Status       string         `json:"status"`
+	Addons       []ResourceItem `json:"addons"`
+}
+
+type ResourceDeviceMapItem struct {
+	ResourceID       uuid.UUID  `db:"resource_id" json:"resource_id"`
+	ResourceName     string     `db:"resource_name" json:"resource_name"`
+	Category         string     `db:"category" json:"category"`
+	Status           string     `db:"status" json:"status"`
+	SmartDeviceID    *uuid.UUID `db:"device_uuid" json:"device_uuid,omitempty"`
+	DeviceID         string     `db:"device_id" json:"device_id"`
+	DeviceName       string     `db:"device_name" json:"device_name"`
+	PairingStatus    string     `db:"pairing_status" json:"pairing_status"`
+	ConnectionStatus string     `db:"connection_status" json:"connection_status"`
+	DeviceEnabled    bool       `db:"is_enabled" json:"is_enabled"`
+	DeviceLastSeenAt *time.Time `db:"last_seen_at" json:"last_seen_at,omitempty"`
+	DeviceFirmware   string     `db:"firmware_version" json:"firmware_version"`
+}
+
 type ResourceDeviceState struct {
 	ID               uuid.UUID  `db:"id" json:"id"`
 	DeviceID         string     `db:"device_id" json:"device_id"`

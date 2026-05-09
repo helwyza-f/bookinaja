@@ -249,3 +249,40 @@ type AddOrderReq struct {
 	FnbItemID uuid.UUID `json:"fnb_item_id" binding:"required"`
 	Quantity  int       `json:"quantity" binding:"required,min=1"`
 }
+
+type BookingAnalyticsSummary struct {
+	Revenue         float64                         `json:"revenue"`
+	AddonRevenue    float64                         `json:"addon_revenue"`
+	BookingsCount   int                             `json:"bookings_count"`
+	AverageTicket   float64                         `json:"average_ticket"`
+	DailySeries     []BookingAnalyticsDailyPoint    `json:"daily_series"`
+	ResourceLeaders []BookingAnalyticsResourceStat  `json:"resource_leaders"`
+	RecentBookings  []BookingAnalyticsRecentBooking `json:"recent_bookings"`
+	AddonBookings   []BookingAnalyticsRecentBooking `json:"addon_bookings"`
+}
+
+type BookingAnalyticsDailyPoint struct {
+	Date          string  `db:"date" json:"date"`
+	Label         string  `db:"label" json:"label"`
+	Revenue       float64 `db:"revenue" json:"revenue"`
+	BookingsCount int     `db:"bookings_count" json:"bookings_count"`
+}
+
+type BookingAnalyticsResourceStat struct {
+	ID            uuid.UUID  `db:"id" json:"id"`
+	Name          string     `db:"name" json:"name"`
+	BookingsCount int        `db:"bookings_count" json:"bookings_count"`
+	Revenue       float64    `db:"revenue" json:"revenue"`
+	LastBookingAt *time.Time `db:"last_booking_at" json:"last_booking_at,omitempty"`
+}
+
+type BookingAnalyticsRecentBooking struct {
+	ID            uuid.UUID  `db:"id" json:"id"`
+	CustomerName  string     `db:"customer_name" json:"customer_name"`
+	ResourceName  string     `db:"resource_name" json:"resource_name"`
+	StartTime     *time.Time `db:"start_time" json:"start_time,omitempty"`
+	CreatedAt     time.Time  `db:"created_at" json:"created_at"`
+	PaymentStatus string     `db:"payment_status" json:"payment_status"`
+	GrandTotal    float64    `db:"grand_total" json:"grand_total"`
+	TotalFnb      float64    `db:"total_fnb" json:"total_fnb"`
+}

@@ -24,12 +24,17 @@ export function useGrowthWorkspace() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const [profileRes, feedRes, postsRes] = await Promise.all([
-        api.get("/admin/profile"),
+      const [identityRes, discoveryRes, feedRes, postsRes] = await Promise.all([
+        api.get("/admin/tenant/identity"),
+        api.get("/admin/tenant/discovery-profile"),
         api.get("/admin/growth/feed").catch(() => ({ data: null })),
         api.get("/admin/growth/posts").catch(() => ({ data: { items: [] } })),
       ]);
-      setProfile({ ...defaultTenantProfile, ...profileRes.data });
+      setProfile({
+        ...defaultTenantProfile,
+        ...(identityRes.data || {}),
+        ...(discoveryRes.data || {}),
+      });
       setMarketplaceFeed(feedRes.data || null);
       setPosts(postsRes.data?.items || []);
     } finally {

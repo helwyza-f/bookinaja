@@ -926,6 +926,14 @@ func (s *Service) ListByTenant(ctx context.Context, tenantID string) ([]Customer
 	return s.repo.FindByTenant(ctx, tID)
 }
 
+func (s *Service) CountByTenant(ctx context.Context, tenantID string) (int, error) {
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return 0, fmt.Errorf("id tenant tidak valid")
+	}
+	return s.repo.CountByTenant(ctx, tID)
+}
+
 func (s *Service) InvalidateTenantCache(ctx context.Context, tenantID uuid.UUID) {
 	s.repo.InvalidateTenantCache(ctx, tenantID)
 }

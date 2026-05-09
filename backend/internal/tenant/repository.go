@@ -853,6 +853,244 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Tenant, error)
 	return &t, nil
 }
 
+func (r *Repository) GetAdminBootstrap(ctx context.Context, userID, tenantID uuid.UUID) (*AdminBootstrapResponse, error) {
+	type row struct {
+		UserID           uuid.UUID      `db:"user_id"`
+		UserName         string         `db:"user_name"`
+		UserEmail        string         `db:"user_email"`
+		UserRole         string         `db:"user_role"`
+		PermissionKeys   pq.StringArray `db:"permission_keys"`
+		TenantID         uuid.UUID      `db:"tenant_id"`
+		TenantName       string         `db:"tenant_name"`
+		TenantSlug       string         `db:"tenant_slug"`
+		TenantLogoURL    string         `db:"tenant_logo_url"`
+		BusinessCategory string         `db:"business_category"`
+	}
+
+	var item row
+	err := r.db.GetContext(ctx, &item, `
+		SELECT
+			u.id AS user_id,
+			u.name AS user_name,
+			u.email AS user_email,
+			u.role AS user_role,
+			COALESCE(sr.permission_keys, ARRAY[]::varchar[]) AS permission_keys,
+			t.id AS tenant_id,
+			t.name AS tenant_name,
+			t.slug AS tenant_slug,
+			COALESCE(t.logo_url, '') AS tenant_logo_url,
+			t.business_category
+		FROM users u
+		JOIN tenants t ON t.id = u.tenant_id
+		LEFT JOIN staff_roles sr ON sr.id = u.role_id
+		WHERE u.id = $1 AND u.tenant_id = $2
+		LIMIT 1
+	`, userID, tenantID)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	enableDiscoveryPosts := false
+	tableExists, err := r.tableExists(ctx, "platform_settings")
+	if err != nil {
+		return nil, err
+	}
+	if tableExists {
+		_ = r.db.GetContext(ctx, &enableDiscoveryPosts, `
+			SELECT COALESCE((
+				SELECT ps.boolean_value
+				FROM platform_settings ps
+				WHERE ps.namespace = 'discovery_feed'
+				  AND ps.key = 'enable_discovery_posts'
+				LIMIT 1
+			), FALSE)
+		`)
+	}
+
+	return &AdminBootstrapResponse{
+		User: AdminBootstrapUser{
+			ID:             item.UserID,
+			Name:           item.UserName,
+			Email:          item.UserEmail,
+			Role:           item.UserRole,
+			PermissionKeys: []string(item.PermissionKeys),
+		},
+		Tenant: AdminBootstrapTenant{
+			ID:               item.TenantID,
+			Name:             item.TenantName,
+			Slug:             item.TenantSlug,
+			LogoURL:          item.TenantLogoURL,
+			BusinessCategory: item.BusinessCategory,
+		},
+		Features: AdminBootstrapFeatures{
+			EnableDiscoveryPosts: enableDiscoveryPosts,
+		},
+	}, nil
+}
+
+func (r *Repository) tableExists(ctx context.Context, tableName string) (bool, error) {
+	var exists bool
+	err := r.db.GetContext(ctx, &exists, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.tables
+			WHERE table_schema = 'public' AND table_name = $1
+		)
+	`, tableName)
+	return exists, err
+}
+
+func (r *Repository) GetTenantIdentity(ctx context.Context, tenantID uuid.UUID) (*TenantIdentity, error) {
+	var item TenantIdentity
+	err := r.db.GetContext(ctx, &item, `
+		SELECT
+			id, name, slug, business_category, business_type,
+			tagline, slogan, about_us, logo_url, banner_url,
+			whatsapp_number, address, instagram_url, tiktok_url,
+			open_time, close_time, timezone
+		FROM tenants
+		WHERE id = $1
+		LIMIT 1
+	`, tenantID)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
+func (r *Repository) GetTenantDiscoveryProfile(ctx context.Context, tenantID uuid.UUID) (*TenantDiscoveryProfileSettings, error) {
+	var item TenantDiscoveryProfileSettings
+	err := r.db.GetContext(ctx, &item, `
+		SELECT
+			discovery_headline,
+			discovery_subheadline,
+			discovery_tags,
+			discovery_badges,
+			promo_label,
+			featured_image_url,
+			highlight_copy,
+			discovery_featured,
+			discovery_promoted,
+			discovery_priority,
+			promo_starts_at,
+			promo_ends_at
+		FROM tenants
+		WHERE id = $1
+		LIMIT 1
+	`, tenantID)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
+func (r *Repository) GetReferralPayoutSettings(ctx context.Context, tenantID uuid.UUID) (*TenantReferralPayoutSettings, error) {
+	var item TenantReferralPayoutSettings
+	err := r.db.GetContext(ctx, &item, `
+		SELECT
+			referral_code,
+			payout_bank_name,
+			payout_account_name,
+			payout_account_number,
+			payout_whatsapp
+		FROM tenants
+		WHERE id = $1
+		LIMIT 1
+	`, tenantID)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
+type tenantOnboardingSnapshot struct {
+	HasBusinessIdentity bool `db:"has_business_identity"`
+	HasBusinessContact  bool `db:"has_business_contact"`
+	HasVisualIdentity   bool `db:"has_visual_identity"`
+	ResourcesCount      int  `db:"resources_count"`
+	PricePackagesCount  int  `db:"price_packages_count"`
+	PaymentReady        bool `db:"payment_ready"`
+}
+
+func (r *Repository) GetTenantOnboardingSnapshot(ctx context.Context, tenantID uuid.UUID) (*tenantOnboardingSnapshot, error) {
+	var snapshot tenantOnboardingSnapshot
+	err := r.db.GetContext(ctx, &snapshot, `
+		SELECT
+			EXISTS (
+				SELECT 1
+				FROM tenants
+				WHERE id = $1
+				  AND (
+					NULLIF(BTRIM(tagline), '') IS NOT NULL
+					OR NULLIF(BTRIM(slogan), '') IS NOT NULL
+					OR NULLIF(BTRIM(about_us), '') IS NOT NULL
+				  )
+			) AS has_business_identity,
+			EXISTS (
+				SELECT 1
+				FROM tenants
+				WHERE id = $1
+				  AND NULLIF(BTRIM(whatsapp_number), '') IS NOT NULL
+				  AND NULLIF(BTRIM(timezone), '') IS NOT NULL
+			) AS has_business_contact,
+			EXISTS (
+				SELECT 1
+				FROM tenants
+				WHERE id = $1
+				  AND (
+					NULLIF(BTRIM(logo_url), '') IS NOT NULL
+					OR NULLIF(BTRIM(banner_url), '') IS NOT NULL
+				  )
+			) AS has_visual_identity,
+			(
+				SELECT COUNT(*)
+				FROM resources
+				WHERE tenant_id = $1 AND status != 'deleted'
+			) AS resources_count,
+			(
+				SELECT COUNT(*)
+				FROM resources r
+				JOIN resource_items ri ON ri.resource_id = r.id
+				WHERE r.tenant_id = $1
+				  AND r.status != 'deleted'
+				  AND LOWER(COALESCE(ri.item_type, '')) IN ('main_option', 'main', 'console_option')
+			) AS price_packages_count,
+			EXISTS (
+				SELECT 1
+				FROM tenant_payment_methods tpm
+				WHERE tpm.tenant_id = $1
+				  AND tpm.is_active = TRUE
+				  AND (
+					(
+						tpm.code = 'bank_transfer'
+						AND NULLIF(BTRIM(COALESCE(tpm.metadata->>'account_number', '')), '') IS NOT NULL
+					)
+					OR (
+						tpm.code = 'qris_static'
+						AND NULLIF(BTRIM(COALESCE(tpm.metadata->>'qr_image_url', '')), '') IS NOT NULL
+					)
+					OR tpm.code NOT IN ('bank_transfer', 'qris_static')
+				  )
+			) AS payment_ready
+	`, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return &snapshot, nil
+}
+
 func (r *Repository) CreateDiscoveryFeedEvent(ctx context.Context, event DiscoveryFeedEvent) error {
 	_, err := r.db.NamedExecContext(ctx, `
 		INSERT INTO discovery_feed_events (

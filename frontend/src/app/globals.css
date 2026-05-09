@@ -133,33 +133,33 @@
 }
 
 .tenant-admin-shell {
-  --bookinaja-50: #eefcf9;
-  --bookinaja-100: #d5f7f3;
-  --bookinaja-200: #afece6;
-  --bookinaja-300: #81d8d0;
-  --bookinaja-400: #5cc5bf;
-  --bookinaja-500: #36b2ae;
-  --bookinaja-600: #1e8f92;
-  --bookinaja-700: #196f72;
-  --bookinaja-900: #18484b;
-  --bookinaja-950: #0d2b2f;
-  --primary: #36b2ae;
-  --primary-foreground: #f7fffe;
-  --ring: #5cc5bf;
-  --sidebar-primary: #1e8f92;
-  --sidebar-primary-foreground: #f7fffe;
-  --sidebar-ring: #5cc5bf;
-  --hero-glow: rgba(129, 216, 208, 0.18);
+  --bookinaja-50: #eef4ff;
+  --bookinaja-100: #d9e7ff;
+  --bookinaja-200: #b8d1ff;
+  --bookinaja-300: #8bb4ff;
+  --bookinaja-400: #5d93ff;
+  --bookinaja-500: #2f79ff;
+  --bookinaja-600: #0f63f6;
+  --bookinaja-700: #0b4dc4;
+  --bookinaja-900: #142c59;
+  --bookinaja-950: #0b1731;
+  --primary: #0f63f6;
+  --primary-foreground: #ffffff;
+  --ring: #5d93ff;
+  --sidebar-primary: #0f63f6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-ring: #5d93ff;
+  --hero-glow: rgba(15, 99, 246, 0.08);
 }
 
 .dark .tenant-admin-shell {
-  --primary: #5cc5bf;
-  --primary-foreground: #042022;
-  --ring: #81d8d0;
-  --sidebar-primary: #5cc5bf;
-  --sidebar-primary-foreground: #042022;
-  --sidebar-ring: #81d8d0;
-  --hero-glow: rgba(129, 216, 208, 0.24);
+  --primary: #4a8dff;
+  --primary-foreground: #08111f;
+  --ring: #8bb4ff;
+  --sidebar-primary: #4a8dff;
+  --sidebar-primary-foreground: #08111f;
+  --sidebar-ring: #8bb4ff;
+  --hero-glow: rgba(74, 141, 255, 0.12);
 }
 
 @layer base {

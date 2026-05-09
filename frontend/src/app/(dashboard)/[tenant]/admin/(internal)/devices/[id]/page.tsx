@@ -23,6 +23,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { RealtimePill } from "@/components/dashboard/realtime-pill";
+import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { useRealtime } from "@/lib/realtime/use-realtime";
 import { tenantDeviceChannel } from "@/lib/realtime/channels";
 import {
@@ -156,11 +157,12 @@ function patchDeviceDetailFromEvent(
 export default function DeviceDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAdminSession();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [device, setDevice] = useState<DeviceDetail | null>(null);
   const [resources, setResources] = useState<ResourceOption[]>([]);
-  const [tenantId, setTenantId] = useState("");
+  const tenantId = user?.tenant_id || "";
   const [resourceId, setResourceId] = useState("");
   const [testForm, setTestForm] = useState({
     event: "manual_test",
@@ -172,16 +174,14 @@ export default function DeviceDetailPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [deviceRes, resourcesRes, meRes] = await Promise.all([
+      const [deviceRes, resourcesRes] = await Promise.all([
         api.get(`/devices/${params.id}`),
-        api.get("/resources-all"),
-        api.get("/auth/me"),
+        api.get("/admin/resources/summary"),
       ]);
       const nextDevice = deviceRes.data;
       setDevice(nextDevice);
       setResourceId(nextDevice.resource_id || "");
-      setResources(resourcesRes.data.resources || []);
-      setTenantId(meRes.data?.user?.tenant_id || "");
+      setResources(resourcesRes.data.items || []);
     } catch {
       toast.error("Gagal memuat detail alat");
       router.push("/admin/devices");

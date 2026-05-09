@@ -170,18 +170,14 @@ export function PromoFormScreen({
     const load = async () => {
       setLoading(true);
       try {
-        const requests = [api.get("/resources-all")];
+        const requests = [api.get("/admin/resources/summary")];
         if (promoId) {
           requests.push(api.get(`/admin/settings/promos/${promoId}`));
           requests.push(api.get(`/admin/settings/promos/${promoId}/redemptions`));
         }
         const responses = await Promise.all(requests);
         const resourceRes = responses[0];
-        const resourceItems = Array.isArray(resourceRes.data?.resources)
-          ? resourceRes.data.resources
-          : Array.isArray(resourceRes.data)
-            ? resourceRes.data
-            : [];
+        const resourceItems = Array.isArray(resourceRes.data?.items) ? resourceRes.data.items : [];
         setResources(resourceItems);
 
         if (promoId) {

@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import {
   ExternalLink,
   Monitor,
@@ -34,19 +35,24 @@ export function PageBuilderStudioHeader({
   onResetDraft,
 }: StudioHeaderProps) {
   return (
-    <section className="relative overflow-hidden rounded-[1.35rem] border border-slate-200/90 bg-[linear-gradient(180deg,#ffffff,rgba(241,252,250,0.96))] p-4 shadow-[0_18px_42px_rgba(15,23,42,0.06)] dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(10,24,26,0.96),rgba(8,12,24,0.98))] dark:shadow-[0_18px_42px_rgba(2,6,23,0.34)] sm:rounded-[2rem] sm:p-5 sm:shadow-[0_22px_60px_rgba(15,23,42,0.08)] dark:sm:shadow-[0_22px_60px_rgba(2,6,23,0.42)]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.18),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(13,43,47,0.06),transparent_30%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.2),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.04),transparent_24%)]" />
-      <div className="relative flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/12 dark:bg-[#0f0f17] sm:p-5">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0 max-w-3xl">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[var(--bookinaja-200)] bg-[var(--bookinaja-50)] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.24em] text-[var(--bookinaja-700)] shadow-sm dark:border-[rgba(96,165,250,0.24)] dark:bg-[rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]">
+          <div className="inline-flex items-center gap-2 rounded-md border border-[var(--bookinaja-200)] bg-[var(--bookinaja-50)] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--bookinaja-700)] dark:border-[rgba(96,165,250,0.24)] dark:bg-[rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]">
             <Sparkles className="h-3.5 w-3.5" />
             Landing
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <h1 className="text-2xl font-black tracking-tight text-slate-950 dark:text-white sm:text-3xl">
+            <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
               Page Builder
             </h1>
-            {lastPublishedLabel ? <StatusPill tone="neutral" label={`Published ${lastPublishedLabel}`} compact /> : null}
+            {lastPublishedLabel ? (
+              <StatusPill
+                tone="neutral"
+                label={`Published ${lastPublishedLabel}`}
+                compact
+              />
+            ) : null}
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <StatusPill
@@ -61,10 +67,10 @@ export function PageBuilderStudioHeader({
         </div>
 
         <div className="xl:min-w-[22rem] xl:max-w-[24rem]">
-          <div className="rounded-[1.2rem] border border-slate-200/80 bg-white/88 p-3 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/[0.04] sm:rounded-[1.45rem]">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04]">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
+                <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                   Publish
                 </div>
                 <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
@@ -75,7 +81,7 @@ export function PageBuilderStudioHeader({
                 type="button"
                 onClick={onPublish}
                 disabled={saving}
-                className="h-11 rounded-2xl bg-[var(--bookinaja-600)] px-4 text-white shadow-[0_12px_30px_rgba(37,99,235,0.28)] hover:bg-[var(--bookinaja-700)] disabled:border disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none disabled:opacity-100 dark:shadow-[0_16px_34px_rgba(29,78,216,0.3)] dark:disabled:border-white/10 dark:disabled:bg-white/[0.08] dark:disabled:text-slate-500"
+                className="h-10 rounded-lg bg-[var(--bookinaja-600)] px-4 text-white hover:bg-[var(--bookinaja-700)] disabled:border disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:opacity-100 dark:disabled:border-white/10 dark:disabled:bg-white/[0.08] dark:disabled:text-slate-500"
               >
                 <Save className="mr-2 h-4 w-4" />
                 {saving ? "Publishing..." : "Publish"}
@@ -84,19 +90,28 @@ export function PageBuilderStudioHeader({
 
             <div className="mt-3 flex flex-wrap gap-2">
               {previewUrl ? (
-                <Button asChild variant="outline" className="h-10 rounded-2xl border-slate-200 bg-slate-50/90 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:hover:bg-white/[0.08]">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="h-10 rounded-lg border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:hover:bg-white/[0.08]"
+                >
                   <a href={previewUrl} target="_blank" rel="noreferrer">
                     <ExternalLink className="mr-2 h-4 w-4" />
                     Publik
                   </a>
                 </Button>
               ) : (
-                <Button type="button" variant="outline" disabled className="h-10 rounded-2xl">
+                <Button type="button" variant="outline" disabled className="h-10 rounded-lg">
                   <ExternalLink className="mr-2 h-4 w-4" />
                   Publik
                 </Button>
               )}
-              <Button type="button" variant="outline" onClick={onRefresh} className="h-10 rounded-2xl border-slate-200 bg-slate-50/90 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:hover:bg-white/[0.08]">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onRefresh}
+                className="h-10 rounded-lg border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:hover:bg-white/[0.08]"
+              >
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Refresh
               </Button>
@@ -104,7 +119,7 @@ export function PageBuilderStudioHeader({
                 type="button"
                 variant="outline"
                 onClick={onResetDraft}
-                className="h-10 rounded-2xl border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100 dark:hover:bg-amber-500/15"
+                className="h-10 rounded-lg border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100 dark:hover:bg-amber-500/15"
               >
                 <RotateCcw className="mr-2 h-4 w-4" />
                 Reset
@@ -137,15 +152,19 @@ export function PageBuilderPreviewToolbar({
   onPreviewModeChange,
 }: PreviewToolbarProps) {
   return (
-    <div className="flex flex-col gap-3 border-b border-slate-200/90 bg-slate-50/70 px-5 py-4 dark:border-white/10 dark:bg-white/[0.02] lg:flex-row lg:items-center lg:justify-between">
+    <div className="flex flex-col gap-3 border-b border-slate-200/90 bg-slate-50 px-5 py-4 dark:border-white/10 dark:bg-white/[0.02] lg:flex-row lg:items-center lg:justify-between">
       <div className="min-w-0">
-        <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+        <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
           Preview
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
           <span>{activeCount} section aktif</span>
-          {selectedSectionLabel ? <span>• {selectedSectionLabel}</span> : null}
-          {hasUnpublishedChanges ? <span className="font-medium text-amber-600 dark:text-amber-300">• Draft berubah</span> : null}
+          {selectedSectionLabel ? <span>| {selectedSectionLabel}</span> : null}
+          {hasUnpublishedChanges ? (
+            <span className="font-medium text-amber-600 dark:text-amber-300">
+              | Draft berubah
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -185,11 +204,14 @@ function StatusPill({
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm",
-        compact && "px-2.5 py-1 text-[11px]",
-        tone === "success" && "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200",
-        tone === "warning" && "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200",
-        tone === "neutral" && "border-slate-200 bg-white/90 text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300",
+        "inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs font-medium",
+        compact && "px-2 py-1 text-[11px]",
+        tone === "success" &&
+          "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200",
+        tone === "warning" &&
+          "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200",
+        tone === "neutral" &&
+          "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300",
       )}
     >
       <span
@@ -213,23 +235,25 @@ function SegmentedControl({
   onChange,
 }: {
   label: string;
-  items: Array<{ value: string; label: string; icon?: React.ReactNode }>;
+  items: Array<{ value: string; label: string; icon?: ReactNode }>;
   value: string;
   onChange: (value: string) => void;
 }) {
   return (
     <div className="inline-flex flex-col gap-1.5">
-      <div className="px-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{label}</div>
-      <div className="inline-flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="px-1 text-[10px] font-medium uppercase tracking-[0.18em] text-slate-400">
+        {label}
+      </div>
+      <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 dark:border-white/10 dark:bg-white/[0.04]">
         {items.map((item) => (
           <button
             key={item.value}
             type="button"
             onClick={() => onChange(item.value)}
             className={cn(
-              "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors",
+              "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
               value === item.value
-                ? "bg-slate-950 text-white shadow-sm dark:bg-[var(--bookinaja-600)] dark:text-white"
+                ? "bg-slate-950 text-white dark:bg-[var(--bookinaja-600)] dark:text-white"
                 : "text-slate-500 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/[0.06]",
             )}
           >

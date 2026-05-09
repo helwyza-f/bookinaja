@@ -15,15 +15,15 @@ export function GrowthSidebar({ tenantName }: GrowthSidebarProps) {
 
   return (
     <div className="relative flex h-full flex-col border-r border-[var(--sidebar-border)] bg-[var(--sidebar)]">
-      <div className="flex h-20 items-center border-b border-[var(--sidebar-border)] px-6">
+      <div className="flex h-20 items-center border-b border-[var(--sidebar-border)] px-5">
         <div className="min-w-0">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-            Promosi Bisnis
+          <div className="text-[10px] font-medium uppercase tracking-wide text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+            Growth
           </div>
-          <div className="mt-1 truncate text-lg font-bold text-slate-950 dark:text-white">
+          <div className="mt-1 truncate text-base font-semibold text-slate-950 dark:text-white">
             {tenantName || "Tenant"}
           </div>
-          <div className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-300">
+          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-300">
             Feed, konten, dan performa
           </div>
         </div>
@@ -37,9 +37,9 @@ export function GrowthSidebar({ tenantName }: GrowthSidebarProps) {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-3 transition-colors",
+                "flex items-center gap-3 rounded-lg px-3 py-3 transition-colors",
                 active
-                  ? "bg-[var(--sidebar-primary)] text-[var(--sidebar-primary-foreground)] shadow-sm"
+                  ? "bg-[var(--sidebar-primary)] text-[var(--sidebar-primary-foreground)]"
                   : "text-slate-600 hover:bg-[var(--sidebar-accent)] hover:text-[var(--bookinaja-600)] dark:text-slate-300 dark:hover:text-white",
               )}
             >
@@ -65,7 +65,7 @@ export function GrowthSidebar({ tenantName }: GrowthSidebarProps) {
       <div className="border-t border-[var(--sidebar-border)] px-3 py-3">
         <Link
           href="/admin/dashboard"
-          className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-500 transition-colors hover:bg-[var(--sidebar-accent)] hover:text-slate-950 dark:text-slate-300 dark:hover:text-white"
+          className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-500 transition-colors hover:bg-[var(--sidebar-accent)] hover:text-slate-950 dark:text-slate-300 dark:hover:text-white"
         >
           <ArrowLeft className="h-4 w-4" />
           Kembali ke admin operasional

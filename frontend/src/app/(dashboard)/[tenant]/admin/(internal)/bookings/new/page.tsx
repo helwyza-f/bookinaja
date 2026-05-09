@@ -42,6 +42,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { useTenant } from "@/context/tenant-context";
+import { useAdminSession } from "@/components/dashboard/admin-session-context";
 
 type ResourceItem = {
   id: string;
@@ -50,14 +51,27 @@ type ResourceItem = {
   price: number;
   price_unit?: string;
   unit_duration?: number;
+  is_default?: boolean;
 };
 
 type ResourceRow = {
   id: string;
-  tenant_id: string;
   name: string;
   category?: string;
   items?: ResourceItem[];
+};
+
+type PricingCatalogRow = {
+  resource_id: string;
+  resource_name: string;
+  category?: string;
+  status?: string;
+  main_items?: ResourceItem[];
+};
+
+type AddonCatalogRow = {
+  resource_id: string;
+  addons?: ResourceItem[];
 };
 
 type BusySlot = {
@@ -107,6 +121,7 @@ export default function NewManualBookingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { profile } = useTenant();
+  const { user } = useAdminSession();
   const packageRef = useRef<HTMLDivElement | null>(null);
   const scheduleRef = useRef<HTMLDivElement | null>(null);
   const durationRef = useRef<HTMLDivElement | null>(null);
@@ -138,6 +153,7 @@ export default function NewManualBookingPage() {
   const [bookingMode, setBookingMode] = useState<BookingMode>(
     searchParams.get("mode") === "walkin" ? "walkin" : "scheduled",
   );
+  const hasBootstrappedRef = useRef(false);
 
   const scrollToSection = (ref: React.RefObject<HTMLDivElement | null>) => {
     window.setTimeout(() => {
@@ -162,14 +178,45 @@ export default function NewManualBookingPage() {
 
   // 1. Fetch Resources
   useEffect(() => {
-    api
-      .get("/resources-all")
-      .then((res) => {
-        const data = res.data.resources || res.data;
-        setResources(Array.isArray(data) ? data : []);
-        setLoading(false);
+    if (hasBootstrappedRef.current) return;
+    hasBootstrappedRef.current = true;
+
+    Promise.all([
+      api.get("/admin/resources/pricing-catalog"),
+      api.get("/admin/resources/addons-catalog"),
+    ])
+      .then(([pricingRes, addonRes]) => {
+        const pricingItems = Array.isArray(pricingRes.data?.items)
+          ? (pricingRes.data.items as PricingCatalogRow[])
+          : [];
+        const addonItems = Array.isArray(addonRes.data?.items)
+          ? (addonRes.data.items as AddonCatalogRow[])
+          : [];
+        const addonsByResource = new Map(
+          addonItems.map((item) => [
+            item.resource_id,
+            (item.addons || []).map((addon) => ({
+              ...addon,
+              item_type: addon.item_type || "add_on",
+            })),
+          ]),
+        );
+        const merged = pricingItems.map((item) => ({
+          id: item.resource_id,
+          name: item.resource_name,
+          category: item.category,
+          items: [
+            ...(item.main_items || []).map((mainItem) => ({
+              ...mainItem,
+              item_type: "main_option",
+            })),
+            ...(addonsByResource.get(item.resource_id) || []),
+          ],
+        }));
+        setResources(merged);
       })
-      .catch(() => toast.error("Gagal memuat daftar unit"));
+      .catch(() => toast.error("Gagal memuat daftar unit"))
+      .finally(() => setLoading(false));
   }, []);
 
   const currentResource = useMemo(
@@ -190,6 +237,8 @@ export default function NewManualBookingPage() {
   }, [selectedItem]);
 
   const tenantTimezone = profile?.timezone || "Asia/Jakarta";
+  const tenantOpenTime = normalizeTenantClock(profile?.open_time || "09:00");
+  const tenantCloseTime = normalizeTenantClock(profile?.close_time || "22:00");
   const tenantNow = useMemo(
     () => getTenantNow(new Date(), tenantTimezone),
     [tenantTimezone],
@@ -197,6 +246,27 @@ export default function NewManualBookingPage() {
   const tenantToday = useMemo(
     () => getTenantToday(new Date(), tenantTimezone),
     [tenantTimezone],
+  );
+
+  const operatingWindow = useMemo(
+    () => getOperatingWindow(tenantOpenTime, tenantCloseTime),
+    [tenantOpenTime, tenantCloseTime],
+  );
+
+  const mainServiceOptions = useMemo(
+    () =>
+      currentResource?.items?.filter((item) =>
+        ["main_option", "main", "console_option"].includes(item.item_type),
+      ) || [],
+    [currentResource],
+  );
+
+  const addonOptions = useMemo(
+    () =>
+      currentResource?.items?.filter((item) =>
+        ["add_on", "addon"].includes(item.item_type),
+      ) || [],
+    [currentResource],
   );
 
   useEffect(() => {
@@ -207,7 +277,7 @@ export default function NewManualBookingPage() {
   useEffect(() => {
     if (selectedResourceId && date) {
       if (isInterday) {
-        setSelectedTime("08:00");
+        setSelectedTime(tenantOpenTime);
       } else {
         api
           .get(
@@ -222,10 +292,11 @@ export default function NewManualBookingPage() {
               return { start_min: h * 60 + m, end_min: eh * 60 + em };
             });
             setBusySlots(normalized);
-          });
+          })
+          .catch(() => setBusySlots([]));
       }
     }
-  }, [selectedResourceId, date, isInterday]);
+  }, [selectedResourceId, date, isInterday, tenantOpenTime]);
 
   // 3. CRM Check
   useEffect(() => {
@@ -256,15 +327,21 @@ export default function NewManualBookingPage() {
   const availableSlots = useMemo(() => {
     if (!selectedItem || isInterday) return [];
     const step = selectedItem.unit_duration || 60;
-    const slots = [];
-    let current = parse("08:00", "HH:mm", new Date());
-    const end = parse("23:30", "HH:mm", new Date());
-    while (isBefore(current, end)) {
+    const slots: string[] = [];
+    let current = parse(tenantOpenTime, "HH:mm", new Date());
+    const end = parse(
+      minutesToClock(
+        Math.max(operatingWindow.openMinutes + step, operatingWindow.closeMinutes),
+      ),
+      "HH:mm",
+      new Date(),
+    );
+    while (isBefore(addMinutes(current, step - 1), end)) {
       slots.push(format(current, "HH:mm"));
       current = addMinutes(current, step);
     }
     return slots;
-  }, [selectedItem, isInterday]);
+  }, [selectedItem, isInterday, tenantOpenTime, operatingWindow]);
 
   const recommendedWalkInSlot = useMemo(() => {
     if (bookingMode !== "walkin") return "";
@@ -278,11 +355,11 @@ export default function NewManualBookingPage() {
     const nextBusy = busySlots
       .filter((s) => s.start_min > startMin)
       .sort((a, b) => a.start_min - b.start_min)[0];
-    let availableMin = 23 * 60 + 59 - startMin;
+    let availableMin = operatingWindow.closeMinutes - startMin;
     if (nextBusy)
       availableMin = Math.min(availableMin, nextBusy.start_min - startMin);
     return Math.floor(availableMin / (selectedItem.unit_duration || 60)) || 1;
-  }, [selectedTime, busySlots, selectedItem, isInterday]);
+  }, [selectedTime, busySlots, selectedItem, isInterday, operatingWindow]);
 
   useEffect(() => {
     if (durationValue > maxAvailableSessions) setDurationValue(1);
@@ -370,6 +447,7 @@ export default function NewManualBookingPage() {
   const handleSave = async () => {
     if (!selectedTime || !custName || !custPhone || !currentResource)
       return toast.error("Data belum lengkap");
+    if (!user?.tenant_id) return toast.error("Sesi tenant tidak valid");
     setIsSubmitting(true);
     try {
       const effectiveDate = date || tenantToday;
@@ -378,8 +456,8 @@ export default function NewManualBookingPage() {
         selectedTime,
         tenantTimezone,
       );
-      const res = await api.post("/bookings/manual", {
-        tenant_id: currentResource.tenant_id,
+        const res = await api.post("/bookings/manual", {
+        tenant_id: user?.tenant_id,
         resource_id: selectedResourceId,
         customer_name: custName.toUpperCase(),
         customer_phone: custPhone,
@@ -437,7 +515,7 @@ export default function NewManualBookingPage() {
   return (
     <div className="min-h-screen bg-slate-50 pb-24 pt-6 px-3 font-plus-jakarta dark:bg-[#050505]">
       <div className="mx-auto max-w-400 space-y-4  md:p-4 lg:p-6">
-        <header className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/5 dark:bg-[#0a0a0a]">
+        <header className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/5 dark:bg-[#0a0a0a]">
           <div className="h-1 bg-blue-600" />
           <div className="flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between md:p-5">
             <div className="flex items-center gap-3">
@@ -461,7 +539,7 @@ export default function NewManualBookingPage() {
               </div>
             </div>
             <div className="flex flex-col gap-3 md:min-w-[420px]">
-              <div className="flex rounded-2xl bg-slate-100 p-1 dark:bg-white/5">
+              <div className="flex rounded-lg bg-slate-100 p-1 dark:bg-white/5">
                 <button
                   type="button"
                   onClick={() => {
@@ -469,7 +547,7 @@ export default function NewManualBookingPage() {
                     setSelectedTime("");
                   }}
                   className={cn(
-                    "flex-1 rounded-[1rem] px-4 py-2.5 text-xs font-semibold transition-all",
+                    "flex-1 rounded-md px-4 py-2.5 text-xs font-medium transition-colors",
                     bookingMode === "scheduled"
                       ? "bg-white text-slate-950 shadow-sm dark:bg-slate-900 dark:text-white"
                       : "text-slate-500 dark:text-slate-300",
@@ -484,7 +562,7 @@ export default function NewManualBookingPage() {
                     setSelectedTime("");
                   }}
                   className={cn(
-                    "flex-1 rounded-[1rem] px-4 py-2.5 text-xs font-semibold transition-all",
+                    "flex-1 rounded-md px-4 py-2.5 text-xs font-medium transition-colors",
                     bookingMode === "walkin"
                       ? "bg-white text-slate-950 shadow-sm dark:bg-slate-900 dark:text-white"
                       : "text-slate-500 dark:text-slate-300",
@@ -521,9 +599,9 @@ export default function NewManualBookingPage() {
           {/* LEFT: SELECTION FLOW */}
           <div className="lg:col-span-8 space-y-5">
             {/* 01. PILIH UNIT & PAKET */}
-            <Card className="rounded-2xl border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0c0c0c] md:p-6">
+            <Card className="rounded-xl border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0c0c0c] md:p-6">
               <div className="flex items-center gap-3 mb-5">
-                <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center text-white">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--bookinaja-600)] text-white">
                   <Box size={16} />
                 </div>
                 <h2 className="text-base font-semibold text-slate-900 dark:text-white">
@@ -542,7 +620,7 @@ export default function NewManualBookingPage() {
                       scrollToSection(packageRef);
                     }}
                     className={cn(
-                      "rounded-2xl border p-4 text-left transition-all",
+                      "rounded-lg border p-4 text-left transition-colors",
                       selectedResourceId === r.id
                         ? "border-blue-300 bg-blue-50 shadow-sm dark:border-blue-500/40 dark:bg-blue-600/10"
                         : "border-slate-200 bg-slate-50 text-slate-600 hover:border-blue-200 hover:bg-white dark:border-white/5 dark:bg-white/5 dark:text-slate-300",
@@ -572,11 +650,8 @@ export default function NewManualBookingPage() {
                     Paket Tersedia
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {currentResource.items
-                      ?.filter((i) =>
-                        ["main_option", "main"].includes(i.item_type),
-                      )
-                      .map((item) => (
+                    {mainServiceOptions.length > 0 ? (
+                      mainServiceOptions.map((item) => (
                         <button
                           key={item.id}
                           onClick={() => {
@@ -585,15 +660,20 @@ export default function NewManualBookingPage() {
                             scrollToSection(scheduleRef);
                           }}
                           className={cn(
-                            "rounded-xl border px-4 py-2.5 text-xs font-semibold transition-all",
+                            "rounded-lg border px-4 py-2.5 text-xs font-medium transition-colors",
                             selectedMainId === item.id
-                              ? "border-blue-600 bg-blue-600 text-white"
+                              ? "border-[var(--bookinaja-600)] bg-[var(--bookinaja-600)] text-white"
                               : "border-slate-200 bg-white text-slate-500 hover:border-blue-200 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:hover:text-white",
                           )}
                         >
-                          {item.name} • Rp{item.price.toLocaleString()}
+                          {item.name} | Rp{item.price.toLocaleString()}
                         </button>
-                      ))}
+                      ))
+                    ) : (
+                      <div className="w-full rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
+                        Belum ada paket utama untuk unit ini. Tambahkan dulu dari pengaturan resource.
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -603,25 +683,30 @@ export default function NewManualBookingPage() {
             <Card
               ref={scheduleRef}
               className={cn(
-                "scroll-mt-20 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all dark:border-white/5 dark:bg-[#0c0c0c] md:p-6",
+                "scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all dark:border-white/5 dark:bg-[#0c0c0c] md:p-6",
                 !selectedMainId && "pointer-events-none opacity-60",
               )}
             >
               <div className="mb-5 flex flex-col justify-between gap-4 md:flex-row md:items-center">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-sm">
-                    <Clock size={18} />
-                  </div>
-                  <h2 className="text-base font-semibold text-slate-900 dark:text-white md:text-lg">
-                    Jadwal & Durasi
-                  </h2>
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--bookinaja-600)] text-white shadow-sm">
+                      <Clock size={18} />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-semibold text-slate-900 dark:text-white md:text-lg">
+                        Jadwal & Durasi
+                      </h2>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Jam operasional: {tenantOpenTime} - {tenantCloseTime}
+                      </p>
+                    </div>
                 </div>
 
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className="h-11 rounded-xl border-slate-200 bg-slate-50 px-4 text-xs font-semibold text-slate-900 dark:border-white/5 dark:bg-white/5 dark:text-white"
+                      className="h-10 rounded-lg border-slate-200 bg-slate-50 px-4 text-xs font-medium text-slate-900 dark:border-white/5 dark:bg-white/5 dark:text-white"
                     >
                       <CalendarIcon size={16} className="text-blue-600" />
                       {date
@@ -630,7 +715,7 @@ export default function NewManualBookingPage() {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent
-                    className="w-auto overflow-hidden rounded-2xl border-none p-0 shadow-lg"
+                    className="w-auto overflow-hidden rounded-xl border-none p-0 shadow-lg"
                     align="end"
                   >
                       <Calendar
@@ -671,12 +756,12 @@ export default function NewManualBookingPage() {
                             disabled={isBusy || isPast}
                             onClick={() => handleTimeSelection(t)}
                             className={cn(
-                              "relative flex h-11 items-center justify-center rounded-xl border text-xs font-semibold transition-all",
+                              "relative flex h-10 items-center justify-center rounded-lg border text-xs font-medium transition-colors",
                               isSel
-                                ? "z-10 border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+                                ? "z-10 border-[var(--bookinaja-600)] bg-[var(--bookinaja-600)] text-white shadow-sm"
                                 : isBusy || isPast
                                   ? "cursor-not-allowed border-slate-100 bg-slate-100 text-slate-300 dark:border-white/5 dark:bg-[#111]"
-                                  : "border-slate-200 bg-white text-slate-600 shadow-sm hover:border-blue-600 dark:border-white/5 dark:bg-white/5 dark:text-slate-300 dark:hover:text-white",
+                                  : "border-slate-200 bg-white text-slate-600 shadow-sm hover:border-[var(--bookinaja-600)] dark:border-white/5 dark:bg-white/5 dark:text-slate-300 dark:hover:text-white",
                             )}
                           >
                             {t}
@@ -685,11 +770,10 @@ export default function NewManualBookingPage() {
                       })}
                     </div>
                   ) : (
-                    <div className="flex h-full items-center gap-4 rounded-2xl border border-blue-500/10 bg-blue-500/5 p-4 md:gap-5 md:p-8">
-                      <ShieldCheck className="text-blue-500 h-9 w-9 shrink-0" />
-                      <p className="text-xs font-semibold leading-relaxed text-blue-600">
-                        Logic Antar Hari Aktif: Boking dimulai otomatis pukul
-                        08:00 untuk paket {selectedItem?.price_unit}.
+                      <div className="flex h-full items-center gap-4 rounded-lg border border-blue-500/10 bg-blue-500/5 p-4 md:gap-5 md:p-6">
+                      <ShieldCheck className="h-9 w-9 shrink-0 text-blue-500" />
+                      <p className="text-sm font-medium leading-relaxed text-blue-700 dark:text-blue-200">
+                        Paket antar hari dimulai otomatis pukul {tenantOpenTime} sesuai jam buka tenant untuk paket {selectedItem?.price_unit}.
                       </p>
                     </div>
                   )}
@@ -697,7 +781,7 @@ export default function NewManualBookingPage() {
 
                 <div
                   ref={durationRef}
-                  className="order-2 flex flex-col items-center justify-center rounded-2xl bg-slate-50 p-4 dark:bg-white/5 lg:col-span-4"
+                  className="order-2 flex flex-col items-center justify-center rounded-lg bg-slate-50 p-4 dark:bg-white/5 lg:col-span-4"
                 >
                   <span className="mb-4 text-center text-xs font-semibold text-slate-400 dark:text-slate-300">
                     Jumlah Unit / Sesi
@@ -709,7 +793,7 @@ export default function NewManualBookingPage() {
                       onClick={() =>
                         setDurationValue((d) => Math.max(1, d - 1))
                       }
-                      className="h-10 w-10 rounded-xl border-slate-200 bg-white text-slate-900 shadow-sm hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                      className="h-10 w-10 rounded-lg border-slate-200 bg-white text-slate-900 shadow-sm hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white"
                     >
                       -
                     </Button>
@@ -724,7 +808,7 @@ export default function NewManualBookingPage() {
                           Math.min(maxAvailableSessions, d + 1),
                         )
                       }
-                      className="h-10 w-10 rounded-xl border-slate-200 bg-white text-slate-900 shadow-sm hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                      className="h-10 w-10 rounded-lg border-slate-200 bg-white text-slate-900 shadow-sm hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white"
                     >
                       +
                     </Button>
@@ -748,7 +832,7 @@ export default function NewManualBookingPage() {
               !selectedTime && "pointer-events-none opacity-70",
             )}
           >
-            <Card className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 shadow-sm dark:border-white/10 dark:bg-[#0f172a] dark:text-white dark:shadow-xl md:p-6">
+            <Card className="space-y-5 rounded-xl border border-slate-200 bg-white p-4 text-slate-900 shadow-sm dark:border-white/10 dark:bg-[#0f172a] dark:text-white md:p-6">
               {/* CUSTOMER INFO */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-white/5">
@@ -769,7 +853,7 @@ export default function NewManualBookingPage() {
                       onChange={(e) =>
                         setCustPhone(e.target.value.replace(/\D/g, ""))
                       }
-                      className="h-12 rounded-xl border-slate-200 bg-slate-50 pl-12 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus-visible:ring-[var(--bookinaja-500)] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-600"
+                      className="h-11 rounded-lg border-slate-200 bg-slate-50 pl-12 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus-visible:ring-[var(--bookinaja-500)] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-600"
                     />
                     {isReturning && (
                       <Badge className="absolute right-3 top-1/2 -translate-y-1/2 border-none bg-[var(--bookinaja-600)] text-[10px] font-semibold text-white">
@@ -785,7 +869,7 @@ export default function NewManualBookingPage() {
                       onChange={(e) =>
                         setCustName(e.target.value.toUpperCase())
                       }
-                      className="h-12 rounded-xl border-slate-200 bg-slate-50 pl-12 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus-visible:ring-[var(--bookinaja-500)] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-600"
+                      className="h-11 rounded-lg border-slate-200 bg-slate-50 pl-12 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus-visible:ring-[var(--bookinaja-500)] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-600"
                     />
                   </div>
                 </div>
@@ -797,7 +881,7 @@ export default function NewManualBookingPage() {
                   <p className="text-xs font-semibold text-slate-400 dark:text-slate-300">
                     Flow Booking
                   </p>
-                  <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-4 dark:border-orange-500/15 dark:bg-orange-500/10">
+                  <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-4 dark:border-orange-500/15 dark:bg-orange-500/10">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-[10px] font-semibold text-orange-500 dark:text-orange-200">
@@ -833,9 +917,7 @@ export default function NewManualBookingPage() {
                     Layanan Tambahan
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {currentResource?.items
-                      ?.filter((i) => i.item_type === "add_on")
-                      .map((addon) => {
+                    {addonOptions.map((addon) => {
                         const active = selectedAddons.includes(addon.id);
                         return (
                           <button
@@ -848,7 +930,7 @@ export default function NewManualBookingPage() {
                               )
                             }
                             className={cn(
-                              "rounded-lg px-3.5 py-2 text-[10px] font-semibold transition-all",
+                              "rounded-md px-3.5 py-2 text-[10px] font-medium transition-colors",
                               active
                                 ? "bg-[var(--bookinaja-600)] text-white"
                                 : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:bg-white/5 dark:text-slate-500 dark:hover:text-slate-300",
@@ -871,22 +953,22 @@ export default function NewManualBookingPage() {
                     value={promoCode}
                     onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
                     placeholder="Masukkan voucher"
-                    className="h-11 rounded-xl border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5"
+                    className="h-10 rounded-lg border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5"
                   />
-                  <Button type="button" onClick={handlePromoPreview} disabled={isCheckingPromo} className="h-11 rounded-xl bg-violet-600 text-white hover:bg-violet-700">
+                  <Button type="button" onClick={handlePromoPreview} disabled={isCheckingPromo} className="h-10 rounded-lg bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
                     {isCheckingPromo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
                     Cek Promo
                   </Button>
                 </div>
                 {promoPreview?.valid && (
-                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
-                    {promoPreview.label || promoCode} aktif • Potongan Rp{Number(promoPreview.discount_amount || 0).toLocaleString()}
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
+                    {promoPreview.label || promoCode} aktif | Potongan Rp{Number(promoPreview.discount_amount || 0).toLocaleString()}
                   </div>
                 )}
               </div>
 
               {/* TOTAL BILL */}
-              <div className="relative space-y-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-inner dark:border-white/5 dark:bg-white/5 md:p-5">
+              <div className="relative space-y-4 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/5 dark:bg-white/5 md:p-5">
                 <div className="relative z-10">
                   <p className="mb-1 text-[10px] font-semibold text-slate-400 dark:text-slate-400">
                     Estimasi Tagihan
@@ -922,7 +1004,7 @@ export default function NewManualBookingPage() {
               <Button
                 onClick={handleSave}
                 disabled={isSubmitting || !selectedTime || !custName}
-                className="h-14 w-full rounded-2xl bg-[var(--bookinaja-600)] text-sm font-semibold text-white shadow-lg shadow-[color:rgba(30,143,146,0.2)] transition-all hover:bg-[var(--bookinaja-500)] active:scale-95 md:h-16 md:text-base"
+                className="h-12 w-full rounded-lg bg-[var(--bookinaja-600)] text-sm font-semibold text-white transition-colors hover:bg-[var(--bookinaja-700)] md:text-base"
               >
                 {isSubmitting ? (
                   <Loader2 className="animate-spin" />
@@ -943,6 +1025,35 @@ export default function NewManualBookingPage() {
 
 function normalizeCalendarDate(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+}
+
+function normalizeTenantClock(value: string) {
+  const match = value.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return "09:00";
+  const hours = Math.min(23, Math.max(0, Number(match[1] || "9")));
+  const minutes = Math.min(59, Math.max(0, Number(match[2] || "0")));
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function clockToMinutes(value: string) {
+  const [hours, minutes] = normalizeTenantClock(value).split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function minutesToClock(totalMinutes: number) {
+  const safe = Math.max(0, Math.min(totalMinutes, 23 * 60 + 59));
+  const hours = Math.floor(safe / 60);
+  const minutes = safe % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function getOperatingWindow(openTime: string, closeTime: string) {
+  const openMinutes = clockToMinutes(openTime);
+  let closeMinutes = clockToMinutes(closeTime);
+  if (closeMinutes <= openMinutes) {
+    closeMinutes = 23 * 60 + 59;
+  }
+  return { openMinutes, closeMinutes };
 }
 
 function getTimeZoneParts(date: Date, timezone = "Asia/Jakarta") {

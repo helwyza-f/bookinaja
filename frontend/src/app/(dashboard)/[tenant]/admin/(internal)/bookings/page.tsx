@@ -324,23 +324,22 @@ export default function BookingsPage() {
     : "Semua tanggal";
 
   return (
-    <div className="mx-auto w-full space-y-4 px-3 pb-20 pt-5 font-plus-jakarta md:px-4">
-      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(238,252,249,0.95)_42%,rgba(237,249,248,0.92))] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(10,24,26,0.96),rgba(8,30,31,0.94)_42%,rgba(6,39,40,0.88))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-6">
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.22),transparent_60%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.22),transparent_60%)]" />
-        <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-          <div className="max-w-3xl space-y-4">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.24em] text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-200">
+    <div className="mx-auto w-full space-y-4 px-3 pb-20 pt-4 font-plus-jakarta md:px-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:p-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="max-w-3xl space-y-3">
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
               <MonitorPlay className="h-3.5 w-3.5 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
               Booking
             </div>
-            <div className="space-y-2">
-              <h1 className="text-3xl font-[950] tracking-tight text-slate-950 dark:text-white sm:text-4xl">
+            <div className="space-y-1">
+              <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
                 Booking
               </h1>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
-              <div className="rounded-full border border-white/70 bg-white/85 px-3 py-1.5 text-[11px] font-semibold text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-300">
+              <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
                 Fokus tanggal: {selectedDateLabel}
               </div>
             </div>
@@ -350,7 +349,7 @@ export default function BookingsPage() {
             <Button
               onClick={() => canCreateBookings && router.push(`/admin/bookings/new?mode=scheduled`)}
               disabled={!canCreateBookings}
-              className="h-12 rounded-[1.2rem] bg-slate-950 px-5 text-sm font-bold text-white shadow-[0_18px_40px_rgba(15,23,42,0.22)] hover:bg-[var(--bookinaja-700)] dark:bg-white dark:text-slate-950"
+              className="h-10 rounded-lg bg-slate-950 px-4 text-sm font-medium text-white hover:bg-[var(--bookinaja-700)] dark:bg-white dark:text-slate-950"
             >
               <Plus size={16} strokeWidth={4} className="mr-2" />
               Jadwal
@@ -359,7 +358,7 @@ export default function BookingsPage() {
               onClick={() => canCreateBookings && router.push(`/admin/bookings/new?mode=walkin`)}
               disabled={!canCreateBookings}
               variant="outline"
-              className="h-12 rounded-[1.2rem] border-slate-200/80 bg-white/80 px-5 text-sm font-bold text-slate-950 hover:bg-white dark:border-white/10 dark:bg-white/[0.06] dark:text-white"
+              className="h-10 rounded-lg border-slate-200 bg-white px-4 text-sm font-medium text-slate-950 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
             >
               Walk-in
             </Button>
@@ -401,6 +400,7 @@ export default function BookingsPage() {
       <DashboardPanel
         eyebrow="Filter"
         title="Cari & saring"
+        description="Filter ringkas untuk scan operasional harian."
       >
         <div className="space-y-4 lg:hidden">
           <div className="relative">
@@ -409,7 +409,7 @@ export default function BookingsPage() {
               placeholder="Cari customer / WA"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-11 h-11 md:h-14 rounded-2xl border-none bg-slate-50 dark:bg-slate-800/50 font-semibold text-[10px] md:text-xs shadow-inner focus:ring-2 focus:ring-blue-600/20"
+              className="h-10 rounded-lg border-slate-200 bg-slate-50 pl-11 text-xs font-medium dark:border-slate-800 dark:bg-slate-900/30"
             />
           </div>
 
@@ -418,7 +418,7 @@ export default function BookingsPage() {
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className="h-11 md:h-12 px-3 md:px-5 rounded-xl border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-800 font-semibold text-[9px] md:text-xs gap-2 md:gap-3 shadow-sm w-full"
+                  className="h-10 w-full rounded-lg border-slate-200 bg-slate-50 px-3 text-xs font-medium dark:border-slate-800 dark:bg-slate-900/30"
                 >
                   <CalendarIcon className="h-4 w-4 text-blue-600" />
                   {selectedDate
@@ -427,7 +427,7 @@ export default function BookingsPage() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                className="w-[92vw] sm:w-80 p-0 border-none rounded-2xl overflow-hidden shadow-sm"
+                className="w-[92vw] overflow-hidden rounded-xl border-none p-0 sm:w-80"
                 align="end"
               >
                 <Calendar
@@ -440,10 +440,10 @@ export default function BookingsPage() {
             </Popover>
 
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-full min-h-[44px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-semibold text-[9px] focus:ring-0 shadow-sm">
+              <SelectTrigger className="min-h-[40px] w-full rounded-lg border-slate-200 bg-slate-50 text-xs font-medium dark:border-slate-800 dark:bg-slate-900/30">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
-              <SelectContent className="rounded-2xl border-none shadow-sm p-2">
+              <SelectContent className="rounded-xl p-2">
                 <SelectItem
                   value="all"
                   className="text-xs font-semibold py-3 rounded-xl"
@@ -469,10 +469,10 @@ export default function BookingsPage() {
             </Select>
 
             <Select value={filterResource} onValueChange={setFilterResource}>
-              <SelectTrigger className="w-full min-h-[44px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-semibold text-[9px] focus:ring-0 shadow-sm">
+              <SelectTrigger className="min-h-[40px] w-full rounded-lg border-slate-200 bg-slate-50 text-xs font-medium dark:border-slate-800 dark:bg-slate-900/30">
                 <SelectValue placeholder="Resource" />
               </SelectTrigger>
-              <SelectContent className="rounded-2xl border-none shadow-sm p-2">
+              <SelectContent className="rounded-xl p-2">
                 <SelectItem
                   value="all"
                   className="text-xs font-semibold py-3 rounded-xl"
@@ -495,25 +495,25 @@ export default function BookingsPage() {
               <Button
                 onClick={resetFilters}
                 variant="ghost"
-                className="h-11 px-3 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 font-semibold text-[9px] gap-2 rounded-2xl w-full"
+                className="h-10 w-full rounded-lg px-3 text-xs font-medium text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
               >
                 <XCircle size={16} /> Clear
               </Button>
             ) : (
-              <div className="flex h-11 items-center justify-center rounded-2xl border border-dashed border-slate-100 bg-slate-50/60 text-[10px] font-semibold text-slate-400 dark:border-white/5 dark:bg-slate-800/30">
+              <div className="flex h-10 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-[10px] font-medium text-slate-400 dark:border-slate-800 dark:bg-slate-900/30">
                 {bookingCountLabel}
               </div>
             )}
 
-            <div className="col-span-2 flex gap-1.5 bg-slate-50 dark:bg-slate-800 p-1.5 rounded-2xl w-full">
+            <div className="col-span-2 flex w-full gap-1.5 rounded-lg bg-slate-50 p-1 dark:bg-slate-900/30">
               <Button
                 variant={viewMode === "list" ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => setViewMode("list")}
                 className={cn(
-                  "rounded-xl h-11 px-4 flex-1",
+                  "h-10 flex-1 rounded-lg px-4",
                   viewMode === "list"
-                    ? "bg-white dark:bg-slate-700 shadow-sm font-semibold"
+                    ? "bg-white font-medium dark:bg-slate-950"
                     : "text-slate-400",
                 )}
               >
@@ -524,9 +524,9 @@ export default function BookingsPage() {
                 size="sm"
                 onClick={() => setViewMode("grid")}
                 className={cn(
-                  "rounded-xl h-11 px-4 flex-1",
+                  "h-10 flex-1 rounded-lg px-4",
                   viewMode === "grid"
-                    ? "bg-white dark:bg-slate-700 shadow-sm font-semibold"
+                    ? "bg-white font-medium dark:bg-slate-950"
                     : "text-slate-400",
                 )}
               >

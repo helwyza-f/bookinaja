@@ -273,6 +273,95 @@ type PageBuilderState struct {
 	PreviewMobile bool               `json:"preview_mobile"`
 }
 
+type AdminBootstrapUser struct {
+	ID             uuid.UUID `json:"id"`
+	Name           string    `json:"name"`
+	Email          string    `json:"email"`
+	Role           string    `json:"role"`
+	PermissionKeys []string  `json:"permission_keys"`
+}
+
+type AdminBootstrapTenant struct {
+	ID               uuid.UUID `json:"id"`
+	Name             string    `json:"name"`
+	Slug             string    `json:"slug"`
+	LogoURL          string    `json:"logo_url"`
+	BusinessCategory string    `json:"business_category"`
+}
+
+type AdminBootstrapFeatures struct {
+	EnableDiscoveryPosts bool `json:"enable_discovery_posts"`
+}
+
+type AdminBootstrapResponse struct {
+	User     AdminBootstrapUser     `json:"user"`
+	Tenant   AdminBootstrapTenant   `json:"tenant"`
+	Features AdminBootstrapFeatures `json:"features"`
+}
+
+type TenantIdentity struct {
+	ID               uuid.UUID `db:"id" json:"id"`
+	Name             string    `db:"name" json:"name"`
+	Slug             string    `db:"slug" json:"slug"`
+	BusinessCategory string    `db:"business_category" json:"business_category"`
+	BusinessType     string    `db:"business_type" json:"business_type"`
+	Tagline          string    `db:"tagline" json:"tagline"`
+	Slogan           string    `db:"slogan" json:"slogan"`
+	AboutUs          string    `db:"about_us" json:"about_us"`
+	LogoURL          string    `db:"logo_url" json:"logo_url"`
+	BannerURL        string    `db:"banner_url" json:"banner_url"`
+	WhatsappNumber   string    `db:"whatsapp_number" json:"whatsapp_number"`
+	Address          string    `db:"address" json:"address"`
+	InstagramURL     string    `db:"instagram_url" json:"instagram_url"`
+	TiktokURL        string    `db:"tiktok_url" json:"tiktok_url"`
+	OpenTime         string    `db:"open_time" json:"open_time"`
+	CloseTime        string    `db:"close_time" json:"close_time"`
+	Timezone         string    `db:"timezone" json:"timezone"`
+}
+
+type TenantDiscoveryProfileSettings struct {
+	DiscoveryHeadline    string         `db:"discovery_headline" json:"discovery_headline"`
+	DiscoverySubheadline string         `db:"discovery_subheadline" json:"discovery_subheadline"`
+	DiscoveryTags        pq.StringArray `db:"discovery_tags" json:"discovery_tags"`
+	DiscoveryBadges      pq.StringArray `db:"discovery_badges" json:"discovery_badges"`
+	PromoLabel           string         `db:"promo_label" json:"promo_label"`
+	FeaturedImageURL     string         `db:"featured_image_url" json:"featured_image_url"`
+	HighlightCopy        string         `db:"highlight_copy" json:"highlight_copy"`
+	DiscoveryFeatured    bool           `db:"discovery_featured" json:"discovery_featured"`
+	DiscoveryPromoted    bool           `db:"discovery_promoted" json:"discovery_promoted"`
+	DiscoveryPriority    int            `db:"discovery_priority" json:"discovery_priority"`
+	PromoStartsAt        *time.Time     `db:"promo_starts_at" json:"promo_starts_at"`
+	PromoEndsAt          *time.Time     `db:"promo_ends_at" json:"promo_ends_at"`
+}
+
+type TenantReferralPayoutSettings struct {
+	ReferralCode        string `db:"referral_code" json:"referral_code"`
+	PayoutBankName      string `db:"payout_bank_name" json:"payout_bank_name"`
+	PayoutAccountName   string `db:"payout_account_name" json:"payout_account_name"`
+	PayoutAccountNumber string `db:"payout_account_number" json:"payout_account_number"`
+	PayoutWhatsApp      string `db:"payout_whatsapp" json:"payout_whatsapp"`
+}
+
+type TenantOnboardingStep struct {
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	Description string `json:"description"`
+	Href        string `json:"href"`
+	Complete    bool   `json:"complete"`
+	Required    bool   `json:"required"`
+}
+
+type TenantOnboardingSummary struct {
+	HasBusinessIdentity bool                   `json:"has_business_identity"`
+	HasBusinessContact  bool                   `json:"has_business_contact"`
+	HasVisualIdentity   bool                   `json:"has_visual_identity"`
+	ResourcesCount      int                    `json:"resources_count"`
+	PricePackagesCount  int                    `json:"price_packages_count"`
+	PaymentReady        bool                   `json:"payment_ready"`
+	ProgressPercent     int                    `json:"progress_percent"`
+	Steps               []TenantOnboardingStep `json:"steps"`
+}
+
 // Tenant adalah jantung dari sistem Multi-Tenant lo, menyimpan data branding dan konfigurasi publik
 type Tenant struct {
 	ID               uuid.UUID `db:"id" json:"id"`

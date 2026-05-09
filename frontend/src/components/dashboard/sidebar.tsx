@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useParams, useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import {
@@ -12,7 +11,6 @@ import {
   Moon,
   Sun,
   ChevronsUpDown,
-  ShieldCheck,
   Settings,
 } from "lucide-react";
 import {
@@ -30,9 +28,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { clearTenantSession } from "@/lib/tenant-session";
-import api from "@/lib/api";
-import { canAccessAdminRoute, hasPermission } from "@/lib/admin-access";
-import { getTenantGrowthSettings } from "@/lib/platform-admin";
+import { canAccessAdminRoute } from "@/lib/admin-access";
+import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { Badge } from "../ui/badge";
 import {
   growthHubNavItem,
@@ -45,7 +42,7 @@ interface SidebarProps {
   setIsCollapsed: (v: boolean) => void;
 }
 
-const FALLBACK_LOGO = "https://cdn.bookinaja.com/tenants/logo_frameless.png";
+const FALLBACK_LOGO = "/bookinaja-logo.png";
 
 type SidebarUser = {
   name?: string;
@@ -58,54 +55,10 @@ type SidebarUser = {
 
 export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   const pathname = usePathname();
-  const params = useParams();
   const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
-
-  const [userData, setUserData] = useState<SidebarUser | null>(null);
-  const [tenantName, setTenantName] = useState<string>(String(params.tenant || "HUB"));
-  const [growthVisible, setGrowthVisible] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-
-    api
-      .get("/auth/me")
-      .then(async (res) => {
-        if (!active) return;
-        const currentUser = res.data.user;
-        setUserData(currentUser);
-
-        if (currentUser?.role !== "owner") {
-          if (active) {
-            setTenantName(String(params.tenant || "HUB"));
-            setGrowthVisible(false);
-          }
-          return;
-        }
-
-        try {
-          const [profileRes, growthRes] = await Promise.all([
-            api.get("/admin/profile"),
-            getTenantGrowthSettings(),
-          ]);
-          if (active) {
-            setTenantName(profileRes.data?.name || String(params.tenant || "HUB"));
-            setGrowthVisible(Boolean(growthRes.enable_discovery_posts));
-          }
-        } catch {
-          if (active) {
-            setTenantName(String(params.tenant || "HUB"));
-            setGrowthVisible(false);
-          }
-        }
-      })
-      .catch(() => {});
-
-    return () => {
-      active = false;
-    };
-  }, [params.tenant]);
+  const { user, tenantName, growthVisible } = useAdminSession();
+  const userData = (user as SidebarUser | null) ?? null;
 
   // Logic Fallback Logo
   const tenantLogo =
@@ -120,13 +73,22 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
 
   const hasAccess = (href: string) => canAccessAdminRoute(href, userData);
 
+  const itemBase = isCollapsed
+    ? "mx-auto flex h-10 w-10 items-center justify-center rounded-lg"
+    : "flex w-full items-center gap-3 rounded-lg px-3 py-2.5";
+
+  const itemActive =
+    "border border-[var(--bookinaja-200)] bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:border-[rgba(74,141,255,0.25)] dark:bg-[rgba(74,141,255,0.12)] dark:text-[var(--bookinaja-200)]";
+
+  const itemIdle =
+    "text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white";
+
   return (
-    <div className="relative flex h-full flex-col border-r border-[var(--sidebar-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(243,252,251,0.94))] font-sans text-[var(--sidebar-foreground)] transition-colors duration-200 dark:bg-[linear-gradient(180deg,rgba(9,27,32,0.9),rgba(5,17,21,0.97))]">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top,rgba(129,216,208,0.18),transparent_58%)]" />
+    <div className="relative flex h-full flex-col bg-white font-sans text-slate-900 dark:bg-slate-950 dark:text-white">
       {/* COLLAPSE TOGGLE BUTTON */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-7 z-[60] flex h-6 w-6 items-center justify-center rounded-full border border-[var(--sidebar-border)] bg-[var(--card)] text-slate-500 shadow-sm transition-colors hover:bg-[var(--sidebar-primary)] hover:text-[var(--sidebar-primary-foreground)] dark:text-slate-300"
+        className="absolute -right-3 top-5 z-[60] flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:border-[var(--bookinaja-300)] hover:text-[var(--bookinaja-600)] dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 dark:hover:border-[rgba(74,141,255,0.35)] dark:hover:text-[var(--bookinaja-200)]"
       >
         {isCollapsed ? (
           <ChevronRight className="h-3 w-3" />
@@ -138,26 +100,26 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       {/* LOGO AREA - DYNAMIC TENANT LOGO */}
       <div
         className={cn(
-          "relative flex items-center transition-all shrink-0 px-4",
-          isCollapsed ? "h-18 justify-center" : "h-20 justify-start px-6",
+          "flex shrink-0 items-center border-b border-slate-200 px-4 dark:border-slate-800",
+          isCollapsed ? "h-16 justify-center" : "h-16 justify-start",
         )}
       >
-        <Link href="/admin/dashboard" className="flex items-center gap-3 group">
-            <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-white/5 shadow-[0_12px_28px_rgba(15,23,42,0.12)] ring-1 ring-black/5 dark:ring-white/10">
+        <Link href="/admin/dashboard" prefetch={false} className="flex items-center gap-3">
+            <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
             <div
-              className="h-full w-full bg-cover bg-center transition-transform group-hover:scale-110 duration-500"
+              className="h-full w-full bg-cover bg-center"
               style={{ backgroundImage: `url(${tenantLogo})` }}
               role="img"
               aria-label="Tenant logo"
             />
           </div>
           {!isCollapsed && (
-            <div className="flex flex-col animate-in fade-in slide-in-from-left-2 duration-300 min-w-0">
+            <div className="flex min-w-0 flex-col">
               <span className="w-36 truncate text-sm font-semibold leading-none text-slate-950 dark:text-white">
                 {tenantName}
               </span>
-              <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-100)]">
-                Bookinaja Admin
+              <span className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                Admin
               </span>
             </div>
           )}
@@ -167,18 +129,11 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       {/* MAIN NAVIGATION */}
       <nav
         className={cn(
-          "flex flex-col flex-1 overflow-y-auto scrollbar-hide",
-          isCollapsed ? "gap-2 p-2 pt-3" : "gap-1 p-3 pt-4",
+          "flex flex-1 flex-col overflow-y-auto scrollbar-hide",
+          isCollapsed ? "gap-2 p-2 pt-3" : "gap-1 p-3",
         )}
       >
-        <div
-          className={cn(
-          "flex flex-col relative",
-          isCollapsed
-              ? "gap-1 rounded-[1.4rem] border border-slate-100 bg-white/80 p-1.5 shadow-sm dark:border-white/8 dark:bg-white/[0.04]"
-              : "gap-1",
-          )}
-        >
+        <div className="flex flex-col gap-1">
           {operationalNavItems.filter((route) => hasAccess(route.href)).map((route) => {
             const isActive =
               pathname === route.href || pathname.startsWith(`${route.href}/`);
@@ -187,21 +142,17 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                 <TooltipTrigger asChild>
                   <Link
                     href={route.href}
+                    prefetch={false}
                     className={cn(
-                      "group flex items-center transition-all duration-200",
-                      isCollapsed
-                        ? "h-9 w-9 justify-center mx-auto rounded-xl"
-                        : "px-3 py-2.5 w-full gap-3 rounded-xl",
-                      isActive
-                        ? "bg-[linear-gradient(135deg,#0d2b2f_0%,#1e8f92_58%,#81d8d0_100%)] text-[var(--sidebar-primary-foreground)] shadow-[0_18px_40px_rgba(30,143,146,0.24)]"
-                        : "text-slate-500 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-white/5 hover:text-[var(--bookinaja-600)] dark:hover:text-white",
+                      itemBase,
+                      "transition-colors",
+                      isActive ? itemActive : itemIdle,
                     )}
                   >
                     <route.icon
                       className={cn(
                         "shrink-0",
                         isCollapsed ? "h-4.5 w-4.5" : "h-4 w-4",
-                        isActive && "scale-110",
                       )}
                     />
                     {!isCollapsed && (
@@ -228,11 +179,11 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
           <div
             className={cn(
               "border-slate-100 dark:border-white/5",
-              isCollapsed ? "mt-1 border-t pt-2" : "mt-3 border-t pt-3",
+              isCollapsed ? "mt-2 border-t border-slate-200 pt-2 dark:border-slate-800" : "mt-4 border-t border-slate-200 pt-4 dark:border-slate-800",
             )}
           >
             {!isCollapsed && (
-              <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+              <div className="mb-2 px-3 text-[11px] font-medium uppercase tracking-wide text-slate-400">
                 Promosi
               </div>
             )}
@@ -242,15 +193,13 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                   <TooltipTrigger asChild>
                     <Link
                       href={growthHubNavItem.href}
-                      className={cn(
-                        "group flex items-center transition-colors",
-                        isCollapsed
-                          ? "mx-auto h-9 w-9 justify-center rounded-xl"
-                          : "w-full gap-3 rounded-xl px-3 py-2.5",
-                        pathname === growthHubNavItem.href ||
-                          pathname.startsWith(`${growthHubNavItem.href}/`)
-                          ? "bg-[linear-gradient(135deg,#0d2b2f_0%,#1e8f92_58%,#81d8d0_100%)] text-[var(--sidebar-primary-foreground)] shadow-[0_18px_40px_rgba(30,143,146,0.24)]"
-                          : "text-slate-500 hover:bg-white/80 hover:text-[var(--bookinaja-600)] dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white",
+                      prefetch={false}
+                        className={cn(
+                          itemBase,
+                          "transition-colors",
+                        pathname === growthHubNavItem.href || pathname.startsWith(`${growthHubNavItem.href}/`)
+                          ? itemActive
+                          : itemIdle,
                       )}
                     >
                       <growthHubNavItem.icon
@@ -284,11 +233,11 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
           <div
             className={cn(
               "border-slate-100 dark:border-white/5",
-              isCollapsed ? "mt-1 border-t pt-2" : "mt-3 border-t pt-3",
+              isCollapsed ? "mt-2 border-t border-slate-200 pt-2 dark:border-slate-800" : "mt-4 border-t border-slate-200 pt-4 dark:border-slate-800",
             )}
           >
             {!isCollapsed && (
-              <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+              <div className="mb-2 px-3 text-[11px] font-medium uppercase tracking-wide text-slate-400">
                 Settings
               </div>
             )}
@@ -301,14 +250,11 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                     <TooltipTrigger asChild>
                       <Link
                         href={route.href}
+                        prefetch={false}
                         className={cn(
-                          "group flex items-center transition-colors",
-                          isCollapsed
-                            ? "mx-auto h-9 w-9 justify-center rounded-xl"
-                            : "w-full gap-3 rounded-xl px-3 py-2.5",
-                          isActive
-                            ? "bg-[linear-gradient(135deg,#0d2b2f_0%,#1e8f92_58%,#81d8d0_100%)] text-[var(--sidebar-primary-foreground)] shadow-[0_18px_40px_rgba(30,143,146,0.24)]"
-                            : "text-slate-500 hover:bg-white/80 hover:text-[var(--bookinaja-600)] dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white",
+                          itemBase,
+                          "transition-colors",
+                          isActive ? itemActive : itemIdle,
                         )}
                       >
                         <route.icon
@@ -343,7 +289,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       {/* FOOTER: NAV USER POPOVER */}
       <div
         className={cn(
-          "mt-auto border-t border-[var(--sidebar-border)] bg-white/60 dark:bg-white/[0.03]",
+          "mt-auto border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
           isCollapsed ? "p-2" : "p-3",
         )}
       >
@@ -351,11 +297,11 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
           <DropdownMenuTrigger asChild>
             <button
               className={cn(
-                "flex items-center w-full transition-all duration-200 outline-none group rounded-xl hover:bg-[var(--sidebar-accent)] dark:hover:bg-white/5 min-w-0",
+                "flex items-center w-full rounded-lg outline-none transition-colors hover:bg-slate-100 dark:hover:bg-slate-900 min-w-0",
                 isCollapsed ? "h-10 w-10 justify-center mx-auto" : "p-2 gap-3",
               )}
             >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--sidebar-primary)] font-semibold uppercase text-[var(--sidebar-primary-foreground)] shadow-sm">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--bookinaja-600)] font-semibold uppercase text-white">
                 {userData?.logo_url && userData.logo_url !== "" ? (
                   <div
                     className="h-full w-full bg-cover bg-center"
@@ -372,9 +318,9 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                 <>
                   <div className="flex flex-col flex-1 text-left min-w-0">
                     <span className="truncate text-sm font-semibold leading-none dark:text-white">
-                      {userData?.name || "Admin Sultan"}
+                      {userData?.name || "Admin"}
                     </span>
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tight truncate mt-1.5">
+                    <span className="mt-1 truncate text-[11px] text-slate-500 dark:text-slate-400">
                       {userData?.email || "syncing..."}
                     </span>
                   </div>
@@ -385,47 +331,34 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
           </DropdownMenuTrigger>
 
           <DropdownMenuContent
-            className="w-64 rounded-2xl border-[var(--sidebar-border)] bg-[var(--card)] p-2 shadow-xl"
+            className="w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-800 dark:bg-slate-950"
             side="right"
             align="end"
             sideOffset={12}
           >
-            <DropdownMenuLabel className="p-4">
-              <div className="space-y-3 rounded-xl bg-[var(--bookinaja-900)] p-4 text-white">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="space-y-1 min-w-0">
-                    <div className="text-sm font-semibold leading-none">
-                      {tenantName}
-                    </div>
-                    <div className="text-[8px] font-bold uppercase tracking-[0.3em] text-slate-300">
-                      Command Center
-                    </div>
+            <DropdownMenuLabel className="px-3 py-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                    {tenantName}
                   </div>
-                  <Badge className="border-none bg-white/10 px-2 py-0 text-[10px] font-semibold uppercase text-white">
-                    {String(userData?.role || "staff").toUpperCase()}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.25em] text-[var(--bookinaja-100)]">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  {userData?.role === "owner" ? "Owner Access" : "Staff Access"}
-                </div>
-                {userData?.role !== "owner" && (
-                  <div className="text-[8px] font-bold uppercase tracking-[0.2em] text-slate-300">
-                    {hasPermission(userData, "bookings.read")
-                      ? "Akses operasional aktif"
-                      : "Akses operasional terbatas"}
+                  <div className="mt-1 truncate text-[11px] text-slate-500 dark:text-slate-400">
+                    {userData?.email || "syncing..."}
                   </div>
-                )}
+                </div>
+                <Badge className="border border-slate-200 bg-slate-50 px-2 py-0 text-[10px] font-medium uppercase text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+                  {String(userData?.role || "staff").toUpperCase()}
+                </Badge>
               </div>
             </DropdownMenuLabel>
 
-            <DropdownMenuSeparator className="bg-slate-100 dark:bg-white/5 mx-2" />
+            <DropdownMenuSeparator className="mx-2 bg-slate-100 dark:bg-slate-800" />
 
             <DropdownMenuGroup className="p-1 space-y-0.5">
               {userData?.role === "owner" && (
                 <DropdownMenuItem
                   onClick={() => router.push("/admin/settings/bisnis")}
-                  className="rounded-xl px-3 py-3 cursor-pointer text-slate-600 dark:text-slate-300 hover:bg-[var(--sidebar-accent)] dark:hover:bg-white/5 focus:bg-[var(--sidebar-accent)] dark:focus:bg-white/5 focus:text-[var(--bookinaja-600)] dark:focus:text-white transition-all"
+                  className="cursor-pointer rounded-lg px-3 py-2.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 focus:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white dark:focus:bg-slate-900"
                 >
                   <Settings className="mr-3 h-4 w-4" />
                   <span className="text-xs font-semibold">
@@ -436,12 +369,12 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
 
                 <DropdownMenuItem
                   onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-                  className="rounded-xl px-3 py-3 cursor-pointer text-slate-600 dark:text-slate-300 hover:bg-[var(--sidebar-accent)] dark:hover:bg-white/5 focus:bg-[var(--sidebar-accent)] dark:focus:bg-white/5 transition-all"
+                  className="cursor-pointer rounded-lg px-3 py-2.5 text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-900 dark:focus:bg-slate-900"
                 >
                 {resolvedTheme === "dark" ? (
-                  <Sun className="mr-3 h-4 w-4 text-amber-500 fill-amber-500/20" />
+                  <Sun className="mr-3 h-4 w-4 text-amber-500" />
                 ) : (
-                  <Moon className="mr-3 h-4 w-4 text-[var(--bookinaja-600)] fill-[color:rgba(129,216,208,0.22)]" />
+                  <Moon className="mr-3 h-4 w-4 text-[var(--bookinaja-600)]" />
                 )}
                 <span className="text-xs font-semibold">
                   Tampilan {resolvedTheme === "dark" ? "Terang" : "Gelap"}
@@ -449,14 +382,14 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
               </DropdownMenuItem>
             </DropdownMenuGroup>
 
-            <DropdownMenuSeparator className="bg-slate-100 dark:bg-white/5 mx-2" />
+            <DropdownMenuSeparator className="mx-2 bg-slate-100 dark:bg-slate-800" />
 
             <div className="p-1">
               <DropdownMenuItem
                 onClick={handleLogout}
-                className="rounded-xl px-3 py-3 cursor-pointer text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 focus:bg-red-50 dark:focus:bg-red-500/10 transition-all group"
+                className="group cursor-pointer rounded-lg px-3 py-2.5 text-red-600 transition-colors hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-500/10 dark:focus:bg-red-500/10"
               >
-                <LogOut className="mr-3 h-4 w-4 transition-transform group-hover:-translate-x-1" />
+                <LogOut className="mr-3 h-4 w-4" />
                 <span className="text-xs font-semibold">
                   Putuskan Sesi
                 </span>

@@ -1,6 +1,6 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
@@ -37,44 +37,39 @@ import { SingleImageUpload } from "@/components/upload/single-image-upload";
 import { BulkImageUpload } from "@/components/upload/bulk-image-upload";
 import ResourceDetailLoading from "./loading";
 
+type ResourceDetail = {
+  id: string;
+  name: string;
+  category?: string;
+  description?: string;
+  image_url?: string;
+  gallery?: string[];
+  items?: ResourceItemConfig[];
+  smart_device_summary?: {
+    id: string;
+    device_id: string;
+    device_name: string;
+    pairing_status: string;
+    connection_status: string;
+    is_enabled: boolean;
+    last_seen_at?: string | null;
+    firmware_version?: string;
+  } | null;
+};
+
 export default function ResourceDetailPage() {
   const params = useParams();
   const router = useRouter();
   const tenantSlug = params.tenant as string;
-
-  type ResourceDetail = {
-    id: string;
-    name: string;
-    category?: string;
-    description?: string;
-    image_url?: string;
-    gallery?: string[];
-    items?: ResourceItemConfig[];
-    smart_device_summary?: {
-      id: string;
-      device_id: string;
-      device_name: string;
-      pairing_status: string;
-      connection_status: string;
-      is_enabled: boolean;
-      last_seen_at?: string | null;
-      firmware_version?: string;
-    } | null;
-  };
+  const resourceId = params.id as string;
 
   const [resource, setResource] = useState<ResourceDetail | null>(null);
   const [businessCategory, setBusinessCategory] = useState<string>("");
   const [loading, setLoading] = useState(true);
-
-  // UI States
   const [isEditMode, setIsEditMode] = useState(false);
   const [isUpdatingResource, setIsUpdatingResource] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<ResourceItemConfig | null>(
-    null,
-  );
-
-  // Form States
+  const [editingItem, setEditingItem] = useState<ResourceItemConfig | null>(null);
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [gallery, setGallery] = useState<string[]>([]);
@@ -89,7 +84,7 @@ export default function ResourceDetailPage() {
           if (cachedAll) {
             const parsed = JSON.parse(cachedAll);
             const found = parsed.resources?.find(
-              (r: ResourceDetail) => r.id === params.id,
+              (item: ResourceDetail) => item.id === resourceId,
             );
             if (found) {
               setResource(found);
@@ -102,7 +97,7 @@ export default function ResourceDetailPage() {
           }
         }
 
-        const res = await api.get(`/resources-all/${params.id}`);
+        const res = await api.get(`/resources-all/${resourceId}`);
         const data = res.data;
         setResource(data);
         setDescription(data.description || "");
@@ -122,25 +117,25 @@ export default function ResourceDetailPage() {
         setLoading(false);
       }
     },
-    [params.id, router, tenantSlug],
+    [resourceId, router, tenantSlug],
   );
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, [fetchData]);
 
   const { mainItems, addonItems } = useMemo(() => {
     const allItems = resource?.items || [];
     return {
       mainItems: allItems
-        .filter((i) =>
+        .filter((item) =>
           ["main_option", "main", "console_option"].includes(
-            i.item_type || "",
+            item.item_type || "",
           ),
         )
         .sort((a, b) => (b.is_default ? 1 : -1)),
-      addonItems: allItems.filter((i) =>
-        ["add_on", "addon"].includes(i.item_type || ""),
+      addonItems: allItems.filter((item) =>
+        ["add_on", "addon"].includes(item.item_type || ""),
       ),
     };
   }, [resource]);
@@ -148,7 +143,7 @@ export default function ResourceDetailPage() {
   const handleUpdateMarketing = async () => {
     setIsUpdatingResource(true);
     try {
-      await api.put(`/resources-all/${params.id}`, {
+      await api.put(`/resources-all/${resourceId}`, {
         ...resource,
         description,
         image_url: imageUrl,
@@ -156,7 +151,7 @@ export default function ResourceDetailPage() {
       });
       toast.success("Tampilan resource berhasil diperbarui");
       setIsEditMode(false);
-      fetchData(false);
+      void fetchData(false);
     } catch {
       toast.error("Gagal memperbarui tampilan resource");
     } finally {
@@ -171,7 +166,7 @@ export default function ResourceDetailPage() {
         is_default: true,
       });
       toast.success("Paket utama berhasil diperbarui");
-      fetchData(false);
+      void fetchData(false);
     } catch {
       toast.error("Gagal memperbarui paket utama");
     }
@@ -182,7 +177,7 @@ export default function ResourceDetailPage() {
     try {
       await api.delete(`/resources-all/items/${id}`);
       toast.success("Item berhasil dihapus");
-      fetchData(false);
+      void fetchData(false);
     } catch {
       toast.error("Gagal menghapus item");
     }
@@ -222,53 +217,53 @@ export default function ResourceDetailPage() {
     return `${value} menit`;
   };
 
-  const configMeta = {
-    gaming_hub: {
-      label: "Gaming Rates",
-      icon: <Gamepad2 size={16} className="text-blue-500" />,
-    },
-    creative_space: {
-      label: "Studio Rates",
-      icon: <Camera size={16} className="text-rose-500" />,
-    },
-    sport_center: {
-      label: "Court Rates",
-      icon: <Trophy size={16} className="text-emerald-500" />,
-    },
-    social_space: {
-      label: "Flexible Rates",
-      icon: <Briefcase size={16} className="text-indigo-500" />,
-    },
-  }[businessCategory] || {
-    label: "Pricing Setup",
-    icon: <Clock size={16} />,
-  };
+  const configMeta =
+    {
+      gaming_hub: {
+        label: "Gaming Rates",
+        icon: <Gamepad2 size={16} className="text-blue-500" />,
+      },
+      creative_space: {
+        label: "Studio Rates",
+        icon: <Camera size={16} className="text-rose-500" />,
+      },
+      sport_center: {
+        label: "Court Rates",
+        icon: <Trophy size={16} className="text-emerald-500" />,
+      },
+      social_space: {
+        label: "Flexible Rates",
+        icon: <Briefcase size={16} className="text-indigo-500" />,
+      },
+    }[businessCategory] || {
+      label: "Pricing Setup",
+      icon: <Clock size={16} />,
+    };
 
   if (loading && !resource) return <ResourceDetailLoading />;
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-4 md:space-y-6 pb-20 pt-5 animate-in fade-in duration-500 px-3 md:px-4 font-plus-jakarta">
-      {/* 1. ULTRA COMPACT HEADER */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between border-b-[0.5px] border-slate-200 dark:border-white/5 pb-4 md:pb-6 gap-4">
+    <div className="mx-auto max-w-[1600px] animate-in space-y-4 px-3 pb-20 pt-5 font-plus-jakarta fade-in duration-500 md:px-4 md:space-y-6">
+      <header className="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-white/10 md:flex-row md:items-center md:justify-between md:pb-5">
         <div className="flex items-center gap-3 md:gap-4">
           <Button
             variant="ghost"
             onClick={() => router.push("/admin/resources")}
-            className="h-10 w-10 shrink-0 rounded-xl border-[0.5px] border-slate-200 bg-slate-50 p-0 transition-all hover:bg-[var(--bookinaja-600)] hover:text-white dark:border-white/15 dark:bg-slate-900"
+            className="h-9 w-9 shrink-0 rounded-lg border border-slate-200 bg-slate-50 p-0 hover:bg-[var(--bookinaja-600)] hover:text-white dark:border-white/15 dark:bg-slate-900"
           >
             <ArrowLeft size={18} strokeWidth={3} />
           </Button>
           <div className="flex flex-col leading-none">
             <div className="flex items-center gap-2">
-              <h1 className="text-xl md:text-4xl font-[1000] italic uppercase tracking-tighter text-slate-950 dark:text-white leading-none">
+              <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-2xl">
                 {resource?.name}
               </h1>
-              <Badge className="rounded-md bg-[var(--bookinaja-600)] px-2 py-0.5 text-[8px] font-black italic uppercase text-white">
+              <Badge className="rounded-md bg-[var(--bookinaja-600)] px-2 py-0.5 text-[10px] font-medium text-white">
                 {resource?.category || "General"}
               </Badge>
             </div>
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] md:tracking-[0.4em] italic mt-1.5">
-              Resource Overview
+            <p className="mt-1.5 text-xs text-slate-500">
+              Pengaturan detail resource, paket harga, dan tampilan publik.
             </p>
           </div>
         </div>
@@ -278,22 +273,21 @@ export default function ResourceDetailPage() {
             setEditingItem(null);
             setDialogOpen(true);
           }}
-            className="h-11 w-full rounded-2xl border-b-4 border-[var(--bookinaja-800)] bg-[var(--bookinaja-600)] px-4 text-[9px] font-black uppercase italic text-white shadow-lg transition-all active:scale-95 hover:bg-[var(--bookinaja-700)] md:w-auto md:px-5 gap-2"
+          className="h-10 w-full gap-2 rounded-lg bg-[var(--bookinaja-600)] px-4 text-sm font-semibold text-white hover:bg-[var(--bookinaja-700)] md:w-auto"
         >
           <Plus size={16} strokeWidth={4} /> Tambah Paket
         </Button>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start">
-        {/* LEFT: VISUAL (Fixed Width, Compact) */}
-        <div className="lg:col-span-4 space-y-5">
-          <Card className="relative rounded-[1.75rem] border-[0.5px] border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:rounded-[2.5rem] md:p-6">
-            <div className="absolute top-4 right-4 z-20">
+      <div className="grid grid-cols-1 items-start gap-4 md:gap-6 lg:grid-cols-12">
+        <div className="space-y-5 lg:col-span-4">
+          <Card className="relative rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] md:p-5">
+            <div className="absolute right-4 top-4 z-20">
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => setIsEditMode(!isEditMode)}
-                className="rounded-full font-black text-[8px] uppercase tracking-widest h-8 px-3 bg-white/90 dark:bg-slate-800/90 backdrop-blur shadow-sm border-[0.5px]"
+                className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium shadow-sm dark:border-white/10 dark:bg-slate-800/90"
               >
                 {isEditMode ? (
                   <>
@@ -301,7 +295,7 @@ export default function ResourceDetailPage() {
                   </>
                 ) : (
                   <>
-                    <Settings2 size={12} className="mr-1 text-[var(--bookinaja-600)]" />{" "}
+                    <Settings2 size={12} className="mr-1 text-[var(--bookinaja-600)]" />
                     Tampilan
                   </>
                 )}
@@ -319,7 +313,7 @@ export default function ResourceDetailPage() {
                 <Textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="min-h-[100px] rounded-2xl bg-slate-50 dark:bg-slate-800/50 border-none p-4 text-[11px] font-medium leading-relaxed"
+                  className="min-h-[100px] rounded-lg border-slate-200 bg-slate-50 p-4 text-sm leading-relaxed dark:border-white/10 dark:bg-slate-800/50"
                   placeholder="Tulis deskripsi singkat resource ini..."
                 />
                 <BulkImageUpload
@@ -330,7 +324,7 @@ export default function ResourceDetailPage() {
                 <Button
                   onClick={handleUpdateMarketing}
                   disabled={isUpdatingResource}
-                  className="h-12 w-full rounded-2xl border-b-4 border-slate-800 bg-slate-950 text-[10px] font-black uppercase tracking-widest text-white dark:border-[var(--bookinaja-800)] dark:bg-[var(--bookinaja-600)]"
+                  className="h-10 w-full rounded-lg bg-slate-950 text-sm font-semibold text-white dark:bg-[var(--bookinaja-600)]"
                 >
                   {isUpdatingResource ? (
                     <Loader2 size={16} className="animate-spin" />
@@ -340,58 +334,57 @@ export default function ResourceDetailPage() {
                 </Button>
               </div>
             ) : (
-              <div className="space-y-5 md:space-y-6 animate-in fade-in duration-500">
-                <div className="aspect-[16/10] rounded-[2rem] overflow-hidden shadow-inner bg-slate-100 dark:bg-slate-800">
+              <div className="space-y-5 md:space-y-6">
+                <div className="aspect-[16/10] overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
                   {imageUrl ? (
                     <img
                       src={imageUrl}
-                      className="w-full h-full object-cover"
+                      className="h-full w-full object-cover"
                       alt="Unit"
                     />
                   ) : (
-                    <div className="flex items-center justify-center h-full opacity-10">
+                    <div className="flex h-full items-center justify-center opacity-10">
                       <ImageIcon size={48} />
                     </div>
                   )}
                 </div>
-                <div className="px-2 space-y-3">
+                <div className="space-y-3 px-2">
                   <div className="flex items-center gap-2">
                     <Sparkles size={14} className="text-[var(--bookinaja-600)]" />
-                    <h3 className="text-xs font-[1000] uppercase italic tracking-widest dark:text-white">
-                      Ringkasan Resource
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                      Ringkasan resource
                     </h3>
                   </div>
-                  <p className="border-l-[3px] border-[color:rgba(59,130,246,0.28)] pl-4 text-[11px] font-bold leading-relaxed text-slate-500 dark:text-slate-400">
+                  <p className="border-l-2 border-[color:rgba(59,130,246,0.28)] pl-4 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
                     {description || "Belum ada deskripsi untuk resource ini."}
                   </p>
                 </div>
-                {gallery.length > 0 && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 px-2">
-                    {gallery.slice(0, 4).map((img, i) => (
+                {gallery.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-2 px-2 md:grid-cols-4">
+                    {gallery.slice(0, 4).map((img, index) => (
                       <div
-                        key={i}
-                        className="aspect-square rounded-xl overflow-hidden border-[0.5px] border-slate-100 dark:border-white/5"
+                        key={index}
+                        className="aspect-square overflow-hidden rounded-lg border border-slate-100 dark:border-white/5"
                       >
                         <img
                           src={img}
-                          className="w-full h-full object-cover opacity-80 hover:opacity-100 transition-opacity"
+                          className="h-full w-full object-cover opacity-80 transition-opacity hover:opacity-100"
                           alt="gallery"
                         />
                       </div>
                     ))}
                   </div>
-                )}
+                ) : null}
               </div>
             )}
           </Card>
         </div>
 
-        {/* RIGHT: CONFIGURATION (High Density Grid) */}
-        <div className="lg:col-span-8 space-y-5 md:space-y-6">
-          <Card className="rounded-[1.75rem] border-[0.5px] border-[color:rgba(59,130,246,0.18)] bg-[var(--bookinaja-50)] p-4 shadow-sm dark:border-[color:rgba(96,165,250,0.18)] dark:bg-[color:rgba(59,130,246,0.12)] md:p-5">
+        <div className="space-y-5 md:space-y-6 lg:col-span-8">
+          <Card className="rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03] md:p-5">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
-                <div className="text-[9px] font-black uppercase tracking-[0.28em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
                   Smart Point
                 </div>
                 {resource?.smart_device_summary ? (
@@ -400,9 +393,10 @@ export default function ResourceDetailPage() {
                       {resource.smart_device_summary.device_name}
                     </div>
                     <div className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-                      {resource.smart_device_summary.device_id} • {resource.smart_device_summary.connection_status}
+                      {resource.smart_device_summary.device_id} |{" "}
+                      {resource.smart_device_summary.connection_status}
                       {resource.smart_device_summary.last_seen_at
-                        ? ` • terlihat ${new Date(resource.smart_device_summary.last_seen_at).toLocaleString("id-ID")}`
+                        ? ` | terlihat ${new Date(resource.smart_device_summary.last_seen_at).toLocaleString("id-ID")}`
                         : ""}
                     </div>
                   </>
@@ -419,49 +413,48 @@ export default function ResourceDetailPage() {
                     : "/admin/devices"
                 }
               >
-                <Button className="rounded-2xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
-                  {resource?.smart_device_summary ? "Lihat Smart Point" : "Hubungkan Smart Point"}
+                <Button className="rounded-lg bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
+                  {resource?.smart_device_summary
+                    ? "Lihat Smart Point"
+                    : "Hubungkan Smart Point"}
                 </Button>
               </Link>
             </div>
           </Card>
 
-          {/* MAIN RATES */}
           <section className="space-y-4">
             <div className="flex items-center justify-between px-2">
               <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-950 text-white shadow-md dark:bg-[var(--bookinaja-600)]">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-950 text-white dark:bg-[var(--bookinaja-600)]">
                   <LayoutGrid size={16} />
                 </div>
                 <div>
-                  <h2 className="text-sm font-[1000] uppercase italic tracking-widest text-slate-900 dark:text-white leading-none">
+                  <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
                     {configMeta.label}
                   </h2>
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mt-1">
-                    Paket Utama
-                  </p>
+                  <p className="mt-1 text-xs text-slate-500">Paket utama</p>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {mainItems.map((item) => (
                 <Card
                   key={item.id}
                   className={cn(
-                    "group rounded-2xl border-[0.5px] bg-white p-4 transition-all dark:bg-[#0f0f17]",
+                    "group rounded-xl border bg-white p-4 transition-colors dark:bg-[#0f0f17]",
                     item.is_default
-                      ? "border-blue-600/50 shadow-lg shadow-blue-500/5 ring-1 ring-blue-500/10"
-                      : "border-slate-200 dark:border-white/5 opacity-80 hover:opacity-100",
+                      ? "border-blue-200 bg-blue-50/40 dark:border-blue-500/20 dark:bg-blue-500/5"
+                      : "border-slate-200 dark:border-white/10",
                   )}
                 >
-                  <div className="flex justify-between items-start mb-3">
+                  <div className="mb-3 flex items-start justify-between">
                     <div
                       className={cn(
-                        "h-8 w-8 rounded-lg flex items-center justify-center shadow-inner",
+                        "flex h-8 w-8 items-center justify-center rounded-lg",
                         item.is_default
                           ? "bg-[var(--bookinaja-600)] text-white"
-                          : "bg-slate-50 dark:bg-slate-800 text-slate-400",
+                          : "bg-slate-50 text-slate-400 dark:bg-slate-800",
                       )}
                     >
                       {item.is_default ? (
@@ -470,87 +463,86 @@ export default function ResourceDetailPage() {
                         configMeta.icon
                       )}
                     </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                      {!item.is_default && (
+                    <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      {!item.is_default ? (
                         <Button
                           onClick={() => handleSetDefault(item)}
                           variant="ghost"
-                          className="h-7 w-7 rounded-lg bg-slate-50 p-0 hover:text-[var(--bookinaja-600)] dark:bg-slate-800"
+                          className="h-7 w-7 rounded-md bg-slate-50 p-0 hover:text-[var(--bookinaja-600)] dark:bg-slate-800"
                         >
                           <Star size={12} />
                         </Button>
-                      )}
+                      ) : null}
                       <Button
                         onClick={() => {
                           setEditingItem(item);
                           setDialogOpen(true);
                         }}
                         variant="ghost"
-                        className="h-7 w-7 rounded-lg bg-slate-50 p-0 hover:text-[var(--bookinaja-600)] dark:bg-slate-800"
+                        className="h-7 w-7 rounded-md bg-slate-50 p-0 hover:text-[var(--bookinaja-600)] dark:bg-slate-800"
                       >
                         <Edit3 size={12} />
                       </Button>
                       <Button
                         onClick={() => handleDelete(item.id)}
                         variant="ghost"
-                        className="h-7 w-7 p-0 bg-slate-50 dark:bg-slate-800 text-red-300 hover:text-red-500 rounded-lg"
+                        className="h-7 w-7 rounded-md bg-slate-50 p-0 text-red-300 hover:text-red-500 dark:bg-slate-800"
                       >
                         <Trash2 size={12} />
                       </Button>
                     </div>
                   </div>
-                  <h4 className="text-[11px] md:text-sm font-[1000] uppercase italic tracking-tight text-slate-900 dark:text-white leading-none mb-2">
+                  <h4 className="mb-2 text-sm font-semibold leading-none text-slate-900 dark:text-white">
                     {item.name}
                   </h4>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-[10px] font-black italic text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
+                    <span className="text-xs font-medium text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
                       Rp
                     </span>
-                    <span className="text-lg font-[1000] italic tracking-tighter text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-100)] md:text-xl">
+                    <span className="text-lg font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-100)] md:text-xl">
                       {formatIDR(item.price)}
                     </span>
-                    <span className="text-[8px] text-slate-400 font-black uppercase ml-1">
+                    <span className="ml-1 text-xs text-slate-400">
                       / {priceUnitLabel(item.price_unit)}
                     </span>
                   </div>
-                  {(item.unit_duration || 0) > 0 && (
-                    <div className="mt-3 flex items-center gap-1 text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                      <Clock size={10} className="text-[var(--bookinaja-500)]/70" />{" "}
+                  {(item.unit_duration || 0) > 0 ? (
+                    <div className="mt-3 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                      <Clock size={10} className="text-[var(--bookinaja-500)]/70" />
                       {durationLabel(item.unit_duration)} durasi
                     </div>
-                  )}
+                  ) : null}
                 </Card>
               ))}
             </div>
           </section>
 
-          {/* ADD-ONS */}
           <section className="space-y-4">
             <div className="flex items-center gap-3 px-2">
-              <div className="h-8 w-8 rounded-lg bg-orange-500 flex items-center justify-center text-white shadow-md">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500 text-white">
                 <Plus size={16} strokeWidth={4} />
               </div>
               <div>
-                <h2 className="text-sm font-[1000] uppercase italic tracking-widest text-slate-900 dark:text-white leading-none">
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
                   Katalog Tambahan
                 </h2>
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mt-1">
-                  Layanan tambahan & perlengkapan
+                <p className="mt-1 text-xs text-slate-500">
+                  Layanan tambahan dan perlengkapan.
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {addonItems.map((item) => (
                 <div
                   key={item.id}
-                  className="group flex items-center justify-between rounded-xl border-[0.5px] border-slate-200 bg-slate-50 p-3.5 transition-all hover:border-[color:rgba(59,130,246,0.28)] dark:border-white/10 dark:bg-white/[0.04]"
+                  className="group flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3.5 transition-colors hover:border-[color:rgba(59,130,246,0.28)] dark:border-white/10 dark:bg-white/[0.04]"
                 >
                   <div className="flex flex-col leading-none">
-                    <h5 className="font-[1000] uppercase italic text-[10px] md:text-[11px] text-slate-800 dark:text-slate-200 tracking-tight">
+                    <h5 className="text-sm font-medium text-slate-800 dark:text-slate-200">
                       {item.name}
                     </h5>
-                    <p className="mt-1.5 text-[9px] font-[1000] italic text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)] md:text-[10px]">
+                    <p className="mt-1.5 text-xs font-medium text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
                       Rp {formatIDR(item.price)}
                     </p>
                   </div>
@@ -570,7 +562,7 @@ export default function ResourceDetailPage() {
                       onClick={() => handleDelete(item.id)}
                       size="icon"
                       variant="ghost"
-                      className="h-7 w-7 text-slate-400 hover:text-red-500 transition-colors"
+                      className="h-7 w-7 text-slate-400 transition-colors hover:text-red-500"
                     >
                       <Trash2 size={12} />
                     </Button>
@@ -586,7 +578,7 @@ export default function ResourceDetailPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         editingItem={editingItem}
-        resourceId={params.id as string}
+        resourceId={resourceId}
         resourceName={resource?.name || "Unit"}
         businessCategory={businessCategory}
         onSuccess={() => fetchData(false)}

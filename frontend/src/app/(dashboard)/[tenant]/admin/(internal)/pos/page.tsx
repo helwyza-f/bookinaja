@@ -21,7 +21,7 @@ import {
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { hasPermission, isOwner, type AdminSessionUser } from "@/lib/admin-access";
+import { hasPermission, isOwner } from "@/lib/admin-access";
 import { useRealtime } from "@/lib/realtime/use-realtime";
 import {
   tenantBookingsChannel,
@@ -39,11 +39,13 @@ import type { FnBMenuItem } from "@/components/pos/fnb-catalog-dialog";
 import { format, differenceInMinutes } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RealtimePill } from "@/components/dashboard/realtime-pill";
+import { useAdminSession } from "@/components/dashboard/admin-session-context";
 
-type POSSession = {
+type POSBooking = {
   id: string;
   resource_name?: string;
   customer_name?: string;
+  customer_phone?: string;
   start_time: string;
   end_time: string;
   timezone?: string;
@@ -51,209 +53,289 @@ type POSSession = {
   payment_status?: string;
   balance_due?: number;
   grand_total?: number;
+  total_resource?: number;
+  total_fnb?: number;
+  deposit_amount?: number;
+  created_at?: string;
 };
 
-const needsSettlement = (session: Pick<POSSession, "status" | "payment_status" | "balance_due">) => {
+type QueueSectionTone = "danger" | "warning" | "neutral" | "info";
+
+const ACTION_PREVIEW_LIMIT = 6;
+
+const needsSettlement = (
+  session: Pick<POSBooking, "status" | "payment_status" | "balance_due">,
+) => {
   const status = String(session.status || "").toLowerCase();
   const paymentStatus = String(session.payment_status || "").toLowerCase();
   const balanceDue = Number(session.balance_due || 0);
   return (
     status === "completed" &&
-    (balanceDue > 0 || ["pending", "partial_paid", "unpaid", "failed", "expired"].includes(paymentStatus))
+    (balanceDue > 0 ||
+      ["pending", "partial_paid", "unpaid", "failed", "expired"].includes(
+        paymentStatus,
+      ))
   );
 };
 
 function POSControlSkeleton() {
   return (
-    <div className="w-full h-full bg-white dark:bg-slate-950 flex flex-col overflow-hidden font-plus-jakarta animate-in fade-in duration-300">
-      <div className="px-6 py-6 bg-slate-900 shrink-0 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Skeleton className="w-10 h-10 rounded-xl bg-slate-800" />
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-32 bg-slate-800" />
-              <Skeleton className="h-2 w-20 bg-slate-800" />
-            </div>
+    <div className="flex h-full w-full flex-col overflow-hidden bg-white font-plus-jakarta dark:bg-slate-950">
+      <div className="shrink-0 space-y-4 border-b border-slate-200 px-4 py-4 dark:border-white/10">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-lg bg-slate-100 dark:bg-white/5" />
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-32 bg-slate-100 dark:bg-white/5" />
+            <Skeleton className="h-3 w-24 bg-slate-100 dark:bg-white/5" />
           </div>
         </div>
       </div>
-      <div className="p-4 space-y-6">
-        <Skeleton className="h-40 w-full rounded-2xl dark:bg-slate-900" />
-        <Skeleton className="h-40 w-full rounded-2xl dark:bg-slate-900" />
+      <div className="space-y-4 p-4">
+        <Skeleton className="h-28 w-full rounded-xl dark:bg-slate-900" />
+        <Skeleton className="h-28 w-full rounded-xl dark:bg-slate-900" />
+        <Skeleton className="h-28 w-full rounded-xl dark:bg-slate-900" />
       </div>
     </div>
   );
 }
 
-function SessionCard({
-  session,
-  onClick,
-  isActiveParam,
-}: {
-  session: POSSession;
-  onClick: () => void;
-  isActiveParam: boolean;
-}) {
-  const [now, setNow] = useState(new Date());
-  const sessionTimezone = session.timezone || "Asia/Jakarta";
-  const startLabel = formatTenantTime(session.start_time, sessionTimezone, "HH:mm");
-  const endLabel = formatTenantTime(session.end_time, sessionTimezone, "HH:mm");
+function getBookingTotal(booking: POSBooking) {
+  if (typeof booking.grand_total === "number") return Number(booking.grand_total || 0);
+  return Number(booking.total_resource || 0) + Number(booking.total_fnb || 0);
+}
 
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 10000);
-    return () => clearInterval(t);
-  }, []);
+function getActionHint(booking: POSBooking, now: Date) {
+  const status = String(booking.status || "").toLowerCase();
+  const paymentStatus = String(booking.payment_status || "").toLowerCase();
+  const remaining = differenceInMinutes(new Date(booking.end_time), now);
 
-  const timeInfo = useMemo(() => {
-    const attention = needsSettlement(session);
-    const end = new Date(session.end_time);
-    const start = new Date(session.start_time);
-    const totalDuration = differenceInMinutes(end, start);
-    const elapsed = differenceInMinutes(now, start);
-    const remaining = differenceInMinutes(end, now);
-    const safeTotal = Math.max(totalDuration, 1);
-    const progress = Math.min(100, Math.max(0, (elapsed / safeTotal) * 100));
+  if (paymentStatus === "awaiting_verification") {
+    return "Review bukti bayar";
+  }
+  if (needsSettlement(booking)) {
+    return "Tutup pelunasan";
+  }
+  if (status === "active" || status === "ongoing") {
+    if (remaining <= 0) return "Akhiri atau tagih";
+    if (remaining <= 15) return "Pantau sesi";
+    return "Buka kontrol sesi";
+  }
+  if (status === "pending") return "Cek status booking";
+  if (status === "confirmed") return "Siapkan sesi";
+  return "Lihat detail";
+}
 
-    return {
-      minutesRemaining: remaining,
-      remaining:
-        remaining <= 0
-          ? "Habis"
-          : remaining < 60
-            ? `${remaining}m`
-            : `${Math.floor(remaining / 60)}h ${remaining % 60}m`,
-      isUrgent: remaining > 0 && remaining <= 10,
-      isOver: remaining <= 0,
-      attention,
-      progress,
-    };
-  }, [session, now]);
+function getQueueTone(booking: POSBooking, now: Date): QueueSectionTone {
+  const status = String(booking.status || "").toLowerCase();
+  const paymentStatus = String(booking.payment_status || "").toLowerCase();
+  const remaining = differenceInMinutes(new Date(booking.end_time), now);
+
+  if (paymentStatus === "awaiting_verification" || needsSettlement(booking)) {
+    return "danger";
+  }
+  if ((status === "active" || status === "ongoing") && remaining <= 15) {
+    return remaining <= 0 ? "danger" : "warning";
+  }
+  if (status === "pending" || status === "confirmed") {
+    return "info";
+  }
+  return "neutral";
+}
+
+function isAttentionBooking(booking: POSBooking, now: Date) {
+  const status = String(booking.status || "").toLowerCase();
+  const paymentStatus = String(booking.payment_status || "").toLowerCase();
+  const remaining = differenceInMinutes(new Date(booking.end_time), now);
 
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "group w-full overflow-hidden rounded-[1.3rem] border bg-white text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--bookinaja-300)] hover:shadow-md active:translate-y-0 dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:rounded-2xl",
-        isActiveParam &&
-          "border-[var(--bookinaja-500)] ring-2 ring-[color:rgba(59,130,246,0.18)] shadow-[0_12px_40px_rgba(29,78,216,0.12)]",
-        (timeInfo.isUrgent || timeInfo.attention) && "border-amber-300 ring-2 ring-amber-200/70",
-        timeInfo.isOver && "border-red-200 bg-red-50/40 dark:border-red-900/60",
-      )}
-    >
-      <div className="h-1 bg-slate-100 dark:bg-white/5">
-        <div
-          className={cn(
-            "h-full transition-all duration-700",
-            timeInfo.attention
-              ? "bg-amber-500"
-              : timeInfo.isOver
-              ? "bg-red-500"
-              : timeInfo.isUrgent
-                ? "bg-amber-500"
-                : "bg-[var(--bookinaja-600)]",
-          )}
-          style={{ width: `${timeInfo.progress}%` }}
-        />
+    paymentStatus === "awaiting_verification" ||
+    needsSettlement(booking) ||
+    ((status === "active" || status === "ongoing") && remaining <= 15) ||
+    ["failed", "expired"].includes(paymentStatus)
+  );
+}
+
+function isWaitingBooking(booking: POSBooking, now: Date) {
+  const status = String(booking.status || "").toLowerCase();
+  if (!["pending", "confirmed"].includes(status)) return false;
+  const startDiff = differenceInMinutes(new Date(booking.start_time), now);
+  return startDiff <= 360;
+}
+
+function isUpcomingBooking(booking: POSBooking, now: Date) {
+  const status = String(booking.status || "").toLowerCase();
+  if (!["pending", "confirmed"].includes(status)) return false;
+  const startDiff = differenceInMinutes(new Date(booking.start_time), now);
+  return startDiff > 360;
+}
+
+function getRelativeBookingWindow(booking: POSBooking, now: Date) {
+  const status = String(booking.status || "").toLowerCase();
+  if (status === "active" || status === "ongoing") {
+    const remaining = differenceInMinutes(new Date(booking.end_time), now);
+    if (remaining <= 0) return "Waktu habis";
+    if (remaining < 60) return `${remaining} menit lagi`;
+    return `${Math.floor(remaining / 60)}j ${remaining % 60}m lagi`;
+  }
+
+  const untilStart = differenceInMinutes(new Date(booking.start_time), now);
+  if (untilStart <= 0) return "Siap ditangani";
+  if (untilStart < 60) return `${untilStart} menit lagi`;
+  if (untilStart < 1440) return `${Math.floor(untilStart / 60)}j ${untilStart % 60}m lagi`;
+  return format(new Date(booking.start_time), "dd MMM, HH:mm");
+}
+
+function compareByCreatedOrStartDesc(a: POSBooking, b: POSBooking) {
+  const aTime = new Date(a.created_at || a.start_time).getTime();
+  const bTime = new Date(b.created_at || b.start_time).getTime();
+  return bTime - aTime;
+}
+
+function compareByStartAsc(a: POSBooking, b: POSBooking) {
+  return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+}
+
+function QueueStatCard({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+}) {
+  return (
+    <Card className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
+      <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+        {label}
       </div>
+      <div className="mt-2 text-xl font-semibold text-slate-950 dark:text-white">
+        {value}
+      </div>
+      <div className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+        {hint}
+      </div>
+    </Card>
+  );
+}
 
-      <div className="p-3.5 md:p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span
-                className={cn(
-                  "h-2 w-2 rounded-full",
-                  timeInfo.attention
-                    ? "bg-amber-500"
-                    : timeInfo.isOver
-                    ? "bg-red-500"
-                    : timeInfo.isUrgent
-                      ? "bg-amber-500"
-                      : "bg-emerald-500",
-                )}
-              />
-              <p className="truncate text-[13px] font-semibold text-slate-950 dark:text-white md:text-sm">
-                {session.resource_name || "Unit"}
-              </p>
-            </div>
-            <div className="mt-3 flex items-center gap-2 text-slate-500 dark:text-slate-400">
-              <UserIcon className="h-4 w-4 shrink-0" />
-              <h3 className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100 md:text-base">
-                {session.customer_name || "Customer"}
-              </h3>
-            </div>
+function QueueSection({
+  title,
+  description,
+  items,
+  emptyMessage,
+  now,
+  selectedId,
+  onOpen,
+}: {
+  title: string;
+  description: string;
+  items: POSBooking[];
+  emptyMessage: string;
+  now: Date;
+  selectedId: string | null;
+  onOpen: (id: string) => void;
+}) {
+  return (
+    <Card className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
+      <div className="border-b border-slate-100 px-4 py-3 dark:border-white/10">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-950 dark:text-white">
+              {title}
+            </h2>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {description}
+            </p>
           </div>
-
           <Badge
-            className={cn(
-              "shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
-              timeInfo.attention
-                ? "border-amber-200 bg-amber-50 text-amber-700"
-                : timeInfo.isOver
-                ? "border-red-200 bg-red-50 text-red-700"
-                : timeInfo.isUrgent
-                  ? "border-amber-200 bg-amber-50 text-amber-700"
-                  : "border-emerald-200 bg-emerald-50 text-emerald-700",
-            )}
+            variant="outline"
+            className="rounded-full border-slate-200 bg-slate-50 text-[10px] font-medium text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
           >
-            {timeInfo.attention
-              ? "Perlu pelunasan"
-              : timeInfo.isOver
-              ? "Overtime"
-              : timeInfo.isUrgent
-                ? "Segera habis"
-                : "Aktif"}
+            {items.length}
           </Badge>
         </div>
+      </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2 md:mt-4 md:grid-cols-3">
-          <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-white/5">
-            <p className="text-[11px] font-medium text-slate-500">Waktu</p>
-            <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-900 dark:text-slate-100">
-              <Clock className="h-3.5 w-3.5 text-[var(--bookinaja-600)]" />
-              {startLabel} - {endLabel}
-            </p>
-          </div>
-          <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-white/5">
-            <p className="text-[11px] font-medium text-slate-500">Sisa</p>
-            <p
+      <div className="divide-y divide-slate-100 dark:divide-white/10">
+        {items.length > 0 ? (
+          items.map((booking) => (
+            <button
+              key={booking.id}
+              type="button"
+              onClick={() => onOpen(booking.id)}
               className={cn(
-                "mt-1 flex items-center gap-1 text-xs font-semibold",
-                timeInfo.isOver
-                  ? "text-red-600"
-                  : timeInfo.isUrgent
-                    ? "text-amber-600"
-                    : "text-emerald-600",
+                "flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03]",
+                selectedId === booking.id && "bg-[var(--bookinaja-50)] dark:bg-[color:rgba(59,130,246,0.12)]",
               )}
             >
-              <Timer className="h-3.5 w-3.5" />
-              {timeInfo.remaining}
-            </p>
-          </div>
-          <div className="col-span-2 rounded-xl bg-[var(--bookinaja-50)] px-3 py-2 dark:bg-[color:rgba(59,130,246,0.14)] md:col-span-1">
-            <p className="text-[11px] font-medium text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-              {timeInfo.attention ? "Sisa" : "Bill"}
-            </p>
-            <p className="mt-1 truncate text-xs font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-100)]">
-              Rp
-              {new Intl.NumberFormat("id-ID").format(
-                timeInfo.attention ? session.balance_due || 0 : session.grand_total || 0,
-              )}
-            </p>
-          </div>
-        </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "h-2 w-2 rounded-full",
+                      getQueueTone(booking, now) === "danger"
+                        ? "bg-red-500"
+                        : getQueueTone(booking, now) === "warning"
+                          ? "bg-amber-500"
+                          : getQueueTone(booking, now) === "info"
+                            ? "bg-blue-500"
+                            : "bg-slate-300",
+                    )}
+                  />
+                  <p className="truncate text-sm font-semibold text-slate-950 dark:text-white">
+                    {booking.customer_name || "Customer"}
+                  </p>
+                </div>
+                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  {(booking.resource_name || "Unit")} |{" "}
+                  {formatTenantTime(
+                    booking.start_time,
+                    booking.timezone || "Asia/Jakarta",
+                    "dd MMM, HH:mm",
+                  )}
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Badge
+                    className={cn(
+                      "rounded-full border-none px-2 py-1 text-[10px] font-semibold",
+                      getQueueTone(booking, now) === "danger"
+                        ? "bg-red-500 text-white"
+                        : getQueueTone(booking, now) === "warning"
+                          ? "bg-amber-500 text-white"
+                          : getQueueTone(booking, now) === "info"
+                            ? "bg-blue-600 text-white"
+                            : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300",
+                    )}
+                  >
+                    {getActionHint(booking, now)}
+                  </Badge>
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                    {getRelativeBookingWindow(booking, now)}
+                  </span>
+                </div>
+              </div>
 
-        <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-white/10 md:mt-4">
-          <span className="text-xs font-medium text-slate-500">
-            {timeInfo.attention ? "Buka checkout" : "Buka kontrol sesi"}
-          </span>
-          <ChevronRight
-            size={16}
-            className="text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-[var(--bookinaja-600)]"
-          />
-        </div>
+              <div className="shrink-0 text-right">
+                <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                  Rp{new Intl.NumberFormat("id-ID").format(getBookingTotal(booking))}
+                </div>
+                {Number(booking.balance_due || 0) > 0 ? (
+                  <div className="mt-1 text-[11px] text-amber-600">
+                    Sisa Rp{new Intl.NumberFormat("id-ID").format(Number(booking.balance_due || 0))}
+                  </div>
+                ) : null}
+                <ChevronRight className="ml-auto mt-2 h-4 w-4 text-slate-300" />
+              </div>
+            </button>
+          ))
+        ) : (
+          <div className="px-4 py-6 text-sm text-slate-500 dark:text-slate-400">
+            {emptyMessage}
+          </div>
+        )}
       </div>
-    </button>
+    </Card>
   );
 }
 
@@ -261,8 +343,10 @@ export default function POSPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const activeId = searchParams.get("active");
+  const { user: adminUser } = useAdminSession();
+  const tenantId = adminUser?.tenant_id || "";
 
-  const [activeSessions, setActiveSessions] = useState<POSSession[]>([]);
+  const [bookings, setBookings] = useState<POSBooking[]>([]);
   const [menuItems, setMenuItems] = useState<FnBMenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSession, setSelectedSession] =
@@ -273,8 +357,7 @@ export default function POSPage() {
   const [isSheetLoading, setIsSheetLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDesktop, setIsDesktop] = useState(false);
-  const [adminUser, setAdminUser] = useState<AdminSessionUser | null>(null);
-  const [tenantId, setTenantId] = useState("");
+  const [now, setNow] = useState(new Date());
   const lastRealtimeToastRef = useRef<string>("");
 
   const canReadBookings = hasPermission(adminUser, "bookings.read");
@@ -287,40 +370,44 @@ export default function POSPage() {
     "pos.cash.settle",
   ]);
   const canReadFnb = hasPermission(adminUser, "fnb.read");
-  const canManageFnb = hasPermission(adminUser, ["fnb.create", "fnb.update", "fnb.delete"]);
-  const canUseReceiptActions = hasPermission(adminUser, ["receipts.send", "receipts.print"]);
+  const canManageFnb = hasPermission(adminUser, [
+    "fnb.create",
+    "fnb.update",
+    "fnb.delete",
+  ]);
+  const canUseReceiptActions = hasPermission(adminUser, [
+    "receipts.send",
+    "receipts.print",
+  ]);
 
   const fetchData = useCallback(async () => {
     try {
-      const meRes = await api.get("/auth/me");
-      const currentUser = meRes.data?.user || null;
-      setAdminUser(currentUser);
-      setTenantId(meRes.data?.user?.tenant_id || "");
-
-      const [sessionsRes, menuRes] = await Promise.allSettled([
-        hasPermission(currentUser, "pos.read")
-          ? api.get("/bookings/pos/active")
-          : Promise.resolve(null),
-        hasPermission(currentUser, "fnb.read")
-          ? api.get("/fnb")
-          : Promise.resolve(null),
+      const [bookingsRes, menuRes] = await Promise.allSettled([
+        canReadPos || canReadBookings ? api.get("/bookings") : Promise.resolve(null),
+        canReadFnb ? api.get("/fnb") : Promise.resolve(null),
       ]);
-      setActiveSessions(
-        sessionsRes.status === "fulfilled" ? sessionsRes.value?.data || [] : [],
+
+      setBookings(
+        bookingsRes.status === "fulfilled" ? bookingsRes.value?.data || [] : [],
       );
       setMenuItems(
         menuRes.status === "fulfilled" ? menuRes.value?.data || [] : [],
       );
     } catch {
-      toast.error("Gagal sinkronisasi terminal");
+      toast.error("Gagal sinkronisasi action desk");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [canReadBookings, canReadFnb, canReadPos]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const query = window.matchMedia("(min-width: 1024px)");
@@ -333,25 +420,28 @@ export default function POSPage() {
     return () => query.removeEventListener("change", syncViewport);
   }, []);
 
-  const openSessionDetail = useCallback(async (id: string) => {
-    if (!canReadBookings) return;
-    setSelectedSessionId(id);
-    setSelectedSession(null);
-    setIsSheetLoading(true);
-    try {
-      const res = await api.get(`/bookings/${id}`);
-      setSelectedSession(res.data);
-    } catch {
-      toast.error("Detail gagal dimuat");
-      setSelectedSessionId(null);
-    } finally {
-      setIsSheetLoading(false);
-    }
-  }, [canReadBookings]);
+  const openSessionDetail = useCallback(
+    async (id: string) => {
+      if (!canReadBookings) return;
+      setSelectedSessionId(id);
+      setSelectedSession(null);
+      setIsSheetLoading(true);
+      try {
+        const res = await api.get(`/bookings/${id}`);
+        setSelectedSession(res.data);
+      } catch {
+        toast.error("Detail gagal dimuat");
+        setSelectedSessionId(null);
+      } finally {
+        setIsSheetLoading(false);
+      }
+    },
+    [canReadBookings],
+  );
 
   useEffect(() => {
-    if (activeId && activeSessions.length > 0 && !selectedSessionId) {
-      const exists = activeSessions.find((s) => s.id === activeId);
+    if (activeId && bookings.length > 0 && !selectedSessionId) {
+      const exists = bookings.find((s) => s.id === activeId);
       if (exists) {
         openSessionDetail(activeId);
         const params = new URLSearchParams(searchParams.toString());
@@ -361,7 +451,7 @@ export default function POSPage() {
     }
   }, [
     activeId,
-    activeSessions,
+    bookings,
     openSessionDetail,
     selectedSessionId,
     router,
@@ -372,9 +462,17 @@ export default function POSPage() {
     if (!canReadBookings) return;
     const res = await api.get(`/bookings/${id}`);
     setSelectedSession(res.data);
-    setActiveSessions((prev) =>
-      prev.map((s) =>
-        s.id === id ? { ...s, grand_total: res.data.grand_total } : s,
+    setBookings((prev) =>
+      prev.map((booking) =>
+        booking.id === id
+          ? {
+              ...booking,
+              status: res.data.status,
+              payment_status: res.data.payment_status,
+              balance_due: res.data.balance_due,
+              grand_total: res.data.grand_total,
+            }
+          : booking,
       ),
     );
   };
@@ -397,44 +495,81 @@ export default function POSPage() {
       lastRealtimeToastRef.current = eventKey;
       if (event.type === "session.completed") {
         toast.success("Sesi dipindahkan ke status selesai");
-      } else if (event.type === "payment.cash.settled" || event.type === "payment.settlement.paid") {
-        toast.success("Pembayaran sesi sudah diterima");
+      } else if (
+        event.type === "payment.cash.settled" ||
+        event.type === "payment.settlement.paid"
+      ) {
+        toast.success("Pembayaran booking sudah diterima");
+      } else if (event.type === "payment.awaiting_verification") {
+        toast.message("Ada bukti bayar yang perlu direview");
       } else if (event.type === "order.fnb.added") {
-        toast.message("Pesanan F&B baru masuk ke sesi ini");
+        toast.message("Pesanan F&B baru masuk");
       } else if (event.type === "order.addon.added") {
-        toast.message("Add-on baru masuk ke sesi ini");
+        toast.message("Add-on baru masuk");
       }
     },
     onReconnect: fetchData,
   });
 
-  const sessionSummary = useMemo(() => {
-    const now = new Date();
-    return activeSessions.reduce(
-      (acc, session) => {
-        const remaining = differenceInMinutes(new Date(session.end_time), now);
-        acc.revenue += Number(session.grand_total || 0);
-        if (needsSettlement(session)) acc.settlement += 1;
-        else if (remaining <= 0) acc.overtime += 1;
-        else if (remaining <= 10) acc.urgent += 1;
-        return acc;
-      },
-      { revenue: 0, urgent: 0, overtime: 0, settlement: 0 },
-    );
-  }, [activeSessions]);
-
-  const filteredSessions = useMemo(() => {
+  const filteredBookings = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    const sorted = [...activeSessions].sort(
-      (a, b) => new Date(a.end_time).getTime() - new Date(b.end_time).getTime(),
-    );
+    const sorted = [...bookings].sort(compareByStartAsc);
     if (!query) return sorted;
-    return sorted.filter((session) =>
-      [session.customer_name, session.resource_name]
+    return sorted.filter((booking) =>
+      [booking.customer_name, booking.resource_name, booking.customer_phone]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(query)),
     );
-  }, [activeSessions, searchQuery]);
+  }, [bookings, searchQuery]);
+
+  const attentionBookings = useMemo(
+    () =>
+      filteredBookings
+        .filter((booking) => isAttentionBooking(booking, now))
+        .sort((a, b) => {
+          const aPriority = getAttentionPriority(a, now);
+          const bPriority = getAttentionPriority(b, now);
+          if (aPriority !== bPriority) return aPriority - bPriority;
+          return compareByStartAsc(a, b);
+        })
+        .slice(0, ACTION_PREVIEW_LIMIT),
+    [filteredBookings, now],
+  );
+
+  const waitingBookings = useMemo(
+    () =>
+      filteredBookings
+        .filter((booking) => isWaitingBooking(booking, now))
+        .sort(compareByStartAsc)
+        .slice(0, ACTION_PREVIEW_LIMIT),
+    [filteredBookings, now],
+  );
+
+  const upcomingBookings = useMemo(
+    () =>
+      filteredBookings
+        .filter((booking) => isUpcomingBooking(booking, now))
+        .sort(compareByStartAsc)
+        .slice(0, ACTION_PREVIEW_LIMIT),
+    [filteredBookings, now],
+  );
+
+  const latestBookings = useMemo(
+    () => [...filteredBookings].sort(compareByCreatedOrStartDesc).slice(0, ACTION_PREVIEW_LIMIT),
+    [filteredBookings],
+  );
+
+  const summary = useMemo(() => {
+    return {
+      attention: filteredBookings.filter((booking) => isAttentionBooking(booking, now))
+        .length,
+      waiting: filteredBookings.filter((booking) => isWaitingBooking(booking, now))
+        .length,
+      upcoming: filteredBookings.filter((booking) => isUpcomingBooking(booking, now))
+        .length,
+      latest: filteredBookings.length,
+    };
+  }, [filteredBookings, now]);
 
   const closeMobileDetail = () => {
     setSelectedSession(null);
@@ -449,16 +584,16 @@ export default function POSPage() {
             variant="ghost"
             size="icon"
             onClick={closeMobileDetail}
-            className="h-10 w-10 rounded-xl"
+            className="h-10 w-10 rounded-lg"
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-              POS Control
+              Action Desk
             </p>
             <h1 className="truncate text-sm font-semibold text-slate-950 dark:text-white">
-              {selectedSession?.customer_name || "Memuat sesi..."}
+              {selectedSession?.customer_name || "Memuat booking..."}
             </h1>
           </div>
         </div>
@@ -484,155 +619,147 @@ export default function POSPage() {
   }
 
   return (
-    <div className="mx-auto max-w-360 space-y-4 pb-20 pt-5 px-3 font-plus-jakarta animate-in fade-in duration-300">
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(238,252,249,0.94))] shadow-sm dark:border-white/15 dark:bg-[linear-gradient(135deg,rgba(10,24,26,0.98),rgba(15,15,23,0.96))] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-        <div className="flex flex-col gap-4 border-b border-slate-100 p-4 md:flex-row md:items-center md:justify-between md:p-5 dark:border-white/10">
-          <div>
-            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-              <span className="inline-flex items-center gap-2">
-                <MonitorPlay className="h-4 w-4" />
-                POS
-              </span>
-              <RealtimePill connected={realtimeConnected} status={realtimeStatus} className="normal-case tracking-normal" />
-            </div>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl dark:text-white">
-              POS
-            </h1>
+    <div className="mx-auto max-w-360 space-y-4 px-3 pb-20 pt-4 font-plus-jakarta">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge className="rounded-full border-none bg-[var(--bookinaja-600)] text-white">
+            Action Desk
+          </Badge>
+          <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
+          <Button
+            variant="ghost"
+            onClick={() => router.push("/admin/bookings")}
+            className="h-8 rounded-lg px-3 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-white/5 dark:hover:text-white"
+          >
+            Ledger booking
+          </Button>
+        </div>
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative min-w-0 sm:w-[280px]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Cari customer, WA, atau unit..."
+              className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm font-medium outline-none transition focus:border-[var(--bookinaja-500)] focus:ring-4 focus:ring-[color:rgba(59,130,246,0.14)] dark:border-white/10 dark:bg-white/5 dark:text-white"
+            />
           </div>
           <Button
             variant="outline"
             onClick={fetchData}
             disabled={loading}
-            className="h-10 rounded-xl border-slate-200 bg-white px-4 text-sm font-semibold dark:border-white/10 dark:bg-slate-950"
+            className="h-10 rounded-lg border-slate-200 bg-white px-4 text-sm font-medium dark:border-white/10 dark:bg-white/5"
           >
-            <RefreshCw
-              className={cn("mr-2 h-4 w-4", loading && "animate-spin")}
-            />
+            <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
             Refresh
           </Button>
         </div>
+      </div>
 
-        <div className="grid grid-cols-2 border-b border-slate-100 md:grid-cols-4 dark:border-white/10">
-          <div className="border-r border-slate-100 p-3.5 dark:border-white/10 md:p-4">
-            <p className="text-xs font-medium text-slate-500">Perlu ditangani</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-950 dark:text-white">
-              {activeSessions.length}
-            </p>
-          </div>
-          <div className="border-r border-slate-100 p-3.5 dark:border-white/10 md:p-4">
-            <p className="text-xs font-medium text-slate-500">
-              Pelunasan
-            </p>
-            <p className="mt-1 flex items-center gap-2 text-2xl font-semibold text-amber-600">
-              {sessionSummary.settlement}
-              <AlertTriangle className="h-4 w-4" />
-            </p>
-          </div>
-          <div className="border-r border-slate-100 p-3.5 dark:border-white/10 md:p-4">
-            <p className="text-xs font-medium text-slate-500">Urgent/Overtime</p>
-            <p className="mt-1 text-2xl font-semibold text-red-600">
-              {sessionSummary.urgent + sessionSummary.overtime}
-            </p>
-          </div>
-          <div className="p-3.5 md:p-4">
-            <p className="text-xs font-medium text-slate-500">Tagihan aktif</p>
-            <p className="mt-1 flex items-center gap-2 text-2xl font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-100)]">
-              <Wallet className="h-4 w-4" />
-              Rp{new Intl.NumberFormat("id-ID").format(sessionSummary.revenue)}
-            </p>
-          </div>
-        </div>
-
-        <div className="p-4">
-          {!canReadPos && (
-            <div className="mb-3 rounded-xl border border-dashed border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/20 dark:bg-amber-950/20 dark:text-amber-200">
-              Akun ini belum punya akses untuk membaca sesi booking aktif.
-            </div>
-          )}
-          {canReadPos && !canReadFnb && (
-            <div className="mb-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
-              Menu F&B disembunyikan karena izin `fnb.read` belum diberikan.
-            </div>
-          )}
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Cari customer atau unit..."
-              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-medium outline-none transition focus:border-[var(--bookinaja-500)] focus:bg-white focus:ring-4 focus:ring-[color:rgba(59,130,246,0.14)] dark:border-white/10 dark:bg-white/5 dark:text-white"
-            />
-          </div>
-        </div>
-      </section>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <QueueStatCard
+          label="Perlu perhatian"
+          value={String(summary.attention)}
+          hint="Verifikasi, overtime, atau pelunasan"
+        />
+        <QueueStatCard
+          label="Menunggu tindakan"
+          value={String(summary.waiting)}
+          hint="Pending atau confirmed yang dekat jadwal"
+        />
+        <QueueStatCard
+          label="Akan datang"
+          value={String(summary.upcoming)}
+          hint="Booking berikutnya yang belum dekat"
+        />
+        <QueueStatCard
+          label="Terlihat"
+          value={String(summary.latest)}
+          hint="Booking hasil pencarian saat ini"
+        />
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_460px]">
-        <div className="min-w-0">
-          {loading ? (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
-              {[...Array(9)].map((_, i) => (
+        <div className="min-w-0 space-y-4">
+          {!canReadPos ? (
+            <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-amber-200 bg-amber-50 text-center shadow-sm dark:border-amber-500/20 dark:bg-amber-950/20">
+              <AlertTriangle size={38} className="text-amber-500" />
+              <h3 className="text-base font-semibold text-amber-700 dark:text-amber-200">
+                Akses POS belum diberikan
+              </h3>
+              <p className="max-w-sm text-sm text-amber-600 dark:text-amber-300">
+                Halaman ini butuh izin `pos.read` agar daftar tindakan bisa dibuka.
+              </p>
+            </div>
+          ) : loading ? (
+            <div className="grid gap-4 xl:grid-cols-2">
+              {[...Array(4)].map((_, i) => (
                 <Card
                   key={i}
-                  className="h-44 overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950"
+                  className="overflow-hidden rounded-xl border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950"
                 >
-                  <Skeleton className="h-1 w-full" />
                   <div className="space-y-4 p-4">
-                    <Skeleton className="h-5 w-2/3" />
-                    <Skeleton className="h-6 w-1/2" />
-                    <div className="grid grid-cols-3 gap-2">
-                      <Skeleton className="h-14 rounded-xl" />
-                      <Skeleton className="h-14 rounded-xl" />
-                      <Skeleton className="h-14 rounded-xl" />
-                    </div>
+                    <Skeleton className="h-5 w-36" />
+                    <Skeleton className="h-20 w-full rounded-lg" />
+                    <Skeleton className="h-20 w-full rounded-lg" />
                   </div>
                 </Card>
               ))}
             </div>
-          ) : !canReadPos ? (
-            <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-amber-200 bg-amber-50 text-center shadow-sm dark:border-amber-500/20 dark:bg-amber-950/20">
-              <AlertTriangle size={38} className="text-amber-500" />
-              <h3 className="text-base font-semibold text-amber-700 dark:text-amber-200">
-                Akses sesi aktif belum diberikan
-              </h3>
-              <p className="max-w-sm text-sm text-amber-600 dark:text-amber-300">
-                Minta izin `pos.read` agar halaman POS bisa menampilkan sesi yang sedang berjalan.
-              </p>
-            </div>
-          ) : activeSessions.length === 0 ? (
-          <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-white text-center shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
-              <MonitorPlay size={38} className="text-slate-300" />
-              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-200">
-                Belum ada sesi atau tagihan aktif
-              </h3>
-              <p className="max-w-sm text-sm text-slate-500">
-                  Sesi aktif & pelunasan tampil di sini.
-              </p>
-            </div>
-          ) : filteredSessions.length === 0 ? (
-            <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-white text-center shadow-sm dark:border-white/10 dark:bg-slate-950">
+          ) : filteredBookings.length === 0 ? (
+            <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-200 bg-white text-center shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
               <Search size={34} className="text-slate-300" />
               <h3 className="text-base font-semibold text-slate-700 dark:text-slate-200">
-                Sesi tidak ditemukan
+                Booking tidak ditemukan
               </h3>
               <p className="text-sm text-slate-500">
-                  Coba nama customer atau unit lain.
+                Coba nama customer, nomor WA, atau unit lain.
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 animate-in slide-in-from-bottom-2 duration-300 md:grid-cols-2 2xl:grid-cols-3">
-              {filteredSessions.map((session) => (
-                <SessionCard
-                  key={session.id}
-                  session={session}
-                  isActiveParam={selectedSessionId === session.id}
-                  onClick={() => openSessionDetail(session.id)}
-                />
-              ))}
+            <div className="grid gap-4 xl:grid-cols-2">
+              <QueueSection
+                title="Perlu perhatian"
+                description="Item yang sebaiknya ditangani lebih dulu."
+                items={attentionBookings}
+                emptyMessage="Belum ada booking yang mendesak."
+                now={now}
+                selectedId={selectedSessionId}
+                onOpen={openSessionDetail}
+              />
+              <QueueSection
+                title="Menunggu tindakan"
+                description="Pending atau confirmed yang sudah dekat jadwal."
+                items={waitingBookings}
+                emptyMessage="Belum ada booking dekat jadwal yang menunggu aksi."
+                now={now}
+                selectedId={selectedSessionId}
+                onOpen={openSessionDetail}
+              />
+              <QueueSection
+                title="Akan datang"
+                description="Antrian booking berikutnya yang belum mendesak."
+                items={upcomingBookings}
+                emptyMessage="Belum ada booking mendatang lain."
+                now={now}
+                selectedId={selectedSessionId}
+                onOpen={openSessionDetail}
+              />
+              <QueueSection
+                title="Booking terbaru"
+                description="Snapshot terbaru dari booking yang masuk atau berubah."
+                items={latestBookings}
+                emptyMessage="Belum ada booking terbaru untuk ditampilkan."
+                now={now}
+                selectedId={selectedSessionId}
+                onOpen={openSessionDetail}
+              />
             </div>
           )}
         </div>
 
-        <aside className="sticky top-20 hidden h-[calc(100vh-7rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:block dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+        <aside className="sticky top-20 hidden h-[calc(100vh-7rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:block dark:border-white/15 dark:bg-[#0f0f17]">
           {isSheetLoading ? (
             <POSControlSkeleton />
           ) : selectedSession ? (
@@ -650,22 +777,34 @@ export default function POSPage() {
             />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--bookinaja-50)] text-[var(--bookinaja-600)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-200)]">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[var(--bookinaja-50)] text-[var(--bookinaja-600)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-200)]">
                 <PanelRightOpen className="h-6 w-6" />
               </div>
               <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-                Pilih sesi untuk kontrol
+                Pilih booking untuk tindakan
               </h2>
               <p className="max-w-xs text-sm text-slate-500">
-                Detail billing, aksi sesi, dan checkout akan tampil di panel ini.
+                Detail billing, aksi sesi, dan pelunasan akan tampil di panel ini.
               </p>
             </div>
           )}
         </aside>
       </div>
-
     </div>
   );
+}
+
+function getAttentionPriority(booking: POSBooking, now: Date) {
+  const status = String(booking.status || "").toLowerCase();
+  const paymentStatus = String(booking.payment_status || "").toLowerCase();
+  const remaining = differenceInMinutes(new Date(booking.end_time), now);
+
+  if (paymentStatus === "awaiting_verification") return 0;
+  if (needsSettlement(booking)) return 1;
+  if ((status === "active" || status === "ongoing") && remaining <= 0) return 2;
+  if ((status === "active" || status === "ongoing") && remaining <= 15) return 3;
+  if (["failed", "expired"].includes(paymentStatus)) return 4;
+  return 10;
 }
 
 function getTimeZoneParts(date: Date, timezone = "Asia/Jakarta") {

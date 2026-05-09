@@ -4,15 +4,20 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
-import { getTenantGrowthSettings } from "@/lib/platform-admin";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GrowthHeader } from "@/components/dashboard/growth-header";
 import { GrowthSidebar } from "@/components/dashboard/growth-sidebar";
 
-type MeResponse = {
+type AdminBootstrapResponse = {
   user?: {
     name?: string;
     role?: string;
+  };
+  tenant?: {
+    name?: string;
+  };
+  features?: {
+    enable_discovery_posts?: boolean;
   };
 };
 
@@ -23,7 +28,7 @@ export default function GrowthWorkspaceLayout({
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<MeResponse["user"] | null>(null);
+  const [user, setUser] = useState<AdminBootstrapResponse["user"] | null>(null);
   const [tenantName, setTenantName] = useState<string>("");
 
   useEffect(() => {
@@ -31,8 +36,9 @@ export default function GrowthWorkspaceLayout({
 
     const load = async () => {
       try {
-        const res = await api.get("/auth/me");
-        const userData = res.data?.user || null;
+        const res = await api.get<AdminBootstrapResponse>("/admin/me/bootstrap");
+        const bootstrap = res.data || {};
+        const userData = bootstrap.user || null;
         if (!active) return;
 
         if (userData?.role !== "owner") {
@@ -40,22 +46,14 @@ export default function GrowthWorkspaceLayout({
           return;
         }
 
-        const growthSettings = await getTenantGrowthSettings();
-        if (!active) return;
-        if (!growthSettings.enable_discovery_posts) {
+        if (!bootstrap.features?.enable_discovery_posts) {
           router.replace("/admin/dashboard");
           return;
         }
 
         setUser(userData);
-        try {
-          const profileRes = await api.get("/admin/profile");
-          if (active) setTenantName(profileRes.data?.name || "");
-        } catch {
-          if (active) setTenantName(userData?.name || "");
-        } finally {
-          if (active) setLoading(false);
-        }
+        setTenantName(bootstrap.tenant?.name || userData?.name || "");
+        setLoading(false);
       } catch (error) {
         if (active && isTenantAuthError(error)) {
           clearTenantSession({ keepTenantSlug: true });

@@ -218,17 +218,16 @@ export default function ExpensesPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-4 pb-20 px-3 pt-5 font-plus-jakarta animate-in fade-in duration-300 md:px-4">
-      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(238,252,249,0.95)_40%,rgba(255,247,237,0.9))] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(10,24,26,0.96),rgba(8,30,31,0.94)_45%,rgba(49,25,14,0.82))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-6">
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.2),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.14),transparent_58%)]" />
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.24em] text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-200">
+    <div className="mx-auto max-w-[1440px] space-y-4 px-3 pb-20 pt-4 font-plus-jakarta animate-in fade-in duration-300 md:px-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl space-y-2">
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
               <Banknote className="h-3.5 w-3.5 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
               Expenses
             </div>
             <div>
-              <h1 className="text-3xl font-[950] tracking-tight text-slate-950 dark:text-white sm:text-4xl">
+              <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
                 Expenses
               </h1>
             </div>
@@ -236,7 +235,7 @@ export default function ExpensesPage() {
           <Button
             onClick={openCreate}
             disabled={!canCreateExpenses}
-            className="h-12 rounded-[1.2rem] bg-slate-950 px-5 text-sm font-bold text-white shadow-[0_18px_40px_rgba(15,23,42,0.22)] hover:bg-[var(--bookinaja-700)] dark:bg-white dark:text-slate-950"
+            className="h-10 rounded-lg bg-slate-950 px-4 text-sm font-medium text-white hover:bg-[var(--bookinaja-700)] dark:bg-white dark:text-slate-950"
           >
             <Plus size={15} className="mr-2" />
             Tambah
@@ -278,12 +277,12 @@ export default function ExpensesPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Cari judul, vendor, notes..."
-              className="h-10 rounded-xl border-slate-200 bg-slate-50 pl-10 text-sm font-medium focus-visible:ring-4 focus-visible:ring-[color:rgba(59,130,246,0.14)] dark:border-white/10 dark:bg-white/5"
+          className="h-10 rounded-lg border-slate-200 bg-slate-50 pl-10 text-sm font-medium dark:border-slate-800 dark:bg-slate-900/30"
             />
           </div>
 
           <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger className="h-10 rounded-xl border-slate-200 bg-slate-50 text-sm font-medium dark:border-white/10 dark:bg-white/5">
+            <SelectTrigger className="h-10 rounded-lg border-slate-200 bg-slate-50 text-sm font-medium dark:border-slate-800 dark:bg-slate-900/30">
               <SelectValue placeholder="Kategori" />
             </SelectTrigger>
             <SelectContent className="rounded-xl font-medium">
@@ -302,7 +301,7 @@ export default function ExpensesPage() {
             onClick={resetFilters}
             variant="ghost"
             className={cn(
-              "h-10 rounded-xl px-4 text-sm font-semibold lg:w-auto",
+              "h-10 rounded-lg px-4 text-sm font-medium lg:w-auto",
               isFilterActive
                 ? "text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
               : "text-slate-300",
@@ -315,15 +314,15 @@ export default function ExpensesPage() {
 
       {loading ? (
         <div className="space-y-3">
-          <Skeleton className="h-20 w-full rounded-[1.4rem] bg-slate-100 dark:bg-white/5" />
-          <Skeleton className="h-20 w-full rounded-[1.4rem] bg-slate-100 dark:bg-white/5" />
+          <Skeleton className="h-20 w-full rounded-lg bg-slate-100 dark:bg-white/5" />
+          <Skeleton className="h-20 w-full rounded-lg bg-slate-100 dark:bg-white/5" />
         </div>
       ) : filteredItems.length === 0 ? (
-        <div className="flex min-h-[40vh] flex-col items-center justify-center rounded-[1.6rem] border border-dashed border-slate-200 bg-white p-8 text-center dark:border-white/5 dark:bg-slate-900">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-[1.4rem] bg-slate-50 text-slate-300 dark:bg-white/5">
+        <div className="flex min-h-[40vh] flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white p-8 text-center dark:border-slate-800 dark:bg-slate-950">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-lg bg-slate-50 text-slate-300 dark:bg-slate-900">
             <ReceiptText className="h-7 w-7" />
           </div>
-          <h3 className="text-lg font-black italic uppercase tracking-tighter text-slate-950 dark:text-white">
+          <h3 className="text-lg font-semibold text-slate-950 dark:text-white">
             Belum ada pengeluaran
           </h3>
           <p className="mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
@@ -331,7 +330,7 @@ export default function ExpensesPage() {
           </p>
           <Button
             onClick={openCreate}
-            className="mt-5 rounded-2xl bg-[var(--bookinaja-600)] px-4 font-black uppercase italic text-[9px] tracking-widest text-white hover:bg-[var(--bookinaja-700)]"
+            className="mt-5 rounded-lg bg-[var(--bookinaja-600)] px-4 text-sm font-medium text-white hover:bg-[var(--bookinaja-700)]"
           >
             Tambah Pengeluaran
           </Button>
@@ -347,7 +346,7 @@ export default function ExpensesPage() {
               <Card
                 key={expense.id}
                 onClick={() => openDetail(expense.id)}
-            className="group cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-[color:rgba(59,130,246,0.22)] dark:border-white/15 dark:bg-[#0f0f17]"
+            className="group cursor-pointer rounded-lg border border-slate-200 bg-white p-4 transition-colors hover:border-[color:rgba(59,130,246,0.22)] dark:border-slate-800 dark:bg-slate-950"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1 space-y-2">
@@ -401,7 +400,7 @@ export default function ExpensesPage() {
                     }}
                     variant="ghost"
                     disabled={!canDeleteExpenses}
-                    className="h-8 rounded-2xl px-3 text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
+                    className="h-8 rounded-lg px-3 text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -410,7 +409,7 @@ export default function ExpensesPage() {
             ))}
           </div>
 
-          <Card className="hidden overflow-hidden rounded-[1.8rem] border border-slate-200/80 bg-white/95 shadow-[0_18px_55px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-[#0f1117]/96 dark:shadow-[0_24px_70px_rgba(0,0,0,0.24)] md:block">
+          <Card className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 md:block">
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-100 dark:border-white/5">
@@ -527,7 +526,7 @@ function DatePopover({
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          className="h-10 justify-between rounded-xl border-slate-200 bg-slate-50 px-4 text-sm font-medium dark:border-white/10 dark:bg-white/5"
+          className="h-10 justify-between rounded-lg border-slate-200 bg-slate-50 px-4 text-sm font-medium dark:border-slate-800 dark:bg-slate-900/30"
         >
           <span className="text-xs text-slate-500">
             {label}
@@ -537,7 +536,7 @@ function DatePopover({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-auto overflow-hidden rounded-3xl border-none p-0 shadow-2xl"
+        className="w-auto overflow-hidden rounded-xl border-none p-0"
         align="start"
       >
         <Calendar

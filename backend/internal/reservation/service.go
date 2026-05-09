@@ -911,6 +911,17 @@ func (s *Service) ListByTenant(ctx context.Context, tenantID, status string) ([]
 	return s.repo.FindAllByTenant(ctx, tID, status)
 }
 
+func (s *Service) GetAnalyticsSummary(ctx context.Context, tenantID string, days int) (*BookingAnalyticsSummary, error) {
+	tID, _ := uuid.Parse(tenantID)
+	if days <= 0 {
+		days = 30
+	}
+	if days > 90 {
+		days = 90
+	}
+	return s.repo.GetAnalyticsSummary(ctx, tID, days)
+}
+
 func (s *Service) GetDetailForAdmin(ctx context.Context, id, tenantID string) (*BookingDetail, error) {
 	bID, _ := uuid.Parse(id)
 	tID, _ := uuid.Parse(tenantID)

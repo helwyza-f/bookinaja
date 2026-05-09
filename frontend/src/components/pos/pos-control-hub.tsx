@@ -144,6 +144,7 @@ export function POSControlHub({
     sessionStatus === "completed" &&
     (balanceDue > 0 || ["pending", "partial_paid", "unpaid", "failed", "expired"].includes(paymentStatus));
   const isSessionEditable = !isOutstanding && ["active", "ongoing"].includes(sessionStatus);
+  const isPreSession = ["pending", "confirmed"].includes(sessionStatus);
   const canUseReceipt = canUseReceiptActions && isReceiptProEnabled(receiptSettings);
   const isPaymentSettled =
     paymentStatus === "settled" ||
@@ -434,7 +435,11 @@ export function POSControlHub({
       ) : (
         <div className="border-b border-slate-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-white/10 dark:bg-amber-950/20 dark:text-amber-200">
           {canWriteBookings
-            ? "Sesi sudah selesai. Fokus berikutnya adalah pelunasan tagihan."
+            ? isOutstanding
+              ? "Sesi sudah selesai. Fokus berikutnya adalah pelunasan tagihan."
+              : isPreSession
+                ? "Booking belum mulai. Review jadwal, pembayaran, atau buka detail booking saat perlu tindakan."
+                : "Sesi ini tidak sedang aktif untuk aksi POS langsung."
             : "Akun ini hanya bisa melihat ringkasan sesi. Aksi POS dibatasi."}
         </div>
       )}
@@ -569,8 +574,12 @@ export function POSControlHub({
             }
             className="h-12 sm:h-14 px-4 sm:px-7 rounded-xl sm:rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-lg gap-2 group pr-3"
           >
-            Checkout
-            <ChevronUp className="w-4 h-4 animate-bounce group-hover:scale-125 transition-transform" />
+            {isOutstanding
+              ? "Buka pelunasan"
+              : isPreSession
+                ? "Buka detail booking"
+                : "Checkout"}
+            <ChevronUp className="w-4 h-4 group-hover:scale-125 transition-transform" />
           </Button>
         </div>
         {isOutstanding && paymentMethods.length > 0 ? (

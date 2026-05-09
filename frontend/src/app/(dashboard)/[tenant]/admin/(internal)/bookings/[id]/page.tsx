@@ -39,8 +39,9 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { BookingDetailSkeleton } from "@/components/dashboard/booking-detail-skeleton";
-import { hasPermission, isOwner, type AdminSessionUser } from "@/lib/admin-access";
+import { hasPermission, isOwner } from "@/lib/admin-access";
 import { RealtimePill } from "@/components/dashboard/realtime-pill";
+import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import {
   isReceiptProEnabled,
   printReceiptBluetooth,
@@ -170,7 +171,7 @@ function actorLabel(event: BookingEvent) {
   const role = String(event.actor_role || "").trim();
   const actorType = String(event.actor_type || "").trim();
 
-  if (name && role) return `${name} • ${role}`;
+  if (name && role) return `${name} | ${role}`;
   if (name) return name;
   if (actorType === "admin") return "Tim admin";
   if (actorType === "customer") return "Customer";
@@ -259,12 +260,12 @@ function AdminControlCard({
 }: AdminControlCardProps) {
   const toneClass =
     tone === "primary"
-      ? "border-blue-200 bg-linear-to-br from-blue-50 via-white to-cyan-50 text-slate-950 hover:border-blue-300 hover:bg-blue-50 dark:border-blue-500/30 dark:from-blue-950/35 dark:via-slate-950 dark:to-cyan-950/20 dark:text-white"
+      ? "border-blue-200 bg-blue-50 text-slate-950 hover:border-blue-300 hover:bg-blue-100 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-white"
       : tone === "success"
-        ? "border-emerald-200 bg-linear-to-br from-emerald-500 via-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 dark:border-emerald-400/20"
+        ? "border-emerald-200 bg-emerald-600 text-white hover:bg-emerald-700 dark:border-emerald-400/20"
         : tone === "dark"
-          ? "border-slate-900 bg-linear-to-br from-slate-900 via-slate-900 to-slate-800 text-white hover:from-slate-800 hover:to-slate-700 dark:border-white/10"
-          : "border-slate-200 bg-white text-slate-950 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-[#151826] dark:text-white dark:hover:bg-[#1b1f31]";
+          ? "border-slate-900 bg-slate-950 text-white hover:bg-slate-800 dark:border-white/10"
+          : "border-slate-200 bg-white text-slate-950 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-[#111827] dark:text-white dark:hover:bg-[#172033]";
 
   const iconToneClass =
     tone === "success"
@@ -287,7 +288,7 @@ function AdminControlCard({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "group h-auto min-h-[104px] flex-col items-stretch justify-start rounded-[1.45rem] border px-0 py-0 text-left shadow-sm transition-all duration-200",
+        "group h-auto min-h-[96px] flex-col items-stretch justify-start rounded-xl border px-0 py-0 text-left shadow-sm transition-colors duration-150",
         "disabled:cursor-not-allowed disabled:opacity-55",
         toneClass,
         className,
@@ -297,7 +298,7 @@ function AdminControlCard({
         <div className="flex items-start justify-between gap-3">
           <span
             className={cn(
-              "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl",
+              "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
               iconToneClass,
             )}
           >
@@ -315,7 +316,7 @@ function AdminControlCard({
           </span>
         </div>
         <div>
-          <div className="text-[15px] font-semibold leading-tight">{title}</div>
+          <div className="text-sm font-semibold leading-tight">{title}</div>
           <p className={cn("mt-2 text-xs leading-5", descriptionClass)}>
             {description}
           </p>
@@ -328,12 +329,11 @@ function AdminControlCard({
 export default function BookingDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { user: adminUser } = useAdminSession();
   const [booking, setBooking] = useState<BookingDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings | null>(null);
-  const [adminUser, setAdminUser] = useState<AdminSessionUser | null>(null);
-  const [tenantId, setTenantId] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [attemptNotes, setAttemptNotes] = useState<Record<string, string>>({});
   const [processingAttemptId, setProcessingAttemptId] = useState<string | null>(null);
@@ -386,15 +386,7 @@ export default function BookingDetailPage() {
     [fetchDetail],
   );
 
-  useEffect(() => {
-    api
-      .get("/auth/me")
-      .then((res) => {
-        setAdminUser(res.data?.user || null);
-        setTenantId(res.data?.user?.tenant_id || "");
-      })
-      .catch(() => setAdminUser(null));
-  }, []);
+  const tenantId = adminUser?.tenant_id || "";
 
   const { connected: realtimeConnected, status: realtimeStatus } = useRealtime({
     enabled: Boolean(tenantId && params.id),
@@ -566,7 +558,7 @@ export default function BookingDetailPage() {
     (!isFinal && canCancelBooking);
 
   const timelineSection = (
-    <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+    <Card className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
@@ -587,7 +579,7 @@ export default function BookingDetailPage() {
           </div>
         ) : (
           (booking?.events || []).map((event) => (
-            <div key={event.id} className="rounded-xl border border-slate-200 p-3 dark:border-white/10">
+            <div key={event.id} className="rounded-lg border border-slate-200 p-3 dark:border-white/10">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-sm font-semibold text-slate-950 dark:text-white">
@@ -622,7 +614,7 @@ export default function BookingDetailPage() {
   );
 
   const pendingTransactionsSection = pendingManualAttempts.length > 0 ? (
-    <Card className="rounded-[1.75rem] border border-amber-200 bg-amber-50/80 p-4 shadow-sm dark:border-amber-500/20 dark:bg-amber-950/20 xl:p-5">
+    <Card className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 shadow-sm dark:border-amber-500/20 dark:bg-amber-950/20 xl:p-5">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-700 dark:text-amber-200">
@@ -641,7 +633,7 @@ export default function BookingDetailPage() {
         {pendingManualAttempts.map((attempt) => (
           <div
             key={attempt.id}
-            className="rounded-[1.5rem] border border-amber-200 bg-white p-3 dark:border-amber-500/20 dark:bg-[#0f0f17]"
+            className="rounded-lg border border-amber-200 bg-white p-3 dark:border-amber-500/20 dark:bg-[#0f0f17]"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -799,13 +791,13 @@ export default function BookingDetailPage() {
           Kembali ke daftar
         </Button>
 
-        <Card className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] xl:col-span-8 xl:h-full xl:p-6">
+        <Card className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] xl:col-span-8 xl:h-full xl:p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-600)]">
-                Admin Live
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-600)]">
+                Booking Detail
               </p>
-              <h1 className="mt-2 text-2xl font-[950] tracking-tight text-slate-950 dark:text-white xl:text-[2rem]">
+              <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white xl:text-[1.75rem]">
                 {booking.resource_name || "Booking"}
               </h1>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -833,19 +825,19 @@ export default function BookingDetailPage() {
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4 xl:mt-5 xl:gap-3">
-            <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
               <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Tanggal</div>
               <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">{formatShortDate(booking.start_time)}</p>
             </div>
-            <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
               <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Jam</div>
               <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">{formatShortTime(booking.start_time)} - {formatShortTime(booking.end_time)}</p>
             </div>
-            <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
               <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Total</div>
               <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">Rp {formatIDR(booking.grand_total || 0)}</p>
             </div>
-            <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
               <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Sisa</div>
               <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">Rp {formatIDR(booking.balance_due || 0)}</p>
             </div>
@@ -857,7 +849,7 @@ export default function BookingDetailPage() {
           {pendingTransactionsSection}
 
           {hasAdminControls && (
-            <Card className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] xl:flex-1 xl:p-5">
+            <Card className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] xl:flex-1 xl:p-5">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
@@ -1018,80 +1010,76 @@ export default function BookingDetailPage() {
 
       {/* 2. MAIN CONTENT GRID */}
       <div className="grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-12 items-start">
-        <Card className="relative order-1 overflow-hidden rounded-[1.75rem] bg-white p-4 shadow-sm ring-1 ring-slate-100 md:rounded-[2.5rem] md:p-8 dark:bg-[#0f0f17] dark:ring-white/10 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] xl:col-span-4 xl:order-2 xl:p-6">
-            <div className="absolute -top-6 -right-6 opacity-[0.03] dark:opacity-[0.05] pointer-events-none">
-              <User size={180} />
-            </div>
-
-            <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+        <Card className="order-1 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] xl:col-span-4 xl:order-2 xl:p-5">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
               <div className="space-y-5">
                 <div className="space-y-1">
-                  <p className="text-[8px] font-black uppercase tracking-widest italic leading-none text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-                    Customer Profile
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] leading-none text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+                    Customer
                   </p>
-                  <h2 className="text-lg md:text-2xl lg:text-3xl font-[1000] italic text-slate-950 dark:text-white uppercase tracking-tighter truncate">
+                  <h2 className="text-lg font-semibold text-slate-950 dark:text-white truncate md:text-xl">
                     {booking.customer_name}
                   </h2>
-                  <div className="flex items-center gap-2 text-slate-400 font-bold italic text-xs md:text-sm mt-2">
+                  <div className="mt-2 flex items-center gap-2 text-xs font-medium text-slate-500 md:text-sm">
                     <Phone className="w-3.5 h-3.5 text-emerald-500" />{" "}
                     {booking.customer_phone}
                   </div>
                 </div>
 
-                <div className="pt-5 border-t border-slate-50 dark:border-white/5 space-y-3">
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest italic leading-none">
-                    Resource Handshake
+                <div className="space-y-3 border-t border-slate-100 pt-5 dark:border-white/5">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.18em] leading-none">
+                    Resource
                   </p>
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-slate-950 dark:bg-slate-800 flex items-center justify-center text-white shadow-lg">
-                      <Package size={18} />
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-950 text-white dark:bg-slate-800">
+                      <Package size={16} />
                     </div>
                     <div>
-                      <p className="font-[1000] italic text-slate-950 dark:text-white uppercase text-sm md:text-base leading-none tracking-tight">
+                      <p className="text-sm font-semibold leading-none tracking-tight text-slate-950 dark:text-white md:text-base">
                         {booking.resource_name}
                       </p>
-                      <span className="mt-1 block text-[7px] font-black uppercase tracking-widest text-[var(--bookinaja-500)] dark:text-[var(--bookinaja-200)]">
-                        Resource Active
+                      <span className="mt-1 block text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--bookinaja-500)] dark:text-[var(--bookinaja-200)]">
+                        Aktif
                       </span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-5 md:border-l md:border-slate-50 md:dark:border-white/5 md:pl-8">
+              <div className="space-y-5 md:border-l md:border-slate-100 md:pl-6 md:dark:border-white/5">
                 <div className="space-y-1">
-                  <p className="text-[8px] font-black uppercase tracking-widest italic leading-none text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] leading-none text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
                     Timeline
                   </p>
-                  <div className="flex items-center gap-2 text-sm md:text-base font-[1000] italic text-slate-900 dark:text-white uppercase tracking-tighter">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white md:text-base">
                     <Calendar className="w-4 h-4 text-slate-300" />
                     {format(new Date(booking.start_time), "dd MMMM yyyy", {
                       locale: localeID,
                     })}
                   </div>
-                  <div className="flex items-center gap-2 text-lg font-[1000] italic uppercase tracking-tighter text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)] md:text-xl">
+                  <div className="flex items-center gap-2 text-base font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)] md:text-lg">
                     <Clock className="w-4 h-4 opacity-40" />
                     {format(new Date(booking.start_time), "HH:mm")} -{" "}
                     {format(new Date(booking.end_time), "HH:mm")}
                   </div>
                 </div>
 
-                <div className="pt-5 border-t border-slate-50 dark:border-white/5 flex items-center justify-between">
+                <div className="flex items-center justify-between border-t border-slate-100 pt-5 dark:border-white/5">
                   <div className="space-y-1">
-                    <p className="text-[8px] font-black text-slate-400 uppercase italic">
-                      Token Handle
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      Token
                     </p>
-                    <p className="text-[9px] font-mono font-bold text-slate-600 dark:text-slate-500 break-all uppercase tracking-tighter">
+                    <p className="break-all font-mono text-[10px] font-medium uppercase tracking-tight text-slate-600 dark:text-slate-500">
                       {(booking.access_token || "").slice(0, 15)}...
                     </p>
                   </div>
-                  <ShieldCheck className="w-6 h-6 text-[var(--bookinaja-200)] dark:text-[var(--bookinaja-800)]" />
+                  <ShieldCheck className="h-5 w-5 text-[var(--bookinaja-300)] dark:text-[var(--bookinaja-800)]" />
                 </div>
               </div>
             </div>
           </Card>
 
-          <Card className="order-2 space-y-5 rounded-[1.75rem] bg-white p-4 shadow-sm ring-1 ring-slate-100 md:space-y-6 md:rounded-[2.5rem] md:p-8 dark:bg-[#0f0f17] dark:ring-white/10 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] xl:col-span-8 xl:order-1">
+          <Card className="order-2 space-y-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:space-y-6 md:p-6 dark:border-white/10 dark:bg-[#0f0f17] xl:col-span-8 xl:order-1">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
@@ -1114,7 +1102,7 @@ export default function BookingDetailPage() {
                     {mainOptions.map((opt) => (
                       <div
                         key={opt.id}
-                        className="rounded-[1.5rem] border border-slate-200 bg-slate-50/70 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]"
+                        className="rounded-lg border border-slate-200 bg-slate-50/70 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
@@ -1122,7 +1110,7 @@ export default function BookingDetailPage() {
                               {opt.item_name}
                             </p>
                             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                              {opt.quantity} unit · Rp {formatIDR(opt.displayUnitPrice)}
+                              {opt.quantity} unit | Rp {formatIDR(opt.displayUnitPrice)}
                             </p>
                           </div>
                           <p className="text-base font-semibold text-slate-950 dark:text-white">
@@ -1133,7 +1121,7 @@ export default function BookingDetailPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-[1.5rem] border border-dashed border-slate-200 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
+                  <div className="rounded-lg border border-dashed border-slate-200 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
                     Belum ada layanan utama.
                   </div>
                 )}
@@ -1149,7 +1137,7 @@ export default function BookingDetailPage() {
                     {addonOptions.map((opt) => (
                       <div
                         key={opt.id}
-                        className="rounded-[1.5rem] border border-slate-200 bg-slate-50/70 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]"
+                        className="rounded-lg border border-slate-200 bg-slate-50/70 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
@@ -1157,7 +1145,7 @@ export default function BookingDetailPage() {
                               {opt.item_name}
                             </p>
                             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                              {opt.quantity} unit · Rp {formatIDR(opt.displayUnitPrice)}
+                              {opt.quantity} unit | Rp {formatIDR(opt.displayUnitPrice)}
                             </p>
                           </div>
                           <p className="text-base font-semibold text-slate-950 dark:text-white">
@@ -1168,7 +1156,7 @@ export default function BookingDetailPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="mt-3 rounded-[1.5rem] border border-dashed border-slate-200 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
+                  <div className="mt-3 rounded-lg border border-dashed border-slate-200 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
                     Belum ada add-on.
                   </div>
                 )}
@@ -1184,7 +1172,7 @@ export default function BookingDetailPage() {
                     {groupedOrders.map((order) => (
                       <div
                         key={order.fnb_item_id}
-                        className="rounded-[1.5rem] border border-slate-200 bg-slate-50/70 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]"
+                        className="rounded-lg border border-slate-200 bg-slate-50/70 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
@@ -1192,7 +1180,7 @@ export default function BookingDetailPage() {
                               {order.item_name}
                             </p>
                             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                              {order.quantity} unit · Rp {formatIDR(Number(order.price_at_purchase || 0))}
+                              {order.quantity} unit | Rp {formatIDR(Number(order.price_at_purchase || 0))}
                             </p>
                           </div>
                           <p className="text-base font-semibold text-slate-950 dark:text-white">
@@ -1203,7 +1191,7 @@ export default function BookingDetailPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="mt-3 rounded-[1.5rem] border border-dashed border-slate-200 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
+                  <div className="mt-3 rounded-lg border border-dashed border-slate-200 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
                     Belum ada pesanan F&amp;B.
                   </div>
                 )}
@@ -1215,7 +1203,7 @@ export default function BookingDetailPage() {
                     <CreditCard className="h-4 w-4 text-emerald-500" />
                     <p className="text-sm font-semibold">Promo</p>
                   </div>
-                  <div className="mt-3 rounded-[1.5rem] border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+                  <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/10">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <div className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-200">
@@ -1261,66 +1249,61 @@ export default function BookingDetailPage() {
             </div>
           </Card>
 
-          <Card className="order-3 relative overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white p-5 shadow-[0_20px_60px_-32px_rgba(15,23,42,0.25)] md:rounded-[3rem] md:p-8 dark:border-white/10 dark:bg-[#0b1220] dark:text-white dark:shadow-[0_24px_80px_-36px_rgba(15,23,42,0.75)] xl:col-span-4 xl:order-4 xl:p-6">
-            <Receipt
-              size={160}
-              className="absolute -right-12 -bottom-12 rotate-12 text-slate-950/[0.04] dark:text-white/[0.03]"
-            />
-
-            <div className="relative z-10 space-y-4">
+          <Card className="order-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#0b1220] dark:text-white xl:col-span-4 xl:order-4 xl:p-5">
+            <div className="space-y-4">
               <div className="flex items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <p className="text-[9px] font-black uppercase tracking-widest italic text-slate-500 dark:text-slate-400">
-                    Payment Snapshot
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                    Payment Summary
                   </p>
-                  <p className="text-sm font-bold italic text-slate-500 dark:text-slate-300">
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-300">
                     Tombol aksi ada di kanan atas
                   </p>
                 </div>
-                <Badge className="rounded-full border-none bg-[var(--bookinaja-600)] px-3 py-1 text-[8px] font-black uppercase text-white">
+                <Badge className="rounded-full border-none bg-[var(--bookinaja-600)] px-3 py-1 text-[10px] font-semibold uppercase text-white">
                   {booking.payment_status || "pending"}
                 </Badge>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-left">
                 {hasPromo ? (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-3 dark:border-amber-400/10 dark:bg-amber-400/10">
-                    <p className="text-[8px] font-black italic uppercase tracking-widest text-amber-700 dark:text-amber-200/80">
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-3 dark:border-amber-400/10 dark:bg-amber-400/10">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-200/80">
                       Promo
                     </p>
-                    <p className="mt-2 text-sm font-black italic text-amber-700 dark:text-amber-200">
+                    <p className="mt-2 text-sm font-semibold text-amber-700 dark:text-amber-200">
                       -Rp{formatIDR(booking.discount_amount || 0)}
                     </p>
                   </div>
                 ) : null}
-                <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-[8px] font-black italic uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                     Total
                   </p>
-                  <p className="mt-2 text-sm font-black italic text-slate-950 dark:text-white">
+                  <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">
                     Rp{formatIDR(booking.grand_total || 0)}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3 dark:border-emerald-400/10 dark:bg-emerald-400/10">
-                  <p className="text-[8px] font-black italic uppercase tracking-widest text-emerald-700 dark:text-emerald-200/80">
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 p-3 dark:border-emerald-400/10 dark:bg-emerald-400/10">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-200/80">
                     Dibayar
                   </p>
-                  <p className="mt-2 text-sm font-black italic text-emerald-700 dark:text-emerald-300">
+                  <p className="mt-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
                     Rp{formatIDR(booking.paid_amount || 0)}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-[var(--bookinaja-200)]/60 bg-[var(--bookinaja-50)]/90 p-3 dark:border-[var(--bookinaja-400)]/20 dark:bg-[var(--bookinaja-500)]/10">
-                  <p className="text-[8px] font-black italic uppercase tracking-widest text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]/80">
+                <div className="rounded-lg border border-[var(--bookinaja-200)]/60 bg-[var(--bookinaja-50)]/90 p-3 dark:border-[var(--bookinaja-400)]/20 dark:bg-[var(--bookinaja-500)]/10">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]/80">
                     Sisa
                   </p>
-                  <p className="mt-2 text-sm font-black italic text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
+                  <p className="mt-2 text-sm font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
                     Rp{formatIDR(booking.balance_due || 0)}
                   </p>
                 </div>
               </div>
 
               {!isPaymentSettled && (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-bold italic leading-relaxed text-amber-800 md:p-4 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-[11px] font-medium leading-relaxed text-amber-800 md:p-4 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
                   Booking belum lunas. Silakan gunakan tombol Process Payment di
                   kanan atas untuk pelunasan via Midtrans atau cash.
                 </div>

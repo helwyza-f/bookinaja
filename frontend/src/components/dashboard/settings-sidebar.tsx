@@ -70,24 +70,23 @@ export function SettingsSidebar({
   pathname,
 }: SettingsSidebarProps) {
   return (
-    <aside className="h-full overflow-hidden rounded-[2rem] border border-[var(--sidebar-border)] bg-[var(--card)]/95 shadow-sm backdrop-blur">
+    <aside className="h-full overflow-hidden rounded-xl border border-[var(--sidebar-border)] bg-[var(--card)]">
       <div className="border-b border-[var(--sidebar-border)] p-4">
-        <div className="relative overflow-hidden rounded-[1.5rem] bg-[var(--bookinaja-900)] p-4 text-white shadow-2xl">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(18,146,255,0.28),transparent_40%)]" />
-          <div className="relative space-y-2">
-            <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.35em] text-[var(--bookinaja-100)]">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-white">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-wide text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
               <ShieldCheck className="h-3.5 w-3.5" />
-              Bookinaja Settings
+              Settings
             </div>
             <div className="space-y-1">
-              <div className="text-lg font-[1000] tracking-tight leading-none">
+              <div className="text-base font-semibold tracking-tight leading-none">
                 {tenantName || "Tenant"}
               </div>
-              <div className="text-[9px] font-bold uppercase tracking-[0.25em] text-slate-300">
+              <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-300">
                 {role === "owner" ? "Akses pemilik" : "Akses staf"}
               </div>
             </div>
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-widest">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide dark:border-slate-700 dark:bg-slate-950">
               <BadgeCheck className="h-3 w-3" />
               Kontrol bisnis
             </div>
@@ -103,18 +102,18 @@ export function SettingsSidebar({
               key={item.href}
               href={item.href}
               className={cn(
-                "group flex items-center gap-3 rounded-[1.1rem] border px-3 py-3 transition-all duration-200",
+                "group flex items-center gap-3 rounded-lg border px-3 py-3 transition-colors",
                 active
-                  ? "border-[color:rgba(18,146,255,0.18)] bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] shadow-sm dark:bg-[color:rgba(18,146,255,0.14)] dark:text-[var(--bookinaja-100)]"
-                  : "border-transparent bg-transparent text-slate-500 hover:border-[var(--sidebar-border)] hover:bg-[var(--sidebar-accent)] dark:hover:bg-white/5 dark:text-slate-300",
+                  ? "border-[color:rgba(18,146,255,0.18)] bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[color:rgba(18,146,255,0.14)] dark:text-[var(--bookinaja-100)]"
+                  : "border-transparent bg-transparent text-slate-500 hover:border-[var(--sidebar-border)] hover:bg-[var(--sidebar-accent)] dark:hover:bg-slate-900 dark:text-slate-300",
               )}
             >
               <div
                 className={cn(
-                  "flex h-9 w-9 items-center justify-center rounded-xl transition-all",
+                  "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
                   active
-                    ? "bg-[var(--bookinaja-600)] text-white shadow-lg shadow-sky-500/20"
-                    : "bg-slate-100 dark:bg-white/5 group-hover:bg-slate-200 dark:group-hover:bg-white/10",
+                    ? "bg-[var(--bookinaja-600)] text-white"
+                    : "bg-slate-100 dark:bg-slate-900 group-hover:bg-slate-200 dark:group-hover:bg-slate-800",
                 )}
               >
                 <item.icon className="h-4 w-4" />

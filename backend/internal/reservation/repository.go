@@ -71,6 +71,13 @@ func reservationTenantBookingsCacheKey(tenantID uuid.UUID, status string) string
 	return fmt.Sprintf("reservation:booking:list:%s:%s", tenantID.String(), status)
 }
 
+func bookingAnalyticsWindowStart(now time.Time, days int) time.Time {
+	if days <= 0 {
+		days = 30
+	}
+	return now.AddDate(0, 0, -(days - 1))
+}
+
 func (r *Repository) InvalidateBookingCache(ctx context.Context, booking Booking) {
 	if r.rdb == nil {
 		return
@@ -1323,6 +1330,169 @@ func (r *Repository) FindAllByTenant(ctx context.Context, tenantID uuid.UUID, st
 	}
 	r.cacheSet(ctx, cacheKey, res, 30*time.Second)
 	return res, nil
+}
+
+func (r *Repository) GetAnalyticsSummary(ctx context.Context, tenantID uuid.UUID, days int) (*BookingAnalyticsSummary, error) {
+	startAt := bookingAnalyticsWindowStart(time.Now().UTC(), days)
+
+	type summaryRow struct {
+		Revenue       float64 `db:"revenue"`
+		AddonRevenue  float64 `db:"addon_revenue"`
+		BookingsCount int     `db:"bookings_count"`
+	}
+
+	var totals summaryRow
+	if err := r.db.GetContext(ctx, &totals, `
+		WITH order_totals AS (
+			SELECT
+				booking_id,
+				COALESCE(SUM(price_at_purchase * quantity), 0) AS total_fnb
+			FROM order_items
+			GROUP BY booking_id
+		)
+		SELECT
+			COALESCE(SUM(COALESCE(b.grand_total, 0)), 0) AS revenue,
+			COALESCE(SUM(COALESCE(ot.total_fnb, 0)), 0) AS addon_revenue,
+			COUNT(*) AS bookings_count
+		FROM bookings b
+		LEFT JOIN order_totals ot ON ot.booking_id = b.id
+		WHERE b.tenant_id = $1
+			AND COALESCE(b.start_time, b.created_at) >= $2
+	`, tenantID, startAt); err != nil {
+		return nil, err
+	}
+
+	dailySeries := make([]BookingAnalyticsDailyPoint, 0, days)
+	if err := r.db.SelectContext(ctx, &dailySeries, `
+		WITH tenant_meta AS (
+			SELECT COALESCE(NULLIF(BTRIM(timezone), ''), 'Asia/Jakarta') AS timezone
+			FROM tenants
+			WHERE id = $1
+			LIMIT 1
+		),
+		calendar AS (
+			SELECT (
+				(CURRENT_TIMESTAMP AT TIME ZONE (SELECT timezone FROM tenant_meta))::date - (($3 - 1) - offset)
+			)::date AS local_day
+			FROM generate_series(0, $3 - 1) AS offset
+		),
+		booking_daily AS (
+			SELECT
+				DATE(COALESCE(b.start_time, b.created_at) AT TIME ZONE (SELECT timezone FROM tenant_meta)) AS local_day,
+				COALESCE(SUM(COALESCE(b.grand_total, 0)), 0) AS revenue,
+				COUNT(*) AS bookings_count
+			FROM bookings b
+			WHERE b.tenant_id = $1
+				AND COALESCE(b.start_time, b.created_at) >= $2
+			GROUP BY 1
+		)
+		SELECT
+			TO_CHAR(c.local_day, 'YYYY-MM-DD') AS date,
+			TO_CHAR(c.local_day, 'DD/MM') AS label,
+			COALESCE(bd.revenue, 0) AS revenue,
+			COALESCE(bd.bookings_count, 0) AS bookings_count
+		FROM calendar c
+		LEFT JOIN booking_daily bd ON bd.local_day = c.local_day
+		ORDER BY c.local_day ASC
+	`, tenantID, startAt, days); err != nil {
+		return nil, err
+	}
+
+	recentBookings := make([]BookingAnalyticsRecentBooking, 0, 8)
+	if err := r.db.SelectContext(ctx, &recentBookings, `
+		WITH order_totals AS (
+			SELECT
+				booking_id,
+				COALESCE(SUM(price_at_purchase * quantity), 0) AS total_fnb
+			FROM order_items
+			GROUP BY booking_id
+		)
+		SELECT
+			b.id,
+			c.name AS customer_name,
+			r.name AS resource_name,
+			b.start_time,
+			b.created_at,
+			COALESCE(b.payment_status, '') AS payment_status,
+			COALESCE(b.grand_total, 0) AS grand_total,
+			COALESCE(ot.total_fnb, 0) AS total_fnb
+		FROM bookings b
+		JOIN customers c ON c.id = b.customer_id
+		JOIN resources r ON r.id = b.resource_id
+		LEFT JOIN order_totals ot ON ot.booking_id = b.id
+		WHERE b.tenant_id = $1
+			AND COALESCE(b.start_time, b.created_at) >= $2
+		ORDER BY COALESCE(b.start_time, b.created_at) DESC, b.created_at DESC
+		LIMIT 8
+	`, tenantID, startAt); err != nil {
+		return nil, err
+	}
+
+	addonBookings := make([]BookingAnalyticsRecentBooking, 0, 6)
+	if err := r.db.SelectContext(ctx, &addonBookings, `
+		WITH order_totals AS (
+			SELECT
+				booking_id,
+				COALESCE(SUM(price_at_purchase * quantity), 0) AS total_fnb
+			FROM order_items
+			GROUP BY booking_id
+		)
+		SELECT
+			b.id,
+			c.name AS customer_name,
+			r.name AS resource_name,
+			b.start_time,
+			b.created_at,
+			COALESCE(b.payment_status, '') AS payment_status,
+			COALESCE(b.grand_total, 0) AS grand_total,
+			COALESCE(ot.total_fnb, 0) AS total_fnb
+		FROM bookings b
+		JOIN customers c ON c.id = b.customer_id
+		JOIN resources r ON r.id = b.resource_id
+		JOIN order_totals ot ON ot.booking_id = b.id
+		WHERE b.tenant_id = $1
+			AND COALESCE(b.start_time, b.created_at) >= $2
+			AND COALESCE(ot.total_fnb, 0) > 0
+		ORDER BY ot.total_fnb DESC, COALESCE(b.start_time, b.created_at) DESC
+		LIMIT 6
+	`, tenantID, startAt); err != nil {
+		return nil, err
+	}
+
+	resourceLeaders := make([]BookingAnalyticsResourceStat, 0, 8)
+	if err := r.db.SelectContext(ctx, &resourceLeaders, `
+		SELECT
+			b.resource_id AS id,
+			r.name,
+			COUNT(*) AS bookings_count,
+			COALESCE(SUM(COALESCE(b.grand_total, 0)), 0) AS revenue,
+			MAX(COALESCE(b.start_time, b.created_at)) AS last_booking_at
+		FROM bookings b
+		JOIN resources r ON r.id = b.resource_id
+		WHERE b.tenant_id = $1
+			AND COALESCE(b.start_time, b.created_at) >= $2
+		GROUP BY b.resource_id, r.name
+		ORDER BY revenue DESC, bookings_count DESC
+		LIMIT 8
+	`, tenantID, startAt); err != nil {
+		return nil, err
+	}
+
+	averageTicket := 0.0
+	if totals.BookingsCount > 0 {
+		averageTicket = totals.Revenue / float64(totals.BookingsCount)
+	}
+
+	return &BookingAnalyticsSummary{
+		Revenue:         totals.Revenue,
+		AddonRevenue:    totals.AddonRevenue,
+		BookingsCount:   totals.BookingsCount,
+		AverageTicket:   averageTicket,
+		DailySeries:     dailySeries,
+		ResourceLeaders: resourceLeaders,
+		RecentBookings:  recentBookings,
+		AddonBookings:   addonBookings,
+	}, nil
 }
 
 func (r *Repository) GetReceiptContext(ctx context.Context, bookingID, tenantID uuid.UUID) (*ReceiptContext, error) {

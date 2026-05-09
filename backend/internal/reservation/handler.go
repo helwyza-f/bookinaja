@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -181,6 +182,26 @@ func (h *Handler) ListAll(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, bookings)
+}
+
+func (h *Handler) GetAnalyticsSummary(c *gin.Context) {
+	tenantID := c.MustGet("tenantID").(string)
+	days := 30
+	if raw := c.Query("days"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "PARAMETER days TIDAK VALID"})
+			return
+		}
+		days = parsed
+	}
+
+	summary, err := h.service.GetAnalyticsSummary(c.Request.Context(), tenantID, days)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "GAGAL MENGAMBIL RINGKASAN BOOKING"})
+		return
+	}
+	c.JSON(http.StatusOK, summary)
 }
 
 // GetActiveSessions menarik grid sesi Ongoing untuk POS

@@ -23,25 +23,19 @@ import {
   DashboardPanel,
 } from "@/components/dashboard/analytics-kit";
 import api from "@/lib/api";
+import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-
-type ResourceItem = {
-  id: string;
-  name: string;
-  item_type: string;
-  price: number;
-  price_unit?: string;
-  unit_duration?: number;
-  is_default?: boolean;
-};
 
 type ResourceRow = {
   id: string;
   name: string;
   category?: string;
   status?: string;
-  items?: ResourceItem[];
+  description?: string;
+  image_url?: string;
+  main_option_count?: number;
+  addon_count?: number;
   smart_device_summary?: {
     id: string;
     device_id: string;
@@ -60,20 +54,20 @@ function ResourceSkeleton() {
       {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
         <Card
           key={i}
-          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ring-1 ring-slate-100/80 dark:border-white/15 dark:bg-[#0f0f17] dark:ring-white/5 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] space-y-4"
+          className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
         >
           <div className="flex justify-between items-center">
-            <Skeleton className="h-10 w-10 rounded-xl dark:bg-slate-800" />
-            <Skeleton className="h-5 w-16 rounded-full dark:bg-slate-800" />
+            <Skeleton className="h-8 w-8 rounded-lg dark:bg-slate-800" />
+            <Skeleton className="h-4 w-14 rounded-full dark:bg-slate-800" />
           </div>
           <div className="space-y-2">
-            <Skeleton className="h-6 w-3/4 dark:bg-slate-800" />
+            <Skeleton className="h-5 w-3/4 dark:bg-slate-800" />
             <Skeleton className="h-3 w-1/3 dark:bg-slate-800" />
           </div>
-          <Skeleton className="h-20 w-full rounded-xl dark:bg-slate-800" />
+          <Skeleton className="h-16 w-full rounded-lg dark:bg-slate-800" />
           <div className="flex gap-2">
-            <Skeleton className="h-10 flex-1 rounded-xl dark:bg-slate-800" />
-            <Skeleton className="h-10 w-10 rounded-xl dark:bg-slate-800" />
+            <Skeleton className="h-9 flex-1 rounded-lg dark:bg-slate-800" />
+            <Skeleton className="h-9 w-9 rounded-lg dark:bg-slate-800" />
           </div>
         </Card>
       ))}
@@ -83,19 +77,47 @@ function ResourceSkeleton() {
 
 export default function ResourcesPage() {
   const [resources, setResources] = useState<ResourceRow[]>([]);
-  const [businessCategory, setBusinessCategory] = useState<string>("");
+  const { tenantCategory } = useAdminSession();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   const fetchResources = async () => {
+    setLoading(true);
     setError(false);
     try {
-      const res = await api.get("/resources-all");
-      if (res.data) {
-        setResources(res.data.resources || []);
-        setBusinessCategory(res.data.business_category || "");
-        localStorage.setItem("cache_resources_all", JSON.stringify(res.data));
+      const [resourceRes, deviceMapRes] = await Promise.all([
+        api.get("/admin/resources/list"),
+        api.get("/admin/resources/device-map"),
+      ]);
+
+      const resourceItems = Array.isArray(resourceRes.data?.items)
+        ? resourceRes.data.items
+        : [];
+      const deviceItems = Array.isArray(deviceMapRes.data?.items)
+        ? deviceMapRes.data.items
+        : [];
+
+      const deviceByResource = new Map<string, ResourceRow["smart_device_summary"]>();
+      for (const device of deviceItems) {
+        if (!device?.resource_id || deviceByResource.has(device.resource_id)) continue;
+        if (!device.device_uuid) continue;
+        deviceByResource.set(device.resource_id, {
+          id: device.device_uuid,
+          device_id: device.device_id,
+          device_name: device.device_name,
+          pairing_status: device.pairing_status,
+          connection_status: device.connection_status,
+          is_enabled: Boolean(device.is_enabled),
+          last_seen_at: device.last_seen_at || null,
+        });
       }
+
+      const merged = resourceItems.map((item: ResourceRow) => ({
+        ...item,
+        smart_device_summary: deviceByResource.get(item.id) || null,
+      }));
+
+      setResources(merged);
     } catch {
       console.error("Fetch Error:");
       setError(true);
@@ -140,6 +162,7 @@ export default function ResourcesPage() {
     }
   };
 
+  const businessCategory = tenantCategory || "";
   const labels = (() => {
     switch (businessCategory) {
       case "gaming_hub":
@@ -178,12 +201,7 @@ export default function ResourcesPage() {
   };
 
   const totalPackages = resources.reduce((sum, resource) => {
-    return (
-      sum +
-      (resource.items?.filter((item) =>
-        ["main_option", "main", "console_option"].includes(item.item_type),
-      ).length || 0)
-    );
+    return sum + Number(resource.main_option_count || 0);
   }, 0);
   const availableResources = resources.filter(
     (resource) => String(resource.status || "").toLowerCase() === "available",
@@ -193,19 +211,18 @@ export default function ResourcesPage() {
   ).length;
 
   return (
-    <div className="mx-auto max-w-[1600px] space-y-5 px-3 pb-20 pt-5 font-plus-jakarta md:space-y-6 md:px-4">
-      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(238,252,249,0.95)_42%,rgba(240,253,244,0.92))] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(10,24,26,0.96),rgba(8,30,31,0.94)_45%,rgba(20,83,45,0.72))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] md:p-6">
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.2),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.16),transparent_58%)]" />
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+    <div className="mx-auto max-w-[1600px] space-y-4 px-3 pb-20 pt-4 font-plus-jakarta md:px-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[1.2rem] bg-slate-950 text-white shadow-[0_18px_40px_rgba(15,23,42,0.18)] dark:bg-white dark:text-slate-950">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[rgba(74,141,255,0.12)] dark:text-[var(--bookinaja-200)]">
               {labels.icon}
             </div>
-            <div className="space-y-2">
-              <div className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-300">
+            <div className="space-y-1">
+              <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Resources
               </div>
-              <h1 className="text-3xl font-[950] tracking-tight text-slate-950 dark:text-white sm:text-4xl">
+              <h1 className="text-xl font-semibold text-slate-950 dark:text-white sm:text-2xl">
                 {labels.title}
               </h1>
             </div>
@@ -257,7 +274,7 @@ export default function ResourcesPage() {
       {loading ? (
         <ResourceSkeleton />
       ) : error ? (
-        <div className="flex h-80 flex-col items-center justify-center rounded-2xl border border-red-100 bg-red-50/30 dark:border-red-900/20 dark:bg-red-950/5">
+        <div className="flex h-72 flex-col items-center justify-center rounded-lg border border-red-100 bg-red-50/30 dark:border-red-900/20 dark:bg-red-950/5">
           <AlertCircle className="h-10 w-10 text-red-400 mb-4 opacity-40" />
           <h3 className="text-sm font-semibold text-red-900 dark:text-red-400">
             Gagal memuat resource
@@ -274,41 +291,39 @@ export default function ResourcesPage() {
         <DashboardPanel
           eyebrow="Catalog"
           title="Daftar resource"
+          description="Daftar resource aktif untuk operasional harian."
         >
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:gap-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:gap-4">
           {resources.map((res) => {
-            const mainItems =
-              res.items?.filter((i) =>
-                ["main_option", "main", "console_option"].includes(i.item_type),
-              ) || [];
+            const mainItemsCount = Number(res.main_option_count || 0);
 
             return (
               <Card
                 key={res.id}
-                className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-colors hover:border-[var(--bookinaja-200)] dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                className="group relative flex flex-col overflow-hidden rounded-lg border border-slate-200 bg-white transition-colors hover:border-[var(--bookinaja-200)] dark:border-slate-800 dark:bg-slate-950"
               >
-                <CardContent className="relative z-10 flex flex-1 flex-col p-4 md:p-5">
-                  <div className="mb-4 flex items-start justify-between gap-3">
+                <CardContent className="relative z-10 flex flex-1 flex-col p-4">
+                  <div className="mb-3 flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="mb-2 flex items-center gap-2">
-                          <span className="inline-flex rounded-full bg-[var(--bookinaja-50)] px-2.5 py-1 text-[8px] font-semibold tracking-[0.22em] text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]">
+                          <span className="inline-flex rounded-full bg-[var(--bookinaja-50)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]">
                           {res.category || labels.unit}
                         </span>
                         <span
                           className={cn(
-                            "inline-flex rounded-full px-2.5 py-1 text-[8px] font-semibold tracking-[0.22em]",
+                            "inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
                             statusTone(res.status),
                           )}
                         >
                           {res.status || "draft"}
                         </span>
                       </div>
-                      <h3 className="truncate text-lg font-semibold text-slate-950 transition-colors group-hover:text-[var(--bookinaja-700)] dark:text-white dark:group-hover:text-[var(--bookinaja-300)] md:text-xl">
+                      <h3 className="truncate text-base font-semibold text-slate-950 transition-colors group-hover:text-[var(--bookinaja-700)] dark:text-white dark:group-hover:text-[var(--bookinaja-300)]">
                         {res.name}
                       </h3>
-                      <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                        {mainItems.length > 0
-                          ? `${mainItems.length} konfigurasi harga tersimpan`
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {mainItemsCount > 0
+                          ? `${mainItemsCount} konfigurasi harga tersimpan`
                           : "Belum ada konfigurasi harga aktif"}
                       </p>
                     </div>
@@ -316,19 +331,16 @@ export default function ResourcesPage() {
                       <Link href={`/admin/resources/${res.id}`} className="w-full">
                         <Button
                           variant="outline"
-                          className="h-9 w-9 md:h-10 md:w-10 rounded-xl border-slate-200 bg-slate-950 p-0 text-white transition-all hover:bg-[var(--bookinaja-600)] hover:text-white dark:border-white/15 dark:bg-slate-900 flex items-center justify-center group/btn"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg border-slate-200 bg-slate-950 p-0 text-white transition-colors hover:bg-[var(--bookinaja-600)] hover:text-white dark:border-slate-700 dark:bg-slate-900"
                         >
-                          <Settings2
-                            size={12}
-                            className="group-hover/btn:rotate-90 transition-transform"
-                          />
+                          <Settings2 size={12} />
                           <span className="sr-only">Manage</span>
                         </Button>
                       </Link>
                       <Button
                         variant="ghost"
                         onClick={() => handleDelete(res.id, res.name)}
-                        className="h-9 w-9 md:h-10 md:w-10 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-all p-0 flex items-center justify-center"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500 p-0 text-white transition-colors hover:bg-red-600"
                       >
                         <Trash2 size={12} />
                         <span className="sr-only">Hapus</span>
@@ -336,20 +348,20 @@ export default function ResourcesPage() {
                     </div>
                   </div>
 
-                  <div className="mb-5 grid grid-cols-2 gap-2.5">
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/5">
-                      <div className="text-[8px] font-semibold tracking-[0.24em] text-slate-400">
+                  <div className="mb-4 grid grid-cols-2 gap-2">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900/30">
+                      <div className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
                         Paket Aktif
                       </div>
-                      <div className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
-                        {mainItems.length}
+                      <div className="mt-1 text-base font-semibold text-slate-950 dark:text-white">
+                        {mainItemsCount}
                       </div>
                     </div>
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/5">
-                      <div className="text-[8px] font-semibold tracking-[0.24em] text-slate-400">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900/30">
+                      <div className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
                         Smart Point
                       </div>
-                      <div className="mt-1 text-sm font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
+                      <div className="mt-1 text-sm font-medium text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
                         {res.smart_device_summary
                           ? res.smart_device_summary.connection_status
                           : "belum aktif"}
@@ -357,53 +369,41 @@ export default function ResourcesPage() {
                     </div>
                   </div>
 
-                  <div className="mb-5 flex-1 space-y-2">
+                  <div className="mb-4 flex-1 space-y-2">
                     {res.smart_device_summary && (
-                      <div className="rounded-xl border border-[color:rgba(59,130,246,0.18)] bg-[var(--bookinaja-50)] px-3 py-3 text-[10px] font-semibold text-[var(--bookinaja-700)] dark:border-[color:rgba(96,165,250,0.2)] dark:bg-[color:rgba(59,130,246,0.12)] dark:text-[var(--bookinaja-100)]">
-                        {res.smart_device_summary.device_name} • {res.smart_device_summary.device_id}
+                      <div className="rounded-lg border border-[color:rgba(59,130,246,0.18)] bg-[var(--bookinaja-50)] px-3 py-2.5 text-xs font-medium text-[var(--bookinaja-700)] dark:border-[color:rgba(96,165,250,0.2)] dark:bg-[color:rgba(59,130,246,0.12)] dark:text-[var(--bookinaja-100)]">
+                        {res.smart_device_summary.device_name} · {res.smart_device_summary.device_id}
                       </div>
                     )}
-                    {mainItems.slice(0, 3).map((item) => (
-                      <div
-                        key={item.id}
-                        className={cn(
-                          "flex items-center justify-between rounded-xl border p-3 transition-all",
-                          item.is_default
-                            ? "border-[color:rgba(59,130,246,0.22)] bg-[var(--bookinaja-50)] dark:border-[color:rgba(96,165,250,0.18)] dark:bg-[color:rgba(59,130,246,0.12)]"
-                            : "border-slate-200 bg-slate-50/70 dark:border-white/5 dark:bg-white/[0.03]",
-                        )}
-                      >
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/30">
+                      <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 overflow-hidden">
-                          <Check
-                            className={cn(
-                              "h-3 w-3 shrink-0",
-                              item.is_default
-                                ? "text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]"
-                                : "text-slate-300",
-                            )}
-                            strokeWidth={4}
-                          />
-                          <span className="truncate text-[9px] font-semibold text-slate-700 dark:text-slate-300 md:text-[10px]">
-                            {item.name}
+                          <Check className="h-3 w-3 shrink-0 text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]" strokeWidth={4} />
+                          <span className="truncate text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                            Paket harga utama
                           </span>
                         </div>
-                        <span className="ml-2 whitespace-nowrap text-[9px] font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)] md:text-[10px]">
-                          Rp{formatIDR(item.price)}
-                          {item.price_unit ? `/${priceUnitLabel(item.price_unit)}` : ""}
+                        <span className="ml-2 whitespace-nowrap text-[11px] font-medium text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
+                          {mainItemsCount} paket
                         </span>
                       </div>
-                    ))}
-                    {mainItems.length > 3 && (
-                      <p className="text-center text-[9px] font-bold text-slate-400">
-                        +{mainItems.length - 3} paket lainnya
-                      </p>
-                    )}
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/30">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                          Add-on tersimpan
+                        </span>
+                        <span className="ml-2 whitespace-nowrap text-[11px] font-medium text-slate-500 dark:text-slate-300">
+                          {Number(res.addon_count || 0)} item
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex items-center justify-end border-t border-slate-100 pt-4 dark:border-white/5">
+                  <div className="flex items-center justify-end border-t border-slate-100 pt-3 dark:border-slate-800">
                     <Link
                       href={`/admin/resources/${res.id}`}
-                      className="text-[10px] font-semibold tracking-[0.22em] text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]"
+                      className="text-[11px] font-medium text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]"
                     >
                       Buka Detail
                     </Link>
@@ -416,15 +416,15 @@ export default function ResourcesPage() {
         </DashboardPanel>
       ) : (
         /* 3. EMPTY STATE */
-        <div className="flex h-[50vh] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-center dark:border-white/15 dark:bg-[#0f0f17]">
-          <div className="h-20 w-20 bg-slate-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center mb-6 shadow-inner">
+        <div className="flex h-[42vh] flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white p-8 text-center dark:border-slate-800 dark:bg-slate-950">
+          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-lg bg-slate-50 dark:bg-slate-900">
             <Inbox size={32} className="text-slate-200" />
           </div>
-          <h3 className="text-2xl font-semibold text-slate-900 dark:text-white">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
             Belum ada resource
           </h3>
-          <p className="text-xs font-bold text-slate-400 mt-2 mb-8 tracking-widest">
-            Tambahkan resource pertama untuk mulai mengelola operasional digital
+          <p className="mb-6 mt-2 max-w-sm text-sm text-slate-500">
+            Tambahkan resource pertama untuk mulai mengelola operasional.
           </p>
           <AddResourceDialog
             category={businessCategory}

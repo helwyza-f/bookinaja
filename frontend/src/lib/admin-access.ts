@@ -1,8 +1,13 @@
 import { expandPermissionKeys } from "@/lib/permission-catalog";
 
 export type AdminSessionUser = {
+  id?: string;
+  name?: string;
+  email?: string;
+  logo_url?: string;
   role?: string;
   permission_keys?: string[];
+  tenant_id?: string;
 };
 
 type RouteRule = {

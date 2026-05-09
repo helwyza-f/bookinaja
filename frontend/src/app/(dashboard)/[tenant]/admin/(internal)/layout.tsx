@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
+import { AdminSessionProvider } from "@/components/dashboard/admin-session-context";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import api from "@/lib/api";
@@ -21,6 +23,38 @@ import {
 } from "@/lib/admin-access";
 import { Skeleton } from "@/components/ui/skeleton";
 
+type AdminBootstrapResponse = {
+  user?: {
+    id?: string;
+    name?: string;
+    email?: string;
+    role?: string;
+    permission_keys?: string[];
+  };
+  tenant?: {
+    id?: string;
+    name?: string;
+    slug?: string;
+    logo_url?: string;
+    business_category?: string;
+  };
+  features?: {
+    enable_discovery_posts?: boolean;
+  };
+};
+
+const AdminMainContent = memo(function AdminMainContent({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <main className="min-h-screen w-full">
+      <div className="mx-auto mt-16 max-w-400 md:mt-6">{children}</div>
+    </main>
+  );
+});
+
 export default function DashboardInternalLayout({
   children,
 }: {
@@ -28,22 +62,34 @@ export default function DashboardInternalLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const params = useParams();
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [checkingSession, setCheckingSession] = useState(true);
   const [sessionUser, setSessionUser] = useState<AdminSessionUser | null>(null);
+  const [tenantName, setTenantName] = useState<string>(String(params.tenant || "HUB"));
+  const [tenantCategory, setTenantCategory] = useState<string>("");
+  const [growthVisible, setGrowthVisible] = useState(false);
 
   useEffect(() => {
     let active = true;
 
     const checkSession = async () => {
       try {
-        const res = await api.get("/auth/me");
+        const res = await api.get<AdminBootstrapResponse>("/admin/me/bootstrap");
 
         if (active) {
-          // Sinkronkan slug tenant aktif; tenant ID tidak lagi disimpan di browser.
-          const userData = res.data.user;
+          const bootstrap = res.data || {};
+          const userData: AdminSessionUser = {
+            ...(bootstrap.user || {}),
+            tenant_id: bootstrap.tenant?.id,
+            logo_url: bootstrap.tenant?.logo_url || "",
+          };
+
           syncTenantCookies(getTenantSlugFromBrowser());
           setSessionUser(userData);
+          setTenantName(bootstrap.tenant?.name || String(params.tenant || "HUB"));
+          setTenantCategory(bootstrap.tenant?.business_category || "");
+          setGrowthVisible(Boolean(bootstrap.features?.enable_discovery_posts));
 
           if (!canAccessAdminRoute(pathname, userData)) {
             router.replace(
@@ -73,7 +119,7 @@ export default function DashboardInternalLayout({
     return () => {
       active = false;
     };
-  }, [pathname, router]);
+  }, [params.tenant, pathname, router]);
 
   useEffect(() => {
     if (!sessionUser || checkingSession) return;
@@ -85,6 +131,16 @@ export default function DashboardInternalLayout({
       );
     }
   }, [checkingSession, pathname, router, sessionUser]);
+
+  const sessionValue = useMemo(
+    () => ({
+      user: sessionUser,
+      tenantName,
+      tenantCategory,
+      growthVisible,
+    }),
+    [growthVisible, sessionUser, tenantCategory, tenantName],
+  );
 
   if (checkingSession) {
     return <DashboardLayoutSkeleton isCollapsed={isCollapsed} />;
@@ -120,60 +176,57 @@ export default function DashboardInternalLayout({
   })();
 
   return (
-    <TooltipProvider delayDuration={0} skipDelayDuration={0}>
-      <div className="tenant-admin-shell relative flex min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#f7fffe_0%,#ecfbf9_20%,#f6fbfb_52%,#ffffff_100%)] selection:bg-[var(--bookinaja-400)]/30 dark:bg-[linear-gradient(180deg,#051316_0%,#091b20_24%,#0b1820_56%,#04090b_100%)]">
-        <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(129,216,208,0.14),transparent_24%),radial-gradient(circle_at_top_right,rgba(30,143,146,0.10),transparent_28%)]" />
-        {/* SIDEBAR */}
-        <aside
-          className={cn(
-            "hidden md:flex flex-col fixed inset-y-0 z-50 transition-all duration-200 ease-in-out border-r border-slate-200/80 dark:border-white/8 bg-white/88 backdrop-blur-xl dark:bg-[#0b1220]/82",
-            isCollapsed ? "w-20" : "w-72",
-          )}
-        >
-          <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
-        </aside>
+    <AdminSessionProvider value={sessionValue}>
+      <TooltipProvider delayDuration={0} skipDelayDuration={0}>
+        <div className="tenant-admin-shell relative flex min-h-screen overflow-x-hidden bg-slate-50 selection:bg-[var(--bookinaja-200)] dark:bg-slate-950">
+          <aside
+            className={cn(
+              "hidden md:flex fixed inset-y-0 z-50 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 transition-[width] duration-150 ease-out motion-reduce:transition-none will-change-[width]",
+              isCollapsed ? "w-20" : "w-72",
+            )}
+          >
+            <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+          </aside>
 
-        {/* MAIN CONTENT */}
-        <div
-          className={cn(
-            "tenant-admin-content relative flex min-w-0 flex-1 flex-col transition-all duration-200 ease-in-out pb-16 md:pb-0",
-            isCollapsed ? "md:pl-20" : "md:pl-72",
-          )}
-        >
-          <div className="fixed inset-x-0 top-0 z-40 border-b border-slate-200/80 bg-white/92 backdrop-blur-xl dark:border-white/8 dark:bg-[#091b20]/90 md:hidden">
-            <div className="flex h-17.5 items-center justify-between gap-3 px-4">
-              <div className="min-w-0">
-                <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-600)]">
-                  Admin
+          <div
+            className={cn(
+              "tenant-admin-content relative flex min-w-0 flex-1 flex-col pb-16 md:pb-0 transition-[padding-left] duration-150 ease-out motion-reduce:transition-none will-change-[padding-left]",
+              isCollapsed ? "md:pl-20" : "md:pl-72",
+            )}
+          >
+            <div className="fixed inset-x-0 top-0 z-40 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 md:hidden">
+              <div className="flex h-16 items-center justify-between gap-3 px-4">
+                <div className="min-w-0">
+                  <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Admin
+                  </div>
+                  <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                    {pageTitle}
+                  </div>
                 </div>
-                <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">
-                  {pageTitle}
-                </div>
+                <MobileNav
+                  mode="operational"
+                  triggerClassName="relative left-auto bottom-auto z-auto h-10 w-10 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                />
               </div>
-              <MobileNav
-                mode="operational"
-                triggerClassName="relative left-auto bottom-auto z-auto h-10 w-10 rounded-xl border border-slate-200 bg-slate-950 text-white shadow-sm hover:bg-slate-900"
-              />
             </div>
-          </div>
 
-          <main className="min-h-screen w-full">
-            <div className="mx-auto mt-16 max-w-400 md:mt-6">{children}</div>
-          </main>
+            <AdminMainContent>{children}</AdminMainContent>
+          </div>
         </div>
-      </div>
-    </TooltipProvider>
+      </TooltipProvider>
+    </AdminSessionProvider>
   );
 }
 
 // --- LOADING SKELETON COMPONENT ---
 function DashboardLayoutSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
   return (
-    <div className="tenant-admin-shell flex min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#f7fffe_0%,#ecfbf9_20%,#f6fbfb_52%,#ffffff_100%)] dark:bg-[linear-gradient(180deg,#051316_0%,#091b20_24%,#0b1820_56%,#04090b_100%)]">
+    <div className="tenant-admin-shell flex min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950">
       {/* Sidebar Shadow Skeleton */}
       <div
         className={cn(
-          "hidden md:flex flex-col border-r border-slate-200/80 dark:border-white/8 bg-white/88 backdrop-blur-xl dark:bg-[#0b1220]/82 p-4 transition-all duration-300",
+          "hidden md:flex flex-col border-r border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 transition-[width] duration-150 motion-reduce:transition-none",
           isCollapsed ? "w-20" : "w-72",
         )}
       >

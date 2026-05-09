@@ -92,11 +92,11 @@ export default function ExpenseDetailPage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-5xl space-y-4 px-3 pb-20 font-plus-jakarta md:px-4">
-        <Skeleton className="h-10 w-40 rounded-2xl bg-slate-100 dark:bg-white/5" />
-        <Skeleton className="h-16 w-full rounded-[1.5rem] bg-slate-100 dark:bg-white/5" />
+        <Skeleton className="h-10 w-40 rounded-lg bg-slate-100 dark:bg-white/5" />
+        <Skeleton className="h-16 w-full rounded-xl bg-slate-100 dark:bg-white/5" />
         <div className="grid gap-3 lg:grid-cols-[1.15fr_0.85fr]">
-          <Skeleton className="h-80 rounded-[1.6rem] bg-slate-100 dark:bg-white/5" />
-          <Skeleton className="h-80 rounded-[1.6rem] bg-slate-100 dark:bg-white/5" />
+          <Skeleton className="h-80 rounded-xl bg-slate-100 dark:bg-white/5" />
+          <Skeleton className="h-80 rounded-xl bg-slate-100 dark:bg-white/5" />
         </div>
       </div>
     );
@@ -106,12 +106,12 @@ export default function ExpenseDetailPage() {
     return (
       <div className="mx-auto flex min-h-[70vh] max-w-5xl flex-col items-center justify-center gap-3 px-3 pb-20 text-center font-plus-jakarta md:px-4">
         <ReceiptText className="h-10 w-10 text-slate-300" />
-        <h1 className="text-xl font-[1000] italic uppercase tracking-tighter text-slate-950 dark:text-white">
+        <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white">
           Pengeluaran tidak ditemukan
         </h1>
         <Button
           onClick={() => router.push("/admin/expenses")}
-          className="rounded-2xl bg-[var(--bookinaja-600)] px-4 font-black uppercase italic text-[9px] tracking-widest text-white hover:bg-[var(--bookinaja-700)]"
+          className="rounded-lg bg-[var(--bookinaja-600)] px-4 text-sm font-semibold text-white hover:bg-[var(--bookinaja-700)]"
         >
           Kembali ke daftar
         </Button>
@@ -121,7 +121,7 @@ export default function ExpenseDetailPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 px-3 pb-20 pt-5 font-plus-jakarta animate-in fade-in duration-300 md:px-4">
-      <header className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:flex sm:items-start sm:justify-between sm:gap-4">
+      <header className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:flex sm:items-start sm:justify-between sm:gap-4">
         <div className="space-y-2">
           <Button
             variant="ghost"
@@ -131,14 +131,14 @@ export default function ExpenseDetailPage() {
             <ArrowLeft className="h-4 w-4" />
             Kembali ke daftar
           </Button>
-          <div className="text-[11px] font-black uppercase tracking-[0.28em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
             Buku Pengeluaran
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-3xl">
               Detail Pengeluaran
             </h1>
-            <Badge className="rounded-full border-none bg-[var(--bookinaja-50)] px-3 py-1 text-xs font-semibold text-[var(--bookinaja-700)] dark:bg-[var(--bookinaja-700)]/20 dark:text-[var(--bookinaja-200)]">
+            <Badge className="rounded-md border-none bg-[var(--bookinaja-50)] px-2.5 py-1 text-xs font-medium text-[var(--bookinaja-700)] dark:bg-[var(--bookinaja-700)]/20 dark:text-[var(--bookinaja-200)]">
               {expense.category}
             </Badge>
           </div>
@@ -151,7 +151,7 @@ export default function ExpenseDetailPage() {
           <Button
             onClick={() => canUpdateExpenses && setOpen(true)}
             disabled={!canUpdateExpenses}
-            className="h-10 rounded-xl bg-[var(--bookinaja-600)] px-4 text-sm font-semibold text-white shadow-sm gap-2 hover:bg-[var(--bookinaja-700)]"
+            className="h-10 gap-2 rounded-lg bg-[var(--bookinaja-600)] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[var(--bookinaja-700)]"
           >
             <PencilLine className="h-4 w-4" />
             Ubah
@@ -160,7 +160,7 @@ export default function ExpenseDetailPage() {
             onClick={handleDelete}
             disabled={deleting || !canDeleteExpenses}
             variant="ghost"
-            className="h-10 rounded-xl px-4 text-sm font-semibold text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
+            className="h-10 rounded-lg px-4 text-sm font-semibold text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
           >
             <Trash2 className="h-4 w-4" />
             Hapus
@@ -169,7 +169,7 @@ export default function ExpenseDetailPage() {
       </header>
 
       <div className="grid gap-3 lg:grid-cols-[1.15fr_0.85fr]">
-        <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:p-5">
+        <Card className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] md:p-5">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
               <p className="text-xs font-medium text-slate-500">
@@ -179,7 +179,7 @@ export default function ExpenseDetailPage() {
                 Rp {formatIDR(expense.amount)}
               </div>
             </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--bookinaja-600)] text-white shadow-lg">
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--bookinaja-600)] text-white">
               <Calendar className="h-5 w-5" />
             </div>
           </div>
@@ -211,7 +211,7 @@ export default function ExpenseDetailPage() {
             />
           </div>
 
-          <div className="mt-4 grid gap-3 rounded-2xl bg-slate-50 p-3 dark:bg-white/[0.04]">
+          <div className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-3 dark:bg-white/[0.04]">
             <div className="grid gap-2 sm:grid-cols-2">
               <Field label="Kategori" value={expense.category || "-"} />
               <Field label="Vendor" value={expense.vendor || "-"} />
@@ -225,7 +225,7 @@ export default function ExpenseDetailPage() {
           </div>
         </Card>
 
-        <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:p-5">
+        <Card className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] md:p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-medium text-slate-500">
@@ -237,7 +237,7 @@ export default function ExpenseDetailPage() {
             </div>
             <Badge
               className={cn(
-                "rounded-lg border-none px-3 py-1 text-[9px] font-black uppercase italic tracking-widest",
+                "rounded-md border-none px-2.5 py-1 text-[10px] font-medium",
                 expense.receipt_url
                   ? "bg-emerald-500 text-white"
                   : "bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
@@ -248,7 +248,7 @@ export default function ExpenseDetailPage() {
           </div>
 
           {expense.receipt_url ? (
-            <div className="mt-4 overflow-hidden rounded-[1.4rem] border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-[#09090f]">
+            <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-[#09090f]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={expense.receipt_url}
@@ -256,13 +256,13 @@ export default function ExpenseDetailPage() {
                 className="h-[22rem] w-full object-cover"
               />
               <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-3 py-2 dark:border-white/10">
-                <p className="truncate text-[10px] font-black uppercase italic tracking-widest text-slate-400">
+                <p className="truncate text-[11px] font-medium text-slate-500">
                   Gambar bukti transaksi
                 </p>
                 <Button
                   variant="ghost"
                   asChild
-                  className="h-8 rounded-xl px-3 text-[9px] font-black uppercase tracking-widest text-[var(--bookinaja-600)] hover:bg-[var(--bookinaja-50)] dark:text-[var(--bookinaja-200)] dark:hover:bg-[var(--bookinaja-700)]/15"
+                  className="h-8 rounded-lg px-3 text-xs font-medium text-[var(--bookinaja-600)] hover:bg-[var(--bookinaja-50)] dark:text-[var(--bookinaja-200)] dark:hover:bg-[var(--bookinaja-700)]/15"
                 >
                   <a href={expense.receipt_url} target="_blank" rel="noreferrer">
                     Buka
@@ -271,12 +271,12 @@ export default function ExpenseDetailPage() {
               </div>
             </div>
           ) : (
-            <div className="mt-4 flex min-h-[22rem] flex-col items-center justify-center rounded-[1.4rem] border border-dashed border-slate-200 bg-slate-50 text-center dark:border-white/10 dark:bg-[#09090f]">
+            <div className="mt-4 flex min-h-[22rem] flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-center dark:border-white/10 dark:bg-[#09090f]">
               <ReceiptText className="h-10 w-10 text-slate-300" />
-              <p className="mt-3 text-sm font-black italic uppercase tracking-tighter text-slate-950 dark:text-white">
+              <p className="mt-3 text-sm font-semibold text-slate-950 dark:text-white">
                 Bukti belum diunggah
               </p>
-              <p className="mt-1 max-w-xs text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">
+              <p className="mt-1 max-w-xs text-sm text-slate-500">
                 Tambahkan foto dari form ubah kalau ingin menyimpan bukti transaksi.
               </p>
             </div>
@@ -304,12 +304,12 @@ function MetaItem({
   value: string;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl bg-slate-50 p-3 dark:bg-white/5">
-      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-[var(--bookinaja-600)] shadow-sm dark:bg-white/[0.06] dark:text-[var(--bookinaja-200)]">
+    <div className="flex items-start gap-3 rounded-lg bg-slate-50 p-3 dark:bg-white/5">
+      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-[var(--bookinaja-600)] shadow-sm dark:bg-white/[0.06] dark:text-[var(--bookinaja-200)]">
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
           {label}
         </p>
         <p className="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-white">
@@ -331,12 +331,12 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
         {label}
       </p>
       <p
         className={cn(
-          "rounded-xl bg-white px-3 py-2 text-sm font-semibold text-slate-950 dark:bg-white/[0.05] dark:text-white",
+          "rounded-lg bg-white px-3 py-2 text-sm font-semibold text-slate-950 dark:bg-white/[0.05] dark:text-white",
           mono && "font-mono not-italic tracking-normal normal-case break-all",
         )}
       >

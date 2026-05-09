@@ -30,7 +30,7 @@ function FnbSkeleton() {
       {[...Array(12)].map((_, i) => (
         <Card
           key={i}
-          className="h-64 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17]"
+          className="h-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17]"
         >
           <Skeleton className="aspect-square w-full dark:bg-white/[0.06]" />
           <div className="p-3 space-y-2">
@@ -134,18 +134,18 @@ export default function FnbManagementPage() {
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-4 md:space-y-6 pb-32 pt-5 animate-in fade-in duration-500 font-plus-jakarta px-3 md:px-4">
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
         <div className="flex flex-col gap-4 border-b border-slate-100 p-4 md:flex-row md:items-center md:justify-between md:p-5 dark:border-white/10">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--bookinaja-600)] text-white shadow-lg shadow-[var(--bookinaja-700)]/20">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--bookinaja-600)] text-white">
               <Coffee size={18} />
             </div>
             <div>
-              <div className="text-[11px] font-black uppercase tracking-[0.28em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
                 Katalog F&B
               </div>
-              <h1 className="text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl dark:text-white">
-                Menu
+              <h1 className="text-xl font-semibold tracking-tight text-slate-950 md:text-2xl dark:text-white">
+                Menu dan produk
               </h1>
             </div>
           </div>
@@ -155,7 +155,7 @@ export default function FnbManagementPage() {
               variant="outline"
               onClick={fetchMenu}
               disabled={loading}
-              className="h-10 rounded-xl border-slate-200 dark:border-white/15 dark:bg-white/[0.03]"
+              className="h-10 rounded-lg border-slate-200 dark:border-white/15 dark:bg-white/[0.03]"
             >
               <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
               Refresh
@@ -165,7 +165,7 @@ export default function FnbManagementPage() {
                 setEditingItem(null);
                 setOpen(true);
               }}
-              className="h-10 rounded-xl bg-[var(--bookinaja-600)] px-4 font-semibold text-white hover:bg-[var(--bookinaja-700)]"
+              className="h-10 rounded-lg bg-[var(--bookinaja-600)] px-4 text-sm font-semibold text-white hover:bg-[var(--bookinaja-700)]"
             >
               <Plus className="mr-2 h-4 w-4" /> Tambah
             </Button>
@@ -196,7 +196,7 @@ export default function FnbManagementPage() {
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Cari menu / kategori"
-              className="h-11 rounded-xl bg-slate-50 pl-10 dark:border-white/15 dark:bg-white/[0.04]"
+              className="h-10 rounded-lg bg-slate-50 pl-10 dark:border-white/15 dark:bg-white/[0.04]"
             />
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1">
@@ -205,7 +205,7 @@ export default function FnbManagementPage() {
                 key={cat}
                 onClick={() => setCategoryFilter(cat)}
                 className={cn(
-                  "h-9 shrink-0 rounded-xl border px-4 text-xs font-semibold transition",
+                  "h-8 shrink-0 rounded-lg border px-3 text-xs font-medium transition",
                   categoryFilter === cat
                     ? "border-[var(--bookinaja-600)] bg-[var(--bookinaja-600)] text-white"
                     : "border-slate-200 bg-white text-slate-600 hover:border-[var(--bookinaja-200)] hover:text-[var(--bookinaja-700)] dark:border-white/15 dark:bg-white/[0.03] dark:text-slate-300 dark:hover:border-[var(--bookinaja-200)] dark:hover:text-[var(--bookinaja-100)]",
@@ -227,7 +227,7 @@ export default function FnbManagementPage() {
             <Card
               key={item.id}
               className={cn(
-                "group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition-all duration-300 dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+                "group relative flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition-colors dark:border-white/15 dark:bg-[#0f0f17]",
                 !item.is_available && "opacity-60 grayscale-[0.5]",
               )}
             >
@@ -244,14 +244,14 @@ export default function FnbManagementPage() {
                   </div>
                 )}
 
-                <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-black/70 backdrop-blur-md p-1.5 px-2.5 rounded-lg border border-white/10 shadow-2xl">
-                  <span className="text-[7px] font-black text-white uppercase italic tracking-widest">
+                <div className="absolute right-2 top-2 flex items-center gap-2 rounded-md border border-black/5 bg-white/95 px-2 py-1 shadow-sm dark:border-white/10 dark:bg-slate-950/90">
+                  <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">
                     {item.is_available ? "Siap" : "Habis"}
                   </span>
                   <button
                     onClick={() => handleToggleAvailable(item)}
                     className={cn(
-                      "w-7 h-4 rounded-full relative transition-all shadow-inner",
+                      "relative h-4 w-7 rounded-full transition-all",
                       item.is_available ? "bg-emerald-500" : "bg-slate-500",
                     )}
                   >
@@ -269,20 +269,20 @@ export default function FnbManagementPage() {
 
               <CardContent className="p-2.5 flex flex-col flex-1">
                 <div className="flex-1 min-h-[34px] mb-2.5">
-                  <h3 className="line-clamp-2 text-[10px] font-[1000] uppercase italic leading-tight tracking-tight text-slate-900 transition-colors group-hover:text-[var(--bookinaja-600)] dark:text-white dark:group-hover:text-[var(--bookinaja-200)] md:text-[11px]">
+                  <h3 className="line-clamp-2 text-sm font-semibold leading-tight text-slate-900 transition-colors group-hover:text-[var(--bookinaja-600)] dark:text-white dark:group-hover:text-[var(--bookinaja-200)]">
                     {item.name}
                   </h3>
-                  <p className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase mt-1 tracking-widest">
+                  <p className="mt-1 text-[11px] font-medium text-slate-500">
                     {item.category}
                   </p>
                 </div>
 
                 <div className="flex items-center justify-between border-t border-slate-50 pt-2.5 dark:border-white/10">
                   <div className="flex flex-col">
-                    <span className="text-[7px] font-black text-slate-400 uppercase italic mb-0.5">
+                    <span className="mb-0.5 text-[11px] font-medium text-slate-500">
                       Harga
                     </span>
-                    <span className="text-[11px] font-[1000] italic tracking-tighter text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)] md:text-sm">
+                    <span className="text-sm font-semibold text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
                       Rp{formatIDR(item.price)}
                     </span>
                   </div>
@@ -294,7 +294,7 @@ export default function FnbManagementPage() {
                         setEditingItem(item);
                         setOpen(true);
                       }}
-                      className="h-7 w-7 rounded-lg bg-slate-50 text-slate-400 shadow-sm transition-all hover:text-[var(--bookinaja-600)] dark:bg-white/[0.06] dark:hover:text-[var(--bookinaja-200)]"
+                      className="h-7 w-7 rounded-md bg-slate-50 text-slate-400 transition-colors hover:text-[var(--bookinaja-600)] dark:bg-white/[0.06] dark:hover:text-[var(--bookinaja-200)]"
                     >
                       <Edit3 size={12} />
                     </Button>
@@ -302,7 +302,7 @@ export default function FnbManagementPage() {
                       variant="ghost"
                       size="icon"
                       onClick={() => handleDelete(item.id)}
-                      className="h-7 w-7 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 transition-all shadow-sm"
+                      className="h-7 w-7 rounded-md bg-slate-50 text-slate-400 transition-colors hover:text-red-500 dark:bg-slate-800"
                     >
                       <Trash2 size={12} />
                     </Button>
@@ -313,14 +313,14 @@ export default function FnbManagementPage() {
           ))}
         </div>
       ) : (
-        <div className="flex h-[50vh] flex-col items-center justify-center rounded-[1.75rem] border border-dashed border-slate-200 bg-white p-8 text-center dark:border-white/15 dark:bg-[#0f0f17] md:rounded-[3rem] md:p-12">
-          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-slate-50 shadow-inner dark:bg-white/[0.05]">
+        <div className="flex h-[40vh] flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white p-8 text-center dark:border-white/15 dark:bg-[#0f0f17]">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-slate-50 dark:bg-white/[0.05]">
             <PackageSearch size={32} className="text-slate-200" />
           </div>
-          <h3 className="text-2xl font-[1000] italic uppercase text-slate-900 dark:text-white tracking-tighter">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
             Katalog masih kosong
           </h3>
-          <p className="text-xs font-bold text-slate-400 uppercase italic mt-2 mb-8 tracking-widest">
+          <p className="mb-6 mt-2 max-w-md text-sm text-slate-500">
             Tambahkan menu pertama supaya kasir dan customer bisa mulai memilih produk.
           </p>
           <Button
@@ -328,7 +328,7 @@ export default function FnbManagementPage() {
               setEditingItem(null);
               setOpen(true);
             }}
-            className="h-12 rounded-2xl bg-[var(--bookinaja-600)] px-8 text-[10px] font-black uppercase italic tracking-widest text-white hover:bg-[var(--bookinaja-700)]"
+            className="h-10 rounded-lg bg-[var(--bookinaja-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--bookinaja-700)]"
           >
             Tambah menu
           </Button>

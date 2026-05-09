@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRealtime } from "@/lib/realtime/use-realtime";
 import { RealtimePill } from "@/components/dashboard/realtime-pill";
+import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { tenantDevicesChannel } from "@/lib/realtime/channels";
 import {
   DEVICE_EVENT_PREFIXES,
@@ -149,13 +150,14 @@ function patchDeviceFromEvent(prev: DeviceSummary[], event: RealtimeEvent) {
 }
 
 export default function DevicesPage() {
+  const { user } = useAdminSession();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showClaimForm, setShowClaimForm] = useState(false);
   const [devices, setDevices] = useState<DeviceSummary[]>([]);
   const [resources, setResources] = useState<ResourceOption[]>([]);
   const [overview, setOverview] = useState<Overview | null>(null);
-  const [tenantId, setTenantId] = useState("");
+  const tenantId = user?.tenant_id || "";
   const [form, setForm] = useState({
     device_id: "",
     device_name: "",
@@ -165,16 +167,14 @@ export default function DevicesPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [deviceRes, overviewRes, resourceRes, meRes] = await Promise.all([
+      const [deviceRes, overviewRes, resourceRes] = await Promise.all([
         api.get("/devices"),
         api.get("/devices/overview"),
-        api.get("/resources-all"),
-        api.get("/auth/me"),
+        api.get("/admin/resources/summary"),
       ]);
       setDevices(deviceRes.data.items || []);
       setOverview(overviewRes.data || null);
-      setResources(resourceRes.data.resources || []);
-      setTenantId(meRes.data?.user?.tenant_id || "");
+      setResources(resourceRes.data.items || []);
     } catch {
       toast.error("Gagal memuat data Smart Point");
     } finally {
@@ -243,31 +243,31 @@ export default function DevicesPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-5 px-3 pb-20 pt-4 font-plus-jakarta md:px-4">
-      <Card className="overflow-hidden rounded-[28px] border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(238,252,249,0.95)_42%,rgba(241,248,255,0.9))] shadow-sm dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(10,24,26,0.96),rgba(8,30,31,0.94)_45%,rgba(9,25,41,0.82))]">
-        <CardContent className="space-y-5 p-5 md:p-7">
+    <div className="mx-auto max-w-[1400px] space-y-4 px-3 pb-20 pt-4 font-plus-jakarta md:px-4">
+      <Card className="overflow-hidden rounded-xl border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
+        <CardContent className="space-y-4 p-4 md:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--bookinaja-600)] text-white">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--bookinaja-600)] text-white">
                 <Radio className="h-5 w-5" />
               </div>
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--bookinaja-600)]">
+                <div className="text-[10px] font-medium uppercase tracking-wide text-[var(--bookinaja-600)]">
                   Settings
                 </div>
-                <h1 className="text-2xl font-semibold text-slate-950">Smart Point</h1>
-                <div className="mt-3">
+                <h1 className="text-xl font-semibold text-slate-950 dark:text-white">Smart Point</h1>
+                <div className="mt-2">
                   <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
                 </div>
               </div>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button variant="outline" className="w-full sm:w-auto" onClick={fetchData}>
+              <Button variant="outline" className="w-full rounded-lg sm:w-auto" onClick={fetchData}>
                 <RefreshCcw className="mr-2 h-4 w-4" />
                 Refresh
               </Button>
               <Button
-                className="w-full bg-[var(--bookinaja-600)] hover:bg-[var(--bookinaja-700)] sm:w-auto"
+                className="w-full rounded-lg bg-[var(--bookinaja-600)] hover:bg-[var(--bookinaja-700)] sm:w-auto"
                 onClick={() => setShowClaimForm((prev) => !prev)}
               >
                 <Plus className="mr-2 h-4 w-4" />
@@ -309,12 +309,12 @@ export default function DevicesPage() {
             ].map((item) => (
               <div
                 key={item.label}
-                className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-white/5"
+                className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/30"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="text-sm font-medium text-slate-500">{item.label}</div>
-                    <div className={`mt-2 text-3xl font-semibold ${item.tone}`}>{item.value}</div>
+                    <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500">{item.label}</div>
+                    <div className={`mt-1.5 text-xl font-semibold ${item.tone}`}>{item.value}</div>
                     <div className="mt-1 text-xs text-slate-500">{item.helper}</div>
                   </div>
                   <item.icon className={`mt-1 h-5 w-5 ${item.tone}`} />
@@ -324,9 +324,9 @@ export default function DevicesPage() {
           </div>
 
           {showClaimForm && (
-            <div className="rounded-2xl border border-[var(--bookinaja-100)] bg-white p-4 dark:border-[var(--bookinaja-900)]/40 dark:bg-slate-950/80 md:p-5">
+            <div className="rounded-lg border border-[var(--bookinaja-100)] bg-slate-50 p-4 dark:border-[var(--bookinaja-900)]/40 dark:bg-slate-900/30 md:p-5">
               <div className="mb-4 flex items-start gap-3">
-                <div className="rounded-2xl bg-[var(--bookinaja-100)] p-2 text-[var(--bookinaja-700)]">
+                <div className="rounded-lg bg-[var(--bookinaja-100)] p-2 text-[var(--bookinaja-700)]">
                   <CircleHelp className="h-4 w-4" />
                 </div>
                 <div>
@@ -369,13 +369,13 @@ export default function DevicesPage() {
                 <Button
                   onClick={handleClaim}
                   disabled={submitting}
-                  className="w-full bg-[var(--bookinaja-600)] hover:bg-[var(--bookinaja-700)] sm:w-auto"
+                  className="w-full rounded-lg bg-[var(--bookinaja-600)] hover:bg-[var(--bookinaja-700)] sm:w-auto"
                 >
                   {submitting ? "Menyimpan..." : "Simpan Smart Point"}
                 </Button>
                 <Button
                   variant="outline"
-                  className="w-full sm:w-auto"
+                  className="w-full rounded-lg sm:w-auto"
                   onClick={() => setShowClaimForm(false)}
                 >
                   Nanti saja
@@ -413,9 +413,9 @@ export default function DevicesPage() {
           </div>
 
           {devices.length === 0 ? (
-            <Card className="rounded-3xl border-dashed border-slate-300 bg-white shadow-sm dark:border-white/15 dark:bg-slate-950/70">
+            <Card className="rounded-xl border-dashed border-slate-300 bg-white dark:border-slate-800 dark:bg-slate-950">
               <CardContent className="flex flex-col items-center justify-center gap-3 p-8 text-center">
-                <div className="rounded-2xl bg-slate-100 p-3 text-slate-500">
+                <div className="rounded-lg bg-slate-100 p-3 text-slate-500 dark:bg-slate-900">
                   <Radio className="h-5 w-5" />
                 </div>
                 <div className="font-semibold text-slate-900">Belum ada Smart Point</div>
@@ -424,7 +424,7 @@ export default function DevicesPage() {
                   sesi dimulai atau selesai.
                 </p>
                 <Button
-                  className="bg-sky-600 hover:bg-sky-700"
+                  className="rounded-lg bg-sky-600 hover:bg-sky-700"
                   onClick={() => setShowClaimForm(true)}
                 >
                   Tambah Smart Point
@@ -436,7 +436,7 @@ export default function DevicesPage() {
               {devices.map((device) => (
                 <Card
                   key={device.id}
-                  className="rounded-3xl border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-white/10 dark:bg-slate-950/70"
+                  className="rounded-xl border-slate-200 bg-white transition-colors hover:border-[var(--bookinaja-200)] dark:border-slate-800 dark:bg-slate-950"
                 >
                   <CardContent className="space-y-4 p-5">
                     <div className="flex items-start justify-between gap-3">
@@ -453,7 +453,7 @@ export default function DevicesPage() {
                       </Badge>
                     </div>
 
-                    <div className="space-y-2 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600 dark:bg-white/5 dark:text-slate-300">
+                    <div className="space-y-2 rounded-lg bg-slate-50 p-4 text-sm text-slate-600 dark:bg-slate-900/30 dark:text-slate-300">
                       <div className="flex items-center justify-between gap-3">
                         <span>Status pemasangan</span>
                         <span className="font-medium text-slate-900">
@@ -494,14 +494,14 @@ export default function DevicesPage() {
 
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <Link href={`/admin/devices/${device.id}`} className="flex-1">
-                        <Button className="w-full bg-slate-900 hover:bg-slate-800">
+                        <Button className="w-full rounded-lg bg-slate-900 hover:bg-slate-800">
                           Kelola alat
                           <ChevronRight className="ml-2 h-4 w-4" />
                         </Button>
                       </Link>
                       <Button
                         variant="outline"
-                        className="w-full sm:w-auto"
+                        className="w-full rounded-lg sm:w-auto"
                         onClick={() => handleToggle(device)}
                       >
                         {device.is_enabled ? "Nonaktifkan" : "Aktifkan"}

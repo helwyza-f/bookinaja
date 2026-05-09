@@ -20,10 +20,10 @@ export function SettingsTabs() {
               key={tab.href}
               href={tab.href}
               className={cn(
-                "inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-[9px] font-black uppercase tracking-[0.22em] transition-all",
+                "inline-flex items-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide transition-colors",
                 active
-                  ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-                  : "bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-100 dark:bg-white/5 dark:text-slate-400 dark:ring-white/10 dark:hover:bg-white/10",
+                  ? "bg-[var(--bookinaja-600)] text-white"
+                  : "bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-100 dark:bg-slate-950 dark:text-slate-400 dark:ring-slate-800 dark:hover:bg-slate-900",
               )}
             >
               <tab.icon className="h-3.5 w-3.5" />

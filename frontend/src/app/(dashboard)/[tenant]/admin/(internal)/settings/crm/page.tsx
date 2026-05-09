@@ -60,9 +60,9 @@ type AuditRow = {
   actor_name?: string;
 };
 
-type TenantProfile = {
+type SubscriptionProfile = {
   plan?: string;
-  subscription_status?: string;
+  status?: string;
 };
 
 const LEGACY_TEMPLATE = "name,phone\n";
@@ -114,7 +114,7 @@ export default function SettingsCRMPage() {
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [legacyContacts, setLegacyContacts] = useState<LegacyContact[]>([]);
   const [activity, setActivity] = useState<AuditRow[]>([]);
-  const [profile, setProfile] = useState<TenantProfile | null>(null);
+  const [profile, setProfile] = useState<SubscriptionProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [importText, setImportText] = useState(LEGACY_TEMPLATE);
@@ -125,7 +125,7 @@ export default function SettingsCRMPage() {
 
   const isProActive = useMemo(() => {
     const plan = String(profile?.plan || "").toLowerCase().trim();
-    const status = String(profile?.subscription_status || "").toLowerCase().trim();
+    const status = String(profile?.status || "").toLowerCase().trim();
     return plan === "pro" && status === "active";
   }, [profile]);
 
@@ -149,7 +149,7 @@ export default function SettingsCRMPage() {
         api.get("/customers"),
         api.get("/admin/settings/customers/legacy"),
         api.get("/admin/settings/activity?limit=50"),
-        api.get("/admin/profile"),
+        api.get("/billing/subscription"),
       ]);
       setCustomers(custRes.data || []);
       setLegacyContacts(legacyRes.data?.items || []);
@@ -235,20 +235,22 @@ export default function SettingsCRMPage() {
 
   return (
     <div className="space-y-4 p-4 pb-20 sm:p-6">
-      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+      <header className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="flex items-center gap-2 text-sm font-semibold text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+          <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
             <Users className="h-4 w-4" />
             CRM
           </div>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+          <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">
             CRM
           </h1>
         </div>
-        <Button variant="outline" onClick={loadAll} className="w-fit gap-2 dark:border-white/10 dark:bg-white/[0.03]">
+        <Button variant="outline" onClick={loadAll} className="w-fit gap-2 rounded-lg dark:border-slate-800 dark:bg-slate-950">
           <RefreshCw className="h-4 w-4" />
           Refresh
         </Button>
+        </div>
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -259,7 +261,7 @@ export default function SettingsCRMPage() {
       </div>
 
       {!isProActive && (
-        <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex gap-3">
             <Lock className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
@@ -267,7 +269,7 @@ export default function SettingsCRMPage() {
               <p className="mt-1 text-xs leading-5 opacity-80">Import dan blast butuh Pro aktif.</p>
             </div>
           </div>
-          <Button asChild className="w-fit rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
+          <Button asChild className="w-fit rounded-lg bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
             <Link href="/admin/settings/billing/subscribe">Upgrade Pro</Link>
           </Button>
         </div>
@@ -281,7 +283,7 @@ export default function SettingsCRMPage() {
         </TabsList>
 
         <TabsContent value="migration" className="space-y-4">
-          <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:p-6">
+          <Card className="border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:p-5">
             <SectionHeader
               icon={<FileUp className="h-5 w-5" />}
               label="Pelanggan lama"
@@ -292,12 +294,12 @@ export default function SettingsCRMPage() {
             <div className="mt-5 grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
               <div className="space-y-3">
                 <div className="flex flex-col gap-3 sm:flex-row">
-                  <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium hover:bg-slate-100 dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10">
+                  <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/30 dark:hover:bg-slate-900">
                     <Upload className="h-4 w-4" />
                     Upload CSV
                     <input type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => handleFileUpload(event.target.files?.[0] || null)} />
                   </label>
-                  <Button variant="outline" onClick={downloadTemplate} className="gap-2">
+                  <Button variant="outline" onClick={downloadTemplate} className="gap-2 rounded-lg">
                     <Download className="h-4 w-4" />
                     Template
                   </Button>
@@ -306,7 +308,7 @@ export default function SettingsCRMPage() {
                 <Textarea
                   value={importText}
                   onChange={(event) => setImportText(event.target.value)}
-                  className="min-h-64 rounded-xl bg-slate-50 font-mono text-sm dark:bg-white/5"
+                  className="min-h-64 rounded-lg bg-slate-50 font-mono text-sm dark:bg-slate-900/30"
                   placeholder="name,phone"
                 />
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -333,7 +335,7 @@ export default function SettingsCRMPage() {
             </div>
           </Card>
 
-          <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:p-6">
+          <Card className="border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:p-5">
             <SectionHeader
               icon={<Megaphone className="h-5 w-5" />}
               label="Blast migrasi"
@@ -344,9 +346,9 @@ export default function SettingsCRMPage() {
               <Textarea
                 value={legacyMessage}
                 onChange={(event) => setLegacyMessage(event.target.value)}
-                className="min-h-44 rounded-xl bg-slate-50 text-sm dark:bg-white/5"
+                className="min-h-44 rounded-lg bg-slate-50 text-sm dark:bg-slate-900/30"
               />
-              <div className="rounded-xl border border-slate-200 p-4 dark:border-white/5">
+              <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
                 <Metric label="Target legacy" value={String(legacyContacts.length)} compact />
                 <Button onClick={() => handleBlast("legacy")} disabled={busy || !isProActive} className="mt-4 w-full gap-2">
                   <Megaphone className="h-4 w-4" />
@@ -358,7 +360,7 @@ export default function SettingsCRMPage() {
         </TabsContent>
 
         <TabsContent value="operational" className="space-y-4">
-          <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:p-6">
+          <Card className="border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:p-5">
             <SectionHeader
               icon={<Users className="h-5 w-5" />}
               label="Pelanggan aktif"
@@ -369,9 +371,9 @@ export default function SettingsCRMPage() {
               <Textarea
                 value={activeMessage}
                 onChange={(event) => setActiveMessage(event.target.value)}
-                className="min-h-44 rounded-xl bg-slate-50 text-sm dark:bg-white/5"
+                className="min-h-44 rounded-lg bg-slate-50 text-sm dark:bg-slate-900/30"
               />
-              <div className="rounded-xl border border-slate-200 p-4 dark:border-white/5">
+              <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
                 <Metric label="Target aktif" value={String(customers.length)} compact />
                 <Button onClick={() => handleBlast("active")} disabled={busy || !isProActive} className="mt-4 w-full gap-2">
                   <Megaphone className="h-4 w-4" />
@@ -381,7 +383,7 @@ export default function SettingsCRMPage() {
             </div>
           </Card>
 
-          <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:p-6">
+          <Card className="border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:p-5">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-base font-semibold text-slate-950 dark:text-white">Sample pelanggan aktif</h2>
               <Badge variant="secondary">{customers.length} customer</Badge>
@@ -396,7 +398,7 @@ export default function SettingsCRMPage() {
         </TabsContent>
 
         <TabsContent value="history">
-          <Card className="border-slate-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0a0a0a] sm:p-6">
+          <Card className="border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-slate-950 dark:text-white">History CRM</h2>
@@ -405,7 +407,7 @@ export default function SettingsCRMPage() {
             </div>
             <div className="mt-4 space-y-3">
               {crmHistory.map((item) => (
-                <div key={item.id} className="rounded-xl border border-slate-200 p-4 dark:border-white/5">
+                <div key={item.id} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <div className="font-medium text-slate-950 dark:text-white">{labelAction(item.action)}</div>
@@ -428,10 +430,10 @@ export default function SettingsCRMPage() {
 function SectionHeader({ icon, label, title, description }: { icon: React.ReactNode; label: string; title: string; description: string }) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--bookinaja-600)] text-white">{icon}</div>
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--bookinaja-600)] text-white">{icon}</div>
       <div>
-        <Badge className="border-none bg-[var(--bookinaja-600)] text-[10px] font-semibold uppercase tracking-[0.2em] text-white">{label}</Badge>
-        <h2 className="mt-2 text-lg font-semibold text-slate-950 dark:text-white">{title}</h2>
+        <Badge className="border-none bg-[var(--bookinaja-600)] text-[10px] font-medium uppercase tracking-wide text-white">{label}</Badge>
+        <h2 className="mt-2 text-base font-semibold text-slate-950 dark:text-white">{title}</h2>
         <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">{description}</p>
       </div>
     </div>
@@ -440,23 +442,23 @@ function SectionHeader({ icon, label, title, description }: { icon: React.ReactN
 
 function Metric({ label, value, compact }: { label: string; value: string; compact?: boolean }) {
   return (
-    <Card className={compact ? "border-0 bg-transparent p-0 shadow-none" : "border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17]"}>
-      <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">{label}</div>
-      <div className={compact ? "mt-2 text-2xl font-semibold text-slate-950 dark:text-white" : "mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white"}>{value}</div>
+    <Card className={compact ? "border-0 bg-transparent p-0 shadow-none" : "rounded-lg border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950"}>
+      <div className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{label}</div>
+      <div className={compact ? "mt-1.5 text-xl font-semibold text-slate-950 dark:text-white" : "mt-1.5 text-xl font-semibold tracking-tight text-slate-950 dark:text-white"}>{value}</div>
     </Card>
   );
 }
 
 function Preview({ rows }: { rows: ImportRow[] }) {
   return (
-    <div className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+    <div className="space-y-3 rounded-lg border border-slate-200 p-4 dark:border-slate-800 dark:bg-slate-900/30">
       <div className="text-sm font-semibold text-slate-950 dark:text-white">Preview kontak legacy</div>
       <Separator />
       <div className="max-h-80 space-y-2 overflow-auto pr-1">
         {rows.map((row, index) => {
           const issues = getIssues(row);
           return (
-            <div key={`${index}-${row.phone}`} className="rounded-lg border border-slate-200 p-3 dark:border-white/10 dark:bg-white/[0.03]">
+            <div key={`${index}-${row.phone}`} className="rounded-lg border border-slate-200 p-3 dark:border-slate-800 dark:bg-slate-950">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="font-medium text-slate-950 dark:text-white">{row.name || "Tanpa nama"}</div>
@@ -476,7 +478,7 @@ function Preview({ rows }: { rows: ImportRow[] }) {
 
 function ResultBox({ result, label }: { result: ImportResult; label: string }) {
   return (
-    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/25 dark:text-emerald-200">
+    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/25 dark:text-emerald-200">
       <div className="flex items-center gap-2 font-semibold">
         <CheckCircle2 className="h-4 w-4" />
         {label}
@@ -494,7 +496,7 @@ function ResultBox({ result, label }: { result: ImportResult; label: string }) {
 
 function ContactRow({ name, phone }: { name: string; phone: string }) {
   return (
-    <div className="rounded-xl border border-slate-200 p-3 dark:border-white/5">
+    <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
       <div className="font-medium text-slate-950 dark:text-white">{name || "Customer"}</div>
       <div className="mt-1 text-xs text-slate-500">{phone || "-"}</div>
     </div>
@@ -502,7 +504,7 @@ function ContactRow({ name, phone }: { name: string; phone: string }) {
 }
 
 function EmptyText({ text }: { text: string }) {
-  return <div className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500 dark:border-white/10">{text}</div>;
+  return <div className="rounded-lg border border-dashed border-slate-200 p-4 text-sm text-slate-500 dark:border-slate-800">{text}</div>;
 }
 
 function labelAction(action: string) {

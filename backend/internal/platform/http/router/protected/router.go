@@ -90,6 +90,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 		adminArea.Use(middleware.AdminOnly())
 		{
 			adminArea.GET("/auth/me", cfg.AuthHandler.CheckMe)
+			adminArea.GET("/admin/me/bootstrap", cfg.TenantHandler.GetAdminBootstrap)
 
 			ownerArea := adminArea.Group("/")
 			ownerArea.Use(middleware.OwnerOnly())
@@ -97,6 +98,9 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				ownerAdmin := ownerArea.Group("/admin")
 				{
 					ownerAdmin.GET("/profile", cfg.TenantHandler.GetProfile)
+					ownerAdmin.GET("/tenant/identity", cfg.TenantHandler.GetTenantIdentity)
+					ownerAdmin.GET("/tenant/discovery-profile", cfg.TenantHandler.GetTenantDiscoveryProfile)
+					ownerAdmin.GET("/tenant/onboarding-summary", cfg.TenantHandler.GetTenantOnboardingSummary)
 					ownerAdmin.PUT("/profile", cfg.TenantHandler.UpdateProfile)
 					ownerAdmin.GET("/page-builder", cfg.TenantHandler.GetPageBuilder)
 					ownerAdmin.PUT("/page-builder", cfg.TenantHandler.UpdatePageBuilder)
@@ -108,6 +112,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 					ownerAdmin.DELETE("/growth/posts/:id", cfg.TenantHandler.DeleteTenantPost)
 					ownerAdmin.GET("/receipt-settings", cfg.TenantHandler.GetReceiptSettings)
 					ownerAdmin.PUT("/receipt-settings", cfg.TenantHandler.UpdateReceiptSettings)
+					ownerAdmin.GET("/referral-payout-settings", cfg.TenantHandler.GetReferralPayoutSettings)
 					ownerAdmin.GET("/payment-methods", cfg.TenantHandler.GetPaymentMethods)
 					ownerAdmin.PUT("/payment-methods", cfg.TenantHandler.UpdatePaymentMethods)
 					ownerAdmin.GET("/deposit-settings", cfg.TenantHandler.GetDepositSettings)
@@ -195,6 +200,16 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				})
 			}
 
+			adminResources := adminArea.Group("/admin/resources")
+			{
+				adminResources.GET("/summary", middleware.RequirePermission(tenant.PermissionResourcesRead), cfg.ResourceHandler.ListSummary)
+				adminResources.GET("/list", middleware.RequirePermission(tenant.PermissionResourcesRead), cfg.ResourceHandler.ListAdminCatalog)
+				adminResources.GET("/pricing-catalog", middleware.RequirePermission(tenant.PermissionResourcesRead), cfg.ResourceHandler.ListPricingCatalog)
+				adminResources.GET("/addons-catalog", middleware.RequirePermission(tenant.PermissionResourcesRead), cfg.ResourceHandler.ListAddonCatalog)
+				adminResources.GET("/device-map", middleware.RequirePermission(tenant.PermissionDevicesRead), cfg.ResourceHandler.ListDeviceMap)
+				adminResources.GET("/:id", middleware.RequirePermission(tenant.PermissionResourcesRead), cfg.ResourceHandler.GetByID)
+			}
+
 			devices := adminArea.Group("/devices")
 			{
 				devices.GET("/overview", middleware.RequirePermission(tenant.PermissionDevicesRead), cfg.SmartDeviceHandler.Overview)
@@ -224,6 +239,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			bookings := adminArea.Group("/bookings")
 			{
 				bookings.GET("", middleware.RequirePermission(tenant.PermissionBookingsRead), cfg.ReservationHandler.ListAll)
+				bookings.GET("/analytics-summary", middleware.RequirePermission(tenant.PermissionAnalyticsRead), cfg.ReservationHandler.GetAnalyticsSummary)
 				bookings.GET("/:id", middleware.RequirePermission(tenant.PermissionBookingsRead), cfg.ReservationHandler.GetDetail)
 				bookings.GET("/:id/payment-attempts", middleware.RequirePermission(tenant.PermissionBookingsRead), cfg.BillingHandler.ListBookingPaymentAttempts)
 				bookings.PUT("/:id/status", middleware.RequireBookingStatusPermission(), cfg.ReservationHandler.UpdateStatus)
@@ -253,6 +269,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			customers := adminArea.Group("/customers")
 			customers.Use(middleware.RequirePermission(tenant.PermissionCustomersRead))
 			{
+				customers.GET("/count", cfg.CustomerHandler.Count)
 				customers.GET("", cfg.CustomerHandler.List)
 				customers.GET("/search", cfg.CustomerHandler.SearchByPhone)
 				customers.GET("/:id/history", cfg.CustomerHandler.GetHistory)
