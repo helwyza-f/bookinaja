@@ -15,8 +15,8 @@ import {
   Timer,
   Wallet,
   AlertTriangle,
-  PanelRightOpen,
   ChevronLeft,
+  X,
 } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
@@ -56,12 +56,9 @@ type POSBooking = {
   total_resource?: number;
   total_fnb?: number;
   deposit_amount?: number;
-  created_at?: string;
 };
 
-type QueueSectionTone = "danger" | "warning" | "neutral" | "info";
-
-const ACTION_PREVIEW_LIMIT = 6;
+const POS_UPCOMING_WINDOW_MINUTES = 6 * 60;
 
 const needsSettlement = (
   session: Pick<POSBooking, "status" | "payment_status" | "balance_due">,
@@ -104,74 +101,104 @@ function getBookingTotal(booking: POSBooking) {
   return Number(booking.total_resource || 0) + Number(booking.total_fnb || 0);
 }
 
-function getActionHint(booking: POSBooking, now: Date) {
+function isActiveBooking(booking: POSBooking) {
   const status = String(booking.status || "").toLowerCase();
-  const paymentStatus = String(booking.payment_status || "").toLowerCase();
-  const remaining = differenceInMinutes(new Date(booking.end_time), now);
-
-  if (paymentStatus === "awaiting_verification") {
-    return "Review bukti bayar";
-  }
-  if (needsSettlement(booking)) {
-    return "Tutup pelunasan";
-  }
-  if (status === "active" || status === "ongoing") {
-    if (remaining <= 0) return "Akhiri atau tagih";
-    if (remaining <= 15) return "Pantau sesi";
-    return "Buka kontrol sesi";
-  }
-  if (status === "pending") return "Cek status booking";
-  if (status === "confirmed") return "Siapkan sesi";
-  return "Lihat detail";
-}
-
-function getQueueTone(booking: POSBooking, now: Date): QueueSectionTone {
-  const status = String(booking.status || "").toLowerCase();
-  const paymentStatus = String(booking.payment_status || "").toLowerCase();
-  const remaining = differenceInMinutes(new Date(booking.end_time), now);
-
-  if (paymentStatus === "awaiting_verification" || needsSettlement(booking)) {
-    return "danger";
-  }
-  if ((status === "active" || status === "ongoing") && remaining <= 15) {
-    return remaining <= 0 ? "danger" : "warning";
-  }
-  if (status === "pending" || status === "confirmed") {
-    return "info";
-  }
-  return "neutral";
-}
-
-function isAttentionBooking(booking: POSBooking, now: Date) {
-  const status = String(booking.status || "").toLowerCase();
-  const paymentStatus = String(booking.payment_status || "").toLowerCase();
-  const remaining = differenceInMinutes(new Date(booking.end_time), now);
-
-  return (
-    paymentStatus === "awaiting_verification" ||
-    needsSettlement(booking) ||
-    ((status === "active" || status === "ongoing") && remaining <= 15) ||
-    ["failed", "expired"].includes(paymentStatus)
-  );
-}
-
-function isWaitingBooking(booking: POSBooking, now: Date) {
-  const status = String(booking.status || "").toLowerCase();
-  if (!["pending", "confirmed"].includes(status)) return false;
-  const startDiff = differenceInMinutes(new Date(booking.start_time), now);
-  return startDiff <= 360;
+  return status === "active" || status === "ongoing";
 }
 
 function isUpcomingBooking(booking: POSBooking, now: Date) {
   const status = String(booking.status || "").toLowerCase();
   if (!["pending", "confirmed"].includes(status)) return false;
-  const startDiff = differenceInMinutes(new Date(booking.start_time), now);
-  return startDiff > 360;
+  const startsIn = differenceInMinutes(new Date(booking.start_time), now);
+  return startsIn >= 0 && startsIn <= POS_UPCOMING_WINDOW_MINUTES;
 }
 
-function getRelativeBookingWindow(booking: POSBooking, now: Date) {
+function isActionableBooking(booking: POSBooking, now: Date) {
+  const paymentStatus = String(booking.payment_status || "").toLowerCase();
+  return (
+    paymentStatus === "awaiting_verification" ||
+    needsSettlement(booking) ||
+    isActiveBooking(booking) ||
+    isUpcomingBooking(booking, now)
+  );
+}
+
+function getStatusMeta(booking: POSBooking, now: Date) {
   const status = String(booking.status || "").toLowerCase();
+  const paymentStatus = String(booking.payment_status || "").toLowerCase();
+  const remaining = differenceInMinutes(new Date(booking.end_time), now);
+
+  if (paymentStatus === "awaiting_verification") {
+    return {
+      label: "Menunggu verifikasi",
+      className: "bg-amber-500 text-white",
+      toneClass: "border-amber-200 bg-amber-50/50 dark:border-amber-500/20 dark:bg-amber-500/8",
+      lineClass: "bg-amber-500",
+    };
+  }
+
+  if (needsSettlement(booking)) {
+    return {
+      label: "Perlu pelunasan",
+      className: "bg-orange-500 text-white",
+      toneClass: "border-orange-200 bg-orange-50/50 dark:border-orange-500/20 dark:bg-orange-500/8",
+      lineClass: "bg-orange-500",
+    };
+  }
+
   if (status === "active" || status === "ongoing") {
+    if (remaining <= 0) {
+      return {
+        label: "Overtime",
+        className: "bg-red-500 text-white",
+        toneClass: "border-red-200 bg-red-50/50 dark:border-red-500/20 dark:bg-red-500/8",
+        lineClass: "bg-red-500",
+      };
+    }
+    if (remaining <= 15) {
+      return {
+        label: "Segera habis",
+        className: "bg-amber-500 text-white",
+        toneClass: "border-amber-200 bg-amber-50/50 dark:border-amber-500/20 dark:bg-amber-500/8",
+        lineClass: "bg-amber-500",
+      };
+    }
+    return {
+      label: "Sedang berjalan",
+      className: "bg-emerald-500 text-white",
+      toneClass: "border-emerald-200 bg-emerald-50/40 dark:border-emerald-500/20 dark:bg-emerald-500/8",
+      lineClass: "bg-emerald-500",
+    };
+  }
+
+  if (isUpcomingBooking(booking, now)) {
+    return {
+      label: "Akan datang",
+      className: "bg-blue-600 text-white",
+      toneClass: "border-blue-200 bg-blue-50/40 dark:border-blue-500/20 dark:bg-blue-500/8",
+      lineClass: "bg-blue-600",
+    };
+  }
+
+  return {
+    label: booking.status || "Booking",
+    className: "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300",
+    toneClass: "border-slate-200 bg-white dark:border-white/10 dark:bg-[#0f0f17]",
+    lineClass: "bg-slate-300",
+  };
+}
+
+function getBookingHint(booking: POSBooking, now: Date) {
+  const paymentStatus = String(booking.payment_status || "").toLowerCase();
+  if (paymentStatus === "awaiting_verification") return "Review bukti bayar";
+  if (needsSettlement(booking)) return "Tutup tagihan booking";
+  if (isActiveBooking(booking)) return "Buka kontrol sesi";
+  if (isUpcomingBooking(booking, now)) return "Review booking sebelum mulai";
+  return "Lihat detail";
+}
+
+function getRelativeWindow(booking: POSBooking, now: Date) {
+  if (isActiveBooking(booking)) {
     const remaining = differenceInMinutes(new Date(booking.end_time), now);
     if (remaining <= 0) return "Waktu habis";
     if (remaining < 60) return `${remaining} menit lagi`;
@@ -181,161 +208,159 @@ function getRelativeBookingWindow(booking: POSBooking, now: Date) {
   const untilStart = differenceInMinutes(new Date(booking.start_time), now);
   if (untilStart <= 0) return "Siap ditangani";
   if (untilStart < 60) return `${untilStart} menit lagi`;
-  if (untilStart < 1440) return `${Math.floor(untilStart / 60)}j ${untilStart % 60}m lagi`;
-  return format(new Date(booking.start_time), "dd MMM, HH:mm");
+  return `${Math.floor(untilStart / 60)}j ${untilStart % 60}m lagi`;
 }
 
-function compareByCreatedOrStartDesc(a: POSBooking, b: POSBooking) {
-  const aTime = new Date(a.created_at || a.start_time).getTime();
-  const bTime = new Date(b.created_at || b.start_time).getTime();
-  return bTime - aTime;
-}
-
-function compareByStartAsc(a: POSBooking, b: POSBooking) {
+function compareActionableBookings(a: POSBooking, b: POSBooking, now: Date) {
+  const aPriority = getPriority(a, now);
+  const bPriority = getPriority(b, now);
+  if (aPriority !== bPriority) return aPriority - bPriority;
   return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
 }
 
-function QueueStatCard({
-  label,
-  value,
-  hint,
+function getPriority(booking: POSBooking, now: Date) {
+  const paymentStatus = String(booking.payment_status || "").toLowerCase();
+  const remaining = differenceInMinutes(new Date(booking.end_time), now);
+  if (paymentStatus === "awaiting_verification") return 0;
+  if (needsSettlement(booking)) return 1;
+  if (isActiveBooking(booking) && remaining <= 0) return 2;
+  if (isActiveBooking(booking) && remaining <= 15) return 3;
+  if (isActiveBooking(booking)) return 4;
+  if (isUpcomingBooking(booking, now)) return 5;
+  return 10;
+}
+
+function BookingActionCard({
+  booking,
+  now,
+  isSelected,
+  onOpen,
 }: {
-  label: string;
-  value: string;
-  hint: string;
+  booking: POSBooking;
+  now: Date;
+  isSelected: boolean;
+  onOpen: () => void;
 }) {
+  const statusMeta = getStatusMeta(booking, now);
+  const startLabel = formatTenantTime(
+    booking.start_time,
+    booking.timezone || "Asia/Jakarta",
+    "HH:mm",
+  );
+  const endLabel = formatTenantTime(
+    booking.end_time,
+    booking.timezone || "Asia/Jakarta",
+    "HH:mm",
+  );
+  const billLabel = needsSettlement(booking)
+    ? Number(booking.balance_due || 0)
+    : getBookingTotal(booking);
+
   return (
-    <Card className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
-      <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-        {label}
+    <button
+      type="button"
+      onClick={onOpen}
+      className={cn(
+        "group w-full overflow-hidden rounded-xl border bg-white text-left shadow-sm transition-colors hover:border-[var(--bookinaja-300)] hover:bg-slate-50 dark:bg-[#0f0f17] dark:hover:bg-white/[0.03]",
+        statusMeta.toneClass,
+        isSelected && "ring-2 ring-[color:rgba(59,130,246,0.18)] border-[var(--bookinaja-400)]",
+      )}
+    >
+      <div className={cn("h-1 w-full", statusMeta.lineClass)} />
+      <div className="space-y-4 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/80 text-slate-700 shadow-sm dark:bg-white/10 dark:text-white">
+                <UserIcon className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-950 dark:text-white">
+                  {booking.customer_name || "Customer"}
+                </p>
+                <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                  {booking.resource_name || "Unit"}
+                </p>
+              </div>
+            </div>
+          </div>
+          <Badge className={cn("rounded-full border-none text-[10px] font-semibold", statusMeta.className)}>
+            {statusMeta.label}
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-lg bg-white/80 px-3 py-2 dark:bg-white/5">
+            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              Waktu
+            </p>
+            <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-900 dark:text-slate-100">
+              <Clock className="h-3.5 w-3.5 text-[var(--bookinaja-600)]" />
+              {startLabel} - {endLabel}
+            </p>
+          </div>
+          <div className="rounded-lg bg-white/80 px-3 py-2 dark:bg-white/5">
+            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              Kondisi
+            </p>
+            <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-900 dark:text-slate-100">
+              <Timer className="h-3.5 w-3.5 text-[var(--bookinaja-600)]" />
+              {getRelativeWindow(booking, now)}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between border-t border-slate-200/70 pt-3 dark:border-white/10">
+          <div>
+            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              {needsSettlement(booking) ? "Sisa tagihan" : "Nilai booking"}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+              Rp{new Intl.NumberFormat("id-ID").format(billLabel)}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              Aksi
+            </p>
+            <div className="mt-1 flex items-center gap-1 text-xs font-semibold text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+              {getBookingHint(booking, now)}
+              <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </div>
+          </div>
+        </div>
       </div>
-      <div className="mt-2 text-xl font-semibold text-slate-950 dark:text-white">
-        {value}
-      </div>
-      <div className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-        {hint}
-      </div>
-    </Card>
+    </button>
   );
 }
 
-function QueueSection({
-  title,
-  description,
-  items,
-  emptyMessage,
-  now,
-  selectedId,
-  onOpen,
+function DrawerShell({
+  open,
+  onClose,
+  children,
 }: {
-  title: string;
-  description: string;
-  items: POSBooking[];
-  emptyMessage: string;
-  now: Date;
-  selectedId: string | null;
-  onOpen: (id: string) => void;
+  open: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
 }) {
   return (
-    <Card className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
-      <div className="border-b border-slate-100 px-4 py-3 dark:border-white/10">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-semibold text-slate-950 dark:text-white">
-              {title}
-            </h2>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              {description}
-            </p>
-          </div>
-          <Badge
-            variant="outline"
-            className="rounded-full border-slate-200 bg-slate-50 text-[10px] font-medium text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
-          >
-            {items.length}
-          </Badge>
-        </div>
-      </div>
-
-      <div className="divide-y divide-slate-100 dark:divide-white/10">
-        {items.length > 0 ? (
-          items.map((booking) => (
-            <button
-              key={booking.id}
-              type="button"
-              onClick={() => onOpen(booking.id)}
-              className={cn(
-                "flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03]",
-                selectedId === booking.id && "bg-[var(--bookinaja-50)] dark:bg-[color:rgba(59,130,246,0.12)]",
-              )}
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={cn(
-                      "h-2 w-2 rounded-full",
-                      getQueueTone(booking, now) === "danger"
-                        ? "bg-red-500"
-                        : getQueueTone(booking, now) === "warning"
-                          ? "bg-amber-500"
-                          : getQueueTone(booking, now) === "info"
-                            ? "bg-blue-500"
-                            : "bg-slate-300",
-                    )}
-                  />
-                  <p className="truncate text-sm font-semibold text-slate-950 dark:text-white">
-                    {booking.customer_name || "Customer"}
-                  </p>
-                </div>
-                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  {(booking.resource_name || "Unit")} |{" "}
-                  {formatTenantTime(
-                    booking.start_time,
-                    booking.timezone || "Asia/Jakarta",
-                    "dd MMM, HH:mm",
-                  )}
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Badge
-                    className={cn(
-                      "rounded-full border-none px-2 py-1 text-[10px] font-semibold",
-                      getQueueTone(booking, now) === "danger"
-                        ? "bg-red-500 text-white"
-                        : getQueueTone(booking, now) === "warning"
-                          ? "bg-amber-500 text-white"
-                          : getQueueTone(booking, now) === "info"
-                            ? "bg-blue-600 text-white"
-                            : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300",
-                    )}
-                  >
-                    {getActionHint(booking, now)}
-                  </Badge>
-                  <span className="text-[11px] text-slate-400 dark:text-slate-500">
-                    {getRelativeBookingWindow(booking, now)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="shrink-0 text-right">
-                <div className="text-sm font-semibold text-slate-950 dark:text-white">
-                  Rp{new Intl.NumberFormat("id-ID").format(getBookingTotal(booking))}
-                </div>
-                {Number(booking.balance_due || 0) > 0 ? (
-                  <div className="mt-1 text-[11px] text-amber-600">
-                    Sisa Rp{new Intl.NumberFormat("id-ID").format(Number(booking.balance_due || 0))}
-                  </div>
-                ) : null}
-                <ChevronRight className="ml-auto mt-2 h-4 w-4 text-slate-300" />
-              </div>
-            </button>
-          ))
-        ) : (
-          <div className="px-4 py-6 text-sm text-slate-500 dark:text-slate-400">
-            {emptyMessage}
-          </div>
+    <>
+      <div
+        className={cn(
+          "fixed inset-0 z-40 hidden bg-slate-950/20 transition-opacity lg:block",
+          open ? "opacity-100" : "pointer-events-none opacity-0",
         )}
-      </div>
-    </Card>
+        onClick={onClose}
+      />
+      <aside
+        className={cn(
+          "fixed inset-y-0 right-0 z-50 hidden w-[620px] max-w-[96vw] border-l border-slate-200 bg-white shadow-2xl transition-transform lg:block dark:border-white/15 dark:bg-[#0f0f17]",
+          open ? "translate-x-0" : "translate-x-full",
+        )}
+      >
+        {children}
+      </aside>
+    </>
   );
 }
 
@@ -394,7 +419,7 @@ export default function POSPage() {
         menuRes.status === "fulfilled" ? menuRes.value?.data || [] : [],
       );
     } catch {
-      toast.error("Gagal sinkronisasi action desk");
+      toast.error("Gagal sinkronisasi daftar tindakan");
     } finally {
       setLoading(false);
     }
@@ -441,7 +466,7 @@ export default function POSPage() {
 
   useEffect(() => {
     if (activeId && bookings.length > 0 && !selectedSessionId) {
-      const exists = bookings.find((s) => s.id === activeId);
+      const exists = bookings.find((booking) => booking.id === activeId);
       if (exists) {
         openSessionDetail(activeId);
         const params = new URLSearchParams(searchParams.toString());
@@ -511,67 +536,39 @@ export default function POSPage() {
     onReconnect: fetchData,
   });
 
+  const actionableBookings = useMemo(() => {
+    return bookings.filter((booking) => isActionableBooking(booking, now));
+  }, [bookings, now]);
+
   const filteredBookings = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    const sorted = [...bookings].sort(compareByStartAsc);
+    const sorted = [...actionableBookings].sort((a, b) =>
+      compareActionableBookings(a, b, now),
+    );
     if (!query) return sorted;
     return sorted.filter((booking) =>
       [booking.customer_name, booking.resource_name, booking.customer_phone]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(query)),
     );
-  }, [bookings, searchQuery]);
-
-  const attentionBookings = useMemo(
-    () =>
-      filteredBookings
-        .filter((booking) => isAttentionBooking(booking, now))
-        .sort((a, b) => {
-          const aPriority = getAttentionPriority(a, now);
-          const bPriority = getAttentionPriority(b, now);
-          if (aPriority !== bPriority) return aPriority - bPriority;
-          return compareByStartAsc(a, b);
-        })
-        .slice(0, ACTION_PREVIEW_LIMIT),
-    [filteredBookings, now],
-  );
-
-  const waitingBookings = useMemo(
-    () =>
-      filteredBookings
-        .filter((booking) => isWaitingBooking(booking, now))
-        .sort(compareByStartAsc)
-        .slice(0, ACTION_PREVIEW_LIMIT),
-    [filteredBookings, now],
-  );
-
-  const upcomingBookings = useMemo(
-    () =>
-      filteredBookings
-        .filter((booking) => isUpcomingBooking(booking, now))
-        .sort(compareByStartAsc)
-        .slice(0, ACTION_PREVIEW_LIMIT),
-    [filteredBookings, now],
-  );
-
-  const latestBookings = useMemo(
-    () => [...filteredBookings].sort(compareByCreatedOrStartDesc).slice(0, ACTION_PREVIEW_LIMIT),
-    [filteredBookings],
-  );
+  }, [actionableBookings, now, searchQuery]);
 
   const summary = useMemo(() => {
     return {
-      attention: filteredBookings.filter((booking) => isAttentionBooking(booking, now))
+      verification: filteredBookings.filter(
+        (booking) =>
+          String(booking.payment_status || "").toLowerCase() ===
+          "awaiting_verification",
+      ).length,
+      settlement: filteredBookings.filter((booking) => needsSettlement(booking))
         .length,
-      waiting: filteredBookings.filter((booking) => isWaitingBooking(booking, now))
-        .length,
+      active: filteredBookings.filter((booking) => isActiveBooking(booking)).length,
       upcoming: filteredBookings.filter((booking) => isUpcomingBooking(booking, now))
         .length,
-      latest: filteredBookings.length,
     };
   }, [filteredBookings, now]);
 
-  const closeMobileDetail = () => {
+  const closeDetail = () => {
     setSelectedSession(null);
     setSelectedSessionId(null);
   };
@@ -583,14 +580,14 @@ export default function POSPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={closeMobileDetail}
+            onClick={closeDetail}
             className="h-10 w-10 rounded-lg"
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-              Action Desk
+              POS Action
             </p>
             <h1 className="truncate text-sm font-semibold text-slate-950 dark:text-white">
               {selectedSession?.customer_name || "Memuat booking..."}
@@ -623,7 +620,7 @@ export default function POSPage() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <Badge className="rounded-full border-none bg-[var(--bookinaja-600)] text-white">
-            Action Desk
+            POS
           </Badge>
           <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
           <Button
@@ -632,6 +629,15 @@ export default function POSPage() {
             className="h-8 rounded-lg px-3 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-white/5 dark:hover:text-white"
           >
             Ledger booking
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={fetchData}
+            disabled={loading}
+            className="h-8 rounded-lg px-3 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-white/5 dark:hover:text-white"
+          >
+            <RefreshCw className={cn("mr-1.5 h-3.5 w-3.5", loading && "animate-spin")} />
+            Refresh
           </Button>
         </div>
 
@@ -645,166 +651,116 @@ export default function POSPage() {
               className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm font-medium outline-none transition focus:border-[var(--bookinaja-500)] focus:ring-4 focus:ring-[color:rgba(59,130,246,0.14)] dark:border-white/10 dark:bg-white/5 dark:text-white"
             />
           </div>
-          <Button
-            variant="outline"
-            onClick={fetchData}
-            disabled={loading}
-            className="h-10 rounded-lg border-slate-200 bg-white px-4 text-sm font-medium dark:border-white/10 dark:bg-white/5"
-          >
-            <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-            Refresh
-          </Button>
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <QueueStatCard
-          label="Perlu perhatian"
-          value={String(summary.attention)}
-          hint="Verifikasi, overtime, atau pelunasan"
-        />
-        <QueueStatCard
-          label="Menunggu tindakan"
-          value={String(summary.waiting)}
-          hint="Pending atau confirmed yang dekat jadwal"
-        />
-        <QueueStatCard
-          label="Akan datang"
-          value={String(summary.upcoming)}
-          hint="Booking berikutnya yang belum dekat"
-        />
-        <QueueStatCard
-          label="Terlihat"
-          value={String(summary.latest)}
-          hint="Booking hasil pencarian saat ini"
-        />
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] md:p-3.5">
+          <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+            Verifikasi bayar
+          </div>
+          <div className="mt-1.5 text-lg font-semibold text-amber-600 md:text-xl">
+            {summary.verification}
+          </div>
+        </Card>
+        <Card className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] md:p-3.5">
+          <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+            Perlu pelunasan
+          </div>
+          <div className="mt-1.5 text-lg font-semibold text-orange-600 md:text-xl">
+            {summary.settlement}
+          </div>
+        </Card>
+        <Card className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] md:p-3.5">
+          <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+            Sedang berjalan
+          </div>
+          <div className="mt-1.5 text-lg font-semibold text-emerald-600 md:text-xl">
+            {summary.active}
+          </div>
+        </Card>
+        <Card className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] md:p-3.5">
+          <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+            Akan datang
+          </div>
+          <div className="mt-1.5 text-lg font-semibold text-blue-600 md:text-xl">
+            {summary.upcoming}
+          </div>
+        </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_460px]">
-        <div className="min-w-0 space-y-4">
-          {!canReadPos ? (
-            <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-amber-200 bg-amber-50 text-center shadow-sm dark:border-amber-500/20 dark:bg-amber-950/20">
-              <AlertTriangle size={38} className="text-amber-500" />
-              <h3 className="text-base font-semibold text-amber-700 dark:text-amber-200">
-                Akses POS belum diberikan
-              </h3>
-              <p className="max-w-sm text-sm text-amber-600 dark:text-amber-300">
-                Halaman ini butuh izin `pos.read` agar daftar tindakan bisa dibuka.
-              </p>
-            </div>
-          ) : loading ? (
-            <div className="grid gap-4 xl:grid-cols-2">
-              {[...Array(4)].map((_, i) => (
-                <Card
-                  key={i}
-                  className="overflow-hidden rounded-xl border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950"
-                >
-                  <div className="space-y-4 p-4">
-                    <Skeleton className="h-5 w-36" />
-                    <Skeleton className="h-20 w-full rounded-lg" />
-                    <Skeleton className="h-20 w-full rounded-lg" />
-                  </div>
-                </Card>
-              ))}
-            </div>
-          ) : filteredBookings.length === 0 ? (
-            <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-200 bg-white text-center shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
-              <Search size={34} className="text-slate-300" />
-              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-200">
-                Booking tidak ditemukan
-              </h3>
-              <p className="text-sm text-slate-500">
-                Coba nama customer, nomor WA, atau unit lain.
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-4 xl:grid-cols-2">
-              <QueueSection
-                title="Perlu perhatian"
-                description="Item yang sebaiknya ditangani lebih dulu."
-                items={attentionBookings}
-                emptyMessage="Belum ada booking yang mendesak."
-                now={now}
-                selectedId={selectedSessionId}
-                onOpen={openSessionDetail}
-              />
-              <QueueSection
-                title="Menunggu tindakan"
-                description="Pending atau confirmed yang sudah dekat jadwal."
-                items={waitingBookings}
-                emptyMessage="Belum ada booking dekat jadwal yang menunggu aksi."
-                now={now}
-                selectedId={selectedSessionId}
-                onOpen={openSessionDetail}
-              />
-              <QueueSection
-                title="Akan datang"
-                description="Antrian booking berikutnya yang belum mendesak."
-                items={upcomingBookings}
-                emptyMessage="Belum ada booking mendatang lain."
-                now={now}
-                selectedId={selectedSessionId}
-                onOpen={openSessionDetail}
-              />
-              <QueueSection
-                title="Booking terbaru"
-                description="Snapshot terbaru dari booking yang masuk atau berubah."
-                items={latestBookings}
-                emptyMessage="Belum ada booking terbaru untuk ditampilkan."
-                now={now}
-                selectedId={selectedSessionId}
-                onOpen={openSessionDetail}
-              />
-            </div>
-          )}
+      {!canReadPos ? (
+        <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-amber-200 bg-amber-50 text-center shadow-sm dark:border-amber-500/20 dark:bg-amber-950/20">
+          <AlertTriangle size={38} className="text-amber-500" />
+          <h3 className="text-base font-semibold text-amber-700 dark:text-amber-200">
+            Akses POS belum diberikan
+          </h3>
+          <p className="max-w-sm text-sm text-amber-600 dark:text-amber-300">
+            Halaman ini butuh izin `pos.read` agar daftar tindakan bisa dibuka.
+          </p>
         </div>
-
-        <aside className="sticky top-20 hidden h-[calc(100vh-7rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:block dark:border-white/15 dark:bg-[#0f0f17]">
-          {isSheetLoading ? (
-            <POSControlSkeleton />
-          ) : selectedSession ? (
-            <POSControlHub
-              session={selectedSession}
-              menuItems={menuItems}
-              onRefresh={refreshSelectedSession}
-              canWriteBookings={canOperateSession}
-              canManageFnb={canManageFnb}
-              canUseReceiptActions={canUseReceiptActions && isOwner(adminUser)}
-              onClose={() => {
-                setSelectedSession(null);
-                setSelectedSessionId(null);
-              }}
-            />
-          ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[var(--bookinaja-50)] text-[var(--bookinaja-600)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-200)]">
-                <PanelRightOpen className="h-6 w-6" />
+      ) : loading ? (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
+          {[...Array(9)].map((_, i) => (
+            <Card
+              key={i}
+              className="h-52 overflow-hidden rounded-xl border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950"
+            >
+              <Skeleton className="h-1 w-full" />
+              <div className="space-y-4 p-4">
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-16 w-full rounded-lg" />
+                <Skeleton className="h-14 w-full rounded-lg" />
+                <Skeleton className="h-8 w-24 rounded-lg" />
               </div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-                Pilih booking untuk tindakan
-              </h2>
-              <p className="max-w-xs text-sm text-slate-500">
-                Detail billing, aksi sesi, dan pelunasan akan tampil di panel ini.
-              </p>
-            </div>
-          )}
-        </aside>
-      </div>
+            </Card>
+          ))}
+        </div>
+      ) : filteredBookings.length === 0 ? (
+        <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-200 bg-white text-center shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
+          <MonitorPlay size={34} className="text-slate-300" />
+          <h3 className="text-base font-semibold text-slate-700 dark:text-slate-200">
+            Tidak ada booking untuk action desk
+          </h3>
+          <p className="text-sm text-slate-500">
+            Yang tampil di sini hanya booking yang akan datang, sedang berjalan, atau perlu pelunasan.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
+          {filteredBookings.map((booking) => (
+            <BookingActionCard
+              key={booking.id}
+              booking={booking}
+              now={now}
+              isSelected={selectedSessionId === booking.id}
+              onOpen={() => openSessionDetail(booking.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      <DrawerShell open={Boolean(selectedSessionId)} onClose={closeDetail}>
+        {isSheetLoading ? (
+          <POSControlSkeleton />
+        ) : selectedSession ? (
+          <POSControlHub
+            session={selectedSession}
+            menuItems={menuItems}
+            onRefresh={refreshSelectedSession}
+            canWriteBookings={canOperateSession}
+            canManageFnb={canManageFnb}
+            canUseReceiptActions={canUseReceiptActions && isOwner(adminUser)}
+            onClose={closeDetail}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center p-6">
+            <div className="text-sm text-slate-500">Pilih booking untuk melihat tindakan.</div>
+          </div>
+        )}
+      </DrawerShell>
     </div>
   );
-}
-
-function getAttentionPriority(booking: POSBooking, now: Date) {
-  const status = String(booking.status || "").toLowerCase();
-  const paymentStatus = String(booking.payment_status || "").toLowerCase();
-  const remaining = differenceInMinutes(new Date(booking.end_time), now);
-
-  if (paymentStatus === "awaiting_verification") return 0;
-  if (needsSettlement(booking)) return 1;
-  if ((status === "active" || status === "ongoing") && remaining <= 0) return 2;
-  if ((status === "active" || status === "ongoing") && remaining <= 15) return 3;
-  if (["failed", "expired"].includes(paymentStatus)) return 4;
-  return 10;
 }
 
 function getTimeZoneParts(date: Date, timezone = "Asia/Jakarta") {
