@@ -24,12 +24,6 @@ type Resource struct {
 	CreatedAt          time.Time            `db:"created_at" json:"created_at"`
 }
 
-type ResourceSummary struct {
-	ID     uuid.UUID `db:"id" json:"id"`
-	Name   string    `db:"name" json:"name"`
-	Status string    `db:"status" json:"status"`
-}
-
 type ResourceDeviceState struct {
 	ID               uuid.UUID  `db:"id" json:"id"`
 	DeviceID         string     `db:"device_id" json:"device_id"`

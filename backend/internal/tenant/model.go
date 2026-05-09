@@ -273,23 +273,6 @@ type PageBuilderState struct {
 	PreviewMobile bool               `json:"preview_mobile"`
 }
 
-type TenantOnboardingStep struct {
-	ID          string `json:"id"`
-	Label       string `json:"label"`
-	Description string `json:"description"`
-	Href        string `json:"href"`
-	Complete    bool   `json:"complete"`
-	Required    bool   `json:"required"`
-}
-
-type TenantOnboardingProgress struct {
-	ProgressPercent    int                    `json:"progress_percent"`
-	CompletedSteps     int                    `json:"completed_steps"`
-	TotalSteps         int                    `json:"total_steps"`
-	RequiredIncomplete bool                   `json:"required_incomplete"`
-	Steps              []TenantOnboardingStep `json:"steps"`
-}
-
 // Tenant adalah jantung dari sistem Multi-Tenant lo, menyimpan data branding dan konfigurasi publik
 type Tenant struct {
 	ID               uuid.UUID `db:"id" json:"id"`
