@@ -293,85 +293,30 @@ export const PERMISSION_GROUPS = [
 
 export const RECOMMENDED_ROLE_PRESETS = [
   {
-    name: "Frontdesk",
+    name: "Staff Operasional",
     summary:
-      "Untuk staff frontdesk yang fokus menerima booking, konfirmasi jadwal, dan melayani customer datang.",
+      "Role harian untuk staff yang menerima booking, menjalankan sesi, dan memakai POS.",
     permissions: [
       "bookings.read",
       "bookings.create",
       "bookings.confirm",
-      "customers.read",
-    ],
-  },
-  {
-    name: "Kasir / POS",
-    summary:
-      "Untuk staff kasir yang fokus ke POS, tambah order, checkout, settlement cash, dan pengiriman nota.",
-    permissions: [
-      "bookings.read",
-      "pos.read",
-      "pos.order.add",
-      "pos.checkout",
-      "pos.cash.settle",
-      "fnb.read",
-      "customers.read",
-      "receipts.send",
-      "receipts.print",
-    ],
-  },
-  {
-    name: "Operator Operasional",
-    summary:
-      "Untuk staff operasional yang memulai layanan aktif, extend, mengakhiri sesi, dan menjaga resource tetap siap dipakai.",
-    permissions: [
-      "bookings.read",
-      "sessions.start",
-      "sessions.extend",
-      "sessions.complete",
-      "pos.read",
-      "resources.read",
-      "resources.update",
-      "devices.read",
-      "fnb.read",
-      "customers.read",
-    ],
-  },
-  {
-    name: "Supervisor Operasional",
-    summary:
-      "Untuk PIC operasional yang mengawasi booking, POS, resource, katalog, pengeluaran, dan insight harian.",
-    permissions: [
-      "bookings.read",
-      "bookings.create",
-      "bookings.confirm",
-      "bookings.cancel",
       "sessions.start",
       "sessions.extend",
       "sessions.complete",
       "pos.read",
       "pos.order.add",
       "pos.checkout",
-      "pos.cash.settle",
-      "resources.read",
-      "resources.update",
-      "devices.read",
-      "devices.assign",
-      "devices.control",
       "fnb.read",
-      "fnb.update",
+      "resources.read",
       "customers.read",
-      "expenses.read",
-      "expenses.create",
-      "expenses.update",
       "receipts.send",
       "receipts.print",
-      "analytics.read",
     ],
   },
   {
     name: "Admin Operasional",
     summary:
-      "Delegasi tertinggi untuk pengelola operasional yang butuh akses hampir penuh ke modul bisnis, katalog, dan insight.",
+      "Akses luas untuk PIC atau manajer yang mengelola operasional tenant.",
     permissions: [
       "bookings.read",
       "bookings.create",

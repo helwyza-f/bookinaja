@@ -14,14 +14,14 @@ function PageBuilderLivePreviewInner() {
   const mode = searchParams.get("mode") === "desktop" ? "desktop" : "mobile";
 
   const { data: profile } = useSWR("/public/profile", fetcher, {
-    revalidateOnFocus: true,
+    revalidateOnFocus: false,
     revalidateOnMount: true,
-    dedupingInterval: 0,
+    dedupingInterval: 30000,
   });
   const { data: resourceData } = useSWR(profile?.id ? "/public/resources" : null, fetcher, {
-    revalidateOnFocus: true,
+    revalidateOnFocus: false,
     revalidateOnMount: true,
-    dedupingInterval: 0,
+    dedupingInterval: 30000,
   });
 
   if (!profile) {
