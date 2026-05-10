@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -493,7 +494,6 @@ export default function POSPage() {
   const [directSaleSearch, setDirectSaleSearch] = useState("");
   const lastRealtimeToastRef = useRef<string>("");
 
-  const canReadBookings = hasPermission(adminUser, "bookings.read");
   const canReadPos = hasPermission(adminUser, "pos.read");
   const canOperateSession = hasPermission(adminUser, [
     "bookings.confirm",
@@ -1092,10 +1092,12 @@ export default function POSPage() {
                     >
                       <div className="relative aspect-[4/3] overflow-hidden bg-slate-100 dark:bg-white/[0.04]">
                         {resource.resource_image_url ? (
-                          <img
+                          <Image
                             src={resource.resource_image_url}
                             alt={resource.resource_name}
-                            className="h-full w-full object-cover"
+                            fill
+                            sizes="(max-width: 1280px) 50vw, 25vw"
+                            className="object-cover"
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[rgba(59,130,246,0.08)] to-slate-100 text-[var(--bookinaja-600)] dark:from-[rgba(59,130,246,0.12)] dark:to-white/[0.03]">

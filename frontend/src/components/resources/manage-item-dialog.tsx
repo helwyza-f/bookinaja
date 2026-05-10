@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -85,6 +85,15 @@ export function ManageItemDialog({
   const [loading, setLoading] = useState(false);
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
+  const resetForm = useCallback(() => {
+    setName("");
+    setDisplayPrice("");
+    setRawPrice(0);
+    setIsDefault(false);
+    setItemType("main");
+    setPriceUnit(operatingMode === "direct_sale" ? "pcs" : "hour");
+    setUnitDuration(operatingMode === "direct_sale" ? 0 : 60);
+  }, [operatingMode]);
 
   useEffect(() => {
     if (editingItem) {
@@ -100,17 +109,7 @@ export function ManageItemDialog({
     } else {
       resetForm();
     }
-  }, [editingItem, open, operatingMode]);
-
-  const resetForm = () => {
-    setName("");
-    setDisplayPrice("");
-    setRawPrice(0);
-    setIsDefault(false);
-    setItemType("main");
-    setPriceUnit(operatingMode === "direct_sale" ? "pcs" : "hour");
-    setUnitDuration(operatingMode === "direct_sale" ? 0 : 60);
-  };
+  }, [editingItem, open, operatingMode, resetForm]);
 
   const handlePriceChange = (val: string) => {
     const numeric = parseInt(val.replace(/\D/g, "")) || 0;

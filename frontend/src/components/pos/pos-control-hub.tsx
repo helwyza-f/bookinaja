@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
+import Image from "next/image";
 import {
   ChevronUp,
   ChevronDown,
@@ -57,7 +58,7 @@ import {
 } from "./addons-catalog-dialog";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { format, differenceInMinutes, differenceInSeconds, parseISO } from "date-fns";
+import { format, differenceInSeconds, parseISO } from "date-fns";
 import {
   isReceiptProEnabled,
   printReceiptBluetooth,
@@ -227,10 +228,7 @@ function useMidtransSnap() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (window.snap) {
-      setMidtransReady(true);
-      return;
-    }
+    if (window.snap) return;
 
     const existing = document.querySelector<HTMLScriptElement>(
       'script[data-midtrans-snap="bookinaja"]',
@@ -1794,7 +1792,6 @@ function DirectSaleCatalogDialog({
   resources,
   currentItems,
   currentTotal,
-  currentBalance,
   onAddItems,
 }: {
   open: boolean;
@@ -1802,7 +1799,6 @@ function DirectSaleCatalogDialog({
   resources: POSCatalogResource[];
   currentItems: ResolvedPOSSalesOrderItem[];
   currentTotal: number;
-  currentBalance: number;
   onAddItems: (items: Array<{ item: DirectSaleCatalogEntry; quantity: number }>) => Promise<void>;
 }) {
   const [submittingResourceId, setSubmittingResourceId] = useState<string | null>(null);
@@ -2750,7 +2746,6 @@ function DirectSaleControlHub({
         resources={directSaleResources}
         currentItems={resolvedOrderItems}
         currentTotal={Number(order.grand_total || 0)}
-        currentBalance={balanceDue}
         onAddItems={async (items) => {
           try {
             for (const entry of items) {

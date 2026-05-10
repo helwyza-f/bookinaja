@@ -9,7 +9,6 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
-  User,
   Phone,
   Utensils,
   Package,

@@ -206,27 +206,6 @@ export default function ResourcesPage() {
     fetchResources();
   }, []);
 
-  const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
-
-  const priceUnitLabel = (unit?: string) => {
-    switch (unit) {
-      case "hour":
-        return "jam";
-      case "session":
-        return "sesi";
-      case "day":
-        return "hari";
-      case "week":
-        return "minggu";
-      case "month":
-        return "bulan";
-      case "year":
-        return "tahun";
-      default:
-        return unit || "unit";
-    }
-  };
-
   const businessCategory = tenantCategory || "";
   const labels = (() => {
     switch (businessCategory) {

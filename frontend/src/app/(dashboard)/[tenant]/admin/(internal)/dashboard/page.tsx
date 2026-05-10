@@ -81,16 +81,6 @@ type BookingRow = {
   total_fnb?: number;
 };
 
-type OrderRow = {
-  id: string;
-  order_id?: string;
-  plan?: string;
-  billing_interval?: string;
-  amount?: number;
-  status?: string;
-  created_at?: string;
-};
-
 type SubscriptionRow = {
   plan?: string;
   status?: string;
@@ -181,7 +171,6 @@ export default function DashboardPage() {
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [actionFeed, setActionFeed] = useState<ActionFeedRow[]>([]);
-  const [orders, setOrders] = useState<OrderRow[]>([]);
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
   const [onboardingSummary, setOnboardingSummary] = useState<OnboardingSummaryResponse | null>(null);
   const [customersCount, setCustomersCount] = useState(0);
@@ -193,7 +182,7 @@ export default function DashboardPage() {
   const refreshTimerRef = useRef<number | null>(null);
 
   const role = String(sessionUser?.role || "staff").toLowerCase();
-  const permissions = sessionUser?.permission_keys || [];
+  const permissions = useMemo(() => sessionUser?.permission_keys || [], [sessionUser?.permission_keys]);
   const tenantId = sessionUser?.tenant_id || "";
   const ownerOnly = role === "owner";
   const canReadBookings =
@@ -255,14 +244,10 @@ export default function DashboardPage() {
       );
 
       if (ownerOnly) {
-        const [ordersRes, subscriptionRes, onboardingRes] = await Promise.allSettled([
-          api.get("/billing/orders?limit=6"),
+        const [subscriptionRes, onboardingRes] = await Promise.allSettled([
           api.get("/billing/subscription"),
           api.get("/admin/tenant/onboarding-summary"),
         ]);
-        setOrders(
-          ordersRes.status === "fulfilled" ? ordersRes.value.data?.orders || [] : [],
-        );
         setSubscription(
           subscriptionRes.status === "fulfilled" ? subscriptionRes.value.data || null : null,
         );
@@ -270,7 +255,6 @@ export default function DashboardPage() {
           onboardingRes.status === "fulfilled" ? onboardingRes.value.data || null : null,
         );
       } else {
-        setOrders([]);
         setSubscription(null);
         setOnboardingSummary(null);
       }
