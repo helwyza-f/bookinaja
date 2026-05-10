@@ -235,7 +235,11 @@ func (r *Repository) ApplyManualDepositPayment(ctx context.Context, exec sqlx.Ex
 			last_status_changed_at = CASE
 				WHEN status = 'pending' THEN NOW()
 				ELSE last_status_changed_at
-			END
+			END,
+			deposit_override_active = false,
+			deposit_override_reason = NULL,
+			deposit_override_by = NULL,
+			deposit_override_at = NULL
 		WHERE id = $1`,
 		bookingID, methodCode,
 	)
@@ -264,7 +268,11 @@ func (r *Repository) ApplyManualSettlementPayment(ctx context.Context, exec sqlx
 			last_status_changed_at = CASE
 				WHEN status IN ('pending', 'confirmed', 'active') THEN NOW()
 				ELSE last_status_changed_at
-			END
+			END,
+			deposit_override_active = false,
+			deposit_override_reason = NULL,
+			deposit_override_by = NULL,
+			deposit_override_at = NULL
 		WHERE id = $1`,
 		bookingID, methodCode,
 	)

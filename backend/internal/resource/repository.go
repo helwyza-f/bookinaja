@@ -245,6 +245,7 @@ func (r *Repository) ListAddonCatalogByTenant(ctx context.Context, tenantID uuid
 	type row struct {
 		ResourceID    uuid.UUID        `db:"resource_id"`
 		ResourceName  string           `db:"resource_name"`
+		ResourceImageURL string        `db:"resource_image_url"`
 		Category      string           `db:"category"`
 		Status        string           `db:"status"`
 		OperatingMode string           `db:"operating_mode"`
@@ -263,6 +264,7 @@ func (r *Repository) ListAddonCatalogByTenant(ctx context.Context, tenantID uuid
 		SELECT
 			r.id AS resource_id,
 			r.name AS resource_name,
+			COALESCE(r.image_url, '') AS resource_image_url,
 			r.category,
 			r.status,
 			r.operating_mode,
@@ -307,6 +309,93 @@ func (r *Repository) ListAddonCatalogByTenant(ctx context.Context, tenantID uuid
 			metadata = &emptyJSON
 		}
 		items[idx].Addons = append(items[idx].Addons, ResourceItem{
+			ID:           row.ItemID,
+			ResourceID:   row.ResourceID,
+			Name:         row.ItemName,
+			Price:        row.Price,
+			PriceUnit:    row.PriceUnit,
+			UnitDuration: row.UnitDuration,
+			ItemType:     row.ItemType,
+			IsDefault:    row.IsDefault,
+			Metadata:     metadata,
+		})
+	}
+
+	return items, nil
+}
+
+func (r *Repository) ListPOSCatalogByTenant(ctx context.Context, tenantID uuid.UUID) ([]ResourcePOSCatalogItem, error) {
+	type row struct {
+		ResourceID    uuid.UUID        `db:"resource_id"`
+		ResourceName  string           `db:"resource_name"`
+		ResourceImageURL string        `db:"resource_image_url"`
+		Category      string           `db:"category"`
+		Status        string           `db:"status"`
+		OperatingMode string           `db:"operating_mode"`
+		ItemID        uuid.UUID        `db:"item_id"`
+		ItemName      string           `db:"item_name"`
+		Price         float64          `db:"price"`
+		PriceUnit     string           `db:"price_unit"`
+		UnitDuration  int              `db:"unit_duration"`
+		ItemType      string           `db:"item_type"`
+		IsDefault     bool             `db:"is_default"`
+		Metadata      *json.RawMessage `db:"metadata"`
+	}
+
+	var rows []row
+	err := r.db.SelectContext(ctx, &rows, `
+		SELECT
+			r.id AS resource_id,
+			r.name AS resource_name,
+			COALESCE(r.image_url, '') AS resource_image_url,
+			r.category,
+			r.status,
+			r.operating_mode,
+			ri.id AS item_id,
+			ri.name AS item_name,
+			ri.price,
+			ri.price_unit,
+			ri.unit_duration,
+			ri.item_type,
+			ri.is_default,
+			ri.metadata
+		FROM resources r
+		LEFT JOIN resource_items ri ON ri.resource_id = r.id
+		WHERE r.tenant_id = $1
+		  AND r.status != 'deleted'
+		  AND r.operating_mode IN ('direct_sale', 'hybrid')
+		ORDER BY r.created_at DESC, ri.is_default DESC, ri.item_type ASC, ri.price ASC
+	`, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	emptyJSON := json.RawMessage("{}")
+	items := make([]ResourcePOSCatalogItem, 0)
+	indexByResource := make(map[uuid.UUID]int)
+	for _, row := range rows {
+		idx, exists := indexByResource[row.ResourceID]
+		if !exists {
+			items = append(items, ResourcePOSCatalogItem{
+				ResourceID:     row.ResourceID,
+				ResourceName:   row.ResourceName,
+				ResourceImageURL: row.ResourceImageURL,
+				Category:       row.Category,
+				Status:         row.Status,
+				OperatingMode:  row.OperatingMode,
+				AvailableItems: []ResourceItem{},
+			})
+			idx = len(items) - 1
+			indexByResource[row.ResourceID] = idx
+		}
+		if row.ItemID == uuid.Nil {
+			continue
+		}
+		metadata := row.Metadata
+		if metadata == nil {
+			metadata = &emptyJSON
+		}
+		items[idx].AvailableItems = append(items[idx].AvailableItems, ResourceItem{
 			ID:           row.ItemID,
 			ResourceID:   row.ResourceID,
 			Name:         row.ItemName,

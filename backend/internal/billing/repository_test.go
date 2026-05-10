@@ -38,7 +38,11 @@ func TestApplyManualDepositPaymentRedeemsPromo(t *testing.T) {
 			last_status_changed_at = CASE
 				WHEN status = 'pending' THEN NOW()
 				ELSE last_status_changed_at
-			END
+			END,
+			deposit_override_active = false,
+			deposit_override_reason = NULL,
+			deposit_override_by = NULL,
+			deposit_override_at = NULL
 		WHERE id = $1`)).
 		WithArgs(bookingID, "bank_transfer").
 		WillReturnResult(sqlmock.NewResult(0, 1))

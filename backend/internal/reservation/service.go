@@ -419,7 +419,7 @@ func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string,
 	if err != nil {
 		return err
 	}
-	if err := validateBookingTransition(booking.Status, status, booking.PaymentStatus, booking.DepositAmount); err != nil {
+	if err := validateBookingTransition(booking.Status, status, booking.PaymentStatus, booking.DepositAmount, booking.DepositOverrideActive); err != nil {
 		return err
 	}
 
@@ -461,6 +461,110 @@ func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string,
 		_ = s.deviceService.EnqueueStandbyByResource(ctx, tID.String(), booking.ResourceID.String())
 	}
 
+	return nil
+}
+
+func (s *Service) RecordDepositByAdmin(ctx context.Context, id, tenantID, notes string, actor ActorContext) error {
+	bID, err := uuid.Parse(id)
+	if err != nil {
+		return errors.New("ID BOOKING TIDAK VALID")
+	}
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return errors.New("ID TENANT TIDAK VALID")
+	}
+
+	booking, err := s.repo.FindByID(ctx, bID, tID)
+	if err != nil || booking == nil {
+		return errors.New("BOOKING TIDAK DITEMUKAN")
+	}
+
+	status := strings.ToLower(strings.TrimSpace(booking.Status))
+	if status != "pending" && status != "confirmed" {
+		return errors.New("PENCATATAN DP HANYA TERSEDIA UNTUK BOOKING YANG BELUM DIMULAI")
+	}
+	if booking.DepositAmount <= 0 {
+		return errors.New("BOOKING INI TIDAK MEMERLUKAN DP")
+	}
+	paymentStatus := strings.ToLower(strings.TrimSpace(booking.PaymentStatus))
+	if paymentStatus == "partial_paid" || paymentStatus == "paid" || paymentStatus == "settled" {
+		return errors.New("DP SUDAH TERCATAT")
+	}
+	for _, item := range booking.PaymentAttempts {
+		if strings.EqualFold(strings.TrimSpace(item.PaymentScope), "deposit") &&
+			(strings.EqualFold(strings.TrimSpace(item.Status), "submitted") || strings.EqualFold(strings.TrimSpace(item.Status), "awaiting_verification")) {
+			return errors.New("SUDAH ADA PEMBAYARAN DP MANUAL YANG MENUNGGU VERIFIKASI")
+		}
+	}
+
+	if err := s.repo.RecordDepositByAdmin(ctx, bID, tID, strings.TrimSpace(notes), actor); err != nil {
+		return err
+	}
+	s.customerService.InvalidateTenantCache(ctx, tID)
+
+	if updated, findErr := s.repo.FindByID(ctx, bID, tID); findErr == nil && updated != nil {
+		s.emitBookingRealtime(ctx, "payment.dp.paid", updated, map[string]any{
+			"actor_type":    actor.Type,
+			"actor_user_id": actorIDString(actor.UserID),
+			"actor_name":    actor.Name,
+			"actor_role":    actor.Role,
+			"payment_mode":  "admin_recorded",
+		})
+	}
+	return nil
+}
+
+func (s *Service) OverrideDepositRequirement(ctx context.Context, id, tenantID, reason string, actor ActorContext) error {
+	bID, err := uuid.Parse(id)
+	if err != nil {
+		return errors.New("ID BOOKING TIDAK VALID")
+	}
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return errors.New("ID TENANT TIDAK VALID")
+	}
+
+	booking, err := s.repo.FindByID(ctx, bID, tID)
+	if err != nil || booking == nil {
+		return errors.New("BOOKING TIDAK DITEMUKAN")
+	}
+
+	status := strings.ToLower(strings.TrimSpace(booking.Status))
+	if status != "pending" && status != "confirmed" {
+		return errors.New("OVERRIDE DP HANYA BISA DIBERIKAN SEBELUM SESI DIMULAI")
+	}
+	if booking.DepositAmount <= 0 {
+		return errors.New("BOOKING INI TIDAK MEMERLUKAN DP")
+	}
+	paymentStatus := strings.ToLower(strings.TrimSpace(booking.PaymentStatus))
+	if paymentStatus == "partial_paid" || paymentStatus == "paid" || paymentStatus == "settled" {
+		return errors.New("DP SUDAH TERCATAT, OVERRIDE TIDAK DIPERLUKAN")
+	}
+	for _, item := range booking.PaymentAttempts {
+		if strings.EqualFold(strings.TrimSpace(item.PaymentScope), "deposit") &&
+			(strings.EqualFold(strings.TrimSpace(item.Status), "submitted") || strings.EqualFold(strings.TrimSpace(item.Status), "awaiting_verification")) {
+			return errors.New("SELESAIKAN DULU REVIEW DP MANUAL YANG SUDAH DIKIRIM")
+		}
+	}
+	if booking.DepositOverrideActive {
+		return errors.New("OVERRIDE DP SUDAH AKTIF")
+	}
+
+	if err := s.repo.OverrideDepositRequirement(ctx, bID, tID, strings.TrimSpace(reason), actor); err != nil {
+		return err
+	}
+	s.customerService.InvalidateTenantCache(ctx, tID)
+
+	if updated, findErr := s.repo.FindByID(ctx, bID, tID); findErr == nil && updated != nil {
+		s.emitBookingRealtime(ctx, "booking.dp_override.enabled", updated, map[string]any{
+			"actor_type":              actor.Type,
+			"actor_user_id":           actorIDString(actor.UserID),
+			"actor_name":              actor.Name,
+			"actor_role":              actor.Role,
+			"deposit_override_active": true,
+			"deposit_override_reason": strings.TrimSpace(reason),
+		})
+	}
 	return nil
 }
 
@@ -573,14 +677,18 @@ func (s *Service) emitBookingRealtime(ctx context.Context, eventType string, boo
 	event.EntityType = "booking"
 	event.EntityID = booking.ID.String()
 	event.Summary = map[string]any{
-		"status":         booking.Status,
-		"payment_status": booking.PaymentStatus,
-		"resource_name":  booking.ResourceName,
-		"customer_name":  booking.CustomerName,
-		"start_time":     booking.StartTime,
-		"end_time":       booking.EndTime,
-		"grand_total":    booking.GrandTotal,
-		"balance_due":    booking.BalanceDue,
+		"status":                  booking.Status,
+		"payment_status":          booking.PaymentStatus,
+		"resource_name":           booking.ResourceName,
+		"customer_name":           booking.CustomerName,
+		"start_time":              booking.StartTime,
+		"end_time":                booking.EndTime,
+		"grand_total":             booking.GrandTotal,
+		"balance_due":             booking.BalanceDue,
+		"deposit_override_active": booking.DepositOverrideActive,
+		"deposit_override_reason": booking.DepositOverrideReason,
+		"deposit_override_by":     booking.DepositOverrideBy,
+		"deposit_override_at":     booking.DepositOverrideAt,
 	}
 	event.Refs = map[string]any{
 		"booking_id":  booking.ID.String(),
@@ -1204,7 +1312,7 @@ func resolveBookingLifecycle(req CreateBookingReq, isManualWalkIn bool, grandTot
 	return "pending", depositAmount, 0, balanceDue, "pending", ""
 }
 
-func validateBookingTransition(currentStatus, nextStatus, paymentStatus string, depositAmount float64) error {
+func validateBookingTransition(currentStatus, nextStatus, paymentStatus string, depositAmount float64, depositOverrideActive bool) error {
 	currentStatus = strings.ToLower(strings.TrimSpace(currentStatus))
 	nextStatus = strings.ToLower(strings.TrimSpace(nextStatus))
 	paymentStatus = strings.ToLower(strings.TrimSpace(paymentStatus))
@@ -1230,7 +1338,7 @@ func validateBookingTransition(currentStatus, nextStatus, paymentStatus string, 
 		if currentStatus != "pending" && currentStatus != "confirmed" {
 			return errors.New("HANYA BOOKING PENDING/CONFIRMED YANG BISA DIMULAI")
 		}
-		if depositAmount > 0 && paymentStatus != "partial_paid" && paymentStatus != "paid" && paymentStatus != "settled" {
+		if depositAmount > 0 && !depositOverrideActive && paymentStatus != "partial_paid" && paymentStatus != "paid" && paymentStatus != "settled" {
 			return errors.New("DP HARUS TERCATAT SEBELUM SESI DIMULAI")
 		}
 		return nil

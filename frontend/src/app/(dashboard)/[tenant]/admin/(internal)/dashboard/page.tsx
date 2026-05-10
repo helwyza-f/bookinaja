@@ -5,7 +5,6 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { useSearchParams } from "next/navigation";
 import {
-  Activity,
   ArrowRight,
   Banknote,
   Building2,
@@ -44,11 +43,10 @@ import {
   matchesRealtimePrefix,
 } from "@/lib/realtime/event-types";
 import {
+  DashboardDonutPanel,
   DashboardLeaderboardPanel,
   DashboardLineChartPanel,
-  DashboardMetricCard,
   DashboardPanel,
-  DashboardStatStrip,
 } from "@/components/dashboard/analytics-kit";
 
 type ResourceRow = {
@@ -127,6 +125,25 @@ type OnboardingSummaryResponse = {
   }>;
 };
 
+type MetricTone = "indigo" | "emerald" | "amber" | "cyan" | "slate";
+
+type CompactMetric = {
+  label: string;
+  value: string;
+  hint?: string;
+  icon: LucideIcon;
+  tone: MetricTone;
+};
+
+type ActionFeedRow = {
+  id: string;
+  kind?: string;
+  status?: string;
+  payment_status?: string;
+  action_label?: string;
+  priority?: number;
+};
+
 const normalizeBookings = (payload: unknown): BookingRow[] => {
   if (Array.isArray(payload)) return payload as BookingRow[];
   if (payload && typeof payload === "object" && "items" in payload) {
@@ -163,6 +180,7 @@ export default function DashboardPage() {
   const [resources, setResources] = useState<ResourceRow[]>([]);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [bookings, setBookings] = useState<BookingRow[]>([]);
+  const [actionFeed, setActionFeed] = useState<ActionFeedRow[]>([]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
   const [onboardingSummary, setOnboardingSummary] = useState<OnboardingSummaryResponse | null>(null);
@@ -202,12 +220,14 @@ export default function DashboardPage() {
       const allowBookings = hasPermission(scope, "bookings.read");
       const allowResources = hasPermission(scope, "resources.read");
       const allowCustomers = hasPermission(scope, "customers.read");
+      const allowPos = ownerOnly || hasPermission(scope, "pos.read");
 
-      const [resourcesRes, sessionsRes, bookingsRes, customersRes] = await Promise.allSettled([
+      const [resourcesRes, sessionsRes, bookingsRes, customersRes, actionFeedRes] = await Promise.allSettled([
         allowResources ? api.get("/admin/resources/summary") : Promise.resolve(null),
         allowBookings ? api.get("/bookings/pos/active") : Promise.resolve(null),
         allowBookings ? api.get("/bookings") : Promise.resolve(null),
         allowCustomers ? api.get("/customers/count") : Promise.resolve(null),
+        allowPos ? api.get("/pos/action-feed?window_minutes=360&limit=80") : Promise.resolve(null),
       ]);
 
       setResources(
@@ -227,6 +247,11 @@ export default function DashboardPage() {
         customersRes.status === "fulfilled"
           ? Number(customersRes.value?.data?.count || 0)
           : 0,
+      );
+      setActionFeed(
+        actionFeedRes.status === "fulfilled"
+          ? actionFeedRes.value?.data?.items || []
+          : [],
       );
 
       if (ownerOnly) {
@@ -329,6 +354,10 @@ export default function DashboardPage() {
     const todayRevenue = bookings
       .filter((booking) => isSameDay(booking.start_time || booking.created_at, today))
       .reduce((sum, booking) => sum + getBookingTotal(booking), 0);
+    const actionRequiredCount = actionFeed.length;
+    const verificationCount = actionFeed.filter(
+      (item) => String(item.payment_status || "").toLowerCase() === "awaiting_verification",
+    ).length;
 
     return {
       totalResources,
@@ -338,10 +367,12 @@ export default function DashboardPage() {
       maintenanceResources,
       todayBookings,
       todayRevenue,
+      actionRequiredCount,
+      verificationCount,
       plan: subscription?.plan || "-",
       status: subscription?.status || "-",
     };
-  }, [bookings, resources, sessions, subscription]);
+  }, [actionFeed, bookings, resources, sessions, subscription]);
 
   const weeklyRevenuePoints = useMemo(() => {
     const now = new Date();
@@ -355,6 +386,13 @@ export default function DashboardPage() {
         if (!bookingDate || format(bookingDate, "yyyy-MM-dd") !== key) return sum;
         return sum + getBookingTotal(booking);
       }, 0);
+      const addonRevenue = bookings.reduce((sum, booking) => {
+        const rawDate = booking.start_time || booking.created_at;
+        const bookingDate = parseSafeDate(rawDate);
+        if (!bookingDate || format(bookingDate, "yyyy-MM-dd") !== key) return sum;
+        return sum + Number(booking.total_fnb || 0);
+      }, 0);
+      const resourceRevenue = Math.max(revenue - addonRevenue, 0);
       const sessionsCount = sessions.filter((session) => {
         const dateValue = parseSafeDate(session.start_time || session.created_at);
         return dateValue ? format(dateValue, "yyyy-MM-dd") === key : false;
@@ -363,7 +401,7 @@ export default function DashboardPage() {
       return {
         label: WEEKDAY_SHORT.format(date),
         primary: revenue,
-        secondary: sessionsCount,
+        secondary: resourceRevenue,
         meta: `${sessionsCount} sesi`,
       };
     });
@@ -436,6 +474,199 @@ export default function DashboardPage() {
   }, [bookings, resources]);
 
   const topResourceToday = resourceStats[0] || null;
+  const weeklySummary = useMemo(() => {
+    const totalRevenue = weeklyRevenuePoints.reduce((sum, point) => sum + point.primary, 0);
+    const activeDays = weeklyRevenuePoints.filter((point) => point.primary > 0).length;
+    const peakPoint = weeklyRevenuePoints.reduce(
+      (best, point) => (point.primary > best.primary ? point : best),
+      weeklyRevenuePoints[0] || { label: "-", primary: 0, secondary: 0, meta: "" },
+    );
+
+    return {
+      totalRevenue,
+      activeDays,
+      peakLabel: peakPoint?.label || "-",
+      peakRevenue: peakPoint?.primary || 0,
+    };
+  }, [weeklyRevenuePoints]);
+
+  const keyMetrics = useMemo<CompactMetric[]>(() => {
+    const items: CompactMetric[] = [];
+
+    if (ownerOnly) {
+      items.push({
+        label: "Revenue",
+        value: `Rp ${formatIDR(metrics.todayRevenue)}`,
+        hint: "Hari ini",
+        icon: TrendingUp,
+        tone: "indigo",
+      });
+    }
+
+    if (canReadBookings) {
+      items.push({
+        label: "Booking",
+        value: metrics.todayBookings.toString(),
+        hint: "Hari ini",
+        icon: CalendarClock,
+        tone: "emerald",
+      });
+      items.push({
+        label: "Sesi aktif",
+        value: metrics.activeSessions.toString(),
+        hint: `${metrics.occupiedPercent}% okupansi`,
+        icon: Clock3,
+        tone: "cyan",
+      });
+    }
+
+    if (canManagePos) {
+      items.push({
+        label: "Butuh tindakan",
+        value: String(metrics.actionRequiredCount),
+        hint: metrics.verificationCount > 0 ? `${metrics.verificationCount} verifikasi` : "POS feed",
+        icon: Sparkles,
+        tone: "amber",
+      });
+    } else if (canManageResources) {
+      items.push({
+        label: "Resource siap",
+        value: String(metrics.availableResources),
+        hint: `${metrics.totalResources} total`,
+        icon: Monitor,
+        tone: "amber",
+      });
+    } else if (canReadCustomers) {
+      items.push({
+        label: "Customer",
+        value: customersCount.toString(),
+        hint: "Tersimpan",
+        icon: Users,
+        tone: "slate",
+      });
+    }
+
+    return items.slice(0, 4);
+  }, [
+    canManagePos,
+    canManageResources,
+    canReadBookings,
+    canReadCustomers,
+    metrics.actionRequiredCount,
+    customersCount,
+    metrics.activeSessions,
+    metrics.availableResources,
+    metrics.occupiedPercent,
+    metrics.todayBookings,
+    metrics.todayRevenue,
+    metrics.totalResources,
+    metrics.verificationCount,
+    ownerOnly,
+  ]);
+
+  const ownerSnapshot = useMemo(
+    () =>
+      [
+        metrics.plan && metrics.plan !== "-"
+          ? { label: "Plan", value: String(metrics.plan).toUpperCase(), icon: Wallet }
+          : null,
+        { label: "Okupansi", value: `${metrics.occupiedPercent}%`, icon: TrendingUp },
+        canManageResources
+          ? { label: "Top resource", value: topResourceToday?.name || "Belum ada", icon: Monitor }
+          : null,
+        canManagePos
+          ? { label: "Verifikasi", value: String(metrics.verificationCount), icon: Sparkles }
+          : canReadCustomers
+            ? { label: "Customer", value: customersCount.toString(), icon: Users }
+            : null,
+        canManageResources
+          ? { label: "Resource siap", value: String(metrics.availableResources), icon: Monitor }
+          : null,
+      ].filter(Boolean) as Array<{ label: string; value: string; icon: LucideIcon }>,
+    [
+      canManagePos,
+      canManageResources,
+      canReadCustomers,
+      customersCount,
+      metrics.availableResources,
+      metrics.occupiedPercent,
+      metrics.plan,
+      metrics.verificationCount,
+      topResourceToday?.name,
+    ],
+  );
+
+  const dashboardDonut = useMemo(() => {
+    if (canManagePos) {
+      const verification = actionFeed.filter(
+        (item) => String(item.payment_status || "").toLowerCase() === "awaiting_verification",
+      ).length;
+      const payment = actionFeed.filter((item) => item.action_label === "Tuntaskan pembayaran").length;
+      const live = actionFeed.filter((item) =>
+        ["active", "ongoing"].includes(String(item.status || "").toLowerCase()),
+      ).length;
+      const prep = actionFeed.filter((item) => item.action_label === "Siapkan booking").length;
+
+      const actionSegments = [
+        { label: "Verifikasi", value: verification, colorClass: "--chart-rose" },
+        { label: "Pembayaran", value: payment, colorClass: "--chart-amber" },
+        { label: "Sesi live", value: live, colorClass: "--chart-indigo" },
+        { label: "Siapkan", value: prep, colorClass: "--chart-emerald" },
+      ].filter((segment) => segment.value > 0);
+
+      if (actionSegments.length >= 2) {
+        return {
+          eyebrow: "Action mix",
+          title: "Antrian tindakan",
+          description: "Sebaran aksi yang sedang menunggu kasir atau admin.",
+          totalLabel: "Perlu aksi",
+          totalValue: String(actionFeed.length),
+          segments: actionSegments,
+        };
+      }
+
+      const otherResources = Math.max(
+        metrics.totalResources - metrics.availableResources - metrics.maintenanceResources,
+        0,
+      );
+
+      return {
+        eyebrow: "Action mix",
+        title: "Kondisi unit",
+        description: "Action feed sedang tipis, jadi panel kanan menampilkan status resource.",
+        totalLabel: "Total unit",
+        totalValue: String(metrics.totalResources),
+        segments: [
+          { label: "Siap", value: metrics.availableResources, colorClass: "--chart-emerald" },
+          { label: "Maintenance", value: metrics.maintenanceResources, colorClass: "--chart-amber" },
+          { label: "Lainnya", value: otherResources, colorClass: "--chart-indigo" },
+        ].filter((segment) => segment.value > 0),
+      };
+    }
+
+    const otherResources = Math.max(
+      metrics.totalResources - metrics.availableResources - metrics.maintenanceResources,
+      0,
+    );
+    return {
+      eyebrow: "Status resource",
+      title: "Kondisi unit",
+      description: "Komposisi singkat resource yang siap dipakai hari ini.",
+      totalLabel: "Total unit",
+      totalValue: String(metrics.totalResources),
+      segments: [
+        { label: "Siap", value: metrics.availableResources, colorClass: "--chart-emerald" },
+        { label: "Maintenance", value: metrics.maintenanceResources, colorClass: "--chart-amber" },
+        { label: "Lainnya", value: otherResources, colorClass: "--chart-indigo" },
+      ].filter((segment) => segment.value > 0),
+    };
+  }, [
+    actionFeed,
+    canManagePos,
+    metrics.availableResources,
+    metrics.maintenanceResources,
+    metrics.totalResources,
+  ]);
 
   const onboardingSteps = useMemo<OnboardingStep[]>(() => {
     if (!ownerOnly || !onboardingSummary?.steps?.length) return [];
@@ -529,7 +760,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4 px-3 pb-20 pt-4 font-plus-jakarta md:px-4">
-      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
@@ -545,11 +776,18 @@ export default function DashboardPage() {
               <h1 className="text-xl font-semibold text-slate-950 dark:text-white sm:text-2xl">
                 Dashboard
               </h1>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Pulse operasional yang paling penting.
+              </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => void fetchDashboard("background")} variant="outline" className="rounded-lg">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            <Button
+              onClick={() => void fetchDashboard("background")}
+              variant="outline"
+              className="rounded-lg"
+            >
               <RefreshCcw className={cn("mr-2 h-4 w-4", refreshing && "animate-spin")} />
               Refresh
             </Button>
@@ -692,105 +930,83 @@ export default function DashboardPage() {
         </DashboardPanel>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {ownerOnly ? (
-          <DashboardMetricCard
-            label="Today Revenue"
-            value={`Rp ${formatIDR(metrics.todayRevenue)}`}
-            hint="Hari ini"
-            icon={TrendingUp}
-            tone="indigo"
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {keyMetrics.map((metric) => (
+          <CompactMetricCard
+            key={metric.label}
+            label={metric.label}
+            value={metric.value}
+            hint={metric.hint}
+            icon={metric.icon}
+            tone={metric.tone}
             loading={loading}
           />
-        ) : null}
-        {canReadBookings ? (
-          <DashboardMetricCard
-            label="Today Bookings"
-            value={metrics.todayBookings.toString()}
-            hint="Hari ini"
-            icon={CalendarClock}
-            tone="emerald"
-            loading={loading}
-          />
-        ) : null}
-        {canReadBookings ? (
-          <DashboardMetricCard
-            label="Active Sessions"
-            value={metrics.activeSessions.toString()}
-            hint={`${metrics.occupiedPercent}% okupansi`}
-            icon={Clock3}
-            tone="cyan"
-            loading={loading}
-          />
-        ) : null}
-        {canReadCustomers ? (
-          <DashboardMetricCard
-            label="Customers"
-            value={customersCount.toString()}
-            hint="Tersimpan"
-            icon={Users}
-            tone="slate"
-            loading={loading}
-          />
-        ) : null}
-        {canManageResources ? (
-          <DashboardMetricCard
-            label="Resource Pool"
-            value={String(metrics.totalResources)}
-            hint={`${metrics.availableResources} available`}
-            icon={Monitor}
-            tone="amber"
-            loading={loading}
-          />
-        ) : null}
+        ))}
       </div>
 
-      <DashboardStatStrip
-        items={[
-          { label: "Available", value: String(metrics.availableResources), tone: "emerald" },
-          { label: "Maintenance", value: String(metrics.maintenanceResources), tone: "amber" },
-          { label: "Top resource", value: topResourceToday?.name || "No activity", tone: "cyan" },
-          { label: "Plan", value: String(metrics.plan).toUpperCase(), tone: "slate" },
-        ]}
-      />
-
-      <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <DashboardLineChartPanel
-          eyebrow="Weekly trend"
-          title="Revenue dan sesi 7 hari"
-          description="Ringkasan cepat performa 7 hari terakhir."
-          points={weeklyRevenuePoints}
-          primaryLabel="Revenue"
-          secondaryLabel="Sessions"
-          formatValue={(value) => `Rp ${formatIDR(value)}`}
-        />
-
-        <DashboardPanel
-          eyebrow="Business snapshot"
-          title="Ringkasan keputusan cepat"
-          description="Konteks singkat yang perlu terbaca tanpa buka analytics."
-        >
-          <div className="grid gap-3 sm:grid-cols-2">
-            <InfoChip label="Subscription plan" value={String(metrics.plan).toUpperCase()} icon={Wallet} />
-            <InfoChip label="Subscription status" value={String(metrics.status || "-").toUpperCase()} icon={Activity} />
-            <InfoChip label="Billing orders" value={String(orders.length)} icon={PanelsTopLeft} />
-            <InfoChip label="Today occupancy" value={`${metrics.occupiedPercent}%`} icon={TrendingUp} />
+      <section className="grid gap-4 xl:grid-cols-[1.45fr_0.7fr]">
+        <div className="space-y-4">
+          <DashboardLineChartPanel
+            eyebrow="7 hari"
+            title="Revenue 7 hari"
+            description="Bandingkan total revenue harian dengan porsi revenue utama di rentang yang sama."
+            points={weeklyRevenuePoints}
+            primaryLabel="Revenue"
+            secondaryLabel="Revenue utama"
+            formatValue={(value) => `Rp ${formatIDR(value)}`}
+          />
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+            <InfoChip label="Total 7 hari" value={`Rp ${formatIDR(weeklySummary.totalRevenue)}`} icon={Wallet} />
+            <InfoChip label="Hari aktif" value={`${weeklySummary.activeDays}/7`} icon={CalendarClock} />
+            <InfoChip label="Puncak" value={`${weeklySummary.peakLabel} · Rp ${formatIDR(weeklySummary.peakRevenue)}`} icon={TrendingUp} />
           </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-900/30">
-            <div className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
-              Next step
-            </div>
-            <div className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-              Dashboard ini fokus ke pulse operasional. Detail yang lebih dalam tetap ada di analytics.
-            </div>
-            <Button asChild className="mt-3 rounded-lg bg-slate-950 text-white hover:bg-slate-800">
-              <Link href="/admin/settings/analytics" prefetch={false}>
-                Open Analytics
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
-        </DashboardPanel>
+        </div>
+
+        <div className="space-y-4">
+          <DashboardDonutPanel
+            eyebrow={dashboardDonut.eyebrow}
+            title={dashboardDonut.title}
+            description={dashboardDonut.description}
+            totalLabel={dashboardDonut.totalLabel}
+            totalValue={dashboardDonut.totalValue}
+            segments={dashboardDonut.segments}
+          />
+
+          {ownerOnly ? (
+            <DashboardPanel
+              eyebrow="Owner pulse"
+              title="Snapshot singkat"
+              description="Konteks cepat untuk cek kondisi tenant."
+            >
+              <div className="grid grid-cols-2 gap-3">
+                {ownerSnapshot.map((item) => (
+                  <InfoChip key={item.label} label={item.label} value={item.value} icon={item.icon} />
+                ))}
+              </div>
+              <div className="flex justify-end">
+                <Button asChild variant="outline" className="rounded-lg">
+                  <Link href="/admin/settings/analytics" prefetch={false}>
+                    Open analytics
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            </DashboardPanel>
+          ) : (
+            <DashboardPanel
+              eyebrow="Pulse"
+              title="Ringkasan cepat"
+              description="Konteks singkat untuk baca kondisi tenant saat ini."
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <InfoChip label="Okupansi" value={`${metrics.occupiedPercent}%`} icon={TrendingUp} />
+                <InfoChip label="Resource siap" value={String(metrics.availableResources)} icon={Monitor} />
+                <InfoChip label="Customer" value={customersCount.toString()} icon={Users} />
+                <InfoChip label="Verifikasi" value={String(metrics.verificationCount)} icon={Sparkles} />
+              </div>
+            </DashboardPanel>
+          )}
+        </div>
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
@@ -819,20 +1035,14 @@ export default function DashboardPage() {
         />
       </section>
 
-      {!ownerOnly ? (
+      {!ownerOnly && quickActions.length === 0 ? (
         <DashboardPanel
-          eyebrow="Visibility"
-          title="Mode staf tetap aman"
-          description="Konteks sensitif tetap dibatasi untuk owner."
+          eyebrow="Mode staf"
+          title="Akses operasional terbatas"
+          description="Modul sensitif tetap disimpan untuk owner."
         >
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-300">
-            Role staf hanya melihat ringkasan operasional dan aktivitas terbaru.
-            Revenue detail, order billing, dan pembacaan finansial yang sensitif tetap disimpan untuk owner.
-            {quickActions.length === 0 ? (
-              <div className="mt-3 text-xs font-medium text-slate-400 dark:text-slate-500">
-                Saat ini akun ini belum memiliki modul operasional yang bisa dibuka.
-              </div>
-            ) : null}
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-300">
+            Saat ini akun ini belum memiliki modul operasional tambahan yang bisa dibuka.
           </div>
         </DashboardPanel>
       ) : null}
@@ -864,6 +1074,46 @@ function InfoChip({
       ) : (
         <Skeleton className="mt-2 h-5 w-24 rounded-md" />
       )}
+    </div>
+  );
+}
+
+function CompactMetricCard({
+  label,
+  value,
+  hint,
+  icon: Icon,
+  tone,
+  loading,
+}: CompactMetric & { loading?: boolean }) {
+  const toneClass: Record<MetricTone, string> = {
+    indigo: "bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[rgba(74,141,255,0.12)] dark:text-[var(--bookinaja-200)]",
+    emerald: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-200",
+    amber: "bg-amber-50 text-amber-700 dark:bg-amber-500/12 dark:text-amber-200",
+    cyan: "bg-cyan-50 text-cyan-700 dark:bg-cyan-500/12 dark:text-cyan-200",
+    slate: "bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-200",
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950 sm:p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            {label}
+          </div>
+          <div className="mt-1.5 text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
+            {loading ? "..." : value}
+          </div>
+          {hint ? (
+            <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              {hint}
+            </div>
+          ) : null}
+        </div>
+        <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", toneClass[tone])}>
+          <Icon className="h-4 w-4" />
+        </div>
+      </div>
     </div>
   );
 }

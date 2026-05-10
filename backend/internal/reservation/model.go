@@ -10,33 +10,37 @@ import (
 )
 
 type Booking struct {
-	ID                  uuid.UUID  `db:"id" json:"id"`
-	TenantID            uuid.UUID  `db:"tenant_id" json:"tenant_id"`
-	CustomerID          uuid.UUID  `db:"customer_id" json:"customer_id"`
-	ResourceID          uuid.UUID  `db:"resource_id" json:"resource_id"`
-	StartTime           time.Time  `db:"start_time" json:"start_time"`
-	EndTime             time.Time  `db:"end_time" json:"end_time"`
-	AccessToken         uuid.UUID  `db:"access_token" json:"access_token"`
-	Status              string     `db:"status" json:"status"` // pending, active, ongoing, completed, cancelled
-	PromoID             *uuid.UUID `db:"promo_id" json:"promo_id,omitempty"`
-	PromoCode           *string    `db:"promo_code" json:"promo_code,omitempty"`
-	OriginalGrandTotal  *float64   `db:"original_grand_total" json:"original_grand_total,omitempty"`
-	DiscountAmount      float64    `db:"discount_amount" json:"discount_amount"`
-	PromoSnapshot       JSONB      `db:"promo_snapshot" json:"promo_snapshot"`
-	GrandTotal          float64    `db:"grand_total" json:"grand_total"`
-	DepositAmount       float64    `db:"deposit_amount" json:"deposit_amount"`
-	PaidAmount          float64    `db:"paid_amount" json:"paid_amount"`
-	BalanceDue          float64    `db:"balance_due" json:"balance_due"`
-	PaymentStatus       string     `db:"payment_status" json:"payment_status"`
-	PaymentMethod       string     `db:"payment_method" json:"payment_method"`
-	Reminder20MSentAt   *time.Time `db:"reminder_20m_sent_at" json:"reminder_20m_sent_at"`
-	Reminder5MSentAt    *time.Time `db:"reminder_5m_sent_at" json:"reminder_5m_sent_at"`
-	SessionActivatedAt  *time.Time `db:"session_activated_at" json:"session_activated_at"`
-	CompletedAt         *time.Time `db:"completed_at" json:"completed_at"`
-	CancelledAt         *time.Time `db:"cancelled_at" json:"cancelled_at"`
-	SettledAt           *time.Time `db:"settled_at" json:"settled_at"`
-	LastStatusChangedAt *time.Time `db:"last_status_changed_at" json:"last_status_changed_at"`
-	CreatedAt           time.Time  `db:"created_at" json:"created_at"`
+	ID                    uuid.UUID  `db:"id" json:"id"`
+	TenantID              uuid.UUID  `db:"tenant_id" json:"tenant_id"`
+	CustomerID            uuid.UUID  `db:"customer_id" json:"customer_id"`
+	ResourceID            uuid.UUID  `db:"resource_id" json:"resource_id"`
+	StartTime             time.Time  `db:"start_time" json:"start_time"`
+	EndTime               time.Time  `db:"end_time" json:"end_time"`
+	AccessToken           uuid.UUID  `db:"access_token" json:"access_token"`
+	Status                string     `db:"status" json:"status"` // pending, active, ongoing, completed, cancelled
+	PromoID               *uuid.UUID `db:"promo_id" json:"promo_id,omitempty"`
+	PromoCode             *string    `db:"promo_code" json:"promo_code,omitempty"`
+	OriginalGrandTotal    *float64   `db:"original_grand_total" json:"original_grand_total,omitempty"`
+	DiscountAmount        float64    `db:"discount_amount" json:"discount_amount"`
+	PromoSnapshot         JSONB      `db:"promo_snapshot" json:"promo_snapshot"`
+	GrandTotal            float64    `db:"grand_total" json:"grand_total"`
+	DepositAmount         float64    `db:"deposit_amount" json:"deposit_amount"`
+	PaidAmount            float64    `db:"paid_amount" json:"paid_amount"`
+	BalanceDue            float64    `db:"balance_due" json:"balance_due"`
+	PaymentStatus         string     `db:"payment_status" json:"payment_status"`
+	PaymentMethod         string     `db:"payment_method" json:"payment_method"`
+	DepositOverrideActive bool       `db:"deposit_override_active" json:"deposit_override_active"`
+	DepositOverrideReason *string    `db:"deposit_override_reason" json:"deposit_override_reason"`
+	DepositOverrideBy     *string    `db:"deposit_override_by" json:"deposit_override_by"`
+	DepositOverrideAt     *time.Time `db:"deposit_override_at" json:"deposit_override_at"`
+	Reminder20MSentAt     *time.Time `db:"reminder_20m_sent_at" json:"reminder_20m_sent_at"`
+	Reminder5MSentAt      *time.Time `db:"reminder_5m_sent_at" json:"reminder_5m_sent_at"`
+	SessionActivatedAt    *time.Time `db:"session_activated_at" json:"session_activated_at"`
+	CompletedAt           *time.Time `db:"completed_at" json:"completed_at"`
+	CancelledAt           *time.Time `db:"cancelled_at" json:"cancelled_at"`
+	SettledAt             *time.Time `db:"settled_at" json:"settled_at"`
+	LastStatusChangedAt   *time.Time `db:"last_status_changed_at" json:"last_status_changed_at"`
+	CreatedAt             time.Time  `db:"created_at" json:"created_at"`
 }
 
 type BookingOption struct {

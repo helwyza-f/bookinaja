@@ -25,20 +25,26 @@ func TestCalculateDepositAmountCanBeDisabled(t *testing.T) {
 }
 
 func TestValidateBookingTransitionRequiresRecordedDepositBeforeActivation(t *testing.T) {
-	err := validateBookingTransition("pending", "active", "pending", 15000)
+	err := validateBookingTransition("pending", "active", "pending", 15000, false)
 	if err == nil {
 		t.Fatal("validateBookingTransition() error = nil, want DP validation error")
 	}
 }
 
 func TestValidateBookingTransitionAllowsActivationWhenDepositPaid(t *testing.T) {
-	if err := validateBookingTransition("pending", "active", "partial_paid", 15000); err != nil {
+	if err := validateBookingTransition("pending", "active", "partial_paid", 15000, false); err != nil {
 		t.Fatalf("validateBookingTransition() error = %v, want nil", err)
 	}
 }
 
+func TestValidateBookingTransitionAllowsActivationWhenDepositOverrideActive(t *testing.T) {
+	if err := validateBookingTransition("pending", "active", "pending", 15000, true); err != nil {
+		t.Fatalf("validateBookingTransition() error = %v, want nil when override active", err)
+	}
+}
+
 func TestValidateBookingTransitionAllowsCompletionOnlyFromActive(t *testing.T) {
-	if err := validateBookingTransition("confirmed", "completed", "paid", 0); err == nil {
+	if err := validateBookingTransition("confirmed", "completed", "paid", 0, false); err == nil {
 		t.Fatal("validateBookingTransition() error = nil, want invalid completion error")
 	}
 }

@@ -149,6 +149,14 @@ func (s *Service) ListAddonCatalog(ctx context.Context, tenantID string) ([]Reso
 	return s.repo.ListAddonCatalogByTenant(ctx, tID)
 }
 
+func (s *Service) ListPOSCatalog(ctx context.Context, tenantID string) ([]ResourcePOSCatalogItem, error) {
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return s.repo.ListPOSCatalogByTenant(ctx, tID)
+}
+
 func (s *Service) ListDeviceMap(ctx context.Context, tenantID string) ([]ResourceDeviceMapItem, error) {
 	tID, err := uuid.Parse(tenantID)
 	if err != nil {

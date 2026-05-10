@@ -4,21 +4,25 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { format, subDays } from "date-fns";
 import {
+  AlertTriangle,
   ArrowRight,
   Banknote,
   CalendarClock,
   Clock3,
+  Coins,
   LineChart,
+  ReceiptText,
   RefreshCcw,
+  Sparkles,
   TrendingDown,
   TrendingUp,
-  Users,
   Wallet,
 } from "lucide-react";
 import api from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RealtimePill } from "@/components/dashboard/realtime-pill";
+import { hasPermission } from "@/lib/admin-access";
 import { toast } from "sonner";
 import { useRealtime } from "@/lib/realtime/use-realtime";
 import {
@@ -42,16 +46,16 @@ import {
 } from "@/components/dashboard/analytics-kit";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
 
-type BookingSummaryRow = {
-  revenue?: number;
-  addon_revenue?: number;
-  bookings_count?: number;
-  average_ticket?: number;
-  daily_series?: BookingSummaryPoint[];
-  resource_leaders?: BookingResourceLeader[];
-  recent_bookings?: BookingRow[];
-  addon_bookings?: BookingRow[];
-};
+type RangeKey = "7d" | "30d" | "90d";
+type SourceKey =
+  | "bookingSummary"
+  | "expenseSummary"
+  | "expenseLedger"
+  | "customers"
+  | "subscription"
+  | "salesOrders"
+  | "resources"
+  | "actionFeed";
 
 type BookingSummaryPoint = {
   date: string;
@@ -80,19 +84,37 @@ type BookingRow = {
   total_fnb?: number;
 };
 
+type BookingSummaryRow = {
+  revenue?: number;
+  addon_revenue?: number;
+  bookings_count?: number;
+  average_ticket?: number;
+  daily_series?: BookingSummaryPoint[];
+  resource_leaders?: BookingResourceLeader[];
+  recent_bookings?: BookingRow[];
+  addon_bookings?: BookingRow[];
+};
+
 type ExpenseRow = {
   id: string;
   title: string;
   category: string;
   amount: number;
   expense_date: string;
+  vendor?: string;
+};
+
+type ExpenseSummaryRow = {
+  total?: number;
+  entries?: number;
 };
 
 type CustomerRow = {
   id: string;
   name?: string;
   total_spent?: number;
-  last_booking_at?: string;
+  total_visits?: number;
+  last_visit?: string;
 };
 
 type SubscriptionRow = {
@@ -101,7 +123,53 @@ type SubscriptionRow = {
   current_period_end?: string;
 };
 
-type RangeKey = "7d" | "30d" | "90d";
+type SalesOrderRow = {
+  id: string;
+  resource_name?: string;
+  order_number?: string;
+  status?: string;
+  grand_total?: number;
+  paid_amount?: number;
+  balance_due?: number;
+  payment_status?: string;
+  created_at?: string;
+  updated_at?: string;
+  completed_at?: string;
+};
+
+type ResourceSummaryRow = {
+  id: string;
+  name?: string;
+  status?: string;
+  category?: string;
+  operating_mode?: string;
+};
+
+type ActionFeedRow = {
+  id: string;
+  kind?: string;
+  status?: string;
+  payment_status?: string;
+  action_label?: string;
+  balance_due?: number;
+};
+
+type SourceHealth = {
+  key: SourceKey;
+  label: string;
+  ok: boolean;
+};
+
+const SOURCE_LABELS: Record<SourceKey, string> = {
+  bookingSummary: "Ringkasan booking",
+  expenseSummary: "Ringkasan pengeluaran",
+  expenseLedger: "Ledger pengeluaran",
+  customers: "Customer",
+  subscription: "Subscription",
+  salesOrders: "Direct sale",
+  resources: "Resource",
+  actionFeed: "POS action feed",
+};
 
 const formatIDR = (value?: number) =>
   new Intl.NumberFormat("id-ID").format(Number(value || 0));
@@ -118,7 +186,6 @@ const getBookingTotal = (booking: BookingRow) => {
   return Number(booking.total_resource || 0) + Number(booking.total_fnb || 0);
 };
 
-const getAddonTotal = (booking: BookingRow) => Number(booking.total_fnb || 0);
 const rangeDays = (range: RangeKey) => (range === "7d" ? 7 : range === "90d" ? 90 : 30);
 
 const formatPeriodEnd = (value?: string) => {
@@ -126,52 +193,183 @@ const formatPeriodEnd = (value?: string) => {
   return parsed ? format(parsed, "dd MMM yyyy") : "-";
 };
 
+const buildDateSpine = (days: number) =>
+  Array.from({ length: days }).map((_, index) => {
+    const date = subDays(new Date(), days - index - 1);
+    return {
+      key: format(date, "yyyy-MM-dd"),
+      label: format(date, "dd MMM"),
+      shortLabel: format(date, "EEE"),
+    };
+  });
+
 export default function SettingsAnalyticsPage() {
   const { user } = useAdminSession();
+  const role = String(user?.role || "staff").toLowerCase();
+  const permissions = user?.permission_keys || [];
+  const tenantId = user?.tenant_id || "";
+  const ownerOnly = role === "owner";
+  const canReadAnalytics =
+    ownerOnly || hasPermission({ role, permission_keys: permissions }, "analytics.read");
+  const canReadExpenses =
+    ownerOnly || hasPermission({ role, permission_keys: permissions }, "expenses.read");
+  const canReadCustomers =
+    ownerOnly || hasPermission({ role, permission_keys: permissions }, "customers.read");
+  const canReadResources =
+    ownerOnly || hasPermission({ role, permission_keys: permissions }, "resources.read");
+  const canReadPos =
+    ownerOnly || hasPermission({ role, permission_keys: permissions }, "pos.read");
+
   const [range, setRange] = useState<RangeKey>("30d");
   const [bookingSummary, setBookingSummary] = useState<BookingSummaryRow | null>(null);
+  const [expenseSummary, setExpenseSummary] = useState<ExpenseSummaryRow | null>(null);
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
+  const [salesOrders, setSalesOrders] = useState<SalesOrderRow[]>([]);
+  const [resources, setResources] = useState<ResourceSummaryRow[]>([]);
+  const [actionFeed, setActionFeed] = useState<ActionFeedRow[]>([]);
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
+  const [sourceHealth, setSourceHealth] = useState<SourceHealth[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastSync, setLastSync] = useState("");
   const hasLoadedRef = useRef(false);
   const refreshTimerRef = useRef<number | null>(null);
-  const tenantId = user?.tenant_id || "";
 
-  const fetchAnalytics = useCallback(async (mode: "initial" | "background" = "initial") => {
-    const background = mode === "background" && hasLoadedRef.current;
-    if (!background) setLoading(true);
-    setRefreshing(true);
-    try {
-      const [bookingsRes, expensesRes, customersRes, subscriptionRes] = await Promise.all([
-        api.get("/bookings/analytics-summary", { params: { days: rangeDays(range) } }),
-        api.get("/expenses", { params: { limit: 100 } }),
-        api.get("/customers"),
-        api.get("/billing/subscription"),
-      ]);
+  const rangeStart = useMemo(
+    () => format(subDays(new Date(), rangeDays(range) - 1), "yyyy-MM-dd"),
+    [range],
+  );
+  const rangeEnd = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
 
-      setBookingSummary(bookingsRes.data || null);
-      setExpenses(Array.isArray(expensesRes.data) ? expensesRes.data : []);
-      setCustomers(Array.isArray(customersRes.data) ? customersRes.data : []);
-      setSubscription(subscriptionRes.data || null);
-      setLastSync(
-        new Date().toLocaleTimeString("id-ID", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      );
-      hasLoadedRef.current = true;
-    } catch {
-      if (!background) {
-        toast.error("Gagal memuat analytics");
+  const fetchAnalytics = useCallback(
+    async (mode: "initial" | "background" = "initial") => {
+      const background = mode === "background" && hasLoadedRef.current;
+      if (!background) setLoading(true);
+      setRefreshing(true);
+
+      const tasks = [
+        {
+          key: "bookingSummary" as const,
+          label: SOURCE_LABELS.bookingSummary,
+          enabled: canReadAnalytics,
+          run: () => api.get("/bookings/analytics-summary", { params: { days: rangeDays(range) } }),
+        },
+        {
+          key: "expenseSummary" as const,
+          label: SOURCE_LABELS.expenseSummary,
+          enabled: canReadExpenses,
+          run: () => api.get("/expenses/summary", { params: { from: rangeStart, to: rangeEnd } }),
+        },
+        {
+          key: "expenseLedger" as const,
+          label: SOURCE_LABELS.expenseLedger,
+          enabled: canReadExpenses,
+          run: () => api.get("/expenses", { params: { limit: 200, from: rangeStart, to: rangeEnd } }),
+        },
+        {
+          key: "customers" as const,
+          label: SOURCE_LABELS.customers,
+          enabled: canReadCustomers,
+          run: () => api.get("/customers"),
+        },
+        {
+          key: "subscription" as const,
+          label: SOURCE_LABELS.subscription,
+          enabled: ownerOnly,
+          run: () => api.get("/billing/subscription"),
+        },
+        {
+          key: "salesOrders" as const,
+          label: SOURCE_LABELS.salesOrders,
+          enabled: canReadPos,
+          run: () => api.get("/sales-orders", { params: { limit: 200, status: "all" } }),
+        },
+        {
+          key: "resources" as const,
+          label: SOURCE_LABELS.resources,
+          enabled: canReadResources,
+          run: () => api.get("/admin/resources/summary"),
+        },
+        {
+          key: "actionFeed" as const,
+          label: SOURCE_LABELS.actionFeed,
+          enabled: canReadPos,
+          run: () =>
+            api.get("/pos/action-feed", { params: { limit: 120, window_minutes: 10080 } }),
+        },
+      ].filter((task) => task.enabled);
+
+      try {
+        const results = await Promise.allSettled(tasks.map((task) => task.run()));
+        const nextHealth: SourceHealth[] = [];
+        let successCount = 0;
+
+        tasks.forEach((task, index) => {
+          const result = results[index];
+          const ok = result.status === "fulfilled";
+          nextHealth.push({ key: task.key, label: task.label, ok });
+          if (!ok) return;
+
+          successCount += 1;
+          const data = result.value?.data;
+          switch (task.key) {
+            case "bookingSummary":
+              setBookingSummary(data || null);
+              break;
+            case "expenseSummary":
+              setExpenseSummary(data || null);
+              break;
+            case "expenseLedger":
+              setExpenses(Array.isArray(data) ? data : []);
+              break;
+            case "customers":
+              setCustomers(Array.isArray(data) ? data : []);
+              break;
+            case "subscription":
+              setSubscription(data || null);
+              break;
+            case "salesOrders":
+              setSalesOrders(data?.items || []);
+              break;
+            case "resources":
+              setResources(data?.items || []);
+              break;
+            case "actionFeed":
+              setActionFeed(data?.items || []);
+              break;
+          }
+        });
+
+        setSourceHealth(nextHealth);
+        setLastSync(
+          new Date().toLocaleTimeString("id-ID", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        );
+        hasLoadedRef.current = true;
+
+        if (!background && successCount === 0) {
+          toast.error("Gagal memuat analytics");
+        }
+      } finally {
+        if (!background) setLoading(false);
+        setRefreshing(false);
       }
-    } finally {
-      if (!background) setLoading(false);
-      setRefreshing(false);
-    }
-  }, [range]);
+    },
+    [
+      canReadAnalytics,
+      canReadCustomers,
+      canReadExpenses,
+      canReadPos,
+      canReadResources,
+      ownerOnly,
+      range,
+      rangeEnd,
+      rangeStart,
+    ],
+  );
 
   useEffect(() => {
     void fetchAnalytics("initial");
@@ -218,14 +416,7 @@ export default function SettingsAnalyticsPage() {
     },
   });
 
-  const plan = String(subscription?.plan || "").toLowerCase().trim();
-  const status = String(subscription?.status || "").toLowerCase().trim();
-  const periodEnd = parseSafeDate(subscription?.current_period_end);
-  const alive = !subscription?.current_period_end || periodEnd === null || periodEnd > new Date();
-  const isProActive = plan === "pro" && status === "active" && alive;
-  const isStarterTrial =
-    plan === "starter" && alive && (status === "trial" || status === "active");
-
+  const dateSpine = useMemo(() => buildDateSpine(rangeDays(range)), [range]);
   const rangeLabel =
     range === "7d" ? "7 hari terakhir" : range === "90d" ? "90 hari terakhir" : "30 hari terakhir";
 
@@ -233,93 +424,177 @@ export default function SettingsAnalyticsPage() {
     () =>
       expenses.filter((expense) => {
         const date = parseSafeDate(expense.expense_date);
-        if (!date) return false;
-        return date >= subDays(new Date(), rangeDays(range) - 1);
+        return date ? format(date, "yyyy-MM-dd") >= rangeStart : false;
       }),
-    [expenses, range],
+    [expenses, rangeStart],
   );
 
-  const summary = useMemo(() => {
-    const revenue = Number(bookingSummary?.revenue || 0);
-    const addonRevenue = Number(bookingSummary?.addon_revenue || 0);
-    const expenseTotal = filteredExpenses.reduce(
-      (sum, expense) => sum + Number(expense.amount || 0),
-      0,
-    );
-    const netProfit = revenue - expenseTotal;
-    const bookingsCount = Number(bookingSummary?.bookings_count || 0);
-    const expenseCount = filteredExpenses.length;
-    const averageTicket = Number(bookingSummary?.average_ticket || 0);
-    const profitMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
-    const expenseRatio = revenue > 0 ? (expenseTotal / revenue) * 100 : 0;
-    const addonRatio = revenue > 0 ? (addonRevenue / revenue) * 100 : 0;
+  const filteredSalesOrders = useMemo(
+    () =>
+      salesOrders.filter((order) => {
+        const date = parseSafeDate(order.completed_at || order.updated_at || order.created_at);
+        return date ? format(date, "yyyy-MM-dd") >= rangeStart : false;
+      }),
+    [rangeStart, salesOrders],
+  );
+
+  const salesSummary = useMemo(() => {
+    const settledOrders = filteredSalesOrders.filter((order) => {
+      const paymentStatus = String(order.payment_status || "").toLowerCase();
+      const status = String(order.status || "").toLowerCase();
+      return (
+        ["settled", "paid"].includes(paymentStatus) ||
+        (status === "paid" && Number(order.balance_due || 0) <= 0) ||
+        Number(order.paid_amount || 0) > 0
+      );
+    });
+
+    const revenue = settledOrders.reduce((sum, order) => {
+      const fullyPaid =
+        ["settled", "paid"].includes(String(order.payment_status || "").toLowerCase()) ||
+        Number(order.balance_due || 0) <= 0;
+      return sum + (fullyPaid ? Number(order.grand_total || 0) : Number(order.paid_amount || 0));
+    }, 0);
 
     return {
       revenue,
+      ordersCount: filteredSalesOrders.length,
+      settledCount: settledOrders.length,
+      pendingBalance: filteredSalesOrders.reduce(
+        (sum, order) => sum + Number(order.balance_due || 0),
+        0,
+      ),
+    };
+  }, [filteredSalesOrders]);
+
+  const summary = useMemo(() => {
+    const bookingRevenue = Number(bookingSummary?.revenue || 0);
+    const posRevenue = Number(salesSummary.revenue || 0);
+    const totalRevenue = bookingRevenue + posRevenue;
+    const addonRevenue = Number(bookingSummary?.addon_revenue || 0);
+    const expenseTotal = Number(expenseSummary?.total || 0);
+    const transactionCount =
+      Number(bookingSummary?.bookings_count || 0) + Number(salesSummary.ordersCount || 0);
+    const netProfit = totalRevenue - expenseTotal;
+    const averageTicket = transactionCount > 0 ? totalRevenue / transactionCount : 0;
+    const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+    const expenseRatio = totalRevenue > 0 ? (expenseTotal / totalRevenue) * 100 : 0;
+    const addonRatio = totalRevenue > 0 ? (addonRevenue / totalRevenue) * 100 : 0;
+    const verificationCount = actionFeed.filter(
+      (item) => String(item.payment_status || "").toLowerCase() === "awaiting_verification",
+    ).length;
+
+    return {
+      totalRevenue,
+      bookingRevenue,
+      posRevenue,
       addonRevenue,
       expenseTotal,
+      expenseCount: Number(expenseSummary?.entries || filteredExpenses.length || 0),
+      transactionCount,
       netProfit,
-      bookingsCount,
-      expenseCount,
       averageTicket,
       profitMargin,
       expenseRatio,
       addonRatio,
+      verificationCount,
+      pendingBalance:
+        actionFeed.reduce((sum, item) => sum + Number(item.balance_due || 0), 0) ||
+        salesSummary.pendingBalance,
     };
-  }, [bookingSummary, filteredExpenses]);
+  }, [actionFeed, bookingSummary, expenseSummary, filteredExpenses.length, salesSummary]);
 
-  const dailySeries = useMemo(() => {
-    return (bookingSummary?.daily_series || []).map((point) => {
-      const key = point.date;
-      const expenseTotal = filteredExpenses.reduce((sum, expense) => {
-        const dateValue = parseSafeDate(expense.expense_date);
-        return dateValue && format(dateValue, "yyyy-MM-dd") === key
-          ? sum + Number(expense.amount || 0)
-          : sum;
-      }, 0);
-      const bookingsCount = Number(point.bookings_count || 0);
+  const trendPoints = useMemo(() => {
+    const bookingRevenueByDay = new Map<string, number>();
+    const bookingCountByDay = new Map<string, number>();
+    const salesRevenueByDay = new Map<string, number>();
+    const salesCountByDay = new Map<string, number>();
+    const expenseByDay = new Map<string, number>();
+
+    (bookingSummary?.daily_series || []).forEach((point) => {
+      bookingRevenueByDay.set(point.date, Number(point.revenue || 0));
+      bookingCountByDay.set(point.date, Number(point.bookings_count || 0));
+    });
+
+    filteredSalesOrders.forEach((order) => {
+      const date = parseSafeDate(order.completed_at || order.updated_at || order.created_at);
+      if (!date) return;
+      const key = format(date, "yyyy-MM-dd");
+      const fullyPaid =
+        ["settled", "paid"].includes(String(order.payment_status || "").toLowerCase()) ||
+        Number(order.balance_due || 0) <= 0;
+      const value = fullyPaid ? Number(order.grand_total || 0) : Number(order.paid_amount || 0);
+      salesRevenueByDay.set(key, (salesRevenueByDay.get(key) || 0) + value);
+      salesCountByDay.set(key, (salesCountByDay.get(key) || 0) + 1);
+    });
+
+    filteredExpenses.forEach((expense) => {
+      const date = parseSafeDate(expense.expense_date);
+      if (!date) return;
+      const key = format(date, "yyyy-MM-dd");
+      expenseByDay.set(key, (expenseByDay.get(key) || 0) + Number(expense.amount || 0));
+    });
+
+    return dateSpine.map((point) => {
+      const bookingRevenue = bookingRevenueByDay.get(point.key) || 0;
+      const salesRevenue = salesRevenueByDay.get(point.key) || 0;
+      const expensesValue = expenseByDay.get(point.key) || 0;
+      const bookingCount = bookingCountByDay.get(point.key) || 0;
+      const salesCount = salesCountByDay.get(point.key) || 0;
+      const totalCount = bookingCount + salesCount;
       return {
-        label: point.label,
-        primary: Number(point.revenue || 0),
-        secondary: expenseTotal,
-        tertiary: bookingsCount,
-        meta: `${bookingsCount} booking`,
+        label: point.shortLabel.toUpperCase(),
+        primary: bookingRevenue + salesRevenue,
+        secondary: expensesValue,
+        meta:
+          totalCount > 0
+            ? `${totalCount} transaksi`
+            : expensesValue > 0
+              ? "ada expense"
+              : "tidak ada aktivitas",
       };
     });
-  }, [bookingSummary, filteredExpenses]);
+  }, [bookingSummary, dateSpine, filteredExpenses, filteredSalesOrders]);
+
+  const trendSummary = useMemo(() => {
+    const totalRevenue = trendPoints.reduce((sum, point) => sum + point.primary, 0);
+    const totalExpense = trendPoints.reduce((sum, point) => sum + point.secondary, 0);
+    const peakPoint = trendPoints.reduce(
+      (best, point) => (point.primary > best.primary ? point : best),
+      trendPoints[0] || { label: "-", primary: 0, secondary: 0, meta: "" },
+    );
+    const activeDays = trendPoints.filter((point) => point.primary > 0 || point.secondary > 0).length;
+    return {
+      totalRevenue,
+      totalExpense,
+      peakLabel: peakPoint.label,
+      peakRevenue: peakPoint.primary,
+      activeDays,
+    };
+  }, [trendPoints]);
+
+  const revenueSegments = useMemo(
+    () =>
+      [
+        { label: "Booking", value: summary.bookingRevenue, colorClass: "--chart-indigo" },
+        { label: "Direct sale", value: summary.posRevenue, colorClass: "--chart-emerald" },
+        { label: "Add-on", value: summary.addonRevenue, colorClass: "--chart-amber" },
+      ].filter((segment) => segment.value > 0),
+    [summary.addonRevenue, summary.bookingRevenue, summary.posRevenue],
+  );
 
   const categoryBreakdown = useMemo(() => {
     const map = new Map<string, { amount: number; count: number }>();
     filteredExpenses.forEach((expense) => {
-      const current = map.get(expense.category) || { amount: 0, count: 0 };
+      const current = map.get(expense.category || "Lainnya") || { amount: 0, count: 0 };
       current.amount += Number(expense.amount || 0);
       current.count += 1;
-      map.set(expense.category, current);
+      map.set(expense.category || "Lainnya", current);
     });
     return Array.from(map.entries())
       .map(([category, value]) => ({ category, ...value }))
       .sort((a, b) => b.amount - a.amount);
   }, [filteredExpenses]);
-
-  const recentBookings = useMemo(
-    () => bookingSummary?.recent_bookings || [],
-    [bookingSummary],
-  );
-
-  const topCustomers = useMemo(
-    () =>
-      [...customers]
-        .sort(
-          (a, b) => Number(b.total_spent || 0) - Number(a.total_spent || 0),
-        )
-        .slice(0, 6),
-    [customers],
-  );
-
-  const addonBookings = useMemo(
-    () => bookingSummary?.addon_bookings || [],
-    [bookingSummary],
-  );
 
   const expenseSegments = useMemo(
     () =>
@@ -328,20 +603,31 @@ export default function SettingsAnalyticsPage() {
         value: item.amount,
         colorClass:
           index === 0
-            ? "--chart-indigo"
+            ? "--chart-rose"
             : index === 1
-              ? "--chart-emerald"
+              ? "--chart-amber"
               : index === 2
-                ? "--chart-amber"
-                : "--chart-rose",
+                ? "--chart-indigo"
+                : "--chart-emerald",
       })),
     [categoryBreakdown],
   );
 
+  const resourceStatusSegments = useMemo(() => {
+    const available = resources.filter((item) => item.status === "available").length;
+    const maintenance = resources.filter((item) => item.status === "maintenance").length;
+    const other = Math.max(resources.length - available - maintenance, 0);
+    return [
+      { label: "Siap", value: available, colorClass: "--chart-emerald" },
+      { label: "Maintenance", value: maintenance, colorClass: "--chart-amber" },
+      { label: "Lainnya", value: other, colorClass: "--chart-indigo" },
+    ].filter((segment) => segment.value > 0);
+  }, [resources]);
+
   const resourceRows = useMemo(() => {
-    const resourceLeaders = bookingSummary?.resource_leaders || [];
-    const maxRevenue = Math.max(...resourceLeaders.map((item) => Number(item.revenue || 0)), 1);
-    return resourceLeaders.slice(0, 8).map((resource) => ({
+    const leaders = bookingSummary?.resource_leaders || [];
+    const maxRevenue = Math.max(...leaders.map((item) => Number(item.revenue || 0)), 1);
+    return leaders.slice(0, 8).map((resource) => ({
       id: resource.id,
       title: resource.name,
       subtitle: resource.last_booking_at
@@ -353,25 +639,35 @@ export default function SettingsAnalyticsPage() {
     }));
   }, [bookingSummary]);
 
+  const topCustomers = useMemo(
+    () =>
+      [...customers]
+        .sort((a, b) => Number(b.total_spent || 0) - Number(a.total_spent || 0))
+        .slice(0, 6),
+    [customers],
+  );
+
   const customerRows = useMemo(() => {
     const maxSpend = Math.max(...topCustomers.map((item) => Number(item.total_spent || 0)), 1);
     return topCustomers.map((customer) => ({
       id: customer.id,
       title: customer.name || "Customer",
-      subtitle: customer.last_booking_at
-        ? format(parseSafeDate(customer.last_booking_at) || new Date(), "dd MMM yyyy")
-        : "no recent activity",
+      subtitle: customer.last_visit
+        ? `terakhir ${format(parseSafeDate(customer.last_visit) || new Date(), "dd MMM yyyy")}`
+        : "belum ada kunjungan",
       value: `Rp ${formatIDR(customer.total_spent)}`,
+      meta: `${customer.total_visits || 0} visit`,
       progress: (Number(customer.total_spent || 0) / maxSpend) * 100,
     }));
   }, [topCustomers]);
 
   const bookingRows = useMemo(() => {
-    const maxTotal = Math.max(...recentBookings.map((item) => getBookingTotal(item)), 1);
-    return recentBookings.map((booking) => ({
+    const rows = bookingSummary?.recent_bookings || [];
+    const maxTotal = Math.max(...rows.map((item) => getBookingTotal(item)), 1);
+    return rows.map((booking) => ({
       id: booking.id,
       title: booking.customer_name || "Guest",
-      subtitle: `${booking.resource_name || "-"} • ${
+      subtitle: `${booking.resource_name || "-"} - ${
         parseSafeDate(booking.start_time || booking.created_at)
           ? format(parseSafeDate(booking.start_time || booking.created_at) || new Date(), "dd MMM HH:mm")
           : "-"
@@ -380,40 +676,40 @@ export default function SettingsAnalyticsPage() {
       meta: String(booking.payment_status || "pending").toUpperCase(),
       progress: (getBookingTotal(booking) / maxTotal) * 100,
     }));
-  }, [recentBookings]);
+  }, [bookingSummary]);
 
-  if (!isProActive && !isStarterTrial) {
-    return (
-      <div className="space-y-5 p-4 pb-20 sm:p-6">
-        <AnalyticsHero
-          onRefresh={() => void fetchAnalytics("background")}
-          refreshing={refreshing}
-          realtimeConnected={realtimeConnected}
-          realtimeStatus={realtimeStatus}
-        />
-        <DashboardPanel
-          eyebrow="Mode laporan"
-          title="Analytics belum aktif penuh"
-          description="Akun ini belum berada pada plan yang membuka laporan detail. Saya tetap tampilkan shell layout supaya struktur dashboard konsisten walau konten finansialnya masih tertutup."
-          actions={<Badge variant="secondary">{String(subscription?.plan || "starter").toUpperCase()}</Badge>}
-        >
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <DashboardMetricCard label="Revenue" value="Locked" hint="aktif di Starter trial / Pro" tone="slate" />
-            <DashboardMetricCard label="Expenses" value="Locked" hint="perlu plan analytics" tone="slate" />
-            <DashboardMetricCard label="Profit" value="Locked" hint="butuh revenue dan expense" tone="slate" />
-            <DashboardMetricCard label="Bookings" value="Visible later" hint="summary akan muncul saat plan aktif" tone="slate" />
-          </div>
-          <div className="rounded-[1.6rem] border border-dashed border-slate-200 bg-slate-50/70 p-5 text-sm leading-relaxed text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
-            Paket saat ini: <span className="font-semibold text-slate-950 dark:text-white">{subscription?.plan || "-"}</span>
-            <br />
-            Status langganan: <span className="font-semibold text-slate-950 dark:text-white">{subscription?.status || "-"}</span>
-            <br />
-            Aktif sampai: <span className="font-semibold text-slate-950 dark:text-white">{formatPeriodEnd(subscription?.current_period_end)}</span>
-          </div>
-        </DashboardPanel>
-      </div>
-    );
-  }
+  const salesRows = useMemo(() => {
+    const maxTotal = Math.max(...filteredSalesOrders.map((item) => Number(item.grand_total || 0)), 1);
+    return filteredSalesOrders.slice(0, 8).map((order) => ({
+      id: order.id,
+      title: order.resource_name || order.order_number || "Direct sale",
+      subtitle: parseSafeDate(order.completed_at || order.updated_at || order.created_at)
+        ? format(parseSafeDate(order.completed_at || order.updated_at || order.created_at) || new Date(), "dd MMM HH:mm")
+        : "-",
+      value: `Rp ${formatIDR(order.grand_total)}`,
+      meta: String(order.payment_status || order.status || "open").toUpperCase(),
+      progress: (Number(order.grand_total || 0) / maxTotal) * 100,
+    }));
+  }, [filteredSalesOrders]);
+
+  const expenseRows = useMemo(() => {
+    const maxTotal = Math.max(...filteredExpenses.map((item) => Number(item.amount || 0)), 1);
+    return filteredExpenses.slice(0, 8).map((expense) => ({
+      id: expense.id,
+      title: expense.title,
+      subtitle: `${expense.category || "-"} - ${
+        parseSafeDate(expense.expense_date)
+          ? format(parseSafeDate(expense.expense_date) || new Date(), "dd MMM yyyy")
+          : "-"
+      }`,
+      value: `Rp ${formatIDR(expense.amount)}`,
+      meta: expense.vendor || "-",
+      progress: (Number(expense.amount || 0) / maxTotal) * 100,
+    }));
+  }, [filteredExpenses]);
+
+  const softFailures = sourceHealth.filter((item) => !item.ok);
+  const addonBookings = bookingSummary?.addon_bookings || [];
 
   return (
     <div className="space-y-5 p-4 pb-20 sm:p-6">
@@ -430,60 +726,151 @@ export default function SettingsAnalyticsPage() {
             key={item}
             onClick={() => setRange(item)}
             variant={range === item ? "default" : "outline"}
-            className={range === item ? "rounded-2xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]" : "rounded-2xl"}
+            className={
+              range === item
+                ? "rounded-2xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
+                : "rounded-2xl"
+            }
           >
             {item === "7d" ? "7 Hari" : item === "30d" ? "30 Hari" : "90 Hari"}
           </Button>
         ))}
-        <div className="ml-auto hidden items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500 shadow-sm dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300 md:flex">
-          <Clock3 className="h-4 w-4 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
+        <div className="ml-auto hidden items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500 shadow-sm md:flex">
+          <Clock3 className="h-4 w-4 text-[var(--bookinaja-600)]" />
           Sinkron {lastSync || "--:--"}
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        <DashboardMetricCard label="Revenue" value={`Rp ${formatIDR(summary.revenue)}`} hint={rangeLabel} icon={TrendingUp} tone="indigo" loading={loading} />
-        <DashboardMetricCard label="Expenses" value={`Rp ${formatIDR(summary.expenseTotal)}`} hint={`${summary.expenseCount} entri`} icon={Banknote} tone="rose" loading={loading} />
-        <DashboardMetricCard label="Net Profit" value={`Rp ${formatIDR(summary.netProfit)}`} hint={`${summary.profitMargin.toFixed(1)}% margin`} icon={Wallet} tone={summary.netProfit >= 0 ? "emerald" : "amber"} loading={loading} />
-        <DashboardMetricCard label="Bookings" value={String(summary.bookingsCount)} hint={`Avg Rp ${formatIDR(summary.averageTicket)}`} icon={CalendarClock} tone="cyan" loading={loading} />
-        <DashboardMetricCard label="Customers" value={String(customers.length)} hint="database terkini" icon={Users} tone="slate" loading={loading} />
-        <DashboardMetricCard label="Expense Ratio" value={`${summary.expenseRatio.toFixed(1)}%`} hint="biaya / revenue" icon={TrendingDown} tone="amber" loading={loading} />
+      {softFailures.length ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <div className="font-semibold">Sebagian sumber data belum masuk</div>
+              <div className="mt-1 text-amber-800">
+                Halaman tetap menampilkan data yang tersedia. Sumber yang gagal:{" "}
+                {softFailures.map((item) => item.label).join(", ")}.
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <DashboardMetricCard
+          label="Revenue total"
+          value={`Rp ${formatIDR(summary.totalRevenue)}`}
+          hint={rangeLabel}
+          icon={TrendingUp}
+          tone="indigo"
+          loading={loading}
+        />
+        <DashboardMetricCard
+          label="Revenue booking"
+          value={`Rp ${formatIDR(summary.bookingRevenue)}`}
+          hint={`${Number(bookingSummary?.bookings_count || 0)} booking`}
+          icon={CalendarClock}
+          tone="cyan"
+          loading={loading}
+        />
+        <DashboardMetricCard
+          label="Revenue direct sale"
+          value={`Rp ${formatIDR(summary.posRevenue)}`}
+          hint={`${salesSummary.ordersCount} order`}
+          icon={Wallet}
+          tone="emerald"
+          loading={loading}
+        />
+        <DashboardMetricCard
+          label="Pengeluaran"
+          value={`Rp ${formatIDR(summary.expenseTotal)}`}
+          hint={`${summary.expenseCount} entri`}
+          icon={Banknote}
+          tone="rose"
+          loading={loading}
+        />
+        <DashboardMetricCard
+          label="Laba bersih"
+          value={`Rp ${formatIDR(summary.netProfit)}`}
+          hint={`${summary.profitMargin.toFixed(1)}% margin`}
+          icon={Coins}
+          tone={summary.netProfit >= 0 ? "emerald" : "amber"}
+          loading={loading}
+        />
+        <DashboardMetricCard
+          label="Rata-rata tiket"
+          value={`Rp ${formatIDR(summary.averageTicket)}`}
+          hint={`${summary.transactionCount} transaksi`}
+          icon={ReceiptText}
+          tone="slate"
+          loading={loading}
+        />
+        <DashboardMetricCard
+          label="Perlu verifikasi"
+          value={String(summary.verificationCount)}
+          hint="manual payment"
+          icon={Sparkles}
+          tone="amber"
+          loading={loading}
+        />
+        <DashboardMetricCard
+          label="Saldo tertagih"
+          value={`Rp ${formatIDR(summary.pendingBalance)}`}
+          hint="booking + POS"
+          icon={TrendingDown}
+          tone="slate"
+          loading={loading}
+        />
       </div>
 
       <DashboardStatStrip
         items={[
           { label: "Plan", value: String(subscription?.plan || "-").toUpperCase(), tone: "slate" },
           { label: "Range", value: rangeLabel, tone: "indigo" },
-          { label: "Addon Share", value: `${summary.addonRatio.toFixed(1)}%`, tone: "emerald" },
-          { label: "Expense Count", value: `${summary.expenseCount} item`, tone: "rose" },
+          { label: "Addon share", value: `${summary.addonRatio.toFixed(1)}%`, tone: "emerald" },
+          { label: "Expense ratio", value: `${summary.expenseRatio.toFixed(1)}%`, tone: "rose" },
         ]}
       />
 
-      <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+      <section className="grid gap-4 xl:grid-cols-[1.35fr_0.85fr]">
         <DashboardLineChartPanel
-          eyebrow="Core trend"
-          title="Revenue vs expense harian"
-          description="Satu chart utama diposisikan di kiri supaya pembacaan kesehatan bisnis langsung fokus ke sinyal primer, bukan tersebar ke banyak kartu kecil."
-          points={dailySeries}
+          eyebrow="Trend inti"
+          title="Revenue total vs expense harian"
+          description="Revenue menggabungkan booking dan direct sale, lalu dibandingkan dengan expense harian di rentang yang sama."
+          points={trendPoints}
           primaryLabel="Revenue"
           secondaryLabel="Expense"
-          tertiaryLabel="Bookings"
           formatValue={(value) => `Rp ${formatIDR(value)}`}
         />
 
-        <DashboardDonutPanel
-          eyebrow="Expense mix"
-          title="Komposisi pengeluaran"
-          totalLabel="Total expense"
-          totalValue={`Rp ${formatIDR(summary.expenseTotal)}`}
-          segments={expenseSegments}
-          footer={
-            <div className="grid gap-3 sm:grid-cols-2">
-              <InfoChip label="Average ticket" value={`Rp ${formatIDR(summary.averageTicket)}`} />
-              <InfoChip label="Profit margin" value={`${summary.profitMargin.toFixed(1)}%`} />
+        <div className="space-y-4">
+          <DashboardDonutPanel
+            eyebrow="Revenue mix"
+            title="Komposisi pemasukan"
+            totalLabel="Total revenue"
+            totalValue={`Rp ${formatIDR(summary.totalRevenue)}`}
+            segments={revenueSegments}
+            footer={
+              <div className="grid gap-3 sm:grid-cols-2">
+                <InfoChip label="Average ticket" value={`Rp ${formatIDR(summary.averageTicket)}`} />
+                <InfoChip label="Saldo tertagih" value={`Rp ${formatIDR(summary.pendingBalance)}`} />
+              </div>
+            }
+          />
+
+          <DashboardPanel
+            eyebrow="Trend reading"
+            title="Bacaan cepat rentang ini"
+            description="Ringkasan singkat supaya owner bisa baca pola tanpa pindah ke tabel."
+          >
+            <div className="grid grid-cols-2 gap-3">
+              <InfoChip label="Total revenue" value={`Rp ${formatIDR(trendSummary.totalRevenue)}`} />
+              <InfoChip label="Total expense" value={`Rp ${formatIDR(trendSummary.totalExpense)}`} />
+              <InfoChip label="Hari aktif" value={`${trendSummary.activeDays}/${rangeDays(range)}`} />
+              <InfoChip label="Puncak" value={`${trendSummary.peakLabel} - Rp ${formatIDR(trendSummary.peakRevenue)}`} />
             </div>
-          }
-        />
+          </DashboardPanel>
+        </div>
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
@@ -505,85 +892,137 @@ export default function SettingsAnalyticsPage() {
       <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
         <DashboardLeaderboardPanel
           eyebrow="Latest bookings"
-          title="Transaksi terbaru"
+          title="Transaksi booking terbaru"
           rows={bookingRows}
-          emptyText="Belum ada booking untuk rentang ini."
+          emptyText="Belum ada booking pada rentang ini."
+        />
+
+        <DashboardLeaderboardPanel
+          eyebrow="Latest direct sale"
+          title="Order POS terbaru"
+          rows={salesRows}
+          emptyText="Belum ada direct sale pada rentang ini."
+        />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+        <DashboardDonutPanel
+          eyebrow="Expense mix"
+          title="Komposisi pengeluaran"
+          totalLabel="Total expense"
+          totalValue={`Rp ${formatIDR(summary.expenseTotal)}`}
+          segments={expenseSegments}
+          footer={
+            <div className="grid gap-3 sm:grid-cols-2">
+              <InfoChip label="Kategori aktif" value={`${categoryBreakdown.length} kategori`} />
+              <InfoChip label="Entries" value={`${summary.expenseCount} catatan`} />
+            </div>
+          }
         />
 
         <DashboardPanel
-          eyebrow="Operational reading"
-          title="Bacaan cepat untuk owner"
+          eyebrow="Owner reading"
+          title="Snapshot operasional"
+          actions={<Badge variant="secondary">{String(subscription?.plan || "-").toUpperCase()}</Badge>}
         >
           <div className="grid gap-3 sm:grid-cols-2">
-            <InfoChip label="Subscription" value={`${String(subscription?.plan || "-").toUpperCase()} • ${String(subscription?.status || "-")}`} />
+            <InfoChip
+              label="Subscription"
+              value={`${String(subscription?.plan || "-").toUpperCase()} - ${String(subscription?.status || "-")}`}
+            />
             <InfoChip label="Period end" value={formatPeriodEnd(subscription?.current_period_end)} />
-            <InfoChip label="Net profit" value={`Rp ${formatIDR(summary.netProfit)}`} />
-            <InfoChip label="Addon revenue" value={`Rp ${formatIDR(summary.addonRevenue)}`} />
+            <InfoChip label="Add-on revenue" value={`Rp ${formatIDR(summary.addonRevenue)}`} />
+            <InfoChip label="Need action" value={`${actionFeed.length} antrean`} />
+            <InfoChip label="Customers aktif" value={`${customers.length} customer`} />
+            <InfoChip label="POS settled" value={`${salesSummary.settledCount} order`} />
           </div>
-          {isProActive ? (
-            <div className="rounded-[1.6rem] border border-slate-200/80 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            <div className="rounded-[1.35rem] border border-slate-200/80 bg-slate-50/80 p-4">
               <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                Pro unlock
+                Resource status
               </div>
-              <div className="mt-2 space-y-2 text-sm text-slate-600 dark:text-slate-300">
-                <div>Revenue tambahan dari F&amp;B / add-on: <span className="font-semibold text-slate-950 dark:text-white">{summary.addonRatio.toFixed(1)}%</span></div>
-                <div>Top booking tambahan: <span className="font-semibold text-slate-950 dark:text-white">{addonBookings[0]?.customer_name || "belum ada"}</span></div>
+              <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
+                <div>
+                  <div className="text-slate-500">Siap</div>
+                  <div className="mt-1 font-semibold text-slate-950">
+                    {resourceStatusSegments.find((item) => item.label === "Siap")?.value || 0}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-500">Maintenance</div>
+                  <div className="mt-1 font-semibold text-slate-950">
+                    {resourceStatusSegments.find((item) => item.label === "Maintenance")?.value || 0}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-500">Lainnya</div>
+                  <div className="mt-1 font-semibold text-slate-950">
+                    {resourceStatusSegments.find((item) => item.label === "Lainnya")?.value || 0}
+                  </div>
+                </div>
               </div>
             </div>
-          ) : null}
+
+            <div className="rounded-[1.35rem] border border-slate-200/80 bg-slate-50/80 p-4">
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                Add-on watch
+              </div>
+              <div className="mt-2 space-y-2 text-sm text-slate-600">
+                <div>
+                  Top booking tambahan:{" "}
+                  <span className="font-semibold text-slate-950">
+                    {addonBookings[0]?.customer_name || "belum ada"}
+                  </span>
+                </div>
+                <div>
+                  Add-on share:{" "}
+                  <span className="font-semibold text-slate-950">
+                    {summary.addonRatio.toFixed(1)}%
+                  </span>
+                </div>
+                <div>
+                  Balance outstanding:{" "}
+                  <span className="font-semibold text-slate-950">
+                    Rp {formatIDR(summary.pendingBalance)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </DashboardPanel>
       </section>
 
-      {isProActive ? (
-        <DashboardPanel
-          eyebrow="Addon watch"
-          title="Pendapatan tambahan dari F&B dan add-on"
-          actions={
-            <Button asChild variant="outline" className="rounded-2xl">
-              <Link href="/admin/dashboard">
-                <ArrowRight className="mr-2 h-4 w-4" />
-                Dashboard
-              </Link>
-            </Button>
-          }
-        >
-          {addonBookings.length ? (
-            <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-              {addonBookings.map((booking) => (
-                <div
-                  key={booking.id}
-                  className="rounded-[1.45rem] border border-slate-200/80 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]"
-                >
-                  <div className="text-sm font-semibold text-slate-950 dark:text-white">
-                    {booking.customer_name || "Guest"}
-                  </div>
-                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    {booking.resource_name || "-"} •{" "}
-                    {parseSafeDate(booking.start_time || booking.created_at)
-                      ? format(parseSafeDate(booking.start_time || booking.created_at) || new Date(), "dd MMM HH:mm")
-                      : "-"}
-                  </div>
-                  <div className="mt-4 flex items-end justify-between gap-3">
-                    <div>
-                      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                        F&amp;B / add-on
-                      </div>
-                      <div className="mt-1 text-lg font-[950] text-blue-600 dark:text-blue-300">
-                        Rp {formatIDR(getAddonTotal(booking))}
-                      </div>
-                    </div>
-                    <Badge className="rounded-full border-none bg-white/90 text-[10px] font-black uppercase tracking-[0.18em] text-slate-700 shadow-sm dark:bg-white/10 dark:text-slate-100">
-                      active
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyPanel text="Belum ada booking dengan F&B atau add-on pada rentang ini." />
-          )}
-        </DashboardPanel>
-      ) : null}
+      <DashboardPanel
+        eyebrow="Expense ledger"
+        title="Pengeluaran terbaru"
+        actions={
+          <Button asChild variant="outline" className="rounded-2xl">
+            <Link href="/admin/dashboard">
+              <ArrowRight className="mr-2 h-4 w-4" />
+              Dashboard
+            </Link>
+          </Button>
+        }
+      >
+        {expenseRows.length ? (
+          <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+            {expenseRows.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-[1.35rem] border border-slate-200/80 bg-slate-50/80 p-4"
+              >
+                <div className="text-sm font-semibold text-slate-950">{item.title}</div>
+                <div className="mt-1 text-xs text-slate-500">{item.subtitle}</div>
+                <div className="mt-4 text-lg font-[950] text-rose-600">{item.value}</div>
+                <div className="mt-1 text-xs text-slate-400">{item.meta}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyPanel text="Belum ada pengeluaran pada rentang ini." />
+        )}
+      </DashboardPanel>
     </div>
   );
 }
@@ -600,7 +1039,7 @@ function AnalyticsHero({
   realtimeStatus: "idle" | "connecting" | "connected" | "reconnecting";
 }) {
   return (
-    <div className="relative overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,1),rgba(240,252,250,0.96))] p-4 shadow-[0_18px_42px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(10,24,26,0.98),rgba(6,16,18,0.98))] dark:shadow-[0_18px_42px_rgba(0,0,0,0.24)] sm:rounded-[2rem] sm:p-7 sm:shadow-[0_28px_90px_rgba(0,0,0,0.28)]">
+    <div className="relative overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,1),rgba(240,252,250,0.96))] p-4 shadow-[0_18px_42px_rgba(15,23,42,0.06)] sm:rounded-[2rem] sm:p-7">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.2),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(30,143,146,0.12),transparent_32%)]" />
       <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-3">
@@ -611,9 +1050,12 @@ function AnalyticsHero({
             <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
           </div>
           <div>
-            <h1 className="text-3xl font-[950] tracking-tight text-slate-950 dark:text-white sm:text-4xl">
+            <h1 className="text-3xl font-[950] tracking-tight text-slate-950 sm:text-4xl">
               Analytics
             </h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-600">
+              Laporan owner yang lebih lengkap untuk booking, direct sale, pengeluaran, dan pulse operasional.
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -641,13 +1083,11 @@ function InfoChip({
   value: string;
 }) {
   return (
-    <div className="rounded-[1.35rem] border border-slate-200/80 bg-slate-50/80 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+    <div className="rounded-[1.35rem] border border-slate-200/80 bg-slate-50/80 px-4 py-3">
       <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
         {label}
       </div>
-      <div className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">
-        {value}
-      </div>
+      <div className="mt-2 text-sm font-semibold text-slate-950">{value}</div>
     </div>
   );
 }

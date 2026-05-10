@@ -23,6 +23,14 @@ type BookingPaymentAttempt struct {
 	MethodCode string    `db:"method_code"`
 }
 
+type SalesOrderPaymentAttempt struct {
+	ID           uuid.UUID `db:"id"`
+	MethodCode   string    `db:"method_code"`
+	SalesOrderID uuid.UUID `db:"sales_order_id"`
+	TenantID     uuid.UUID `db:"tenant_id"`
+	Amount       int64     `db:"amount"`
+}
+
 func NewRepository(db *sqlx.DB, rdb ...*redis.Client) *Repository {
 	var client *redis.Client
 	if len(rdb) > 0 {
@@ -187,7 +195,11 @@ func (r *Repository) UpdateBookingPaymentFromMidtrans(ctx context.Context, exec 
 			last_status_changed_at = CASE
 				WHEN status = 'pending' AND $2::text IN ('paid', 'settled') THEN NOW()
 				ELSE last_status_changed_at
-			END
+			END,
+			deposit_override_active = false,
+			deposit_override_reason = NULL,
+			deposit_override_by = NULL,
+			deposit_override_at = NULL
 		WHERE id = $1`,
 		bookingID, status, paymentType,
 	)
@@ -229,7 +241,11 @@ func (r *Repository) UpdateBookingSettlementFromMidtrans(ctx context.Context, ex
 			last_status_changed_at = CASE
 				WHEN status IN ('pending', 'confirmed', 'active') AND $2::text IN ('paid', 'settled') THEN NOW()
 				ELSE last_status_changed_at
-			END
+			END,
+			deposit_override_active = false,
+			deposit_override_reason = NULL,
+			deposit_override_by = NULL,
+			deposit_override_at = NULL
 		WHERE id = $1`,
 		bookingID, status, paymentType,
 	)
@@ -335,6 +351,67 @@ func (r *Repository) GetBookingPaymentAttemptByGatewayOrderID(ctx context.Contex
 		return nil, err
 	}
 	return &item, nil
+}
+
+func (r *Repository) GetSalesOrderPaymentAttemptByGatewayOrderID(ctx context.Context, exec sqlx.ExtContext, orderID string) (*SalesOrderPaymentAttempt, error) {
+	var item SalesOrderPaymentAttempt
+	err := sqlx.GetContext(ctx, exec, &item, `
+		SELECT id, method_code, sales_order_id, tenant_id, amount
+		FROM sales_order_payment_attempts
+		WHERE gateway_order_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1`,
+		orderID,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
+func (r *Repository) UpdateSalesOrderSettlementFromMidtrans(ctx context.Context, exec sqlx.ExtContext, salesOrderID uuid.UUID, status string, paymentType *string) error {
+	_, err := exec.ExecContext(ctx, `
+		UPDATE sales_orders
+		SET payment_status = CASE
+				WHEN $2::text IN ('paid', 'settled') THEN 'settled'
+				ELSE $2::text
+			END,
+			status = CASE
+				WHEN $2::text IN ('paid', 'settled') THEN 'paid'
+				WHEN status = 'open' THEN 'pending_payment'
+				ELSE status
+			END,
+			payment_method = COALESCE($3::text, payment_method),
+			paid_amount = CASE
+				WHEN $2::text IN ('paid', 'settled') THEN grand_total
+				ELSE paid_amount
+			END,
+			balance_due = CASE
+				WHEN $2::text IN ('paid', 'settled') THEN 0
+				ELSE balance_due
+			END,
+			updated_at = NOW()
+		WHERE id = $1`,
+		salesOrderID, status, paymentType,
+	)
+	return err
+}
+
+func (r *Repository) MarkSalesOrderPaymentAttemptStatus(ctx context.Context, exec sqlx.ExtContext, attemptID uuid.UUID, status string, transactionID *string) error {
+	_, err := exec.ExecContext(ctx, `
+		UPDATE sales_order_payment_attempts
+		SET status = $2::text,
+			gateway_transaction_id = CASE WHEN $3::text IS NOT NULL THEN $3::text ELSE gateway_transaction_id END,
+			verified_at = CASE WHEN $2::text IN ('paid', 'verified', 'settled') THEN COALESCE(verified_at, NOW()) ELSE verified_at END,
+			rejected_at = CASE WHEN $2::text = 'rejected' THEN COALESCE(rejected_at, NOW()) ELSE rejected_at END,
+			updated_at = NOW()
+		WHERE id = $1`,
+		attemptID, status, transactionID,
+	)
+	return err
 }
 
 func (r *Repository) MarkBookingPaymentAttemptStatus(ctx context.Context, exec sqlx.ExtContext, attemptID uuid.UUID, status string, transactionID, adminNote *string) error {

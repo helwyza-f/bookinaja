@@ -177,16 +177,16 @@ export function ExpenseDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[96vw] overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl dark:border-white/10 dark:bg-slate-950 sm:max-w-xl">
-        <DialogTitle className="px-4 pt-4 text-xl font-semibold tracking-tight text-slate-950 dark:text-white md:px-5">
+      <DialogContent className="h-[100dvh] max-h-[100dvh] w-screen max-w-none overflow-hidden rounded-none border border-slate-200 bg-white p-0 shadow-2xl dark:border-white/10 dark:bg-slate-950 sm:h-auto sm:max-h-[92vh] sm:w-[calc(100vw-1rem)] sm:max-w-xl sm:rounded-2xl">
+        <DialogTitle className="px-4 pt-4 text-lg font-semibold tracking-tight text-slate-950 dark:text-white md:px-5 md:text-xl">
           {editingExpense ? "Ubah Pengeluaran" : "Tambah Pengeluaran"}
         </DialogTitle>
 
         <form
           onSubmit={handleSubmit}
-          className="max-h-[82vh] overflow-y-auto p-4 pt-3 md:p-5 md:pt-3"
+          className="flex h-[calc(100dvh-64px)] max-h-[calc(100dvh-64px)] flex-col overflow-hidden sm:h-auto sm:max-h-[82vh]"
         >
-          <div className="space-y-4">
+          <div className="flex-1 space-y-4 overflow-y-auto p-4 pt-3 md:p-5 md:pt-3">
               <FieldGroup label="Keterangan">
                 <Input
                   value={title}
@@ -231,13 +231,14 @@ export function ExpenseDialog({
                     </PopoverTrigger>
                     <PopoverContent
                       align="end"
-                      className="w-auto overflow-hidden rounded-3xl border-none p-0 shadow-2xl"
+                      className="w-auto max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-950"
                     >
                       <Calendar
                         mode="single"
                         selected={expenseDate}
                         onSelect={(date) => date && setExpenseDate(date)}
                         initialFocus
+                        className="[--cell-size:2.55rem]"
                       />
                     </PopoverContent>
                   </Popover>
@@ -334,7 +335,7 @@ export function ExpenseDialog({
               </div>
           </div>
 
-          <div className="sticky bottom-0 z-10 -mx-4 mt-5 border-t border-slate-200 bg-white/95 px-4 py-4 backdrop-blur dark:border-white/5 dark:bg-slate-950/95 md:-mx-5 md:px-5">
+          <div className="z-10 border-t border-slate-200 bg-white/95 px-4 py-4 backdrop-blur dark:border-white/5 dark:bg-slate-950/95 md:px-5">
             <div className="flex items-center gap-2">
               <Button
                 type="button"

@@ -16,10 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  DashboardMetricCard,
-  DashboardPanel,
-} from "@/components/dashboard/analytics-kit";
+import { DashboardPanel } from "@/components/dashboard/analytics-kit";
 import {
   Table,
   TableBody,
@@ -37,6 +34,7 @@ import {
   Search,
   Users,
   Wallet,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -112,6 +110,69 @@ function formatShortDate(value?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
   return format(date, "dd MMM");
+}
+
+function CompactMetricCard({
+  label,
+  value,
+  hint,
+  icon: Icon,
+  tone,
+  loading = false,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+  icon: LucideIcon;
+  tone: "indigo" | "emerald" | "amber" | "rose";
+  loading?: boolean;
+}) {
+  const toneMap = {
+    indigo: {
+      shell: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
+      icon: "bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]",
+    },
+    emerald: {
+      shell: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
+      icon: "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300",
+    },
+    amber: {
+      shell: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
+      icon: "bg-amber-500/10 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300",
+    },
+    rose: {
+      shell: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
+      icon: "bg-rose-500/10 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300",
+    },
+  } as const;
+
+  const colors = toneMap[tone];
+
+  return (
+    <Card className={cn("rounded-xl border p-3 sm:p-4", colors.shell)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+            {label}
+          </div>
+          <div className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
+            {loading ? "..." : value}
+          </div>
+          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 sm:text-xs">
+            {hint}
+          </div>
+        </div>
+        <div
+          className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl sm:h-11 sm:w-11",
+            colors.icon,
+          )}
+        >
+          <Icon className="h-4 w-4" />
+        </div>
+      </div>
+    </Card>
+  );
 }
 
 export default function CustomersPage() {
@@ -207,17 +268,17 @@ export default function CustomersPage() {
   };
 
   return (
-    <div className="mx-auto max-w-350 space-y-4 px-4 pb-20 pt-5 font-plus-jakarta">
-      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(238,252,249,0.95)_40%,rgba(255,248,240,0.9))] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(10,24,26,0.96),rgba(8,30,31,0.94)_45%,rgba(49,25,14,0.82))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-6">
+    <div className="mx-auto max-w-350 space-y-4 px-3 pb-20 pt-4 font-plus-jakarta md:px-4 md:pt-5">
+      <div className="relative overflow-hidden rounded-[1.8rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(238,252,249,0.95)_40%,rgba(255,248,240,0.9))] p-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(10,24,26,0.96),rgba(8,30,31,0.94)_45%,rgba(49,25,14,0.82))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-6">
         <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.22),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.2),transparent_58%)]" />
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl space-y-3">
+        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl space-y-2.5">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.24em] text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-200">
               <Users className="h-3.5 w-3.5 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
               Customers
             </div>
             <div>
-              <h1 className="text-3xl font-[950] tracking-tight text-slate-950 dark:text-white sm:text-4xl">
+              <h1 className="text-2xl font-[950] tracking-tight text-slate-950 dark:text-white sm:text-4xl">
                 Customers
               </h1>
             </div>
@@ -234,8 +295,8 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <DashboardMetricCard
+      <div className="grid grid-cols-2 gap-2.5 md:grid-cols-2 md:gap-3 xl:grid-cols-4">
+        <CompactMetricCard
           label="Customer"
           value={loading ? "..." : formatIDR(stats.customers)}
           hint="Tersimpan"
@@ -243,24 +304,24 @@ export default function CustomersPage() {
           tone="indigo"
           loading={loading}
         />
-        <DashboardMetricCard
-          label="Visit Tenant"
+        <CompactMetricCard
+          label="Visit"
           value={formatIDR(stats.totalVisits)}
           hint="Tenant"
           icon={Phone}
           tone="emerald"
           loading={loading}
         />
-        <DashboardMetricCard
-          label="Spend Tenant"
+        <CompactMetricCard
+          label="Spend"
           value={`Rp ${formatIDR(stats.tenantSpend)}`}
           hint="Belanja"
           icon={Wallet}
           tone="amber"
           loading={loading}
         />
-        <DashboardMetricCard
-          label="Saldo Points"
+        <CompactMetricCard
+          label="Points"
           value={formatIDR(stats.globalPoints)}
           hint="Global"
           icon={Coins}
@@ -273,7 +334,7 @@ export default function CustomersPage() {
         eyebrow="List"
         title="Daftar customer"
       >
-        <div className="grid gap-2 md:hidden">
+        <div className="grid gap-2.5 md:hidden">
         {loading ? (
           Array.from({ length: 5 }).map((_, index) => (
             <Card
@@ -291,7 +352,7 @@ export default function CustomersPage() {
               key={customer.id}
               type="button"
               onClick={() => fetchDetail(customer.id)}
-              className="rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-colors active:bg-slate-50 dark:border-white/10 dark:bg-slate-950 dark:active:bg-white/5"
+              className="rounded-xl border border-slate-200 bg-white p-3.5 text-left shadow-sm transition-colors active:bg-slate-50 dark:border-white/10 dark:bg-slate-950 dark:active:bg-white/5"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -305,22 +366,26 @@ export default function CustomersPage() {
                 </div>
                 <TierBadge tier={customer.tier} />
               </div>
-              <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                 <MobileStat
                   label="Visit"
                   value={formatIDR(customer.total_visits)}
+                />
+                <MobileStat
+                  label="Points"
+                  value={formatIDR(customer.loyalty_points)}
                 />
                 <MobileStat
                   label="Spend"
                   value={`Rp ${formatIDR(customer.total_spent)}`}
                 />
                 <MobileStat
-                  label="Point"
-                  value={formatIDR(customer.loyalty_points)}
+                  label="Last"
+                  value={formatShortDate(customer.last_visit)}
                 />
               </div>
               <div className="mt-3 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                <span>Terakhir datang: {formatShortDate(customer.last_visit)}</span>
+                <span>ID {customer.id.slice(0, 8)}</span>
                 <ArrowUpRight className="h-4 w-4 text-slate-400" />
               </div>
             </button>
@@ -455,7 +520,7 @@ export default function CustomersPage() {
       </DashboardPanel>
 
       <Dialog open={!!selectedId} onOpenChange={closeDetail}>
-        <DialogContent className="max-h-[92vh] w-[calc(100vw-2rem)] max-w-none overflow-hidden rounded-2xl border-slate-200 bg-white p-0 shadow-xl dark:border-white/10 dark:bg-slate-950 md:max-w-4xl">
+        <DialogContent className="h-[100dvh] max-h-[100dvh] w-screen max-w-none overflow-hidden rounded-none border-slate-200 bg-white p-0 shadow-xl dark:border-white/10 dark:bg-slate-950 sm:h-auto sm:max-h-[92vh] sm:w-[calc(100vw-2rem)] sm:rounded-2xl md:max-w-4xl">
           <VisuallyHidden.Root>
             <DialogHeader>
               <DialogTitle>Detail pelanggan</DialogTitle>
@@ -473,26 +538,26 @@ export default function CustomersPage() {
               </p>
             </div>
           ) : customerDetail ? (
-            <div className="flex max-h-[92vh] flex-col">
+            <div className="flex h-full max-h-[100dvh] flex-col sm:max-h-[92vh]">
               <div className="border-b border-slate-200 p-4 dark:border-white/10 md:p-5">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="truncate text-xl font-bold text-slate-950 dark:text-white">
+                      <h2 className="truncate text-lg font-bold text-slate-950 dark:text-white md:text-xl">
                         {customerDetail.name || "Customer"}
                       </h2>
                       <TierBadge tier={customerDetail.tier} />
                     </div>
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
                       <span>{customerDetail.phone || "-"}</span>
                       <span>{customerDetail.email || "Email belum ada"}</span>
                     </div>
                   </div>
-                  <div className="rounded-xl border border-[color:rgba(59,130,246,0.18)] bg-[var(--bookinaja-50)] px-4 py-3 text-left dark:border-[color:rgba(96,165,250,0.18)] dark:bg-[color:rgba(59,130,246,0.14)] md:text-right">
+                  <div className="rounded-xl border border-[color:rgba(59,130,246,0.18)] bg-[var(--bookinaja-50)] px-4 py-3 text-left dark:border-[color:rgba(96,165,250,0.18)] dark:bg-[color:rgba(59,130,246,0.14)] md:min-w-[210px] md:text-right">
                     <p className="text-xs font-medium text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
                       Saldo points global
                     </p>
-                    <p className="text-2xl font-bold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-100)]">
+                    <p className="text-xl font-bold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-100)] md:text-2xl">
                       {formatIDR(
                         pointSummary?.balance ?? customerDetail.loyalty_points,
                       )}
@@ -502,7 +567,7 @@ export default function CustomersPage() {
               </div>
 
               <div className="overflow-y-auto p-3 md:p-5">
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   <Metric
                     label="Visit tenant"
                     value={formatIDR(customerDetail.total_visits)}
@@ -521,7 +586,7 @@ export default function CustomersPage() {
                   />
                 </div>
 
-                <div className="mt-5 grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+                <div className="mt-4 grid gap-4 lg:mt-5 lg:grid-cols-[0.8fr_1.2fr]">
                   <section className="rounded-xl border border-slate-200 bg-white dark:border-white/15 dark:bg-[#0f0f17]">
                     <div className="border-b border-slate-200 px-4 py-3 dark:border-white/10">
                       <h3 className="text-sm font-semibold text-slate-950 dark:text-white">
@@ -592,11 +657,19 @@ export default function CustomersPage() {
                                   {transaction.payment_status || transaction.status || "-"}
                                 </Badge>
                               </div>
-                              <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
-                                <span className="text-xs text-slate-500">Total</span>
-                                <span className="text-sm font-bold text-slate-950 dark:text-white">
-                                  Rp {formatIDR(transaction.grand_total || transaction.total_spent)}
-                                </span>
+                              <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
+                                <div>
+                                  <span className="text-[10px] text-slate-500">Total</span>
+                                  <div className="mt-1 text-sm font-bold text-slate-950 dark:text-white">
+                                    Rp {formatIDR(transaction.grand_total || transaction.total_spent)}
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-[10px] text-slate-500">Status</span>
+                                  <div className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-300">
+                                    {transaction.status || "-"}
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -663,8 +736,8 @@ export default function CustomersPage() {
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-white/10 dark:bg-white/[0.03]">
-      <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
-      <p className="mt-1 truncate text-base font-bold text-slate-950 dark:text-white">
+      <p className="text-[11px] text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mt-1 truncate text-sm font-bold text-slate-950 dark:text-white md:text-base">
         {value}
       </p>
     </div>
@@ -675,7 +748,7 @@ function MobileStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 rounded-lg bg-slate-50 px-2.5 py-2 dark:bg-white/[0.03]">
       <p className="text-[10px] text-slate-500 dark:text-slate-400">{label}</p>
-      <p className="mt-1 truncate text-xs font-bold text-slate-950 dark:text-white">
+      <p className="mt-1 truncate text-[11px] font-bold text-slate-950 dark:text-white">
         {value}
       </p>
     </div>

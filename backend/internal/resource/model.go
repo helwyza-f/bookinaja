@@ -72,6 +72,16 @@ type ResourceAddonCatalogItem struct {
 	Addons        []ResourceItem `json:"addons"`
 }
 
+type ResourcePOSCatalogItem struct {
+	ResourceID     uuid.UUID      `json:"resource_id"`
+	ResourceName   string         `json:"resource_name"`
+	ResourceImageURL string       `json:"resource_image_url"`
+	Category       string         `json:"category"`
+	Status         string         `json:"status"`
+	OperatingMode  string         `json:"operating_mode"`
+	AvailableItems []ResourceItem `json:"available_items"`
+}
+
 type ResourceDeviceMapItem struct {
 	ResourceID       uuid.UUID  `db:"resource_id" json:"resource_id"`
 	ResourceName     string     `db:"resource_name" json:"resource_name"`

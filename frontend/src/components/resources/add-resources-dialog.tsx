@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -17,21 +16,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Plus, Loader2, Info, LayoutGrid, ChevronRight } from "lucide-react";
+  Plus,
+  Loader2,
+  Info,
+  LayoutGrid,
+  ChevronRight,
+  Clock3,
+  ShoppingBag,
+} from "lucide-react";
 import api from "@/lib/api";
 import { Badge } from "../ui/badge";
-
-type ResourceFormValues = {
-  name: string;
-  category: string;
-  operating_mode: string;
-};
+import { cn } from "@/lib/utils";
 
 interface AddResourceDialogProps {
   onRefresh: () => void;
@@ -44,15 +39,9 @@ export function AddResourceDialog({
 }: AddResourceDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  const { register, handleSubmit, reset, setValue } =
-    useForm<ResourceFormValues>({
-    defaultValues: {
-      name: "",
-      category: "",
-      operating_mode: "timed",
-    },
-  });
+  const [name, setName] = useState("");
+  const [categoryValue, setCategoryValue] = useState("");
+  const [operatingMode, setOperatingMode] = useState<"timed" | "direct_sale">("timed");
 
   // Helper untuk menyesuaikan Copywriting berdasarkan Sektor Bisnis
   const getPlaceholder = () => {
@@ -87,19 +76,62 @@ export function AddResourceDialog({
 
   const labels = getPlaceholder();
 
-  const onSubmit = async (data: ResourceFormValues) => {
+  const modeMeta =
+    operatingMode === "direct_sale"
+      ? {
+          badge: "DIRECT SALE",
+          helper: "Cocok untuk kasir atau katalog jual langsung.",
+          nameLabel:
+            category === "sport_center" ? "NAMA COUNTER / PRODUK" : "NAMA RESOURCE JUAL",
+          categoryPlaceholder: "MISAL: MINUMAN / MAKANAN / REGULER",
+        }
+      : {
+            badge: "DEFAULT TIMED",
+            helper: "Cocok untuk unit yang pakai jadwal dan slot.",
+            nameLabel: labels.label,
+            categoryPlaceholder: "MISAL: LANTAI 2 / VIP / SMOKING",
+          };
+
+  const operatingModeOptions: Array<{
+    value: "timed" | "direct_sale";
+    label: string;
+    description: string;
+    icon: typeof Clock3;
+  }> = [
+    {
+      value: "timed",
+      label: "Timed",
+      description: "Pakai jadwal dan slot.",
+      icon: Clock3,
+    },
+    {
+      value: "direct_sale",
+      label: "Direct sale",
+      description: "POS tanpa slot waktu.",
+      icon: ShoppingBag,
+    },
+  ];
+
+  const resetForm = () => {
+    setName("");
+    setCategoryValue("");
+    setOperatingMode("timed");
+  };
+
+  const onSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
     const payload = {
-      name: data.name.toUpperCase(),
-      category: data.category ? data.category.toUpperCase() : "",
-      operating_mode: data.operating_mode || "timed",
+      name: name.trim().toUpperCase(),
+      category: categoryValue.trim().toUpperCase(),
+      operating_mode: operatingMode,
     };
 
     try {
       await api.post("/resources-all", payload);
       toast.success("UNIT BERHASIL DITAMBAHKAN!");
       setOpen(false);
-      reset();
+      resetForm();
       onRefresh();
     } catch {
       toast.error("GAGAL MENAMBAHKAN UNIT");
@@ -124,34 +156,32 @@ export function AddResourceDialog({
 
       <DialogPortal>
         <DialogOverlay className="z-[9998] bg-slate-950/30 backdrop-blur-sm" />
-        <DialogContent className="z-[9999] w-[94vw] overflow-hidden rounded-2xl border border-slate-200 bg-background p-5 shadow-2xl sm:max-w-[480px] sm:p-6 dark:border-white/10">
-          <DialogHeader className="space-y-3 relative z-10">
-            <div className="mb-1 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-              <LayoutGrid className="h-5 w-5" />
+        <DialogContent className="z-[9999] w-[94vw] overflow-hidden rounded-2xl border border-slate-200 bg-background p-4 shadow-2xl sm:max-w-[480px] sm:p-5 dark:border-white/10">
+          <DialogHeader className="relative z-10 space-y-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              <LayoutGrid className="h-4.5 w-4.5" />
             </div>
-            <DialogTitle className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
+            <DialogTitle className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-[1.75rem]">
               Tambah Unit Baru
             </DialogTitle>
             <DialogDescription className="text-sm leading-relaxed text-slate-500">
-              Daftarkan unit fisik baru untuk mulai menerima reservasi
-              pelanggan.
+              Daftarkan unit baru untuk operasional dan reservasi.
             </DialogDescription>
           </DialogHeader>
 
           <form
-            onSubmit={handleSubmit(onSubmit)}
-            className="space-y-5 pt-4 relative z-10"
+            onSubmit={onSubmit}
+            className="relative z-10 space-y-4 pt-3"
           >
-            <input type="hidden" {...register("operating_mode")} />
             {/* INPUT NAMA */}
             <div className="space-y-3">
               <Label className="px-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                {labels.label}
+                {modeMeta.nameLabel}
               </Label>
               <Input
-                {...register("name", { required: true })}
+                value={name}
                 placeholder={labels.name}
-                onChange={(e) => setValue("name", e.target.value.toUpperCase())}
+                onChange={(e) => setName(e.target.value.toUpperCase())}
                 className="h-12 rounded-xl border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-900 transition-all placeholder:text-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-600/10 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 required
                 autoComplete="off"
@@ -167,27 +197,68 @@ export function AddResourceDialog({
                   variant="secondary"
                   className="border-none bg-blue-50 px-2 py-0 text-[10px] font-semibold text-blue-600"
                 >
-                  DEFAULT TIMED
+                  {modeMeta.badge}
                 </Badge>
               </div>
-              <Select
-                defaultValue="timed"
-                onValueChange={(value) => setValue("operating_mode", value)}
-              >
-                <SelectTrigger className="h-12 w-full rounded-xl border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-900 focus:ring-4 focus:ring-blue-600/10 dark:border-white/10 dark:bg-white/5 dark:text-white">
-                  <SelectValue placeholder="Pilih mode operasional" />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl">
-                  <SelectItem value="timed">Timed - pakai jadwal dan slot</SelectItem>
-                  <SelectItem value="direct_sale">Direct sale - POS tanpa slot</SelectItem>
-                  <SelectItem value="hybrid">Hybrid - bisa keduanya</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="flex items-start gap-2 px-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {operatingModeOptions.map((option) => {
+                  const Icon = option.icon;
+                  const isActive = operatingMode === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setOperatingMode(option.value)}
+                      className={cn(
+                        "flex items-start gap-2.5 rounded-2xl border p-2.5 text-left transition-all",
+                        isActive
+                          ? "border-blue-500 bg-blue-50 shadow-[0_0_0_1px_rgba(37,99,235,0.08)]"
+                          : "border-slate-200 bg-slate-50 hover:border-slate-300 dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20",
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+                          isActive
+                            ? "bg-blue-600 text-white"
+                            : "bg-white text-slate-500 dark:bg-slate-900 dark:text-slate-300",
+                        )}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              "text-[13px] font-semibold",
+                              isActive
+                                ? "text-blue-700 dark:text-blue-200"
+                                : "text-slate-900 dark:text-white",
+                            )}
+                          >
+                            {option.label}
+                          </span>
+                          <span
+                            className={cn(
+                              "h-2 w-2 rounded-full border",
+                              isActive
+                                ? "border-blue-600 bg-blue-600"
+                                : "border-slate-300 bg-transparent dark:border-slate-600",
+                            )}
+                          />
+                        </div>
+                        <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                          {option.description}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex items-start gap-2 px-1">
                 <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />
-                <p className="text-xs leading-relaxed text-slate-500">
-                  Timed cocok untuk lapangan atau room booking. Direct sale cocok
-                  untuk cafe, barber, atau counter tanpa slot waktu.
+                <p className="text-[11px] leading-relaxed text-slate-500">
+                  {modeMeta.helper}
                 </p>
               </div>
             </div>
@@ -206,24 +277,21 @@ export function AddResourceDialog({
                 </Badge>
               </div>
               <Input
-                {...register("category")}
-                placeholder="MISAL: LANTAI 2 / VIP / SMOKING"
-                onChange={(e) =>
-                  setValue("category", e.target.value.toUpperCase())
-                }
+                value={categoryValue}
+                placeholder={modeMeta.categoryPlaceholder}
+                onChange={(e) => setCategoryValue(e.target.value.toUpperCase())}
                 className="h-12 rounded-xl border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-900 transition-all placeholder:text-slate-300 focus:bg-white focus:ring-4 focus:ring-blue-600/10 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 autoComplete="off"
               />
-              <div className="flex items-start gap-2 px-2">
+              <div className="flex items-start gap-2 px-1">
                 <Info className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
-                <p className="text-xs leading-relaxed text-slate-500">
-                  Kategori memudahkan pelanggan saat memfilter unit di halaman
-                  booking.
+                <p className="text-[11px] leading-relaxed text-slate-500">
+                  Bantu pengelompokan unit di halaman booking.
                 </p>
               </div>
             </div>
 
-            <div className="pt-2">
+            <div className="pt-1">
               <Button
                 type="submit"
                 disabled={loading}

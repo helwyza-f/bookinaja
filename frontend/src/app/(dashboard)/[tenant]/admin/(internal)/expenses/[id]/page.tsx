@@ -120,7 +120,7 @@ export default function ExpenseDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4 px-3 pb-20 pt-5 font-plus-jakarta animate-in fade-in duration-300 md:px-4">
+    <div className="mx-auto max-w-5xl space-y-4 px-3 pb-20 pt-4 font-plus-jakarta animate-in fade-in duration-300 md:px-4 md:pt-5">
       <header className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:flex sm:items-start sm:justify-between sm:gap-4">
         <div className="space-y-2">
           <Button
@@ -134,20 +134,20 @@ export default function ExpenseDetailPage() {
           <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
             Buku Pengeluaran
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-3xl">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-3xl">
               Detail Pengeluaran
             </h1>
             <Badge className="rounded-md border-none bg-[var(--bookinaja-50)] px-2.5 py-1 text-xs font-medium text-[var(--bookinaja-700)] dark:bg-[var(--bookinaja-700)]/20 dark:text-[var(--bookinaja-200)]">
               {expense.category}
             </Badge>
           </div>
-          <p className="max-w-2xl text-sm text-slate-500">
+          <p className="max-w-2xl text-sm leading-relaxed text-slate-500">
             Ringkasan transaksi, kategori, vendor, dan bukti pembelian untuk pencatatan bisnis.
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-0 sm:flex sm:w-auto sm:flex-wrap">
           <Button
             onClick={() => canUpdateExpenses && setOpen(true)}
             disabled={!canUpdateExpenses}
@@ -175,7 +175,7 @@ export default function ExpenseDetailPage() {
               <p className="text-xs font-medium text-slate-500">
                 Nilai transaksi
               </p>
-              <div className="text-3xl font-semibold tracking-tight text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)] md:text-4xl">
+              <div className="text-2xl font-semibold tracking-tight text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)] md:text-4xl">
                 Rp {formatIDR(expense.amount)}
               </div>
             </div>
@@ -184,7 +184,7 @@ export default function ExpenseDetailPage() {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
             <MetaItem
               icon={<Calendar className="h-4 w-4" />}
               label="Tanggal pengeluaran"
@@ -253,7 +253,7 @@ export default function ExpenseDetailPage() {
               <img
                 src={expense.receipt_url}
                 alt={expense.title}
-                className="h-[22rem] w-full object-cover"
+                className="h-72 w-full object-cover md:h-[22rem]"
               />
               <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-3 py-2 dark:border-white/10">
                 <p className="truncate text-[11px] font-medium text-slate-500">
@@ -271,7 +271,7 @@ export default function ExpenseDetailPage() {
               </div>
             </div>
           ) : (
-            <div className="mt-4 flex min-h-[22rem] flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-center dark:border-white/10 dark:bg-[#09090f]">
+            <div className="mt-4 flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 text-center dark:border-white/10 dark:bg-[#09090f] md:min-h-[22rem]">
               <ReceiptText className="h-10 w-10 text-slate-300" />
               <p className="mt-3 text-sm font-semibold text-slate-950 dark:text-white">
                 Bukti belum diunggah
@@ -312,7 +312,7 @@ function MetaItem({
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
           {label}
         </p>
-        <p className="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-white">
+        <p className="mt-1 truncate text-[13px] font-semibold text-slate-950 dark:text-white md:text-sm">
           {value}
         </p>
       </div>
@@ -336,7 +336,7 @@ function Field({
       </p>
       <p
         className={cn(
-          "rounded-lg bg-white px-3 py-2 text-sm font-semibold text-slate-950 dark:bg-white/[0.05] dark:text-white",
+          "rounded-lg bg-white px-3 py-2 text-[13px] font-semibold text-slate-950 dark:bg-white/[0.05] dark:text-white md:text-sm",
           mono && "font-mono not-italic tracking-normal normal-case break-all",
         )}
       >

@@ -58,6 +58,7 @@ type ResourceRow = {
   id: string;
   name: string;
   category?: string;
+  operating_mode?: string;
   items?: ResourceItem[];
 };
 
@@ -66,6 +67,7 @@ type PricingCatalogRow = {
   resource_name: string;
   category?: string;
   status?: string;
+  operating_mode?: string;
   main_items?: ResourceItem[];
 };
 
@@ -205,6 +207,7 @@ export default function NewManualBookingPage() {
           id: item.resource_id,
           name: item.resource_name,
           category: item.category,
+          operating_mode: item.operating_mode,
           items: [
             ...(item.main_items || []).map((mainItem) => ({
               ...mainItem,
@@ -213,7 +216,12 @@ export default function NewManualBookingPage() {
             ...(addonsByResource.get(item.resource_id) || []),
           ],
         }));
-        setResources(merged);
+        setResources(
+          merged.filter(
+            (item) =>
+              String(item.operating_mode || "timed").toLowerCase() !== "direct_sale",
+          ),
+        );
       })
       .catch(() => toast.error("Gagal memuat daftar unit"))
       .finally(() => setLoading(false));

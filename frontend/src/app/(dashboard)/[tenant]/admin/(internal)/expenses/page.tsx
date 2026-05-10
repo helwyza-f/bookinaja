@@ -25,10 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  DashboardMetricCard,
-  DashboardPanel,
-} from "@/components/dashboard/analytics-kit";
+import { DashboardPanel } from "@/components/dashboard/analytics-kit";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { hasPermission, type AdminSessionUser } from "@/lib/admin-access";
@@ -46,6 +43,7 @@ import {
   ReceiptText,
   Search,
   Trash2,
+  type LucideIcon,
 } from "lucide-react";
 
 type ExpenseSummary = {
@@ -65,6 +63,88 @@ const categoryOptions = [
 
 const defaultFrom = () => format(startOfMonth(new Date()), "yyyy-MM-dd");
 const defaultTo = () => format(new Date(), "yyyy-MM-dd");
+
+function formatCompactRange(from: string, to: string) {
+  const fromDate = parseISO(from);
+  const toDate = parseISO(to);
+  if (!isValid(fromDate) || !isValid(toDate)) return "-";
+
+  const sameYear = format(fromDate, "yyyy") === format(toDate, "yyyy");
+  const sameMonth = format(fromDate, "yyyy-MM") === format(toDate, "yyyy-MM");
+
+  if (sameMonth) {
+    return `${format(fromDate, "d")} - ${format(toDate, "d MMM yyyy")}`;
+  }
+
+  if (sameYear) {
+    return `${format(fromDate, "d MMM")} - ${format(toDate, "d MMM yyyy")}`;
+  }
+
+  return `${format(fromDate, "d MMM yyyy")} - ${format(toDate, "d MMM yyyy")}`;
+}
+
+function CompactMetricCard({
+  label,
+  value,
+  hint,
+  icon: Icon,
+  tone,
+  loading = false,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+  icon: LucideIcon;
+  tone: "indigo" | "emerald" | "amber" | "slate";
+  loading?: boolean;
+}) {
+  const toneMap = {
+    indigo: {
+      shell: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
+      icon: "bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]",
+    },
+    emerald: {
+      shell: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
+      icon: "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300",
+    },
+    amber: {
+      shell: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
+      icon: "bg-amber-500/10 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300",
+    },
+    slate: {
+      shell: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
+      icon: "bg-slate-100 text-slate-500 dark:bg-slate-900 dark:text-slate-300",
+    },
+  } as const;
+
+  const colors = toneMap[tone];
+
+  return (
+    <Card className={cn("rounded-xl border p-3 sm:p-4", colors.shell)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+            {label}
+          </div>
+          <div className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
+            {loading ? "..." : value}
+          </div>
+          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 sm:text-xs">
+            {hint}
+          </div>
+        </div>
+        <div
+          className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl sm:h-11 sm:w-11",
+            colors.icon,
+          )}
+        >
+          <Icon className="h-4 w-4" />
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 export default function ExpensesPage() {
   const router = useRouter();
@@ -195,21 +275,21 @@ export default function ExpensesPage() {
 
   const stats = [
     {
-      label: "Total pengeluaran",
+      label: "Pengeluaran",
       value: `Rp ${formatIDR(Number(summary.total || 0))}`,
       icon: Banknote,
       tone: "indigo" as const,
       hint: "Filter",
     },
     {
-      label: "Jumlah catatan",
+      label: "Catatan",
       value: String(summary.entries || filteredItems.length),
       icon: ReceiptText,
       tone: "emerald" as const,
       hint: "Catatan",
     },
     {
-      label: "Kategori aktif",
+      label: "Kategori",
       value: category === "all" ? "Semua" : category,
       icon: Search,
       tone: "amber" as const,
@@ -243,9 +323,9 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 md:grid-cols-2 md:gap-3 xl:grid-cols-4">
         {stats.map((item) => (
-          <DashboardMetricCard
+          <CompactMetricCard
             key={item.label}
             label={item.label}
             value={item.value}
@@ -255,9 +335,9 @@ export default function ExpensesPage() {
             loading={loading}
           />
         ))}
-        <DashboardMetricCard
-          label="Rentang Aktif"
-          value={`${formatExpenseDate(from)} - ${formatExpenseDate(to)}`}
+        <CompactMetricCard
+          label="Rentang"
+          value={formatCompactRange(from, to)}
           hint="Periode"
           icon={CalendarIcon}
           tone="slate"
@@ -267,8 +347,8 @@ export default function ExpensesPage() {
 
       <DashboardPanel
         eyebrow="Filter"
-        title="Cari pengeluaran berdasarkan kategori dan periode"
-        description="Filter dipisah dari tabel supaya tim bisa scan angka ringkas dulu, lalu masuk ke record ketika memang perlu."
+        title="Cari pengeluaran"
+        description="Saring kategori dan periode."
       >
         <div className="grid gap-2.5 lg:grid-cols-[minmax(0,1.4fr)_0.95fr_0.95fr_0.95fr_auto]">
           <div className="relative">
@@ -276,8 +356,8 @@ export default function ExpensesPage() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari judul, vendor, notes..."
-          className="h-10 rounded-lg border-slate-200 bg-slate-50 pl-10 text-sm font-medium dark:border-slate-800 dark:bg-slate-900/30"
+              placeholder="Cari judul, vendor, notes"
+              className="h-10 rounded-lg border-slate-200 bg-slate-50 pl-10 text-sm font-medium dark:border-slate-800 dark:bg-slate-900/30"
             />
           </div>
 
@@ -338,15 +418,15 @@ export default function ExpensesPage() {
       ) : (
         <DashboardPanel
           eyebrow="Expense Records"
-          title="Daftar pengeluaran yang siap ditindak"
-          description="Mode mobile menampilkan kartu padat, sementara desktop mempertahankan tabel untuk scan cepat dan aksi edit."
+          title="Daftar pengeluaran"
+          description="Record pengeluaran aktif."
         >
           <div className="grid gap-3 md:hidden">
             {filteredItems.map((expense) => (
               <Card
                 key={expense.id}
                 onClick={() => openDetail(expense.id)}
-            className="group cursor-pointer rounded-lg border border-slate-200 bg-white p-4 transition-colors hover:border-[color:rgba(59,130,246,0.22)] dark:border-slate-800 dark:bg-slate-950"
+                className="group cursor-pointer rounded-xl border border-slate-200 bg-white p-3.5 transition-colors hover:border-[color:rgba(59,130,246,0.22)] dark:border-slate-800 dark:bg-slate-950"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1 space-y-2">
@@ -359,7 +439,7 @@ export default function ExpensesPage() {
                       </span>
                     </div>
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-slate-950 dark:text-white">
+                      <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-950 dark:text-white">
                         {expense.title}
                       </h3>
                       <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--bookinaja-600)]" />
@@ -369,7 +449,7 @@ export default function ExpensesPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-[11px] font-medium text-slate-400">
+                    <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
                       Nilai
                     </div>
                     <div className="mt-1 text-sm font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
@@ -378,8 +458,8 @@ export default function ExpensesPage() {
                   </div>
                 </div>
 
-                <div className="mt-3 flex items-center gap-2">
-                    <Button
+                <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+                  <Button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -392,7 +472,7 @@ export default function ExpensesPage() {
                     <PencilLine className="mr-1.5 h-3.5 w-3.5" />
                     Edit
                   </Button>
-                    <Button
+                  <Button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -536,7 +616,7 @@ function DatePopover({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-auto overflow-hidden rounded-xl border-none p-0"
+        className="w-auto max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-950"
         align="start"
       >
         <Calendar
@@ -544,6 +624,7 @@ function DatePopover({
           selected={selected}
           onSelect={(date) => onChange(date ? format(date, "yyyy-MM-dd") : "")}
           initialFocus
+          className="[--cell-size:2.55rem]"
         />
       </PopoverContent>
     </Popover>

@@ -628,6 +628,34 @@ func (h *Handler) SettleCash(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "PEMBAYARAN CASH BERHASIL DILUNASI"})
 }
 
+func (h *Handler) RecordDeposit(c *gin.Context) {
+	id := c.Param("id")
+	tenantID := c.MustGet("tenantID").(string)
+	var req struct {
+		Notes string `json:"notes"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	if err := h.service.RecordDepositByAdmin(c.Request.Context(), id, tenantID, req.Notes, h.adminActor(c)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "DP BERHASIL DICATAT"})
+}
+
+func (h *Handler) OverrideDeposit(c *gin.Context) {
+	id := c.Param("id")
+	tenantID := c.MustGet("tenantID").(string)
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	if err := h.service.OverrideDepositRequirement(c.Request.Context(), id, tenantID, req.Reason, h.adminActor(c)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "OVERRIDE DP BERHASIL DIAKTIFKAN"})
+}
+
 func (h *Handler) SendReceiptWhatsApp(c *gin.Context) {
 	id := c.Param("id")
 	tenantID := c.MustGet("tenantID").(string)

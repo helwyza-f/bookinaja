@@ -328,7 +328,7 @@ export function DashboardLineChartPanel({
                 />
               ) : null}
               {primaryCoordinates.map((point, index) => (
-                <g key={`${points[index]?.label || index}-primary`}>
+                <g key={`${points[index]?.label || "point"}-${index}-primary`}>
                   <circle
                     cx={point.x}
                     cy={point.y}
@@ -351,9 +351,9 @@ export function DashboardLineChartPanel({
               ))}
             </svg>
             <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6">
-              {points.map((point) => (
+              {points.map((point, index) => (
                 <div
-                  key={point.label}
+                  key={`${point.label}-${index}`}
                   className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 dark:border-slate-800 dark:bg-slate-950"
                 >
                   <div className="text-[10px] font-medium uppercase tracking-wide text-slate-400">

@@ -1146,6 +1146,169 @@ func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, s
 	return nil
 }
 
+func (r *Repository) RecordDepositByAdmin(ctx context.Context, id, tenantID uuid.UUID, notes string, actor ActorContext) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var before Booking
+	if err := tx.GetContext(ctx, &before, `SELECT * FROM bookings WHERE id = $1 AND tenant_id = $2 LIMIT 1`, id, tenantID); err != nil {
+		return err
+	}
+
+	now := time.Now().UTC()
+	reference := fmt.Sprintf("ADMIN-DP-%d", now.UnixNano())
+	actorName := strings.TrimSpace(actor.Name)
+	if actorName == "" {
+		actorName = "Admin"
+	}
+	adminNote := strings.TrimSpace(notes)
+	if adminNote == "" {
+		adminNote = "DP dicatat manual oleh admin tanpa menunggu upload customer."
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE bookings
+		SET payment_status = CASE
+				WHEN grand_total <= deposit_amount THEN 'settled'
+				ELSE 'partial_paid'
+			END,
+			status = CASE
+				WHEN status = 'pending' THEN 'confirmed'
+				ELSE status
+			END,
+			payment_method = 'admin_recorded',
+			paid_amount = GREATEST(paid_amount, deposit_amount),
+			balance_due = GREATEST(grand_total - GREATEST(paid_amount, deposit_amount), 0),
+			settled_at = CASE
+				WHEN grand_total <= deposit_amount THEN COALESCE(settled_at, NOW())
+				ELSE settled_at
+			END,
+			last_status_changed_at = CASE
+				WHEN status = 'pending' THEN NOW()
+				ELSE last_status_changed_at
+			END,
+			deposit_override_active = false,
+			deposit_override_reason = NULL,
+			deposit_override_by = NULL,
+			deposit_override_at = NULL
+		WHERE id = $1 AND tenant_id = $2`,
+		id, tenantID,
+	); err != nil {
+		return err
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO booking_payment_attempts (
+			id, booking_id, tenant_id, customer_id, method_code, method_label, category, verification_type, payment_scope,
+			amount, status, reference_code, payer_note, admin_note, metadata, submitted_at, verified_at, created_at, updated_at
+		) VALUES (
+			$1,$2,$3,$4,$5,$6,$7,$8,$9,
+			$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
+		)`,
+		uuid.New(), id, tenantID, before.CustomerID, "admin_recorded", "Admin recorded deposit", "manual", "manual", "deposit",
+		int64(before.DepositAmount), "verified", reference, "Diterima langsung oleh admin", adminNote, []byte(`{"source":"admin_recorded"}`), now, now, now, now,
+	); err != nil {
+		return err
+	}
+
+	if err := r.updatePromoRedemptionStatus(ctx, tx, id, "redeemed"); err != nil {
+		return err
+	}
+
+	if err := r.CreateBookingEvent(ctx, tx, BookingEventInput{
+		BookingID:   id,
+		TenantID:    tenantID,
+		CustomerID:  &before.CustomerID,
+		ActorUserID: actor.UserID,
+		ActorType:   actor.Type,
+		ActorName:   actor.Name,
+		ActorEmail:  actor.Email,
+		ActorRole:   actor.Role,
+		EventType:   "payment.dp.recorded",
+		Title:       "DP dicatat admin",
+		Description: "Admin menandai DP sudah diterima dan booking siap dilanjutkan.",
+		Metadata: map[string]any{
+			"amount":    before.DepositAmount,
+			"notes":     adminNote,
+			"reference": reference,
+		},
+	}); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	r.InvalidateBookingCacheByID(ctx, id)
+	return nil
+}
+
+func (r *Repository) OverrideDepositRequirement(ctx context.Context, id, tenantID uuid.UUID, reason string, actor ActorContext) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var before Booking
+	if err := tx.GetContext(ctx, &before, `SELECT * FROM bookings WHERE id = $1 AND tenant_id = $2 LIMIT 1`, id, tenantID); err != nil {
+		return err
+	}
+
+	overrideReason := strings.TrimSpace(reason)
+	if overrideReason == "" {
+		overrideReason = "Sesi diizinkan mulai sebelum DP masuk. Perlu follow-up pembayaran."
+	}
+	overrideBy := strings.TrimSpace(actor.Name)
+	if overrideBy == "" {
+		overrideBy = strings.TrimSpace(actor.Email)
+	}
+	if overrideBy == "" {
+		overrideBy = "Admin"
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE bookings
+		SET deposit_override_active = true,
+			deposit_override_reason = $3,
+			deposit_override_by = $4,
+			deposit_override_at = NOW()
+		WHERE id = $1 AND tenant_id = $2`,
+		id, tenantID, overrideReason, overrideBy,
+	); err != nil {
+		return err
+	}
+
+	if err := r.CreateBookingEvent(ctx, tx, BookingEventInput{
+		BookingID:   id,
+		TenantID:    tenantID,
+		CustomerID:  &before.CustomerID,
+		ActorUserID: actor.UserID,
+		ActorType:   actor.Type,
+		ActorName:   actor.Name,
+		ActorEmail:  actor.Email,
+		ActorRole:   actor.Role,
+		EventType:   "booking.dp_override.enabled",
+		Title:       "Override DP diaktifkan",
+		Description: "Admin mengizinkan sesi dimulai sebelum DP tercatat.",
+		Metadata: map[string]any{
+			"reason":      overrideReason,
+			"override_by": overrideBy,
+		},
+	}); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	r.InvalidateBookingCacheByID(ctx, id)
+	return nil
+}
+
 func (r *Repository) updatePromoRedemptionStatus(ctx context.Context, exec sqlx.ExtContext, bookingID uuid.UUID, status string) error {
 	_, err := exec.ExecContext(ctx, `
 		UPDATE tenant_promo_redemptions
@@ -1194,7 +1357,11 @@ func (r *Repository) SettlePaymentCash(ctx context.Context, id, tenantID uuid.UU
 			payment_method = 'cash',
 			paid_amount = grand_total,
 			balance_due = 0,
-			settled_at = COALESCE(settled_at, NOW())
+			settled_at = COALESCE(settled_at, NOW()),
+			deposit_override_active = false,
+			deposit_override_reason = NULL,
+			deposit_override_by = NULL,
+			deposit_override_at = NULL
 		WHERE id = $1 AND tenant_id = $2`
 	if _, err := tx.ExecContext(ctx, query, id, tenantID); err != nil {
 		return err
@@ -1372,9 +1539,9 @@ func (r *Repository) GetAnalyticsSummary(ctx context.Context, tenantID uuid.UUID
 		),
 		calendar AS (
 			SELECT (
-				(CURRENT_TIMESTAMP AT TIME ZONE (SELECT timezone FROM tenant_meta))::date - (($3 - 1) - offset)
+				(CURRENT_TIMESTAMP AT TIME ZONE (SELECT timezone FROM tenant_meta))::date - (($3 - 1) - day_offset)
 			)::date AS local_day
-			FROM generate_series(0, $3 - 1) AS offset
+			FROM generate_series(0, $3 - 1) AS series(day_offset)
 		),
 		booking_daily AS (
 			SELECT

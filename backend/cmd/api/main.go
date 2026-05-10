@@ -23,6 +23,7 @@ import (
 	"github.com/helwiza/backend/internal/promo"
 	"github.com/helwiza/backend/internal/reservation"
 	"github.com/helwiza/backend/internal/resource"
+	"github.com/helwiza/backend/internal/sales"
 	"github.com/helwiza/backend/internal/smartdevice"
 	"github.com/helwiza/backend/internal/tenant"
 	"github.com/joho/godotenv"
@@ -101,6 +102,7 @@ func main() {
 	customerRepo := customer.NewRepository(db, rdb)
 	expenseRepo := expense.NewRepository(db)
 	resourceRepo := resource.NewRepository(db, rdb)
+	salesRepo := sales.NewRepository(db)
 	reservationRepo := reservation.NewRepository(db, rdb)
 	fnbRepo := fnb.NewRepository(db, rdb)
 	promoRepo := promo.NewRepository(db)
@@ -114,6 +116,7 @@ func main() {
 	customerSvc := customer.NewService(customerRepo, rdb)
 	expenseSvc := expense.NewService(expenseRepo)
 	resourceSvc := resource.NewService(resourceRepo)
+	salesSvc := sales.NewService(salesRepo, resourceRepo, billingRepo, db)
 	fnbSvc := fnb.NewService(fnbRepo)
 	promoSvc := promo.NewService(promoRepo)
 	realtimeHub := platformrealtime.NewHub()
@@ -131,6 +134,7 @@ func main() {
 	expenseHdl := expense.NewHandler(expenseSvc)
 	tenantHdl := tenant.NewHandler(tenantSvc)
 	resourceHdl := resource.NewHandler(resourceSvc)
+	salesHdl := sales.NewHandler(salesSvc)
 	reservationHdl := reservation.NewHandler(reservationSvc, tenantSvc)
 	fnbHdl := fnb.NewHandler(fnbSvc)
 	promoHdl := promo.NewHandler(promoSvc)
@@ -151,6 +155,7 @@ func main() {
 		FnbHandler:         fnbHdl,
 		PromoHandler:       promoHdl,
 		ExpenseHandler:     expenseHdl,
+		SalesHandler:       salesHdl,
 		BillingHandler:     billingHdl,
 		PlatformHandler:    platformHdl,
 		MidtransHandler:    midtransHdl,

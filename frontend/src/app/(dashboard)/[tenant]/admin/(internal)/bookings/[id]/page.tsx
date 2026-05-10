@@ -31,6 +31,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -113,6 +120,10 @@ type BookingDetail = {
   id: string;
   status?: string;
   payment_status?: string;
+  deposit_override_active?: boolean;
+  deposit_override_reason?: string;
+  deposit_override_by?: string;
+  deposit_override_at?: string;
   customer_name?: string;
   customer_phone?: string;
   resource_name?: string;
@@ -163,6 +174,19 @@ function patchBookingDetailFromEvent(
       typeof event.summary?.balance_due === "number"
         ? Number(event.summary.balance_due)
         : current.balance_due,
+    deposit_override_active:
+      typeof event.summary?.deposit_override_active === "boolean"
+        ? Boolean(event.summary.deposit_override_active)
+        : current.deposit_override_active,
+    deposit_override_reason: String(
+      event.summary?.deposit_override_reason ?? current.deposit_override_reason ?? "",
+    ),
+    deposit_override_by: String(
+      event.summary?.deposit_override_by ?? current.deposit_override_by ?? "",
+    ),
+    deposit_override_at: String(
+      event.summary?.deposit_override_at ?? current.deposit_override_at ?? "",
+    ),
   };
 }
 
@@ -215,7 +239,7 @@ function adminSessionStatusMeta(status?: string) {
   return { label: "Menunggu", className: "bg-amber-500 text-white" };
 }
 
-function adminPaymentStatusMeta(status?: string, balanceDue?: number) {
+function adminPaymentStatusMeta(status?: string, balanceDue?: number, hasDepositOverride?: boolean) {
   const normalized = String(status || "").toLowerCase();
   const remaining = Number(balanceDue || 0);
   if (normalized === "settled" || (normalized === "paid" && remaining === 0)) {
@@ -232,6 +256,9 @@ function adminPaymentStatusMeta(status?: string, balanceDue?: number) {
   }
   if (normalized === "failed") {
     return { label: "Gagal", className: "bg-red-500 text-white" };
+  }
+  if (hasDepositOverride) {
+    return { label: "Tanpa DP", className: "bg-amber-500 text-white" };
   }
   return {
     label: "Menunggu Pembayaran",
@@ -516,17 +543,24 @@ export default function BookingDetailPage() {
     (booking?.payment_attempts || []).filter(
       (item) => item.status === "submitted" || item.status === "awaiting_verification",
     );
+  const [recordDepositDialogOpen, setRecordDepositDialogOpen] = useState(false);
+  const [overrideDepositDialogOpen, setOverrideDepositDialogOpen] = useState(false);
+  const [recordDepositNotes, setRecordDepositNotes] = useState("DP diterima langsung oleh admin.");
+  const [overrideDepositReason, setOverrideDepositReason] = useState(
+    "Booking dijalankan tanpa DP.",
+  );
   const hasPendingManualVerification = pendingManualAttempts.length > 0;
   const isPaymentSettled =
     booking?.payment_status === "settled" ||
     (booking?.payment_status === "paid" && Number(booking?.balance_due || 0) === 0);
   const status = String(booking?.status || "").toLowerCase();
   const paymentStatus = String(booking?.payment_status || "").toLowerCase();
+  const hasDepositOverride = Boolean(booking?.deposit_override_active);
   const sessionStatusMeta = adminSessionStatusMeta(status);
-  const paymentStatusMeta = adminPaymentStatusMeta(paymentStatus, booking?.balance_due);
+  const paymentStatusMeta = adminPaymentStatusMeta(paymentStatus, booking?.balance_due, hasDepositOverride);
   const hasPaidDp = paymentStatus === "partial_paid" || paymentStatus === "paid" || paymentStatus === "settled" || Number(booking?.deposit_amount || 0) === 0;
   const canConfirm = status === "pending" && paymentStatus !== "awaiting_verification";
-  const canStart = (status === "pending" || status === "confirmed") && hasPaidDp;
+  const canStart = (status === "pending" || status === "confirmed") && (hasPaidDp || hasDepositOverride);
   const canComplete = status === "active";
   const canSettle =
     status === "completed" &&
@@ -544,11 +578,27 @@ export default function BookingDetailPage() {
   const canOperatePos = hasPermission(adminUser, "pos.read");
   const canSendReceipt = hasPermission(adminUser, "receipts.send");
   const canPrintReceipt = hasPermission(adminUser, "receipts.print");
+  const canRecordDeposit =
+    canSettleCash &&
+    (status === "pending" || status === "confirmed") &&
+    Number(booking?.deposit_amount || 0) > 0 &&
+    !hasPaidDp &&
+    !hasPendingManualVerification &&
+    !hasDepositOverride;
+  const canOverrideDeposit =
+    canStartSession &&
+    (status === "pending" || status === "confirmed") &&
+    Number(booking?.deposit_amount || 0) > 0 &&
+    !hasPaidDp &&
+    !hasPendingManualVerification &&
+    !hasDepositOverride;
   const hasPromo =
     Number(booking?.discount_amount || 0) > 0 &&
     String(booking?.promo_code || "").trim() !== "";
   const hasAdminControls =
     canConfirm ||
+    canRecordDeposit ||
+    canOverrideDeposit ||
     status === "active" ||
     status === "pending" ||
     status === "confirmed" ||
@@ -730,6 +780,40 @@ export default function BookingDetailPage() {
     }
   };
 
+  const handleRecordDeposit = async () => {
+    setUpdating(true);
+    try {
+      await api.post(`/bookings/${params.id}/record-deposit`, {
+        notes: String(recordDepositNotes || "").trim(),
+      });
+      toast.success("DP berhasil dicatat");
+      setRecordDepositDialogOpen(false);
+      fetchDetail();
+    } catch (error) {
+      const err = error as { response?: { data?: { error?: string } } };
+      toast.error(err.response?.data?.error || "Gagal mencatat DP");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleOverrideDeposit = async () => {
+    setUpdating(true);
+    try {
+      await api.post(`/bookings/${params.id}/override-deposit`, {
+        reason: String(overrideDepositReason || "").trim(),
+      });
+      toast.success("Override DP aktif");
+      setOverrideDepositDialogOpen(false);
+      fetchDetail();
+    } catch (error) {
+      const err = error as { response?: { data?: { error?: string } } };
+      toast.error(err.response?.data?.error || "Gagal mengaktifkan override DP");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const handleReceiptAction = async (mode: "whatsapp" | "print" | "both") => {
     if (!booking) return;
     if (!canUseReceipt) {
@@ -817,12 +901,27 @@ export default function BookingDetailPage() {
             <Badge className={cn("border-none", paymentStatusMeta.className)}>
               Bayar: {paymentStatusMeta.label}
             </Badge>
+            {hasDepositOverride ? (
+              <Badge className="border-none bg-amber-500 text-white">
+                Override DP Aktif
+              </Badge>
+            ) : null}
             {refreshing ? (
               <Badge className="border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300">
                 Refresh
               </Badge>
             ) : null}
           </div>
+
+          {hasDepositOverride ? (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-950/20 dark:text-amber-100">
+              <p className="font-semibold">Sesi boleh dimulai tanpa DP.</p>
+              <p className="mt-1 text-xs leading-5 text-amber-800/90 dark:text-amber-100/80">
+                {booking?.deposit_override_reason || "Override aktif sampai DP benar-benar dicatat."}
+                {booking?.deposit_override_by ? ` Disetujui oleh ${booking.deposit_override_by}.` : ""}
+              </p>
+            </div>
+          ) : null}
 
           <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4 xl:mt-5 xl:gap-3">
             <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
@@ -875,6 +974,26 @@ export default function BookingDetailPage() {
                     onClick={() => handleUpdateStatus("confirmed")}
                     disabled={updating || !canConfirmBooking}
                     tone="primary"
+                  />
+                )}
+                {canRecordDeposit && (
+                  <AdminControlCard
+                    title="Catat DP"
+                    description="Tandai DP sudah diterima offline."
+                    icon={Receipt}
+                    onClick={() => setRecordDepositDialogOpen(true)}
+                    disabled={updating || !canSettleCash}
+                    tone="primary"
+                  />
+                )}
+                {canOverrideDeposit && (
+                  <AdminControlCard
+                    title="Tanpa DP"
+                    description="Booking jalan tanpa DP."
+                    icon={Clock}
+                    onClick={() => setOverrideDepositDialogOpen(true)}
+                    disabled={updating || !canStartSession}
+                    tone="neutral"
                   />
                 )}
                 {status === "active" && (
@@ -960,6 +1079,23 @@ export default function BookingDetailPage() {
                   </DropdownMenu>
                 )}
               </div>
+              {Number(booking?.deposit_amount || 0) > 0 && !hasPaidDp && (status === "pending" || status === "confirmed") && !hasDepositOverride ? (
+                <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-slate-700">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-700">DP Booking</p>
+                  <p className="mt-1 font-semibold text-slate-950">Rp{formatIDR(Number(booking?.deposit_amount || 0))}</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-600">
+                    DP dipakai sebagai syarat muka sebelum sesi mulai.
+                  </p>
+                </div>
+              ) : null}
+              {hasDepositOverride ? (
+                <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">Tanpa DP aktif</p>
+                  <p className="mt-1 text-xs leading-5">
+                    Booking ini jalan tanpa DP. Pelunasan nanti memakai total penuh.
+                  </p>
+                </div>
+              ) : null}
             </Card>
           )}
         </div>
@@ -1314,6 +1450,74 @@ export default function BookingDetailPage() {
           <div className="order-4 xl:order-3 xl:col-span-8">
             {timelineSection}
           </div>
+          <Dialog open={recordDepositDialogOpen} onOpenChange={setRecordDepositDialogOpen}>
+            <DialogContent className="overflow-hidden rounded-3xl p-0 sm:max-w-lg">
+              <DialogHeader className="border-b border-slate-200 px-6 py-5 text-left">
+                <DialogTitle>Catat DP masuk</DialogTitle>
+                <DialogDescription>
+                  Pakai ini jika DP{" "}
+                  <span className="font-semibold text-slate-900">Rp{formatIDR(Number(booking?.deposit_amount || 0))}</span>{" "}
+                  sudah benar-benar diterima.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 px-6 py-5">
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                  Setelah dicatat, booking tidak lagi menunggu DP.
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-900">Catatan admin</label>
+                  <textarea
+                    value={recordDepositNotes}
+                    onChange={(event) => setRecordDepositNotes(event.target.value)}
+                    className="min-h-[96px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                    placeholder="Contoh: DP diterima tunai oleh admin shift pagi."
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
+                <Button type="button" variant="outline" className="rounded-2xl" onClick={() => setRecordDepositDialogOpen(false)} disabled={updating}>
+                  Batal
+                </Button>
+                <Button type="button" className="rounded-2xl bg-blue-600 text-white hover:bg-blue-700" onClick={() => void handleRecordDeposit()} disabled={updating}>
+                  {updating ? "Memproses..." : "Catat DP"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={overrideDepositDialogOpen} onOpenChange={setOverrideDepositDialogOpen}>
+            <DialogContent className="overflow-hidden rounded-3xl p-0 sm:max-w-xl">
+              <DialogHeader className="border-b border-slate-200 px-6 py-5 text-left">
+                <DialogTitle>Jalankan tanpa DP</DialogTitle>
+                <DialogDescription>
+                  Booking ini jalan tanpa DP.{" "}
+                  <span className="font-semibold text-slate-900">Rp{formatIDR(Number(booking?.deposit_amount || 0))}</span>{" "}
+                  tidak dibayar di depan dan pelunasan nanti memakai total penuh.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 px-6 py-5">
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  Tidak ada transaksi DP terpisah setelah ini.
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-900">Catatan admin</label>
+                  <textarea
+                    value={overrideDepositReason}
+                    onChange={(event) => setOverrideDepositReason(event.target.value)}
+                    className="min-h-[96px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                    placeholder="Contoh: Booking dijalankan tanpa DP."
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
+                <Button type="button" variant="outline" className="rounded-2xl" onClick={() => setOverrideDepositDialogOpen(false)} disabled={updating}>
+                  Batal
+                </Button>
+                <Button type="button" className="rounded-2xl bg-amber-500 text-white hover:bg-amber-600" onClick={() => void handleOverrideDeposit()} disabled={updating || !String(overrideDepositReason || "").trim()}>
+                  {updating ? "Memproses..." : "Aktifkan tanpa DP"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
       </div>
     </div>
   );

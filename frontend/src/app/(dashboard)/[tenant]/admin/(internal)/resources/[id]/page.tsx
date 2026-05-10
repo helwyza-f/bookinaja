@@ -258,16 +258,31 @@ export default function ResourceDetailPage() {
         return {
           label: "Direct sale",
           description: "Resource ini dijual langsung lewat POS tanpa slot waktu.",
+          packageLabel: "Katalog jual",
+          packageHint: "Item utama",
+          addonLabel: "Tambahan jual",
+          addonHint: "Upsize, topping, atau item tambahan.",
+          addButtonLabel: "Tambah Item Jual",
         };
       case "hybrid":
         return {
           label: "Hybrid",
-          description: "Resource ini bisa dipakai sebagai booking berbasis waktu dan direct sale.",
+          description: "Mode lanjutan. Untuk operasional sederhana, sebaiknya pilih timed atau direct sale.",
+          packageLabel: "Paket utama",
+          packageHint: "Mode lanjutan",
+          addonLabel: "Katalog tambahan",
+          addonHint: "Tambahan layanan dan perlengkapan.",
+          addButtonLabel: "Tambah Paket",
         };
       default:
         return {
           label: "Timed",
           description: "Resource ini memakai jadwal, sesi, dan lifecycle waktu.",
+          packageLabel: configMeta.label,
+          packageHint: "Paket booking",
+          addonLabel: "Katalog tambahan",
+          addonHint: "Layanan tambahan dan perlengkapan.",
+          addButtonLabel: "Tambah Paket",
         };
     }
   })();
@@ -275,7 +290,7 @@ export default function ResourceDetailPage() {
   if (loading && !resource) return <ResourceDetailLoading />;
 
   return (
-    <div className="mx-auto max-w-[1600px] animate-in space-y-4 px-3 pb-20 pt-5 font-plus-jakarta fade-in duration-500 md:px-4 md:space-y-6">
+    <div className="mx-auto max-w-[1600px] animate-in space-y-4 px-3 pb-20 pt-4 font-plus-jakarta fade-in duration-500 md:px-4 md:space-y-6 md:pt-5">
       <header className="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-white/10 md:flex-row md:items-center md:justify-between md:pb-5">
         <div className="flex items-center gap-3 md:gap-4">
           <Button
@@ -286,7 +301,7 @@ export default function ResourceDetailPage() {
             <ArrowLeft size={18} strokeWidth={3} />
           </Button>
           <div className="flex flex-col leading-none">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-2xl">
                 {resource?.name}
               </h1>
@@ -297,7 +312,7 @@ export default function ResourceDetailPage() {
                 {operatingModeMeta.label}
               </Badge>
             </div>
-            <p className="mt-1.5 text-xs text-slate-500">
+            <p className="mt-1.5 pr-2 text-xs leading-relaxed text-slate-500">
               Pengaturan detail resource, paket harga, dan tampilan publik.
             </p>
           </div>
@@ -310,19 +325,19 @@ export default function ResourceDetailPage() {
           }}
           className="h-10 w-full gap-2 rounded-lg bg-[var(--bookinaja-600)] px-4 text-sm font-semibold text-white hover:bg-[var(--bookinaja-700)] md:w-auto"
         >
-          <Plus size={16} strokeWidth={4} /> Tambah Paket
+          <Plus size={16} strokeWidth={4} /> {operatingModeMeta.addButtonLabel}
         </Button>
       </header>
 
       <div className="grid grid-cols-1 items-start gap-4 md:gap-6 lg:grid-cols-12">
-        <div className="space-y-5 lg:col-span-4">
+        <div className="space-y-4 md:space-y-5 lg:col-span-4">
           <Card className="relative rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] md:p-5">
             <div className="absolute right-4 top-4 z-20">
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => setIsEditMode(!isEditMode)}
-                className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium shadow-sm dark:border-white/10 dark:bg-slate-800/90"
+                className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium shadow-sm dark:border-white/10 dark:bg-slate-800/90"
               >
                 {isEditMode ? (
                   <>
@@ -349,14 +364,16 @@ export default function ResourceDetailPage() {
                   <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">
                     Mode operasional
                   </div>
-                  <Select value={operatingMode} onValueChange={setOperatingMode}>
+                  <Select
+                    value={operatingMode === "hybrid" ? "timed" : operatingMode}
+                    onValueChange={setOperatingMode}
+                  >
                     <SelectTrigger className="h-11 w-full rounded-xl border-slate-200 bg-slate-50 px-4 text-sm font-semibold dark:border-white/10 dark:bg-slate-900/50">
                       <SelectValue placeholder="Pilih mode operasional" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
                       <SelectItem value="timed">Timed - pakai slot dan jadwal</SelectItem>
                       <SelectItem value="direct_sale">Direct sale - jual langsung di POS</SelectItem>
-                      <SelectItem value="hybrid">Hybrid - bisa timed dan direct sale</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
@@ -387,8 +404,8 @@ export default function ResourceDetailPage() {
                 </Button>
               </div>
             ) : (
-              <div className="space-y-5 md:space-y-6">
-                <div className="aspect-[16/10] overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
+              <div className="space-y-4 md:space-y-6">
+                <div className="aspect-[4/3] overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 md:aspect-[16/10]">
                   {imageUrl ? (
                     <img
                       src={imageUrl}
@@ -401,7 +418,7 @@ export default function ResourceDetailPage() {
                     </div>
                   )}
                 </div>
-                <div className="space-y-3 px-2">
+                <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Sparkles size={14} className="text-[var(--bookinaja-600)]" />
                     <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -419,7 +436,7 @@ export default function ResourceDetailPage() {
                   </p>
                 </div>
                 {gallery.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2 px-2 md:grid-cols-4">
+                  <div className="grid grid-cols-3 gap-2 md:grid-cols-4">
                     {gallery.slice(0, 4).map((img, index) => (
                       <div
                         key={index}
@@ -440,68 +457,27 @@ export default function ResourceDetailPage() {
         </div>
 
         <div className="space-y-5 md:space-y-6 lg:col-span-8">
-          <Card className="rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03] md:p-5">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-                  Smart Point
-                </div>
-                {resource?.smart_device_summary ? (
-                  <>
-                    <div className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
-                      {resource.smart_device_summary.device_name}
-                    </div>
-                    <div className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-                      {resource.smart_device_summary.device_id} |{" "}
-                      {resource.smart_device_summary.connection_status}
-                      {resource.smart_device_summary.last_seen_at
-                        ? ` | terlihat ${new Date(resource.smart_device_summary.last_seen_at).toLocaleString("id-ID")}`
-                        : ""}
-                    </div>
-                  </>
-                ) : (
-                  <div className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
-                    Resource ini belum punya Smart Point yang terhubung.
-                  </div>
-                )}
-              </div>
-              <Link
-                href={
-                  resource?.smart_device_summary
-                    ? `/admin/devices/${resource.smart_device_summary.id}`
-                    : "/admin/devices"
-                }
-              >
-                <Button className="rounded-lg bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
-                  {resource?.smart_device_summary
-                    ? "Lihat Smart Point"
-                    : "Hubungkan Smart Point"}
-                </Button>
-              </Link>
-            </div>
-          </Card>
-
           <section className="space-y-4">
             <div className="flex items-center justify-between px-2">
-              <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-950 text-white dark:bg-[var(--bookinaja-600)]">
-                  <LayoutGrid size={16} />
-                </div>
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
-                    {configMeta.label}
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-950 text-white dark:bg-[var(--bookinaja-600)]">
+                    <LayoutGrid size={16} />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {operatingModeMeta.packageLabel}
                   </h2>
-                  <p className="mt-1 text-xs text-slate-500">Paket utama</p>
+                  <p className="mt-1 text-xs text-slate-500">{operatingModeMeta.packageHint}</p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-3">
               {mainItems.map((item) => (
                 <Card
                   key={item.id}
                   className={cn(
-                    "group rounded-xl border bg-white p-4 transition-colors dark:bg-[#0f0f17]",
+                    "group rounded-xl border bg-white p-3.5 transition-colors dark:bg-[#0f0f17] md:p-4",
                     item.is_default
                       ? "border-blue-200 bg-blue-50/40 dark:border-blue-500/20 dark:bg-blue-500/5"
                       : "border-slate-200 dark:border-white/10",
@@ -522,7 +498,7 @@ export default function ResourceDetailPage() {
                         configMeta.icon
                       )}
                     </div>
-                    <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <div className="flex gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
                       {!item.is_default ? (
                         <Button
                           onClick={() => handleSetDefault(item)}
@@ -583,15 +559,15 @@ export default function ResourceDetailPage() {
               </div>
               <div>
                 <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
-                  Katalog Tambahan
+                  {operatingModeMeta.addonLabel}
                 </h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  Layanan tambahan dan perlengkapan.
+                  {operatingModeMeta.addonHint}
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-3">
               {addonItems.map((item) => (
                 <div
                   key={item.id}
@@ -630,6 +606,48 @@ export default function ResourceDetailPage() {
               ))}
             </div>
           </section>
+
+          <Card className="rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03] md:p-5">
+            <div className="flex flex-col gap-3">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+                  Smart Point
+                </div>
+                {resource?.smart_device_summary ? (
+                  <>
+                    <div className="mt-1 text-base font-semibold text-slate-950 dark:text-white md:text-lg">
+                      {resource.smart_device_summary.device_name}
+                    </div>
+                    <div className="mt-1 text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
+                      {resource.smart_device_summary.device_id} ·{" "}
+                      {resource.smart_device_summary.connection_status}
+                      {resource.smart_device_summary.last_seen_at
+                        ? ` · terlihat ${new Date(resource.smart_device_summary.last_seen_at).toLocaleString("id-ID")}`
+                        : ""}
+                    </div>
+                  </>
+                ) : (
+                  <div className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+                    Resource ini belum punya Smart Point yang terhubung.
+                  </div>
+                )}
+              </div>
+              <Link
+                href={
+                  resource?.smart_device_summary
+                    ? `/admin/devices/${resource.smart_device_summary.id}`
+                    : "/admin/devices"
+                }
+                className="w-full md:w-auto"
+              >
+                <Button className="w-full rounded-lg bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)] md:w-auto">
+                  {resource?.smart_device_summary
+                    ? "Lihat Smart Point"
+                    : "Hubungkan Smart Point"}
+                </Button>
+              </Link>
+            </div>
+          </Card>
         </div>
       </div>
 

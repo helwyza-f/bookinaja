@@ -195,6 +195,16 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				resources.POST("/upload-cover", middleware.RequirePermission(tenant.PermissionResourcesUpdate), func(c *gin.Context) {
 					upload.HandleSingleUpload(c, "resources/covers")
 				})
+				resources.POST("/upload-cover/direct/initiate", middleware.RequirePermission(tenant.PermissionResourcesUpdate), func(c *gin.Context) {
+					upload.HandleDirectInitiate(c, "resources/covers")
+				})
+				resources.GET("/upload-cover/direct/:uploadID/part-url", middleware.RequirePermission(tenant.PermissionResourcesUpdate), upload.HandleDirectPartURL)
+				resources.POST("/upload-cover/direct/:uploadID/complete", middleware.RequirePermission(tenant.PermissionResourcesUpdate), upload.HandleDirectComplete)
+				resources.POST("/upload-cover/chunk/initiate", middleware.RequirePermission(tenant.PermissionResourcesUpdate), func(c *gin.Context) {
+					upload.HandleChunkInitiate(c, "resources/covers")
+				})
+				resources.POST("/upload-cover/chunk/:uploadID/part", middleware.RequirePermission(tenant.PermissionResourcesUpdate), upload.HandleChunkPart)
+				resources.POST("/upload-cover/chunk/:uploadID/complete", middleware.RequirePermission(tenant.PermissionResourcesUpdate), upload.HandleChunkComplete)
 				resources.POST("/upload-gallery", middleware.RequirePermission(tenant.PermissionResourcesUpdate), func(c *gin.Context) {
 					upload.HandleBulkUpload(c, "resources/gallery")
 				})
@@ -206,6 +216,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				adminResources.GET("/list", middleware.RequirePermission(tenant.PermissionResourcesRead), cfg.ResourceHandler.ListAdminCatalog)
 				adminResources.GET("/pricing-catalog", middleware.RequirePermission(tenant.PermissionResourcesRead), cfg.ResourceHandler.ListPricingCatalog)
 				adminResources.GET("/addons-catalog", middleware.RequirePermission(tenant.PermissionResourcesRead), cfg.ResourceHandler.ListAddonCatalog)
+				adminResources.GET("/pos-catalog", middleware.RequirePermission(tenant.PermissionResourcesRead), cfg.ResourceHandler.ListPOSCatalog)
 				adminResources.GET("/device-map", middleware.RequirePermission(tenant.PermissionDevicesRead), cfg.ResourceHandler.ListDeviceMap)
 				adminResources.GET("/:id", middleware.RequirePermission(tenant.PermissionResourcesRead), cfg.ResourceHandler.GetByID)
 			}
@@ -236,6 +247,29 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				})
 			}
 
+			salesOrders := adminArea.Group("/sales-orders")
+			{
+				salesOrders.GET("", middleware.RequirePermission(tenant.PermissionPosRead), cfg.SalesHandler.List)
+				salesOrders.GET("/open", middleware.RequirePermission(tenant.PermissionPosRead), cfg.SalesHandler.ListOpen)
+				salesOrders.GET("/:id", middleware.RequirePermission(tenant.PermissionPosRead), cfg.SalesHandler.GetByID)
+				salesOrders.POST("", middleware.RequirePermission(tenant.PermissionPosOrderAdd), cfg.SalesHandler.Create)
+				salesOrders.POST("/:id/items", middleware.RequirePermission(tenant.PermissionPosOrderAdd), cfg.SalesHandler.AddItem)
+				salesOrders.PUT("/:id/items/:item_id", middleware.RequirePermission(tenant.PermissionPosOrderAdd), cfg.SalesHandler.UpdateItem)
+				salesOrders.DELETE("/:id/items/:item_id", middleware.RequirePermission(tenant.PermissionPosOrderAdd), cfg.SalesHandler.DeleteItem)
+				salesOrders.POST("/:id/checkout", middleware.RequirePermission(tenant.PermissionPosCheckout), cfg.SalesHandler.Checkout)
+				salesOrders.POST("/:id/payment-checkout", middleware.RequirePermission(tenant.PermissionPosCheckout), cfg.SalesHandler.CheckoutPayment)
+				salesOrders.POST("/:id/manual-payment", middleware.RequirePermission(tenant.PermissionPosCashSettle), cfg.SalesHandler.SubmitManualPayment)
+				salesOrders.POST("/payment-attempts/:attempt_id/verify", middleware.RequirePermission(tenant.PermissionPosCashSettle), cfg.SalesHandler.VerifyManualPayment)
+				salesOrders.POST("/payment-attempts/:attempt_id/reject", middleware.RequirePermission(tenant.PermissionPosCashSettle), cfg.SalesHandler.RejectManualPayment)
+				salesOrders.POST("/:id/settle-cash", middleware.RequirePermission(tenant.PermissionPosCashSettle), cfg.SalesHandler.SettleCash)
+				salesOrders.POST("/:id/close", middleware.RequirePermission(tenant.PermissionPosCheckout), cfg.SalesHandler.Close)
+			}
+
+			pos := adminArea.Group("/pos")
+			{
+				pos.GET("/action-feed", middleware.RequirePermission(tenant.PermissionPosRead), cfg.SalesHandler.ActionFeed)
+			}
+
 			bookings := adminArea.Group("/bookings")
 			{
 				bookings.GET("", middleware.RequirePermission(tenant.PermissionBookingsRead), cfg.ReservationHandler.ListAll)
@@ -243,6 +277,8 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				bookings.GET("/:id", middleware.RequirePermission(tenant.PermissionBookingsRead), cfg.ReservationHandler.GetDetail)
 				bookings.GET("/:id/payment-attempts", middleware.RequirePermission(tenant.PermissionBookingsRead), cfg.BillingHandler.ListBookingPaymentAttempts)
 				bookings.PUT("/:id/status", middleware.RequireBookingStatusPermission(), cfg.ReservationHandler.UpdateStatus)
+				bookings.POST("/:id/record-deposit", middleware.RequirePermission(tenant.PermissionPosCashSettle), cfg.ReservationHandler.RecordDeposit)
+				bookings.POST("/:id/override-deposit", middleware.RequirePermission(tenant.PermissionSessionsStart), cfg.ReservationHandler.OverrideDeposit)
 				bookings.POST("/:id/settle-cash", middleware.RequirePermission(tenant.PermissionPosCashSettle), cfg.ReservationHandler.SettleCash)
 				bookings.POST("/:id/manual-payment", middleware.RequirePermission(tenant.PermissionPosCashSettle), cfg.BillingHandler.SubmitManualBookingPayment)
 				bookings.POST("/payment-attempts/:attempt_id/verify", middleware.RequirePermission(tenant.PermissionPosCashSettle), cfg.BillingHandler.VerifyManualBookingPayment)

@@ -325,6 +325,46 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 			}
 			return nil
 		}
+		if strings.HasPrefix(orderID, "so-") {
+			salesOrderID, _, err := ParseSalesOrderPaymentOrderID(orderID)
+			if err != nil {
+				logCommon.ProcessingStatus = "failed"
+				logCommon.ErrorMessage = err.Error()
+				if logErr := s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon); logErr != nil {
+					return logErr
+				}
+				return err
+			}
+			attempt, err := s.repo.GetSalesOrderPaymentAttemptByGatewayOrderID(ctx, tx, orderID)
+			if err != nil {
+				return err
+			}
+			salesMethod := paymentType
+			if attempt != nil && strings.TrimSpace(attempt.MethodCode) != "" {
+				salesMethod = attempt.MethodCode
+			}
+			var salesMethodPtr *string
+			if salesMethod != "" {
+				salesMethodPtr = &salesMethod
+			}
+			if err := s.repo.UpdateSalesOrderSettlementFromMidtrans(ctx, tx, salesOrderID, newStatus, salesMethodPtr); err != nil {
+				logCommon.ProcessingStatus = "failed"
+				logCommon.ErrorMessage = err.Error()
+				return s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon)
+			}
+			if attempt != nil && isFinalStatus {
+				if err := s.repo.MarkSalesOrderPaymentAttemptStatus(ctx, tx, attempt.ID, "paid", txIDPtr); err != nil {
+					return err
+				}
+				logCommon.TenantID = &attempt.TenantID
+				logCommon.GrossAmount = attempt.Amount
+			}
+			logCommon.ProcessingStatus = "processed"
+			if err := s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon); err != nil {
+				return err
+			}
+			return nil
+		}
 		logCommon.ProcessingStatus = "ignored"
 		if err := s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon); err != nil {
 			return err

@@ -36,19 +36,18 @@ import {
   MonitorPlay,
   TrendingUp,
   XCircle,
+  type LucideIcon,
 } from "lucide-react";
-import { format } from "date-fns";
+import { addDays, endOfDay, format, startOfDay } from "date-fns";
 import { id } from "date-fns/locale";
+import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { hasPermission } from "@/lib/admin-access";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRealtime } from "@/lib/realtime/use-realtime";
 import { RealtimePill } from "@/components/dashboard/realtime-pill";
-import {
-  DashboardMetricCard,
-  DashboardPanel,
-} from "@/components/dashboard/analytics-kit";
+import { DashboardPanel } from "@/components/dashboard/analytics-kit";
 import {
   tenantBookingsChannel,
   tenantDashboardChannel,
@@ -68,6 +67,7 @@ type BookingRow = {
   end_time: string;
   status: string;
   payment_status?: string;
+  deposit_override_active?: boolean;
   deposit_amount?: number;
   balance_due?: number;
   total_resource: number;
@@ -79,6 +79,71 @@ type AdminUser = {
   permission_keys?: string[];
   tenant_id?: string;
 };
+
+type RangePreset = "today" | "7days" | "custom";
+
+type CompactMetricCardProps = {
+  label: string;
+  value: string;
+  hint: string;
+  icon: LucideIcon;
+  tone: "indigo" | "emerald" | "amber" | "slate";
+};
+
+function CompactMetricCard({
+  label,
+  value,
+  hint,
+  icon: Icon,
+  tone,
+}: CompactMetricCardProps) {
+  const toneMap = {
+    indigo: {
+      shell: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
+      icon: "bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]",
+    },
+    emerald: {
+      shell: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
+      icon: "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300",
+    },
+    amber: {
+      shell: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
+      icon: "bg-amber-500/10 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300",
+    },
+    slate: {
+      shell: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
+      icon: "bg-slate-100 text-slate-500 dark:bg-slate-900 dark:text-slate-300",
+    },
+  } as const;
+
+  const colors = toneMap[tone];
+
+  return (
+    <Card className={cn("rounded-xl border p-3 sm:p-4", colors.shell)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+            {label}
+          </div>
+          <div className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
+            {value}
+          </div>
+          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 sm:text-xs">
+            {hint}
+          </div>
+        </div>
+        <div
+          className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl sm:h-11 sm:w-11",
+            colors.icon,
+          )}
+        >
+          <Icon className="h-4 w-4" />
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 const isOperationallyActive = (booking: BookingRow) => {
   const status = String(booking.status || "").toLowerCase();
@@ -126,6 +191,10 @@ function patchBookingFromEvent(prev: BookingRow[], event: RealtimeEvent) {
       payment_status: String(
         event.summary?.payment_status ?? booking.payment_status ?? "",
       ),
+      deposit_override_active:
+        typeof event.summary?.deposit_override_active === "boolean"
+          ? Boolean(event.summary.deposit_override_active)
+          : booking.deposit_override_active,
       resource_name: String(
         event.summary?.resource_name ?? booking.resource_name ?? "",
       ),
@@ -152,10 +221,10 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterPaymentStatus, setFilterPaymentStatus] = useState("all");
   const [filterResource, setFilterResource] = useState("all");
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    new Date(),
-  );
+  const [rangePreset, setRangePreset] = useState<RangePreset>("today");
+  const [customRange, setCustomRange] = useState<DateRange | undefined>();
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
 
   const fetchBookings = useCallback(async () => {
@@ -223,6 +292,7 @@ export default function BookingsPage() {
     const status = (booking?.payment_status || "").toLowerCase();
     const depositAmount = Number(booking?.deposit_amount || 0);
     const balanceDue = Number(booking?.balance_due || 0);
+    const hasDepositOverride = Boolean(booking?.deposit_override_active);
 
     if (status === "awaiting_verification") {
       return {
@@ -238,8 +308,8 @@ export default function BookingsPage() {
     }
     if (status === "pending") {
       return {
-        label: depositAmount > 0 ? "Menunggu DP" : "Bayar Nanti",
-        className: "bg-orange-500 text-white",
+        label: hasDepositOverride ? "Tanpa DP" : depositAmount > 0 ? "Menunggu DP" : "Bayar Nanti",
+        className: hasDepositOverride ? "bg-amber-500 text-white" : "bg-orange-500 text-white",
       };
     }
     if (status === "expired") {
@@ -251,23 +321,82 @@ export default function BookingsPage() {
     return { label: "Belum Dibayar", className: "bg-slate-500 text-white" };
   };
 
+  const getNormalizedPaymentStatus = (booking: BookingRow) => {
+    const status = (booking?.payment_status || "").toLowerCase();
+    const depositAmount = Number(booking?.deposit_amount || 0);
+    const balanceDue = Number(booking?.balance_due || 0);
+
+    if (status === "awaiting_verification") return "awaiting_verification";
+    if (status === "settled" || (status === "paid" && balanceDue === 0)) {
+      return "settled";
+    }
+    if (status === "partial_paid" || (status === "paid" && depositAmount > 0)) {
+      return "partial_paid";
+    }
+    if (status === "pending") return "pending";
+    if (status === "expired") return "expired";
+    if (status === "failed") return "failed";
+    return "unpaid";
+  };
+
+  const effectiveDateRange = useMemo(() => {
+    const now = new Date();
+    if (rangePreset === "today") {
+      return {
+        from: startOfDay(now),
+        to: endOfDay(now),
+      };
+    }
+    if (rangePreset === "7days") {
+      return {
+        from: startOfDay(now),
+        to: endOfDay(addDays(now, 6)),
+      };
+    }
+    if (customRange?.from) {
+      return {
+        from: startOfDay(customRange.from),
+        to: endOfDay(customRange.to ?? customRange.from),
+      };
+    }
+    return undefined;
+  }, [customRange, rangePreset]);
+
   const resetFilters = () => {
     setSearchQuery("");
     setFilterStatus("all");
+    setFilterPaymentStatus("all");
     setFilterResource("all");
-    setSelectedDate(new Date());
+    setRangePreset("today");
+    setCustomRange(undefined);
   };
 
   const isFilterActive = useMemo(() => {
     return (
-      searchQuery !== "" || filterStatus !== "all" || filterResource !== "all"
+      searchQuery !== "" ||
+      filterStatus !== "all" ||
+      filterPaymentStatus !== "all" ||
+      filterResource !== "all" ||
+      rangePreset !== "today"
     );
-  }, [searchQuery, filterStatus, filterResource]);
+  }, [searchQuery, filterStatus, filterPaymentStatus, filterResource, rangePreset]);
 
   const uniqueResources = useMemo(() => {
     const resources = Array.from(new Set(bookings.map((b) => b.resource_name)));
     return resources.sort();
   }, [bookings]);
+
+  const timeRangeLabel = useMemo(() => {
+    if (rangePreset === "today") return "Hari ini";
+    if (rangePreset === "7days") return "7 hari";
+    if (customRange?.from && customRange?.to) {
+      return `${format(customRange.from, "dd MMM")} - ${format(customRange.to, "dd MMM yyyy")}`;
+    }
+    if (customRange?.from) {
+      return format(customRange.from, "dd MMM yyyy");
+    }
+    return "Custom";
+  }, [customRange, rangePreset]);
 
   const filteredBookings = useMemo(() => {
     return bookings.filter((b) => {
@@ -279,15 +408,31 @@ export default function BookingsPage() {
       const matchStatus =
         filterStatus === "all" ||
         (filterStatus === "active" ? isOperationallyActive(b) : b.status === filterStatus);
+      const matchPaymentStatus =
+        filterPaymentStatus === "all" ||
+        getNormalizedPaymentStatus(b) === filterPaymentStatus;
       const matchResource =
         filterResource === "all" || b.resource_name === filterResource;
       const matchDate =
-        !selectedDate ||
-        format(bDate, "yyyy-MM-dd") === format(selectedDate, "yyyy-MM-dd");
+        !effectiveDateRange ||
+        (bDate >= effectiveDateRange.from && bDate <= effectiveDateRange.to);
 
-      return matchSearch && matchStatus && matchDate && matchResource;
+      return (
+        matchSearch &&
+        matchStatus &&
+        matchPaymentStatus &&
+        matchDate &&
+        matchResource
+      );
     });
-  }, [bookings, searchQuery, filterStatus, filterResource, selectedDate]);
+  }, [
+    bookings,
+    searchQuery,
+    filterStatus,
+    filterPaymentStatus,
+    filterResource,
+    effectiveDateRange,
+  ]);
 
   const groupedData = useMemo(() => {
     const map: Record<string, BookingRow[]> = {};
@@ -318,10 +463,7 @@ export default function BookingsPage() {
     };
   }, [filteredBookings, groupedData]);
 
-  const bookingCountLabel = `${filteredBookings.length} booking aktif di tampilan`;
-  const selectedDateLabel = selectedDate
-    ? format(selectedDate, "dd MMM yyyy")
-    : "Semua tanggal";
+  const bookingCountLabel = `${filteredBookings.length} booking ditampilkan`;
 
   return (
     <div className="mx-auto w-full space-y-4 px-3 pb-20 pt-4 font-plus-jakarta md:px-4">
@@ -337,10 +479,10 @@ export default function BookingsPage() {
                 Booking
               </h1>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
               <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
               <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-                Fokus tanggal: {selectedDateLabel}
+                Rentang: {timeRangeLabel}
               </div>
             </div>
           </div>
@@ -366,30 +508,30 @@ export default function BookingsPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <DashboardMetricCard
+      <div className="grid grid-cols-2 gap-2.5 md:grid-cols-2 md:gap-3 xl:grid-cols-4">
+        <CompactMetricCard
           label="Revenue Tampil"
           value={`Rp ${formatIDR(stats.totalRevenue)}`}
           hint="Filter aktif"
           icon={Wallet}
           tone="indigo"
         />
-        <DashboardMetricCard
-          label="Sesi Operasional"
-          value={`${stats.activeSess} unit`}
+        <CompactMetricCard
+          label="Sesi Aktif"
+          value={String(stats.activeSess)}
           hint="Aktif"
           icon={TrendingUp}
           tone="emerald"
         />
-        <DashboardMetricCard
-          label="Perlu Pelunasan"
+        <CompactMetricCard
+          label="Pelunasan"
           value={String(stats.needsSettlement)}
           hint="Saldo sisa"
           icon={Clock}
           tone="amber"
         />
-        <DashboardMetricCard
-          label="Resource Terdampak"
+        <CompactMetricCard
+          label="Resource"
           value={String(stats.resourceCount)}
           hint="Terlihat"
           icon={Layers}
@@ -400,7 +542,7 @@ export default function BookingsPage() {
       <DashboardPanel
         eyebrow="Filter"
         title="Cari & saring"
-        description="Filter ringkas untuk scan operasional harian."
+        description="Rentang waktu, status booking, dan status pembayaran."
       >
         <div className="space-y-4 lg:hidden">
           <div className="relative">
@@ -413,32 +555,56 @@ export default function BookingsPage() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2 md:gap-3">
+          <div className="flex flex-wrap gap-2">
+            {[
+              { value: "today" as const, label: "Hari ini" },
+              { value: "7days" as const, label: "7 hari" },
+              { value: "custom" as const, label: "Custom" },
+            ].map((preset) => (
+              <Button
+                key={preset.value}
+                type="button"
+                variant="outline"
+                onClick={() => setRangePreset(preset.value)}
+                className={cn(
+                  "h-9 rounded-full px-3 text-[11px] font-semibold",
+                  rangePreset === preset.value
+                    ? "border-[var(--bookinaja-600)] bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
+                    : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-300",
+                )}
+              >
+                {preset.label}
+              </Button>
+            ))}
+          </div>
+
+          {rangePreset === "custom" ? (
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className="h-10 w-full rounded-lg border-slate-200 bg-slate-50 px-3 text-xs font-medium dark:border-slate-800 dark:bg-slate-900/30"
+                  className="h-10 w-full justify-start rounded-lg border-slate-200 bg-slate-50 px-3 text-xs font-medium dark:border-slate-800 dark:bg-slate-900/30"
                 >
-                  <CalendarIcon className="h-4 w-4 text-blue-600" />
-                  {selectedDate
-                    ? format(selectedDate, "dd MMM yyyy")
-                    : "Pick Date"}
+                  <CalendarIcon className="mr-2 h-4 w-4 text-blue-600" />
+                  {timeRangeLabel}
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                className="w-[92vw] overflow-hidden rounded-xl border-none p-0 sm:w-80"
-                align="end"
+                className="w-auto max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-950"
+                align="start"
               >
                 <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  className="w-full"
+                  mode="range"
+                  selected={customRange}
+                  onSelect={setCustomRange}
+                  numberOfMonths={1}
+                  className="[--cell-size:2.55rem]"
                 />
               </PopoverContent>
             </Popover>
+          ) : null}
 
+          <div className="grid grid-cols-2 gap-2 md:gap-3">
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger className="min-h-[40px] w-full rounded-lg border-slate-200 bg-slate-50 text-xs font-medium dark:border-slate-800 dark:bg-slate-900/30">
                 <SelectValue placeholder="Status" />
@@ -465,6 +631,35 @@ export default function BookingsPage() {
                     {s === "active" ? "active / perlu pelunasan" : s}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterPaymentStatus} onValueChange={setFilterPaymentStatus}>
+              <SelectTrigger className="min-h-[40px] w-full rounded-lg border-slate-200 bg-slate-50 text-xs font-medium dark:border-slate-800 dark:bg-slate-900/30">
+                <SelectValue placeholder="Pembayaran" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl p-2">
+                <SelectItem value="all" className="text-xs font-semibold py-3 rounded-xl">
+                  Semua Pembayaran
+                </SelectItem>
+                <SelectItem value="pending" className="text-xs font-semibold py-3 rounded-xl">
+                  Menunggu Bayar
+                </SelectItem>
+                <SelectItem value="partial_paid" className="text-xs font-semibold py-3 rounded-xl">
+                  DP Masuk
+                </SelectItem>
+                <SelectItem value="awaiting_verification" className="text-xs font-semibold py-3 rounded-xl">
+                  Verifikasi Admin
+                </SelectItem>
+                <SelectItem value="settled" className="text-xs font-semibold py-3 rounded-xl">
+                  Lunas
+                </SelectItem>
+                <SelectItem value="failed" className="text-xs font-semibold py-3 rounded-xl">
+                  Gagal Bayar
+                </SelectItem>
+                <SelectItem value="expired" className="text-xs font-semibold py-3 rounded-xl">
+                  Kadaluarsa
+                </SelectItem>
               </SelectContent>
             </Select>
 
@@ -547,30 +742,54 @@ export default function BookingsPage() {
             />
           </div>
 
-          <Popover>
-            <PopoverTrigger asChild>
+          <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-1.5 dark:bg-slate-800/50">
+            {[
+              { value: "today" as const, label: "Hari ini" },
+              { value: "7days" as const, label: "7 hari" },
+              { value: "custom" as const, label: "Custom" },
+            ].map((preset) => (
               <Button
-                variant="outline"
-                className="h-12 px-5 rounded-xl border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-800 font-semibold text-xs gap-3 shadow-sm min-w-[170px]"
+                key={preset.value}
+                type="button"
+                variant={rangePreset === preset.value ? "secondary" : "ghost"}
+                onClick={() => setRangePreset(preset.value)}
+                className={cn(
+                  "h-10 rounded-xl px-4 text-xs font-semibold",
+                  rangePreset === preset.value
+                    ? "bg-white text-slate-900 shadow-sm dark:bg-slate-950 dark:text-white"
+                    : "text-slate-500",
+                )}
               >
-                <CalendarIcon className="h-4 w-4 text-blue-600" />
-                {selectedDate
-                  ? format(selectedDate, "dd MMM yyyy")
-                  : "Pick Date"}
+                {preset.label}
               </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-80 p-0 border-none rounded-2xl overflow-hidden shadow-sm"
-              align="start"
-            >
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                className="w-full"
-              />
-            </PopoverContent>
-          </Popover>
+            ))}
+          </div>
+
+          {rangePreset === "custom" ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="h-12 px-5 rounded-xl border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-800 font-semibold text-xs gap-3 shadow-sm min-w-[220px]"
+                >
+                  <CalendarIcon className="h-4 w-4 text-blue-600" />
+                  {timeRangeLabel}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="w-auto min-w-[640px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-950"
+                align="start"
+              >
+                <Calendar
+                  mode="range"
+                  selected={customRange}
+                  onSelect={setCustomRange}
+                  numberOfMonths={2}
+                  className="[--cell-size:2.4rem]"
+                />
+              </PopoverContent>
+            </Popover>
+          ) : null}
 
           <Select value={filterStatus} onValueChange={setFilterStatus}>
             <SelectTrigger className="h-12 w-[170px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-semibold text-xs focus:ring-0 shadow-sm">
@@ -594,6 +813,35 @@ export default function BookingsPage() {
                   </SelectItem>
                 ),
               )}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterPaymentStatus} onValueChange={setFilterPaymentStatus}>
+            <SelectTrigger className="h-12 w-[190px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-semibold text-xs focus:ring-0 shadow-sm">
+              <SelectValue placeholder="Pembayaran" />
+            </SelectTrigger>
+            <SelectContent className="rounded-2xl border-none shadow-sm p-2">
+              <SelectItem value="all" className="text-xs font-semibold py-3 rounded-xl">
+                Semua Pembayaran
+              </SelectItem>
+              <SelectItem value="pending" className="text-xs font-semibold py-3 rounded-xl">
+                Menunggu Bayar
+              </SelectItem>
+              <SelectItem value="partial_paid" className="text-xs font-semibold py-3 rounded-xl">
+                DP Masuk
+              </SelectItem>
+              <SelectItem value="awaiting_verification" className="text-xs font-semibold py-3 rounded-xl">
+                Verifikasi Admin
+              </SelectItem>
+              <SelectItem value="settled" className="text-xs font-semibold py-3 rounded-xl">
+                Lunas
+              </SelectItem>
+              <SelectItem value="failed" className="text-xs font-semibold py-3 rounded-xl">
+                Gagal Bayar
+              </SelectItem>
+              <SelectItem value="expired" className="text-xs font-semibold py-3 rounded-xl">
+                Kadaluarsa
+              </SelectItem>
             </SelectContent>
           </Select>
 
@@ -808,15 +1056,15 @@ export default function BookingsPage() {
           ))}
         </div>
       ) : (
-        <div className="space-y-10">
+        <div className="space-y-8">
           {Object.entries(groupedData).map(([resourceName, sessions]) => (
-            <div key={resourceName} className="space-y-5">
+            <div key={resourceName} className="space-y-4">
               <div className="flex items-center gap-3 px-1">
                 <div className="min-w-0">
                   <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
                     Resource lane
                   </div>
-                  <h3 className="font-semibold text-xl text-slate-800 dark:text-slate-200">
+                  <h3 className="font-semibold text-lg text-slate-800 dark:text-slate-200 md:text-xl">
                     {resourceName}
                   </h3>
                 </div>
@@ -828,12 +1076,12 @@ export default function BookingsPage() {
                   {sessions.length} booking
                 </Badge>
               </div>
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {sessions.map((b) => (
                   <Card
                     key={b.id}
                     onClick={() => router.push(`/admin/bookings/${b.id}`)}
-                    className="group relative cursor-pointer overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white/95 p-3.5 shadow-[0_16px_40px_rgba(15,23,42,0.06)] transition-all hover:-translate-y-0.5 hover:shadow-[0_22px_50px_rgba(15,23,42,0.1)] dark:border-white/10 dark:bg-[#0f1117]/96 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)] md:rounded-[1.8rem] md:p-6"
+                    className="group relative cursor-pointer overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white/95 p-3.5 shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all hover:-translate-y-0.5 hover:shadow-[0_22px_50px_rgba(15,23,42,0.1)] dark:border-white/10 dark:bg-[#0f1117]/96 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)] md:rounded-[1.8rem] md:p-6"
                   >
                     {isOperationallyActive(b) && (
                       <div
@@ -844,23 +1092,20 @@ export default function BookingsPage() {
                       />
                     )}
 
-                    <div className="mb-4 flex items-start justify-between md:mb-5">
-                      <div className="space-y-2">
-                        <Badge
-                          className={cn(
-                            "font-semibold text-[9px] px-3 py-1 rounded-full shadow-sm",
-                            getBookingStatusMeta(b).className,
-                          )}
-                        >
-                          {getBookingStatusMeta(b).label}
-                        </Badge>
-                        <div>
-                          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                            Payment
-                          </div>
+                    <div className="mb-3 flex items-start justify-between gap-3 md:mb-5">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap gap-1.5">
                           <Badge
                             className={cn(
-                              "mt-2 font-semibold text-[9px] px-3 py-1 rounded-full border-none shadow-sm",
+                              "border-none px-3 py-1 text-[9px] font-semibold shadow-sm",
+                              getBookingStatusMeta(b).className,
+                            )}
+                          >
+                            {getBookingStatusMeta(b).label}
+                          </Badge>
+                          <Badge
+                            className={cn(
+                              "border-none px-3 py-1 text-[9px] font-semibold shadow-sm",
                               getPaymentMeta(b).className,
                             )}
                           >
@@ -870,36 +1115,46 @@ export default function BookingsPage() {
                       </div>
                       <ArrowUpRight
                         size={18}
-                        className="text-slate-200 transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[var(--bookinaja-600)] dark:group-hover:text-[var(--bookinaja-300)]"
+                        className="mt-0.5 hidden text-slate-200 transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[var(--bookinaja-600)] dark:group-hover:text-[var(--bookinaja-300)] md:block"
                       />
                     </div>
 
-                    <div className="mb-4 space-y-1 md:mb-6">
-                      <h4 className="text-sm font-semibold leading-tight text-slate-900 transition-colors group-hover:text-[var(--bookinaja-600)] dark:text-white dark:group-hover:text-[var(--bookinaja-300)] md:text-base lg:text-lg">
-                        {b.customer_name}
-                      </h4>
-                      <p className="text-[10px] font-bold text-slate-400 leading-none">
-                        {b.customer_phone}
-                      </p>
+                    <div className="mb-4 flex items-start justify-between gap-3 md:mb-6">
+                      <div className="min-w-0 space-y-1">
+                        <h4 className="truncate text-sm font-semibold leading-tight text-slate-900 transition-colors group-hover:text-[var(--bookinaja-600)] dark:text-white dark:group-hover:text-[var(--bookinaja-300)] md:text-base lg:text-lg">
+                          {b.customer_name}
+                        </h4>
+                        <p className="text-[10px] font-bold leading-none text-slate-400">
+                          {b.customer_phone}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className="text-[8px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                          Total
+                        </div>
+                        <div className="mt-1 text-sm font-semibold leading-none text-slate-950 dark:text-white md:text-base">
+                          Rp{formatIDR(b.total_resource + b.total_fnb)}
+                        </div>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 dark:border-white/6 md:flex md:items-end md:justify-between md:pt-5">
                       <div className="flex flex-col">
-                        <span className="text-[8px] font-semibold text-slate-400 leading-none mb-1.5">
-                          TIME SLOT
+                        <span className="mb-1.5 text-[8px] font-semibold leading-none text-slate-400">
+                          Jadwal
                         </span>
                         <span className="text-[12px] font-semibold leading-none text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-300)] md:text-[13px]">
                           {format(new Date(b.start_time), "HH:mm")} -{" "}
                           {format(new Date(b.end_time), "HH:mm")}
                         </span>
+                        <span className="mt-1.5 text-[10px] font-medium text-slate-400">
+                          {format(new Date(b.start_time), "dd MMM yyyy")}
+                        </span>
                       </div>
-                      <div className="text-right">
-                        <span className="text-[8px] font-semibold text-slate-400 mb-1.5 leading-none">
-                          TOTAL
-                        </span>
-                        <span className="block text-sm font-semibold text-slate-950 dark:text-white leading-none md:text-base">
-                          Rp{formatIDR(b.total_resource + b.total_fnb)}
-                        </span>
+                      <div className="flex items-end justify-end">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 dark:bg-white/[0.04]">
+                          <User size={16} />
+                        </div>
                       </div>
                     </div>
                   </Card>
