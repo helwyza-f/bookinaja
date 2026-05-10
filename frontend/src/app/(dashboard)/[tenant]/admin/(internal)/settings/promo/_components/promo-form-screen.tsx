@@ -2,8 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { format } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
 import {
   ArrowLeft,
+  CalendarIcon,
   CalendarClock,
   CheckCircle2,
   Clock3,
@@ -17,8 +20,10 @@ import { toast } from "sonner";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
@@ -113,19 +118,41 @@ const EMPTY_FORM: PromoForm = {
 const formatIDR = (value?: number | null) =>
   `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
 
-function toLocalDateTime(value?: string | null) {
+function toLocalDate(value?: string | null) {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   const offset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
 }
 
-function toPayloadDateTime(value: string) {
+function toPayloadStartDate(value: string) {
   if (!value.trim()) return null;
-  const date = new Date(value);
+  const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return null;
   return date.toISOString();
+}
+
+function toPayloadEndDate(value: string) {
+  if (!value.trim()) return null;
+  const date = new Date(`${value}T23:59:59`);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
+function toPickerDate(value: string) {
+  if (!value.trim()) return undefined;
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date;
+}
+
+function fromPickerDate(date?: Date) {
+  if (!date) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function toForm(item?: PromoItem | null): PromoForm {
@@ -143,8 +170,8 @@ function toForm(item?: PromoItem | null): PromoForm {
     usage_limit_per_customer: item.usage_limit_per_customer
       ? String(item.usage_limit_per_customer)
       : "",
-    starts_at: toLocalDateTime(item.starts_at),
-    ends_at: toLocalDateTime(item.ends_at),
+    starts_at: toLocalDate(item.starts_at),
+    ends_at: toLocalDate(item.ends_at),
     valid_weekdays: item.valid_weekdays || [],
     time_start: item.time_start || "",
     time_end: item.time_end || "",
@@ -210,9 +237,9 @@ export function PromoFormScreen({
 
   const advancedSummary = useMemo(() => {
     const chips: string[] = [];
-    chips.push(form.valid_weekdays.length ? `${form.valid_weekdays.length} hari dipilih` : "Semua hari");
+    chips.push(form.valid_weekdays.length ? `${form.valid_weekdays.length} hari` : "Semua hari");
     chips.push(form.time_start && form.time_end ? `${form.time_start} - ${form.time_end}` : "Sepanjang hari");
-    chips.push(form.resource_ids.length ? `${form.resource_ids.length} resource dipilih` : "Semua resource");
+    chips.push(form.resource_ids.length ? `${form.resource_ids.length} resource` : "Semua resource");
     if (form.min_booking_amount) chips.push(`Min ${formatIDR(Number(form.min_booking_amount))}`);
     if (form.usage_limit_total) chips.push(`Kuota total ${form.usage_limit_total}`);
     if (form.usage_limit_per_customer) chips.push(`Per customer ${form.usage_limit_per_customer}`);
@@ -245,8 +272,8 @@ export function PromoFormScreen({
         usage_limit_per_customer: form.usage_limit_per_customer
           ? Number(form.usage_limit_per_customer)
           : null,
-        starts_at: toPayloadDateTime(form.starts_at),
-        ends_at: toPayloadDateTime(form.ends_at),
+        starts_at: toPayloadStartDate(form.starts_at),
+        ends_at: toPayloadEndDate(form.ends_at),
         valid_weekdays: form.valid_weekdays,
         time_start: form.time_start || null,
         time_end: form.time_end || null,
@@ -293,17 +320,25 @@ export function PromoFormScreen({
           <div className="border-b border-slate-100 p-5 dark:border-white/5">
             <div className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.24em] text-sky-700 dark:bg-sky-500/10 dark:text-sky-200">
               <TicketPercent className="h-3.5 w-3.5" />
-              Promo Customer
+              Promo
             </div>
             <h1 className="mt-3 text-2xl font-[950] tracking-tight text-slate-950 dark:text-white">
-              {promoId ? "Edit voucher booking" : "Buat voucher booking"}
+              {promoId ? "Edit Voucher" : "Voucher Baru"}
             </h1>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Isi yang wajib dulu. Sisanya opsional dan hanya dipakai kalau kamu perlu rule lebih spesifik.
+              Isi dasar dulu, lalu tambah aturan kalau memang perlu.
             </p>
           </div>
 
           <div className="space-y-5 p-5">
+            <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                Dasar
+              </p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Kode, nama, status, dan deskripsi singkat.
+              </p>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Kode promo" required hint="Contoh: WEEKDAY10">
                 <Input
@@ -342,8 +377,16 @@ export function PromoFormScreen({
               />
             </Field>
 
+            <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                Diskon
+              </p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Tentukan cara hitung potongan dan batas dasarnya.
+              </p>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Perilaku diskon" optional hint="Locked aman untuk booking awal. Floating membuat diskon ikut naik saat total booking bertambah, tanpa mengubah DP yang sudah ditetapkan.">
+              <Field label="Perilaku diskon" optional hint="Locked aman untuk booking awal. Floating ikut naik saat total booking bertambah.">
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { key: "locked", label: "Locked" },
@@ -425,18 +468,18 @@ export function PromoFormScreen({
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Mulai berlaku" optional hint="Kalau kosong, promo langsung bisa dipakai setelah aktif.">
-                <Input
-                  type="datetime-local"
+              <Field label="Tanggal mulai" optional hint="Kalau kosong, promo langsung aktif.">
+                <DatePickerField
                   value={form.starts_at}
-                  onChange={(e) => setForm((prev) => ({ ...prev, starts_at: e.target.value }))}
+                  placeholder="Pilih tanggal mulai"
+                  onChange={(value) => setForm((prev) => ({ ...prev, starts_at: value }))}
                 />
               </Field>
-              <Field label="Berakhir" optional hint="Kalau kosong, promo tidak punya tanggal akhir.">
-                <Input
-                  type="datetime-local"
+              <Field label="Tanggal akhir" optional hint="Kalau kosong, promo tidak punya batas akhir.">
+                <DatePickerField
                   value={form.ends_at}
-                  onChange={(e) => setForm((prev) => ({ ...prev, ends_at: e.target.value }))}
+                  placeholder="Pilih tanggal akhir"
+                  onChange={(value) => setForm((prev) => ({ ...prev, ends_at: value }))}
                 />
               </Field>
             </div>
@@ -451,7 +494,7 @@ export function PromoFormScreen({
                   Aturan tambahan
                 </div>
                 <div className="text-xs text-slate-500 dark:text-slate-400">
-                  Hari, jam, resource, dan kuota. Semua ini opsional.
+                  Hari, jam, resource, dan kuota.
                 </div>
               </div>
               <Badge variant="outline">{showAdvanced ? "Terbuka" : "Opsional"}</Badge>
@@ -472,6 +515,14 @@ export function PromoFormScreen({
 
             {showAdvanced ? (
               <div className="space-y-5 rounded-[1.5rem] border border-slate-200/80 bg-slate-50/60 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                    Scope
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    Pakai hanya kalau promo ini tidak global.
+                  </p>
+                </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Batas penggunaan total" optional hint="Misalnya 100 berarti promo hanya bisa dipakai 100 kali.">
                     <Input
@@ -615,7 +666,7 @@ export function PromoFormScreen({
                     Checklist
                   </div>
                   <div className="text-xl font-[950] text-slate-950 dark:text-white">
-                    Mana yang wajib?
+                    Siap simpan?
                   </div>
                 </div>
               </div>
@@ -634,7 +685,7 @@ export function PromoFormScreen({
                 Usage
               </div>
               <div className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
-                Histori pemakaian promo
+                Pemakaian Promo
               </div>
             </div>
             <div className="space-y-3 p-5">
@@ -658,7 +709,7 @@ export function PromoFormScreen({
                           {item.customer_name}
                         </div>
                         <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                          {item.resource_name} · {new Date(item.redeemed_at).toLocaleString("id-ID")}
+                          {item.resource_name} / {new Date(item.redeemed_at).toLocaleString("id-ID")}
                         </div>
                       </div>
                       <Badge className="bg-emerald-600 text-white">
@@ -709,6 +760,60 @@ function Field({
       {children}
       {hint ? (
         <p className="text-xs text-slate-500 dark:text-slate-400">{hint}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function DatePickerField({
+  value,
+  placeholder,
+  onChange,
+}: {
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  const selectedDate = toPickerDate(value);
+
+  return (
+    <div className="flex gap-2">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 flex-1 justify-between rounded-xl border-slate-200 bg-white px-3 text-left text-sm font-medium text-slate-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-white"
+          >
+            <span className={cn(!selectedDate && "text-slate-400 dark:text-slate-500")}>
+              {selectedDate
+                ? format(selectedDate, "dd MMM yyyy", { locale: idLocale })
+                : placeholder}
+            </span>
+            <CalendarIcon className="h-4 w-4 text-[var(--bookinaja-600)]" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          className="w-auto overflow-hidden rounded-xl border-none p-0 shadow-lg"
+          align="start"
+        >
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={(date) => onChange(fromPickerDate(date))}
+          />
+        </PopoverContent>
+      </Popover>
+
+      {value ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 rounded-xl px-3"
+          onClick={() => onChange("")}
+        >
+          Reset
+        </Button>
       ) : null}
     </div>
   );

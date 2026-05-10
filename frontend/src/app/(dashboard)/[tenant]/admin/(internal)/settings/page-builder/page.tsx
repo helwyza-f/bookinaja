@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import {
   ArrowDown,
@@ -10,6 +18,7 @@ import {
   ChevronRight,
   Eye,
   EyeOff,
+  ExternalLink,
   ImageIcon,
   LayoutTemplate,
   Loader2,
@@ -340,8 +349,8 @@ export default function PageBuilderPage() {
   );
   const [previewSource, setPreviewSource] = useState<"draft" | "live">("draft");
   const [workspaceMode, setWorkspaceMode] = useState<
-    "content" | "structure" | "theme"
-  >("content");
+    "flow" | "structure" | "theme"
+  >("flow");
   const [previewKey, setPreviewKey] = useState(0);
   const [selectedSectionId, setSelectedSectionId] = useState("hero");
   const [expandedSectionId, setExpandedSectionId] = useState<string | null>(
@@ -363,6 +372,9 @@ export default function PageBuilderPage() {
   const [savingSectionKey, setSavingSectionKey] = useState<string | null>(null);
   const [publishedSnapshot, setPublishedSnapshot] = useState("");
   const [lastPublishedAt, setLastPublishedAt] = useState<Date | null>(null);
+  const [mobileWorkspace, setMobileWorkspace] = useState<
+    "flow" | "sections" | "theme" | "preview"
+  >("flow");
   const isMobileStudio = useIsMobileStudio();
   const identityPanelOpen = activeContentPanel === "identity";
   const storyPanelOpen = activeContentPanel === "story";
@@ -418,23 +430,37 @@ export default function PageBuilderPage() {
     void fetchBuilder();
   }, [fetchBuilder]);
 
-  useEffect(() => {
-    if (!profile?.id) return;
-    const draft = {
-      profile: { ...profile, primary_color: theme.primary_color },
-      resources,
-      page,
-      theme,
-      booking_form: bookingForm,
+  const previewDraft = useMemo(() => {
+    if (!profile?.id) return null;
+    return {
+      tenantId: profile.id,
+      draft: {
+        profile: { ...profile, primary_color: theme.primary_color },
+        resources,
+        page,
+        theme,
+        booking_form: bookingForm,
+      },
     };
+  }, [bookingForm, page, profile, resources, theme]);
+
+  const deferredPreviewDraft = useDeferredValue(previewDraft);
+  const lastPreviewPayloadRef = useRef("");
+
+  useEffect(() => {
+    if (!deferredPreviewDraft) return;
+    const { tenantId, draft } = deferredPreviewDraft;
+    const serializedDraft = JSON.stringify(draft);
+    if (lastPreviewPayloadRef.current === serializedDraft) return;
+    lastPreviewPayloadRef.current = serializedDraft;
     localStorage.setItem(
-      `bookinaja:page-builder:draft:${profile.id}`,
-      JSON.stringify(draft),
+      `bookinaja:page-builder:draft:${tenantId}`,
+      serializedDraft,
     );
-    localStorage.setItem("bookinaja:page-builder:active-draft", profile.id);
+    localStorage.setItem("bookinaja:page-builder:active-draft", tenantId);
     if (typeof window !== "undefined" && "BroadcastChannel" in window) {
       const channel = new BroadcastChannel(PREVIEW_CHANNEL);
-      channel.postMessage({ tenantId: profile.id, draft });
+      channel.postMessage({ tenantId, draft });
       channel.close();
     }
 
@@ -445,7 +471,7 @@ export default function PageBuilderPage() {
       },
       window.location.origin,
     );
-  }, [profile, resources, page, theme, bookingForm]);
+  }, [deferredPreviewDraft]);
 
   useEffect(() => {
     setPreviewKey((current) => current + 1);
@@ -806,6 +832,8 @@ export default function PageBuilderPage() {
   if (isMobileStudio) {
     return (
       <MobilePageBuilderExperience
+        page={page}
+        theme={theme}
         previewSource={previewSource}
         previewUrl={previewUrl}
         saving={saving}
@@ -817,9 +845,22 @@ export default function PageBuilderPage() {
           "Bookinaja"
         }
         lastPublishedLabel={lastPublishedLabel}
+        mobileWorkspace={mobileWorkspace}
+        expandedSectionId={expandedSectionId}
         previewKey={previewKey}
         iframeRef={previewIframeRef}
+        onMobileWorkspaceChange={setMobileWorkspace}
         onPreviewSourceChange={setPreviewSource}
+        onSelectSection={setSelectedSectionId}
+        onExpandSection={setExpandedSectionId}
+        onToggleSection={(section) =>
+          updateSection(section.id, { enabled: !section.enabled })
+        }
+        onMoveSection={moveSection}
+        onVariantChange={(sectionId, variant) =>
+          updateSection(sectionId, { variant })
+        }
+        onThemeChange={setTheme}
         onRefresh={() => void fetchBuilder()}
         onPublish={() => void onSave()}
         onResetDraft={resetDraftToPublished}
@@ -846,9 +887,9 @@ export default function PageBuilderPage() {
             <div className="grid grid-cols-3 gap-2">
               <WorkspaceModeButton
                 icon={<BriefcaseBusiness className="h-4 w-4" />}
-                active={workspaceMode === "content"}
-                label="Konten"
-                onClick={() => setWorkspaceMode("content")}
+                active={workspaceMode === "flow"}
+                label="Flow"
+                onClick={() => setWorkspaceMode("flow")}
               />
               <WorkspaceModeButton
                 icon={<LayoutTemplate className="h-4 w-4" />}
@@ -865,68 +906,78 @@ export default function PageBuilderPage() {
             </div>
           </Card>
 
-          {workspaceMode === "content" ? (
-            <BusinessStudioPanel
-              profile={profile}
-              heroSection={heroSection}
-              highlightsSection={highlightsSection}
-              catalogSection={catalogSection}
-              aboutSection={aboutSection}
-              gallerySection={gallerySection}
-              testimonialsSection={testimonialsSection}
-              faqSection={faqSection}
-              contactSection={contactSection}
-              bookingFormSection={bookingFormSection}
-              bookingForm={bookingForm}
-              savingSectionKey={savingSectionKey}
-              identityPanelOpen={identityPanelOpen}
-              identityPanelEditing={editingContentPanel === "identity"}
-              storyPanelOpen={storyPanelOpen}
-              storyPanelEditing={editingContentPanel === "story"}
-              catalogPanelOpen={catalogPanelOpen}
-              catalogPanelEditing={editingContentPanel === "catalog"}
-              aboutPanelOpen={aboutPanelOpen}
-              aboutPanelEditing={editingContentPanel === "about"}
-              mediaPanelOpen={mediaPanelOpen}
-              mediaPanelEditing={editingContentPanel === "media"}
-              testimonialsPanelOpen={testimonialsPanelOpen}
-              testimonialsPanelEditing={editingContentPanel === "testimonials"}
-              faqPanelOpen={faqPanelOpen}
-              faqPanelEditing={editingContentPanel === "faq"}
-              contactPanelOpen={contactPanelOpen}
-              contactPanelEditing={editingContentPanel === "contact"}
-              bookingPanelOpen={bookingPanelOpen}
-              bookingPanelEditing={editingContentPanel === "booking"}
-              onToggleIdentity={() => toggleContentPanel("identity")}
-              onToggleIdentityEdit={() => toggleContentEditMode("identity")}
-              onToggleStory={() => toggleContentPanel("story")}
-              onToggleStoryEdit={() => toggleContentEditMode("story")}
-              onToggleCatalog={() => toggleContentPanel("catalog")}
-              onToggleCatalogEdit={() => toggleContentEditMode("catalog")}
-              onToggleAbout={() => toggleContentPanel("about")}
-              onToggleAboutEdit={() => toggleContentEditMode("about")}
-              onToggleMedia={() => toggleContentPanel("media")}
-              onToggleMediaEdit={() => toggleContentEditMode("media")}
-              onToggleTestimonials={() => toggleContentPanel("testimonials")}
-              onToggleTestimonialsEdit={() =>
-                toggleContentEditMode("testimonials")
-              }
-              onToggleFaq={() => toggleContentPanel("faq")}
-              onToggleFaqEdit={() => toggleContentEditMode("faq")}
-              onToggleContact={() => toggleContentPanel("contact")}
-              onToggleContactEdit={() => toggleContentEditMode("contact")}
-              onToggleBooking={() => toggleContentPanel("booking")}
-              onToggleBookingEdit={() => toggleContentEditMode("booking")}
-              onCancelEdit={cancelContentEditMode}
-              onProfilePatch={updateProfilePatch}
-              onProfileArrayItemChange={updateProfileArrayItem}
-              onAddProfileArrayItem={addProfileArrayItem}
-              onRemoveProfileArrayItem={removeProfileArrayItem}
-              onBookingFormChange={setBookingForm}
-              onSectionChange={updateSection}
-              onSectionPropChange={updateSectionProp}
-              onSaveSection={saveContentSection}
-            />
+          {workspaceMode === "flow" ? (
+            <>
+              <BuilderFlowGuideCard
+                previewUrl={previewUrl}
+                activeCount={activeCount}
+                themeLabel={
+                  THEME_PRESETS.find((preset) => preset.id === theme.preset)?.label ||
+                  "Bookinaja"
+                }
+              />
+              <BusinessStudioPanel
+                profile={profile}
+                heroSection={heroSection}
+                highlightsSection={highlightsSection}
+                catalogSection={catalogSection}
+                aboutSection={aboutSection}
+                gallerySection={gallerySection}
+                testimonialsSection={testimonialsSection}
+                faqSection={faqSection}
+                contactSection={contactSection}
+                bookingFormSection={bookingFormSection}
+                bookingForm={bookingForm}
+                savingSectionKey={savingSectionKey}
+                identityPanelOpen={identityPanelOpen}
+                identityPanelEditing={editingContentPanel === "identity"}
+                storyPanelOpen={storyPanelOpen}
+                storyPanelEditing={editingContentPanel === "story"}
+                catalogPanelOpen={catalogPanelOpen}
+                catalogPanelEditing={editingContentPanel === "catalog"}
+                aboutPanelOpen={aboutPanelOpen}
+                aboutPanelEditing={editingContentPanel === "about"}
+                mediaPanelOpen={mediaPanelOpen}
+                mediaPanelEditing={editingContentPanel === "media"}
+                testimonialsPanelOpen={testimonialsPanelOpen}
+                testimonialsPanelEditing={editingContentPanel === "testimonials"}
+                faqPanelOpen={faqPanelOpen}
+                faqPanelEditing={editingContentPanel === "faq"}
+                contactPanelOpen={contactPanelOpen}
+                contactPanelEditing={editingContentPanel === "contact"}
+                bookingPanelOpen={bookingPanelOpen}
+                bookingPanelEditing={editingContentPanel === "booking"}
+                onToggleIdentity={() => toggleContentPanel("identity")}
+                onToggleIdentityEdit={() => toggleContentEditMode("identity")}
+                onToggleStory={() => toggleContentPanel("story")}
+                onToggleStoryEdit={() => toggleContentEditMode("story")}
+                onToggleCatalog={() => toggleContentPanel("catalog")}
+                onToggleCatalogEdit={() => toggleContentEditMode("catalog")}
+                onToggleAbout={() => toggleContentPanel("about")}
+                onToggleAboutEdit={() => toggleContentEditMode("about")}
+                onToggleMedia={() => toggleContentPanel("media")}
+                onToggleMediaEdit={() => toggleContentEditMode("media")}
+                onToggleTestimonials={() => toggleContentPanel("testimonials")}
+                onToggleTestimonialsEdit={() =>
+                  toggleContentEditMode("testimonials")
+                }
+                onToggleFaq={() => toggleContentPanel("faq")}
+                onToggleFaqEdit={() => toggleContentEditMode("faq")}
+                onToggleContact={() => toggleContentPanel("contact")}
+                onToggleContactEdit={() => toggleContentEditMode("contact")}
+                onToggleBooking={() => toggleContentPanel("booking")}
+                onToggleBookingEdit={() => toggleContentEditMode("booking")}
+                onCancelEdit={cancelContentEditMode}
+                onProfilePatch={updateProfilePatch}
+                onProfileArrayItemChange={updateProfileArrayItem}
+                onAddProfileArrayItem={addProfileArrayItem}
+                onRemoveProfileArrayItem={removeProfileArrayItem}
+                onBookingFormChange={setBookingForm}
+                onSectionChange={updateSection}
+                onSectionPropChange={updateSectionProp}
+                onSaveSection={saveContentSection}
+              />
+            </>
           ) : null}
           {workspaceMode === "structure" ? (
             <CollapsibleSidebarCard
@@ -960,142 +1011,7 @@ export default function PageBuilderPage() {
               open={themePanelOpen}
               onToggle={() => setThemePanelOpen((current) => !current)}
             >
-              <Card className="rounded-[1.75rem] border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-4 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,12,24,0.98))]">
-                <div className="space-y-5">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-                      Preset tema
-                    </Label>
-                    <div className="grid gap-2">
-                      {THEME_PRESETS.map((preset) => (
-                        <button
-                          key={preset.id}
-                          type="button"
-                          onClick={() =>
-                            setTheme((current) => ({
-                              ...current,
-                              ...THEME_PRESET_VALUES[preset.id],
-                            }))
-                          }
-                          className={cn(
-                            "rounded-2xl border px-3 py-3 text-left transition-colors",
-                            theme.preset === preset.id
-                              ? "border-[var(--bookinaja-500)] bg-[var(--bookinaja-50)] dark:bg-[rgba(59,130,246,0.12)]"
-                              : "border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/[0.03]",
-                          )}
-                        >
-                          <div className="text-sm font-semibold text-slate-950 dark:text-white">
-                            {preset.label}
-                          </div>
-                          <div className="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">
-                            {preset.description}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <Field label="Warna utama">
-                    <div className="flex gap-2">
-                      <Input
-                        value={theme.primary_color}
-                        onChange={(event) =>
-                          setTheme((current) => ({
-                            ...current,
-                            primary_color: event.target.value,
-                          }))
-                        }
-                        className="font-mono"
-                      />
-                      <label className="relative flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-slate-200 dark:border-white/10">
-                        <input
-                          type="color"
-                          value={theme.primary_color}
-                          onChange={(event) =>
-                            setTheme((current) => ({
-                              ...current,
-                              primary_color: event.target.value,
-                            }))
-                          }
-                          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                        />
-                        <span
-                          className="h-7 w-7 rounded-xl"
-                          style={{ backgroundColor: theme.primary_color }}
-                        />
-                      </label>
-                    </div>
-                  </Field>
-
-                  <Field label="Warna aksen">
-                    <div className="flex gap-2">
-                      <Input
-                        value={theme.accent_color}
-                        onChange={(event) =>
-                          setTheme((current) => ({
-                            ...current,
-                            accent_color: event.target.value,
-                          }))
-                        }
-                        className="font-mono"
-                      />
-                      <label className="relative flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-slate-200 dark:border-white/10">
-                        <input
-                          type="color"
-                          value={theme.accent_color}
-                          onChange={(event) =>
-                            setTheme((current) => ({
-                              ...current,
-                              accent_color: event.target.value,
-                            }))
-                          }
-                          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                        />
-                        <span
-                          className="h-7 w-7 rounded-xl"
-                          style={{ backgroundColor: theme.accent_color }}
-                        />
-                      </label>
-                    </div>
-                  </Field>
-
-                  <div className="grid gap-4">
-                    <ChoiceChips
-                      label="Surface"
-                      value={theme.surface_style}
-                      options={[...SURFACE_STYLES]}
-                      onChange={(value) =>
-                        setTheme((current) => ({
-                          ...current,
-                          surface_style: value,
-                        }))
-                      }
-                    />
-                    <ChoiceChips
-                      label="Font vibe"
-                      value={theme.font_style}
-                      options={[...FONT_STYLES]}
-                      onChange={(value) =>
-                        setTheme((current) => ({
-                          ...current,
-                          font_style: value,
-                        }))
-                      }
-                    />
-                    <ChoiceChips
-                      label="Radius"
-                      value={theme.radius_style}
-                      options={[...RADIUS_STYLES]}
-                      onChange={(value) =>
-                        setTheme((current) => ({
-                          ...current,
-                          radius_style: value,
-                        }))
-                      }
-                    />
-                  </div>
-                </div>
-              </Card>
+              <ThemeStudioPanel theme={theme} onThemeChange={setTheme} />
             </CollapsibleSidebarCard>
           ) : null}
         </aside>
@@ -1329,6 +1245,55 @@ function WorkspaceModeButton({
       {icon}
       <span className="text-[11px] font-semibold">{label}</span>
     </button>
+  );
+}
+
+function BuilderFlowGuideCard({
+  previewUrl,
+  activeCount,
+  themeLabel,
+}: {
+  previewUrl?: string;
+  activeCount: number;
+  themeLabel: string;
+}) {
+  return (
+    <Card className="rounded-[1.75rem] border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-4 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,12,24,0.98))]">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="max-w-2xl">
+          <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+            Flow
+          </div>
+          <h2 className="mt-2 text-lg font-bold tracking-tight text-slate-950 dark:text-white">
+            Fokus ke layout, theme, dan publish
+          </h2>
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-3 lg:w-[28rem]">
+          <LinkCard
+            href="/admin/settings/bisnis"
+            title="Setup bisnis"
+            detail="Copy, kontak, media utama"
+          />
+          <InfoCard title={`${activeCount} section aktif`} detail="Rapikan urutan dan variant" />
+          <InfoCard title={themeLabel} detail="Theme aktif saat ini" />
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button asChild variant="outline" className="rounded-xl">
+          <Link href="/admin/settings/bisnis">Edit pondasi bisnis</Link>
+        </Button>
+        {previewUrl ? (
+          <Button asChild variant="outline" className="rounded-xl">
+            <a href={previewUrl} target="_blank" rel="noreferrer">
+              Lihat halaman publik
+              <ExternalLink className="ml-2 h-4 w-4" />
+            </a>
+          </Button>
+        ) : null}
+      </div>
+    </Card>
   );
 }
 
@@ -2279,6 +2244,212 @@ function BusinessStudioPanel({
   );
 }
 
+function ThemeStudioPanel({
+  theme,
+  onThemeChange,
+}: {
+  theme: LandingThemeConfig;
+  onThemeChange: React.Dispatch<React.SetStateAction<LandingThemeConfig>>;
+}) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  return (
+    <Card className="rounded-[1.75rem] border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-4 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,12,24,0.98))]">
+      <div className="space-y-5">
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+            Preset tema
+          </Label>
+          <div className="grid gap-2">
+            {THEME_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() =>
+                  onThemeChange((current) => ({
+                    ...current,
+                    ...THEME_PRESET_VALUES[preset.id],
+                  }))
+                }
+                className={cn(
+                  "rounded-2xl border px-3 py-3 text-left transition-colors",
+                  theme.preset === preset.id
+                    ? "border-[var(--bookinaja-500)] bg-[var(--bookinaja-50)] dark:bg-[rgba(59,130,246,0.12)]"
+                    : "border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/[0.03]",
+                )}
+              >
+                <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                  {preset.label}
+                </div>
+                <div className="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">
+                  {preset.description}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowAdvanced((current) => !current)}
+          className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left dark:border-white/10 dark:bg-white/[0.03]"
+        >
+          <div>
+            <div className="text-sm font-semibold text-slate-950 dark:text-white">
+              Advanced theme controls
+            </div>
+            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Warna manual, surface, font vibe, dan radius.
+            </div>
+          </div>
+          {showAdvanced ? (
+            <ChevronDown className="h-4 w-4 text-slate-500" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-slate-500" />
+          )}
+        </button>
+
+        {showAdvanced ? (
+          <div className="grid gap-4">
+            <Field label="Warna utama">
+              <div className="flex gap-2">
+                <Input
+                  value={theme.primary_color}
+                  onChange={(event) =>
+                    onThemeChange((current) => ({
+                      ...current,
+                      primary_color: event.target.value,
+                    }))
+                  }
+                  className="font-mono"
+                />
+                <label className="relative flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-slate-200 dark:border-white/10">
+                  <input
+                    type="color"
+                    value={theme.primary_color}
+                    onChange={(event) =>
+                      onThemeChange((current) => ({
+                        ...current,
+                        primary_color: event.target.value,
+                      }))
+                    }
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  />
+                  <span
+                    className="h-7 w-7 rounded-xl"
+                    style={{ backgroundColor: theme.primary_color }}
+                  />
+                </label>
+              </div>
+            </Field>
+
+            <Field label="Warna aksen">
+              <div className="flex gap-2">
+                <Input
+                  value={theme.accent_color}
+                  onChange={(event) =>
+                    onThemeChange((current) => ({
+                      ...current,
+                      accent_color: event.target.value,
+                    }))
+                  }
+                  className="font-mono"
+                />
+                <label className="relative flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-slate-200 dark:border-white/10">
+                  <input
+                    type="color"
+                    value={theme.accent_color}
+                    onChange={(event) =>
+                      onThemeChange((current) => ({
+                        ...current,
+                        accent_color: event.target.value,
+                      }))
+                    }
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  />
+                  <span
+                    className="h-7 w-7 rounded-xl"
+                    style={{ backgroundColor: theme.accent_color }}
+                  />
+                </label>
+              </div>
+            </Field>
+
+            <ChoiceChips
+              label="Surface"
+              value={theme.surface_style}
+              options={[...SURFACE_STYLES]}
+              onChange={(value) =>
+                onThemeChange((current) => ({
+                  ...current,
+                  surface_style: value,
+                }))
+              }
+            />
+            <ChoiceChips
+              label="Font vibe"
+              value={theme.font_style}
+              options={[...FONT_STYLES]}
+              onChange={(value) =>
+                onThemeChange((current) => ({
+                  ...current,
+                  font_style: value,
+                }))
+              }
+            />
+            <ChoiceChips
+              label="Radius"
+              value={theme.radius_style}
+              options={[...RADIUS_STYLES]}
+              onChange={(value) =>
+                onThemeChange((current) => ({
+                  ...current,
+                  radius_style: value,
+                }))
+              }
+            />
+          </div>
+        ) : null}
+      </div>
+    </Card>
+  );
+}
+
+function LinkCard({
+  href,
+  title,
+  detail,
+}: {
+  href: string;
+  title: string;
+  detail: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:border-[var(--bookinaja-300)] hover:bg-[var(--bookinaja-50)] dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-[rgba(96,165,250,0.24)] dark:hover:bg-[rgba(59,130,246,0.08)]"
+    >
+      <div className="text-sm font-semibold text-slate-950 dark:text-white">{title}</div>
+      <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{detail}</div>
+    </Link>
+  );
+}
+
+function InfoCard({
+  title,
+  detail,
+}: {
+  title: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="text-sm font-semibold text-slate-950 dark:text-white">{title}</div>
+      <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{detail}</div>
+    </div>
+  );
+}
+
 function CollapsibleSidebarCard({
   icon,
   title,
@@ -2471,6 +2642,8 @@ function useIsMobileStudio() {
 }
 
 function MobilePageBuilderExperience({
+  page,
+  theme,
   previewSource,
   previewUrl,
   saving,
@@ -2479,13 +2652,24 @@ function MobilePageBuilderExperience({
   selectedSectionLabel,
   themeLabel,
   lastPublishedLabel,
+  mobileWorkspace,
+  expandedSectionId,
   previewKey,
   iframeRef,
+  onMobileWorkspaceChange,
   onPreviewSourceChange,
+  onSelectSection,
+  onExpandSection,
+  onToggleSection,
+  onMoveSection,
+  onVariantChange,
+  onThemeChange,
   onRefresh,
   onPublish,
   onResetDraft,
 }: {
+  page: LandingPageConfig;
+  theme: LandingThemeConfig;
   previewSource: "draft" | "live";
   previewUrl?: string;
   saving: boolean;
@@ -2494,9 +2678,20 @@ function MobilePageBuilderExperience({
   selectedSectionLabel?: string;
   themeLabel: string;
   lastPublishedLabel?: string;
+  mobileWorkspace: "flow" | "sections" | "theme" | "preview";
+  expandedSectionId: string | null;
   previewKey: number;
   iframeRef: { current: HTMLIFrameElement | null };
+  onMobileWorkspaceChange: (
+    value: "flow" | "sections" | "theme" | "preview",
+  ) => void;
   onPreviewSourceChange: (value: "draft" | "live") => void;
+  onSelectSection: (sectionId: string) => void;
+  onExpandSection: React.Dispatch<React.SetStateAction<string | null>>;
+  onToggleSection: (section: BuilderSection) => void;
+  onMoveSection: (sectionId: string, direction: "up" | "down") => void;
+  onVariantChange: (sectionId: string, variant: string) => void;
+  onThemeChange: React.Dispatch<React.SetStateAction<LandingThemeConfig>>;
   onRefresh: () => void;
   onPublish: () => void;
   onResetDraft: () => void;
@@ -2512,22 +2707,17 @@ function MobilePageBuilderExperience({
 
           <div>
             <h1 className="text-2xl font-black tracking-tight text-slate-950 dark:text-white">
-              Review mobile
+              Page Builder Mobile
             </h1>
           </div>
 
           <div className="flex flex-wrap gap-2">
             <MobileStatusPill
               tone={hasUnpublishedChanges ? "warning" : "success"}
-              label={
-                hasUnpublishedChanges ? "Draft berubah" : "Sinkron"
-              }
+              label={hasUnpublishedChanges ? "Draft berubah" : "Sinkron"}
             />
             <MobileStatusPill tone="neutral" label={`Theme: ${themeLabel}`} />
-            <MobileStatusPill
-              tone="neutral"
-              label={`${activeCount} section aktif`}
-            />
+            <MobileStatusPill tone="neutral" label={`${activeCount} section aktif`} />
             {lastPublishedLabel ? (
               <MobileStatusPill
                 tone="neutral"
@@ -2539,83 +2729,177 @@ function MobilePageBuilderExperience({
         </div>
       </Card>
 
-      <Card className="rounded-[1.35rem] border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-4 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,12,24,0.98))] sm:rounded-[1.75rem]">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-              Preview Source
-            </div>
-            <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              {selectedSectionLabel ? `Section: ${selectedSectionLabel}` : "Draft / live"}
-            </div>
-          </div>
-          <MobileSegmentedControl
-            items={[
-              { value: "draft", label: "Draft" },
-              { value: "live", label: "Live" },
-            ]}
-            value={previewSource}
-            onChange={(value) =>
-              onPreviewSourceChange(value as "draft" | "live")
-            }
-          />
-        </div>
+      <Card className="rounded-[1.35rem] border-slate-200/90 bg-white p-3 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,12,24,0.98))] sm:rounded-[1.75rem]">
+        <MobileWorkspaceTabs
+          value={mobileWorkspace}
+          onChange={onMobileWorkspaceChange}
+        />
+      </Card>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            onClick={onPublish}
-            disabled={saving}
-            className="h-11 rounded-2xl bg-[var(--bookinaja-600)] text-white shadow-[0_12px_30px_rgba(37,99,235,0.28)] hover:bg-[var(--bookinaja-700)] disabled:border disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none disabled:opacity-100 dark:disabled:border-white/10 dark:disabled:bg-white/[0.08] dark:disabled:text-slate-500"
-          >
-            <Save className="mr-2 h-4 w-4" />
-            {saving ? "Publishing..." : "Publish"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onRefresh}
-            className="h-11 rounded-2xl"
-          >
-            <MonitorCog className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onResetDraft}
-            className="h-11 rounded-2xl"
-          >
-            <ArrowDown className="mr-2 h-4 w-4 rotate-45" />
-            Reset
-          </Button>
-          {previewUrl ? (
-            <Button asChild variant="outline" className="h-11 rounded-2xl">
-              <a href={previewUrl} target="_blank" rel="noreferrer">
-                <ChevronRight className="mr-2 h-4 w-4" />
-                Publik
-              </a>
+      {mobileWorkspace === "flow" ? (
+        <div className="space-y-4">
+          <Card className="rounded-[1.35rem] border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-4 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,12,24,0.98))] sm:rounded-[1.75rem]">
+            <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+              Flow mobile
+            </div>
+            <div className="mt-3 space-y-3">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                  1. Isi bisnis
+                </div>
+                <Button asChild variant="outline" className="mt-3 rounded-xl">
+                  <Link href="/admin/settings/bisnis">Buka Settings Bisnis</Link>
+                </Button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => onMobileWorkspaceChange("sections")}
+                className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm dark:border-white/10 dark:bg-white/[0.03]"
+              >
+                <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                  2. Atur section
+                </div>
+                <div className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                  {activeCount} section aktif.
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onMobileWorkspaceChange("theme")}
+                className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm dark:border-white/10 dark:bg-white/[0.03]"
+              >
+                <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                  3. Pilih theme
+                </div>
+                <div className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                  {themeLabel}
+                </div>
+              </button>
+            </div>
+          </Card>
+
+          <Card className="rounded-[1.35rem] border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-4 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,12,24,0.98))] sm:rounded-[1.75rem]">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+                  Publish
+                </div>
+                <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  {hasUnpublishedChanges
+                    ? "Draft siap dipublish setelah review cepat."
+                    : "Belum ada perubahan draft."}
+                </div>
+              </div>
+              <Button
+                type="button"
+                onClick={onPublish}
+                disabled={saving}
+                className="rounded-2xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
+              >
+                <Save className="mr-2 h-4 w-4" />
+                {saving ? "Publishing..." : "Publish"}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      ) : null}
+
+      {mobileWorkspace === "sections" ? (
+        <Card className="rounded-[1.35rem] border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-4 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,12,24,0.98))] sm:rounded-[1.75rem]">
+          <BuilderSectionList
+            sections={page.sections}
+            expandedSectionId={expandedSectionId}
+            onSelect={onSelectSection}
+            onExpand={onExpandSection}
+            onToggle={onToggleSection}
+            onMove={onMoveSection}
+            onVariantChange={onVariantChange}
+          />
+        </Card>
+      ) : null}
+
+      {mobileWorkspace === "theme" ? (
+        <ThemeStudioPanel theme={theme} onThemeChange={onThemeChange} />
+      ) : null}
+
+      {mobileWorkspace === "preview" ? (
+        <Card className="rounded-[1.35rem] border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-4 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,12,24,0.98))] sm:rounded-[1.75rem]">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+                Preview Source
+              </div>
+              <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                {selectedSectionLabel ? `Section: ${selectedSectionLabel}` : "Draft / live"}
+              </div>
+            </div>
+            <MobileSegmentedControl
+              items={[
+                { value: "draft", label: "Draft" },
+                { value: "live", label: "Live" },
+              ]}
+              value={previewSource}
+              onChange={(value) => onPreviewSourceChange(value as "draft" | "live")}
+            />
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              onClick={onPublish}
+              disabled={saving}
+              className="h-11 rounded-2xl bg-[var(--bookinaja-600)] text-white shadow-[0_12px_30px_rgba(37,99,235,0.28)] hover:bg-[var(--bookinaja-700)] disabled:border disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none disabled:opacity-100 dark:disabled:border-white/10 dark:disabled:bg-white/[0.08] dark:disabled:text-slate-500"
+            >
+              <Save className="mr-2 h-4 w-4" />
+              {saving ? "Publishing..." : "Publish"}
             </Button>
-          ) : (
             <Button
               type="button"
               variant="outline"
-              disabled
+              onClick={onRefresh}
               className="h-11 rounded-2xl"
             >
-              <ChevronRight className="mr-2 h-4 w-4" />
-              Publik
+              <MonitorCog className="mr-2 h-4 w-4" />
+              Refresh
             </Button>
-          )}
-        </div>
-      </Card>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onResetDraft}
+              className="h-11 rounded-2xl"
+            >
+              <ArrowDown className="mr-2 h-4 w-4 rotate-45" />
+              Reset
+            </Button>
+            {previewUrl ? (
+              <Button asChild variant="outline" className="h-11 rounded-2xl">
+                <a href={previewUrl} target="_blank" rel="noreferrer">
+                  <ChevronRight className="mr-2 h-4 w-4" />
+                  Publik
+                </a>
+              </Button>
+            ) : (
+              <Button type="button" variant="outline" disabled className="h-11 rounded-2xl">
+                <ChevronRight className="mr-2 h-4 w-4" />
+                Publik
+              </Button>
+            )}
+          </div>
+        </Card>
+      ) : null}
 
       <Card className="overflow-hidden rounded-[1.35rem] border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] shadow-[0_18px_42px_rgba(15,23,42,0.06)] dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(8,12,24,0.98))] dark:shadow-[0_18px_42px_rgba(2,6,23,0.34)] sm:rounded-[2rem] sm:shadow-[0_24px_60px_rgba(2,6,23,0.42)]">
         <div className="border-b border-slate-200/90 px-4 py-3 dark:border-white/10">
           <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
             Preview
           </div>
-          <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">Layar kecil.</div>
+          <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            {mobileWorkspace === "preview"
+              ? "Layar kecil."
+              : "Preview tetap ditampilkan supaya perubahan section dan theme langsung kebaca."}
+          </div>
         </div>
         <div className="bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.08),transparent_32%),linear-gradient(180deg,rgba(241,245,249,0.92),rgba(248,250,252,1))] p-3 dark:bg-[radial-gradient(circle_at_top,rgba(96,165,250,0.12),transparent_25%),linear-gradient(180deg,rgba(10,15,28,0.98),rgba(5,5,10,1))]">
           <MobilePreviewFrame scaleMode="fit">
@@ -2628,6 +2912,44 @@ function MobilePageBuilderExperience({
           </MobilePreviewFrame>
         </div>
       </Card>
+    </div>
+  );
+}
+
+function MobileWorkspaceTabs({
+  value,
+  onChange,
+}: {
+  value: "flow" | "sections" | "theme" | "preview";
+  onChange: (value: "flow" | "sections" | "theme" | "preview") => void;
+}) {
+  const items = [
+    { value: "flow", label: "Flow" },
+    { value: "sections", label: "Sections" },
+    { value: "theme", label: "Theme" },
+    { value: "preview", label: "Preview" },
+  ] as const;
+
+  return (
+    <div className="grid grid-cols-4 gap-2">
+      {items.map((item) => {
+        const active = item.value === value;
+        return (
+          <button
+            key={item.value}
+            type="button"
+            onClick={() => onChange(item.value)}
+            className={cn(
+              "rounded-2xl px-3 py-3 text-sm font-semibold transition-colors",
+              active
+                ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
+                : "border border-slate-200 bg-white text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300",
+            )}
+          >
+            {item.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

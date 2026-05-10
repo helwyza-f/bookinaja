@@ -323,17 +323,15 @@ function renderSection({
                     );
                   })
                 ) : (
-                  resources.map((resource) => (
-                    <ResourceCard
-                      key={resource.id}
-                      res={resource}
-                      primaryColor={theme.primary_color}
-                      accentColor={theme.accent_color}
-                      preset={theme.preset}
-                      radiusStyle={theme.radius_style}
-                      getBestPrice={getBestPrice}
-                    />
-                  ))
+                  <CatalogGrid
+                    resources={resources}
+                    primaryColor={theme.primary_color}
+                    accentColor={theme.accent_color}
+                    preset={theme.preset}
+                    radiusStyle={theme.radius_style}
+                    getBestPrice={getBestPrice}
+                    themeVisuals={themeVisuals}
+                  />
                 )
               ) : (
                 <Card className={cn(themeVisuals.emptyStateClass, "col-span-full p-8 text-center text-sm")}>
@@ -822,6 +820,78 @@ function InfoRow({
   );
 }
 
+function CatalogGrid({
+  resources,
+  primaryColor,
+  accentColor,
+  preset,
+  radiusStyle,
+  getBestPrice,
+  themeVisuals,
+}: {
+  resources: BuilderResource[];
+  primaryColor: string;
+  accentColor: string;
+  preset: string;
+  radiusStyle: string;
+  getBestPrice: (resource: BuilderResource) => { value: number; unit: string } | null;
+  themeVisuals: ReturnType<typeof getThemeVisuals>;
+}) {
+  const timedResources = resources.filter(
+    (resource) => String(resource.operating_mode || "timed").toLowerCase() === "timed",
+  );
+  const nonTimedResources = resources.filter(
+    (resource) => String(resource.operating_mode || "timed").toLowerCase() !== "timed",
+  );
+  const showSplit = timedResources.length > 0 && nonTimedResources.length > 0;
+
+  const renderCards = (items: BuilderResource[]) => (
+    <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {items.map((resource) => (
+        <ResourceCard
+          key={resource.id}
+          res={resource}
+          primaryColor={primaryColor}
+          accentColor={accentColor}
+          preset={preset}
+          radiusStyle={radiusStyle}
+          getBestPrice={getBestPrice}
+        />
+      ))}
+    </div>
+  );
+
+  if (!showSplit) return renderCards(resources);
+
+  return (
+    <div className="space-y-8">
+      {timedResources.length > 0 ? (
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <div className={themeVisuals.eyebrowClass}>Booking timed</div>
+            <p className={cn("text-sm", themeVisuals.bodyClass)}>
+              Resource per jam, sesi, atau durasi.
+            </p>
+          </div>
+          {renderCards(timedResources)}
+        </div>
+      ) : null}
+
+      {nonTimedResources.length > 0 ? (
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <div className={themeVisuals.eyebrowClass}>Produk & non-timed</div>
+            <p className={cn("text-sm", themeVisuals.bodyClass)}>
+              Resource yang dijual langsung tanpa booking durasi.
+            </p>
+          </div>
+          {renderCards(nonTimedResources)}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function readObjectArray(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null);
@@ -838,9 +908,9 @@ function MobileStickyBookingBar({
 }) {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[120] flex justify-center px-4 pb-4">
-      <div className="pointer-events-auto w-full max-w-[360px] rounded-[1.7rem] border border-white/40 bg-white/85 p-3 shadow-[0_20px_50px_rgba(15,23,42,0.18)] backdrop-blur-xl dark:border-white/10 dark:bg-[#0f172a]/85">
+      <div className="pointer-events-auto w-full max-w-[360px] rounded-[1.4rem] border border-white/50 bg-white/92 p-2.5 shadow-[0_16px_40px_rgba(15,23,42,0.14)] backdrop-blur-xl dark:border-white/10 dark:bg-[#0f172a]/88">
         <Button
-          className="h-12 w-full rounded-[1.2rem] text-sm font-black uppercase tracking-[0.18em] text-white"
+          className="h-11 w-full rounded-[1rem] text-sm font-black uppercase tracking-[0.14em] text-white"
           style={{ backgroundColor: primaryColor }}
           disabled={isEditorPreview}
         >

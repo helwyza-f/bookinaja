@@ -11,16 +11,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  ArrowRight,
   CheckCircle2,
   Download,
   FileUp,
-  Lock,
   Megaphone,
   RefreshCw,
+  Send,
+  Sparkles,
   Upload,
-  Users,
 } from "lucide-react";
-import Link from "next/link";
 
 type CustomerRow = {
   id: string;
@@ -122,12 +122,7 @@ export default function SettingsCRMPage() {
   const [activeMessage, setActiveMessage] = useState(ACTIVE_MESSAGE);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [selectedFileName, setSelectedFileName] = useState("");
-
-  const isProActive = useMemo(() => {
-    const plan = String(profile?.plan || "").toLowerCase().trim();
-    const status = String(profile?.status || "").toLowerCase().trim();
-    return plan === "pro" && status === "active";
-  }, [profile]);
+  const [activeTab, setActiveTab] = useState("overview");
 
   const importRows = useMemo(() => parseImportRows(importText), [importText]);
   const importWarnings = useMemo(
@@ -141,6 +136,9 @@ export default function SettingsCRMPage() {
       ),
     [activity],
   );
+  const recentLegacyContacts = useMemo(() => legacyContacts.slice(0, 6), [legacyContacts]);
+  const recentCustomers = useMemo(() => customers.slice(0, 6), [customers]);
+  const latestCrmActivity = crmHistory[0];
 
   const loadAll = async () => {
     setLoading(true);
@@ -163,7 +161,7 @@ export default function SettingsCRMPage() {
   };
 
   useEffect(() => {
-    loadAll();
+    void loadAll();
   }, []);
 
   const downloadTemplate = () => {
@@ -188,10 +186,6 @@ export default function SettingsCRMPage() {
   };
 
   const handleImportLegacy = async () => {
-    if (!isProActive) {
-      toast.error("Migrasi pelanggan lama hanya tersedia di Pro active");
-      return;
-    }
     if (importRows.length === 0) {
       toast.error("Tambahkan minimal 1 pelanggan lama");
       return;
@@ -211,10 +205,6 @@ export default function SettingsCRMPage() {
   };
 
   const handleBlast = async (target: "legacy" | "active") => {
-    if (!isProActive) {
-      toast.error("Blast CRM hanya tersedia di Pro active");
-      return;
-    }
     const message = target === "legacy" ? legacyMessage : activeMessage;
     if (!message.trim()) {
       toast.error("Pesan blast tidak boleh kosong");
@@ -234,191 +224,315 @@ export default function SettingsCRMPage() {
   };
 
   return (
-    <div className="space-y-4 p-4 pb-20 sm:p-6">
-      <header className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-            <Users className="h-4 w-4" />
-            CRM
+    <div className="space-y-4 p-4 pb-20 sm:space-y-6 sm:p-6">
+      <section className="overflow-hidden rounded-[1.75rem] border border-slate-200/90 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.94))] p-5 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.94),rgba(8,47,73,0.94))]">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--bookinaja-200)] bg-[var(--bookinaja-50)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-[var(--bookinaja-700)] dark:border-[rgba(96,165,250,0.24)] dark:bg-[rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]">
+              <Sparkles className="h-3.5 w-3.5" />
+              CRM Workspace
+            </div>
+            <h1 className="mt-4 text-2xl font-black tracking-tight text-slate-950 dark:text-white sm:text-3xl">
+              CRM Workspace
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300 sm:max-w-2xl">
+              Import legacy, campaigns, dan history.
+            </p>
           </div>
-          <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">
-            CRM
-          </h1>
-        </div>
-        <Button variant="outline" onClick={loadAll} className="w-fit gap-2 rounded-lg dark:border-slate-800 dark:bg-slate-950">
-          <RefreshCw className="h-4 w-4" />
-          Refresh
-        </Button>
-        </div>
-      </header>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Pelanggan aktif" value={loading ? "-" : String(customers.length)} />
-        <Metric label="Pelanggan lama" value={loading ? "-" : String(legacyContacts.length)} />
-        <Metric label="Plan" value={(profile?.plan || "-").toUpperCase()} />
-        <Metric label="Campaign" value={String(crmHistory.length)} />
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => void loadAll()} className="rounded-xl">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setActiveTab("campaigns")}
+              className="rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
+            >
+              <Megaphone className="mr-2 h-4 w-4" />
+              Buka Campaign
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-3 gap-3">
+        <MetricCard
+          label="Aktif"
+          value={loading ? "-" : String(customers.length)}
+          hint="customer tenant"
+        />
+        <MetricCard
+          label="Legacy"
+          value={loading ? "-" : String(legacyContacts.length)}
+          hint="kontak impor"
+        />
+        <MetricCard
+          label="History"
+          value={String(crmHistory.length)}
+          hint={`${String(profile?.plan || "-").toUpperCase()} / ${String(profile?.status || "-").toUpperCase()}`}
+        />
       </div>
 
-      {!isProActive && (
-        <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex gap-3">
-            <Lock className="mt-0.5 h-4 w-4 shrink-0" />
-            <div>
-              <div className="text-sm font-semibold">Fitur CRM Pro</div>
-              <p className="mt-1 text-xs leading-5 opacity-80">Import dan blast butuh Pro aktif.</p>
-            </div>
-          </div>
-          <Button asChild className="w-fit rounded-lg bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
-            <Link href="/admin/settings/billing/subscribe">Upgrade Pro</Link>
-          </Button>
-        </div>
-      )}
-
-      <Tabs defaultValue="migration" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 lg:w-[560px]">
-          <TabsTrigger value="migration">Migrasi</TabsTrigger>
-          <TabsTrigger value="operational">Operational</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-4 lg:w-[760px]">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="import">Import Legacy</TabsTrigger>
+          <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="migration" className="space-y-4">
-          <Card className="border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:p-5">
-            <SectionHeader
-              icon={<FileUp className="h-5 w-5" />}
-              label="Pelanggan lama"
-              title="Kontak lama"
-              description="CSV: nama & nomor."
-            />
-
-            <div className="mt-5 grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-              <div className="space-y-3">
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/30 dark:hover:bg-slate-900">
-                    <Upload className="h-4 w-4" />
-                    Upload CSV
-                    <input type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => handleFileUpload(event.target.files?.[0] || null)} />
-                  </label>
-                  <Button variant="outline" onClick={downloadTemplate} className="gap-2 rounded-lg">
-                    <Download className="h-4 w-4" />
-                    Template
-                  </Button>
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+            <Card className="rounded-[1.75rem] border-slate-200 bg-white p-5 shadow-sm dark:border-white/12 dark:bg-[#0f172a]">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+                    Separation of concern
+                  </div>
+                  <h2 className="mt-2 text-lg font-bold tracking-tight text-slate-950 dark:text-white">
+                    Tiga workflow utama CRM
+                  </h2>
                 </div>
-                {selectedFileName && <div className="text-xs text-slate-500">File: {selectedFileName}</div>}
+                <Badge variant="secondary">{crmHistory.length} activity</Badge>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <WorkflowCard
+                  title="Legacy import"
+                  description="Tarik kontak lama dari CSV, validasi, lalu simpan ke bucket legacy."
+                  detail={`${importRows.length} baris draft`}
+                  actionLabel="Buka import"
+                  onClick={() => setActiveTab("import")}
+                />
+                <WorkflowCard
+                  title="Campaigns"
+                  description="Kelola blast untuk legacy contacts dan pelanggan aktif tenant."
+                  detail={`${legacyContacts.length + customers.length} total audience`}
+                  actionLabel="Buka campaign"
+                  onClick={() => setActiveTab("campaigns")}
+                />
+                <WorkflowCard
+                  title="History"
+                  description="Audit import dan blast yang pernah dijalankan tim."
+                  detail={latestCrmActivity ? labelAction(latestCrmActivity.action) : "Belum ada history"}
+                  actionLabel="Lihat history"
+                  onClick={() => setActiveTab("history")}
+                />
+              </div>
+            </Card>
+
+            <Card className="rounded-[1.75rem] border-slate-200 bg-white p-5 shadow-sm dark:border-white/12 dark:bg-[#0f172a]">
+              <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+                Status workspace
+              </div>
+              <div className="mt-4 space-y-3">
+                <StatusRow label="Import draft" value={`${importRows.length} baris`} />
+                <StatusRow label="Warning import" value={importWarnings ? `${importWarnings} issue` : "Aman"} />
+                <StatusRow label="Legacy contacts" value={`${legacyContacts.length} kontak`} />
+                <StatusRow label="Active customers" value={`${customers.length} customer`} />
+                <StatusRow
+                  label="Last CRM activity"
+                  value={latestCrmActivity ? formatDate(latestCrmActivity.created_at) : "-"}
+                />
+              </div>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            <AudiencePanel
+              title="Legacy contacts"
+              eyebrow="Untuk migrasi"
+              emptyText="Belum ada kontak legacy."
+              items={recentLegacyContacts.map((item) => ({
+                id: item.id,
+                name: item.name,
+                phone: item.phone,
+                meta: item.last_blast_at ? `Blast terakhir ${formatDate(item.last_blast_at)}` : "Belum pernah diblast",
+              }))}
+            />
+            <AudiencePanel
+              title="Pelanggan aktif"
+              eyebrow="Untuk campaign tenant"
+              emptyText="Belum ada pelanggan aktif."
+              items={recentCustomers.map((item) => ({
+                id: item.id,
+                name: item.name,
+                phone: item.phone,
+                meta: "Source: booking tenant",
+              }))}
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="import" className="space-y-4">
+          <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+            <Card className="rounded-[1.75rem] border-slate-200 bg-white p-5 shadow-sm dark:border-white/12 dark:bg-[#0f172a]">
+              <SectionHeader
+                icon={<FileUp className="h-5 w-5" />}
+                label="Legacy import"
+                title="Import kontak pelanggan lama"
+                description="Satu workflow khusus untuk migrasi CSV supaya tidak campur dengan blast."
+              />
+
+              <div className="mt-5 space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-4 text-left transition-colors hover:bg-slate-100 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.05]"
+                  >
+                    <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-950 dark:text-white">
+                      <Upload className="h-4 w-4 text-[var(--bookinaja-600)]" />
+                      Upload CSV
+                      <input
+                        type="file"
+                        accept=".csv,text/csv"
+                        className="hidden"
+                        onChange={(event) => void handleFileUpload(event.target.files?.[0] || null)}
+                      />
+                    </label>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      {selectedFileName || "Pilih file .csv untuk kontak lama"}
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={downloadTemplate}
+                    className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-4 text-left transition-colors hover:bg-slate-100 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.05]"
+                  >
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-950 dark:text-white">
+                      <Download className="h-4 w-4 text-[var(--bookinaja-600)]" />
+                      Download template
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      Header wajib: `name,phone`
+                    </div>
+                  </button>
+                </div>
+
+                <div className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
+                  <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                    Contoh CSV
+                  </div>
+                  <pre className="mt-2 overflow-x-auto rounded-[1rem] bg-white px-3 py-3 font-mono text-xs leading-6 text-slate-700 ring-1 ring-slate-200 dark:bg-[#0f172a] dark:text-slate-200 dark:ring-white/10">{`name,phone
+Rani,+628123456789
+Budi,081234567890`}</pre>
+                  <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                    Satu baris per kontak. Jangan pakai kolom tambahan.
+                  </div>
+                </div>
+
                 <Textarea
                   value={importText}
                   onChange={(event) => setImportText(event.target.value)}
-                  className="min-h-64 rounded-lg bg-slate-50 font-mono text-sm dark:bg-slate-900/30"
+                  className="min-h-72 rounded-[1.35rem] bg-slate-50 font-mono text-sm dark:bg-slate-900/30"
                   placeholder="name,phone"
                 />
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-xs text-slate-500">
-                    {importRows.length} baris
-                    {importWarnings > 0 && (
-                      <span className="ml-2 inline-flex items-center gap-1 text-amber-600">
-                        <AlertTriangle className="h-3.5 w-3.5" />
-                        {importWarnings} perlu dicek
-                      </span>
-                    )}
+
+                <div className="grid grid-cols-3 gap-3">
+                  <MiniMetric label="Draft rows" value={String(importRows.length)} />
+                  <MiniMetric label="Warnings" value={String(importWarnings)} />
+                  <MiniMetric label="Legacy saved" value={String(legacyContacts.length)} />
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                    Import akan tetap diverifikasi backend sesuai rules tenant.
                   </div>
-                  <Button onClick={handleImportLegacy} disabled={busy || !isProActive} className="gap-2">
-                    <Upload className="h-4 w-4" />
-                    Simpan
+                  <Button
+                    onClick={() => void handleImportLegacy()}
+                    disabled={busy}
+                    className="rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
+                  >
+                    <Upload className="mr-2 h-4 w-4" />
+                    Simpan legacy contacts
                   </Button>
                 </div>
-                {importResult && (
+
+                {importResult ? (
                   <ResultBox result={importResult} label="Import pelanggan lama selesai" />
-                )}
+                ) : null}
               </div>
+            </Card>
 
-              <Preview rows={importRows} />
-            </div>
-          </Card>
-
-          <Card className="border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:p-5">
-            <SectionHeader
-              icon={<Megaphone className="h-5 w-5" />}
-              label="Blast migrasi"
-              title="Blast legacy"
-              description="Target: kontak legacy."
-            />
-            <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_260px]">
-              <Textarea
-                value={legacyMessage}
-                onChange={(event) => setLegacyMessage(event.target.value)}
-                className="min-h-44 rounded-lg bg-slate-50 text-sm dark:bg-slate-900/30"
-              />
-              <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-                <Metric label="Target legacy" value={String(legacyContacts.length)} compact />
-                <Button onClick={() => handleBlast("legacy")} disabled={busy || !isProActive} className="mt-4 w-full gap-2">
-                  <Megaphone className="h-4 w-4" />
-                  Blast legacy
-                </Button>
+            <Card className="rounded-[1.75rem] border-slate-200 bg-white p-5 shadow-sm dark:border-white/12 dark:bg-[#0f172a]">
+              <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+                Preview & validation
               </div>
-            </div>
-          </Card>
+              <div className="mt-4">
+                <Preview rows={importRows} />
+              </div>
+            </Card>
+          </div>
         </TabsContent>
 
-        <TabsContent value="operational" className="space-y-4">
-          <Card className="border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:p-5">
-            <SectionHeader
-              icon={<Users className="h-5 w-5" />}
-              label="Pelanggan aktif"
-              title="Blast aktif"
-              description="Target: customer tenant."
+        <TabsContent value="campaigns" className="space-y-4">
+          <div className="grid gap-4 xl:grid-cols-2">
+            <CampaignComposer
+              title="Blast legacy contacts"
+              eyebrow="Audience legacy"
+              description="Kirim pengumuman migrasi atau reaktivasi ke kontak pelanggan lama."
+              audienceCount={legacyContacts.length}
+              message={legacyMessage}
+              onChangeMessage={setLegacyMessage}
+              onSubmit={() => void handleBlast("legacy")}
+              busy={busy}
+              helper="Pesan ini dikirim ke bucket legacy contacts."
             />
-            <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_260px]">
-              <Textarea
-                value={activeMessage}
-                onChange={(event) => setActiveMessage(event.target.value)}
-                className="min-h-44 rounded-lg bg-slate-50 text-sm dark:bg-slate-900/30"
-              />
-              <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-                <Metric label="Target aktif" value={String(customers.length)} compact />
-                <Button onClick={() => handleBlast("active")} disabled={busy || !isProActive} className="mt-4 w-full gap-2">
-                  <Megaphone className="h-4 w-4" />
-                  Blast aktif
-                </Button>
-              </div>
-            </div>
-          </Card>
 
-          <Card className="border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-slate-950 dark:text-white">Sample pelanggan aktif</h2>
-              <Badge variant="secondary">{customers.length} customer</Badge>
-            </div>
-            <div className="grid gap-2 md:grid-cols-2">
-              {customers.slice(0, 8).map((customer) => (
-                <ContactRow key={customer.id} name={customer.name} phone={customer.phone} />
-              ))}
-              {customers.length === 0 && <EmptyText text="Belum ada pelanggan aktif dari booking tenant ini." />}
-            </div>
-          </Card>
+            <CampaignComposer
+              title="Blast pelanggan aktif"
+              eyebrow="Audience aktif"
+              description="Kirim pengumuman ke customer tenant yang sudah pernah booking."
+              audienceCount={customers.length}
+              message={activeMessage}
+              onChangeMessage={setActiveMessage}
+              onSubmit={() => void handleBlast("active")}
+              busy={busy}
+              helper="Pesan ini dikirim ke customer tenant aktif."
+            />
+          </div>
         </TabsContent>
 
-        <TabsContent value="history">
-          <Card className="border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:p-5">
+        <TabsContent value="history" className="space-y-4">
+          <Card className="rounded-[1.75rem] border-slate-200 bg-white p-5 shadow-sm dark:border-white/12 dark:bg-[#0f172a]">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-slate-950 dark:text-white">History CRM</h2>
+                <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+                  CRM audit
+                </div>
+                <h2 className="mt-2 text-lg font-bold tracking-tight text-slate-950 dark:text-white">
+                  History import dan campaign
+                </h2>
               </div>
               <Badge variant="secondary">{crmHistory.length} record</Badge>
             </div>
-            <div className="mt-4 space-y-3">
+
+            <div className="mt-5 space-y-3">
               {crmHistory.map((item) => (
-                <div key={item.id} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                <div
+                  key={item.id}
+                  className="rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]"
+                >
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <div className="font-medium text-slate-950 dark:text-white">{labelAction(item.action)}</div>
-                      <div className="mt-1 text-xs text-slate-500">{item.actor_name || "System"} • {formatDate(item.created_at)}</div>
+                      <div className="font-semibold text-slate-950 dark:text-white">
+                        {labelAction(item.action)}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {item.actor_name || "System"} • {formatDate(item.created_at)}
+                      </div>
                     </div>
                     <Badge variant="outline">{item.resource_type}</Badge>
                   </div>
-                  <div className="mt-3 break-words text-sm text-slate-600 dark:text-slate-300">{item.metadata || "-"}</div>
+                  <div className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                    {item.metadata || "-"}
+                  </div>
                 </div>
               ))}
-              {crmHistory.length === 0 && <EmptyText text="Belum ada aktivitas CRM." />}
+              {crmHistory.length === 0 ? <EmptyText text="Belum ada aktivitas CRM." /> : null}
             </div>
           </Card>
         </TabsContent>
@@ -427,50 +541,181 @@ export default function SettingsCRMPage() {
   );
 }
 
-function SectionHeader({ icon, label, title, description }: { icon: React.ReactNode; label: string; title: string; description: string }) {
+function SectionHeader({
+  icon,
+  label,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  title: string;
+  description: string;
+}) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--bookinaja-600)] text-white">{icon}</div>
+      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--bookinaja-600)] text-white">
+        {icon}
+      </div>
       <div>
-        <Badge className="border-none bg-[var(--bookinaja-600)] text-[10px] font-medium uppercase tracking-wide text-white">{label}</Badge>
-        <h2 className="mt-2 text-base font-semibold text-slate-950 dark:text-white">{title}</h2>
-        <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">{description}</p>
+        <Badge className="border-none bg-[var(--bookinaja-600)] text-[10px] font-medium uppercase tracking-wide text-white">
+          {label}
+        </Badge>
+        <h2 className="mt-2 text-lg font-bold tracking-tight text-slate-950 dark:text-white">
+          {title}
+        </h2>
+        <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+          {description}
+        </p>
       </div>
     </div>
   );
 }
 
-function Metric({ label, value, compact }: { label: string; value: string; compact?: boolean }) {
+function MetricCard({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+}) {
   return (
-    <Card className={compact ? "border-0 bg-transparent p-0 shadow-none" : "rounded-lg border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950"}>
-      <div className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{label}</div>
-      <div className={compact ? "mt-1.5 text-xl font-semibold text-slate-950 dark:text-white" : "mt-1.5 text-xl font-semibold tracking-tight text-slate-950 dark:text-white"}>{value}</div>
+    <Card className="rounded-[1.2rem] border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-white/12 dark:bg-[#0f172a]">
+      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+        {label}
+      </div>
+      <div className="mt-1 text-2xl font-bold tracking-tight text-slate-950 dark:text-white">
+        {value}
+      </div>
+      <div className="mt-2 truncate text-[11px] text-slate-400">{hint}</div>
     </Card>
+  );
+}
+
+function WorkflowCard({
+  title,
+  description,
+  detail,
+  actionLabel,
+  onClick,
+}: {
+  title: string;
+  description: string;
+  detail: string;
+  actionLabel: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-4 text-left transition-colors hover:border-[var(--bookinaja-300)] hover:bg-[var(--bookinaja-50)] dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-[rgba(96,165,250,0.24)] dark:hover:bg-[rgba(59,130,246,0.08)]"
+    >
+      <div className="text-sm font-semibold text-slate-950 dark:text-white">{title}</div>
+      <div className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">{description}</div>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <span className="text-xs font-medium text-slate-400">{detail}</span>
+        <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
+          {actionLabel}
+          <ArrowRight className="h-3.5 w-3.5" />
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function StatusRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-[1.1rem] border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+      <span className="text-sm text-slate-500 dark:text-slate-400">{label}</span>
+      <span className="text-sm font-semibold text-slate-950 dark:text-white">{value}</span>
+    </div>
+  );
+}
+
+function AudiencePanel({
+  title,
+  eyebrow,
+  items,
+  emptyText,
+}: {
+  title: string;
+  eyebrow: string;
+  items: Array<{ id: string; name: string; phone: string; meta: string }>;
+  emptyText: string;
+}) {
+  return (
+    <Card className="rounded-[1.75rem] border-slate-200 bg-white p-5 shadow-sm dark:border-white/12 dark:bg-[#0f172a]">
+      <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+        {eyebrow}
+      </div>
+      <h2 className="mt-2 text-lg font-bold tracking-tight text-slate-950 dark:text-white">
+        {title}
+      </h2>
+      <div className="mt-4 space-y-3">
+        {items.map((item) => (
+          <div
+            key={item.id}
+            className="rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]"
+          >
+            <div className="font-medium text-slate-950 dark:text-white">{item.name || "Tanpa nama"}</div>
+            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{item.phone || "-"}</div>
+            <div className="mt-2 text-[11px] text-slate-400">{item.meta}</div>
+          </div>
+        ))}
+        {items.length === 0 ? <EmptyText text={emptyText} /> : null}
+      </div>
+    </Card>
+  );
+}
+
+function MiniMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[1.1rem] border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{label}</div>
+      <div className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">{value}</div>
+    </div>
   );
 }
 
 function Preview({ rows }: { rows: ImportRow[] }) {
   return (
-    <div className="space-y-3 rounded-lg border border-slate-200 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+    <div className="space-y-3 rounded-[1.35rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
       <div className="text-sm font-semibold text-slate-950 dark:text-white">Preview kontak legacy</div>
       <Separator />
-      <div className="max-h-80 space-y-2 overflow-auto pr-1">
+      <div className="max-h-[32rem] space-y-2 overflow-auto pr-1">
         {rows.map((row, index) => {
           const issues = getIssues(row);
           return (
-            <div key={`${index}-${row.phone}`} className="rounded-lg border border-slate-200 p-3 dark:border-slate-800 dark:bg-slate-950">
+            <div
+              key={`${index}-${row.phone}`}
+              className="rounded-[1.15rem] border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-[#0f172a]"
+            >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="font-medium text-slate-950 dark:text-white">{row.name || "Tanpa nama"}</div>
-                  <div className="mt-1 text-xs text-slate-500">{row.phone || "-"}</div>
+                  <div className="font-medium text-slate-950 dark:text-white">
+                    {row.name || "Tanpa nama"}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {row.phone || "-"}
+                  </div>
                 </div>
-                <Badge variant={issues.length > 0 ? "destructive" : "secondary"}>{issues.length > 0 ? "Cek" : "OK"}</Badge>
+                <Badge variant={issues.length > 0 ? "destructive" : "secondary"}>
+                  {issues.length > 0 ? "Cek" : "OK"}
+                </Badge>
               </div>
-              {issues.length > 0 && <div className="mt-2 text-xs text-amber-600">{issues.join(", ")}</div>}
+              {issues.length > 0 ? (
+                <div className="mt-2 inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-300">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  {issues.join(", ")}
+                </div>
+              ) : null}
             </div>
           );
         })}
-        {rows.length === 0 && <EmptyText text="Belum ada data legacy." />}
+        {rows.length === 0 ? <EmptyText text="Belum ada data legacy." /> : null}
       </div>
     </div>
   );
@@ -478,12 +723,12 @@ function Preview({ rows }: { rows: ImportRow[] }) {
 
 function ResultBox({ result, label }: { result: ImportResult; label: string }) {
   return (
-    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/25 dark:text-emerald-200">
+    <div className="rounded-[1.2rem] border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/25 dark:text-emerald-200">
       <div className="flex items-center gap-2 font-semibold">
         <CheckCircle2 className="h-4 w-4" />
         {label}
       </div>
-      <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
         <span>Total {result.total}</span>
         <span>Simpan {result.created}</span>
         <span>Update {result.updated}</span>
@@ -494,17 +739,75 @@ function ResultBox({ result, label }: { result: ImportResult; label: string }) {
   );
 }
 
-function ContactRow({ name, phone }: { name: string; phone: string }) {
+function CampaignComposer({
+  title,
+  eyebrow,
+  description,
+  audienceCount,
+  message,
+  onChangeMessage,
+  onSubmit,
+  busy,
+  helper,
+}: {
+  title: string;
+  eyebrow: string;
+  description: string;
+  audienceCount: number;
+  message: string;
+  onChangeMessage: (value: string) => void;
+  onSubmit: () => void;
+  busy: boolean;
+  helper: string;
+}) {
   return (
-    <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-      <div className="font-medium text-slate-950 dark:text-white">{name || "Customer"}</div>
-      <div className="mt-1 text-xs text-slate-500">{phone || "-"}</div>
-    </div>
+    <Card className="rounded-[1.75rem] border-slate-200 bg-white p-5 shadow-sm dark:border-white/12 dark:bg-[#0f172a]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+            {eyebrow}
+          </div>
+          <h2 className="mt-2 text-lg font-bold tracking-tight text-slate-950 dark:text-white">
+            {title}
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">{description}</p>
+        </div>
+        <Badge variant="secondary">{audienceCount} target</Badge>
+      </div>
+
+      <div className="mt-4 rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
+        {helper}
+      </div>
+
+      <Textarea
+        value={message}
+        onChange={(event) => onChangeMessage(event.target.value)}
+        className="mt-4 min-h-48 rounded-[1.35rem] bg-slate-50 text-sm dark:bg-slate-900/30"
+      />
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="text-xs text-slate-500 dark:text-slate-400">
+          Placeholder <code className="rounded bg-slate-100 px-1 py-0.5 dark:bg-white/10">{"{nama pelanggan}"}</code> bisa dipakai jika backend mendukung templating.
+        </div>
+        <Button
+          onClick={onSubmit}
+          disabled={busy}
+          className="rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
+        >
+          <Send className="mr-2 h-4 w-4" />
+          Kirim blast
+        </Button>
+      </div>
+    </Card>
   );
 }
 
 function EmptyText({ text }: { text: string }) {
-  return <div className="rounded-lg border border-dashed border-slate-200 p-4 text-sm text-slate-500 dark:border-slate-800">{text}</div>;
+  return (
+    <div className="rounded-[1.15rem] border border-dashed border-slate-200 p-4 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
+      {text}
+    </div>
+  );
 }
 
 function labelAction(action: string) {

@@ -14,6 +14,9 @@ type ResourceCardProps = {
   preset?: string;
   radiusStyle?: string;
   getBestPrice: (resource: BuilderResource) => { value: number; unit: string } | null;
+  getPrimaryOffer?: (
+    resource: BuilderResource,
+  ) => { name: string; value: number; unit: string; duration?: number | null } | null;
 };
 
 export function ResourceCard({
@@ -23,8 +26,37 @@ export function ResourceCard({
   preset = "bookinaja-classic",
   radiusStyle = "rounded",
   getBestPrice,
+  getPrimaryOffer,
 }: ResourceCardProps) {
   const bestRate = getBestPrice(res);
+  const primaryOffer =
+    getPrimaryOffer?.(res) ||
+    (res.items?.filter((item) => item.item_type === "main_option" || item.item_type === "main")
+      .sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0]
+      ? {
+          name:
+            res.items?.filter((item) => item.item_type === "main_option" || item.item_type === "main")
+              .sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0]?.name || "",
+          value:
+            Number(
+              res.items
+                ?.filter((item) => item.item_type === "main_option" || item.item_type === "main")
+                .sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0]?.price || 0,
+            ) || 0,
+          unit:
+            res.items
+              ?.filter((item) => item.item_type === "main_option" || item.item_type === "main")
+              .sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0]?.price_unit ===
+            "hour"
+              ? "Jam"
+              : "Sesi",
+          duration:
+            res.items
+              ?.filter((item) => item.item_type === "main_option" || item.item_type === "main")
+              .sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0]?.unit_duration ?? null,
+        }
+      : null);
+  const isTimed = String(res.operating_mode || "timed").toLowerCase() === "timed";
   const shellRadiusClass =
     radiusStyle === "square" ? "rounded-[1.2rem] md:rounded-[1.5rem]" : radiusStyle === "soft" ? "rounded-[2rem] md:rounded-[2.2rem]" : "rounded-[2rem] md:rounded-[2.5rem]";
   const mediaRadiusClass =
@@ -75,10 +107,9 @@ export function ResourceCard({
       href={`/bookings/${res.id}`}
       className="group block h-full w-full outline-none focus:ring-0"
     >
-      <Card className={cn("relative flex h-full min-h-[32rem] flex-col overflow-hidden border backdrop-blur-3xl transition-all duration-500 hover:-translate-y-2 group-active:scale-[0.97] hover:shadow-2xl", shellRadiusClass, shellClass)}>
-        {/* --- Image Section --- */}
+      <Card className={cn("relative flex h-full min-h-[24rem] flex-col overflow-hidden border transition-all duration-300 hover:-translate-y-1 group-active:scale-[0.98]", shellRadiusClass, shellClass)}>
         <div className="relative w-full p-3 pb-0 shrink-0">
-          <div className={cn("relative h-[14.5rem] w-full overflow-hidden sm:h-[15rem] md:h-[220px]", mediaRadiusClass)}>
+          <div className={cn("relative h-[11rem] w-full overflow-hidden sm:h-[12rem] md:h-[220px]", mediaRadiusClass)}>
             {res.image_url ? (
               <Image
                 src={res.image_url}
@@ -86,7 +117,7 @@ export function ResourceCard({
                 fill
                 unoptimized
                 sizes="(min-width: 1024px) 26vw, (min-width: 640px) 44vw, 100vw"
-                className="object-cover object-center transition-transform duration-1000 group-hover:scale-110"
+                className="object-cover object-center transition-transform duration-700 group-hover:scale-105"
               />
             ) : (
               <div className="w-full h-full bg-slate-100 dark:bg-white/[0.05] flex items-center justify-center relative overflow-hidden">
@@ -98,46 +129,58 @@ export function ResourceCard({
               </div>
             )}
 
-            {/* Badge Category */}
             <div className="absolute top-3 left-3 z-20">
-              <Badge className={cn("backdrop-blur-md border text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 shadow-sm", chipRadiusClass, chipClass)}>
-                {res.category || "Fasilitas"}
+              <Badge className={cn("border text-[9px] font-bold uppercase tracking-[0.16em] px-2.5 py-1 shadow-sm", chipRadiusClass, chipClass)}>
+                {isTimed ? "Timed" : "Direct"}
               </Badge>
             </div>
 
-            {/* Gradient Overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
           </div>
         </div>
 
-        {/* --- Info Section --- */}
         <div className="p-5 md:p-6 flex flex-col flex-1 relative">
           <div className="mb-4 flex flex-1 flex-col">
             <div className="flex items-start justify-between gap-3">
-              <h3 className="min-h-[3.8rem] text-lg font-black uppercase italic leading-tight tracking-tight text-slate-900 line-clamp-2 dark:text-white md:min-h-[4.3rem] md:text-xl">
+              <h3 className="min-h-[3rem] text-base font-black uppercase italic leading-tight tracking-tight text-slate-900 line-clamp-2 dark:text-white md:min-h-[3.8rem] md:text-xl">
                 {res.name}
               </h3>
-              <div className={cn("flex items-center gap-1 shrink-0 backdrop-blur-md px-2 py-1 border border-white/20 dark:border-white/5 mt-1", chipRadiusClass, ratingClass)}>
+              <div className={cn("flex items-center gap-1 shrink-0 px-2 py-1 border border-white/20 dark:border-white/5 mt-1", chipRadiusClass, ratingClass)}>
                 <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
                 <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">
                   4.9
                 </span>
               </div>
             </div>
-            <p className="mt-2 min-h-[3.4rem] text-xs font-medium leading-relaxed text-slate-500 line-clamp-2 dark:text-slate-400">
+            <p className="mt-2 min-h-[2.8rem] text-xs font-medium leading-relaxed text-slate-500 line-clamp-2 dark:text-slate-400">
               {res.description || "Fasilitas premium yang siap mendukung aktivitas terbaikmu."}
             </p>
+            <div className="mt-3 rounded-xl border border-slate-200/70 px-3 py-2 text-xs text-slate-600 dark:border-white/10 dark:text-slate-300">
+              {primaryOffer ? (
+                <>
+                  <span className="font-semibold text-slate-900 dark:text-white">
+                    {primaryOffer.name}
+                  </span>
+                  {" · "}
+                  {isTimed
+                    ? `${primaryOffer.duration || 60} menit`
+                    : `mulai Rp${primaryOffer.value.toLocaleString("id-ID")}`}
+                </>
+              ) : (
+                "Offer utama akan tampil saat main option tersedia."
+              )}
+            </div>
           </div>
 
-          <div className="mt-2 flex min-h-[5.5rem] items-end justify-between border-t border-slate-200/50 pt-4 dark:border-white/10">
+          <div className="mt-2 flex min-h-[4.6rem] items-end justify-between border-t border-slate-200/50 pt-4 dark:border-white/10">
             <div className="space-y-1 self-stretch">
               <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">
-                Mulai Dari
+                {isTimed ? "Mulai Dari" : "Harga Utama"}
               </p>
               {bestRate ? (
-                <div className="flex min-h-[2.4rem] items-baseline gap-1">
+                <div className="flex min-h-[2.1rem] items-baseline gap-1">
                   <span
-                    className="text-xl font-black tracking-tight"
+                    className="text-lg font-black tracking-tight md:text-xl"
                     style={{ color: primaryColor }}
                   >
                     Rp{bestRate.value.toLocaleString()}
@@ -147,18 +190,17 @@ export function ResourceCard({
                   </span>
                 </div>
               ) : (
-                <span className="inline-flex min-h-[2.4rem] items-end text-xs font-bold text-slate-400">
+                <span className="inline-flex min-h-[2.1rem] items-end text-xs font-bold text-slate-400">
                   Harga belum tersedia
                 </span>
               )}
             </div>
 
-            {/* Action Button */}
             <div
-              className={cn("h-10 w-10 md:h-12 md:w-12 flex items-center justify-center text-white shadow-xl transition-all duration-500 group-hover:-translate-y-1 group-hover:scale-105 active:scale-95", actionRadiusClass)}
+              className={cn("h-10 w-10 md:h-11 md:w-11 flex items-center justify-center text-white shadow-lg transition-all duration-300 group-hover:-translate-y-1", actionRadiusClass)}
               style={{
                 backgroundColor: primaryColor,
-                boxShadow: `0 10px 25px -5px ${(accentColor || primaryColor)}66`,
+                boxShadow: `0 10px 25px -8px ${(accentColor || primaryColor)}66`,
               }}
             >
               <ArrowRight size={18} strokeWidth={3} />

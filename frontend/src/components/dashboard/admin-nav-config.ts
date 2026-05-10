@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  BriefcaseBusiness,
   CalendarDays,
   CreditCard,
   Landmark,
@@ -48,10 +49,17 @@ export const operationalNavItems: AdminNavItem[] = [
 
 export const settingsNavItems: AdminNavItem[] = [
   {
-    label: "Landing",
+    label: "Bisnis",
+    href: "/admin/settings/bisnis",
+    icon: BriefcaseBusiness,
+    hint: "Setup inti tenant",
+    group: "core",
+  },
+  {
+    label: "Page Builder",
     href: "/admin/settings/page-builder",
     icon: Wand2,
-    hint: "Konten & tema",
+    hint: "Layout & preview",
     group: "core",
   },
   {

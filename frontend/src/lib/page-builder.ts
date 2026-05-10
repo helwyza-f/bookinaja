@@ -82,6 +82,7 @@ export type BuilderResource = {
   id: string;
   name: string;
   category?: string;
+  operating_mode?: string;
   description?: string;
   image_url?: string;
   gallery?: string[];

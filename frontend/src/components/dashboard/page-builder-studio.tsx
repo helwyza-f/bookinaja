@@ -8,7 +8,6 @@ import {
   RotateCcw,
   Save,
   Smartphone,
-  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -38,10 +37,6 @@ export function PageBuilderStudioHeader({
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/12 dark:bg-[#0f0f17] sm:p-5">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0 max-w-3xl">
-          <div className="inline-flex items-center gap-2 rounded-md border border-[var(--bookinaja-200)] bg-[var(--bookinaja-50)] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--bookinaja-700)] dark:border-[rgba(96,165,250,0.24)] dark:bg-[rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]">
-            <Sparkles className="h-3.5 w-3.5" />
-            Landing
-          </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
             <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
               Page Builder
@@ -67,7 +62,7 @@ export function PageBuilderStudioHeader({
         </div>
 
         <div className="xl:min-w-[22rem] xl:max-w-[24rem]">
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="rounded-lg border border-slate-200 p-3 dark:border-white/10">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">

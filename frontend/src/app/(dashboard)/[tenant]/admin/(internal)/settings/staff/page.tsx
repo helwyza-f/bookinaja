@@ -36,6 +36,11 @@ import {
   Users,
   UserCog,
   RotateCcw,
+  Sparkles,
+  Mail,
+  ArrowRight,
+  UserRound,
+  LockKeyhole,
 } from "lucide-react";
 
 type StaffRole = {
@@ -206,6 +211,10 @@ export default function StaffSettingsPage() {
   };
 
   const selectedPermissionCount = roleForm.permission_keys.length;
+  const defaultRolesCount = roles.filter((role) => role.is_default).length;
+  const customRolesCount = Math.max(roles.length - defaultRolesCount, 0);
+  const selectedStaffRole =
+    roles.find((role) => role.id === staffForm.role_id) || null;
 
   const submitStaff = async () => {
     if (!staffForm.name.trim() || !staffForm.email.trim() || !staffForm.role_id) {
@@ -307,6 +316,14 @@ export default function StaffSettingsPage() {
 
   return (
     <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
+      <MobileStaffHero
+        staffCount={staff.length}
+        defaultRolesCount={defaultRolesCount}
+        customRolesCount={customRolesCount}
+        onCreateRole={openCreateRole}
+        onCreateStaff={openCreateStaff}
+      />
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-sm font-semibold text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
@@ -317,7 +334,7 @@ export default function StaffSettingsPage() {
             Staff & Role
           </h1>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <div className="hidden flex-col gap-2 sm:flex sm:flex-row sm:flex-wrap">
           <Button variant="outline" onClick={openCreateRole} className="w-full gap-2 sm:w-auto dark:border-white/10 dark:bg-white/[0.03]">
             <UserCog className="h-4 w-4" />
             Role
@@ -423,26 +440,32 @@ export default function StaffSettingsPage() {
                 Memuat data...
               </div>
             ) : staff.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-200 p-4 text-sm text-slate-500 dark:border-white/10">
-                Belum ada pegawai.
-              </div>
+              <EmptyMobileState
+                title="Belum ada pegawai"
+                description="Tambah staff pertama untuk mulai delegasi operasional tenant."
+                actionLabel="Tambah Pegawai"
+                onAction={openCreateStaff}
+              />
             ) : (
               staff.map((item) => {
                 const role = item.role_id ? roleMap[item.role_id] : undefined;
                 return (
-                  <div key={item.id} className="rounded-lg border border-slate-200 p-3 dark:border-white/5">
+                  <div key={item.id} className="rounded-[1.35rem] border border-slate-200 bg-[linear-gradient(180deg,#ffffff,rgba(248,250,252,0.96))] p-4 shadow-sm dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,12,24,0.98))]">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="truncate font-medium text-slate-950 dark:text-white">{item.name}</div>
-                        <div className="mt-1 break-all text-xs text-slate-500">{item.email}</div>
+                        <div className="truncate text-base font-semibold text-slate-950 dark:text-white">{item.name}</div>
+                        <div className="mt-1 flex items-center gap-2 break-all text-xs text-slate-500">
+                          <Mail className="h-3.5 w-3.5 shrink-0" />
+                          {item.email}
+                        </div>
                       </div>
-                      <Badge variant="secondary" className="shrink-0 gap-1">
+                      <Badge variant="secondary" className="shrink-0 gap-1 rounded-full px-3 py-1">
                         <ShieldCheck className="h-3.5 w-3.5" />
                         {role?.name || item.role || "-"}
                       </Badge>
                     </div>
-                    <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                      <Button variant="outline" size="sm" onClick={() => openEditStaff(item)} className="w-full gap-2 sm:w-auto">
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <Button variant="outline" size="sm" onClick={() => openEditStaff(item)} className="w-full gap-2 rounded-xl">
                         <Pencil className="h-4 w-4" />
                         Edit
                       </Button>
@@ -450,7 +473,7 @@ export default function StaffSettingsPage() {
                         variant="destructive"
                         size="sm"
                         onClick={() => deleteStaff(item)}
-                        className="w-full gap-2 sm:w-auto"
+                        className="w-full gap-2 rounded-xl"
                         disabled={saving}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -468,8 +491,11 @@ export default function StaffSettingsPage() {
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h2 className="text-sm font-semibold text-slate-950 dark:text-white">
-                Role Default dan Custom
+                Role
               </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Mulai dari 2 role bawaan, lalu tambah custom kalau perlu.
+              </p>
             </div>
             <Button variant="outline" size="sm" onClick={openCreateRole} className="gap-2">
               <Plus className="h-4 w-4" />
@@ -480,23 +506,28 @@ export default function StaffSettingsPage() {
           <div className="space-y-3">
             <div className="rounded-lg border border-[color:rgba(59,130,246,0.18)] bg-[var(--bookinaja-50)] p-3 dark:border-[color:rgba(96,165,250,0.18)] dark:bg-[color:rgba(59,130,246,0.12)]">
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-100)]">
-                Preset
+                2 role bawaan
               </div>
               <div className="mt-3 space-y-3">
                 {RECOMMENDED_ROLE_PRESETS.map((preset) => (
-                  <div key={preset.name} className="rounded-lg border border-white/70 bg-white/80 p-3 dark:border-white/10 dark:bg-white/[0.04]">
+                  <div key={preset.name} className="rounded-[1.25rem] border border-white/70 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
                     <div className="text-sm font-semibold text-slate-950 dark:text-white">
                       {preset.name}
                     </div>
-                    <div className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
+                    <div className="mt-1 text-xs leading-5 text-slate-500">
                       {preset.summary}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {preset.permissions.map((permission) => (
+                      {preset.permissions.slice(0, 6).map((permission) => (
                         <Badge key={permission} variant="secondary" className="font-normal">
                           {permission}
                         </Badge>
                       ))}
+                      {preset.permissions.length > 6 ? (
+                        <Badge variant="secondary" className="font-normal">
+                          +{preset.permissions.length - 6} lagi
+                        </Badge>
+                      ) : null}
                     </div>
                   </div>
                 ))}
@@ -504,12 +535,15 @@ export default function StaffSettingsPage() {
             </div>
 
             {roles.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-200 p-4 text-sm text-slate-500 dark:border-white/10">
-                Belum ada role.
-              </div>
+              <EmptyMobileState
+                title="Belum ada role"
+                description="Mulai dari 2 role bawaan atau buat role custom kalau kebutuhan timmu lebih spesifik."
+                actionLabel="Buat Role"
+                onAction={openCreateRole}
+              />
             ) : (
               roles.map((role) => (
-                <div key={role.id} className="rounded-lg border border-slate-200 p-3 dark:border-white/10">
+                <div key={role.id} className="rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -521,7 +555,7 @@ export default function StaffSettingsPage() {
                         {role.permission_keys.length} permission aktif
                       </p>
                     </div>
-                    <div className="flex shrink-0 gap-2">
+                    <div className="hidden shrink-0 gap-2 sm:flex">
                       <Button variant="outline" size="sm" onClick={() => openEditRole(role)} className="gap-2">
                         <Pencil className="h-4 w-4" />
                         Edit
@@ -537,6 +571,22 @@ export default function StaffSettingsPage() {
                         Hapus
                       </Button>
                     </div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2 sm:hidden">
+                    <Button variant="outline" size="sm" onClick={() => openEditRole(role)} className="gap-2 rounded-xl">
+                      <Pencil className="h-4 w-4" />
+                      Edit
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => deleteRole(role)}
+                      disabled={saving || role.is_default}
+                      className="gap-2 rounded-xl"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Hapus
+                    </Button>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {role.permission_keys.length === 0 ? (
@@ -557,80 +607,138 @@ export default function StaffSettingsPage() {
       </div>
 
       <Dialog open={staffDialogOpen} onOpenChange={setStaffDialogOpen}>
-        <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="left-0 top-0 h-[100dvh] max-h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-none border-0 p-0 sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[88vh] sm:w-full sm:max-w-xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[1.75rem] sm:border sm:border-slate-200">
+          <DialogHeader className="border-b border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] px-4 py-4 sm:px-6">
             <DialogTitle>{editingStaff ? "Edit Pegawai" : "Tambah Pegawai"}</DialogTitle>
-            <DialogDescription>{editingStaff ? "Edit staff" : "Tambah staff"}</DialogDescription>
+            <DialogDescription>{editingStaff ? "Update akses dan identitas staff." : "Buat akun staff baru untuk tenant ini."}</DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="staff-name">Nama</Label>
-              <Input
-                id="staff-name"
-                value={staffForm.name}
-                onChange={(e) => setStaffForm((prev) => ({ ...prev, name: e.target.value }))}
-              />
+          <div className="grid gap-4 overflow-y-auto px-4 py-4 sm:px-6">
+            <div className="rounded-[1.35rem] border border-[color:rgba(59,130,246,0.18)] bg-[var(--bookinaja-50)] p-4 dark:border-[color:rgba(96,165,250,0.18)] dark:bg-[color:rgba(59,130,246,0.12)]">
+              <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-100)]">
+                Akun staff
+              </div>
+              <div className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                Isi identitas singkat, lalu pilih role yang paling pas untuk tugas hariannya.
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="staff-email">Email</Label>
-              <Input
-                id="staff-email"
-                type="email"
-                value={staffForm.email}
-                onChange={(e) => setStaffForm((prev) => ({ ...prev, email: e.target.value }))}
-              />
+
+            <div className="space-y-3 rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-950 dark:text-white">
+                <UserRound className="h-4 w-4 text-[var(--bookinaja-600)]" />
+                Identitas
+              </div>
+
+              <div className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label htmlFor="staff-name">Nama</Label>
+                  <Input
+                    id="staff-name"
+                    placeholder="Contoh: Rani Frontdesk"
+                    className="h-11 rounded-[1.1rem]"
+                    value={staffForm.name}
+                    onChange={(e) => setStaffForm((prev) => ({ ...prev, name: e.target.value }))}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="staff-email">Email</Label>
+                  <Input
+                    id="staff-email"
+                    type="email"
+                    placeholder="nama@tenant.com"
+                    className="h-11 rounded-[1.1rem]"
+                    value={staffForm.email}
+                    onChange={(e) => setStaffForm((prev) => ({ ...prev, email: e.target.value }))}
+                  />
+                </div>
+              </div>
             </div>
+
             {!editingStaff && (
-              <div className="grid gap-2">
-                <Label htmlFor="staff-password">Password</Label>
-                <Input
-                  id="staff-password"
-                  type="password"
-                  value={staffForm.password}
-                  onChange={(e) => setStaffForm((prev) => ({ ...prev, password: e.target.value }))}
-                />
+              <div className="space-y-3 rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-950 dark:text-white">
+                  <LockKeyhole className="h-4 w-4 text-[var(--bookinaja-600)]" />
+                  Keamanan awal
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="staff-password">Password</Label>
+                  <Input
+                    id="staff-password"
+                    type="password"
+                    placeholder="Buat password sementara"
+                    className="h-11 rounded-[1.1rem]"
+                    value={staffForm.password}
+                    onChange={(e) => setStaffForm((prev) => ({ ...prev, password: e.target.value }))}
+                  />
+                </div>
               </div>
             )}
-            <div className="grid gap-2">
-              <Label>Role</Label>
-              <Select
-                value={staffForm.role_id}
-                onValueChange={(value) => setStaffForm((prev) => ({ ...prev, role_id: value }))}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Pilih role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {roles.map((role) => (
-                    <SelectItem key={role.id} value={role.id}>
-                      {role.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+            <div className="space-y-3 rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-950 dark:text-white">
+                <ShieldCheck className="h-4 w-4 text-[var(--bookinaja-600)]" />
+                Role akses
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Role</Label>
+                <Select
+                  value={staffForm.role_id}
+                  onValueChange={(value) => setStaffForm((prev) => ({ ...prev, role_id: value }))}
+                >
+                  <SelectTrigger className="h-11 w-full rounded-[1.1rem] px-3">
+                    <SelectValue placeholder="Pilih role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roles.map((role) => (
+                      <SelectItem key={role.id} value={role.id}>
+                        {role.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedStaffRole ? (
+                <div className="rounded-[1.1rem] border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04]">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="rounded-full px-3 py-1">
+                      {selectedStaffRole.name}
+                    </Badge>
+                    {selectedStaffRole.is_default ? (
+                      <Badge className="rounded-full">Default</Badge>
+                    ) : null}
+                  </div>
+                  <div className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                    {selectedStaffRole.description || "Role ini belum punya deskripsi."}
+                  </div>
+                  <div className="mt-2 text-[11px] font-medium text-slate-400">
+                    {selectedStaffRole.permission_keys.length} permission aktif
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setStaffDialogOpen(false)} disabled={saving}>
-              Batal
-            </Button>
-            <Button onClick={submitStaff} disabled={saving}>
+          <DialogFooter className="mt-auto border-t border-slate-200 bg-white px-4 py-4 sm:px-6">
+            <Button onClick={submitStaff} disabled={saving} className="rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
               {editingStaff ? "Simpan" : "Tambah"}
+            </Button>
+            <Button variant="outline" onClick={() => setStaffDialogOpen(false)} disabled={saving} className="rounded-xl">
+              Batal
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
-        <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="left-0 top-0 h-[100dvh] max-h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-none border-0 p-0 sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[88vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[1.75rem] sm:border sm:border-slate-200">
+          <DialogHeader className="border-b border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] px-4 py-4 sm:px-6">
             <DialogTitle>{editingRole ? "Edit Role" : "Buat Role"}</DialogTitle>
-            <DialogDescription>Atur role</DialogDescription>
+            <DialogDescription>Atur akses role untuk tim tenant.</DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4">
+          <div className="grid gap-4 overflow-y-auto px-4 py-4 sm:px-6">
             <div className="grid gap-2">
               <Label htmlFor="role-name">Nama Role</Label>
               <Input
@@ -673,7 +781,7 @@ export default function StaffSettingsPage() {
                             key={permission.key}
                             type="button"
                             onClick={() => togglePermission(permission.key)}
-                            className={`flex min-h-20 flex-col items-start justify-between gap-3 rounded-lg border px-3 py-3 text-left text-sm transition-colors ${
+                            className={`flex min-h-24 flex-col items-start justify-between gap-3 rounded-xl border px-3 py-3 text-left text-sm transition-colors ${
                               checked
                                 ? "border-[var(--bookinaja-500)] bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]"
                                 : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-transparent dark:text-slate-300 dark:hover:bg-white/5"
@@ -694,16 +802,104 @@ export default function StaffSettingsPage() {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRoleDialogOpen(false)} disabled={saving}>
+          <DialogFooter className="mt-auto border-t border-slate-200 bg-white px-4 py-4 sm:px-6">
+            <Button variant="outline" onClick={() => setRoleDialogOpen(false)} disabled={saving} className="rounded-xl">
               Batal
             </Button>
-            <Button onClick={submitRole} disabled={saving}>
+            <Button onClick={submitRole} disabled={saving} className="rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
               {editingRole ? "Simpan Role" : "Buat Role"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function MobileStaffHero({
+  staffCount,
+  defaultRolesCount,
+  customRolesCount,
+  onCreateRole,
+  onCreateStaff,
+}: {
+  staffCount: number;
+  defaultRolesCount: number;
+  customRolesCount: number;
+  onCreateRole: () => void;
+  onCreateStaff: () => void;
+}) {
+  return (
+    <section className="space-y-3 sm:hidden">
+      <div className="overflow-hidden rounded-[1.6rem] border border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.94))] p-4 shadow-sm">
+        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--bookinaja-200)] bg-[var(--bookinaja-50)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-[var(--bookinaja-700)]">
+          <Sparkles className="h-3.5 w-3.5" />
+          Team Access
+        </div>
+        <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-950">
+          Staff & Role
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          Atur siapa yang bisa bantu operasional tenant dan akses apa yang mereka pegang.
+        </p>
+
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <MobileHeroMetric label="Staff" value={staffCount} />
+          <MobileHeroMetric label="Default" value={defaultRolesCount} />
+          <MobileHeroMetric label="Custom" value={customRolesCount} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <Button variant="outline" onClick={onCreateRole} className="h-12 rounded-2xl gap-2">
+          <UserCog className="h-4 w-4" />
+          Role
+        </Button>
+        <Button onClick={onCreateStaff} className="h-12 rounded-2xl gap-2 bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
+          <Plus className="h-4 w-4" />
+          Tambah
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+function MobileHeroMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/70 bg-white/90 px-3 py-3 text-center shadow-sm">
+      <div className="text-lg font-black tracking-tight text-slate-950">{value}</div>
+      <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function EmptyMobileState({
+  title,
+  description,
+  actionLabel,
+  onAction,
+}: {
+  title: string;
+  description: string;
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  return (
+    <div className="rounded-[1.35rem] border border-dashed border-slate-200 bg-slate-50/80 p-4 text-sm dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="font-semibold text-slate-950 dark:text-white">{title}</div>
+      <div className="mt-1 leading-6 text-slate-500 dark:text-slate-400">{description}</div>
+      <Button variant="outline" onClick={onAction} className="mt-3 rounded-xl gap-2">
+        {actionLabel}
+        <ArrowRight className="h-4 w-4" />
+      </Button>
     </div>
   );
 }

@@ -21,10 +21,16 @@ type SettingsSidebarProps = {
 
 const items = [
   {
+    label: "Setup Bisnis",
+    href: "/admin/settings/bisnis",
+    icon: ShieldCheck,
+    hint: "Identitas, kontak, visual utama",
+  },
+  {
     label: "Landing Page Studio",
     href: "/admin/settings/page-builder",
     icon: Wand2,
-    hint: "Konten, layout, tema, preview",
+    hint: "Layout, tema, preview live",
   },
   {
     label: "Manajemen Pegawai",

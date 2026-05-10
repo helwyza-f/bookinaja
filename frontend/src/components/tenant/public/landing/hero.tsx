@@ -2,7 +2,7 @@
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Zap, MousePointer2 } from "lucide-react";
+import { Sparkles, Zap } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -76,28 +76,18 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
 
   const accentShadow =
     theme.accent ? `0 24px 48px -16px ${theme.accent}26` : `0 20px 40px -10px ${theme.primary}88`;
+  const heroFeatures = content.features.slice(0, 3);
 
   return (
     <section
       className={cn(
         "relative flex items-center justify-center overflow-hidden bg-white dark:bg-[#050505]",
-        isCompact ? "min-h-[80dvh]" : "min-h-[100dvh]",
+        isCompact ? "min-h-[58dvh]" : isSplit ? "min-h-[72dvh]" : "min-h-[64dvh] md:min-h-[100dvh]",
       )}
     >
-      {/* --- BACKGROUND SYSTEM --- */}
       <div className="absolute inset-0 z-0">
         {hasBanner ? (
           <>
-            <Image
-              src={content.banner || ""}
-              alt="Business Banner Backdrop"
-              fill
-              priority
-              loading="eager"
-              unoptimized
-              sizes="100vw"
-              className="object-cover object-center scale-110 opacity-45 blur-2xl transition-opacity duration-1000"
-            />
             <Image
               src={content.banner || ""}
               alt="Business Banner"
@@ -106,90 +96,72 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
               loading="eager"
               unoptimized
               sizes="100vw"
-              className="object-cover object-center opacity-100 transition-opacity duration-1000"
+              className="object-cover object-center opacity-100"
             />
           </>
         ) : (
-          <div
-            className={cn("h-full w-full", heroBackgroundClass)}
-          />
+          <div className={cn("h-full w-full", heroBackgroundClass)} />
         )}
-
-        {/* Adaptive Overlays: Tipis di pinggir, fokus kontras di tengah area teks */}
-        <div className={cn("absolute inset-0", overlayClass)} />
-
-        {/* Soft Radial Gradient: Menjaga readability teks tanpa menutupi seluruh gambar */}
+        <div className={cn("absolute inset-0", overlayClass, "backdrop-blur-0")} />
         <div className={cn("absolute inset-0", centerGlowClass)} />
-
-        {/* Dynamic Color Mesh Glow */}
         <div
-          className="absolute inset-0 opacity-20 dark:opacity-30 mix-blend-overlay"
+          className="absolute inset-0 opacity-12 dark:opacity-20 mix-blend-overlay"
           style={{
-            background: `radial-gradient(circle at 50% 40%, ${theme.primary} 0%, transparent 60%)`,
+            background: `radial-gradient(circle at 50% 38%, ${theme.primary} 0%, transparent 58%)`,
           }}
         />
-
-        {/* Bottom Vignette: Agar transisi ke section katalog mulus */}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white dark:to-[#050505]" />
       </div>
 
-      {/* --- CONTENT LAYER --- */}
       <div
         className={cn(
-          "relative z-20 mx-auto w-full max-w-6xl px-6 pb-24 pt-32 md:px-12",
+          "relative z-20 mx-auto w-full max-w-6xl px-4 pb-10 pt-20 md:px-12 md:pb-24 md:pt-32",
           isSplit ? "text-left" : "text-center",
         )}
       >
         <div className={cn("gap-6 md:gap-10", isSplit ? "grid items-center lg:grid-cols-[1.05fr_0.95fr]" : "flex flex-col items-center")}>
-          <div className={cn("flex flex-col gap-6 md:gap-10", isSplit ? "items-start" : "items-center")}>
-          {/* 1. TAGLINE BADGE */}
-          <div className="animate-in fade-in slide-in-from-top-6 duration-1000">
+          <div className={cn("flex flex-col gap-4 md:gap-8", isSplit ? "items-start" : "items-center")}>
+          <div>
             <Badge
               className={cn(
-                "px-5 py-2.5 font-bold text-[10px] md:text-xs uppercase tracking-[0.25em] shadow-2xl border text-slate-900 dark:text-white backdrop-blur-xl",
+                "px-4 py-2 font-bold text-[10px] md:text-xs uppercase tracking-[0.22em] border text-slate-900 dark:text-white",
                 pillRadiusClass,
                 themePreset === "boutique"
-                  ? "border-stone-200/70 bg-[#fff8f1]/70 dark:border-white/10 dark:bg-[#181412]/65"
+                  ? "border-stone-200/70 bg-[#fff8f1]/80 dark:border-white/10 dark:bg-[#181412]/75"
                   : themePreset === "sunset-glow"
-                    ? "border-orange-200/70 bg-[#fff7ed]/75 dark:border-orange-500/20 dark:bg-[#241109]/65"
-                  : themePreset === "playful"
-                    ? "border-emerald-100/70 bg-white/70 dark:border-emerald-500/20 dark:bg-[#092014]/65"
+                    ? "border-orange-200/70 bg-[#fff7ed]/82 dark:border-orange-500/20 dark:bg-[#241109]/75"
+                    : themePreset === "playful"
+                    ? "border-emerald-100/70 bg-white/82 dark:border-emerald-500/20 dark:bg-[#092014]/75"
                     : themePreset === "mono-luxe"
-                      ? "border-slate-300/70 bg-white/76 dark:border-white/10 dark:bg-[#0b1120]/62"
+                      ? "border-slate-300/70 bg-white/84 dark:border-white/10 dark:bg-[#0b1120]/75"
                     : themePreset === "dark-pro"
-                      ? "border-slate-300/70 bg-white/72 dark:border-white/10 dark:bg-slate-950/55 text-slate-900 dark:text-white"
-                      : "border-white/20 bg-white/20 dark:bg-black/20",
+                      ? "border-slate-300/70 bg-white/82 dark:border-white/10 dark:bg-slate-950/70 text-slate-900 dark:text-white"
+                      : "border-white/30 bg-white/72 dark:bg-black/32",
               )}
             >
-              <Sparkles
-                className="h-4 w-4 mr-2.5"
-                style={{ color: theme.primary }}
-              />
+              <Sparkles className="mr-2 h-3.5 w-3.5" style={{ color: theme.primary }} />
               {profile.slogan || "Pengalaman Premium"}
             </Badge>
           </div>
 
-          {/* 2. MEGA HEADING SYSTEM */}
-          <div className={cn("w-full select-none", isSplit ? "px-0 py-2" : "px-4 py-4")}>
+          <div className={cn("w-full select-none", isSplit ? "px-0 py-1" : "px-0 py-1")}>
             <h1
               className={cn(
-                "font-[1000] uppercase italic tracking-tighter leading-[0.9] text-slate-950 dark:text-white drop-shadow-2xl",
+                "font-[1000] uppercase italic tracking-[-0.06em] leading-[0.92] text-slate-950 dark:text-white",
                 isCompact
-                  ? "text-[11vw] md:text-[5.75rem]"
+                  ? "text-[12vw] md:text-[5.4rem]"
                   : isSplit
-                    ? "text-[11vw] md:text-[6rem]"
-                    : "text-[12vw] md:text-[7rem]",
+                    ? "text-[10.5vw] md:text-[5.8rem]"
+                    : "text-[10vw] md:text-[6.5rem]",
               )}
             >
-              <span className="block animate-in slide-in-from-bottom-10 duration-700">
-                {firstName}
-              </span>
+              <span className="block">{firstName}</span>
               {!singleWordName ? (
                 <span
-                  className="inline-block pb-2 animate-in slide-in-from-bottom-10 duration-1000 delay-150"
+                  className="inline-block pb-1"
                   style={{
                     color: theme.primary,
-                    textShadow: `0 10px 40px ${theme.primary}66`,
+                    textShadow: `0 8px 28px ${theme.primary}33`,
                   }}
                 >
                   {otherNames}
@@ -198,83 +170,72 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
             </h1>
           </div>
 
-          {/* 3. DYNAMIC MARKETING COPY */}
-          <div className={cn("animate-in fade-in duration-1000 delay-500 space-y-5", isSplit ? "max-w-xl px-0" : "max-w-3xl px-6")}>
-            <h2 className="text-xl md:text-3xl font-black italic text-slate-800 dark:text-white leading-snug tracking-tight uppercase">
+          <div className={cn("space-y-2", isSplit ? "max-w-xl px-0" : "max-w-3xl px-1")}>
+            <h2 className="text-base font-black italic leading-snug tracking-tight text-slate-900 dark:text-white md:text-3xl">
               {content.tagline}
             </h2>
-            <p className={cn("text-sm md:text-base font-medium text-slate-600 dark:text-slate-300 leading-relaxed drop-shadow-sm", isSplit ? "max-w-xl" : "mx-auto max-w-2xl")}>
+            <p className={cn("text-[13px] font-medium leading-5 text-slate-600 dark:text-slate-300 md:text-base md:leading-7", isSplit ? "max-w-xl" : "mx-auto max-w-2xl")}>
               {content.description}
             </p>
           </div>
 
-          {/* 4. DYNAMIC FEATURE PILLS */}
-          <div className={cn("flex flex-wrap gap-3 px-4 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-700 md:gap-4", isSplit ? "justify-start px-0" : "justify-center")}>
-            {content.features.map((f: string, i: number) => (
+          <div
+            className={cn(
+              "hidden w-full md:flex md:flex-wrap md:gap-3",
+              isSplit ? "md:justify-start px-0" : "md:justify-center",
+            )}
+          >
+            {heroFeatures.map((f: string, i: number) => (
               <div
                 key={i}
                 className={cn(
-                  "flex items-center gap-2 md:gap-3 border px-4 md:px-5 py-2.5 md:py-3 shadow-xl backdrop-blur-2xl transition-all hover:-translate-y-1",
+                  "flex min-w-0 items-center justify-center gap-2 border px-4 py-2.5 text-center",
                   cardRadiusClass,
                   themePreset === "boutique"
-                    ? "border-stone-200/80 bg-[#fffaf2]/70 dark:border-white/10 dark:bg-[#181412]/65"
+                    ? "border-stone-200/80 bg-[#fffaf2]/80 dark:border-white/10 dark:bg-[#181412]/75"
                     : themePreset === "sunset-glow"
-                      ? "border-orange-200/80 bg-[#fff7ed]/72 dark:border-orange-500/20 dark:bg-[#221009]/64"
-                    : themePreset === "playful"
-                      ? "border-emerald-100/80 bg-white/75 dark:border-emerald-500/20 dark:bg-[#082114]/65"
+                      ? "border-orange-200/80 bg-[#fff7ed]/82 dark:border-orange-500/20 dark:bg-[#221009]/75"
+                      : themePreset === "playful"
+                      ? "border-emerald-100/80 bg-white/84 dark:border-emerald-500/20 dark:bg-[#082114]/75"
                       : themePreset === "mono-luxe"
-                        ? "border-slate-300/80 bg-white/78 dark:border-white/10 dark:bg-[#0b1120]/62"
+                        ? "border-slate-300/80 bg-white/84 dark:border-white/10 dark:bg-[#0b1120]/75"
                       : themePreset === "dark-pro"
-                        ? "border-slate-300/70 bg-white/74 dark:border-white/10 dark:bg-slate-950/55"
-                        : "border-white/40 dark:border-white/10 bg-white/40 dark:bg-black/20",
+                        ? "border-slate-300/70 bg-white/82 dark:border-white/10 dark:bg-slate-950/70"
+                        : "border-white/40 dark:border-white/10 bg-white/76 dark:bg-black/28",
                 )}
               >
                 <div
-                  className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full"
+                  className="h-1.5 w-1.5 rounded-full md:h-2 md:w-2"
                   style={{
                     backgroundColor: theme.primary,
-                    boxShadow: `0 0 10px ${theme.primary}`,
                   }}
                 />
-                <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-slate-800 dark:text-slate-200">
+                <span className="line-clamp-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-800 dark:text-slate-200">
                   {f}
                 </span>
               </div>
             ))}
           </div>
 
-          {/* 5. ELITE CTA BUTTON */}
-          <div className={cn("animate-in zoom-in-95 duration-1000 delay-1000", isSplit ? "w-full pt-6 px-0 md:w-auto" : "w-full px-6 pt-10 md:w-auto")}>
+          <div className={cn(isSplit ? "w-full pt-1 px-0 md:w-auto" : "w-full px-0 pt-2 md:w-auto")}>
             <Link
               href="#catalog"
-              className="w-full inline-block group relative"
+              className={cn("inline-block group relative", isSplit ? "w-full md:w-auto" : "w-full md:w-auto")}
             >
-              {/* Button Shadow Glow */}
-              <div
-                className="absolute inset-[-10px] blur-[30px] opacity-20 group-hover:opacity-50 transition-opacity duration-500 rounded-full"
-                style={{ backgroundColor: theme.primary }}
-              />
-
               <Button
                 className={cn(
-                  "w-full md:w-auto h-18 md:h-24 px-12 md:px-24 font-[1000] uppercase italic text-xl md:text-3xl tracking-[0.2em] text-white border-none transition-all active:scale-90 group-hover:scale-[1.03] relative z-10 shadow-2xl overflow-hidden",
+                  "relative z-10 h-11 w-full overflow-hidden border-none px-5 text-sm font-[1000] uppercase italic tracking-[0.1em] text-white shadow-xl md:h-20 md:w-auto md:px-16 md:text-2xl md:tracking-[0.16em]",
                   ctaRadiusClass,
+                  !isSplit && "mx-auto max-w-[280px] md:max-w-none",
                 )}
                 style={{
                   backgroundColor: theme.primary,
-                  boxShadow: accentShadow,
+                  boxShadow: accentShadow.replace("24px 48px -16px", "18px 30px -14px"),
                 }}
               >
                 {content.ctaLabel || "Lihat Layanan"}
-                <Zap className="ml-5 h-6 w-6 md:h-10 md:w-10 fill-current animate-bounce" />
+                <Zap className="ml-2 h-4 w-4 fill-current md:ml-4 md:h-7 md:w-7" />
               </Button>
-
-              <div className={cn("mt-8 flex items-center gap-3 opacity-50 transition-all duration-500 group-hover:opacity-100", isSplit ? "justify-start" : "justify-center")}>
-                <MousePointer2 size={14} className="text-slate-700 dark:text-white" />
-                <span className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-700 dark:text-white italic">
-                  Lompat ke Katalog
-                </span>
-              </div>
             </Link>
           </div>
           </div>
@@ -340,10 +301,6 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
         </div>
       </div>
 
-      {/* --- SCROLL INDICATOR --- */}
-      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 hidden md:flex flex-col items-center gap-4 opacity-20">
-        <div className="w-[1px] h-20 bg-gradient-to-b from-transparent via-slate-500 to-transparent" />
-      </div>
     </section>
   );
 }

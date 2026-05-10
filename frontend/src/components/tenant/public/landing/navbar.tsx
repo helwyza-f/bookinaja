@@ -90,6 +90,7 @@ export function TenantNavbar({
           : scrolled && !isCompactPreview
             ? "bg-white/70 dark:bg-black/50 backdrop-blur-3xl border-b md:border border-slate-200/50 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)]"
             : "bg-white/20 dark:bg-white/5 backdrop-blur-xl border-b md:border border-white/30 dark:border-white/10 shadow-lg";
+  const compactSurfaceClass = "bg-white/92 dark:bg-[#111827]/92 border border-slate-200/80 dark:border-white/10 shadow-sm";
 
   return (
     <div
@@ -109,17 +110,17 @@ export function TenantNavbar({
             ? "h-[68px] max-w-none px-3"
             : "max-w-5xl h-[72px] md:h-[84px] px-4 md:px-8",
           navRadiusClass,
-          surfaceClass,
+          isCompactPreview ? compactSurfaceClass : surfaceClass,
         )}
       >
         {/* Branding Section */}
         <div className={cn("flex items-center group cursor-pointer", isCompactPreview ? "gap-2" : "gap-2 md:gap-6")}>
           <div
             className={cn(
-              "flex items-center justify-center text-white shadow-2xl rotate-3 shrink-0 overflow-hidden transition-all group-hover:rotate-0 group-hover:scale-110 duration-500",
+              "flex items-center justify-center text-white shrink-0 overflow-hidden transition-all",
               isCompactPreview ? "h-9 w-9 rounded-xl" : cn("h-10 w-10 md:h-12 md:w-12", controlRadiusClass),
             )}
-            style={{ backgroundColor: primaryColor, boxShadow: `0 14px 30px ${accentColor}33` }}
+            style={{ backgroundColor: primaryColor, boxShadow: isCompactPreview ? "none" : `0 14px 30px ${accentColor}33` }}
           >
             {profile.logo_url ? (
               <Image
@@ -197,7 +198,7 @@ export function TenantNavbar({
             )}
           </button>
 
-          <div className={cn("w-px bg-slate-200 dark:bg-white/10", isCompactPreview ? "mx-0.5 h-6" : "h-6 md:h-10 mx-0.5 md:mx-2")} />
+          <div className={cn("w-px bg-slate-200 dark:bg-white/10", isCompactPreview ? "mx-0.5 h-5" : "h-6 md:h-10 mx-0.5 md:mx-2")} />
 
           <a href={getRootPortalUrl("/user/login")}>
             <Button

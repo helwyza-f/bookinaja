@@ -9,7 +9,6 @@ import {
   Edit3,
   Lock,
   Printer,
-  ReceiptText,
   Save,
   Smartphone,
   Unplug,
@@ -337,24 +336,22 @@ export default function ReceiptPrinterSettingsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4 sm:px-6 lg:px-8">
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0 space-y-1">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-              <ReceiptText className="h-4 w-4" />
-              Nota & Printer
+      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+              Nota
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
-              Nota sederhana, printer Bluetooth jelas
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white">
+              Pengaturan Nota
             </h1>
-            <p className="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-              Atur isi struk dan koneksi printer. Starter dan trial bisa melihat setup, penggunaan nota aktif di paket Pro.
+            <p className="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+              Atur template struk, pesan WhatsApp, dan printer Bluetooth.
             </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-3 lg:w-[520px]">
+          <div className="grid grid-cols-2 gap-2 sm:w-auto">
             <StatusPill label="Printer" value={printerStatus} active={!!savedData.printer_enabled} />
             <StatusPill label="Paket" value={(savedData.plan || "starter").toUpperCase()} active={isProActive} />
-            <StatusPill label="Auto print" value={savedData.printer_auto_print ? "Aktif" : "Manual"} active={!!savedData.printer_auto_print} />
           </div>
         </div>
       </section>
@@ -384,20 +381,20 @@ export default function ReceiptPrinterSettingsPage() {
 
       <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="space-y-4">
-          <Card className="border-slate-200 shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
+          <Card className="rounded-[1.5rem] border-slate-200 shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
             <CardHeader className="space-y-2">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Printer className="h-4 w-4 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
                 Printer Bluetooth
               </CardTitle>
               <CardDescription>
-                Pilih printer dari browser, lalu connect kalau mau cek sesi. Tidak ada mode lain di halaman ini.
+                Pilih printer, lalu tes koneksi kalau perlu.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="rounded-xl border border-slate-200 p-4 dark:border-white/10">
                 <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Printer terpilih</div>
-                <div className="mt-2 text-base font-semibold text-slate-950 dark:text-white">
+                <div className="mt-1 text-base font-semibold text-slate-950 dark:text-white">
                   {selectedDeviceName || draft.printer_name || "Belum ada printer"}
                 </div>
                 <div className="mt-1 break-all text-xs text-slate-500">
@@ -406,15 +403,15 @@ export default function ReceiptPrinterSettingsPage() {
               </div>
 
               <div className="grid gap-2 sm:grid-cols-2">
-                <Button type="button" onClick={openBluetoothPicker} disabled={scanning || saving || !bluetoothAvailable || !isProActive}>
+                <Button type="button" className="h-10 rounded-xl" onClick={openBluetoothPicker} disabled={scanning || saving || !bluetoothAvailable || !isProActive}>
                   <Bluetooth className="mr-2 h-4 w-4" />
                   {scanning ? "Membuka..." : "Pilih Printer"}
                 </Button>
-                <Button type="button" variant="outline" onClick={connectSelectedBluetooth} disabled={connecting || saving || !bluetoothAvailable || !isProActive}>
+                <Button type="button" variant="outline" className="h-10 rounded-xl" onClick={connectSelectedBluetooth} disabled={connecting || saving || !bluetoothAvailable || !isProActive}>
                   <CheckCircle2 className="mr-2 h-4 w-4" />
                   {connecting ? "Connect..." : "Test Connect"}
                 </Button>
-                <Button type="button" variant="outline" onClick={disconnectBluetooth} disabled={disconnecting || saving || !isProActive} className="sm:col-span-2">
+                <Button type="button" variant="outline" onClick={disconnectBluetooth} disabled={disconnecting || saving || !isProActive} className="h-10 rounded-xl sm:col-span-2">
                   <Unplug className="mr-2 h-4 w-4" />
                   {disconnecting ? "Memutus..." : "Matikan Printer"}
                 </Button>
@@ -429,20 +426,20 @@ export default function ReceiptPrinterSettingsPage() {
               <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-3 dark:border-white/10">
                 <div>
                   <div className="text-sm font-semibold text-slate-950 dark:text-white">Auto print saat lunas</div>
-                  <div className="text-xs text-slate-500">Kalau aktif, nota disiapkan untuk cetak setelah pembayaran lunas.</div>
+                  <div className="text-xs text-slate-500">Kalau aktif, nota siap dicetak setelah pembayaran lunas.</div>
                 </div>
                 <Switch checked={!!draft.printer_auto_print} onCheckedChange={toggleAutoPrint} disabled={saving || !isProActive} />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-slate-200 shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
+          <Card className="rounded-[1.5rem] border-slate-200 shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
             <CardHeader className="space-y-2">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Smartphone className="h-4 w-4 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
                 Pesan WhatsApp
               </CardTitle>
-              <CardDescription>Teks pendek yang dipakai saat staf kirim nota ke pelanggan.</CardDescription>
+              <CardDescription>Teks singkat yang dipakai saat staf kirim nota.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {isEditingReceipt ? (
@@ -452,11 +449,11 @@ export default function ReceiptPrinterSettingsPage() {
                   className="min-h-28"
                 />
               ) : (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
+                <div className="rounded-xl border border-slate-200 p-4 text-sm leading-6 text-slate-700 dark:border-white/10 dark:text-slate-300">
                   {draft.receipt_whatsapp_text || "Berikut struk transaksi Anda dari Bookinaja."}
                 </div>
               )}
-              <Button type="button" variant="outline" onClick={onCopyWhatsApp} disabled={copying}>
+              <Button type="button" variant="outline" className="h-10 rounded-xl" onClick={onCopyWhatsApp} disabled={copying}>
                 <Copy className="mr-2 h-4 w-4" />
                 {copying ? "Menyalin..." : "Salin Pesan"}
               </Button>
@@ -465,26 +462,26 @@ export default function ReceiptPrinterSettingsPage() {
         </div>
 
         <div className="space-y-4">
-          <Card className="border-slate-200 shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
+          <Card className="rounded-[1.5rem] border-slate-200 shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
             <CardHeader className="space-y-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <CardTitle className="text-base">Template Nota</CardTitle>
-                  <CardDescription>Mode view dulu. Edit hanya saat perlu mengubah isi nota.</CardDescription>
+                  <CardDescription>View dulu. Edit hanya kalau memang perlu.</CardDescription>
                 </div>
                 {isEditingReceipt ? (
                   <div className="flex gap-2">
-                    <Button type="button" variant="outline" size="sm" onClick={cancelReceiptEdit} disabled={saving}>
+                    <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={cancelReceiptEdit} disabled={saving}>
                       <X className="mr-2 h-4 w-4" />
                       Batal
                     </Button>
-                    <Button type="button" size="sm" onClick={saveReceiptTemplate} disabled={saving}>
+                    <Button type="button" size="sm" className="rounded-xl" onClick={saveReceiptTemplate} disabled={saving}>
                       <Save className="mr-2 h-4 w-4" />
                       {saving ? "Menyimpan..." : "Simpan"}
                     </Button>
                   </div>
                 ) : (
-                  <Button type="button" variant="outline" size="sm" onClick={() => setIsEditingReceipt(true)}>
+                  <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={() => setIsEditingReceipt(true)}>
                     <Edit3 className="mr-2 h-4 w-4" />
                     Edit Template
                   </Button>
@@ -512,7 +509,7 @@ export default function ReceiptPrinterSettingsPage() {
                       className="min-h-56 font-mono text-xs"
                     />
                   </Field>
-                  <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-500 dark:bg-white/[0.03]">
+                  <div className="rounded-xl border border-slate-200 px-3 py-2 text-xs leading-5 text-slate-500 dark:border-white/10 dark:text-slate-300">
                     Placeholder yang umum: {"{receipt_title}"}, {"{customer_name}"}, {"{resource_name}"}, {"{grand_total}"}, {"{paid_amount}"}, {"{balance_due}"}.
                   </div>
                 </div>
@@ -526,13 +523,13 @@ export default function ReceiptPrinterSettingsPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-slate-200 shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
+          <Card className="rounded-[1.5rem] border-slate-200 shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
             <CardHeader className="space-y-2">
               <CardTitle className="text-base">Preview Nota</CardTitle>
-              <CardDescription>Preview ini memakai contoh transaksi supaya format mudah dicek.</CardDescription>
+              <CardDescription>Pakai contoh transaksi supaya format mudah dicek.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="mx-auto max-w-sm rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950">
+              <div className="mx-auto max-w-sm rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950">
                 <pre className="whitespace-pre-wrap font-mono text-xs leading-6 text-slate-800 dark:text-slate-100">
                   {previewText}
                 </pre>
