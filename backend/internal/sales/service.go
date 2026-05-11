@@ -179,12 +179,20 @@ func (s *Service) GetByID(ctx context.Context, tenantID, orderID uuid.UUID) (*Or
 	return order, nil
 }
 
-func (s *Service) GetByIDForCustomer(ctx context.Context, tenantID, orderID, customerID uuid.UUID) (*Order, error) {
-	order, err := s.repo.GetByCustomer(ctx, tenantID, customerID, orderID)
+func (s *Service) GetByIDForCustomer(ctx context.Context, tenantID *uuid.UUID, orderID, customerID uuid.UUID) (*Order, error) {
+	var (
+		order *Order
+		err   error
+	)
+	if tenantID != nil && *tenantID != uuid.Nil {
+		order, err = s.repo.GetByCustomer(ctx, *tenantID, customerID, orderID)
+	} else {
+		order, err = s.repo.GetByCustomerGlobal(ctx, customerID, orderID)
+	}
 	if err != nil {
 		return nil, err
 	}
-	methods, err := s.listTenantPaymentMethods(ctx, tenantID)
+	methods, err := s.listTenantPaymentMethods(ctx, order.TenantID)
 	if err != nil {
 		return nil, err
 	}

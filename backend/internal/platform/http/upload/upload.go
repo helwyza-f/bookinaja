@@ -22,9 +22,9 @@ func HandleSingleUpload(c *gin.Context, folderPrefix string) {
 		return
 	}
 
-	tenantID, ok := tenantIDFromContext(c)
+	scopeID, ok := uploadScopeIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusForbidden, gin.H{"error": "tenantID missing"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "upload scope missing"})
 		return
 	}
 
@@ -34,7 +34,7 @@ func HandleSingleUpload(c *gin.Context, folderPrefix string) {
 		return
 	}
 
-	url, err := s3.UploadFile(c.Request.Context(), file, folderPrefix+"/"+tenantID)
+	url, err := s3.UploadFile(c.Request.Context(), file, folderPrefix+"/"+scopeID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal upload ke storage"})
 		return
@@ -95,9 +95,9 @@ func HandleBulkUpload(c *gin.Context, folderPrefix string) {
 		return
 	}
 
-	tenantID, ok := tenantIDFromContext(c)
+	scopeID, ok := uploadScopeIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusForbidden, gin.H{"error": "tenantID missing"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "upload scope missing"})
 		return
 	}
 
@@ -107,7 +107,7 @@ func HandleBulkUpload(c *gin.Context, folderPrefix string) {
 		return
 	}
 
-	urls, err := s3.UploadBulk(c.Request.Context(), files, folderPrefix+"/"+tenantID)
+	urls, err := s3.UploadBulk(c.Request.Context(), files, folderPrefix+"/"+scopeID)
 	if err != nil {
 		c.JSON(http.StatusMultiStatus, gin.H{
 			"error": "Beberapa file gagal diupload",
@@ -119,16 +119,18 @@ func HandleBulkUpload(c *gin.Context, folderPrefix string) {
 	c.JSON(http.StatusOK, gin.H{"urls": urls})
 }
 
-func tenantIDFromContext(c *gin.Context) (string, bool) {
-	raw, exists := c.Get("tenantID")
-	if !exists {
-		return "", false
+func uploadScopeIDFromContext(c *gin.Context) (string, bool) {
+	if raw, exists := c.Get("tenantID"); exists && raw != nil {
+		tenantID := strings.TrimSpace(raw.(string))
+		if tenantID != "" {
+			return tenantID, true
+		}
 	}
-
-	tenantID := strings.TrimSpace(raw.(string))
-	if tenantID == "" {
-		return "", false
+	if raw, exists := c.Get("customerID"); exists && raw != nil {
+		customerID := strings.TrimSpace(raw.(string))
+		if customerID != "" {
+			return customerID, true
+		}
 	}
-
-	return tenantID, true
+	return "", false
 }

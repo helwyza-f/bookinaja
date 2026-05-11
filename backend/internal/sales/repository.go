@@ -82,6 +82,29 @@ func (r *Repository) GetByCustomer(ctx context.Context, tenantID, customerID, id
 	return &order, nil
 }
 
+func (r *Repository) GetByCustomerGlobal(ctx context.Context, customerID, id uuid.UUID) (*Order, error) {
+	var order Order
+	err := r.db.GetContext(ctx, &order, `
+		SELECT
+			so.*,
+			COALESCE(r.name, '') AS resource_name
+		FROM sales_orders so
+		JOIN resources r ON r.id = so.resource_id
+		WHERE so.id = $1
+		  AND so.customer_id = $2
+		LIMIT 1`, id, customerID)
+	if err != nil {
+		return nil, err
+	}
+
+	items, err := r.ListItemsByOrder(ctx, id)
+	if err == nil {
+		order.Items = items
+	}
+
+	return &order, nil
+}
+
 func (r *Repository) GetByToken(ctx context.Context, accessToken uuid.UUID) (*Order, error) {
 	var order Order
 	err := r.db.GetContext(ctx, &order, `
