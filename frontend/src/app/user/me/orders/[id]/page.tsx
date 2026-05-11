@@ -120,10 +120,10 @@ export default function CustomerOrderDetailPage() {
   );
   const latestAttempt = useMemo(() => order?.payment_attempts?.[0], [order?.payment_attempts]);
   const actionLabel = isPaid
-    ? "Lihat pembayaran"
-    : statusMeta.label === "Menunggu verifikasi" || statusMeta.label === "Pembayaran diproses"
-      ? "Lihat status pembayaran"
-      : "Pilih metode pembayaran";
+    ? "Detail bayar"
+    : statusMeta.label === "Menunggu cek" || statusMeta.label === "Diproses"
+      ? "Cek bayar"
+      : "Bayar";
 
   if (loading) {
     return (
@@ -141,7 +141,7 @@ export default function CustomerOrderDetailPage() {
       <Card className="rounded-[1.5rem] border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-[#0b0f19]">
         <div className="flex flex-wrap items-center gap-2">
           <Badge className="border-none bg-slate-950 text-white dark:bg-white dark:text-slate-950">
-            Direct Sale
+            Order
           </Badge>
           <Badge className={statusMeta.className}>
             {statusMeta.label}
@@ -154,10 +154,10 @@ export default function CustomerOrderDetailPage() {
               {order.resource_name}
             </div>
             <h1 className="mt-2 text-3xl font-black uppercase italic tracking-tight text-slate-950 dark:text-white">
-              Ringkasan order
+              Detail order
             </h1>
             <div className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-              {realtimeConnected ? "Realtime tersambung" : refreshing ? "Menyegarkan data..." : "Sinkronisasi otomatis aktif"}
+              {realtimeConnected ? "Realtime aktif" : refreshing ? "Memuat ulang..." : "Auto update aktif"}
             </div>
           </div>
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-right dark:border-emerald-500/20 dark:bg-emerald-500/10">
@@ -182,7 +182,7 @@ export default function CustomerOrderDetailPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  Attempt terakhir
+                  Pembayaran terakhir
                 </p>
                 <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
                   {latestAttempt.method_label || "Pembayaran"}

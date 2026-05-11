@@ -170,9 +170,9 @@ export default function CustomerOrderPaymentPage() {
     [order?.payment_attempts],
   );
   const latestAttempt = useMemo(() => (order?.payment_attempts || [])[0], [order?.payment_attempts]);
-  const isPaid = amount <= 0 || statusMeta.label === "Selesai";
-  const isUnderReview = statusMeta.label === "Menunggu verifikasi";
-  const isProcessing = statusMeta.label === "Pembayaran diproses";
+  const isPaid = amount <= 0 || statusMeta.label === "Lunas";
+  const isUnderReview = statusMeta.label === "Menunggu cek";
+  const isProcessing = statusMeta.label === "Diproses";
   const canSubmitNewPayment =
     !isPaid && !isUnderReview && !isProcessing && !pendingManualAttempt && amount > 0;
 
@@ -278,9 +278,9 @@ export default function CustomerOrderPaymentPage() {
         .filter(Boolean)
         .join(" · ");
     }
-    if (method.code === "qris_static") return "Scan QRIS merchant lalu kirim pembayaran";
-    if (method.code === "cash") return "Bayar lalu konfirmasi ke admin tenant";
-    return "Verifikasi otomatis via gateway";
+    if (method.code === "qris_static") return "Scan QRIS lalu lanjut";
+    if (method.code === "cash") return "Bayar langsung ke admin";
+    return "Verifikasi otomatis";
   };
 
   const IconForMethod = (code: string) => {
@@ -320,7 +320,7 @@ export default function CustomerOrderPaymentPage() {
       <Card className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge className="border-none bg-slate-950 text-white">Direct Sale</Badge>
+            <Badge className="border-none bg-slate-950 text-white dark:bg-white dark:text-slate-950">Order</Badge>
             <Badge className={statusMeta.className}>
               {statusMeta.label}
             </Badge>
@@ -331,13 +331,13 @@ export default function CustomerOrderPaymentPage() {
                 {order.resource_name}
               </p>
             <h1 className="mt-2 text-3xl font-black uppercase italic tracking-tighter text-slate-950 dark:text-white">
-              Pembayaran order
+              Bayar order
             </h1>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              {statusMeta.hint || "Selesaikan pembayaran untuk produk yang sudah kamu pilih."}
+              {statusMeta.hint || "Selesaikan pembayaran order ini."}
             </p>
             <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-              {refreshing ? "Menyegarkan status pembayaran..." : "Status pembayaran tersinkron otomatis"}
+              {refreshing ? "Memuat ulang status..." : "Auto update aktif"}
             </p>
           </div>
             <div className="text-right">
@@ -360,21 +360,21 @@ export default function CustomerOrderPaymentPage() {
             </p>
             <h2 className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
               {isPaid
-                ? "Order sudah lunas"
+                ? "Sudah lunas"
                 : isUnderReview
-                  ? "Bukti bayar sedang direview"
+                  ? "Bukti bayar dicek"
                   : isProcessing
-                    ? "Pembayaran sedang diproses"
-                    : "Pilih metode pembayaran"}
+                    ? "Pembayaran diproses"
+                    : "Pilih metode"}
             </h2>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
               {isPaid
-                ? "Tidak ada aksi tambahan yang perlu dilakukan customer."
+                ? "Tidak ada tagihan tersisa."
                 : isUnderReview
-                  ? "Admin tenant akan memverifikasi pembayaran manual yang sudah kamu kirim."
+                  ? "Tunggu admin cek bukti bayar."
                   : isProcessing
-                    ? "Tunggu update otomatis dari gateway atau cek lagi beberapa saat."
-                    : "Belum ada pembayaran aktif. Pilih metode yang paling sesuai lalu lanjutkan."}
+                    ? "Tunggu update otomatis dari gateway."
+                    : "Pilih metode lalu lanjutkan."}
             </p>
           </div>
           <Badge className={statusMeta.className}>{statusMeta.label}</Badge>
@@ -385,7 +385,7 @@ export default function CustomerOrderPaymentPage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                  Attempt terakhir
+                  Pembayaran terakhir
                 </div>
                 <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
                   {latestAttempt.method_label || "Pembayaran"}
@@ -427,7 +427,7 @@ export default function CustomerOrderPaymentPage() {
             disabled={loading || processing}
           >
             <Loader2 className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : "hidden"}`} />
-            Refresh status
+            Refresh
           </Button>
           <Button
             type="button"
@@ -493,7 +493,7 @@ export default function CustomerOrderPaymentPage() {
                 {selectedMethodDetail?.code !== "cash" ? (
                   <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-slate-300 px-4 py-4 text-sm text-slate-600 dark:border-white/10 dark:text-slate-300">
                     {proofUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                    {manualProofUrl ? "Bukti bayar siap dikirim" : "Upload bukti bayar"}
+                    {manualProofUrl ? "Bukti siap" : "Upload bukti bayar"}
                     <input
                       type="file"
                       accept="image/*"

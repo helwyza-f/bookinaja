@@ -62,16 +62,16 @@ export function getOrderStatusMeta(status?: string, paymentStatus?: string, bala
 
   if (payment === "awaiting_verification" || payment === "submitted") {
     return {
-      label: "Menunggu verifikasi",
+      label: "Menunggu cek",
       className: "rounded-full border-none bg-amber-500 text-white",
-      hint: "Bukti pembayaran sudah dikirim dan sedang direview admin.",
+      hint: "Bukti bayar sedang dicek admin.",
     };
   }
   if (payment === "settled" || payment === "paid" || (flow === "completed" && due <= 0)) {
     return {
-      label: "Selesai",
+      label: "Lunas",
       className: "rounded-full border-none bg-emerald-600 text-white",
-      hint: "Order langsung sudah lunas dan selesai diproses.",
+      hint: "Pembayaran sudah masuk.",
     };
   }
   if (flow === "cancelled") {
@@ -88,26 +88,26 @@ export function getOrderStatusMeta(status?: string, paymentStatus?: string, bala
   }
   if (payment === "expired") {
     return {
-      label: "Pembayaran kadaluarsa",
+      label: "Kedaluwarsa",
       className: "rounded-full border-none bg-rose-500 text-white",
     };
   }
   if (payment === "pending" || flow === "pending_payment") {
     return {
-      label: "Pembayaran diproses",
+      label: "Diproses",
       className: "rounded-full border-none bg-blue-600 text-white",
-      hint: "Pembayaran sedang diproses gateway atau menunggu update otomatis.",
+      hint: "Pembayaran sedang diproses.",
     };
   }
   if (payment === "unpaid" || flow === "open") {
     return {
-      label: "Belum dibayar",
+      label: "Belum bayar",
       className: "rounded-full border-none bg-slate-900 text-white dark:bg-white/15",
-      hint: "Order sudah dibuat dan menunggu pembayaran customer.",
+      hint: "Order sudah dibuat, tinggal bayar.",
     };
   }
   return {
-    label: "Direct sale",
+    label: "Order",
     className: "rounded-full border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200",
   };
 }

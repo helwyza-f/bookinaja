@@ -155,10 +155,10 @@ export default function UserActiveBookingsPage() {
         <section className="space-y-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-600 dark:text-emerald-300">
-              Direct Sale
+              Order
             </p>
             <h2 className="mt-1 text-base font-semibold tracking-tight text-slate-950 dark:text-white">
-              Order langsung yang belum selesai
+              Order aktif
             </h2>
           </div>
           <div className="space-y-3">
@@ -220,10 +220,10 @@ function ActiveOrderRow({ order }: { order: CustomerPortalItem }) {
               </span>
             </div>
             <h2 className="mt-2 line-clamp-2 text-base font-semibold tracking-tight text-slate-950 dark:text-white">
-              {order.resource || "Order langsung"}
+              {order.resource || "Order"}
             </h2>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              {statusMeta.hint || "Selesaikan order langsung ini dari portal customer."}
+              {statusMeta.hint || "Lanjutkan order ini dari portal."}
             </p>
           </div>
           <Link
@@ -248,7 +248,7 @@ function ActiveOrderRow({ order }: { order: CustomerPortalItem }) {
           <InfoPill
             icon={Wallet}
             label="Jenis"
-            value="Order langsung"
+            value="Non-timed"
           />
         </div>
 
@@ -259,7 +259,7 @@ function ActiveOrderRow({ order }: { order: CustomerPortalItem }) {
           >
             <Link href={`/user/me/orders/${order.id}/payment`}>
               <Wallet className="mr-2 h-4 w-4" />
-              Pembayaran
+              Bayar
             </Link>
           </Button>
           <Button asChild variant="outline" className="h-10 rounded-2xl px-3">

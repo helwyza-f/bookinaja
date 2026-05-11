@@ -199,7 +199,7 @@ export default function PublicDirectSaleOrderPage() {
   };
 
   const summaryLabel =
-    selectedCount > 0 ? `${selectedCount} item siap diproses` : "Pilih produk untuk mulai order";
+    selectedCount > 0 ? `${selectedCount} item dipilih` : "Pilih produk";
 
   if (loading) {
     return (
@@ -221,15 +221,15 @@ export default function PublicDirectSaleOrderPage() {
   if (!resource) return null;
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(249,115,22,0.14),_transparent_28%),linear-gradient(180deg,#050505_0%,#0b0d14_42%,#050505_100%)] text-white">
+    <div className="min-h-screen bg-[linear-gradient(180deg,#fff7ed_0%,#ffffff_38%,#f8fafc_100%)] text-slate-950 dark:bg-[radial-gradient(circle_at_top,_rgba(249,115,22,0.14),_transparent_28%),linear-gradient(180deg,#050505_0%,#0b0d14_42%,#050505_100%)] dark:text-white">
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 pb-28 md:px-6 md:pb-8">
-        <Button variant="ghost" className="h-10 w-fit rounded-2xl px-3 text-white hover:bg-white/5 hover:text-white" onClick={() => router.back()}>
+        <Button variant="ghost" className="h-10 w-fit rounded-2xl px-3 text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-white dark:hover:bg-white/5 dark:hover:text-white" onClick={() => router.back()}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Kembali
         </Button>
 
         <div className="space-y-6">
-          <Card className="overflow-hidden rounded-[2rem] border border-white/10 bg-[#0d1018] text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+          <Card className="overflow-hidden rounded-[2rem] border border-orange-100 bg-white text-slate-950 shadow-[0_24px_80px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[#0d1018] dark:text-white dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
             <div className="relative min-h-[20rem]">
               {resource.image_url ? (
                 <Image
@@ -245,20 +245,20 @@ export default function PublicDirectSaleOrderPage() {
               <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,10,18,0.1)_0%,rgba(7,10,18,0.32)_35%,rgba(7,10,18,0.94)_100%)]" />
               <div className="relative flex h-full min-h-[20rem] flex-col justify-between p-6 md:p-8">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <Badge className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-white backdrop-blur">
-                    Direct Sale
+                  <Badge className="rounded-full border border-white/60 bg-white/75 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-900 backdrop-blur dark:border-white/15 dark:bg-white/10 dark:text-white">
+                    Order
                   </Badge>
-                  <div className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">
-                    Tanpa slot waktu
+                  <div className="rounded-full border border-emerald-300/70 bg-emerald-50/90 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-200">
+                    Tanpa jadwal
                   </div>
                 </div>
 
                 <div className="space-y-3">
-                  <h1 className="max-w-3xl text-4xl font-black uppercase italic leading-[0.88] tracking-tight md:text-6xl">
+                  <h1 className="max-w-3xl text-4xl font-black uppercase italic leading-[0.88] tracking-tight text-white md:text-6xl">
                     {resource.name}
                   </h1>
-                  <p className="max-w-2xl text-sm leading-7 text-slate-200 md:text-base">
-                    {resource.description || "Pilih item, isi data customer, lalu lanjutkan ke pembayaran tanpa perlu memilih jadwal."}
+                  <p className="max-w-2xl text-sm leading-7 text-white/90 md:text-base">
+                    {resource.description || "Pilih item lalu lanjut bayar."}
                   </p>
                 </div>
               </div>
@@ -268,15 +268,15 @@ export default function PublicDirectSaleOrderPage() {
           <div className="space-y-4">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
-                <div className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
+                <div className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                   Pilih produk
                 </div>
-                <h2 className="mt-2 text-3xl font-black uppercase italic tracking-tight text-white">
-                  Katalog direct sale
+                <h2 className="mt-2 text-3xl font-black uppercase italic tracking-tight text-slate-950 dark:text-white">
+                  Katalog
                 </h2>
               </div>
-              <div className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-slate-300">
-                Tap kartu untuk atur qty lebih cepat
+              <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
+                Atur qty per item
               </div>
             </div>
 
@@ -288,16 +288,16 @@ export default function PublicDirectSaleOrderPage() {
                   <Card
                     key={item.id}
                     className={cn(
-                      "rounded-[1.9rem] border p-5 text-white shadow-[0_18px_60px_rgba(0,0,0,0.18)] transition-all duration-300",
+                      "rounded-[1.9rem] border p-5 text-slate-950 shadow-[0_18px_60px_rgba(15,23,42,0.08)] transition-all duration-300 dark:text-white dark:shadow-[0_18px_60px_rgba(0,0,0,0.18)]",
                       quantity > 0
-                        ? "border-orange-400/40 bg-[linear-gradient(180deg,rgba(249,115,22,0.14)_0%,rgba(15,18,27,0.98)_36%,rgba(15,18,27,1)_100%)]"
-                        : "border-white/10 bg-[#120f16]",
+                        ? "border-orange-300 bg-[linear-gradient(180deg,rgba(255,237,213,0.85)_0%,rgba(255,255,255,1)_34%,rgba(248,250,252,1)_100%)] dark:border-orange-400/40 dark:bg-[linear-gradient(180deg,rgba(249,115,22,0.14)_0%,rgba(15,18,27,0.98)_36%,rgba(15,18,27,1)_100%)]"
+                        : "border-slate-200 bg-white dark:border-white/10 dark:bg-[#120f16]",
                     )}
                   >
                     <div className="flex h-full flex-col gap-5">
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-2">
-                          <div className="inline-flex rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-300">
+                          <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-600 dark:border-white/10 dark:bg-white/[0.05] dark:text-slate-300">
                             {item.price_unit ? item.price_unit.replaceAll("_", " ") : "Produk"}
                           </div>
                           <h3 className="text-2xl font-black uppercase italic leading-none tracking-tight">
@@ -315,24 +315,24 @@ export default function PublicDirectSaleOrderPage() {
                         <div className="text-3xl font-black tracking-tight text-orange-400">
                           Rp{Number(item.price || 0).toLocaleString("id-ID")}
                         </div>
-                        <div className="text-sm text-slate-400">
+                        <div className="text-sm text-slate-500 dark:text-slate-400">
                           {quantity > 0
                             ? `Subtotal Rp${subtotal.toLocaleString("id-ID")}`
-                            : "Belum masuk ringkasan"}
+                            : "Belum dipilih"}
                         </div>
                       </div>
 
-                      <div className="mt-auto flex items-center justify-between rounded-[1.4rem] border border-white/10 bg-white/[0.04] p-2">
+                      <div className="mt-auto flex items-center justify-between rounded-[1.4rem] border border-slate-200 bg-slate-50 p-2 dark:border-white/10 dark:bg-white/[0.04]">
                         <Button
                           type="button"
                           variant="ghost"
-                          className="h-10 w-10 rounded-full text-white hover:bg-white/10"
+                          className="h-10 w-10 rounded-full text-slate-700 hover:bg-white dark:text-white dark:hover:bg-white/10"
                           onClick={() => updateQuantity(item.id, -1)}
                         >
                           <Minus className="h-4 w-4" />
                         </Button>
                         <div className="min-w-24 text-center">
-                          <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                          <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
                             Qty
                           </div>
                           <div className="mt-1 text-3xl font-black">{quantity}</div>
@@ -347,9 +347,9 @@ export default function PublicDirectSaleOrderPage() {
                         </Button>
                       </div>
 
-                      <div className="flex items-center gap-2 rounded-[1.2rem] border border-white/8 bg-black/15 px-3 py-3 text-xs text-slate-400">
-                        <Package2 className="h-4 w-4 text-slate-500" />
-                        Qty bisa diubah kapan saja sebelum lanjut ke pembayaran.
+                      <div className="flex items-center gap-2 rounded-[1.2rem] border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-500 dark:border-white/8 dark:bg-black/15 dark:text-slate-400">
+                        <Package2 className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                        Ubah qty kapan saja.
                       </div>
                     </div>
                   </Card>
@@ -359,30 +359,30 @@ export default function PublicDirectSaleOrderPage() {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
-            <Card className="rounded-[2rem] border border-white/10 bg-[#0f121b] p-5 text-white shadow-[0_24px_80px_rgba(0,0,0,0.26)] md:p-6">
+            <Card className="rounded-[2rem] border border-slate-200 bg-white p-5 text-slate-950 shadow-[0_24px_80px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[#0f121b] dark:text-white dark:shadow-[0_24px_80px_rgba(0,0,0,0.26)] md:p-6">
               <div className="space-y-5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
-                      Data pembeli
+                      Pembeli
                     </div>
                     <h2 className="mt-2 text-2xl font-black uppercase italic tracking-tight">
-                      Lanjut isi customer
+                      Isi data
                     </h2>
-                    <p className="mt-2 max-w-lg text-sm text-slate-400">
-                      Masukkan nomor WhatsApp dulu. Kalau customer sudah pernah order, nama akan terisi otomatis.
+                    <p className="mt-2 max-w-lg text-sm text-slate-500 dark:text-slate-400">
+                      Isi nomor WhatsApp dulu. Nama akan terisi otomatis kalau sudah pernah order.
                     </p>
                   </div>
                   {knownCustomer ? (
-                    <Badge className="rounded-full border-none bg-emerald-500/15 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">
-                      Customer lama
+                    <Badge className="rounded-full border-none bg-emerald-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200">
+                      Dikenali
                     </Badge>
                   ) : null}
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block sm:col-span-2">
-                    <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
+                      <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                       <Phone className="h-3.5 w-3.5" />
                       WhatsApp customer
                     </div>
@@ -393,23 +393,23 @@ export default function PublicDirectSaleOrderPage() {
                         placeholder="08xxxxxxxxxx"
                         inputMode="numeric"
                         className={cn(
-                          "h-13 rounded-2xl border-white/10 bg-white/[0.04] pl-4 pr-12 text-white placeholder:text-slate-500",
-                          knownCustomer && "border-emerald-400/30 bg-emerald-500/[0.06]",
+                          "h-13 rounded-2xl border-slate-200 bg-white pl-4 pr-12 text-slate-950 placeholder:text-slate-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-slate-500",
+                          knownCustomer && "border-emerald-300 bg-emerald-50 dark:border-emerald-400/30 dark:bg-emerald-500/[0.06]",
                         )}
                       />
                       <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
                         {checkingCustomer ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
                       </div>
                     </div>
-                    <p className="mt-2 text-xs text-slate-500">
+                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-500">
                       {knownCustomer
-                        ? "Nomor dikenali. Sistem pakai data customer yang sudah pernah masuk."
-                        : "Nomor ini dipakai untuk kirim akses order dan pembayaran."}
+                        ? "Nomor dikenali."
+                        : "Nomor ini dipakai untuk akses order."}
                     </p>
                   </label>
 
                   <label className="block sm:col-span-2">
-                    <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
+                    <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                       <UserRound className="h-3.5 w-3.5" />
                       Nama customer
                     </div>
@@ -418,7 +418,7 @@ export default function PublicDirectSaleOrderPage() {
                         value={customerName}
                         onChange={(event) => setCustomerName(event.target.value)}
                         placeholder="Nama customer"
-                        className="h-13 rounded-2xl border-white/10 bg-white/[0.04] pl-4 pr-12 text-white placeholder:text-slate-500"
+                        className="h-13 rounded-2xl border-slate-200 bg-white pl-4 pr-12 text-slate-950 placeholder:text-slate-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-slate-500"
                       />
                       {knownCustomer ? (
                         <Check className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-300" />
@@ -427,15 +427,15 @@ export default function PublicDirectSaleOrderPage() {
                   </label>
 
                   <label className="block sm:col-span-2">
-                    <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
+                    <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                       <NotebookPen className="h-3.5 w-3.5" />
                       Catatan pesanan
                     </div>
                     <Textarea
                       value={notes}
                       onChange={(event) => setNotes(event.target.value)}
-                      placeholder="Opsional, misalnya level manis, request packing, atau catatan pickup."
-                      className="min-h-28 rounded-[1.4rem] border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500"
+                      placeholder="Opsional, misalnya catatan pesanan."
+                      className="min-h-28 rounded-[1.4rem] border-slate-200 bg-white px-4 py-3 text-slate-950 placeholder:text-slate-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-slate-500"
                     />
                   </label>
                 </div>
@@ -443,27 +443,27 @@ export default function PublicDirectSaleOrderPage() {
             </Card>
 
             <div className="lg:sticky lg:top-6 lg:h-fit">
-              <Card className="rounded-[2rem] border border-white/10 bg-[#0f121b] p-5 text-white shadow-[0_24px_80px_rgba(0,0,0,0.26)] md:p-6">
+              <Card className="rounded-[2rem] border border-slate-200 bg-white p-5 text-slate-950 shadow-[0_24px_80px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[#0f121b] dark:text-white dark:shadow-[0_24px_80px_rgba(0,0,0,0.26)] md:p-6">
                 <div className="space-y-5">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
-                        Pembayaran
+                        Ringkasan
                       </div>
                       <h2 className="mt-2 text-2xl font-black uppercase italic tracking-tight">
-                        Review order
+                        Cek order
                       </h2>
                     </div>
-                    <div className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-300">
+                    <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-600 dark:border-white/10 dark:bg-white/[0.05] dark:text-slate-300">
                       {selectedItems.length} jenis
                     </div>
                   </div>
 
-                  <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-4">
-                    <div className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
-                      Ringkasan order
+                  <div className="rounded-[1.6rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                    <div className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                      Ringkasan
                     </div>
-                    <div className="mt-2 text-sm font-semibold text-slate-200">
+                    <div className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
                       {summaryLabel}
                     </div>
 
@@ -472,13 +472,13 @@ export default function PublicDirectSaleOrderPage() {
                         selectedItems.map(({ item, quantity }) => (
                           <div
                             key={item.id}
-                            className="flex items-center justify-between gap-3 rounded-2xl border border-white/8 bg-black/15 px-3 py-2"
+                            className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 dark:border-white/8 dark:bg-black/15"
                           >
                             <div className="min-w-0">
-                              <div className="truncate text-sm font-black uppercase italic text-white">
+                              <div className="truncate text-sm font-black uppercase italic text-slate-950 dark:text-white">
                                 {item.name}
                               </div>
-                              <div className="text-xs text-slate-400">
+                              <div className="text-xs text-slate-500 dark:text-slate-400">
                                 {quantity} x Rp{Number(item.price || 0).toLocaleString("id-ID")}
                               </div>
                             </div>
@@ -488,16 +488,16 @@ export default function PublicDirectSaleOrderPage() {
                           </div>
                         ))
                       ) : (
-                        <div className="rounded-2xl border border-dashed border-white/10 px-4 py-5 text-sm text-slate-400">
-                          Belum ada produk dipilih. Tambahkan item dari katalog di atas.
+                        <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
+                          Belum ada item.
                         </div>
                       )}
                     </div>
 
                     <div className="mt-4 flex items-end justify-between gap-3">
                       <div>
-                        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                          Total pembayaran
+                        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                          Total
                         </div>
                         <div className="mt-1 text-3xl font-black tracking-tight text-orange-400">
                           Rp{total.toLocaleString("id-ID")}
@@ -521,11 +521,11 @@ export default function PublicDirectSaleOrderPage() {
           </div>
         </div>
 
-        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#090b10]/92 px-4 py-3 backdrop-blur md:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/92 px-4 py-3 backdrop-blur md:hidden dark:border-white/10 dark:bg-[#090b10]/92">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                Total order
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                Total
               </div>
               <div className="truncate text-2xl font-black tracking-tight text-orange-400">
                 Rp{total.toLocaleString("id-ID")}

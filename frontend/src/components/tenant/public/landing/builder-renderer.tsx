@@ -323,8 +323,15 @@ function renderSection({
                 sectionVariant === "list" ? (
                   resources.map((resource) => {
                     const bestPrice = getBestPrice(resource);
+                    const isTimed = String(resource.operating_mode || "timed").toLowerCase() === "timed";
+                    const href = isTimed ? `/bookings/${resource.id}` : `/orders/${resource.id}`;
+                    const summary =
+                      resource.description ||
+                      (isTimed
+                        ? "Resource siap dibooking."
+                        : "Produk siap dibeli langsung.");
                     return (
-                      <Link key={resource.id} href={`/bookings/${resource.id}`} className="block h-full">
+                      <Link key={resource.id} href={href} className="block h-full">
                         <Card className={cn(themeVisuals.cardClass, "group h-full overflow-hidden p-4 transition-transform duration-300 hover:-translate-y-1")}>
                           <div className="flex h-full flex-col gap-4 sm:flex-row">
                             <div className={cn("overflow-hidden sm:w-44", themeVisuals.mediaClass)}>
@@ -347,21 +354,21 @@ function renderSection({
                               <div>
                                 <div className={cn("text-lg font-bold", themeVisuals.titleClass)}>{resource.name}</div>
                                 <div className={cn("mt-2 text-sm leading-7", themeVisuals.bodyClass)}>
-                                  {resource.description || "Resource siap ditampilkan untuk booking customer."}
+                                  {summary}
                                 </div>
                               </div>
                               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                 <div className={cn("text-sm font-semibold", themeVisuals.mutedClass)}>
                                   {bestPrice ? (
                                     <>
-                                      Mulai dari{" "}
+                                      {isTimed ? "Mulai dari " : ""}
                                       <span className={themeVisuals.titleClass}>
                                         Rp {bestPrice.value.toLocaleString("id-ID")}
                                       </span>
-                                      /{bestPrice.unit}
+                                      /{isTimed ? bestPrice.unit : bestPrice.unit === "Sesi" ? "pcs" : bestPrice.unit}
                                     </>
                                   ) : (
-                                    "Harga tampil saat item utama tersedia"
+                                    isTimed ? "Harga tampil saat item utama tersedia" : "Harga tampil saat produk utama tersedia"
                                   )}
                                 </div>
                                 <Button asChild className={themeVisuals.primaryButtonClass} style={themeVisuals.primaryButtonStyle}>
