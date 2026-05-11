@@ -22,8 +22,6 @@ func NewRouter(cfg routecfg.Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine 
 	r.RedirectFixedPath = false
 
 	r.Use(middleware.CORSMiddleware())
-	r.Use(gin.Recovery())
-	r.Use(gin.Logger())
 
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "BATAM ENGINE ONLINE"})

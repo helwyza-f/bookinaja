@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -88,7 +88,7 @@ export default function UserDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState(FILTER_ALL);
-  const [seenImpressions, setSeenImpressions] = useState<Record<string, true>>({});
+  const seenImpressionsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let active = true;
@@ -161,27 +161,30 @@ export default function UserDashboardPage() {
   const featuredTenant = personalizedDiscoveries[0] || null;
   const discoveryGrid = personalizedDiscoveries.slice(0, 6);
 
-  const markImpression = (
-    tenant: DiscoveryTenant,
-    sectionId: string,
-    cardVariant: string,
-    positionIndex: number,
-  ) => {
-    const key = discoveryImpressionKey([sectionId, cardVariant, tenant.id]);
-    if (seenImpressions[key]) return;
-    setSeenImpressions((prev) => ({ ...prev, [key]: true }));
-    trackDiscoveryEvent({
-      tenant_id: tenant.tenant_id || tenant.id,
-      tenant_slug: tenant.slug,
-      event_type: "impression",
-      surface: "customer-hub",
-      section_id: sectionId,
-      card_variant: cardVariant,
-      position_index: positionIndex,
-      promo_label: tenant.promo_label,
-      metadata: getDiscoveryEventMetadata(tenant),
-    });
-  };
+  const markImpression = useCallback(
+    (
+      tenant: DiscoveryTenant,
+      sectionId: string,
+      cardVariant: string,
+      positionIndex: number,
+    ) => {
+      const key = discoveryImpressionKey([sectionId, cardVariant, tenant.id]);
+      if (seenImpressionsRef.current.has(key)) return;
+      seenImpressionsRef.current.add(key);
+      trackDiscoveryEvent({
+        tenant_id: tenant.tenant_id || tenant.id,
+        tenant_slug: tenant.slug,
+        event_type: "impression",
+        surface: "customer-hub",
+        section_id: sectionId,
+        card_variant: cardVariant,
+        position_index: positionIndex,
+        promo_label: tenant.promo_label,
+        metadata: getDiscoveryEventMetadata(tenant),
+      });
+    },
+    [],
+  );
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -468,7 +471,11 @@ function FeatureHero({
   tenant: DiscoveryTenant;
   onVisible: () => void;
 }) {
+  const hasTrackedVisibilityRef = useRef(false);
+
   useEffect(() => {
+    if (hasTrackedVisibilityRef.current) return;
+    hasTrackedVisibilityRef.current = true;
     onVisible();
   }, [onVisible]);
 
@@ -542,7 +549,11 @@ function DiscoveryCard({
   index: number;
   onVisible: () => void;
 }) {
+  const hasTrackedVisibilityRef = useRef(false);
+
   useEffect(() => {
+    if (hasTrackedVisibilityRef.current) return;
+    hasTrackedVisibilityRef.current = true;
     onVisible();
   }, [onVisible]);
 

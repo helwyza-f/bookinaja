@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -60,9 +60,7 @@ export default function DiscoveryPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState(FILTER_ALL);
-  const [seenImpressions, setSeenImpressions] = useState<Record<string, true>>(
-    {},
-  );
+  const seenImpressionsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let active = true;
@@ -149,8 +147,8 @@ export default function DiscoveryPage() {
       positionIndex: number,
     ) => {
       const key = discoveryImpressionKey([surface, sectionId, cardVariant, tenant.id]);
-      if (seenImpressions[key]) return;
-      setSeenImpressions((prev) => ({ ...prev, [key]: true }));
+      if (seenImpressionsRef.current.has(key)) return;
+      seenImpressionsRef.current.add(key);
       trackDiscoveryEvent({
         tenant_id: tenant.tenant_id || tenant.id,
         tenant_slug: tenant.slug,
@@ -163,7 +161,7 @@ export default function DiscoveryPage() {
         metadata: getDiscoveryEventMetadata(tenant),
       });
     },
-    [seenImpressions],
+    [],
   );
 
   return (
@@ -557,7 +555,11 @@ function PublicContentCard({
   positionIndex: number;
   onVisible?: () => void;
 }) {
+  const hasTrackedVisibilityRef = useRef(false);
+
   useEffect(() => {
+    if (hasTrackedVisibilityRef.current) return;
+    hasTrackedVisibilityRef.current = true;
     onVisible?.();
   }, [onVisible]);
   const isVideo = isDiscoveryVideoPost(tenant);
@@ -679,7 +681,11 @@ function PublicBusinessCard({
   positionIndex: number;
   onVisible?: () => void;
 }) {
+  const hasTrackedVisibilityRef = useRef(false);
+
   useEffect(() => {
+    if (hasTrackedVisibilityRef.current) return;
+    hasTrackedVisibilityRef.current = true;
     onVisible?.();
   }, [onVisible]);
 
@@ -817,7 +823,11 @@ function PublicRailCard({
   positionIndex: number;
   onVisible?: () => void;
 }) {
+  const hasTrackedVisibilityRef = useRef(false);
+
   useEffect(() => {
+    if (hasTrackedVisibilityRef.current) return;
+    hasTrackedVisibilityRef.current = true;
     onVisible?.();
   }, [onVisible]);
   const isVideo = isDiscoveryVideoPost(tenant);
