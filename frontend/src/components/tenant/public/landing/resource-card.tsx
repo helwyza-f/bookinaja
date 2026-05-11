@@ -32,10 +32,20 @@ export function ResourceCard({
   const mode = String(res.operating_mode || "timed").toLowerCase();
   const isDirectSale = mode === "direct_sale";
   const isTimed = !isDirectSale;
-  const priceUnitLabel = bestPrice?.unit || (isDirectSale ? "Sesi" : "Jam");
+  const rawUnit = String(bestPrice?.unit || "").trim().toLowerCase();
+  const priceUnitLabel = bestPrice?.unit || (isDirectSale ? "pcs" : "jam");
   const footerLabel = isDirectSale ? "Harga produk" : "Mulai dari";
   const modeLabel = isDirectSale ? "Direct Sale" : "Timed";
   const href = isDirectSale ? `/orders/${res.id}` : `/bookings/${res.id}`;
+  const directSaleDescription =
+    res.description || "Pilih produk lalu lanjutkan checkout tanpa perlu memilih slot waktu.";
+  const timedDescription =
+    res.description || "Resource siap ditampilkan untuk booking customer.";
+  const resolvedPriceUnitLabel = isDirectSale
+    ? rawUnit && rawUnit !== "sesi"
+      ? priceUnitLabel
+      : "pcs"
+    : priceUnitLabel;
 
   const cardRadiusClass =
     radiusStyle === "square"
@@ -88,7 +98,7 @@ export function ResourceCard({
                   {res.name}
                 </h3>
                 <p className={cn("mt-3 line-clamp-3 text-sm leading-6", tone.body)}>
-                  {res.description || "Resource siap ditampilkan untuk booking customer."}
+                  {isDirectSale ? directSaleDescription : timedDescription}
                 </p>
               </div>
 
@@ -112,7 +122,7 @@ export function ResourceCard({
                       Rp{bestPrice.value.toLocaleString("id-ID")}
                     </span>
                     <span className={cn("pb-1 text-xs font-semibold", tone.cardMuted)}>
-                      /{priceUnitLabel}
+                      /{resolvedPriceUnitLabel}
                     </span>
                   </div>
                 ) : (

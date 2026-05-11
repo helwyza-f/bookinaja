@@ -140,15 +140,15 @@ export function TenantNavbar({
                 "border-none font-black uppercase italic tracking-[0.14em] text-white",
                 isCompactPreview
                   ? "h-10 w-10 px-0"
-                  : cn("h-11 px-4 text-[10px] md:h-12 md:px-5 md:text-[11px]", buttonRadiusClass),
+                  : cn("h-11 w-11 px-0 text-[10px] md:h-12 md:w-auto md:px-5 md:text-[11px]", buttonRadiusClass),
               )}
               style={{
                 backgroundColor: primaryColor,
                 boxShadow: `0 12px 28px ${primaryColor}33`,
               }}
             >
-              <UserCircle2 className={cn(isCompactPreview ? "h-4.5 w-4.5" : "mr-1.5 h-4 w-4")} />
-              {!isCompactPreview ? "Sign In" : null}
+              <UserCircle2 className={cn(isCompactPreview ? "h-4.5 w-4.5" : "h-4.5 w-4.5 md:mr-1.5 md:h-4 md:w-4")} />
+              {!isCompactPreview ? <span className="hidden md:inline">Sign In</span> : null}
             </Button>
           </a>
         </div>

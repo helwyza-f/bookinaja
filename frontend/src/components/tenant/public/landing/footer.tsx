@@ -244,6 +244,11 @@ export function TenantFooter({
                   <Button variant="outline" className={cn("border-2 bg-transparent", socialButtonClass)}>Hubungi via WhatsApp</Button>
                 </a>
               ) : null}
+              <Link href="/admin/login">
+                <Button variant="outline" className={cn("border-2 bg-transparent", socialButtonClass)}>
+                  Login Admin
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
