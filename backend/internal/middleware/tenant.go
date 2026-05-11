@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"net"
@@ -12,6 +13,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
 )
+
+const missingTenantCacheValue = "__missing__"
 
 // TenantIdentifier mendeteksi siapa pemilik resource berdasarkan konteks request.
 func TenantIdentifier(db *sqlx.DB, rdb *redis.Client) gin.HandlerFunc {
@@ -76,16 +79,22 @@ func lookupTenantIDBySlug(ctx context.Context, db *sqlx.DB, rdb *redis.Client, s
 	cacheKey := fmt.Sprintf("tenant_id_by_slug:%s", slug)
 	id, err := rdb.Get(ctx, cacheKey).Result()
 	if err == nil && id != "" {
+		if id == missingTenantCacheValue {
+			return "", sql.ErrNoRows
+		}
 		return id, nil
 	}
 
 	var dbID string
 	err = db.GetContext(ctx, &dbID, "SELECT id FROM tenants WHERE LOWER(TRIM(slug)) = LOWER(TRIM($1)) LIMIT 1", slug)
 	if err != nil || dbID == "" {
+		if err == nil || err == sql.ErrNoRows {
+			_ = rdb.Set(ctx, cacheKey, missingTenantCacheValue, 5*time.Minute).Err()
+		}
 		return "", err
 	}
 
-	rdb.Set(ctx, cacheKey, dbID, 24*time.Hour)
+	_ = rdb.Set(ctx, cacheKey, dbID, 24*time.Hour).Err()
 	return dbID, nil
 }
 

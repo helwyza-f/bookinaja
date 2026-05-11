@@ -29,7 +29,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 
 /* ─────────────────────────────────────────────
@@ -102,7 +102,13 @@ function AnimatedCounter({
 ───────────────────────────────────────────── */
 function useThemeClasses() {
   const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+
+  const isDark = mounted && resolvedTheme === "dark";
   return {
     isDark,
     bg: isDark ? "bg-[#06080f]" : "bg-slate-50",

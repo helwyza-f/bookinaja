@@ -10,28 +10,42 @@ import (
 )
 
 type Order struct {
-	ID              uuid.UUID   `db:"id" json:"id"`
-	TenantID        uuid.UUID   `db:"tenant_id" json:"tenant_id"`
-	CustomerID      *uuid.UUID  `db:"customer_id" json:"customer_id,omitempty"`
-	ResourceID      uuid.UUID   `db:"resource_id" json:"resource_id"`
-	ResourceName    string      `db:"resource_name" json:"resource_name,omitempty"`
-	OrderNumber     string      `db:"order_number" json:"order_number"`
-	Status          string      `db:"status" json:"status"`
-	Subtotal        float64     `db:"subtotal" json:"subtotal"`
-	DiscountAmount  float64     `db:"discount_amount" json:"discount_amount"`
-	GrandTotal      float64     `db:"grand_total" json:"grand_total"`
-	PaidAmount      float64     `db:"paid_amount" json:"paid_amount"`
-	BalanceDue      float64     `db:"balance_due" json:"balance_due"`
-	PaymentStatus   string      `db:"payment_status" json:"payment_status"`
-	PaymentMethod   string      `db:"payment_method" json:"payment_method"`
-	Notes           string      `db:"notes" json:"notes"`
-	CreatedByUserID *uuid.UUID  `db:"created_by_user_id" json:"created_by_user_id,omitempty"`
-	CompletedAt     *time.Time  `db:"completed_at" json:"completed_at,omitempty"`
-	CreatedAt       time.Time   `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time   `db:"updated_at" json:"updated_at"`
-	PaymentMethods  []OrderPaymentMethod        `db:"-" json:"payment_methods"`
-	PaymentAttempts []OrderPaymentAttempt       `db:"-" json:"payment_attempts"`
-	Items           []OrderItem                 `db:"-" json:"items"`
+	ID              uuid.UUID             `db:"id" json:"id"`
+	TenantID        uuid.UUID             `db:"tenant_id" json:"tenant_id"`
+	CustomerID      *uuid.UUID            `db:"customer_id" json:"customer_id,omitempty"`
+	ResourceID      uuid.UUID             `db:"resource_id" json:"resource_id"`
+	AccessToken     uuid.UUID             `db:"access_token" json:"access_token,omitempty"`
+	ResourceName    string                `db:"resource_name" json:"resource_name,omitempty"`
+	OrderNumber     string                `db:"order_number" json:"order_number"`
+	Status          string                `db:"status" json:"status"`
+	Subtotal        float64               `db:"subtotal" json:"subtotal"`
+	DiscountAmount  float64               `db:"discount_amount" json:"discount_amount"`
+	GrandTotal      float64               `db:"grand_total" json:"grand_total"`
+	PaidAmount      float64               `db:"paid_amount" json:"paid_amount"`
+	BalanceDue      float64               `db:"balance_due" json:"balance_due"`
+	PaymentStatus   string                `db:"payment_status" json:"payment_status"`
+	PaymentMethod   string                `db:"payment_method" json:"payment_method"`
+	Notes           string                `db:"notes" json:"notes"`
+	CreatedByUserID *uuid.UUID            `db:"created_by_user_id" json:"created_by_user_id,omitempty"`
+	CompletedAt     *time.Time            `db:"completed_at" json:"completed_at,omitempty"`
+	CreatedAt       time.Time             `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time             `db:"updated_at" json:"updated_at"`
+	PaymentMethods  []OrderPaymentMethod  `db:"-" json:"payment_methods"`
+	PaymentAttempts []OrderPaymentAttempt `db:"-" json:"payment_attempts"`
+	Items           []OrderItem           `db:"-" json:"items"`
+}
+
+type PublicOrderItemInput struct {
+	ResourceItemID string `json:"resource_item_id"`
+	Quantity       int    `json:"quantity"`
+}
+
+type CreatePublicOrderInput struct {
+	ResourceID    string                 `json:"resource_id"`
+	CustomerName  string                 `json:"customer_name"`
+	CustomerPhone string                 `json:"customer_phone"`
+	Notes         string                 `json:"notes"`
+	Items         []PublicOrderItemInput `json:"items"`
 }
 
 type OrderItem struct {

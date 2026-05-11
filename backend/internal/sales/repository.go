@@ -22,12 +22,12 @@ func NewRepository(db *sqlx.DB) *Repository {
 func (r *Repository) CreateOrder(ctx context.Context, order Order) (*Order, error) {
 	query := `
 		INSERT INTO sales_orders (
-			id, tenant_id, customer_id, resource_id, order_number,
+			id, tenant_id, customer_id, resource_id, access_token, order_number,
 			status, subtotal, discount_amount, grand_total, paid_amount,
 			balance_due, payment_status, payment_method, notes,
 			created_by_user_id, completed_at, created_at, updated_at
 		) VALUES (
-			:id, :tenant_id, :customer_id, :resource_id, :order_number,
+			:id, :tenant_id, :customer_id, :resource_id, :access_token, :order_number,
 			:status, :subtotal, :discount_amount, :grand_total, :paid_amount,
 			:balance_due, :payment_status, :payment_method, :notes,
 			:created_by_user_id, :completed_at, :created_at, :updated_at
@@ -56,6 +56,58 @@ func (r *Repository) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*Orde
 	}
 
 	return &order, nil
+}
+
+func (r *Repository) GetByCustomer(ctx context.Context, tenantID, customerID, id uuid.UUID) (*Order, error) {
+	var order Order
+	err := r.db.GetContext(ctx, &order, `
+		SELECT
+			so.*,
+			COALESCE(r.name, '') AS resource_name
+		FROM sales_orders so
+		JOIN resources r ON r.id = so.resource_id
+		WHERE so.id = $1
+		  AND so.tenant_id = $2
+		  AND so.customer_id = $3
+		LIMIT 1`, id, tenantID, customerID)
+	if err != nil {
+		return nil, err
+	}
+
+	items, err := r.ListItemsByOrder(ctx, id)
+	if err == nil {
+		order.Items = items
+	}
+
+	return &order, nil
+}
+
+func (r *Repository) GetByToken(ctx context.Context, accessToken uuid.UUID) (*Order, error) {
+	var order Order
+	err := r.db.GetContext(ctx, &order, `
+		SELECT
+			so.*,
+			COALESCE(r.name, '') AS resource_name
+		FROM sales_orders so
+		JOIN resources r ON r.id = so.resource_id
+		WHERE so.access_token = $1
+		LIMIT 1`, accessToken)
+	if err != nil {
+		return nil, err
+	}
+
+	items, err := r.ListItemsByOrder(ctx, order.ID)
+	if err == nil {
+		order.Items = items
+	}
+
+	return &order, nil
+}
+
+func (r *Repository) GetTenantSlug(ctx context.Context, tenantID uuid.UUID) (string, error) {
+	var slug string
+	err := r.db.GetContext(ctx, &slug, `SELECT slug FROM tenants WHERE id = $1 LIMIT 1`, tenantID)
+	return slug, err
 }
 
 func (r *Repository) HydrateOrderPayments(ctx context.Context, order *Order, methods []OrderPaymentMethod) error {

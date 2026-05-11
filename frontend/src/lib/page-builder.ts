@@ -86,8 +86,32 @@ export type BuilderResource = {
   description?: string;
   image_url?: string;
   gallery?: string[];
+  starting_price?: number;
+  starting_price_unit?: string;
+  primary_offer_name?: string;
+  primary_offer_price?: number;
+  primary_offer_unit?: string;
+  primary_offer_duration?: number;
   items?: BuilderResourceItem[];
 };
+
+export function extractBuilderResourcesPayload(data: unknown): BuilderResource[] {
+  if (Array.isArray(data)) {
+    return data as BuilderResource[];
+  }
+
+  if (typeof data === "object" && data !== null) {
+    if (Array.isArray((data as { resources?: unknown[] }).resources)) {
+      return (data as { resources: BuilderResource[] }).resources;
+    }
+
+    if (Array.isArray((data as { items?: unknown[] }).items)) {
+      return (data as { items: BuilderResource[] }).items;
+    }
+  }
+
+  return [];
+}
 
 type FallbackAsset = {
   banner: string;

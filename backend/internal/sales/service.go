@@ -16,7 +16,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/helwiza/backend/internal/billing"
+	"github.com/helwiza/backend/internal/customer"
 	"github.com/helwiza/backend/internal/platform/midtrans"
+	platformrealtime "github.com/helwiza/backend/internal/platform/realtime"
 	"github.com/helwiza/backend/internal/resource"
 	"github.com/jmoiron/sqlx"
 )
@@ -25,17 +27,29 @@ type Service struct {
 	repo         *Repository
 	resourceRepo *resource.Repository
 	billingRepo  *billing.Repository
+	customerSvc  *customer.Service
 	db           *sqlx.DB
 	http         *http.Client
+	realtime     realtimeBroadcaster
 }
 
-func NewService(repo *Repository, resourceRepo *resource.Repository, billingRepo *billing.Repository, db *sqlx.DB) *Service {
+type realtimeBroadcaster interface {
+	Publish(channel string, event platformrealtime.Event) error
+}
+
+func NewService(repo *Repository, resourceRepo *resource.Repository, billingRepo *billing.Repository, customerSvc *customer.Service, db *sqlx.DB, realtime ...realtimeBroadcaster) *Service {
+	var broadcaster realtimeBroadcaster
+	if len(realtime) > 0 {
+		broadcaster = realtime[0]
+	}
 	return &Service{
 		repo:         repo,
 		resourceRepo: resourceRepo,
 		billingRepo:  billingRepo,
+		customerSvc:  customerSvc,
 		db:           db,
 		http:         &http.Client{Timeout: 20 * time.Second},
+		realtime:     broadcaster,
 	}
 }
 
@@ -73,6 +87,7 @@ func (s *Service) CreateOrder(ctx context.Context, tenantID uuid.UUID, createdBy
 		TenantID:        tenantID,
 		CustomerID:      customerID,
 		ResourceID:      resourceID,
+		AccessToken:     uuid.New(),
 		OrderNumber:     generateOrderNumber(now),
 		Status:          "open",
 		Subtotal:        0,
@@ -91,6 +106,64 @@ func (s *Service) CreateOrder(ctx context.Context, tenantID uuid.UUID, createdBy
 	return s.repo.CreateOrder(ctx, order)
 }
 
+func (s *Service) CreatePublicOrder(ctx context.Context, input CreatePublicOrderInput) (*Order, *customer.Customer, error) {
+	resourceID, err := uuid.Parse(strings.TrimSpace(input.ResourceID))
+	if err != nil {
+		return nil, nil, errors.New("resource_id invalid")
+	}
+
+	resourceDetail, err := s.resourceRepo.GetOneWithItems(ctx, resourceID)
+	if err != nil {
+		return nil, nil, errors.New("resource not found")
+	}
+
+	mode := resource.NormalizeOperatingMode(resourceDetail.OperatingMode)
+	if mode != resource.OperatingModeDirectSale {
+		return nil, nil, errors.New("resource ini masih memakai flow booking berbasis waktu")
+	}
+	if len(input.Items) == 0 {
+		return nil, nil, errors.New("pilih minimal satu produk")
+	}
+	if s.customerSvc == nil {
+		return nil, nil, errors.New("customer service unavailable")
+	}
+
+	cust, err := s.customerSvc.Register(ctx, customer.RegisterReq{
+		Name:  strings.TrimSpace(input.CustomerName),
+		Phone: strings.TrimSpace(input.CustomerPhone),
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("gagal menyiapkan data customer: %w", err)
+	}
+
+	order, err := s.CreateOrder(ctx, resourceDetail.TenantID, nil, CreateOrderInput{
+		ResourceID: resourceID.String(),
+		CustomerID: cust.ID.String(),
+		Notes:      strings.TrimSpace(input.Notes),
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, item := range input.Items {
+		if _, err := s.AddItem(ctx, resourceDetail.TenantID, order.ID, AddItemInput{
+			ResourceItemID: item.ResourceItemID,
+			Quantity:       item.Quantity,
+		}); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	fresh, err := s.GetByID(ctx, resourceDetail.TenantID, order.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	s.emitOrderRealtime("order.created", fresh, map[string]any{
+		"flow": "direct_sale",
+	})
+	return fresh, cust, nil
+}
+
 func (s *Service) GetByID(ctx context.Context, tenantID, orderID uuid.UUID) (*Order, error) {
 	order, err := s.repo.GetByID(ctx, tenantID, orderID)
 	if err != nil {
@@ -104,6 +177,54 @@ func (s *Service) GetByID(ctx context.Context, tenantID, orderID uuid.UUID) (*Or
 		return nil, err
 	}
 	return order, nil
+}
+
+func (s *Service) GetByIDForCustomer(ctx context.Context, tenantID, orderID, customerID uuid.UUID) (*Order, error) {
+	order, err := s.repo.GetByCustomer(ctx, tenantID, customerID, orderID)
+	if err != nil {
+		return nil, err
+	}
+	methods, err := s.listTenantPaymentMethods(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.repo.HydrateOrderPayments(ctx, order, methods); err != nil {
+		return nil, err
+	}
+	return order, nil
+}
+
+func (s *Service) ExchangeAccessToken(ctx context.Context, accessToken string) (*Order, *customer.Customer, string, error) {
+	tokenUUID, err := uuid.Parse(strings.TrimSpace(accessToken))
+	if err != nil {
+		return nil, nil, "", errors.New("LINK SUDAH KADALUARSA ATAU TIDAK VALID")
+	}
+
+	order, err := s.repo.GetByToken(ctx, tokenUUID)
+	if err != nil || order == nil || order.CustomerID == nil {
+		return nil, nil, "", errors.New("LINK SUDAH KADALUARSA ATAU TIDAK VALID")
+	}
+	if s.customerSvc == nil {
+		return nil, nil, "", errors.New("CUSTOMER SERVICE TIDAK TERSEDIA")
+	}
+
+	cust, err := s.customerSvc.GetDetail(ctx, order.CustomerID.String(), order.TenantID.String())
+	if err != nil || cust == nil {
+		return nil, nil, "", errors.New("DATA PELANGGAN TIDAK DITEMUKAN")
+	}
+
+	tenantSlug, _ := s.repo.GetTenantSlug(ctx, order.TenantID)
+	sessionToken, err := customer.GenerateAuthToken(
+		cust.ID.String(),
+		order.TenantID.String(),
+		tenantSlug,
+		time.Hour*72,
+	)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("GAGAL MENUKAR AKSES: %w", err)
+	}
+
+	return order, cust, sessionToken, nil
 }
 
 func (s *Service) ListByTenant(ctx context.Context, tenantID uuid.UUID, limit int, status, search string) ([]Order, error) {
@@ -243,6 +364,10 @@ func (s *Service) CheckoutPayment(ctx context.Context, tenantID, orderID uuid.UU
 	if err := s.repo.UpdateCheckout(ctx, tenantID, orderID, method.Code, order.Notes); err != nil {
 		return PaymentCheckoutRes{}, err
 	}
+	s.notifyOrderChange(ctx, tenantID, orderID, "payment.pending", map[string]any{
+		"method_code": method.Code,
+		"flow":        "direct_sale",
+	})
 
 	return PaymentCheckoutRes{
 		OrderID:      orderRef,
@@ -325,6 +450,10 @@ func (s *Service) SubmitManualPayment(ctx context.Context, tenantID, orderID uui
 	if err := s.repo.MarkOrderAwaitingVerification(ctx, orderID); err != nil {
 		return PaymentCheckoutRes{}, err
 	}
+	s.notifyOrderChange(ctx, tenantID, orderID, "payment.awaiting_verification", map[string]any{
+		"method_code": method.Code,
+		"flow":        "direct_sale",
+	})
 
 	return PaymentCheckoutRes{
 		Amount:       order.BalanceDue,
@@ -369,13 +498,24 @@ func (s *Service) VerifyManualPayment(ctx context.Context, tenantID, attemptID u
 		if err := s.repo.MarkPaymentAttemptStatus(ctx, attempt.ID, "rejected", nil, &adminNote); err != nil {
 			return err
 		}
+		s.notifyOrderChange(ctx, tenantID, attempt.SalesOrderID, "payment.rejected", map[string]any{
+			"attempt_id": attempt.ID.String(),
+			"flow":       "direct_sale",
+		})
 		return nil
 	}
 
 	if err := s.repo.ApplyManualSettlementPayment(ctx, attempt.SalesOrderID, attempt.MethodCode); err != nil {
 		return err
 	}
-	return s.repo.MarkPaymentAttemptStatus(ctx, attempt.ID, "verified", nil, &adminNote)
+	if err := s.repo.MarkPaymentAttemptStatus(ctx, attempt.ID, "verified", nil, &adminNote); err != nil {
+		return err
+	}
+	s.notifyOrderChange(ctx, tenantID, attempt.SalesOrderID, "payment.manual.verified", map[string]any{
+		"attempt_id": attempt.ID.String(),
+		"flow":       "direct_sale",
+	})
+	return nil
 }
 
 func (s *Service) SettleCash(ctx context.Context, tenantID, orderID uuid.UUID, input CashSettleInput) error {
@@ -389,7 +529,13 @@ func (s *Service) SettleCash(ctx context.Context, tenantID, orderID uuid.UUID, i
 	if order.Status == "completed" || order.Status == "cancelled" {
 		return errors.New("sales order sudah ditutup")
 	}
-	return s.repo.SettleCash(ctx, tenantID, orderID, normalizePaymentMethod(input.PaymentMethod), strings.TrimSpace(input.Notes))
+	if err := s.repo.SettleCash(ctx, tenantID, orderID, normalizePaymentMethod(input.PaymentMethod), strings.TrimSpace(input.Notes)); err != nil {
+		return err
+	}
+	s.notifyOrderChange(ctx, tenantID, orderID, "payment.cash.settled", map[string]any{
+		"flow": "direct_sale",
+	})
+	return nil
 }
 
 func (s *Service) Close(ctx context.Context, tenantID, orderID uuid.UUID) error {
@@ -403,7 +549,13 @@ func (s *Service) Close(ctx context.Context, tenantID, orderID uuid.UUID) error 
 	if order.Status == "completed" {
 		return nil
 	}
-	return s.repo.Close(ctx, tenantID, orderID)
+	if err := s.repo.Close(ctx, tenantID, orderID); err != nil {
+		return err
+	}
+	s.notifyOrderChange(ctx, tenantID, orderID, "order.completed", map[string]any{
+		"flow": "direct_sale",
+	})
+	return nil
 }
 
 func (s *Service) prepareOrderItem(ctx context.Context, tenantID, orderID uuid.UUID, input AddItemInput) (*OrderItem, error) {
@@ -474,11 +626,7 @@ func buildReferenceCode(prefix string) string {
 }
 
 func normalizePaymentMethod(value string) string {
-	value = strings.ToLower(strings.TrimSpace(value))
-	if value == "" {
-		return "cash"
-	}
-	return value
+	return strings.ToLower(strings.TrimSpace(value))
 }
 
 func normalizeItemType(value string) string {
@@ -494,6 +642,50 @@ func maxFloat(value float64, minimum float64) float64 {
 		return minimum
 	}
 	return value
+}
+
+func (s *Service) notifyOrderChange(ctx context.Context, tenantID, orderID uuid.UUID, eventType string, meta map[string]any) {
+	order, err := s.GetByID(ctx, tenantID, orderID)
+	if err != nil || order == nil {
+		return
+	}
+	s.emitOrderRealtime(eventType, order, meta)
+}
+
+func (s *Service) emitOrderRealtime(eventType string, order *Order, meta map[string]any) {
+	if order == nil {
+		return
+	}
+	if s.customerSvc != nil && order.CustomerID != nil {
+		s.customerSvc.InvalidatePortalCache(context.Background(), *order.CustomerID)
+	}
+	if s.realtime == nil || order.CustomerID == nil {
+		return
+	}
+
+	event := platformrealtime.NewEvent(eventType)
+	event.TenantID = order.TenantID.String()
+	event.EntityType = "order"
+	event.EntityID = order.ID.String()
+	event.Summary = map[string]any{
+		"status":         order.Status,
+		"payment_status": order.PaymentStatus,
+		"resource_name":  order.ResourceName,
+		"grand_total":    order.GrandTotal,
+		"paid_amount":    order.PaidAmount,
+		"balance_due":    order.BalanceDue,
+	}
+	event.Refs = map[string]any{
+		"order_id":    order.ID.String(),
+		"customer_id": order.CustomerID.String(),
+	}
+	if len(meta) > 0 {
+		event.Meta = meta
+	}
+
+	customerID := order.CustomerID.String()
+	_ = s.realtime.Publish(platformrealtime.CustomerOrdersChannel(customerID), event)
+	_ = s.realtime.Publish(platformrealtime.CustomerOrderChannel(customerID, order.ID.String()), event)
 }
 
 func (s *Service) listTenantPaymentMethods(ctx context.Context, tenantID uuid.UUID) ([]OrderPaymentMethod, error) {

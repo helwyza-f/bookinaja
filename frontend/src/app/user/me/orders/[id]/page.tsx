@@ -1,0 +1,239 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { ArrowRight, BadgeCheck, ReceiptText } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import api from "@/lib/api";
+import { toast } from "sonner";
+import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
+import { getOrderStatusMeta } from "@/lib/customer-portal";
+import { useRealtime } from "@/lib/realtime/use-realtime";
+import { customerOrderChannel, customerOrdersChannel } from "@/lib/realtime/channels";
+import {
+  BOOKING_EVENT_PREFIXES,
+  matchesRealtimePrefix,
+  type RealtimeEvent,
+} from "@/lib/realtime/event-types";
+
+type OrderItem = {
+  id: string;
+  item_name: string;
+  quantity: number;
+  unit_price: number;
+  subtotal: number;
+};
+
+type CustomerOrderDetail = {
+  id?: string;
+  status?: string;
+  payment_status?: string;
+  customer_id?: string;
+  balance_due?: number;
+  grand_total?: number;
+  resource_name?: string;
+  items?: OrderItem[];
+  payment_attempts?: {
+    id: string;
+    method_label?: string;
+    status?: string;
+    created_at?: string;
+    reference_code?: string;
+  }[];
+};
+
+function patchOrderDetailFromEvent(current: CustomerOrderDetail | null, event: RealtimeEvent) {
+  const orderID = String(event.refs?.order_id || event.entity_id || "");
+  if (!current || !orderID || String(current.id || "") !== orderID) {
+    return current;
+  }
+
+  return {
+    ...current,
+    status: String(event.summary?.status ?? current.status ?? ""),
+    payment_status: String(event.summary?.payment_status ?? current.payment_status ?? ""),
+    grand_total:
+      typeof event.summary?.grand_total === "number"
+        ? Number(event.summary.grand_total)
+        : current.grand_total,
+    balance_due:
+      typeof event.summary?.balance_due === "number"
+        ? Number(event.summary.balance_due)
+        : current.balance_due,
+  };
+}
+
+export default function CustomerOrderDetailPage() {
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const [order, setOrder] = useState<CustomerOrderDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchDetail = useCallback(async (mode: "initial" | "background" = "initial") => {
+    const background = mode === "background";
+    try {
+      if (background) setRefreshing(true);
+      const res = await api.get(`/user/me/orders/${params.id}`);
+      setOrder(res.data);
+    } catch (error) {
+      if (isTenantAuthError(error)) {
+        clearTenantSession({ keepTenantSlug: true });
+        router.replace("/user/login");
+        return;
+      }
+      toast.error("Gagal memuat order customer");
+    } finally {
+      if (background) setRefreshing(false);
+      else setLoading(false);
+    }
+  }, [params.id, router]);
+
+  useEffect(() => {
+    void fetchDetail("initial");
+  }, [fetchDetail]);
+
+  const customerID = String(order?.customer_id || "");
+  const { connected: realtimeConnected } = useRealtime({
+    enabled: Boolean(customerID && params.id),
+    channels:
+      customerID && params.id
+        ? [customerOrdersChannel(customerID), customerOrderChannel(customerID, String(params.id))]
+        : [],
+    onEvent: (event) => {
+      if (!matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) return;
+      setOrder((current) => patchOrderDetailFromEvent(current, event));
+      void fetchDetail("background");
+    },
+    onReconnect: () => {
+      void fetchDetail("background");
+    },
+  });
+
+  const isPaid = useMemo(() => Number(order?.balance_due || 0) <= 0, [order?.balance_due]);
+  const statusMeta = useMemo(
+    () => getOrderStatusMeta(order?.status, order?.payment_status, order?.balance_due),
+    [order?.balance_due, order?.payment_status, order?.status],
+  );
+  const latestAttempt = useMemo(() => order?.payment_attempts?.[0], [order?.payment_attempts]);
+  const actionLabel = isPaid
+    ? "Lihat pembayaran"
+    : statusMeta.label === "Menunggu verifikasi" || statusMeta.label === "Pembayaran diproses"
+      ? "Lihat status pembayaran"
+      : "Pilih metode pembayaran";
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-4">
+        <Skeleton className="h-28 rounded-[1.5rem]" />
+        <Skeleton className="h-96 rounded-[1.5rem]" />
+      </div>
+    );
+  }
+
+  if (!order) return null;
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-4">
+      <Card className="rounded-[1.5rem] border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-[#0b0f19]">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge className="border-none bg-slate-950 text-white dark:bg-white dark:text-slate-950">
+            Direct Sale
+          </Badge>
+          <Badge className={statusMeta.className}>
+            {statusMeta.label}
+          </Badge>
+        </div>
+
+        <div className="mt-4 flex items-start justify-between gap-4">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+              {order.resource_name}
+            </div>
+            <h1 className="mt-2 text-3xl font-black uppercase italic tracking-tight text-slate-950 dark:text-white">
+              Ringkasan order
+            </h1>
+            <div className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+              {realtimeConnected ? "Realtime tersambung" : refreshing ? "Menyegarkan data..." : "Sinkronisasi otomatis aktif"}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-right dark:border-emerald-500/20 dark:bg-emerald-500/10">
+            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-200">
+              Total
+            </div>
+            <div className="mt-1 text-2xl font-black text-emerald-700 dark:text-emerald-100">
+              Rp{Number(order.grand_total || 0).toLocaleString("id-ID")}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="rounded-[1.5rem] border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-[#0b0f19]">
+        {statusMeta.hint ? (
+          <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
+            {statusMeta.hint}
+          </div>
+        ) : null}
+        {latestAttempt ? (
+          <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  Attempt terakhir
+                </p>
+                <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+                  {latestAttempt.method_label || "Pembayaran"}
+                </p>
+              </div>
+              <div className="text-right text-xs text-slate-500 dark:text-slate-400">
+                <div>{latestAttempt.reference_code || "Tanpa referensi"}</div>
+                <div className="mt-1">
+                  {latestAttempt.created_at
+                    ? new Date(latestAttempt.created_at).toLocaleString("id-ID", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "-"}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+        <div className="space-y-3">
+          {(order.items || []).map((item) => (
+            <div key={item.id} className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 p-4 dark:border-white/10">
+              <div>
+                <div className="text-sm font-semibold text-slate-950 dark:text-white">{item.item_name}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                  {item.quantity} x Rp{Number(item.unit_price || 0).toLocaleString("id-ID")}
+                </div>
+              </div>
+              <div className="text-sm font-black text-slate-950 dark:text-white">
+                Rp{Number(item.subtotal || 0).toLocaleString("id-ID")}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Button
+            onClick={() => router.push(`/user/me/orders/${params.id}/payment`)}
+            className="h-11 rounded-2xl bg-blue-600 px-5 font-semibold text-white hover:bg-blue-500"
+          >
+            {isPaid ? <BadgeCheck className="mr-2 h-4 w-4" /> : <ReceiptText className="mr-2 h-4 w-4" />}
+            {actionLabel}
+          </Button>
+          <Button variant="outline" className="h-11 rounded-2xl" onClick={() => router.push("/user/me")}>
+            Kembali ke portal
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}

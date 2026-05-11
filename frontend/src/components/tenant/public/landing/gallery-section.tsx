@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Maximize2, Camera } from "lucide-react";
+import { getLandingPresetTone } from "./theme-preset";
 
 interface GallerySectionProps {
   images: string[];
@@ -27,22 +28,12 @@ export function GallerySection({
 }: GallerySectionProps) {
   const safeImages = (images || []).filter((url) => Boolean(url?.trim()));
   if (!safeImages.length) return null;
+  const tone = getLandingPresetTone(preset);
   const frameRadiusClass =
     radiusStyle === "square" ? "rounded-[1.25rem] md:rounded-[1.8rem]" : radiusStyle === "soft" ? "rounded-[2.2rem] md:rounded-[2.75rem]" : "rounded-[2rem] md:rounded-[3rem]";
   const tagRadiusClass =
     radiusStyle === "square" ? "rounded-[0.9rem]" : radiusStyle === "soft" ? "rounded-[1.15rem]" : "rounded-full";
-  const sectionBackgroundClass =
-    preset === "boutique"
-      ? "bg-[#fffdf9] dark:bg-[#0f0c0a] border-stone-100 dark:border-white/5"
-      : preset === "sunset-glow"
-        ? "bg-[linear-gradient(180deg,#fffaf5_0%,#fff1e8_100%)] dark:bg-[#120804] border-orange-100 dark:border-orange-500/10"
-      : preset === "playful"
-        ? "bg-[linear-gradient(180deg,#f8fffb_0%,#f0fdf4_100%)] dark:bg-[#03120d] border-emerald-100/80 dark:border-emerald-500/10"
-        : preset === "mono-luxe"
-          ? "bg-[linear-gradient(180deg,#ffffff_0%,#eef2f7_100%)] dark:bg-[#020617] border-slate-200 dark:border-white/5"
-        : preset === "dark-pro"
-          ? "bg-[linear-gradient(180deg,#f8fafc_0%,#e2e8f0_100%)] dark:bg-[#020617] border-slate-200 dark:border-white/5"
-          : "bg-white dark:bg-[#050505] border-slate-100 dark:border-white/5";
+  const sectionBackgroundClass = tone.section;
   const frameClass =
     preset === "boutique"
       ? "border-stone-200 bg-[#fff8f1] shadow-[0_20px_60px_rgba(41,37,36,0.12)]"
@@ -67,26 +58,8 @@ export function GallerySection({
         : preset === "dark-pro"
           ? "rounded-[1rem] bg-white/70 dark:bg-[#0b1120]"
           : "rounded-2xl bg-slate-50 dark:bg-white/5";
-  const subtleTextClass =
-    preset === "boutique"
-      ? "text-stone-400 dark:text-stone-300"
-      : preset === "sunset-glow"
-        ? "text-orange-500 dark:text-orange-300"
-      : preset === "playful"
-        ? "text-emerald-500 dark:text-emerald-300"
-        : preset === "mono-luxe"
-          ? "text-slate-500 dark:text-slate-300"
-        : "text-slate-400 dark:text-slate-300";
-  const bodyTextClass =
-    preset === "boutique"
-      ? "text-stone-600 dark:text-stone-300"
-      : preset === "sunset-glow"
-        ? "text-orange-900/85 dark:text-orange-100/85"
-      : preset === "playful"
-        ? "text-emerald-800 dark:text-emerald-100"
-        : preset === "mono-luxe"
-          ? "text-slate-800 dark:text-slate-100"
-        : "text-slate-700 dark:text-slate-100";
+  const subtleTextClass = tone.eyebrow;
+  const bodyTextClass = tone.body;
 
   return (
     <section className={cn("py-24 md:py-40 px-6 border-t relative overflow-hidden", sectionBackgroundClass)}>
@@ -108,21 +81,13 @@ export function GallerySection({
               <span
                 className={cn(
                   "text-[11px] font-[1000] uppercase tracking-[0.5em] italic",
-                  preset === "boutique"
-                    ? "text-stone-400 dark:text-stone-300"
-                    : preset === "sunset-glow"
-                      ? "text-orange-500 dark:text-orange-300"
-                    : preset === "playful"
-                      ? "text-emerald-500 dark:text-emerald-300"
-                      : preset === "mono-luxe"
-                        ? "text-slate-500 dark:text-slate-300"
-                      : "text-slate-500 dark:text-slate-300",
+                  tone.eyebrow,
                 )}
               >
                 {eyebrow || "Visual Experience"}
               </span>
             </div>
-            <h2 className="text-5xl md:text-8xl font-[1000] uppercase italic tracking-tighter leading-none text-slate-950 dark:text-white">
+            <h2 className={cn("text-5xl md:text-8xl font-[1000] uppercase italic tracking-tighter leading-none", tone.title)}>
               {title ? (
                 title
               ) : (
@@ -132,7 +97,7 @@ export function GallerySection({
               )}
             </h2>
             {description ? (
-              <p className="max-w-2xl text-sm font-medium leading-7 text-slate-600 dark:text-slate-300">
+              <p className={cn("max-w-2xl text-sm font-medium leading-7", tone.body)}>
                 {description}
               </p>
             ) : null}

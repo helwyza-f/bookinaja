@@ -30,6 +30,7 @@ const (
 )
 
 const googleClaimTTL = 15 * time.Minute
+const portalCacheTTL = 15 * time.Second
 
 type googleIdentity struct {
 	Subject       string  `json:"subject"`
@@ -54,6 +55,42 @@ func NewService(r *Repository, rdb *redis.Client) *Service {
 	}
 	svc.verifyGoogleIdentityFn = svc.defaultVerifyGoogleIdentity
 	return svc
+}
+
+func (s *Service) portalCacheKey(kind string, customerID uuid.UUID) string {
+	return fmt.Sprintf("customer:portal:%s:%s", kind, customerID.String())
+}
+
+func (s *Service) portalCacheGet(ctx context.Context, key string, dest any) bool {
+	if s.redis == nil {
+		return false
+	}
+	val, err := s.redis.Get(ctx, key).Result()
+	if err != nil {
+		return false
+	}
+	return json.Unmarshal([]byte(val), dest) == nil
+}
+
+func (s *Service) portalCacheSet(ctx context.Context, key string, value any) {
+	if s.redis == nil {
+		return
+	}
+	if raw, err := json.Marshal(value); err == nil {
+		_ = s.redis.Set(ctx, key, raw, portalCacheTTL).Err()
+	}
+}
+
+func (s *Service) InvalidatePortalCache(ctx context.Context, customerID uuid.UUID) {
+	if s.redis == nil {
+		return
+	}
+	_ = s.redis.Del(
+		ctx,
+		s.portalCacheKey("summary", customerID),
+		s.portalCacheKey("active", customerID),
+		s.portalCacheKey("history", customerID),
+	).Err()
 }
 
 // --- AUTH & OTP LOGIC (REDIS + FONNTE) ---
@@ -665,11 +702,48 @@ func (s *Service) GetDashboardData(ctx context.Context, customerID uuid.UUID) (*
 	}
 
 	// 1. Ambil bokingan aktif (Upcoming/In-Progress)
-	active, _ := s.repo.GetActiveBookings(ctx, customerID)
+	active, err := s.repo.GetActiveBookings(ctx, customerID, 0)
+	if err != nil {
+		log.Printf("customer dashboard active bookings failed customer_id=%s err=%v", customerID.String(), err)
+		active = []RecentHistoryDTO{}
+	}
+	activeOrders, err := s.repo.GetActiveOrders(ctx, customerID, 0)
+	if err != nil {
+		log.Printf("customer dashboard active orders failed customer_id=%s err=%v", customerID.String(), err)
+		activeOrders = []RecentHistoryDTO{}
+	}
 
 	// 2. Ambil riwayat lampau (Limit 10 history terakhir)
-	past, _ := s.repo.GetPastHistory(ctx, customerID, 10)
-	pointActivity, _ := s.repo.ListPointActivity(ctx, customerID, nil, 8)
+	past, err := s.repo.GetPastHistory(ctx, customerID, 10)
+	if err != nil {
+		log.Printf("customer dashboard past bookings failed customer_id=%s err=%v", customerID.String(), err)
+		past = []RecentHistoryDTO{}
+	}
+	pastOrders, err := s.repo.GetPastOrders(ctx, customerID, 10)
+	if err != nil {
+		log.Printf("customer dashboard past orders failed customer_id=%s err=%v", customerID.String(), err)
+		pastOrders = []RecentHistoryDTO{}
+	}
+	pointActivity, err := s.repo.ListPointActivity(ctx, customerID, nil, 8)
+	if err != nil {
+		log.Printf("customer dashboard point activity failed customer_id=%s err=%v", customerID.String(), err)
+		pointActivity = []CustomerPointEvent{}
+	}
+	if active == nil {
+		active = []RecentHistoryDTO{}
+	}
+	if activeOrders == nil {
+		activeOrders = []RecentHistoryDTO{}
+	}
+	if past == nil {
+		past = []RecentHistoryDTO{}
+	}
+	if pastOrders == nil {
+		pastOrders = []RecentHistoryDTO{}
+	}
+	if pointActivity == nil {
+		pointActivity = []CustomerPointEvent{}
+	}
 
 	return &CustomerDashboardData{
 		Customer:          *cust,
@@ -678,8 +752,159 @@ func (s *Service) GetDashboardData(ctx context.Context, customerID uuid.UUID) (*
 		ProfileCompletion: calculateProfileCompletion(*cust),
 		IdentityMethods:   customerIdentityMethods(*cust),
 		ActiveBookings:    active,
+		ActiveOrders:      activeOrders,
 		PastHistory:       past,
+		PastOrders:        pastOrders,
 	}, nil
+}
+
+func (s *Service) GetPortalSummaryData(ctx context.Context, customerID uuid.UUID) (*CustomerPortalSummaryData, error) {
+	cacheKey := s.portalCacheKey("summary", customerID)
+	var cached CustomerPortalSummaryData
+	if s.portalCacheGet(ctx, cacheKey, &cached) {
+		if cached.ActiveBookings == nil {
+			cached.ActiveBookings = []RecentHistoryDTO{}
+		}
+		if cached.ActiveOrders == nil {
+			cached.ActiveOrders = []RecentHistoryDTO{}
+		}
+		if cached.PastHistory == nil {
+			cached.PastHistory = []RecentHistoryDTO{}
+		}
+		if cached.PointActivity == nil {
+			cached.PointActivity = []CustomerPointEvent{}
+		}
+		return &cached, nil
+	}
+
+	cust, err := s.repo.FindByID(ctx, customerID)
+	if err != nil || cust == nil {
+		return nil, fmt.Errorf("profil pelanggan tidak ditemukan")
+	}
+
+	active, err := s.repo.GetActiveBookings(ctx, customerID, 5)
+	if err != nil {
+		log.Printf("customer summary active bookings failed customer_id=%s err=%v", customerID.String(), err)
+		active = []RecentHistoryDTO{}
+	}
+	activeOrders, err := s.repo.GetActiveOrders(ctx, customerID, 3)
+	if err != nil {
+		log.Printf("customer summary active orders failed customer_id=%s err=%v", customerID.String(), err)
+		activeOrders = []RecentHistoryDTO{}
+	}
+	past, err := s.repo.GetPastHistory(ctx, customerID, 3)
+	if err != nil {
+		log.Printf("customer summary past bookings failed customer_id=%s err=%v", customerID.String(), err)
+		past = []RecentHistoryDTO{}
+	}
+	pointActivity, err := s.repo.ListPointActivity(ctx, customerID, nil, 3)
+	if err != nil {
+		log.Printf("customer summary point activity failed customer_id=%s err=%v", customerID.String(), err)
+		pointActivity = []CustomerPointEvent{}
+	}
+
+	if active == nil {
+		active = []RecentHistoryDTO{}
+	}
+	if activeOrders == nil {
+		activeOrders = []RecentHistoryDTO{}
+	}
+	if past == nil {
+		past = []RecentHistoryDTO{}
+	}
+	if pointActivity == nil {
+		pointActivity = []CustomerPointEvent{}
+	}
+
+	result := &CustomerPortalSummaryData{
+		CustomerID:        customerID.String(),
+		Customer:          *cust,
+		Points:            cust.LoyaltyPoints,
+		PointActivity:     pointActivity,
+		ProfileCompletion: calculateProfileCompletion(*cust),
+		IdentityMethods:   customerIdentityMethods(*cust),
+		ActiveBookings:    active,
+		ActiveOrders:      activeOrders,
+		PastHistory:       past,
+	}
+	s.portalCacheSet(ctx, cacheKey, result)
+	return result, nil
+}
+
+func (s *Service) GetPortalActiveData(ctx context.Context, customerID uuid.UUID) (*CustomerPortalActiveData, error) {
+	cacheKey := s.portalCacheKey("active", customerID)
+	var cached CustomerPortalActiveData
+	if s.portalCacheGet(ctx, cacheKey, &cached) {
+		if cached.ActiveBookings == nil {
+			cached.ActiveBookings = []RecentHistoryDTO{}
+		}
+		if cached.ActiveOrders == nil {
+			cached.ActiveOrders = []RecentHistoryDTO{}
+		}
+		return &cached, nil
+	}
+
+	active, err := s.repo.GetActiveBookings(ctx, customerID, 0)
+	if err != nil {
+		log.Printf("customer active bookings failed customer_id=%s err=%v", customerID.String(), err)
+		active = []RecentHistoryDTO{}
+	}
+	activeOrders, err := s.repo.GetActiveOrders(ctx, customerID, 0)
+	if err != nil {
+		log.Printf("customer active orders failed customer_id=%s err=%v", customerID.String(), err)
+		activeOrders = []RecentHistoryDTO{}
+	}
+	if active == nil {
+		active = []RecentHistoryDTO{}
+	}
+	if activeOrders == nil {
+		activeOrders = []RecentHistoryDTO{}
+	}
+	result := &CustomerPortalActiveData{
+		CustomerID:     customerID.String(),
+		ActiveBookings: active,
+		ActiveOrders:   activeOrders,
+	}
+	s.portalCacheSet(ctx, cacheKey, result)
+	return result, nil
+}
+
+func (s *Service) GetPortalHistoryData(ctx context.Context, customerID uuid.UUID) (*CustomerPortalHistoryData, error) {
+	cacheKey := s.portalCacheKey("history", customerID)
+	var cached CustomerPortalHistoryData
+	if s.portalCacheGet(ctx, cacheKey, &cached) {
+		if cached.PastHistory == nil {
+			cached.PastHistory = []RecentHistoryDTO{}
+		}
+		if cached.PastOrders == nil {
+			cached.PastOrders = []RecentHistoryDTO{}
+		}
+		return &cached, nil
+	}
+
+	past, err := s.repo.GetPastHistory(ctx, customerID, 20)
+	if err != nil {
+		log.Printf("customer history bookings failed customer_id=%s err=%v", customerID.String(), err)
+		past = []RecentHistoryDTO{}
+	}
+	pastOrders, err := s.repo.GetPastOrders(ctx, customerID, 20)
+	if err != nil {
+		log.Printf("customer history orders failed customer_id=%s err=%v", customerID.String(), err)
+		pastOrders = []RecentHistoryDTO{}
+	}
+	if past == nil {
+		past = []RecentHistoryDTO{}
+	}
+	if pastOrders == nil {
+		pastOrders = []RecentHistoryDTO{}
+	}
+	result := &CustomerPortalHistoryData{
+		CustomerID:  customerID.String(),
+		PastHistory: past,
+		PastOrders:  pastOrders,
+	}
+	s.portalCacheSet(ctx, cacheKey, result)
+	return result, nil
 }
 
 func (s *Service) UpdateAccount(ctx context.Context, customerID string, req UpdateProfileReq) (*Customer, error) {

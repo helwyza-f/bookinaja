@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Compass, History, Moon, Settings, SunMedium, Ticket } from "lucide-react";
+import { Compass, History, Moon, Settings, Ticket } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -45,6 +45,7 @@ export function CustomerPortalShell({
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={false}
                   className={cn(
                     "inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition-all",
                     active
@@ -65,9 +66,9 @@ export function CustomerPortalShell({
             size="icon"
             onClick={() => setTheme(isDark ? "light" : "dark")}
             className="h-10 w-10 rounded-2xl border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.03]"
-            aria-label={isDark ? "Pakai mode terang" : "Pakai mode gelap"}
+            aria-label="Ubah tema"
           >
-            {isDark ? <SunMedium className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            <Moon className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -85,6 +86,7 @@ export function CustomerPortalShell({
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 className={cn(
                   "flex flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[10px] font-black uppercase tracking-[0.12em] transition-all",
                   active
@@ -104,6 +106,12 @@ export function CustomerPortalShell({
 }
 
 function resolveHeaderMeta(pathname: string) {
+  if (pathname.startsWith("/user/me/orders/") && pathname.includes("/payment")) {
+    return { eyebrow: "Customer", title: "Pembayaran Order" };
+  }
+  if (pathname.startsWith("/user/me/orders/")) {
+    return { eyebrow: "Customer", title: "Order" };
+  }
   if (pathname.startsWith("/user/me/bookings/") && pathname.includes("/payment")) {
     return { eyebrow: "Customer", title: "Pembayaran" };
   }

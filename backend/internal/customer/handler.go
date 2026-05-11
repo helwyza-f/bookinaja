@@ -273,15 +273,8 @@ func (h *Handler) ValidateCustomer(c *gin.Context) {
 
 // GetMe mengambil data dashboard lengkap (Active Bookings & History)
 func (h *Handler) GetMe(c *gin.Context) {
-	customerIDStr, exists := c.Get("customerID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid, silakan login kembali"})
-		return
-	}
-
-	custID, err := uuid.Parse(customerIDStr.(string))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID Pelanggan tidak valid"})
+	custID, ok := customerIDFromContext(c)
+	if !ok {
 		return
 	}
 
@@ -292,6 +285,61 @@ func (h *Handler) GetMe(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, data)
+}
+
+func (h *Handler) GetSummary(c *gin.Context) {
+	custID, ok := customerIDFromContext(c)
+	if !ok {
+		return
+	}
+	data, err := h.service.GetPortalSummaryData(c.Request.Context(), custID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
+
+func (h *Handler) GetActive(c *gin.Context) {
+	custID, ok := customerIDFromContext(c)
+	if !ok {
+		return
+	}
+	data, err := h.service.GetPortalActiveData(c.Request.Context(), custID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
+
+func (h *Handler) GetPortalHistory(c *gin.Context) {
+	custID, ok := customerIDFromContext(c)
+	if !ok {
+		return
+	}
+	data, err := h.service.GetPortalHistoryData(c.Request.Context(), custID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
+
+func customerIDFromContext(c *gin.Context) (uuid.UUID, bool) {
+	customerIDStr, exists := c.Get("customerID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid, silakan login kembali"})
+		return uuid.Nil, false
+	}
+
+	custID, err := uuid.Parse(customerIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID Pelanggan tidak valid"})
+		return uuid.Nil, false
+	}
+
+	return custID, true
 }
 
 // UpdateMe memperbarui profil customer global

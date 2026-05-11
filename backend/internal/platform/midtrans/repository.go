@@ -24,11 +24,12 @@ type BookingPaymentAttempt struct {
 }
 
 type SalesOrderPaymentAttempt struct {
-	ID           uuid.UUID `db:"id"`
-	MethodCode   string    `db:"method_code"`
-	SalesOrderID uuid.UUID `db:"sales_order_id"`
-	TenantID     uuid.UUID `db:"tenant_id"`
-	Amount       int64     `db:"amount"`
+	ID           uuid.UUID  `db:"id"`
+	MethodCode   string     `db:"method_code"`
+	SalesOrderID uuid.UUID  `db:"sales_order_id"`
+	TenantID     uuid.UUID  `db:"tenant_id"`
+	CustomerID   *uuid.UUID `db:"customer_id"`
+	Amount       int64      `db:"amount"`
 }
 
 func NewRepository(db *sqlx.DB, rdb ...*redis.Client) *Repository {
@@ -356,7 +357,7 @@ func (r *Repository) GetBookingPaymentAttemptByGatewayOrderID(ctx context.Contex
 func (r *Repository) GetSalesOrderPaymentAttemptByGatewayOrderID(ctx context.Context, exec sqlx.ExtContext, orderID string) (*SalesOrderPaymentAttempt, error) {
 	var item SalesOrderPaymentAttempt
 	err := sqlx.GetContext(ctx, exec, &item, `
-		SELECT id, method_code, sales_order_id, tenant_id, amount
+		SELECT id, method_code, sales_order_id, tenant_id, customer_id, amount
 		FROM sales_order_payment_attempts
 		WHERE gateway_order_id = $1
 		ORDER BY created_at DESC

@@ -40,7 +40,7 @@ export default async function TenantRootLayout({
   let initialProfile = null;
   try {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/public/profile?slug=${tenantSlug}`,
+      `${process.env.NEXT_PUBLIC_API_URL}/public/site?slug=${tenantSlug}`,
       { cache: "no-store" },
     );
 

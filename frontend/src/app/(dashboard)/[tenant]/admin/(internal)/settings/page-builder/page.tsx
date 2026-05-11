@@ -55,6 +55,7 @@ import {
   type BuilderSection,
   type LandingPageConfig,
   type LandingThemeConfig,
+  extractBuilderResourcesPayload,
   normalizeBookingFormConfig,
   normalizePageBuilderConfig,
   normalizeThemeConfig,
@@ -391,7 +392,7 @@ export default function PageBuilderPage() {
     try {
       const [builderRes, resourceRes] = await Promise.all([
         api.get<PageBuilderState>("/admin/page-builder"),
-        api.get("/admin/resources/list"),
+        api.get("/public/resources"),
       ]);
       const data = builderRes.data;
       const normalizedPage = normalizePageBuilderConfig(data.page);
@@ -416,7 +417,7 @@ export default function PageBuilderPage() {
       );
       setLastPublishedAt(new Date());
       setPreviewUrl(data.preview_url);
-      setResources(resourceRes.data?.items || resourceRes.data || []);
+      setResources(extractBuilderResourcesPayload(resourceRes.data));
       setSelectedSectionId(normalizedPage.sections[0]?.id || "hero");
       setExpandedSectionId(null);
     } catch {

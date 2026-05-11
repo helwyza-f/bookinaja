@@ -9,9 +9,9 @@ import (
 )
 
 type Hub struct {
-	mu           sync.RWMutex
-	channels     map[string]map[*Client]struct{}
-	clientCount  int
+	mu          sync.RWMutex
+	channels    map[string]map[*Client]struct{}
+	clientCount int
 }
 
 type Broadcaster interface {
@@ -146,7 +146,7 @@ func validateChannel(principal *Principal, channel string) error {
 			return fmt.Errorf("channel customer hanya untuk customer")
 		}
 		parts := strings.Split(channel, ":")
-		if len(parts) < 4 {
+		if len(parts) < 3 {
 			return fmt.Errorf("format channel customer tidak valid")
 		}
 		if principal.CustomerID == "" || principal.CustomerID != parts[1] {

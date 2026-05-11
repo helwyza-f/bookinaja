@@ -34,6 +34,10 @@ func (r *Repository) getProfileCacheKey(slug string) string {
 	return fmt.Sprintf("tenant:profile:slug:%s", strings.ToLower(strings.TrimSpace(slug)))
 }
 
+func (r *Repository) getPublicProfileCacheKey(slug string) string {
+	return fmt.Sprintf("tenant:public_profile:slug:%s", strings.ToLower(strings.TrimSpace(slug)))
+}
+
 func (r *Repository) getProfileByIDCacheKey(id string) string {
 	return fmt.Sprintf("tenant:profile:id:%s", id)
 }
@@ -48,6 +52,14 @@ func (r *Repository) getUserCacheKey(id string) string {
 
 func (r *Repository) getPublicTenantsCacheKey() string {
 	return "tenant:public:list"
+}
+
+func (r *Repository) getPublicDiscoverFeedCacheKey() string {
+	return "discover:public:feed:v1"
+}
+
+func (r *Repository) getPlatformBooleanSettingCacheKey(key string) string {
+	return fmt.Sprintf("platform:feature:%s", strings.ToLower(strings.TrimSpace(key)))
 }
 
 func (r *Repository) invalidateUserCache(ctx context.Context, userIDs ...uuid.UUID) {
@@ -82,6 +94,17 @@ func (r *Repository) invalidateStaffCacheByRole(ctx context.Context, tenantID, r
 }
 
 func (r *Repository) GetPlatformBooleanSetting(ctx context.Context, key string, field string) (bool, bool, error) {
+	if r.rdb != nil {
+		cacheKey := r.getPlatformBooleanSettingCacheKey(key)
+		var payload map[string]bool
+		if val, err := r.rdb.Get(ctx, cacheKey).Result(); err == nil {
+			if err := json.Unmarshal([]byte(val), &payload); err == nil {
+				value, ok := payload[field]
+				return value, ok, nil
+			}
+		}
+	}
+
 	var raw json.RawMessage
 	err := r.db.GetContext(ctx, &raw, `
 		SELECT value_json
@@ -109,7 +132,39 @@ func (r *Repository) GetPlatformBooleanSetting(ctx context.Context, key string, 
 	if !ok {
 		return false, false, nil
 	}
+	if r.rdb != nil {
+		cacheKey := r.getPlatformBooleanSettingCacheKey(key)
+		if raw, err := json.Marshal(map[string]bool{field: booleanValue}); err == nil {
+			_ = r.rdb.Set(ctx, cacheKey, raw, 5*time.Minute).Err()
+		}
+	}
 	return booleanValue, true, nil
+}
+
+func (r *Repository) GetCachedPublicDiscoverFeed(ctx context.Context) (*PublicDiscoverFeedResponse, bool) {
+	if r.rdb == nil {
+		return nil, false
+	}
+	val, err := r.rdb.Get(ctx, r.getPublicDiscoverFeedCacheKey()).Result()
+	if err != nil {
+		return nil, false
+	}
+	var feed PublicDiscoverFeedResponse
+	if err := json.Unmarshal([]byte(val), &feed); err != nil {
+		return nil, false
+	}
+	return &feed, true
+}
+
+func (r *Repository) CachePublicDiscoverFeed(ctx context.Context, feed *PublicDiscoverFeedResponse, ttl time.Duration) {
+	if r.rdb == nil || feed == nil {
+		return
+	}
+	raw, err := json.Marshal(feed)
+	if err != nil {
+		return
+	}
+	_ = r.rdb.Set(ctx, r.getPublicDiscoverFeedCacheKey(), raw, ttl).Err()
 }
 
 // --- CORE REPOSITORY LOGIC ---
@@ -143,6 +198,70 @@ func (r *Repository) GetBySlug(ctx context.Context, slug string) (*Tenant, error
 	r.rdb.Set(ctx, cacheKey, jsonData, 24*time.Hour)
 
 	return &t, nil
+}
+
+func (r *Repository) GetPublicProfileBySlug(ctx context.Context, slug string) (*PublicTenantProfile, error) {
+	slug = strings.ToLower(strings.TrimSpace(slug))
+	cacheKey := r.getPublicProfileCacheKey(slug)
+
+	if r.rdb != nil {
+		val, err := r.rdb.Get(ctx, cacheKey).Result()
+		if err == nil {
+			var profile PublicTenantProfile
+			if err := json.Unmarshal([]byte(val), &profile); err == nil {
+				return &profile, nil
+			}
+		}
+	}
+
+	var profile PublicTenantProfile
+	err := r.db.GetContext(ctx, &profile, `
+		SELECT
+			id,
+			name,
+			slug,
+			COALESCE(business_category, '') AS business_category,
+			COALESCE(business_type, '') AS business_type,
+			COALESCE(slogan, '') AS slogan,
+			COALESCE(tagline, '') AS tagline,
+			COALESCE(about_us, '') AS about_us,
+			COALESCE(features, ARRAY[]::text[]) AS features,
+			COALESCE(primary_color, '#3b82f6') AS primary_color,
+			COALESCE(logo_url, '') AS logo_url,
+			COALESCE(banner_url, '') AS banner_url,
+			COALESCE(gallery, ARRAY[]::text[]) AS gallery,
+			COALESCE(address, '') AS address,
+			COALESCE(whatsapp_number, '') AS whatsapp_number,
+			COALESCE(instagram_url, '') AS instagram_url,
+			COALESCE(tiktok_url, '') AS tiktok_url,
+			COALESCE(map_iframe_url, '') AS map_iframe_url,
+			COALESCE(meta_title, '') AS meta_title,
+			COALESCE(meta_description, '') AS meta_description,
+			COALESCE(landing_page_config, '{}'::jsonb) AS landing_page_config,
+			COALESCE(landing_theme_config, '{}'::jsonb) AS landing_theme_config,
+			COALESCE(booking_form_config, '{}'::jsonb) AS booking_form_config,
+			COALESCE(open_time, '09:00') AS open_time,
+			COALESCE(close_time, '22:00') AS close_time,
+			COALESCE(NULLIF(BTRIM(timezone), ''), 'Asia/Jakarta') AS timezone
+		FROM tenants
+		WHERE LOWER(TRIM(slug)) = $1
+		LIMIT 1`,
+		slug,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if r.rdb != nil {
+		if jsonData, err := json.Marshal(profile); err == nil {
+			_ = r.rdb.Set(ctx, cacheKey, jsonData, 24*time.Hour).Err()
+		}
+	}
+
+	return &profile, nil
 }
 
 func (r *Repository) GetPublicLandingData(ctx context.Context, slug string) (map[string]interface{}, error) {
@@ -589,7 +708,13 @@ func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) erro
 	}
 
 	// Clear potential negative cache or pre-warm if necessary
-	r.rdb.Del(ctx, r.getProfileCacheKey(t.Slug), r.getPublicTenantsCacheKey(), fmt.Sprintf("tenant_id_by_slug:%s", strings.ToLower(strings.TrimSpace(t.Slug))))
+	r.rdb.Del(ctx,
+		r.getProfileCacheKey(t.Slug),
+		r.getPublicProfileCacheKey(t.Slug),
+		r.getPublicTenantsCacheKey(),
+		r.getPublicDiscoverFeedCacheKey(),
+		fmt.Sprintf("tenant_id_by_slug:%s", strings.ToLower(strings.TrimSpace(t.Slug))),
+	)
 	return nil
 }
 
@@ -645,8 +770,10 @@ func (r *Repository) Update(ctx context.Context, t Tenant) error {
 	keysToDel := []string{
 		r.getLandingCacheKey(t.Slug),            // Cache Landing Page
 		r.getProfileCacheKey(t.Slug),            // Cache Profile by Slug
+		r.getPublicProfileCacheKey(t.Slug),      // Cache Public Profile by Slug
 		r.getProfileByIDCacheKey(t.ID.String()), // Cache Profile by ID
 		r.getPublicTenantsCacheKey(),
+		r.getPublicDiscoverFeedCacheKey(),
 		fmt.Sprintf("tenant_id_by_slug:%s", strings.ToLower(strings.TrimSpace(t.Slug))),
 	}
 

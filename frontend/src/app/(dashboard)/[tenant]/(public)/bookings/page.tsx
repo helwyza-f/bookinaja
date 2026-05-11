@@ -9,6 +9,7 @@ import { LayoutGrid, Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTenant } from "@/context/tenant-context";
 import { ResourceCard } from "@/components/tenant/public/landing/resource-card";
 import { TenantNavbar } from "@/components/tenant/public/landing/navbar";
 import { TenantFooter } from "@/components/tenant/public/landing/footer";
@@ -16,21 +17,23 @@ import {
   getPreviewSurfaceClass,
   getThemeVisuals,
 } from "@/components/tenant/public/landing/builder-renderer";
-import { normalizeThemeConfig } from "@/lib/page-builder";
+import { extractBuilderResourcesPayload, normalizeThemeConfig } from "@/lib/page-builder";
+import type { BuilderProfile } from "@/lib/page-builder";
 
 export default function PublicResourceCatalog() {
   const params = useParams();
   const tenantSlug = params.tenant as string;
+  const { profile } = useTenant();
 
-  const [data, setData] = useState<any>(null);
+  const [resources, setResources] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const fetchCatalog = async () => {
       try {
-        const res = await api.get("/public/landing");
-        setData(res.data);
+        const res = await api.get("/public/resources");
+        setResources(extractBuilderResourcesPayload(res.data));
       } catch {
         toast.error("Gagal memuat katalog unit");
       } finally {
@@ -43,29 +46,58 @@ export default function PublicResourceCatalog() {
   const activeTheme = useMemo(
     () =>
       normalizeThemeConfig(
-        data?.profile?.landing_theme_config,
-        data?.profile?.primary_color,
+        profile?.landing_theme_config,
+        profile?.primary_color,
       ),
-    [data],
+    [profile],
   );
   const themeVisuals = useMemo(() => getThemeVisuals(activeTheme), [activeTheme]);
   const surfaceClass = useMemo(
     () => getPreviewSurfaceClass(activeTheme),
     [activeTheme],
   );
+  const resolvedProfile = useMemo<BuilderProfile>(
+    () => ({
+      name: profile?.name || "Tenant",
+      slug: tenantSlug,
+      business_type: profile?.business_type,
+      primary_color: profile?.primary_color,
+      logo_url: profile?.logo_url,
+      about_us: profile?.about_us,
+      description: profile?.description,
+      whatsapp_number: profile?.whatsapp_number,
+      address: profile?.address,
+      map_iframe_url: profile?.map_iframe_url,
+      open_time: profile?.open_time,
+      close_time: profile?.close_time,
+      instagram_url: profile?.instagram_url,
+      tiktok_url: profile?.tiktok_url,
+    }),
+    [profile, tenantSlug],
+  );
 
   const filteredResources = useMemo(() => {
-    if (!data?.resources) return [];
-    return data.resources.filter(
+    if (!resources) return [];
+    return resources.filter(
       (res: any) =>
         res.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (res.category || "")
           .toLowerCase()
           .includes(searchQuery.toLowerCase()),
     );
-  }, [data, searchQuery]);
+  }, [resources, searchQuery]);
 
   const getBestPrice = (resource: any) => {
+    if (
+      typeof resource?.starting_price === "number" &&
+      Number(resource.starting_price) > 0
+    ) {
+      return {
+        value: Number(resource.starting_price),
+        unit:
+          resource.starting_price_unit === "hour" ? "Jam" : "Sesi",
+      };
+    }
     const mains = resource.items?.filter(
       (i: any) => i.item_type === "main_option" || i.item_type === "main",
     );
@@ -90,10 +122,10 @@ export default function PublicResourceCatalog() {
     >
       <TenantNavbar
         profile={{
-          name: data?.profile?.name || "Tenant",
-          business_type: data?.profile?.business_type,
-          primary_color: data?.profile?.primary_color,
-          logo_url: data?.profile?.logo_url,
+          name: resolvedProfile.name,
+          business_type: resolvedProfile.business_type,
+          primary_color: resolvedProfile.primary_color,
+          logo_url: resolvedProfile.logo_url,
         }}
         landingTheme={{
           primary: activeTheme.primary_color,
@@ -168,6 +200,7 @@ export default function PublicResourceCatalog() {
                 accentColor={activeTheme.accent_color}
                 preset={activeTheme.preset}
                 radiusStyle={activeTheme.radius_style}
+                viewport="desktop"
                 getBestPrice={getBestPrice}
               />
             ))}
@@ -188,7 +221,7 @@ export default function PublicResourceCatalog() {
       </main>
 
       <TenantFooter
-        profile={data?.profile}
+        profile={resolvedProfile}
         primaryColor={activeTheme.primary_color}
         accentColor={activeTheme.accent_color}
         preset={activeTheme.preset}

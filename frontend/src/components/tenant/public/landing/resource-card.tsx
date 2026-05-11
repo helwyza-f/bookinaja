@@ -1,209 +1,128 @@
 "use client";
+
 import Image from "next/image";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Zap, ArrowRight, Star } from "lucide-react";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { ChevronRight } from "lucide-react";
+import { type BuilderResource } from "@/lib/page-builder";
 import { cn } from "@/lib/utils";
-import type { BuilderResource } from "@/lib/page-builder";
+import { getLandingPresetTone } from "./theme-preset";
 
 type ResourceCardProps = {
   res: BuilderResource;
-  primaryColor?: string;
-  accentColor?: string;
-  preset?: string;
-  radiusStyle?: string;
+  primaryColor: string;
+  accentColor: string;
+  preset: string;
+  radiusStyle: string;
+  viewport: "desktop" | "mobile";
   getBestPrice: (resource: BuilderResource) => { value: number; unit: string } | null;
-  getPrimaryOffer?: (
-    resource: BuilderResource,
-  ) => { name: string; value: number; unit: string; duration?: number | null } | null;
 };
 
 export function ResourceCard({
   res,
-  primaryColor = "#3b82f6",
-  accentColor,
-  preset = "bookinaja-classic",
-  radiusStyle = "rounded",
+  primaryColor,
+  preset,
+  radiusStyle,
   getBestPrice,
-  getPrimaryOffer,
+  viewport,
 }: ResourceCardProps) {
-  const bestRate = getBestPrice(res);
-  const primaryOffer =
-    getPrimaryOffer?.(res) ||
-    (res.items?.filter((item) => item.item_type === "main_option" || item.item_type === "main")
-      .sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0]
-      ? {
-          name:
-            res.items?.filter((item) => item.item_type === "main_option" || item.item_type === "main")
-              .sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0]?.name || "",
-          value:
-            Number(
-              res.items
-                ?.filter((item) => item.item_type === "main_option" || item.item_type === "main")
-                .sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0]?.price || 0,
-            ) || 0,
-          unit:
-            res.items
-              ?.filter((item) => item.item_type === "main_option" || item.item_type === "main")
-              .sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0]?.price_unit ===
-            "hour"
-              ? "Jam"
-              : "Sesi",
-          duration:
-            res.items
-              ?.filter((item) => item.item_type === "main_option" || item.item_type === "main")
-              .sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0]?.unit_duration ?? null,
-        }
-      : null);
-  const isTimed = String(res.operating_mode || "timed").toLowerCase() === "timed";
-  const shellRadiusClass =
-    radiusStyle === "square" ? "rounded-[1.2rem] md:rounded-[1.5rem]" : radiusStyle === "soft" ? "rounded-[2rem] md:rounded-[2.2rem]" : "rounded-[2rem] md:rounded-[2.5rem]";
-  const mediaRadiusClass =
-    radiusStyle === "square" ? "rounded-[0.9rem] md:rounded-[1rem]" : radiusStyle === "soft" ? "rounded-[1.4rem] md:rounded-[1.6rem]" : "rounded-[1.5rem] md:rounded-[2rem]";
-  const chipRadiusClass =
-    radiusStyle === "square" ? "rounded-[0.75rem]" : radiusStyle === "soft" ? "rounded-[1rem]" : "rounded-xl";
-  const actionRadiusClass =
-    radiusStyle === "square" ? "rounded-[0.85rem]" : radiusStyle === "soft" ? "rounded-[1rem]" : "rounded-[1rem]";
-  const shellClass =
-    preset === "boutique"
-      ? "border-stone-200/70 bg-[#fffdf9]/90 dark:border-white/10 dark:bg-[#171412]/88 shadow-[0_22px_60px_rgba(41,37,36,0.14)]"
-      : preset === "sunset-glow"
-        ? "border-orange-200/70 bg-[#fffaf5]/92 dark:border-orange-500/20 dark:bg-[#1c0e09]/88 shadow-[0_22px_60px_rgba(124,45,18,0.16)]"
-      : preset === "playful"
-        ? "border-emerald-100/80 bg-white/92 dark:border-emerald-500/20 dark:bg-[#082114]/88 shadow-[0_22px_56px_rgba(20,83,45,0.14)]"
-        : preset === "mono-luxe"
-          ? "border-slate-300 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(241,245,249,0.96))] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98))] shadow-[0_24px_64px_rgba(15,23,42,0.12)]"
-        : preset === "dark-pro"
-          ? "border-slate-300 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(226,232,240,0.96))] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(7,11,22,0.98))] shadow-[0_24px_64px_rgba(15,23,42,0.14)] dark:shadow-[0_24px_64px_rgba(2,6,23,0.5)]"
-          : "border-slate-200/60 bg-white/70 dark:border-white/10 dark:bg-black/40 shadow-xl";
-  const chipClass =
-    preset === "boutique"
-      ? "bg-[#fff7ee]/88 text-stone-800 border-stone-200/80 dark:bg-[#201a17] dark:text-stone-100 dark:border-white/10"
-      : preset === "sunset-glow"
-        ? "bg-[#fff7ed]/90 text-orange-900 border-orange-200/80 dark:bg-[#241109] dark:text-orange-100 dark:border-orange-500/20"
-      : preset === "playful"
-        ? "bg-white/90 text-emerald-800 border-emerald-100/80 dark:bg-[#0b2417] dark:text-emerald-100 dark:border-emerald-500/20"
-      : preset === "mono-luxe"
-        ? "bg-white/92 text-slate-800 border-slate-300 dark:bg-[#0b1120] dark:text-slate-100 dark:border-white/10"
-      : preset === "dark-pro"
-          ? "bg-white/88 text-slate-700 border-slate-300 dark:bg-[#0b1120] dark:text-slate-100 dark:border-white/10"
-          : "bg-white/80 dark:bg-black/60 text-slate-900 dark:text-white border-white/30 dark:border-white/10";
-  const ratingClass =
-    preset === "dark-pro"
-      ? "bg-slate-100 dark:bg-white/10"
-      : preset === "boutique"
-        ? "bg-[#fff8f1]/80"
-        : preset === "sunset-glow"
-          ? "bg-[#fff1e8]/90 dark:bg-[#241109]"
-        : preset === "playful"
-          ? "bg-white/70"
-          : preset === "mono-luxe"
-            ? "bg-slate-100/90 dark:bg-[#0b1120]"
-          : "bg-white/50 dark:bg-white/10";
+  const tone = getLandingPresetTone(preset);
+  const bestPrice = getBestPrice(res);
+  const mode = String(res.operating_mode || "timed").toLowerCase();
+  const isDirectSale = mode === "direct_sale";
+  const isTimed = !isDirectSale;
+  const priceUnitLabel = bestPrice?.unit || (isDirectSale ? "Sesi" : "Jam");
+  const footerLabel = isDirectSale ? "Harga produk" : "Mulai dari";
+  const modeLabel = isDirectSale ? "Direct Sale" : "Timed";
+  const href = isDirectSale ? `/orders/${res.id}` : `/bookings/${res.id}`;
+
+  const cardRadiusClass =
+    radiusStyle === "square"
+      ? "rounded-[1rem]"
+      : radiusStyle === "soft"
+        ? "rounded-[1.4rem]"
+        : viewport === "mobile"
+          ? "rounded-[1.4rem]"
+          : "rounded-[1.6rem]";
 
   return (
-    <Link
-      href={`/bookings/${res.id}`}
-      className="group block h-full w-full outline-none focus:ring-0"
-    >
-      <Card className={cn("relative flex h-full min-h-[24rem] flex-col overflow-hidden border transition-all duration-300 hover:-translate-y-1 group-active:scale-[0.98]", shellRadiusClass, shellClass)}>
-        <div className="relative w-full p-3 pb-0 shrink-0">
-          <div className={cn("relative h-[11rem] w-full overflow-hidden sm:h-[12rem] md:h-[220px]", mediaRadiusClass)}>
+    <Link href={href} className="group block h-full">
+      <Card
+        className={cn(
+          "h-full overflow-hidden p-0 backdrop-blur transition-all duration-300 hover:-translate-y-1",
+          tone.card,
+          cardRadiusClass,
+        )}
+      >
+        <div className="flex h-full flex-col">
+          <div className="relative aspect-[16/10] w-full overflow-hidden bg-white/5">
             {res.image_url ? (
               <Image
                 src={res.image_url}
                 alt={res.name}
                 fill
                 unoptimized
-                sizes="(min-width: 1024px) 26vw, (min-width: 640px) 44vw, 100vw"
-                className="object-cover object-center transition-transform duration-700 group-hover:scale-105"
+                sizes="(min-width: 1280px) 360px, (min-width: 768px) 50vw, 100vw"
+                className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
               />
             ) : (
-              <div className="w-full h-full bg-slate-100 dark:bg-white/[0.05] flex items-center justify-center relative overflow-hidden">
-                <div
-                  className="absolute inset-0 opacity-10 blur-2xl"
-                  style={{ backgroundColor: primaryColor }}
-                />
-                <Zap className="h-10 w-10 opacity-20 dark:opacity-40 relative z-10" />
+              <div className="flex h-full w-full items-center justify-center text-xs font-black uppercase tracking-[0.2em] text-white/35">
+                No Image
               </div>
             )}
 
-            <div className="absolute top-3 left-3 z-20">
-              <Badge className={cn("border text-[9px] font-bold uppercase tracking-[0.16em] px-2.5 py-1 shadow-sm", chipRadiusClass, chipClass)}>
-                {isTimed ? "Timed" : "Direct"}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent dark:from-black/55" />
+
+            <div className="absolute left-4 top-4">
+              <Badge className="rounded-full border border-white/20 bg-black/55 px-3 py-1 text-[9px] font-black uppercase tracking-[0.22em] text-white backdrop-blur">
+                {modeLabel}
               </Badge>
             </div>
-
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
           </div>
-        </div>
 
-        <div className="p-5 md:p-6 flex flex-col flex-1 relative">
-          <div className="mb-4 flex flex-1 flex-col">
-            <div className="flex items-start justify-between gap-3">
-              <h3 className="min-h-[3rem] text-base font-black uppercase italic leading-tight tracking-tight text-slate-900 line-clamp-2 dark:text-white md:min-h-[3.8rem] md:text-xl">
-                {res.name}
-              </h3>
-              <div className={cn("flex items-center gap-1 shrink-0 px-2 py-1 border border-white/20 dark:border-white/5 mt-1", chipRadiusClass, ratingClass)}>
-                <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
-                <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">
-                  4.9
-                </span>
+          <div className="flex flex-1 flex-col p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h3 className={cn("line-clamp-2 text-2xl font-[1000] uppercase italic leading-[0.95] tracking-tight", tone.title)}>
+                  {res.name}
+                </h3>
+                <p className={cn("mt-3 line-clamp-3 text-sm leading-6", tone.body)}>
+                  {res.description || "Resource siap ditampilkan untuk booking customer."}
+                </p>
+              </div>
+
+              <div
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white"
+                style={{ backgroundColor: primaryColor }}
+              >
+                <ChevronRight className="h-5 w-5" />
               </div>
             </div>
-            <p className="mt-2 min-h-[2.8rem] text-xs font-medium leading-relaxed text-slate-500 line-clamp-2 dark:text-slate-400">
-              {res.description || "Fasilitas premium yang siap mendukung aktivitas terbaikmu."}
-            </p>
-            <div className="mt-3 rounded-xl border border-slate-200/70 px-3 py-2 text-xs text-slate-600 dark:border-white/10 dark:text-slate-300">
-              {primaryOffer ? (
-                <>
-                  <span className="font-semibold text-slate-900 dark:text-white">
-                    {primaryOffer.name}
-                  </span>
-                  {" · "}
-                  {isTimed
-                    ? `${primaryOffer.duration || 60} menit`
-                    : `mulai Rp${primaryOffer.value.toLocaleString("id-ID")}`}
-                </>
-              ) : (
-                "Offer utama akan tampil saat main option tersedia."
-              )}
-            </div>
-          </div>
 
-          <div className="mt-2 flex min-h-[4.6rem] items-end justify-between border-t border-slate-200/50 pt-4 dark:border-white/10">
-            <div className="space-y-1 self-stretch">
-              <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">
-                {isTimed ? "Mulai Dari" : "Harga Utama"}
-              </p>
-              {bestRate ? (
-                <div className="flex min-h-[2.1rem] items-baseline gap-1">
-                  <span
-                    className="text-lg font-black tracking-tight md:text-xl"
-                    style={{ color: primaryColor }}
-                  >
-                    Rp{bestRate.value.toLocaleString()}
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-400">
-                    /{bestRate.unit}
-                  </span>
-                </div>
-              ) : (
-                <span className="inline-flex min-h-[2.1rem] items-end text-xs font-bold text-slate-400">
-                  Harga belum tersedia
-                </span>
-              )}
-            </div>
+            <div className="mt-auto pt-5">
+              <div className="border-t border-slate-200/80 pt-4 dark:border-white/10">
+                <p className={cn("text-[10px] font-black uppercase tracking-[0.24em]", tone.cardMuted)}>
+                  {footerLabel}
+                </p>
 
-            <div
-              className={cn("h-10 w-10 md:h-11 md:w-11 flex items-center justify-center text-white shadow-lg transition-all duration-300 group-hover:-translate-y-1", actionRadiusClass)}
-              style={{
-                backgroundColor: primaryColor,
-                boxShadow: `0 10px 25px -8px ${(accentColor || primaryColor)}66`,
-              }}
-            >
-              <ArrowRight size={18} strokeWidth={3} />
+                {bestPrice ? (
+                  <div className="mt-1 flex items-end gap-1">
+                    <span className="text-3xl font-black tracking-tight text-orange-500">
+                      Rp{bestPrice.value.toLocaleString("id-ID")}
+                    </span>
+                    <span className={cn("pb-1 text-xs font-semibold", tone.cardMuted)}>
+                      /{priceUnitLabel}
+                    </span>
+                  </div>
+                ) : (
+                  <div className={cn("mt-2 text-sm font-semibold", tone.body)}>
+                    {isTimed
+                      ? "Harga tampil saat opsi booking utama tersedia"
+                      : "Harga tampil saat produk utama tersedia"}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

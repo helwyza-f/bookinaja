@@ -1,6 +1,12 @@
 package http
 
 import (
+	"context"
+	stdhttp "net/http"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/helwiza/backend/internal/middleware"
 	"github.com/helwiza/backend/internal/platform/http/routecfg"
@@ -21,10 +27,29 @@ func NewRouter(cfg routecfg.Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine 
 	r.RedirectTrailingSlash = false
 	r.RedirectFixedPath = false
 
+	_ = r.SetTrustedProxies(resolveTrustedProxies())
 	r.Use(middleware.CORSMiddleware())
 
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "BATAM ENGINE ONLINE"})
+	})
+	r.GET("/health/live", func(c *gin.Context) {
+		c.JSON(stdhttp.StatusOK, gin.H{"status": "ok"})
+	})
+	r.GET("/health/ready", func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+		defer cancel()
+
+		if err := db.DB.PingContext(ctx); err != nil {
+			c.JSON(stdhttp.StatusServiceUnavailable, gin.H{"status": "degraded", "dependency": "postgres"})
+			return
+		}
+		if err := rdb.Ping(ctx).Err(); err != nil {
+			c.JSON(stdhttp.StatusServiceUnavailable, gin.H{"status": "degraded", "dependency": "redis"})
+			return
+		}
+
+		c.JSON(stdhttp.StatusOK, gin.H{"status": "ok"})
 	})
 
 	r.POST("/api/webhooks/midtrans", cfg.MidtransHandler.Webhook)
@@ -44,4 +69,27 @@ func NewRouter(cfg routecfg.Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine 
 	}
 
 	return r
+}
+
+func resolveTrustedProxies() []string {
+	if raw := strings.TrimSpace(os.Getenv("TRUSTED_PROXIES")); raw != "" {
+		parts := strings.Split(raw, ",")
+		proxies := make([]string, 0, len(parts))
+		for _, part := range parts {
+			if proxy := strings.TrimSpace(part); proxy != "" {
+				proxies = append(proxies, proxy)
+			}
+		}
+		if len(proxies) > 0 {
+			return proxies
+		}
+	}
+
+	return []string{
+		"127.0.0.1",
+		"::1",
+		"10.0.0.0/8",
+		"172.16.0.0/12",
+		"192.168.0.0/16",
+	}
 }

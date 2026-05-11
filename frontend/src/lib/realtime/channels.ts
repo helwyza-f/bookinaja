@@ -21,3 +21,11 @@ export function tenantDeviceChannel(tenantId: string, deviceId: string) {
 export function customerBookingChannel(customerId: string, bookingId: string) {
   return `customer:${customerId}:booking:${bookingId}`;
 }
+
+export function customerOrdersChannel(customerId: string) {
+  return `customer:${customerId}:orders`;
+}
+
+export function customerOrderChannel(customerId: string, orderId: string) {
+  return `customer:${customerId}:order:${orderId}`;
+}

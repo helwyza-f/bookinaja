@@ -13,6 +13,7 @@ export default function UserVerifyClient() {
   const searchParams = useSearchParams();
   const [message, setMessage] = useState("Memproses akses booking...");
   const nextStep = searchParams.get("next");
+  const accessKind = searchParams.get("kind") === "order" ? "order" : "booking";
   const paymentScope =
     searchParams.get("scope") === "settlement" ? "settlement" : "deposit";
 
@@ -27,11 +28,15 @@ export default function UserVerifyClient() {
 
     const run = async () => {
       try {
-        setMessage("Menukar akses booking...");
-        const res = await api.post("/public/bookings/exchange", { code });
+        setMessage(accessKind === "order" ? "Menukar akses order..." : "Menukar akses booking...");
+        const res = await api.post(
+          accessKind === "order" ? "/public/sales-orders/exchange" : "/public/bookings/exchange",
+          { code },
+        );
         if (cancelled) return;
 
-        if (!res.data?.customer_token || !res.data?.booking_id) {
+        const entityID = accessKind === "order" ? res.data?.order_id : res.data?.booking_id;
+        if (!res.data?.customer_token || !entityID) {
           router.replace("/user/verify/failed?reason=invalid_response");
           return;
         }
@@ -43,13 +48,18 @@ export default function UserVerifyClient() {
 
         if (nextStep === "payment") {
           router.replace(
-            `/user/me/bookings/${res.data.booking_id}/payment?scope=${paymentScope}`,
+            accessKind === "order"
+              ? `/user/me/orders/${entityID}/payment`
+              : `/user/me/bookings/${entityID}/payment?scope=${paymentScope}`,
           );
           return;
         }
 
         const redirectUrl =
-          res.data.redirect_url || `/user/me/bookings/${res.data.booking_id}`;
+          res.data.redirect_url ||
+          (accessKind === "order"
+            ? `/user/me/orders/${entityID}`
+            : `/user/me/bookings/${entityID}`);
         if (redirectUrl.startsWith("http://") || redirectUrl.startsWith("https://")) {
           window.location.replace(redirectUrl);
           return;
@@ -75,7 +85,7 @@ export default function UserVerifyClient() {
     return () => {
       cancelled = true;
     };
-  }, [nextStep, paymentScope, router, searchParams]);
+  }, [accessKind, nextStep, paymentScope, router, searchParams]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 text-white">
@@ -86,7 +96,7 @@ export default function UserVerifyClient() {
           </div>
           <div className="space-y-2">
             <div className="text-[9px] font-black uppercase tracking-[0.35em] text-blue-300">
-              Booking Access
+              {accessKind === "order" ? "Order Access" : "Booking Access"}
             </div>
             <h1 className="text-3xl font-black italic uppercase tracking-tighter">
               Verifikasi Akses

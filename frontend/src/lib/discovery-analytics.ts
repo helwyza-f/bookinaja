@@ -21,6 +21,8 @@ type DiscoveryEventPayload = {
 };
 
 const sessionKey = "bookinaja_discovery_session_id";
+const recentEventWindowMs = 15000;
+const recentPassiveEvents = new Map<string, number>();
 
 export function getDiscoverySessionId() {
   if (typeof window === "undefined") return "server";
@@ -31,7 +33,34 @@ export function getDiscoverySessionId() {
   return next;
 }
 
+function getPassiveEventKey(payload: DiscoveryEventPayload) {
+  return [
+    payload.event_type,
+    payload.surface,
+    payload.section_id || "",
+    payload.card_variant || "",
+    payload.position_index ?? "",
+    payload.tenant_id || "",
+    payload.tenant_slug || "",
+    String(payload.metadata?.["post_id"] || ""),
+  ].join(":");
+}
+
+function shouldSkipPassiveEvent(payload: DiscoveryEventPayload) {
+  if (!["impression", "detail_view"].includes(payload.event_type)) return false;
+  const key = getPassiveEventKey(payload);
+  const now = Date.now();
+  const previous = recentPassiveEvents.get(key);
+  if (previous && now - previous < recentEventWindowMs) {
+    return true;
+  }
+  recentPassiveEvents.set(key, now);
+  return false;
+}
+
 export function trackDiscoveryEvent(payload: DiscoveryEventPayload) {
+  if (shouldSkipPassiveEvent(payload)) return;
+
   const body = {
     ...payload,
     session_id: getDiscoverySessionId(),

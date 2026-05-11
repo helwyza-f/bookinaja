@@ -41,6 +41,18 @@ func userIDFromContext(c *gin.Context) *uuid.UUID {
 	return &parsed
 }
 
+func customerIDFromContext(c *gin.Context) (uuid.UUID, bool) {
+	raw, ok := c.Get("customerID")
+	if !ok || raw == nil {
+		return uuid.Nil, false
+	}
+	parsed, err := uuid.Parse(strings.TrimSpace(raw.(string)))
+	if err != nil {
+		return uuid.Nil, false
+	}
+	return parsed, true
+}
+
 func (h *Handler) Create(c *gin.Context) {
 	tenantID, ok := tenantIDFromContext(c)
 	if !ok {
@@ -62,6 +74,60 @@ func (h *Handler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, order)
 }
 
+func (h *Handler) PublicCreate(c *gin.Context) {
+	var req CreatePublicOrderInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "payload invalid"})
+		return
+	}
+
+	order, cust, err := h.service.CreatePublicOrder(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	tenantSlugVal, _ := c.Get("tenantSlug")
+	tenantSlug, _ := tenantSlugVal.(string)
+	redirectURL := "/user/verify?kind=order&next=payment&code=" + order.AccessToken.String()
+	if strings.TrimSpace(tenantSlug) != "" {
+		redirectURL = redirectURL
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message":      "ORDER BERHASIL DIBUAT",
+		"order_id":     order.ID,
+		"order":        order,
+		"customer":     cust,
+		"redirect_url": redirectURL,
+	})
+}
+
+func (h *Handler) ExchangeAccessToken(c *gin.Context) {
+	var req struct {
+		Code string `json:"code" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "KODE AKSES TIDAK VALID"})
+		return
+	}
+
+	order, cust, sessionToken, err := h.service.ExchangeAccessToken(c.Request.Context(), req.Code)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":        "AKSES ORDER BERHASIL DITUKAR",
+		"order_id":       order.ID,
+		"tenant_id":      order.TenantID,
+		"redirect_url":   "/user/me/orders/" + order.ID.String() + "/payment",
+		"customer_token": sessionToken,
+		"customer":       cust,
+	})
+}
+
 func (h *Handler) GetByID(c *gin.Context) {
 	tenantID, ok := tenantIDFromContext(c)
 	if !ok {
@@ -74,6 +140,30 @@ func (h *Handler) GetByID(c *gin.Context) {
 		return
 	}
 	order, err := h.service.GetByID(c.Request.Context(), tenantID, orderID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "sales order not found"})
+		return
+	}
+	c.JSON(http.StatusOK, order)
+}
+
+func (h *Handler) GetMyDetail(c *gin.Context) {
+	tenantID, ok := tenantIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID invalid"})
+		return
+	}
+	customerID, ok := customerIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "customer invalid"})
+		return
+	}
+	orderID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "sales order id invalid"})
+		return
+	}
+	order, err := h.service.GetByIDForCustomer(c.Request.Context(), tenantID, orderID, customerID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "sales order not found"})
 		return
@@ -289,6 +379,36 @@ func (h *Handler) CheckoutPayment(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
+func (h *Handler) CustomerCheckoutPayment(c *gin.Context) {
+	tenantID, ok := tenantIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID invalid"})
+		return
+	}
+	customerID, ok := customerIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "customer invalid"})
+		return
+	}
+	orderID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "sales order id invalid"})
+		return
+	}
+	if _, err := h.service.GetByIDForCustomer(c.Request.Context(), tenantID, orderID, customerID); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "sales order not found"})
+		return
+	}
+	var req PaymentCheckoutInput
+	_ = c.ShouldBindJSON(&req)
+	res, err := h.service.CheckoutPayment(c.Request.Context(), tenantID, orderID, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
 func (h *Handler) SubmitManualPayment(c *gin.Context) {
 	tenantID, ok := tenantIDFromContext(c)
 	if !ok {
@@ -298,6 +418,39 @@ func (h *Handler) SubmitManualPayment(c *gin.Context) {
 	orderID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "sales order id invalid"})
+		return
+	}
+	var req ManualPaymentInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "payload invalid"})
+		return
+	}
+	res, err := h.service.SubmitManualPayment(c.Request.Context(), tenantID, orderID, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) CustomerSubmitManualPayment(c *gin.Context) {
+	tenantID, ok := tenantIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID invalid"})
+		return
+	}
+	customerID, ok := customerIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "customer invalid"})
+		return
+	}
+	orderID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "sales order id invalid"})
+		return
+	}
+	if _, err := h.service.GetByIDForCustomer(c.Request.Context(), tenantID, orderID, customerID); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "sales order not found"})
 		return
 	}
 	var req ManualPaymentInput

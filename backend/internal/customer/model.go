@@ -142,7 +142,33 @@ type CustomerDashboardData struct {
 	IdentityMethods   []string             `json:"identity_methods"`
 	// Dipisah agar Frontend bisa render Tab "Active" vs "History" dengan benar
 	ActiveBookings []RecentHistoryDTO `json:"active_bookings"`
+	ActiveOrders   []RecentHistoryDTO `json:"active_orders"`
 	PastHistory    []RecentHistoryDTO `json:"past_history"`
+	PastOrders     []RecentHistoryDTO `json:"past_orders"`
+}
+
+type CustomerPortalSummaryData struct {
+	CustomerID        string               `json:"customer_id"`
+	Customer          Customer             `json:"customer"`
+	Points            int                  `json:"points"`
+	PointActivity     []CustomerPointEvent `json:"point_activity"`
+	ProfileCompletion int                  `json:"profile_completion"`
+	IdentityMethods   []string             `json:"identity_methods"`
+	ActiveBookings    []RecentHistoryDTO   `json:"active_bookings"`
+	ActiveOrders      []RecentHistoryDTO   `json:"active_orders"`
+	PastHistory       []RecentHistoryDTO   `json:"past_history"`
+}
+
+type CustomerPortalActiveData struct {
+	CustomerID     string             `json:"customer_id"`
+	ActiveBookings []RecentHistoryDTO `json:"active_bookings"`
+	ActiveOrders   []RecentHistoryDTO `json:"active_orders"`
+}
+
+type CustomerPortalHistoryData struct {
+	CustomerID  string             `json:"customer_id"`
+	PastHistory []RecentHistoryDTO `json:"past_history"`
+	PastOrders  []RecentHistoryDTO `json:"past_orders"`
 }
 
 type CustomerPointEvent struct {
@@ -168,6 +194,7 @@ type CustomerPointSummary struct {
 // RecentHistoryDTO digunakan untuk list bokingan di dashboard customer
 type RecentHistoryDTO struct {
 	ID            uuid.UUID  `json:"id" db:"id"`
+	Kind          string     `json:"kind" db:"kind"`
 	TenantID      uuid.UUID  `json:"tenant_id" db:"tenant_id"`
 	TenantName    string     `json:"tenant_name" db:"tenant_name"`
 	TenantSlug    string     `json:"tenant_slug" db:"tenant_slug"`

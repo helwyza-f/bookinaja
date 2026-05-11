@@ -92,14 +92,13 @@ func normalizeTenantBootstrapMode(value string) string {
 }
 
 // GetPublicProfile Baru: Jalur cepat buat ambil tema & identitas (Granular)
-func (s *Service) GetPublicProfile(ctx context.Context, slug string) (*Tenant, error) {
-	// Repo ini harus sudah punya logic Cache-Aside Redis
-	tenant, err := s.repo.GetBySlug(ctx, slug)
-	if err != nil || tenant == nil {
-		return tenant, err
+func (s *Service) GetPublicProfile(ctx context.Context, slug string) (*PublicTenantProfile, error) {
+	profile, err := s.repo.GetPublicProfileBySlug(ctx, slug)
+	if err != nil || profile == nil {
+		return profile, err
 	}
-	s.applyBuilderDefaults(tenant)
-	return tenant, nil
+	s.applyBuilderDefaultsToPublicProfile(profile)
+	return profile, nil
 }
 
 // GetPublicLandingData mengambil full data (Profile + Resources)
@@ -198,6 +197,27 @@ func (s *Service) applyBuilderDefaults(tenant *Tenant) {
 	}
 }
 
+func (s *Service) applyBuilderDefaultsToPublicProfile(profile *PublicTenantProfile) {
+	if profile == nil {
+		return
+	}
+	if len(profile.LandingPageConfig) == 0 || string(profile.LandingPageConfig) == "{}" {
+		if payload, err := json.Marshal(DefaultLandingPageConfig()); err == nil {
+			profile.LandingPageConfig = JSONB(payload)
+		}
+	}
+	if len(profile.LandingThemeConfig) == 0 || string(profile.LandingThemeConfig) == "{}" {
+		if payload, err := json.Marshal(DefaultLandingThemeConfig(profile.PrimaryColor)); err == nil {
+			profile.LandingThemeConfig = JSONB(payload)
+		}
+	}
+	if len(profile.BookingFormConfig) == 0 || string(profile.BookingFormConfig) == "{}" {
+		if payload, err := json.Marshal(DefaultBookingFormConfig()); err == nil {
+			profile.BookingFormConfig = JSONB(payload)
+		}
+	}
+}
+
 func (s *Service) decodeLandingPageConfig(tenant *Tenant) LandingPageConfig {
 	config := DefaultLandingPageConfig()
 	if tenant == nil || len(tenant.LandingPageConfig) == 0 {
@@ -240,6 +260,12 @@ func (s *Service) ListPublicTenants(ctx context.Context) ([]TenantDirectoryItem,
 }
 
 func (s *Service) GetPublicDiscoverFeed(ctx context.Context) (*PublicDiscoverFeedResponse, error) {
+	if s.repo != nil {
+		if cached, ok := s.repo.GetCachedPublicDiscoverFeed(ctx); ok {
+			return cached, nil
+		}
+	}
+
 	items, err := s.ListPublicTenants(ctx)
 	if err != nil {
 		return nil, err
@@ -249,7 +275,11 @@ func (s *Service) GetPublicDiscoverFeed(ctx context.Context) (*PublicDiscoverFee
 		return nil, err
 	}
 	feedItems := s.buildUnifiedDiscoveryFeedItems(items, posts, postMetrics, nil)
-	return s.buildPublicDiscoverFeed(feedItems, false), nil
+	feed := s.buildPublicDiscoverFeed(feedItems, false)
+	if s.repo != nil {
+		s.repo.CachePublicDiscoverFeed(ctx, feed, 3*time.Minute)
+	}
+	return feed, nil
 }
 
 func (s *Service) GetCustomerDiscoverFeed(ctx context.Context, customerID uuid.UUID) (*PublicDiscoverFeedResponse, error) {

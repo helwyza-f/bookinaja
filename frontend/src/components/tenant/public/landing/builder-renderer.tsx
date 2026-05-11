@@ -11,6 +11,7 @@ import { TenantHero } from "./hero";
 import { GallerySection } from "./gallery-section";
 import { TenantFooter } from "./footer";
 import { ResourceCard } from "./resource-card";
+import { getLandingPresetTone } from "./theme-preset";
 import { cn } from "@/lib/utils";
 import {
   type BookingFormConfig,
@@ -68,6 +69,12 @@ export function LandingBuilderRenderer({
   const hasLeadingHero = leadingSection?.type === "hero";
 
   const getBestPrice = (resource: BuilderResource) => {
+    if (typeof resource.starting_price === "number" && resource.starting_price > 0) {
+      return {
+        value: Number(resource.starting_price),
+        unit: resource.starting_price_unit === "hour" ? "Jam" : "Sesi",
+      };
+    }
     const mains = resource.items?.filter(
       (item: BuilderResourceItem) => item.item_type === "main_option" || item.item_type === "main",
     );
@@ -103,10 +110,12 @@ export function LandingBuilderRenderer({
         />
         <main
           className={
-            previewMode === "mobile" && !hasLeadingHero
-              ? embedded
-                ? "pt-24"
-                : "pt-20"
+            !hasLeadingHero
+              ? previewMode === "mobile"
+                ? embedded
+                  ? "pt-24"
+                  : "pt-20"
+                : "pt-32 md:pt-40"
               : ""
           }
         >
@@ -120,6 +129,7 @@ export function LandingBuilderRenderer({
               content,
               bookingForm,
               getBestPrice,
+              previewMode,
               isEditorPreview,
             }),
           )}
@@ -152,6 +162,7 @@ function renderSection({
   content,
   bookingForm,
   getBestPrice,
+  previewMode,
   isEditorPreview,
 }: {
   section: BuilderSection;
@@ -162,6 +173,7 @@ function renderSection({
   content: { banner: string; tagline: string; description: string; features: string[] };
   bookingForm: BookingFormConfig;
   getBestPrice: (resource: BuilderResource) => { value: number; unit: string } | null;
+  previewMode: "desktop" | "mobile";
   isEditorPreview: boolean;
 }) {
   const sectionVariant = section.variant || "";
@@ -191,53 +203,89 @@ function renderSection({
       );
     case "highlights":
       return (
-        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} className="relative z-10 px-6 py-14 md:px-8 md:py-20">
+        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} className="relative z-10 -mt-1 px-6 py-12 md:px-8 md:py-18">
           <div className="mx-auto max-w-6xl">
-            <div className="mb-8 flex items-center gap-3">
-              <div className="h-1.5 w-10 rounded-full" style={themeVisuals.accentBarStyle} />
-              <span className={themeVisuals.eyebrowClass}>
-                {String(section.props?.title || "Keunggulan utama")}
-              </span>
+            <div className="mb-8 space-y-3 md:mb-10">
+              <div className="flex items-center gap-3">
+                <div className="h-1.5 w-10 rounded-full" style={themeVisuals.accentBarStyle} />
+                <span className={themeVisuals.eyebrowClass}>
+                  {String(section.props?.title || "Kenapa orang pilih tempat ini")}
+                </span>
+              </div>
+              <p className={cn("max-w-2xl text-sm leading-7", themeVisuals.bodyClass)}>
+                {String(
+                  section.props?.description ||
+                    "Informasi yang penting buat customer dibikin singkat, jadi orang cepat paham apa yang menarik dari tempat ini.",
+                )}
+              </p>
             </div>
             {sectionVariant === "grid" ? (
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {content.features.map((feature, index) => (
-                  <Card key={`${feature}-${index}`} className={cn(themeVisuals.cardClass, "p-5")}>
-                    <div className={cn(themeVisuals.eyebrowClass, "tracking-[0.24em]")}>Keunggulan</div>
-                    <div className={cn("mt-3 text-base font-semibold", themeVisuals.titleClass)}>{feature}</div>
+                  <Card
+                    key={`${feature}-${index}`}
+                    className={cn(themeVisuals.cardClass, "p-5 md:p-6")}
+                  >
+                    <div
+                      className="mb-4 h-10 w-10 rounded-2xl border border-white/10"
+                      style={{
+                        backgroundColor: `${theme.primary_color}22`,
+                        color: theme.primary_color,
+                      }}
+                    >
+                      <div className="flex h-full w-full items-center justify-center text-sm font-black">
+                        {String(index + 1).padStart(2, "0")}
+                      </div>
+                    </div>
+                    <div className={cn("text-[10px] font-black uppercase tracking-[0.22em]", themeVisuals.eyebrowClass)}>
+                      Highlight
+                    </div>
+                    <div className={cn("mt-2 text-base font-semibold leading-7 md:text-lg", themeVisuals.titleClass)}>
+                      {feature}
+                    </div>
                   </Card>
                 ))}
               </div>
             ) : sectionVariant === "spotlight" ? (
               <div className="grid gap-4 md:grid-cols-2">
                 {content.features.map((feature, index) => (
-                  <Card
+                  <div
                     key={`${feature}-${index}`}
-                    className={cn(themeVisuals.cardClass, "flex items-start gap-4 p-5 md:p-6")}
+                    className={cn(themeVisuals.panelClass, "flex gap-4 p-5 md:p-6")}
                   >
                     <div
-                      className="flex h-11 w-11 shrink-0 items-center justify-center text-sm font-black"
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border text-sm font-black"
                       style={themeVisuals.numberBadgeStyle}
                     >
                       {String(index + 1).padStart(2, "0")}
                     </div>
-                    <div>
-                      <div className={cn(themeVisuals.eyebrowClass, "tracking-[0.24em]")}>
-                        Highlight
+                    <div className="space-y-2">
+                      <div className={cn("text-[10px] font-black uppercase tracking-[0.22em]", themeVisuals.eyebrowClass)}>
+                        Keunggulan
                       </div>
-                      <div className={cn("mt-2 text-lg font-bold leading-snug", themeVisuals.titleClass)}>
+                      <div className={cn("text-lg font-semibold leading-8 md:text-xl", themeVisuals.titleClass)}>
                         {feature}
                       </div>
                     </div>
-                  </Card>
+                  </div>
                 ))}
               </div>
             ) : (
               <div className="flex flex-wrap gap-3">
                 {content.features.map((feature, index) => (
-                  <Badge key={`${feature}-${index}`} className={themeVisuals.badgeClass}>
-                    {feature}
-                  </Badge>
+                  <div
+                    key={`${feature}-${index}`}
+                    className={cn(
+                      "inline-flex items-center gap-3 rounded-full border px-4 py-3 text-sm font-semibold shadow-sm",
+                      themeVisuals.cardClass,
+                    )}
+                  >
+                    <div
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: theme.primary_color }}
+                    />
+                    <span className={themeVisuals.titleClass}>{feature}</span>
+                  </div>
                 ))}
               </div>
             )}
@@ -246,9 +294,15 @@ function renderSection({
       );
     case "catalog":
       return (
-        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} className="py-20 md:py-28">
-          <div id="catalog" className="container mx-auto max-w-6xl px-6 md:px-8">
-            <div className="mb-12 space-y-4 text-center">
+        <section key={section.id} id={getSectionAnchorId(section.id)} data-builder-section={section.id} className="py-16 md:py-24">
+          <div
+            id="catalog"
+            className={cn(
+              "mx-auto px-6 md:px-8",
+              previewMode === "desktop" ? "max-w-[1180px]" : "max-w-6xl",
+            )}
+          >
+            <div className="mb-10 space-y-4 text-center">
               <h2 className={cn("text-4xl font-[1000] uppercase italic tracking-tighter md:text-6xl", themeVisuals.heroTitleClass)}>
                 {String(section.props?.title || "Pilih Layanan")}
               </h2>
@@ -261,10 +315,8 @@ function renderSection({
             </div>
             <div
               className={cn(
-                "grid grid-cols-1 items-stretch gap-6",
-                sectionVariant === "list"
-                  ? "mx-auto max-w-4xl"
-                  : "sm:grid-cols-2 lg:grid-cols-3",
+                "w-full",
+                sectionVariant === "list" ? "mx-auto max-w-4xl" : "mx-auto max-w-[1180px]",
               )}
             >
               {resources.length ? (
@@ -331,6 +383,7 @@ function renderSection({
                     radiusStyle={theme.radius_style}
                     getBestPrice={getBestPrice}
                     themeVisuals={themeVisuals}
+                    previewMode={previewMode}
                   />
                 )
               ) : (
@@ -828,6 +881,7 @@ function CatalogGrid({
   radiusStyle,
   getBestPrice,
   themeVisuals,
+  previewMode,
 }: {
   resources: BuilderResource[];
   primaryColor: string;
@@ -836,6 +890,7 @@ function CatalogGrid({
   radiusStyle: string;
   getBestPrice: (resource: BuilderResource) => { value: number; unit: string } | null;
   themeVisuals: ReturnType<typeof getThemeVisuals>;
+  previewMode: "desktop" | "mobile";
 }) {
   const timedResources = resources.filter(
     (resource) => String(resource.operating_mode || "timed").toLowerCase() === "timed",
@@ -846,7 +901,14 @@ function CatalogGrid({
   const showSplit = timedResources.length > 0 && nonTimedResources.length > 0;
 
   const renderCards = (items: BuilderResource[]) => (
-    <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div
+      className={cn(
+        "grid w-full items-stretch gap-5",
+        previewMode === "desktop"
+          ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
+          : "grid-cols-1",
+      )}
+    >
       {items.map((resource) => (
         <ResourceCard
           key={resource.id}
@@ -856,6 +918,7 @@ function CatalogGrid({
           preset={preset}
           radiusStyle={radiusStyle}
           getBestPrice={getBestPrice}
+          viewport={previewMode}
         />
       ))}
     </div>
@@ -864,9 +927,9 @@ function CatalogGrid({
   if (!showSplit) return renderCards(resources);
 
   return (
-    <div className="space-y-8">
-      {timedResources.length > 0 ? (
-        <div className="space-y-4">
+    <div className="w-full space-y-10">
+      {timedResources.length > 0 && (
+        <div className="space-y-5">
           <div className="space-y-1">
             <div className={themeVisuals.eyebrowClass}>Booking timed</div>
             <p className={cn("text-sm", themeVisuals.bodyClass)}>
@@ -875,10 +938,10 @@ function CatalogGrid({
           </div>
           {renderCards(timedResources)}
         </div>
-      ) : null}
+      )}
 
-      {nonTimedResources.length > 0 ? (
-        <div className="space-y-4">
+      {nonTimedResources.length > 0 && (
+        <div className="space-y-5">
           <div className="space-y-1">
             <div className={themeVisuals.eyebrowClass}>Produk & non-timed</div>
             <p className={cn("text-sm", themeVisuals.bodyClass)}>
@@ -887,7 +950,7 @@ function CatalogGrid({
           </div>
           {renderCards(nonTimedResources)}
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
@@ -976,6 +1039,7 @@ export function getThemeVisuals(theme: LandingThemeConfig) {
   const preset = theme.preset || "bookinaja-classic";
   const surfaceStyle = theme.surface_style || "soft";
   const fontStyle = theme.font_style || "bold";
+  const tone = getLandingPresetTone(preset);
 
   const presetClassMap: Record<string, { panel: string; card: string; innerPanel: string; badge: string; secondaryButton: string; infoRow: string; empty: string; eyebrow: string; media: string; title: string; heroTitle: string; body: string; strongBody: string; muted: string; eyebrowMuted: string }> = {
     "bookinaja-classic": {
@@ -1166,14 +1230,14 @@ export function getThemeVisuals(theme: LandingThemeConfig) {
     secondaryButtonClass: cn("border", radius.badge, presetClasses.secondaryButton, surfaceClass.secondaryButton),
     infoRowClass: cn(presetClasses.infoRow),
     emptyStateClass: cn(presetClasses.empty),
-    eyebrowClass: cn("text-[11px] font-black uppercase", presetClasses.eyebrow, fontClass.eyebrow),
-    eyebrowMutedClass: cn(presetClasses.eyebrowMuted),
+    eyebrowClass: cn("text-[11px] font-black uppercase", tone.eyebrow, fontClass.eyebrow),
+    eyebrowMutedClass: cn(tone.lowContrast),
     mediaClass: cn(presetClasses.media, surfaceClass.media),
-    titleClass: cn(presetClasses.title, fontClass.title),
-    heroTitleClass: cn(presetClasses.heroTitle, fontClass.heroTitle),
-    bodyClass: cn(presetClasses.body, fontClass.body),
-    strongBodyClass: cn(presetClasses.strongBody),
-    mutedClass: cn(presetClasses.muted),
+    titleClass: cn(tone.title, fontClass.title),
+    heroTitleClass: cn(tone.title, fontClass.heroTitle),
+    bodyClass: cn(tone.body, fontClass.body),
+    strongBodyClass: cn(tone.subtle),
+    mutedClass: cn(tone.subtle),
     primaryButtonClass: cn(
       "text-white shadow-[0_18px_45px_rgba(15,23,42,0.14)] transition-transform duration-200 hover:-translate-y-0.5",
       radius.badge,

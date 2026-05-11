@@ -9,38 +9,44 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { clearTenantSession } from "@/lib/tenant-session";
+import { useTenant } from "@/context/tenant-context";
+import { extractBuilderResourcesPayload } from "@/lib/page-builder";
 
 const fetcher = (url: string) => api.get(url).then((res) => res.data);
 
 export default function TenantPublicLanding() {
   const { tenant: tenantSlug } = useParams();
   const { mutate } = useSWRConfig();
+  const { profile: initialProfile } = useTenant();
 
   // 1. FETCH PROFILE (Guard logic)
   const {
     data: freshProfile,
     error: profileError,
     isLoading: loadingProfile,
-  } = useSWR(tenantSlug ? "/public/profile" : null, fetcher, {
+  } = useSWR(tenantSlug ? "/public/site" : null, fetcher, {
+    fallbackData: initialProfile ?? undefined,
     revalidateOnFocus: true,
-    revalidateOnMount: true,
+    revalidateOnMount: !initialProfile,
     dedupingInterval: 1000,
   });
 
+  const resolvedProfile = freshProfile ?? initialProfile ?? null;
+
   // 2. FETCH RESOURCES
   const { data: resourceData, isLoading: loadingResources } = useSWR(
-    freshProfile?.id ? "/public/resources" : null,
+    resolvedProfile?.id ? "/public/resources" : null,
     fetcher,
     { dedupingInterval: 1000 },
   );
 
-  const resources = resourceData?.resources || [];
+  const resources = extractBuilderResourcesPayload(resourceData);
 
   // Re-sync saat tab kembali aktif
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        mutate("/public/profile");
+        mutate("/public/site");
         mutate("/public/resources");
       }
     };
@@ -52,12 +58,12 @@ export default function TenantPublicLanding() {
   // --- RENDERING CONDITIONS ---
 
   // Loading State: Tampilkan Skeleton agar UX mulus
-  if (loadingProfile && !freshProfile) {
+  if (loadingProfile && !resolvedProfile) {
     return <FullPageSkeleton />;
   }
 
   // Error State: Data 404 atau Error Koneksi
-  if (profileError || !freshProfile) {
+  if (profileError || !resolvedProfile) {
     return <NotFoundUI />;
   }
 
@@ -65,11 +71,11 @@ export default function TenantPublicLanding() {
   return (
     <div className="min-h-screen bg-white font-plus-jakarta transition-colors duration-500 dark:bg-[#050505]">
       <LandingBuilderRenderer
-        profile={freshProfile}
+        profile={resolvedProfile}
         resources={loadingResources ? [] : resources}
-        pageConfig={freshProfile?.landing_page_config}
-        themeConfig={freshProfile?.landing_theme_config}
-        bookingFormConfig={freshProfile?.booking_form_config}
+        pageConfig={resolvedProfile?.landing_page_config}
+        themeConfig={resolvedProfile?.landing_theme_config}
+        bookingFormConfig={resolvedProfile?.booking_form_config}
         embedded
       />
     </div>
@@ -106,7 +112,7 @@ function NotFoundUI() {
 
     // 2. Bersihkan Cache SWR secara brutal
     // Kita panggil mutate dengan undefined untuk semua key yang kita pakai
-    mutate("/public/profile", undefined, { revalidate: false });
+    mutate("/public/site", undefined, { revalidate: false });
     mutate("/public/resources", undefined, { revalidate: false });
 
     // 3. Optional: Bersihkan semua cache SWR yang tersimpan di memori

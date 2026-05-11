@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -21,49 +21,86 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-
-type BookingItem = {
-  id: string;
-  tenant_name?: string;
-  tenant_slug?: string;
-  resource?: string;
-  date?: string;
-  status?: string;
-  grand_total?: number;
-};
+import {
+  type CustomerPortalItem,
+  formatPortalDate,
+  formatPortalTime,
+  getBookingStatusMeta,
+  getOrderStatusMeta,
+} from "@/lib/customer-portal";
+import {
+  getCustomerPortalCached,
+  peekCustomerPortalCache,
+  primeCustomerPortalCache,
+} from "@/lib/customer-portal-cache";
+import { useRealtime } from "@/lib/realtime/use-realtime";
+import { customerOrdersChannel } from "@/lib/realtime/channels";
+import { BOOKING_EVENT_PREFIXES, matchesRealtimePrefix } from "@/lib/realtime/event-types";
 
 export default function UserActiveBookingsPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [bookings, setBookings] = useState<BookingItem[]>([]);
+  const cached = peekCustomerPortalCache<{
+    customer_id?: string;
+    active_bookings?: CustomerPortalItem[];
+    active_orders?: CustomerPortalItem[];
+  }>("customer-active");
+  const [loading, setLoading] = useState(!cached);
+  const [customerID, setCustomerID] = useState(String(cached?.customer_id || ""));
+  const [bookings, setBookings] = useState<CustomerPortalItem[]>(cached?.active_bookings || []);
+  const [orders, setOrders] = useState<CustomerPortalItem[]>(cached?.active_orders || []);
 
-  useEffect(() => {
-    let active = true;
+  const load = useCallback(async (mode: "initial" | "background" = "initial") => {
+    try {
+      const data =
+        mode === "background"
+          ? (await api.get("/user/me/active")).data
+          : await getCustomerPortalCached("customer-active", async () => {
+              const res = await api.get("/user/me/active");
+              return res.data;
+            });
 
-    const load = async () => {
-      try {
-        const res = await api.get("/user/me");
-        if (active) setBookings(res.data?.active_bookings || []);
-      } catch (error) {
-        if (isTenantAuthError(error)) {
-          clearTenantSession({ keepTenantSlug: true });
-        }
-        router.replace("/user/login");
-      } finally {
-        if (active) setLoading(false);
+      setCustomerID(String(data?.customer_id || ""));
+      setBookings(data?.active_bookings || []);
+      setOrders(data?.active_orders || []);
+      primeCustomerPortalCache("customer-active", data);
+    } catch (error) {
+      if (isTenantAuthError(error)) {
+        clearTenantSession({ keepTenantSlug: true });
       }
-    };
-
-    void load();
-    return () => {
-      active = false;
-    };
+      router.replace("/user/login");
+    } finally {
+      if (mode === "initial") setLoading(false);
+    }
   }, [router]);
 
+  useEffect(() => {
+    void load("initial");
+  }, [load]);
+
+  useRealtime({
+    enabled: Boolean(customerID),
+    channels: customerID ? [customerOrdersChannel(customerID)] : [],
+    onEvent: (event) => {
+      if (!matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) return;
+      void load("background");
+    },
+    onReconnect: () => {
+      void load("background");
+    },
+  });
+
   const tenantCount = useMemo(
-    () => new Set(bookings.map((booking) => booking.tenant_slug).filter(Boolean)).size,
-    [bookings],
+    () =>
+      new Set(
+        [...bookings, ...orders].map((item) => item.tenant_slug).filter(Boolean),
+      ).size,
+    [bookings, orders],
   );
+  const activeStateLabel = useMemo(() => {
+    if (bookings.length) return "Live";
+    if (orders.length) return "Perlu aksi";
+    return "Idle";
+  }, [bookings.length, orders.length]);
 
   if (loading) {
     return (
@@ -84,18 +121,18 @@ export default function UserActiveBookingsPage() {
               Aktif
             </p>
             <h1 className="mt-1 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
-              Booking aktif
+              Transaksi aktif
             </h1>
           </div>
           <Badge className="rounded-full border-none bg-blue-50 px-3 py-1 text-blue-700 dark:bg-blue-500/10 dark:text-blue-200">
-            {bookings.length} sesi
+            {bookings.length + orders.length} item
           </Badge>
         </div>
 
         <div className="mt-3 grid grid-cols-3 gap-2">
           <MetricTile
             label="Live"
-            value={String(bookings.length)}
+            value={String(bookings.length + orders.length)}
             icon={Radio}
             tone="blue"
           />
@@ -107,24 +144,51 @@ export default function UserActiveBookingsPage() {
           />
           <MetricTile
             label="Status"
-            value={bookings.length ? "Live" : "Idle"}
+            value={activeStateLabel}
             icon={Wallet}
             tone="emerald"
           />
         </div>
       </section>
 
+      {orders.length ? (
+        <section className="space-y-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-600 dark:text-emerald-300">
+              Direct Sale
+            </p>
+            <h2 className="mt-1 text-base font-semibold tracking-tight text-slate-950 dark:text-white">
+              Order langsung yang belum selesai
+            </h2>
+          </div>
+          <div className="space-y-3">
+            {orders.map((order) => (
+              <ActiveOrderRow key={order.id} order={order} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {bookings.length ? (
         <div className="space-y-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-600 dark:text-blue-300">
+              Booking Timed
+            </p>
+            <h2 className="mt-1 text-base font-semibold tracking-tight text-slate-950 dark:text-white">
+              Booking sesi yang masih berjalan
+            </h2>
+          </div>
           {bookings.map((booking) => (
             <ActiveBookingRow key={booking.id} booking={booking} />
           ))}
         </div>
       ) : (
+        !orders.length ? (
         <Card className="rounded-[1.75rem] border-dashed border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
           <CardContent className="space-y-3 p-5">
             <p className="text-sm font-medium text-slate-900 dark:text-white">
-              Belum ada booking aktif.
+              Belum ada transaksi aktif.
             </p>
             <Button
               onClick={() => router.push("/user/me")}
@@ -134,13 +198,85 @@ export default function UserActiveBookingsPage() {
             </Button>
           </CardContent>
         </Card>
+        ) : null
       )}
     </div>
   );
 }
 
-function ActiveBookingRow({ booking }: { booking: BookingItem }) {
+function ActiveOrderRow({ order }: { order: CustomerPortalItem }) {
+  const statusMeta = getOrderStatusMeta(order.status, order.payment_status, order.balance_due);
+  return (
+    <Card className="rounded-[1.35rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <Badge className={statusMeta.className}>
+                {statusMeta.label}
+              </Badge>
+              <span className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                {order.tenant_name || "Tenant"}
+              </span>
+            </div>
+            <h2 className="mt-2 line-clamp-2 text-base font-semibold tracking-tight text-slate-950 dark:text-white">
+              {order.resource || "Order langsung"}
+            </h2>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {statusMeta.hint || "Selesaikan order langsung ini dari portal customer."}
+            </p>
+          </div>
+          <Link
+            href={`/user/me/orders/${order.id}`}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm transition hover:bg-emerald-500"
+          >
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          <InfoPill
+            icon={CalendarDays}
+            label="Dibuat"
+            value={formatDate(order.date)}
+          />
+          <InfoPill
+            icon={ReceiptText}
+            label="Tagihan"
+            value={`Rp ${Number(order.grand_total || 0).toLocaleString("id-ID")}`}
+          />
+          <InfoPill
+            icon={Wallet}
+            label="Jenis"
+            value="Order langsung"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            asChild
+            className="h-10 rounded-2xl bg-emerald-600 px-3 text-white hover:bg-emerald-500"
+          >
+            <Link href={`/user/me/orders/${order.id}/payment`}>
+              <Wallet className="mr-2 h-4 w-4" />
+              Pembayaran
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="h-10 rounded-2xl px-3">
+            <Link href={`/user/me/orders/${order.id}`}>
+              <Eye className="mr-2 h-4 w-4" />
+              Detail
+            </Link>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ActiveBookingRow({ booking }: { booking: CustomerPortalItem }) {
   const tenantUrl = booking.tenant_slug ? getTenantUrl(booking.tenant_slug) : null;
+  const statusMeta = getBookingStatusMeta(booking.status);
 
   return (
     <Card className="rounded-[1.35rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
@@ -148,8 +284,8 @@ function ActiveBookingRow({ booking }: { booking: BookingItem }) {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <Badge className={statusTone(booking.status)}>
-                {booking.status || "active"}
+              <Badge className={statusMeta.className}>
+                {statusMeta.label}
               </Badge>
               <span className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                 {booking.tenant_name || "Tenant"}
@@ -271,32 +407,10 @@ function InfoPill({
   );
 }
 
-function statusTone(status?: string) {
-  const normalized = String(status || "").toLowerCase();
-  if (normalized === "active" || normalized === "ongoing") {
-    return "rounded-full border-none bg-emerald-500 text-white";
-  }
-  if (normalized === "completed") {
-    return "rounded-full border-none bg-slate-900 text-white dark:bg-white/15";
-  }
-  if (normalized === "confirmed") {
-    return "rounded-full border-none bg-blue-600 text-white";
-  }
-  return "rounded-full border-none bg-amber-500 text-white";
-}
-
 function formatDate(value?: string) {
-  if (!value) return "-";
-  return new Date(value).toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "short",
-  });
+  return formatPortalDate(value);
 }
 
 function formatTime(value?: string) {
-  if (!value) return "-";
-  return new Date(value).toLocaleTimeString("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatPortalTime(value);
 }

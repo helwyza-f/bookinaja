@@ -16,7 +16,7 @@ func NewHandler(s *Service) *Handler {
 
 // --- PUBLIC ENDPOINTS (No Login Required) ---
 
-// ListPublic mengambil katalog resource untuk landing page (Granular Load)
+// ListPublic mengambil katalog resource ringan untuk surface publik.
 func (h *Handler) ListPublic(c *gin.Context) {
 	// Ambil tenantID dari context (disediakan oleh middleware TenantIdentifier)
 	tenantID, exists := c.Get("tenantID")
@@ -25,7 +25,7 @@ func (h *Handler) ListPublic(c *gin.Context) {
 		return
 	}
 
-	resources, err := h.service.ListResources(c.Request.Context(), tenantID.(string))
+	resources, err := h.service.ListPublicCatalog(c.Request.Context(), tenantID.(string))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil katalog"})
 		return

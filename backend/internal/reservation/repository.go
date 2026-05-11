@@ -63,6 +63,10 @@ func reservationActiveSessionsCacheKey(tenantID uuid.UUID) string {
 	return fmt.Sprintf("reservation:booking:active:%s", tenantID.String())
 }
 
+func reservationTenantPaymentMethodsCacheKey(tenantID uuid.UUID) string {
+	return fmt.Sprintf("reservation:payment-methods:%s", tenantID.String())
+}
+
 func reservationTenantBookingsCacheKey(tenantID uuid.UUID, status string) string {
 	status = strings.ToLower(strings.TrimSpace(status))
 	if status == "" {
@@ -423,9 +427,6 @@ func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*Boo
 	}
 
 	var b BookingDetail
-	if err := r.recalculateBookingTotalsTx(ctx, r.db, id); err != nil {
-		return nil, err
-	}
 	// Kita pake versi asli lo yang stabil, tapi kita lock DISTINCT biar gak duplikat item
 	query := `
 		SELECT 
@@ -451,15 +452,7 @@ func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*Boo
 		return nil, err
 	}
 
-	if b.GrandTotal <= 0 {
-		b.GrandTotal = b.TotalResource + b.TotalFnb
-	}
-	if b.BalanceDue <= 0 && b.GrandTotal > 0 {
-		b.BalanceDue = b.GrandTotal - b.PaidAmount
-		if b.BalanceDue < 0 {
-			b.BalanceDue = 0
-		}
-	}
+	normalizeBookingFinancials(&b.Booking, b.TotalResource, b.TotalFnb)
 
 	// Hydrate data relasi
 	err = r.HydrateBooking(ctx, &b)
@@ -471,26 +464,11 @@ func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*Boo
 
 // HydrateBooking mengisi data relasi (options & orders) ke dalam objek BookingDetail
 func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error {
-	b.PaymentMethods = make([]BookingPaymentMethod, 0)
-	if err := r.db.SelectContext(ctx, &b.PaymentMethods, `
-		SELECT code, display_name, category, verification_type, provider, instructions, is_active, sort_order, metadata
-		FROM tenant_payment_methods
-		WHERE tenant_id = $1 AND is_active = true
-		ORDER BY sort_order ASC, created_at ASC`, b.TenantID); err != nil {
+	paymentMethods, err := r.loadTenantPaymentMethods(ctx, b.TenantID)
+	if err != nil {
 		return err
 	}
-	if len(b.PaymentMethods) == 0 {
-		if err := r.seedDefaultTenantPaymentMethods(ctx, b.TenantID); err != nil {
-			return err
-		}
-		if err := r.db.SelectContext(ctx, &b.PaymentMethods, `
-			SELECT code, display_name, category, verification_type, provider, instructions, is_active, sort_order, metadata
-			FROM tenant_payment_methods
-			WHERE tenant_id = $1 AND is_active = true
-			ORDER BY sort_order ASC, created_at ASC`, b.TenantID); err != nil {
-			return err
-		}
-	}
+	b.PaymentMethods = paymentMethods
 
 	b.PaymentAttempts = make([]BookingPaymentAttemptSummary, 0)
 	if err := r.db.SelectContext(ctx, &b.PaymentAttempts, `
@@ -503,7 +481,7 @@ func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error
 
 	// 1. Load Options (Layanan/Unit)
 	b.Options = make([]BookingOptionDetail, 0)
-	err := r.db.SelectContext(ctx, &b.Options, `
+	err = r.db.SelectContext(ctx, &b.Options, `
 		SELECT 
 			bo.id, ri.name as item_name, ri.item_type, 
 			bo.price_at_booking, bo.quantity, ri.price as unit_price
@@ -545,6 +523,41 @@ func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error
 		FROM booking_events
 		WHERE booking_id = $1
 		ORDER BY created_at ASC`, b.ID)
+}
+
+func (r *Repository) loadTenantPaymentMethods(ctx context.Context, tenantID uuid.UUID) ([]BookingPaymentMethod, error) {
+	cacheKey := reservationTenantPaymentMethodsCacheKey(tenantID)
+	var methods []BookingPaymentMethod
+	if r.cacheGet(ctx, cacheKey, &methods) {
+		return methods, nil
+	}
+
+	load := func() ([]BookingPaymentMethod, error) {
+		methods = make([]BookingPaymentMethod, 0)
+		err := r.db.SelectContext(ctx, &methods, `
+			SELECT code, display_name, category, verification_type, provider, instructions, is_active, sort_order, metadata
+			FROM tenant_payment_methods
+			WHERE tenant_id = $1 AND is_active = true
+			ORDER BY sort_order ASC, created_at ASC`, tenantID)
+		return methods, err
+	}
+
+	methods, err := load()
+	if err != nil {
+		return nil, err
+	}
+	if len(methods) == 0 {
+		if err := r.seedDefaultTenantPaymentMethods(ctx, tenantID); err != nil {
+			return nil, err
+		}
+		methods, err = load()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	r.cacheSet(ctx, cacheKey, methods, 5*time.Minute)
+	return methods, nil
 }
 
 func (r *Repository) seedDefaultTenantPaymentMethods(ctx context.Context, tenantID uuid.UUID) error {
@@ -599,15 +612,7 @@ func (r *Repository) GetByToken(ctx context.Context, token uuid.UUID) (*BookingD
 		return nil, err
 	}
 
-	if b.GrandTotal <= 0 {
-		b.GrandTotal = b.TotalResource + b.TotalFnb
-	}
-	if b.BalanceDue <= 0 && b.GrandTotal > 0 {
-		b.BalanceDue = b.GrandTotal - b.PaidAmount
-		if b.BalanceDue < 0 {
-			b.BalanceDue = 0
-		}
-	}
+	normalizeBookingFinancials(&b.Booking, b.TotalResource, b.TotalFnb)
 	err = r.HydrateBooking(ctx, &b)
 	if err == nil {
 		r.cacheSet(ctx, cacheKey, b, 2*time.Minute)
@@ -627,9 +632,6 @@ func (r *Repository) FindByIDForCustomer(ctx context.Context, id, tenantID, cust
 	}
 
 	var b BookingDetail
-	if err := r.recalculateBookingTotalsTx(ctx, r.db, id); err != nil {
-		return nil, err
-	}
 	query := `
 		SELECT 
 			b.*, t.name as tenant_name, t.slug as tenant_slug,
@@ -653,15 +655,7 @@ func (r *Repository) FindByIDForCustomer(ctx context.Context, id, tenantID, cust
 		return nil, err
 	}
 
-	if b.GrandTotal <= 0 {
-		b.GrandTotal = b.TotalResource + b.TotalFnb
-	}
-	if b.BalanceDue <= 0 && b.GrandTotal > 0 {
-		b.BalanceDue = b.GrandTotal - b.PaidAmount
-		if b.BalanceDue < 0 {
-			b.BalanceDue = 0
-		}
-	}
+	normalizeBookingFinancials(&b.Booking, b.TotalResource, b.TotalFnb)
 	err = r.HydrateBooking(ctx, &b)
 	if err == nil {
 		r.cacheSet(ctx, cacheKey, b, 2*time.Minute)
@@ -677,9 +671,6 @@ func (r *Repository) FindByIDForCustomerGlobal(ctx context.Context, id, customer
 	}
 
 	var b BookingDetail
-	if err := r.recalculateBookingTotalsTx(ctx, r.db, id); err != nil {
-		return nil, err
-	}
 	query := `
 		SELECT 
 			b.*, t.name as tenant_name, t.slug as tenant_slug,
@@ -703,15 +694,7 @@ func (r *Repository) FindByIDForCustomerGlobal(ctx context.Context, id, customer
 		return nil, err
 	}
 
-	if b.GrandTotal <= 0 {
-		b.GrandTotal = b.TotalResource + b.TotalFnb
-	}
-	if b.BalanceDue <= 0 && b.GrandTotal > 0 {
-		b.BalanceDue = b.GrandTotal - b.PaidAmount
-		if b.BalanceDue < 0 {
-			b.BalanceDue = 0
-		}
-	}
+	normalizeBookingFinancials(&b.Booking, b.TotalResource, b.TotalFnb)
 	err = r.HydrateBooking(ctx, &b)
 	if err == nil {
 		r.cacheSet(ctx, cacheKey, b, 2*time.Minute)
@@ -895,6 +878,35 @@ func (r *Repository) recalculateBookingTotalsTx(ctx context.Context, exec sqlx.E
 	return nil
 }
 
+func normalizeBookingFinancials(booking *Booking, totalResource, totalFnb float64) {
+	if booking == nil {
+		return
+	}
+
+	originalTotal := totalResource + totalFnb
+	if shouldFloatPromoDiscount(booking.PromoSnapshot) {
+		booking.DiscountAmount = calculatePromoDiscountFromSnapshot(booking.PromoSnapshot, originalTotal)
+	}
+	if booking.OriginalGrandTotal == nil || *booking.OriginalGrandTotal <= 0 {
+		booking.OriginalGrandTotal = &originalTotal
+	}
+
+	computedGrandTotal := math.Max(originalTotal-booking.DiscountAmount, 0)
+	if booking.GrandTotal <= 0 || shouldFloatPromoDiscount(booking.PromoSnapshot) {
+		booking.GrandTotal = computedGrandTotal
+	}
+
+	if booking.PaymentStatus == "partial_paid" || booking.PaymentStatus == "paid" || booking.PaymentStatus == "settled" {
+		booking.PaidAmount = math.Max(booking.PaidAmount, booking.DepositAmount)
+	}
+	if booking.BalanceDue <= 0 && booking.GrandTotal > 0 {
+		booking.BalanceDue = booking.GrandTotal - booking.PaidAmount
+		if booking.BalanceDue < 0 {
+			booking.BalanceDue = 0
+		}
+	}
+}
+
 func (r *Repository) ResolveDepositPolicy(ctx context.Context, tenantID, resourceID uuid.UUID) (bool, float64, error) {
 	type depositSetting struct {
 		DPEnabled    bool    `db:"dp_enabled"`
@@ -1025,16 +1037,28 @@ func (r *Repository) FindActiveSessions(ctx context.Context, tenantID uuid.UUID)
 
 	var res []BookingDetail
 	query := `
+		WITH option_totals AS (
+			SELECT booking_id, COALESCE(SUM(price_at_booking), 0) AS total_resource
+			FROM booking_options
+			GROUP BY booking_id
+		),
+		order_totals AS (
+			SELECT booking_id, COALESCE(SUM(price_at_purchase * quantity), 0) AS total_fnb
+			FROM order_items
+			GROUP BY booking_id
+		)
 		SELECT 
 			b.*, t.name as tenant_name, t.slug as tenant_slug,
 			COALESCE(NULLIF(BTRIM(t.timezone), ''), 'Asia/Jakarta') as timezone,
 			c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
-			COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) as total_resource,
-			COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_fnb
+			COALESCE(ot.total_resource, 0) as total_resource,
+			COALESCE(ft.total_fnb, 0) as total_fnb
 		FROM bookings b
 		JOIN tenants t ON t.id = b.tenant_id
 		JOIN customers c ON b.customer_id = c.id
 		JOIN resources res ON b.resource_id = res.id
+		LEFT JOIN option_totals ot ON ot.booking_id = b.id
+		LEFT JOIN order_totals ft ON ft.booking_id = b.id
 		WHERE b.tenant_id = $1
 			AND (
 				b.status IN ('active', 'ongoing')
@@ -1059,15 +1083,7 @@ func (r *Repository) FindActiveSessions(ctx context.Context, tenantID uuid.UUID)
 	}
 
 	for i := range res {
-		if res[i].GrandTotal <= 0 {
-			res[i].GrandTotal = res[i].TotalResource + res[i].TotalFnb
-		}
-		if res[i].BalanceDue <= 0 && res[i].GrandTotal > 0 {
-			res[i].BalanceDue = res[i].GrandTotal - res[i].PaidAmount
-			if res[i].BalanceDue < 0 {
-				res[i].BalanceDue = 0
-			}
-		}
+		normalizeBookingFinancials(&res[i].Booking, res[i].TotalResource, res[i].TotalFnb)
 		// Catatan: Biasanya tidak perlu Hydrate penuh untuk view list agar hemat query
 		res[i].Options = []BookingOptionDetail{}
 		res[i].Orders = []OrderItem{}
@@ -1485,15 +1501,7 @@ func (r *Repository) FindAllByTenant(ctx context.Context, tenantID uuid.UUID, st
 	}
 
 	for i := range res {
-		if res[i].GrandTotal <= 0 {
-			res[i].GrandTotal = res[i].TotalResource + res[i].TotalFnb
-		}
-		if res[i].BalanceDue <= 0 && res[i].GrandTotal > 0 {
-			res[i].BalanceDue = res[i].GrandTotal - res[i].PaidAmount
-			if res[i].BalanceDue < 0 {
-				res[i].BalanceDue = 0
-			}
-		}
+		normalizeBookingFinancials(&res[i].Booking, res[i].TotalResource, res[i].TotalFnb)
 	}
 	r.cacheSet(ctx, cacheKey, res, 30*time.Second)
 	return res, nil
@@ -1690,14 +1698,6 @@ func (r *Repository) GetReceiptContext(ctx context.Context, bookingID, tenantID 
 	if err := r.db.GetContext(ctx, &receipt, query, bookingID, tenantID); err != nil {
 		return nil, err
 	}
-	if receipt.GrandTotal <= 0 {
-		receipt.GrandTotal = receipt.TotalResource + receipt.TotalFnb
-	}
-	if receipt.BalanceDue <= 0 && receipt.GrandTotal > 0 {
-		receipt.BalanceDue = receipt.GrandTotal - receipt.PaidAmount
-		if receipt.BalanceDue < 0 {
-			receipt.BalanceDue = 0
-		}
-	}
+	normalizeBookingFinancials(&receipt.Booking, receipt.TotalResource, receipt.TotalFnb)
 	return &receipt, nil
 }

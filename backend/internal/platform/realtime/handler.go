@@ -2,6 +2,8 @@ package realtime
 
 import (
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -18,9 +20,7 @@ func NewHandler(hub *Hub) *Handler {
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
-			CheckOrigin: func(r *http.Request) bool {
-				return true
-			},
+			CheckOrigin:     websocketOriginAllowed,
 		},
 	}
 }
@@ -48,3 +48,27 @@ func (h *Handler) ServeWS(c *gin.Context) {
 	go client.readPump()
 }
 
+func websocketOriginAllowed(r *http.Request) bool {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		return true
+	}
+
+	allowed := []string{
+		"http://localhost:3000",
+		"http://bookinaja.local:3000",
+		"https://bookinaja.com",
+		"https://www.bookinaja.com",
+	}
+	if domain := strings.TrimSpace(os.Getenv("APP_DOMAIN")); domain != "" {
+		allowed = append(allowed, "https://"+domain, "http://"+domain)
+	}
+
+	for _, candidate := range allowed {
+		if origin == candidate {
+			return true
+		}
+	}
+
+	return strings.HasSuffix(origin, ".bookinaja.com") || strings.HasSuffix(origin, ".bookinaja.local:3000")
+}

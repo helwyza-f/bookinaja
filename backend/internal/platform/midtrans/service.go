@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/helwiza/backend/internal/platform/fonnte"
 	platformrealtime "github.com/helwiza/backend/internal/platform/realtime"
 	"github.com/jmoiron/sqlx"
@@ -18,17 +19,26 @@ import (
 )
 
 type Service struct {
-	repo     *Repository
-	db       *sqlx.DB
-	realtime realtimeBroadcaster
+	repo          *Repository
+	db            *sqlx.DB
+	realtime      realtimeBroadcaster
+	customerCache customerPortalInvalidator
 }
 
 type realtimeBroadcaster interface {
 	Publish(channel string, event platformrealtime.Event) error
 }
 
-func NewService(db *sqlx.DB, repo *Repository, realtime realtimeBroadcaster) *Service {
-	return &Service{db: db, repo: repo, realtime: realtime}
+type customerPortalInvalidator interface {
+	InvalidatePortalCache(ctx context.Context, customerID uuid.UUID)
+}
+
+func NewService(db *sqlx.DB, repo *Repository, realtime realtimeBroadcaster, customerCache ...customerPortalInvalidator) *Service {
+	var invalidator customerPortalInvalidator
+	if len(customerCache) > 0 {
+		invalidator = customerCache[0]
+	}
+	return &Service{db: db, repo: repo, realtime: realtime, customerCache: invalidator}
 }
 
 func (s *Service) HandleNotification(ctx context.Context, payload map[string]any) error {
@@ -91,6 +101,7 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 
 	var notify *BookingNotificationContext
 	var notifyMode string
+	var salesOrderNotify *SalesOrderRealtimeContext
 	isFinalStatus := transactionStatus == "settlement" || transactionStatus == "capture"
 	err := s.withTx(ctx, func(tx *sqlx.Tx) error {
 		receivedAt := time.Now().UTC()
@@ -363,6 +374,16 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 			if err := s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon); err != nil {
 				return err
 			}
+			if attempt != nil {
+				salesOrderNotify = &SalesOrderRealtimeContext{
+					OrderID:       salesOrderID,
+					TenantID:      attempt.TenantID,
+					CustomerID:    attempt.CustomerID,
+					PaymentStatus: newStatus,
+					PaidInFull:    isFinalStatus,
+					PaymentMethod: salesMethod,
+				}
+			}
 			return nil
 		}
 		logCommon.ProcessingStatus = "ignored"
@@ -383,7 +404,23 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 		s.emitBookingPaymentRealtime(eventType, *notify, notifyMode)
 		_ = s.sendBookingPaymentWhatsApp(ctx, *notify, notifyMode)
 	}
+	if salesOrderNotify != nil {
+		eventType := "payment.pending"
+		if salesOrderNotify.PaidInFull {
+			eventType = "payment.settlement.paid"
+		}
+		s.emitSalesOrderRealtime(eventType, *salesOrderNotify)
+	}
 	return nil
+}
+
+type SalesOrderRealtimeContext struct {
+	OrderID       uuid.UUID
+	TenantID      uuid.UUID
+	CustomerID    *uuid.UUID
+	PaymentStatus string
+	PaidInFull    bool
+	PaymentMethod string
 }
 
 func (s *Service) emitBookingPaymentRealtime(eventType string, info BookingNotificationContext, mode string) {
@@ -415,6 +452,39 @@ func (s *Service) emitBookingPaymentRealtime(eventType string, info BookingNotif
 	_ = s.realtime.Publish(platformrealtime.TenantBookingChannel(info.TenantID.String(), info.BookingID.String()), event)
 	_ = s.realtime.Publish(platformrealtime.TenantDashboardChannel(info.TenantID.String()), event)
 	_ = s.realtime.Publish(platformrealtime.CustomerBookingChannel(info.CustomerID.String(), info.BookingID.String()), event)
+}
+
+func (s *Service) emitSalesOrderRealtime(eventType string, info SalesOrderRealtimeContext) {
+	if info.CustomerID == nil {
+		return
+	}
+	if s.customerCache != nil {
+		s.customerCache.InvalidatePortalCache(context.Background(), *info.CustomerID)
+	}
+	if s.realtime == nil {
+		return
+	}
+
+	event := platformrealtime.NewEvent(eventType)
+	event.TenantID = info.TenantID.String()
+	event.EntityType = "order"
+	event.EntityID = info.OrderID.String()
+	event.Summary = map[string]any{
+		"payment_status": info.PaymentStatus,
+		"payment_method": info.PaymentMethod,
+	}
+	if info.PaidInFull {
+		event.Summary["status"] = "paid"
+		event.Summary["balance_due"] = 0
+	}
+	event.Refs = map[string]any{
+		"order_id":    info.OrderID.String(),
+		"customer_id": info.CustomerID.String(),
+	}
+
+	customerID := info.CustomerID.String()
+	_ = s.realtime.Publish(platformrealtime.CustomerOrdersChannel(customerID), event)
+	_ = s.realtime.Publish(platformrealtime.CustomerOrderChannel(customerID, info.OrderID.String()), event)
 }
 
 func (s *Service) sendBookingPaymentWhatsApp(ctx context.Context, info BookingNotificationContext, mode string) error {

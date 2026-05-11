@@ -117,6 +117,24 @@ func (s *Service) ListResources(ctx context.Context, tenantID string) (any, erro
 	}, nil
 }
 
+func (s *Service) ListPublicCatalog(ctx context.Context, tenantID string) (any, error) {
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	resources, category, bType, err := s.repo.ListPublicCatalogByTenant(ctx, tID)
+	if err != nil {
+		return nil, err
+	}
+
+	return gin.H{
+		"business_category": category,
+		"business_type":     bType,
+		"resources":         resources,
+	}, nil
+}
+
 func (s *Service) ListResourceSummaries(ctx context.Context, tenantID string) ([]ResourceSummary, error) {
 	tID, err := uuid.Parse(tenantID)
 	if err != nil {

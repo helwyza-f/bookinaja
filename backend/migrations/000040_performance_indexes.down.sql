@@ -1,0 +1,10 @@
+DROP INDEX IF EXISTS idx_sales_order_payment_attempts_gateway_order_created;
+DROP INDEX IF EXISTS idx_booking_payment_attempts_gateway_order_created;
+DROP INDEX IF EXISTS idx_customers_tenant_updated_created;
+DROP INDEX IF EXISTS idx_bookings_status_end_start;
+DROP INDEX IF EXISTS idx_bookings_tenant_status_start;
+DROP INDEX IF EXISTS idx_bookings_resource_active_window;
+DROP INDEX IF EXISTS idx_resource_items_resource_type_default_price;
+DROP INDEX IF EXISTS idx_resources_tenant_status_created;
+DROP INDEX IF EXISTS idx_tenants_referral_code_normalized;
+DROP INDEX IF EXISTS idx_tenants_slug_normalized;

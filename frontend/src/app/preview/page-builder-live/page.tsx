@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import api from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LandingBuilderRenderer } from "@/components/tenant/public/landing/builder-renderer";
+import { extractBuilderResourcesPayload } from "@/lib/page-builder";
 
 const fetcher = (url: string) => api.get(url).then((res) => res.data);
 
@@ -13,7 +14,7 @@ function PageBuilderLivePreviewInner() {
   const searchParams = useSearchParams();
   const mode = searchParams.get("mode") === "desktop" ? "desktop" : "mobile";
 
-  const { data: profile } = useSWR("/public/profile", fetcher, {
+  const { data: profile } = useSWR("/public/site", fetcher, {
     revalidateOnFocus: false,
     revalidateOnMount: true,
     dedupingInterval: 30000,
@@ -36,7 +37,7 @@ function PageBuilderLivePreviewInner() {
     <div className="min-h-screen bg-white dark:bg-[#050505]">
       <LandingBuilderRenderer
         profile={profile}
-        resources={resourceData?.resources || []}
+        resources={extractBuilderResourcesPayload(resourceData)}
         pageConfig={profile?.landing_page_config}
         themeConfig={profile?.landing_theme_config}
         bookingFormConfig={profile?.booking_form_config}

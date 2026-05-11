@@ -45,8 +45,23 @@ import {
   discoveryImpressionKey,
   trackDiscoveryEvent,
 } from "@/lib/discovery-analytics";
+import {
+  type CustomerPortalItem,
+  formatPortalDate,
+  getBookingStatusMeta,
+  getOrderStatusMeta,
+} from "@/lib/customer-portal";
+import {
+  getCustomerPortalCached,
+  peekCustomerPortalCache,
+  primeCustomerPortalCache,
+} from "@/lib/customer-portal-cache";
+import { useRealtime } from "@/lib/realtime/use-realtime";
+import { customerOrdersChannel } from "@/lib/realtime/channels";
+import { BOOKING_EVENT_PREFIXES, matchesRealtimePrefix } from "@/lib/realtime/event-types";
 
 type CustomerDashboard = {
+  customer_id?: string;
   customer?: {
     id?: string;
     name?: string;
@@ -57,8 +72,10 @@ type CustomerDashboard = {
   };
   points?: number;
   point_activity?: PointEvent[];
-  active_bookings?: BookingItem[];
-  past_history?: BookingItem[];
+  active_bookings?: CustomerPortalItem[];
+  active_orders?: CustomerPortalItem[];
+  past_history?: CustomerPortalItem[];
+  past_orders?: CustomerPortalItem[];
 };
 
 type PointEvent = {
@@ -68,57 +85,59 @@ type PointEvent = {
   created_at: string;
 };
 
-type BookingItem = {
-  id: string;
-  tenant_name?: string;
-  tenant_slug?: string;
-  resource?: string;
-  date?: string;
-  status?: string;
-  total_spent?: number;
-  grand_total?: number;
-};
-
 const FILTER_ALL = "Semua";
 
 export default function UserDashboardPage() {
   const router = useRouter();
-  const [data, setData] = useState<CustomerDashboard | null>(null);
+  const cachedSummary = peekCustomerPortalCache<CustomerDashboard>("customer-summary");
+  const [data, setData] = useState<CustomerDashboard | null>(cachedSummary);
   const [discoverFeed, setDiscoverFeed] = useState<DiscoveryFeedResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cachedSummary);
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState(FILTER_ALL);
   const seenImpressionsRef = useRef<Set<string>>(new Set());
 
-  useEffect(() => {
-    let active = true;
-
-    const load = async () => {
+  const load = useCallback(async (mode: "initial" | "background" = "initial") => {
       try {
-        const [profileRes, discoverRes] = await Promise.all([
-          api.get("/user/me"),
-          api.get("/user/me/discover/feed").catch(() => ({ data: null })),
-        ]);
-
-        if (active) {
-          setData(profileRes.data);
-          setDiscoverFeed(discoverRes.data || null);
-        }
+        const profileRes =
+          mode === "background"
+            ? (await api.get("/user/me/summary")).data
+            : await getCustomerPortalCached("customer-summary", async () => {
+                const res = await api.get("/user/me/summary");
+                return res.data;
+              });
+        const discoverRes = await api.get("/user/me/discover/feed").catch(() => ({ data: null }));
+        setData(profileRes);
+        setDiscoverFeed(discoverRes.data || null);
+        primeCustomerPortalCache("customer-summary", profileRes);
       } catch (error) {
         if (isTenantAuthError(error)) {
           clearTenantSession({ keepTenantSlug: true });
         }
         router.replace("/user/login");
       } finally {
-        if (active) setLoading(false);
+        if (mode === "initial") setLoading(false);
       }
-    };
-
-    void load();
-    return () => {
-      active = false;
-    };
   }, [router]);
+
+  useEffect(() => {
+    void load("initial");
+  }, [load]);
+
+  useRealtime({
+    enabled: Boolean(data?.customer_id || data?.customer?.id),
+    channels:
+      data?.customer_id || data?.customer?.id
+        ? [customerOrdersChannel(String(data?.customer_id || data?.customer?.id || ""))]
+        : [],
+    onEvent: (event) => {
+      if (!matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) return;
+      void load("background");
+    },
+    onReconnect: () => {
+      void load("background");
+    },
+  });
 
   const customer = data?.customer;
   const customerInitials = useMemo(() => {
@@ -130,6 +149,7 @@ export default function UserDashboardPage() {
       .join("");
   }, [customer?.name]);
   const activeBookings = useMemo(() => data?.active_bookings || [], [data?.active_bookings]);
+  const activeOrders = useMemo(() => data?.active_orders || [], [data?.active_orders]);
   const pointActivity = useMemo(() => data?.point_activity || [], [data?.point_activity]);
   const history = useMemo(() => data?.past_history || [], [data?.past_history]);
   const categories = useMemo(
@@ -234,7 +254,7 @@ export default function UserDashboardPage() {
           />
           <MetricCard
             label="Aktif"
-            value={String(activeBookings.length)}
+            value={String(activeBookings.length + activeOrders.length)}
             icon={Ticket}
             tone="slate"
           />
@@ -275,7 +295,7 @@ export default function UserDashboardPage() {
               >
                 <div className="flex items-center justify-between gap-2">
                   <Badge className="rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200">
-                    {booking.status || "active"}
+                    {getBookingStatusMeta(booking.status).label}
                   </Badge>
                   <span className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
                     {booking.tenant_name || "Tenant"}
@@ -288,10 +308,7 @@ export default function UserDashboardPage() {
                   <span className="flex items-center gap-1">
                     <CalendarDays className="h-3.5 w-3.5" />
                     {booking.date
-                      ? new Date(booking.date).toLocaleDateString("id-ID", {
-                          day: "numeric",
-                          month: "short",
-                        })
+                      ? formatPortalDate(booking.date)
                       : "-"}
                   </span>
                   <span>Rp {Number(booking.grand_total || 0).toLocaleString("id-ID")}</span>
@@ -307,6 +324,58 @@ export default function UserDashboardPage() {
           </Card>
         )}
       </section>
+
+      {activeOrders.length ? (
+        <section className="space-y-3">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-600 dark:text-emerald-300">
+                Direct Sale
+              </p>
+              <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
+                Order langsung yang perlu ditindaklanjuti
+              </h2>
+            </div>
+          </div>
+
+          <div className="grid gap-3">
+            {activeOrders.slice(0, 3).map((order) => (
+              <Link
+                key={order.id}
+                href={`/user/me/orders/${order.id}`}
+                className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 dark:border-white/10 dark:bg-[#0b0f19] dark:hover:border-white/20"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Badge className={getOrderStatusMeta(order.status, order.payment_status, order.balance_due).className}>
+                        {getOrderStatusMeta(order.status, order.payment_status, order.balance_due).label}
+                      </Badge>
+                      <span className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                        {order.tenant_name || "Tenant"}
+                      </span>
+                    </div>
+                    <div className="mt-2 text-base font-semibold text-slate-950 dark:text-white">
+                      {order.resource || "Order langsung"}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      {getOrderStatusMeta(order.status, order.payment_status, order.balance_due).hint || "Order langsung customer."}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-black text-slate-950 dark:text-white">
+                      Rp{Number(order.grand_total || 0).toLocaleString("id-ID")}
+                    </div>
+                    <div className="mt-2 inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-600 text-white">
+                      <ArrowRight className="h-4 w-4" />
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="space-y-3">
         <div>

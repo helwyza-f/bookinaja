@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import type { BuilderProfile } from "@/lib/page-builder";
+import { getLandingPresetTone } from "./theme-preset";
 
 // Custom Brand Icons
 const InstagramIcon = ({ className }: { className?: string }) => (
@@ -63,6 +64,7 @@ export function TenantFooter({
   preset = "bookinaja-classic",
   radiusStyle = "rounded",
 }: TenantFooterProps) {
+  const tone = getLandingPresetTone(preset);
   // Mapping socials dari data profil asli
   const socialLinks = [
     {
@@ -81,74 +83,18 @@ export function TenantFooter({
 
   const panelRadiusClass =
     radiusStyle === "square" ? "rounded-[1rem]" : radiusStyle === "soft" ? "rounded-[1.4rem]" : "rounded-2xl";
-  const sectionBackgroundClass =
-    preset === "boutique"
-      ? "bg-[#fffdf9] dark:bg-[#0f0c0a] border-stone-100 dark:border-white/5"
-      : preset === "sunset-glow"
-        ? "bg-[linear-gradient(180deg,#fffaf5_0%,#fff1e8_100%)] dark:bg-[#120804] border-orange-100 dark:border-orange-500/10"
-      : preset === "playful"
-        ? "bg-[linear-gradient(180deg,#ffffff_0%,#f0fdf4_100%)] dark:bg-[#03120d] border-emerald-100/70 dark:border-emerald-500/10"
-        : preset === "mono-luxe"
-          ? "bg-[linear-gradient(180deg,#ffffff_0%,#eef2f7_100%)] dark:bg-[#020617] border-slate-200 dark:border-white/5"
-        : preset === "dark-pro"
-          ? "bg-[linear-gradient(180deg,#f8fafc_0%,#e2e8f0_100%)] dark:bg-[#020617] border-slate-200 dark:border-white/5"
-          : "bg-white dark:bg-[#050505] border-slate-100 dark:border-white/5";
-  const iconPanelClass =
-    preset === "boutique"
-      ? "bg-[#fff8f1] dark:bg-[#171412]"
-      : preset === "sunset-glow"
-        ? "bg-[#fff1e8] dark:bg-[#1a0d08]"
-      : preset === "playful"
-        ? "bg-emerald-50 dark:bg-[#082114]"
-        : preset === "mono-luxe"
-          ? "bg-slate-100 dark:bg-[#0b1120]"
-        : preset === "dark-pro"
-          ? "bg-slate-100 dark:bg-white/10"
-          : "bg-slate-50 dark:bg-white/5";
-  const subtleTextClass =
-    preset === "boutique"
-      ? "text-stone-400 dark:text-stone-300"
-      : preset === "sunset-glow"
-        ? "text-orange-500 dark:text-orange-300"
-      : preset === "playful"
-        ? "text-emerald-600 dark:text-emerald-300"
-        : preset === "mono-luxe"
-          ? "text-slate-500 dark:text-slate-300"
-        : "text-slate-400 dark:text-slate-300";
-  const bodyTextClass =
-    preset === "boutique"
-      ? "text-stone-600 dark:text-stone-300"
-      : preset === "sunset-glow"
-        ? "text-orange-900/85 dark:text-orange-100/85"
-      : preset === "playful"
-        ? "text-emerald-800 dark:text-emerald-100"
-        : preset === "mono-luxe"
-          ? "text-slate-800 dark:text-slate-100"
-        : preset === "dark-pro"
-          ? "text-slate-700 dark:text-slate-200"
-          : "text-slate-700 dark:text-slate-200";
-  const socialButtonClass =
-    preset === "boutique"
-      ? "border-stone-200 text-stone-700 hover:bg-[#fff8f1] dark:border-white/10 dark:text-stone-100 dark:hover:bg-[#1f1a17]"
-      : preset === "sunset-glow"
-        ? "border-orange-200 text-orange-800 hover:bg-[#fff1e8] dark:border-orange-500/20 dark:text-orange-100 dark:hover:bg-[#2a140b]"
-      : preset === "playful"
-        ? "border-emerald-100 text-emerald-800 hover:bg-emerald-50 dark:border-emerald-500/20 dark:text-emerald-100 dark:hover:bg-[#123321]"
-        : preset === "mono-luxe"
-          ? "border-slate-300 text-slate-800 hover:bg-slate-100 dark:border-white/10 dark:text-slate-100 dark:hover:bg-slate-800"
-        : preset === "dark-pro"
-          ? "border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:text-slate-100 dark:hover:bg-slate-800"
-          : "border-slate-100 text-slate-700 hover:bg-slate-50 dark:border-white/5 dark:text-slate-100 dark:hover:bg-white/10";
-  const lowContrastTextClass =
-    preset === "boutique"
-      ? "text-stone-500/80 dark:text-stone-300/80"
-      : preset === "sunset-glow"
-        ? "text-orange-700/85 dark:text-orange-200/80"
-      : preset === "playful"
-        ? "text-emerald-700/80 dark:text-emerald-200/80"
-        : preset === "mono-luxe"
-          ? "text-slate-600/85 dark:text-slate-300/80"
-        : "text-slate-500/80 dark:text-slate-300/80";
+  const sectionBackgroundClass = tone.section;
+  const iconPanelClass = tone.iconPanel;
+  const subtleTextClass = tone.eyebrow;
+  const bodyTextClass = tone.body;
+  const socialButtonClass = tone.social;
+  const lowContrastTextClass = tone.lowContrast;
+  const footerCardClass = cn("border", panelRadiusClass, tone.panel);
+  const footerIconChipClass = cn("mt-1 p-3 border", panelRadiusClass, tone.panel);
+  const footerDividerClass =
+    preset === "playful" || preset === "sunset-glow"
+      ? "border-white/10 dark:border-white/12"
+      : "border-slate-200 dark:border-white/10";
 
   return (
     <footer className={cn("pt-32 pb-12 border-t px-6 overflow-hidden relative", sectionBackgroundClass)}>
@@ -170,7 +116,7 @@ export function TenantFooter({
                 <ShieldCheck size={30} strokeWidth={2.5} />
               </div>
               <div className="flex flex-col">
-                <h3 className="text-3xl md:text-4xl font-[1000] italic uppercase tracking-tighter leading-none text-slate-900 dark:text-white">
+                <h3 className={cn("text-3xl md:text-4xl font-[1000] italic uppercase tracking-tighter leading-none", tone.title)}>
                   {profile.name}
                 </h3>
                 <div className="flex items-center gap-2 mt-1">
@@ -185,7 +131,7 @@ export function TenantFooter({
               </div>
             </div>
 
-            <p className={cn("max-w-md font-medium italic leading-relaxed text-sm md:text-lg", subtleTextClass)}>
+            <p className={cn("max-w-md font-medium italic leading-relaxed text-sm md:text-lg", tone.subtle)}>
               &quot;
               {profile.about_us ||
                 profile.description ||
@@ -232,128 +178,86 @@ export function TenantFooter({
           </div>
 
           {/* --- INFO COLUMN --- */}
-          <div className="lg:col-span-4 space-y-10">
+          <div className="lg:col-span-7 space-y-10">
             <p className={cn("text-[10px] font-black uppercase tracking-[0.5em] italic", subtleTextClass)}>
-              Dispatch Center
+              Info singkat
             </p>
-            <div className="space-y-8">
-              <div className="flex items-start gap-5 group">
-                <div className={cn("mt-1 p-3 transition-colors group-hover:bg-white dark:group-hover:bg-white/10 group-hover:shadow-md", panelRadiusClass, iconPanelClass)}>
-                  <MapPin size={20} style={{ color: primaryColor }} />
-                </div>
-                <div className="space-y-2">
-                  <p className={cn("text-xs font-black uppercase tracking-widest", subtleTextClass)}>
-                    Headquarters
-                  </p>
-                  <p className={cn("text-sm font-bold leading-relaxed", bodyTextClass)}>
-                    {profile.address ||
-                      "Location data pending synchronization."}
-                  </p>
-                  {profile.map_iframe_url && (
-                    <a
-                      href={profile.map_iframe_url}
-                      target="_blank"
-                      className="inline-flex items-center gap-1 text-[10px] font-black text-blue-500 uppercase italic hover:underline"
-                    >
-                      View on Maps <ArrowUpRight size={10} />
-                    </a>
-                  )}
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className={cn("p-5", footerCardClass, iconPanelClass)}>
+                <div className="flex items-start gap-4">
+                <div className={footerIconChipClass}>
+                    <MapPin size={18} style={{ color: primaryColor }} />
+                  </div>
+                  <div className="space-y-2">
+                    <p className={cn("text-[10px] font-black uppercase tracking-[0.24em]", subtleTextClass)}>
+                      Lokasi
+                    </p>
+                    <p className={cn("text-sm font-semibold leading-relaxed", bodyTextClass)}>
+                      {profile.address || "Alamat akan tampil di sini saat bisnis sudah melengkapinya."}
+                    </p>
+                    {profile.map_iframe_url ? (
+                      <a
+                        href={profile.map_iframe_url}
+                        target="_blank"
+                        className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.18em] text-blue-500 hover:underline"
+                      >
+                        Buka peta <ArrowUpRight size={10} />
+                      </a>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-start gap-5 group">
-                <div className={cn("mt-1 p-3 transition-colors group-hover:bg-white dark:group-hover:bg-white/10 group-hover:shadow-md", panelRadiusClass, iconPanelClass)}>
-                  <Clock size={20} style={{ color: primaryColor }} />
-                </div>
-                <div className="space-y-2">
-                  <p className={cn("text-xs font-black uppercase tracking-widest", subtleTextClass)}>
-                    Hub Hours
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <span className="px-3 py-1 bg-green-500/10 text-green-500 text-[10px] font-black rounded-lg">
-                      LIVE
-                    </span>
-                    <p className={cn("text-sm font-[1000] italic uppercase", bodyTextClass)}>
-                      {profile.open_time} — {profile.close_time}
+              <div className={cn("p-5", footerCardClass, iconPanelClass)}>
+                <div className="flex items-start gap-4">
+                <div className={footerIconChipClass}>
+                    <Clock size={18} style={{ color: primaryColor }} />
+                  </div>
+                  <div className="space-y-2">
+                    <p className={cn("text-[10px] font-black uppercase tracking-[0.24em]", subtleTextClass)}>
+                      Jam operasional
+                    </p>
+                    <p className={cn("text-sm font-semibold leading-relaxed", bodyTextClass)}>
+                      {profile.open_time && profile.close_time
+                        ? `${profile.open_time} — ${profile.close_time}`
+                        : "Jam buka akan tampil di sini."}
+                    </p>
+                    <p className={cn("text-xs", lowContrastTextClass)}>
+                      Customer bisa lanjut booking atau hubungi bisnis lewat Bookinaja.
                     </p>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* --- LINKS COLUMN --- */}
-          <div className="lg:col-span-3 space-y-10">
-            <p className={cn("text-[10px] font-black uppercase tracking-[0.5em] italic", subtleTextClass)}>
-              Network
-            </p>
-            <div className="grid grid-cols-1 gap-10">
-              <ul className="space-y-5 font-[1000] uppercase italic text-xs tracking-[0.2em] text-slate-800 dark:text-slate-200">
-                <li className="hover:translate-x-3 transition-transform cursor-pointer flex items-center gap-3 group">
-                  <div
-                    className="h-1 w-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ backgroundColor: primaryColor }}
-                  />
-                  Experience Catalog
-                </li>
-                <li className="hover:translate-x-3 transition-transform cursor-pointer flex items-center gap-3 group">
-                  <div
-                    className="h-1 w-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ backgroundColor: primaryColor }}
-                  />
-                  Direct Support
-                </li>
-
-                <li
-                  className="hover:translate-x-3 transition-transform cursor-pointer flex items-center gap-3 group"
-                  style={{ color: primaryColor }}
+            <div className="flex flex-wrap gap-3">
+              <a href="#catalog">
+                <Button
+                  className="border-none text-white"
+                  style={{ backgroundColor: primaryColor }}
                 >
-                  <div
-                    className="h-1 w-1 rounded-full opacity-100"
-                    style={{ backgroundColor: primaryColor }}
-                  />
-                  <Link href={"/admin/login"}>Login Admin</Link>
-                </li>
-              </ul>
-
-              <div className="pt-4 space-y-4 border-t border-slate-100 dark:border-white/5">
-                <p className={cn("text-[9px] font-black uppercase tracking-widest", subtleTextClass)}>
-                  Legal Stack
-                </p>
-                <div className={cn("flex gap-6 text-[10px] font-bold uppercase tracking-tighter", lowContrastTextClass)}>
-                  <span className="hover:opacity-100 cursor-pointer transition-opacity">
-                    Privacy
-                  </span>
-                  <span className="hover:opacity-100 cursor-pointer transition-opacity">
-                    Terms
-                  </span>
-                </div>
-              </div>
+                  Lihat katalog
+                </Button>
+              </a>
+              {profile.whatsapp_number ? (
+                <a href={`https://wa.me/${profile.whatsapp_number}`} target="_blank" rel="noreferrer">
+                  <Button variant="outline" className={cn("border-2 bg-transparent", socialButtonClass)}>Hubungi via WhatsApp</Button>
+                </a>
+              ) : null}
             </div>
           </div>
         </div>
 
         {/* --- DYNAMIC BOTTOM BAR --- */}
-        <div className="mt-24 pt-10 border-t border-slate-100 dark:border-white/5 flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="flex items-center gap-3 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-500">
-            <span className={cn("text-[10px] font-black uppercase tracking-[0.6em]", lowContrastTextClass)}>
-              Powered by
-            </span>
-            <div className={cn("flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-white/10", panelRadiusClass)}>
-              <div className="h-2 w-2 rounded-full animate-pulse" style={{ backgroundColor: primaryColor }} />
-              <span className="text-[10px] font-[1000] uppercase italic tracking-tighter text-slate-900 dark:text-white">
-                bookinaja.com
-              </span>
-            </div>
+        <div className={cn("mt-20 flex flex-col items-start justify-between gap-4 border-t pt-8 md:flex-row md:items-center", footerDividerClass)}>
+          <div className={cn("flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em]", lowContrastTextClass)}>
+            <div className="h-2 w-2 rounded-full" style={{ backgroundColor: primaryColor }} />
+            Powered by Bookinaja
           </div>
 
-          <div className="flex flex-col items-center md:items-end gap-1">
-            <p className={cn("text-[10px] font-black uppercase tracking-widest", subtleTextClass)}>
-              &copy; 2026 {profile.name} Enterprise
-            </p>
-            <p className={cn("text-[8px] font-bold uppercase tracking-[0.3em]", lowContrastTextClass)}>
-              ISO 27001 Certified Infrastructure
-            </p>
+          <div className={cn("flex items-center gap-5 text-[10px] font-bold uppercase tracking-[0.18em]", lowContrastTextClass)}>
+            <Link href="/privacy">Privacy</Link>
+            <Link href="/terms">Terms</Link>
           </div>
         </div>
       </div>

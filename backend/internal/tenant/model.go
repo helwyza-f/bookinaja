@@ -448,6 +448,35 @@ type Tenant struct {
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
 
+type PublicTenantProfile struct {
+	ID                 uuid.UUID      `db:"id" json:"id"`
+	Name               string         `db:"name" json:"name"`
+	Slug               string         `db:"slug" json:"slug"`
+	BusinessCategory   string         `db:"business_category" json:"business_category"`
+	BusinessType       string         `db:"business_type" json:"business_type"`
+	Slogan             string         `db:"slogan" json:"slogan"`
+	Tagline            string         `db:"tagline" json:"tagline"`
+	AboutUs            string         `db:"about_us" json:"about_us"`
+	Features           pq.StringArray `db:"features" json:"features"`
+	PrimaryColor       string         `db:"primary_color" json:"primary_color"`
+	LogoURL            string         `db:"logo_url" json:"logo_url"`
+	BannerURL          string         `db:"banner_url" json:"banner_url"`
+	Gallery            pq.StringArray `db:"gallery" json:"gallery"`
+	Address            string         `db:"address" json:"address"`
+	WhatsappNumber     string         `db:"whatsapp_number" json:"whatsapp_number"`
+	InstagramURL       string         `db:"instagram_url" json:"instagram_url"`
+	TiktokURL          string         `db:"tiktok_url" json:"tiktok_url"`
+	MapIframeURL       string         `db:"map_iframe_url" json:"map_iframe_url"`
+	MetaTitle          string         `db:"meta_title" json:"meta_title"`
+	MetaDescription    string         `db:"meta_description" json:"meta_description"`
+	LandingPageConfig  JSONB          `db:"landing_page_config" json:"landing_page_config"`
+	LandingThemeConfig JSONB          `db:"landing_theme_config" json:"landing_theme_config"`
+	BookingFormConfig  JSONB          `db:"booking_form_config" json:"booking_form_config"`
+	OpenTime           string         `db:"open_time" json:"open_time"`
+	CloseTime          string         `db:"close_time" json:"close_time"`
+	Timezone           string         `db:"timezone" json:"timezone"`
+}
+
 func DefaultLandingPageConfig() LandingPageConfig {
 	return LandingPageConfig{
 		Version: 1,

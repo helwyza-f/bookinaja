@@ -30,10 +30,15 @@ func (r *Repository) getKatalogCacheKey(tenantID uuid.UUID) string {
 	return fmt.Sprintf("katalog_resources:%s", tenantID.String())
 }
 
+func (r *Repository) getPublicCatalogCacheKey(tenantID uuid.UUID) string {
+	return fmt.Sprintf("public:katalog_resources:%s", tenantID.String())
+}
+
 // InvalidateTenantCache menghapus semua cache terkait tenant tersebut
 func (r *Repository) InvalidateTenantCache(ctx context.Context, tenantID uuid.UUID) {
 	// 1. Hapus Cache Katalog Granular
 	r.rdb.Del(ctx, r.getKatalogCacheKey(tenantID))
+	r.rdb.Del(ctx, r.getPublicCatalogCacheKey(tenantID))
 
 	// 2. Hapus Cache Landing Full (Legacy/Backup)
 	var slug string
@@ -44,6 +49,98 @@ func (r *Repository) InvalidateTenantCache(ctx context.Context, tenantID uuid.UU
 	}
 
 	fmt.Printf("[CACHE INVALIDATED] Cleared resource cache for tenant: %s\n", tenantID)
+}
+
+func (r *Repository) ListPublicCatalogByTenant(ctx context.Context, tenantID uuid.UUID) ([]PublicResourceCatalogItem, string, string, error) {
+	cacheKey := r.getPublicCatalogCacheKey(tenantID)
+
+	if r.rdb != nil {
+		val, err := r.rdb.Get(ctx, cacheKey).Result()
+		if err == nil {
+			var cachedResult struct {
+				Resources []PublicResourceCatalogItem `json:"resources"`
+				Category  string                      `json:"category"`
+				Type      string                      `json:"type"`
+			}
+			if err := json.Unmarshal([]byte(val), &cachedResult); err == nil {
+				return cachedResult.Resources, cachedResult.Category, cachedResult.Type, nil
+			}
+		}
+	}
+
+	var businessCategory string
+	var businessType string
+	err := r.db.QueryRowxContext(ctx,
+		`SELECT business_category, business_type FROM tenants WHERE id = $1`,
+		tenantID).Scan(&businessCategory, &businessType)
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	var resources []PublicResourceCatalogItem
+	err = r.db.SelectContext(ctx, &resources, `
+		WITH ranked_items AS (
+			SELECT
+				ri.resource_id,
+				ri.name,
+				ri.price,
+				ri.price_unit,
+				ri.unit_duration,
+				ROW_NUMBER() OVER (
+					PARTITION BY ri.resource_id
+					ORDER BY ri.price ASC, ri.is_default DESC, ri.name ASC
+				) AS row_no
+			FROM resource_items ri
+			WHERE ri.item_type IN ('main_option', 'main', 'console_option')
+		),
+		starting_prices AS (
+			SELECT
+				resource_id,
+				MIN(price) AS starting_price
+			FROM resource_items
+			WHERE item_type IN ('main_option', 'main', 'console_option')
+			GROUP BY resource_id
+		)
+		SELECT
+			r.id,
+			r.name,
+			COALESCE(r.category, '') AS category,
+			COALESCE(r.operating_mode, 'timed') AS operating_mode,
+			COALESCE(r.description, '') AS description,
+			COALESCE(r.image_url, '') AS image_url,
+			COALESCE(sp.starting_price, 0) AS starting_price,
+			COALESCE(ri.price_unit, '') AS starting_price_unit,
+			COALESCE(ri.name, '') AS primary_offer_name,
+			COALESCE(ri.price, 0) AS primary_offer_price,
+			COALESCE(ri.price_unit, '') AS primary_offer_unit,
+			COALESCE(ri.unit_duration, 0) AS primary_offer_duration
+		FROM resources r
+		LEFT JOIN starting_prices sp ON sp.resource_id = r.id
+		LEFT JOIN ranked_items ri ON ri.resource_id = r.id AND ri.row_no = 1
+		WHERE r.tenant_id = $1
+		  AND r.status != 'deleted'
+		ORDER BY r.created_at DESC
+	`, tenantID)
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	if r.rdb != nil {
+		resultToCache := struct {
+			Resources []PublicResourceCatalogItem `json:"resources"`
+			Category  string                      `json:"category"`
+			Type      string                      `json:"type"`
+		}{
+			Resources: resources,
+			Category:  businessCategory,
+			Type:      businessType,
+		}
+		if jsonData, err := json.Marshal(resultToCache); err == nil {
+			_ = r.rdb.Set(ctx, cacheKey, jsonData, 12*time.Hour).Err()
+		}
+	}
+
+	return resources, businessCategory, businessType, nil
 }
 
 // --- CORE REPOSITORY LOGIC ---
@@ -90,26 +187,16 @@ func (r *Repository) ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]Re
 	}
 
 	emptyJSON := json.RawMessage("{}")
+	itemMap, err := r.loadItemsByResourceIDs(ctx, resourceIDs(resources))
+	if err != nil {
+		return nil, "", "", err
+	}
 
-	// Eager Loading items
 	for i := range resources {
 		if resources[i].Metadata == nil {
 			resources[i].Metadata = &emptyJSON
 		}
-
-		var items []ResourceItem
-		err := r.db.SelectContext(ctx, &items,
-			`SELECT * FROM resource_items WHERE resource_id = $1 ORDER BY item_type ASC, is_default DESC, price ASC`,
-			resources[i].ID)
-
-		if err == nil {
-			for j := range items {
-				if items[j].Metadata == nil {
-					items[j].Metadata = &emptyJSON
-				}
-			}
-			resources[i].Items = items
-		}
+		resources[i].Items = itemMap[resources[i].ID]
 	}
 
 	if len(resources) > 0 {
@@ -137,6 +224,46 @@ func (r *Repository) ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]Re
 	r.rdb.Set(ctx, cacheKey, jsonData, 12*time.Hour)
 
 	return resources, businessCategory, businessType, nil
+}
+
+func (r *Repository) loadItemsByResourceIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]ResourceItem, error) {
+	result := make(map[uuid.UUID][]ResourceItem, len(ids))
+	if len(ids) == 0 {
+		return result, nil
+	}
+
+	query, args, err := sqlx.In(`
+		SELECT *
+		FROM resource_items
+		WHERE resource_id IN (?)
+		ORDER BY resource_id, item_type ASC, is_default DESC, price ASC
+	`, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	query = r.db.Rebind(query)
+
+	var items []ResourceItem
+	if err := r.db.SelectContext(ctx, &items, query, args...); err != nil {
+		return nil, err
+	}
+
+	emptyJSON := json.RawMessage("{}")
+	for _, item := range items {
+		if item.Metadata == nil {
+			item.Metadata = &emptyJSON
+		}
+		result[item.ResourceID] = append(result[item.ResourceID], item)
+	}
+
+	for _, id := range ids {
+		if _, ok := result[id]; !ok {
+			result[id] = []ResourceItem{}
+		}
+	}
+
+	return result, nil
 }
 
 func (r *Repository) ListSummariesByTenant(ctx context.Context, tenantID uuid.UUID) ([]ResourceSummary, error) {
@@ -243,20 +370,20 @@ func (r *Repository) ListPricingCatalogByTenant(ctx context.Context, tenantID uu
 
 func (r *Repository) ListAddonCatalogByTenant(ctx context.Context, tenantID uuid.UUID) ([]ResourceAddonCatalogItem, error) {
 	type row struct {
-		ResourceID    uuid.UUID        `db:"resource_id"`
-		ResourceName  string           `db:"resource_name"`
-		ResourceImageURL string        `db:"resource_image_url"`
-		Category      string           `db:"category"`
-		Status        string           `db:"status"`
-		OperatingMode string           `db:"operating_mode"`
-		ItemID        uuid.UUID        `db:"item_id"`
-		ItemName      string           `db:"item_name"`
-		Price         float64          `db:"price"`
-		PriceUnit     string           `db:"price_unit"`
-		UnitDuration  int              `db:"unit_duration"`
-		ItemType      string           `db:"item_type"`
-		IsDefault     bool             `db:"is_default"`
-		Metadata      *json.RawMessage `db:"metadata"`
+		ResourceID       uuid.UUID        `db:"resource_id"`
+		ResourceName     string           `db:"resource_name"`
+		ResourceImageURL string           `db:"resource_image_url"`
+		Category         string           `db:"category"`
+		Status           string           `db:"status"`
+		OperatingMode    string           `db:"operating_mode"`
+		ItemID           uuid.UUID        `db:"item_id"`
+		ItemName         string           `db:"item_name"`
+		Price            float64          `db:"price"`
+		PriceUnit        string           `db:"price_unit"`
+		UnitDuration     int              `db:"unit_duration"`
+		ItemType         string           `db:"item_type"`
+		IsDefault        bool             `db:"is_default"`
+		Metadata         *json.RawMessage `db:"metadata"`
 	}
 
 	var rows []row
@@ -326,20 +453,20 @@ func (r *Repository) ListAddonCatalogByTenant(ctx context.Context, tenantID uuid
 
 func (r *Repository) ListPOSCatalogByTenant(ctx context.Context, tenantID uuid.UUID) ([]ResourcePOSCatalogItem, error) {
 	type row struct {
-		ResourceID    uuid.UUID        `db:"resource_id"`
-		ResourceName  string           `db:"resource_name"`
-		ResourceImageURL string        `db:"resource_image_url"`
-		Category      string           `db:"category"`
-		Status        string           `db:"status"`
-		OperatingMode string           `db:"operating_mode"`
-		ItemID        uuid.UUID        `db:"item_id"`
-		ItemName      string           `db:"item_name"`
-		Price         float64          `db:"price"`
-		PriceUnit     string           `db:"price_unit"`
-		UnitDuration  int              `db:"unit_duration"`
-		ItemType      string           `db:"item_type"`
-		IsDefault     bool             `db:"is_default"`
-		Metadata      *json.RawMessage `db:"metadata"`
+		ResourceID       uuid.UUID        `db:"resource_id"`
+		ResourceName     string           `db:"resource_name"`
+		ResourceImageURL string           `db:"resource_image_url"`
+		Category         string           `db:"category"`
+		Status           string           `db:"status"`
+		OperatingMode    string           `db:"operating_mode"`
+		ItemID           uuid.UUID        `db:"item_id"`
+		ItemName         string           `db:"item_name"`
+		Price            float64          `db:"price"`
+		PriceUnit        string           `db:"price_unit"`
+		UnitDuration     int              `db:"unit_duration"`
+		ItemType         string           `db:"item_type"`
+		IsDefault        bool             `db:"is_default"`
+		Metadata         *json.RawMessage `db:"metadata"`
 	}
 
 	var rows []row
@@ -377,13 +504,13 @@ func (r *Repository) ListPOSCatalogByTenant(ctx context.Context, tenantID uuid.U
 		idx, exists := indexByResource[row.ResourceID]
 		if !exists {
 			items = append(items, ResourcePOSCatalogItem{
-				ResourceID:     row.ResourceID,
-				ResourceName:   row.ResourceName,
+				ResourceID:       row.ResourceID,
+				ResourceName:     row.ResourceName,
 				ResourceImageURL: row.ResourceImageURL,
-				Category:       row.Category,
-				Status:         row.Status,
-				OperatingMode:  row.OperatingMode,
-				AvailableItems: []ResourceItem{},
+				Category:         row.Category,
+				Status:           row.Status,
+				OperatingMode:    row.OperatingMode,
+				AvailableItems:   []ResourceItem{},
 			})
 			idx = len(items) - 1
 			indexByResource[row.ResourceID] = idx

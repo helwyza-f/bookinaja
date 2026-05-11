@@ -861,11 +861,11 @@ func (r *Repository) FindByIDForTenant(ctx context.Context, id, tenantID uuid.UU
 	return &c, nil
 }
 
-func (r *Repository) GetActiveBookings(ctx context.Context, customerID uuid.UUID) ([]RecentHistoryDTO, error) {
+func (r *Repository) GetActiveBookings(ctx context.Context, customerID uuid.UUID, limit int) ([]RecentHistoryDTO, error) {
 	var bookings []RecentHistoryDTO
 	query := `
 		SELECT 
-			b.id, b.tenant_id, t.name as tenant_name, t.slug as tenant_slug,
+			'booking' as kind, b.id, b.tenant_id, t.name as tenant_name, t.slug as tenant_slug,
 			res.name as resource, b.start_time as date, b.end_time as end_date,
 			b.grand_total, b.deposit_amount, b.paid_amount, b.balance_due,
 			b.status, b.payment_status, b.payment_method,
@@ -886,7 +886,12 @@ func (r *Repository) GetActiveBookings(ctx context.Context, customerID uuid.UUID
 				)
 			)
 		ORDER BY b.start_time ASC`
-	err := r.db.SelectContext(ctx, &bookings, query, customerID)
+	args := []any{customerID}
+	if limit > 0 {
+		query += ` LIMIT $2`
+		args = append(args, limit)
+	}
+	err := r.db.SelectContext(ctx, &bookings, query, args...)
 	return bookings, err
 }
 
@@ -894,7 +899,7 @@ func (r *Repository) GetPastHistory(ctx context.Context, customerID uuid.UUID, l
 	var history []RecentHistoryDTO
 	query := `
 		SELECT 
-			b.id, b.tenant_id, t.name as tenant_name, t.slug as tenant_slug,
+			'booking' as kind, b.id, b.tenant_id, t.name as tenant_name, t.slug as tenant_slug,
 			res.name as resource, b.start_time as date, b.end_time as end_date,
 			b.grand_total, b.deposit_amount, b.paid_amount, b.balance_due,
 			b.status, b.payment_status, b.payment_method,
@@ -923,7 +928,7 @@ func (r *Repository) GetTransactionHistory(ctx context.Context, customerID uuid.
 	var history []RecentHistoryDTO
 	query := `
 		SELECT 
-			b.id, b.tenant_id, t.name as tenant_name, t.slug as tenant_slug,
+			'booking' as kind, b.id, b.tenant_id, t.name as tenant_name, t.slug as tenant_slug,
 			res.name as resource, b.start_time as date, b.end_time as end_date,
 			b.grand_total, b.deposit_amount, b.paid_amount, b.balance_due,
 			b.status, b.payment_status, b.payment_method,
@@ -937,6 +942,74 @@ func (r *Repository) GetTransactionHistory(ctx context.Context, customerID uuid.
 		LIMIT $2`
 	err := r.db.SelectContext(ctx, &history, query, customerID, limit)
 	return history, err
+}
+
+func (r *Repository) GetActiveOrders(ctx context.Context, customerID uuid.UUID, limit int) ([]RecentHistoryDTO, error) {
+	var orders []RecentHistoryDTO
+	query := `
+		SELECT
+			'order' as kind, so.id, so.tenant_id, t.name as tenant_name, t.slug as tenant_slug,
+			res.name as resource, so.created_at as date, so.completed_at as end_date,
+			COALESCE(so.grand_total, 0)::bigint as grand_total,
+			0::bigint as deposit_amount,
+			COALESCE(so.grand_total, 0)::bigint as total_spent,
+			COALESCE(so.paid_amount, 0)::bigint as paid_amount,
+			COALESCE(so.balance_due, 0)::bigint as balance_due,
+			so.status, so.payment_status, so.payment_method
+		FROM sales_orders so
+		JOIN resources res ON so.resource_id = res.id
+		JOIN tenants t ON t.id = so.tenant_id
+		WHERE so.customer_id = $1
+		  AND (
+			COALESCE(so.status, '') IN ('open', 'pending_payment', 'paid')
+			OR (
+				COALESCE(so.status, '') = 'completed'
+				AND (
+					COALESCE(so.balance_due, 0) > 0
+					OR COALESCE(so.payment_status, '') IN ('pending', 'partial_paid', 'unpaid', 'failed', 'expired', 'awaiting_verification')
+				)
+			)
+		  )
+		ORDER BY so.created_at DESC`
+	args := []any{customerID}
+	if limit > 0 {
+		query += ` LIMIT $2`
+		args = append(args, limit)
+	}
+	err := r.db.SelectContext(ctx, &orders, query, args...)
+	return orders, err
+}
+
+func (r *Repository) GetPastOrders(ctx context.Context, customerID uuid.UUID, limit int) ([]RecentHistoryDTO, error) {
+	var orders []RecentHistoryDTO
+	query := `
+		SELECT
+			'order' as kind, so.id, so.tenant_id, t.name as tenant_name, t.slug as tenant_slug,
+			res.name as resource, so.created_at as date, so.completed_at as end_date,
+			COALESCE(so.grand_total, 0)::bigint as grand_total,
+			0::bigint as deposit_amount,
+			COALESCE(so.grand_total, 0)::bigint as total_spent,
+			COALESCE(so.paid_amount, 0)::bigint as paid_amount,
+			COALESCE(so.balance_due, 0)::bigint as balance_due,
+			so.status, so.payment_status, so.payment_method
+		FROM sales_orders so
+		JOIN resources res ON so.resource_id = res.id
+		JOIN tenants t ON t.id = so.tenant_id
+		WHERE so.customer_id = $1
+		  AND (
+			COALESCE(so.status, '') = 'cancelled'
+			OR (
+				COALESCE(so.status, '') = 'completed'
+				AND (
+					COALESCE(so.balance_due, 0) <= 0
+					OR COALESCE(so.payment_status, '') IN ('settled', 'paid')
+				)
+			)
+		  )
+		ORDER BY so.created_at DESC
+		LIMIT $2`
+	err := r.db.SelectContext(ctx, &orders, query, customerID, limit)
+	return orders, err
 }
 
 func wrapCustomerRepoErr(prefix string, err error) error {

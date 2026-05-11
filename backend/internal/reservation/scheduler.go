@@ -21,6 +21,7 @@ type sessionJob struct {
 	ID            string    `db:"id"`
 	TenantID      string    `db:"tenant_id"`
 	TenantName    string    `db:"tenant_name"`
+	TenantSlug    string    `db:"tenant_slug"`
 	Timezone      string    `db:"timezone"`
 	CustomerID    string    `db:"customer_id"`
 	CustomerName  string    `db:"customer_name"`
@@ -67,16 +68,28 @@ func (s *Scheduler) runOnce(ctx context.Context) {
 
 	var jobs []sessionJob
 	err := s.db.SelectContext(ctx, &jobs, `
-		SELECT b.id, b.tenant_id, t.name AS tenant_name, COALESCE(NULLIF(BTRIM(t.timezone), ''), 'Asia/Jakarta') AS timezone, c.name AS customer_name, c.phone AS customer_phone,
+		SELECT b.id, b.tenant_id, t.name AS tenant_name, t.slug AS tenant_slug, COALESCE(NULLIF(BTRIM(t.timezone), ''), 'Asia/Jakarta') AS timezone, c.name AS customer_name, c.phone AS customer_phone,
 			b.customer_id, res.name AS resource_name, b.resource_id, b.start_time, b.end_time, b.access_token,
 			b.status
 		FROM bookings b
 		JOIN tenants t ON t.id = b.tenant_id
 		JOIN customers c ON c.id = b.customer_id
 		JOIN resources res ON res.id = b.resource_id
-		WHERE b.status IN ('pending', 'confirmed', 'active', 'ongoing')
-		  AND b.status != 'cancelled'
-		  AND b.end_time > ($1::timestamptz - INTERVAL '1 minute')
+		WHERE
+			(
+				b.status IN ('pending', 'confirmed')
+				AND (
+					(b.reminder_20m_sent_at IS NULL AND b.start_time > ($1::timestamptz + INTERVAL '19 minute') AND b.start_time <= ($1::timestamptz + INTERVAL '20 minute'))
+					OR
+					(b.reminder_5m_sent_at IS NULL AND b.start_time > ($1::timestamptz + INTERVAL '4 minute') AND b.start_time <= ($1::timestamptz + INTERVAL '5 minute'))
+				)
+			)
+			OR
+			(
+				b.status IN ('active', 'ongoing')
+				AND b.end_time > ($1::timestamptz - INTERVAL '1 minute')
+				AND b.end_time <= ($1::timestamptz + INTERVAL '5 minute')
+			)
 		ORDER BY b.start_time ASC`,
 		now,
 	)
@@ -116,8 +129,8 @@ func (s *Scheduler) runOnce(ctx context.Context) {
 }
 
 func (s *Scheduler) sendReminder(job sessionJob, minutes int) error {
-	tenantSlug, err := s.repo.GetTenantSlug(context.Background(), mustParseUUID(job.TenantID))
-	if err != nil {
+	tenantSlug := job.TenantSlug
+	if tenantSlug == "" {
 		tenantSlug = "tenant"
 	}
 	url := bookingVerifyURL(tenantSlug, job.AccessToken)

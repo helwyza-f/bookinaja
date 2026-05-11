@@ -51,3 +51,11 @@ func TenantDeviceChannel(tenantID, deviceID string) string {
 func CustomerBookingChannel(customerID, bookingID string) string {
 	return "customer:" + customerID + ":booking:" + bookingID
 }
+
+func CustomerOrdersChannel(customerID string) string {
+	return "customer:" + customerID + ":orders"
+}
+
+func CustomerOrderChannel(customerID, orderID string) string {
+	return "customer:" + customerID + ":order:" + orderID
+}

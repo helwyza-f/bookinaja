@@ -33,6 +33,21 @@ type ResourceSummary struct {
 	OperatingMode string    `db:"operating_mode" json:"operating_mode"`
 }
 
+type PublicResourceCatalogItem struct {
+	ID                   uuid.UUID `db:"id" json:"id"`
+	Name                 string    `db:"name" json:"name"`
+	Category             string    `db:"category" json:"category"`
+	OperatingMode        string    `db:"operating_mode" json:"operating_mode"`
+	Description          string    `db:"description" json:"description"`
+	ImageURL             string    `db:"image_url" json:"image_url"`
+	StartingPrice        float64   `db:"starting_price" json:"starting_price"`
+	StartingPriceUnit    string    `db:"starting_price_unit" json:"starting_price_unit"`
+	PrimaryOfferName     string    `db:"primary_offer_name" json:"primary_offer_name"`
+	PrimaryOfferPrice    float64   `db:"primary_offer_price" json:"primary_offer_price"`
+	PrimaryOfferUnit     string    `db:"primary_offer_unit" json:"primary_offer_unit"`
+	PrimaryOfferDuration int       `db:"primary_offer_duration" json:"primary_offer_duration"`
+}
+
 type ResourceListItem struct {
 	ID              uuid.UUID `db:"id" json:"id"`
 	Name            string    `db:"name" json:"name"`
@@ -73,13 +88,13 @@ type ResourceAddonCatalogItem struct {
 }
 
 type ResourcePOSCatalogItem struct {
-	ResourceID     uuid.UUID      `json:"resource_id"`
-	ResourceName   string         `json:"resource_name"`
-	ResourceImageURL string       `json:"resource_image_url"`
-	Category       string         `json:"category"`
-	Status         string         `json:"status"`
-	OperatingMode  string         `json:"operating_mode"`
-	AvailableItems []ResourceItem `json:"available_items"`
+	ResourceID       uuid.UUID      `json:"resource_id"`
+	ResourceName     string         `json:"resource_name"`
+	ResourceImageURL string         `json:"resource_image_url"`
+	Category         string         `json:"category"`
+	Status           string         `json:"status"`
+	OperatingMode    string         `json:"operating_mode"`
+	AvailableItems   []ResourceItem `json:"available_items"`
 }
 
 type ResourceDeviceMapItem struct {

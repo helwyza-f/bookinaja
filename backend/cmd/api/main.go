@@ -3,7 +3,10 @@ package main
 import (
 	"context"
 	"log"
+	stdhttp "net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -116,10 +119,10 @@ func main() {
 	customerSvc := customer.NewService(customerRepo, rdb)
 	expenseSvc := expense.NewService(expenseRepo)
 	resourceSvc := resource.NewService(resourceRepo)
-	salesSvc := sales.NewService(salesRepo, resourceRepo, billingRepo, db)
+	realtimeHub := platformrealtime.NewHub()
+	salesSvc := sales.NewService(salesRepo, resourceRepo, billingRepo, customerSvc, db, realtimeHub)
 	fnbSvc := fnb.NewService(fnbRepo)
 	promoSvc := promo.NewService(promoRepo)
-	realtimeHub := platformrealtime.NewHub()
 	smartDeviceSvc := smartdevice.NewService(smartDeviceRepo, mqttClient, realtimeHub)
 	reservationSvc := reservation.NewService(reservationRepo, resourceRepo, customerSvc, fnbSvc, promoSvc, smartDeviceSvc, realtimeHub)
 	scheduler := reservation.NewScheduler(db, reservationRepo, smartDeviceSvc)
@@ -140,7 +143,7 @@ func main() {
 	promoHdl := promo.NewHandler(promoSvc)
 	billingHdl := billing.NewHandler(billingSvc)
 	platformHdl := platformadmin.NewHandler(platformSvc, platformRepo)
-	midtransSvc := midtranssvc.NewService(db, midtransRepo, realtimeHub)
+	midtransSvc := midtranssvc.NewService(db, midtransRepo, realtimeHub, customerSvc)
 	midtransHdl := midtranssvc.NewHandler(midtransSvc)
 	smartDeviceHdl := smartdevice.NewHandler(smartDeviceSvc)
 	realtimeHdl := platformrealtime.NewHandler(realtimeHub)
@@ -164,11 +167,22 @@ func main() {
 	}
 
 	r := http.NewRouter(routerConfig, db, rdb)
+	server := &stdhttp.Server{
+		Addr:              ":" + resolvePort(),
+		Handler:           r,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
 
 	if subscriber != nil {
-		if err := subscriber.Start(context.Background()); err != nil {
+		startCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		if err := subscriber.Start(startCtx); err != nil {
+			cancel()
 			log.Fatalf("mqtt subscriber init error: %v", err)
 		}
+		cancel()
 	}
 	if err := smartDeviceSvc.BootstrapMissingCommands(context.Background()); err != nil {
 		log.Printf("smart device bootstrap skipped: %v", err)
@@ -177,10 +191,7 @@ func main() {
 	reconciler.Start()
 	scheduler.Start()
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
+	port := resolvePort()
 
 	log.Println("--------------------------------------------------")
 	log.Printf("bookinaja engine starting on port %s", port)
@@ -188,7 +199,36 @@ func main() {
 	log.Printf("storage=cloudflare-r2")
 	log.Println("--------------------------------------------------")
 
-	if err := r.Run(":" + port); err != nil {
-		log.Fatalf("failed to run server: %v", err)
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != stdhttp.ErrServerClosed {
+			log.Fatalf("failed to run server: %v", err)
+		}
+	}()
+
+	stopSignal := make(chan os.Signal, 1)
+	signal.Notify(stopSignal, syscall.SIGINT, syscall.SIGTERM)
+	<-stopSignal
+
+	log.Println("shutdown signal received, draining server...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	scheduler.Stop()
+	dispatcher.Stop()
+	reconciler.Stop()
+	if mqttClient != nil {
+		mqttClient.Disconnect(250)
 	}
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("graceful shutdown failed: %v", err)
+	}
+}
+
+func resolvePort() string {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	return port
 }

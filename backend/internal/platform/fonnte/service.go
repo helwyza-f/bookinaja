@@ -9,12 +9,18 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
 const (
-	apiKey  = "ysYJ1Z8fuEveo6qJsSwZ"
-	baseURL = "https://api.fonnte.com"
+	legacyAPIKey = "ysYJ1Z8fuEveo6qJsSwZ"
+	baseURL      = "https://api.fonnte.com"
+)
+
+var (
+	fonnteClientOnce sync.Once
+	fonnteHTTPClient *http.Client
 )
 
 type CommonResponse struct {
@@ -31,6 +37,10 @@ type ValidateResponse struct {
 
 func SendMessage(target, message string) (bool, error) {
 	apiUrl := fmt.Sprintf("%s/send", baseURL)
+	apiKey := resolveAPIKey()
+	if apiKey == "" {
+		return false, fmt.Errorf("fonnte api key is missing")
+	}
 
 	cleanTarget := strings.ReplaceAll(target, " ", "")
 	cleanTarget = strings.ReplaceAll(cleanTarget, "-", "")
@@ -55,7 +65,7 @@ func SendMessage(target, message string) (bool, error) {
 	req.Header.Set("Authorization", apiKey)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := getHTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		logWA("send.error", map[string]any{
@@ -98,6 +108,10 @@ func SendMessage(target, message string) (bool, error) {
 
 func ValidateNumber(target string) (bool, error) {
 	apiUrl := fmt.Sprintf("%s/validate", baseURL)
+	apiKey := resolveAPIKey()
+	if apiKey == "" {
+		return false, fmt.Errorf("fonnte api key is missing")
+	}
 
 	cleanTarget := strings.ReplaceAll(target, " ", "")
 	cleanTarget = strings.ReplaceAll(cleanTarget, "-", "")
@@ -112,7 +126,7 @@ func ValidateNumber(target string) (bool, error) {
 	req.Header.Set("Authorization", apiKey)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := getHTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return false, err
@@ -142,4 +156,31 @@ func logWA(event string, fields map[string]any) {
 		return
 	}
 	fmt.Printf("[FONNTE %s] %v\n", strings.ToUpper(event), fields)
+}
+
+func resolveAPIKey() string {
+	key := strings.TrimSpace(os.Getenv("FONNTE_API_KEY"))
+	if key != "" {
+		return key
+	}
+	key = strings.TrimSpace(os.Getenv("FONNTE_TOKEN"))
+	if key != "" {
+		return key
+	}
+	return legacyAPIKey
+}
+
+func getHTTPClient() *http.Client {
+	fonnteClientOnce.Do(func() {
+		transport := &http.Transport{
+			MaxIdleConns:        32,
+			MaxIdleConnsPerHost: 16,
+			IdleConnTimeout:     90 * time.Second,
+		}
+		fonnteHTTPClient = &http.Client{
+			Timeout:   10 * time.Second,
+			Transport: transport,
+		}
+	})
+	return fonnteHTTPClient
 }
