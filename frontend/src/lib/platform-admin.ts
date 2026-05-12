@@ -139,6 +139,31 @@ export type MidtransNotificationLog = {
   processed_at?: string;
 };
 
+export type PlatformEmailLog = {
+  id: string;
+  provider: string;
+  provider_message_id?: string;
+  source?: string;
+  event_key: string;
+  template_key?: string;
+  recipient: string;
+  subject: string;
+  status: string;
+  error_message?: string;
+  request_payload?: {
+    to?: string[];
+    subject?: string;
+    html?: string;
+    text?: string;
+    reply_to?: string[];
+    tags?: Record<string, string>;
+  };
+  tags?: Record<string, string>;
+  sent_at?: string;
+  created_at: string;
+  updated_at?: string;
+};
+
 export type PaginatedResponse<T> = {
   items: T[];
   page: number;
@@ -491,4 +516,38 @@ export function getMidtransNotificationLogs(params?: { tenant?: string; limit?: 
   if (params?.limit) search.set("limit", String(params.limit));
   const suffix = search.toString() ? `?${search.toString()}` : "";
   return safeGet<MidtransNotificationLog[]>(`/platform/midtrans-notifications${suffix}`, []);
+}
+
+export function getPlatformEmailLogsPage(params?: {
+  page?: number;
+  pageSize?: number;
+  eventKey?: string;
+  status?: string;
+  q?: string;
+}) {
+  const page = params?.page ?? 1;
+  const pageSize = params?.pageSize ?? 25;
+  const search = new URLSearchParams();
+  search.set("page", String(page));
+  search.set("page_size", String(pageSize));
+  if (params?.eventKey && params.eventKey !== "all") search.set("event_key", params.eventKey);
+  if (params?.status && params.status !== "all") search.set("status", params.status);
+  if (params?.q) search.set("q", params.q);
+  return safeGetPage<PlatformEmailLog>(
+    `/platform/emails/logs?${search.toString()}`,
+    { items: [], page, page_size: pageSize, total: 0 },
+  );
+}
+
+export function sendPlatformEmail(payload: {
+  to: string[];
+  subject: string;
+  html?: string;
+  text?: string;
+  event_key?: string;
+  template_key?: string;
+  source?: string;
+  tags?: Record<string, string>;
+}) {
+  return api.post("/platform/emails/send", payload);
 }

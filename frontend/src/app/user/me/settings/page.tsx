@@ -38,7 +38,16 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
-type SheetKey = "profile" | "password" | "reset-password" | "phone" | null;
+type SheetKey =
+  | "profile"
+  | "password"
+  | "recovery"
+  | "phone"
+  | "email"
+  | "google"
+  | null;
+type GoogleSheetStatus = "idle" | "ready";
+type RecoveryStep = "request" | "verify";
 
 type CustomerSettingsData = {
   customer?: {
@@ -48,10 +57,14 @@ type CustomerSettingsData = {
     email?: string;
     tier?: string;
     avatar_url?: string | null;
+    email_verified_at?: string | null;
+    last_login_method?: string | null;
   };
   points?: number;
   point_activity?: PointEvent[];
   past_history?: BookingItem[];
+  identity_methods?: string[];
+  has_password?: boolean;
 };
 
 type PointEvent = {
@@ -78,7 +91,14 @@ type ApiError = {
   };
 };
 
-const SHEET_KEYS = new Set(["profile", "password", "reset-password", "phone"]);
+const SHEET_KEYS = new Set([
+  "profile",
+  "password",
+  "recovery",
+  "phone",
+  "email",
+  "google",
+]);
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (typeof error === "object" && error !== null && "response" in error) {
@@ -89,9 +109,18 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+function maskEmail(email?: string | null) {
+  const value = String(email || "").trim();
+  const [localPart, domain] = value.split("@");
+  if (!localPart || !domain) return "Belum ada email";
+  if (localPart.length <= 2) return `${localPart[0] || "*"}*@${domain}`;
+  return `${localPart.slice(0, 2)}***@${domain}`;
+}
+
 export default function UserSettingsPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const googleButtonRef = useRef<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<CustomerSettingsData | null>(null);
   const [activeSheet, setActiveSheet] = useState<SheetKey>(null);
@@ -104,7 +133,7 @@ export default function UserSettingsPage() {
   const [resetCode, setResetCode] = useState("");
   const [resetPassword, setResetPassword] = useState("");
   const [resetConfirmPassword, setResetConfirmPassword] = useState("");
-  const [resetStep, setResetStep] = useState<"request" | "verify">("request");
+  const [resetStep, setResetStep] = useState<RecoveryStep>("request");
   const [newPhone, setNewPhone] = useState("");
   const [phoneCode, setPhoneCode] = useState("");
   const [phoneStep, setPhoneStep] = useState<"request" | "verify">("request");
@@ -114,8 +143,13 @@ export default function UserSettingsPage() {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [resetSending, setResetSending] = useState(false);
   const [resetVerifying, setResetVerifying] = useState(false);
+  const [resetEmailSending, setResetEmailSending] = useState(false);
+  const [verificationSending, setVerificationSending] = useState(false);
   const [phoneSending, setPhoneSending] = useState(false);
   const [phoneVerifying, setPhoneVerifying] = useState(false);
+  const [googleSheetStatus, setGoogleSheetStatus] =
+    useState<GoogleSheetStatus>("idle");
+  const [googleLinking, setGoogleLinking] = useState(false);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -138,6 +172,14 @@ export default function UserSettingsPage() {
     if (typeof window === "undefined") return;
 
     const sheet = new URLSearchParams(window.location.search).get("sheet");
+    if (sheet === "reset-password") {
+      setActiveSheet("recovery");
+      return;
+    }
+    if (sheet === "email" || sheet === "google") {
+      setActiveSheet("profile");
+      return;
+    }
     if (sheet && SHEET_KEYS.has(sheet)) {
       setActiveSheet(sheet as Exclude<SheetKey, null>);
     }
@@ -146,6 +188,36 @@ export default function UserSettingsPage() {
   const customer = data?.customer;
   const history = data?.past_history || [];
   const pointActivity = data?.point_activity || [];
+  const identityMethods = data?.identity_methods || [];
+  const hasPassword = Boolean(data?.has_password);
+  const hasEmail = Boolean(customer?.email?.trim());
+  const emailVerified = Boolean(customer?.email_verified_at);
+  const hasGoogle = identityMethods.includes("google");
+  const googleClientID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+  const draftEmail = profileEmail.trim();
+  const effectiveEmail =
+    activeSheet === "profile" ? draftEmail : customer?.email || "";
+  const hasEffectiveEmail = Boolean(effectiveEmail.trim());
+  const emailChanged =
+    draftEmail.toLowerCase() !== (customer?.email || "").trim().toLowerCase();
+  const currentHost =
+    typeof window !== "undefined" ? window.location.hostname : "";
+  const googleNeedsLocalhostHint =
+    currentHost.endsWith(".local") && currentHost !== "localhost";
+  const canRenderGoogleButton =
+    Boolean(googleClientID) && !googleNeedsLocalhostHint;
+  const recoverySummary = [
+    emailVerified ? "email siap" : hasEmail ? "email pending" : null,
+    customer?.phone ? "WhatsApp aktif" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const loginSummary = [
+    hasPassword ? "password aktif" : "belum ada password",
+    hasGoogle ? "Google terhubung" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const initials = useMemo(() => {
     return String(customer?.name || "CU")
@@ -160,13 +232,47 @@ export default function UserSettingsPage() {
     ? { backgroundImage: `url(${customer.avatar_url})` }
     : undefined;
 
+  const openRecoverySheet = () => {
+    setResetStep("request");
+    setResetCode("");
+    setResetPassword("");
+    setResetConfirmPassword("");
+    setActiveSheet("recovery");
+  };
+
+  useEffect(() => {
+    if (hasGoogle || !canRenderGoogleButton) return;
+    if (window.google?.accounts?.id) {
+      setGoogleSheetStatus("ready");
+      return;
+    }
+
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[data-google-identity-services="true"]',
+    );
+    if (existing) {
+      existing.addEventListener("load", () => setGoogleSheetStatus("ready"));
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.dataset.googleIdentityServices = "true";
+    script.onload = () => setGoogleSheetStatus("ready");
+    document.head.appendChild(script);
+  }, [canRenderGoogleButton, hasGoogle]);
+
   const hydrateDashboard = (nextData: CustomerSettingsData) => {
     setData(nextData);
     setProfileName(nextData.customer?.name || "");
     setProfileEmail(nextData.customer?.email || "");
   };
 
-  const syncCustomer = (patch: Partial<NonNullable<CustomerSettingsData["customer"]>>) => {
+  const syncCustomer = (
+    patch: Partial<NonNullable<CustomerSettingsData["customer"]>>,
+  ) => {
     setData((current) => ({
       ...(current || {}),
       customer: {
@@ -176,9 +282,78 @@ export default function UserSettingsPage() {
     }));
   };
 
+  async function handleLinkGoogle(credential: string) {
+    setGoogleLinking(true);
+    try {
+      const res = await api.post("/user/me/google/link", {
+        id_token: credential,
+      });
+      hydrateDashboard({
+        ...(data || {}),
+        customer: res.data?.customer || data?.customer,
+        identity_methods: Array.from(
+          new Set([...(data?.identity_methods || []), "google"]),
+        ),
+        has_password: data?.has_password,
+      });
+      toast.success("Akun Google berhasil dihubungkan");
+      closeSheet();
+    } catch (error) {
+      toast.error(
+        getErrorMessage(error, "Akun Google belum berhasil dihubungkan"),
+      );
+    } finally {
+      setGoogleLinking(false);
+    }
+  }
+
+  useEffect(() => {
+    if (
+      activeSheet !== "profile" ||
+      hasGoogle ||
+      googleSheetStatus !== "ready" ||
+      !googleButtonRef.current ||
+      !canRenderGoogleButton ||
+      !window.google?.accounts?.id
+    ) {
+      return;
+    }
+
+    googleButtonRef.current.innerHTML = "";
+    window.google.accounts.id.initialize({
+      client_id: googleClientID,
+      callback: async (response) => {
+        if (!response.credential) {
+          toast.error("Google credential tidak tersedia");
+          return;
+        }
+        await handleLinkGoogle(response.credential);
+      },
+      auto_select: false,
+      cancel_on_tap_outside: true,
+    });
+    window.google.accounts.id.renderButton(googleButtonRef.current, {
+      theme: "outline",
+      size: "large",
+      width: 320,
+      text: "continue_with",
+      shape: "pill",
+      logo_alignment: "left",
+    });
+  }, [
+    activeSheet,
+    canRenderGoogleButton,
+    googleClientID,
+    googleSheetStatus,
+    hasGoogle,
+  ]);
+
   const closeSheet = () => {
     setActiveSheet(null);
-    if (typeof window !== "undefined" && window.location.search.includes("sheet=")) {
+    if (
+      typeof window !== "undefined" &&
+      window.location.search.includes("sheet=")
+    ) {
       router.replace("/user/me/settings", { scroll: false });
     }
   };
@@ -213,6 +388,8 @@ export default function UserSettingsPage() {
 
   const handleSaveProfile = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const previousEmail = (customer?.email || "").trim().toLowerCase();
+    const nextEmail = profileEmail.trim().toLowerCase();
     setProfileSaving(true);
 
     try {
@@ -223,8 +400,15 @@ export default function UserSettingsPage() {
       syncCustomer({
         name: res.data?.customer?.name || profileName,
         email: res.data?.customer?.email || profileEmail,
+        email_verified_at: res.data?.customer?.email_verified_at ?? null,
       });
-      toast.success("Data profil berhasil diperbarui");
+      if (previousEmail !== nextEmail && nextEmail) {
+        toast.success(
+          "Profil diperbarui. Cek inbox email baru untuk verifikasi akun.",
+        );
+      } else {
+        toast.success("Data profil berhasil diperbarui");
+      }
       closeSheet();
     } catch (error) {
       toast.error(getErrorMessage(error, "Gagal memperbarui profil"));
@@ -233,7 +417,9 @@ export default function UserSettingsPage() {
     }
   };
 
-  const handleUpdatePassword = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleUpdatePassword = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
     event.preventDefault();
 
     if (!currentPassword.trim() || !newPassword.trim()) {
@@ -283,7 +469,32 @@ export default function UserSettingsPage() {
     }
   };
 
-  const handleVerifyResetPassword = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleRequestResetPasswordEmail = async () => {
+    if (!customer?.email?.trim()) {
+      toast.error("Tambahkan email aktif dulu di profil akun");
+      return;
+    }
+    if (!emailVerified) {
+      toast.error("Verifikasi email dulu sebelum pakai reset via email");
+      return;
+    }
+
+    setResetEmailSending(true);
+    try {
+      await api.post("/public/customer/password/reset/request-email", {
+        email: customer.email.trim(),
+      });
+      toast.success("Link reset password dikirim ke email kamu");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Gagal mengirim link reset password"));
+    } finally {
+      setResetEmailSending(false);
+    }
+  };
+
+  const handleVerifyResetPassword = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
     event.preventDefault();
 
     if (resetPassword !== resetConfirmPassword) {
@@ -327,13 +538,17 @@ export default function UserSettingsPage() {
       setPhoneStep("verify");
       toast.success("OTP pergantian nomor dikirim ke WhatsApp baru");
     } catch (error) {
-      toast.error(getErrorMessage(error, "Gagal mengirim OTP pergantian nomor"));
+      toast.error(
+        getErrorMessage(error, "Gagal mengirim OTP pergantian nomor"),
+      );
     } finally {
       setPhoneSending(false);
     }
   };
 
-  const handleVerifyPhoneChange = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleVerifyPhoneChange = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
     event.preventDefault();
     setPhoneVerifying(true);
 
@@ -354,6 +569,27 @@ export default function UserSettingsPage() {
       toast.error(getErrorMessage(error, "Gagal memverifikasi nomor baru"));
     } finally {
       setPhoneVerifying(false);
+    }
+  };
+
+  const handleRequestEmailVerification = async () => {
+    if (!customer?.email?.trim()) {
+      toast.error("Tambahkan email aktif dulu di profil akun");
+      return;
+    }
+    if (emailVerified) {
+      toast.success("Email ini sudah terverifikasi");
+      return;
+    }
+
+    setVerificationSending(true);
+    try {
+      await api.post("/user/me/email/verify/request", {});
+      toast.success("Link verifikasi dikirim ke email kamu");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Gagal mengirim email verifikasi"));
+    } finally {
+      setVerificationSending(false);
     }
   };
 
@@ -425,6 +661,24 @@ export default function UserSettingsPage() {
                     <Badge className="rounded-full border-none bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200">
                       {(data?.points || 0).toLocaleString("id-ID")} points
                     </Badge>
+                    <Badge
+                      className={`rounded-full border-none ${
+                        emailVerified
+                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200"
+                          : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200"
+                      }`}
+                    >
+                      {emailVerified
+                        ? "Email verified"
+                        : hasEmail
+                          ? "Email pending"
+                          : "Email belum diisi"}
+                    </Badge>
+                    {hasGoogle ? (
+                      <Badge className="rounded-full border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
+                        Google terhubung
+                      </Badge>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -451,51 +705,87 @@ export default function UserSettingsPage() {
                 value={customer?.tier || "NEW"}
                 icon={Sparkles}
               />
-              <MiniStat label="Riwayat" value={String(history.length)} icon={History} />
+              <MiniStat
+                label="Riwayat"
+                value={String(history.length)}
+                icon={History}
+              />
             </div>
           </CardContent>
         </Card>
 
         <Card className="rounded-[1.75rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
-          <CardContent className="space-y-2 p-3">
-            <SectionRow
-              title="Data profil"
-              description="Nama dan email"
-              value={`${customer?.name || "Customer"} · ${customer?.email || "Belum ada email"}`}
-              icon={User}
-              actionLabel="Edit"
-              onClick={() => setActiveSheet("profile")}
-            />
-            <SectionRow
-              title="Password akun"
-              description="Password login"
-              value="Ubah password"
-              icon={ShieldCheck}
-              actionLabel="Ganti"
-              onClick={() => setActiveSheet("password")}
-            />
-            <SectionRow
-              title="Lupa password"
-              description="Reset via OTP"
-              value={customer?.phone || "Nomor belum tersedia"}
-              icon={RotateCcw}
-              actionLabel="Reset"
-              onClick={() => {
-                setResetStep("request");
-                setActiveSheet("reset-password");
-              }}
-            />
-            <SectionRow
-              title="Nomor WhatsApp"
-              description="Ubah nomor"
-              value={customer?.phone || "Belum ada nomor"}
-              icon={Phone}
-              actionLabel="Ganti"
-              onClick={() => {
-                setPhoneStep("request");
-                setActiveSheet("phone");
-              }}
-            />
+          <CardContent className="space-y-5 p-3">
+            <div className="space-y-2">
+              <div className="px-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                Akun & identitas
+              </div>
+              <div className="space-y-2">
+                <SectionRow
+                  title="Identitas akun"
+                  description="Nama, email, status verifikasi, dan akses Google"
+                  value={[
+                    customer?.name || "Customer",
+                    customer?.email || "Belum ada email",
+                    emailVerified
+                      ? "email verified"
+                      : hasEmail
+                        ? "email pending"
+                        : "email belum diisi",
+                    hasGoogle ? "Google terhubung" : "Google belum terhubung",
+                  ].join(" · ")}
+                  icon={User}
+                  actionLabel="Kelola"
+                  onClick={() => setActiveSheet("profile")}
+                />
+                <SectionRow
+                  title="Nomor WhatsApp"
+                  description="Nomor utama untuk OTP dan update akun"
+                  value={customer?.phone || "Belum ada nomor"}
+                  icon={Phone}
+                  actionLabel="Ganti"
+                  onClick={() => {
+                    setPhoneStep("request");
+                    setActiveSheet("phone");
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="px-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                Security & recovery
+              </div>
+              <div className="space-y-2">
+                <SectionRow
+                  title="Password akun"
+                  description={
+                    hasPassword
+                      ? "Perbarui password login email kamu"
+                      : "Belum ada password. Buat dulu lewat jalur recovery"
+                  }
+                  value={loginSummary}
+                  icon={ShieldCheck}
+                  actionLabel={hasPassword ? "Ganti" : "Atur"}
+                  onClick={() =>
+                    hasPassword
+                      ? setActiveSheet("password")
+                      : openRecoverySheet()
+                  }
+                />
+                <SectionRow
+                  title="Pulihkan akses akun"
+                  description="Pilih jalur reset via email atau OTP WhatsApp"
+                  value={
+                    recoverySummary ||
+                    "Siapkan email dan WhatsApp untuk recovery"
+                  }
+                  icon={RotateCcw}
+                  actionLabel="Buka"
+                  onClick={openRecoverySheet}
+                />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -511,7 +801,11 @@ export default function UserSettingsPage() {
                     Booking terakhir
                   </p>
                 </div>
-                <Button asChild variant="ghost" className="h-10 rounded-2xl px-3">
+                <Button
+                  asChild
+                  variant="ghost"
+                  className="h-10 rounded-2xl px-3"
+                >
                   <Link href="/user/me/history">Semua</Link>
                 </Button>
               </div>
@@ -529,7 +823,9 @@ export default function UserSettingsPage() {
                       </p>
                       <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                         {booking.tenant_name || "Tenant"} · Rp{" "}
-                        {Number(booking.grand_total || 0).toLocaleString("id-ID")}
+                        {Number(booking.grand_total || 0).toLocaleString(
+                          "id-ID",
+                        )}
                       </p>
                     </div>
                     <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
@@ -563,11 +859,14 @@ export default function UserSettingsPage() {
                         {event.tenant_name || "Bookinaja"}
                       </p>
                       <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        {new Date(event.created_at).toLocaleDateString("id-ID", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
+                        {new Date(event.created_at).toLocaleDateString(
+                          "id-ID",
+                          {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          },
+                        )}
                       </p>
                     </div>
                     <p className="text-sm font-semibold text-blue-600 dark:text-blue-300">
@@ -596,9 +895,10 @@ export default function UserSettingsPage() {
           {activeSheet === "profile" ? (
             <form onSubmit={handleSaveProfile} className="space-y-5">
               <SheetHeader className="border-b border-slate-200/80 pb-4 dark:border-white/10">
-                <SheetTitle>Edit data profil</SheetTitle>
+                <SheetTitle>Kelola identitas akun</SheetTitle>
                 <SheetDescription>
-                  Ubah nama lengkap dan email aktif yang dipakai untuk akun customer kamu.
+                  Satu tempat untuk memperbarui nama, email utama, status
+                  verifikasi, dan koneksi Google akun customer kamu.
                 </SheetDescription>
               </SheetHeader>
 
@@ -620,10 +920,141 @@ export default function UserSettingsPage() {
                     className="h-12 rounded-2xl border-slate-200 pl-11 dark:border-white/10 dark:bg-white/[0.03]"
                   />
                 </Field>
+
+                <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                        Status email
+                      </div>
+                      <div className="mt-1 text-sm font-medium text-slate-950 dark:text-white">
+                        {hasEffectiveEmail
+                          ? maskEmail(effectiveEmail)
+                          : "Belum ada email"}
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                        {emailChanged
+                          ? "Email baru sudah kamu isi, tapi belum disimpan ke akun. Simpan profil dulu sebelum verifikasi."
+                          : emailVerified
+                            ? "Email ini sudah terverifikasi dan siap dipakai untuk login serta recovery."
+                            : hasEffectiveEmail
+                              ? "Simpan email yang benar, lalu kirim verifikasi supaya jalur reset via email aktif."
+                              : "Tambahkan email aktif untuk login yang lebih rapi dan recovery yang lebih aman."}
+                      </p>
+                    </div>
+                    <Badge
+                      className={`rounded-full border-none ${
+                        emailVerified
+                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200"
+                          : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200"
+                      }`}
+                    >
+                      {emailVerified
+                        ? "Verified"
+                        : emailChanged
+                          ? "Draft"
+                          : hasEffectiveEmail
+                            ? "Pending"
+                            : "Kosong"}
+                    </Badge>
+                  </div>
+
+                  <div className="mt-4 flex gap-2">
+                    {emailVerified ? (
+                      <div className="flex h-11 flex-1 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-medium text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
+                        Email siap dipakai
+                      </div>
+                    ) : emailChanged ? (
+                      <div className="flex h-11 flex-1 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 px-4 text-sm font-medium text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+                        Simpan profil dulu
+                      </div>
+                    ) : (
+                      <Button
+                        type="button"
+                        disabled={!hasEffectiveEmail || verificationSending}
+                        className="h-11 flex-1 rounded-2xl"
+                        onClick={handleRequestEmailVerification}
+                      >
+                        {verificationSending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Mail className="mr-2 h-4 w-4" />
+                        )}
+                        Kirim verifikasi
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                        Akses Google
+                      </div>
+                      <div className="mt-1 text-sm font-medium text-slate-950 dark:text-white">
+                        {hasGoogle
+                          ? "Google sudah terhubung"
+                          : "Google belum terhubung"}
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                        {hasGoogle
+                          ? "Kamu sudah bisa masuk lebih cepat lintas device dengan Google."
+                          : "Hubungkan Google supaya login lebih cepat dan tetap punya WhatsApp sebagai recovery utama."}
+                      </p>
+                    </div>
+                    <Badge className="rounded-full border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
+                      {hasGoogle ? "Connected" : "Optional"}
+                    </Badge>
+                  </div>
+
+                  {hasGoogle ? null : googleNeedsLocalhostHint ? (
+                    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+                      Buka halaman ini dari{" "}
+                      <span className="font-semibold">
+                        http://localhost:3000
+                      </span>{" "}
+                      supaya tombol Google bisa muncul. Google Sign-In tidak
+                      jalan dari domain lokal seperti{" "}
+                      <span className="font-semibold">{currentHost}</span>.
+                    </div>
+                  ) : googleClientID ? (
+                    <div className="mt-4 space-y-3">
+                      <div className="text-sm text-slate-600 dark:text-slate-300">
+                        Pilih akun Google yang mau dihubungkan ke akun Bookinaja
+                        ini.
+                      </div>
+                      <div className="flex justify-center">
+                        <div ref={googleButtonRef} />
+                      </div>
+                      {googleSheetStatus !== "ready" ? (
+                        <div className="flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Menyiapkan tombol Google...
+                        </div>
+                      ) : null}
+                      {googleLinking ? (
+                        <div className="flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Menghubungkan akun Google...
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+                      Google sign-in belum dikonfigurasi di environment frontend
+                      ini.
+                    </div>
+                  )}
+                </div>
               </div>
 
               <SheetFooter className="border-t border-slate-200/80 bg-white dark:border-white/10 dark:bg-[#0b0f19]">
-                <Button type="submit" disabled={profileSaving} className="h-12 rounded-2xl">
+                <Button
+                  type="submit"
+                  disabled={profileSaving}
+                  className="h-12 rounded-2xl"
+                >
                   {profileSaving ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
@@ -640,12 +1071,21 @@ export default function UserSettingsPage() {
               <SheetHeader className="border-b border-slate-200/80 pb-4 dark:border-white/10">
                 <SheetTitle>Ganti password</SheetTitle>
                 <SheetDescription>
-                  Masukkan password lama dulu, lalu tentukan password baru untuk akun ini.
+                  Masukkan password lama dulu, lalu tentukan password baru untuk
+                  akun ini.
                 </SheetDescription>
               </SheetHeader>
 
               <div className="space-y-4 px-4">
-                <Field label="Password lama" icon={<LockKeyhole className="h-4 w-4" />}>
+                <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
+                  Kalau lupa password lama, pakai jalur recovery lewat email
+                  atau OTP WhatsApp dari menu keamanan.
+                </div>
+
+                <Field
+                  label="Password lama"
+                  icon={<LockKeyhole className="h-4 w-4" />}
+                >
                   <Input
                     type="password"
                     value={currentPassword}
@@ -655,7 +1095,10 @@ export default function UserSettingsPage() {
                   />
                 </Field>
 
-                <Field label="Password baru" icon={<KeyRound className="h-4 w-4" />}>
+                <Field
+                  label="Password baru"
+                  icon={<KeyRound className="h-4 w-4" />}
+                >
                   <Input
                     type="password"
                     value={newPassword}
@@ -665,7 +1108,10 @@ export default function UserSettingsPage() {
                   />
                 </Field>
 
-                <Field label="Ulangi password baru" icon={<ShieldCheck className="h-4 w-4" />}>
+                <Field
+                  label="Ulangi password baru"
+                  icon={<ShieldCheck className="h-4 w-4" />}
+                >
                   <Input
                     type="password"
                     value={confirmPassword}
@@ -677,41 +1123,124 @@ export default function UserSettingsPage() {
               </div>
 
               <SheetFooter className="border-t border-slate-200/80 bg-white dark:border-white/10 dark:bg-[#0b0f19]">
-                <Button type="submit" disabled={passwordSaving} className="h-12 rounded-2xl">
-                  {passwordSaving ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <ShieldCheck className="mr-2 h-4 w-4" />
-                  )}
-                  Perbarui password
-                </Button>
+                <div className="flex w-full gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-12 flex-1 rounded-2xl dark:border-white/10 dark:bg-white/[0.03]"
+                    onClick={openRecoverySheet}
+                  >
+                    Lupa password
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={passwordSaving}
+                    className="h-12 flex-1 rounded-2xl"
+                  >
+                    {passwordSaving ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <ShieldCheck className="mr-2 h-4 w-4" />
+                    )}
+                    Perbarui password
+                  </Button>
+                </div>
               </SheetFooter>
             </form>
           ) : null}
 
-          {activeSheet === "reset-password" ? (
+          {activeSheet === "recovery" ? (
             <div className="space-y-5">
               <SheetHeader className="border-b border-slate-200/80 pb-4 dark:border-white/10">
-                <SheetTitle>Reset password via OTP</SheetTitle>
+                <SheetTitle>Pulihkan akses akun</SheetTitle>
                 <SheetDescription>
-                  OTP akan dikirim ke WhatsApp akun aktif kamu sebelum password baru dipasang.
+                  Pilih jalur yang paling nyaman. Email cocok untuk link reset
+                  formal, WhatsApp cocok untuk OTP cepat.
                 </SheetDescription>
               </SheetHeader>
 
               <div className="space-y-4 px-4">
-                <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                    Nomor akun
+                <div className="grid gap-3">
+                  <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                          Reset via email
+                        </div>
+                        <div className="mt-1 text-sm font-medium text-slate-950 dark:text-white">
+                          {customer?.email || "Belum ada email"}
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                          {emailVerified
+                            ? "Kami kirim link reset password ke email terverifikasi ini."
+                            : hasEmail
+                              ? "Verifikasi email dulu sebelum reset via email bisa dipakai."
+                              : "Tambahkan email dulu di profil untuk membuka jalur reset via email."}
+                        </p>
+                      </div>
+                      <Badge
+                        className={`rounded-full border-none ${
+                          emailVerified
+                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200"
+                            : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200"
+                        }`}
+                      >
+                        {emailVerified ? "Siap" : "Belum siap"}
+                      </Badge>
+                    </div>
+
+                    <div className="mt-4 flex gap-2">
+                      <Button
+                        type="button"
+                        disabled={
+                          !hasEmail || !emailVerified || resetEmailSending
+                        }
+                        className="h-12 flex-1 rounded-2xl"
+                        onClick={handleRequestResetPasswordEmail}
+                      >
+                        {resetEmailSending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Mail className="mr-2 h-4 w-4" />
+                        )}
+                        Kirim link reset
+                      </Button>
+                      {!emailVerified ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={!hasEmail || verificationSending}
+                          className="h-12 rounded-2xl dark:border-white/10 dark:bg-white/[0.03]"
+                          onClick={handleRequestEmailVerification}
+                        >
+                          {verificationSending ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : null}
+                          Verifikasi email
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="mt-1 text-sm font-medium text-slate-950 dark:text-white">
-                    {customer?.phone || "-"}
+
+                  <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                      Reset via OTP WhatsApp
+                    </div>
+                    <div className="mt-1 text-sm font-medium text-slate-950 dark:text-white">
+                      {customer?.phone || "-"}
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                      Jalur cepat kalau kamu sedang pegang nomor WhatsApp akun
+                      dan butuh pasang password baru sekarang.
+                    </p>
                   </div>
                 </div>
 
                 {resetStep === "request" ? (
                   <div className="space-y-3 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
                     <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                      Kirim OTP reset dulu ke WhatsApp kamu. Setelah kode masuk, lanjut verifikasi dan tentukan password baru.
+                      Kirim OTP reset dulu ke WhatsApp kamu. Setelah kode masuk,
+                      lanjut verifikasi dan tentukan password baru.
                     </p>
                     <Button
                       type="button"
@@ -728,33 +1257,51 @@ export default function UserSettingsPage() {
                     </Button>
                   </div>
                 ) : (
-                  <form onSubmit={handleVerifyResetPassword} className="space-y-4">
-                    <Field label="OTP 6 digit" icon={<Phone className="h-4 w-4" />}>
+                  <form
+                    onSubmit={handleVerifyResetPassword}
+                    className="space-y-4"
+                  >
+                    <Field
+                      label="OTP 6 digit"
+                      icon={<Phone className="h-4 w-4" />}
+                    >
                       <Input
                         inputMode="numeric"
                         maxLength={6}
                         value={resetCode}
-                        onChange={(event) => setResetCode(event.target.value.replace(/\D/g, ""))}
+                        onChange={(event) =>
+                          setResetCode(event.target.value.replace(/\D/g, ""))
+                        }
                         placeholder="Masukkan OTP"
                         className="h-12 rounded-2xl border-slate-200 pl-11 tracking-[0.24em] dark:border-white/10 dark:bg-white/[0.03]"
                       />
                     </Field>
 
-                    <Field label="Password baru" icon={<KeyRound className="h-4 w-4" />}>
+                    <Field
+                      label="Password baru"
+                      icon={<KeyRound className="h-4 w-4" />}
+                    >
                       <Input
                         type="password"
                         value={resetPassword}
-                        onChange={(event) => setResetPassword(event.target.value)}
+                        onChange={(event) =>
+                          setResetPassword(event.target.value)
+                        }
                         placeholder="Minimal 6 karakter"
                         className="h-12 rounded-2xl border-slate-200 pl-11 dark:border-white/10 dark:bg-white/[0.03]"
                       />
                     </Field>
 
-                    <Field label="Ulangi password baru" icon={<ShieldCheck className="h-4 w-4" />}>
+                    <Field
+                      label="Ulangi password baru"
+                      icon={<ShieldCheck className="h-4 w-4" />}
+                    >
                       <Input
                         type="password"
                         value={resetConfirmPassword}
-                        onChange={(event) => setResetConfirmPassword(event.target.value)}
+                        onChange={(event) =>
+                          setResetConfirmPassword(event.target.value)
+                        }
                         placeholder="Ketik ulang password baru"
                         className="h-12 rounded-2xl border-slate-200 pl-11 dark:border-white/10 dark:bg-white/[0.03]"
                       />
@@ -793,7 +1340,8 @@ export default function UserSettingsPage() {
               <SheetHeader className="border-b border-slate-200/80 pb-4 dark:border-white/10">
                 <SheetTitle>Ganti nomor WhatsApp</SheetTitle>
                 <SheetDescription>
-                  Masukkan nomor baru, kirim OTP ke nomor tersebut, lalu verifikasi sebelum nomor akun diganti.
+                  Masukkan nomor baru, kirim OTP ke nomor tersebut, lalu
+                  verifikasi sebelum nomor akun diganti.
                 </SheetDescription>
               </SheetHeader>
 
@@ -809,11 +1357,16 @@ export default function UserSettingsPage() {
 
                 {phoneStep === "request" ? (
                   <div className="space-y-4">
-                    <Field label="Nomor WhatsApp baru" icon={<Phone className="h-4 w-4" />}>
+                    <Field
+                      label="Nomor WhatsApp baru"
+                      icon={<Phone className="h-4 w-4" />}
+                    >
                       <Input
                         inputMode="tel"
                         value={newPhone}
-                        onChange={(event) => setNewPhone(event.target.value.replace(/\D/g, ""))}
+                        onChange={(event) =>
+                          setNewPhone(event.target.value.replace(/\D/g, ""))
+                        }
                         placeholder="08xxxxxxxxxx"
                         className="h-12 rounded-2xl border-slate-200 pl-11 dark:border-white/10 dark:bg-white/[0.03]"
                       />
@@ -834,17 +1387,26 @@ export default function UserSettingsPage() {
                     </Button>
                   </div>
                 ) : (
-                  <form onSubmit={handleVerifyPhoneChange} className="space-y-4">
+                  <form
+                    onSubmit={handleVerifyPhoneChange}
+                    className="space-y-4"
+                  >
                     <div className="rounded-[1.25rem] border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200">
-                      OTP sudah dikirim ke <span className="font-semibold">{newPhone}</span>.
+                      OTP sudah dikirim ke{" "}
+                      <span className="font-semibold">{newPhone}</span>.
                     </div>
 
-                    <Field label="OTP 6 digit" icon={<KeyRound className="h-4 w-4" />}>
+                    <Field
+                      label="OTP 6 digit"
+                      icon={<KeyRound className="h-4 w-4" />}
+                    >
                       <Input
                         inputMode="numeric"
                         maxLength={6}
                         value={phoneCode}
-                        onChange={(event) => setPhoneCode(event.target.value.replace(/\D/g, ""))}
+                        onChange={(event) =>
+                          setPhoneCode(event.target.value.replace(/\D/g, ""))
+                        }
                         placeholder="Masukkan OTP"
                         className="h-12 rounded-2xl border-slate-200 pl-11 tracking-[0.24em] dark:border-white/10 dark:bg-white/[0.03]"
                       />
@@ -922,7 +1484,9 @@ function MiniStat({
         <Icon className="h-3.5 w-3.5" />
         {label}
       </div>
-      <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">{value}</p>
+      <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">
+        {value}
+      </p>
     </div>
   );
 }
@@ -952,9 +1516,15 @@ function SectionRow({
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-slate-950 dark:text-white">{title}</p>
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{description}</p>
-        <p className="mt-2 truncate text-sm text-slate-700 dark:text-slate-200">{value}</p>
+        <p className="text-sm font-semibold text-slate-950 dark:text-white">
+          {title}
+        </p>
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          {description}
+        </p>
+        <p className="mt-2 truncate text-sm text-slate-700 dark:text-slate-200">
+          {value}
+        </p>
       </div>
       <div className="shrink-0 text-right">
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-300">

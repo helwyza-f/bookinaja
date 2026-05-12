@@ -14,7 +14,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	platformenv "github.com/helwiza/backend/internal/platform/env"
 	"github.com/helwiza/backend/internal/platform/fonnte"
+	"github.com/helwiza/backend/internal/platform/mailer"
+	"github.com/helwiza/backend/internal/platformadmin"
 	"github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
@@ -31,6 +34,12 @@ const (
 
 const googleClaimTTL = 15 * time.Minute
 const portalCacheTTL = 15 * time.Second
+const emailActionTTL = 30 * time.Minute
+
+const (
+	emailActionVerifyEmail   = "verify-email"
+	emailActionResetPassword = "reset-password-email"
+)
 
 type googleIdentity struct {
 	Subject       string  `json:"subject"`
@@ -46,14 +55,35 @@ type Service struct {
 	repo                   *Repository
 	redis                  *redis.Client // Redis untuk OTP & Caching
 	verifyGoogleIdentityFn googleIdentityVerifier
+	mailer                 mailer.Provider
+	emailAudit             *platformadmin.Repository
 }
 
-func NewService(r *Repository, rdb *redis.Client) *Service {
+type serviceOption func(*Service)
+
+func WithMailer(provider mailer.Provider) serviceOption {
+	return func(s *Service) {
+		s.mailer = provider
+	}
+}
+
+func WithEmailAudit(logger *platformadmin.Repository) serviceOption {
+	return func(s *Service) {
+		s.emailAudit = logger
+	}
+}
+
+func NewService(r *Repository, rdb *redis.Client, opts ...serviceOption) *Service {
 	svc := &Service{
 		repo:  r,
 		redis: rdb,
 	}
 	svc.verifyGoogleIdentityFn = svc.defaultVerifyGoogleIdentity
+	for _, opt := range opts {
+		if opt != nil {
+			opt(svc)
+		}
+	}
 	return svc
 }
 
@@ -199,6 +229,166 @@ func (s *Service) VerifyPasswordResetOTP(ctx context.Context, phone, code, newPa
 	return nil
 }
 
+func (s *Service) RequestPasswordResetEmail(ctx context.Context, email string) error {
+	email = strings.TrimSpace(strings.ToLower(email))
+	if email == "" {
+		return fmt.Errorf("email wajib diisi")
+	}
+
+	cust, err := s.repo.FindByEmail(ctx, email)
+	if err != nil {
+		return fmt.Errorf("kami belum bisa menyiapkan reset password saat ini")
+	}
+	if cust == nil {
+		return fmt.Errorf("email ini belum terhubung ke akun Bookinaja")
+	}
+	if cust.EmailVerifiedAt == nil {
+		return fmt.Errorf("email ini belum terverifikasi. Pakai reset via WhatsApp atau verifikasi email dulu")
+	}
+
+	token := uuid.NewString()
+	if err := s.storeEmailAction(ctx, emailActionResetPassword, token, map[string]any{
+		"customer_id": cust.ID.String(),
+		"email":       email,
+	}); err != nil {
+		return fmt.Errorf("kami belum bisa menyiapkan reset password saat ini")
+	}
+
+	resetURL := platformenv.PlatformURL("/user/password/reset-email?token=" + token)
+	html := fmt.Sprintf(
+		"<h1>Reset password Bookinaja</h1><p>Halo %s,</p><p>Klik tombol berikut untuk membuat password baru. Link ini berlaku 30 menit.</p><p><a href=\"%s\">Reset password</a></p><p>Kalau kamu tidak meminta reset password, abaikan email ini.</p>",
+		safeHTMLText(cust.Name),
+		resetURL,
+	)
+	text := fmt.Sprintf(
+		"Halo %s,\n\nBuka link ini untuk reset password Bookinaja (berlaku 30 menit):\n%s\n\nKalau kamu tidak meminta reset password, abaikan email ini.",
+		cust.Name,
+		resetURL,
+	)
+
+	if err := s.sendAppEmail(ctx, email, "Reset password Bookinaja", html, text, "forgot_password", "customer_password_reset"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Service) VerifyPasswordResetEmail(ctx context.Context, token, newPassword string) error {
+	token = strings.TrimSpace(token)
+	newPassword = strings.TrimSpace(newPassword)
+	if token == "" {
+		return fmt.Errorf("token reset password wajib diisi")
+	}
+	if len(newPassword) < 6 {
+		return fmt.Errorf("password baru minimal 6 karakter")
+	}
+
+	payload, err := s.consumeEmailAction(ctx, emailActionResetPassword, token)
+	if err != nil {
+		return err
+	}
+
+	customerID, _ := payload["customer_id"].(string)
+	cID, err := uuid.Parse(strings.TrimSpace(customerID))
+	if err != nil {
+		return fmt.Errorf("token reset password tidak valid")
+	}
+
+	hashedPassword, err := hashPassword(&newPassword)
+	if err != nil || hashedPassword == nil {
+		return fmt.Errorf("password baru belum berhasil diamankan")
+	}
+
+	if _, err := s.repo.UpdatePasswordHash(ctx, cID, *hashedPassword); err != nil {
+		return fmt.Errorf("password belum berhasil direset")
+	}
+	return nil
+}
+
+func (s *Service) RequestEmailVerification(ctx context.Context, customerID string, emailOverride *string) error {
+	cID, err := uuid.Parse(customerID)
+	if err != nil {
+		return fmt.Errorf("id customer tidak valid")
+	}
+	cust, err := s.repo.FindByID(ctx, cID)
+	if err != nil || cust == nil {
+		return fmt.Errorf("profil pelanggan tidak ditemukan")
+	}
+
+	email := ""
+	if emailOverride != nil {
+		email = strings.TrimSpace(strings.ToLower(*emailOverride))
+	} else if cust.Email != nil {
+		email = strings.TrimSpace(strings.ToLower(*cust.Email))
+	}
+	if email == "" {
+		return fmt.Errorf("email belum diisi")
+	}
+	if cust.Email != nil && !strings.EqualFold(strings.TrimSpace(*cust.Email), email) {
+		updateReq := UpdateProfileReq{Email: &email}
+		updated, err := s.repo.UpdateProfile(ctx, cID, updateReq)
+		if err != nil {
+			return fmt.Errorf("email belum berhasil diperbarui")
+		}
+		cust = updated
+	}
+	if cust.EmailVerifiedAt != nil && cust.Email != nil && strings.EqualFold(strings.TrimSpace(*cust.Email), email) {
+		return fmt.Errorf("email ini sudah terverifikasi")
+	}
+
+	token := uuid.NewString()
+	if err := s.storeEmailAction(ctx, emailActionVerifyEmail, token, map[string]any{
+		"customer_id": cust.ID.String(),
+		"email":       email,
+	}); err != nil {
+		return fmt.Errorf("kami belum bisa menyiapkan verifikasi email saat ini")
+	}
+
+	verifyURL := platformenv.PlatformURL("/user/email/verify?token=" + token)
+	html := fmt.Sprintf(
+		"<h1>Verifikasi email Bookinaja</h1><p>Halo %s,</p><p>Klik tombol berikut untuk memverifikasi email kamu. Link ini berlaku 30 menit.</p><p><a href=\"%s\">Verifikasi email</a></p>",
+		safeHTMLText(cust.Name),
+		verifyURL,
+	)
+	text := fmt.Sprintf(
+		"Halo %s,\n\nBuka link ini untuk verifikasi email Bookinaja (berlaku 30 menit):\n%s",
+		cust.Name,
+		verifyURL,
+	)
+
+	if err := s.sendAppEmail(ctx, email, "Verifikasi email Bookinaja", html, text, "email_verification", "customer_email_verification"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Service) VerifyEmailToken(ctx context.Context, token string) (*Customer, error) {
+	payload, err := s.consumeEmailAction(ctx, emailActionVerifyEmail, strings.TrimSpace(token))
+	if err != nil {
+		return nil, err
+	}
+	customerID, _ := payload["customer_id"].(string)
+	email, _ := payload["email"].(string)
+	cID, err := uuid.Parse(strings.TrimSpace(customerID))
+	if err != nil {
+		return nil, fmt.Errorf("token verifikasi email tidak valid")
+	}
+	cust, err := s.repo.FindByID(ctx, cID)
+	if err != nil || cust == nil {
+		return nil, fmt.Errorf("profil pelanggan tidak ditemukan")
+	}
+	if cust.Email == nil || !strings.EqualFold(strings.TrimSpace(*cust.Email), strings.TrimSpace(email)) {
+		return nil, fmt.Errorf("email akun sudah berubah. Minta verifikasi baru ya")
+	}
+	updated, err := s.repo.MarkEmailVerified(ctx, cID)
+	if err != nil {
+		return nil, fmt.Errorf("email belum berhasil diverifikasi")
+	}
+	if updated == nil {
+		return nil, fmt.Errorf("profil pelanggan tidak ditemukan")
+	}
+	return updated, nil
+}
+
 // --- CORE CUSTOMER LOGIC ---
 
 // CheckExistence mengecek keberadaan customer berdasarkan nomor HP.
@@ -300,7 +490,7 @@ func (s *Service) LoginWithGoogle(ctx context.Context, idTokenRaw string) (*Goog
 			return nil, fmt.Errorf("kami belum bisa memeriksa akun Google saat ini")
 		}
 		if existing != nil {
-			linked, err := s.repo.LinkGoogleIdentity(ctx, existing.ID, identity.Subject, identity.Email, &identity.Name, identity.AvatarURL)
+			linked, err := s.repo.LinkGoogleIdentity(ctx, existing.ID, identity.Subject, identity.Email, &identity.Name, identity.AvatarURL, identity.EmailVerified)
 			if err != nil {
 				return nil, fmt.Errorf("akun Google belum berhasil dihubungkan")
 			}
@@ -380,6 +570,9 @@ func (s *Service) ClaimGoogleAccount(ctx context.Context, req GoogleClaimReq) (*
 		Tier:               "NEW",
 		LoyaltyPoints:      0,
 	}
+	if identity.EmailVerified && identity.Email != nil && strings.TrimSpace(*identity.Email) != "" {
+		cust.EmailVerifiedAt = timePtr(time.Now().UTC())
+	}
 	if req.MarketingOptIn != nil {
 		cust.MarketingOptIn = *req.MarketingOptIn
 	}
@@ -432,7 +625,7 @@ func (s *Service) LinkGoogleForCustomer(ctx context.Context, customerID string, 
 		}
 	}
 
-	updated, err := s.repo.LinkGoogleIdentity(ctx, cID, identity.Subject, identity.Email, &identity.Name, identity.AvatarURL)
+	updated, err := s.repo.LinkGoogleIdentity(ctx, cID, identity.Subject, identity.Email, &identity.Name, identity.AvatarURL, identity.EmailVerified)
 	if err != nil {
 		log.Printf("customer google link failed customer_id=%s subject=%s err=%v", cID.String(), identity.Subject, err)
 		return nil, translateGoogleLinkError(err)
@@ -944,10 +1137,12 @@ func (s *Service) GetPortalSettingsData(ctx context.Context, customerID uuid.UUI
 	}
 
 	result := &CustomerPortalSettingsData{
-		Customer:      *cust,
-		Points:        cust.LoyaltyPoints,
-		PointActivity: pointActivity,
-		PastHistory:   past,
+		Customer:        *cust,
+		Points:          cust.LoyaltyPoints,
+		PointActivity:   pointActivity,
+		PastHistory:     past,
+		IdentityMethods: customerIdentityMethods(*cust),
+		HasPassword:     cust.Password != nil && strings.TrimSpace(*cust.Password) != "",
 	}
 	s.portalCacheSet(ctx, cacheKey, result)
 	return result, nil
@@ -1019,6 +1214,10 @@ func (s *Service) UpdateAccount(ctx context.Context, customerID string, req Upda
 	}
 	if updated == nil {
 		return nil, fmt.Errorf("customer tidak ditemukan")
+	}
+	if req.Email != nil && strings.TrimSpace(*req.Email) != "" && updated.EmailVerifiedAt == nil {
+		emailValue := strings.TrimSpace(*req.Email)
+		_ = s.RequestEmailVerification(ctx, customerID, &emailValue)
 	}
 	return updated, nil
 }
@@ -1446,6 +1645,90 @@ func otpRedisKey(scope, subject string) string {
 	return fmt.Sprintf("otp:%s:%s", scope, subject)
 }
 
+func emailActionRedisKey(action, token string) string {
+	return fmt.Sprintf("email-action:%s:%s", strings.TrimSpace(action), strings.TrimSpace(token))
+}
+
+func (s *Service) storeEmailAction(ctx context.Context, action, token string, payload map[string]any) error {
+	if s.redis == nil {
+		return fmt.Errorf("sistem email sedang belum siap")
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	return s.redis.Set(ctx, emailActionRedisKey(action, token), raw, emailActionTTL).Err()
+}
+
+func (s *Service) consumeEmailAction(ctx context.Context, action, token string) (map[string]any, error) {
+	if s.redis == nil {
+		return nil, fmt.Errorf("verifikasi email sedang mengalami kendala")
+	}
+	raw, err := s.redis.Get(ctx, emailActionRedisKey(action, token)).Result()
+	if err == redis.Nil {
+		return nil, fmt.Errorf("link sudah kedaluwarsa atau tidak valid")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("verifikasi email sedang mengalami kendala")
+	}
+	_ = s.redis.Del(ctx, emailActionRedisKey(action, token)).Err()
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		return nil, fmt.Errorf("payload email tidak valid")
+	}
+	return payload, nil
+}
+
+func (s *Service) sendAppEmail(ctx context.Context, to, subject, html, text, eventKey, templateKey string) error {
+	if s.mailer == nil || !s.mailer.Enabled() {
+		return fmt.Errorf("layanan email belum dikonfigurasi")
+	}
+
+	req := mailer.SendRequest{
+		To:      []string{strings.TrimSpace(to)},
+		Subject: strings.TrimSpace(subject),
+		HTML:    strings.TrimSpace(html),
+		Text:    strings.TrimSpace(text),
+		Tags: map[string]string{
+			"source":       "customer_auth",
+			"event_key":    strings.TrimSpace(eventKey),
+			"template_key": strings.TrimSpace(templateKey),
+		},
+	}
+
+	var logID string
+	var err error
+	if s.emailAudit != nil {
+		logID, err = s.emailAudit.CreateEmailLog(ctx, platformadmin.CreateEmailLogInput{
+			Provider:       "resend",
+			Source:         "customer_auth",
+			EventKey:       eventKey,
+			TemplateKey:    templateKey,
+			Recipient:      strings.TrimSpace(to),
+			Subject:        strings.TrimSpace(subject),
+			Status:         "queued",
+			RequestPayload: req,
+			Tags:           req.Tags,
+		})
+		if err != nil {
+			return fmt.Errorf("gagal mencatat log email")
+		}
+	}
+
+	resp, err := s.mailer.Send(ctx, req)
+	if err != nil {
+		if s.emailAudit != nil && logID != "" {
+			_ = s.emailAudit.UpdateEmailLogDispatch(ctx, logID, "", "failed", err.Error())
+		}
+		return fmt.Errorf("email belum berhasil dikirim")
+	}
+	if s.emailAudit != nil && logID != "" {
+		_ = s.emailAudit.UpdateEmailLogDispatch(ctx, logID, resp.ID, "accepted", "")
+	}
+	return nil
+}
+
 func mapOTPPurposeLabel(purpose string) string {
 	switch purpose {
 	case "register":
@@ -1519,4 +1802,15 @@ func maskPhone(phone string) string {
 		return phone
 	}
 	return strings.Repeat("*", len(phone)-4) + phone[len(phone)-4:]
+}
+
+func safeHTMLText(value string) string {
+	replacer := strings.NewReplacer(
+		"&", "&amp;",
+		"<", "&lt;",
+		">", "&gt;",
+		`"`, "&quot;",
+		"'", "&#39;",
+	)
+	return replacer.Replace(strings.TrimSpace(value))
 }

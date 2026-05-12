@@ -27,7 +27,68 @@ type revenueReportRow struct {
 	PendingTransactions int64   `db:"pending_transactions" json:"pending_transactions"`
 }
 
+type CreateEmailLogInput struct {
+	Provider       string
+	Source         string
+	EventKey       string
+	TemplateKey    string
+	Recipient      string
+	Subject        string
+	Status         string
+	RequestPayload any
+	Tags           map[string]string
+}
+
 func NewRepository(db *sqlx.DB) *Repository { return &Repository{db: db} }
+
+func (r *Repository) CreateEmailLog(ctx context.Context, input CreateEmailLogInput) (string, error) {
+	var id string
+	if err := r.db.GetContext(ctx, &id, `
+		INSERT INTO platform_email_logs (
+			provider,
+			source,
+			event_key,
+			template_key,
+			recipient,
+			subject,
+			status,
+			request_payload,
+			tags
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb
+		)
+		RETURNING id::text`,
+		strings.TrimSpace(input.Provider),
+		strings.TrimSpace(input.Source),
+		strings.TrimSpace(input.EventKey),
+		strings.TrimSpace(input.TemplateKey),
+		strings.TrimSpace(input.Recipient),
+		strings.TrimSpace(input.Subject),
+		strings.TrimSpace(input.Status),
+		mustJSON(input.RequestPayload),
+		mustJSON(input.Tags),
+	); err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
+func (r *Repository) UpdateEmailLogDispatch(ctx context.Context, id, providerMessageID, status, errorMessage string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE platform_email_logs
+		SET provider_message_id = COALESCE(NULLIF($2, ''), provider_message_id),
+			status = $3,
+			error_message = $4,
+			sent_at = CASE WHEN $3 IN ('accepted', 'sent') THEN NOW() ELSE sent_at END,
+			updated_at = NOW()
+		WHERE id::text = $1`,
+		strings.TrimSpace(id),
+		strings.TrimSpace(providerMessageID),
+		strings.TrimSpace(status),
+		strings.TrimSpace(errorMessage),
+	)
+	return err
+}
 
 func (r *Repository) GetDiscoveryFeedSetting(ctx context.Context) (*DiscoveryFeedSetting, error) {
 	var row struct {
@@ -1124,4 +1185,131 @@ func (r *Repository) UpdateReferralWithdrawalStatus(ctx context.Context, withdra
 	}
 
 	return tx.Commit()
+}
+
+func (r *Repository) ListEmailLogs(ctx context.Context, page, pageSize int, eventKey, status, query string) ([]map[string]any, int, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 200 {
+		pageSize = 25
+	}
+	offset := (page - 1) * pageSize
+
+	whereParts := []string{"1=1"}
+	args := []any{}
+
+	if eventKey = strings.TrimSpace(eventKey); eventKey != "" {
+		args = append(args, eventKey)
+		whereParts = append(whereParts, fmt.Sprintf("event_key = $%d", len(args)))
+	}
+	if status = strings.TrimSpace(status); status != "" {
+		args = append(args, status)
+		whereParts = append(whereParts, fmt.Sprintf("status = $%d", len(args)))
+	}
+	if query = strings.TrimSpace(query); query != "" {
+		args = append(args, "%"+strings.ToLower(query)+"%")
+		whereParts = append(whereParts, fmt.Sprintf(`(
+			LOWER(recipient) LIKE $%d OR
+			LOWER(subject) LIKE $%d OR
+			LOWER(event_key) LIKE $%d OR
+			LOWER(source) LIKE $%d
+		)`, len(args), len(args), len(args), len(args)))
+	}
+
+	where := strings.Join(whereParts, " AND ")
+	args = append(args, pageSize, offset)
+	limitArg := len(args) - 1
+	offsetArg := len(args)
+
+	querySQL := fmt.Sprintf(`
+		SELECT
+			id::text,
+			provider,
+			provider_message_id,
+			source,
+			event_key,
+			template_key,
+			recipient,
+			subject,
+			status,
+			error_message,
+			request_payload,
+			tags,
+			sent_at,
+			created_at,
+			updated_at
+		FROM platform_email_logs
+		WHERE %s
+		ORDER BY created_at DESC
+		LIMIT $%d OFFSET $%d`, where, limitArg, offsetArg)
+
+	rows, err := r.db.QueryxContext(ctx, querySQL, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var result []map[string]any
+	for rows.Next() {
+		row := map[string]any{}
+		if err := rows.MapScan(row); err != nil {
+			return nil, 0, err
+		}
+		result = append(result, normalizeRow(row))
+	}
+
+	countSQL := fmt.Sprintf(`SELECT COUNT(*) FROM platform_email_logs WHERE %s`, where)
+	countArgs := []any{}
+	if len(args) > 2 {
+		countArgs = args[:len(args)-2]
+	}
+	var total int
+	if err := r.db.GetContext(ctx, &total, countSQL, countArgs...); err != nil {
+		return nil, 0, err
+	}
+	return result, total, nil
+}
+
+func (r *Repository) GetEmailLog(ctx context.Context, id string) (map[string]any, error) {
+	rows, err := r.db.QueryxContext(ctx, `
+		SELECT
+			id::text,
+			provider,
+			provider_message_id,
+			source,
+			event_key,
+			template_key,
+			recipient,
+			subject,
+			status,
+			error_message,
+			request_payload,
+			tags,
+			sent_at,
+			created_at,
+			updated_at
+		FROM platform_email_logs
+		WHERE id::text = $1
+		LIMIT 1`, strings.TrimSpace(id))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return map[string]any{}, nil
+	}
+	row := map[string]any{}
+	if err := rows.MapScan(row); err != nil {
+		return nil, err
+	}
+	return normalizeRow(row), nil
+}
+
+func mustJSON(value any) string {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return "{}"
+	}
+	return string(raw)
 }

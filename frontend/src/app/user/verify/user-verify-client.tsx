@@ -11,7 +11,7 @@ import { clearTenantSession } from "@/lib/tenant-session";
 export default function UserVerifyClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [message, setMessage] = useState("Memproses akses booking...");
+  const [message, setMessage] = useState("Menyiapkan akses customer...");
   const nextStep = searchParams.get("next");
   const accessKind = searchParams.get("kind") === "order" ? "order" : "booking";
   const paymentScope =
@@ -28,7 +28,11 @@ export default function UserVerifyClient() {
 
     const run = async () => {
       try {
-        setMessage(accessKind === "order" ? "Menukar akses order..." : "Menukar akses booking...");
+        setMessage(
+          accessKind === "order"
+            ? "Menyiapkan akses order langsung..."
+            : "Menyiapkan akses booking timed...",
+        );
         const res = await api.post(
           accessKind === "order" ? "/public/sales-orders/exchange" : "/public/bookings/exchange",
           { code },
@@ -96,7 +100,7 @@ export default function UserVerifyClient() {
           </div>
           <div className="space-y-2">
             <div className="text-[9px] font-black uppercase tracking-[0.35em] text-blue-300">
-              {accessKind === "order" ? "Order Access" : "Booking Access"}
+              {accessKind === "order" ? "Order Langsung" : "Booking Timed"}
             </div>
             <h1 className="text-3xl font-black italic uppercase tracking-tighter">
               Verifikasi Akses
@@ -105,7 +109,7 @@ export default function UserVerifyClient() {
           </div>
           <div className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">
             <BadgeCheck className="h-4 w-4 text-emerald-400" />
-            Customer portal is preparing your session
+            Customer portal sedang menyiapkan sesi kamu
           </div>
         </div>
       </Card>

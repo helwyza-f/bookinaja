@@ -93,6 +93,7 @@ func (r *Repository) Upsert(ctx context.Context, c Customer) (uuid.UUID, error) 
 			id, name, phone, email, password,
 			total_visits, total_spent, tier, loyalty_points,
 			account_status, account_stage, registration_source, phone_verified_at,
+			email_verified_at,
 			silent_registered_at, profile_completed_at, marketing_opt_in,
 			birth_date, gender, city, province, country_code, google_subject,
 			last_login_method, last_login_at,
@@ -101,10 +102,10 @@ func (r *Repository) Upsert(ctx context.Context, c Customer) (uuid.UUID, error) 
 		VALUES (
 			$1, $2, $3, $4, $5,
 			0, 0, 'NEW', 0,
-			$6, $7, $8, $9,
-			$10, $11, $12,
-			$13, $14, $15, $16, $17, $18,
-			$19, $20,
+			$6, $7, $8, $9, $10,
+			$11, $12, $13,
+			$14, $15, $16, $17, $18, $19,
+			$20, $21,
 			NOW(), NOW()
 		)
 		ON CONFLICT (phone)
@@ -122,6 +123,7 @@ func (r *Repository) Upsert(ctx context.Context, c Customer) (uuid.UUID, error) 
 			END,
 			registration_source = COALESCE(NULLIF(customers.registration_source, ''), EXCLUDED.registration_source),
 			phone_verified_at = COALESCE(EXCLUDED.phone_verified_at, customers.phone_verified_at),
+			email_verified_at = COALESCE(EXCLUDED.email_verified_at, customers.email_verified_at),
 			silent_registered_at = COALESCE(customers.silent_registered_at, EXCLUDED.silent_registered_at),
 			profile_completed_at = COALESCE(EXCLUDED.profile_completed_at, customers.profile_completed_at),
 			marketing_opt_in = customers.marketing_opt_in OR EXCLUDED.marketing_opt_in,
@@ -139,7 +141,7 @@ func (r *Repository) Upsert(ctx context.Context, c Customer) (uuid.UUID, error) 
 	var id uuid.UUID
 	err := r.db.QueryRowContext(ctx, query,
 		c.ID, c.Name, c.Phone, c.Email, c.Password,
-		c.AccountStatus, c.AccountStage, c.RegistrationSource, c.PhoneVerifiedAt,
+		c.AccountStatus, c.AccountStage, c.RegistrationSource, c.PhoneVerifiedAt, c.EmailVerifiedAt,
 		c.SilentRegisteredAt, c.ProfileCompletedAt, c.MarketingOptIn,
 		c.BirthDate, c.Gender, c.City, c.Province, c.CountryCode, c.GoogleSubject,
 		c.LastLoginMethod, c.LastLoginAt,
@@ -160,15 +162,15 @@ func (r *Repository) UpsertPendingRegistration(ctx context.Context, c Customer) 
 			id, name, phone, email, password, avatar_url,
 			total_visits, total_spent, tier, loyalty_points,
 			account_status, account_stage, registration_source, phone_verified_at,
-			marketing_opt_in, birth_date, gender, city, province, country_code,
+			email_verified_at, marketing_opt_in, birth_date, gender, city, province, country_code,
 			google_subject,
 			created_at, updated_at
 		)
 		VALUES (
 			$1, $2, $3, $4, $5, $6,
 			0, 0, 'NEW', 0,
-			'unverified', 'provisioned', $7, NULL,
-			$8, $9, $10, $11, $12, $13, $14,
+			'unverified', 'provisioned', $7, NULL, $8,
+			$9, $10, $11, $12, $13, $14, $15,
 			NOW(), NOW()
 		)
 		ON CONFLICT (phone)
@@ -187,6 +189,7 @@ func (r *Repository) UpsertPendingRegistration(ctx context.Context, c Customer) 
 				ELSE customers.registration_source
 			END,
 			phone_verified_at = NULL,
+			email_verified_at = COALESCE(EXCLUDED.email_verified_at, customers.email_verified_at),
 			marketing_opt_in = customers.marketing_opt_in OR EXCLUDED.marketing_opt_in,
 			birth_date = COALESCE(EXCLUDED.birth_date, customers.birth_date),
 			gender = COALESCE(EXCLUDED.gender, customers.gender),
@@ -210,6 +213,7 @@ func (r *Repository) UpsertPendingRegistration(ctx context.Context, c Customer) 
 		c.Password,
 		c.AvatarURL,
 		c.RegistrationSource,
+		c.EmailVerifiedAt,
 		c.MarketingOptIn,
 		c.BirthDate,
 		c.Gender,
@@ -229,13 +233,13 @@ func (r *Repository) UpsertImportedCustomer(ctx context.Context, c Customer) (bo
 		INSERT INTO customers (
 			id, name, phone, email, password,
 			total_visits, total_spent, tier, loyalty_points,
-			account_status, phone_verified_at,
+			account_status, phone_verified_at, email_verified_at,
 			created_at, updated_at
 		)
 		VALUES (
 			$1, $2, $3, $4, $5,
 			0, 0, 'NEW', 0,
-			'verified', NOW(),
+			'verified', NOW(), $6,
 			NOW(), NOW()
 		)
 		ON CONFLICT (phone)
@@ -245,10 +249,11 @@ func (r *Repository) UpsertImportedCustomer(ctx context.Context, c Customer) (bo
 			password = COALESCE(EXCLUDED.password, customers.password),
 			account_status = 'verified',
 			phone_verified_at = COALESCE(customers.phone_verified_at, NOW()),
+			email_verified_at = COALESCE(EXCLUDED.email_verified_at, customers.email_verified_at),
 			updated_at = NOW()`
 
 	result, err := r.db.ExecContext(ctx, query,
-		c.ID, c.Name, c.Phone, c.Email, c.Password,
+		c.ID, c.Name, c.Phone, c.Email, c.Password, c.EmailVerifiedAt,
 	)
 	if err != nil {
 		return false, wrapCustomerRepoErr("repo: gagal import customer", err)
@@ -470,9 +475,18 @@ func (r *Repository) UpdateProfile(ctx context.Context, id uuid.UUID, req Update
 		argIdx++
 	}
 	if req.Email != nil {
+		email := strings.TrimSpace(*req.Email)
 		setClauses = append(setClauses, fmt.Sprintf("email = $%d", argIdx))
-		args = append(args, strings.TrimSpace(*req.Email))
+		args = append(args, email)
 		argIdx++
+		args = append(args, email)
+		emailCompareIdx := argIdx
+		argIdx++
+		setClauses = append(setClauses, fmt.Sprintf(`email_verified_at = CASE
+			WHEN COALESCE(LOWER(email), '') = COALESCE(LOWER($%d::text), '') THEN email_verified_at
+			WHEN COALESCE(NULLIF(BTRIM($%d::text), ''), '') = '' THEN NULL
+			ELSE NULL
+		END`, emailCompareIdx, emailCompareIdx))
 	}
 	if req.AvatarURL != nil {
 		avatarURL := strings.TrimSpace(*req.AvatarURL)
@@ -545,6 +559,28 @@ func (r *Repository) UpdateProfile(ctx context.Context, id uuid.UUID, req Update
 	return &c, nil
 }
 
+func (r *Repository) MarkEmailVerified(ctx context.Context, id uuid.UUID) (*Customer, error) {
+	var c Customer
+	if err := r.db.GetContext(ctx, &c, `
+		UPDATE customers
+		SET email_verified_at = NOW(),
+			account_stage = CASE
+				WHEN account_stage = 'suspended' THEN account_stage
+				ELSE 'active'
+			END,
+			profile_completed_at = COALESCE(profile_completed_at, NOW()),
+			updated_at = NOW()
+		WHERE id = $1
+		RETURNING *`, id); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, wrapCustomerRepoErr("repo: gagal verifikasi email customer", err)
+	}
+	r.InvalidateCustomerMembershipCache(ctx, id)
+	return &c, nil
+}
+
 func (r *Repository) UpdatePasswordHash(ctx context.Context, id uuid.UUID, hashedPassword string) (*Customer, error) {
 	var c Customer
 	if err := r.db.GetContext(ctx, &c, `
@@ -591,12 +627,17 @@ func (r *Repository) UpdatePhone(ctx context.Context, id uuid.UUID, phone string
 	return &c, nil
 }
 
-func (r *Repository) LinkGoogleIdentity(ctx context.Context, id uuid.UUID, subject string, email, name, avatarURL *string) (*Customer, error) {
+func (r *Repository) LinkGoogleIdentity(ctx context.Context, id uuid.UUID, subject string, email, name, avatarURL *string, emailVerified bool) (*Customer, error) {
 	var c Customer
 	if err := r.db.GetContext(ctx, &c, `
 		UPDATE customers
 		SET google_subject = $1,
 			email = COALESCE($2, email),
+			email_verified_at = CASE
+				WHEN $5::boolean = TRUE AND COALESCE(NULLIF(BTRIM(COALESCE($2, email)), ''), '') <> '' THEN COALESCE(email_verified_at, NOW())
+				WHEN $5::boolean = FALSE THEN email_verified_at
+				ELSE email_verified_at
+			END,
 			name = CASE
 				WHEN COALESCE(BTRIM(name), '') = '' AND COALESCE(BTRIM($3), '') <> '' THEN $3
 				ELSE name
@@ -616,12 +657,13 @@ func (r *Repository) LinkGoogleIdentity(ctx context.Context, id uuid.UUID, subje
 			END,
 			profile_completed_at = COALESCE(profile_completed_at, NOW()),
 			updated_at = NOW()
-		WHERE id = $5
+		WHERE id = $6
 		RETURNING *`,
 		strings.TrimSpace(subject),
 		email,
 		name,
 		avatarURL,
+		emailVerified,
 		id,
 	); err != nil {
 		if err == sql.ErrNoRows {
