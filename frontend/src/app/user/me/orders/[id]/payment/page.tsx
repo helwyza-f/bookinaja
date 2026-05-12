@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Script from "next/script";
 import { ArrowLeft, Landmark, Loader2, QrCode, Upload, Wallet } from "lucide-react";
@@ -21,6 +21,8 @@ import {
   matchesRealtimePrefix,
   type RealtimeEvent,
 } from "@/lib/realtime/event-types";
+
+const REALTIME_REFRESH_THROTTLE_MS = 1200;
 
 type ApiError = {
   response?: {
@@ -102,6 +104,7 @@ export default function CustomerOrderPaymentPage() {
   const [proofUploading, setProofUploading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const lastBackgroundRefreshRef = useRef(0);
 
   const fetchDetail = useCallback(async (mode: "initial" | "background" = "initial") => {
     const background = mode === "background";
@@ -137,6 +140,9 @@ export default function CustomerOrderPaymentPage() {
     onEvent: (event) => {
       if (!matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) return;
       setOrder((current) => patchOrderPaymentFromEvent(current, event));
+      const now = Date.now();
+      if (now - lastBackgroundRefreshRef.current < REALTIME_REFRESH_THROTTLE_MS) return;
+      lastBackgroundRefreshRef.current = now;
       void fetchDetail("background");
     },
     onReconnect: () => {

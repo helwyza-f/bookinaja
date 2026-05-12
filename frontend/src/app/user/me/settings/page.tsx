@@ -40,7 +40,7 @@ import { toast } from "sonner";
 
 type SheetKey = "profile" | "password" | "reset-password" | "phone" | null;
 
-type CustomerDashboard = {
+type CustomerSettingsData = {
   customer?: {
     id?: string;
     name?: string;
@@ -93,7 +93,7 @@ export default function UserSettingsPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<CustomerDashboard | null>(null);
+  const [data, setData] = useState<CustomerSettingsData | null>(null);
   const [activeSheet, setActiveSheet] = useState<SheetKey>(null);
 
   const [profileName, setProfileName] = useState("");
@@ -120,7 +120,7 @@ export default function UserSettingsPage() {
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const res = await api.get("/user/me");
+        const res = await api.get("/user/me/settings");
         hydrateDashboard(res.data);
       } catch {
         toast.error("Sesi habis, silakan login lagi");
@@ -160,13 +160,13 @@ export default function UserSettingsPage() {
     ? { backgroundImage: `url(${customer.avatar_url})` }
     : undefined;
 
-  const hydrateDashboard = (nextData: CustomerDashboard) => {
+  const hydrateDashboard = (nextData: CustomerSettingsData) => {
     setData(nextData);
     setProfileName(nextData.customer?.name || "");
     setProfileEmail(nextData.customer?.email || "");
   };
 
-  const syncCustomer = (patch: Partial<NonNullable<CustomerDashboard["customer"]>>) => {
+  const syncCustomer = (patch: Partial<NonNullable<CustomerSettingsData["customer"]>>) => {
     setData((current) => ({
       ...(current || {}),
       customer: {

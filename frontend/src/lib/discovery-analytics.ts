@@ -23,6 +23,15 @@ type DiscoveryEventPayload = {
 const sessionKey = "bookinaja_discovery_session_id";
 const recentEventWindowMs = 15000;
 const recentPassiveEvents = new Map<string, number>();
+const batchedPassiveEventTypes = new Set<DiscoveryEventPayload["event_type"]>([
+  "impression",
+  "detail_view",
+]);
+const batchFlushDelayMs = 1200;
+const batchFlushSize = 8;
+let pendingPassiveEvents: DiscoveryEventPayload[] = [];
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+let pageLifecycleBound = false;
 
 export function getDiscoverySessionId() {
   if (typeof window === "undefined") return "server";
@@ -58,8 +67,68 @@ function shouldSkipPassiveEvent(payload: DiscoveryEventPayload) {
   return false;
 }
 
+function getDiscoveryEventsURL() {
+  return `${api.defaults.baseURL}/public/discover/events`;
+}
+
+function flushPassiveEvents(useBeacon = false) {
+  if (pendingPassiveEvents.length === 0) return;
+  const queue = pendingPassiveEvents.map((payload) => ({
+    ...payload,
+    session_id: getDiscoverySessionId(),
+  }));
+  pendingPassiveEvents = [];
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+
+  if (useBeacon && typeof navigator !== "undefined" && navigator.sendBeacon) {
+    try {
+      const blob = new Blob([JSON.stringify(queue)], {
+        type: "application/json",
+      });
+      navigator.sendBeacon(getDiscoveryEventsURL(), blob);
+      return;
+    } catch {
+      // fallback below
+    }
+  }
+
+  void api.post("/public/discover/events", queue).catch(() => undefined);
+}
+
+function schedulePassiveFlush() {
+  if (flushTimer) return;
+  flushTimer = setTimeout(() => {
+    flushPassiveEvents(false);
+  }, batchFlushDelayMs);
+}
+
+function ensurePageLifecycleBinding() {
+  if (pageLifecycleBound || typeof window === "undefined") return;
+  pageLifecycleBound = true;
+  const flush = () => flushPassiveEvents(true);
+  window.addEventListener("pagehide", flush);
+  window.addEventListener("beforeunload", flush);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flush();
+  });
+}
+
 export function trackDiscoveryEvent(payload: DiscoveryEventPayload) {
   if (shouldSkipPassiveEvent(payload)) return;
+
+  if (batchedPassiveEventTypes.has(payload.event_type)) {
+    ensurePageLifecycleBinding();
+    pendingPassiveEvents.push(payload);
+    if (pendingPassiveEvents.length >= batchFlushSize) {
+      flushPassiveEvents(false);
+      return;
+    }
+    schedulePassiveFlush();
+    return;
+  }
 
   const body = {
     ...payload,
@@ -72,11 +141,10 @@ export function trackDiscoveryEvent(payload: DiscoveryEventPayload) {
     navigator.sendBeacon
   ) {
     try {
-      const url = `${api.defaults.baseURL}/public/discover/events`;
       const blob = new Blob([JSON.stringify(body)], {
         type: "application/json",
       });
-      navigator.sendBeacon(url, blob);
+      navigator.sendBeacon(getDiscoveryEventsURL(), blob);
       return;
     } catch {
       // fallback below

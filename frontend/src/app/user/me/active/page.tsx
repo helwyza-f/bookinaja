@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -37,6 +37,8 @@ import { useRealtime } from "@/lib/realtime/use-realtime";
 import { customerOrdersChannel } from "@/lib/realtime/channels";
 import { BOOKING_EVENT_PREFIXES, matchesRealtimePrefix } from "@/lib/realtime/event-types";
 
+const REALTIME_REFRESH_THROTTLE_MS = 1200;
+
 export default function UserActiveBookingsPage() {
   const router = useRouter();
   const cached = peekCustomerPortalCache<{
@@ -48,6 +50,7 @@ export default function UserActiveBookingsPage() {
   const [customerID, setCustomerID] = useState(String(cached?.customer_id || ""));
   const [bookings, setBookings] = useState<CustomerPortalItem[]>(cached?.active_bookings || []);
   const [orders, setOrders] = useState<CustomerPortalItem[]>(cached?.active_orders || []);
+  const lastBackgroundRefreshRef = useRef(0);
 
   const load = useCallback(async (mode: "initial" | "background" = "initial") => {
     try {
@@ -82,6 +85,9 @@ export default function UserActiveBookingsPage() {
     channels: customerID ? [customerOrdersChannel(customerID)] : [],
     onEvent: (event) => {
       if (!matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) return;
+      const now = Date.now();
+      if (now - lastBackgroundRefreshRef.current < REALTIME_REFRESH_THROTTLE_MS) return;
+      lastBackgroundRefreshRef.current = now;
       void load("background");
     },
     onReconnect: () => {

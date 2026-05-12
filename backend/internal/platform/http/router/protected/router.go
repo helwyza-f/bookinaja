@@ -50,6 +50,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			user.GET("/me/summary", cfg.CustomerHandler.GetSummary)
 			user.GET("/me/active", cfg.CustomerHandler.GetActive)
 			user.GET("/me/history", cfg.CustomerHandler.GetPortalHistory)
+			user.GET("/me/settings", cfg.CustomerHandler.GetSettings)
 			user.GET("/me/discover/feed", cfg.TenantHandler.CustomerDiscoverFeed)
 			user.PUT("/me", cfg.CustomerHandler.UpdateMe)
 			user.POST("/me/google/link", cfg.CustomerHandler.LinkMyGoogle)

@@ -86,16 +86,36 @@ type PointEvent = {
 };
 
 const FILTER_ALL = "Semua";
+const DISCOVER_CACHE_KEY = "customer-discover-feed";
+const REALTIME_REFRESH_THROTTLE_MS = 1200;
 
 export default function UserDashboardPage() {
   const router = useRouter();
   const cachedSummary = peekCustomerPortalCache<CustomerDashboard>("customer-summary");
+  const cachedDiscoverFeed = peekCustomerPortalCache<DiscoveryFeedResponse>(DISCOVER_CACHE_KEY);
   const [data, setData] = useState<CustomerDashboard | null>(cachedSummary);
-  const [discoverFeed, setDiscoverFeed] = useState<DiscoveryFeedResponse | null>(null);
+  const [discoverFeed, setDiscoverFeed] = useState<DiscoveryFeedResponse | null>(cachedDiscoverFeed);
   const [loading, setLoading] = useState(!cachedSummary);
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState(FILTER_ALL);
   const seenImpressionsRef = useRef<Set<string>>(new Set());
+  const lastBackgroundRefreshRef = useRef(0);
+
+  const loadDiscoverFeed = useCallback(async (mode: "initial" | "background" = "initial") => {
+    try {
+      const feed =
+        mode === "background"
+          ? (await api.get("/user/me/discover/feed")).data
+          : await getCustomerPortalCached(DISCOVER_CACHE_KEY, async () => {
+              const res = await api.get("/user/me/discover/feed");
+              return res.data;
+            });
+      setDiscoverFeed(feed || null);
+      if (feed) primeCustomerPortalCache(DISCOVER_CACHE_KEY, feed);
+    } catch {
+      if (mode === "initial") setDiscoverFeed(null);
+    }
+  }, []);
 
   const load = useCallback(async (mode: "initial" | "background" = "initial") => {
       try {
@@ -106,9 +126,7 @@ export default function UserDashboardPage() {
                 const res = await api.get("/user/me/summary");
                 return res.data;
               });
-        const discoverRes = await api.get("/user/me/discover/feed").catch(() => ({ data: null }));
         setData(profileRes);
-        setDiscoverFeed(discoverRes.data || null);
         primeCustomerPortalCache("customer-summary", profileRes);
       } catch (error) {
         if (isTenantAuthError(error)) {
@@ -122,7 +140,10 @@ export default function UserDashboardPage() {
 
   useEffect(() => {
     void load("initial");
-  }, [load]);
+    if (!cachedDiscoverFeed) {
+      void loadDiscoverFeed("initial");
+    }
+  }, [cachedDiscoverFeed, load, loadDiscoverFeed]);
 
   useRealtime({
     enabled: Boolean(data?.customer_id || data?.customer?.id),
@@ -132,6 +153,9 @@ export default function UserDashboardPage() {
         : [],
     onEvent: (event) => {
       if (!matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) return;
+      const now = Date.now();
+      if (now - lastBackgroundRefreshRef.current < REALTIME_REFRESH_THROTTLE_MS) return;
+      lastBackgroundRefreshRef.current = now;
       void load("background");
     },
     onReconnect: () => {

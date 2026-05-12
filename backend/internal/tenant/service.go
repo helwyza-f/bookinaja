@@ -895,6 +895,15 @@ func (s *Service) TrackDiscoveryEvent(ctx context.Context, req DiscoveryEventReq
 	})
 }
 
+func (s *Service) TrackDiscoveryEvents(ctx context.Context, requests []DiscoveryEventReq) error {
+	for _, req := range requests {
+		if err := s.TrackDiscoveryEvent(ctx, req); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Service) decorateDiscoveryItems(items []TenantDirectoryItem) []TenantDirectoryItem {
 	decorated := make([]TenantDirectoryItem, 0, len(items))
 	now := time.Now()

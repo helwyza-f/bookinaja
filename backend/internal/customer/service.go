@@ -90,6 +90,7 @@ func (s *Service) InvalidatePortalCache(ctx context.Context, customerID uuid.UUI
 		s.portalCacheKey("summary", customerID),
 		s.portalCacheKey("active", customerID),
 		s.portalCacheKey("history", customerID),
+		s.portalCacheKey("settings", customerID),
 	).Err()
 }
 
@@ -902,6 +903,51 @@ func (s *Service) GetPortalHistoryData(ctx context.Context, customerID uuid.UUID
 		CustomerID:  customerID.String(),
 		PastHistory: past,
 		PastOrders:  pastOrders,
+	}
+	s.portalCacheSet(ctx, cacheKey, result)
+	return result, nil
+}
+
+func (s *Service) GetPortalSettingsData(ctx context.Context, customerID uuid.UUID) (*CustomerPortalSettingsData, error) {
+	cacheKey := s.portalCacheKey("settings", customerID)
+	var cached CustomerPortalSettingsData
+	if s.portalCacheGet(ctx, cacheKey, &cached) {
+		if cached.PointActivity == nil {
+			cached.PointActivity = []CustomerPointEvent{}
+		}
+		if cached.PastHistory == nil {
+			cached.PastHistory = []RecentHistoryDTO{}
+		}
+		return &cached, nil
+	}
+
+	cust, err := s.repo.FindByID(ctx, customerID)
+	if err != nil || cust == nil {
+		return nil, fmt.Errorf("profil pelanggan tidak ditemukan")
+	}
+
+	pointActivity, err := s.repo.ListPointActivity(ctx, customerID, nil, 3)
+	if err != nil {
+		log.Printf("customer settings point activity failed customer_id=%s err=%v", customerID.String(), err)
+		pointActivity = []CustomerPointEvent{}
+	}
+	past, err := s.repo.GetPastHistory(ctx, customerID, 3)
+	if err != nil {
+		log.Printf("customer settings past bookings failed customer_id=%s err=%v", customerID.String(), err)
+		past = []RecentHistoryDTO{}
+	}
+	if pointActivity == nil {
+		pointActivity = []CustomerPointEvent{}
+	}
+	if past == nil {
+		past = []RecentHistoryDTO{}
+	}
+
+	result := &CustomerPortalSettingsData{
+		Customer:      *cust,
+		Points:        cust.LoyaltyPoints,
+		PointActivity: pointActivity,
+		PastHistory:   past,
 	}
 	s.portalCacheSet(ctx, cacheKey, result)
 	return result, nil

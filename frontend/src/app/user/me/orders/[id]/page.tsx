@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowRight, BadgeCheck, ReceiptText } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -18,6 +18,8 @@ import {
   matchesRealtimePrefix,
   type RealtimeEvent,
 } from "@/lib/realtime/event-types";
+
+const REALTIME_REFRESH_THROTTLE_MS = 1200;
 
 type OrderItem = {
   id: string;
@@ -72,6 +74,7 @@ export default function CustomerOrderDetailPage() {
   const [order, setOrder] = useState<CustomerOrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const lastBackgroundRefreshRef = useRef(0);
 
   const fetchDetail = useCallback(async (mode: "initial" | "background" = "initial") => {
     const background = mode === "background";
@@ -106,6 +109,9 @@ export default function CustomerOrderDetailPage() {
     onEvent: (event) => {
       if (!matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) return;
       setOrder((current) => patchOrderDetailFromEvent(current, event));
+      const now = Date.now();
+      if (now - lastBackgroundRefreshRef.current < REALTIME_REFRESH_THROTTLE_MS) return;
+      lastBackgroundRefreshRef.current = now;
       void fetchDetail("background");
     },
     onReconnect: () => {

@@ -1,6 +1,8 @@
 package tenant
 
 import (
+	"bytes"
+	"encoding/json"
 	"log"
 	"net/http"
 	"strings"
@@ -292,8 +294,29 @@ func (h *Handler) DeleteTenantPost(c *gin.Context) {
 }
 
 func (h *Handler) TrackDiscoveryEvent(c *gin.Context) {
+	raw, err := c.GetRawData()
+	if err != nil || len(bytes.TrimSpace(raw)) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "payload analytics tidak valid"})
+		return
+	}
+
+	payload := bytes.TrimSpace(raw)
+	if len(payload) > 0 && payload[0] == '[' {
+		var reqs []DiscoveryEventReq
+		if err := json.Unmarshal(payload, &reqs); err != nil || len(reqs) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "payload analytics batch tidak valid"})
+			return
+		}
+		if err := h.service.TrackDiscoveryEvents(c.Request.Context(), reqs); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{"message": "batch discovery events dicatat", "count": len(reqs)})
+		return
+	}
+
 	var req DiscoveryEventReq
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := json.Unmarshal(payload, &req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "payload analytics tidak valid"})
 		return
 	}

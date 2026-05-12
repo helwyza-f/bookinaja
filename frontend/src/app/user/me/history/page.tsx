@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Calendar, ReceiptText } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -25,6 +25,8 @@ import { useRealtime } from "@/lib/realtime/use-realtime";
 import { customerOrdersChannel } from "@/lib/realtime/channels";
 import { BOOKING_EVENT_PREFIXES, matchesRealtimePrefix } from "@/lib/realtime/event-types";
 
+const REALTIME_REFRESH_THROTTLE_MS = 1200;
+
 export default function UserHistoryPage() {
   const router = useRouter();
   const cached = peekCustomerPortalCache<{
@@ -36,6 +38,7 @@ export default function UserHistoryPage() {
   const [customerID, setCustomerID] = useState(String(cached?.customer_id || ""));
   const [history, setHistory] = useState<CustomerPortalItem[]>(cached?.past_history || []);
   const [orders, setOrders] = useState<CustomerPortalItem[]>(cached?.past_orders || []);
+  const lastBackgroundRefreshRef = useRef(0);
 
   const load = useCallback(async (mode: "initial" | "background" = "initial") => {
     try {
@@ -69,6 +72,9 @@ export default function UserHistoryPage() {
     channels: customerID ? [customerOrdersChannel(customerID)] : [],
     onEvent: (event) => {
       if (!matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) return;
+      const now = Date.now();
+      if (now - lastBackgroundRefreshRef.current < REALTIME_REFRESH_THROTTLE_MS) return;
+      lastBackgroundRefreshRef.current = now;
       void load("background");
     },
     onReconnect: () => {

@@ -171,6 +171,13 @@ type CustomerPortalHistoryData struct {
 	PastOrders  []RecentHistoryDTO `json:"past_orders"`
 }
 
+type CustomerPortalSettingsData struct {
+	Customer      Customer             `json:"customer"`
+	Points        int                  `json:"points"`
+	PointActivity []CustomerPointEvent `json:"point_activity"`
+	PastHistory   []RecentHistoryDTO   `json:"past_history"`
+}
+
 type CustomerPointEvent struct {
 	ID          uuid.UUID  `json:"id" db:"id"`
 	CustomerID  uuid.UUID  `json:"customer_id" db:"customer_id"`

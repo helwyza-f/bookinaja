@@ -326,6 +326,19 @@ func (h *Handler) GetPortalHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, data)
 }
 
+func (h *Handler) GetSettings(c *gin.Context) {
+	custID, ok := customerIDFromContext(c)
+	if !ok {
+		return
+	}
+	data, err := h.service.GetPortalSettingsData(c.Request.Context(), custID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
+
 func customerIDFromContext(c *gin.Context) (uuid.UUID, bool) {
 	customerIDStr, exists := c.Get("customerID")
 	if !exists {
