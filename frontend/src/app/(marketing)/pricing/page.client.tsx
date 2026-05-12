@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Zap,
   ChevronRight,
+  Clock3,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -35,101 +36,169 @@ export default function PricingPage() {
 
   const plans = [
     {
-      name: "Starter",
-      effectiveMonthly: "149.000",
-      originalMonthly: "189.000",
-      originalAnnualTotal: "2.268.000",
-      annualTotal: "1.490.000",
-      desc: "Untuk owner yang ingin keluar dari catatan manual dan mulai operasional lebih rapi tanpa tim besar.",
+      name: "Free Trial",
+      badge: "Trial 30 Hari",
+      effectiveMonthly: "0",
+      originalMonthly: null,
+      originalAnnualTotal: null,
+      annualTotal: null,
+      desc: "Untuk tenant yang ingin mencoba flow Bookinaja dulu tanpa kartu kredit dan tanpa komitmen awal.",
       features: [
-        "Trial prelaunch 30 hari",
-        "1 akun utama (owner only)",
-        "Akses dashboard admin",
-        "Website booking subdomain",
-        "Sampai 10 pelanggan aktif",
-        "Laporan pendapatan dasar",
-        "Support chat dan onboarding awal",
+        "30 hari trial tanpa kartu kredit",
+        "Setup dibantu dari awal",
+        "Booking flow bisa langsung dicoba",
+        "Customer portal bisa langsung dilihat",
+        "Cocok untuk validasi apakah operasionalmu memang fit",
       ],
-      cta: "Mulai Starter",
+      cta: "Mulai Trial",
       popular: false,
+      comingSoon: false,
+      trial: true,
       planKey: "starter",
+      note: "Setelah trial selesai, lanjut ke Starter atau Pro.",
+    },
+    {
+      name: "Starter",
+      badge: "Untuk Mulai Rapi",
+      effectiveMonthly: "149.000",
+      originalMonthly: "199.000",
+      originalAnnualTotal: "2.388.000",
+      annualTotal: "1.490.000",
+      desc: "Untuk owner yang ingin berhenti dari catatan manual dan mulai menjalankan booking lebih rapi tanpa tim besar.",
+      features: [
+        "1 akun utama (owner only)",
+        "Dashboard admin dasar",
+        "Website booking / subdomain tenant",
+        "Customer portal dasar",
+        "Promo code dasar",
+        "Tracking pembayaran dasar",
+        "Laporan pendapatan dasar",
+        "Resource management",
+        "Booking flow customer yang rapi",
+        "Onboarding awal dan support standar",
+      ],
+      cta: "Pilih Starter",
+      popular: false,
+      comingSoon: false,
+      trial: false,
+      planKey: "starter",
+      note: "Cocok untuk owner solo atau bisnis kecil yang ingin operasional lebih tertata.",
     },
     {
       name: "Pro",
-      effectiveMonthly: "299.000",
-      originalMonthly: "399.000",
-      originalAnnualTotal: "4.788.000",
-      annualTotal: "2.990.000",
-      desc: "Untuk bisnis yang ingin kontrol staff, pelanggan lebih banyak, dan operasional yang lebih siap scale.",
+      badge: "Paling Masuk Akal",
+      effectiveMonthly: "349.000",
+      originalMonthly: "449.000",
+      originalAnnualTotal: "5.388.000",
+      annualTotal: "3.490.000",
+      desc: "Untuk bisnis yang sudah punya staff dan butuh kontrol operasional, payment flow, dan customer ops yang lebih disiplin.",
       features: [
-        "Trial prelaunch 30 hari",
-        "Akses akun staff / karyawan",
+        "Semua fitur Starter",
+        "Multi staff account",
         "Role-based access admin / kasir",
-        "Unlimited pelanggan",
+        "POS dan checkout workflow",
+        "Payment method management",
+        "Manual payment verification",
+        "Customer import",
         "Blast WhatsApp ke pelanggan",
-        "Dashboard status live real-time",
-        "Harga weekend dan aturan khusus",
-        "WhatsApp reminder otomatis",
+        "CRM visibility dasar",
         "Priority onboarding dan support",
       ],
-      cta: "Mulai Pro",
+      cta: "Pilih Pro",
       popular: true,
+      comingSoon: false,
+      trial: false,
       planKey: "pro",
+      note: "Beda sedikit dari plan atas, tapi sudah kuat untuk operasional tim yang serius.",
     },
     {
       name: "Scale",
-      effectiveMonthly: "599.000",
-      originalMonthly: "799.000",
-      originalAnnualTotal: "9.588.000",
-      annualTotal: "5.990.000",
-      desc: "Untuk bisnis yang mulai punya banyak outlet, butuh koordinasi tim lebih serius, dan ingin otomasi lebih dalam.",
+      badge: "Coming Soon",
+      effectiveMonthly: "499.000",
+      originalMonthly: "649.000",
+      originalAnnualTotal: "7.788.000",
+      annualTotal: "4.990.000",
+      desc: "Untuk bisnis yang ingin main di retention, membership, loyalty, dan growth yang lebih terukur.",
       features: [
-        "Trial prelaunch 30 hari",
-        "Multi-outlet / multi-cabang",
-        "Unlimited multi-user roles",
-        "Priority onboarding dan support",
-        "Analitik operasional lebih lanjut",
-        "Kebutuhan branding dan setup lebih fleksibel",
+        "Semua fitur Pro",
+        "Membership per tenant",
+        "Auto-join membership",
+        "Repeat purchase reward",
+        "Reward redemption di checkout",
+        "Advanced CRM segmentation",
+        "Retention analytics",
+        "Growth tools yang lebih dalam",
+        "Multi-outlet readiness",
       ],
-      cta: "Mulai Scale",
+      cta: "Hubungi Kami",
       popular: false,
+      comingSoon: true,
+      trial: false,
       planKey: "scale",
+      note: "Ditampilkan sebagai anchor premium. Fitur growth dan loyalty sedang disiapkan.",
     },
   ];
 
   const comparisonRows = [
     {
+      label: "Trial 30 hari tanpa kartu kredit",
+      free: true,
+      starter: false,
+      pro: false,
+      scale: false,
+    },
+    {
       label: "Booking tidak dicatat manual lagi",
+      free: true,
       starter: true,
       pro: true,
       scale: true,
     },
     {
       label: "Owner bisa pantau operasional dari dashboard",
+      free: true,
       starter: true,
       pro: true,
       scale: true,
     },
     {
       label: "Staff punya akses sesuai role",
+      free: false,
       starter: false,
       pro: true,
       scale: true,
     },
     {
-      label: "Pelanggan aktif lebih fleksibel / tanpa batas",
+      label: "Customer ops lebih fleksibel dan lebih kuat",
+      free: false,
       starter: false,
       pro: true,
+      scale: true,
+    },
+    {
+      label: "Blast customer dan payment ops lebih disiplin",
+      free: false,
+      starter: false,
+      pro: true,
+      scale: true,
+    },
+    {
+      label: "Membership, loyalty, dan retention tools",
+      free: false,
+      starter: false,
+      pro: false,
       scale: true,
     },
     {
       label: "Bisnis lebih siap scale ke banyak unit / outlet",
+      free: false,
       starter: false,
       pro: false,
       scale: true,
     },
     {
       label: "Onboarding dan support lebih prioritas",
+      free: true,
       starter: false,
       pro: true,
       scale: true,
@@ -162,9 +231,9 @@ export default function PricingPage() {
             </span>
           </h1>
           <p className="max-w-[32rem] text-lg font-medium text-muted-foreground md:text-xl">
-            Semua paket dimulai dengan trial 30 hari tanpa kartu kredit.
-            Masuk lebih awal, setup lebih cepat, dan uji apakah Bookinaja
-            benar-benar bikin booking, staff, dan pelanggan lebih rapi.
+            Mulai dari trial 30 hari tanpa kartu kredit, lalu pilih plan yang
+            paling cocok untuk tahap operasional bisnis kamu hari ini. Scale
+            tetap ditampilkan sebagai arah premium berikutnya.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
             <span className="rounded-full border border-blue-500/15 bg-blue-500/5 px-3 py-1 text-blue-600">
@@ -177,7 +246,7 @@ export default function PricingPage() {
               Onboarding dibantu
             </span>
             <span className="rounded-full border border-amber-500/15 bg-amber-500/5 px-3 py-1 text-amber-600">
-              Annual bayar 10 bulan
+              Scale coming soon
             </span>
           </div>
 
@@ -210,7 +279,7 @@ export default function PricingPage() {
           </div>
         </div>
 
-        <div className="mx-auto grid w-full max-w-7xl items-stretch gap-8 lg:grid-cols-3">
+        <div className="mx-auto grid w-full max-w-7xl items-stretch gap-8 xl:grid-cols-4 md:grid-cols-2">
           {plans.map((plan) => (
             <div
               key={plan.name}
@@ -229,6 +298,9 @@ export default function PricingPage() {
               )}
 
               <div className="mb-8 text-center lg:text-left">
+                <div className="mb-3 inline-flex rounded-full border border-blue-500/15 bg-blue-500/5 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-600">
+                  {plan.badge}
+                </div>
                 <h3 className="text-2xl font-black tracking-tight">
                   {plan.name}
                 </h3>
@@ -238,32 +310,58 @@ export default function PricingPage() {
               </div>
 
               <div className="mb-10 flex flex-col items-center lg:items-start">
-                <div className="mb-1 text-sm font-bold italic text-muted-foreground/40 line-through">
-                  IDR {plan.originalMonthly}
-                </div>
-
-                <div className="flex items-baseline gap-2">
-                  <span className="text-sm font-black uppercase text-muted-foreground">
-                    IDR
-                  </span>
-                  <span className="text-5xl font-black tracking-tighter text-foreground md:text-6xl">
-                    {plan.effectiveMonthly}
-                  </span>
-                  <span className="text-sm font-bold text-muted-foreground">
-                    /bln
-                  </span>
-                </div>
-
-                {isAnnual && (
-                  <div className="mt-2 space-y-1.5">
-                    <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/40 line-through">
-                      IDR {plan.originalAnnualTotal}
-                    </div>
-                    <div className="inline-flex rounded-full border border-blue-500/10 bg-blue-500/5 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-blue-500">
-                      Tagihan tahunan IDR {plan.annualTotal}
-                    </div>
+                {plan.originalMonthly ? (
+                  <div className="mb-1 text-sm font-bold italic text-muted-foreground/40 line-through">
+                    IDR {plan.originalMonthly}
+                  </div>
+                ) : (
+                  <div className="mb-1 text-sm font-bold uppercase tracking-widest text-emerald-600">
+                    Tanpa biaya awal
                   </div>
                 )}
+
+                <div
+                  className={cn(
+                    "flex w-full items-end gap-2",
+                    plan.trial ? "justify-start" : "justify-start",
+                  )}
+                >
+                  {!plan.trial ? (
+                    <span className="pb-2 text-sm font-black uppercase text-muted-foreground">
+                      IDR
+                    </span>
+                  ) : null}
+                  <span
+                    className={cn(
+                      "leading-none font-black tracking-[-0.06em] text-foreground",
+                      plan.trial
+                        ? "text-[4.5rem] sm:text-[5rem]"
+                        : "text-[3.8rem] sm:text-[4.3rem] lg:text-[4.6rem]",
+                    )}
+                  >
+                    {plan.effectiveMonthly}
+                  </span>
+                  {!plan.trial ? (
+                    <span className="pb-2 text-base font-bold text-muted-foreground">
+                      /bln
+                    </span>
+                  ) : null}
+                </div>
+
+                {isAnnual && plan.annualTotal ? (
+                  <div className="mt-2 space-y-1.5">
+                    {plan.originalAnnualTotal ? (
+                      <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/40 line-through">
+                        IDR {plan.originalAnnualTotal}
+                      </div>
+                    ) : null}
+                    <div className="inline-flex max-w-full rounded-full border border-blue-500/10 bg-blue-500/5 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-blue-500">
+                      <span className="whitespace-normal">
+                        Tagihan tahunan IDR {plan.annualTotal}
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               <div className="mb-10 flex-1 space-y-6 border-t border-border pt-8">
@@ -287,23 +385,38 @@ export default function PricingPage() {
                 </ul>
               </div>
 
-              <Link
-                href={`/register?plan=${plan.planKey}&interval=${isAnnual ? "annual" : "monthly"}`}
-                className="w-full group"
-              >
+              <p className="mb-5 text-sm leading-6 text-muted-foreground">
+                {plan.note}
+              </p>
+
+              {plan.comingSoon ? (
                 <Button
-                  className={cn(
-                    "h-16 w-full rounded-2xl text-lg font-black transition-all active:scale-95",
-                    plan.popular
-                      ? "bg-blue-600 text-white shadow-xl shadow-blue-500/20 hover:bg-blue-700"
-                      : "bg-secondary text-foreground hover:bg-blue-500 hover:text-white",
-                  )}
-                  variant={plan.popular ? "default" : "secondary"}
+                  disabled
+                  className="h-16 w-full rounded-2xl text-lg font-black opacity-100"
+                  variant="secondary"
                 >
+                  <Clock3 className="mr-2 h-5 w-5" />
                   {plan.cta}
-                  <ChevronRight className="ml-2 h-5 w-5 -translate-x-2 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
                 </Button>
-              </Link>
+              ) : (
+                <Link
+                  href={`/register?plan=${plan.planKey}&interval=${isAnnual ? "annual" : "monthly"}`}
+                  className="w-full group"
+                >
+                  <Button
+                    className={cn(
+                      "h-16 w-full rounded-2xl text-lg font-black transition-all active:scale-95",
+                      plan.popular
+                        ? "bg-blue-600 text-white shadow-xl shadow-blue-500/20 hover:bg-blue-700"
+                        : "bg-secondary text-foreground hover:bg-blue-500 hover:text-white",
+                    )}
+                    variant={plan.popular ? "default" : "secondary"}
+                  >
+                    {plan.cta}
+                    <ChevronRight className="ml-2 h-5 w-5 -translate-x-2 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
+                  </Button>
+                </Link>
+              )}
             </div>
           ))}
         </div>
@@ -334,6 +447,7 @@ export default function PricingPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[36%]">Hasil / Fitur</TableHead>
+                  <TableHead>Free Trial</TableHead>
                   <TableHead>Starter</TableHead>
                   <TableHead>Pro</TableHead>
                   <TableHead>Scale</TableHead>
@@ -345,6 +459,7 @@ export default function PricingPage() {
                     <TableCell className="font-semibold text-muted-foreground whitespace-normal">
                       {row.label}
                     </TableCell>
+                    <ComparisonCell enabled={row.free} />
                     <ComparisonCell enabled={row.starter} />
                     <ComparisonCell enabled={row.pro} />
                     <ComparisonCell enabled={row.scale} />
@@ -362,7 +477,7 @@ export default function PricingPage() {
             </div>
             <h4 className="text-sm font-bold text-foreground">Risiko Rendah</h4>
             <p className="text-pretty text-xs text-muted-foreground">
-              Coba dulu 30 hari tanpa kartu kredit sebelum memutuskan lanjut.
+              Trial 30 hari menurunkan risiko masuk tanpa bikin pricing terlihat murahan.
             </p>
           </div>
           <div className="flex flex-col items-center space-y-3 text-center">
@@ -373,8 +488,7 @@ export default function PricingPage() {
               Fokus ke Hasil
             </h4>
             <p className="text-pretty text-xs text-muted-foreground">
-              Pilih paket berdasarkan seberapa cepat kamu ingin berhenti dari
-              booking manual dan operasional yang berantakan.
+              Starter untuk mulai rapi, Pro untuk kontrol tim, Scale untuk arah growth berikutnya.
             </p>
           </div>
           <div className="flex flex-col items-center space-y-3 text-center">
@@ -385,8 +499,7 @@ export default function PricingPage() {
               Onboarding Dekat
             </h4>
             <p className="text-pretty text-xs text-muted-foreground">
-              Pengguna prelaunch mendapat akses lebih dekat ke tim untuk setup
-              dan feedback.
+              Scale tetap tampil sebagai anchor premium, tapi fokus jual aktif sekarang ada di Starter dan Pro.
             </p>
           </div>
         </div>
