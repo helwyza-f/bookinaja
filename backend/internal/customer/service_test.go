@@ -65,9 +65,10 @@ func TestLoginWithGoogleLinksExistingEmail(t *testing.T) {
 
 	svc.verifyGoogleIdentityFn = func(context.Context, string) (*googleIdentity, error) {
 		return &googleIdentity{
-			Subject: subject,
-			Email:   &email,
-			Name:    existing.Name,
+			Subject:       subject,
+			Email:         &email,
+			Name:          existing.Name,
+			EmailVerified: true,
 		}, nil
 	}
 
@@ -78,7 +79,7 @@ func TestLoginWithGoogleLinksExistingEmail(t *testing.T) {
 		WithArgs(email).
 		WillReturnRows(customerRows(existing))
 	mock.ExpectQuery(`(?s)UPDATE customers\s+SET google_subject = \$1,.*WHERE id = \$6.*RETURNING \*`).
-		WithArgs(subject, &email, &existing.Name, (*string)(nil), false, existing.ID).
+		WithArgs(subject, &email, &existing.Name, (*string)(nil), true, existing.ID).
 		WillReturnRows(customerRows(linked))
 	mock.ExpectExec(`UPDATE customers\s+SET last_login_method = \$2,`).
 		WithArgs(existing.ID, "google").
@@ -96,6 +97,44 @@ func TestLoginWithGoogleLinksExistingEmail(t *testing.T) {
 	}
 	if result.Message != "Akun Google berhasil dihubungkan." {
 		t.Fatalf("LoginWithGoogle() message = %q", result.Message)
+	}
+
+	assertCustomerMock(t, mock)
+}
+
+func TestLoginWithGoogleDoesNotLinkExistingEmailWhenClaimUnverified(t *testing.T) {
+	svc, mock, cleanup := newCustomerTestService(t, true)
+	defer cleanup()
+
+	existing := testCustomer()
+	email := "linked@example.com"
+	existing.Email = &email
+
+	svc.verifyGoogleIdentityFn = func(context.Context, string) (*googleIdentity, error) {
+		return &googleIdentity{
+			Subject:       "google-unverified-email",
+			Email:         &email,
+			Name:          existing.Name,
+			EmailVerified: false,
+		}, nil
+	}
+
+	mock.ExpectQuery(`SELECT \* FROM customers WHERE google_subject = \$1 LIMIT 1`).
+		WithArgs("google-unverified-email").
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(`SELECT \* FROM customers WHERE LOWER\(email\) = LOWER\(\$1\) LIMIT 1`).
+		WithArgs(email).
+		WillReturnRows(customerRows(existing))
+
+	result, err := svc.LoginWithGoogle(context.Background(), "token")
+	if err != nil {
+		t.Fatalf("LoginWithGoogle() error = %v", err)
+	}
+	if result.Status != "needs_phone" {
+		t.Fatalf("LoginWithGoogle() status = %s, want needs_phone", result.Status)
+	}
+	if strings.TrimSpace(result.ClaimToken) == "" {
+		t.Fatal("LoginWithGoogle() claim token is empty")
 	}
 
 	assertCustomerMock(t, mock)
@@ -251,6 +290,67 @@ func TestLinkGoogleForCustomerRejectsAlreadyLinkedSubject(t *testing.T) {
 	}
 
 	assertCustomerMock(t, mock)
+}
+
+func TestRequestPasswordResetEmailDoesNotRevealMissingAccount(t *testing.T) {
+	svc, mock, cleanup := newCustomerTestService(t, false)
+	defer cleanup()
+
+	mock.ExpectQuery(`SELECT \* FROM customers WHERE LOWER\(email\) = LOWER\(\$1\) LIMIT 1`).
+		WithArgs("missing@example.com").
+		WillReturnError(sql.ErrNoRows)
+
+	if err := svc.RequestPasswordResetEmail(context.Background(), "missing@example.com"); err != nil {
+		t.Fatalf("RequestPasswordResetEmail() error = %v, want nil", err)
+	}
+
+	assertCustomerMock(t, mock)
+}
+
+func TestRequestPasswordResetEmailDoesNotRevealUnverifiedEmail(t *testing.T) {
+	svc, mock, cleanup := newCustomerTestService(t, false)
+	defer cleanup()
+
+	customer := testCustomer()
+	customer.EmailVerifiedAt = nil
+
+	mock.ExpectQuery(`SELECT \* FROM customers WHERE LOWER\(email\) = LOWER\(\$1\) LIMIT 1`).
+		WithArgs(*customer.Email).
+		WillReturnRows(customerRows(customer))
+
+	if err := svc.RequestPasswordResetEmail(context.Background(), *customer.Email); err != nil {
+		t.Fatalf("RequestPasswordResetEmail() error = %v, want nil", err)
+	}
+
+	assertCustomerMock(t, mock)
+}
+
+func TestConsumeEmailActionCanOnlyBeUsedOnce(t *testing.T) {
+	svc, _, cleanup := newCustomerTestService(t, true)
+	defer cleanup()
+
+	if err := svc.storeEmailAction(context.Background(), emailActionVerifyEmail, "verify-once", map[string]any{
+		"customer_id": uuid.NewString(),
+		"email":       "customer@example.com",
+	}); err != nil {
+		t.Fatalf("storeEmailAction() error = %v", err)
+	}
+
+	payload, err := svc.consumeEmailAction(context.Background(), emailActionVerifyEmail, "verify-once")
+	if err != nil {
+		t.Fatalf("consumeEmailAction() first call error = %v", err)
+	}
+	if payload["email"] != "customer@example.com" {
+		t.Fatalf("consumeEmailAction() payload = %#v", payload)
+	}
+
+	_, err = svc.consumeEmailAction(context.Background(), emailActionVerifyEmail, "verify-once")
+	if err == nil {
+		t.Fatal("consumeEmailAction() second call error = nil, want invalid link error")
+	}
+	if err.Error() != "link sudah kedaluwarsa atau tidak valid" {
+		t.Fatalf("consumeEmailAction() second call error = %q", err.Error())
+	}
 }
 
 func newCustomerTestService(t *testing.T, withRedis bool) (*Service, sqlmock.Sqlmock, func()) {

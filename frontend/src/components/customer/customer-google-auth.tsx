@@ -87,16 +87,38 @@ export function CustomerGoogleAuth({
       'script[data-google-identity-services="true"]',
     );
     if (existing) {
-      existing.addEventListener("load", () => setScriptReady(true));
-      return;
+      const markReady = () => {
+        if (window.google?.accounts?.id) {
+          setScriptReady(true);
+        }
+      };
+      markReady();
+      existing.addEventListener("load", markReady);
+      const timer = window.setInterval(markReady, 250);
+      return () => {
+        existing.removeEventListener("load", markReady);
+        window.clearInterval(timer);
+      };
     }
+    let disposed = false;
+    const markReady = () => {
+      if (!disposed && window.google?.accounts?.id) {
+        setScriptReady(true);
+      }
+    };
+    const timer = window.setInterval(markReady, 250);
     const script = document.createElement("script");
     script.src = "https://accounts.google.com/gsi/client";
     script.async = true;
     script.defer = true;
     script.dataset.googleIdentityServices = "true";
-    script.onload = () => setScriptReady(true);
+    script.onload = markReady;
     document.head.appendChild(script);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+      script.onload = null;
+    };
   }, [googleClientID]);
 
   useEffect(() => {

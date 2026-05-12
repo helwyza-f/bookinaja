@@ -240,10 +240,10 @@ func (s *Service) RequestPasswordResetEmail(ctx context.Context, email string) e
 		return fmt.Errorf("kami belum bisa menyiapkan reset password saat ini")
 	}
 	if cust == nil {
-		return fmt.Errorf("email ini belum terhubung ke akun Bookinaja")
+		return nil
 	}
 	if cust.EmailVerifiedAt == nil {
-		return fmt.Errorf("email ini belum terverifikasi. Pakai reset via WhatsApp atau verifikasi email dulu")
+		return nil
 	}
 
 	token := uuid.NewString()
@@ -489,7 +489,7 @@ func (s *Service) LoginWithGoogle(ctx context.Context, idTokenRaw string) (*Goog
 		if err != nil {
 			return nil, fmt.Errorf("kami belum bisa memeriksa akun Google saat ini")
 		}
-		if existing != nil {
+		if existing != nil && identity.EmailVerified {
 			linked, err := s.repo.LinkGoogleIdentity(ctx, existing.ID, identity.Subject, identity.Email, &identity.Name, identity.AvatarURL, identity.EmailVerified)
 			if err != nil {
 				return nil, fmt.Errorf("akun Google belum berhasil dihubungkan")
@@ -1215,10 +1215,6 @@ func (s *Service) UpdateAccount(ctx context.Context, customerID string, req Upda
 	if updated == nil {
 		return nil, fmt.Errorf("customer tidak ditemukan")
 	}
-	if req.Email != nil && strings.TrimSpace(*req.Email) != "" && updated.EmailVerifiedAt == nil {
-		emailValue := strings.TrimSpace(*req.Email)
-		_ = s.RequestEmailVerification(ctx, customerID, &emailValue)
-	}
 	return updated, nil
 }
 
@@ -1664,14 +1660,35 @@ func (s *Service) consumeEmailAction(ctx context.Context, action, token string) 
 	if s.redis == nil {
 		return nil, fmt.Errorf("verifikasi email sedang mengalami kendala")
 	}
-	raw, err := s.redis.Get(ctx, emailActionRedisKey(action, token)).Result()
+
+	key := emailActionRedisKey(action, token)
+	var raw string
+	err := s.redis.Watch(ctx, func(tx *redis.Tx) error {
+		value, err := tx.Get(ctx, key).Result()
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+			pipe.Del(ctx, key)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+
+		raw = value
+		return nil
+	}, key)
 	if err == redis.Nil {
+		return nil, fmt.Errorf("link sudah kedaluwarsa atau tidak valid")
+	}
+	if errors.Is(err, redis.TxFailedErr) {
 		return nil, fmt.Errorf("link sudah kedaluwarsa atau tidak valid")
 	}
 	if err != nil {
 		return nil, fmt.Errorf("verifikasi email sedang mengalami kendala")
 	}
-	_ = s.redis.Del(ctx, emailActionRedisKey(action, token)).Err()
 
 	var payload map[string]any
 	if err := json.Unmarshal([]byte(raw), &payload); err != nil {

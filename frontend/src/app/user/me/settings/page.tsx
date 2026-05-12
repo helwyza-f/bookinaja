@@ -150,6 +150,7 @@ export default function UserSettingsPage() {
   const [googleSheetStatus, setGoogleSheetStatus] =
     useState<GoogleSheetStatus>("idle");
   const [googleLinking, setGoogleLinking] = useState(false);
+  const [googleButtonRendered, setGoogleButtonRendered] = useState(false);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -251,17 +252,40 @@ export default function UserSettingsPage() {
       'script[data-google-identity-services="true"]',
     );
     if (existing) {
-      existing.addEventListener("load", () => setGoogleSheetStatus("ready"));
-      return;
+      const markReady = () => {
+        if (window.google?.accounts?.id) {
+          setGoogleSheetStatus("ready");
+        }
+      };
+      markReady();
+      existing.addEventListener("load", markReady);
+      const timer = window.setInterval(markReady, 250);
+      return () => {
+        existing.removeEventListener("load", markReady);
+        window.clearInterval(timer);
+      };
     }
+
+    let disposed = false;
+    const markReady = () => {
+      if (!disposed && window.google?.accounts?.id) {
+        setGoogleSheetStatus("ready");
+      }
+    };
+    const timer = window.setInterval(markReady, 250);
 
     const script = document.createElement("script");
     script.src = "https://accounts.google.com/gsi/client";
     script.async = true;
     script.defer = true;
     script.dataset.googleIdentityServices = "true";
-    script.onload = () => setGoogleSheetStatus("ready");
+    script.onload = markReady;
     document.head.appendChild(script);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+      script.onload = null;
+    };
   }, [canRenderGoogleButton, hasGoogle]);
 
   const hydrateDashboard = (nextData: CustomerSettingsData) => {
@@ -307,19 +331,10 @@ export default function UserSettingsPage() {
     }
   }
 
-  useEffect(() => {
-    if (
-      activeSheet !== "profile" ||
-      hasGoogle ||
-      googleSheetStatus !== "ready" ||
-      !googleButtonRef.current ||
-      !canRenderGoogleButton ||
-      !window.google?.accounts?.id
-    ) {
-      return;
+  const initializeGoogleLink = () => {
+    if (!window.google?.accounts?.id) {
+      return false;
     }
-
-    googleButtonRef.current.innerHTML = "";
     window.google.accounts.id.initialize({
       client_id: googleClientID,
       callback: async (response) => {
@@ -332,14 +347,83 @@ export default function UserSettingsPage() {
       auto_select: false,
       cancel_on_tap_outside: true,
     });
-    window.google.accounts.id.renderButton(googleButtonRef.current, {
-      theme: "outline",
-      size: "large",
-      width: 320,
-      text: "continue_with",
-      shape: "pill",
-      logo_alignment: "left",
-    });
+    return true;
+  };
+
+  const handleGoogleLinkFallback = () => {
+    if (!initializeGoogleLink()) {
+      toast.error("Google Sign-In belum siap. Coba refresh halaman ini sekali.");
+      return;
+    }
+    try {
+      window.google.accounts.id.prompt();
+    } catch {
+      toast.error("Google chooser belum bisa dibuka. Coba refresh halaman ini.");
+    }
+  };
+
+  useEffect(() => {
+    if (
+      activeSheet !== "profile" ||
+      hasGoogle ||
+      googleSheetStatus !== "ready" ||
+      !googleButtonRef.current ||
+      !canRenderGoogleButton ||
+      !window.google?.accounts?.id
+    ) {
+      return;
+    }
+
+    const container = googleButtonRef.current;
+    let disposed = false;
+    let attempts = 0;
+
+    const tryRender = () => {
+      if (
+        disposed ||
+        !container ||
+        !window.google?.accounts?.id ||
+        hasGoogle ||
+        activeSheet !== "profile"
+      ) {
+        return false;
+      }
+
+      container.innerHTML = "";
+      try {
+        if (!initializeGoogleLink()) {
+          return false;
+        }
+        window.google.accounts.id.renderButton(container, {
+          theme: "outline",
+          size: "large",
+          width: 320,
+          text: "continue_with",
+          shape: "pill",
+          logo_alignment: "left",
+        });
+      } catch {
+        return false;
+      }
+
+      const rendered =
+        container.childElementCount > 0 || container.innerHTML.trim() !== "";
+      setGoogleButtonRendered(rendered);
+      return rendered;
+    };
+
+    const timer = window.setInterval(() => {
+      attempts += 1;
+      const rendered = tryRender();
+      if (rendered || attempts >= 6) {
+        window.clearInterval(timer);
+      }
+    }, 250);
+
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
   }, [
     activeSheet,
     canRenderGoogleButton,
@@ -347,6 +431,12 @@ export default function UserSettingsPage() {
     googleSheetStatus,
     hasGoogle,
   ]);
+
+  useEffect(() => {
+    if (hasGoogle || activeSheet !== "profile") {
+      setGoogleButtonRendered(false);
+    }
+  }, [activeSheet, hasGoogle]);
 
   const closeSheet = () => {
     setActiveSheet(null);
@@ -403,9 +493,7 @@ export default function UserSettingsPage() {
         email_verified_at: res.data?.customer?.email_verified_at ?? null,
       });
       if (previousEmail !== nextEmail && nextEmail) {
-        toast.success(
-          "Profil diperbarui. Cek inbox email baru untuk verifikasi akun.",
-        );
+        toast.success("Profil diperbarui. Kirim verifikasi email dari menu ini saat siap.");
       } else {
         toast.success("Data profil berhasil diperbarui");
       }
@@ -890,11 +978,11 @@ export default function UserSettingsPage() {
       >
         <SheetContent
           side="bottom"
-          className="max-h-[92vh] overflow-y-auto rounded-t-[2rem] border-0 bg-white px-0 pb-0 pt-0 dark:bg-[#0b0f19]"
+          className="max-h-[92vh] overflow-y-auto rounded-t-[2rem] border-0 bg-white px-0 pb-0 pt-0 dark:bg-[#0b0f19] md:!left-1/2 md:!right-auto md:!top-1/2 md:!bottom-auto md:!h-auto md:!max-h-[min(88vh,900px)] md:!w-[min(880px,calc(100vw-2rem))] md:!translate-x-[-50%] md:!translate-y-[-50%] md:!rounded-[2rem] md:border md:border-slate-200/80 md:shadow-[0_32px_90px_-30px_rgba(15,23,42,0.45)] dark:md:border-white/10 dark:md:shadow-[0_40px_100px_-40px_rgba(0,0,0,0.7)]"
         >
           {activeSheet === "profile" ? (
             <form onSubmit={handleSaveProfile} className="space-y-5">
-              <SheetHeader className="border-b border-slate-200/80 pb-4 dark:border-white/10">
+              <SheetHeader className="sticky top-0 z-10 border-b border-slate-200/80 bg-white/96 pb-4 backdrop-blur dark:border-white/10 dark:bg-[#0b0f19]/96">
                 <SheetTitle>Kelola identitas akun</SheetTitle>
                 <SheetDescription>
                   Satu tempat untuk memperbarui nama, email utama, status
@@ -902,7 +990,7 @@ export default function UserSettingsPage() {
                 </SheetDescription>
               </SheetHeader>
 
-              <div className="space-y-4 px-4">
+              <div className="space-y-4 px-4 md:px-6">
                 <Field label="Nama lengkap" icon={<User className="h-4 w-4" />}>
                   <Input
                     value={profileName}
@@ -910,6 +998,81 @@ export default function UserSettingsPage() {
                     className="h-12 rounded-2xl border-slate-200 pl-11 dark:border-white/10 dark:bg-white/[0.03]"
                   />
                 </Field>
+
+                <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                        Akses Google
+                      </div>
+                      <div className="mt-1 text-sm font-medium text-slate-950 dark:text-white">
+                        {hasGoogle
+                          ? "Google sudah terhubung"
+                          : "Google belum terhubung"}
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                        {hasGoogle
+                          ? "Kamu sudah bisa masuk lebih cepat lintas device dengan Google."
+                          : "Hubungkan Google supaya login lebih cepat dan tetap punya WhatsApp sebagai recovery utama."}
+                      </p>
+                    </div>
+                    <Badge className="rounded-full border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
+                      {hasGoogle ? "Connected" : "Optional"}
+                    </Badge>
+                  </div>
+
+                  {hasGoogle ? null : googleNeedsLocalhostHint ? (
+                    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+                      Buka halaman ini dari{" "}
+                      <span className="font-semibold">
+                        http://localhost:3000
+                      </span>{" "}
+                      supaya tombol Google bisa muncul. Google Sign-In tidak
+                      jalan dari domain lokal seperti{" "}
+                      <span className="font-semibold">{currentHost}</span>.
+                    </div>
+                  ) : googleClientID ? (
+                    <div className="mt-4 space-y-3">
+                      <div className="text-sm text-slate-600 dark:text-slate-300">
+                        Pilih akun Google yang mau dihubungkan ke akun Bookinaja
+                        ini.
+                      </div>
+                      <div className="flex justify-center">
+                        <div ref={googleButtonRef} className="min-h-[44px]" />
+                      </div>
+                      {!googleButtonRendered && googleSheetStatus === "ready" ? (
+                        <Button
+                          type="button"
+                          onClick={handleGoogleLinkFallback}
+                          disabled={googleLinking}
+                          className="h-11 w-full rounded-2xl"
+                        >
+                          {googleLinking ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : null}
+                          Hubungkan Google
+                        </Button>
+                      ) : null}
+                      {googleSheetStatus !== "ready" ? (
+                        <div className="flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Menyiapkan tombol Google...
+                        </div>
+                      ) : null}
+                      {googleLinking ? (
+                        <div className="flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Menghubungkan akun Google...
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+                      Google sign-in belum dikonfigurasi di environment frontend
+                      ini.
+                    </div>
+                  )}
+                </div>
 
                 <Field label="Email aktif" icon={<Mail className="h-4 w-4" />}>
                   <Input
@@ -936,7 +1099,9 @@ export default function UserSettingsPage() {
                         {emailChanged
                           ? "Email baru sudah kamu isi, tapi belum disimpan ke akun. Simpan profil dulu sebelum verifikasi."
                           : emailVerified
-                            ? "Email ini sudah terverifikasi dan siap dipakai untuk login serta recovery."
+                            ? hasGoogle
+                              ? "Email ini sudah ikut tervalidasi dari identitas Google dan siap dipakai untuk login serta recovery."
+                              : "Email ini sudah terverifikasi dan siap dipakai untuk login serta recovery."
                             : hasEffectiveEmail
                               ? "Simpan email yang benar, lalu kirim verifikasi supaya jalur reset via email aktif."
                               : "Tambahkan email aktif untuk login yang lebih rapi dan recovery yang lebih aman."}
@@ -985,71 +1150,9 @@ export default function UserSettingsPage() {
                     )}
                   </div>
                 </div>
-
-                <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                        Akses Google
-                      </div>
-                      <div className="mt-1 text-sm font-medium text-slate-950 dark:text-white">
-                        {hasGoogle
-                          ? "Google sudah terhubung"
-                          : "Google belum terhubung"}
-                      </div>
-                      <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                        {hasGoogle
-                          ? "Kamu sudah bisa masuk lebih cepat lintas device dengan Google."
-                          : "Hubungkan Google supaya login lebih cepat dan tetap punya WhatsApp sebagai recovery utama."}
-                      </p>
-                    </div>
-                    <Badge className="rounded-full border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
-                      {hasGoogle ? "Connected" : "Optional"}
-                    </Badge>
-                  </div>
-
-                  {hasGoogle ? null : googleNeedsLocalhostHint ? (
-                    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
-                      Buka halaman ini dari{" "}
-                      <span className="font-semibold">
-                        http://localhost:3000
-                      </span>{" "}
-                      supaya tombol Google bisa muncul. Google Sign-In tidak
-                      jalan dari domain lokal seperti{" "}
-                      <span className="font-semibold">{currentHost}</span>.
-                    </div>
-                  ) : googleClientID ? (
-                    <div className="mt-4 space-y-3">
-                      <div className="text-sm text-slate-600 dark:text-slate-300">
-                        Pilih akun Google yang mau dihubungkan ke akun Bookinaja
-                        ini.
-                      </div>
-                      <div className="flex justify-center">
-                        <div ref={googleButtonRef} />
-                      </div>
-                      {googleSheetStatus !== "ready" ? (
-                        <div className="flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Menyiapkan tombol Google...
-                        </div>
-                      ) : null}
-                      {googleLinking ? (
-                        <div className="flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Menghubungkan akun Google...
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <div className="mt-4 text-sm text-slate-500 dark:text-slate-400">
-                      Google sign-in belum dikonfigurasi di environment frontend
-                      ini.
-                    </div>
-                  )}
-                </div>
               </div>
 
-              <SheetFooter className="border-t border-slate-200/80 bg-white dark:border-white/10 dark:bg-[#0b0f19]">
+              <SheetFooter className="sticky bottom-0 border-t border-slate-200/80 bg-white/96 dark:border-white/10 dark:bg-[#0b0f19]/96">
                 <Button
                   type="submit"
                   disabled={profileSaving}
@@ -1068,7 +1171,7 @@ export default function UserSettingsPage() {
 
           {activeSheet === "password" ? (
             <form onSubmit={handleUpdatePassword} className="space-y-5">
-              <SheetHeader className="border-b border-slate-200/80 pb-4 dark:border-white/10">
+              <SheetHeader className="sticky top-0 z-10 border-b border-slate-200/80 bg-white/96 pb-4 backdrop-blur dark:border-white/10 dark:bg-[#0b0f19]/96">
                 <SheetTitle>Ganti password</SheetTitle>
                 <SheetDescription>
                   Masukkan password lama dulu, lalu tentukan password baru untuk
@@ -1076,7 +1179,7 @@ export default function UserSettingsPage() {
                 </SheetDescription>
               </SheetHeader>
 
-              <div className="space-y-4 px-4">
+              <div className="space-y-4 px-4 md:px-6">
                 <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
                   Kalau lupa password lama, pakai jalur recovery lewat email
                   atau OTP WhatsApp dari menu keamanan.
@@ -1122,7 +1225,7 @@ export default function UserSettingsPage() {
                 </Field>
               </div>
 
-              <SheetFooter className="border-t border-slate-200/80 bg-white dark:border-white/10 dark:bg-[#0b0f19]">
+              <SheetFooter className="sticky bottom-0 border-t border-slate-200/80 bg-white/96 dark:border-white/10 dark:bg-[#0b0f19]/96">
                 <div className="flex w-full gap-2">
                   <Button
                     type="button"
@@ -1151,7 +1254,7 @@ export default function UserSettingsPage() {
 
           {activeSheet === "recovery" ? (
             <div className="space-y-5">
-              <SheetHeader className="border-b border-slate-200/80 pb-4 dark:border-white/10">
+              <SheetHeader className="sticky top-0 z-10 border-b border-slate-200/80 bg-white/96 pb-4 backdrop-blur dark:border-white/10 dark:bg-[#0b0f19]/96">
                 <SheetTitle>Pulihkan akses akun</SheetTitle>
                 <SheetDescription>
                   Pilih jalur yang paling nyaman. Email cocok untuk link reset
@@ -1159,7 +1262,7 @@ export default function UserSettingsPage() {
                 </SheetDescription>
               </SheetHeader>
 
-              <div className="space-y-4 px-4">
+              <div className="space-y-4 px-4 md:px-6">
                 <div className="grid gap-3">
                   <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
                     <div className="flex items-start justify-between gap-3">
@@ -1337,7 +1440,7 @@ export default function UserSettingsPage() {
 
           {activeSheet === "phone" ? (
             <div className="space-y-5">
-              <SheetHeader className="border-b border-slate-200/80 pb-4 dark:border-white/10">
+              <SheetHeader className="sticky top-0 z-10 border-b border-slate-200/80 bg-white/96 pb-4 backdrop-blur dark:border-white/10 dark:bg-[#0b0f19]/96">
                 <SheetTitle>Ganti nomor WhatsApp</SheetTitle>
                 <SheetDescription>
                   Masukkan nomor baru, kirim OTP ke nomor tersebut, lalu
@@ -1345,7 +1448,7 @@ export default function UserSettingsPage() {
                 </SheetDescription>
               </SheetHeader>
 
-              <div className="space-y-4 px-4">
+              <div className="space-y-4 px-4 md:px-6">
                 <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
                   <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                     Nomor sekarang
