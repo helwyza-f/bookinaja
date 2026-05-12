@@ -355,6 +355,10 @@ export default function UserSettingsPage() {
       toast.error("Google Sign-In belum siap. Coba refresh halaman ini sekali.");
       return;
     }
+    if (!window.google?.accounts?.id) {
+      toast.error("Google chooser belum bisa dibuka. Coba refresh halaman ini.");
+      return;
+    }
     try {
       window.google.accounts.id.prompt();
     } catch {
