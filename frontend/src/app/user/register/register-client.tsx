@@ -16,6 +16,7 @@ import {
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { CustomerGoogleAuth } from "@/components/customer/customer-google-auth";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
@@ -184,6 +185,20 @@ export default function RegisterClient() {
           <Card className="rounded-[2rem] border border-[#1d4ed81a] bg-white/75 shadow-[0_32px_64px_-15px_rgba(15,23,42,0.10)] backdrop-blur-3xl dark:border-white/10 dark:bg-black/50 dark:shadow-[0_32px_64px_-15px_rgba(0,0,0,0.5)]">
             <CardContent className="space-y-6 p-5 sm:p-6">
               {step === "form" ? (
+                <>
+                  <CustomerGoogleAuth mode="register" nextPath={nextPath} />
+
+                  <div className="flex items-center gap-3">
+                    <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+                    <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-400">
+                      atau daftar manual
+                    </span>
+                    <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+                  </div>
+                </>
+              ) : null}
+
+              {step === "form" ? (
                 <form onSubmit={handleRegister} className="space-y-5">
                   <p className="text-sm leading-6 text-[#334155] dark:text-slate-400">
                     Isi data akun kamu dulu. Setelah itu kami kirim OTP ke
@@ -263,6 +278,14 @@ export default function RegisterClient() {
                   <div className="rounded-2xl border border-[#1d4ed812] bg-[#eff6ff]/70 px-4 py-3 text-sm text-[#334155] dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
                     Aktivasi akun dilakukan lewat WhatsApp supaya proses masuk
                     sesudahnya lebih cepat.
+                  </div>
+
+                  <div className="grid gap-2 rounded-[1.5rem] border border-[#1d4ed812] bg-white/70 p-4 text-sm text-[#334155] dark:border-white/10 dark:bg-white/[0.02] dark:text-slate-400">
+                    <div className="font-semibold text-[#0f1f4a] dark:text-slate-200">
+                      Cara paling cepat:
+                    </div>
+                    <div>Google untuk mulai dalam beberapa klik.</div>
+                    <div>Manual kalau kamu ingin langsung set email + password sendiri.</div>
                   </div>
 
                   <Button

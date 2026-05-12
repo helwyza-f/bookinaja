@@ -25,6 +25,7 @@ type Customer struct {
 	AccountStage       string     `db:"account_stage" json:"account_stage"`
 	RegistrationSource string     `db:"registration_source" json:"registration_source"`
 	PhoneVerifiedAt    *time.Time `db:"phone_verified_at" json:"phone_verified_at"`
+	EmailVerifiedAt    *time.Time `db:"email_verified_at" json:"email_verified_at,omitempty"`
 	GoogleSubject      *string    `db:"google_subject" json:"-"`
 	LastLoginMethod    *string    `db:"last_login_method" json:"last_login_method,omitempty"`
 	LastLoginAt        *time.Time `db:"last_login_at" json:"last_login_at,omitempty"`
@@ -92,10 +93,27 @@ type RequestPasswordResetReq struct {
 	Phone string `json:"phone" binding:"required"`
 }
 
+type RequestPasswordResetEmailReq struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
 type VerifyPasswordResetReq struct {
 	Phone       string `json:"phone" binding:"required"`
 	Code        string `json:"code" binding:"required"`
 	NewPassword string `json:"new_password" binding:"required"`
+}
+
+type VerifyPasswordResetEmailReq struct {
+	Token       string `json:"token" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required"`
+}
+
+type RequestEmailVerificationReq struct {
+	Email string `json:"email" binding:"omitempty,email"`
+}
+
+type VerifyEmailReq struct {
+	Token string `json:"token" binding:"required"`
 }
 
 type RequestPhoneChangeReq struct {
@@ -172,10 +190,12 @@ type CustomerPortalHistoryData struct {
 }
 
 type CustomerPortalSettingsData struct {
-	Customer      Customer             `json:"customer"`
-	Points        int                  `json:"points"`
-	PointActivity []CustomerPointEvent `json:"point_activity"`
-	PastHistory   []RecentHistoryDTO   `json:"past_history"`
+	Customer        Customer             `json:"customer"`
+	Points          int                  `json:"points"`
+	PointActivity   []CustomerPointEvent `json:"point_activity"`
+	PastHistory     []RecentHistoryDTO   `json:"past_history"`
+	IdentityMethods []string             `json:"identity_methods"`
+	HasPassword     bool                 `json:"has_password"`
 }
 
 type CustomerPointEvent struct {

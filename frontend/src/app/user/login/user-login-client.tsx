@@ -16,6 +16,7 @@ import {
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { CustomerGoogleAuth } from "@/components/customer/customer-google-auth";
 import { Input } from "@/components/ui/input";
 import {
   Sheet,
@@ -30,6 +31,7 @@ import { getTenantMismatchMessage } from "@/lib/tenant-session";
 
 type AuthMode = "wa" | "email";
 type WaStep = "phone" | "otp";
+type ForgotMode = "wa" | "email";
 
 type ApiError = {
   response?: {
@@ -59,8 +61,10 @@ export default function UserLoginClient() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotMode, setForgotMode] = useState<ForgotMode>("wa");
   const [forgotStep, setForgotStep] = useState<"request" | "verify">("request");
   const [forgotPhone, setForgotPhone] = useState("");
+  const [forgotEmail, setForgotEmail] = useState("");
   const [forgotCode, setForgotCode] = useState("");
   const [forgotPassword, setForgotPassword] = useState("");
   const [forgotConfirmPassword, setForgotConfirmPassword] = useState("");
@@ -214,6 +218,25 @@ export default function UserLoginClient() {
     }
   };
 
+  const handleRequestForgotPasswordEmail = async () => {
+    if (!forgotEmail.trim()) {
+      toast.error("Email wajib diisi");
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      await api.post("/public/customer/password/reset/request-email", {
+        email: forgotEmail.trim(),
+      });
+      toast.success("Link reset password dikirim ke email kamu");
+      setForgotOpen(false);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Gagal mengirim link reset password"));
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   const tabBase =
     "flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition";
   const tabActive =
@@ -263,6 +286,16 @@ export default function UserLoginClient() {
 
           <Card className="rounded-[2rem] border border-[#1d4ed81a] bg-white/75 shadow-[0_32px_64px_-15px_rgba(15,23,42,0.10)] backdrop-blur-3xl dark:border-white/10 dark:bg-black/50 dark:shadow-[0_32px_64px_-15px_rgba(0,0,0,0.5)]">
             <CardContent className="space-y-6 p-5 sm:p-6">
+              <CustomerGoogleAuth mode="login" nextPath={nextPath} />
+
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+                <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-400">
+                  atau lanjut manual
+                </span>
+                <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+              </div>
+
               <div className="grid grid-cols-2 gap-2 rounded-full border border-transparent bg-[#eff6ff] p-1 dark:border-white/5 dark:bg-white/5">
                 <button
                   type="button"
@@ -454,6 +487,15 @@ export default function UserLoginClient() {
                   Daftar
                 </Link>
               </div>
+
+              <div className="grid gap-2 rounded-[1.5rem] border border-[#1d4ed812] bg-[#eff6ff]/65 p-4 text-sm text-[#334155] dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
+                <div className="font-semibold text-[#0f1f4a] dark:text-slate-200">
+                  Pilih jalur masuk yang paling nyaman:
+                </div>
+                <div>Google untuk akses cepat lintas device.</div>
+                <div>WhatsApp untuk OTP instan.</div>
+                <div>Email untuk akun yang sudah punya password.</div>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -464,6 +506,7 @@ export default function UserLoginClient() {
         onOpenChange={(open) => {
           setForgotOpen(open);
           if (!open) {
+            setForgotMode("wa");
             setForgotStep("request");
             setForgotCode("");
             setForgotPassword("");
@@ -485,6 +528,27 @@ export default function UserLoginClient() {
           <div className="space-y-4 px-4">
             {forgotStep === "request" ? (
               <>
+                <div className="grid grid-cols-2 gap-2 rounded-full border border-transparent bg-[#eff6ff] p-1 dark:border-white/5 dark:bg-white/5">
+                  <button
+                    type="button"
+                    onClick={() => setForgotMode("wa")}
+                    className={`${tabBase} ${forgotMode === "wa" ? tabActive : tabInactive}`}
+                  >
+                    <Phone className="h-4 w-4" />
+                    WhatsApp
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForgotMode("email")}
+                    className={`${tabBase} ${forgotMode === "email" ? tabActive : tabInactive}`}
+                  >
+                    <Mail className="h-4 w-4" />
+                    Email
+                  </button>
+                </div>
+
+                {forgotMode === "wa" ? (
+                  <>
                 <label className="block space-y-2">
                   <span className="text-xs font-medium uppercase tracking-[0.18em] text-[#1d4ed8] dark:text-sky-300">
                     Nomor WhatsApp
@@ -515,6 +579,40 @@ export default function UserLoginClient() {
                   )}
                   Kirim OTP reset
                 </Button>
+                  </>
+                ) : (
+                  <>
+                    <label className="block space-y-2">
+                      <span className="text-xs font-medium uppercase tracking-[0.18em] text-[#1d4ed8] dark:text-sky-300">
+                        Email terverifikasi
+                      </span>
+                      <div className="relative mt-2">
+                        <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1d4ed8] dark:text-sky-300" />
+                        <Input
+                          type="email"
+                          value={forgotEmail}
+                          onChange={(e) => setForgotEmail(e.target.value)}
+                          placeholder="nama@domain.com"
+                          className="h-12 rounded-2xl border-[#1d4ed826] bg-white/90 pl-11 text-base shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-[#3b82f6] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-500"
+                        />
+                      </div>
+                    </label>
+
+                    <Button
+                      type="button"
+                      onClick={handleRequestForgotPasswordEmail}
+                      disabled={forgotLoading}
+                      className="h-12 w-full rounded-2xl bg-gradient-to-r from-[#1d4ed8] to-[#3b82f6] text-white shadow-xl shadow-blue-500/20 hover:from-[#1741b8] hover:to-[#2563eb]"
+                    >
+                      {forgotLoading ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Mail className="mr-2 h-4 w-4" />
+                      )}
+                      Kirim link reset
+                    </Button>
+                  </>
+                )}
               </>
             ) : (
               <form onSubmit={handleVerifyForgotPassword} className="space-y-4">

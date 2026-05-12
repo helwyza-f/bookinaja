@@ -19,6 +19,7 @@ import (
 	"github.com/helwiza/backend/internal/platform/database"
 	"github.com/helwiza/backend/internal/platform/http"
 	"github.com/helwiza/backend/internal/platform/http/routecfg"
+	"github.com/helwiza/backend/internal/platform/mailer"
 	midtranssvc "github.com/helwiza/backend/internal/platform/midtrans"
 	platformmqtt "github.com/helwiza/backend/internal/platform/mqtt"
 	platformrealtime "github.com/helwiza/backend/internal/platform/realtime"
@@ -113,10 +114,16 @@ func main() {
 	platformRepo := platformadmin.NewRepository(db)
 	midtransRepo := midtranssvc.NewRepository(db, rdb)
 	smartDeviceRepo := smartdevice.NewRepository(db)
+	resendMailer := mailer.NewResendFromEnv()
 
 	authSvc := auth.NewService()
 	tenantSvc := tenant.NewService(tenantRepo, authSvc)
-	customerSvc := customer.NewService(customerRepo, rdb)
+	customerSvc := customer.NewService(
+		customerRepo,
+		rdb,
+		customer.WithMailer(resendMailer),
+		customer.WithEmailAudit(platformRepo),
+	)
 	expenseSvc := expense.NewService(expenseRepo)
 	resourceSvc := resource.NewService(resourceRepo)
 	realtimeHub := platformrealtime.NewHub()
@@ -127,7 +134,7 @@ func main() {
 	reservationSvc := reservation.NewService(reservationRepo, resourceRepo, customerSvc, fnbSvc, promoSvc, smartDeviceSvc, realtimeHub)
 	scheduler := reservation.NewScheduler(db, reservationRepo, smartDeviceSvc)
 	billingSvc := billing.NewService(db, billingRepo, realtimeHub)
-	platformSvc := platformadmin.NewService()
+	platformSvc := platformadmin.NewService(resendMailer, platformRepo)
 	dispatcher := smartdevice.NewDispatcher(smartDeviceRepo, mqttClient)
 	subscriber := smartdevice.NewSubscriber(smartDeviceSvc, mqttClient)
 	reconciler := smartdevice.NewReconciler(smartDeviceSvc, 90*time.Second)

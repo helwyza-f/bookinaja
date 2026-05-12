@@ -189,6 +189,76 @@ func (h *Handler) VerifyPasswordResetOTP(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Password berhasil direset. Silakan login dengan password baru"})
 }
 
+func (h *Handler) RequestPasswordResetEmail(c *gin.Context) {
+	var req RequestPasswordResetEmailReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email wajib diisi"})
+		return
+	}
+
+	if err := h.service.RequestPasswordResetEmail(c.Request.Context(), req.Email); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Link reset password sudah dikirim ke email kamu"})
+}
+
+func (h *Handler) VerifyPasswordResetEmail(c *gin.Context) {
+	var req VerifyPasswordResetEmailReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data reset password email belum lengkap"})
+		return
+	}
+	if err := h.service.VerifyPasswordResetEmail(c.Request.Context(), req.Token, req.NewPassword); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Password berhasil direset lewat email. Silakan login dengan password baru"})
+}
+
+func (h *Handler) RequestMyEmailVerification(c *gin.Context) {
+	customerIDStr, exists := c.Get("customerID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid, silakan login kembali"})
+		return
+	}
+
+	var req RequestEmailVerificationReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data email tidak valid"})
+		return
+	}
+
+	var emailOverride *string
+	if trimmed := strings.TrimSpace(req.Email); trimmed != "" {
+		emailOverride = &trimmed
+	}
+
+	if err := h.service.RequestEmailVerification(c.Request.Context(), customerIDStr.(string), emailOverride); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Link verifikasi email sudah dikirim"})
+}
+
+func (h *Handler) VerifyEmail(c *gin.Context) {
+	var req VerifyEmailReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Token verifikasi email wajib diisi"})
+		return
+	}
+
+	customer, err := h.service.VerifyEmailToken(c.Request.Context(), req.Token)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Email berhasil diverifikasi", "customer": customer})
+}
+
 func (h *Handler) CustomerRegister(c *gin.Context) {
 	var req RegisterReq
 	if err := c.ShouldBindJSON(&req); err != nil {
