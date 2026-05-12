@@ -77,8 +77,8 @@ func TestLoginWithGoogleLinksExistingEmail(t *testing.T) {
 	mock.ExpectQuery(`SELECT \* FROM customers WHERE LOWER\(email\) = LOWER\(\$1\) LIMIT 1`).
 		WithArgs(email).
 		WillReturnRows(customerRows(existing))
-	mock.ExpectQuery(`(?s)UPDATE customers\s+SET google_subject = \$1,.*WHERE id = \$5.*RETURNING \*`).
-		WithArgs(subject, &email, &existing.Name, (*string)(nil), existing.ID).
+	mock.ExpectQuery(`(?s)UPDATE customers\s+SET google_subject = \$1,.*WHERE id = \$6.*RETURNING \*`).
+		WithArgs(subject, &email, &existing.Name, (*string)(nil), false, existing.ID).
 		WillReturnRows(customerRows(linked))
 	mock.ExpectExec(`UPDATE customers\s+SET last_login_method = \$2,`).
 		WithArgs(existing.ID, "google").
