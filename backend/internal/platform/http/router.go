@@ -29,11 +29,15 @@ func NewRouter(cfg routecfg.Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine 
 
 	_ = r.SetTrustedProxies(resolveTrustedProxies())
 	r.Use(middleware.CORSMiddleware())
+	r.Use(middleware.SlowRequestLogger())
 
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "BATAM ENGINE ONLINE"})
 	})
 	r.GET("/health/live", func(c *gin.Context) {
+		c.JSON(stdhttp.StatusOK, gin.H{"status": "ok"})
+	})
+	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(stdhttp.StatusOK, gin.H{"status": "ok"})
 	})
 	r.GET("/health/ready", func(c *gin.Context) {
@@ -51,6 +55,23 @@ func NewRouter(cfg routecfg.Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine 
 
 		c.JSON(stdhttp.StatusOK, gin.H{"status": "ok"})
 	})
+	r.GET("/readyz", func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+		defer cancel()
+
+		if err := db.DB.PingContext(ctx); err != nil {
+			c.JSON(stdhttp.StatusServiceUnavailable, gin.H{"status": "degraded", "dependency": "postgres"})
+			return
+		}
+		if err := rdb.Ping(ctx).Err(); err != nil {
+			c.JSON(stdhttp.StatusServiceUnavailable, gin.H{"status": "degraded", "dependency": "redis"})
+			return
+		}
+
+		c.JSON(stdhttp.StatusOK, gin.H{"status": "ok"})
+	})
+
+	registerPprofRoutes(r)
 
 	r.POST("/api/webhooks/midtrans", cfg.MidtransHandler.Webhook)
 	platformrouter.RegisterPlatformRoutes(r, cfg)
