@@ -34,10 +34,10 @@ export function PageBuilderStudioHeader({
   onResetDraft,
 }: StudioHeaderProps) {
   return (
-    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/12 dark:bg-[#0f0f17] sm:p-5">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="min-w-0 max-w-3xl">
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+    <section className="overflow-hidden rounded-[1.75rem] border border-slate-200/90 bg-white p-5 shadow-sm dark:border-white/12 dark:bg-[#0f0f17] sm:p-6">
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0 max-w-3xl space-y-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
               Page Builder
             </h1>
@@ -49,7 +49,7 @@ export function PageBuilderStudioHeader({
               />
             ) : null}
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <StatusPill
               tone={hasUnpublishedChanges ? "warning" : "success"}
               label={hasUnpublishedChanges ? "Draft berubah" : "Sinkron"}
@@ -61,14 +61,14 @@ export function PageBuilderStudioHeader({
           </div>
         </div>
 
-        <div className="xl:min-w-[22rem] xl:max-w-[24rem]">
-          <div className="rounded-lg border border-slate-200 p-3 dark:border-white/10">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
+        <div className="xl:min-w-[24rem] xl:max-w-[26rem]">
+          <div className="rounded-[1.4rem] border border-slate-200/90 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 space-y-1">
                 <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                   Publish
                 </div>
-                <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                <div className="text-sm font-semibold text-slate-900 dark:text-white">
                   {hasUnpublishedChanges ? "Siap publish" : "Belum ada perubahan"}
                 </div>
               </div>
@@ -76,19 +76,19 @@ export function PageBuilderStudioHeader({
                 type="button"
                 onClick={onPublish}
                 disabled={saving}
-                className="h-10 rounded-lg bg-[var(--bookinaja-600)] px-4 text-white hover:bg-[var(--bookinaja-700)] disabled:border disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:opacity-100 dark:disabled:border-white/10 dark:disabled:bg-white/[0.08] dark:disabled:text-slate-500"
+                className="h-10 rounded-xl bg-[var(--bookinaja-600)] px-4 text-white hover:bg-[var(--bookinaja-700)] disabled:border disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:opacity-100 dark:disabled:border-white/10 dark:disabled:bg-white/[0.08] dark:disabled:text-slate-500"
               >
                 <Save className="mr-2 h-4 w-4" />
                 {saving ? "Publishing..." : "Publish"}
               </Button>
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               {previewUrl ? (
                 <Button
                   asChild
                   variant="outline"
-                  className="h-10 rounded-lg border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:hover:bg-white/[0.08]"
+                  className="h-10 rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:hover:bg-white/[0.08]"
                 >
                   <a href={previewUrl} target="_blank" rel="noreferrer">
                     <ExternalLink className="mr-2 h-4 w-4" />
@@ -96,7 +96,7 @@ export function PageBuilderStudioHeader({
                   </a>
                 </Button>
               ) : (
-                <Button type="button" variant="outline" disabled className="h-10 rounded-lg">
+                <Button type="button" variant="outline" disabled className="h-10 rounded-xl">
                   <ExternalLink className="mr-2 h-4 w-4" />
                   Publik
                 </Button>
@@ -105,7 +105,7 @@ export function PageBuilderStudioHeader({
                 type="button"
                 variant="outline"
                 onClick={onRefresh}
-                className="h-10 rounded-lg border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:hover:bg-white/[0.08]"
+                className="h-10 rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:hover:bg-white/[0.08]"
               >
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Refresh
@@ -114,7 +114,7 @@ export function PageBuilderStudioHeader({
                 type="button"
                 variant="outline"
                 onClick={onResetDraft}
-                className="h-10 rounded-lg border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100 dark:hover:bg-amber-500/15"
+                className="h-10 rounded-xl border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100 dark:hover:bg-amber-500/15"
               >
                 <RotateCcw className="mr-2 h-4 w-4" />
                 Reset
@@ -147,7 +147,7 @@ export function PageBuilderPreviewToolbar({
   onPreviewModeChange,
 }: PreviewToolbarProps) {
   return (
-    <div className="flex flex-col gap-3 border-b border-slate-200/90 bg-slate-50 px-5 py-4 dark:border-white/10 dark:bg-white/[0.02] lg:flex-row lg:items-center lg:justify-between">
+    <div className="flex flex-col gap-4 border-b border-slate-200/90 bg-slate-50 px-5 py-4 dark:border-white/10 dark:bg-white/[0.02] lg:flex-row lg:items-center lg:justify-between">
       <div className="min-w-0">
         <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
           Preview

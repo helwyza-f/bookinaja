@@ -7,6 +7,8 @@ import {
   getTenantSlugFromBrowser,
 } from "@/lib/tenant";
 import {
+  clearAdminSession,
+  clearCustomerSession,
   clearTenantSession,
   isCrossTenantSessionError,
 } from "@/lib/tenant-session";
@@ -20,8 +22,38 @@ const api = axios.create({
   withCredentials: true,
 });
 
+function resolveScopedToken() {
+  const adminToken = getCookie("auth_token");
+  const customerToken = getCookie("customer_auth");
+
+  if (typeof window === "undefined") {
+    return adminToken || customerToken;
+  }
+
+  const path = window.location.pathname;
+  if (
+    path === "/login" ||
+    path === "/admin" ||
+    path.startsWith("/admin/") ||
+    path.startsWith("/dashboard")
+  ) {
+    return adminToken;
+  }
+
+  if (
+    path === "/user" ||
+    path.startsWith("/user/") ||
+    path === "/me" ||
+    path.startsWith("/me/")
+  ) {
+    return customerToken;
+  }
+
+  return adminToken || customerToken;
+}
+
 api.interceptors.request.use((config) => {
-  const token = getCookie("auth_token") || getCookie("customer_auth");
+  const token = resolveScopedToken();
   const browserTenantSlug = getTenantSlugFromBrowser();
   const tenantSlug = browserTenantSlug
     ? browserTenantSlug
@@ -50,37 +82,76 @@ api.interceptors.response.use(
       const hasCustomerToken = Boolean(getCookie("customer_auth"));
       const tenantSlug = getTenantSlugFromBrowser();
       const isTenantSurface = Boolean(tenantSlug);
-
-      clearTenantSession({ keepTenantSlug: isTenantSurface });
-
       const nextPath = getCurrentPathWithSearch();
+      const path = window.location.pathname;
+      const isAdminSurface =
+        path === "/login" ||
+        path === "/admin" ||
+        path.startsWith("/admin/") ||
+        path.startsWith("/dashboard");
+      const isCustomerSurface =
+        path === "/user" ||
+        path.startsWith("/user/") ||
+        path === "/me" ||
+        path.startsWith("/me/");
+
       const target = hasAdminToken
-        ? isTenantSurface
+        ? isAdminSurface && isTenantSurface
           ? getCentralAdminAuthUrl({
               tenantSlug,
               next: nextPath,
               reason: "tenant-mismatch",
             })
-          : `/login?reason=tenant-mismatch&next=${nextPath}`
+          : isAdminSurface
+            ? `/login?reason=tenant-mismatch&next=${nextPath}`
+            : null
         : hasCustomerToken
-          ? isTenantSurface
+          ? isCustomerSurface && isTenantSurface
             ? getCentralCustomerAuthUrl("login", {
                 tenantSlug,
                 next: nextPath,
                 reason: "tenant-mismatch",
               })
-            : `/user/login?reason=tenant-mismatch&next=${nextPath}`
+            : isCustomerSurface
+              ? `/user/login?reason=tenant-mismatch&next=${nextPath}`
+              : null
           : null;
+
+      if (isAdminSurface) {
+        clearAdminSession({ keepTenantSlug: isTenantSurface });
+      } else if (isCustomerSurface) {
+        clearCustomerSession({ keepTenantSlug: isTenantSurface });
+      } else {
+        clearTenantSession({ keepTenantSlug: isTenantSurface });
+      }
 
       if (target && window.location.href !== target) {
         window.location.replace(target);
       }
     }
 
-    // --- FIX 2: Hapus kuki yang bener pas 401 ---
     if (err.response?.status === 401) {
-      deleteCookie("auth_token");
-      deleteCookie("customer_auth");
+      if (typeof window !== "undefined") {
+        const path = window.location.pathname;
+        if (
+          path === "/login" ||
+          path === "/admin" ||
+          path.startsWith("/admin/") ||
+          path.startsWith("/dashboard")
+        ) {
+          deleteCookie("auth_token");
+        } else if (
+          path === "/user" ||
+          path.startsWith("/user/") ||
+          path === "/me" ||
+          path.startsWith("/me/")
+        ) {
+          deleteCookie("customer_auth");
+        } else {
+          deleteCookie("auth_token");
+          deleteCookie("customer_auth");
+        }
+      }
     }
     return Promise.reject(err);
   },

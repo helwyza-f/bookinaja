@@ -200,33 +200,15 @@ function resolveTenantRedirect(
   const isCustomerArea = path === "/me" || path.startsWith("/me/");
 
   if (isAdminLogin) {
-    if (path === "/admin/login") {
-      return auth.hasAdminToken ? "/admin/dashboard" : null;
-    }
     if (auth.hasAdminToken) {
       return "/admin/dashboard";
-    }
-    if (auth.hasCustomerToken) {
-      return "/me";
     }
     return null;
   }
 
   if (isAdminArea) {
-    if (path.startsWith("/admin/dashboard")) {
-      if (auth.hasAdminToken) {
-        return null;
-      }
-      if (auth.hasCustomerToken) {
-        return "/me";
-      }
-      return "/admin/login";
-    }
     if (auth.hasAdminToken) {
       return null;
-    }
-    if (auth.hasCustomerToken) {
-      return "/me";
     }
     return "/admin/login";
   }
@@ -234,9 +216,6 @@ function resolveTenantRedirect(
   if (isCustomerLogin) {
     if (auth.hasCustomerToken) {
       return "/me";
-    }
-    if (auth.hasAdminToken) {
-      return "/admin/dashboard";
     }
     return null;
   }
@@ -247,9 +226,6 @@ function resolveTenantRedirect(
     }
     if (auth.hasCustomerToken) {
       return null;
-    }
-    if (auth.hasAdminToken) {
-      return "/admin/dashboard";
     }
     return "/login";
   }
@@ -279,9 +255,6 @@ function resolveRootRedirect(
     if (auth.hasAdminToken) {
       return "/dashboard/overview";
     }
-    if (auth.hasCustomerToken) {
-      return "/user/me";
-    }
     return null;
   }
 
@@ -299,9 +272,6 @@ function resolveRootRedirect(
     if (auth.hasCustomerToken) {
       return "/user/me";
     }
-    if (auth.hasAdminToken) {
-      return "/dashboard/overview";
-    }
     return null;
   }
 
@@ -315,9 +285,6 @@ function resolveRootRedirect(
     }
     if (auth.hasCustomerToken) {
       return null;
-    }
-    if (auth.hasAdminToken) {
-      return "/dashboard/overview";
     }
     return `/user/login${buildNextQuery(path, auth.search)}`;
   }

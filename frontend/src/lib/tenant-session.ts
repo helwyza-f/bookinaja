@@ -38,14 +38,32 @@ export function setCustomerAuthCookie(token: string) {
   });
 }
 
+export function clearAdminSession(options?: { keepTenantSlug?: boolean }) {
+  deleteCookie("auth_token", COOKIE_BASE_OPTIONS);
+  deleteCookie("auth_token", { path: "/" });
+
+  if (!options?.keepTenantSlug) {
+    deleteCookie("current_tenant_slug", COOKIE_BASE_OPTIONS);
+    deleteCookie("current_tenant_slug", { path: "/" });
+  }
+}
+
+export function clearCustomerSession(options?: { keepTenantSlug?: boolean }) {
+  deleteCookie("customer_auth", COOKIE_BASE_OPTIONS);
+  deleteCookie("customer_auth", { path: "/" });
+
+  if (!options?.keepTenantSlug) {
+    deleteCookie("current_tenant_slug", COOKIE_BASE_OPTIONS);
+    deleteCookie("current_tenant_slug", { path: "/" });
+  }
+}
+
 /**
  * Membersihkan semua sesi saat logout atau auth error
  */
 export function clearTenantSession(options?: { keepTenantSlug?: boolean }) {
-  deleteCookie("auth_token", COOKIE_BASE_OPTIONS);
-  deleteCookie("auth_token", { path: "/" });
-  deleteCookie("customer_auth", COOKIE_BASE_OPTIONS);
-  deleteCookie("customer_auth", { path: "/" });
+  clearAdminSession({ keepTenantSlug: true });
+  clearCustomerSession({ keepTenantSlug: true });
 
   if (!options?.keepTenantSlug) {
     deleteCookie("current_tenant_slug", COOKIE_BASE_OPTIONS);

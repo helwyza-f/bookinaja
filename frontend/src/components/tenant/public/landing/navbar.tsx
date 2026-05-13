@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
-import { UserCircle2 } from "lucide-react";
+import { Moon, Sun, UserCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCentralCustomerAuthUrl } from "@/lib/tenant";
 import { getLandingPresetTone } from "./theme-preset";
@@ -33,11 +34,13 @@ export function TenantNavbar({
   previewMode = "desktop",
   embedded = false,
 }: TenantNavbarProps) {
+  const { resolvedTheme, setTheme } = useTheme();
   const isCompactPreview = embedded && previewMode === "mobile";
   const primaryColor = landingTheme?.primary || profile.primary_color || "#3b82f6";
   const preset = landingTheme?.preset || "bookinaja-classic";
   const radiusStyle = landingTheme?.radiusStyle || "rounded";
   const tone = getLandingPresetTone(preset);
+  const isDark = resolvedTheme === "dark";
 
   const shellRadiusClass =
     radiusStyle === "square"
@@ -135,6 +138,26 @@ export function TenantNavbar({
         </div>
 
         <div className={cn("flex items-center", isCompactPreview ? "gap-2" : "gap-2.5 md:gap-3")}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            className={cn(
+              "shrink-0 border font-semibold",
+              isCompactPreview
+                ? "h-10 w-10 rounded-xl px-0"
+                : cn("h-11 w-11 px-0 md:h-12 md:w-12", buttonRadiusClass),
+              tone.social,
+            )}
+            aria-label={isDark ? "Aktifkan mode terang" : "Aktifkan mode gelap"}
+          >
+            {isDark ? (
+              <Sun className="h-4.5 w-4.5" />
+            ) : (
+              <Moon className="h-4.5 w-4.5" />
+            )}
+          </Button>
+
           <a
             href={getCentralCustomerAuthUrl("login", {
               tenantSlug: profile.slug,
@@ -155,7 +178,7 @@ export function TenantNavbar({
               }}
             >
               <UserCircle2 className={cn(isCompactPreview ? "h-4.5 w-4.5" : "h-4.5 w-4.5 md:mr-1.5 md:h-4 md:w-4")} />
-              {!isCompactPreview ? <span className="hidden md:inline">Sign In</span> : null}
+              {!isCompactPreview ? <span className="hidden md:inline">Customer Sign In</span> : null}
             </Button>
           </a>
         </div>

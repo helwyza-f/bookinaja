@@ -882,7 +882,7 @@ export default function PageBuilderPage() {
         onResetDraft={resetDraftToPublished}
       />
 
-      <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[320px_minmax(0,1fr)]">
+      <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)] 2xl:grid-cols-[380px_minmax(0,1fr)]">
         <aside className="space-y-4">
           <Card className="rounded-[1.75rem] border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] p-3 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.9),rgba(10,15,28,0.96))]">
             <div className="grid grid-cols-3 gap-2">
@@ -1029,7 +1029,7 @@ export default function PageBuilderPage() {
               onPreviewModeChange={setPreviewMode}
             />
 
-            <div className="min-h-[820px] overflow-hidden bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.08),transparent_32%),linear-gradient(180deg,rgba(241,245,249,0.92),rgba(248,250,252,1))] p-3 dark:bg-[radial-gradient(circle_at_top,rgba(96,165,250,0.12),transparent_25%),linear-gradient(180deg,rgba(10,15,28,0.98),rgba(5,5,10,1))] md:p-6 xl:h-[calc(100vh-11rem)]">
+            <div className="min-h-[760px] overflow-hidden bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.08),transparent_32%),linear-gradient(180deg,rgba(241,245,249,0.92),rgba(248,250,252,1))] p-3 dark:bg-[radial-gradient(circle_at_top,rgba(96,165,250,0.12),transparent_25%),linear-gradient(180deg,rgba(10,15,28,0.98),rgba(5,5,10,1))] md:p-5 xl:h-[calc(100vh-12rem)]">
               {previewMode === "desktop" ? (
                 <DesktopPreviewFrame>
                   <PreviewIframe
@@ -2500,7 +2500,7 @@ function CollapsibleSidebarCard({
 
 function DesktopPreviewFrame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto max-w-[1460px]">
+    <div className="mx-auto max-w-[1560px]">
       <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[#0f0f17]">
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03]">
           <div className="flex items-center gap-2">
@@ -2513,7 +2513,7 @@ function DesktopPreviewFrame({ children }: { children: React.ReactNode }) {
             Preview Desktop
           </div>
         </div>
-        <div className="h-[min(980px,calc(100vh-14rem))] min-h-[820px] overflow-auto">
+        <div className="h-[min(960px,calc(100vh-15rem))] min-h-[760px] overflow-auto">
           {children}
         </div>
       </div>
