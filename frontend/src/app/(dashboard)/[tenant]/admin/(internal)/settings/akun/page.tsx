@@ -1,16 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   ArrowRightLeft,
-  CheckCircle2,
   KeyRound,
   Loader2,
   Mail,
   ShieldAlert,
   Trash2,
-  UserCog,
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
@@ -70,8 +68,32 @@ const emptyAccount: OwnerAccountResponse = {
   },
 };
 
+function SectionTitle({
+  title,
+  description,
+  badge,
+}: {
+  title: string;
+  description: string;
+  badge?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="space-y-1">
+        <h2 className="text-base font-semibold text-slate-950 dark:text-white">
+          {title}
+        </h2>
+        <p className="max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+          {description}
+        </p>
+      </div>
+      {badge}
+    </div>
+  );
+}
+
 export default function OwnerAccountSettingsPage() {
-  const { user: sessionUser, tenantName } = useAdminSession();
+  const { tenantName } = useAdminSession();
   const [data, setData] = useState<OwnerAccountResponse>(emptyAccount);
   const [loading, setLoading] = useState(true);
   const [savingIdentity, setSavingIdentity] = useState(false);
@@ -107,9 +129,13 @@ export default function OwnerAccountSettingsPage() {
 
   const tenantSlug = data.tenant.slug || "";
   const draftEmail = email.trim().toLowerCase();
-  const emailChanged =
-    draftEmail !== "" &&
-    draftEmail !== String(data.user.email || "").trim().toLowerCase();
+  const storedEmail = String(data.user.email || "").trim().toLowerCase();
+  const emailChanged = draftEmail !== "" && draftEmail !== storedEmail;
+  const hasEmail = draftEmail !== "";
+  const effectiveEmailVerified =
+    !emailChanged && hasEmail && data.auth.email_verified;
+  const needsPasswordSetup =
+    data.auth.password_setup_required || !data.auth.has_password;
   const googleConnectUrl = useMemo(
     () =>
       getCentralAdminGoogleConnectUrl({
@@ -128,6 +154,7 @@ export default function OwnerAccountSettingsPage() {
       toast.error("Nama dan email owner wajib diisi");
       return;
     }
+
     setSavingIdentity(true);
     try {
       const res = await api.put("/admin/account/identity", {
@@ -140,8 +167,8 @@ export default function OwnerAccountSettingsPage() {
       setEmail(nextData.user.email || "");
       toast.success(
         emailChanged
-          ? "Identitas owner disimpan. Verifikasi email baru dari halaman ini."
-          : "Identitas owner berhasil diperbarui",
+          ? "Email baru disimpan. Lanjut kirim verifikasi."
+          : "Identitas owner diperbarui.",
       );
     } catch (error) {
       const message = (error as { response?: { data?: { error?: string } } })
@@ -158,11 +185,11 @@ export default function OwnerAccountSettingsPage() {
       await api.post("/admin/account/email/verify/request", {
         email: email.trim(),
       });
-      toast.success("Link verifikasi email owner sudah dikirim");
+      toast.success("Link verifikasi sudah dikirim.");
     } catch (error) {
       const message = (error as { response?: { data?: { error?: string } } })
         .response?.data?.error;
-      toast.error(message || "Gagal mengirim verifikasi email owner");
+      toast.error(message || "Gagal mengirim verifikasi email");
     } finally {
       setSendingVerify(false);
     }
@@ -174,18 +201,19 @@ export default function OwnerAccountSettingsPage() {
       return;
     }
     if (newPassword !== confirmPassword) {
-      toast.error("Konfirmasi password baru belum cocok");
+      toast.error("Konfirmasi password belum cocok");
       return;
     }
+
     setSavingPassword(true);
     try {
-      if (data.auth.password_setup_required || !data.auth.has_password) {
+      if (needsPasswordSetup) {
         await api.post("/admin/account/password/setup", {
           new_password: newPassword,
         });
       } else {
         if (!currentPassword.trim()) {
-          toast.error("Password saat ini wajib diisi");
+          toast.error("Isi password saat ini dulu");
           setSavingPassword(false);
           return;
         }
@@ -194,10 +222,15 @@ export default function OwnerAccountSettingsPage() {
           new_password: newPassword,
         });
       }
+
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      toast.success("Password owner berhasil diperbarui");
+      toast.success(
+        needsPasswordSetup
+          ? "Password cadangan berhasil dibuat."
+          : "Password berhasil diganti.",
+      );
       await fetchAccount();
     } catch (error) {
       const message = (error as { response?: { data?: { error?: string } } })
@@ -210,9 +243,10 @@ export default function OwnerAccountSettingsPage() {
 
   async function handleDeleteAccount() {
     if (!tenantSlug || deleteConfirmText.trim() !== tenantSlug) {
-      toast.error("Ketik slug tenant dengan benar sebelum menghapus akun owner");
+      toast.error("Ketik slug tenant dengan benar");
       return;
     }
+
     setDeleting(true);
     try {
       await api.delete("/admin/account", {
@@ -222,7 +256,7 @@ export default function OwnerAccountSettingsPage() {
         },
       });
       clearTenantSession();
-      toast.success("Akun owner dihapus. Sesi dibersihkan.");
+      toast.success("Akses owner dihapus.");
       window.location.assign("/");
     } catch (error) {
       const message = (error as { response?: { data?: { error?: string } } })
@@ -235,238 +269,289 @@ export default function OwnerAccountSettingsPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-32 rounded-[1.75rem]" />
-        <Skeleton className="h-72 rounded-[1.75rem]" />
-        <Skeleton className="h-56 rounded-[1.75rem]" />
+      <div className="space-y-3">
+        <Skeleton className="h-20 rounded-3xl" />
+        <Skeleton className="h-64 rounded-3xl" />
+        <Skeleton className="h-64 rounded-3xl" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 pb-20">
-      <Card className="rounded-[1.75rem] border-slate-200/90 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.94))] p-5 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.94),rgba(8,47,73,0.94))]">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--bookinaja-200)] bg-[var(--bookinaja-50)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-[var(--bookinaja-700)] dark:border-[rgba(96,165,250,0.24)] dark:bg-[rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]">
-              <UserCog className="h-3.5 w-3.5" />
-              Akun Owner
-            </div>
-            <h1 className="mt-4 text-2xl font-black tracking-tight text-slate-950 dark:text-white sm:text-3xl">
-              Satu tempat untuk akses owner
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Rapikan email login, verifikasi email, setup password manual, lalu
-              hubungkan atau ganti akun Google tanpa keluar dari flow bisnis.
-            </p>
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 pb-20">
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+          <span>Akun owner</span>
+          <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600" />
+          <span>{tenantName || data.tenant.name || "Tenant"}</span>
+        </div>
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+            Login, recovery, dan Google owner
+          </h1>
+          <p className="max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+            Rapikan email login, cek status verifikasi, atur password cadangan,
+            lalu hubungkan atau ganti Google tanpa keluar dari tenant.
+          </p>
+        </div>
+      </div>
+
+      <Card className="rounded-3xl border-slate-200/80 p-6 shadow-sm dark:border-white/10 dark:bg-[#0f172a]">
+        <SectionTitle
+          title="Identitas owner"
+          description="Email ini dipakai untuk login manual, reset password, dan notifikasi keamanan."
+          badge={
+            <Badge
+              className={
+                effectiveEmailVerified
+                  ? "rounded-full border-none bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200"
+                  : "rounded-full border-none bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200"
+              }
+            >
+              {effectiveEmailVerified ? "Verified" : hasEmail ? "Perlu verifikasi" : "Belum diisi"}
+            </Badge>
+          }
+        />
+
+        <div className="mt-5 grid gap-4">
+          <div className="space-y-2">
+            <Label>Nama owner</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="h-11 rounded-2xl"
+            />
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge className="rounded-full border-none bg-slate-900 text-white dark:bg-white dark:text-slate-950">
-              {sessionUser?.role || "owner"}
-            </Badge>
-            <Badge className="rounded-full border-none bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-200">
-              {tenantName || data.tenant.name || "Tenant"}
-            </Badge>
+          <div className="space-y-2">
+            <Label>Email owner</Label>
+            <Input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              type="email"
+              className="h-11 rounded-2xl"
+            />
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
+            {emailChanged
+              ? "Email baru masih draft. Simpan dulu, lalu kirim verifikasi untuk mengaktifkannya."
+              : effectiveEmailVerified
+                ? "Email ini sudah siap dipakai untuk login manual dan recovery."
+                : hasEmail
+                  ? "Verifikasi email ini dulu supaya forgot password tetap aman."
+                  : "Isi email aktif dulu supaya kamu punya jalur recovery yang rapi."}
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Button
+              onClick={() => void handleSaveIdentity()}
+              disabled={savingIdentity}
+              className="rounded-2xl"
+            >
+              {savingIdentity ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Simpan identitas
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => void handleSendVerification()}
+              disabled={sendingVerify || !hasEmail || emailChanged}
+              className="rounded-2xl"
+            >
+              {sendingVerify ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Mail className="mr-2 h-4 w-4" />
+              )}
+              {emailChanged
+                ? "Simpan email dulu"
+                : effectiveEmailVerified
+                  ? "Kirim ulang verifikasi"
+                  : "Kirim verifikasi"}
+            </Button>
           </div>
         </div>
       </Card>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_400px]">
-        <div className="space-y-4">
-          <Card className="rounded-[1.75rem] border-slate-200/90 p-5 shadow-sm dark:border-white/12 dark:bg-[#0f172a]">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-black text-slate-950 dark:text-white">
-                  Identitas owner
-                </h2>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Email ini dipakai untuk login manual, recovery, dan notifikasi keamanan.
+      <Card className="rounded-3xl border-slate-200/80 p-6 shadow-sm dark:border-white/10 dark:bg-[#0f172a]">
+        <SectionTitle
+          title="Google owner"
+          description="Google dipakai untuk login cepat. Akun yang kamu pilih di popup akan menjadi akun Google owner yang aktif."
+          badge={
+            <Badge className="rounded-full border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
+              {data.auth.google_linked ? "Terhubung" : "Belum terhubung"}
+            </Badge>
+          }
+        />
+
+        <div className="mt-5 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
+          <div className="space-y-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+            {data.auth.google_linked ? (
+              <>
+                <p>
+                  Saat ini Google owner mengikuti email login ini:{" "}
+                  <span className="font-medium text-slate-950 dark:text-white">
+                    {data.user.email}
+                  </span>
+                  .
                 </p>
-              </div>
-              {data.auth.email_verified ? (
-                <Badge className="rounded-full border-none bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200">
-                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                  Verified
-                </Badge>
+                <p>
+                  Kalau kamu ganti akun Google, pilih akun baru di popup. Akun
+                  lama akan diganti, lalu email owner ikut memakai email Google
+                  baru yang sudah verified.
+                </p>
+              </>
+            ) : (
+              <>
+                <p>
+                  Hubungkan Google kalau kamu mau login owner lebih cepat tanpa
+                  meninggalkan email recovery.
+                </p>
+                <p>
+                  Popup Google memang bisa menampilkan beberapa akun browser.
+                  Pilih satu akun yang benar-benar mau dijadikan login owner.
+                </p>
+              </>
+            )}
+          </div>
+
+          <Button asChild className="rounded-2xl">
+            <a href={googleConnectUrl}>
+              {data.auth.google_linked ? "Ganti akun Google" : "Hubungkan Google"}
+              <ArrowRightLeft className="ml-2 h-4 w-4" />
+            </a>
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="rounded-3xl border-slate-200/80 p-6 shadow-sm dark:border-white/10 dark:bg-[#0f172a]">
+        <SectionTitle
+          title="Password dan recovery"
+          description="Kalau owner pertama kali masuk lewat Google, buat password cadangan sekali. Setelah itu kamu bisa ganti password seperti biasa."
+          badge={
+            <Badge className="rounded-full border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
+              {needsPasswordSetup ? "Perlu setup" : "Aktif"}
+            </Badge>
+          }
+        />
+
+        <div className="mt-5 grid gap-4">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
+            {needsPasswordSetup
+              ? "Belum ada password manual. Buat sekali di sini supaya nanti kamu bisa login pakai email dan punya jalur fallback selain Google."
+              : effectiveEmailVerified
+                ? "Kalau lupa password, link reset akan dikirim ke email owner aktif ini."
+                : "Password manual sudah ada. Kalau lupa password, pastikan email owner aktif dan terverifikasi dulu."}
+          </div>
+
+          {!needsPasswordSetup ? (
+            <div className="space-y-2">
+              <Label>Password saat ini</Label>
+              <Input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="h-11 rounded-2xl"
+              />
+            </div>
+          ) : null}
+
+          <div className="space-y-2">
+            <Label>{needsPasswordSetup ? "Password baru" : "Password pengganti"}</Label>
+            <Input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="h-11 rounded-2xl"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Konfirmasi password</Label>
+            <Input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="h-11 rounded-2xl"
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Button
+              onClick={() => void handleSavePassword()}
+              disabled={savingPassword}
+              className="rounded-2xl"
+            >
+              {savingPassword ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <Badge className="rounded-full border-none bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200">
-                  Belum verified
-                </Badge>
+                <KeyRound className="mr-2 h-4 w-4" />
               )}
-            </div>
-
-            <div className="mt-5 grid gap-4">
-              <div className="space-y-2">
-                <Label>Nama owner</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} className="h-11 rounded-xl" />
-              </div>
-              <div className="space-y-2">
-                <Label>Email owner</Label>
-                <Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" className="h-11 rounded-xl" />
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
-                {emailChanged
-                  ? "Email baru masih draft. Simpan dulu, lalu kirim verifikasi untuk mengaktifkan email ini."
-                  : data.auth.email_verified
-                    ? "Email owner sudah terverifikasi dan aman dipakai untuk login serta recovery."
-                    : "Verifikasi email owner dulu supaya forgot password dan recovery tetap aman."}
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Button onClick={() => void handleSaveIdentity()} disabled={savingIdentity} className="rounded-xl">
-                  {savingIdentity ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Simpan identitas
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => void handleSendVerification()}
-                  disabled={sendingVerify || !email.trim() || emailChanged}
-                  className="rounded-xl"
-                >
-                  {sendingVerify ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-                  {data.auth.email_verified && !emailChanged ? "Kirim ulang verifikasi" : "Kirim verifikasi"}
-                </Button>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="rounded-[1.75rem] border-slate-200/90 p-5 shadow-sm dark:border-white/12 dark:bg-[#0f172a]">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-black text-slate-950 dark:text-white">
-                  Password owner
-                </h2>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Owner yang awalnya masuk lewat Google tetap bisa punya password cadangan.
-                </p>
-              </div>
-              <Badge className="rounded-full border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
-                {data.auth.password_setup_required || !data.auth.has_password ? "Perlu setup" : "Aktif"}
-              </Badge>
-            </div>
-
-            <div className="mt-5 grid gap-4">
-              {!data.auth.password_setup_required && data.auth.has_password ? (
-                <div className="space-y-2">
-                  <Label>Password saat ini</Label>
-                  <Input
-                    type="password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    className="h-11 rounded-xl"
-                  />
-                </div>
-              ) : null}
-              <div className="space-y-2">
-                <Label>{data.auth.password_setup_required || !data.auth.has_password ? "Password baru" : "Password pengganti"}</Label>
-                <Input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="h-11 rounded-xl"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Konfirmasi password</Label>
-                <Input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="h-11 rounded-xl"
-                />
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Button onClick={() => void handleSavePassword()} disabled={savingPassword} className="rounded-xl">
-                  {savingPassword ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
-                  {data.auth.password_setup_required || !data.auth.has_password ? "Setup password" : "Ganti password"}
-                </Button>
-                <Button asChild variant="outline" className="rounded-xl">
-                  <a href={forgotPasswordUrl}>Lupa password</a>
-                </Button>
-              </div>
-            </div>
-          </Card>
+              {needsPasswordSetup ? "Setup password pertama" : "Ganti password"}
+            </Button>
+            <Button asChild variant="outline" className="rounded-2xl">
+              <a href={forgotPasswordUrl}>Lupa password</a>
+            </Button>
+          </div>
         </div>
+      </Card>
 
-        <div className="space-y-4">
-          <Card className="rounded-[1.75rem] border-slate-200/90 p-5 shadow-sm dark:border-white/12 dark:bg-[#0f172a]">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-black text-slate-950 dark:text-white">
-                  Google owner
-                </h2>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Semua flow Google dilakukan di domain pusat lalu owner diarahkan balik ke tenant ini.
-                </p>
-              </div>
-              <Badge className="rounded-full border-none bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-200">
-                {data.auth.google_linked ? "Terhubung" : "Belum terhubung"}
-              </Badge>
-            </div>
+      <Card className="rounded-3xl border-rose-200/80 p-6 shadow-sm dark:border-rose-500/20 dark:bg-[#19090b]">
+        <SectionTitle
+          title="Hapus akun owner"
+          description="Ini hanya untuk menutup akses owner aktif. Sistem akan menolak kalau tenant masih punya staff."
+          badge={
+            <Badge className="rounded-full border-none bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-200">
+              Risiko tinggi
+            </Badge>
+          }
+        />
 
-            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
-              <div className="text-sm text-slate-600 dark:text-slate-300">
-                {data.auth.google_linked
-                  ? "Kalau kamu mau ganti akun Google owner, lanjutkan dari pusat lalu pilih akun Google baru."
-                  : "Hubungkan Google supaya login owner lebih cepat dan tetap punya email recovery yang rapi."}
-              </div>
-              <Button asChild className="mt-4 w-full rounded-xl">
-                <a href={googleConnectUrl}>
-                  {data.auth.google_linked ? "Ganti akun Google" : "Hubungkan Google"}
-                  <ArrowRightLeft className="ml-2 h-4 w-4" />
-                </a>
-              </Button>
-            </div>
-          </Card>
+        <div className="mt-5 grid gap-4">
+          <div className="space-y-2">
+            <Label>Ketik slug tenant</Label>
+            <Input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder={tenantSlug || "slug-tenant"}
+              className="h-11 rounded-2xl"
+            />
+          </div>
 
-          <Card className="rounded-[1.75rem] border-rose-200/80 p-5 shadow-sm dark:border-rose-500/20 dark:bg-[#19090b]">
-            <div className="flex items-start gap-3">
-              <div className="rounded-2xl bg-rose-50 p-3 text-rose-600 dark:bg-rose-500/10 dark:text-rose-200">
-                <ShieldAlert className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-lg font-black text-slate-950 dark:text-white">
-                  Hapus akun owner
-                </h2>
-                <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                  Flow ini menghapus akses owner aktif. Demi keamanan operasional, sistem akan menolak penghapusan kalau tenant masih punya staff.
-                </p>
-              </div>
+          {!needsPasswordSetup ? (
+            <div className="space-y-2">
+              <Label>Password owner saat ini</Label>
+              <Input
+                type="password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                className="h-11 rounded-2xl"
+              />
             </div>
+          ) : null}
 
-            <div className="mt-5 grid gap-4">
-              <div className="space-y-2">
-                <Label>Ketik slug tenant untuk konfirmasi</Label>
-                <Input
-                  value={deleteConfirmText}
-                  onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  placeholder={tenantSlug || "slug-tenant"}
-                  className="h-11 rounded-xl"
-                />
-              </div>
-              {!data.auth.password_setup_required && data.auth.has_password ? (
-                <div className="space-y-2">
-                  <Label>Password owner saat ini</Label>
-                  <Input
-                    type="password"
-                    value={deletePassword}
-                    onChange={(e) => setDeletePassword(e.target.value)}
-                    className="h-11 rounded-xl"
-                  />
-                </div>
-              ) : null}
-              <Button
-                variant="destructive"
-                onClick={() => void handleDeleteAccount()}
-                disabled={deleting}
-                className="rounded-xl"
-              >
-                {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                Hapus akun owner
-              </Button>
-            </div>
-          </Card>
+          <Button
+            variant="destructive"
+            onClick={() => void handleDeleteAccount()}
+            disabled={deleting}
+            className="rounded-2xl"
+          >
+            {deleting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="mr-2 h-4 w-4" />
+            )}
+            Hapus akun owner
+          </Button>
+
+          <div className="flex items-start gap-2 rounded-2xl border border-rose-200/70 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+            Setelah akun owner dihapus, sesi ini ditutup dan kamu harus menyiapkan
+            owner baru lewat jalur yang aman.
+          </div>
         </div>
-      </section>
+      </Card>
     </div>
   );
 }
