@@ -34,7 +34,7 @@ import {
   primeCustomerPortalCache,
 } from "@/lib/customer-portal-cache";
 import { useRealtime } from "@/lib/realtime/use-realtime";
-import { customerOrdersChannel } from "@/lib/realtime/channels";
+import { customerBookingsChannel, customerOrdersChannel } from "@/lib/realtime/channels";
 import { BOOKING_EVENT_PREFIXES, matchesRealtimePrefix } from "@/lib/realtime/event-types";
 
 const REALTIME_REFRESH_THROTTLE_MS = 1200;
@@ -82,7 +82,7 @@ export default function UserActiveBookingsPage() {
 
   useRealtime({
     enabled: Boolean(customerID),
-    channels: customerID ? [customerOrdersChannel(customerID)] : [],
+    channels: customerID ? [customerBookingsChannel(customerID), customerOrdersChannel(customerID)] : [],
     onEvent: (event) => {
       if (!matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) return;
       const now = Date.now();
@@ -161,10 +161,10 @@ export default function UserActiveBookingsPage() {
         <section className="space-y-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-600 dark:text-emerald-300">
-              Order
+              Order Langsung
             </p>
             <h2 className="mt-1 text-base font-semibold tracking-tight text-slate-950 dark:text-white">
-              Order aktif
+              Order yang masih perlu aksi
             </h2>
           </div>
           <div className="space-y-3">

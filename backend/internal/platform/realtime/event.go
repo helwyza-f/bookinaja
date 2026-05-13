@@ -40,6 +40,10 @@ func TenantDashboardChannel(tenantID string) string {
 	return "tenant:" + tenantID + ":dashboard"
 }
 
+func TenantOrdersChannel(tenantID string) string {
+	return "tenant:" + tenantID + ":orders"
+}
+
 func TenantDevicesChannel(tenantID string) string {
 	return "tenant:" + tenantID + ":devices"
 }
@@ -50,6 +54,10 @@ func TenantDeviceChannel(tenantID, deviceID string) string {
 
 func CustomerBookingChannel(customerID, bookingID string) string {
 	return "customer:" + customerID + ":booking:" + bookingID
+}
+
+func CustomerBookingsChannel(customerID string) string {
+	return "customer:" + customerID + ":bookings"
 }
 
 func CustomerOrdersChannel(customerID string) string {

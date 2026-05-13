@@ -667,7 +667,7 @@ func (s *Service) emitOrderRealtime(eventType string, order *Order, meta map[str
 	if s.customerSvc != nil && order.CustomerID != nil {
 		s.customerSvc.InvalidatePortalCache(context.Background(), *order.CustomerID)
 	}
-	if s.realtime == nil || order.CustomerID == nil {
+	if s.realtime == nil {
 		return
 	}
 
@@ -684,16 +684,24 @@ func (s *Service) emitOrderRealtime(eventType string, order *Order, meta map[str
 		"balance_due":    order.BalanceDue,
 	}
 	event.Refs = map[string]any{
-		"order_id":    order.ID.String(),
-		"customer_id": order.CustomerID.String(),
+		"order_id": order.ID.String(),
+	}
+	if order.CustomerID != nil {
+		event.Refs["customer_id"] = order.CustomerID.String()
 	}
 	if len(meta) > 0 {
 		event.Meta = meta
 	}
 
-	customerID := order.CustomerID.String()
-	_ = s.realtime.Publish(platformrealtime.CustomerOrdersChannel(customerID), event)
-	_ = s.realtime.Publish(platformrealtime.CustomerOrderChannel(customerID, order.ID.String()), event)
+	tenantID := order.TenantID.String()
+	_ = s.realtime.Publish(platformrealtime.TenantOrdersChannel(tenantID), event)
+	_ = s.realtime.Publish(platformrealtime.TenantDashboardChannel(tenantID), event)
+
+	if order.CustomerID != nil {
+		customerID := order.CustomerID.String()
+		_ = s.realtime.Publish(platformrealtime.CustomerOrdersChannel(customerID), event)
+		_ = s.realtime.Publish(platformrealtime.CustomerOrderChannel(customerID, order.ID.String()), event)
+	}
 }
 
 func (s *Service) listTenantPaymentMethods(ctx context.Context, tenantID uuid.UUID) ([]OrderPaymentMethod, error) {

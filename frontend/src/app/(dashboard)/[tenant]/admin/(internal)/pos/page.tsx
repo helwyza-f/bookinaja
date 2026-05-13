@@ -36,6 +36,7 @@ import { useRealtime } from "@/lib/realtime/use-realtime";
 import {
   tenantBookingsChannel,
   tenantDashboardChannel,
+  tenantOrdersChannel,
 } from "@/lib/realtime/channels";
 import {
   BOOKING_EVENT_PREFIXES,
@@ -628,7 +629,11 @@ export default function POSPage() {
   const { connected: realtimeConnected, status: realtimeStatus } = useRealtime({
     enabled: Boolean(tenantId),
     channels: tenantId
-      ? [tenantBookingsChannel(tenantId), tenantDashboardChannel(tenantId)]
+      ? [
+          tenantBookingsChannel(tenantId),
+          tenantOrdersChannel(tenantId),
+          tenantDashboardChannel(tenantId),
+        ]
       : [],
     onEvent: (event) => {
       if (!matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) return;
@@ -636,7 +641,32 @@ export default function POSPage() {
       if (selectedAction) {
         void refreshSelectedAction(selectedAction.kind, selectedAction.data.id);
       }
+      const orderId = String(event.refs?.order_id || "");
       const bookingId = String(event.refs?.booking_id || "");
+      if (
+        selectedAction?.kind === "sales_order" &&
+        orderId &&
+        orderId === selectedAction.data.id
+      ) {
+        const eventKey = `${event.type}:${orderId}:${event.occurred_at || ""}`;
+        if (lastRealtimeToastRef.current !== eventKey) {
+          lastRealtimeToastRef.current = eventKey;
+          if (event.type === "order.created") {
+            toast.success("Order langsung berhasil dibuat");
+          } else if (event.type === "payment.awaiting_verification") {
+            toast.message("Pembayaran order menunggu verifikasi admin");
+          } else if (
+            event.type === "payment.cash.settled" ||
+            event.type === "payment.gateway.paid" ||
+            event.type === "payment.manual.verified"
+          ) {
+            toast.success("Pembayaran order sudah diterima");
+          } else if (event.type === "order.completed") {
+            toast.success("Order langsung sudah ditutup");
+          }
+        }
+        return;
+      }
       if (!selectedAction || selectedAction.kind !== "booking" || bookingId !== selectedAction.data.id) {
         return;
       }

@@ -701,6 +701,7 @@ func (s *Service) emitBookingRealtime(ctx context.Context, eventType string, boo
 	_ = s.realtime.Publish(platformrealtime.TenantBookingChannel(booking.TenantID.String(), booking.ID.String()), event)
 	_ = s.realtime.Publish(platformrealtime.TenantDashboardChannel(booking.TenantID.String()), event)
 	if booking.CustomerID != uuid.Nil {
+		_ = s.realtime.Publish(platformrealtime.CustomerBookingsChannel(booking.CustomerID.String()), event)
 		_ = s.realtime.Publish(platformrealtime.CustomerBookingChannel(booking.CustomerID.String(), booking.ID.String()), event)
 	}
 	_ = ctx

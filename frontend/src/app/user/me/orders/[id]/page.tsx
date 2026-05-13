@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowRight, BadgeCheck, ReceiptText } from "lucide-react";
+import { ArrowRight, BadgeCheck, CircleDashed, ReceiptText, WalletCards } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -127,9 +127,10 @@ export default function CustomerOrderDetailPage() {
   const latestAttempt = useMemo(() => order?.payment_attempts?.[0], [order?.payment_attempts]);
   const actionLabel = isPaid
     ? "Detail bayar"
-    : statusMeta.label === "Menunggu cek" || statusMeta.label === "Diproses"
+    : statusMeta.label === "Menunggu verifikasi" || statusMeta.label === "Diproses"
       ? "Cek bayar"
       : "Bayar";
+  const currentStep = isPaid ? 3 : statusMeta.label === "Menunggu verifikasi" || statusMeta.label === "Diproses" ? 2 : 1;
 
   if (loading) {
     return (
@@ -147,7 +148,7 @@ export default function CustomerOrderDetailPage() {
       <Card className="rounded-[1.5rem] border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-[#0b0f19]">
         <div className="flex flex-wrap items-center gap-2">
           <Badge className="border-none bg-slate-950 text-white dark:bg-white dark:text-slate-950">
-            Order
+            Direct Sale
           </Badge>
           <Badge className={statusMeta.className}>
             {statusMeta.label}
@@ -160,7 +161,7 @@ export default function CustomerOrderDetailPage() {
               {order.resource_name}
             </div>
             <h1 className="mt-2 text-3xl font-black uppercase italic tracking-tight text-slate-950 dark:text-white">
-              Detail order
+              Ringkasan order
             </h1>
             <div className="mt-2 text-xs text-slate-400 dark:text-slate-500">
               {realtimeConnected ? "Realtime aktif" : refreshing ? "Memuat ulang..." : "Auto update aktif"}
@@ -174,6 +175,35 @@ export default function CustomerOrderDetailPage() {
               Rp{Number(order.grand_total || 0).toLocaleString("id-ID")}
             </div>
           </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <PortalStepCard
+            title="Order dibuat"
+            description="Produk dan jumlah sudah tercatat."
+            done
+            active={currentStep === 1}
+          />
+          <PortalStepCard
+            title="Pembayaran"
+            description={
+              isPaid
+                ? "Pembayaran sudah selesai."
+                : statusMeta.label === "Menunggu verifikasi"
+                  ? "Bukti bayar sedang dicek."
+                  : statusMeta.label === "Diproses"
+                    ? "Pembayaran sedang diproses."
+                    : "Customer masih perlu menyelesaikan pembayaran."
+            }
+            done={currentStep > 2}
+            active={currentStep === 2}
+          />
+          <PortalStepCard
+            title="Selesai"
+            description="Order akan dianggap selesai setelah pembayarannya beres."
+            done={currentStep === 3}
+            active={false}
+          />
         </div>
       </Card>
 
@@ -226,6 +256,34 @@ export default function CustomerOrderDetailPage() {
           ))}
         </div>
 
+        <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="flex items-start gap-3">
+            <div className="rounded-full bg-slate-950 p-2 text-white dark:bg-white dark:text-slate-950">
+              {isPaid ? <BadgeCheck className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                {isPaid
+                  ? "Order sudah beres"
+                  : statusMeta.label === "Menunggu verifikasi"
+                    ? "Tinggal tunggu verifikasi"
+                    : statusMeta.label === "Diproses"
+                      ? "Pembayaran sedang dipantau"
+                      : "Langkah berikutnya: bayar order"}
+              </div>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                {isPaid
+                  ? "Kamu tetap bisa buka detail pembayaran kapan saja dari sini."
+                  : statusMeta.label === "Menunggu verifikasi"
+                    ? "Admin akan mengecek bukti bayar yang sudah dikirim."
+                    : statusMeta.label === "Diproses"
+                      ? "Tunggu update otomatis dari gateway atau halaman pembayaran."
+                      : "Masuk ke halaman pembayaran untuk pilih metode dan selesaikan order."}
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="mt-5 flex flex-wrap gap-3">
           <Button
             onClick={() => router.push(`/user/me/orders/${params.id}/payment`)}
@@ -240,6 +298,48 @@ export default function CustomerOrderDetailPage() {
           </Button>
         </div>
       </Card>
+    </div>
+  );
+}
+
+function PortalStepCard({
+  title,
+  description,
+  done,
+  active,
+}: {
+  title: string;
+  description: string;
+  done?: boolean;
+  active?: boolean;
+}) {
+  return (
+    <div
+      className={
+        done
+          ? "rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/10"
+          : active
+            ? "rounded-2xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/10"
+            : "rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]"
+      }
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className={
+            done
+              ? "rounded-full bg-emerald-600 p-2 text-white"
+              : active
+                ? "rounded-full bg-blue-600 p-2 text-white"
+                : "rounded-full bg-slate-300 p-2 text-slate-700 dark:bg-white/10 dark:text-slate-200"
+          }
+        >
+          {done ? <BadgeCheck className="h-4 w-4" /> : <CircleDashed className="h-4 w-4" />}
+        </div>
+        <div>
+          <div className="text-sm font-semibold text-slate-950 dark:text-white">{title}</div>
+          <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">{description}</p>
+        </div>
+      </div>
     </div>
   );
 }

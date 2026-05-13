@@ -22,7 +22,7 @@ import {
   primeCustomerPortalCache,
 } from "@/lib/customer-portal-cache";
 import { useRealtime } from "@/lib/realtime/use-realtime";
-import { customerOrdersChannel } from "@/lib/realtime/channels";
+import { customerBookingsChannel, customerOrdersChannel } from "@/lib/realtime/channels";
 import { BOOKING_EVENT_PREFIXES, matchesRealtimePrefix } from "@/lib/realtime/event-types";
 
 const REALTIME_REFRESH_THROTTLE_MS = 1200;
@@ -69,7 +69,7 @@ export default function UserHistoryPage() {
 
   useRealtime({
     enabled: Boolean(customerID),
-    channels: customerID ? [customerOrdersChannel(customerID)] : [],
+    channels: customerID ? [customerBookingsChannel(customerID), customerOrdersChannel(customerID)] : [],
     onEvent: (event) => {
       if (!matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) return;
       const now = Date.now();
@@ -112,7 +112,7 @@ export default function UserHistoryPage() {
         {orders.length ? (
           <section className="space-y-2">
             <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-600 dark:text-emerald-300">
-              Order
+              Order Langsung
             </div>
             {orders.map((order) => {
               const statusMeta = getOrderStatusMeta(order.status, order.payment_status, order.balance_due);
@@ -132,7 +132,7 @@ export default function UserHistoryPage() {
                       </span>
                     </div>
                     <div className="mt-2 truncate text-sm font-semibold text-slate-950 dark:text-white">
-                      {order.resource || "Order"}
+                      {order.resource || "Order langsung"}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-3 text-[11px] font-medium text-slate-500 dark:text-slate-400">
                       <span className="flex items-center gap-1">

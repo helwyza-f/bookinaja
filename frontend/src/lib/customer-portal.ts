@@ -62,9 +62,9 @@ export function getOrderStatusMeta(status?: string, paymentStatus?: string, bala
 
   if (payment === "awaiting_verification" || payment === "submitted") {
     return {
-      label: "Menunggu cek",
+      label: "Menunggu verifikasi",
       className: "rounded-full border-none bg-amber-500 text-white",
-      hint: "Bukti bayar sedang dicek admin.",
+      hint: "Bukti bayar sedang diperiksa admin.",
     };
   }
   if (payment === "settled" || payment === "paid" || (flow === "completed" && due <= 0)) {
@@ -96,12 +96,12 @@ export function getOrderStatusMeta(status?: string, paymentStatus?: string, bala
     return {
       label: "Diproses",
       className: "rounded-full border-none bg-blue-600 text-white",
-      hint: "Pembayaran sedang diproses.",
+      hint: "Pembayaran sedang diproses oleh gateway.",
     };
   }
   if (payment === "unpaid" || flow === "open") {
     return {
-      label: "Belum bayar",
+      label: "Belum dibayar",
       className: "rounded-full border-none bg-slate-900 text-white dark:bg-white/15",
       hint: "Order sudah dibuat, tinggal bayar.",
     };

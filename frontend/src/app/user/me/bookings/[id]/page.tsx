@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import api from "@/lib/api";
 import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
 import { getTenantUrl } from "@/lib/tenant";
+import { useRealtime } from "@/lib/realtime/use-realtime";
+import { customerBookingChannel } from "@/lib/realtime/channels";
+import { BOOKING_EVENT_PREFIXES, matchesRealtimePrefix } from "@/lib/realtime/event-types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,12 +16,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft,
   ArrowRight,
+  BadgeCheck,
   CalendarDays,
+  CircleDashed,
   Clock3,
   ExternalLink,
   ReceiptText,
   Wallet,
 } from "lucide-react";
+
+const REALTIME_REFRESH_THROTTLE_MS = 1200;
 
 function paymentStatusMeta(status?: string) {
   const normalized = String(status || "").toLowerCase();
@@ -78,32 +85,72 @@ export default function UserBookingDetailPage() {
   const router = useRouter();
   const [booking, setBooking] = useState<BookingDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const lastBackgroundRefreshRef = useRef(0);
 
-  useEffect(() => {
+  const fetchDetail = useCallback(async (mode: "initial" | "background" = "initial") => {
     let active = true;
-
-    const load = async () => {
-      try {
-        const res = await api.get(`/user/me/bookings/${params.id}`);
-        if (active) setBooking(res.data);
-      } catch (error) {
-        if (isTenantAuthError(error)) {
-          clearTenantSession({ keepTenantSlug: true });
-        }
-        router.replace("/user/login");
-      } finally {
-        if (active) setLoading(false);
+    try {
+      if (mode === "background") setRefreshing(true);
+      const res = await api.get(`/user/me/bookings/${params.id}`);
+      if (active) setBooking(res.data);
+    } catch (error) {
+      if (isTenantAuthError(error)) {
+        clearTenantSession({ keepTenantSlug: true });
       }
-    };
-
-    if (params.id) {
-      void load();
+      router.replace("/user/login");
+    } finally {
+      if (active) {
+        if (mode === "background") setRefreshing(false);
+        else setLoading(false);
+      }
     }
-
     return () => {
       active = false;
     };
   }, [params.id, router]);
+
+  useEffect(() => {
+    if (params.id) {
+      void fetchDetail("initial");
+    }
+  }, [fetchDetail, params.id]);
+
+  const customerID = String(booking?.customer_id || "");
+  useRealtime({
+    enabled: Boolean(customerID && params.id),
+    channels:
+      customerID && params.id
+        ? [customerBookingChannel(customerID, String(params.id))]
+        : [],
+    onEvent: (event) => {
+      if (!matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) return;
+      setBooking((current) =>
+        current
+          ? {
+              ...current,
+              status: String(event.summary?.status ?? current.status ?? ""),
+              payment_status: String(event.summary?.payment_status ?? current.payment_status ?? ""),
+              grand_total:
+                typeof event.summary?.grand_total === "number"
+                  ? Number(event.summary.grand_total)
+                  : current.grand_total,
+              balance_due:
+                typeof event.summary?.balance_due === "number"
+                  ? Number(event.summary.balance_due)
+                  : current.balance_due,
+            }
+          : current,
+      );
+      const now = Date.now();
+      if (now - lastBackgroundRefreshRef.current < REALTIME_REFRESH_THROTTLE_MS) return;
+      lastBackgroundRefreshRef.current = now;
+      void fetchDetail("background");
+    },
+    onReconnect: () => {
+      void fetchDetail("background");
+    },
+  });
 
   const tenantUrl = useMemo(() => {
     if (!booking?.tenant_slug) return null;
@@ -118,6 +165,7 @@ export default function UserBookingDetailPage() {
   const paymentMeta = paymentStatusMeta(booking?.payment_status);
   const sessionLabel = sessionMeta(booking?.status);
   const nextStep = resolveNextStep(booking);
+  const bookingStep = resolveBookingStep(booking);
   const hasPromo =
     Number(booking?.discount_amount || 0) > 0 &&
     String(booking?.promo_code || "").trim() !== "";
@@ -180,6 +228,9 @@ export default function UserBookingDetailPage() {
               </p>
               <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                 Ref {String(booking.id || "").slice(0, 8).toUpperCase()}
+              </p>
+              <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                {refreshing ? "Memuat ulang status..." : "Auto update aktif"}
               </p>
             </div>
             <div className="flex flex-col items-end gap-2">
@@ -264,6 +315,39 @@ export default function UserBookingDetailPage() {
             </p>
           </div>
 
+          <div className="grid gap-3 md:grid-cols-3">
+            <BookingStepCard
+              title="Booking dibuat"
+              description="Jadwal dan resource sudah tercatat."
+              done
+              active={bookingStep === 1}
+            />
+            <BookingStepCard
+              title="Pembayaran"
+              description={
+                paymentMeta.label === "Lunas" || paymentMeta.label === "DP Sudah Masuk"
+                  ? "Pembayaran awal sudah tercatat."
+                  : paymentMeta.label === "Menunggu Verifikasi"
+                    ? "Bukti bayar sedang dicek."
+                    : "Selesaikan pembayaran sesuai tahap booking."
+              }
+              done={bookingStep > 2}
+              active={bookingStep === 2}
+            />
+            <BookingStepCard
+              title="Sesi"
+              description={
+                sessionLabel.label === "Sesi Berjalan"
+                  ? "Booking sedang dipakai."
+                  : sessionLabel.label === "Sesi Selesai"
+                    ? "Booking sudah selesai."
+                    : "Masuk ke live page saat waktunya tiba."
+              }
+              done={bookingStep === 3 && sessionLabel.label === "Sesi Selesai"}
+              active={bookingStep === 3}
+            />
+          </div>
+
           <div className="rounded-[1.25rem] border border-blue-100 bg-blue-50 p-3.5 dark:border-blue-500/20 dark:bg-blue-500/10">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
               Bayar
@@ -322,6 +406,7 @@ function InfoBox({
 
 type BookingDetail = {
   id?: string;
+  customer_id?: string;
   tenant_name?: string;
   tenant_slug?: string;
   access_token?: string;
@@ -369,6 +454,71 @@ function sessionMeta(status?: string) {
     label: "Menunggu",
     className: "rounded-full bg-amber-500 text-white",
   };
+}
+
+function resolveBookingStep(booking: BookingDetail | null) {
+  if (!booking) return 1;
+  const paymentStatus = String(booking.payment_status || "").toLowerCase();
+  const status = String(booking.status || "").toLowerCase();
+  const depositAmount = Number(booking.deposit_amount || 0);
+  const balanceDue = Number(booking.balance_due || 0);
+
+  if (status === "active" || status === "ongoing" || status === "completed") {
+    return 3;
+  }
+  if (
+    paymentStatus === "awaiting_verification" ||
+    paymentStatus === "partial_paid" ||
+    paymentStatus === "settled" ||
+    paymentStatus === "paid" ||
+    (depositAmount > 0 && paymentStatus !== "pending") ||
+    balanceDue <= 0
+  ) {
+    return 2;
+  }
+  return 1;
+}
+
+function BookingStepCard({
+  title,
+  description,
+  done,
+  active,
+}: {
+  title: string;
+  description: string;
+  done?: boolean;
+  active?: boolean;
+}) {
+  return (
+    <div
+      className={
+        done
+          ? "rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/10"
+          : active
+            ? "rounded-2xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/10"
+            : "rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]"
+      }
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className={
+            done
+              ? "rounded-full bg-emerald-600 p-2 text-white"
+              : active
+                ? "rounded-full bg-blue-600 p-2 text-white"
+                : "rounded-full bg-slate-300 p-2 text-slate-700 dark:bg-white/10 dark:text-slate-200"
+          }
+        >
+          {done ? <BadgeCheck className="h-4 w-4" /> : <CircleDashed className="h-4 w-4" />}
+        </div>
+        <div>
+          <div className="text-sm font-semibold text-slate-950 dark:text-white">{title}</div>
+          <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">{description}</p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function resolveNextStep(booking: BookingDetail | null) {

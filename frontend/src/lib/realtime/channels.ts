@@ -10,6 +10,10 @@ export function tenantDashboardChannel(tenantId: string) {
   return `tenant:${tenantId}:dashboard`;
 }
 
+export function tenantOrdersChannel(tenantId: string) {
+  return `tenant:${tenantId}:orders`;
+}
+
 export function tenantDevicesChannel(tenantId: string) {
   return `tenant:${tenantId}:devices`;
 }
@@ -20,6 +24,10 @@ export function tenantDeviceChannel(tenantId: string, deviceId: string) {
 
 export function customerBookingChannel(customerId: string, bookingId: string) {
   return `customer:${customerId}:booking:${bookingId}`;
+}
+
+export function customerBookingsChannel(customerId: string) {
+  return `customer:${customerId}:bookings`;
 }
 
 export function customerOrdersChannel(customerId: string) {

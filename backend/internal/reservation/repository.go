@@ -366,15 +366,15 @@ func (r *Repository) CreateWithItems(ctx context.Context, b Booking, itemIDs []u
 	}
 	if redemption != nil {
 		_, err = tx.ExecContext(ctx, `
-			INSERT INTO tenant_promo_redemptions (
-				id, promo_id, tenant_id, booking_id, customer_id, promo_code, discount_amount,
-				original_amount, final_amount, snapshot, status, redeemed_at, created_at
-			) VALUES (
-				$1, $2, $3, $4, $5, $6, $7,
-				$8, $9, $10, $11,
-				CASE WHEN $11 = 'redeemed' THEN NOW() ELSE NULL END,
-				NOW()
-			)`,
+				INSERT INTO tenant_promo_redemptions (
+					id, promo_id, tenant_id, booking_id, customer_id, promo_code, discount_amount,
+					original_amount, final_amount, snapshot, status, redeemed_at, created_at
+				) VALUES (
+					$1, $2, $3, $4, $5, $6, $7,
+					$8, $9, $10, $11::varchar(20),
+					NOW(),
+					NOW()
+				)`,
 			uuid.New(),
 			redemption.PromoID,
 			b.TenantID,

@@ -57,7 +57,7 @@ import {
   primeCustomerPortalCache,
 } from "@/lib/customer-portal-cache";
 import { useRealtime } from "@/lib/realtime/use-realtime";
-import { customerOrdersChannel } from "@/lib/realtime/channels";
+import { customerBookingsChannel, customerOrdersChannel } from "@/lib/realtime/channels";
 import { BOOKING_EVENT_PREFIXES, matchesRealtimePrefix } from "@/lib/realtime/event-types";
 
 type CustomerDashboard = {
@@ -149,7 +149,10 @@ export default function UserDashboardPage() {
     enabled: Boolean(data?.customer_id || data?.customer?.id),
     channels:
       data?.customer_id || data?.customer?.id
-        ? [customerOrdersChannel(String(data?.customer_id || data?.customer?.id || ""))]
+        ? [
+            customerBookingsChannel(String(data?.customer_id || data?.customer?.id || "")),
+            customerOrdersChannel(String(data?.customer_id || data?.customer?.id || "")),
+          ]
         : [],
     onEvent: (event) => {
       if (!matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) return;
@@ -285,7 +288,7 @@ export default function UserDashboardPage() {
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <QuickLink href="/user/me/active" label="Booking Aktif" icon={PlayCircle} />
+          <QuickLink href="/user/me/active" label="Transaksi Aktif" icon={PlayCircle} />
           <QuickLink href="/user/me/history" label="Riwayat" icon={History} />
           <QuickLink href="/user/me/settings" label="Profil" icon={UserCircle2} />
           <QuickLink href="/user/me/settings?sheet=password" label="Keamanan" icon={ShieldCheck} />
@@ -294,14 +297,14 @@ export default function UserDashboardPage() {
 
       <section className="space-y-3">
         <div className="flex items-end justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
-              Lanjutkan
-            </p>
-            <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
-              Booking aktif kamu
-            </h2>
-          </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
+                Booking Timed
+              </p>
+              <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
+                Sesi booking yang masih aktif
+              </h2>
+            </div>
           {activeBookings.length ? (
             <Button asChild variant="ghost" className="h-10 rounded-2xl px-3">
               <Link href="/user/me/active">Lihat semua</Link>
@@ -354,10 +357,10 @@ export default function UserDashboardPage() {
           <div className="flex items-end justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-600 dark:text-emerald-300">
-                Order
+                Order Langsung
               </p>
               <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
-                Order aktif
+                Produk yang masih perlu dilanjutkan
               </h2>
             </div>
           </div>
@@ -383,7 +386,7 @@ export default function UserDashboardPage() {
                       {order.resource || "Order"}
                     </div>
                     <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      {getOrderStatusMeta(order.status, order.payment_status, order.balance_due).hint || "Lanjutkan order ini."}
+                      {getOrderStatusMeta(order.status, order.payment_status, order.balance_due).hint || "Lanjutkan pembayaran atau cek status order ini."}
                     </div>
                   </div>
                   <div className="text-right">

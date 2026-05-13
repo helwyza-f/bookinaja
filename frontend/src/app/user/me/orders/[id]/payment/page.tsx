@@ -4,7 +4,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Script from "next/script";
-import { ArrowLeft, Landmark, Loader2, QrCode, Upload, Wallet } from "lucide-react";
+import {
+  ArrowLeft,
+  BadgeCheck,
+  CircleDashed,
+  Landmark,
+  Loader2,
+  QrCode,
+  ScanSearch,
+  Upload,
+  Wallet,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -177,10 +187,11 @@ export default function CustomerOrderPaymentPage() {
   );
   const latestAttempt = useMemo(() => (order?.payment_attempts || [])[0], [order?.payment_attempts]);
   const isPaid = amount <= 0 || statusMeta.label === "Lunas";
-  const isUnderReview = statusMeta.label === "Menunggu cek";
+  const isUnderReview = statusMeta.label === "Menunggu verifikasi";
   const isProcessing = statusMeta.label === "Diproses";
   const canSubmitNewPayment =
     !isPaid && !isUnderReview && !isProcessing && !pendingManualAttempt && amount > 0;
+  const paymentStep = isPaid ? 3 : isUnderReview || isProcessing ? 2 : 1;
 
   const uploadManualProof = async (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -326,7 +337,7 @@ export default function CustomerOrderPaymentPage() {
       <Card className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge className="border-none bg-slate-950 text-white dark:bg-white dark:text-slate-950">Order</Badge>
+            <Badge className="border-none bg-slate-950 text-white dark:bg-white dark:text-slate-950">Direct Sale</Badge>
             <Badge className={statusMeta.className}>
               {statusMeta.label}
             </Badge>
@@ -336,16 +347,16 @@ export default function CustomerOrderPaymentPage() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                 {order.resource_name}
               </p>
-            <h1 className="mt-2 text-3xl font-black uppercase italic tracking-tighter text-slate-950 dark:text-white">
-              Bayar order
-            </h1>
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              {statusMeta.hint || "Selesaikan pembayaran order ini."}
-            </p>
-            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-              {refreshing ? "Memuat ulang status..." : "Auto update aktif"}
-            </p>
-          </div>
+              <h1 className="mt-2 text-3xl font-black uppercase italic tracking-tighter text-slate-950 dark:text-white">
+                Pembayaran order
+              </h1>
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                {statusMeta.hint || "Selesaikan pembayaran order ini."}
+              </p>
+              <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                {refreshing ? "Memuat ulang status..." : "Auto update aktif"}
+              </p>
+            </div>
             <div className="text-right">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                 Sisa tagihan
@@ -354,6 +365,35 @@ export default function CustomerOrderPaymentPage() {
                 Rp{amount.toLocaleString("id-ID")}
               </div>
             </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <PaymentStepCard
+              title="Order dibuat"
+              description="Produk sudah dipilih dan order berhasil dibuat."
+              done
+              active={paymentStep === 1}
+            />
+            <PaymentStepCard
+              title="Pembayaran"
+              description={
+                isPaid
+                  ? "Tagihan sudah beres."
+                  : isUnderReview
+                    ? "Bukti bayar sedang dicek."
+                    : isProcessing
+                      ? "Pembayaran sedang diproses."
+                      : "Pilih metode dan selesaikan tagihan."
+              }
+              done={paymentStep > 2}
+              active={paymentStep === 2}
+            />
+            <PaymentStepCard
+              title="Selesai"
+              description="Order akan masuk ke riwayat setelah pembayarannya selesai."
+              done={paymentStep === 3}
+              active={false}
+            />
           </div>
         </div>
       </Card>
@@ -446,8 +486,70 @@ export default function CustomerOrderPaymentPage() {
         </div>
       </Card>
 
-      {canSubmitNewPayment ? (
+      {isPaid ? (
+        <Card className="rounded-[1.5rem] border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+          <div className="flex items-start gap-3">
+            <div className="rounded-full bg-emerald-600 p-2 text-white">
+              <BadgeCheck className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                Pembayaran sudah selesai
+              </div>
+              <p className="mt-1 text-sm text-emerald-800/80 dark:text-emerald-100/80">
+                Tidak ada tagihan tersisa. Kamu bisa kembali ke detail order atau portal customer.
+              </p>
+            </div>
+          </div>
+        </Card>
+      ) : isUnderReview ? (
+        <Card className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5 dark:border-amber-500/20 dark:bg-amber-500/10">
+          <div className="flex items-start gap-3">
+            <div className="rounded-full bg-amber-500 p-2 text-white">
+              <ScanSearch className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                Bukti bayar sedang dicek admin
+              </div>
+              <p className="mt-1 text-sm text-amber-800/80 dark:text-amber-100/80">
+                Tidak perlu kirim ulang pembayaran sekarang. Tunggu verifikasi admin, lalu status order akan ter-update otomatis.
+              </p>
+            </div>
+          </div>
+        </Card>
+      ) : isProcessing ? (
+        <Card className="rounded-[1.5rem] border border-blue-200 bg-blue-50 p-5 dark:border-blue-500/20 dark:bg-blue-500/10">
+          <div className="flex items-start gap-3">
+            <div className="rounded-full bg-blue-600 p-2 text-white">
+              <Loader2 className="h-4 w-4 animate-spin" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                Pembayaran sedang diproses
+              </div>
+              <p className="mt-1 text-sm text-blue-800/80 dark:text-blue-100/80">
+                Tunggu konfirmasi dari gateway atau refresh halaman ini beberapa saat lagi.
+              </p>
+            </div>
+          </div>
+        </Card>
+      ) : canSubmitNewPayment ? (
         <>
+          <Card className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
+            <div className="space-y-1">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                Langkah 2
+              </p>
+              <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
+                Pilih metode pembayaran
+              </h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Gunakan metode yang paling nyaman. Untuk pembayaran manual, bukti bayar bisa dikirim dari sini juga.
+              </p>
+            </div>
+          </Card>
+
           <div className="grid gap-3">
             {paymentMethods.map((method) => {
               const Icon = IconForMethod(method.code);
@@ -527,6 +629,48 @@ export default function CustomerOrderPaymentPage() {
           </Button>
         </>
       ) : null}
+    </div>
+  );
+}
+
+function PaymentStepCard({
+  title,
+  description,
+  done,
+  active,
+}: {
+  title: string;
+  description: string;
+  done?: boolean;
+  active?: boolean;
+}) {
+  return (
+    <div
+      className={
+        done
+          ? "rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/10"
+          : active
+            ? "rounded-2xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/10"
+            : "rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]"
+      }
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className={
+            done
+              ? "rounded-full bg-emerald-600 p-2 text-white"
+              : active
+                ? "rounded-full bg-blue-600 p-2 text-white"
+                : "rounded-full bg-slate-300 p-2 text-slate-700 dark:bg-white/10 dark:text-slate-200"
+          }
+        >
+          {done ? <BadgeCheck className="h-4 w-4" /> : <CircleDashed className="h-4 w-4" />}
+        </div>
+        <div>
+          <div className="text-sm font-semibold text-slate-950 dark:text-white">{title}</div>
+          <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">{description}</p>
+        </div>
+      </div>
     </div>
   );
 }

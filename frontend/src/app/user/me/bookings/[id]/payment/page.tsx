@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Script from "next/script";
 import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, CreditCard, ImagePlus, Landmark, QrCode, RefreshCw, Upload, Wallet } from "lucide-react";
@@ -14,6 +14,11 @@ import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
+import { useRealtime } from "@/lib/realtime/use-realtime";
+import { customerBookingChannel } from "@/lib/realtime/channels";
+import { BOOKING_EVENT_PREFIXES, matchesRealtimePrefix } from "@/lib/realtime/event-types";
+
+const REALTIME_REFRESH_THROTTLE_MS = 1200;
 
 export default function BookingPaymentPage() {
   const params = useParams<{ id: string }>();
@@ -26,6 +31,8 @@ export default function BookingPaymentPage() {
   const [manualProofUrl, setManualProofUrl] = useState("");
   const [proofUploading, setProofUploading] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const lastBackgroundRefreshRef = useRef(0);
 
   const scope = searchParams.get("scope") === "settlement" ? "settlement" : "deposit";
 
@@ -38,8 +45,9 @@ export default function BookingPaymentPage() {
     [scope],
   );
 
-  const fetchDetail = useCallback(async () => {
+  const fetchDetail = useCallback(async (mode: "initial" | "background" = "initial") => {
     try {
+      if (mode === "background") setRefreshing(true);
       const res = await api.get(`/user/me/bookings/${params.id}`);
       setBooking(res.data);
     } catch (error) {
@@ -51,15 +59,52 @@ export default function BookingPaymentPage() {
       toast.error("Gagal memuat halaman pembayaran");
       router.replace(`/user/me/bookings/${params.id}/live`);
     } finally {
-      setLoading(false);
+      if (mode === "background") setRefreshing(false);
+      else setLoading(false);
     }
   }, [params.id, router]);
 
   useEffect(() => {
     if (params.id) {
-      void fetchDetail();
+      void fetchDetail("initial");
     }
   }, [fetchDetail, params.id]);
+
+  const customerID = String(booking?.customer_id || "");
+  useRealtime({
+    enabled: Boolean(customerID && params.id),
+    channels:
+      customerID && params.id
+        ? [customerBookingChannel(customerID, String(params.id))]
+        : [],
+    onEvent: (event) => {
+      if (!matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) return;
+      setBooking((current: any) =>
+        current
+          ? {
+              ...current,
+              status: event.summary?.status ?? current.status,
+              payment_status: event.summary?.payment_status ?? current.payment_status,
+              grand_total:
+                typeof event.summary?.grand_total === "number"
+                  ? Number(event.summary.grand_total)
+                  : current.grand_total,
+              balance_due:
+                typeof event.summary?.balance_due === "number"
+                  ? Number(event.summary.balance_due)
+                  : current.balance_due,
+            }
+          : current,
+      );
+      const now = Date.now();
+      if (now - lastBackgroundRefreshRef.current < REALTIME_REFRESH_THROTTLE_MS) return;
+      lastBackgroundRefreshRef.current = now;
+      void fetchDetail("background");
+    },
+    onReconnect: () => {
+      void fetchDetail("background");
+    },
+  });
 
   const paymentMethods = useMemo(
     () => (booking?.payment_methods || []).filter((item: any) => supportsMethodForScope(item)),
@@ -432,12 +477,44 @@ export default function BookingPaymentPage() {
               <h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
                 Rp {amount.toLocaleString("id-ID")}
               </h1>
+              <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+                {refreshing ? "Memuat ulang status..." : "Auto update aktif"}
+              </p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-right dark:border-white/10 dark:bg-white/5">
               <p className="text-[10px] uppercase tracking-[0.16em] text-slate-400">Total</p>
               <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
                 Rp {Number(booking.grand_total || 0).toLocaleString("id-ID")}
               </p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Status pembayaran</p>
+                <h2 className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
+                  {pendingManualAttempt
+                    ? "Menunggu verifikasi"
+                    : paymentStatus === "settled" || paymentStatus === "paid"
+                      ? "Pembayaran selesai"
+                      : selectedMethodDetail?.verification_type === "auto"
+                        ? "Siap checkout"
+                        : "Siap kirim bukti bayar"}
+                </h2>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                  {pendingManualAttempt
+                    ? "Admin tenant sedang mengecek pembayaran manualmu."
+                    : paymentStatus === "settled" || paymentStatus === "paid"
+                      ? "Tagihan untuk tahap booking ini sudah tercatat."
+                      : scope === "deposit"
+                        ? "Selesaikan DP agar booking bisa diproses tepat waktu."
+                        : "Selesaikan pelunasan setelah sesi berakhir."}
+                </p>
+              </div>
+              <Badge className="border-none bg-slate-950 text-white dark:bg-white dark:text-slate-950">
+                {scope === "deposit" ? "Step DP" : "Step Pelunasan"}
+              </Badge>
             </div>
           </div>
 
@@ -563,6 +640,19 @@ export default function BookingPaymentPage() {
       ) : (
         <Card className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
             <div className="space-y-3">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  Langkah berikutnya
+                </p>
+                <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                  {selectedMethodDetail?.verification_type === "auto"
+                    ? "Pilih metode gateway lalu lanjut ke checkout."
+                    : selectedMethodDetail?.code === "cash"
+                      ? "Konfirmasi pembayaran cash agar admin bisa memverifikasi."
+                      : "Upload bukti bayar lalu kirim untuk diverifikasi admin."}
+                </p>
+              </div>
+
               <div className="flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-blue-600" />
                 <p className="text-sm font-semibold text-slate-950 dark:text-white">Metode</p>

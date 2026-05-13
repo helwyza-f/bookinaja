@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Check,
+  CheckCircle2,
   Loader2,
   Minus,
   NotebookPen,
@@ -13,6 +14,7 @@ import {
   Phone,
   Plus,
   ShoppingBag,
+  ShieldCheck,
   UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -200,6 +202,8 @@ export default function PublicDirectSaleOrderPage() {
 
   const summaryLabel =
     selectedCount > 0 ? `${selectedCount} item dipilih` : "Pilih produk";
+  const readyForCheckout =
+    selectedItems.length > 0 && customerName.trim().length > 0 && customerPhone.trim().length > 0;
 
   if (loading) {
     return (
@@ -265,15 +269,42 @@ export default function PublicDirectSaleOrderPage() {
             </div>
           </Card>
 
+          <div className="grid gap-3 md:grid-cols-3">
+            <FlowStepCard
+              step="1"
+              title="Pilih produk"
+              description="Tentukan item dan jumlah yang mau dipesan."
+              active={selectedItems.length === 0}
+              done={selectedItems.length > 0}
+            />
+            <FlowStepCard
+              step="2"
+              title="Isi data customer"
+              description="Nomor WhatsApp dipakai untuk akses order dan pembayaran."
+              active={selectedItems.length > 0 && (!customerName.trim() || !customerPhone.trim())}
+              done={customerName.trim().length > 0 && customerPhone.trim().length > 0}
+            />
+            <FlowStepCard
+              step="3"
+              title="Review lalu bayar"
+              description="Cek ringkasan order, lalu lanjut ke pembayaran."
+              active={readyForCheckout}
+              done={false}
+            />
+          </div>
+
           <div className="space-y-4">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <div className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                  Pilih produk
+                  Langkah 1
                 </div>
                 <h2 className="mt-2 text-3xl font-black uppercase italic tracking-tight text-slate-950 dark:text-white">
-                  Katalog
+                  Pilih produk
                 </h2>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                  Tambahkan item yang mau dibeli. Flow ini khusus order langsung, tanpa pilih jadwal.
+                </p>
               </div>
               <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
                 Atur qty per item
@@ -361,18 +392,18 @@ export default function PublicDirectSaleOrderPage() {
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
             <Card className="rounded-[2rem] border border-slate-200 bg-white p-5 text-slate-950 shadow-[0_24px_80px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[#0f121b] dark:text-white dark:shadow-[0_24px_80px_rgba(0,0,0,0.26)] md:p-6">
               <div className="space-y-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
-                      Pembeli
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
+                        Langkah 2
+                      </div>
+                      <h2 className="mt-2 text-2xl font-black uppercase italic tracking-tight">
+                        Data customer
+                      </h2>
+                      <p className="mt-2 max-w-lg text-sm text-slate-500 dark:text-slate-400">
+                        Nomor WhatsApp dipakai untuk buka order lagi, cek status, dan lanjut pembayaran.
+                      </p>
                     </div>
-                    <h2 className="mt-2 text-2xl font-black uppercase italic tracking-tight">
-                      Isi data
-                    </h2>
-                    <p className="mt-2 max-w-lg text-sm text-slate-500 dark:text-slate-400">
-                      Isi nomor WhatsApp dulu. Nama akan terisi otomatis kalau sudah pernah order.
-                    </p>
-                  </div>
                   {knownCustomer ? (
                     <Badge className="rounded-full border-none bg-emerald-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200">
                       Dikenali
@@ -448,10 +479,10 @@ export default function PublicDirectSaleOrderPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
-                        Ringkasan
+                        Langkah 3
                       </div>
                       <h2 className="mt-2 text-2xl font-black uppercase italic tracking-tight">
-                        Cek order
+                        Review order
                       </h2>
                     </div>
                     <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-600 dark:border-white/10 dark:bg-white/[0.05] dark:text-slate-300">
@@ -506,6 +537,32 @@ export default function PublicDirectSaleOrderPage() {
                     </div>
                   </div>
 
+                  <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 p-4 text-sm dark:border-white/10 dark:bg-white/[0.04]">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 rounded-full bg-emerald-100 p-2 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200">
+                        <ShieldCheck className="h-4 w-4" />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="font-semibold text-slate-900 dark:text-white">
+                          Setelah order dibuat
+                        </div>
+                        <p className="text-slate-500 dark:text-slate-400">
+                          Customer akan diarahkan ke akses order untuk cek detail dan menyelesaikan pembayaran.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {!readyForCheckout ? (
+                    <div className="rounded-[1.4rem] border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
+                      Lengkapi item, nama, dan WhatsApp dulu sebelum lanjut.
+                    </div>
+                  ) : (
+                    <div className="rounded-[1.4rem] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-200">
+                      Siap lanjut. Setelah ini customer masuk ke halaman pembayaran order.
+                    </div>
+                  )}
+
                   <Button
                     type="button"
                     onClick={handleCheckout}
@@ -513,7 +570,7 @@ export default function PublicDirectSaleOrderPage() {
                     className="h-13 w-full rounded-[1.4rem] bg-orange-500 text-sm font-black uppercase tracking-[0.18em] text-white hover:bg-orange-400"
                   >
                     {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShoppingBag className="mr-2 h-4 w-4" />}
-                    Lanjut bayar
+                    Buat order & lanjut bayar
                   </Button>
                 </div>
               </Card>
@@ -544,5 +601,51 @@ export default function PublicDirectSaleOrderPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function FlowStepCard({
+  step,
+  title,
+  description,
+  active,
+  done,
+}: {
+  step: string;
+  title: string;
+  description: string;
+  active?: boolean;
+  done?: boolean;
+}) {
+  return (
+    <Card
+      className={cn(
+        "rounded-[1.5rem] border bg-white p-4 shadow-sm dark:bg-[#0f121b]",
+        done
+          ? "border-emerald-200 dark:border-emerald-400/25"
+          : active
+            ? "border-orange-300 dark:border-orange-400/30"
+            : "border-slate-200 dark:border-white/10",
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-black",
+            done
+              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200"
+              : active
+                ? "bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-200"
+                : "bg-slate-100 text-slate-600 dark:bg-white/[0.06] dark:text-slate-300",
+          )}
+        >
+          {done ? <CheckCircle2 className="h-4 w-4" /> : step}
+        </div>
+        <div className="space-y-1">
+          <div className="text-sm font-semibold text-slate-950 dark:text-white">{title}</div>
+          <p className="text-sm leading-6 text-slate-500 dark:text-slate-400">{description}</p>
+        </div>
+      </div>
+    </Card>
   );
 }

@@ -107,10 +107,10 @@ export function CustomerPortalShell({
 
 function resolveHeaderMeta(pathname: string) {
   if (pathname.startsWith("/user/me/orders/") && pathname.includes("/payment")) {
-    return { eyebrow: "Customer", title: "Pembayaran Order" };
+    return { eyebrow: "Customer", title: "Pembayaran Order Langsung" };
   }
   if (pathname.startsWith("/user/me/orders/")) {
-    return { eyebrow: "Customer", title: "Order" };
+    return { eyebrow: "Customer", title: "Order Langsung" };
   }
   if (pathname.startsWith("/user/me/bookings/") && pathname.includes("/payment")) {
     return { eyebrow: "Customer", title: "Pembayaran" };
@@ -122,10 +122,10 @@ function resolveHeaderMeta(pathname: string) {
     return { eyebrow: "Customer", title: "Booking" };
   }
   if (pathname.startsWith("/user/me/active")) {
-    return { eyebrow: "Customer", title: "Aktif" };
+    return { eyebrow: "Customer", title: "Transaksi Aktif" };
   }
   if (pathname.startsWith("/user/me/history")) {
-    return { eyebrow: "Customer", title: "Riwayat" };
+    return { eyebrow: "Customer", title: "Riwayat Transaksi" };
   }
   if (pathname.startsWith("/user/me/settings")) {
     return { eyebrow: "Customer", title: "Profil" };
