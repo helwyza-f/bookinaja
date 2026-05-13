@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { setCookie } from "cookies-next";
 import { useRouter } from "next/navigation";
 import { ArrowRight, KeyRound, Loader2, Phone, Sparkles } from "lucide-react";
 import api from "@/lib/api";
@@ -15,6 +14,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import {
+  getCentralCustomerAuthUrl,
+  getCustomerPostAuthUrl,
+} from "@/lib/tenant";
+import { setCustomerAuthCookie } from "@/lib/tenant-session";
 
 type GoogleFlowMode = "login" | "register";
 type ClaimStep = "claim" | "otp";
@@ -52,10 +56,12 @@ function getErrorMessage(error: unknown, fallback: string) {
 export function CustomerGoogleAuth({
   mode,
   nextPath,
+  tenantSlug,
   className = "",
 }: {
   mode: GoogleFlowMode;
   nextPath: string;
+  tenantSlug?: string | null;
   className?: string;
 }) {
   const router = useRouter();
@@ -71,6 +77,14 @@ export function CustomerGoogleAuth({
   const [otp, setOtp] = useState("");
   const googleClientID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
   const linkGoogleAfterLoginPath = "/user/me/settings?sheet=google";
+  const postAuthTarget = useMemo(
+    () =>
+      getCustomerPostAuthUrl({
+        tenantSlug,
+        next: nextPath,
+      }),
+    [nextPath, tenantSlug],
+  );
 
   const buttonText = useMemo(
     () => (mode === "register" ? "signup_with" : "continue_with"),
@@ -164,12 +178,9 @@ export function CustomerGoogleAuth({
       );
       const payload = res.data;
       if (payload.status === "authenticated" && payload.token) {
-        setCookie("customer_auth", payload.token, {
-          path: "/",
-          sameSite: "lax",
-        });
+        setCustomerAuthCookie(payload.token);
         toast.success(payload.message || "Login Google berhasil");
-        router.push(nextPath);
+        router.push(postAuthTarget);
         return;
       }
       if (payload.status === "needs_phone" && payload.claim_token) {
@@ -224,7 +235,10 @@ export function CustomerGoogleAuth({
           duration: 6000,
         });
         router.push(
-          `/user/login?next=${encodeURIComponent(linkGoogleAfterLoginPath)}`,
+          getCentralCustomerAuthUrl("login", {
+            tenantSlug,
+            next: linkGoogleAfterLoginPath,
+          }),
         );
         return;
       }
@@ -245,15 +259,12 @@ export function CustomerGoogleAuth({
         phone: phone.replace(/\D/g, ""),
         code: otp.replace(/\D/g, ""),
       });
-      setCookie("customer_auth", res.data.token, {
-        path: "/",
-        sameSite: "lax",
-      });
+      setCustomerAuthCookie(res.data.token);
       setDialogOpen(false);
       toast.success(
         "Akun Google kamu sudah aktif. Selamat datang di Bookinaja",
       );
-      router.push(nextPath);
+      router.push(postAuthTarget);
     } catch (error) {
       toast.error(getErrorMessage(error, "OTP aktivasi Google belum valid"));
     } finally {

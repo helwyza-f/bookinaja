@@ -37,6 +37,10 @@ const nextConfig: NextConfig = {
         "*.bookinaja.com",
         "lapisbaja.bookinaja.com",
         "localhost:3000",
+        "lvh.me",
+        "lvh.me:3000",
+        "gaming-demo.lvh.me",
+        "*.lvh.me:3000",
       ],
     },
   },
@@ -45,9 +49,14 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: [
     "minibos.bookinaja.com",
     "*.bookinaja.com",
+    "localhost",
     "localhost:3000",
     "bookinaja.local",
     "*.bookinaja.local",
+    "lvh.me",
+    "lvh.me:3000",
+    "gaming-demo.lvh.me",
+    "*.lvh.me:3000",
   ],
 };
 

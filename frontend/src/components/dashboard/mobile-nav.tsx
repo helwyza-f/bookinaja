@@ -18,6 +18,7 @@ import {
 import { clearTenantSession } from "@/lib/tenant-session";
 import { canAccessAdminRoute } from "@/lib/admin-access";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
+import { getCentralAdminAuthUrl, getTenantSlugFromBrowser } from "@/lib/tenant";
 import {
   growthHubNavItem,
   operationalNavItems,
@@ -69,7 +70,10 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
 
   const handleLogout = () => {
     clearTenantSession({ keepTenantSlug: true });
-    window.location.href = "/admin/login";
+    window.location.href = getCentralAdminAuthUrl({
+      tenantSlug: getTenantSlugFromBrowser(),
+      next: "/admin/dashboard",
+    });
   };
 
   return (

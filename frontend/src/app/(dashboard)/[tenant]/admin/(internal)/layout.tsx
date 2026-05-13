@@ -9,7 +9,7 @@ import { AdminSessionProvider } from "@/components/dashboard/admin-session-conte
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import api from "@/lib/api";
-import { getTenantSlugFromBrowser } from "@/lib/tenant";
+import { getCentralAdminAuthUrl, getTenantSlugFromBrowser } from "@/lib/tenant";
 import {
   clearTenantSession,
   isTenantAuthError,
@@ -104,8 +104,15 @@ export default function DashboardInternalLayout({
         }
       } catch (error) {
         if (active && isTenantAuthError(error)) {
+          const tenantSlug = getTenantSlugFromBrowser() || String(params.tenant || "");
           clearTenantSession({ keepTenantSlug: true });
-          router.replace("/admin/login");
+          window.location.replace(
+            getCentralAdminAuthUrl({
+              tenantSlug,
+              next: pathname,
+              reason: "tenant-mismatch",
+            }),
+          );
           return;
         }
 

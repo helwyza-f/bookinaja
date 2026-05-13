@@ -31,6 +31,7 @@ import { clearTenantSession } from "@/lib/tenant-session";
 import { canAccessAdminRoute } from "@/lib/admin-access";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { Badge } from "../ui/badge";
+import { getCentralAdminAuthUrl, getTenantSlugFromBrowser } from "@/lib/tenant";
 import {
   growthHubNavItem,
   operationalNavItems,
@@ -68,7 +69,10 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
 
   const handleLogout = () => {
     clearTenantSession({ keepTenantSlug: true });
-    window.location.href = "/admin/login";
+    window.location.href = getCentralAdminAuthUrl({
+      tenantSlug: getTenantSlugFromBrowser(),
+      next: "/admin/dashboard",
+    });
   };
 
   const hasAccess = (href: string) => canAccessAdminRoute(href, userData);

@@ -17,6 +17,8 @@ func CORSMiddleware() gin.HandlerFunc {
 			// Kita buat pengecekan yang lebih aman untuk prod dan dev
 			if strings.Contains(origin, "localhost") ||
 				strings.HasSuffix(origin, ".local:3000") ||
+				strings.HasSuffix(origin, ".lvh.me:3000") ||
+				strings.HasSuffix(origin, "lvh.me:3000") ||
 				strings.HasSuffix(origin, "bookinaja.com") {
 				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
 			} else {

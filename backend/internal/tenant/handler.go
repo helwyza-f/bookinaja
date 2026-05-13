@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -350,16 +351,22 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	t, err := h.service.Register(c.Request.Context(), req)
+	result, err := h.service.Register(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		return
 	}
 
+	loginURL := env.PlatformURL("/admin/login")
+	loginURL += "?tenant=" + url.QueryEscape(result.Tenant.Slug) + "&intent=admin&next=" + url.QueryEscape("/admin/dashboard") + "&welcome=1"
+
 	c.JSON(http.StatusCreated, gin.H{
-		"message":   "Registrasi berhasil!",
-		"tenant":    t,
-		"login_url": env.TenantURL(t.Slug, "/admin/login"),
+		"message":       result.Message,
+		"tenant":        result.Tenant,
+		"user":          result.User,
+		"token":         result.Token,
+		"login_url":     loginURL,
+		"dashboard_url": env.TenantURL(result.Tenant.Slug, "/admin/dashboard"),
 	})
 }
 
@@ -385,6 +392,45 @@ func (h *Handler) Login(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, resp)
+}
+
+func (h *Handler) LoginGoogle(c *gin.Context) {
+	var req LoginGoogleReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Token Google wajib diisi"})
+		return
+	}
+
+	tenantSlug := strings.TrimSpace(strings.ToLower(req.TenantSlug))
+	if tenantSlug == "" {
+		if slug, exists := c.Get("tenantSlug"); exists {
+			tenantSlug, _ = slug.(string)
+		}
+	}
+
+	resp, err := h.service.LoginWithGoogle(c.Request.Context(), req.GoogleIDToken, tenantSlug)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *Handler) GoogleIdentity(c *gin.Context) {
+	var req GoogleIdentityReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Token Google wajib diisi"})
+		return
+	}
+
+	profile, err := h.service.ResolveGoogleIdentity(c.Request.Context(), req.GoogleIDToken)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, profile)
 }
 
 // GetProfile (Dashboard Internal)

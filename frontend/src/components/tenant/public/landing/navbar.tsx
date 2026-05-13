@@ -4,11 +4,12 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { UserCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getRootPortalUrl } from "@/lib/tenant";
+import { getCentralCustomerAuthUrl } from "@/lib/tenant";
 import { getLandingPresetTone } from "./theme-preset";
 
 type TenantNavbarProfile = {
   name: string;
+  slug?: string;
   business_type?: string;
   primary_color?: string;
   logo_url?: string;
@@ -134,7 +135,13 @@ export function TenantNavbar({
         </div>
 
         <div className={cn("flex items-center", isCompactPreview ? "gap-2" : "gap-2.5 md:gap-3")}>
-          <a href={getRootPortalUrl("/user/login")} className="shrink-0">
+          <a
+            href={getCentralCustomerAuthUrl("login", {
+              tenantSlug: profile.slug,
+              next: "/user/me",
+            })}
+            className="shrink-0"
+          >
             <Button
               className={cn(
                 "border-none font-black uppercase italic tracking-[0.14em] text-white",

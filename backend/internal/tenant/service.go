@@ -17,6 +17,7 @@ import (
 	"github.com/helwiza/backend/internal/resource"
 	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
+	"google.golang.org/api/idtoken"
 )
 
 const freeTrialDuration = 30 * 24 * time.Hour
@@ -60,6 +61,14 @@ type tenantTemplateFnbItem struct {
 type Service struct {
 	repo        *Repository
 	authService *auth.Service
+}
+
+type tenantGoogleIdentity struct {
+	Subject       string
+	Email         *string
+	Name          string
+	AvatarURL     *string
+	EmailVerified bool
 }
 
 func NewService(r *Repository, authService *auth.Service) *Service {
@@ -1709,7 +1718,7 @@ func minInt(a, b int) int {
 }
 
 // Register menangani pendaftaran tenant baru & inisialisasi default branding
-func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error) {
+func (s *Service) Register(ctx context.Context, req RegisterReq) (*RegisterResponse, error) {
 	req.TenantName = strings.TrimSpace(req.TenantName)
 	req.TenantSlug = strings.TrimSpace(req.TenantSlug)
 	req.BusinessCategory = strings.TrimSpace(req.BusinessCategory)
@@ -1717,6 +1726,7 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 	req.ReferralCode = strings.TrimSpace(req.ReferralCode)
 	req.AdminName = strings.TrimSpace(req.AdminName)
 	req.AdminEmail = strings.TrimSpace(req.AdminEmail)
+	req.AdminPass = strings.TrimSpace(req.AdminPass)
 	req.WhatsappNumber = strings.TrimSpace(req.WhatsappNumber)
 
 	slug := strings.ToLower(req.TenantSlug)
@@ -1724,6 +1734,30 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 	timezone, err := normalizeTenantTimezone(req.Timezone)
 	if err != nil {
 		return nil, err
+	}
+
+	var googleIdentity *tenantGoogleIdentity
+	if strings.TrimSpace(req.GoogleIDToken) != "" {
+		googleIdentity, err = s.verifyGoogleIdentity(ctx, req.GoogleIDToken)
+		if err != nil {
+			return nil, err
+		}
+		if !googleIdentity.EmailVerified || googleIdentity.Email == nil || strings.TrimSpace(*googleIdentity.Email) == "" {
+			return nil, errors.New("akun Google tenant harus memakai email yang sudah terverifikasi")
+		}
+		if req.AdminEmail != "" && !strings.EqualFold(req.AdminEmail, *googleIdentity.Email) {
+			return nil, errors.New("email admin harus sama dengan email Google yang dipilih")
+		}
+		req.AdminEmail = strings.TrimSpace(*googleIdentity.Email)
+		if req.AdminName == "" {
+			req.AdminName = defaultGoogleDisplayName(googleIdentity)
+		}
+	} else if len(req.AdminPass) < 6 {
+		return nil, errors.New("password admin minimal 6 karakter")
+	}
+
+	if req.AdminName == "" {
+		return nil, errors.New("nama admin wajib diisi")
 	}
 
 	// 1. Validasi keberadaan slug dan email
@@ -1739,7 +1773,11 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 	}
 
 	// 2. Hash Password Owner
-	hashed, err := bcrypt.GenerateFromPassword([]byte(req.AdminPass), bcrypt.DefaultCost)
+	passwordSource := req.AdminPass
+	if googleIdentity != nil {
+		passwordSource = fmt.Sprintf("google:%s:%s", googleIdentity.Subject, uuid.NewString())
+	}
+	hashed, err := bcrypt.GenerateFromPassword([]byte(passwordSource), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
 	}
@@ -1824,13 +1862,14 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 	}
 
 	user := User{
-		ID:        uuid.New(),
-		TenantID:  tID,
-		Name:      req.AdminName,
-		Email:     req.AdminEmail,
-		Password:  string(hashed),
-		Role:      "owner",
-		CreatedAt: time.Now(),
+		ID:            uuid.New(),
+		TenantID:      tID,
+		Name:          req.AdminName,
+		Email:         req.AdminEmail,
+		Password:      string(hashed),
+		GoogleSubject: googleSubjectPointer(googleIdentity),
+		Role:          "owner",
+		CreatedAt:     time.Now(),
 	}
 
 	// 3. Simpan ke Database
@@ -1838,10 +1877,21 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*Tenant, error
 		return nil, err
 	}
 
+	token, err := s.authService.GenerateToken(user.ID, user.TenantID, user.Role)
+	if err != nil {
+		return nil, err
+	}
+
 	// 4. Seeding Template Asynchronous
 	go s.SeedTemplate(context.Background(), tID, req.BusinessCategory, bootstrapMode)
 
-	return &tenant, nil
+	return &RegisterResponse{
+		Token:   token,
+		User:    user,
+		Tenant:  tenant,
+		IsNew:   true,
+		Message: "Tenant berhasil dibuat dan siap dipakai",
+	}, nil
 }
 
 func generateReferralCode(slug string) string {
@@ -2067,6 +2117,157 @@ func (s *Service) Login(ctx context.Context, email, password, tenantSlug string)
 	}
 
 	return &LoginResponse{Token: token, User: *u}, nil
+}
+
+func (s *Service) LoginWithGoogle(ctx context.Context, rawToken, tenantSlug string) (*LoginResponse, error) {
+	identity, err := s.verifyGoogleIdentity(ctx, rawToken)
+	if err != nil {
+		return nil, err
+	}
+
+	var user *User
+	if strings.TrimSpace(tenantSlug) != "" {
+		user, err = s.repo.GetUserByGoogleSubjectAndSlug(ctx, identity.Subject, tenantSlug)
+	} else {
+		user, err = s.repo.GetUserByGoogleSubject(ctx, identity.Subject)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if user == nil && identity.EmailVerified && identity.Email != nil {
+		if strings.TrimSpace(tenantSlug) != "" {
+			user, err = s.repo.GetUserByEmailAndSlug(ctx, *identity.Email, tenantSlug)
+		} else {
+			user, err = s.repo.GetUserByEmail(ctx, *identity.Email)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if user != nil && (user.GoogleSubject == nil || strings.TrimSpace(*user.GoogleSubject) == "") {
+			if err := s.repo.LinkUserGoogleSubject(ctx, user.ID, identity.Subject); err != nil {
+				return nil, err
+			}
+			user.GoogleSubject = googleSubjectPointer(identity)
+		}
+	}
+
+	if user == nil {
+		return nil, errors.New("akun Google ini belum terhubung ke workspace bisnis tersebut")
+	}
+
+	token, err := s.authService.GenerateToken(user.ID, user.TenantID, user.Role)
+	if err != nil {
+		return nil, err
+	}
+
+	return &LoginResponse{Token: token, User: *user}, nil
+}
+
+func (s *Service) ResolveGoogleIdentity(ctx context.Context, rawToken string) (*GoogleIdentityResponse, error) {
+	identity, err := s.verifyGoogleIdentity(ctx, rawToken)
+	if err != nil {
+		return nil, err
+	}
+	if identity.Email == nil || strings.TrimSpace(*identity.Email) == "" {
+		return nil, errors.New("email Google belum tersedia")
+	}
+	return &GoogleIdentityResponse{
+		Name:          defaultGoogleDisplayName(identity),
+		Email:         strings.TrimSpace(*identity.Email),
+		AvatarURL:     identity.AvatarURL,
+		EmailVerified: identity.EmailVerified,
+	}, nil
+}
+
+func googleSubjectPointer(identity *tenantGoogleIdentity) *string {
+	if identity == nil || strings.TrimSpace(identity.Subject) == "" {
+		return nil
+	}
+	subject := strings.TrimSpace(identity.Subject)
+	return &subject
+}
+
+func defaultGoogleDisplayName(identity *tenantGoogleIdentity) string {
+	if identity == nil {
+		return ""
+	}
+	if strings.TrimSpace(identity.Name) != "" {
+		return strings.TrimSpace(identity.Name)
+	}
+	if identity.Email != nil && strings.TrimSpace(*identity.Email) != "" {
+		return strings.Split(strings.TrimSpace(*identity.Email), "@")[0]
+	}
+	return ""
+}
+
+func (s *Service) verifyGoogleIdentity(ctx context.Context, rawToken string) (*tenantGoogleIdentity, error) {
+	rawToken = strings.TrimSpace(rawToken)
+	if rawToken == "" {
+		return nil, errors.New("token Google wajib diisi")
+	}
+
+	var lastErr error
+	for _, audience := range tenantGoogleAudiences() {
+		payload, err := idtoken.Validate(ctx, rawToken, audience)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		identity := &tenantGoogleIdentity{Subject: strings.TrimSpace(payload.Subject)}
+		if payload.Claims != nil {
+			if email, _ := payload.Claims["email"].(string); strings.TrimSpace(email) != "" {
+				email = strings.TrimSpace(email)
+				identity.Email = &email
+			}
+			if name, _ := payload.Claims["name"].(string); strings.TrimSpace(name) != "" {
+				identity.Name = strings.TrimSpace(name)
+			}
+			if picture, _ := payload.Claims["picture"].(string); strings.TrimSpace(picture) != "" {
+				picture = strings.TrimSpace(picture)
+				identity.AvatarURL = &picture
+			}
+			switch value := payload.Claims["email_verified"].(type) {
+			case bool:
+				identity.EmailVerified = value
+			case string:
+				identity.EmailVerified = strings.EqualFold(strings.TrimSpace(value), "true")
+			}
+		}
+
+		if identity.Subject == "" {
+			return nil, errors.New("identitas Google tenant belum valid")
+		}
+		return identity, nil
+	}
+
+	if lastErr != nil {
+		return nil, errors.New("token Google tenant tidak valid")
+	}
+	return nil, errors.New("Google client ID tenant belum dikonfigurasi")
+}
+
+func tenantGoogleAudiences() []string {
+	raw := []string{
+		os.Getenv("GOOGLE_CLIENT_ID_WEB"),
+		os.Getenv("GOOGLE_CLIENT_ID_IOS"),
+		os.Getenv("GOOGLE_CLIENT_ID_ANDROID"),
+	}
+	out := make([]string, 0, len(raw))
+	seen := map[string]struct{}{}
+	for _, item := range raw {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		if _, exists := seen[item]; exists {
+			continue
+		}
+		seen[item] = struct{}{}
+		out = append(out, item)
+	}
+	return out
 }
 
 func (s *Service) GetAdminBootstrap(ctx context.Context, userID, tenantID uuid.UUID) (*AdminBootstrapResponse, error) {

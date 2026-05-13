@@ -1,33 +1,33 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import {
-  Globe,
-  ShieldCheck,
-  Rocket,
-  Sparkles,
-  Camera,
-  Trophy,
-  Check,
-  User,
-  Mail,
-  Lock,
-  Building2,
-  Monitor,
+  ArrowLeft,
+  ArrowRight,
   Briefcase,
-  Info,
-  Fingerprint,
+  Building2,
+  Camera,
+  Check,
+  Globe2,
+  Lock,
+  Mail,
+  Monitor,
+  Sparkles,
+  Trophy,
+  User,
 } from "lucide-react";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { TenantGoogleButton } from "@/components/auth/tenant-google-button";
+import { getTenantUrl } from "@/lib/tenant";
+import { setAdminAuthCookie, syncTenantCookies } from "@/lib/tenant-session";
 
 type RegisterFormValues = {
   businessName: string;
@@ -41,80 +41,121 @@ type RegisterFormValues = {
   timezone: string;
 };
 
+type AccessMethod = "google" | "manual";
+
+type GoogleAdminProfile = {
+  name: string;
+  email: string;
+  avatar_url?: string | null;
+  email_verified: boolean;
+  idToken: string;
+};
+
+type TenantRegisterResponse = {
+  token: string;
+  tenant: {
+    slug: string;
+    name: string;
+  };
+  dashboard_url?: string;
+  message?: string;
+};
+
 const CATEGORIES = [
   {
     id: "gaming_hub",
     name: "Gaming & Rental",
     icon: Monitor,
-    desc: "Billing per jam, manajemen unit PS/PC, & sistem durasi otomatis.",
-    example: "Contoh: Rental PS5, PC Cafe, Sim-Racing Center.",
+    outcome: "Booking per jam dan kontrol unit lebih rapi.",
   },
   {
     id: "creative_space",
     name: "Studio & Creative",
     icon: Camera,
-    desc: "Booking jadwal pemotretan, sewa alat, & kalender ketersediaan.",
-    example: "Contoh: Photo Studio, Podcast Room, Self-Photo.",
+    outcome: "Jadwal sesi dan follow-up customer lebih jelas.",
   },
   {
     id: "sport_center",
     name: "Sport & Courts",
     icon: Trophy,
-    desc: "Sewa lapangan, sistem DP otomatis, & manajemen jadwal turnamen.",
-    example: "Contoh: Lapangan Futsal, Badminton, Billiard.",
+    outcome: "Slot lapangan, DP, dan peak hour lebih terkendali.",
   },
   {
     id: "social_space",
     name: "Social & Office",
     icon: Briefcase,
-    desc: "Reservasi meeting room, sewa meja harian, & akses member.",
-    example: "Contoh: Co-working Space, Meeting Room, Cafe VIP.",
+    outcome: "Reservasi room dan desk terasa siap sejak hari pertama.",
   },
-];
+] as const;
 
 const BOOTSTRAP_OPTIONS = [
   {
     id: "starter",
-    name: "Starter Cepat",
-    desc: "Direkomendasikan untuk bisnis yang ingin langsung lihat alur dasar tanpa katalog terlalu ramai.",
-    bullets: ["1 resource awal", "paket harga inti", "contoh F&B ringan"],
+    name: "Starter",
+    desc: "Paling cepat untuk langsung mencoba alur awal.",
   },
   {
     id: "blank",
-    name: "Mulai Kosong",
-    desc: "Cocok kalau kamu ingin setup katalog, harga, dan resource sepenuhnya dari nol.",
-    bullets: ["tanpa sample data", "lebih bersih", "lebih manual"],
+    name: "Kosong",
+    desc: "Mulai bersih dan isi semuanya sendiri.",
   },
   {
     id: "full_template",
-    name: "Template Lengkap",
-    desc: "Cocok untuk eksplorasi cepat kalau kamu ingin lihat gambaran katalog lebih penuh sejak awal.",
-    bullets: ["resource lebih banyak", "addon lebih lengkap", "contoh F&B lebih penuh"],
+    name: "Lengkap",
+    desc: "Isi contoh lebih banyak untuk eksplorasi cepat.",
   },
 ] as const;
 
 const TIMEZONE_OPTIONS = [
-  { value: "Asia/Jakarta", label: "WIB (Asia/Jakarta)" },
-  { value: "Asia/Makassar", label: "WITA (Asia/Makassar)" },
-  { value: "Asia/Jayapura", label: "WIT (Asia/Jayapura)" },
+  { value: "Asia/Jakarta", label: "WIB" },
+  { value: "Asia/Makassar", label: "WITA" },
+  { value: "Asia/Jayapura", label: "WIT" },
 ];
 
-// Sub-component untuk menangani form logic agar Suspense bekerja dengan baik
-function RegisterForm() {
+const STEPS = [
+  {
+    title: "Bisnis",
+    description: "Pilih kategori dan claim URL tenant.",
+  },
+  {
+    title: "Setup",
+    description: "Tentukan mode mulai dan info operasional.",
+  },
+  {
+    title: "Akses",
+    description: "Pilih Google atau email admin pertama.",
+  },
+] as const;
+
+function normalizeSlugPreview(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function RegisterFlow() {
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState(0);
+  const [selectedCategory, setSelectedCategory] = useState("gaming_hub");
+  const [selectedBootstrapMode, setSelectedBootstrapMode] = useState("starter");
+  const [accessMethod, setAccessMethod] = useState<AccessMethod>("google");
+  const [googleProfile, setGoogleProfile] = useState<GoogleAdminProfile | null>(null);
   const searchParams = useSearchParams();
-  const categoryParam = searchParams.get("category");
   const planParam = searchParams.get("plan");
   const intervalParam = searchParams.get("interval");
   const referralParam = searchParams.get("ref");
+  const categoryParam = searchParams.get("category");
 
-  // Inisialisasi category dari URL jika ada, jika tidak default ke gaming_hub
-  const [selectedCategory, setSelectedCategory] = useState(
-    categoryParam || "gaming_hub",
-  );
-  const [selectedBootstrapMode, setSelectedBootstrapMode] = useState("starter");
-
-  const { register, handleSubmit, control } = useForm<RegisterFormValues>({
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    trigger,
+    control,
+    formState: { errors },
+  } = useForm<RegisterFormValues>({
     defaultValues: {
       businessName: "",
       businessType: "",
@@ -128,388 +169,575 @@ function RegisterForm() {
     },
   });
 
-  const slugValue = useWatch({
+  useEffect(() => {
+    if (categoryParam) {
+      setSelectedCategory(categoryParam);
+    }
+  }, [categoryParam]);
+
+  const watchedBusinessName = useWatch({
+    control,
+    name: "businessName",
+    defaultValue: "",
+  });
+  const watchedSubdomain = useWatch({
     control,
     name: "subdomain",
     defaultValue: "",
   });
+  const watchedFullName = useWatch({
+    control,
+    name: "fullName",
+    defaultValue: "",
+  });
+
+  const slugPreview = normalizeSlugPreview(watchedSubdomain || watchedBusinessName);
+  const selectedCategoryMeta =
+    CATEGORIES.find((item) => item.id === selectedCategory) || CATEGORIES[0];
+  const selectedBootstrapMeta =
+    BOOTSTRAP_OPTIONS.find((item) => item.id === selectedBootstrapMode) ||
+    BOOTSTRAP_OPTIONS[0];
+
+  const summaryItems = useMemo(
+    () => [
+      ["URL", `${slugPreview || "bisnismu"}.bookinaja.com`],
+      ["Kategori", selectedCategoryMeta.name],
+      ["Mode", selectedBootstrapMeta.name],
+    ],
+    [selectedCategoryMeta.name, selectedBootstrapMeta.name, slugPreview],
+  );
+
+  const nextStep = async () => {
+    if (step === 0) {
+      const valid = await trigger(["businessName", "subdomain"]);
+      if (!valid) return;
+    }
+    setStep((current) => Math.min(current + 1, STEPS.length - 1));
+  };
+
+  const prevStep = () => setStep((current) => Math.max(current - 1, 0));
+
+  const handleGoogleIdentity = async (credential: string) => {
+    setLoading(true);
+    try {
+      const res = await api.post<{
+        name: string;
+        email: string;
+        avatar_url?: string | null;
+        email_verified: boolean;
+      }>("/register/google/identity", {
+        id_token: credential,
+      });
+
+      if (!res.data.email_verified) {
+        toast.error("Email Google tenant harus sudah terverifikasi.");
+        return;
+      }
+
+      const profile: GoogleAdminProfile = {
+        ...res.data,
+        idToken: credential,
+      };
+
+      setGoogleProfile(profile);
+      setAccessMethod("google");
+      setValue("email", profile.email, { shouldValidate: true });
+      if (!watchedFullName.trim()) {
+        setValue("fullName", profile.name, { shouldValidate: true });
+      }
+      toast.success("Google admin siap dipakai.");
+    } catch (error) {
+      const message = (error as { response?: { data?: { error?: string } } })
+        .response?.data?.error;
+      toast.error(message || "Google tenant belum bisa dipakai.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const onSubmit = async (data: RegisterFormValues) => {
+    if (accessMethod === "manual" && data.password.trim().length < 6) {
+      toast.error("Password admin minimal 6 karakter.");
+      return;
+    }
+
+    if (accessMethod === "google" && !googleProfile?.idToken) {
+      toast.error("Hubungkan Google dulu untuk lanjut.");
+      return;
+    }
+
     setLoading(true);
-    const payload = {
-      tenant_name: data.businessName,
-      tenant_slug: data.subdomain.toLowerCase().trim(),
-      business_category: selectedCategory,
-      business_type:
-        data.businessType.trim() ||
-        CATEGORIES.find((c) => c.id === selectedCategory)?.name ||
-        "Universal Booking",
-      bootstrap_mode: selectedBootstrapMode,
-      referral_code: data.referralCode?.trim() || "",
-      admin_name: data.fullName,
-      admin_email: data.email,
-      admin_password: data.password,
-      whatsapp_number: data.whatsappNumber.trim(),
-      timezone: data.timezone,
-    };
-
-    const promise = api.post("/register", payload);
-
-    toast.promise(promise, {
-      loading: "Membangun infrastruktur cloud bisnis Anda...",
-      success: (res) => {
-        const loginURL = new URL(res.data.login_url);
-        loginURL.searchParams.set("welcome", "1");
-        if (planParam) loginURL.searchParams.set("plan", planParam);
-        if (intervalParam) loginURL.searchParams.set("interval", intervalParam);
-        setTimeout(() => (window.location.href = loginURL.toString()), 1500);
-        return `Registrasi Berhasil! Mengalihkan...`;
-      },
-      error: (err) => err.response?.data?.error || "Gagal mendaftar.",
-    });
-
     try {
-      await promise;
-    } catch {
+      const payload = {
+        tenant_name: data.businessName.trim(),
+        tenant_slug: data.subdomain.toLowerCase().trim(),
+        business_category: selectedCategory,
+        business_type: data.businessType.trim() || selectedCategoryMeta.name,
+        bootstrap_mode: selectedBootstrapMode,
+        referral_code: data.referralCode?.trim() || "",
+        admin_name:
+          accessMethod === "google"
+            ? googleProfile?.name || data.fullName.trim()
+            : data.fullName.trim(),
+        admin_email:
+          accessMethod === "google"
+            ? googleProfile?.email || data.email.trim()
+            : data.email.trim(),
+        admin_password: accessMethod === "manual" ? data.password : "",
+        google_id_token: accessMethod === "google" ? googleProfile?.idToken : "",
+        whatsapp_number: data.whatsappNumber.trim(),
+        timezone: data.timezone,
+      };
+
+      const res = await api.post<TenantRegisterResponse>("/register", payload);
+
+      setAdminAuthCookie(res.data.token);
+      syncTenantCookies(res.data.tenant.slug);
+
+      toast.success(
+        res.data.message || "Workspace siap. Mengarahkan ke dashboard...",
+      );
+
+      const redirectParams = new URLSearchParams();
+      if (planParam) redirectParams.set("plan", planParam);
+      if (intervalParam) redirectParams.set("interval", intervalParam);
+      redirectParams.set("welcome", "1");
+
+      const targetPath =
+        planParam || intervalParam
+          ? `/admin/billing?${redirectParams.toString()}`
+          : `/admin/dashboard?${redirectParams.toString()}`;
+
+      window.location.href = getTenantUrl(res.data.tenant.slug, targetPath);
+    } catch (error) {
+      const message = (error as { response?: { data?: { error?: string } } })
+        .response?.data?.error;
+      toast.error(message || "Registrasi tenant belum berhasil.");
       setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-12">
-      {/* 1. IDENTITY SECTION */}
-      <div className="space-y-6">
-        <div className="flex items-center gap-4 group">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white font-black text-sm shadow-lg shadow-blue-600/20 group-hover:scale-110 transition-transform">
-            1
-          </span>
-          <Label className="font-syne text-[11px] font-bold uppercase tracking-[0.3em] text-blue-500">
-            Identitas Bisnis
-          </Label>
-          <div className="h-px flex-1 bg-border/60" />
-        </div>
-
-          <div className="grid gap-6">
-          <div className="space-y-3">
-            <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
-              Nama Entitas Bisnis
-            </Label>
-            <div className="relative">
-              <Building2 className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40" />
-              <Input
-                placeholder="Contoh: Nexus Gaming Hub"
-                className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold focus:ring-4 focus:ring-blue-600/5 pl-14 transition-all"
-                {...register("businessName")}
-                required
-              />
+    <div className="mx-auto max-w-6xl">
+      <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+        <section className="rounded-[2rem] border border-slate-200/80 bg-white/90 p-6 shadow-[0_24px_80px_-50px_rgba(15,23,42,0.35)] backdrop-blur dark:border-white/10 dark:bg-[#08101e]/88 lg:p-8">
+          <div className="space-y-6">
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-blue-700 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-200">
+              <Sparkles className="h-3.5 w-3.5" />
+              Tenant setup
             </div>
-          </div>
 
-          <div className="space-y-3">
-            <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
-              Jenis Bisnis Lebih Spesifik
-            </Label>
-            <div className="relative">
-              <Briefcase className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40" />
-              <Input
-                placeholder="Contoh: Rental PS5, Self Photo Studio, Lapangan Futsal"
-                className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold pl-14 focus:ring-4 focus:ring-blue-600/5"
-                {...register("businessType")}
-              />
-            </div>
-            <p className="px-4 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/70">
-              Opsional, tapi membantu agar copy awal dan setup tenant terasa lebih nyambung.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
-              Eksklusif Subdomain
-            </Label>
-            <div className="relative flex items-center group">
-              <Input
-                placeholder="nama-bisnis"
-                className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold focus:ring-4 focus:ring-blue-600/5 px-6 pr-44 lowercase transition-all"
-                {...register("subdomain")}
-                required
-                pattern="[a-z0-9-]+"
-              />
-              <span className="absolute right-6 text-sm font-black text-muted-foreground/40 group-focus-within:text-blue-500 transition-colors">
-                .bookinaja.com
-              </span>
-            </div>
-            {slugValue && (
-              <p className="text-[10px] font-black text-blue-500 tracking-[0.2em] px-4 italic uppercase animate-in fade-in slide-in-from-left-4">
-                LIVE URL: {slugValue.toLowerCase()}.bookinaja.com
+            <div className="space-y-3">
+              <h1 className="text-3xl font-black tracking-tight text-slate-950 dark:text-white sm:text-4xl">
+                Buka tenant baru tanpa ribet.
+              </h1>
+              <p className="text-sm leading-7 text-slate-600 dark:text-slate-300">
+                Isi inti bisnis dulu, masuk ke dashboard lebih cepat, lalu rapikan sisanya dari dalam workspace.
               </p>
-            )}
-          </div>
-
-          <div className="space-y-3">
-            <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
-              Kode Referral
-            </Label>
-            <div className="relative">
-              <Fingerprint className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40" />
-              <Input
-                placeholder="Opsional: kode referral dari partner"
-                className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold pl-14 focus:ring-4 focus:ring-blue-600/5"
-                {...register("referralCode")}
-              />
             </div>
-            <p className="px-4 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/70">
-              Jika diisi, sistem akan memverifikasi kode sebelum registrasi disimpan.
-            </p>
-          </div>
-        </div>
-      </div>
 
-      {/* 2. SECTOR SELECTION WITH EXAMPLES */}
-      <div className="space-y-6">
-        <div className="flex items-center gap-4 group">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white font-black text-sm shadow-lg shadow-blue-600/20 group-hover:scale-110 transition-transform">
-            2
-          </span>
-          <Label className="font-syne text-[11px] font-bold uppercase tracking-[0.3em] text-blue-500">
-            Sektor Bisnis
-          </Label>
-          <div className="h-px flex-1 bg-border/60" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {CATEGORIES.map((cat) => (
-            <div
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={cn(
-                "relative cursor-pointer p-6 rounded-[2rem] border-2 transition-all duration-500 flex flex-col items-start gap-4 group overflow-hidden",
-                selectedCategory === cat.id
-                  ? "border-blue-600 bg-blue-600/5 ring-8 ring-blue-600/5 shadow-2xl"
-                  : "border-border/40 bg-secondary/10 hover:border-blue-500/30",
-              )}
-            >
-              {selectedCategory === cat.id && (
-                <div className="absolute top-0 right-0 p-4 bg-blue-600 rounded-bl-[1.5rem] shadow-xl animate-in fade-in zoom-in">
-                  <Check className="h-4 w-4 text-white stroke-[4]" />
-                </div>
-              )}
-              <div
-                className={cn(
-                  "p-3 rounded-xl bg-background border border-border shadow-sm transition-transform duration-500 group-hover:scale-110",
-                  selectedCategory === cat.id
-                    ? "text-blue-600"
-                    : "text-muted-foreground",
-                )}
-              >
-                <cat.icon className="h-6 w-6" />
-              </div>
-              <div className="text-left space-y-2">
-                <div>
-                  <p
-                    className={cn(
-                      "text-sm font-black uppercase tracking-tighter",
-                      selectedCategory === cat.id
-                        ? "text-foreground"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    {cat.name}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground font-bold leading-relaxed mt-1 opacity-70">
-                    {cat.desc}
-                  </p>
-                </div>
-
-                <div
+            <div className="grid gap-3">
+              {STEPS.map((item, index) => (
+                <button
+                  key={item.title}
+                  type="button"
+                  onClick={() => setStep(index)}
                   className={cn(
-                    "flex items-start gap-2 pt-2 border-t border-border/40 transition-colors",
-                    selectedCategory === cat.id
-                      ? "border-blue-500/20"
-                      : "border-border/20",
+                    "rounded-[1.4rem] border px-4 py-4 text-left transition-all",
+                    step === index
+                      ? "border-blue-200 bg-blue-50 dark:border-sky-400/20 dark:bg-sky-400/10"
+                      : "border-slate-200 bg-slate-50/60 dark:border-white/10 dark:bg-white/[0.03]",
                   )}
                 >
-                  <Info
-                    className={cn(
-                      "h-3 w-3 mt-0.5 shrink-0",
-                      selectedCategory === cat.id
-                        ? "text-blue-500"
-                        : "text-muted-foreground/40",
-                    )}
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-bold text-slate-950 dark:text-white">
+                        {item.title}
+                      </p>
+                      <p className="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">
+                        {item.description}
+                      </p>
+                    </div>
+                    <div
+                      className={cn(
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                        step === index
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-200",
+                      )}
+                    >
+                      {index + 1}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">
+                Ringkasan
+              </p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+                {summaryItems.map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="rounded-[1rem] border border-slate-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/[0.03]"
+                  >
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                      {label}
+                    </p>
+                    <p className="mt-2 break-all text-sm font-bold text-slate-900 dark:text-white">
+                      {value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-[2rem] border border-slate-200/80 bg-white/95 p-6 shadow-[0_24px_80px_-50px_rgba(15,23,42,0.35)] backdrop-blur dark:border-white/10 dark:bg-[#08101e]/92 lg:p-8">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">
+                Step {step + 1} of {STEPS.length}
+              </p>
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white">
+                {STEPS[step].title}
+              </h2>
+            </div>
+            <div className="hidden text-right sm:block">
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">
+                Progress
+              </p>
+              <p className="mt-2 text-xl font-black text-slate-950 dark:text-white">
+                {Math.round(((step + 1) / STEPS.length) * 100)}%
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
+            <div
+              className="h-full rounded-full bg-[linear-gradient(90deg,#2563eb_0%,#60a5fa_100%)] transition-all duration-300"
+              style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
+            />
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-8">
+            <div className={cn("space-y-6", step !== 0 && "hidden")}>
+              <label className="block space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                  Nama bisnis
+                </Label>
+                <div className="relative">
+                  <Building2 className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    placeholder="Contoh: Nexus Gaming Hub"
+                    className="h-14 rounded-[1.2rem] border-slate-200 bg-slate-50/70 pl-12 font-medium dark:border-white/10 dark:bg-white/5"
+                    {...register("businessName", { required: "Nama bisnis wajib diisi" })}
                   />
-                  <p
+                </div>
+                {errors.businessName ? (
+                  <p className="text-xs text-rose-500">{errors.businessName.message}</p>
+                ) : null}
+              </label>
+
+              <label className="block space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                  URL tenant
+                </Label>
+                <div className="relative">
+                  <Globe2 className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    placeholder="nexus-gaming"
+                    className="h-14 rounded-[1.2rem] border-slate-200 bg-slate-50/70 pl-12 pr-36 lowercase font-medium dark:border-white/10 dark:bg-white/5"
+                    {...register("subdomain", {
+                      required: "Subdomain wajib diisi",
+                      pattern: {
+                        value: /^[a-z0-9-]+$/,
+                        message: "Gunakan huruf kecil, angka, atau tanda minus",
+                      },
+                    })}
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-400">
+                    .bookinaja.com
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Preview: <span className="font-semibold">{slugPreview || "bisnismu"}.bookinaja.com</span>
+                </p>
+                {errors.subdomain ? (
+                  <p className="text-xs text-rose-500">{errors.subdomain.message}</p>
+                ) : null}
+              </label>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {CATEGORIES.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setSelectedCategory(item.id)}
                     className={cn(
-                      "text-[9px] font-bold leading-tight",
-                      selectedCategory === cat.id
-                        ? "text-blue-600/80"
-                        : "text-muted-foreground/50",
+                      "rounded-[1.2rem] border p-4 text-left transition-all",
+                      selectedCategory === item.id
+                        ? "border-blue-200 bg-blue-50 dark:border-sky-400/20 dark:bg-sky-400/10"
+                        : "border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.03]",
                     )}
                   >
-                    {cat.example}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-white">
+                        <item.icon className="h-4 w-4" />
+                      </div>
+                      {selectedCategory === item.id ? (
+                        <Check className="h-4 w-4 text-blue-600 dark:text-sky-300" />
+                      ) : null}
+                    </div>
+                    <p className="mt-4 text-sm font-bold text-slate-950 dark:text-white">
+                      {item.name}
+                    </p>
+                    <p className="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">
+                      {item.outcome}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className={cn("space-y-6", step !== 1 && "hidden")}>
+              <div className="grid gap-4 sm:grid-cols-3">
+                {BOOTSTRAP_OPTIONS.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setSelectedBootstrapMode(item.id)}
+                    className={cn(
+                      "rounded-[1.2rem] border p-4 text-left transition-all",
+                      selectedBootstrapMode === item.id
+                        ? "border-blue-200 bg-blue-50 dark:border-sky-400/20 dark:bg-sky-400/10"
+                        : "border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.03]",
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-bold text-slate-950 dark:text-white">
+                        {item.name}
+                      </p>
+                      {selectedBootstrapMode === item.id ? (
+                        <Check className="h-4 w-4 text-blue-600 dark:text-sky-300" />
+                      ) : null}
+                    </div>
+                    <p className="mt-2 text-xs leading-6 text-slate-500 dark:text-slate-400">
+                      {item.desc}
+                    </p>
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                    Tipe bisnis
+                  </Label>
+                  <Input
+                    placeholder="Contoh: Rental PS5"
+                    className="h-14 rounded-[1.2rem] border-slate-200 bg-slate-50/70 font-medium dark:border-white/10 dark:bg-white/5"
+                    {...register("businessType")}
+                  />
+                </label>
+
+                <label className="block space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                    WhatsApp bisnis
+                  </Label>
+                  <Input
+                    placeholder="08123456789"
+                    className="h-14 rounded-[1.2rem] border-slate-200 bg-slate-50/70 font-medium dark:border-white/10 dark:bg-white/5"
+                    {...register("whatsappNumber")}
+                  />
+                </label>
+
+                <label className="block space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                    Timezone
+                  </Label>
+                  <select
+                    className="h-14 w-full rounded-[1.2rem] border border-slate-200 bg-slate-50/70 px-4 text-sm font-medium text-slate-950 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                    {...register("timezone")}
+                  >
+                    {TIMEZONE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                    Referral
+                  </Label>
+                  <Input
+                    placeholder="Opsional"
+                    className="h-14 rounded-[1.2rem] border-slate-200 bg-slate-50/70 font-medium dark:border-white/10 dark:bg-white/5"
+                    {...register("referralCode")}
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className={cn("space-y-6", step !== 2 && "hidden")}>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setAccessMethod("google")}
+                  className={cn(
+                    "rounded-[1.2rem] border p-4 text-left transition-all",
+                    accessMethod === "google"
+                      ? "border-blue-200 bg-blue-50 dark:border-sky-400/20 dark:bg-sky-400/10"
+                      : "border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.03]",
+                  )}
+                >
+                  <p className="text-sm font-bold text-slate-950 dark:text-white">
+                    Google
+                  </p>
+                  <p className="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">
+                    Paling cepat. Login berikutnya bisa satu klik.
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAccessMethod("manual")}
+                  className={cn(
+                    "rounded-[1.2rem] border p-4 text-left transition-all",
+                    accessMethod === "manual"
+                      ? "border-blue-200 bg-blue-50 dark:border-sky-400/20 dark:bg-sky-400/10"
+                      : "border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.03]",
+                  )}
+                >
+                  <p className="text-sm font-bold text-slate-950 dark:text-white">
+                    Email + password
+                  </p>
+                  <p className="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">
+                    Tetap tersedia kalau kamu mau jalur manual.
+                  </p>
+                </button>
+              </div>
+
+              <TenantGoogleButton
+                text="signup_with"
+                title="Google admin"
+                description="Pilih akun Google owner untuk mengisi nama dan email admin otomatis."
+                loading={loading}
+                onCredential={handleGoogleIdentity}
+              />
+
+              {googleProfile ? (
+                <div className="rounded-[1.2rem] border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-400/20 dark:bg-emerald-400/10">
+                  <p className="text-xs font-bold text-emerald-700 dark:text-emerald-200">
+                    Google siap dipakai
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                    {googleProfile.name} · {googleProfile.email}
                   </p>
                 </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 3. BOOTSTRAP SECTION */}
-      <div className="space-y-6">
-        <div className="flex items-center gap-4 group">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white font-black text-sm shadow-lg shadow-blue-600/20 group-hover:scale-110 transition-transform">
-            3
-          </span>
-          <Label className="font-syne text-[11px] font-bold uppercase tracking-[0.3em] text-blue-500">
-            Mode Mulai
-          </Label>
-          <div className="h-px flex-1 bg-border/60" />
-        </div>
-        <div className="grid grid-cols-1 gap-4">
-          {BOOTSTRAP_OPTIONS.map((option) => (
-            <div
-              key={option.id}
-              onClick={() => setSelectedBootstrapMode(option.id)}
-              className={cn(
-                "relative cursor-pointer rounded-[2rem] border-2 p-6 transition-all duration-500",
-                selectedBootstrapMode === option.id
-                  ? "border-blue-600 bg-blue-600/5 ring-8 ring-blue-600/5 shadow-2xl"
-                  : "border-border/40 bg-secondary/10 hover:border-blue-500/30",
-              )}
-            >
-              {selectedBootstrapMode === option.id ? (
-                <div className="absolute top-0 right-0 p-4 bg-blue-600 rounded-bl-[1.5rem] shadow-xl animate-in fade-in zoom-in">
-                  <Check className="h-4 w-4 text-white stroke-[4]" />
-                </div>
               ) : null}
-              <div className="space-y-3">
-                <p className="text-sm font-black uppercase tracking-tight text-foreground">
-                  {option.name}
-                </p>
-                <p className="text-xs font-medium leading-relaxed text-muted-foreground">
-                  {option.desc}
-                </p>
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {option.bullets.map((bullet) => (
-                    <span
-                      key={bullet}
-                      className="rounded-full border border-border/60 px-3 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-muted-foreground"
-                    >
-                      {bullet}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
 
-      {/* 4. ACCESS SECTION */}
-      <div className="space-y-6">
-        <div className="flex items-center gap-4 group">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white font-black text-sm shadow-lg shadow-blue-600/20 group-hover:scale-110 transition-transform">
-            4
-          </span>
-          <Label className="font-syne text-[11px] font-bold uppercase tracking-[0.3em] text-blue-500">
-            Akses Kredensial
-          </Label>
-          <div className="h-px flex-1 bg-border/60" />
-        </div>
-        <div className="grid gap-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
-                Nama Pemilik
-              </Label>
-              <div className="relative">
-                <User className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40" />
-                <Input
-                  placeholder="Helwiza Fahry"
-                  className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold pl-14 focus:ring-4 focus:ring-blue-600/5"
-                  {...register("fullName")}
-                  required
-                />
-              </div>
-            </div>
-            <div className="space-y-3">
-              <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
-                Email Utama
-              </Label>
-              <div className="relative">
-                <Mail className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40" />
-                <Input
-                  type="email"
-                  placeholder="admin@bisnis.com"
-                  className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold pl-14 focus:ring-4 focus:ring-blue-600/5"
-                  {...register("email")}
-                  required
-                />
-              </div>
-            </div>
-          </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                    Nama admin
+                  </Label>
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      placeholder="Nama owner"
+                      className="h-14 rounded-[1.2rem] border-slate-200 bg-slate-50/70 pl-12 font-medium dark:border-white/10 dark:bg-white/5"
+                      {...register("fullName", { required: "Nama admin wajib diisi" })}
+                      disabled={accessMethod === "google" && !!googleProfile}
+                    />
+                  </div>
+                </label>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
-                WhatsApp Bisnis
-              </Label>
-              <div className="relative">
-                <Mail className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40" />
-                <Input
-                  placeholder="Contoh: 08123456789"
-                  className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold pl-14 focus:ring-4 focus:ring-blue-600/5"
-                  {...register("whatsappNumber")}
-                />
+                <label className="block space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                    Email admin
+                  </Label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      type="email"
+                      placeholder="owner@bisnis.com"
+                      className="h-14 rounded-[1.2rem] border-slate-200 bg-slate-50/70 pl-12 font-medium dark:border-white/10 dark:bg-white/5"
+                      {...register("email", { required: "Email admin wajib diisi" })}
+                      disabled={accessMethod === "google" && !!googleProfile}
+                    />
+                  </div>
+                </label>
+              </div>
+
+              <div className={cn(accessMethod !== "manual" && "hidden")}>
+                <label className="block space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                    Password admin
+                  </Label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      type="password"
+                      placeholder="Minimal 6 karakter"
+                      className="h-14 rounded-[1.2rem] border-slate-200 bg-slate-50/70 pl-12 font-medium dark:border-white/10 dark:bg-white/5"
+                      {...register("password")}
+                    />
+                  </div>
+                </label>
               </div>
             </div>
-            <div className="space-y-3">
-              <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
-                Zona Waktu Operasional
-              </Label>
-              <select
-                className="h-16 w-full rounded-2xl border border-border/60 bg-secondary/20 px-5 text-sm font-bold text-foreground focus:ring-4 focus:ring-blue-600/5"
-                {...register("timezone")}
+
+            <div className="flex flex-col gap-3 border-t border-slate-200 pt-6 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
               >
-                {TIMEZONE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+                <ArrowLeft className="h-4 w-4" />
+                Kembali
+              </Link>
 
-          <div className="space-y-3">
-            <Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] ml-2">
-              Secure Password
-            </Label>
-            <div className="relative">
-              <Lock className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/40" />
-              <Input
-                type="password"
-                placeholder="••••••••"
-                className="h-16 rounded-2xl border-border/60 bg-secondary/20 font-bold pl-14 focus:ring-4 focus:ring-blue-600/5"
-                {...register("password")}
-                required
-              />
+              <div className="flex flex-col gap-3 sm:flex-row">
+                {step > 0 ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={prevStep}
+                    className="h-12 rounded-xl px-5"
+                  >
+                    Sebelumnya
+                  </Button>
+                ) : null}
+
+                {step < STEPS.length - 1 ? (
+                  <Button
+                    type="button"
+                    onClick={nextStep}
+                    className="h-12 rounded-xl bg-blue-600 px-5 font-bold text-white hover:bg-blue-500"
+                  >
+                    Lanjut
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="h-12 rounded-xl bg-blue-600 px-5 font-bold text-white hover:bg-blue-500"
+                  >
+                    {loading ? "Menyiapkan..." : "Buat tenant"}
+                    {!loading ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
-        </div>
+          </form>
+        </section>
       </div>
-
-      <Button
-        type="submit"
-        disabled={loading}
-        className="w-full h-24 rounded-[2.5rem] bg-blue-600 text-2xl font-black italic uppercase tracking-[0.2em] text-white shadow-[0_30px_60px_-15px_rgba(37,99,235,0.5)] hover:bg-blue-700 transition-all hover:-translate-y-2 active:scale-95 border-b-[12px] border-blue-900 group"
-      >
-        {loading ? (
-          <span className="flex items-center gap-4 animate-pulse">
-            Menyiapkan Sistem...
-          </span>
-        ) : (
-          <span className="flex items-center gap-4">Daftar Sekarang</span>
-        )}
-      </Button>
-    </form>
+    </div>
   );
 }
 
@@ -519,117 +747,18 @@ export default function RegisterPage() {
   }, []);
 
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center py-12 md:py-24 px-4 md:px-6 overflow-hidden selection:bg-blue-600/30 font-plus-jakarta bg-background">
-      {/* --- PERSISTENT BACKGROUND SYSTEM --- */}
-      <div className="fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-[10%] left-[-10%] h-[40rem] w-[40rem] rounded-full bg-blue-600/10 blur-[120px]" />
-        <div className="absolute bottom-0 right-[-10%] h-[40rem] w-[40rem] rounded-full bg-indigo-600/5 blur-[120px]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:radial-gradient(ellipse_80%_80%_at_50%_50%,#000_70%,transparent_100%)]" />
-      </div>
-
-      <div className="w-full max-w-6xl animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <div className="flex flex-col lg:flex-row rounded-[2.5rem] md:rounded-[3.5rem] border border-border/50 bg-card/40 shadow-3xl backdrop-blur-3xl overflow-hidden transition-all duration-700">
-          {/* --- LEFT: B2B AUTHORITY PITCH --- */}
-          <div className="relative hidden lg:flex w-full flex-col justify-between p-16 text-white lg:max-w-md bg-[#0f1f4a] overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-600/30 via-transparent to-transparent" />
-
-            <div className="relative z-10 space-y-12">
-              <div className="space-y-6">
-                <Badge className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-5 py-2 rounded-full font-syne text-[10px] font-bold uppercase tracking-[0.2em] backdrop-blur-md">
-                  <Sparkles className="mr-2 h-3.5 w-3.5 fill-current" />
-                  Prelaunch Access
-                </Badge>
-                <h2 className="text-6xl font-black leading-[0.9] tracking-tighter italic">
-                  Masuk Lebih Awal. <br />
-                  <span className="text-blue-500">Setup Lebih Tenang.</span>
-                </h2>
-                <p className="text-slate-400 font-medium text-lg leading-relaxed">
-                  Fase prelaunch memberi kamu trial 30 hari, onboarding lebih
-                  dekat, dan kesempatan membentuk produk bersama tim kami.
-                </p>
-              </div>
-
-              <div className="space-y-8">
-                {[
-                  { icon: Globe, text: "Subdomain Bisnis Siap Pakai" },
-                  { icon: ShieldCheck, text: "Trial Tanpa Kartu Kredit" },
-                  { icon: Rocket, text: "Onboarding Dibantu Tim" },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-5 group">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/5 border border-white/10 group-hover:bg-blue-600 group-hover:border-blue-500 transition-all duration-500">
-                      <item.icon className="h-7 w-7 text-blue-400 group-hover:text-white" />
-                    </div>
-                    <p className="font-extrabold text-slate-200 text-lg uppercase italic tracking-tight">
-                      {item.text}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="relative z-10 p-8 rounded-[2rem] bg-white/5 border border-white/10 backdrop-blur-md">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] leading-loose">
-                Early Access · Trial 30 Hari · Cancel Kapan Saja
-              </p>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.12),transparent_28%),linear-gradient(180deg,#f8fafc_0%,#eff6ff_42%,#ffffff_100%)] px-4 py-8 dark:bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.14),transparent_28%),linear-gradient(180deg,#030712_0%,#08101e_42%,#050814_100%)] sm:px-6 lg:px-8">
+      <Suspense
+        fallback={
+          <div className="mx-auto flex min-h-[60vh] max-w-4xl items-center justify-center">
+            <div className="rounded-full border border-blue-100 bg-white px-5 py-3 text-sm font-bold text-blue-700 shadow-sm">
+              Menyiapkan onboarding tenant...
             </div>
           </div>
-
-          {/* --- RIGHT: ENCHANCED FORM --- */}
-          <div className="flex flex-1 items-center justify-center p-6 py-12 md:p-16 lg:p-20">
-            <div className="w-full max-w-[540px] space-y-12">
-              <div className="space-y-4 text-center sm:text-left">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500">
-                  <Fingerprint className="h-4 w-4" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.3em]">
-                    Prelaunch Registration
-                  </span>
-                </div>
-                <h1 className="text-5xl md:text-6xl font-black tracking-tighter text-foreground italic uppercase leading-none">
-                  Mulai Bisnis
-                </h1>
-                <p className="text-muted-foreground font-medium text-lg leading-snug">
-                  Buka akses awal Bookinaja untuk bisnis kamu dan coba gratis
-                  30 hari bersama onboarding dari tim kami.
-                </p>
-              </div>
-
-              {/* Suspense diperlukan karena useSearchParams() mengakses state client-side yang dinamis */}
-              <Suspense
-                fallback={
-                  <div className="h-96 flex items-center justify-center animate-pulse text-blue-600 font-bold uppercase tracking-widest text-xs">
-                    Menyiapkan Form...
-                  </div>
-                }
-              >
-                <RegisterForm />
-              </Suspense>
-
-              <div className="text-center space-y-6">
-                <p className="text-sm text-muted-foreground font-bold italic uppercase tracking-[0.1em]">
-                  Sudah memiliki lisensi?{" "}
-                  <Link
-                    href="/demos"
-                    className="text-blue-500 hover:text-blue-600 hover:underline underline-offset-8 decoration-2 transition-all"
-                  >
-                    Lihat Demo Login
-                  </Link>
-                </p>
-                <div className="flex flex-wrap justify-center gap-6 opacity-40 grayscale pointer-events-none">
-                  <div className="text-[9px] font-black uppercase tracking-widest border border-foreground/20 px-3 py-1 rounded-md">
-                    Trial 30 Hari
-                  </div>
-                  <div className="text-[9px] font-black uppercase tracking-widest border border-foreground/20 px-3 py-1 rounded-md">
-                    Tanpa Kartu Kredit
-                  </div>
-                  <div className="text-[9px] font-black uppercase tracking-widest border border-foreground/20 px-3 py-1 rounded-md">
-                    Dibantu Sampai Live
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+        }
+      >
+        <RegisterFlow />
+      </Suspense>
     </div>
   );
 }

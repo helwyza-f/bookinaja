@@ -120,8 +120,9 @@ func isRootDomain(host, slug string) bool {
 		return false
 	}
 	rootLike := map[string]bool{
-		"bookinaja.com":   true,
+		"bookinaja.com": true,
 		"bookinaja.local": true,
+		"lvh.me": true,
 	}
 	if rootLike[h] {
 		return true
@@ -145,7 +146,7 @@ func GetSlugFromHost(host string) string {
 	}
 	parts := strings.Split(h, ".")
 
-	// Format: {slug}.bookinaja.local
+	// Format: {slug}.root-domain
 	if len(parts) >= 3 {
 		return parts[0]
 	}

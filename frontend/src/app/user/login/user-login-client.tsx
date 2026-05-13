@@ -3,7 +3,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { setCookie } from "cookies-next";
 import {
   ArrowRight,
   ChevronLeft,
@@ -27,7 +26,15 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { toast } from "sonner";
-import { getTenantMismatchMessage } from "@/lib/tenant-session";
+import {
+  getTenantMismatchMessage,
+  setCustomerAuthCookie,
+} from "@/lib/tenant-session";
+import {
+  getCustomerPostAuthUrl,
+  getCentralCustomerAuthUrl,
+  getTenantSlugFromBrowser,
+} from "@/lib/tenant";
 
 type AuthMode = "wa" | "email";
 type WaStep = "phone" | "otp";
@@ -71,6 +78,16 @@ export default function UserLoginClient() {
   const [forgotLoading, setForgotLoading] = useState(false);
 
   const nextPath = searchParams.get("next") || "/user/me";
+  const tenantQuery = searchParams.get("tenant");
+  const postAuthTarget = getCustomerPostAuthUrl({
+    tenantSlug: tenantQuery,
+    next: nextPath,
+  });
+  const registerHref = getCentralCustomerAuthUrl("register", {
+    tenantSlug: tenantQuery,
+    next: nextPath,
+    reason: searchParams.get("reason"),
+  });
 
   useEffect(() => {
     if (searchParams.get("reason") !== "tenant-mismatch") return;
@@ -79,6 +96,22 @@ export default function UserLoginClient() {
       description: message.description,
       duration: 5000,
     });
+  }, [searchParams]);
+
+  useEffect(() => {
+    const tenantSlug = getTenantSlugFromBrowser();
+    if (!tenantSlug) return;
+
+    const next = searchParams.get("next") || "/user/me";
+    const target = getCentralCustomerAuthUrl("login", {
+      tenantSlug,
+      next,
+      reason: searchParams.get("reason"),
+    });
+    const current = typeof window !== "undefined" ? window.location.href : "";
+    if (current !== target) {
+      window.location.replace(target);
+    }
   }, [searchParams]);
 
   const syncPhone = (value: string) => {
@@ -121,13 +154,10 @@ export default function UserLoginClient() {
         code: cleanedOtp,
       });
 
-      setCookie("customer_auth", res.data.token, {
-        path: "/",
-        sameSite: "lax",
-      });
+      setCustomerAuthCookie(res.data.token);
 
       toast.success(`Selamat datang, ${res.data.customer?.name || "Customer"}`);
-      router.push(nextPath);
+      router.push(postAuthTarget);
     } catch (error) {
       toast.error(
         getErrorMessage(error, "Kode OTP salah atau sudah kedaluwarsa"),
@@ -152,15 +182,12 @@ export default function UserLoginClient() {
         password,
       });
 
-      setCookie("customer_auth", res.data.token, {
-        path: "/",
-        sameSite: "lax",
-      });
+      setCustomerAuthCookie(res.data.token);
 
       toast.success(
         `Selamat datang kembali, ${res.data.customer?.name || "Customer"}`,
       );
-      router.push(nextPath);
+      router.push(postAuthTarget);
     } catch (error) {
       toast.error(getErrorMessage(error, "Gagal masuk"));
     } finally {
@@ -286,7 +313,11 @@ export default function UserLoginClient() {
 
           <Card className="rounded-[2rem] border border-[#1d4ed81a] bg-white/75 shadow-[0_32px_64px_-15px_rgba(15,23,42,0.10)] backdrop-blur-3xl dark:border-white/10 dark:bg-black/50 dark:shadow-[0_32px_64px_-15px_rgba(0,0,0,0.5)]">
             <CardContent className="space-y-6 p-5 sm:p-6">
-              <CustomerGoogleAuth mode="login" nextPath={nextPath} />
+              <CustomerGoogleAuth
+                mode="login"
+                nextPath={nextPath}
+                tenantSlug={tenantQuery}
+              />
 
               <div className="flex items-center gap-3">
                 <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
@@ -481,7 +512,7 @@ export default function UserLoginClient() {
                   Belum punya akun?
                 </p>
                 <Link
-                  href="/user/register"
+                  href={registerHref}
                   className="ml-2 font-semibold text-[#1d4ed8] underline-offset-4 hover:underline dark:text-sky-300"
                 >
                   Daftar

@@ -3,7 +3,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { setCookie } from "cookies-next";
 import {
   ArrowLeft,
   ArrowRight,
@@ -19,6 +18,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CustomerGoogleAuth } from "@/components/customer/customer-google-auth";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { setCustomerAuthCookie } from "@/lib/tenant-session";
+import {
+  getCustomerPostAuthUrl,
+  getCentralCustomerAuthUrl,
+  getTenantSlugFromBrowser,
+} from "@/lib/tenant";
 
 type Step = "form" | "otp";
 
@@ -52,6 +57,15 @@ export default function RegisterClient() {
   const [otp, setOtp] = useState("");
 
   const nextPath = searchParams.get("next") || "/user/me";
+  const tenantQuery = searchParams.get("tenant");
+  const postAuthTarget = getCustomerPostAuthUrl({
+    tenantSlug: tenantQuery,
+    next: nextPath,
+  });
+  const loginHref = getCentralCustomerAuthUrl("login", {
+    tenantSlug: tenantQuery,
+    next: nextPath,
+  });
 
   const cleanedPhone = phone.replace(/\D/g, "");
 
@@ -66,6 +80,21 @@ export default function RegisterClient() {
 
     return () => window.clearTimeout(timer);
   }, [resendCooldown]);
+
+  useEffect(() => {
+    const tenantSlug = getTenantSlugFromBrowser();
+    if (!tenantSlug) return;
+
+    const next = searchParams.get("next") || "/user/me";
+    const target = getCentralCustomerAuthUrl("register", {
+      tenantSlug,
+      next,
+    });
+    const current = typeof window !== "undefined" ? window.location.href : "";
+    if (current !== target) {
+      window.location.replace(target);
+    }
+  }, [searchParams]);
 
   const handleRegister = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -110,12 +139,9 @@ export default function RegisterClient() {
         phone: cleanedPhone,
         code: otp.replace(/\D/g, ""),
       });
-      setCookie("customer_auth", res.data.token, {
-        path: "/",
-        sameSite: "lax",
-      });
+      setCustomerAuthCookie(res.data.token);
       toast.success("Akun kamu sudah aktif. Selamat datang di Bookinaja");
-      router.push(nextPath);
+      router.push(postAuthTarget);
     } catch (error) {
       toast.error(
         getErrorMessage(
@@ -186,7 +212,11 @@ export default function RegisterClient() {
             <CardContent className="space-y-6 p-5 sm:p-6">
               {step === "form" ? (
                 <>
-                  <CustomerGoogleAuth mode="register" nextPath={nextPath} />
+                  <CustomerGoogleAuth
+                    mode="register"
+                    nextPath={nextPath}
+                    tenantSlug={tenantQuery}
+                  />
 
                   <div className="flex items-center gap-3">
                     <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
@@ -380,7 +410,7 @@ export default function RegisterClient() {
                   Sudah punya akun?
                 </p>
                 <Link
-                  href="/user/login"
+                  href={loginHref}
                   className="ml-2 font-semibold text-[#1d4ed8] underline-offset-4 hover:underline dark:text-sky-300"
                 >
                   Masuk
@@ -391,7 +421,7 @@ export default function RegisterClient() {
 
           <div className="flex items-center justify-center gap-2 text-sm text-slate-500 transition-colors dark:text-slate-400">
             <Link
-              href="/user/login"
+              href={loginHref}
               className="inline-flex items-center gap-2 hover:text-slate-900 dark:hover:text-white"
             >
               <ArrowLeft className="h-4 w-4" />

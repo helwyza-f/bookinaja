@@ -24,6 +24,20 @@ export function syncTenantCookies(tenantSlug?: string | null) {
   }
 }
 
+export function setAdminAuthCookie(token: string) {
+  setCookie("auth_token", token, {
+    maxAge: 60 * 60 * 24 * 7,
+    ...COOKIE_BASE_OPTIONS,
+  });
+}
+
+export function setCustomerAuthCookie(token: string) {
+  setCookie("customer_auth", token, {
+    maxAge: 60 * 60 * 24 * 7,
+    ...COOKIE_BASE_OPTIONS,
+  });
+}
+
 /**
  * Membersihkan semua sesi saat logout atau auth error
  */

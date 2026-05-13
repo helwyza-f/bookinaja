@@ -1,6 +1,11 @@
 import axios from "axios";
 import { getCookie, deleteCookie } from "cookies-next";
-import { getTenantSlugFromBrowser } from "@/lib/tenant";
+import {
+  getCentralAdminAuthUrl,
+  getCentralCustomerAuthUrl,
+  getCurrentPathWithSearch,
+  getTenantSlugFromBrowser,
+} from "@/lib/tenant";
 import {
   clearTenantSession,
   isCrossTenantSessionError,
@@ -43,24 +48,31 @@ api.interceptors.response.use(
     if (isCrossTenantSessionError(err) && typeof window !== "undefined") {
       const hasAdminToken = Boolean(getCookie("auth_token"));
       const hasCustomerToken = Boolean(getCookie("customer_auth"));
-      const isTenantSurface = Boolean(getTenantSlugFromBrowser());
+      const tenantSlug = getTenantSlugFromBrowser();
+      const isTenantSurface = Boolean(tenantSlug);
 
       clearTenantSession({ keepTenantSlug: isTenantSurface });
 
-      const nextPath = encodeURIComponent(
-        `${window.location.pathname}${window.location.search}`,
-      );
+      const nextPath = getCurrentPathWithSearch();
       const target = hasAdminToken
         ? isTenantSurface
-          ? `/admin/login?reason=tenant-mismatch&next=${nextPath}`
+          ? getCentralAdminAuthUrl({
+              tenantSlug,
+              next: nextPath,
+              reason: "tenant-mismatch",
+            })
           : `/login?reason=tenant-mismatch&next=${nextPath}`
         : hasCustomerToken
           ? isTenantSurface
-            ? `/login?reason=tenant-mismatch&next=${nextPath}`
+            ? getCentralCustomerAuthUrl("login", {
+                tenantSlug,
+                next: nextPath,
+                reason: "tenant-mismatch",
+              })
             : `/user/login?reason=tenant-mismatch&next=${nextPath}`
           : null;
 
-      if (target && window.location.pathname !== target) {
+      if (target && window.location.href !== target) {
         window.location.replace(target);
       }
     }

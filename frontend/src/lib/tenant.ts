@@ -146,6 +146,69 @@ export function getRootPortalUrl(
   return `${protocol}//${root.host}${port}${safePath}${search ? `?${search}` : ""}`;
 }
 
+export function getCurrentPathWithSearch() {
+  if (typeof window === "undefined") return "/";
+  return `${window.location.pathname}${window.location.search}`;
+}
+
+export function getCentralCustomerAuthUrl(
+  mode: "login" | "register",
+  options?: {
+    tenantSlug?: string | null;
+    next?: string | null;
+    reason?: string | null;
+  },
+) {
+  const path = mode === "register" ? "/user/register" : "/user/login";
+  const tenantSlug = normalizeSlug(options?.tenantSlug);
+  const next = normalizeNextPath(options?.next);
+  const reason = (options?.reason || "").trim();
+
+  return getRootPortalUrl(path, {
+    ...(tenantSlug ? { tenant: tenantSlug, intent: "customer" } : {}),
+    ...(next ? { next } : {}),
+    ...(reason ? { reason } : {}),
+  });
+}
+
+export function getCentralAdminAuthUrl(options?: {
+  tenantSlug?: string | null;
+  next?: string | null;
+  reason?: string | null;
+  plan?: string | null;
+  interval?: string | null;
+  welcome?: string | null;
+}) {
+  const tenantSlug = normalizeSlug(options?.tenantSlug);
+  const next = normalizeNextPath(options?.next);
+  const reason = (options?.reason || "").trim();
+  const plan = (options?.plan || "").trim();
+  const interval = (options?.interval || "").trim();
+  const welcome = (options?.welcome || "").trim();
+
+  return getRootPortalUrl("/admin/login", {
+    ...(tenantSlug ? { tenant: tenantSlug, intent: "admin" } : {}),
+    ...(next ? { next } : {}),
+    ...(reason ? { reason } : {}),
+    ...(plan ? { plan } : {}),
+    ...(interval ? { interval } : {}),
+    ...(welcome ? { welcome } : {}),
+  });
+}
+
+export function getCustomerPostAuthUrl(options?: {
+  tenantSlug?: string | null;
+  next?: string | null;
+}) {
+  const tenantSlug = normalizeSlug(options?.tenantSlug);
+  const normalizedNext = normalizeNextPath(options?.next) || "/user/me";
+  if (!tenantSlug) {
+    return normalizedNext;
+  }
+
+  return getTenantUrl(tenantSlug, mapCustomerNextPathToTenant(normalizedNext));
+}
+
 function resolveConfiguredRoot() {
   const cleaned = ROOT_DOMAIN || "bookinaja.local";
   const [host, portFromDomain] = cleaned.split(":");
@@ -158,4 +221,22 @@ function resolveConfiguredRoot() {
 
 function stripPort(value: string) {
   return value.split(":")[0];
+}
+
+function normalizeNextPath(value?: string | null) {
+  const trimmed = (value || "").trim();
+  if (!trimmed) return "";
+  if (!trimmed.startsWith("/")) return "";
+  if (trimmed.startsWith("//")) return "";
+  return trimmed;
+}
+
+function mapCustomerNextPathToTenant(value: string) {
+  if (value === "/user" || value === "/user/") {
+    return "/";
+  }
+  if (value.startsWith("/user/")) {
+    return value.slice("/user".length) || "/";
+  }
+  return value;
 }

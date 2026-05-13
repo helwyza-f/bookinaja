@@ -693,8 +693,8 @@ func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) erro
 	}
 
 	_, err = tx.NamedExecContext(ctx, `
-		INSERT INTO users (id, tenant_id, name, email, password, role, created_at) 
-		VALUES (:id, :tenant_id, :name, :email, :password, :role, :created_at)`, u)
+		INSERT INTO users (id, tenant_id, name, email, password, google_subject, role, created_at) 
+		VALUES (:id, :tenant_id, :name, :email, :password, :google_subject, :role, :created_at)`, u)
 	if err != nil {
 		return err
 	}
@@ -1534,6 +1534,44 @@ func (r *Repository) GetUserByEmailAndSlug(ctx context.Context, email, slug stri
 		return nil, nil
 	}
 	return &u, err
+}
+
+func (r *Repository) GetUserByGoogleSubject(ctx context.Context, subject string) (*User, error) {
+	var u User
+	err := r.db.GetContext(ctx, &u, `SELECT * FROM users WHERE google_subject = $1 LIMIT 1`, subject)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return &u, err
+}
+
+func (r *Repository) GetUserByGoogleSubjectAndSlug(ctx context.Context, subject, slug string) (*User, error) {
+	var u User
+	query := `
+		SELECT u.*
+		FROM users u
+		JOIN tenants t ON t.id = u.tenant_id
+		WHERE u.google_subject = $1 AND LOWER(TRIM(t.slug)) = LOWER(TRIM($2))
+		LIMIT 1`
+	err := r.db.GetContext(ctx, &u, query, subject, slug)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return &u, err
+}
+
+func (r *Repository) LinkUserGoogleSubject(ctx context.Context, userID uuid.UUID, subject string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE users
+		SET google_subject = $2
+		WHERE id = $1`,
+		userID, subject,
+	)
+	if err != nil {
+		return err
+	}
+	r.invalidateUserCache(ctx, userID)
+	return nil
 }
 
 func (r *Repository) ListUsersByTenant(ctx context.Context, tenantID uuid.UUID) ([]User, error) {

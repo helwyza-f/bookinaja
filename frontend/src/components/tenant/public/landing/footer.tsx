@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import type { BuilderProfile } from "@/lib/page-builder";
+import { getCentralAdminAuthUrl, getCentralCustomerAuthUrl } from "@/lib/tenant";
 import { getLandingPresetTone } from "./theme-preset";
 
 // Custom Brand Icons
@@ -239,12 +240,27 @@ export function TenantFooter({
                   Lihat katalog
                 </Button>
               </a>
+              <a
+                href={getCentralCustomerAuthUrl("login", {
+                  tenantSlug: profile.slug,
+                  next: "/user/me",
+                })}
+              >
+                <Button variant="outline" className={cn("border-2 bg-transparent", socialButtonClass)}>
+                  Login Customer
+                </Button>
+              </a>
               {profile.whatsapp_number ? (
                 <a href={`https://wa.me/${profile.whatsapp_number}`} target="_blank" rel="noreferrer">
                   <Button variant="outline" className={cn("border-2 bg-transparent", socialButtonClass)}>Hubungi via WhatsApp</Button>
                 </a>
               ) : null}
-              <Link href="/admin/login">
+              <Link
+                href={getCentralAdminAuthUrl({
+                  tenantSlug: profile.slug,
+                  next: "/admin/dashboard",
+                })}
+              >
                 <Button variant="outline" className={cn("border-2 bg-transparent", socialButtonClass)}>
                   Login Admin
                 </Button>

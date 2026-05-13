@@ -57,6 +57,7 @@ func websocketOriginAllowed(r *http.Request) bool {
 	allowed := []string{
 		"http://localhost:3000",
 		"http://bookinaja.local:3000",
+		"http://lvh.me:3000",
 		"https://bookinaja.com",
 		"https://www.bookinaja.com",
 	}
@@ -70,5 +71,7 @@ func websocketOriginAllowed(r *http.Request) bool {
 		}
 	}
 
-	return strings.HasSuffix(origin, ".bookinaja.com") || strings.HasSuffix(origin, ".bookinaja.local:3000")
+	return strings.HasSuffix(origin, ".bookinaja.com") ||
+		strings.HasSuffix(origin, ".bookinaja.local:3000") ||
+		strings.HasSuffix(origin, ".lvh.me:3000")
 }

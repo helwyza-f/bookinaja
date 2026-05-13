@@ -21,7 +21,8 @@ type RegisterReq struct {
 	ReferralCode     string `json:"referral_code"`
 	AdminName        string `json:"admin_name" binding:"required"`
 	AdminEmail       string `json:"admin_email" binding:"required,email"`
-	AdminPass        string `json:"admin_password" binding:"required,min=6"`
+	AdminPass        string `json:"admin_password" binding:"omitempty,min=6"`
+	GoogleIDToken    string `json:"google_id_token"`
 	WhatsappNumber   string `json:"whatsapp_number"`
 	Timezone         string `json:"timezone"`
 }
@@ -33,22 +34,47 @@ type LoginReq struct {
 	TenantSlug string `json:"tenant_slug"`
 }
 
+type LoginGoogleReq struct {
+	GoogleIDToken string `json:"id_token" binding:"required"`
+	TenantSlug    string `json:"tenant_slug"`
+}
+
+type GoogleIdentityReq struct {
+	GoogleIDToken string `json:"id_token" binding:"required"`
+}
+
 // LoginResponse mengembalikan token akses dan profil singkat user
 type LoginResponse struct {
 	Token string `json:"token"`
 	User  User   `json:"user"`
 }
 
+type RegisterResponse struct {
+	Token   string `json:"token"`
+	User    User   `json:"user"`
+	Tenant  Tenant `json:"tenant"`
+	IsNew   bool   `json:"is_new"`
+	Message string `json:"message"`
+}
+
+type GoogleIdentityResponse struct {
+	Name          string  `json:"name"`
+	Email         string  `json:"email"`
+	AvatarURL     *string `json:"avatar_url,omitempty"`
+	EmailVerified bool    `json:"email_verified"`
+}
+
 // User merepresentasikan entitas pemilik bisnis atau staff
 type User struct {
-	ID        uuid.UUID  `db:"id" json:"id"`
-	TenantID  uuid.UUID  `db:"tenant_id" json:"tenant_id"`
-	RoleID    *uuid.UUID `db:"role_id" json:"role_id,omitempty"`
-	Name      string     `db:"name" json:"name"`
-	Email     string     `db:"email" json:"email"`
-	Password  string     `db:"password" json:"-"`
-	Role      string     `db:"role" json:"role"`
-	CreatedAt time.Time  `db:"created_at" json:"created_at"`
+	ID            uuid.UUID  `db:"id" json:"id"`
+	TenantID      uuid.UUID  `db:"tenant_id" json:"tenant_id"`
+	RoleID        *uuid.UUID `db:"role_id" json:"role_id,omitempty"`
+	Name          string     `db:"name" json:"name"`
+	Email         string     `db:"email" json:"email"`
+	Password      string     `db:"password" json:"-"`
+	GoogleSubject *string    `db:"google_subject" json:"google_subject,omitempty"`
+	Role          string     `db:"role" json:"role"`
+	CreatedAt     time.Time  `db:"created_at" json:"created_at"`
 }
 
 type StaffCreateReq struct {
