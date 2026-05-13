@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/helwiza/backend/internal/platform/access"
 	"github.com/helwiza/backend/internal/platform/env"
 	"github.com/helwiza/backend/internal/platform/fonnte"
 	"github.com/helwiza/backend/internal/platform/midtrans"
@@ -406,7 +407,12 @@ func (s *Service) ListBookingPaymentAttempts(ctx context.Context, tenantID, book
 }
 
 func (s *Service) GetSubscription(ctx context.Context, tenantID uuid.UUID) (SubscriptionInfo, error) {
-	return s.repo.GetSubscriptionInfo(ctx, tenantID)
+	info, err := s.repo.GetSubscriptionInfo(ctx, tenantID)
+	if err != nil {
+		return SubscriptionInfo{}, err
+	}
+	info.PlanFeatures = access.ResolvePlanFeatures(info.Plan)
+	return info, nil
 }
 
 func (s *Service) emitManualPaymentRealtime(eventType string, info BookingNotificationContext, scope, reference string, method PaymentMethodOption) {

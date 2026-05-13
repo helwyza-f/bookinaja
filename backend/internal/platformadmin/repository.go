@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/helwiza/backend/internal/platform/access"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -17,6 +18,11 @@ type Repository struct {
 type DiscoveryFeedSetting struct {
 	EnableDiscoveryPosts bool      `json:"enable_discovery_posts"`
 	UpdatedAt            time.Time `json:"updated_at"`
+}
+
+type PlanFeatureSettings struct {
+	Plans     map[string][]string `json:"plans"`
+	UpdatedAt time.Time           `json:"updated_at"`
 }
 
 type revenueReportRow struct {
@@ -124,6 +130,59 @@ func (r *Repository) UpdateDiscoveryFeedSetting(ctx context.Context, enabled boo
 			value_json = jsonb_build_object('enable_discovery_posts', $1::boolean),
 			updated_at = NOW()`,
 		enabled,
+	)
+	return err
+}
+
+func (r *Repository) GetPlanFeatureSettings(ctx context.Context) (*PlanFeatureSettings, error) {
+	var row struct {
+		ValueJSON json.RawMessage `db:"value_json"`
+		UpdatedAt time.Time       `db:"updated_at"`
+	}
+	err := r.db.GetContext(ctx, &row, `
+		SELECT value_json, updated_at
+		FROM platform_feature_settings
+		WHERE key = 'plan_features'
+		LIMIT 1`)
+	if err != nil {
+		if seedErr := r.UpdatePlanFeatureSettings(ctx, access.GetPlanFeatureMatrix()); seedErr != nil {
+			return nil, err
+		}
+		err = r.db.GetContext(ctx, &row, `
+			SELECT value_json, updated_at
+			FROM platform_feature_settings
+			WHERE key = 'plan_features'
+			LIMIT 1`)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var payload struct {
+		Plans map[string][]string `json:"plans"`
+	}
+	if err := json.Unmarshal(row.ValueJSON, &payload); err != nil {
+		return nil, err
+	}
+	if payload.Plans == nil {
+		payload.Plans = access.GetPlanFeatureMatrix()
+	}
+
+	return &PlanFeatureSettings{
+		Plans:     payload.Plans,
+		UpdatedAt: row.UpdatedAt,
+	}, nil
+}
+
+func (r *Repository) UpdatePlanFeatureSettings(ctx context.Context, plans map[string][]string) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO platform_feature_settings (key, value_json, updated_at)
+		VALUES ('plan_features', jsonb_build_object('plans', $1::jsonb), NOW())
+		ON CONFLICT (key)
+		DO UPDATE SET
+			value_json = jsonb_build_object('plans', $1::jsonb),
+			updated_at = NOW()`,
+		mustJSON(plans),
 	)
 	return err
 }

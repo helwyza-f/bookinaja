@@ -29,6 +29,7 @@ type SubscriptionInfo = {
   plan?: string;
   status?: string;
   current_period_end?: string | null;
+  plan_features?: string[];
 };
 
 export default function SettingsBillingSubscribePage() {

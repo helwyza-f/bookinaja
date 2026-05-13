@@ -218,6 +218,11 @@ export type PlatformDiscoveryFeedSetting = {
   updated_at?: string;
 };
 
+export type PlatformPlanFeatureSettings = {
+  plans: Record<string, string[]>;
+  updated_at?: string;
+};
+
 export type TenantGrowthSettings = {
   enable_discovery_posts: boolean;
 };
@@ -347,6 +352,21 @@ export function updatePlatformDiscoveryFeedSetting(enableDiscoveryPosts: boolean
   return api.patch("/platform/discovery-feed/settings", {
     enable_discovery_posts: enableDiscoveryPosts,
   });
+}
+
+export function getPlatformPlanFeatures() {
+  return safeGet<PlatformPlanFeatureSettings>("/platform/plan-features", {
+    plans: {
+      trial: [],
+      starter: [],
+      pro: [],
+      scale: [],
+    },
+  });
+}
+
+export function updatePlatformPlanFeatures(plans: Record<string, string[]>) {
+  return api.patch("/platform/plan-features", { plans });
 }
 
 export function getTenantGrowthSettings() {

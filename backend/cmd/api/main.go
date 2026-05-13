@@ -141,6 +141,9 @@ func main() {
 	scheduler := reservation.NewScheduler(db, reservationRepo, smartDeviceSvc)
 	billingSvc := billing.NewService(db, billingRepo, realtimeHub)
 	platformSvc := platformadmin.NewService(resendMailer, platformRepo)
+	if _, err := platformSvc.LoadPlanFeatureSettings(context.Background()); err != nil {
+		log.Printf("platform plan features bootstrap skipped: %v", err)
+	}
 	dispatcher := smartdevice.NewDispatcher(smartDeviceRepo, mqttClient)
 	subscriber := smartdevice.NewSubscriber(smartDeviceSvc, mqttClient)
 	reconciler := smartdevice.NewReconciler(smartDeviceSvc, 90*time.Second)

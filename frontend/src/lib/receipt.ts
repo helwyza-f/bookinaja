@@ -4,6 +4,7 @@ export type ReceiptSettings = {
   name?: string;
   plan?: string;
   subscription_status?: string;
+  plan_features?: string[];
   receipt_title?: string;
   receipt_subtitle?: string;
   receipt_footer?: string;

@@ -101,6 +101,7 @@ type SubscriptionInfo struct {
 	Status             string     `json:"status"`
 	CurrentPeriodStart *time.Time `json:"current_period_start"`
 	CurrentPeriodEnd   *time.Time `json:"current_period_end"`
+	PlanFeatures       []string   `json:"plan_features,omitempty"`
 }
 
 type BillingOrder struct {

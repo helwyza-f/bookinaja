@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, BadgeCheck, Mail, Settings2, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowUpRight, BadgeCheck, Mail, Settings2, ShieldCheck, SlidersHorizontal, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { PageShell } from "@/components/dashboard/page-shell";
@@ -11,6 +11,7 @@ const sections = [
   { href: "/dashboard/tenants", title: "Tenants", desc: "Directory tenant aktif", icon: ShieldCheck },
   { href: "/dashboard/emails", title: "Email logs", desc: "Audit trail email programmatic lintas event", icon: Mail },
   { href: "/dashboard/discovery", title: "Discovery editorial", desc: "Override featured order lintas tenant", icon: Sparkles },
+  { href: "/dashboard/settings/plans", title: "Plans & entitlements", desc: "Atur plan bisa akses apa", icon: SlidersHorizontal },
   { href: "/dashboard/referral-withdrawals", title: "Referral payout", desc: "Review request pencairan", icon: Sparkles },
 ];
 
@@ -48,7 +49,7 @@ export default function SettingsPage() {
           Operational checklist
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          {["platform login", "summary", "tenants", "email logs", "discovery editorial", "customers", "transactions", "referral payout"].map((item) => (
+          {["platform login", "summary", "tenants", "plan entitlements", "email logs", "discovery editorial", "customers", "transactions", "referral payout"].map((item) => (
             <Badge key={item} variant="outline" className="rounded-full uppercase">
               {item}
             </Badge>

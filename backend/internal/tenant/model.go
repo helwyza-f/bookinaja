@@ -473,8 +473,9 @@ type Tenant struct {
 	BusinessType     string    `db:"business_type" json:"business_type"`
 
 	// --- SUBSCRIPTION (SaaS Billing) ---
-	Plan               string `db:"plan" json:"plan"`
-	SubscriptionStatus string `db:"subscription_status" json:"subscription_status"`
+	Plan               string   `db:"plan" json:"plan"`
+	SubscriptionStatus string   `db:"subscription_status" json:"subscription_status"`
+	PlanFeatures       []string `db:"-" json:"plan_features,omitempty"`
 	// Tambahkan ini untuk mempermudah handling di internal logic
 	Status                         string     `db:"status" json:"status,omitempty"`
 	SubscriptionCurrentPeriodStart *time.Time `db:"subscription_current_period_start" json:"subscription_current_period_start"`

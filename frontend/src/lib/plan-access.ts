@@ -12,10 +12,24 @@ export type SubscriptionStatusKey =
 export type TenantFeatureKey =
   | "advanced_receipt_branding"
   | "staff_accounts"
+  | "role_permissions"
+  | "pos_workflow"
+  | "payment_method_management"
+  | "manual_payment_verification"
+  | "customer_import"
+  | "crm_basic"
+  | "pricing_rules_flexible"
   | "advanced_analytics"
-  | "whatsapp_broadcast"
-  | "fnb_reports"
-  | "membership";
+  | "whatsapp_blast"
+  | "membership_enabled"
+  | "membership_auto_join_enabled"
+  | "membership_reward_redeem_enabled"
+  | "membership_analytics_enabled"
+  | "retention_analytics"
+  | "growth_analytics"
+  | "multi_outlet_enabled"
+  | "advanced_automation_controls"
+  | "franchise_visibility";
 
 const PLAN_FEATURES: Record<BillingPlanKey, TenantFeatureKey[]> = {
   trial: [],
@@ -23,17 +37,37 @@ const PLAN_FEATURES: Record<BillingPlanKey, TenantFeatureKey[]> = {
   pro: [
     "advanced_receipt_branding",
     "staff_accounts",
+    "role_permissions",
+    "pos_workflow",
+    "payment_method_management",
+    "manual_payment_verification",
+    "customer_import",
+    "crm_basic",
+    "pricing_rules_flexible",
     "advanced_analytics",
-    "whatsapp_broadcast",
-    "fnb_reports",
+    "whatsapp_blast",
   ],
   scale: [
     "advanced_receipt_branding",
     "staff_accounts",
+    "role_permissions",
+    "pos_workflow",
+    "payment_method_management",
+    "manual_payment_verification",
+    "customer_import",
+    "crm_basic",
+    "pricing_rules_flexible",
     "advanced_analytics",
-    "whatsapp_broadcast",
-    "fnb_reports",
-    "membership",
+    "whatsapp_blast",
+    "membership_enabled",
+    "membership_auto_join_enabled",
+    "membership_reward_redeem_enabled",
+    "membership_analytics_enabled",
+    "retention_analytics",
+    "growth_analytics",
+    "multi_outlet_enabled",
+    "advanced_automation_controls",
+    "franchise_visibility",
   ],
 };
 
@@ -58,12 +92,22 @@ export function normalizeSubscriptionStatus(
 }
 
 export function hasTenantFeature(
-  input: { plan?: string | null; subscription_status?: string | null },
+  input: {
+    plan?: string | null;
+    subscription_status?: string | null;
+    plan_features?: string[] | null;
+  },
   feature: TenantFeatureKey,
 ) {
   const plan = normalizeBillingPlan(input.plan);
   const status = normalizeSubscriptionStatus(input.subscription_status);
   if (status !== "active") return false;
+  const liveFeatures = Array.isArray(input.plan_features)
+    ? input.plan_features.map((item) => String(item || "").trim()).filter(Boolean)
+    : null;
+  if (liveFeatures) {
+    return liveFeatures.includes(feature);
+  }
   return PLAN_FEATURES[plan].includes(feature);
 }
 

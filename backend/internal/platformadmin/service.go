@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/helwiza/backend/internal/platform/access"
 	"github.com/helwiza/backend/internal/platform/mailer"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -145,6 +146,26 @@ func normalizeListLimit(limit int) int {
 		return 100
 	}
 	return limit
+}
+
+func (s *Service) LoadPlanFeatureSettings(ctx context.Context) (*PlanFeatureSettings, error) {
+	settings, err := s.repo.GetPlanFeatureSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	access.SetPlanFeatureMatrix(settings.Plans)
+	return settings, nil
+}
+
+func (s *Service) UpdatePlanFeatureSettings(ctx context.Context, plans map[string][]string) (*PlanFeatureSettings, error) {
+	if plans == nil {
+		return nil, errors.New("plan features wajib diisi")
+	}
+	if err := s.repo.UpdatePlanFeatureSettings(ctx, plans); err != nil {
+		return nil, err
+	}
+	access.SetPlanFeatureMatrix(plans)
+	return s.repo.GetPlanFeatureSettings(ctx)
 }
 
 func (s *Service) ListEmailLogs(ctx context.Context, page, pageSize int, eventKey, status, query string) ([]map[string]any, int, error) {

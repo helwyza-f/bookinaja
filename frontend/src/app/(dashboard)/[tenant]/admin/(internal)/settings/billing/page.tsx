@@ -30,6 +30,7 @@ type SubscriptionInfo = {
   current_period_start?: string | null;
   current_period_end?: string | null;
   tenant_id?: string;
+  plan_features?: string[];
 };
 
 type BillingOrder = {

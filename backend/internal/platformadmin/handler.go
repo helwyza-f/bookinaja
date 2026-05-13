@@ -103,6 +103,36 @@ func (h *Handler) UpdateDiscoveryFeedSetting(c *gin.Context) {
 	})
 }
 
+func (h *Handler) GetPlanFeatureSettings(c *gin.Context) {
+	data, err := h.svc.LoadPlanFeatureSettings(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	respondData(c, data)
+}
+
+func (h *Handler) UpdatePlanFeatureSettings(c *gin.Context) {
+	var req struct {
+		Plans map[string][]string `json:"plans"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "payload plan features tidak valid"})
+		return
+	}
+
+	data, err := h.svc.UpdatePlanFeatureSettings(c.Request.Context(), req.Plans)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "plan features diperbarui",
+		"data":    data,
+	})
+}
+
 func (h *Handler) Tenants(c *gin.Context) {
 	data, err := h.repo.ListTenants(c.Request.Context())
 	if err != nil {

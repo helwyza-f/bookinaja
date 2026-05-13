@@ -43,6 +43,7 @@ type ReceiptSettings = {
   name?: string;
   plan?: string;
   subscription_status?: string;
+  plan_features?: string[];
 };
 
 type BluetoothNavigator = Navigator & {

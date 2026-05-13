@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/helwiza/backend/internal/auth"
 	"github.com/helwiza/backend/internal/fnb"
+	"github.com/helwiza/backend/internal/platform/access"
 	platformenv "github.com/helwiza/backend/internal/platform/env"
 	"github.com/helwiza/backend/internal/platform/mailer"
 	"github.com/helwiza/backend/internal/platformadmin"
@@ -2344,10 +2345,10 @@ func (s *Service) RequestOwnerPasswordReset(ctx context.Context, email string) e
 
 	token := uuid.NewString()
 	if err := s.storeOwnerEmailAction(ctx, ownerEmailActionReset, token, map[string]any{
-		"user_id":    user.ID.String(),
-		"tenant_id":  user.TenantID.String(),
+		"user_id":     user.ID.String(),
+		"tenant_id":   user.TenantID.String(),
 		"tenant_slug": tenantProfile.Slug,
-		"email":      email,
+		"email":       email,
 	}); err != nil {
 		return err
 	}
@@ -2813,7 +2814,12 @@ func (s *Service) GetProfile(ctx context.Context, id uuid.UUID) (*Tenant, error)
 }
 
 func (s *Service) GetReceiptSettings(ctx context.Context, id uuid.UUID) (*Tenant, error) {
-	return s.repo.GetByID(ctx, id)
+	tenant, err := s.repo.GetByID(ctx, id)
+	if err != nil || tenant == nil {
+		return tenant, err
+	}
+	tenant.PlanFeatures = access.ResolvePlanFeatures(tenant.Plan)
+	return tenant, nil
 }
 
 func defaultTenantPaymentMethods() []TenantPaymentMethod {
