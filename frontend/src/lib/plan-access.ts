@@ -31,6 +31,12 @@ export type TenantFeatureKey =
   | "advanced_automation_controls"
   | "franchise_visibility";
 
+type FeatureMeta = {
+  label: string;
+  shortLabel: string;
+  description: string;
+};
+
 const PLAN_FEATURES: Record<BillingPlanKey, TenantFeatureKey[]> = {
   trial: [],
   starter: [],
@@ -71,6 +77,111 @@ const PLAN_FEATURES: Record<BillingPlanKey, TenantFeatureKey[]> = {
   ],
 };
 
+const PLAN_ORDER: BillingPlanKey[] = ["trial", "starter", "pro", "scale"];
+
+const FEATURE_META: Record<TenantFeatureKey, FeatureMeta> = {
+  advanced_receipt_branding: {
+    label: "Receipt Branding",
+    shortLabel: "Nota",
+    description: "Template nota, branding struk, dan kontrol printer lanjutan.",
+  },
+  staff_accounts: {
+    label: "Staff Accounts",
+    shortLabel: "Staff",
+    description: "Akun staff tambahan untuk operasional harian.",
+  },
+  role_permissions: {
+    label: "Role Permissions",
+    shortLabel: "RBAC",
+    description: "Role custom dan kontrol izin yang lebih rapi.",
+  },
+  pos_workflow: {
+    label: "POS Workflow",
+    shortLabel: "POS",
+    description: "Workflow POS untuk operasional yang lebih cepat.",
+  },
+  payment_method_management: {
+    label: "Payment Method Management",
+    shortLabel: "Pembayaran",
+    description: "Kelola metode bayar manual dan otomatis dari tenant admin.",
+  },
+  manual_payment_verification: {
+    label: "Manual Payment Verification",
+    shortLabel: "Verifikasi",
+    description: "Verifikasi bukti bayar manual langsung dari dashboard tenant.",
+  },
+  customer_import: {
+    label: "Customer Import",
+    shortLabel: "Import",
+    description: "Migrasi pelanggan lama ke workspace tenant.",
+  },
+  crm_basic: {
+    label: "CRM Basic",
+    shortLabel: "CRM",
+    description: "Workspace CRM dasar untuk pelanggan dan campaign.",
+  },
+  pricing_rules_flexible: {
+    label: "Flexible Pricing Rules",
+    shortLabel: "Pricing",
+    description: "Aturan harga yang lebih fleksibel untuk operasional.",
+  },
+  advanced_analytics: {
+    label: "Advanced Analytics",
+    shortLabel: "Analytics",
+    description: "Grafik, leaderboard, dan insight performa lebih dalam.",
+  },
+  whatsapp_blast: {
+    label: "WhatsApp Blast",
+    shortLabel: "WA Blast",
+    description: "Kirim campaign WhatsApp langsung dari tenant admin.",
+  },
+  membership_enabled: {
+    label: "Membership",
+    shortLabel: "Member",
+    description: "Program membership untuk customer tenant.",
+  },
+  membership_auto_join_enabled: {
+    label: "Membership Auto Join",
+    shortLabel: "Auto Join",
+    description: "Customer otomatis masuk ke membership flow.",
+  },
+  membership_reward_redeem_enabled: {
+    label: "Membership Reward Redeem",
+    shortLabel: "Redeem",
+    description: "Reward membership bisa diredeem di tenant.",
+  },
+  membership_analytics_enabled: {
+    label: "Membership Analytics",
+    shortLabel: "Member Analytics",
+    description: "Insight khusus retention dan performa membership.",
+  },
+  retention_analytics: {
+    label: "Retention Analytics",
+    shortLabel: "Retention",
+    description: "Analisis retensi customer untuk decision yang lebih tajam.",
+  },
+  growth_analytics: {
+    label: "Growth Analytics",
+    shortLabel: "Growth",
+    description: "Insight growth dan distribusi performa tenant.",
+  },
+  multi_outlet_enabled: {
+    label: "Multi Outlet",
+    shortLabel: "Multi Outlet",
+    description: "Kontrol untuk tenant multi outlet dan ekspansi.",
+  },
+  advanced_automation_controls: {
+    label: "Advanced Automation",
+    shortLabel: "Automation",
+    description: "Automation lanjutan untuk workflow tenant.",
+  },
+  franchise_visibility: {
+    label: "Franchise Visibility",
+    shortLabel: "Franchise",
+    description: "Visibilitas franchise dan struktur tenant yang lebih besar.",
+  },
+};
+
 export function normalizeBillingPlan(value?: string | null): BillingPlanKey {
   const plan = String(value || "").toLowerCase();
   if (plan === "trial") return "trial";
@@ -109,6 +220,69 @@ export function hasTenantFeature(
     return liveFeatures.includes(feature);
   }
   return PLAN_FEATURES[plan].includes(feature);
+}
+
+export function getFeatureMeta(feature: TenantFeatureKey): FeatureMeta {
+  return FEATURE_META[feature];
+}
+
+export function getRequiredPlansForFeature(feature: TenantFeatureKey): BillingPlanKey[] {
+  return PLAN_ORDER.filter((plan) => PLAN_FEATURES[plan].includes(feature));
+}
+
+export function getRequiredPlansForFeatures(features: TenantFeatureKey[]): BillingPlanKey[] {
+  const plans = new Set<BillingPlanKey>();
+  features.forEach((feature) => {
+    getRequiredPlansForFeature(feature).forEach((plan) => plans.add(plan));
+  });
+  return PLAN_ORDER.filter((plan) => plans.has(plan));
+}
+
+export function formatRequiredPlanLabel(plans: BillingPlanKey[]) {
+  if (plans.length === 0) return "Plan custom";
+  if (plans.length === 1) return formatPlanLabel(plans[0]);
+  return plans.map((plan) => formatPlanLabel(plan)).join(" / ");
+}
+
+export function analyzeTenantFeatureAccess(
+  input: {
+    plan?: string | null;
+    subscription_status?: string | null;
+    plan_features?: string[] | null;
+  },
+  requirement: {
+    feature?: TenantFeatureKey;
+    anyFeatures?: TenantFeatureKey[];
+  },
+) {
+  const features = requirement.feature
+    ? [requirement.feature]
+    : requirement.anyFeatures || [];
+  const status = normalizeSubscriptionStatus(input.subscription_status);
+  const activeFeatures = features.filter((feature) => hasTenantFeature(input, feature));
+  const requiredPlans = getRequiredPlansForFeatures(features);
+  const requiredPlanLabel = formatRequiredPlanLabel(requiredPlans);
+  const accessible = activeFeatures.length > 0;
+
+  let state: "available" | "upgrade_required" | "inactive_subscription" | "unknown" = "unknown";
+  if (accessible) {
+    state = "available";
+  } else if (status !== "active" && status !== "trial") {
+    state = "inactive_subscription";
+  } else {
+    state = "upgrade_required";
+  }
+
+  return {
+    state,
+    accessible,
+    status,
+    requiredPlans,
+    requiredPlanLabel,
+    features,
+    activeFeatures,
+    missingFeatures: features.filter((feature) => !activeFeatures.includes(feature)),
+  };
 }
 
 export function resolvePlanState(input: {

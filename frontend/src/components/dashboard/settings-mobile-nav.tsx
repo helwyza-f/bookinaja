@@ -4,10 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { canAccessAdminRoute } from "@/lib/admin-access";
+import { getAdminRouteGate } from "@/lib/admin-access";
 import { cn } from "@/lib/utils";
 import { settingsNavItems } from "./admin-nav-config";
 import { useAdminSession } from "./admin-session-context";
+import { Badge } from "@/components/ui/badge";
 
 type SettingsMobileNavProps = {
   tenantName?: string;
@@ -45,7 +46,8 @@ export function SettingsMobileNav({ tenantName, role }: SettingsMobileNavProps) 
 
         <div className="px-4 pb-4 pt-3">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {settingsNavItems.filter((item) => canAccessAdminRoute(item.href, user)).map((item) => {
+            {settingsNavItems.filter((item) => getAdminRouteGate(item.href, user).visible).map((item) => {
+              const gate = getAdminRouteGate(item.href, user);
               const active =
                 pathname === item.href || pathname.startsWith(`${item.href}/`);
 
@@ -58,7 +60,9 @@ export function SettingsMobileNav({ tenantName, role }: SettingsMobileNavProps) 
                     "group flex items-center gap-3 rounded-lg border px-3 py-3 transition-colors",
                     active
                       ? "border-[color:rgba(59,130,246,0.18)] bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]"
-                      : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-900",
+                      : gate.lockedByPlan
+                        ? "border-amber-200 bg-amber-50 text-amber-700 hover:border-amber-300 hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200 dark:hover:border-amber-500/30 dark:hover:bg-amber-500/15"
+                        : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-900",
                   )}
                 >
                   <div
@@ -72,8 +76,13 @@ export function SettingsMobileNav({ tenantName, role }: SettingsMobileNavProps) 
                     <item.icon className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[11px] font-semibold leading-tight">
+                    <div className="flex items-center gap-2 text-[11px] font-semibold leading-tight">
                       {item.label}
+                      {gate.lockedByPlan ? (
+                        <Badge className="border-0 bg-amber-600/10 px-1.5 py-0 text-[9px] font-bold uppercase tracking-[0.16em] text-current">
+                          {gate.requiredPlanLabel}
+                        </Badge>
+                      ) : null}
                     </div>
                     {item.hint ? (
                       <div className="mt-1 text-[10px] text-slate-400 dark:text-slate-400">

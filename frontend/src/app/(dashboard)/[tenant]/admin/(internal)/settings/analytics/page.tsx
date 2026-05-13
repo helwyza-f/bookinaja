@@ -19,7 +19,11 @@ import {
   Wallet,
 } from "lucide-react";
 import api from "@/lib/api";
-import { formatPlanLabel, formatSubscriptionStatusLabel } from "@/lib/plan-access";
+import {
+  analyzeTenantFeatureAccess,
+  formatPlanLabel,
+  formatSubscriptionStatusLabel,
+} from "@/lib/plan-access";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RealtimePill } from "@/components/dashboard/realtime-pill";
@@ -46,6 +50,7 @@ import {
   EmptyPanel,
 } from "@/components/dashboard/analytics-kit";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
+import { PlanFeatureCallout } from "@/components/dashboard/plan-feature-ux";
 
 type RangeKey = "7d" | "30d" | "90d";
 type SourceKey =
@@ -242,9 +247,28 @@ export default function SettingsAnalyticsPage() {
     [range],
   );
   const rangeEnd = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
+  const planGate = useMemo(
+    () => analyzeTenantFeatureAccess(user || {}, { feature: "advanced_analytics" }),
+    [user],
+  );
+  const featureLocked = planGate.state !== "available";
 
   const fetchAnalytics = useCallback(
     async (mode: "initial" | "background" = "initial") => {
+      if (featureLocked) {
+        setBookingSummary(null);
+        setExpenseSummary(null);
+        setExpenses([]);
+        setCustomers([]);
+        setSalesOrders([]);
+        setResources([]);
+        setActionFeed([]);
+        setSubscription(null);
+        setSourceHealth([]);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
       const background = mode === "background" && hasLoadedRef.current;
       if (!background) setLoading(true);
       setRefreshing(true);
@@ -365,6 +389,7 @@ export default function SettingsAnalyticsPage() {
       canReadExpenses,
       canReadPos,
       canReadResources,
+      featureLocked,
       ownerOnly,
       range,
       rangeEnd,
@@ -420,6 +445,39 @@ export default function SettingsAnalyticsPage() {
   const dateSpine = useMemo(() => buildDateSpine(rangeDays(range)), [range]);
   const rangeLabel =
     range === "7d" ? "7 hari terakhir" : range === "90d" ? "90 hari terakhir" : "30 hari terakhir";
+  const currentPlanLabel = formatPlanLabel(subscription?.plan || user?.plan);
+  const currentStatusLabel = formatSubscriptionStatusLabel(
+    subscription?.status || user?.subscription_status,
+  );
+  const analyticsUnlockCopy =
+    planGate.state === "inactive_subscription"
+      ? `Plan ${currentPlanLabel} tenant ini butuh aktivasi ulang supaya dashboard analytics bisa sinkron live lagi.`
+      : `Upgrade ke ${planGate.requiredPlanLabel} untuk membuka revenue mix, margin, leaderboard resource, dan pembacaan owner yang lebih tajam.`;
+  const analyticsPreviewCards = useMemo(
+    () => [
+      {
+        label: "Revenue mix",
+        value: "Booking + POS",
+        hint: "Gabungan pemasukan lintas channel",
+      },
+      {
+        label: "Profit pulse",
+        value: "Margin & expense",
+        hint: "Pantau laba bersih dan rasio biaya",
+      },
+      {
+        label: "Customer value",
+        value: "Repeat spender",
+        hint: "Lihat customer paling bernilai",
+      },
+      {
+        label: "Resource watch",
+        value: "Top performer",
+        hint: "Rank resource dan transaksi terbaru",
+      },
+    ],
+    [],
+  );
 
   const filteredExpenses = useMemo(
     () =>
@@ -714,6 +772,12 @@ export default function SettingsAnalyticsPage() {
 
   return (
     <div className="space-y-5 p-4 pb-20 sm:p-6">
+      <PlanFeatureCallout
+        input={user || {}}
+        title="Analytics lanjutan tenant"
+        description="Insight performa adalah area yang paling sensitif terhadap gating plan, jadi statusnya perlu terbaca sebelum owner menggantungkan keputusan ke data ini."
+        requirement={{ feature: "advanced_analytics" }}
+      />
       <AnalyticsHero
         onRefresh={() => void fetchAnalytics("background")}
         refreshing={refreshing}
@@ -736,294 +800,381 @@ export default function SettingsAnalyticsPage() {
             {item === "7d" ? "7 Hari" : item === "30d" ? "30 Hari" : "90 Hari"}
           </Button>
         ))}
-        <div className="ml-auto hidden items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500 shadow-sm md:flex">
+        <div className="bg-card text-muted-foreground ml-auto hidden items-center gap-2 rounded-full border border-border px-3 py-2 text-xs shadow-sm md:flex">
           <Clock3 className="h-4 w-4 text-[var(--bookinaja-600)]" />
           Sinkron {lastSync || "--:--"}
         </div>
       </div>
 
-      {softFailures.length ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <div>
-              <div className="font-semibold">Sebagian sumber data belum masuk</div>
-              <div className="mt-1 text-amber-800">
-                Halaman tetap menampilkan data yang tersedia. Sumber yang gagal:{" "}
-                {softFailures.map((item) => item.label).join(", ")}.
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <DashboardMetricCard
-          label="Revenue total"
-          value={`Rp ${formatIDR(summary.totalRevenue)}`}
-          hint={rangeLabel}
-          icon={TrendingUp}
-          tone="indigo"
-          loading={loading}
-        />
-        <DashboardMetricCard
-          label="Revenue booking"
-          value={`Rp ${formatIDR(summary.bookingRevenue)}`}
-          hint={`${Number(bookingSummary?.bookings_count || 0)} booking`}
-          icon={CalendarClock}
-          tone="cyan"
-          loading={loading}
-        />
-        <DashboardMetricCard
-          label="Revenue direct sale"
-          value={`Rp ${formatIDR(summary.posRevenue)}`}
-          hint={`${salesSummary.ordersCount} order`}
-          icon={Wallet}
-          tone="emerald"
-          loading={loading}
-        />
-        <DashboardMetricCard
-          label="Pengeluaran"
-          value={`Rp ${formatIDR(summary.expenseTotal)}`}
-          hint={`${summary.expenseCount} entri`}
-          icon={Banknote}
-          tone="rose"
-          loading={loading}
-        />
-        <DashboardMetricCard
-          label="Laba bersih"
-          value={`Rp ${formatIDR(summary.netProfit)}`}
-          hint={`${summary.profitMargin.toFixed(1)}% margin`}
-          icon={Coins}
-          tone={summary.netProfit >= 0 ? "emerald" : "amber"}
-          loading={loading}
-        />
-        <DashboardMetricCard
-          label="Rata-rata tiket"
-          value={`Rp ${formatIDR(summary.averageTicket)}`}
-          hint={`${summary.transactionCount} transaksi`}
-          icon={ReceiptText}
-          tone="slate"
-          loading={loading}
-        />
-        <DashboardMetricCard
-          label="Perlu verifikasi"
-          value={String(summary.verificationCount)}
-          hint="manual payment"
-          icon={Sparkles}
-          tone="amber"
-          loading={loading}
-        />
-        <DashboardMetricCard
-          label="Saldo tertagih"
-          value={`Rp ${formatIDR(summary.pendingBalance)}`}
-          hint="booking + POS"
-          icon={TrendingDown}
-          tone="slate"
-          loading={loading}
-        />
-      </div>
-
-      <DashboardStatStrip
-        items={[
-          { label: "Plan", value: formatPlanLabel(subscription?.plan), tone: "slate" },
-          { label: "Range", value: rangeLabel, tone: "indigo" },
-          { label: "Addon share", value: `${summary.addonRatio.toFixed(1)}%`, tone: "emerald" },
-          { label: "Expense ratio", value: `${summary.expenseRatio.toFixed(1)}%`, tone: "rose" },
-        ]}
-      />
-
-      <section className="grid gap-4 xl:grid-cols-[1.35fr_0.85fr]">
-        <DashboardLineChartPanel
-          eyebrow="Trend inti"
-          title="Revenue total vs expense harian"
-          description="Revenue menggabungkan booking dan direct sale, lalu dibandingkan dengan expense harian di rentang yang sama."
-          points={trendPoints}
-          primaryLabel="Revenue"
-          secondaryLabel="Expense"
-          formatValue={(value) => `Rp ${formatIDR(value)}`}
-        />
-
-        <div className="space-y-4">
-          <DashboardDonutPanel
-            eyebrow="Revenue mix"
-            title="Komposisi pemasukan"
-            totalLabel="Total revenue"
-            totalValue={`Rp ${formatIDR(summary.totalRevenue)}`}
-            segments={revenueSegments}
-            footer={
-              <div className="grid gap-3 sm:grid-cols-2">
-                <InfoChip label="Average ticket" value={`Rp ${formatIDR(summary.averageTicket)}`} />
-                <InfoChip label="Saldo tertagih" value={`Rp ${formatIDR(summary.pendingBalance)}`} />
-              </div>
-            }
+      {featureLocked ? (
+        <>
+          <DashboardStatStrip
+            items={[
+              { label: "Plan sekarang", value: currentPlanLabel, tone: "slate" },
+              { label: "Status", value: currentStatusLabel, tone: "rose" },
+              { label: "Unlock", value: planGate.requiredPlanLabel, tone: "indigo" },
+              { label: "Range preview", value: rangeLabel, tone: "emerald" },
+            ]}
           />
 
-          <DashboardPanel
-            eyebrow="Trend reading"
-            title="Bacaan cepat rentang ini"
-            description="Ringkasan singkat supaya owner bisa baca pola tanpa pindah ke tabel."
-          >
-            <div className="grid grid-cols-2 gap-3">
-              <InfoChip label="Total revenue" value={`Rp ${formatIDR(trendSummary.totalRevenue)}`} />
-              <InfoChip label="Total expense" value={`Rp ${formatIDR(trendSummary.totalExpense)}`} />
-              <InfoChip label="Hari aktif" value={`${trendSummary.activeDays}/${rangeDays(range)}`} />
-              <InfoChip label="Puncak" value={`${trendSummary.peakLabel} - Rp ${formatIDR(trendSummary.peakRevenue)}`} />
-            </div>
-          </DashboardPanel>
-        </div>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-        <DashboardLeaderboardPanel
-          eyebrow="Resource leaderboard"
-          title="Resource paling menghasilkan"
-          rows={resourceRows}
-          emptyText="Belum ada booking pada rentang ini."
-        />
-
-        <DashboardLeaderboardPanel
-          eyebrow="Customer value"
-          title="Customer dengan lifetime value tertinggi"
-          rows={customerRows}
-          emptyText="Belum ada customer untuk dirangking."
-        />
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-        <DashboardLeaderboardPanel
-          eyebrow="Latest bookings"
-          title="Transaksi booking terbaru"
-          rows={bookingRows}
-          emptyText="Belum ada booking pada rentang ini."
-        />
-
-        <DashboardLeaderboardPanel
-          eyebrow="Latest direct sale"
-          title="Order POS terbaru"
-          rows={salesRows}
-          emptyText="Belum ada direct sale pada rentang ini."
-        />
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
-        <DashboardDonutPanel
-          eyebrow="Expense mix"
-          title="Komposisi pengeluaran"
-          totalLabel="Total expense"
-          totalValue={`Rp ${formatIDR(summary.expenseTotal)}`}
-          segments={expenseSegments}
-          footer={
-            <div className="grid gap-3 sm:grid-cols-2">
-              <InfoChip label="Kategori aktif" value={`${categoryBreakdown.length} kategori`} />
-              <InfoChip label="Entries" value={`${summary.expenseCount} catatan`} />
-            </div>
-          }
-        />
-
-        <DashboardPanel
-          eyebrow="Owner reading"
-          title="Snapshot operasional"
-          actions={<Badge variant="secondary">{formatPlanLabel(subscription?.plan)}</Badge>}
-        >
-          <div className="grid gap-3 sm:grid-cols-2">
-            <InfoChip
-              label="Subscription"
-              value={`${formatPlanLabel(subscription?.plan)} - ${formatSubscriptionStatusLabel(subscription?.status)}`}
-            />
-            <InfoChip label="Period end" value={formatPeriodEnd(subscription?.current_period_end)} />
-            <InfoChip label="Add-on revenue" value={`Rp ${formatIDR(summary.addonRevenue)}`} />
-            <InfoChip label="Need action" value={`${actionFeed.length} antrean`} />
-            <InfoChip label="Customers aktif" value={`${customers.length} customer`} />
-            <InfoChip label="POS settled" value={`${salesSummary.settledCount} order`} />
-          </div>
-
-          <div className="mt-4 grid gap-3 lg:grid-cols-2">
-            <div className="rounded-[1.35rem] border border-slate-200/80 bg-slate-50/80 p-4">
-              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                Resource status
-              </div>
-              <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
-                <div>
-                  <div className="text-slate-500">Siap</div>
-                  <div className="mt-1 font-semibold text-slate-950">
-                    {resourceStatusSegments.find((item) => item.label === "Siap")?.value || 0}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-slate-500">Maintenance</div>
-                  <div className="mt-1 font-semibold text-slate-950">
-                    {resourceStatusSegments.find((item) => item.label === "Maintenance")?.value || 0}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-slate-500">Lainnya</div>
-                  <div className="mt-1 font-semibold text-slate-950">
-                    {resourceStatusSegments.find((item) => item.label === "Lainnya")?.value || 0}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-[1.35rem] border border-slate-200/80 bg-slate-50/80 p-4">
-              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                Add-on watch
-              </div>
-              <div className="mt-2 space-y-2 text-sm text-slate-600">
-                <div>
-                  Top booking tambahan:{" "}
-                  <span className="font-semibold text-slate-950">
-                    {addonBookings[0]?.customer_name || "belum ada"}
-                  </span>
-                </div>
-                <div>
-                  Add-on share:{" "}
-                  <span className="font-semibold text-slate-950">
-                    {summary.addonRatio.toFixed(1)}%
-                  </span>
-                </div>
-                <div>
-                  Balance outstanding:{" "}
-                  <span className="font-semibold text-slate-950">
-                    Rp {formatIDR(summary.pendingBalance)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </DashboardPanel>
-      </section>
-
-      <DashboardPanel
-        eyebrow="Expense ledger"
-        title="Pengeluaran terbaru"
-        actions={
-          <Button asChild variant="outline" className="rounded-2xl">
-            <Link href="/admin/dashboard">
-              <ArrowRight className="mr-2 h-4 w-4" />
-              Dashboard
-            </Link>
-          </Button>
-        }
-      >
-        {expenseRows.length ? (
-          <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-            {expenseRows.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-[1.35rem] border border-slate-200/80 bg-slate-50/80 p-4"
-              >
-                <div className="text-sm font-semibold text-slate-950">{item.title}</div>
-                <div className="mt-1 text-xs text-slate-500">{item.subtitle}</div>
-                <div className="mt-4 text-lg font-[950] text-rose-600">{item.value}</div>
-                <div className="mt-1 text-xs text-slate-400">{item.meta}</div>
-              </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {analyticsPreviewCards.map((card, index) => (
+              <DashboardMetricCard
+                key={card.label}
+                label={card.label}
+                value={card.value}
+                hint={card.hint}
+                icon={
+                  index === 0
+                    ? TrendingUp
+                    : index === 1
+                      ? Coins
+                      : index === 2
+                        ? Wallet
+                        : LineChart
+                }
+                tone={
+                  index === 0
+                    ? "indigo"
+                    : index === 1
+                      ? "emerald"
+                      : index === 2
+                        ? "amber"
+                        : "slate"
+                }
+              />
             ))}
           </div>
-        ) : (
-          <EmptyPanel text="Belum ada pengeluaran pada rentang ini." />
-        )}
-      </DashboardPanel>
+
+          <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+            <DashboardPanel
+              eyebrow="Preview value"
+              title="Apa yang owner akan dapat setelah upgrade"
+              description={analyticsUnlockCopy}
+              actions={
+                <Button asChild className="rounded-2xl bg-slate-950 text-white hover:bg-slate-800">
+                  <Link href="/admin/settings/billing/subscribe">
+                    <ArrowRight className="mr-2 h-4 w-4" />
+                    Lihat paket
+                  </Link>
+                </Button>
+              }
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <InfoChip label="Revenue mix" value="Booking, POS, dan add-on dalam satu bacaan" />
+                <InfoChip label="Profit pulse" value="Margin, expense ratio, dan saldo tertagih" />
+                <InfoChip label="Leaderboard" value="Top resource, customer, dan transaksi terbaru" />
+                <InfoChip label="Realtime" value="Refresh cepat saat booking dan POS berubah" />
+              </div>
+            </DashboardPanel>
+
+            <DashboardPanel
+              eyebrow="Plan reading"
+              title="Kenapa halaman ini tetap dibuka"
+              actions={<Badge variant="secondary">{currentPlanLabel}</Badge>}
+            >
+              <div className="text-muted-foreground space-y-3 text-sm">
+                <p>
+                  Owner tetap bisa melihat blueprint analytics supaya value upgrade terasa jelas
+                  sebelum memutuskan naik plan.
+                </p>
+                <p>
+                  Saat fitur ini belum aktif, aplikasi sengaja tidak memanggil endpoint analytics
+                  yang terkunci supaya UX tetap rapi dan tidak mentok ke error backend.
+                </p>
+                <p className="text-foreground font-medium">
+                  Status saat ini: {currentStatusLabel}. Requirement: {planGate.requiredPlanLabel}.
+                </p>
+              </div>
+            </DashboardPanel>
+          </section>
+        </>
+      ) : (
+        <>
+          {softFailures.length ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <div className="font-semibold">Sebagian sumber data belum masuk</div>
+                  <div className="mt-1 text-amber-800">
+                    Halaman tetap menampilkan data yang tersedia. Sumber yang gagal:{" "}
+                    {softFailures.map((item) => item.label).join(", ")}.
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <DashboardMetricCard
+              label="Revenue total"
+              value={`Rp ${formatIDR(summary.totalRevenue)}`}
+              hint={rangeLabel}
+              icon={TrendingUp}
+              tone="indigo"
+              loading={loading}
+            />
+            <DashboardMetricCard
+              label="Revenue booking"
+              value={`Rp ${formatIDR(summary.bookingRevenue)}`}
+              hint={`${Number(bookingSummary?.bookings_count || 0)} booking`}
+              icon={CalendarClock}
+              tone="cyan"
+              loading={loading}
+            />
+            <DashboardMetricCard
+              label="Revenue direct sale"
+              value={`Rp ${formatIDR(summary.posRevenue)}`}
+              hint={`${salesSummary.ordersCount} order`}
+              icon={Wallet}
+              tone="emerald"
+              loading={loading}
+            />
+            <DashboardMetricCard
+              label="Pengeluaran"
+              value={`Rp ${formatIDR(summary.expenseTotal)}`}
+              hint={`${summary.expenseCount} entri`}
+              icon={Banknote}
+              tone="rose"
+              loading={loading}
+            />
+            <DashboardMetricCard
+              label="Laba bersih"
+              value={`Rp ${formatIDR(summary.netProfit)}`}
+              hint={`${summary.profitMargin.toFixed(1)}% margin`}
+              icon={Coins}
+              tone={summary.netProfit >= 0 ? "emerald" : "amber"}
+              loading={loading}
+            />
+            <DashboardMetricCard
+              label="Rata-rata tiket"
+              value={`Rp ${formatIDR(summary.averageTicket)}`}
+              hint={`${summary.transactionCount} transaksi`}
+              icon={ReceiptText}
+              tone="slate"
+              loading={loading}
+            />
+            <DashboardMetricCard
+              label="Perlu verifikasi"
+              value={String(summary.verificationCount)}
+              hint="manual payment"
+              icon={Sparkles}
+              tone="amber"
+              loading={loading}
+            />
+            <DashboardMetricCard
+              label="Saldo tertagih"
+              value={`Rp ${formatIDR(summary.pendingBalance)}`}
+              hint="booking + POS"
+              icon={TrendingDown}
+              tone="slate"
+              loading={loading}
+            />
+          </div>
+
+          <DashboardStatStrip
+            items={[
+              { label: "Plan", value: formatPlanLabel(subscription?.plan), tone: "slate" },
+              { label: "Range", value: rangeLabel, tone: "indigo" },
+              { label: "Addon share", value: `${summary.addonRatio.toFixed(1)}%`, tone: "emerald" },
+              { label: "Expense ratio", value: `${summary.expenseRatio.toFixed(1)}%`, tone: "rose" },
+            ]}
+          />
+
+          <section className="grid gap-4 xl:grid-cols-[1.35fr_0.85fr]">
+            <DashboardLineChartPanel
+              eyebrow="Trend inti"
+              title="Revenue total vs expense harian"
+              description="Revenue menggabungkan booking dan direct sale, lalu dibandingkan dengan expense harian di rentang yang sama."
+              points={trendPoints}
+              primaryLabel="Revenue"
+              secondaryLabel="Expense"
+              formatValue={(value) => `Rp ${formatIDR(value)}`}
+            />
+
+            <div className="space-y-4">
+              <DashboardDonutPanel
+                eyebrow="Revenue mix"
+                title="Komposisi pemasukan"
+                totalLabel="Total revenue"
+                totalValue={`Rp ${formatIDR(summary.totalRevenue)}`}
+                segments={revenueSegments}
+                footer={
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <InfoChip label="Average ticket" value={`Rp ${formatIDR(summary.averageTicket)}`} />
+                    <InfoChip label="Saldo tertagih" value={`Rp ${formatIDR(summary.pendingBalance)}`} />
+                  </div>
+                }
+              />
+
+              <DashboardPanel
+                eyebrow="Trend reading"
+                title="Bacaan cepat rentang ini"
+                description="Ringkasan singkat supaya owner bisa baca pola tanpa pindah ke tabel."
+              >
+                <div className="grid grid-cols-2 gap-3">
+                  <InfoChip label="Total revenue" value={`Rp ${formatIDR(trendSummary.totalRevenue)}`} />
+                  <InfoChip label="Total expense" value={`Rp ${formatIDR(trendSummary.totalExpense)}`} />
+                  <InfoChip label="Hari aktif" value={`${trendSummary.activeDays}/${rangeDays(range)}`} />
+                  <InfoChip label="Puncak" value={`${trendSummary.peakLabel} - Rp ${formatIDR(trendSummary.peakRevenue)}`} />
+                </div>
+              </DashboardPanel>
+            </div>
+          </section>
+
+          <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+            <DashboardLeaderboardPanel
+              eyebrow="Resource leaderboard"
+              title="Resource paling menghasilkan"
+              rows={resourceRows}
+              emptyText="Belum ada booking pada rentang ini."
+            />
+
+            <DashboardLeaderboardPanel
+              eyebrow="Customer value"
+              title="Customer dengan lifetime value tertinggi"
+              rows={customerRows}
+              emptyText="Belum ada customer untuk dirangking."
+            />
+          </section>
+
+          <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+            <DashboardLeaderboardPanel
+              eyebrow="Latest bookings"
+              title="Transaksi booking terbaru"
+              rows={bookingRows}
+              emptyText="Belum ada booking pada rentang ini."
+            />
+
+            <DashboardLeaderboardPanel
+              eyebrow="Latest direct sale"
+              title="Order POS terbaru"
+              rows={salesRows}
+              emptyText="Belum ada direct sale pada rentang ini."
+            />
+          </section>
+
+          <section className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+            <DashboardDonutPanel
+              eyebrow="Expense mix"
+              title="Komposisi pengeluaran"
+              totalLabel="Total expense"
+              totalValue={`Rp ${formatIDR(summary.expenseTotal)}`}
+              segments={expenseSegments}
+              footer={
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <InfoChip label="Kategori aktif" value={`${categoryBreakdown.length} kategori`} />
+                  <InfoChip label="Entries" value={`${summary.expenseCount} catatan`} />
+                </div>
+              }
+            />
+
+            <DashboardPanel
+              eyebrow="Owner reading"
+              title="Snapshot operasional"
+              actions={<Badge variant="secondary">{formatPlanLabel(subscription?.plan)}</Badge>}
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <InfoChip
+                  label="Subscription"
+                  value={`${formatPlanLabel(subscription?.plan)} - ${formatSubscriptionStatusLabel(subscription?.status)}`}
+                />
+                <InfoChip label="Period end" value={formatPeriodEnd(subscription?.current_period_end)} />
+                <InfoChip label="Add-on revenue" value={`Rp ${formatIDR(summary.addonRevenue)}`} />
+                <InfoChip label="Need action" value={`${actionFeed.length} antrean`} />
+                <InfoChip label="Customers aktif" value={`${customers.length} customer`} />
+                <InfoChip label="POS settled" value={`${salesSummary.settledCount} order`} />
+              </div>
+
+              <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                <div className="bg-muted/40 rounded-[1.35rem] border border-border p-4">
+                  <div className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.18em]">
+                    Resource status
+                  </div>
+                  <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
+                    <div>
+                      <div className="text-muted-foreground">Siap</div>
+                      <div className="text-foreground mt-1 font-semibold">
+                        {resourceStatusSegments.find((item) => item.label === "Siap")?.value || 0}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Maintenance</div>
+                      <div className="text-foreground mt-1 font-semibold">
+                        {resourceStatusSegments.find((item) => item.label === "Maintenance")?.value || 0}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Lainnya</div>
+                      <div className="text-foreground mt-1 font-semibold">
+                        {resourceStatusSegments.find((item) => item.label === "Lainnya")?.value || 0}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-muted/40 rounded-[1.35rem] border border-border p-4">
+                  <div className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.18em]">
+                    Add-on watch
+                  </div>
+                  <div className="text-muted-foreground mt-2 space-y-2 text-sm">
+                    <div>
+                      Top booking tambahan:{" "}
+                      <span className="text-foreground font-semibold">
+                        {addonBookings[0]?.customer_name || "belum ada"}
+                      </span>
+                    </div>
+                    <div>
+                      Add-on share:{" "}
+                      <span className="text-foreground font-semibold">
+                        {summary.addonRatio.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div>
+                      Balance outstanding:{" "}
+                      <span className="text-foreground font-semibold">
+                        Rp {formatIDR(summary.pendingBalance)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </DashboardPanel>
+          </section>
+
+          <DashboardPanel
+            eyebrow="Expense ledger"
+            title="Pengeluaran terbaru"
+            actions={
+              <Button asChild variant="outline" className="rounded-2xl">
+                <Link href="/admin/dashboard">
+                  <ArrowRight className="mr-2 h-4 w-4" />
+                  Dashboard
+                </Link>
+              </Button>
+            }
+          >
+            {expenseRows.length ? (
+              <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+                {expenseRows.map((item) => (
+                  <div
+                    key={item.id}
+                    className="bg-muted/40 rounded-[1.35rem] border border-border p-4"
+                  >
+                    <div className="text-foreground text-sm font-semibold">{item.title}</div>
+                    <div className="text-muted-foreground mt-1 text-xs">{item.subtitle}</div>
+                    <div className="mt-4 text-lg font-[950] text-rose-600">{item.value}</div>
+                    <div className="text-muted-foreground mt-1 text-xs">{item.meta}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyPanel text="Belum ada pengeluaran pada rentang ini." />
+            )}
+          </DashboardPanel>
+        </>
+      )}
     </div>
   );
 }
@@ -1040,8 +1191,8 @@ function AnalyticsHero({
   realtimeStatus: "idle" | "connecting" | "connected" | "reconnecting";
 }) {
   return (
-    <div className="relative overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,1),rgba(240,252,250,0.96))] p-4 shadow-[0_18px_42px_rgba(15,23,42,0.06)] sm:rounded-[2rem] sm:p-7">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.2),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(30,143,146,0.12),transparent_32%)]" />
+    <div className="bg-card relative overflow-hidden rounded-[1.35rem] border border-border p-4 shadow-[0_18px_42px_rgba(15,23,42,0.06)] sm:rounded-[2rem] sm:p-7">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.14),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(30,143,146,0.08),transparent_32%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(45,212,191,0.10),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(37,99,235,0.10),transparent_32%)]" />
       <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -1051,10 +1202,10 @@ function AnalyticsHero({
             <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
           </div>
           <div>
-            <h1 className="text-3xl font-[950] tracking-tight text-slate-950 sm:text-4xl">
+            <h1 className="text-foreground text-3xl font-[950] tracking-tight sm:text-4xl">
               Analytics
             </h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-600">
+            <p className="text-muted-foreground mt-2 max-w-2xl text-sm">
               Laporan owner yang lebih lengkap untuk booking, direct sale, pengeluaran, dan pulse operasional.
             </p>
           </div>
@@ -1084,11 +1235,11 @@ function InfoChip({
   value: string;
 }) {
   return (
-    <div className="rounded-[1.35rem] border border-slate-200/80 bg-slate-50/80 px-4 py-3">
-      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+    <div className="bg-muted/40 rounded-[1.35rem] border border-border px-4 py-3">
+      <div className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.18em]">
         {label}
       </div>
-      <div className="mt-2 text-sm font-semibold text-slate-950">{value}</div>
+      <div className="text-foreground mt-2 text-sm font-semibold">{value}</div>
     </div>
   );
 }

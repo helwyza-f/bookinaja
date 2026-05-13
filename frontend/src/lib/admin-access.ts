@@ -1,4 +1,4 @@
-import { type TenantFeatureKey, hasTenantFeature } from "@/lib/plan-access";
+import { analyzeTenantFeatureAccess, type TenantFeatureKey } from "@/lib/plan-access";
 import { expandPermissionKeys } from "@/lib/permission-catalog";
 
 export type AdminSessionUser = {
@@ -23,6 +23,13 @@ type RouteRule = {
   permissions?: string[];
   feature?: TenantFeatureKey;
   anyFeatures?: TenantFeatureKey[];
+};
+
+export type AdminRouteGate = {
+  visible: boolean;
+  accessible: boolean;
+  lockedByPlan: boolean;
+  requiredPlanLabel?: string;
 };
 
 const DASHBOARD_PERMISSIONS = [
@@ -75,6 +82,13 @@ export function canAccessAdminRoute(
   pathname: string,
   user: AdminSessionUser | null | undefined,
 ) {
+  return getAdminRouteGate(pathname, user).accessible;
+}
+
+export function getAdminRouteGate(
+  pathname: string,
+  user: AdminSessionUser | null | undefined,
+): AdminRouteGate {
   const normalizedPath = normalizeAdminPath(pathname);
 
   if (
@@ -82,7 +96,7 @@ export function canAccessAdminRoute(
     normalizedPath === "/admin/forbidden" ||
     normalizedPath === "/admin/login"
   ) {
-    return true;
+    return { visible: true, accessible: true, lockedByPlan: false };
   }
 
   const matchingRule = ROUTE_RULES.find((rule) =>
@@ -90,35 +104,44 @@ export function canAccessAdminRoute(
   );
 
   if (!matchingRule) {
-    return true;
+    return { visible: true, accessible: true, lockedByPlan: false };
   }
 
   if (matchingRule.ownerOnly) {
     if (user?.role !== "owner") {
-      return false;
+      return { visible: false, accessible: false, lockedByPlan: false };
     }
   }
 
-  if (matchingRule.feature) {
-    if (!hasTenantFeature(user || {}, matchingRule.feature)) {
-      return false;
-    }
-  }
-
-  if (matchingRule.anyFeatures?.length) {
-    const allowed = matchingRule.anyFeatures.some((feature) =>
-      hasTenantFeature(user || {}, feature),
-    );
-    if (!allowed) {
-      return false;
+  if (matchingRule.feature || matchingRule.anyFeatures?.length) {
+    const analysis = analyzeTenantFeatureAccess(user || {}, {
+      feature: matchingRule.feature,
+      anyFeatures: matchingRule.anyFeatures,
+    });
+    if (!analysis.accessible) {
+      return {
+        visible: user?.role === "owner",
+        accessible: user?.role === "owner",
+        lockedByPlan: true,
+        requiredPlanLabel: analysis.requiredPlanLabel,
+      };
     }
   }
 
   if (!matchingRule.permissions || matchingRule.permissions.length === 0) {
-    return true;
+    return { visible: true, accessible: true, lockedByPlan: false };
   }
 
-  return hasPermission(user, matchingRule.permissions);
+  const allowed = hasPermission(user, matchingRule.permissions);
+  return {
+    visible: allowed,
+    accessible: allowed,
+    lockedByPlan: false,
+  };
+}
+
+export function getRouteUpgradeHref(pathname: string) {
+  return `/admin/settings/billing/subscribe?source=${encodeURIComponent(normalizeAdminPath(pathname))}`;
 }
 
 export function getFirstAccessibleAdminPath(

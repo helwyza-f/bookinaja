@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import api from "@/lib/api";
+import { analyzeTenantFeatureAccess } from "@/lib/plan-access";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { SingleImageUpload } from "@/components/upload/single-image-upload";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useAdminSession } from "@/components/dashboard/admin-session-context";
+import { PlanFeatureCallout } from "@/components/dashboard/plan-feature-ux";
 
 type PaymentMethodItem = {
   code: string;
@@ -169,6 +172,7 @@ const methodIcon = (code: string) => {
 };
 
 export default function PaymentMethodsSettingsPage() {
+  const { user } = useAdminSession();
   const [items, setItems] = useState<PaymentMethodItem[]>(defaults);
   const [resources, setResources] = useState<ResourceItem[]>([]);
   const [depositSettings, setDepositSettings] = useState<DepositSettings>({
@@ -183,8 +187,22 @@ export default function PaymentMethodsSettingsPage() {
   const [savingDeposit, setSavingDeposit] = useState(false);
   const [showDepositOverrides, setShowDepositOverrides] = useState(false);
   const [editingDeposit, setEditingDeposit] = useState(false);
+  const planGate = useMemo(
+    () =>
+      analyzeTenantFeatureAccess(user || {}, {
+        anyFeatures: ["payment_method_management", "manual_payment_verification"],
+      }),
+    [user],
+  );
+  const featureLocked = planGate.state !== "available";
 
   useEffect(() => {
+    if (featureLocked) {
+      setItems(defaults);
+      setResources([]);
+      setLoading(false);
+      return;
+    }
     Promise.all([
       api.get("/admin/payment-methods"),
       api.get("/admin/deposit-settings"),
@@ -208,7 +226,7 @@ export default function PaymentMethodsSettingsPage() {
       })
       .catch(() => toast.error("Gagal memuat pengaturan pembayaran"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [featureLocked]);
 
   const activeCount = useMemo(
     () => items.filter((item) => item.is_active).length,
@@ -408,6 +426,12 @@ export default function PaymentMethodsSettingsPage() {
 
   return (
     <div className="space-y-4 pb-12">
+      <PlanFeatureCallout
+        input={user || {}}
+        title="Metode bayar dan verifikasi manual"
+        description="Workflow pembayaran tenant lebih enak dipahami kalau owner langsung lihat apakah pengelolaan payment method dan verifikasi manual sudah masuk di plan sekarang."
+        requirement={{ anyFeatures: ["payment_method_management", "manual_payment_verification"] }}
+      />
       <Card className="overflow-hidden rounded-[1.75rem] border border-slate-200/90 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.94))] p-5 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.94),rgba(8,47,73,0.94))]">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>

@@ -28,7 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { clearTenantSession } from "@/lib/tenant-session";
-import { canAccessAdminRoute } from "@/lib/admin-access";
+import { canAccessAdminRoute, getAdminRouteGate } from "@/lib/admin-access";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { Badge } from "../ui/badge";
 import { getCentralAdminAuthUrl, getTenantSlugFromBrowser } from "@/lib/tenant";
@@ -246,7 +246,8 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
               </div>
             )}
             <div className="flex flex-col gap-1">
-              {settingsNavItems.filter((route) => hasAccess(route.href)).map((route) => {
+              {settingsNavItems.filter((route) => getAdminRouteGate(route.href, userData).visible).map((route) => {
+                const gate = getAdminRouteGate(route.href, userData);
                 const isActive =
                   pathname === route.href || pathname.startsWith(`${route.href}/`);
                 return (
@@ -258,7 +259,11 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                         className={cn(
                           itemBase,
                           "transition-colors",
-                          isActive ? itemActive : itemIdle,
+                          isActive
+                            ? itemActive
+                            : gate.lockedByPlan
+                              ? "text-amber-700 hover:bg-amber-50 dark:text-amber-200 dark:hover:bg-amber-500/10"
+                              : itemIdle,
                         )}
                       >
                         <route.icon
@@ -268,9 +273,16 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
                           )}
                         />
                         {!isCollapsed && (
-                          <span className="truncate text-sm font-semibold">
-                            {route.label}
-                          </span>
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="truncate text-sm font-semibold">
+                              {route.label}
+                            </span>
+                            {gate.lockedByPlan ? (
+                              <Badge className="border-0 bg-amber-600/10 px-1.5 py-0 text-[9px] font-bold uppercase tracking-[0.16em] text-current">
+                                {gate.requiredPlanLabel}
+                              </Badge>
+                            ) : null}
+                          </div>
                         )}
                       </Link>
                     </TooltipTrigger>

@@ -1,8 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
-import { formatPlanLabel, formatSubscriptionStatusLabel } from "@/lib/plan-access";
+import {
+  analyzeTenantFeatureAccess,
+  formatPlanLabel,
+  formatSubscriptionStatusLabel,
+} from "@/lib/plan-access";
+import { useAdminSession } from "@/components/dashboard/admin-session-context";
+import { PlanFeatureCallout } from "@/components/dashboard/plan-feature-ux";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -112,6 +118,7 @@ const formatDate = (value?: string) => {
 };
 
 export default function SettingsCRMPage() {
+  const { user } = useAdminSession();
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [legacyContacts, setLegacyContacts] = useState<LegacyContact[]>([]);
   const [activity, setActivity] = useState<AuditRow[]>([]);
@@ -140,8 +147,24 @@ export default function SettingsCRMPage() {
   const recentLegacyContacts = useMemo(() => legacyContacts.slice(0, 6), [legacyContacts]);
   const recentCustomers = useMemo(() => customers.slice(0, 6), [customers]);
   const latestCrmActivity = crmHistory[0];
+  const planGate = useMemo(
+    () => analyzeTenantFeatureAccess(user || {}, { anyFeatures: ["crm_basic", "customer_import", "whatsapp_blast"] }),
+    [user],
+  );
+  const featureLocked = planGate.state !== "available";
 
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
+    if (featureLocked) {
+      setCustomers([]);
+      setLegacyContacts([]);
+      setActivity([]);
+      setProfile({
+        plan: user?.plan,
+        status: user?.subscription_status,
+      });
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [custRes, legacyRes, activityRes, profileRes] = await Promise.all([
@@ -159,11 +182,11 @@ export default function SettingsCRMPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [featureLocked, user?.plan, user?.subscription_status]);
 
   useEffect(() => {
     void loadAll();
-  }, []);
+  }, [loadAll]);
 
   const downloadTemplate = () => {
     const blob = new Blob([LEGACY_TEMPLATE], { type: "text/csv;charset=utf-8;" });
@@ -226,6 +249,12 @@ export default function SettingsCRMPage() {
 
   return (
     <div className="space-y-4 p-4 pb-20 sm:space-y-6 sm:p-6">
+      <PlanFeatureCallout
+        input={user || {}}
+        title="Workspace CRM dan campaign"
+        description="Import pelanggan lama, blast WhatsApp, dan workspace CRM perlu punya penanda plan yang jelas sebelum owner mencoba flow-nya."
+        requirement={{ anyFeatures: ["crm_basic", "customer_import", "whatsapp_blast"] }}
+      />
       <section className="overflow-hidden rounded-[1.75rem] border border-slate-200/90 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.94))] p-5 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.94),rgba(8,47,73,0.94))]">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 import {
   Dialog,
@@ -24,6 +24,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { useAdminSession } from "@/components/dashboard/admin-session-context";
+import { PlanFeatureCallout } from "@/components/dashboard/plan-feature-ux";
+import { analyzeTenantFeatureAccess } from "@/lib/plan-access";
 import {
   PERMISSION_GROUPS,
   RECOMMENDED_ROLE_PRESETS,
@@ -110,6 +113,7 @@ const getErrorMessage = (err: unknown, fallback: string) => {
 };
 
 export default function StaffSettingsPage() {
+  const { user } = useAdminSession();
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [roles, setRoles] = useState<StaffRole[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,8 +132,20 @@ export default function StaffSettingsPage() {
       return acc;
     }, {});
   }, [roles]);
+  const planGate = useMemo(
+    () => analyzeTenantFeatureAccess(user || {}, { anyFeatures: ["staff_accounts", "role_permissions"] }),
+    [user],
+  );
+  const featureLocked = planGate.state !== "available";
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    if (featureLocked) {
+      setStaff([]);
+      setRoles([]);
+      setLoading(false);
+      setError("");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -144,11 +160,11 @@ export default function StaffSettingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [featureLocked]);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    void loadData();
+  }, [loadData]);
 
   useEffect(() => {
     if (!staffDialogOpen) {
@@ -316,6 +332,12 @@ export default function StaffSettingsPage() {
 
   return (
     <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
+      <PlanFeatureCallout
+        input={user || {}}
+        title="Akses tim dan role permission"
+        description="Status capability staff sebaiknya terlihat dari awal, jadi owner langsung tahu apakah tenant ini memang sudah punya fitur team access penuh."
+        requirement={{ anyFeatures: ["staff_accounts", "role_permissions"] }}
+      />
       <MobileStaffHero
         staffCount={staff.length}
         defaultRolesCount={defaultRolesCount}

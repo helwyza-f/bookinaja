@@ -16,9 +16,10 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { clearTenantSession } from "@/lib/tenant-session";
-import { canAccessAdminRoute } from "@/lib/admin-access";
+import { canAccessAdminRoute, getAdminRouteGate } from "@/lib/admin-access";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { getCentralAdminAuthUrl, getTenantSlugFromBrowser } from "@/lib/tenant";
+import { Badge } from "@/components/ui/badge";
 import {
   growthHubNavItem,
   operationalNavItems,
@@ -59,7 +60,7 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
   }, [mode, userData]);
 
   const settingsItems = useMemo(
-    () => settingsNavItems.filter((item) => canAccessAdminRoute(item.href, userData)),
+    () => settingsNavItems.filter((item) => getAdminRouteGate(item.href, userData).visible),
     [userData],
   );
 
@@ -183,6 +184,7 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
                     </div>
                     <div className="space-y-1">
                       {settingsItems.map((item) => {
+                        const gate = getAdminRouteGate(item.href, userData);
                         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
                         return (
@@ -193,11 +195,22 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
                             onClick={() => setOpen(false)}
                             className={cn(
                               "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
-                              active ? activeItemClass : idleItemClass,
+                              active
+                                ? activeItemClass
+                                : gate.lockedByPlan
+                                  ? "border border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
+                                  : idleItemClass,
                             )}
                           >
                             <item.icon className="h-4 w-4 shrink-0" />
-                            <div className="min-w-0 flex-1 truncate font-medium">{item.label}</div>
+                            <div className="flex min-w-0 flex-1 items-center gap-2 truncate font-medium">
+                              <span className="truncate">{item.label}</span>
+                              {gate.lockedByPlan ? (
+                                <Badge className="border-0 bg-amber-600/10 px-1.5 py-0 text-[9px] font-bold uppercase tracking-[0.16em] text-current">
+                                  {gate.requiredPlanLabel}
+                                </Badge>
+                              ) : null}
+                            </div>
                           </Link>
                         );
                       })}

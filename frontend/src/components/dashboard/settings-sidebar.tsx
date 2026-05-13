@@ -2,17 +2,11 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import {
-  BadgeCheck,
-  BarChart3,
-  CreditCard,
-  TicketPercent,
-  Megaphone,
-  ShieldCheck,
-  UsersRound,
-  Wand2,
-  UserCog,
-} from "lucide-react";
+import { BadgeCheck, ShieldCheck } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { settingsNavItems } from "./admin-nav-config";
+import { useAdminSession } from "./admin-session-context";
+import { getAdminRouteGate } from "@/lib/admin-access";
 
 type SettingsSidebarProps = {
   tenantName?: string;
@@ -20,68 +14,13 @@ type SettingsSidebarProps = {
   pathname: string;
 };
 
-const items = [
-  {
-    label: "Akun Owner",
-    href: "/admin/settings/akun",
-    icon: UserCog,
-    hint: "Email, Google, password",
-  },
-  {
-    label: "Setup Bisnis",
-    href: "/admin/settings/bisnis",
-    icon: ShieldCheck,
-    hint: "Identitas, kontak, visual utama",
-  },
-  {
-    label: "Landing Page Studio",
-    href: "/admin/settings/page-builder",
-    icon: Wand2,
-    hint: "Layout, tema, preview live",
-  },
-  {
-    label: "Manajemen Pegawai",
-    href: "/admin/settings/staff",
-    icon: UsersRound,
-    hint: "Staff, RBAC, aktivitas",
-  },
-  {
-    label: "CRM & Marketing",
-    href: "/admin/settings/crm",
-    icon: Megaphone,
-    hint: "Migrasi & blast WA",
-  },
-  {
-    label: "Laporan & Analitik",
-    href: "/admin/settings/analytics",
-    icon: BarChart3,
-    hint: "Grafik & export",
-  },
-  {
-    label: "Smart Point",
-    href: "/admin/devices",
-    icon: BadgeCheck,
-    hint: "Perangkat & status",
-  },
-  {
-    label: "Promo Customer",
-    href: "/admin/settings/promo",
-    icon: TicketPercent,
-    hint: "Voucher, rule, kuota",
-  },
-  {
-    label: "Subscription & Billing",
-    href: "/admin/settings/billing",
-    icon: CreditCard,
-    hint: "Paket SaaS & Midtrans",
-  },
-];
-
 export function SettingsSidebar({
   tenantName,
   role,
   pathname,
 }: SettingsSidebarProps) {
+  const { user } = useAdminSession();
+
   return (
     <aside className="h-full overflow-hidden rounded-xl border border-[var(--sidebar-border)] bg-[var(--card)]">
       <div className="border-b border-[var(--sidebar-border)] p-4">
@@ -108,7 +47,8 @@ export function SettingsSidebar({
       </div>
 
       <nav className="space-y-1 p-2.5">
-        {items.map((item) => {
+        {settingsNavItems.filter((item) => getAdminRouteGate(item.href, user).visible).map((item) => {
+          const gate = getAdminRouteGate(item.href, user);
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link
@@ -118,7 +58,9 @@ export function SettingsSidebar({
                 "group flex items-center gap-3 rounded-lg border px-3 py-3 transition-colors",
                 active
                   ? "border-[color:rgba(18,146,255,0.18)] bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[color:rgba(18,146,255,0.14)] dark:text-[var(--bookinaja-100)]"
-                  : "border-transparent bg-transparent text-slate-500 hover:border-[var(--sidebar-border)] hover:bg-[var(--sidebar-accent)] dark:hover:bg-slate-900 dark:text-slate-300",
+                  : gate.lockedByPlan
+                    ? "border-amber-200 bg-amber-50 text-amber-700 hover:border-amber-300 hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200 dark:hover:border-amber-500/30 dark:hover:bg-amber-500/15"
+                    : "border-transparent bg-transparent text-slate-500 hover:border-[var(--sidebar-border)] hover:bg-[var(--sidebar-accent)] dark:hover:bg-slate-900 dark:text-slate-300",
               )}
             >
               <div
@@ -132,8 +74,13 @@ export function SettingsSidebar({
                 <item.icon className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-[11px] font-semibold leading-none">
+                <div className="flex items-center gap-2 text-[11px] font-semibold leading-none">
                   {item.label}
+                  {gate.lockedByPlan ? (
+                    <Badge className="border-0 bg-amber-600/10 px-1.5 py-0 text-[9px] font-bold uppercase tracking-[0.16em] text-current">
+                      {gate.requiredPlanLabel}
+                    </Badge>
+                  ) : null}
                 </div>
                 <div className="mt-1 text-[10px] opacity-70">
                   {item.hint}

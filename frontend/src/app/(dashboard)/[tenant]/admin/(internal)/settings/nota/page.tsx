@@ -15,8 +15,7 @@ import {
   X,
 } from "lucide-react";
 import api from "@/lib/api";
-import { hasTenantFeature } from "@/lib/plan-access";
-import { formatPlanLabel } from "@/lib/plan-access";
+import { analyzeTenantFeatureAccess, formatPlanLabel, hasTenantFeature } from "@/lib/plan-access";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +24,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
+import { useAdminSession } from "@/components/dashboard/admin-session-context";
+import { PlanFeatureCallout } from "@/components/dashboard/plan-feature-ux";
 
 type ReceiptSettings = {
   receipt_title?: string;
@@ -98,6 +99,7 @@ const sampleReceipt = {
 };
 
 export default function ReceiptPrinterSettingsPage() {
+  const { user } = useAdminSession();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [copying, setCopying] = useState(false);
@@ -112,9 +114,28 @@ export default function ReceiptPrinterSettingsPage() {
   const [selectedDeviceName, setSelectedDeviceName] = useState<string | null>(null);
   const [connectionState, setConnectionState] = useState<"idle" | "selected" | "connected" | "disconnected">("idle");
   const bluetoothSessionRef = useRef<BluetoothDeviceSession | null>(null);
+  const planGate = useMemo(
+    () => analyzeTenantFeatureAccess(user || {}, { feature: "advanced_receipt_branding" }),
+    [user],
+  );
+  const featureLocked = planGate.state !== "available";
 
   useEffect(() => {
     let active = true;
+    if (featureLocked) {
+      const nextData = normalizeSettings({
+        receipt_template: defaultTemplate,
+        plan: user?.plan,
+        subscription_status: user?.subscription_status,
+        plan_features: user?.plan_features || [],
+      });
+      setSavedData(nextData);
+      setDraft(nextData);
+      setLoading(false);
+      return () => {
+        active = false;
+      };
+    }
     api
       .get("/admin/receipt-settings")
       .then((res) => {
@@ -133,7 +154,7 @@ export default function ReceiptPrinterSettingsPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [featureLocked, user?.plan, user?.plan_features, user?.subscription_status]);
 
   const bluetoothAvailable = useMemo(() => {
     if (typeof window === "undefined") return false;
@@ -337,6 +358,12 @@ export default function ReceiptPrinterSettingsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4 sm:px-6 lg:px-8">
+      <PlanFeatureCallout
+        input={user || {}}
+        title="Receipt branding dan printer"
+        description="Template nota premium dan printer workflow sebaiknya diberi konteks plan yang jelas sebelum owner mulai merapikan output transaksi."
+        requirement={{ feature: "advanced_receipt_branding" }}
+      />
       <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
