@@ -111,7 +111,7 @@ func main() {
 	fnbRepo := fnb.NewRepository(db, rdb)
 	promoRepo := promo.NewRepository(db)
 	billingRepo := billing.NewRepository(db, rdb)
-	platformRepo := platformadmin.NewRepository(db)
+	platformRepo := platformadmin.NewRepository(db, rdb)
 	midtransRepo := midtranssvc.NewRepository(db, rdb)
 	smartDeviceRepo := smartdevice.NewRepository(db)
 	resendMailer := mailer.NewResendFromEnv()

@@ -9,6 +9,7 @@ type AdminSessionContextValue = {
   tenantCategory?: string;
   growthVisible: boolean;
   planFeatures: string[];
+  planFeatureMatrix: Record<string, string[]>;
 };
 
 const AdminSessionContext = createContext<AdminSessionContextValue | null>(null);

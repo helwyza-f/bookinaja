@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/helwiza/backend/internal/fnb"
+	"github.com/helwiza/backend/internal/platform/access"
 	"github.com/helwiza/backend/internal/resource"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
@@ -60,6 +61,10 @@ func (r *Repository) getPublicDiscoverFeedCacheKey() string {
 
 func (r *Repository) getPlatformBooleanSettingCacheKey(key string) string {
 	return fmt.Sprintf("platform:feature:%s", strings.ToLower(strings.TrimSpace(key)))
+}
+
+func (r *Repository) getPlanFeatureMatrixCacheKey() string {
+	return "platform:plan-features:v1"
 }
 
 func (r *Repository) invalidateUserCache(ctx context.Context, userIDs ...uuid.UUID) {
@@ -139,6 +144,47 @@ func (r *Repository) GetPlatformBooleanSetting(ctx context.Context, key string, 
 		}
 	}
 	return booleanValue, true, nil
+}
+
+func (r *Repository) GetPlanFeatureMatrix(ctx context.Context) (map[string][]string, error) {
+	if r.rdb != nil {
+		if val, err := r.rdb.Get(ctx, r.getPlanFeatureMatrixCacheKey()).Result(); err == nil && strings.TrimSpace(val) != "" {
+			var payload struct {
+				Plans map[string][]string `json:"plans"`
+			}
+			if err := json.Unmarshal([]byte(val), &payload); err == nil {
+				return access.NormalizePlanFeatureMatrix(payload.Plans), nil
+			}
+		}
+	}
+
+	var raw json.RawMessage
+	err := r.db.GetContext(ctx, &raw, `
+		SELECT value_json
+		FROM platform_feature_settings
+		WHERE key = 'plan_features'
+		LIMIT 1`)
+	if err == sql.ErrNoRows {
+		return access.GetPlanFeatureMatrix(), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var payload struct {
+		Plans map[string][]string `json:"plans"`
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return nil, err
+	}
+
+	matrix := access.NormalizePlanFeatureMatrix(payload.Plans)
+	if r.rdb != nil {
+		if encoded, err := access.MarshalNormalizedPlanFeatureMatrix(matrix); err == nil {
+			_ = r.rdb.Set(ctx, r.getPlanFeatureMatrixCacheKey(), encoded, 30*time.Minute).Err()
+		}
+	}
+	return matrix, nil
 }
 
 func (r *Repository) GetCachedPublicDiscoverFeed(ctx context.Context) (*PublicDiscoverFeedResponse, bool) {

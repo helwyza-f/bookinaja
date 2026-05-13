@@ -15,6 +15,7 @@ export type AdminSessionUser = {
   plan?: string;
   subscription_status?: string;
   plan_features?: string[];
+  plan_feature_matrix?: Record<string, string[]>;
 };
 
 type RouteRule = {

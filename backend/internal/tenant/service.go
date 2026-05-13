@@ -2721,7 +2721,12 @@ func (s *Service) GetAdminBootstrap(ctx context.Context, userID, tenantID uuid.U
 	if err != nil || item == nil {
 		return item, err
 	}
-	item.Features.PlanFeatures = access.ResolvePlanFeatures(item.Tenant.Plan)
+	matrix, err := s.repo.GetPlanFeatureMatrix(ctx)
+	if err != nil {
+		return nil, err
+	}
+	item.Features.PlanFeatureMatrix = matrix
+	item.Features.PlanFeatures = access.ResolvePlanFeaturesWithMatrix(item.Tenant.Plan, matrix)
 	if item.User.Role != "owner" {
 		item.Features.EnableDiscoveryPosts = false
 	}
@@ -2819,7 +2824,11 @@ func (s *Service) GetReceiptSettings(ctx context.Context, id uuid.UUID) (*Tenant
 	if err != nil || tenant == nil {
 		return tenant, err
 	}
-	tenant.PlanFeatures = access.ResolvePlanFeatures(tenant.Plan)
+	matrix, err := s.repo.GetPlanFeatureMatrix(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tenant.PlanFeatures = access.ResolvePlanFeaturesWithMatrix(tenant.Plan, matrix)
 	return tenant, nil
 }
 

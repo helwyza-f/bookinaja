@@ -4,8 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 import {
   analyzeTenantFeatureAccess,
-  formatPlanLabel,
-  formatSubscriptionStatusLabel,
 } from "@/lib/plan-access";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { PlanFeatureCallout } from "@/components/dashboard/plan-feature-ux";
@@ -62,14 +60,9 @@ type AuditRow = {
   id: string;
   action: string;
   resource_type: string;
-  metadata?: string;
+  metadata?: unknown;
   created_at: string;
   actor_name?: string;
-};
-
-type SubscriptionProfile = {
-  plan?: string;
-  status?: string;
 };
 
 const LEGACY_TEMPLATE = "name,phone\n";
@@ -122,7 +115,6 @@ export default function SettingsCRMPage() {
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [legacyContacts, setLegacyContacts] = useState<LegacyContact[]>([]);
   const [activity, setActivity] = useState<AuditRow[]>([]);
-  const [profile, setProfile] = useState<SubscriptionProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [importText, setImportText] = useState(LEGACY_TEMPLATE);
@@ -158,31 +150,25 @@ export default function SettingsCRMPage() {
       setCustomers([]);
       setLegacyContacts([]);
       setActivity([]);
-      setProfile({
-        plan: user?.plan,
-        status: user?.subscription_status,
-      });
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const [custRes, legacyRes, activityRes, profileRes] = await Promise.all([
+      const [custRes, legacyRes, activityRes] = await Promise.all([
         api.get("/customers"),
         api.get("/admin/settings/customers/legacy"),
         api.get("/admin/settings/activity?limit=50"),
-        api.get("/billing/subscription"),
       ]);
       setCustomers(custRes.data || []);
       setLegacyContacts(legacyRes.data?.items || []);
       setActivity(activityRes.data?.items || []);
-      setProfile(profileRes.data || null);
     } catch {
       toast.error("Gagal memuat CRM");
     } finally {
       setLoading(false);
     }
-  }, [featureLocked, user?.plan, user?.subscription_status]);
+  }, [featureLocked]);
 
   useEffect(() => {
     void loadAll();
@@ -275,6 +261,10 @@ export default function SettingsCRMPage() {
               <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
             </Button>
+            <Button variant="outline" onClick={() => setActiveTab("history")} className="rounded-xl">
+              <ArrowRight className="mr-2 h-4 w-4" />
+              History
+            </Button>
             <Button
               type="button"
               onClick={() => setActiveTab("campaigns")}
@@ -291,17 +281,17 @@ export default function SettingsCRMPage() {
         <MetricCard
           label="Aktif"
           value={loading ? "-" : String(customers.length)}
-          hint="customer tenant"
+          hint="customer aktif tenant"
         />
         <MetricCard
           label="Legacy"
           value={loading ? "-" : String(legacyContacts.length)}
-          hint="kontak impor"
+          hint="kontak migrasi/import"
         />
         <MetricCard
           label="History"
           value={String(crmHistory.length)}
-          hint={`${formatPlanLabel(profile?.plan)} / ${formatSubscriptionStatusLabel(profile?.status)}`}
+          hint={latestCrmActivity ? `terakhir ${formatDate(latestCrmActivity.created_at)}` : "audit import & blast"}
         />
       </div>
 
@@ -558,7 +548,7 @@ Budi,081234567890`}</pre>
                     <Badge variant="outline">{item.resource_type}</Badge>
                   </div>
                   <div className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                    {item.metadata || "-"}
+                    {formatAuditMetadata(item.metadata)}
                   </div>
                 </div>
               ))}
@@ -845,4 +835,17 @@ function labelAction(action: string) {
   if (action === "legacy_customer_blast") return "Blast pelanggan lama";
   if (action === "customer_blast") return "Blast pelanggan aktif";
   return action;
+}
+
+function formatAuditMetadata(value: unknown) {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed || "-";
+  }
+  if (value == null) return "-";
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
 }

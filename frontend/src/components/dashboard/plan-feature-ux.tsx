@@ -16,6 +16,7 @@ type FeatureInput = {
   plan?: string | null;
   subscription_status?: string | null;
   plan_features?: string[] | null;
+  plan_feature_matrix?: Record<string, string[]> | null;
 };
 
 type Requirement = {
@@ -112,6 +113,15 @@ export function PlanFeatureCallout({
         ? `${featureNames.join(", ")} ada di ${analysis.requiredPlanLabel}, tapi status langganan tenant belum aktif.`
         : `${featureNames.join(", ")} belum masuk di plan tenant saat ini. Upgrade ke ${analysis.requiredPlanLabel} supaya fitur ini terbuka penuh.`;
 
+  if (analysis.state === "available") {
+    return (
+      <div className={cn("flex flex-wrap items-center gap-2", className)}>
+        <span className="text-muted-foreground text-xs font-semibold">{title}</span>
+        <PlanFeatureBadge input={input} requirement={requirement} />
+      </div>
+    );
+  }
+
   return (
     <div className={cn("rounded-2xl border p-4 shadow-sm", tone, className)}>
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -127,11 +137,9 @@ export function PlanFeatureCallout({
           </p>
           <p className="text-sm leading-6 text-slate-500 dark:text-slate-400">{copy}</p>
         </div>
-        {analysis.state !== "available" ? (
-          <Button asChild variant="outline" className="rounded-xl">
-            <Link href={href}>Lihat opsi upgrade</Link>
-          </Button>
-        ) : null}
+        <Button asChild variant="outline" className="rounded-xl">
+          <Link href={href}>Lihat opsi upgrade</Link>
+        </Button>
       </div>
     </div>
   );

@@ -9,10 +9,12 @@ import (
 
 	"github.com/helwiza/backend/internal/platform/access"
 	"github.com/jmoiron/sqlx"
+	"github.com/redis/go-redis/v9"
 )
 
 type Repository struct {
-	db *sqlx.DB
+	db  *sqlx.DB
+	rdb *redis.Client
 }
 
 type DiscoveryFeedSetting struct {
@@ -45,7 +47,17 @@ type CreateEmailLogInput struct {
 	Tags           map[string]string
 }
 
-func NewRepository(db *sqlx.DB) *Repository { return &Repository{db: db} }
+func NewRepository(db *sqlx.DB, rdb ...*redis.Client) *Repository {
+	var client *redis.Client
+	if len(rdb) > 0 {
+		client = rdb[0]
+	}
+	return &Repository{db: db, rdb: client}
+}
+
+func (r *Repository) getPlanFeatureMatrixCacheKey() string {
+	return "platform:plan-features:v1"
+}
 
 func (r *Repository) CreateEmailLog(ctx context.Context, input CreateEmailLogInput) (string, error) {
 	var id string
@@ -135,6 +147,21 @@ func (r *Repository) UpdateDiscoveryFeedSetting(ctx context.Context, enabled boo
 }
 
 func (r *Repository) GetPlanFeatureSettings(ctx context.Context) (*PlanFeatureSettings, error) {
+	if r.rdb != nil {
+		if cached, err := r.rdb.Get(ctx, r.getPlanFeatureMatrixCacheKey()).Result(); err == nil && strings.TrimSpace(cached) != "" {
+			var payload struct {
+				Plans map[string][]string `json:"plans"`
+			}
+			if err := json.Unmarshal([]byte(cached), &payload); err == nil {
+				matrix := access.NormalizePlanFeatureMatrix(payload.Plans)
+				return &PlanFeatureSettings{
+					Plans:     matrix,
+					UpdatedAt: time.Now().UTC(),
+				}, nil
+			}
+		}
+	}
+
 	var row struct {
 		ValueJSON json.RawMessage `db:"value_json"`
 		UpdatedAt time.Time       `db:"updated_at"`
@@ -164,8 +191,12 @@ func (r *Repository) GetPlanFeatureSettings(ctx context.Context) (*PlanFeatureSe
 	if err := json.Unmarshal(row.ValueJSON, &payload); err != nil {
 		return nil, err
 	}
-	if payload.Plans == nil {
-		payload.Plans = access.GetPlanFeatureMatrix()
+	payload.Plans = access.NormalizePlanFeatureMatrix(payload.Plans)
+
+	if r.rdb != nil {
+		if encoded, err := access.MarshalNormalizedPlanFeatureMatrix(payload.Plans); err == nil {
+			_ = r.rdb.Set(ctx, r.getPlanFeatureMatrixCacheKey(), encoded, 30*time.Minute).Err()
+		}
 	}
 
 	return &PlanFeatureSettings{
@@ -175,6 +206,7 @@ func (r *Repository) GetPlanFeatureSettings(ctx context.Context) (*PlanFeatureSe
 }
 
 func (r *Repository) UpdatePlanFeatureSettings(ctx context.Context, plans map[string][]string) error {
+	normalized := access.NormalizePlanFeatureMatrix(plans)
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO platform_feature_settings (key, value_json, updated_at)
 		VALUES ('plan_features', jsonb_build_object('plans', $1::jsonb), NOW())
@@ -182,8 +214,11 @@ func (r *Repository) UpdatePlanFeatureSettings(ctx context.Context, plans map[st
 		DO UPDATE SET
 			value_json = jsonb_build_object('plans', $1::jsonb),
 			updated_at = NOW()`,
-		mustJSON(plans),
+		mustJSON(normalized),
 	)
+	if err == nil && r.rdb != nil {
+		_ = r.rdb.Del(ctx, r.getPlanFeatureMatrixCacheKey()).Err()
+	}
 	return err
 }
 

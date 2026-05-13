@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/helwiza/backend/internal/platform/access"
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
 )
@@ -48,6 +49,10 @@ func reservationTenantBookingsCacheKey(tenantID uuid.UUID, status string) string
 		status = "all"
 	}
 	return fmt.Sprintf("reservation:booking:list:%s:%s", tenantID.String(), status)
+}
+
+func (r *Repository) getPlanFeatureMatrixCacheKey() string {
+	return "platform:plan-features:v1"
 }
 
 func (r *Repository) InvalidateReservationBookingCache(ctx context.Context, bookingID uuid.UUID) {
@@ -147,6 +152,47 @@ func (r *Repository) GetSubscriptionInfo(ctx context.Context, tenantID uuid.UUID
 	info.CurrentPeriodStart = rrow.Start
 	info.CurrentPeriodEnd = rrow.End
 	return info, nil
+}
+
+func (r *Repository) GetPlanFeatureMatrix(ctx context.Context) (map[string][]string, error) {
+	if r.rdb != nil {
+		if val, err := r.rdb.Get(ctx, r.getPlanFeatureMatrixCacheKey()).Result(); err == nil && strings.TrimSpace(val) != "" {
+			var payload struct {
+				Plans map[string][]string `json:"plans"`
+			}
+			if err := json.Unmarshal([]byte(val), &payload); err == nil {
+				return access.NormalizePlanFeatureMatrix(payload.Plans), nil
+			}
+		}
+	}
+
+	var raw json.RawMessage
+	err := r.db.GetContext(ctx, &raw, `
+		SELECT value_json
+		FROM platform_feature_settings
+		WHERE key = 'plan_features'
+		LIMIT 1`)
+	if err == sql.ErrNoRows {
+		return access.GetPlanFeatureMatrix(), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var payload struct {
+		Plans map[string][]string `json:"plans"`
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return nil, err
+	}
+
+	matrix := access.NormalizePlanFeatureMatrix(payload.Plans)
+	if r.rdb != nil {
+		if encoded, err := access.MarshalNormalizedPlanFeatureMatrix(matrix); err == nil {
+			_ = r.rdb.Set(ctx, r.getPlanFeatureMatrixCacheKey(), encoded, 30*time.Minute).Err()
+		}
+	}
+	return matrix, nil
 }
 
 func (r *Repository) ActivateSubscription(ctx context.Context, tenantID uuid.UUID, plan string, start time.Time, end time.Time) error {

@@ -1,6 +1,7 @@
 package access
 
 import (
+	"encoding/json"
 	"sort"
 	"strings"
 	"sync"
@@ -178,6 +179,59 @@ func ResolvePlanFeatures(plan string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func ResolvePlanFeaturesWithMatrix(plan string, matrix map[string][]string) []string {
+	if len(matrix) == 0 {
+		return ResolvePlanFeatures(plan)
+	}
+
+	raw := matrix[strings.ToLower(strings.TrimSpace(string(NormalizePlan(plan))))]
+	if len(raw) == 0 {
+		return []string{}
+	}
+
+	out := make([]string, 0, len(raw))
+	seen := make(map[string]struct{}, len(raw))
+	for _, feature := range raw {
+		trimmed := strings.TrimSpace(feature)
+		if trimmed == "" {
+			continue
+		}
+		if _, exists := seen[trimmed]; exists {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func NormalizePlanFeatureMatrix(input map[string][]string) map[string][]string {
+	if len(input) == 0 {
+		return GetPlanFeatureMatrix()
+	}
+
+	out := map[string][]string{
+		string(PlanTrial):   {},
+		string(PlanStarter): {},
+		string(PlanPro):     {},
+		string(PlanScale):   {},
+	}
+
+	for rawPlan, features := range input {
+		plan := string(NormalizePlan(rawPlan))
+		out[plan] = ResolvePlanFeaturesWithMatrix(plan, map[string][]string{plan: features})
+	}
+
+	return out
+}
+
+func MarshalNormalizedPlanFeatureMatrix(input map[string][]string) ([]byte, error) {
+	return json.Marshal(map[string]any{
+		"plans": NormalizePlanFeatureMatrix(input),
+	})
 }
 
 func SetPlanFeatureMatrix(input map[string][]string) {

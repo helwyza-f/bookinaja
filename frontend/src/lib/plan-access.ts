@@ -207,6 +207,7 @@ export function hasTenantFeature(
     plan?: string | null;
     subscription_status?: string | null;
     plan_features?: string[] | null;
+    plan_feature_matrix?: Record<string, string[]> | null;
   },
   feature: TenantFeatureKey,
 ) {
@@ -222,18 +223,54 @@ export function hasTenantFeature(
   return PLAN_FEATURES[plan].includes(feature);
 }
 
+function getFeatureMatrix(input?: {
+  plan_feature_matrix?: Record<string, string[]> | null;
+}) {
+  const liveMatrix = input?.plan_feature_matrix;
+  if (!liveMatrix || typeof liveMatrix !== "object") {
+    return PLAN_FEATURES;
+  }
+
+  const normalized = {
+    trial: [] as TenantFeatureKey[],
+    starter: [] as TenantFeatureKey[],
+    pro: [] as TenantFeatureKey[],
+    scale: [] as TenantFeatureKey[],
+  };
+
+  (Object.keys(normalized) as BillingPlanKey[]).forEach((plan) => {
+    const source = Array.isArray(liveMatrix[plan]) ? liveMatrix[plan] : [];
+    normalized[plan] = source
+      .map((item) => String(item || "").trim())
+      .filter(Boolean) as TenantFeatureKey[];
+  });
+
+  return normalized;
+}
+
 export function getFeatureMeta(feature: TenantFeatureKey): FeatureMeta {
   return FEATURE_META[feature];
 }
 
-export function getRequiredPlansForFeature(feature: TenantFeatureKey): BillingPlanKey[] {
-  return PLAN_ORDER.filter((plan) => PLAN_FEATURES[plan].includes(feature));
+export function getRequiredPlansForFeature(
+  feature: TenantFeatureKey,
+  input?: {
+    plan_feature_matrix?: Record<string, string[]> | null;
+  },
+): BillingPlanKey[] {
+  const matrix = getFeatureMatrix(input);
+  return PLAN_ORDER.filter((plan) => matrix[plan].includes(feature));
 }
 
-export function getRequiredPlansForFeatures(features: TenantFeatureKey[]): BillingPlanKey[] {
+export function getRequiredPlansForFeatures(
+  features: TenantFeatureKey[],
+  input?: {
+    plan_feature_matrix?: Record<string, string[]> | null;
+  },
+): BillingPlanKey[] {
   const plans = new Set<BillingPlanKey>();
   features.forEach((feature) => {
-    getRequiredPlansForFeature(feature).forEach((plan) => plans.add(plan));
+    getRequiredPlansForFeature(feature, input).forEach((plan) => plans.add(plan));
   });
   return PLAN_ORDER.filter((plan) => plans.has(plan));
 }
@@ -249,6 +286,7 @@ export function analyzeTenantFeatureAccess(
     plan?: string | null;
     subscription_status?: string | null;
     plan_features?: string[] | null;
+    plan_feature_matrix?: Record<string, string[]> | null;
   },
   requirement: {
     feature?: TenantFeatureKey;
@@ -260,7 +298,7 @@ export function analyzeTenantFeatureAccess(
     : requirement.anyFeatures || [];
   const status = normalizeSubscriptionStatus(input.subscription_status);
   const activeFeatures = features.filter((feature) => hasTenantFeature(input, feature));
-  const requiredPlans = getRequiredPlansForFeatures(features);
+  const requiredPlans = getRequiredPlansForFeatures(features, input);
   const requiredPlanLabel = formatRequiredPlanLabel(requiredPlans);
   const accessible = activeFeatures.length > 0;
 

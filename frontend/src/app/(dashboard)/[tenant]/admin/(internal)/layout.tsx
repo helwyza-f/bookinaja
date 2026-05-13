@@ -46,6 +46,7 @@ type AdminBootstrapResponse = {
   features?: {
     enable_discovery_posts?: boolean;
     plan_features?: string[];
+    plan_feature_matrix?: Record<string, string[]>;
   };
 };
 
@@ -92,6 +93,7 @@ export default function DashboardInternalLayout({
             plan: bootstrap.tenant?.plan,
             subscription_status: bootstrap.tenant?.status,
             plan_features: bootstrap.features?.plan_features || [],
+            plan_feature_matrix: bootstrap.features?.plan_feature_matrix || {},
           };
 
           syncTenantCookies(getTenantSlugFromBrowser());
@@ -155,6 +157,7 @@ export default function DashboardInternalLayout({
       tenantCategory,
       growthVisible,
       planFeatures: sessionUser?.plan_features || [],
+      planFeatureMatrix: sessionUser?.plan_feature_matrix || {},
     }),
     [growthVisible, sessionUser, tenantCategory, tenantName],
   );

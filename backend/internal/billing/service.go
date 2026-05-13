@@ -411,7 +411,11 @@ func (s *Service) GetSubscription(ctx context.Context, tenantID uuid.UUID) (Subs
 	if err != nil {
 		return SubscriptionInfo{}, err
 	}
-	info.PlanFeatures = access.ResolvePlanFeatures(info.Plan)
+	matrix, err := s.repo.GetPlanFeatureMatrix(ctx)
+	if err != nil {
+		return SubscriptionInfo{}, err
+	}
+	info.PlanFeatures = access.ResolvePlanFeaturesWithMatrix(info.Plan, matrix)
 	return info, nil
 }
 
