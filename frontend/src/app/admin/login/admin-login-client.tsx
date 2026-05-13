@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import {
   ArrowRight,
@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getTenantUrl } from "@/lib/tenant";
+import { getCentralTenantRegisterUrl, getTenantUrl } from "@/lib/tenant";
 import {
   getTenantMismatchMessage,
   setAdminAuthCookie,
@@ -41,7 +41,10 @@ type LoginResponse = {
   token: string;
 };
 
-function normalizeNextPath(value?: string | null, fallback = "/admin/dashboard") {
+function normalizeNextPath(
+  value?: string | null,
+  fallback = "/admin/dashboard",
+) {
   const trimmed = (value || "").trim();
   if (!trimmed.startsWith("/") || trimmed.startsWith("//")) {
     return fallback;
@@ -49,9 +52,46 @@ function normalizeNextPath(value?: string | null, fallback = "/admin/dashboard")
   return trimmed;
 }
 
+function resolveAdminPostLoginUrl({
+  tenantSlug,
+  nextPath,
+  welcome,
+  plan,
+  interval,
+}: {
+  tenantSlug: string;
+  nextPath: string;
+  welcome?: string | null;
+  plan?: string | null;
+  interval?: string | null;
+}) {
+  if (!tenantSlug) {
+    return "";
+  }
+
+  if (plan || interval) {
+    const qp = new URLSearchParams();
+    if (plan) qp.set("plan", plan);
+    if (interval) qp.set("interval", interval);
+    if (welcome) qp.set("welcome", welcome);
+    return getTenantUrl(
+      tenantSlug,
+      `/admin/billing${qp.toString() ? `?${qp.toString()}` : ""}`,
+    );
+  }
+
+  const qp = new URLSearchParams();
+  if (welcome) qp.set("welcome", welcome);
+  const resolvedNext =
+    qp.toString() && nextPath === "/admin/dashboard"
+      ? `/admin/dashboard?${qp.toString()}`
+      : nextPath;
+
+  return getTenantUrl(tenantSlug, resolvedNext);
+}
+
 export function AdminLoginClient() {
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { register, handleSubmit } = useForm<LoginFormValues>();
 
@@ -61,6 +101,16 @@ export function AdminLoginClient() {
   );
   const nextPath = useMemo(
     () => normalizeNextPath(searchParams.get("next")),
+    [searchParams],
+  );
+  const registerUrl = useMemo(
+    () =>
+      getCentralTenantRegisterUrl({
+        plan: searchParams.get("plan"),
+        interval: searchParams.get("interval"),
+        ref: searchParams.get("ref"),
+        category: searchParams.get("category"),
+      }),
     [searchParams],
   );
 
@@ -75,7 +125,9 @@ export function AdminLoginClient() {
 
   const onSubmit = async (data: LoginFormValues) => {
     if (!tenantSlug) {
-      toast.error("Tenant bisnis belum terdeteksi. Mulai login dari halaman tenant dulu.");
+      toast.error(
+        "Tenant bisnis belum terdeteksi. Mulai login dari halaman tenant dulu.",
+      );
       return;
     }
 
@@ -94,29 +146,15 @@ export function AdminLoginClient() {
       const plan = searchParams.get("plan");
       const interval = searchParams.get("interval");
       const welcome = searchParams.get("welcome");
-
-      if (plan || interval) {
-        const qp = new URLSearchParams();
-        if (plan) qp.set("plan", plan);
-        if (interval) qp.set("interval", interval);
-        if (welcome) qp.set("welcome", welcome);
-        router.push(
-          getTenantUrl(
-            tenantSlug,
-            `/admin/billing${qp.toString() ? `?${qp.toString()}` : ""}`,
-          ),
-        );
-        return;
-      }
-
-      const qp = new URLSearchParams();
-      if (welcome) qp.set("welcome", welcome);
-      const resolvedNext =
-        qp.toString() && nextPath === "/admin/dashboard"
-          ? `/admin/dashboard?${qp.toString()}`
-          : nextPath;
-
-      router.push(getTenantUrl(tenantSlug, resolvedNext));
+      window.location.assign(
+        resolveAdminPostLoginUrl({
+          tenantSlug,
+          nextPath,
+          welcome,
+          plan,
+          interval,
+        }),
+      );
     } catch (error) {
       const message = (error as { response?: { data?: { error?: string } } })
         .response?.data?.error;
@@ -128,7 +166,9 @@ export function AdminLoginClient() {
 
   const handleGoogleLogin = async (credential: string) => {
     if (!tenantSlug) {
-      toast.error("Tenant bisnis belum terdeteksi. Mulai login dari halaman tenant dulu.");
+      toast.error(
+        "Tenant bisnis belum terdeteksi. Mulai login dari halaman tenant dulu.",
+      );
       return;
     }
 
@@ -143,15 +183,18 @@ export function AdminLoginClient() {
       syncTenantCookies(tenantSlug);
       toast.success("Login Google admin berhasil.");
 
+      const plan = searchParams.get("plan");
+      const interval = searchParams.get("interval");
       const welcome = searchParams.get("welcome");
-      const qp = new URLSearchParams();
-      if (welcome) qp.set("welcome", welcome);
-      const resolvedNext =
-        qp.toString() && nextPath === "/admin/dashboard"
-          ? `/admin/dashboard?${qp.toString()}`
-          : nextPath;
-
-      router.push(getTenantUrl(tenantSlug, resolvedNext));
+      window.location.assign(
+        resolveAdminPostLoginUrl({
+          tenantSlug,
+          nextPath,
+          welcome,
+          plan,
+          interval,
+        }),
+      );
     } catch (error) {
       const message = (error as { response?: { data?: { error?: string } } })
         .response?.data?.error;
@@ -160,6 +203,8 @@ export function AdminLoginClient() {
       setLoading(false);
     }
   };
+
+  const showTenantRequiredHint = !tenantSlug;
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.16),_transparent_36%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)] px-4 py-8 text-slate-950 dark:bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.14),_transparent_32%),linear-gradient(180deg,#050505_0%,#0b1220_100%)] dark:text-white">
@@ -187,7 +232,8 @@ export function AdminLoginClient() {
                 Login tenant, satu jalur.
               </h1>
               <p className="max-w-lg text-sm leading-7 text-slate-600 dark:text-slate-300">
-                Masuk dari domain pusat, lalu kembali ke workspace tenant yang sedang kamu buka.
+                Masuk dari domain pusat, lalu kembali ke workspace tenant yang
+                sedang kamu buka.
               </p>
             </div>
 
@@ -229,14 +275,22 @@ export function AdminLoginClient() {
               </div>
             </CardHeader>
             <CardContent className="p-5 pt-0 sm:p-6 sm:pt-0">
-              <TenantGoogleButton
-                text="continue_with"
-                title="Google"
-                description="Masuk cepat dengan akun Google admin."
-                loading={loading}
-                className="mb-6"
-                onCredential={handleGoogleLogin}
-              />
+              {showTenantRequiredHint ? (
+                <div className="mb-6 rounded-[1.5rem] border border-amber-200 bg-amber-50/80 px-4 py-4 text-sm leading-6 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+                  Tenant belum ikut terbawa ke auth pusat. Mulai login dari
+                  halaman tenant dulu supaya kami tahu workspace tujuan sesudah
+                  autentikasi.
+                </div>
+              ) : (
+                <TenantGoogleButton
+                  text="continue_with"
+                  title="Google"
+                  description="Masuk cepat dengan akun Google admin."
+                  loading={loading}
+                  className="mb-6"
+                  onCredential={handleGoogleLogin}
+                />
+              )}
 
               <div className="mb-6 flex items-center gap-3">
                 <div className="h-px flex-1 bg-white/10" />
@@ -291,7 +345,7 @@ export function AdminLoginClient() {
               <div className="mt-6 rounded-[1.2rem] border border-white/10 bg-white/[0.03] px-4 py-4 text-sm leading-6 text-slate-400">
                 Belum punya tenant?{" "}
                 <Link
-                  href="/register"
+                  href={registerUrl}
                   className="font-bold text-sky-300 underline underline-offset-4"
                 >
                   Buat sekarang

@@ -26,7 +26,11 @@ export function getTenantSlugFromHostname(hostname?: string | null) {
 
   const rootDomain = resolveRootDomainForHost(host, ROOT_DOMAIN);
 
-  if (host === rootDomain || host === `www.${rootDomain}` || host === "localhost") {
+  if (
+    host === rootDomain ||
+    host === `www.${rootDomain}` ||
+    host === "localhost"
+  ) {
     return null;
   }
 
@@ -34,7 +38,7 @@ export function getTenantSlugFromHostname(hostname?: string | null) {
     return null;
   }
 
-  const slug = normalizeSlug(host.slice(0, -(`.${rootDomain}`.length)));
+  const slug = normalizeSlug(host.slice(0, -`.${rootDomain}`.length));
   if (!slug || RESERVED_SLUGS.has(slug)) {
     return null;
   }
@@ -100,8 +104,7 @@ export function getTenantUrl(
     return url.toString();
   }
 
-  const protocol =
-    process.env.NODE_ENV === "production" ? "https:" : "http:";
+  const protocol = process.env.NODE_ENV === "production" ? "https:" : "http:";
   const port = root.port ? `:${root.port}` : "";
   return `${protocol}//${normalizedSlug}.${root.host}${port}${safePath}${search ? `?${search}` : ""}`;
 }
@@ -140,8 +143,7 @@ export function getRootPortalUrl(
     return url.toString();
   }
 
-  const protocol =
-    process.env.NODE_ENV === "production" ? "https:" : "http:";
+  const protocol = process.env.NODE_ENV === "production" ? "https:" : "http:";
   const port = root.port ? `:${root.port}` : "";
   return `${protocol}//${root.host}${port}${safePath}${search ? `?${search}` : ""}`;
 }
@@ -193,6 +195,25 @@ export function getCentralAdminAuthUrl(options?: {
     ...(plan ? { plan } : {}),
     ...(interval ? { interval } : {}),
     ...(welcome ? { welcome } : {}),
+  });
+}
+
+export function getCentralTenantRegisterUrl(options?: {
+  plan?: string | null;
+  interval?: string | null;
+  ref?: string | null;
+  category?: string | null;
+}) {
+  const plan = (options?.plan || "").trim();
+  const interval = (options?.interval || "").trim();
+  const ref = (options?.ref || "").trim();
+  const category = (options?.category || "").trim();
+
+  return getRootPortalUrl("/register", {
+    ...(plan ? { plan } : {}),
+    ...(interval ? { interval } : {}),
+    ...(ref ? { ref } : {}),
+    ...(category ? { category } : {}),
   });
 }
 
