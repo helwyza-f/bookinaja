@@ -20,6 +20,7 @@ export default function PlatformEmailsPage() {
   const [eventFilter, setEventFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [query, setQuery] = useState("");
+  const [appliedQuery, setAppliedQuery] = useState("");
   const [data, setData] = useState<{ items: PlatformEmailLog[]; total: number; page: number; page_size: number }>({
     items: [],
     total: 0,
@@ -40,12 +41,18 @@ export default function PlatformEmailsPage() {
       pageSize,
       eventKey: eventFilter,
       status: statusFilter,
-      q: query.trim(),
+      q: appliedQuery,
     }).then(setData);
 
   useEffect(() => {
-    loadLogs();
-  }, [page, pageSize, eventFilter, statusFilter]);
+    void getPlatformEmailLogsPage({
+      page,
+      pageSize,
+      eventKey: eventFilter,
+      status: statusFilter,
+      q: appliedQuery,
+    }).then(setData);
+  }, [appliedQuery, page, pageSize, eventFilter, statusFilter]);
 
   const eventOptions = useMemo(() => {
     const values = new Set<string>();
@@ -95,7 +102,7 @@ export default function PlatformEmailsPage() {
       title="Programmatic email logs"
       description="Pantau semua email yang dikirim aplikasi, kelompokkan per event, dan pakai halaman ini untuk smoke test sebelum flow onboarding atau reset password dihidupkan."
       actions={
-        <Button variant="outline" className="rounded-2xl" onClick={() => loadLogs()}>
+        <Button variant="outline" className="rounded-2xl" onClick={() => void loadLogs()}>
           <RefreshCw className="mr-2 h-4 w-4" />
           Refresh
         </Button>
@@ -157,7 +164,18 @@ export default function PlatformEmailsPage() {
               </SelectContent>
             </Select>
             <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search recipient, subject, event..." className="h-11 rounded-2xl xl:col-span-2" />
-            <Button variant="outline" className="rounded-2xl" onClick={() => { setPage(1); loadLogs(); }}>
+            <Button
+              variant="outline"
+              className="rounded-2xl"
+              onClick={() => {
+                const nextQuery = query.trim();
+                setPage(1);
+                setAppliedQuery(nextQuery);
+                if (page === 1 && appliedQuery === nextQuery) {
+                  void loadLogs();
+                }
+              }}
+            >
               Apply
             </Button>
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Camera,
@@ -306,7 +306,17 @@ export default function UserSettingsPage() {
     }));
   };
 
-  async function handleLinkGoogle(credential: string) {
+  const closeSheet = useCallback(() => {
+    setActiveSheet(null);
+    if (
+      typeof window !== "undefined" &&
+      window.location.search.includes("sheet=")
+    ) {
+      router.replace("/user/me/settings", { scroll: false });
+    }
+  }, [router]);
+
+  const handleLinkGoogle = useCallback(async (credential: string) => {
     setGoogleLinking(true);
     try {
       const res = await api.post("/user/me/google/link", {
@@ -329,9 +339,9 @@ export default function UserSettingsPage() {
     } finally {
       setGoogleLinking(false);
     }
-  }
+  }, [closeSheet, data]);
 
-  const initializeGoogleLink = () => {
+  const initializeGoogleLink = useCallback(() => {
     if (!window.google?.accounts?.id) {
       return false;
     }
@@ -348,7 +358,7 @@ export default function UserSettingsPage() {
       cancel_on_tap_outside: true,
     });
     return true;
-  };
+  }, [googleClientID, handleLinkGoogle]);
 
   const handleGoogleLinkFallback = () => {
     if (!initializeGoogleLink()) {
@@ -434,6 +444,7 @@ export default function UserSettingsPage() {
     googleClientID,
     googleSheetStatus,
     hasGoogle,
+    initializeGoogleLink,
   ]);
 
   useEffect(() => {
@@ -441,16 +452,6 @@ export default function UserSettingsPage() {
       setGoogleButtonRendered(false);
     }
   }, [activeSheet, hasGoogle]);
-
-  const closeSheet = () => {
-    setActiveSheet(null);
-    if (
-      typeof window !== "undefined" &&
-      window.location.search.includes("sheet=")
-    ) {
-      router.replace("/user/me/settings", { scroll: false });
-    }
-  };
 
   const handleLogout = () => {
     clearTenantSession({ keepTenantSlug: true });

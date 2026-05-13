@@ -21,15 +21,13 @@ export function TenantGoogleButton({
   onCredential,
 }: TenantGoogleButtonProps) {
   const buttonRef = useRef<HTMLDivElement | null>(null);
-  const [scriptReady, setScriptReady] = useState(false);
+  const [scriptReady, setScriptReady] = useState(
+    () => typeof window !== "undefined" && !!window.google?.accounts?.id,
+  );
   const googleClientID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
 
   useEffect(() => {
-    if (!googleClientID) return;
-    if (window.google?.accounts?.id) {
-      setScriptReady(true);
-      return;
-    }
+    if (!googleClientID || scriptReady) return;
 
     const existing = document.querySelector<HTMLScriptElement>(
       'script[data-google-identity-services="true"]',
@@ -69,7 +67,7 @@ export function TenantGoogleButton({
       window.clearInterval(timer);
       script.onload = null;
     };
-  }, [googleClientID]);
+  }, [googleClientID, scriptReady]);
 
   useEffect(() => {
     if (

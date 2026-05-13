@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, KeyRound, Loader2, Phone, Sparkles } from "lucide-react";
 import api from "@/lib/api";
@@ -66,7 +66,9 @@ export function CustomerGoogleAuth({
 }) {
   const router = useRouter();
   const buttonRef = useRef<HTMLDivElement | null>(null);
-  const [scriptReady, setScriptReady] = useState(false);
+  const [scriptReady, setScriptReady] = useState(
+    () => typeof window !== "undefined" && !!window.google?.accounts?.id,
+  );
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [claimStep, setClaimStep] = useState<ClaimStep>("claim");
@@ -92,11 +94,7 @@ export function CustomerGoogleAuth({
   );
 
   useEffect(() => {
-    if (!googleClientID) return;
-    if (window.google?.accounts?.id) {
-      setScriptReady(true);
-      return;
-    }
+    if (!googleClientID || scriptReady) return;
     const existing = document.querySelector<HTMLScriptElement>(
       'script[data-google-identity-services="true"]',
     );
@@ -133,41 +131,9 @@ export function CustomerGoogleAuth({
       window.clearInterval(timer);
       script.onload = null;
     };
-  }, [googleClientID]);
+  }, [googleClientID, scriptReady]);
 
-  useEffect(() => {
-    if (
-      !scriptReady ||
-      !buttonRef.current ||
-      !googleClientID ||
-      !window.google?.accounts?.id
-    ) {
-      return;
-    }
-    buttonRef.current.innerHTML = "";
-    window.google.accounts.id.initialize({
-      client_id: googleClientID,
-      callback: async (response) => {
-        if (!response.credential) {
-          toast.error("Google credential tidak tersedia");
-          return;
-        }
-        await handleGoogleCredential(response.credential);
-      },
-      auto_select: false,
-      cancel_on_tap_outside: true,
-    });
-    window.google.accounts.id.renderButton(buttonRef.current, {
-      theme: "outline",
-      size: "large",
-      width: 320,
-      text: buttonText,
-      shape: "pill",
-      logo_alignment: "left",
-    });
-  }, [buttonText, googleClientID, scriptReady]);
-
-  async function handleGoogleCredential(credential: string) {
+  const handleGoogleCredential = useCallback(async (credential: string) => {
     setLoading(true);
     try {
       const res = await api.post<GoogleLoginResponse>(
@@ -203,7 +169,39 @@ export function CustomerGoogleAuth({
     } finally {
       setLoading(false);
     }
-  }
+  }, [postAuthTarget, router]);
+
+  useEffect(() => {
+    if (
+      !scriptReady ||
+      !buttonRef.current ||
+      !googleClientID ||
+      !window.google?.accounts?.id
+    ) {
+      return;
+    }
+    buttonRef.current.innerHTML = "";
+    window.google.accounts.id.initialize({
+      client_id: googleClientID,
+      callback: async (response) => {
+        if (!response.credential) {
+          toast.error("Google credential tidak tersedia");
+          return;
+        }
+        await handleGoogleCredential(response.credential);
+      },
+      auto_select: false,
+      cancel_on_tap_outside: true,
+    });
+    window.google.accounts.id.renderButton(buttonRef.current, {
+      theme: "outline",
+      size: "large",
+      width: 320,
+      text: buttonText,
+      shape: "pill",
+      logo_alignment: "left",
+    });
+  }, [buttonText, googleClientID, scriptReady, handleGoogleCredential]);
 
   async function handleClaimAccount() {
     if (!claimToken || !phone.replace(/\D/g, "")) {
