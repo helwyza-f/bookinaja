@@ -988,19 +988,21 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Tenant, error)
 
 func (r *Repository) GetAdminBootstrap(ctx context.Context, userID, tenantID uuid.UUID) (*AdminBootstrapResponse, error) {
 	type row struct {
-		UserID                uuid.UUID      `db:"user_id"`
-		UserName              string         `db:"user_name"`
-		UserEmail             string         `db:"user_email"`
-		UserRole              string         `db:"user_role"`
-		UserGoogleSubject     *string        `db:"user_google_subject"`
-		UserEmailVerifiedAt   *time.Time     `db:"user_email_verified_at"`
-		UserPasswordSetupReq  bool           `db:"user_password_setup_required"`
-		PermissionKeys        pq.StringArray `db:"permission_keys"`
-		TenantID              uuid.UUID      `db:"tenant_id"`
-		TenantName            string         `db:"tenant_name"`
-		TenantSlug            string         `db:"tenant_slug"`
-		TenantLogoURL         string         `db:"tenant_logo_url"`
-		BusinessCategory      string         `db:"business_category"`
+		UserID               uuid.UUID      `db:"user_id"`
+		UserName             string         `db:"user_name"`
+		UserEmail            string         `db:"user_email"`
+		UserRole             string         `db:"user_role"`
+		UserGoogleSubject    *string        `db:"user_google_subject"`
+		UserEmailVerifiedAt  *time.Time     `db:"user_email_verified_at"`
+		UserPasswordSetupReq bool           `db:"user_password_setup_required"`
+		PermissionKeys       pq.StringArray `db:"permission_keys"`
+		TenantID             uuid.UUID      `db:"tenant_id"`
+		TenantName           string         `db:"tenant_name"`
+		TenantSlug           string         `db:"tenant_slug"`
+		TenantLogoURL        string         `db:"tenant_logo_url"`
+		BusinessCategory     string         `db:"business_category"`
+		TenantPlan           string         `db:"tenant_plan"`
+		TenantStatus         string         `db:"tenant_status"`
 	}
 
 	var item row
@@ -1018,7 +1020,9 @@ func (r *Repository) GetAdminBootstrap(ctx context.Context, userID, tenantID uui
 			t.name AS tenant_name,
 			t.slug AS tenant_slug,
 			COALESCE(t.logo_url, '') AS tenant_logo_url,
-			t.business_category
+			t.business_category,
+			t.plan AS tenant_plan,
+			t.subscription_status AS tenant_status
 		FROM users u
 		JOIN tenants t ON t.id = u.tenant_id
 		LEFT JOIN staff_roles sr ON sr.id = u.role_id
@@ -1066,6 +1070,8 @@ func (r *Repository) GetAdminBootstrap(ctx context.Context, userID, tenantID uui
 			Slug:             item.TenantSlug,
 			LogoURL:          item.TenantLogoURL,
 			BusinessCategory: item.BusinessCategory,
+			Plan:             item.TenantPlan,
+			Status:           item.TenantStatus,
 		},
 		Features: AdminBootstrapFeatures{
 			EnableDiscoveryPosts: enableDiscoveryPosts,
@@ -1075,17 +1081,17 @@ func (r *Repository) GetAdminBootstrap(ctx context.Context, userID, tenantID uui
 
 func (r *Repository) GetOwnerAccountSettings(ctx context.Context, userID, tenantID uuid.UUID) (*OwnerAccountSettingsResponse, error) {
 	type row struct {
-		UserID                uuid.UUID  `db:"user_id"`
-		UserName              string     `db:"user_name"`
-		UserEmail             string     `db:"user_email"`
-		UserRole              string     `db:"user_role"`
-		UserPassword          string     `db:"user_password"`
-		UserGoogleSubject     *string    `db:"user_google_subject"`
-		UserEmailVerifiedAt   *time.Time `db:"user_email_verified_at"`
-		UserPasswordSetupReq  bool       `db:"user_password_setup_required"`
-		TenantID              uuid.UUID  `db:"tenant_id"`
-		TenantName            string     `db:"tenant_name"`
-		TenantSlug            string     `db:"tenant_slug"`
+		UserID               uuid.UUID  `db:"user_id"`
+		UserName             string     `db:"user_name"`
+		UserEmail            string     `db:"user_email"`
+		UserRole             string     `db:"user_role"`
+		UserPassword         string     `db:"user_password"`
+		UserGoogleSubject    *string    `db:"user_google_subject"`
+		UserEmailVerifiedAt  *time.Time `db:"user_email_verified_at"`
+		UserPasswordSetupReq bool       `db:"user_password_setup_required"`
+		TenantID             uuid.UUID  `db:"tenant_id"`
+		TenantName           string     `db:"tenant_name"`
+		TenantSlug           string     `db:"tenant_slug"`
 	}
 
 	var item row

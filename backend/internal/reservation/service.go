@@ -64,7 +64,7 @@ func (s *Service) SendReceiptWhatsApp(ctx context.Context, bookingIDRaw, tenantI
 		return nil, errors.New("booking tidak ditemukan")
 	}
 	if !access.HasFeature(receipt.TenantPlan, receipt.TenantStatus, access.FeatureAdvancedReceiptBranding, nil) {
-		return nil, errors.New("fitur nota hanya tersedia untuk paket pro aktif")
+		return nil, errors.New("fitur nota belum aktif di plan tenant ini")
 	}
 	if strings.TrimSpace(receipt.CustomerPhone) == "" {
 		return nil, errors.New("nomor whatsapp customer belum tersedia")

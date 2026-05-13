@@ -2721,6 +2721,7 @@ func (s *Service) GetAdminBootstrap(ctx context.Context, userID, tenantID uuid.U
 	if err != nil || item == nil {
 		return item, err
 	}
+	item.Features.PlanFeatures = access.ResolvePlanFeatures(item.Tenant.Plan)
 	if item.User.Role != "owner" {
 		item.Features.EnableDiscoveryPosts = false
 	}

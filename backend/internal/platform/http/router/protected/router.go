@@ -3,6 +3,7 @@ package protected
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/helwiza/backend/internal/middleware"
+	"github.com/helwiza/backend/internal/platform/access"
 	"github.com/helwiza/backend/internal/platform/http/routecfg"
 	"github.com/helwiza/backend/internal/platform/http/upload"
 	"github.com/helwiza/backend/internal/tenant"
@@ -143,13 +144,13 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 					ownerAdmin.POST("/growth/posts", cfg.TenantHandler.CreateTenantPost)
 					ownerAdmin.PUT("/growth/posts/:id", cfg.TenantHandler.UpdateTenantPost)
 					ownerAdmin.DELETE("/growth/posts/:id", cfg.TenantHandler.DeleteTenantPost)
-					ownerAdmin.GET("/receipt-settings", cfg.TenantHandler.GetReceiptSettings)
-					ownerAdmin.PUT("/receipt-settings", cfg.TenantHandler.UpdateReceiptSettings)
+					ownerAdmin.GET("/receipt-settings", middleware.RequireAnyTenantFeature(cfg.DB, access.FeatureAdvancedReceiptBranding), cfg.TenantHandler.GetReceiptSettings)
+					ownerAdmin.PUT("/receipt-settings", middleware.RequireAnyTenantFeature(cfg.DB, access.FeatureAdvancedReceiptBranding), cfg.TenantHandler.UpdateReceiptSettings)
 					ownerAdmin.GET("/referral-payout-settings", cfg.TenantHandler.GetReferralPayoutSettings)
-					ownerAdmin.GET("/payment-methods", cfg.TenantHandler.GetPaymentMethods)
-					ownerAdmin.PUT("/payment-methods", cfg.TenantHandler.UpdatePaymentMethods)
-					ownerAdmin.GET("/deposit-settings", cfg.TenantHandler.GetDepositSettings)
-					ownerAdmin.PUT("/deposit-settings", cfg.TenantHandler.UpdateDepositSettings)
+					ownerAdmin.GET("/payment-methods", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement, access.FeatureManualPaymentVerification), cfg.TenantHandler.GetPaymentMethods)
+					ownerAdmin.PUT("/payment-methods", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement, access.FeatureManualPaymentVerification), cfg.TenantHandler.UpdatePaymentMethods)
+					ownerAdmin.GET("/deposit-settings", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement, access.FeatureManualPaymentVerification), cfg.TenantHandler.GetDepositSettings)
+					ownerAdmin.PUT("/deposit-settings", middleware.RequireAnyTenantFeature(cfg.DB, access.FeaturePaymentMethodManagement, access.FeatureManualPaymentVerification), cfg.TenantHandler.UpdateDepositSettings)
 					ownerAdmin.POST("/upload", func(c *gin.Context) {
 						upload.HandleSingleUpload(c, "tenants")
 					})
@@ -199,18 +200,18 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 					settingsGroup.GET("/promos/:id/redemptions", cfg.PromoHandler.ListRedemptions)
 					settingsGroup.PUT("/promos/:id", cfg.PromoHandler.Update)
 					settingsGroup.PATCH("/promos/:id/status", cfg.PromoHandler.UpdateStatus)
-					settingsGroup.GET("/roles", cfg.TenantHandler.ListStaffRoles)
-					settingsGroup.POST("/roles", cfg.TenantHandler.CreateStaffRole)
-					settingsGroup.PUT("/roles/:id", cfg.TenantHandler.UpdateStaffRole)
-					settingsGroup.DELETE("/roles/:id", cfg.TenantHandler.DeleteStaffRole)
-					settingsGroup.GET("/staff", cfg.TenantHandler.ListStaff)
-					settingsGroup.POST("/staff", cfg.TenantHandler.CreateStaff)
-					settingsGroup.PUT("/staff/:id", cfg.TenantHandler.UpdateStaff)
-					settingsGroup.DELETE("/staff/:id", cfg.TenantHandler.DeleteStaff)
+					settingsGroup.GET("/roles", middleware.RequireAnyTenantFeature(cfg.DB, access.FeatureRolePermissions, access.FeatureStaffAccounts), cfg.TenantHandler.ListStaffRoles)
+					settingsGroup.POST("/roles", middleware.RequireAnyTenantFeature(cfg.DB, access.FeatureRolePermissions, access.FeatureStaffAccounts), cfg.TenantHandler.CreateStaffRole)
+					settingsGroup.PUT("/roles/:id", middleware.RequireAnyTenantFeature(cfg.DB, access.FeatureRolePermissions, access.FeatureStaffAccounts), cfg.TenantHandler.UpdateStaffRole)
+					settingsGroup.DELETE("/roles/:id", middleware.RequireAnyTenantFeature(cfg.DB, access.FeatureRolePermissions, access.FeatureStaffAccounts), cfg.TenantHandler.DeleteStaffRole)
+					settingsGroup.GET("/staff", middleware.RequireAnyTenantFeature(cfg.DB, access.FeatureStaffAccounts, access.FeatureRolePermissions), cfg.TenantHandler.ListStaff)
+					settingsGroup.POST("/staff", middleware.RequireAnyTenantFeature(cfg.DB, access.FeatureStaffAccounts, access.FeatureRolePermissions), cfg.TenantHandler.CreateStaff)
+					settingsGroup.PUT("/staff/:id", middleware.RequireAnyTenantFeature(cfg.DB, access.FeatureStaffAccounts, access.FeatureRolePermissions), cfg.TenantHandler.UpdateStaff)
+					settingsGroup.DELETE("/staff/:id", middleware.RequireAnyTenantFeature(cfg.DB, access.FeatureStaffAccounts, access.FeatureRolePermissions), cfg.TenantHandler.DeleteStaff)
 					settingsGroup.GET("/activity", cfg.TenantHandler.ListActivity)
-					settingsGroup.GET("/customers/legacy", cfg.CustomerHandler.ListLegacyContacts)
-					settingsGroup.POST("/customers/import", cfg.CustomerHandler.ImportCustomers)
-					settingsGroup.POST("/customers/blast", cfg.CustomerHandler.BlastAnnouncement)
+					settingsGroup.GET("/customers/legacy", middleware.RequireAnyTenantFeature(cfg.DB, access.FeatureCrmBasic, access.FeatureCustomerImport), cfg.CustomerHandler.ListLegacyContacts)
+					settingsGroup.POST("/customers/import", middleware.RequireAnyTenantFeature(cfg.DB, access.FeatureCustomerImport), cfg.CustomerHandler.ImportCustomers)
+					settingsGroup.POST("/customers/blast", middleware.RequireAnyTenantFeature(cfg.DB, access.FeatureWhatsAppBroadcast), cfg.CustomerHandler.BlastAnnouncement)
 				}
 			}
 
@@ -306,7 +307,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			bookings := adminArea.Group("/bookings")
 			{
 				bookings.GET("", middleware.RequirePermission(tenant.PermissionBookingsRead), cfg.ReservationHandler.ListAll)
-				bookings.GET("/analytics-summary", middleware.RequirePermission(tenant.PermissionAnalyticsRead), cfg.ReservationHandler.GetAnalyticsSummary)
+				bookings.GET("/analytics-summary", middleware.RequirePermission(tenant.PermissionAnalyticsRead), middleware.RequireAnyTenantFeature(cfg.DB, access.FeatureAdvancedAnalytics), cfg.ReservationHandler.GetAnalyticsSummary)
 				bookings.GET("/:id", middleware.RequirePermission(tenant.PermissionBookingsRead), cfg.ReservationHandler.GetDetail)
 				bookings.GET("/:id/payment-attempts", middleware.RequirePermission(tenant.PermissionBookingsRead), cfg.BillingHandler.ListBookingPaymentAttempts)
 				bookings.PUT("/:id/status", middleware.RequireBookingStatusPermission(), cfg.ReservationHandler.UpdateStatus)

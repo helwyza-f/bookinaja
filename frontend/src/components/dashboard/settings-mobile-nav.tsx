@@ -4,8 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { canAccessAdminRoute } from "@/lib/admin-access";
 import { cn } from "@/lib/utils";
 import { settingsNavItems } from "./admin-nav-config";
+import { useAdminSession } from "./admin-session-context";
 
 type SettingsMobileNavProps = {
   tenantName?: string;
@@ -15,6 +17,7 @@ type SettingsMobileNavProps = {
 export function SettingsMobileNav({ tenantName, role }: SettingsMobileNavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { user } = useAdminSession();
 
   return (
     <div className="sticky top-4 z-30 lg:hidden">
@@ -42,7 +45,7 @@ export function SettingsMobileNav({ tenantName, role }: SettingsMobileNavProps) 
 
         <div className="px-4 pb-4 pt-3">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {settingsNavItems.map((item) => {
+            {settingsNavItems.filter((item) => canAccessAdminRoute(item.href, user)).map((item) => {
               const active =
                 pathname === item.href || pathname.startsWith(`${item.href}/`);
 

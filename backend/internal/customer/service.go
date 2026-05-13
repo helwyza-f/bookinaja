@@ -713,7 +713,7 @@ func (s *Service) BlastAnnouncement(ctx context.Context, actorUserID uuid.UUID, 
 	}
 
 	if !access.HasFeature(plan, status, access.FeatureWhatsAppBroadcast, periodEnd) {
-		return nil, fmt.Errorf("fitur blast pelanggan hanya tersedia untuk tenant plan pro yang active")
+		return nil, fmt.Errorf("fitur blast pelanggan belum aktif di plan tenant ini")
 	}
 
 	targetMode := strings.ToLower(strings.TrimSpace(req.Target))
@@ -798,7 +798,7 @@ func (s *Service) ImportCustomers(ctx context.Context, actorUserID uuid.UUID, te
 		return nil, fmt.Errorf("service: gagal membaca status subscription: %w", err)
 	}
 	if !access.HasFeature(plan, status, access.FeatureWhatsAppBroadcast, periodEnd) {
-		return nil, fmt.Errorf("fitur import pelanggan hanya tersedia untuk tenant plan pro yang active")
+		return nil, fmt.Errorf("fitur import pelanggan belum aktif di plan tenant ini")
 	}
 	if len(rows) == 0 {
 		return nil, fmt.Errorf("tidak ada data pelanggan untuk diimpor")

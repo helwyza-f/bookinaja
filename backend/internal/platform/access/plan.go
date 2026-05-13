@@ -149,7 +149,8 @@ func HasFeature(plan, status string, feature Feature, periodEnd *time.Time) bool
 }
 
 func IsSubscriptionActive(status string, periodEnd *time.Time) bool {
-	if NormalizeStatus(status) != StatusActive {
+	normalized := NormalizeStatus(status)
+	if normalized != StatusActive && normalized != StatusTrial {
 		return false
 	}
 	if periodEnd != nil && periodEnd.Before(time.Now().UTC()) {

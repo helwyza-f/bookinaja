@@ -2,16 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { canAccessAdminRoute } from "@/lib/admin-access";
 import { cn } from "@/lib/utils";
 import { settingsNavItems } from "./admin-nav-config";
+import { useAdminSession } from "./admin-session-context";
 
 export function SettingsTabs() {
   const pathname = usePathname();
+  const { user } = useAdminSession();
 
   return (
     <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <div className="flex w-max gap-2 pb-1">
-        {settingsNavItems.map((tab) => {
+        {settingsNavItems.filter((tab) => canAccessAdminRoute(tab.href, user)).map((tab) => {
           const active =
             pathname === tab.href || pathname.startsWith(`${tab.href}/`);
 

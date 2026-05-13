@@ -101,7 +101,7 @@ export function hasTenantFeature(
 ) {
   const plan = normalizeBillingPlan(input.plan);
   const status = normalizeSubscriptionStatus(input.subscription_status);
-  if (status !== "active") return false;
+  if (status !== "active" && status !== "trial") return false;
   const liveFeatures = Array.isArray(input.plan_features)
     ? input.plan_features.map((item) => String(item || "").trim()).filter(Boolean)
     : null;

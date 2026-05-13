@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/helwiza/backend/internal/platform/access"
 	"github.com/helwiza/backend/internal/platform/security"
 	"github.com/helwiza/backend/internal/tenant"
 	"github.com/jmoiron/sqlx"
@@ -195,6 +197,46 @@ func RequirePermission(required ...string) gin.HandlerFunc {
 		}
 
 		abortForbidden(c, "Akses modul ditolak")
+	}
+}
+
+func RequireAnyTenantFeature(db *sqlx.DB, features ...access.Feature) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if len(features) == 0 || db == nil {
+			c.Next()
+			return
+		}
+
+		tenantID := strings.TrimSpace(c.GetString("tenantID"))
+		if tenantID == "" {
+			abortForbidden(c, "Context tenant tidak ditemukan")
+			return
+		}
+
+		var snapshot struct {
+			Plan      string     `db:"plan"`
+			Status    string     `db:"subscription_status"`
+			PeriodEnd *time.Time `db:"subscription_current_period_end"`
+		}
+
+		if err := db.GetContext(
+			c.Request.Context(),
+			&snapshot,
+			`SELECT plan, subscription_status, subscription_current_period_end FROM tenants WHERE id = $1::uuid LIMIT 1`,
+			tenantID,
+		); err != nil {
+			abortForbidden(c, "Tenant tidak ditemukan")
+			return
+		}
+
+		for _, feature := range features {
+			if access.HasFeature(snapshot.Plan, snapshot.Status, feature, snapshot.PeriodEnd) {
+				c.Next()
+				return
+			}
+		}
+
+		abortForbidden(c, "Fitur belum aktif di plan tenant ini")
 	}
 }
 

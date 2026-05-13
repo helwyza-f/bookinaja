@@ -389,10 +389,13 @@ type AdminBootstrapTenant struct {
 	Slug             string    `json:"slug"`
 	LogoURL          string    `json:"logo_url"`
 	BusinessCategory string    `json:"business_category"`
+	Plan             string    `json:"plan"`
+	Status           string    `json:"status"`
 }
 
 type AdminBootstrapFeatures struct {
-	EnableDiscoveryPosts bool `json:"enable_discovery_posts"`
+	EnableDiscoveryPosts bool     `json:"enable_discovery_posts"`
+	PlanFeatures         []string `json:"plan_features,omitempty"`
 }
 
 type AdminBootstrapResponse struct {

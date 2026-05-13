@@ -40,9 +40,12 @@ type AdminBootstrapResponse = {
     slug?: string;
     logo_url?: string;
     business_category?: string;
+    plan?: string;
+    status?: string;
   };
   features?: {
     enable_discovery_posts?: boolean;
+    plan_features?: string[];
   };
 };
 
@@ -86,6 +89,9 @@ export default function DashboardInternalLayout({
             ...(bootstrap.user || {}),
             tenant_id: bootstrap.tenant?.id,
             logo_url: bootstrap.tenant?.logo_url || "",
+            plan: bootstrap.tenant?.plan,
+            subscription_status: bootstrap.tenant?.status,
+            plan_features: bootstrap.features?.plan_features || [],
           };
 
           syncTenantCookies(getTenantSlugFromBrowser());
@@ -148,6 +154,7 @@ export default function DashboardInternalLayout({
       tenantName,
       tenantCategory,
       growthVisible,
+      planFeatures: sessionUser?.plan_features || [],
     }),
     [growthVisible, sessionUser, tenantCategory, tenantName],
   );

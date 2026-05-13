@@ -197,7 +197,7 @@ export default function ReceiptPrinterSettingsPage() {
 
   const openBluetoothPicker = async () => {
     if (!isProActive) {
-      setMessage("Printer dan penggunaan nota hanya aktif di paket Pro.");
+      setMessage("Printer dan penggunaan nota belum aktif di plan tenant ini.");
       return;
     }
     setScanning(true);
@@ -242,7 +242,7 @@ export default function ReceiptPrinterSettingsPage() {
 
   const connectSelectedBluetooth = async () => {
     if (!isProActive) {
-      setMessage("Printer dan penggunaan nota hanya aktif di paket Pro.");
+      setMessage("Printer dan penggunaan nota belum aktif di plan tenant ini.");
       return;
     }
     setConnecting(true);
@@ -304,7 +304,7 @@ export default function ReceiptPrinterSettingsPage() {
 
   const toggleAutoPrint = async (enabled: boolean) => {
     if (!isProActive) {
-      setMessage("Auto print hanya aktif di paket Pro.");
+      setMessage("Auto print belum aktif di plan tenant ini.");
       return;
     }
     const nextData = normalizeSettings({
@@ -362,7 +362,7 @@ export default function ReceiptPrinterSettingsPage() {
           <div className="flex gap-3">
             <Lock className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
-              <div className="text-sm font-semibold">Nota WA dan print fisik tersedia di paket Pro.</div>
+              <div className="text-sm font-semibold">Nota WA dan print fisik mengikuti entitlement plan aktif.</div>
               <p className="mt-1 text-xs leading-5 opacity-80">
                 Kamu tetap bisa cek template dan alur pengaturannya, tapi tombol kirim/cetak nota di booking dan POS akan terkunci sampai upgrade.
               </p>

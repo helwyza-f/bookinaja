@@ -703,8 +703,8 @@ function TimedBookingControlHubInner({
 
   const handleReceiptAction = async (mode: "whatsapp" | "print" | "both") => {
     if (!canUseReceipt) {
-      toast.message("Fitur nota aktif di paket Pro", {
-        description: "Pengaturan bisa dilihat di Starter/Trial, penggunaan nota terkunci.",
+      toast.message("Fitur nota belum aktif", {
+        description: "Aktifkan entitlement nota di plan tenant ini atau ubah plan tenant.",
       });
       window.location.href = "/admin/settings/billing/subscribe";
       return;

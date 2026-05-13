@@ -816,8 +816,8 @@ export default function BookingDetailPage() {
   const handleReceiptAction = async (mode: "whatsapp" | "print" | "both") => {
     if (!booking) return;
     if (!canUseReceipt) {
-      toast.message("Fitur nota aktif di paket Pro", {
-        description: "Starter dan trial bisa melihat pengaturan, tapi kirim/cetak nota terkunci.",
+      toast.message("Fitur nota belum aktif", {
+        description: "Aktifkan entitlement nota di plan tenant ini atau ubah plan tenant.",
       });
       router.push("/admin/settings/billing/subscribe");
       return;

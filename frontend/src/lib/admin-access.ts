@@ -1,3 +1,4 @@
+import { type TenantFeatureKey, hasTenantFeature } from "@/lib/plan-access";
 import { expandPermissionKeys } from "@/lib/permission-catalog";
 
 export type AdminSessionUser = {
@@ -11,12 +12,17 @@ export type AdminSessionUser = {
   email_verified_at?: string | null;
   password_setup_required?: boolean;
   google_linked?: boolean;
+  plan?: string;
+  subscription_status?: string;
+  plan_features?: string[];
 };
 
 type RouteRule = {
   prefix: string;
   ownerOnly?: boolean;
   permissions?: string[];
+  feature?: TenantFeatureKey;
+  anyFeatures?: TenantFeatureKey[];
 };
 
 const DASHBOARD_PERMISSIONS = [
@@ -31,6 +37,11 @@ const DASHBOARD_PERMISSIONS = [
 
 const ROUTE_RULES: RouteRule[] = [
   { prefix: "/admin/growth", ownerOnly: true },
+  { prefix: "/admin/settings/staff", ownerOnly: true, anyFeatures: ["staff_accounts", "role_permissions"] },
+  { prefix: "/admin/settings/crm", ownerOnly: true, anyFeatures: ["crm_basic", "customer_import", "whatsapp_blast"] },
+  { prefix: "/admin/settings/analytics", ownerOnly: true, feature: "advanced_analytics" },
+  { prefix: "/admin/settings/payment-methods", ownerOnly: true, anyFeatures: ["payment_method_management", "manual_payment_verification"] },
+  { prefix: "/admin/settings/nota", ownerOnly: true, feature: "advanced_receipt_branding" },
   { prefix: "/admin/settings", ownerOnly: true },
   { prefix: "/admin/resources", permissions: ["resources.read"] },
   { prefix: "/admin/devices", permissions: ["devices.read"] },
@@ -83,7 +94,24 @@ export function canAccessAdminRoute(
   }
 
   if (matchingRule.ownerOnly) {
-    return user?.role === "owner";
+    if (user?.role !== "owner") {
+      return false;
+    }
+  }
+
+  if (matchingRule.feature) {
+    if (!hasTenantFeature(user || {}, matchingRule.feature)) {
+      return false;
+    }
+  }
+
+  if (matchingRule.anyFeatures?.length) {
+    const allowed = matchingRule.anyFeatures.some((feature) =>
+      hasTenantFeature(user || {}, feature),
+    );
+    if (!allowed) {
+      return false;
+    }
   }
 
   if (!matchingRule.permissions || matchingRule.permissions.length === 0) {
