@@ -18,6 +18,7 @@ import {
   Banknote,
   Utensils,
   Wand2,
+  UserCog,
   type LucideIcon,
 } from "lucide-react";
 
@@ -48,6 +49,13 @@ export const operationalNavItems: AdminNavItem[] = [
 ];
 
 export const settingsNavItems: AdminNavItem[] = [
+  {
+    label: "Akun Owner",
+    href: "/admin/settings/akun",
+    icon: UserCog,
+    hint: "Email, Google, password",
+    group: "core",
+  },
   {
     label: "Bisnis",
     href: "/admin/settings/bisnis",

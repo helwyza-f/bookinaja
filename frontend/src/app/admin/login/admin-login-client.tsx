@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getCentralTenantRegisterUrl, getTenantUrl } from "@/lib/tenant";
+import { getCentralAdminForgotPasswordUrl, getCentralTenantRegisterUrl, getTenantUrl } from "@/lib/tenant";
 import {
   getTenantMismatchMessage,
   setAdminAuthCookie,
@@ -112,6 +112,10 @@ export function AdminLoginClient() {
         category: searchParams.get("category"),
       }),
     [searchParams],
+  );
+  const forgotPasswordUrl = useMemo(
+    () => getCentralAdminForgotPasswordUrl({ tenantSlug }),
+    [tenantSlug],
   );
 
   useEffect(() => {
@@ -330,6 +334,14 @@ export function AdminLoginClient() {
                       {...register("password")}
                       required
                     />
+                  </div>
+                  <div className="flex justify-end">
+                    <Link
+                      href={forgotPasswordUrl}
+                      className="text-xs font-semibold text-sky-300 underline underline-offset-4"
+                    >
+                      Lupa password owner?
+                    </Link>
                   </div>
                 </div>
 

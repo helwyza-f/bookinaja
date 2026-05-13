@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -14,19 +15,26 @@ import (
 	"github.com/google/uuid"
 	"github.com/helwiza/backend/internal/auth"
 	"github.com/helwiza/backend/internal/fnb"
+	platformenv "github.com/helwiza/backend/internal/platform/env"
+	"github.com/helwiza/backend/internal/platform/mailer"
+	"github.com/helwiza/backend/internal/platformadmin"
 	"github.com/helwiza/backend/internal/resource"
 	"github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/api/idtoken"
 )
 
 const freeTrialDuration = 30 * 24 * time.Hour
 const defaultTenantTimezone = "Asia/Jakarta"
+const ownerEmailActionTTL = 30 * time.Minute
 
 const (
 	tenantBootstrapBlank   = "blank"
 	tenantBootstrapStarter = "starter"
 	tenantBootstrapFull    = "full_template"
+	ownerEmailActionVerify = "owner-verify-email"
+	ownerEmailActionReset  = "owner-reset-password"
 )
 
 type tenantTemplateCatalog struct {
@@ -61,7 +69,12 @@ type tenantTemplateFnbItem struct {
 type Service struct {
 	repo        *Repository
 	authService *auth.Service
+	redis       *redis.Client
+	mailer      mailer.Provider
+	emailAudit  *platformadmin.Repository
 }
+
+type serviceOption func(*Service)
 
 type tenantGoogleIdentity struct {
 	Subject       string
@@ -71,11 +84,35 @@ type tenantGoogleIdentity struct {
 	EmailVerified bool
 }
 
-func NewService(r *Repository, authService *auth.Service) *Service {
-	return &Service{
+func WithRedisClient(rdb *redis.Client) serviceOption {
+	return func(s *Service) {
+		s.redis = rdb
+	}
+}
+
+func WithMailer(provider mailer.Provider) serviceOption {
+	return func(s *Service) {
+		s.mailer = provider
+	}
+}
+
+func WithEmailAudit(logger *platformadmin.Repository) serviceOption {
+	return func(s *Service) {
+		s.emailAudit = logger
+	}
+}
+
+func NewService(r *Repository, authService *auth.Service, opts ...serviceOption) *Service {
+	svc := &Service{
 		repo:        r,
 		authService: authService,
 	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(svc)
+		}
+	}
+	return svc
 }
 
 func normalizeTenantTimezone(value string) (string, error) {
@@ -1862,14 +1899,19 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*RegisterRespo
 	}
 
 	user := User{
-		ID:            uuid.New(),
-		TenantID:      tID,
-		Name:          req.AdminName,
-		Email:         req.AdminEmail,
-		Password:      string(hashed),
-		GoogleSubject: googleSubjectPointer(googleIdentity),
-		Role:          "owner",
-		CreatedAt:     time.Now(),
+		ID:                    uuid.New(),
+		TenantID:              tID,
+		Name:                  req.AdminName,
+		Email:                 req.AdminEmail,
+		Password:              string(hashed),
+		GoogleSubject:         googleSubjectPointer(googleIdentity),
+		PasswordSetupRequired: googleIdentity != nil,
+		Role:                  "owner",
+		CreatedAt:             time.Now(),
+	}
+	if googleIdentity != nil && googleIdentity.EmailVerified {
+		nowVerified := now
+		user.EmailVerifiedAt = &nowVerified
 	}
 
 	// 3. Simpan ke Database
@@ -1911,6 +1953,17 @@ func generateReferralCode(slug string) string {
 func ptrTime(t time.Time) *time.Time {
 	v := t
 	return &v
+}
+
+func safeTenantHTML(value string) string {
+	replacer := strings.NewReplacer(
+		"&", "&amp;",
+		"<", "&lt;",
+		">", "&gt;",
+		`"`, "&quot;",
+		"'", "&#39;",
+	)
+	return replacer.Replace(strings.TrimSpace(value))
 }
 
 // SeedTemplate menyuntikkan data awal berdasarkan kategori bisnis
@@ -2106,6 +2159,9 @@ func (s *Service) Login(ctx context.Context, email, password, tenantSlug string)
 	if err != nil || u == nil {
 		return nil, errors.New("email atau password salah")
 	}
+	if u.PasswordSetupRequired {
+		return nil, errors.New("akun ini pertama kali dibuat lewat Google. Pakai Google Sign-In atau atur password dulu dari email recovery")
+	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)); err != nil {
 		return nil, errors.New("email atau password salah")
@@ -2178,6 +2234,287 @@ func (s *Service) ResolveGoogleIdentity(ctx context.Context, rawToken string) (*
 		AvatarURL:     identity.AvatarURL,
 		EmailVerified: identity.EmailVerified,
 	}, nil
+}
+
+func (s *Service) GetOwnerAccountSettings(ctx context.Context, userID, tenantID uuid.UUID) (*OwnerAccountSettingsResponse, error) {
+	return s.repo.GetOwnerAccountSettings(ctx, userID, tenantID)
+}
+
+func (s *Service) UpdateOwnerAccountIdentity(ctx context.Context, actorUserID, tenantID uuid.UUID, req OwnerAccountIdentityUpdateReq) (*OwnerAccountSettingsResponse, error) {
+	req.Name = strings.TrimSpace(req.Name)
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	if req.Name == "" {
+		return nil, fmt.Errorf("nama owner wajib diisi")
+	}
+	if req.Email == "" {
+		return nil, fmt.Errorf("email owner wajib diisi")
+	}
+
+	current, err := s.repo.GetOwnerAccountSettings(ctx, actorUserID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if current == nil {
+		return nil, fmt.Errorf("akun owner tidak ditemukan")
+	}
+
+	updated, err := s.repo.UpdateOwnerIdentity(ctx, actorUserID, tenantID, req.Name, req.Email)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "duplicate") || strings.Contains(strings.ToLower(err.Error()), "unique") {
+			return nil, fmt.Errorf("email owner sudah dipakai akun lain")
+		}
+		return nil, err
+	}
+
+	metadata, _ := json.Marshal(map[string]any{
+		"previous_email": current.User.Email,
+		"next_email":     req.Email,
+	})
+	_ = s.repo.CreateAuditLog(ctx, AuditLog{
+		ID:           uuid.New(),
+		TenantID:     tenantID,
+		ActorUserID:  &actorUserID,
+		Action:       "update_owner_account_identity",
+		ResourceType: "owner_account",
+		ResourceID:   &actorUserID,
+		Metadata:     metadata,
+		CreatedAt:    time.Now().UTC(),
+	})
+
+	return updated, nil
+}
+
+func (s *Service) SetupOwnerPassword(ctx context.Context, actorUserID, tenantID uuid.UUID, newPassword string) error {
+	newPassword = strings.TrimSpace(newPassword)
+	if len(newPassword) < 6 {
+		return fmt.Errorf("password minimal 6 karakter")
+	}
+	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("gagal mengamankan password owner")
+	}
+	if err := s.repo.SetOwnerPassword(ctx, actorUserID, tenantID, string(hashed)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Service) ChangeOwnerPassword(ctx context.Context, actorUserID, tenantID uuid.UUID, currentPassword, newPassword string) error {
+	currentPassword = strings.TrimSpace(currentPassword)
+	newPassword = strings.TrimSpace(newPassword)
+	if len(newPassword) < 6 {
+		return fmt.Errorf("password baru minimal 6 karakter")
+	}
+
+	user, _, err := s.repo.GetUserByID(ctx, actorUserID)
+	if err != nil || user == nil || user.TenantID != tenantID {
+		return fmt.Errorf("akun owner tidak ditemukan")
+	}
+	if user.PasswordSetupRequired {
+		return fmt.Errorf("akun ini belum punya password manual. Pakai setup password dulu")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentPassword)); err != nil {
+		return fmt.Errorf("password saat ini tidak cocok")
+	}
+	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("gagal mengamankan password owner")
+	}
+	return s.repo.SetOwnerPassword(ctx, actorUserID, tenantID, string(hashed))
+}
+
+func (s *Service) RequestOwnerPasswordReset(ctx context.Context, email string) error {
+	email = strings.ToLower(strings.TrimSpace(email))
+	if email == "" {
+		return fmt.Errorf("email owner wajib diisi")
+	}
+
+	user, err := s.repo.GetUserByEmail(ctx, email)
+	if err != nil {
+		return fmt.Errorf("permintaan reset password belum bisa diproses")
+	}
+	if user == nil || user.Role != "owner" {
+		return nil
+	}
+
+	tenantProfile, err := s.repo.GetByID(ctx, user.TenantID)
+	if err != nil || tenantProfile == nil {
+		return fmt.Errorf("tenant owner tidak ditemukan")
+	}
+
+	token := uuid.NewString()
+	if err := s.storeOwnerEmailAction(ctx, ownerEmailActionReset, token, map[string]any{
+		"user_id":    user.ID.String(),
+		"tenant_id":  user.TenantID.String(),
+		"tenant_slug": tenantProfile.Slug,
+		"email":      email,
+	}); err != nil {
+		return err
+	}
+
+	resetURL := ownerPasswordResetURL(token)
+	subject := "Reset password owner Bookinaja"
+	html := fmt.Sprintf(
+		"<p>Halo %s,</p><p>Kami menerima permintaan reset password untuk workspace %s.</p><p><a href=\"%s\">Atur password owner baru</a></p><p>Link ini berlaku 30 menit.</p>",
+		safeTenantHTML(user.Name),
+		safeTenantHTML(tenantProfile.Name),
+		resetURL,
+	)
+	text := fmt.Sprintf(
+		"Halo %s,\n\nKami menerima permintaan reset password untuk workspace %s.\nAtur password owner baru di sini: %s\n\nLink ini berlaku 30 menit.",
+		user.Name,
+		tenantProfile.Name,
+		resetURL,
+	)
+	return s.sendOwnerAuthEmail(ctx, email, subject, html, text, "owner_forgot_password", "owner_reset_password")
+}
+
+func (s *Service) VerifyOwnerPasswordReset(ctx context.Context, token, newPassword string) (*OwnerAccountActionResult, error) {
+	payload, err := s.consumeOwnerEmailAction(ctx, ownerEmailActionReset, strings.TrimSpace(token))
+	if err != nil {
+		return nil, err
+	}
+
+	userID, err := uuid.Parse(fmt.Sprintf("%v", payload["user_id"]))
+	if err != nil {
+		return nil, fmt.Errorf("payload reset password owner tidak valid")
+	}
+	tenantID, err := uuid.Parse(fmt.Sprintf("%v", payload["tenant_id"]))
+	if err != nil {
+		return nil, fmt.Errorf("payload reset password owner tidak valid")
+	}
+
+	if err := s.SetupOwnerPassword(ctx, userID, tenantID, newPassword); err != nil {
+		return nil, err
+	}
+
+	return &OwnerAccountActionResult{
+		TenantSlug: strings.TrimSpace(fmt.Sprintf("%v", payload["tenant_slug"])),
+		Email:      strings.TrimSpace(fmt.Sprintf("%v", payload["email"])),
+		Message:    "Password owner berhasil diperbarui",
+	}, nil
+}
+
+func (s *Service) RequestOwnerEmailVerification(ctx context.Context, actorUserID, tenantID uuid.UUID, emailOverride *string) error {
+	account, err := s.repo.GetOwnerAccountSettings(ctx, actorUserID, tenantID)
+	if err != nil {
+		return err
+	}
+	if account == nil {
+		return fmt.Errorf("akun owner tidak ditemukan")
+	}
+
+	targetEmail := strings.ToLower(strings.TrimSpace(account.User.Email))
+	if emailOverride != nil && strings.TrimSpace(*emailOverride) != "" {
+		targetEmail = strings.ToLower(strings.TrimSpace(*emailOverride))
+	}
+	if targetEmail == "" {
+		return fmt.Errorf("email owner belum diisi")
+	}
+
+	token := uuid.NewString()
+	if err := s.storeOwnerEmailAction(ctx, ownerEmailActionVerify, token, map[string]any{
+		"user_id":     actorUserID.String(),
+		"tenant_id":   tenantID.String(),
+		"tenant_slug": account.Tenant.Slug,
+		"email":       targetEmail,
+	}); err != nil {
+		return err
+	}
+
+	verifyURL := ownerEmailVerifyURL(token)
+	subject := "Verifikasi email owner Bookinaja"
+	html := fmt.Sprintf(
+		"<p>Halo %s,</p><p>Konfirmasi email owner untuk workspace %s.</p><p><a href=\"%s\">Verifikasi email sekarang</a></p><p>Link ini berlaku 30 menit.</p>",
+		safeTenantHTML(account.User.Name),
+		safeTenantHTML(account.Tenant.Name),
+		verifyURL,
+	)
+	text := fmt.Sprintf(
+		"Halo %s,\n\nKonfirmasi email owner untuk workspace %s di sini: %s\n\nLink ini berlaku 30 menit.",
+		account.User.Name,
+		account.Tenant.Name,
+		verifyURL,
+	)
+	return s.sendOwnerAuthEmail(ctx, targetEmail, subject, html, text, "owner_verify_email", "owner_verify_email")
+}
+
+func (s *Service) VerifyOwnerEmail(ctx context.Context, token string) (*OwnerAccountActionResult, error) {
+	payload, err := s.consumeOwnerEmailAction(ctx, ownerEmailActionVerify, strings.TrimSpace(token))
+	if err != nil {
+		return nil, err
+	}
+
+	userID, err := uuid.Parse(fmt.Sprintf("%v", payload["user_id"]))
+	if err != nil {
+		return nil, fmt.Errorf("payload verifikasi email owner tidak valid")
+	}
+	tenantID, err := uuid.Parse(fmt.Sprintf("%v", payload["tenant_id"]))
+	if err != nil {
+		return nil, fmt.Errorf("payload verifikasi email owner tidak valid")
+	}
+	email := strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", payload["email"])))
+	if email == "" {
+		return nil, fmt.Errorf("payload verifikasi email owner tidak valid")
+	}
+
+	if _, err := s.repo.MarkOwnerEmailVerified(ctx, userID, tenantID, email); err != nil {
+		return nil, err
+	}
+	return &OwnerAccountActionResult{
+		TenantSlug: strings.TrimSpace(fmt.Sprintf("%v", payload["tenant_slug"])),
+		Email:      email,
+		Message:    "Email owner berhasil diverifikasi",
+	}, nil
+}
+
+func (s *Service) LinkOwnerGoogle(ctx context.Context, actorUserID, tenantID uuid.UUID, rawToken string) (*OwnerAccountSettingsResponse, error) {
+	identity, err := s.verifyGoogleIdentity(ctx, rawToken)
+	if err != nil {
+		return nil, err
+	}
+	if !identity.EmailVerified || identity.Email == nil || strings.TrimSpace(*identity.Email) == "" {
+		return nil, fmt.Errorf("akun Google owner harus memakai email yang sudah terverifikasi")
+	}
+	updated, err := s.repo.LinkOwnerGoogle(ctx, actorUserID, tenantID, identity.Subject, strings.TrimSpace(*identity.Email), true)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+			return nil, fmt.Errorf("akun Google ini sudah terhubung ke owner lain")
+		}
+		return nil, fmt.Errorf("akun Google owner belum berhasil dihubungkan")
+	}
+	return updated, nil
+}
+
+func (s *Service) DeleteOwnerAccount(ctx context.Context, actorUserID, tenantID uuid.UUID, req OwnerDeleteAccountReq) error {
+	account, err := s.repo.GetOwnerAccountSettings(ctx, actorUserID, tenantID)
+	if err != nil {
+		return err
+	}
+	if account == nil {
+		return fmt.Errorf("akun owner tidak ditemukan")
+	}
+	if strings.TrimSpace(req.ConfirmText) != strings.TrimSpace(account.Tenant.Slug) {
+		return fmt.Errorf("ketik slug tenant dengan benar untuk menghapus akun owner")
+	}
+	staffCount, err := s.repo.CountStaffByTenant(ctx, tenantID)
+	if err != nil {
+		return err
+	}
+	if staffCount > 0 {
+		return fmt.Errorf("hapus atau nonaktifkan semua staff dulu sebelum menghapus akun owner")
+	}
+
+	user, _, err := s.repo.GetUserByID(ctx, actorUserID)
+	if err != nil || user == nil {
+		return fmt.Errorf("akun owner tidak ditemukan")
+	}
+	if !user.PasswordSetupRequired && strings.TrimSpace(user.Password) != "" {
+		if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(strings.TrimSpace(req.CurrentPassword))); err != nil {
+			return fmt.Errorf("password konfirmasi tidak cocok")
+		}
+	}
+	return s.repo.SoftDeleteOwner(ctx, actorUserID, tenantID)
 }
 
 func googleSubjectPointer(identity *tenantGoogleIdentity) *string {
@@ -2268,6 +2605,114 @@ func tenantGoogleAudiences() []string {
 		out = append(out, item)
 	}
 	return out
+}
+
+func ownerEmailActionRedisKey(action, token string) string {
+	return fmt.Sprintf("tenant:owner:email-action:%s:%s", strings.TrimSpace(action), strings.TrimSpace(token))
+}
+
+func (s *Service) storeOwnerEmailAction(ctx context.Context, action, token string, payload map[string]any) error {
+	if s.redis == nil {
+		return fmt.Errorf("fitur email owner sedang belum siap")
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	return s.redis.Set(ctx, ownerEmailActionRedisKey(action, token), raw, ownerEmailActionTTL).Err()
+}
+
+func (s *Service) consumeOwnerEmailAction(ctx context.Context, action, token string) (map[string]any, error) {
+	if s.redis == nil {
+		return nil, fmt.Errorf("verifikasi akun owner sedang mengalami kendala")
+	}
+
+	key := ownerEmailActionRedisKey(action, token)
+	var raw string
+	err := s.redis.Watch(ctx, func(tx *redis.Tx) error {
+		value, err := tx.Get(ctx, key).Result()
+		if err != nil {
+			return err
+		}
+		_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+			pipe.Del(ctx, key)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		raw = value
+		return nil
+	}, key)
+	if err == redis.Nil || errors.Is(err, redis.TxFailedErr) {
+		return nil, fmt.Errorf("link sudah kedaluwarsa atau tidak valid")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("verifikasi akun owner sedang mengalami kendala")
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		return nil, fmt.Errorf("payload email owner tidak valid")
+	}
+	return payload, nil
+}
+
+func (s *Service) sendOwnerAuthEmail(ctx context.Context, to, subject, html, text, eventKey, templateKey string) error {
+	if s.mailer == nil || !s.mailer.Enabled() {
+		return fmt.Errorf("layanan email owner belum dikonfigurasi")
+	}
+
+	req := mailer.SendRequest{
+		To:      []string{strings.TrimSpace(to)},
+		Subject: strings.TrimSpace(subject),
+		HTML:    strings.TrimSpace(html),
+		Text:    strings.TrimSpace(text),
+		Tags: map[string]string{
+			"source":       "tenant_owner_auth",
+			"event_key":    strings.TrimSpace(eventKey),
+			"template_key": strings.TrimSpace(templateKey),
+		},
+	}
+
+	var logID string
+	var err error
+	if s.emailAudit != nil {
+		logID, err = s.emailAudit.CreateEmailLog(ctx, platformadmin.CreateEmailLogInput{
+			Provider:       "resend",
+			Source:         "tenant_owner_auth",
+			EventKey:       eventKey,
+			TemplateKey:    templateKey,
+			Recipient:      strings.TrimSpace(to),
+			Subject:        strings.TrimSpace(subject),
+			Status:         "queued",
+			RequestPayload: req,
+			Tags:           req.Tags,
+		})
+		if err != nil {
+			return fmt.Errorf("gagal mencatat log email owner")
+		}
+	}
+
+	resp, err := s.mailer.Send(ctx, req)
+	if err != nil {
+		if s.emailAudit != nil && logID != "" {
+			_ = s.emailAudit.UpdateEmailLogDispatch(ctx, logID, "", "failed", err.Error())
+		}
+		return fmt.Errorf("email owner belum berhasil dikirim")
+	}
+	if s.emailAudit != nil && logID != "" {
+		_ = s.emailAudit.UpdateEmailLogDispatch(ctx, logID, resp.ID, "accepted", "")
+	}
+	return nil
+}
+
+func ownerPasswordResetURL(token string) string {
+	return platformenv.PlatformURL("/admin/reset-password?token=" + url.QueryEscape(strings.TrimSpace(token)))
+}
+
+func ownerEmailVerifyURL(token string) string {
+	return platformenv.PlatformURL("/admin/verify-email?token=" + url.QueryEscape(strings.TrimSpace(token)))
 }
 
 func (s *Service) GetAdminBootstrap(ctx context.Context, userID, tenantID uuid.UUID) (*AdminBootstrapResponse, error) {

@@ -117,7 +117,13 @@ func main() {
 	resendMailer := mailer.NewResendFromEnv()
 
 	authSvc := auth.NewService()
-	tenantSvc := tenant.NewService(tenantRepo, authSvc)
+	tenantSvc := tenant.NewService(
+		tenantRepo,
+		authSvc,
+		tenant.WithRedisClient(rdb),
+		tenant.WithMailer(resendMailer),
+		tenant.WithEmailAudit(platformRepo),
+	)
 	customerSvc := customer.NewService(
 		customerRepo,
 		rdb,

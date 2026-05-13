@@ -66,15 +66,88 @@ type GoogleIdentityResponse struct {
 
 // User merepresentasikan entitas pemilik bisnis atau staff
 type User struct {
-	ID            uuid.UUID  `db:"id" json:"id"`
-	TenantID      uuid.UUID  `db:"tenant_id" json:"tenant_id"`
-	RoleID        *uuid.UUID `db:"role_id" json:"role_id,omitempty"`
-	Name          string     `db:"name" json:"name"`
-	Email         string     `db:"email" json:"email"`
-	Password      string     `db:"password" json:"-"`
-	GoogleSubject *string    `db:"google_subject" json:"google_subject,omitempty"`
-	Role          string     `db:"role" json:"role"`
-	CreatedAt     time.Time  `db:"created_at" json:"created_at"`
+	ID                    uuid.UUID  `db:"id" json:"id"`
+	TenantID              uuid.UUID  `db:"tenant_id" json:"tenant_id"`
+	RoleID                *uuid.UUID `db:"role_id" json:"role_id,omitempty"`
+	Name                  string     `db:"name" json:"name"`
+	Email                 string     `db:"email" json:"email"`
+	Password              string     `db:"password" json:"-"`
+	GoogleSubject         *string    `db:"google_subject" json:"google_subject,omitempty"`
+	EmailVerifiedAt       *time.Time `db:"email_verified_at" json:"email_verified_at,omitempty"`
+	PasswordSetupRequired bool       `db:"password_setup_required" json:"password_setup_required"`
+	DeletedAt             *time.Time `db:"deleted_at" json:"deleted_at,omitempty"`
+	Role                  string     `db:"role" json:"role"`
+	CreatedAt             time.Time  `db:"created_at" json:"created_at"`
+}
+
+type OwnerAccountSettingsResponse struct {
+	User   OwnerAccountUser      `json:"user"`
+	Tenant OwnerAccountTenant    `json:"tenant"`
+	Auth   OwnerAccountAuthState `json:"auth"`
+}
+
+type OwnerAccountUser struct {
+	ID              uuid.UUID  `json:"id"`
+	Name            string     `json:"name"`
+	Email           string     `json:"email"`
+	Role            string     `json:"role"`
+	EmailVerifiedAt *time.Time `json:"email_verified_at,omitempty"`
+}
+
+type OwnerAccountTenant struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+	Slug string    `json:"slug"`
+}
+
+type OwnerAccountAuthState struct {
+	GoogleLinked          bool       `json:"google_linked"`
+	HasPassword           bool       `json:"has_password"`
+	PasswordSetupRequired bool       `json:"password_setup_required"`
+	EmailVerified         bool       `json:"email_verified"`
+	EmailVerifiedAt       *time.Time `json:"email_verified_at,omitempty"`
+}
+
+type OwnerAccountIdentityUpdateReq struct {
+	Name  string `json:"name" binding:"required"`
+	Email string `json:"email" binding:"required,email"`
+}
+
+type OwnerAccountPasswordSetupReq struct {
+	NewPassword string `json:"new_password" binding:"required,min=6"`
+}
+
+type OwnerAccountPasswordChangeReq struct {
+	CurrentPassword string `json:"current_password" binding:"required"`
+	NewPassword     string `json:"new_password" binding:"required,min=6"`
+}
+
+type OwnerPasswordResetRequestReq struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+type OwnerPasswordResetVerifyReq struct {
+	Token       string `json:"token" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=6"`
+}
+
+type OwnerEmailVerificationRequestReq struct {
+	Email string `json:"email" binding:"omitempty,email"`
+}
+
+type OwnerTokenVerifyReq struct {
+	Token string `json:"token" binding:"required"`
+}
+
+type OwnerDeleteAccountReq struct {
+	ConfirmText     string `json:"confirm_text" binding:"required"`
+	CurrentPassword string `json:"current_password"`
+}
+
+type OwnerAccountActionResult struct {
+	TenantSlug string `json:"tenant_slug"`
+	Email      string `json:"email,omitempty"`
+	Message    string `json:"message,omitempty"`
 }
 
 type StaffCreateReq struct {
@@ -300,11 +373,14 @@ type PageBuilderState struct {
 }
 
 type AdminBootstrapUser struct {
-	ID             uuid.UUID `json:"id"`
-	Name           string    `json:"name"`
-	Email          string    `json:"email"`
-	Role           string    `json:"role"`
-	PermissionKeys []string  `json:"permission_keys"`
+	ID                    uuid.UUID  `json:"id"`
+	Name                  string     `json:"name"`
+	Email                 string     `json:"email"`
+	Role                  string     `json:"role"`
+	PermissionKeys        []string   `json:"permission_keys"`
+	EmailVerifiedAt       *time.Time `json:"email_verified_at,omitempty"`
+	PasswordSetupRequired bool       `json:"password_setup_required"`
+	GoogleLinked          bool       `json:"google_linked"`
 }
 
 type AdminBootstrapTenant struct {

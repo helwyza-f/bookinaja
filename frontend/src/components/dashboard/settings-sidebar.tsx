@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   UsersRound,
   Wand2,
+  UserCog,
 } from "lucide-react";
 
 type SettingsSidebarProps = {
@@ -20,6 +21,12 @@ type SettingsSidebarProps = {
 };
 
 const items = [
+  {
+    label: "Akun Owner",
+    href: "/admin/settings/akun",
+    icon: UserCog,
+    hint: "Email, Google, password",
+  },
   {
     label: "Setup Bisnis",
     href: "/admin/settings/bisnis",

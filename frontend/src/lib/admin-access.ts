@@ -8,6 +8,9 @@ export type AdminSessionUser = {
   role?: string;
   permission_keys?: string[];
   tenant_id?: string;
+  email_verified_at?: string | null;
+  password_setup_required?: boolean;
+  google_linked?: boolean;
 };
 
 type RouteRule = {

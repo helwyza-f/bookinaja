@@ -122,6 +122,13 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				ownerAdmin := ownerArea.Group("/admin")
 				{
 					ownerAdmin.GET("/profile", cfg.TenantHandler.GetProfile)
+					ownerAdmin.GET("/account", cfg.TenantHandler.GetOwnerAccount)
+					ownerAdmin.PUT("/account/identity", cfg.TenantHandler.UpdateOwnerAccountIdentity)
+					ownerAdmin.POST("/account/password/setup", cfg.TenantHandler.SetupOwnerPassword)
+					ownerAdmin.POST("/account/password/change", cfg.TenantHandler.ChangeOwnerPassword)
+					ownerAdmin.POST("/account/google/link", cfg.TenantHandler.LinkOwnerGoogle)
+					ownerAdmin.POST("/account/email/verify/request", cfg.TenantHandler.RequestOwnerEmailVerification)
+					ownerAdmin.DELETE("/account", cfg.TenantHandler.DeleteOwnerAccount)
 					ownerAdmin.GET("/tenant/identity", cfg.TenantHandler.GetTenantIdentity)
 					ownerAdmin.GET("/tenant/discovery-profile", cfg.TenantHandler.GetTenantDiscoveryProfile)
 					ownerAdmin.GET("/tenant/onboarding-summary", cfg.TenantHandler.GetTenantOnboardingSummary)

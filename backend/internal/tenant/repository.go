@@ -693,8 +693,14 @@ func (r *Repository) CreateWithAdmin(ctx context.Context, t Tenant, u User) erro
 	}
 
 	_, err = tx.NamedExecContext(ctx, `
-		INSERT INTO users (id, tenant_id, name, email, password, google_subject, role, created_at) 
-		VALUES (:id, :tenant_id, :name, :email, :password, :google_subject, :role, :created_at)`, u)
+		INSERT INTO users (
+			id, tenant_id, name, email, password, google_subject, email_verified_at,
+			password_setup_required, role, created_at
+		) 
+		VALUES (
+			:id, :tenant_id, :name, :email, :password, :google_subject, :email_verified_at,
+			:password_setup_required, :role, :created_at
+		)`, u)
 	if err != nil {
 		return err
 	}
@@ -982,16 +988,19 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Tenant, error)
 
 func (r *Repository) GetAdminBootstrap(ctx context.Context, userID, tenantID uuid.UUID) (*AdminBootstrapResponse, error) {
 	type row struct {
-		UserID           uuid.UUID      `db:"user_id"`
-		UserName         string         `db:"user_name"`
-		UserEmail        string         `db:"user_email"`
-		UserRole         string         `db:"user_role"`
-		PermissionKeys   pq.StringArray `db:"permission_keys"`
-		TenantID         uuid.UUID      `db:"tenant_id"`
-		TenantName       string         `db:"tenant_name"`
-		TenantSlug       string         `db:"tenant_slug"`
-		TenantLogoURL    string         `db:"tenant_logo_url"`
-		BusinessCategory string         `db:"business_category"`
+		UserID                uuid.UUID      `db:"user_id"`
+		UserName              string         `db:"user_name"`
+		UserEmail             string         `db:"user_email"`
+		UserRole              string         `db:"user_role"`
+		UserGoogleSubject     *string        `db:"user_google_subject"`
+		UserEmailVerifiedAt   *time.Time     `db:"user_email_verified_at"`
+		UserPasswordSetupReq  bool           `db:"user_password_setup_required"`
+		PermissionKeys        pq.StringArray `db:"permission_keys"`
+		TenantID              uuid.UUID      `db:"tenant_id"`
+		TenantName            string         `db:"tenant_name"`
+		TenantSlug            string         `db:"tenant_slug"`
+		TenantLogoURL         string         `db:"tenant_logo_url"`
+		BusinessCategory      string         `db:"business_category"`
 	}
 
 	var item row
@@ -1001,6 +1010,9 @@ func (r *Repository) GetAdminBootstrap(ctx context.Context, userID, tenantID uui
 			u.name AS user_name,
 			u.email AS user_email,
 			u.role AS user_role,
+			u.google_subject AS user_google_subject,
+			u.email_verified_at AS user_email_verified_at,
+			COALESCE(u.password_setup_required, FALSE) AS user_password_setup_required,
 			COALESCE(sr.permission_keys, ARRAY[]::varchar[]) AS permission_keys,
 			t.id AS tenant_id,
 			t.name AS tenant_name,
@@ -1010,7 +1022,7 @@ func (r *Repository) GetAdminBootstrap(ctx context.Context, userID, tenantID uui
 		FROM users u
 		JOIN tenants t ON t.id = u.tenant_id
 		LEFT JOIN staff_roles sr ON sr.id = u.role_id
-		WHERE u.id = $1 AND u.tenant_id = $2
+		WHERE u.id = $1 AND u.tenant_id = $2 AND u.deleted_at IS NULL
 		LIMIT 1
 	`, userID, tenantID)
 	if err == sql.ErrNoRows {
@@ -1039,11 +1051,14 @@ func (r *Repository) GetAdminBootstrap(ctx context.Context, userID, tenantID uui
 
 	return &AdminBootstrapResponse{
 		User: AdminBootstrapUser{
-			ID:             item.UserID,
-			Name:           item.UserName,
-			Email:          item.UserEmail,
-			Role:           item.UserRole,
-			PermissionKeys: []string(item.PermissionKeys),
+			ID:                    item.UserID,
+			Name:                  item.UserName,
+			Email:                 item.UserEmail,
+			Role:                  item.UserRole,
+			PermissionKeys:        []string(item.PermissionKeys),
+			EmailVerifiedAt:       item.UserEmailVerifiedAt,
+			PasswordSetupRequired: item.UserPasswordSetupReq,
+			GoogleLinked:          item.UserGoogleSubject != nil && strings.TrimSpace(*item.UserGoogleSubject) != "",
 		},
 		Tenant: AdminBootstrapTenant{
 			ID:               item.TenantID,
@@ -1056,6 +1071,171 @@ func (r *Repository) GetAdminBootstrap(ctx context.Context, userID, tenantID uui
 			EnableDiscoveryPosts: enableDiscoveryPosts,
 		},
 	}, nil
+}
+
+func (r *Repository) GetOwnerAccountSettings(ctx context.Context, userID, tenantID uuid.UUID) (*OwnerAccountSettingsResponse, error) {
+	type row struct {
+		UserID                uuid.UUID  `db:"user_id"`
+		UserName              string     `db:"user_name"`
+		UserEmail             string     `db:"user_email"`
+		UserRole              string     `db:"user_role"`
+		UserPassword          string     `db:"user_password"`
+		UserGoogleSubject     *string    `db:"user_google_subject"`
+		UserEmailVerifiedAt   *time.Time `db:"user_email_verified_at"`
+		UserPasswordSetupReq  bool       `db:"user_password_setup_required"`
+		TenantID              uuid.UUID  `db:"tenant_id"`
+		TenantName            string     `db:"tenant_name"`
+		TenantSlug            string     `db:"tenant_slug"`
+	}
+
+	var item row
+	err := r.db.GetContext(ctx, &item, `
+		SELECT
+			u.id AS user_id,
+			u.name AS user_name,
+			u.email AS user_email,
+			u.role AS user_role,
+			u.password AS user_password,
+			u.google_subject AS user_google_subject,
+			u.email_verified_at AS user_email_verified_at,
+			COALESCE(u.password_setup_required, FALSE) AS user_password_setup_required,
+			t.id AS tenant_id,
+			t.name AS tenant_name,
+			t.slug AS tenant_slug
+		FROM users u
+		JOIN tenants t ON t.id = u.tenant_id
+		WHERE u.id = $1
+		  AND u.tenant_id = $2
+		  AND u.role = 'owner'
+		  AND u.deleted_at IS NULL
+		LIMIT 1
+	`, userID, tenantID)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	hasGoogle := item.UserGoogleSubject != nil && strings.TrimSpace(*item.UserGoogleSubject) != ""
+	hasPassword := strings.TrimSpace(item.UserPassword) != "" && !item.UserPasswordSetupReq
+
+	return &OwnerAccountSettingsResponse{
+		User: OwnerAccountUser{
+			ID:              item.UserID,
+			Name:            item.UserName,
+			Email:           item.UserEmail,
+			Role:            item.UserRole,
+			EmailVerifiedAt: item.UserEmailVerifiedAt,
+		},
+		Tenant: OwnerAccountTenant{
+			ID:   item.TenantID,
+			Name: item.TenantName,
+			Slug: item.TenantSlug,
+		},
+		Auth: OwnerAccountAuthState{
+			GoogleLinked:          hasGoogle,
+			HasPassword:           hasPassword,
+			PasswordSetupRequired: item.UserPasswordSetupReq,
+			EmailVerified:         item.UserEmailVerifiedAt != nil,
+			EmailVerifiedAt:       item.UserEmailVerifiedAt,
+		},
+	}, nil
+}
+
+func (r *Repository) UpdateOwnerIdentity(ctx context.Context, userID, tenantID uuid.UUID, name, email string) (*OwnerAccountSettingsResponse, error) {
+	name = strings.TrimSpace(name)
+	email = strings.TrimSpace(strings.ToLower(email))
+
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE users
+		SET
+			name = $3,
+			email = $4,
+			email_verified_at = CASE
+				WHEN LOWER(TRIM(email)) = LOWER(TRIM($4::text)) THEN email_verified_at
+				ELSE NULL
+			END
+		WHERE id = $1 AND tenant_id = $2 AND role = 'owner' AND deleted_at IS NULL
+	`, userID, tenantID, name, email)
+	if err != nil {
+		return nil, err
+	}
+	r.invalidateUserCache(ctx, userID)
+	return r.GetOwnerAccountSettings(ctx, userID, tenantID)
+}
+
+func (r *Repository) SetOwnerPassword(ctx context.Context, userID, tenantID uuid.UUID, passwordHash string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE users
+		SET password = $3,
+		    password_setup_required = FALSE
+		WHERE id = $1 AND tenant_id = $2 AND role = 'owner' AND deleted_at IS NULL
+	`, userID, tenantID, passwordHash)
+	if err != nil {
+		return err
+	}
+	r.invalidateUserCache(ctx, userID)
+	return nil
+}
+
+func (r *Repository) LinkOwnerGoogle(ctx context.Context, userID, tenantID uuid.UUID, subject, email string, emailVerified bool) (*OwnerAccountSettingsResponse, error) {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE users
+		SET
+			google_subject = $3,
+			email = CASE WHEN NULLIF(BTRIM($4), '') IS NOT NULL THEN LOWER(TRIM($4)) ELSE email END,
+			email_verified_at = CASE
+				WHEN $5::boolean = TRUE AND NULLIF(BTRIM($4), '') IS NOT NULL THEN COALESCE(email_verified_at, NOW())
+				ELSE email_verified_at
+			END
+		WHERE id = $1 AND tenant_id = $2 AND role = 'owner' AND deleted_at IS NULL
+	`, userID, tenantID, strings.TrimSpace(subject), strings.TrimSpace(email), emailVerified)
+	if err != nil {
+		return nil, err
+	}
+	r.invalidateUserCache(ctx, userID)
+	return r.GetOwnerAccountSettings(ctx, userID, tenantID)
+}
+
+func (r *Repository) MarkOwnerEmailVerified(ctx context.Context, userID, tenantID uuid.UUID, email string) (*OwnerAccountSettingsResponse, error) {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE users
+		SET email_verified_at = NOW()
+		WHERE id = $1
+		  AND tenant_id = $2
+		  AND role = 'owner'
+		  AND deleted_at IS NULL
+		  AND LOWER(TRIM(email)) = LOWER(TRIM($3))
+	`, userID, tenantID, strings.TrimSpace(email))
+	if err != nil {
+		return nil, err
+	}
+	r.invalidateUserCache(ctx, userID)
+	return r.GetOwnerAccountSettings(ctx, userID, tenantID)
+}
+
+func (r *Repository) CountStaffByTenant(ctx context.Context, tenantID uuid.UUID) (int, error) {
+	var total int
+	err := r.db.GetContext(ctx, &total, `
+		SELECT COUNT(*)
+		FROM users
+		WHERE tenant_id = $1 AND role = 'staff' AND deleted_at IS NULL
+	`, tenantID)
+	return total, err
+}
+
+func (r *Repository) SoftDeleteOwner(ctx context.Context, userID, tenantID uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE users
+		SET deleted_at = NOW()
+		WHERE id = $1 AND tenant_id = $2 AND role = 'owner' AND deleted_at IS NULL
+	`, userID, tenantID)
+	if err != nil {
+		return err
+	}
+	r.invalidateUserCache(ctx, userID)
+	return nil
 }
 
 func (r *Repository) tableExists(ctx context.Context, tableName string) (bool, error) {
@@ -1477,12 +1657,13 @@ func (r *Repository) GetUserByID(ctx context.Context, id uuid.UUID) (*User, stri
 
 	query := `
 		SELECT 
-			u.id, u.tenant_id, u.role_id, u.name, u.email, u.role, u.created_at,
+			u.id, u.tenant_id, u.role_id, u.name, u.email, u.password, u.role, u.created_at,
+			u.google_subject, u.email_verified_at, u.password_setup_required, u.deleted_at,
 			COALESCE(t.logo_url, '') as logo_url
 		FROM users u
 		JOIN tenants t ON t.id = u.tenant_id
 		LEFT JOIN staff_roles sr ON sr.id = u.role_id
-		WHERE u.id = $1
+		WHERE u.id = $1 AND u.deleted_at IS NULL
 		GROUP BY u.id, t.logo_url
 		LIMIT 1`
 
@@ -1514,7 +1695,7 @@ func (r *Repository) GetUserByID(ctx context.Context, id uuid.UUID) (*User, stri
 
 func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*User, error) {
 	var u User
-	err := r.db.GetContext(ctx, &u, `SELECT * FROM users WHERE email = $1 LIMIT 1`, email)
+	err := r.db.GetContext(ctx, &u, `SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL LIMIT 1`, email)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -1527,7 +1708,7 @@ func (r *Repository) GetUserByEmailAndSlug(ctx context.Context, email, slug stri
 		SELECT u.*
 		FROM users u
 		JOIN tenants t ON t.id = u.tenant_id
-		WHERE u.email = $1 AND LOWER(TRIM(t.slug)) = LOWER(TRIM($2))
+		WHERE u.email = $1 AND LOWER(TRIM(t.slug)) = LOWER(TRIM($2)) AND u.deleted_at IS NULL
 		LIMIT 1`
 	err := r.db.GetContext(ctx, &u, query, email, slug)
 	if err == sql.ErrNoRows {
@@ -1538,7 +1719,7 @@ func (r *Repository) GetUserByEmailAndSlug(ctx context.Context, email, slug stri
 
 func (r *Repository) GetUserByGoogleSubject(ctx context.Context, subject string) (*User, error) {
 	var u User
-	err := r.db.GetContext(ctx, &u, `SELECT * FROM users WHERE google_subject = $1 LIMIT 1`, subject)
+	err := r.db.GetContext(ctx, &u, `SELECT * FROM users WHERE google_subject = $1 AND deleted_at IS NULL LIMIT 1`, subject)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -1551,7 +1732,7 @@ func (r *Repository) GetUserByGoogleSubjectAndSlug(ctx context.Context, subject,
 		SELECT u.*
 		FROM users u
 		JOIN tenants t ON t.id = u.tenant_id
-		WHERE u.google_subject = $1 AND LOWER(TRIM(t.slug)) = LOWER(TRIM($2))
+		WHERE u.google_subject = $1 AND LOWER(TRIM(t.slug)) = LOWER(TRIM($2)) AND u.deleted_at IS NULL
 		LIMIT 1`
 	err := r.db.GetContext(ctx, &u, query, subject, slug)
 	if err == sql.ErrNoRows {
@@ -1563,8 +1744,9 @@ func (r *Repository) GetUserByGoogleSubjectAndSlug(ctx context.Context, subject,
 func (r *Repository) LinkUserGoogleSubject(ctx context.Context, userID uuid.UUID, subject string) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE users
-		SET google_subject = $2
-		WHERE id = $1`,
+		SET google_subject = $2,
+		    email_verified_at = COALESCE(email_verified_at, NOW())
+		WHERE id = $1 AND deleted_at IS NULL`,
 		userID, subject,
 	)
 	if err != nil {
@@ -1580,7 +1762,7 @@ func (r *Repository) ListUsersByTenant(ctx context.Context, tenantID uuid.UUID) 
 		SELECT 
 			u.id, u.tenant_id, u.role_id, u.name, u.email, u.role, u.created_at
 		FROM users u
-		WHERE u.tenant_id = $1 AND u.role = 'staff'
+		WHERE u.tenant_id = $1 AND u.role = 'staff' AND u.deleted_at IS NULL
 		GROUP BY u.id
 		ORDER BY u.role ASC, u.created_at ASC`, tenantID)
 	return users, err
@@ -1604,7 +1786,7 @@ func (r *Repository) UpdateStaff(ctx context.Context, tenantID, staffID, roleID 
 		SET name = COALESCE(NULLIF($4, ''), name),
 		    email = COALESCE(NULLIF($5, ''), email),
 		    role_id = $3
-		WHERE id = $1 AND tenant_id = $2 AND role = 'staff'
+		WHERE id = $1 AND tenant_id = $2 AND role = 'staff' AND deleted_at IS NULL
 		RETURNING id, tenant_id, role_id, name, email, role, created_at`
 	var u User
 	if err := r.db.GetContext(ctx, &u, query, staffID, tenantID, roleID, name, email); err != nil {
@@ -1684,7 +1866,7 @@ func (r *Repository) ClearDefaultRoles(ctx context.Context, tenantID uuid.UUID) 
 func (r *Repository) DeleteStaff(ctx context.Context, tenantID, staffID uuid.UUID) error {
 	_, err := r.db.ExecContext(ctx, `
 		DELETE FROM users
-		WHERE id = $1 AND tenant_id = $2 AND role = 'staff'`,
+		WHERE id = $1 AND tenant_id = $2 AND role = 'staff' AND deleted_at IS NULL`,
 		staffID, tenantID,
 	)
 	if err != nil {

@@ -387,7 +387,7 @@ func (h *Handler) Login(c *gin.Context) {
 
 	resp, err := h.service.Login(c.Request.Context(), req.Email, req.Password, tenantSlug)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email atau password salah"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -431,6 +431,47 @@ func (h *Handler) GoogleIdentity(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, profile)
+}
+
+func (h *Handler) RequestOwnerPasswordReset(c *gin.Context) {
+	var req OwnerPasswordResetRequestReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email owner wajib diisi"})
+		return
+	}
+	if err := h.service.RequestOwnerPasswordReset(c.Request.Context(), req.Email); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Jika email owner terdaftar, link reset password sudah dikirim"})
+}
+
+func (h *Handler) VerifyOwnerPasswordReset(c *gin.Context) {
+	var req OwnerPasswordResetVerifyReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Token dan password baru wajib diisi"})
+		return
+	}
+	result, err := h.service.VerifyOwnerPasswordReset(c.Request.Context(), req.Token, req.NewPassword)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+func (h *Handler) VerifyOwnerEmail(c *gin.Context) {
+	var req OwnerTokenVerifyReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Token verifikasi owner wajib diisi"})
+		return
+	}
+	result, err := h.service.VerifyOwnerEmail(c.Request.Context(), req.Token)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, result)
 }
 
 // GetProfile (Dashboard Internal)
@@ -480,6 +521,172 @@ func (h *Handler) GetAdminBootstrap(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, item)
+}
+
+func (h *Handler) GetOwnerAccount(c *gin.Context) {
+	tIDRaw, tenantExists := c.Get("tenantID")
+	uIDRaw, userExists := c.Get("userID")
+	if !tenantExists || !userExists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi owner tidak valid"})
+		return
+	}
+
+	tenantID, err := uuid.Parse(tIDRaw.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tenant tidak valid"})
+		return
+	}
+	userID, err := uuid.Parse(uIDRaw.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID owner tidak valid"})
+		return
+	}
+
+	item, err := h.service.GetOwnerAccountSettings(c.Request.Context(), userID, tenantID)
+	if err != nil || item == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Profil akun owner tidak ditemukan"})
+		return
+	}
+	c.JSON(http.StatusOK, item)
+}
+
+func (h *Handler) UpdateOwnerAccountIdentity(c *gin.Context) {
+	tIDRaw, tenantExists := c.Get("tenantID")
+	uIDRaw, userExists := c.Get("userID")
+	if !tenantExists || !userExists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi owner tidak valid"})
+		return
+	}
+	tenantID, _ := uuid.Parse(tIDRaw.(string))
+	userID, _ := uuid.Parse(uIDRaw.(string))
+
+	var req OwnerAccountIdentityUpdateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nama dan email owner wajib diisi"})
+		return
+	}
+	item, err := h.service.UpdateOwnerAccountIdentity(c.Request.Context(), userID, tenantID, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Identitas owner berhasil diperbarui", "data": item})
+}
+
+func (h *Handler) SetupOwnerPassword(c *gin.Context) {
+	tIDRaw, tenantExists := c.Get("tenantID")
+	uIDRaw, userExists := c.Get("userID")
+	if !tenantExists || !userExists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi owner tidak valid"})
+		return
+	}
+	tenantID, _ := uuid.Parse(tIDRaw.(string))
+	userID, _ := uuid.Parse(uIDRaw.(string))
+
+	var req OwnerAccountPasswordSetupReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Password baru minimal 6 karakter"})
+		return
+	}
+	if err := h.service.SetupOwnerPassword(c.Request.Context(), userID, tenantID, req.NewPassword); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Password owner berhasil disimpan"})
+}
+
+func (h *Handler) ChangeOwnerPassword(c *gin.Context) {
+	tIDRaw, tenantExists := c.Get("tenantID")
+	uIDRaw, userExists := c.Get("userID")
+	if !tenantExists || !userExists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi owner tidak valid"})
+		return
+	}
+	tenantID, _ := uuid.Parse(tIDRaw.(string))
+	userID, _ := uuid.Parse(uIDRaw.(string))
+
+	var req OwnerAccountPasswordChangeReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Password saat ini dan password baru wajib diisi"})
+		return
+	}
+	if err := h.service.ChangeOwnerPassword(c.Request.Context(), userID, tenantID, req.CurrentPassword, req.NewPassword); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Password owner berhasil diperbarui"})
+}
+
+func (h *Handler) LinkOwnerGoogle(c *gin.Context) {
+	tIDRaw, tenantExists := c.Get("tenantID")
+	uIDRaw, userExists := c.Get("userID")
+	if !tenantExists || !userExists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi owner tidak valid"})
+		return
+	}
+	tenantID, _ := uuid.Parse(tIDRaw.(string))
+	userID, _ := uuid.Parse(uIDRaw.(string))
+
+	var req GoogleIdentityReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Token Google owner wajib diisi"})
+		return
+	}
+	item, err := h.service.LinkOwnerGoogle(c.Request.Context(), userID, tenantID, req.GoogleIDToken)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Akun Google owner berhasil dihubungkan", "data": item})
+}
+
+func (h *Handler) RequestOwnerEmailVerification(c *gin.Context) {
+	tIDRaw, tenantExists := c.Get("tenantID")
+	uIDRaw, userExists := c.Get("userID")
+	if !tenantExists || !userExists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi owner tidak valid"})
+		return
+	}
+	tenantID, _ := uuid.Parse(tIDRaw.(string))
+	userID, _ := uuid.Parse(uIDRaw.(string))
+
+	var req OwnerEmailVerificationRequestReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email owner tidak valid"})
+		return
+	}
+	var emailOverride *string
+	if strings.TrimSpace(req.Email) != "" {
+		email := req.Email
+		emailOverride = &email
+	}
+	if err := h.service.RequestOwnerEmailVerification(c.Request.Context(), userID, tenantID, emailOverride); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Link verifikasi email owner sudah dikirim"})
+}
+
+func (h *Handler) DeleteOwnerAccount(c *gin.Context) {
+	tIDRaw, tenantExists := c.Get("tenantID")
+	uIDRaw, userExists := c.Get("userID")
+	if !tenantExists || !userExists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi owner tidak valid"})
+		return
+	}
+	tenantID, _ := uuid.Parse(tIDRaw.(string))
+	userID, _ := uuid.Parse(uIDRaw.(string))
+
+	var req OwnerDeleteAccountReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Konfirmasi hapus akun owner belum lengkap"})
+		return
+	}
+	if err := h.service.DeleteOwnerAccount(c.Request.Context(), userID, tenantID, req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Akun owner berhasil dihapus"})
 }
 
 func (h *Handler) GetTenantIdentity(c *gin.Context) {

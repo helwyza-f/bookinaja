@@ -198,6 +198,27 @@ export function getCentralAdminAuthUrl(options?: {
   });
 }
 
+export function getCentralAdminForgotPasswordUrl(options?: {
+  tenantSlug?: string | null;
+}) {
+  const tenantSlug = normalizeSlug(options?.tenantSlug);
+  return getRootPortalUrl("/admin/forgot-password", {
+    ...(tenantSlug ? { tenant: tenantSlug, intent: "admin" } : {}),
+  });
+}
+
+export function getCentralAdminGoogleConnectUrl(options?: {
+  tenantSlug?: string | null;
+  next?: string | null;
+}) {
+  const tenantSlug = normalizeSlug(options?.tenantSlug);
+  const next = normalizeNextPath(options?.next || "/admin/settings/akun");
+  return getRootPortalUrl("/admin/account/google", {
+    ...(tenantSlug ? { tenant: tenantSlug, intent: "admin" } : {}),
+    ...(next ? { next } : {}),
+  });
+}
+
 export function getCentralTenantRegisterUrl(options?: {
   plan?: string | null;
   interval?: string | null;

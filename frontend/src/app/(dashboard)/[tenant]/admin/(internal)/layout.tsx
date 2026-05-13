@@ -30,6 +30,9 @@ type AdminBootstrapResponse = {
     email?: string;
     role?: string;
     permission_keys?: string[];
+    email_verified_at?: string | null;
+    password_setup_required?: boolean;
+    google_linked?: boolean;
   };
   tenant?: {
     id?: string;
