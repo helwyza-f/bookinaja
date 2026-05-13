@@ -364,6 +364,7 @@ func (h *Handler) GetSummary(c *gin.Context) {
 	}
 	data, err := h.service.GetPortalSummaryData(c.Request.Context(), custID)
 	if err != nil {
+		c.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

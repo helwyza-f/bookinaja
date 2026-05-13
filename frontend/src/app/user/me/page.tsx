@@ -96,6 +96,7 @@ export default function UserDashboardPage() {
   const [data, setData] = useState<CustomerDashboard | null>(cachedSummary);
   const [discoverFeed, setDiscoverFeed] = useState<DiscoveryFeedResponse | null>(cachedDiscoverFeed);
   const [loading, setLoading] = useState(!cachedSummary);
+  const [summaryUnavailable, setSummaryUnavailable] = useState(false);
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState(FILTER_ALL);
   const seenImpressionsRef = useRef<Set<string>>(new Set());
@@ -127,16 +128,22 @@ export default function UserDashboardPage() {
                 return res.data;
               });
         setData(profileRes);
+        setSummaryUnavailable(false);
         primeCustomerPortalCache("customer-summary", profileRes);
       } catch (error) {
         if (isTenantAuthError(error)) {
           clearTenantSession({ keepTenantSlug: true });
+          router.replace("/user/login");
+          return;
         }
-        router.replace("/user/login");
+        console.error("customer portal summary load failed", error);
+        if (mode === "initial" && !cachedSummary) {
+          setSummaryUnavailable(true);
+        }
       } finally {
         if (mode === "initial") setLoading(false);
       }
-  }, [router]);
+  }, [cachedSummary, router]);
 
   useEffect(() => {
     void load("initial");
@@ -239,6 +246,11 @@ export default function UserDashboardPage() {
 
   return (
     <div className="space-y-4">
+      {summaryUnavailable ? (
+        <section className="rounded-3xl border border-amber-200 bg-amber-50/90 p-4 text-sm text-amber-900 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+          Ringkasan akun belum berhasil dimuat, tapi discovery tetap kami tampilkan dulu. Coba refresh lagi sebentar setelah backend summary normal.
+        </section>
+      ) : null}
       <section className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b0f19]">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">

@@ -879,6 +879,7 @@ func (s *Service) AwardBookingPoints(ctx context.Context, customerID, tenantID, 
 func (s *Service) GetDashboardData(ctx context.Context, customerID uuid.UUID) (*CustomerDashboardData, error) {
 	cust, err := s.repo.FindByID(ctx, customerID)
 	if err != nil || cust == nil {
+		log.Printf("customer dashboard profile lookup failed customer_id=%s err=%v customer_nil=%t", customerID.String(), err, cust == nil)
 		return nil, fmt.Errorf("profil pelanggan tidak ditemukan")
 	}
 
@@ -960,6 +961,7 @@ func (s *Service) GetPortalSummaryData(ctx context.Context, customerID uuid.UUID
 
 	cust, err := s.repo.FindByID(ctx, customerID)
 	if err != nil || cust == nil {
+		log.Printf("customer summary profile lookup failed customer_id=%s err=%v customer_nil=%t", customerID.String(), err, cust == nil)
 		return nil, fmt.Errorf("profil pelanggan tidak ditemukan")
 	}
 
