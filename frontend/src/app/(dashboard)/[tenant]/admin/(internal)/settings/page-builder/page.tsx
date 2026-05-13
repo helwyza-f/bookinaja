@@ -1258,30 +1258,68 @@ function BuilderFlowGuideCard({
   activeCount: number;
   themeLabel: string;
 }) {
+  const flowItems = [
+    {
+      icon: <BriefcaseBusiness className="h-4 w-4" />,
+      title: "Isi pondasi bisnis",
+      detail: "Nama, kontak, dan CTA utama harus kebaca dulu.",
+    },
+    {
+      icon: <LayoutTemplate className="h-4 w-4" />,
+      title: `${activeCount} section aktif`,
+      detail: "Rapikan urutan dulu sebelum utak-atik detail kecil.",
+    },
+    {
+      icon: <Wand2 className="h-4 w-4" />,
+      title: themeLabel,
+      detail: "Pilih satu mood visual yang paling cocok lalu publish.",
+    },
+  ];
+
   return (
     <Card className="rounded-[1.75rem] border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-4 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,12,24,0.98))]">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="max-w-2xl">
+      <div className="space-y-4">
+        <div className="space-y-2">
           <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
             Flow
           </div>
-          <h2 className="mt-2 text-lg font-bold tracking-tight text-slate-950 dark:text-white">
-            Fokus ke layout, theme, dan publish
+          <h2 className="text-lg font-bold tracking-tight text-slate-950 dark:text-white">
+            Bikin halaman publik terasa jadi dalam 3 langkah
           </h2>
+          <p className="text-sm leading-6 text-slate-500 dark:text-slate-400">
+            Di sini kita kejar hasil akhirnya: halaman tenant terasa siap dilihat,
+            bukan sekadar penuh setting.
+          </p>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-3 lg:w-[28rem]">
-          <LinkCard
-            href="/admin/settings/bisnis"
-            title="Setup bisnis"
-            detail="Copy, kontak, media utama"
-          />
-          <InfoCard title={`${activeCount} section aktif`} detail="Rapikan urutan dan variant" />
-          <InfoCard title={themeLabel} detail="Theme aktif saat ini" />
+        <div className="space-y-2">
+          {flowItems.map((item, index) => (
+            <div
+              key={item.title}
+              className="flex items-start gap-3 rounded-[1.2rem] border border-slate-200 bg-white/85 px-3 py-3 dark:border-white/10 dark:bg-white/[0.03]"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]">
+                {item.icon}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                    0{index + 1}
+                  </span>
+                  <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                    {item.title}
+                  </div>
+                </div>
+                <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                  {item.detail}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap gap-2">
         <Button asChild variant="outline" className="rounded-xl">
           <Link href="/admin/settings/bisnis">Edit pondasi bisnis</Link>
         </Button>
@@ -2413,41 +2451,6 @@ function ThemeStudioPanel({
         ) : null}
       </div>
     </Card>
-  );
-}
-
-function LinkCard({
-  href,
-  title,
-  detail,
-}: {
-  href: string;
-  title: string;
-  detail: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:border-[var(--bookinaja-300)] hover:bg-[var(--bookinaja-50)] dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-[rgba(96,165,250,0.24)] dark:hover:bg-[rgba(59,130,246,0.08)]"
-    >
-      <div className="text-sm font-semibold text-slate-950 dark:text-white">{title}</div>
-      <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{detail}</div>
-    </Link>
-  );
-}
-
-function InfoCard({
-  title,
-  detail,
-}: {
-  title: string;
-  detail: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
-      <div className="text-sm font-semibold text-slate-950 dark:text-white">{title}</div>
-      <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{detail}</div>
-    </div>
   );
 }
 

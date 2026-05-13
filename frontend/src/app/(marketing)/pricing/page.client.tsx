@@ -1,18 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
+  ArrowRight,
+  BarChart3,
   Check,
-  Sparkles,
-  HelpCircle,
-  ShieldCheck,
-  Zap,
   ChevronRight,
   Clock3,
+  HelpCircle,
+  Rocket,
+  ShieldCheck,
+  Sparkles,
+  Users,
 } from "lucide-react";
-import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  annualMonthlyEquivalent,
+  annualSavingsPercent,
+  BILLING_PLANS,
+  formatIDR,
+} from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import {
   Table,
@@ -23,10 +32,114 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-/**
- * PRICING PAGE - BOOKINAJA.COM
- * Prelaunch pricing: honest trial-first offer with clear upgrade paths.
- */
+type Plan = {
+  key: (typeof BILLING_PLANS)[number]["key"];
+  name: string;
+  label: string;
+  headline: string;
+  cta: string;
+  href?: string;
+  recommended?: boolean;
+  comingSoon?: boolean;
+  icon: React.ComponentType<{ className?: string }>;
+  features: string[];
+  note: string;
+};
+
+const trialFeatures = [
+  "30 hari trial tanpa kartu kredit",
+  "Tenant langsung punya landing + dashboard",
+  "Cocok untuk uji alur booking sebelum commit",
+];
+
+const plans: Plan[] = [
+  {
+    key: "starter",
+    name: "Starter",
+    label: "Untuk owner solo",
+    headline: "Berhenti dari catatan manual dan mulai operasional lebih rapi.",
+    cta: "Pilih Starter",
+    href: "/register?plan=starter",
+    icon: Rocket,
+    features: [
+      "1 akun owner",
+      "Website booking tenant",
+      "Customer portal dasar",
+      "Resource & booking management",
+      "Laporan pendapatan dasar",
+    ],
+    note: "Cocok untuk bisnis kecil yang ingin mulai rapi tanpa tim besar.",
+  },
+  {
+    key: "pro",
+    name: "Pro",
+    label: "Paling masuk akal",
+    headline: "Kontrol staff, payment flow, dan operasional harian yang lebih disiplin.",
+    cta: "Pilih Pro",
+    href: "/register?plan=pro",
+    recommended: true,
+    icon: Users,
+    features: [
+      "Semua fitur Starter",
+      "Multi staff account",
+      "Role-based access",
+      "POS & checkout workflow",
+      "Payment ops lebih kuat",
+    ],
+    note: "Plan terbaik untuk bisnis yang sudah jalan dan mulai membagi operasional ke tim.",
+  },
+  {
+    key: "scale",
+    name: "Scale",
+    label: "Untuk growth berikutnya",
+    headline: "Membership, loyalty, dan retention saat bisnis sudah siap main lebih jauh.",
+    cta: "Segera hadir",
+    comingSoon: true,
+    icon: BarChart3,
+    features: [
+      "Semua fitur Pro",
+      "Membership per tenant",
+      "Reward & retention flow",
+      "CRM segmentation lebih kuat",
+      "Readiness untuk multi outlet",
+    ],
+    note: "Ditampilkan sebagai anchor premium untuk arah produk berikutnya.",
+  },
+];
+
+const comparisonRows = [
+  {
+    label: "Landing tenant dan customer portal",
+    starter: true,
+    pro: true,
+    scale: true,
+  },
+  {
+    label: "Booking flow tidak dicatat manual lagi",
+    starter: true,
+    pro: true,
+    scale: true,
+  },
+  {
+    label: "Staff account dan role-based access",
+    starter: false,
+    pro: true,
+    scale: true,
+  },
+  {
+    label: "Payment ops dan checkout lebih disiplin",
+    starter: false,
+    pro: true,
+    scale: true,
+  },
+  {
+    label: "Membership dan retention tools",
+    starter: false,
+    pro: false,
+    scale: true,
+  },
+];
+
 export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(true);
 
@@ -34,229 +147,66 @@ export default function PricingPage() {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, []);
 
-  const plans = [
-    {
-      name: "Free Trial",
-      badge: "Trial 30 Hari",
-      effectiveMonthly: "0",
-      originalMonthly: null,
-      originalAnnualTotal: null,
-      annualTotal: null,
-      desc: "Untuk tenant yang ingin mencoba flow Bookinaja dulu tanpa kartu kredit dan tanpa komitmen awal.",
-      features: [
-        "30 hari trial tanpa kartu kredit",
-        "Setup dibantu dari awal",
-        "Booking flow bisa langsung dicoba",
-        "Customer portal bisa langsung dilihat",
-        "Cocok untuk validasi apakah operasionalmu memang fit",
-      ],
-      cta: "Mulai Trial",
-      popular: false,
-      comingSoon: false,
-      trial: true,
-      planKey: "starter",
-      note: "Setelah trial selesai, lanjut ke Starter atau Pro.",
-    },
-    {
-      name: "Starter",
-      badge: "Untuk Mulai Rapi",
-      effectiveMonthly: "149.000",
-      originalMonthly: "199.000",
-      originalAnnualTotal: "2.388.000",
-      annualTotal: "1.490.000",
-      desc: "Untuk owner yang ingin berhenti dari catatan manual dan mulai menjalankan booking lebih rapi tanpa tim besar.",
-      features: [
-        "1 akun utama (owner only)",
-        "Dashboard admin dasar",
-        "Website booking / subdomain tenant",
-        "Customer portal dasar",
-        "Promo code dasar",
-        "Tracking pembayaran dasar",
-        "Laporan pendapatan dasar",
-        "Resource management",
-        "Booking flow customer yang rapi",
-        "Onboarding awal dan support standar",
-      ],
-      cta: "Pilih Starter",
-      popular: false,
-      comingSoon: false,
-      trial: false,
-      planKey: "starter",
-      note: "Cocok untuk owner solo atau bisnis kecil yang ingin operasional lebih tertata.",
-    },
-    {
-      name: "Pro",
-      badge: "Paling Masuk Akal",
-      effectiveMonthly: "349.000",
-      originalMonthly: "449.000",
-      originalAnnualTotal: "5.388.000",
-      annualTotal: "3.490.000",
-      desc: "Untuk bisnis yang sudah punya staff dan butuh kontrol operasional, payment flow, dan customer ops yang lebih disiplin.",
-      features: [
-        "Semua fitur Starter",
-        "Multi staff account",
-        "Role-based access admin / kasir",
-        "POS dan checkout workflow",
-        "Payment method management",
-        "Manual payment verification",
-        "Customer import",
-        "Blast WhatsApp ke pelanggan",
-        "CRM visibility dasar",
-        "Priority onboarding dan support",
-      ],
-      cta: "Pilih Pro",
-      popular: true,
-      comingSoon: false,
-      trial: false,
-      planKey: "pro",
-      note: "Beda sedikit dari plan atas, tapi sudah kuat untuk operasional tim yang serius.",
-    },
-    {
-      name: "Scale",
-      badge: "Coming Soon",
-      effectiveMonthly: "499.000",
-      originalMonthly: "649.000",
-      originalAnnualTotal: "7.788.000",
-      annualTotal: "4.990.000",
-      desc: "Untuk bisnis yang ingin main di retention, membership, loyalty, dan growth yang lebih terukur.",
-      features: [
-        "Semua fitur Pro",
-        "Membership per tenant",
-        "Auto-join membership",
-        "Repeat purchase reward",
-        "Reward redemption di checkout",
-        "Advanced CRM segmentation",
-        "Retention analytics",
-        "Growth tools yang lebih dalam",
-        "Multi-outlet readiness",
-      ],
-      cta: "Hubungi Kami",
-      popular: false,
-      comingSoon: true,
-      trial: false,
-      planKey: "scale",
-      note: "Ditampilkan sebagai anchor premium. Fitur growth dan loyalty sedang disiapkan.",
-    },
-  ];
-
-  const comparisonRows = [
-    {
-      label: "Trial 30 hari tanpa kartu kredit",
-      free: true,
-      starter: false,
-      pro: false,
-      scale: false,
-    },
-    {
-      label: "Booking tidak dicatat manual lagi",
-      free: true,
-      starter: true,
-      pro: true,
-      scale: true,
-    },
-    {
-      label: "Owner bisa pantau operasional dari dashboard",
-      free: true,
-      starter: true,
-      pro: true,
-      scale: true,
-    },
-    {
-      label: "Staff punya akses sesuai role",
-      free: false,
-      starter: false,
-      pro: true,
-      scale: true,
-    },
-    {
-      label: "Customer ops lebih fleksibel dan lebih kuat",
-      free: false,
-      starter: false,
-      pro: true,
-      scale: true,
-    },
-    {
-      label: "Blast customer dan payment ops lebih disiplin",
-      free: false,
-      starter: false,
-      pro: true,
-      scale: true,
-    },
-    {
-      label: "Membership, loyalty, dan retention tools",
-      free: false,
-      starter: false,
-      pro: false,
-      scale: true,
-    },
-    {
-      label: "Bisnis lebih siap scale ke banyak unit / outlet",
-      free: false,
-      starter: false,
-      pro: false,
-      scale: true,
-    },
-    {
-      label: "Onboarding dan support lebih prioritas",
-      free: true,
-      starter: false,
-      pro: true,
-      scale: true,
-    },
-  ];
+  const priceLabel = useMemo(
+    () => (isAnnual ? "Tahunan" : "Bulanan"),
+    [isAnnual],
+  );
+  const starterPlan = BILLING_PLANS.find((plan) => plan.key === "starter");
+  const annualDiscount =
+    starterPlan
+      ? annualSavingsPercent(starterPlan.monthly, starterPlan.annualTotal)
+      : 0;
 
   return (
-    <section className="relative flex-1 flex flex-col items-center overflow-hidden py-24 md:py-32 selection:bg-blue-600/30">
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute left-1/2 top-0 h-[1000px] w-full -translate-x-1/2 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.15)_0%,transparent_70%)]" />
-        <div className="sticky top-0 h-screen w-full overflow-hidden opacity-40">
-          <div className="absolute right-[-10%] top-[-10%] h-[40rem] w-[40rem] animate-pulse rounded-full bg-blue-600/20 blur-[120px]" />
-          <div className="absolute bottom-[10%] left-[-10%] h-[35rem] w-[35rem] rounded-full bg-indigo-600/10 blur-[100px]" />
-        </div>
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:radial-gradient(ellipse_80%_80%_at_50%_50%,#000_100%,transparent_100%)]" />
+    <section className="relative flex-1 overflow-hidden py-24 md:py-32">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-1/2 top-0 h-[900px] w-full -translate-x-1/2 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.14)_0%,transparent_68%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:radial-gradient(ellipse_78%_76%_at_50%_35%,#000_100%,transparent_100%)]" />
       </div>
 
-      <div className="container relative z-10 px-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <div className="mx-auto mb-20 flex max-w-[58rem] flex-col items-center space-y-6 text-center">
+      <div className="container relative z-10 px-6">
+        <div className="mx-auto max-w-4xl text-center">
           <Badge
             variant="outline"
-            className="border-blue-500/20 bg-blue-500/5 px-5 py-1.5 font-syne text-[10px] font-bold uppercase tracking-widest text-blue-500"
+            className="border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-blue-600"
           >
-            Prelaunch Offer
+            Pricing yang mengikuti fase operasional
           </Badge>
-          <h1 className="text-5xl font-black leading-[0.9] tracking-tighter text-foreground sm:text-7xl">
-            Pilih paket yang bikin <br />
-            <span className="italic text-blue-500">
-              chaos operasional berhenti.
+
+          <h1 className="mt-6 text-5xl font-black tracking-tight text-foreground sm:text-6xl">
+            Pilih plan yang bikin
+            <span className="block italic text-blue-500">
+              bisnis makin rapi, bukan makin ribet.
             </span>
           </h1>
-          <p className="max-w-[32rem] text-lg font-medium text-muted-foreground md:text-xl">
-            Mulai dari trial 30 hari tanpa kartu kredit, lalu pilih plan yang
-            paling cocok untuk tahap operasional bisnis kamu hari ini. Scale
-            tetap ditampilkan sebagai arah premium berikutnya.
+
+          <p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
+            <span className="sm:hidden">
+              Mulai dari trial, lalu pilih plan sesuai tahap bisnismu.
+            </span>
+            <span className="hidden sm:inline">
+              Mulai dari trial tanpa risiko, lalu pilih plan sesuai tahap
+              operasionalmu hari ini. Fokusnya bukan daftar fitur, tapi seberapa
+              cepat kamu bisa merasa bisnis ini lebih tertata.
+            </span>
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-            <span className="rounded-full border border-blue-500/15 bg-blue-500/5 px-3 py-1 text-blue-600">
-              Trial 30 hari
-            </span>
-            <span className="rounded-full border border-emerald-500/15 bg-emerald-500/5 px-3 py-1 text-emerald-600">
-              Tanpa kartu kredit
-            </span>
-            <span className="rounded-full border border-slate-200 bg-white/60 px-3 py-1">
-              Onboarding dibantu
-            </span>
-            <span className="rounded-full border border-amber-500/15 bg-amber-500/5 px-3 py-1 text-amber-600">
-              Scale coming soon
-            </span>
+
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+            <Pill text="Trial 30 hari" />
+            <Pill text="Tanpa kartu kredit" />
+            <div className="hidden sm:contents">
+              <Pill text="Onboarding dibantu" />
+              <Pill text="Upgrade kapan saja" />
+            </div>
           </div>
 
-          <div className="mt-8 flex items-center gap-5 rounded-2xl border border-border bg-secondary/30 p-1.5 backdrop-blur-md">
+          <div className="mt-10 inline-flex items-center gap-2 rounded-2xl border border-border bg-card/60 p-1.5 backdrop-blur">
             <button
               onClick={() => setIsAnnual(false)}
               className={cn(
-                "rounded-xl px-6 py-2.5 text-sm font-bold transition-all",
+                "rounded-xl px-5 py-2.5 text-sm font-bold transition-all",
                 !isAnnual
-                  ? "bg-background text-blue-500 shadow-lg"
+                  ? "bg-background text-blue-600 shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -265,189 +215,246 @@ export default function PricingPage() {
             <button
               onClick={() => setIsAnnual(true)}
               className={cn(
-                "flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-bold transition-all",
+                "inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition-all",
                 isAnnual
-                  ? "bg-background text-blue-500 shadow-lg"
+                  ? "bg-background text-blue-600 shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
               Tahunan
-              <Badge className="border-none bg-green-500/10 px-2 py-0 text-[10px] text-green-600">
-                Hemat 20%
-              </Badge>
+              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600">
+                Hemat {annualDiscount}%
+              </span>
             </button>
           </div>
         </div>
 
-        <div className="mx-auto grid w-full max-w-7xl items-stretch gap-8 xl:grid-cols-4 md:grid-cols-2">
-          {plans.map((plan) => (
-            <div
-              key={plan.name}
-              className={cn(
-                "relative flex flex-col rounded-[3rem] border p-10 transition-all duration-500 hover:shadow-[0_40px_80px_-15px_rgba(59,130,246,0.15)]",
-                plan.popular
-                  ? "z-20 scale-105 border-blue-500 bg-card shadow-2xl ring-4 ring-blue-500/5"
-                  : "border-border/60 bg-card/40 shadow-sm backdrop-blur-sm hover:border-blue-500/30",
-              )}
-            >
-              {plan.popular && (
-                <div className="absolute -top-5 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-blue-500 px-6 py-1.5 text-[10px] font-black uppercase tracking-widest text-white shadow-xl">
-                  <Sparkles className="h-3.5 w-3.5 fill-white" />
-                  Rekomendasi
+        <div className="mx-auto mt-14 max-w-6xl">
+          <div className="rounded-[2rem] border border-emerald-500/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(240,253,244,0.88))] p-6 shadow-[0_24px_60px_rgba(15,23,42,0.05)] dark:border-emerald-500/15 dark:bg-[linear-gradient(180deg,rgba(9,16,23,0.96),rgba(8,28,21,0.96))]">
+            <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+              <div className="space-y-4">
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">
+                  <Clock3 className="h-3.5 w-3.5" />
+                  Zero-risk entry
                 </div>
-              )}
-
-              <div className="mb-8 text-center lg:text-left">
-                <div className="mb-3 inline-flex rounded-full border border-blue-500/15 bg-blue-500/5 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-600">
-                  {plan.badge}
-                </div>
-                <h3 className="text-2xl font-black tracking-tight">
-                  {plan.name}
-                </h3>
-                <p className="mt-3 text-sm font-medium leading-relaxed text-muted-foreground">
-                  {plan.desc}
-                </p>
-              </div>
-
-              <div className="mb-10 flex flex-col items-center lg:items-start">
-                {plan.originalMonthly ? (
-                  <div className="mb-1 text-sm font-bold italic text-muted-foreground/40 line-through">
-                    IDR {plan.originalMonthly}
-                  </div>
-                ) : (
-                  <div className="mb-1 text-sm font-bold uppercase tracking-widest text-emerald-600">
-                    Tanpa biaya awal
-                  </div>
-                )}
-
-                <div
-                  className={cn(
-                    "flex w-full items-end gap-2",
-                    plan.trial ? "justify-start" : "justify-start",
-                  )}
-                >
-                  {!plan.trial ? (
-                    <span className="pb-2 text-sm font-black uppercase text-muted-foreground">
-                      IDR
+                <div>
+                  <h2 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">
+                    Free Trial 30 hari
+                  </h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:leading-7">
+                    <span className="sm:hidden">
+                      Coba flow dulu. Kalau cocok, baru lanjut ke plan berbayar.
                     </span>
-                  ) : null}
-                  <span
-                    className={cn(
-                      "leading-none font-black tracking-[-0.06em] text-foreground",
-                      plan.trial
-                        ? "text-[4.5rem] sm:text-[5rem]"
-                        : "text-[3.8rem] sm:text-[4.3rem] lg:text-[4.6rem]",
-                    )}
-                  >
-                    {plan.effectiveMonthly}
-                  </span>
-                  {!plan.trial ? (
-                    <span className="pb-2 text-base font-bold text-muted-foreground">
-                      /bln
+                    <span className="hidden sm:inline">
+                      Buat tenant, coba booking flow, lihat landing dan dashboard
+                      hidup dulu. Kalau ternyata fit, baru lanjut ke Starter atau Pro.
                     </span>
-                  ) : null}
+                  </p>
                 </div>
-
-                {isAnnual && plan.annualTotal ? (
-                  <div className="mt-2 space-y-1.5">
-                    {plan.originalAnnualTotal ? (
-                      <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/40 line-through">
-                        IDR {plan.originalAnnualTotal}
-                      </div>
-                    ) : null}
-                    <div className="inline-flex max-w-full rounded-full border border-blue-500/10 bg-blue-500/5 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-blue-500">
-                      <span className="whitespace-normal">
-                        Tagihan tahunan IDR {plan.annualTotal}
-                      </span>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="mb-10 flex-1 space-y-6 border-t border-border pt-8">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">
-                  Layanan Tersedia:
-                </p>
-                <ul className="space-y-4">
-                  {plan.features.map((feature) => (
+                <ul className="grid gap-3 sm:grid-cols-2">
+                  {trialFeatures.map((feature) => (
                     <li
                       key={feature}
-                      className="group flex items-start gap-4 text-sm font-semibold text-muted-foreground"
+                      className="flex items-start gap-3 rounded-2xl border border-border/60 bg-background/60 px-4 py-3 text-sm text-foreground/85"
                     >
-                      <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-blue-500 transition-colors group-hover:bg-blue-500 group-hover:text-white">
+                      <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
                         <Check className="h-3.5 w-3.5" />
                       </div>
-                      <span className="leading-tight transition-colors group-hover:text-foreground">
-                        {feature}
-                      </span>
+                      <span>{feature}</span>
                     </li>
                   ))}
                 </ul>
               </div>
 
-              <p className="mb-5 text-sm leading-6 text-muted-foreground">
-                {plan.note}
-              </p>
-
-              {plan.comingSoon ? (
-                <Button
-                  disabled
-                  className="h-16 w-full rounded-2xl text-lg font-black opacity-100"
-                  variant="secondary"
-                >
-                  <Clock3 className="mr-2 h-5 w-5" />
-                  {plan.cta}
-                </Button>
-              ) : (
-                <Link
-                  href={`/register?plan=${plan.planKey}&interval=${isAnnual ? "annual" : "monthly"}`}
-                  className="w-full group"
-                >
-                  <Button
-                    className={cn(
-                      "h-16 w-full rounded-2xl text-lg font-black transition-all active:scale-95",
-                      plan.popular
-                        ? "bg-blue-600 text-white shadow-xl shadow-blue-500/20 hover:bg-blue-700"
-                        : "bg-secondary text-foreground hover:bg-blue-500 hover:text-white",
-                    )}
-                    variant={plan.popular ? "default" : "secondary"}
-                  >
-                    {plan.cta}
-                    <ChevronRight className="ml-2 h-5 w-5 -translate-x-2 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
+              <div className="rounded-[1.75rem] border border-border/60 bg-background/70 p-5">
+                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                  Mulai dari sini
+                </div>
+                <div className="mt-4 flex items-end gap-2">
+                  <span className="text-6xl font-black tracking-[-0.08em] text-foreground">
+                    0
+                  </span>
+                  <span className="pb-3 text-sm font-bold uppercase text-muted-foreground">
+                    IDR
+                  </span>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  <span className="sm:hidden">
+                    Tanpa kartu kredit. Validasi dulu flow-nya.
+                  </span>
+                  <span className="hidden sm:inline">
+                    Tidak perlu kartu kredit. Fokusnya validasi apakah flow
+                    Bookinaja cocok dengan operasional bisnismu.
+                  </span>
+                </p>
+                <Link href="/register?plan=starter&trial=1" className="mt-5 block">
+                  <Button className="h-12 w-full rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700">
+                    Mulai Trial
+                    <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
-              )}
+              </div>
             </div>
-          ))}
+          </div>
         </div>
 
-        <div className="mx-auto mt-20 max-w-6xl rounded-[2.5rem] border border-border/60 bg-card/40 p-6 shadow-sm backdrop-blur-sm md:p-10">
-          <div className="flex flex-wrap items-start justify-between gap-6">
-            <div className="space-y-2">
-              <h2 className="text-2xl font-black tracking-tight md:text-3xl">
-                Bandingkan Berdasarkan Hasil yang Kamu Butuhkan
-              </h2>
-              <p className="max-w-3xl text-sm font-semibold text-muted-foreground">
-                Kalau kamu masih ragu, mulai dari transformasi yang paling ingin
-                kamu capai dulu.
-              </p>
-            </div>
-            <Link href="/documentation">
-              <Button
-                variant="secondary"
-                className="rounded-2xl font-black uppercase tracking-widest"
+        <div className="mx-auto mt-10 grid max-w-6xl gap-6 lg:grid-cols-3">
+          {plans.map((plan) => {
+            const Icon = plan.icon;
+            const billingPlan = BILLING_PLANS.find((item) => item.key === plan.key);
+            if (!billingPlan) return null;
+            const displayMainPrice = isAnnual
+              ? formatIDR(billingPlan.annualTotal)
+              : formatIDR(billingPlan.monthly);
+            const displayBefore = isAnnual
+              ? formatIDR(billingPlan.annualBefore)
+              : formatIDR(billingPlan.monthlyBefore);
+            const annualEquivalent = annualMonthlyEquivalent(billingPlan.annualTotal);
+
+            return (
+              <div
+                key={plan.name}
+                className={cn(
+                  "relative flex flex-col rounded-[2rem] border p-7 shadow-[0_18px_50px_rgba(15,23,42,0.05)] transition-all duration-300",
+                  plan.recommended
+                    ? "border-blue-500 bg-card shadow-[0_28px_80px_rgba(59,130,246,0.14)]"
+                    : "border-border/70 bg-card/70",
+                )}
               >
-                Baca Documentation
-              </Button>
-            </Link>
+                {plan.recommended ? (
+                  <div className="absolute -top-3 left-6 inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Rekomendasi
+                  </div>
+                ) : null}
+
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-3">
+                    <div className="inline-flex rounded-full border border-blue-500/15 bg-blue-500/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">
+                      {plan.label}
+                    </div>
+                    <div>
+                      <h3 className="text-3xl font-black tracking-tight text-foreground">
+                        {plan.name}
+                      </h3>
+                      <p className="mt-3 text-sm leading-6 text-muted-foreground sm:leading-7">
+                        {plan.headline}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-500/8 text-blue-600">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                </div>
+
+                <div className="mt-8 border-t border-border/70 pt-7">
+                  {displayBefore ? (
+                    <div className="text-sm font-bold italic text-muted-foreground/45 line-through">
+                      IDR {displayBefore}
+                    </div>
+                  ) : null}
+
+                  <div className="mt-2 flex items-end gap-2">
+                    <span className="text-sm font-black uppercase text-muted-foreground">
+                      IDR
+                    </span>
+                    <span className="text-[3.4rem] font-black leading-none tracking-[-0.08em] text-foreground">
+                      {displayMainPrice}
+                    </span>
+                    <span className="pb-2 text-sm font-bold text-muted-foreground">
+                      /{isAnnual ? "tahun" : "bln"}
+                    </span>
+                  </div>
+
+                  <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                    {priceLabel === "Tahunan"
+                      ? `Setara ${formatIDR(annualEquivalent)}/bln, dibayar sekali untuk 1 tahun.`
+                      : "Fleksibel untuk mulai sekarang lalu evaluasi sambil jalan."}
+                  </p>
+                </div>
+
+                <div className="mt-7 flex-1 space-y-4 border-t border-border/70 pt-7">
+                  <div className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                    Yang paling terasa
+                  </div>
+                  <ul className="space-y-3">
+                    {plan.features.map((feature) => (
+                      <li key={feature} className="flex items-start gap-3 text-sm text-foreground/85">
+                        <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-blue-600">
+                          <Check className="h-3.5 w-3.5" />
+                        </div>
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <p className="mt-6 text-sm leading-6 text-muted-foreground">
+                  <span className="sm:hidden">
+                    {plan.name === "Starter"
+                      ? "Mulai cepat tanpa tim besar."
+                      : plan.name === "Pro"
+                        ? "Pilihan terbaik untuk operasional tim."
+                        : "Siap saat bisnis masuk fase growth."}
+                  </span>
+                  <span className="hidden sm:inline">{plan.note}</span>
+                </p>
+
+                {plan.comingSoon ? (
+                  <Button
+                    disabled
+                    variant="secondary"
+                    className="mt-6 h-12 rounded-2xl text-sm font-black opacity-100"
+                  >
+                    <Clock3 className="mr-2 h-4 w-4" />
+                    {plan.cta}
+                  </Button>
+                ) : (
+                  <Link
+                    href={`${plan.href}&interval=${isAnnual ? "annual" : "monthly"}`}
+                    className="mt-6 block"
+                  >
+                    <Button
+                      className={cn(
+                        "group h-12 w-full rounded-2xl text-sm font-black",
+                        plan.recommended
+                          ? "bg-blue-600 text-white hover:bg-blue-700"
+                          : "bg-secondary text-foreground hover:bg-blue-500 hover:text-white",
+                      )}
+                      variant={plan.recommended ? "default" : "secondary"}
+                    >
+                      {plan.cta}
+                      <ChevronRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mx-auto mt-16 max-w-6xl rounded-[2rem] border border-border/70 bg-card/60 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.05)] md:p-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                Perbandingan inti
+              </div>
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground">
+                Pilih berdasar hasil yang kamu butuhkan
+              </h2>
+            </div>
+            <p className="max-w-xl text-sm leading-6 text-muted-foreground">
+              Pricing yang baik membantu user memilih cepat. Jadi di sini kami
+              bedakan plan berdasarkan perubahan operasional yang paling terasa.
+            </p>
           </div>
 
-          <div className="mt-6">
+          <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-border/70">
             <Table className="text-sm">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[36%]">Hasil / Fitur</TableHead>
-                  <TableHead>Free Trial</TableHead>
+                  <TableHead className="w-[40%]">Hasil</TableHead>
                   <TableHead>Starter</TableHead>
                   <TableHead>Pro</TableHead>
                   <TableHead>Scale</TableHead>
@@ -456,10 +463,9 @@ export default function PricingPage() {
               <TableBody>
                 {comparisonRows.map((row) => (
                   <TableRow key={row.label}>
-                    <TableCell className="font-semibold text-muted-foreground whitespace-normal">
+                    <TableCell className="whitespace-normal font-medium text-muted-foreground">
                       {row.label}
                     </TableCell>
-                    <ComparisonCell enabled={row.free} />
                     <ComparisonCell enabled={row.starter} />
                     <ComparisonCell enabled={row.pro} />
                     <ComparisonCell enabled={row.scale} />
@@ -470,58 +476,73 @@ export default function PricingPage() {
           </div>
         </div>
 
-        <div className="mx-auto mt-24 grid max-w-4xl gap-8 border-t border-border/50 py-12 md:grid-cols-3">
-          <div className="flex flex-col items-center space-y-3 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/5 text-blue-500">
-              <ShieldCheck className="h-6 w-6" />
-            </div>
-            <h4 className="text-sm font-bold text-foreground">Risiko Rendah</h4>
-            <p className="text-pretty text-xs text-muted-foreground">
-              Trial 30 hari menurunkan risiko masuk tanpa bikin pricing terlihat murahan.
-            </p>
-          </div>
-          <div className="flex flex-col items-center space-y-3 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/5 text-blue-500">
-              <Zap className="h-6 w-6" />
-            </div>
-            <h4 className="text-sm font-bold text-foreground">
-              Fokus ke Hasil
-            </h4>
-            <p className="text-pretty text-xs text-muted-foreground">
-              Starter untuk mulai rapi, Pro untuk kontrol tim, Scale untuk arah growth berikutnya.
-            </p>
-          </div>
-          <div className="flex flex-col items-center space-y-3 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/5 text-blue-500">
-              <HelpCircle className="h-6 w-6" />
-            </div>
-            <h4 className="text-sm font-bold text-foreground">
-              Onboarding Dekat
-            </h4>
-            <p className="text-pretty text-xs text-muted-foreground">
-              Scale tetap tampil sebagai anchor premium, tapi fokus jual aktif sekarang ada di Starter dan Pro.
-            </p>
-          </div>
+        <div className="mx-auto mt-16 grid max-w-5xl gap-6 md:grid-cols-3">
+          <TrustCard
+            icon={<ShieldCheck className="h-5 w-5" />}
+            title="Mulai tanpa risiko"
+            body="Trial 30 hari ada untuk membantu validasi flow, bukan memaksa commit terlalu cepat."
+          />
+          <TrustCard
+            icon={<Rocket className="h-5 w-5" />}
+            title="Jual hasil, bukan noise"
+            body="Starter untuk mulai rapi, Pro untuk tim yang sudah jalan, Scale untuk growth berikutnya."
+          />
+          <TrustCard
+            icon={<HelpCircle className="h-5 w-5" />}
+            title="Masuk akal buat Indonesia"
+            body="CTA utamanya sederhana: coba dulu, pilih fase operasionalmu, lalu upgrade saat value-nya sudah terasa."
+          />
         </div>
 
-        <p className="mt-16 text-center text-sm font-medium text-muted-foreground">
-          Ragu memilih paket? Cek dulu{" "}
-          <Link
-            href="/demos"
-            className="font-bold text-blue-500 hover:underline underline-offset-4"
-          >
-            Live Demo Sistem
-          </Link>{" "}
-          atau{" "}
-          <Link
-            href="mailto:support@bookinaja.com"
-            className="font-bold text-blue-500 hover:underline underline-offset-4"
-          >
-            Konsultasi Prelaunch
-          </Link>
-        </p>
+        <div className="mx-auto mt-16 max-w-3xl text-center">
+          <p className="text-sm leading-7 text-muted-foreground">
+            Masih ragu mulai dari mana? Lihat demo dulu atau konsultasi sebelum
+            pilih plan.
+          </p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+            <Link href="/demos">
+              <Button variant="secondary" className="rounded-2xl">
+                Lihat Demo
+              </Button>
+            </Link>
+            <Link href="mailto:support@bookinaja.com">
+              <Button className="rounded-2xl bg-blue-600 text-white hover:bg-blue-700">
+                Konsultasi dulu
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </div>
       </div>
     </section>
+  );
+}
+
+function Pill({ text }: { text: string }) {
+  return (
+    <span className="rounded-full border border-border bg-background/70 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+      {text}
+    </span>
+  );
+}
+
+function TrustCard({
+  icon,
+  title,
+  body,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="rounded-[1.75rem] border border-border/70 bg-card/60 p-5 text-center shadow-[0_16px_40px_rgba(15,23,42,0.04)]">
+      <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-500/8 text-blue-600">
+        {icon}
+      </div>
+      <h3 className="mt-4 text-sm font-black text-foreground">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">{body}</p>
+    </div>
   );
 }
 
@@ -529,7 +550,7 @@ function ComparisonCell({ enabled }: { enabled: boolean }) {
   if (!enabled) {
     return (
       <TableCell>
-        <span className="font-black text-muted-foreground/50">—</span>
+        <span className="font-black text-muted-foreground/40">—</span>
       </TableCell>
     );
   }

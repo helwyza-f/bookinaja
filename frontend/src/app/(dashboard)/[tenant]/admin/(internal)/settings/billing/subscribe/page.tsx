@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Script from "next/script";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,12 @@ import {
   DashboardPanel,
 } from "@/components/dashboard/analytics-kit";
 import api from "@/lib/api";
+import {
+  annualMonthlyEquivalent,
+  annualSavingsPercent,
+  BILLING_PLANS,
+  formatIDR,
+} from "@/lib/pricing";
 import { ArrowLeft, Check, Sparkles, Wand2, ShieldCheck } from "lucide-react";
 
 const PLANS = [
@@ -19,8 +25,6 @@ const PLANS = [
     key: "starter" as const,
     name: "Starter",
     description: "Untuk tenant yang baru jalan dan mau coba alur operasional dulu.",
-    priceMonthly: 149000,
-    priceAnnualPerMonth: 119000,
     features: ["Free trial 30 hari", "Dashboard operasional inti", "Booking & CRM dasar", "Batasan fitur Pro"],
     accent: "from-slate-950 to-slate-700",
     highlight: false,
@@ -29,8 +33,6 @@ const PLANS = [
     key: "pro" as const,
     name: "Pro",
     description: "Untuk owner yang butuh kontrol penuh, report detail, dan operasional yang lebih dalam.",
-    priceMonthly: 299000,
-    priceAnnualPerMonth: 239000,
     features: ["Unlimited pelanggan", "Blast WhatsApp", "Analytics lengkap", "Report F&B/add-on", "Akses staff & role", "Prioritas support"],
     accent: "from-blue-600 to-cyan-400",
     highlight: true,
@@ -51,7 +53,10 @@ type SubscriptionInfo = {
 
 export default function SettingsBillingSubscribePage() {
   const router = useRouter();
-  const [isAnnual, setIsAnnual] = useState(true);
+  const searchParams = useSearchParams();
+  const selectedPlanParam = (searchParams.get("plan") || "").toLowerCase();
+  const selectedIntervalParam = (searchParams.get("interval") || "").toLowerCase();
+  const [isAnnual, setIsAnnual] = useState(selectedIntervalParam !== "monthly");
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
   const [checkingMidtrans, setCheckingMidtrans] = useState(false);
@@ -70,8 +75,29 @@ export default function SettingsBillingSubscribePage() {
     setMidtransReady(Boolean(typeof window !== "undefined" && (window as SnapWindow).snap));
   }, []);
 
+  useEffect(() => {
+    if (selectedIntervalParam === "monthly") {
+      setIsAnnual(false);
+      return;
+    }
+    if (selectedIntervalParam === "annual") {
+      setIsAnnual(true);
+    }
+  }, [selectedIntervalParam]);
+
   const activeLabel = useMemo(() => currentPlan?.toUpperCase() || "BELUM AKTIF", [currentPlan]);
   const statusLabel = useMemo(() => currentStatus?.toUpperCase() || "UNKNOWN", [currentStatus]);
+  const annualDiscount = useMemo(() => {
+    const starterPlan = BILLING_PLANS.find((plan) => plan.key === "starter");
+    return starterPlan
+      ? annualSavingsPercent(starterPlan.monthly, starterPlan.annualTotal)
+      : 0;
+  }, []);
+  const selectedPlanLabel = useMemo(() => {
+    if (selectedPlanParam === "starter") return "Starter";
+    if (selectedPlanParam === "pro") return "Pro";
+    return "";
+  }, [selectedPlanParam]);
 
   const loadMidtransSnap = async () => {
     if (typeof window === "undefined") return null;
@@ -241,6 +267,9 @@ export default function SettingsBillingSubscribePage() {
               className={`rounded-xl px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] ${isAnnual ? "bg-white text-[var(--bookinaja-700)] shadow dark:bg-slate-900 dark:text-[var(--bookinaja-200)]" : "text-slate-400"}`}
             >
               Tahunan
+              <span className="ml-2 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-300">
+                Hemat {annualDiscount}%
+              </span>
             </button>
           </div>
         </div>
@@ -277,14 +306,30 @@ export default function SettingsBillingSubscribePage() {
         />
       </div>
 
+      {selectedPlanLabel ? (
+        <div className="rounded-2xl border border-[color:rgba(59,130,246,0.18)] bg-[color:rgba(59,130,246,0.06)] px-4 py-3 text-sm text-slate-700 dark:border-[color:rgba(96,165,250,0.22)] dark:bg-[color:rgba(59,130,246,0.1)] dark:text-slate-200">
+          Pilihan dari pricing: <span className="font-semibold">{selectedPlanLabel}</span>
+          {selectedIntervalParam === "annual"
+            ? " • Tahunan"
+            : selectedIntervalParam === "monthly"
+              ? " • Bulanan"
+              : ""}
+        </div>
+      ) : null}
+
       <div className="grid gap-5 lg:grid-cols-2">
         {PLANS.map((plan) => {
-          const price = isAnnual ? plan.priceAnnualPerMonth : plan.priceMonthly;
+          const billingPlan = BILLING_PLANS.find((item) => item.key === plan.key);
+          if (!billingPlan) return null;
+          const price = isAnnual
+            ? annualMonthlyEquivalent(billingPlan.annualTotal)
+            : billingPlan.monthly;
           const isCurrent = currentPlan === plan.key;
+          const isSelectedTarget = selectedPlanParam === plan.key;
           return (
             <Card
               key={plan.key}
-              className={`border-slate-200 bg-white p-5 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:p-7 ${plan.highlight ? "ring-1 ring-[color:rgba(59,130,246,0.2)]" : ""}`}
+              className={`border-slate-200 bg-white p-5 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] sm:p-7 ${plan.highlight ? "ring-1 ring-[color:rgba(59,130,246,0.2)]" : ""} ${isSelectedTarget ? "ring-2 ring-[color:rgba(59,130,246,0.28)]" : ""}`}
             >
               <div className={`rounded-3xl bg-gradient-to-r ${plan.accent} p-5 text-white`}>
                 <div className="flex items-start justify-between gap-3">
@@ -292,9 +337,14 @@ export default function SettingsBillingSubscribePage() {
                     <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/70">Plan</div>
                     <h2 className="mt-2 text-2xl font-semibold">{plan.name}</h2>
                   </div>
-                  {plan.highlight && (
-                    <Badge className="border-none bg-white/15 text-white">Rekomendasi</Badge>
-                  )}
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {isSelectedTarget ? (
+                      <Badge className="border-none bg-white text-slate-950">Pilihanmu</Badge>
+                    ) : null}
+                    {plan.highlight && (
+                      <Badge className="border-none bg-white/15 text-white">Rekomendasi</Badge>
+                    )}
+                  </div>
                 </div>
                 <p className="mt-3 hidden max-w-md text-sm leading-relaxed text-white/80 md:block">{plan.description}</p>
               </div>
@@ -302,10 +352,16 @@ export default function SettingsBillingSubscribePage() {
               <div className="mt-6 flex items-end gap-2">
                 <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">IDR</div>
                 <div className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white">
-                  {new Intl.NumberFormat("id-ID").format(price)}
+                  {formatIDR(price)}
                 </div>
                 <div className="pb-1 text-sm text-slate-400">/bln</div>
               </div>
+
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                {isAnnual
+                  ? `Ditagih ${formatIDR(billingPlan.annualTotal)}/tahun`
+                  : `Ditagih ${formatIDR(billingPlan.monthly)}/bulan`}
+              </p>
 
               <div className="mt-4 space-y-2">
                 {plan.features.map((feature) => (

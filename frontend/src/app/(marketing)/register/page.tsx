@@ -12,13 +12,17 @@ import {
   Building2,
   Camera,
   Check,
+  CheckCircle2,
+  Clock3,
   Globe2,
   Lock,
   Mail,
   Monitor,
+  ShieldCheck,
   Sparkles,
   Trophy,
   User,
+  Wand2,
 } from "lucide-react";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -114,18 +118,45 @@ const TIMEZONE_OPTIONS = [
 
 const STEPS = [
   {
+    icon: Building2,
     title: "Bisnis",
-    description: "Pilih kategori dan claim URL tenant.",
+    description: "Claim nama, URL, dan kategori tenant.",
+    outcome: "Tenant langsung punya identitas.",
   },
   {
+    icon: Wand2,
     title: "Setup",
-    description: "Tentukan mode mulai dan info operasional.",
+    description: "Pilih mode mulai dan sentuhan operasional dasar.",
+    outcome: "Workspace terasa siap dipakai.",
   },
   {
+    icon: ShieldCheck,
     title: "Akses",
-    description: "Pilih Google atau email admin pertama.",
+    description: "Pilih jalur masuk owner pertama.",
+    outcome: "Owner bisa langsung masuk.",
   },
 ] as const;
+
+const PLAN_COPY = {
+  starter: {
+    label: "Starter",
+    short: "Untuk mulai cepat.",
+  },
+  pro: {
+    label: "Pro",
+    short: "Untuk operasional tim yang lebih rapi.",
+  },
+  scale: {
+    label: "Scale",
+    short: "Untuk growth berikutnya.",
+  },
+} as const;
+
+function formatIntervalLabel(value?: string | null) {
+  if (value === "annual") return "Tahunan";
+  if (value === "monthly") return "Bulanan";
+  return "";
+}
 
 function normalizeSlugPreview(value: string) {
   return value
@@ -135,13 +166,41 @@ function normalizeSlugPreview(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+function FieldHint({
+  tone = "required",
+  children,
+}: {
+  tone?: "required" | "optional";
+  children: React.ReactNode;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.16em]",
+        tone === "required"
+          ? "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200"
+          : "bg-blue-50 text-blue-700 dark:bg-sky-400/10 dark:text-sky-200",
+      )}
+    >
+      {tone === "required" ? (
+        <CheckCircle2 className="h-3 w-3" />
+      ) : (
+        <Sparkles className="h-3 w-3" />
+      )}
+      {children}
+    </span>
+  );
+}
+
 function RegisterFlow() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState("gaming_hub");
   const [selectedBootstrapMode, setSelectedBootstrapMode] = useState("starter");
   const [accessMethod, setAccessMethod] = useState<AccessMethod>("google");
-  const [googleProfile, setGoogleProfile] = useState<GoogleAdminProfile | null>(null);
+  const [googleProfile, setGoogleProfile] = useState<GoogleAdminProfile | null>(
+    null,
+  );
   const searchParams = useSearchParams();
   const planParam = searchParams.get("plan");
   const intervalParam = searchParams.get("interval");
@@ -191,12 +250,19 @@ function RegisterFlow() {
     defaultValue: "",
   });
 
-  const slugPreview = normalizeSlugPreview(watchedSubdomain || watchedBusinessName);
+  const slugPreview = normalizeSlugPreview(
+    watchedSubdomain || watchedBusinessName,
+  );
   const selectedCategoryMeta =
     CATEGORIES.find((item) => item.id === selectedCategory) || CATEGORIES[0];
   const selectedBootstrapMeta =
     BOOTSTRAP_OPTIONS.find((item) => item.id === selectedBootstrapMode) ||
     BOOTSTRAP_OPTIONS[0];
+  const selectedPlanMeta =
+    planParam && planParam in PLAN_COPY
+      ? PLAN_COPY[planParam as keyof typeof PLAN_COPY]
+      : null;
+  const selectedIntervalLabel = formatIntervalLabel(intervalParam);
 
   const summaryItems = useMemo(
     () => [
@@ -206,6 +272,7 @@ function RegisterFlow() {
     ],
     [selectedCategoryMeta.name, selectedBootstrapMeta.name, slugPreview],
   );
+  const stepProgress = Math.round(((step + 1) / STEPS.length) * 100);
 
   const nextStep = async () => {
     if (step === 0) {
@@ -284,7 +351,8 @@ function RegisterFlow() {
             ? googleProfile?.email || data.email.trim()
             : data.email.trim(),
         admin_password: accessMethod === "manual" ? data.password : "",
-        google_id_token: accessMethod === "google" ? googleProfile?.idToken : "",
+        google_id_token:
+          accessMethod === "google" ? googleProfile?.idToken : "",
         whatsapp_number: data.whatsappNumber.trim(),
         timezone: data.timezone,
       };
@@ -318,13 +386,19 @@ function RegisterFlow() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-6xl pt-20">
       <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <section className="rounded-[2rem] border border-slate-200/80 bg-white/90 p-6 shadow-[0_24px_80px_-50px_rgba(15,23,42,0.35)] backdrop-blur dark:border-white/10 dark:bg-[#08101e]/88 lg:p-8">
+        <section className="hidden rounded-[2rem] border border-slate-200/80 bg-white/90 p-6 shadow-[0_24px_80px_-50px_rgba(15,23,42,0.35)] backdrop-blur dark:border-white/10 dark:bg-[#08101e]/88 lg:block lg:p-8">
           <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-blue-700 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-200">
-              <Sparkles className="h-3.5 w-3.5" />
-              Tenant setup
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-blue-700 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-200">
+                <Sparkles className="h-3.5 w-3.5" />
+                Tenant setup
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
+                <Clock3 className="h-3.5 w-3.5" />
+                Selesai sekitar 2 menit
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -332,7 +406,17 @@ function RegisterFlow() {
                 Buka tenant baru tanpa ribet.
               </h1>
               <p className="text-sm leading-7 text-slate-600 dark:text-slate-300">
-                Isi inti bisnis dulu, masuk ke dashboard lebih cepat, lalu rapikan sisanya dari dalam workspace.
+                Isi yang inti dulu. Setelah itu owner langsung masuk ke dashboard
+                dengan tenant yang sudah punya bentuk.
+              </p>
+            </div>
+
+            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">
+                Outcome
+              </p>
+              <p className="mt-3 text-base font-bold tracking-tight text-slate-950 dark:text-white">
+                Owner langsung bisa masuk, dan halaman tenant tidak terasa kosong.
               </p>
             </div>
 
@@ -350,13 +434,28 @@ function RegisterFlow() {
                   )}
                 >
                   <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-bold text-slate-950 dark:text-white">
-                        {item.title}
-                      </p>
-                      <p className="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">
-                        {item.description}
-                      </p>
+                    <div className="flex min-w-0 gap-3">
+                      <div
+                        className={cn(
+                          "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                          step === index
+                            ? "bg-blue-600 text-white"
+                            : "bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-200",
+                        )}
+                      >
+                        <item.icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-slate-950 dark:text-white">
+                          {item.title}
+                        </p>
+                        <p className="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">
+                          {item.description}
+                        </p>
+                        <p className="mt-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+                          {item.outcome}
+                        </p>
+                      </div>
                     </div>
                     <div
                       className={cn(
@@ -377,16 +476,16 @@ function RegisterFlow() {
               <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">
                 Ringkasan
               </p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+              <div className="mt-3 space-y-2">
                 {summaryItems.map(([label, value]) => (
                   <div
                     key={label}
-                    className="rounded-[1rem] border border-slate-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/[0.03]"
+                    className="flex items-start justify-between gap-3 rounded-[1rem] border border-slate-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/[0.03]"
                   >
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                    <p className="shrink-0 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
                       {label}
                     </p>
-                    <p className="mt-2 break-all text-sm font-bold text-slate-900 dark:text-white">
+                    <p className="min-w-0 text-right text-sm font-bold text-slate-900 break-words dark:text-white">
                       {value}
                     </p>
                   </div>
@@ -397,6 +496,96 @@ function RegisterFlow() {
         </section>
 
         <section className="rounded-[2rem] border border-slate-200/80 bg-white/95 p-6 shadow-[0_24px_80px_-50px_rgba(15,23,42,0.35)] backdrop-blur dark:border-white/10 dark:bg-[#08101e]/92 lg:p-8">
+          <div className="mb-6 space-y-4 lg:hidden">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-blue-700 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-200">
+                <Sparkles className="h-3.5 w-3.5" />
+                Tenant setup
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
+                <Clock3 className="h-3.5 w-3.5" />
+                2 menit
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h1 className="text-2xl font-black tracking-tight text-slate-950 dark:text-white">
+                Buka tenant baru.
+              </h1>
+              <p className="text-sm leading-6 text-slate-500 dark:text-slate-400">
+                Isi inti dulu. Sisanya lanjut di dashboard.
+              </p>
+            </div>
+
+            {selectedPlanMeta ? (
+              <div className="rounded-[1.2rem] border border-blue-200 bg-blue-50/80 px-4 py-3 dark:border-sky-400/20 dark:bg-sky-400/10">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600 dark:text-sky-200">
+                      Pilihan awal
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+                      {selectedPlanMeta.label}
+                      {selectedIntervalLabel ? ` • ${selectedIntervalLabel}` : ""}
+                    </p>
+                  </div>
+                  <FieldHint tone="optional">Bisa diubah</FieldHint>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-3 gap-2">
+              {STEPS.map((item, index) => (
+                <button
+                  key={item.title}
+                  type="button"
+                  onClick={() => setStep(index)}
+                  className={cn(
+                    "rounded-[1.1rem] border px-3 py-3 text-left transition-all",
+                    step === index
+                      ? "border-blue-200 bg-blue-50 dark:border-sky-400/20 dark:bg-sky-400/10"
+                      : "border-slate-200 bg-slate-50/60 dark:border-white/10 dark:bg-white/[0.03]",
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-lg",
+                      step === index
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-200",
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                  </div>
+                  <p className="mt-3 text-sm font-bold text-slate-950 dark:text-white">
+                    {item.title}
+                  </p>
+                </button>
+              ))}
+            </div>
+
+            <div className="rounded-[1.2rem] border border-slate-200 bg-slate-50/70 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                    Ringkas
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+                    {slugPreview || "bisnismu"}.bookinaja.com
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                    Progress
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+                    {stepProgress}%
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">
@@ -405,13 +594,27 @@ function RegisterFlow() {
               <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white">
                 {STEPS[step].title}
               </h2>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+                {STEPS[step].outcome}
+              </p>
+              {selectedPlanMeta ? (
+                <div className="mt-3 hidden items-center gap-2 sm:flex">
+                  <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-blue-700 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-200">
+                    Pilihan: {selectedPlanMeta.label}
+                    {selectedIntervalLabel ? ` • ${selectedIntervalLabel}` : ""}
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {selectedPlanMeta.short}
+                  </span>
+                </div>
+              ) : null}
             </div>
             <div className="hidden text-right sm:block">
               <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">
                 Progress
               </p>
               <p className="mt-2 text-xl font-black text-slate-950 dark:text-white">
-                {Math.round(((step + 1) / STEPS.length) * 100)}%
+                {stepProgress}%
               </p>
             </div>
           </div>
@@ -426,26 +629,36 @@ function RegisterFlow() {
           <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-8">
             <div className={cn("space-y-6", step !== 0 && "hidden")}>
               <label className="block space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                  Nama bisnis
-                </Label>
+                <div className="flex items-center justify-between gap-3">
+                  <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                    Nama bisnis
+                  </Label>
+                  <FieldHint>Wajib</FieldHint>
+                </div>
                 <div className="relative">
                   <Building2 className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                   <Input
                     placeholder="Contoh: Nexus Gaming Hub"
                     className="h-14 rounded-[1.2rem] border-slate-200 bg-slate-50/70 pl-12 font-medium dark:border-white/10 dark:bg-white/5"
-                    {...register("businessName", { required: "Nama bisnis wajib diisi" })}
+                    {...register("businessName", {
+                      required: "Nama bisnis wajib diisi",
+                    })}
                   />
                 </div>
                 {errors.businessName ? (
-                  <p className="text-xs text-rose-500">{errors.businessName.message}</p>
+                  <p className="text-xs text-rose-500">
+                    {errors.businessName.message}
+                  </p>
                 ) : null}
               </label>
 
               <label className="block space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                  URL tenant
-                </Label>
+                <div className="flex items-center justify-between gap-3">
+                  <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                    URL tenant
+                  </Label>
+                  <FieldHint>Wajib</FieldHint>
+                </div>
                 <div className="relative">
                   <Globe2 className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                   <Input
@@ -464,13 +677,24 @@ function RegisterFlow() {
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Preview: <span className="font-semibold">{slugPreview || "bisnismu"}.bookinaja.com</span>
+                  Preview:{" "}
+                  <span className="font-semibold">
+                    {slugPreview || "bisnismu"}.bookinaja.com
+                  </span>
                 </p>
                 {errors.subdomain ? (
-                  <p className="text-xs text-rose-500">{errors.subdomain.message}</p>
+                  <p className="text-xs text-rose-500">
+                    {errors.subdomain.message}
+                  </p>
                 ) : null}
               </label>
 
+              <div className="flex items-center justify-between gap-3">
+                <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                  Kategori bisnis
+                </Label>
+                <FieldHint>Wajib</FieldHint>
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 {CATEGORIES.map((item) => (
                   <button
@@ -495,7 +719,7 @@ function RegisterFlow() {
                     <p className="mt-4 text-sm font-bold text-slate-950 dark:text-white">
                       {item.name}
                     </p>
-                    <p className="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">
+                    <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
                       {item.outcome}
                     </p>
                   </button>
@@ -504,6 +728,12 @@ function RegisterFlow() {
             </div>
 
             <div className={cn("space-y-6", step !== 1 && "hidden")}>
+              <div className="flex items-center justify-between gap-3">
+                <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                  Mode awal workspace
+                </Label>
+                <FieldHint>Wajib</FieldHint>
+              </div>
               <div className="grid gap-4 sm:grid-cols-3">
                 {BOOTSTRAP_OPTIONS.map((item) => (
                   <button
@@ -534,9 +764,12 @@ function RegisterFlow() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                    Tipe bisnis
-                  </Label>
+                  <div className="flex items-center justify-between gap-3">
+                    <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                      Tipe bisnis
+                    </Label>
+                    <FieldHint tone="optional">Opsional</FieldHint>
+                  </div>
                   <Input
                     placeholder="Contoh: Rental PS5"
                     className="h-14 rounded-[1.2rem] border-slate-200 bg-slate-50/70 font-medium dark:border-white/10 dark:bg-white/5"
@@ -545,9 +778,12 @@ function RegisterFlow() {
                 </label>
 
                 <label className="block space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                    WhatsApp bisnis
-                  </Label>
+                  <div className="flex items-center justify-between gap-3">
+                    <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                      WhatsApp bisnis
+                    </Label>
+                    <FieldHint tone="optional">Opsional</FieldHint>
+                  </div>
                   <Input
                     placeholder="08123456789"
                     className="h-14 rounded-[1.2rem] border-slate-200 bg-slate-50/70 font-medium dark:border-white/10 dark:bg-white/5"
@@ -556,9 +792,12 @@ function RegisterFlow() {
                 </label>
 
                 <label className="block space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                    Timezone
-                  </Label>
+                  <div className="flex items-center justify-between gap-3">
+                    <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                      Timezone
+                    </Label>
+                    <FieldHint>Wajib</FieldHint>
+                  </div>
                   <select
                     className="h-14 w-full rounded-[1.2rem] border border-slate-200 bg-slate-50/70 px-4 text-sm font-medium text-slate-950 dark:border-white/10 dark:bg-white/5 dark:text-white"
                     {...register("timezone")}
@@ -572,9 +811,12 @@ function RegisterFlow() {
                 </label>
 
                 <label className="block space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                    Referral
-                  </Label>
+                  <div className="flex items-center justify-between gap-3">
+                    <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                      Referral
+                    </Label>
+                    <FieldHint tone="optional">Opsional</FieldHint>
+                  </div>
                   <Input
                     placeholder="Opsional"
                     className="h-14 rounded-[1.2rem] border-slate-200 bg-slate-50/70 font-medium dark:border-white/10 dark:bg-white/5"
@@ -585,6 +827,16 @@ function RegisterFlow() {
             </div>
 
             <div className={cn("space-y-6", step !== 2 && "hidden")}>
+              <div className="rounded-[1.2rem] border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                <p className="text-sm font-semibold text-slate-950 dark:text-white">
+                  Pilih jalur masuk owner pertama
+                </p>
+                <p className="mt-1 text-xs leading-6 text-slate-500 dark:text-slate-400">
+                  Google paling cepat. Email + password tetap tersedia kalau
+                  kamu ingin jalur manual sejak awal.
+                </p>
+              </div>
+
               <div className="grid gap-3 sm:grid-cols-2">
                 <button
                   type="button"
@@ -643,31 +895,41 @@ function RegisterFlow() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                    Nama admin
-                  </Label>
+                  <div className="flex items-center justify-between gap-3">
+                    <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                      Nama admin
+                    </Label>
+                    <FieldHint>Wajib</FieldHint>
+                  </div>
                   <div className="relative">
                     <User className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                     <Input
                       placeholder="Nama owner"
                       className="h-14 rounded-[1.2rem] border-slate-200 bg-slate-50/70 pl-12 font-medium dark:border-white/10 dark:bg-white/5"
-                      {...register("fullName", { required: "Nama admin wajib diisi" })}
+                      {...register("fullName", {
+                        required: "Nama admin wajib diisi",
+                      })}
                       disabled={accessMethod === "google" && !!googleProfile}
                     />
                   </div>
                 </label>
 
                 <label className="block space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                    Email admin
-                  </Label>
+                  <div className="flex items-center justify-between gap-3">
+                    <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                      Email admin
+                    </Label>
+                    <FieldHint>Wajib</FieldHint>
+                  </div>
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                     <Input
                       type="email"
                       placeholder="owner@bisnis.com"
                       className="h-14 rounded-[1.2rem] border-slate-200 bg-slate-50/70 pl-12 font-medium dark:border-white/10 dark:bg-white/5"
-                      {...register("email", { required: "Email admin wajib diisi" })}
+                      {...register("email", {
+                        required: "Email admin wajib diisi",
+                      })}
                       disabled={accessMethod === "google" && !!googleProfile}
                     />
                   </div>
@@ -676,9 +938,12 @@ function RegisterFlow() {
 
               <div className={cn(accessMethod !== "manual" && "hidden")}>
                 <label className="block space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                    Password admin
-                  </Label>
+                  <div className="flex items-center justify-between gap-3">
+                    <Label className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                      Password admin
+                    </Label>
+                    <FieldHint>Wajib</FieldHint>
+                  </div>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                     <Input
@@ -690,6 +955,12 @@ function RegisterFlow() {
                   </div>
                 </label>
               </div>
+
+              {accessMethod === "google" ? (
+                <div className="rounded-[1.2rem] border border-blue-100 bg-blue-50/80 p-4 text-sm leading-6 text-slate-600 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-slate-200">
+                  Password manual bisa dibuat nanti dari pengaturan akun owner.
+                </div>
+              ) : null}
             </div>
 
             <div className="flex flex-col gap-3 border-t border-slate-200 pt-6 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
@@ -728,7 +999,7 @@ function RegisterFlow() {
                     disabled={loading}
                     className="h-12 rounded-xl bg-blue-600 px-5 font-bold text-white hover:bg-blue-500"
                   >
-                    {loading ? "Menyiapkan..." : "Buat tenant"}
+                    {loading ? "Menyiapkan..." : "Buat tenant dan masuk"}
                     {!loading ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
                   </Button>
                 )}
