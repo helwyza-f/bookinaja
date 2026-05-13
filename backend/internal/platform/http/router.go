@@ -77,7 +77,6 @@ func NewRouter(cfg routecfg.Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine 
 	platformrouter.RegisterPlatformRoutes(r, cfg)
 
 	v1 := r.Group("/api/v1")
-	v1.Use(middleware.EnsureSchema(db))
 	v1.Use(middleware.TenantIdentifier(db, rdb))
 	{
 		if cfg.RealtimeHandler != nil {

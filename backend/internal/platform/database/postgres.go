@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -36,7 +37,10 @@ func NewPostgres(host, port, user, password, dbname string) (*sqlx.DB, error) {
 
 	// 5. Verifikasi koneksi (Ping)
 	// Kita batasi waktu ping agar tidak gantung (hang) terlalu lama
-	if err := db.Ping(); err != nil {
+	pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := db.PingContext(pingCtx); err != nil {
 		return nil, fmt.Errorf("database tidak merespon pada %s:%s: %w", host, port, err)
 	}
 
