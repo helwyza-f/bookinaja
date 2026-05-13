@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageShell } from "@/components/dashboard/page-shell";
+import { formatPlanLabel, formatSubscriptionStatusLabel } from "@/lib/plan-access";
 import { getPlatformTenants, type PlatformTenant } from "@/lib/platform-admin";
 
 export default function TenantsPage() {
@@ -85,8 +86,8 @@ export default function TenantsPage() {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline" className="rounded-full uppercase">{tenant.plan || "-"}</Badge>
-                  <Badge variant="outline" className="rounded-full uppercase">{tenant.status || "unknown"}</Badge>
+                  <Badge variant="outline" className="rounded-full">{formatPlanLabel(tenant.plan)}</Badge>
+                  <Badge variant="outline" className="rounded-full">{formatSubscriptionStatusLabel(tenant.status || tenant.subscription_status)}</Badge>
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-2 sm:min-w-[320px]">

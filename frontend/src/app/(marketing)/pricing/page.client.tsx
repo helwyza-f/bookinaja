@@ -34,16 +34,9 @@ import {
 
 type Plan = {
   key: (typeof BILLING_PLANS)[number]["key"];
-  name: string;
-  label: string;
-  headline: string;
   cta: string;
   href?: string;
-  recommended?: boolean;
-  comingSoon?: boolean;
   icon: React.ComponentType<{ className?: string }>;
-  features: string[];
-  note: string;
 };
 
 const trialFeatures = [
@@ -55,55 +48,20 @@ const trialFeatures = [
 const plans: Plan[] = [
   {
     key: "starter",
-    name: "Starter",
-    label: "Untuk owner solo",
-    headline: "Berhenti dari catatan manual dan mulai operasional lebih rapi.",
     cta: "Pilih Starter",
     href: "/register?plan=starter",
     icon: Rocket,
-    features: [
-      "1 akun owner",
-      "Website booking tenant",
-      "Customer portal dasar",
-      "Resource & booking management",
-      "Laporan pendapatan dasar",
-    ],
-    note: "Cocok untuk bisnis kecil yang ingin mulai rapi tanpa tim besar.",
   },
   {
     key: "pro",
-    name: "Pro",
-    label: "Paling masuk akal",
-    headline: "Kontrol staff, payment flow, dan operasional harian yang lebih disiplin.",
     cta: "Pilih Pro",
     href: "/register?plan=pro",
-    recommended: true,
     icon: Users,
-    features: [
-      "Semua fitur Starter",
-      "Multi staff account",
-      "Role-based access",
-      "POS & checkout workflow",
-      "Payment ops lebih kuat",
-    ],
-    note: "Plan terbaik untuk bisnis yang sudah jalan dan mulai membagi operasional ke tim.",
   },
   {
     key: "scale",
-    name: "Scale",
-    label: "Untuk growth berikutnya",
-    headline: "Membership, loyalty, dan retention saat bisnis sudah siap main lebih jauh.",
     cta: "Segera hadir",
-    comingSoon: true,
     icon: BarChart3,
-    features: [
-      "Semua fitur Pro",
-      "Membership per tenant",
-      "Reward & retention flow",
-      "CRM segmentation lebih kuat",
-      "Readiness untuk multi outlet",
-    ],
-    note: "Ditampilkan sebagai anchor premium untuk arah produk berikutnya.",
   },
 ];
 
@@ -313,15 +271,15 @@ export default function PricingPage() {
 
             return (
               <div
-                key={plan.name}
+                key={plan.key}
                 className={cn(
                   "relative flex flex-col rounded-[2rem] border p-7 shadow-[0_18px_50px_rgba(15,23,42,0.05)] transition-all duration-300",
-                  plan.recommended
+                  billingPlan.recommended
                     ? "border-blue-500 bg-card shadow-[0_28px_80px_rgba(59,130,246,0.14)]"
                     : "border-border/70 bg-card/70",
                 )}
               >
-                {plan.recommended ? (
+                {billingPlan.recommended ? (
                   <div className="absolute -top-3 left-6 inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white">
                     <Sparkles className="h-3.5 w-3.5" />
                     Rekomendasi
@@ -331,14 +289,14 @@ export default function PricingPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-3">
                     <div className="inline-flex rounded-full border border-blue-500/15 bg-blue-500/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">
-                      {plan.label}
+                      {billingPlan.label}
                     </div>
                     <div>
                       <h3 className="text-3xl font-black tracking-tight text-foreground">
-                        {plan.name}
+                        {billingPlan.name}
                       </h3>
                       <p className="mt-3 text-sm leading-6 text-muted-foreground sm:leading-7">
-                        {plan.headline}
+                        {billingPlan.headline}
                       </p>
                     </div>
                   </div>
@@ -379,7 +337,7 @@ export default function PricingPage() {
                     Yang paling terasa
                   </div>
                   <ul className="space-y-3">
-                    {plan.features.map((feature) => (
+                    {billingPlan.publicFeatures.map((feature) => (
                       <li key={feature} className="flex items-start gap-3 text-sm text-foreground/85">
                         <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-blue-600">
                           <Check className="h-3.5 w-3.5" />
@@ -392,16 +350,16 @@ export default function PricingPage() {
 
                 <p className="mt-6 text-sm leading-6 text-muted-foreground">
                   <span className="sm:hidden">
-                    {plan.name === "Starter"
+                    {billingPlan.name === "Starter"
                       ? "Mulai cepat tanpa tim besar."
-                      : plan.name === "Pro"
+                      : billingPlan.name === "Pro"
                         ? "Pilihan terbaik untuk operasional tim."
                         : "Siap saat bisnis masuk fase growth."}
                   </span>
-                  <span className="hidden sm:inline">{plan.note}</span>
+                  <span className="hidden sm:inline">{billingPlan.note}</span>
                 </p>
 
-                {plan.comingSoon ? (
+                {billingPlan.comingSoon ? (
                   <Button
                     disabled
                     variant="secondary"
@@ -418,11 +376,11 @@ export default function PricingPage() {
                     <Button
                       className={cn(
                         "group h-12 w-full rounded-2xl text-sm font-black",
-                        plan.recommended
+                        billingPlan.recommended
                           ? "bg-blue-600 text-white hover:bg-blue-700"
                           : "bg-secondary text-foreground hover:bg-blue-500 hover:text-white",
                       )}
-                      variant={plan.recommended ? "default" : "secondary"}
+                      variant={billingPlan.recommended ? "default" : "secondary"}
                     >
                       {plan.cta}
                       <ChevronRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />

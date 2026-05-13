@@ -1,3 +1,5 @@
+import { hasTenantFeature } from "@/lib/plan-access";
+
 export type ReceiptSettings = {
   name?: string;
   plan?: string;
@@ -75,9 +77,7 @@ export const defaultReceiptTemplate = [
 ].join("\n");
 
 export const isReceiptProEnabled = (settings?: ReceiptSettings | null) => {
-  const plan = String(settings?.plan || "").toLowerCase();
-  const status = String(settings?.subscription_status || "").toLowerCase();
-  return plan === "pro" && status === "active";
+  return hasTenantFeature(settings || {}, "advanced_receipt_branding");
 };
 
 export const formatReceiptIDR = (value?: number) =>

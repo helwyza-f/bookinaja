@@ -15,6 +15,8 @@ import {
   X,
 } from "lucide-react";
 import api from "@/lib/api";
+import { hasTenantFeature } from "@/lib/plan-access";
+import { formatPlanLabel } from "@/lib/plan-access";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -147,10 +149,8 @@ export default function ReceiptPrinterSettingsPage() {
 
   const previewText = useMemo(() => renderTemplate(draft.receipt_template || defaultTemplate, draft), [draft]);
   const isProActive = useMemo(() => {
-    const plan = String(savedData.plan || "").toLowerCase();
-    const status = String(savedData.subscription_status || "").toLowerCase();
-    return plan === "pro" && status === "active";
-  }, [savedData.plan, savedData.subscription_status]);
+    return hasTenantFeature(savedData, "advanced_receipt_branding");
+  }, [savedData]);
 
   const setField = (key: keyof ReceiptSettings, value: string | boolean) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
@@ -351,7 +351,7 @@ export default function ReceiptPrinterSettingsPage() {
           </div>
           <div className="grid grid-cols-2 gap-2 sm:w-auto">
             <StatusPill label="Printer" value={printerStatus} active={!!savedData.printer_enabled} />
-            <StatusPill label="Paket" value={(savedData.plan || "starter").toUpperCase()} active={isProActive} />
+            <StatusPill label="Paket" value={formatPlanLabel(savedData.plan)} active={isProActive} />
           </div>
         </div>
       </section>

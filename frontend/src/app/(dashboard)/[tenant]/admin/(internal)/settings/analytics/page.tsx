@@ -19,6 +19,7 @@ import {
   Wallet,
 } from "lucide-react";
 import api from "@/lib/api";
+import { formatPlanLabel, formatSubscriptionStatusLabel } from "@/lib/plan-access";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RealtimePill } from "@/components/dashboard/realtime-pill";
@@ -825,7 +826,7 @@ export default function SettingsAnalyticsPage() {
 
       <DashboardStatStrip
         items={[
-          { label: "Plan", value: String(subscription?.plan || "-").toUpperCase(), tone: "slate" },
+          { label: "Plan", value: formatPlanLabel(subscription?.plan), tone: "slate" },
           { label: "Range", value: rangeLabel, tone: "indigo" },
           { label: "Addon share", value: `${summary.addonRatio.toFixed(1)}%`, tone: "emerald" },
           { label: "Expense ratio", value: `${summary.expenseRatio.toFixed(1)}%`, tone: "rose" },
@@ -923,12 +924,12 @@ export default function SettingsAnalyticsPage() {
         <DashboardPanel
           eyebrow="Owner reading"
           title="Snapshot operasional"
-          actions={<Badge variant="secondary">{String(subscription?.plan || "-").toUpperCase()}</Badge>}
+          actions={<Badge variant="secondary">{formatPlanLabel(subscription?.plan)}</Badge>}
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <InfoChip
               label="Subscription"
-              value={`${String(subscription?.plan || "-").toUpperCase()} - ${String(subscription?.status || "-")}`}
+              value={`${formatPlanLabel(subscription?.plan)} - ${formatSubscriptionStatusLabel(subscription?.status)}`}
             />
             <InfoChip label="Period end" value={formatPeriodEnd(subscription?.current_period_end)} />
             <InfoChip label="Add-on revenue" value={`Rp ${formatIDR(summary.addonRevenue)}`} />

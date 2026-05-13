@@ -13,6 +13,7 @@ import {
   DashboardPanel,
   DashboardStatStrip,
 } from "@/components/dashboard/analytics-kit";
+import { formatSubscriptionStatusLabel } from "@/lib/plan-access";
 import {
   getPlatformSummary,
   type PlatformCustomer,
@@ -99,7 +100,7 @@ export default function OverviewPage() {
         title: tenant.name,
         subtitle: tenant.slug,
         value: formatIDR(Number(tenant.revenue || 0)),
-        meta: String(tenant.subscription_status || "unknown").toUpperCase(),
+        meta: formatSubscriptionStatusLabel(tenant.subscription_status),
         progress:
           totals.revenue > 0
             ? (Number(tenant.revenue || 0) / totals.revenue) * 100

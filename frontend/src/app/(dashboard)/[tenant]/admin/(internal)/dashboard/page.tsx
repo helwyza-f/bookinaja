@@ -23,6 +23,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import api from "@/lib/api";
+import { formatPlanLabel } from "@/lib/plan-access";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -552,7 +553,7 @@ export default function DashboardPage() {
     () =>
       [
         metrics.plan && metrics.plan !== "-"
-          ? { label: "Plan", value: String(metrics.plan).toUpperCase(), icon: Wallet }
+          ? { label: "Plan", value: formatPlanLabel(metrics.plan), icon: Wallet }
           : null,
         { label: "Okupansi", value: `${metrics.occupiedPercent}%`, icon: TrendingUp },
         canManageResources

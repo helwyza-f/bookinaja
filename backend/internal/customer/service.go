@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/helwiza/backend/internal/platform/access"
 	platformenv "github.com/helwiza/backend/internal/platform/env"
 	"github.com/helwiza/backend/internal/platform/fonnte"
 	"github.com/helwiza/backend/internal/platform/mailer"
@@ -700,20 +701,6 @@ func (s *Service) StartRegistration(ctx context.Context, req RegisterReq) (*Cust
 	return created, nil
 }
 
-func isProActive(plan, status string, periodEnd *time.Time) bool {
-	plan = strings.ToLower(strings.TrimSpace(plan))
-	status = strings.ToLower(strings.TrimSpace(status))
-	now := time.Now().UTC()
-
-	if status != "active" || plan != "pro" {
-		return false
-	}
-	if periodEnd != nil && periodEnd.Before(now) {
-		return false
-	}
-	return true
-}
-
 func (s *Service) BlastAnnouncement(ctx context.Context, actorUserID uuid.UUID, tenantID string, req BroadcastAnnouncementReq) (*BroadcastResult, error) {
 	tID, err := uuid.Parse(tenantID)
 	if err != nil {
@@ -725,7 +712,7 @@ func (s *Service) BlastAnnouncement(ctx context.Context, actorUserID uuid.UUID, 
 		return nil, fmt.Errorf("service: gagal membaca status subscription: %w", err)
 	}
 
-	if !isProActive(plan, status, periodEnd) {
+	if !access.HasFeature(plan, status, access.FeatureWhatsAppBroadcast, periodEnd) {
 		return nil, fmt.Errorf("fitur blast pelanggan hanya tersedia untuk tenant plan pro yang active")
 	}
 
@@ -810,7 +797,7 @@ func (s *Service) ImportCustomers(ctx context.Context, actorUserID uuid.UUID, te
 	if err != nil {
 		return nil, fmt.Errorf("service: gagal membaca status subscription: %w", err)
 	}
-	if !isProActive(plan, status, periodEnd) {
+	if !access.HasFeature(plan, status, access.FeatureWhatsAppBroadcast, periodEnd) {
 		return nil, fmt.Errorf("fitur import pelanggan hanya tersedia untuk tenant plan pro yang active")
 	}
 	if len(rows) == 0 {

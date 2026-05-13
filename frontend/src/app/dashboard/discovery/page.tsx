@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { PageShell } from "@/components/dashboard/page-shell";
+import { formatPlanLabel, formatSubscriptionStatusLabel } from "@/lib/plan-access";
 import {
   getPlatformDiscoveryAnalytics,
   getPlatformDiscoveryFeedSetting,
@@ -377,11 +378,11 @@ export default function PlatformDiscoveryPage() {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline" className="rounded-full uppercase">
-                    {selectedTenant.status || "unknown"}
+                  <Badge variant="outline" className="rounded-full">
+                    {formatSubscriptionStatusLabel(selectedTenant.status || selectedTenant.subscription_status)}
                   </Badge>
-                  <Badge variant="outline" className="rounded-full uppercase">
-                    {selectedTenant.plan || "-"}
+                  <Badge variant="outline" className="rounded-full">
+                    {formatPlanLabel(selectedTenant.plan)}
                   </Badge>
                   <Badge variant="outline" className="rounded-full uppercase">
                     {Number(selectedTenant.discovery_ctr_30d || 0).toLocaleString("id-ID", {

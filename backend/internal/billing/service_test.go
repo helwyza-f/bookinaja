@@ -66,7 +66,7 @@ func TestCheckoutCreatesBillingOrder(t *testing.T) {
 			sqlmock.AnyArg(),
 			"pro",
 			"monthly",
-			int64(300000),
+			int64(349000),
 			"IDR",
 			"pending",
 			sqlmock.AnyArg(),
@@ -81,8 +81,8 @@ func TestCheckoutCreatesBillingOrder(t *testing.T) {
 		t.Fatalf("Checkout() error = %v", err)
 	}
 
-	if res.Amount != 300000 {
-		t.Fatalf("res.Amount = %d, want 300000", res.Amount)
+	if res.Amount != 349000 {
+		t.Fatalf("res.Amount = %d, want 349000", res.Amount)
 	}
 	if res.SnapToken != "snap-token" {
 		t.Fatalf("res.SnapToken = %s, want snap-token", res.SnapToken)

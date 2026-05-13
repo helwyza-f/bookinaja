@@ -5,25 +5,24 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
-  ArrowUpRight,
-  BadgeCheck,
+  ArrowRight,
   CalendarClock,
   CreditCard,
   History,
   ReceiptText,
   Sparkles,
-  Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  DashboardMetricCard,
-  DashboardPanel,
-} from "@/components/dashboard/analytics-kit";
 import api from "@/lib/api";
-import { cn } from "@/lib/utils";
+import {
+  formatPlanLabel,
+  formatSubscriptionStatusLabel,
+  resolvePlanState,
+} from "@/lib/plan-access";
+import { formatIDR } from "@/lib/pricing";
 
 type SubscriptionInfo = {
   plan?: string;
@@ -42,9 +41,6 @@ type BillingOrder = {
   Status: string;
   CreatedAt: string;
 };
-
-const formatIDR = (value?: number) =>
-  new Intl.NumberFormat("id-ID").format(Number(value || 0));
 
 const parseSafeDate = (value?: string | null) => {
   if (!value) return null;
@@ -72,7 +68,7 @@ export default function SettingsBillingPage() {
       setSub(subRes.data || null);
       setOrders(ordersRes.data?.orders || []);
     } catch {
-      toast.error("Gagal memuat data billing");
+      toast.error("Gagal memuat billing.");
     } finally {
       setLoading(false);
     }
@@ -82,317 +78,249 @@ export default function SettingsBillingPage() {
     void loadData();
   }, []);
 
-  const status = String(sub?.status || "").toLowerCase();
-  const plan = String(sub?.plan || "starter").toLowerCase();
-  const isTrial = status === "trial";
-  const isActive = status === "active";
-  const isPro = plan === "pro";
-  const periodEnd = formatDate(sub?.current_period_end || null);
-
-  const statusTone = isTrial
-    ? "text-amber-600"
-    : isActive
-      ? "text-emerald-500"
-      : "text-red-500";
-
-  const statusLabel = isTrial
-    ? "Trial"
-    : isActive
-      ? "Active"
-      : "Expired / Inactive";
+  const planState = resolvePlanState({
+    plan: sub?.plan,
+    subscription_status: sub?.status,
+    current_period_end: sub?.current_period_end,
+  });
 
   const totalPaid = useMemo(
     () => orders.reduce((sum, order) => sum + Number(order.Amount || 0), 0),
     [orders],
   );
 
+  const nextStepTitle = planState.isTrial
+    ? "Pilih plan sebelum trial selesai"
+    : planState.isStarter
+      ? "Upgrade saat tim mulai jalan"
+      : "Plan kamu sudah siap dipakai";
+
+  const nextStepCopy = planState.isTrial
+    ? "Trial dipakai untuk validasi flow. Kalau tenant sudah terasa cocok, lanjutkan ke Starter atau Pro."
+    : planState.isStarter
+      ? "Starter sudah cukup untuk mulai jalan. Pindah ke Pro saat kamu butuh staff account, analytics, dan kontrol lebih rapih."
+      : "Fokus sekarang pindah ke operasional. Billing cukup dipantau saat masa aktif mendekati habis.";
+
+  const primaryCtaLabel = planState.isPro ? "Kelola langganan" : planState.nextActionLabel;
+  const periodEnd = formatDate(sub?.current_period_end);
+
   return (
     <div className="space-y-4 p-4 pb-20 sm:space-y-6 sm:p-6">
-      <div className="relative overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(238,252,249,0.95)_40%,rgba(236,253,245,0.92))] p-4 shadow-[0_18px_42px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(10,24,26,0.96),rgba(8,30,31,0.94)_45%,rgba(4,47,46,0.88))] dark:shadow-[0_18px_42px_rgba(0,0,0,0.24)] sm:rounded-[2rem] sm:p-6 sm:shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:sm:shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.2),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.16),transparent_58%)]" />
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.24em] text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-200">
-              <Sparkles className="h-3.5 w-3.5 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
-              Billing
-            </div>
-            <div>
-              <h1 className="text-3xl font-[950] tracking-tight text-slate-950 dark:text-white sm:text-4xl">
-                Billing
-              </h1>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button
-              variant="outline"
-              onClick={loadData}
-              className="gap-2 rounded-[1.2rem]"
-            >
-              <Zap className="h-4 w-4" />
-              Refresh
-            </Button>
-            <Button
-              asChild
-              className="gap-2 rounded-[1.2rem] bg-slate-950 text-white hover:bg-[var(--bookinaja-700)] dark:bg-white dark:text-slate-950"
-            >
-              <Link href="/admin/settings/billing/subscribe">
-                <CreditCard className="h-4 w-4" />
-                Upgrade
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </div>
-
       {loading ? (
         <BillingSkeleton />
       ) : (
         <>
-          <Card className="relative overflow-hidden rounded-[1.35rem] border-slate-200/80 bg-white/95 p-4 shadow-[0_14px_38px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-[#0f1117]/96 dark:shadow-[0_18px_42px_rgba(0,0,0,0.24)] sm:rounded-[2rem] sm:p-7 sm:shadow-[0_24px_70px_rgba(0,0,0,0.24)]">
-            <div className="absolute right-0 top-0 h-40 w-40 translate-x-1/3 -translate-y-1/3 rounded-full bg-[color:rgba(59,130,246,0.12)] blur-3xl" />
-            <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className="border-[color:rgba(59,130,246,0.2)] bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-200)]"
-                  >
-                    Subscription
-                  </Badge>
-                  <Badge
-                    className={cn(
-                      "border-none",
-                      isTrial
-                        ? "bg-amber-500/10 text-amber-600"
-                        : isActive
-                          ? "bg-emerald-500/10 text-emerald-500"
-                          : "bg-red-500/10 text-red-500",
-                    )}
-                  >
-                    {statusLabel}
-                  </Badge>
-                  {isPro ? (
-                    <Badge className="border-none bg-[var(--bookinaja-600)] text-white">
-                      Pro
-                    </Badge>
-                  ) : null}
+          <section className="rounded-[1.75rem] border border-slate-200/80 bg-white/96 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-[#0f1117]/96 sm:p-7">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-2xl space-y-3">
+                <Badge
+                  variant="outline"
+                  className="w-fit border-blue-500/15 bg-blue-500/5 text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600"
+                >
+                  Billing
+                </Badge>
+                <div className="space-y-2">
+                  <h1 className="text-3xl font-black tracking-tight text-slate-950 dark:text-white">
+                    {planState.title}
+                  </h1>
+                  <p className="text-sm leading-6 text-slate-500 dark:text-slate-400">
+                    {planState.short}
+                  </p>
                 </div>
-                <h2 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-5xl">
-                  {String(sub?.plan || "starter").toUpperCase()}
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  variant="outline"
+                  onClick={loadData}
+                  className="rounded-2xl"
+                >
+                  Refresh
+                </Button>
+                <Button asChild className="rounded-2xl bg-slate-950 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950">
+                  <Link href="/admin/settings/billing/subscribe">
+                    {primaryCtaLabel}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-3 md:grid-cols-3">
+              <CompactMetric label="Status" value={formatSubscriptionStatusLabel(sub?.status)} />
+              <CompactMetric label="Plan" value={planState.title} />
+              <CompactMetric label="Aktif sampai" value={periodEnd} />
+            </div>
+          </section>
+
+          <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+            <Card className="rounded-[1.75rem] border-slate-200/80 bg-white/96 p-5 shadow-sm dark:border-white/10 dark:bg-[#0f1117]/96 sm:p-6">
+              <div className="space-y-2">
+                <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                  Next step
+                </div>
+                <h2 className="text-2xl font-black tracking-tight text-slate-950 dark:text-white">
+                  {nextStepTitle}
                 </h2>
-                <p className="max-w-2xl text-sm leading-relaxed text-slate-500">
-                  {isTrial
-                    ? "Trial aktif."
-                    : isActive
-                      ? "Langganan aktif."
-                      : "Belum aktif."}
+                <p className="max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+                  {nextStepCopy}
                 </p>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-3">
-                <BillingMetric
-                  label="Status"
-                  value={statusLabel}
-                  tone={statusTone}
+              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                <ActionStat
+                  icon={<Sparkles className="h-4 w-4" />}
+                  label="Plan sekarang"
+                  value={planState.title}
                 />
-                <BillingMetric
-                  label="Plan"
-                  value={(sub?.plan || "-").toUpperCase()}
-                  tone="text-slate-950 dark:text-white"
-                />
-                <BillingMetric
-                  label="Aktif Sampai"
+                <ActionStat
+                  icon={<CalendarClock className="h-4 w-4" />}
+                  label="Periode"
                   value={periodEnd}
-                  tone="text-slate-950 dark:text-white"
                 />
-              </div>
-            </div>
-          </Card>
-
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <DashboardMetricCard
-              label="Invoice"
-              value={String(orders.length)}
-              hint="Invoice"
-              icon={History}
-              tone="indigo"
-            />
-            <DashboardMetricCard
-              label="Total Bayar"
-              value={`Rp ${formatIDR(totalPaid)}`}
-              hint="Total"
-              icon={ReceiptText}
-              tone="emerald"
-            />
-            <DashboardMetricCard
-              label="Siklus"
-              value={
-                sub?.current_period_start || sub?.current_period_end
-                  ? "Berjalan"
-                  : "-"
-              }
-              hint="Periode"
-              icon={CalendarClock}
-              tone="amber"
-            />
-            <DashboardMetricCard
-              label="Plan Sekarang"
-              value={(sub?.plan || "-").toUpperCase()}
-              hint={isPro ? "Pro" : "Starter"}
-              icon={BadgeCheck}
-              tone="slate"
-            />
-          </div>
-
-          <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-            <DashboardPanel
-              eyebrow="Quick Actions"
-              title="Aksi"
-            >
-              <div className="grid gap-3 sm:grid-cols-2">
-                <QuickAction
-                  title="Upgrade Paket"
-                  desc="Pilih paket"
-                  href="/admin/settings/billing/subscribe"
+                <ActionStat
+                  icon={<CreditCard className="h-4 w-4" />}
+                  label="Total bayar"
+                  value={`Rp ${formatIDR(totalPaid)}`}
                 />
-                <QuickAction
-                  title="Lihat Order"
-                  desc="Invoice"
-                  href="#invoice-history"
-                />
-              </div>
-            </DashboardPanel>
-
-            <DashboardPanel
-              eyebrow="Plan Snapshot"
-              title="Snapshot"
-            >
-              <div className="space-y-2 rounded-[1.5rem] border border-slate-200/80 bg-slate-50/70 px-4 py-4 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03]">
-                <div>- Status: {statusLabel}</div>
-                <div>- Plan: {(sub?.plan || "-").toUpperCase()}</div>
-                <div>- Periode berakhir: {periodEnd}</div>
-                <div>- Total invoice: {orders.length}</div>
-                <div>- Total pembayaran: Rp {formatIDR(totalPaid)}</div>
-              </div>
-            </DashboardPanel>
-          </div>
-
-          <DashboardPanel
-            eyebrow="Invoice History"
-            title="Riwayat invoice"
-          >
-            <Card
-              id="invoice-history"
-              className="border-slate-200/80 bg-white/95 p-4 shadow-none dark:border-white/10 dark:bg-[#0f1117]/96 sm:p-6"
-            >
-              <div className="flex items-center gap-3">
-                <History className="h-4 w-4 text-slate-400" />
-                <h3 className="text-lg font-semibold text-slate-950 dark:text-white">
-                  Riwayat invoice
-                </h3>
-              </div>
-
-              <div className="mt-4 space-y-2">
-                {orders.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 p-12 text-center text-slate-500 dark:border-white/10">
-                    Belum ada invoice.
-                  </div>
-                ) : (
-                  orders.map((order) => (
-                    <div
-                      key={order.ID}
-                      className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04] sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <ReceiptText className="h-4 w-4 text-slate-400" />
-                          <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">
-                            {String(order.Plan).toUpperCase()} -{" "}
-                            {String(order.BillingInterval).toUpperCase()}
-                          </div>
-                        </div>
-                        <div className="mt-1 text-xs text-slate-500">
-                          {order.OrderID} - {formatDate(order.CreatedAt)}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <div className="text-sm font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
-                            Rp {formatIDR(order.Amount)}
-                          </div>
-                          <div className="text-xs text-slate-400">
-                            {order.Status}
-                          </div>
-                        </div>
-                        <ArrowUpRight className="h-4 w-4 text-slate-300" />
-                      </div>
-                    </div>
-                  ))
-                )}
               </div>
             </Card>
-          </DashboardPanel>
+
+            <Card className="rounded-[1.75rem] border-slate-200/80 bg-white/96 p-5 shadow-sm dark:border-white/10 dark:bg-[#0f1117]/96 sm:p-6">
+              <div className="space-y-2">
+                <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                  Yang kamu dapat
+                </div>
+                <h2 className="text-2xl font-black tracking-tight text-slate-950 dark:text-white">
+                  {planState.title}
+                </h2>
+                <p className="text-sm leading-6 text-slate-500 dark:text-slate-400">
+                  {planState.outcome}
+                </p>
+              </div>
+
+              <div className="mt-5 space-y-2">
+                {(planState.billingPlan?.adminFeatures || [
+                  "Landing tenant",
+                  "Dashboard inti",
+                  "Booking flow",
+                ]).slice(0, 4).map((feature) => (
+                  <div
+                    key={feature}
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200"
+                  >
+                    <span className="h-2 w-2 rounded-full bg-blue-500" />
+                    {feature}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+
+          <Card
+            id="invoice-history"
+            className="rounded-[1.75rem] border-slate-200/80 bg-white/96 p-5 shadow-sm dark:border-white/10 dark:bg-[#0f1117]/96 sm:p-6"
+          >
+            <div className="flex items-center gap-3">
+              <History className="h-4 w-4 text-slate-400" />
+              <div>
+                <h3 className="text-lg font-bold text-slate-950 dark:text-white">
+                  Riwayat invoice
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Singkat dan mudah dicek saat dibutuhkan.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-2">
+              {orders.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-200 px-5 py-10 text-center text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
+                  Belum ada invoice.
+                </div>
+              ) : (
+                orders.map((order) => (
+                  <div
+                    key={order.ID}
+                    className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.04] sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <ReceiptText className="h-4 w-4 text-slate-400" />
+                        <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">
+                          {formatPlanLabel(order.Plan)} • {String(order.BillingInterval).toUpperCase()}
+                        </div>
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {order.OrderID} • {formatDate(order.CreatedAt)}
+                      </div>
+                    </div>
+
+                    <div className="text-left sm:text-right">
+                      <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                        Rp {formatIDR(order.Amount)}
+                      </div>
+                      <div className="text-xs uppercase tracking-[0.14em] text-slate-400">
+                        {order.Status}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
         </>
       )}
     </div>
   );
 }
 
-function BillingMetric({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: string;
-}) {
+function CompactMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+      <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
         {label}
       </div>
-      <div className={cn("mt-1 text-sm font-semibold", tone)}>{value}</div>
+      <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+        {value}
+      </div>
     </div>
   );
 }
 
-function QuickAction({
-  title,
-  desc,
-  href,
+function ActionStat({
+  icon,
+  label,
+  value,
 }: {
-  title: string;
-  desc: string;
-  href: string;
+  icon: React.ReactNode;
+  label: string;
+  value: string;
 }) {
   return (
-    <Link
-      href={href}
-      className="group rounded-2xl border border-slate-200 bg-slate-50 p-4 transition-colors hover:bg-slate-100 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
-    >
-      <div className="text-sm font-semibold text-slate-950 dark:text-white">
-        {title}
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="flex items-center gap-2 text-slate-400">
+        {icon}
+        <span className="text-[10px] font-bold uppercase tracking-[0.18em]">
+          {label}
+        </span>
       </div>
-      <p className="mt-1 hidden text-sm leading-relaxed text-slate-500 xl:block">{desc}</p>
-      <div className="mt-3 flex items-center gap-1 text-xs font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
-        Buka
-        <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+      <div className="mt-3 text-base font-semibold text-slate-950 dark:text-white">
+        {value}
       </div>
-    </Link>
+    </div>
   );
 }
 
 function BillingSkeleton() {
   return (
-    <div className="space-y-6">
-      <Skeleton className="h-56 rounded-[2.25rem] bg-slate-100 dark:bg-white/5" />
-      <div className="grid gap-4 md:grid-cols-3">
-        <Skeleton className="h-28 rounded-[1.75rem] bg-slate-100 dark:bg-white/5" />
-        <Skeleton className="h-28 rounded-[1.75rem] bg-slate-100 dark:bg-white/5" />
-        <Skeleton className="h-28 rounded-[1.75rem] bg-slate-100 dark:bg-white/5" />
+    <div className="space-y-5">
+      <Skeleton className="h-44 rounded-[1.75rem] bg-slate-100 dark:bg-white/5" />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Skeleton className="h-64 rounded-[1.75rem] bg-slate-100 dark:bg-white/5" />
+        <Skeleton className="h-64 rounded-[1.75rem] bg-slate-100 dark:bg-white/5" />
       </div>
-      <Skeleton className="h-80 rounded-[1.75rem] bg-slate-100 dark:bg-white/5" />
+      <Skeleton className="h-72 rounded-[1.75rem] bg-slate-100 dark:bg-white/5" />
     </div>
   );
 }

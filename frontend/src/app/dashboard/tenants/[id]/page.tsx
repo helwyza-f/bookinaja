@@ -7,6 +7,7 @@ import { isAfter, isBefore, parseISO } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { formatPlanLabel, formatSubscriptionStatusLabel } from "@/lib/plan-access";
 import {
   getPlatformTenantBalance,
   getPlatformTenantCustomers,
@@ -170,10 +171,10 @@ export default function TenantDetailPage() {
                     Subscription
                   </div>
                   <div className="mt-2 text-xl font-black">
-                    {detail.status || detail.subscription_status || "-"}
+                    {formatSubscriptionStatusLabel(detail.status || detail.subscription_status)}
                   </div>
                   <div className="mt-1 text-sm text-slate-500">
-                    Plan: {detail.plan || "-"}
+                    Plan: {formatPlanLabel(detail.plan)}
                   </div>
                 </div>
                 <div className="rounded-2xl border border-slate-200 p-4">

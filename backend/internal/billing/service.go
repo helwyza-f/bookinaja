@@ -721,14 +721,14 @@ func priceFor(plan string, interval string) (int64, string, error) {
 	switch plan {
 	case "starter":
 		if interval == "annual" {
-			return 1440000, "Bookinaja Starter (Tahunan)", nil
+			return 1490000, "Bookinaja Starter (Tahunan)", nil
 		}
-		return 150000, "Bookinaja Starter (Bulanan)", nil
+		return 149000, "Bookinaja Starter (Bulanan)", nil
 	case "pro":
 		if interval == "annual" {
-			return 2880000, "Bookinaja Pro (Tahunan)", nil
+			return 3490000, "Bookinaja Pro (Tahunan)", nil
 		}
-		return 300000, "Bookinaja Pro (Bulanan)", nil
+		return 349000, "Bookinaja Pro (Bulanan)", nil
 	default:
 		return 0, "", errors.New("plan must be starter or pro")
 	}

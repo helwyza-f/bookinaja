@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/helwiza/backend/internal/customer"
 	"github.com/helwiza/backend/internal/fnb"
+	"github.com/helwiza/backend/internal/platform/access"
 	"github.com/helwiza/backend/internal/platform/env"
 	"github.com/helwiza/backend/internal/platform/fonnte"
 	platformrealtime "github.com/helwiza/backend/internal/platform/realtime"
@@ -62,7 +63,7 @@ func (s *Service) SendReceiptWhatsApp(ctx context.Context, bookingIDRaw, tenantI
 	if err != nil {
 		return nil, errors.New("booking tidak ditemukan")
 	}
-	if !isProReceiptTenant(receipt.TenantPlan, receipt.TenantStatus) {
+	if !access.HasFeature(receipt.TenantPlan, receipt.TenantStatus, access.FeatureAdvancedReceiptBranding, nil) {
 		return nil, errors.New("fitur nota hanya tersedia untuk paket pro aktif")
 	}
 	if strings.TrimSpace(receipt.CustomerPhone) == "" {
@@ -82,10 +83,6 @@ func (s *Service) SendReceiptWhatsApp(ctx context.Context, bookingIDRaw, tenantI
 		Message: "Nota WhatsApp terkirim",
 		Target:  receipt.CustomerPhone,
 	}, nil
-}
-
-func isProReceiptTenant(plan, status string) bool {
-	return strings.EqualFold(strings.TrimSpace(plan), "pro") && strings.EqualFold(strings.TrimSpace(status), "active")
 }
 
 func buildReceiptMessage(receipt *ReceiptContext) string {

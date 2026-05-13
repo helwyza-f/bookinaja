@@ -1865,7 +1865,7 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*RegisterRespo
 		Slug:                           slug,
 		BusinessCategory:               req.BusinessCategory,
 		BusinessType:                   req.BusinessType,
-		Plan:                           "starter",
+		Plan:                           "trial",
 		SubscriptionStatus:             "trial",
 		SubscriptionCurrentPeriodStart: ptrTime(now),
 		SubscriptionCurrentPeriodEnd:   ptrTime(now.Add(freeTrialDuration)),

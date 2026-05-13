@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
+import { formatPlanLabel, formatSubscriptionStatusLabel } from "@/lib/plan-access";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -271,7 +272,7 @@ export default function SettingsCRMPage() {
         <MetricCard
           label="History"
           value={String(crmHistory.length)}
-          hint={`${String(profile?.plan || "-").toUpperCase()} / ${String(profile?.status || "-").toUpperCase()}`}
+          hint={`${formatPlanLabel(profile?.plan)} / ${formatSubscriptionStatusLabel(profile?.status)}`}
         />
       </div>
 
