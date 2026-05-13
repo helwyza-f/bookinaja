@@ -47,23 +47,42 @@ type OnboardingSummaryResponse = {
 const sectionOrder = [
   {
     id: "identity",
-    title: "Identitas bisnis",
-    description: "Nama, kategori, copy, dan kontak utama tenant.",
+    title: "Identitas",
+    description: "Nama, slug, copy, dan kontak inti.",
     icon: BriefcaseBusiness,
   },
   {
     id: "media",
-    title: "Visual utama",
-    description: "Logo, banner, dan gallery supaya halaman publik tidak kosong.",
+    title: "Visual",
+    description: "Logo, banner, dan gallery utama.",
     icon: ImageIcon,
   },
   {
     id: "launch",
-    title: "Finishing launch",
-    description: "Jam operasional, SEO, lalu polish layout di studio.",
+    title: "Launch",
+    description: "Jam operasional, SEO, dan final check.",
     icon: Sparkles,
   },
 ] as const;
+
+function StatPill({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200/80 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+        {label}
+      </div>
+      <div className="mt-1 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
+        {value}
+      </div>
+    </div>
+  );
+}
 
 export default function BusinessSettingsPage() {
   const [profile, setProfile] = useState<TenantProfile>(defaultTenantProfile);
@@ -101,185 +120,166 @@ export default function BusinessSettingsPage() {
     void fetchData();
   }, [fetchData]);
 
-  const saveSection = useCallback(async (sectionKey: string, patch: Partial<TenantProfile>) => {
-    setSavingKey(sectionKey);
-    try {
-      const nextProfile = { ...profile, ...patch };
-      const res = await api.put("/admin/profile", nextProfile);
-      setProfile({
-        ...defaultTenantProfile,
-        ...(res.data?.data || nextProfile),
-      });
-      toast.success("Perubahan bisnis berhasil disimpan");
-      const summaryRes = await api.get<OnboardingSummaryResponse>("/admin/tenant/onboarding-summary");
-      setSummary(summaryRes.data || null);
-    } catch {
-      toast.error("Gagal menyimpan perubahan bisnis");
-    } finally {
-      setSavingKey(null);
-    }
-  }, [profile]);
+  const saveSection = useCallback(
+    async (sectionKey: string, patch: Partial<TenantProfile>) => {
+      setSavingKey(sectionKey);
+      try {
+        const nextProfile = { ...profile, ...patch };
+        const res = await api.put("/admin/profile", nextProfile);
+        setProfile({
+          ...defaultTenantProfile,
+          ...(res.data?.data || nextProfile),
+        });
+        toast.success("Perubahan bisnis berhasil disimpan");
+        const summaryRes = await api.get<OnboardingSummaryResponse>(
+          "/admin/tenant/onboarding-summary",
+        );
+        setSummary(summaryRes.data || null);
+      } catch {
+        toast.error("Gagal menyimpan perubahan bisnis");
+      } finally {
+        setSavingKey(null);
+      }
+    },
+    [profile],
+  );
 
   const publicUrl = useMemo(() => {
     if (!profile.slug) return "";
     return `https://${profile.slug}.bookinaja.com`;
   }, [profile.slug]);
 
-  const launchReadiness = useMemo(() => {
-    const checks = [
-      Boolean(profile.name && profile.slug && profile.tagline),
-      Boolean(profile.whatsapp_number && profile.address),
-      Boolean(profile.logo_url || profile.banner_url),
-      Boolean(profile.open_time && profile.close_time),
-      Boolean(profile.meta_title || profile.meta_description),
-    ];
-    return checks.filter(Boolean).length;
-  }, [profile]);
-
   const checklist = useMemo(
     () => [
       {
         id: "identity",
-        label: "Isi identitas dasar",
+        label: "Identitas dasar",
         done: Boolean(profile.name && profile.slug && profile.tagline),
       },
       {
         id: "contact",
-        label: "Lengkapi kontak tenant",
+        label: "Kontak tenant",
         done: Boolean(profile.whatsapp_number && profile.address),
       },
       {
         id: "media",
-        label: "Pasang visual utama",
+        label: "Visual utama",
         done: Boolean(profile.logo_url || profile.banner_url),
       },
       {
         id: "ops",
-        label: "Review jam operasional",
+        label: "Jam operasional",
         done: Boolean(profile.open_time && profile.close_time),
+      },
+      {
+        id: "seo",
+        label: "SEO dasar",
+        done: Boolean(profile.meta_title || profile.meta_description),
       },
     ],
     [profile],
   );
 
   const completedChecklist = checklist.filter((item) => item.done).length;
-  const onboardingProgress = summary?.progress_percent ?? Math.round((completedChecklist / checklist.length) * 100);
+  const onboardingProgress =
+    summary?.progress_percent ??
+    Math.round((completedChecklist / checklist.length) * 100);
+  const nextPendingStep =
+    (summary?.steps || []).find((step) => !step.complete) || null;
 
   if (loading) {
     return <BusinessSettingsSkeleton />;
   }
 
   return (
-    <div className="space-y-4 pb-20">
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_360px]">
-        <Card className="overflow-hidden rounded-[1.75rem] border-slate-200/90 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.94))] p-5 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.94),rgba(8,47,73,0.94))]">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="min-w-0">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--bookinaja-200)] bg-[var(--bookinaja-50)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-[var(--bookinaja-700)] dark:border-[rgba(96,165,250,0.24)] dark:bg-[rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]">
-                <BriefcaseBusiness className="h-3.5 w-3.5" />
-                Setup Bisnis
-              </div>
-              <h1 className="mt-4 text-2xl font-black tracking-tight text-slate-950 dark:text-white sm:text-3xl">
-                Flow onboarding tenant yang lebih simple
-              </h1>
-              <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600 dark:text-slate-300">
-                Isi pondasi bisnis di sini dulu. Kalau identitas, kontak, dan visual utama sudah rapi,
-                baru lanjut ke page builder untuk atur urutan section dan preview live.
-              </p>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 pb-20">
+      <Card className="rounded-3xl border-slate-200/80 p-6 shadow-sm dark:border-white/10 dark:bg-[#0f172a]">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-3xl space-y-3">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              <span>Setup bisnis</span>
+              <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600" />
+              <span>Onboarding tenant</span>
             </div>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-3xl">
+              Rapikan pondasi tenant dulu
+            </h1>
+            <p className="max-w-2xl text-sm leading-7 text-slate-500 dark:text-slate-400">
+              Isi identitas, kontak, dan visual utama di sini. Setelah itu baru
+              masuk ke studio untuk atur urutan section dan preview publik.
+            </p>
+          </div>
 
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void fetchData("refresh")}
-                className="h-10 rounded-xl"
-              >
-                <RefreshCw className={cn("mr-2 h-4 w-4", refreshing && "animate-spin")} />
-                Refresh
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void fetchData("refresh")}
+              className="h-10 rounded-2xl"
+            >
+              <RefreshCw className={cn("mr-2 h-4 w-4", refreshing && "animate-spin")} />
+              Refresh
+            </Button>
+            <Button asChild variant="outline" className="h-10 rounded-2xl">
+              <Link href="/admin/settings/page-builder">
+                Buka Studio
+                <LayoutTemplate className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+            {publicUrl ? (
+              <Button asChild className="h-10 rounded-2xl">
+                <a href={publicUrl} target="_blank" rel="noreferrer">
+                  Lihat Publik
+                  <ExternalLink className="ml-2 h-4 w-4" />
+                </a>
               </Button>
-              <Button asChild variant="outline" className="h-10 rounded-xl">
-                <Link href="/admin/settings/page-builder">
-                  Buka Studio
-                  <LayoutTemplate className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-              {publicUrl ? (
-                <Button asChild className="h-10 rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
-                  <a href={publicUrl} target="_blank" rel="noreferrer">
-                    Lihat Publik
-                    <ExternalLink className="ml-2 h-4 w-4" />
-                  </a>
-                </Button>
-              ) : null}
-            </div>
+            ) : null}
           </div>
-        </Card>
+        </div>
 
-        <Card className="rounded-[1.75rem] border-slate-200/90 bg-white p-5 shadow-sm dark:border-white/12 dark:bg-[#0f172a]">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-                Readiness
-              </div>
-              <div className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">
-                {onboardingProgress}%
-              </div>
-            </div>
-            <Badge className="rounded-full bg-slate-950 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white dark:bg-white dark:text-slate-950">
-              {launchReadiness}/5 core
-            </Badge>
-          </div>
-          <div className="mt-4 h-2 rounded-full bg-slate-200 dark:bg-white/10">
-            <div
-              className="h-full rounded-full bg-[var(--bookinaja-600)] transition-all"
-              style={{ width: `${Math.max(onboardingProgress, 8)}%` }}
-            />
-          </div>
-          <div className="mt-4 space-y-2">
-            {checklist.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/[0.03]"
-              >
-                <span className="text-slate-700 dark:text-slate-200">{item.label}</span>
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em]",
-                    item.done
-                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200"
-                      : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200",
-                  )}
-                >
-                  {item.done ? "Selesai" : "Perlu isi"}
-                </span>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </section>
+        <div className="mt-6 grid gap-3 md:grid-cols-3">
+          <StatPill label="Progress" value={`${onboardingProgress}%`} />
+          <StatPill
+            label="Sudah rapi"
+            value={`${completedChecklist}/${checklist.length} area`}
+          />
+          <StatPill
+            label="Fokus berikutnya"
+            value={nextPendingStep?.label || "Siap masuk studio"}
+          />
+        </div>
+
+        <div className="mt-5 h-2 rounded-full bg-slate-200 dark:bg-white/10">
+          <div
+            className="h-full rounded-full bg-[var(--bookinaja-600)] transition-all"
+            style={{ width: `${Math.max(onboardingProgress, 6)}%` }}
+          />
+        </div>
+      </Card>
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            {sectionOrder.map((item) => (
-              <a
-                key={item.id}
-                href={`#${item.id}`}
-                className="rounded-[1.4rem] border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-[var(--bookinaja-300)] hover:bg-[var(--bookinaja-50)] dark:border-white/12 dark:bg-[#0f172a] dark:hover:border-[rgba(96,165,250,0.24)] dark:hover:bg-[rgba(59,130,246,0.08)]"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]">
-                  <item.icon className="h-5 w-5" />
-                </div>
-                <div className="mt-4 text-sm font-semibold text-slate-950 dark:text-white">
-                  {item.title}
-                </div>
-                <div className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                  {item.description}
-                </div>
-              </a>
-            ))}
-          </div>
+          <Card className="rounded-3xl border-slate-200/80 p-4 shadow-sm dark:border-white/10 dark:bg-[#0f172a]">
+            <div className="grid gap-3 md:grid-cols-3">
+              {sectionOrder.map((item) => (
+                <a
+                  key={item.id}
+                  href={`#${item.id}`}
+                  className="rounded-2xl border border-slate-200/80 bg-slate-50 px-4 py-4 transition-colors hover:border-[var(--bookinaja-300)] hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-[rgba(96,165,250,0.24)] dark:hover:bg-white/[0.05]"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]">
+                    <item.icon className="h-5 w-5" />
+                  </div>
+                  <div className="mt-4 text-sm font-semibold text-slate-950 dark:text-white">
+                    {item.title}
+                  </div>
+                  <div className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                    {item.description}
+                  </div>
+                </a>
+              ))}
+            </div>
+          </Card>
 
           <section id="identity" className="space-y-4 scroll-mt-24">
             <BasicProfileSection
@@ -322,71 +322,115 @@ export default function BusinessSettingsPage() {
         </div>
 
         <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
-          <Card className="rounded-[1.75rem] border-slate-200/90 bg-white p-5 shadow-sm dark:border-white/12 dark:bg-[#0f172a]">
-            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-              Checklist owner
+          <Card className="rounded-3xl border-slate-200/80 p-5 shadow-sm dark:border-white/10 dark:bg-[#0f172a]">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                  Readiness
+                </div>
+                <div className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                  {onboardingProgress}%
+                </div>
+              </div>
+              <Badge className="rounded-full border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
+                {completedChecklist}/{checklist.length}
+              </Badge>
             </div>
-            <div className="mt-4 space-y-3">
-              {(summary?.steps || []).map((step, index) => (
-                <Link
-                  key={step.id}
-                  href={step.href}
-                  className="block rounded-2xl border border-slate-200 bg-slate-50 p-3 transition-colors hover:border-[var(--bookinaja-300)] hover:bg-[var(--bookinaja-50)] dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-[rgba(96,165,250,0.24)] dark:hover:bg-[rgba(59,130,246,0.08)]"
+
+            <div className="mt-4 space-y-2">
+              {checklist.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-slate-50 px-3 py-3 text-sm dark:border-white/10 dark:bg-white/[0.03]"
                 >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={cn(
-                        "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
-                        step.complete
-                          ? "bg-emerald-600 text-white"
-                          : "bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-200",
-                      )}
-                    >
-                      {step.complete ? (
-                        <CheckCircle2 className="h-4 w-4" />
-                      ) : (
-                        <span className="text-xs font-bold">{index + 1}</span>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="text-sm font-semibold text-slate-950 dark:text-white">
-                          {step.label}
-                        </div>
-                        {step.required ? (
-                          <Badge variant="outline" className="rounded-full text-[10px] uppercase">
-                            Prioritas
-                          </Badge>
-                        ) : null}
-                      </div>
-                      <div className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                        {step.description}
-                      </div>
-                    </div>
-                  </div>
-                </Link>
+                  <span className="text-slate-700 dark:text-slate-200">
+                    {item.label}
+                  </span>
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]",
+                      item.done
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200"
+                        : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200",
+                    )}
+                  >
+                    {item.done ? "Selesai" : "Belum"}
+                  </span>
+                </div>
               ))}
             </div>
           </Card>
 
-          <Card className="rounded-[1.75rem] border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-5 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.94),rgba(8,12,24,0.98))]">
-            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+          <Card className="rounded-3xl border-slate-200/80 p-5 shadow-sm dark:border-white/10 dark:bg-[#0f172a]">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
               Next step
             </div>
-            <div className="mt-3 text-lg font-bold tracking-tight text-slate-950 dark:text-white">
-              Lanjut ke Page Builder kalau pondasinya sudah beres
+            <div className="mt-3 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
+              {nextPendingStep?.label || "Masuk ke page builder"}
             </div>
-            <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Studio ini sekarang lebih enak dipakai kalau copy, kontak, dan visual utamanya sudah jadi.
-              Di sana kamu tinggal atur section, variant, warna, dan preview live.
+            <p className="mt-2 text-sm leading-7 text-slate-500 dark:text-slate-400">
+              {nextPendingStep?.description ||
+                "Kalau pondasi tenant sudah rapi, lanjutkan ke studio untuk atur section dan preview live."}
             </p>
-            <Button asChild className="mt-4 h-11 w-full rounded-2xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
+            <Button asChild className="mt-4 w-full rounded-2xl">
               <Link href="/admin/settings/page-builder">
                 Buka Page Builder
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
           </Card>
+
+          {(summary?.steps || []).length > 0 ? (
+            <Card className="rounded-3xl border-slate-200/80 p-5 shadow-sm dark:border-white/10 dark:bg-[#0f172a]">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                Checklist owner
+              </div>
+              <div className="mt-4 space-y-3">
+                {(summary?.steps || []).map((step, index) => (
+                  <Link
+                    key={step.id}
+                    href={step.href}
+                    className="block rounded-2xl border border-slate-200/80 bg-slate-50 px-4 py-3 transition-colors hover:border-[var(--bookinaja-300)] hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-[rgba(96,165,250,0.24)] dark:hover:bg-white/[0.05]"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={cn(
+                          "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
+                          step.complete
+                            ? "bg-emerald-600 text-white"
+                            : "bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-200",
+                        )}
+                      >
+                        {step.complete ? (
+                          <CheckCircle2 className="h-4 w-4" />
+                        ) : (
+                          <span className="text-xs font-semibold">{index + 1}</span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="text-sm font-medium text-slate-950 dark:text-white">
+                            {step.label}
+                          </div>
+                          {step.required ? (
+                            <Badge
+                              variant="outline"
+                              className="rounded-full text-[10px] uppercase"
+                            >
+                              Prioritas
+                            </Badge>
+                          ) : null}
+                        </div>
+                        <div className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                          {step.description}
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </Card>
+          ) : null}
         </aside>
       </section>
     </div>
@@ -396,24 +440,18 @@ export default function BusinessSettingsPage() {
 function BusinessSettingsSkeleton() {
   return (
     <div className="space-y-4 pb-20">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_360px]">
-        <Skeleton className="h-64 rounded-[1.75rem]" />
-        <Skeleton className="h-64 rounded-[1.75rem]" />
-      </div>
+      <Skeleton className="h-52 rounded-3xl" />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            <Skeleton className="h-36 rounded-[1.4rem]" />
-            <Skeleton className="h-36 rounded-[1.4rem]" />
-            <Skeleton className="h-36 rounded-[1.4rem]" />
-          </div>
-          <Skeleton className="h-64 rounded-[1.75rem]" />
-          <Skeleton className="h-72 rounded-[1.75rem]" />
-          <Skeleton className="h-72 rounded-[1.75rem]" />
+          <Skeleton className="h-32 rounded-3xl" />
+          <Skeleton className="h-64 rounded-3xl" />
+          <Skeleton className="h-72 rounded-3xl" />
+          <Skeleton className="h-72 rounded-3xl" />
         </div>
         <div className="space-y-4">
-          <Skeleton className="h-80 rounded-[1.75rem]" />
-          <Skeleton className="h-56 rounded-[1.75rem]" />
+          <Skeleton className="h-72 rounded-3xl" />
+          <Skeleton className="h-48 rounded-3xl" />
+          <Skeleton className="h-80 rounded-3xl" />
         </div>
       </div>
     </div>

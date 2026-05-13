@@ -1151,7 +1151,7 @@ func (r *Repository) UpdateOwnerIdentity(ctx context.Context, userID, tenantID u
 		UPDATE users
 		SET
 			name = $3,
-			email = $4,
+			email = $4::text,
 			email_verified_at = CASE
 				WHEN LOWER(TRIM(email)) = LOWER(TRIM($4::text)) THEN email_verified_at
 				ELSE NULL
