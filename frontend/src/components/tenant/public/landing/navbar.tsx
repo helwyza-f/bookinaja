@@ -54,7 +54,7 @@ export function TenantNavbar({
     LANDING_COPY_BUDGET.mobileNavbarBusinessType,
   );
   const { customer, firstName, isAuthenticated } = useCustomerSessionPreview({
-    enabled: enableCustomerContext && !embedded,
+    enabled: enableCustomerContext,
   });
   const customerInitials = String(customer?.name || "CU")
     .split(" ")

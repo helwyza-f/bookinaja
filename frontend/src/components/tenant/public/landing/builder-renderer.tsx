@@ -101,6 +101,7 @@ export function LandingBuilderRenderer({
           profile={normalizedProfile}
           previewMode={previewMode}
           embedded={embedded}
+          enableCustomerContext={!isEditorPreview}
           landingTheme={{
             primary: theme.primary_color,
             accent: theme.accent_color,
