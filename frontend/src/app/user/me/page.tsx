@@ -25,20 +25,19 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
+  DiscoveryCategoryChips,
+  DiscoverySectionHeading,
+  DiscoveryShowcaseCard,
+  DiscoverySpotlightCard,
+} from "@/components/discovery/discovery-cards";
+import {
   type DiscoveryFeedResponse,
   type DiscoveryTenant,
-  formatDiscoveryDuration,
-  formatStartingPrice,
-  getDiscoveryByline,
-  getDiscoveryCardKind,
   getDiscoveryEventMetadata,
   getDiscoveryItemHref,
-  getDiscoveryItemImage,
-  getDiscoveryItemSummary,
-  getDiscoveryItemTitle,
-  getDiscoverySurfaceLabel,
-  isDiscoveryBusiness,
-  isDiscoveryPost,
+  getDiscoveryItemCta,
+  getDiscoveryItemReason,
+  isDiscoveryPromoPost,
   scoreDiscoveryTenant,
 } from "@/lib/discovery";
 import {
@@ -417,13 +416,23 @@ export default function UserDashboardPage() {
       ) : null}
 
       <section className="space-y-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
-            Discovery
-          </p>
-          <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
-            Cari tempat berikutnya
-          </h2>
+        <div className="rounded-[1.75rem] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-4 shadow-sm dark:border-white/10 dark:bg-[linear-gradient(180deg,#0b0f19_0%,#101827_100%)]">
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-blue-700 dark:bg-blue-500/10 dark:text-blue-200">
+              <Sparkles className="h-3.5 w-3.5" />
+              Discovery personal
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-black tracking-tight text-slate-950 dark:text-white">
+                Cari tempat berikutnya tanpa mulai dari nol.
+              </h2>
+              <p className="max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+                Discovery di bawah menggabungkan tenant yang lagi relevan,
+                bisnis yang siap dibandingkan, dan konten yang cukup jelas
+                untuk kamu buka lebih dulu.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="relative">
@@ -436,40 +445,94 @@ export default function UserDashboardPage() {
           />
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {categories.map((category) => (
-            <button
-              key={category}
-              onClick={() => setActiveCategory(category)}
-              className={cn(
-                "whitespace-nowrap rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] transition-all",
-                activeCategory === category
-                  ? "bg-blue-600 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/10 dark:text-slate-200",
-              )}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
+        <DiscoveryCategoryChips
+          categories={categories}
+          activeCategory={activeCategory}
+          onChange={setActiveCategory}
+        />
       </section>
 
       {featuredTenant ? (
-        <FeatureHero
+        <DiscoverySpotlightCard
           tenant={featuredTenant}
+          href={getDiscoverHref(featuredTenant)}
+          ctaLabel={featuredTenant.item_kind === "post" ? "Buka konten ini" : "Lihat tenant ini"}
+          accent={featuredTenant.item_kind === "post" ? "blue" : "emerald"}
+          stats={[
+            getDiscoveryItemReason(featuredTenant) ||
+              "Ini tenant yang paling masuk akal untuk jadi langkah eksplorasi berikutnya.",
+            featuredTenant.item_kind === "post"
+              ? `${featuredTenant.post_detail_views_7d || 0} buka detail / 7 hari`
+              : `${featuredTenant.resource_count || 0} resource aktif`,
+            featuredTenant.item_kind === "post"
+              ? `${featuredTenant.post_booking_starts_7d || 0} mulai booking`
+              : `${featuredTenant.discovery_clicks_30d || 0} klik / 30 hari`,
+          ]}
           onVisible={() => markImpression(featuredTenant, "home-hero", "hero", 0)}
+          onClick={() =>
+            trackDiscoveryEvent({
+              tenant_id: featuredTenant.tenant_id || featuredTenant.id,
+              tenant_slug: featuredTenant.slug,
+              event_type: "click",
+              surface: "customer-hub",
+              section_id: "home-hero",
+              card_variant: "hero",
+              position_index: 0,
+              promo_label: featuredTenant.feed_label || featuredTenant.promo_label,
+              metadata: getDiscoveryEventMetadata(featuredTenant),
+            })
+          }
         />
       ) : null}
 
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <section className="space-y-3">
+        <DiscoverySectionHeading
+          eyebrow="Pilihan cepat"
+          title="Kartu yang cukup jelas untuk dibuka sekarang"
+          description="Kartu ini lebih ringkas daripada feed publik. Tujuannya bukan browsing panjang, tapi membantu customer kembali ke tenant yang paling relevan."
+        />
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {discoveryGrid.map((tenant, index) => (
-          <DiscoveryCard
+          <DiscoveryShowcaseCard
             key={tenant.id}
             tenant={tenant}
-            index={index}
+            href={getDiscoverHref(tenant)}
+            ctaLabel={getDiscoveryItemCta(tenant)}
+            tone={
+              tenant.item_kind !== "post"
+                ? "emerald"
+                : isDiscoveryPromoPost(tenant)
+                  ? "amber"
+                  : "blue"
+            }
+            meta={
+              getDiscoveryItemReason(tenant) ||
+              (tenant.item_kind === "post"
+                ? "Konten ini cukup jelas untuk bantu kamu memutuskan apakah tenant ini layak dibuka lebih lanjut."
+                : "Bisnis ini sudah punya konteks yang cukup untuk dibandingkan tanpa buka banyak halaman.")
+            }
+            stat={
+              tenant.item_kind === "post"
+                ? `${tenant.post_detail_views_7d || 0} buka detail`
+                : `${tenant.resource_count || 0} resource aktif`
+            }
             onVisible={() => markImpression(tenant, "home-grid", "compact", index)}
+            onClick={() =>
+              trackDiscoveryEvent({
+                tenant_id: tenant.tenant_id || tenant.id,
+                tenant_slug: tenant.slug,
+                event_type: "click",
+                surface: "customer-hub",
+                section_id: "home-grid",
+                card_variant: "compact",
+                position_index: index,
+                promo_label: tenant.feed_label || tenant.promo_label,
+                metadata: getDiscoveryEventMetadata(tenant),
+              })
+            }
           />
         ))}
+        </div>
       </section>
 
       <section className="grid gap-3 md:grid-cols-2">
@@ -572,180 +635,6 @@ function getDiscoverHref(tenant: DiscoveryTenant) {
   return getDiscoveryItemHref(tenant) || getTenantUrl(tenant.slug);
 }
 
-function FeatureHero({
-  tenant,
-  onVisible,
-}: {
-  tenant: DiscoveryTenant;
-  onVisible: () => void;
-}) {
-  const hasTrackedVisibilityRef = useRef(false);
-
-  useEffect(() => {
-    if (hasTrackedVisibilityRef.current) return;
-    hasTrackedVisibilityRef.current = true;
-    onVisible();
-  }, [onVisible]);
-
-  return (
-    <Card className="overflow-hidden rounded-[1.75rem] border-0 bg-slate-950 text-white shadow-[0_22px_60px_rgba(15,23,42,0.22)] dark:bg-[#0b1222]">
-      <CardContent className="relative p-0">
-        <div
-          className="absolute inset-0 bg-cover bg-center opacity-45"
-          style={{
-            backgroundImage: getDiscoveryItemImage(tenant)
-              ? `url(${getDiscoveryItemImage(tenant)})`
-              : "linear-gradient(135deg, rgba(13,31,39,0.94), rgba(29,78,216,0.65))",
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-tr from-black/78 via-black/45 to-blue-400/15" />
-        <div className="relative z-10 flex min-h-[250px] flex-col justify-between p-4">
-          <div className="flex items-center justify-between gap-3">
-            <Badge className="rounded-full bg-white/10 text-white">
-              {getDiscoverySurfaceLabel(tenant)}
-            </Badge>
-            <Badge className="rounded-full border border-white/15 bg-white/10 text-white/90">
-              {formatStartingPrice(tenant.starting_price)}
-            </Badge>
-          </div>
-
-          <div className="space-y-3">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/75">
-              {getDiscoveryByline(tenant)}
-            </div>
-            <h3 className="max-w-2xl text-2xl font-semibold tracking-tight">
-              {getDiscoveryItemTitle(tenant)}
-            </h3>
-            <p className="max-w-2xl text-sm leading-6 text-white/85">
-              {getDiscoveryItemSummary(tenant)}
-            </p>
-          </div>
-
-          <Button asChild className="h-11 rounded-2xl bg-white text-slate-950 hover:bg-white/90">
-            <a
-              href={getDiscoverHref(tenant)}
-              onClick={() =>
-                trackDiscoveryEvent({
-                  tenant_id: tenant.tenant_id || tenant.id,
-                  tenant_slug: tenant.slug,
-                  event_type: "click",
-                  surface: "customer-hub",
-                  section_id: "home-hero",
-                  card_variant: "hero",
-                  position_index: 0,
-                  promo_label: tenant.feed_label || tenant.promo_label,
-                  metadata: getDiscoveryEventMetadata(tenant),
-                })
-              }
-            >
-              Lihat sekarang
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </a>
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function DiscoveryCard({
-  tenant,
-  index,
-  onVisible,
-}: {
-  tenant: DiscoveryTenant;
-  index: number;
-  onVisible: () => void;
-}) {
-  const hasTrackedVisibilityRef = useRef(false);
-
-  useEffect(() => {
-    if (hasTrackedVisibilityRef.current) return;
-    hasTrackedVisibilityRef.current = true;
-    onVisible();
-  }, [onVisible]);
-
-  const isBusiness = isDiscoveryBusiness(tenant);
-  const cardKind = getDiscoveryCardKind(tenant);
-  const isVideo = cardKind === "video";
-
-  return (
-    <Card className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#10141f]">
-      <CardContent className="space-y-4 p-0">
-        <div
-          className="h-32 bg-cover bg-center"
-          style={{
-            backgroundImage: getDiscoveryItemImage(tenant)
-              ? `url(${getDiscoveryItemImage(tenant)})`
-              : isBusiness
-                ? "linear-gradient(135deg, rgba(5,46,43,0.92), rgba(15,118,110,0.72))"
-                : "linear-gradient(135deg, rgba(13,31,39,0.92), rgba(59,130,246,0.72))",
-          }}
-        />
-
-        <div className="space-y-3 px-4 pb-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <Badge className="rounded-full bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
-                {getDiscoverySurfaceLabel(tenant)}
-              </Badge>
-              <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
-                {getDiscoveryByline(tenant)}
-              </p>
-            </div>
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {formatStartingPrice(tenant.starting_price)}
-            </span>
-          </div>
-
-          <div>
-            <h3 className="line-clamp-2 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
-              {getDiscoveryItemTitle(tenant)}
-            </h3>
-            <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-              {getDiscoveryItemSummary(tenant)}
-            </p>
-          </div>
-
-          <div className="rounded-[1.25rem] bg-slate-50 px-3 py-2 text-[11px] text-slate-600 dark:bg-white/[0.04] dark:text-slate-300">
-            {isBusiness
-              ? `${tenant.resource_count || 0} resource siap dibooking`
-              : isVideo
-                ? `Video ${formatDiscoveryDuration(tenant.post_duration_seconds) || "singkat"}`
-                : isDiscoveryPost(tenant)
-                  ? "Postingan tenant yang layak dicek"
-                  : "Tempat ini sedang relevan buat kamu"}
-          </div>
-
-          <Button
-            asChild
-            className="h-11 w-full rounded-2xl bg-slate-950 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950"
-          >
-            <a
-              href={getDiscoverHref(tenant)}
-              onClick={() =>
-                trackDiscoveryEvent({
-                  tenant_id: tenant.tenant_id || tenant.id,
-                  tenant_slug: tenant.slug,
-                  event_type: "click",
-                  surface: "customer-hub",
-                  section_id: "home-grid",
-                  card_variant: "compact",
-                  position_index: index,
-                  promo_label: tenant.feed_label || tenant.promo_label,
-                  metadata: getDiscoveryEventMetadata(tenant),
-                })
-              }
-            >
-              Buka
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </a>
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 function MetricCard({
   label,
