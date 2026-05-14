@@ -244,10 +244,13 @@ export function getCustomerPostAuthUrl(options?: {
 }) {
   const tenantSlug = normalizeSlug(options?.tenantSlug);
   const normalizedNext = normalizeNextPath(options?.next) || "/user/me";
+  if (isCustomerPortalPath(normalizedNext)) {
+    return getRootPortalUrl(normalizeCustomerPortalPath(normalizedNext));
+  }
+
   if (!tenantSlug) {
     return normalizedNext;
   }
-
   return getTenantUrl(tenantSlug, mapCustomerNextPathToTenant(normalizedNext));
 }
 
@@ -279,6 +282,30 @@ function mapCustomerNextPathToTenant(value: string) {
   }
   if (value.startsWith("/user/")) {
     return value.slice("/user".length) || "/";
+  }
+  return value;
+}
+
+function isCustomerPortalPath(value: string) {
+  return (
+    value === "/user" ||
+    value === "/user/" ||
+    value === "/me" ||
+    value === "/me/" ||
+    value.startsWith("/user/") ||
+    value.startsWith("/me/")
+  );
+}
+
+function normalizeCustomerPortalPath(value: string) {
+  if (value === "/me" || value === "/me/") {
+    return "/user/me";
+  }
+  if (value.startsWith("/me/")) {
+    return `/user${value}`;
+  }
+  if (value === "/user" || value === "/user/") {
+    return "/user/me";
   }
   return value;
 }
