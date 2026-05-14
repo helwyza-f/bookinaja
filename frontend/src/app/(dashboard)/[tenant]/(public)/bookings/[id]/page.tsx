@@ -51,6 +51,7 @@ import {
   getPreviewSurfaceClass,
   getThemeVisuals,
 } from "@/components/tenant/public/landing/builder-renderer";
+import { useCustomerSessionPreview } from "@/lib/customer-session-preview";
 
 export default function ResourceBookingDetail() {
   const params = useParams();
@@ -85,6 +86,11 @@ export default function ResourceBookingDetail() {
     "idle" | "validating" | "valid" | "invalid"
   >("idle");
   const [isReturning, setIsReturning] = useState(false);
+  const customerPrefilledRef = useRef(false);
+  const userTouchedNameRef = useRef(false);
+  const userTouchedPhoneRef = useRef(false);
+  const { customer: sessionCustomer, isAuthenticated: hasCustomerSession } =
+    useCustomerSessionPreview();
 
   // 1. Fetch Detail Resource
   useEffect(() => {
@@ -184,6 +190,32 @@ export default function ResourceBookingDetail() {
   }, [date, params.id, isInterday]);
 
   useEffect(() => {
+    if (!hasCustomerSession || !sessionCustomer) return;
+
+    const normalizedPhone = String(sessionCustomer.phone || "")
+      .replace(/\D/g, "")
+      .trim();
+    const normalizedName = String(sessionCustomer.name || "")
+      .trim()
+      .toUpperCase();
+
+    const appliedPhone = !userTouchedPhoneRef.current && normalizedPhone && !custPhone;
+    const appliedName = !userTouchedNameRef.current && normalizedName && !custName;
+
+    if (appliedPhone) {
+      setCustPhone(normalizedPhone);
+    }
+    if (appliedName) {
+      setCustName(normalizedName);
+    }
+    if (appliedPhone || appliedName) {
+      customerPrefilledRef.current = true;
+      setPhoneStatus("valid");
+      setIsReturning(true);
+    }
+  }, [custName, custPhone, hasCustomerSession, sessionCustomer]);
+
+  useEffect(() => {
     if (custPhone.length < 9) {
       setPhoneStatus("idle");
       setIsReturning(false);
@@ -199,7 +231,11 @@ export default function ResourceBookingDetail() {
           setIsReturning(true);
           setCustName(resExist.data.name);
           setPhoneStatus("valid");
-          toast.success(`Senang melihatmu kembali, ${resExist.data.name}!`);
+          if (customerPrefilledRef.current) {
+            customerPrefilledRef.current = false;
+          } else {
+            toast.success(`Senang melihatmu kembali, ${resExist.data.name}!`);
+          }
         } else {
           setIsReturning(false);
           const resVal = await api.get(
@@ -932,15 +968,17 @@ export default function ResourceBookingDetail() {
                     <Label className={cn("ml-1 text-[9px] font-black uppercase", themeVisuals.eyebrowMutedClass)}>
                       WhatsApp Aktif
                     </Label>
-                    <div className="relative">
-                      <Input
-                        value={custPhone}
-                        onChange={(e) =>
-                          setCustPhone(e.target.value.replace(/\D/g, ""))
-                        }
-                        className={cn(
-                          "h-14 rounded-xl bg-slate-50 dark:bg-black border-none font-black px-6 text-lg shadow-inner",
-                          phoneStatus === "valid"
+                      <div className="relative">
+                        <Input
+                          value={custPhone}
+                          onChange={(e) => {
+                            userTouchedPhoneRef.current = true;
+                            customerPrefilledRef.current = false;
+                            setCustPhone(e.target.value.replace(/\D/g, ""));
+                          }}
+                          className={cn(
+                            "h-14 rounded-xl bg-slate-50 dark:bg-black border-none font-black px-6 text-lg shadow-inner",
+                            phoneStatus === "valid"
                             ? "ring-2"
                             : phoneStatus === "invalid"
                               ? "ring-2 ring-red-500"
@@ -978,14 +1016,15 @@ export default function ResourceBookingDetail() {
                           Identitas Terdaftar
                         </span>
                       )}
-                    </div>
-                    <Input
-                      value={custName}
-                      onChange={(e) =>
-                        setCustName(e.target.value.toUpperCase())
-                      }
-                      className="h-14 rounded-xl bg-slate-50 dark:bg-black border-none font-black px-6 text-lg shadow-inner"
-                      placeholder="NAMA LENGKAP"
+                      </div>
+                      <Input
+                        value={custName}
+                        onChange={(e) => {
+                          userTouchedNameRef.current = true;
+                          setCustName(e.target.value.toUpperCase());
+                        }}
+                        className="h-14 rounded-xl bg-slate-50 dark:bg-black border-none font-black px-6 text-lg shadow-inner"
+                        placeholder="NAMA LENGKAP"
                     />
                   </div>
                 </div>

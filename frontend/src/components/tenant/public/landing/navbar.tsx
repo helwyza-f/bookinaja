@@ -5,12 +5,13 @@ import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Moon, Sun, UserCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getCentralCustomerAuthUrl } from "@/lib/tenant";
+import { getCentralCustomerAuthUrl, getCustomerPostAuthUrl } from "@/lib/tenant";
 import { getLandingPresetTone } from "./theme-preset";
 import {
   LANDING_COPY_BUDGET,
   truncateLandingCopy,
 } from "./copy-budget";
+import { useCustomerSessionPreview } from "@/lib/customer-session-preview";
 
 type TenantNavbarProfile = {
   name: string;
@@ -30,6 +31,7 @@ type TenantNavbarProps = {
   };
   previewMode?: "desktop" | "mobile";
   embedded?: boolean;
+  enableCustomerContext?: boolean;
 };
 
 export function TenantNavbar({
@@ -37,6 +39,7 @@ export function TenantNavbar({
   landingTheme,
   previewMode = "desktop",
   embedded = false,
+  enableCustomerContext = true,
 }: TenantNavbarProps) {
   const { resolvedTheme, setTheme } = useTheme();
   const isCompactPreview = embedded && previewMode === "mobile";
@@ -50,6 +53,24 @@ export function TenantNavbar({
     businessType,
     LANDING_COPY_BUDGET.mobileNavbarBusinessType,
   );
+  const { customer, firstName, isAuthenticated } = useCustomerSessionPreview({
+    enabled: enableCustomerContext && !embedded,
+  });
+  const customerInitials = String(customer?.name || "CU")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("");
+  const customerHref = isAuthenticated
+    ? getCustomerPostAuthUrl({
+        tenantSlug: profile.slug,
+        next: "/user/me",
+      })
+    : getCentralCustomerAuthUrl("login", {
+        tenantSlug: profile.slug,
+        next: "/user/me",
+      });
 
   const shellRadiusClass =
     radiusStyle === "square"
@@ -169,27 +190,45 @@ export function TenantNavbar({
             )}
           </Button>
 
-          <a
-            href={getCentralCustomerAuthUrl("login", {
-              tenantSlug: profile.slug,
-              next: "/user/me",
-            })}
-            className="shrink-0"
-          >
+          <a href={customerHref} className="shrink-0">
             <Button
               className={cn(
                 "border-none font-black uppercase italic tracking-[0.14em] text-white",
                 isCompactPreview
                   ? "h-10 w-10 px-0"
-                  : cn("h-11 w-11 px-0 text-[10px] md:h-12 md:w-auto md:px-5 md:text-[11px]", buttonRadiusClass),
+                  : cn(
+                      "h-11 min-w-[44px] px-0 text-[10px] md:h-12 md:w-auto md:px-5 md:text-[11px]",
+                      buttonRadiusClass,
+                    ),
               )}
               style={{
                 backgroundColor: primaryColor,
                 boxShadow: `0 12px 28px ${primaryColor}33`,
               }}
             >
-              <UserCircle2 className={cn(isCompactPreview ? "h-4.5 w-4.5" : "h-4.5 w-4.5 md:mr-1.5 md:h-4 md:w-4")} />
-              {!isCompactPreview ? <span className="hidden md:inline">Customer Sign In</span> : null}
+              {customer?.avatar_url && isAuthenticated ? (
+                <Image
+                  src={customer.avatar_url}
+                  alt={customer?.name || "Customer"}
+                  width={28}
+                  height={28}
+                  unoptimized
+                  className="h-7 w-7 rounded-full object-cover object-center"
+                />
+              ) : isAuthenticated ? (
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/18 text-[11px] font-black text-white">
+                  {customerInitials || "CU"}
+                </span>
+              ) : (
+                <UserCircle2 className={cn(isCompactPreview ? "h-4.5 w-4.5" : "h-4.5 w-4.5 md:mr-1.5 md:h-4 md:w-4")} />
+              )}
+              {!isCompactPreview ? (
+                <span className="hidden md:inline">
+                  {isAuthenticated
+                    ? `Halo, ${truncateLandingCopy(firstName || customer?.name || "Customer", 16)}`
+                    : "Customer Sign In"}
+                </span>
+              ) : null}
             </Button>
           </a>
         </div>

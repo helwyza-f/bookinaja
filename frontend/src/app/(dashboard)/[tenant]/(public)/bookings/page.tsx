@@ -123,6 +123,7 @@ export default function PublicResourceCatalog() {
       <TenantNavbar
         profile={{
           name: resolvedProfile.name,
+          slug: resolvedProfile.slug,
           business_type: resolvedProfile.business_type,
           primary_color: resolvedProfile.primary_color,
           logo_url: resolvedProfile.logo_url,

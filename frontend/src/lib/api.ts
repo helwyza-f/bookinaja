@@ -59,7 +59,9 @@ api.interceptors.request.use((config) => {
     ? browserTenantSlug
     : (getCookie("current_tenant_slug") as string);
 
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (token && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
 
   if (browserTenantSlug && tenantSlug) {
     config.headers["X-Tenant-Slug"] = tenantSlug;
