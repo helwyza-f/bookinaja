@@ -39,6 +39,7 @@ import {
   PageBuilderPreviewToolbar,
   PageBuilderStudioHeader,
 } from "@/components/dashboard/page-builder-studio";
+import { LANDING_COPY_BUDGET } from "@/components/tenant/public/landing/copy-budget";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1496,29 +1497,42 @@ function BusinessStudioPanel({
                 }
               />
             </Field>
-            <Field label="Tagline utama">
-              <Input
-                value={profile.tagline || ""}
-                onChange={(event) =>
-                  onProfilePatch({ tagline: event.target.value })
-                }
-              />
-            </Field>
-            <Field label="Deskripsi hero">
-              <Textarea
-                value={String(heroSection?.props?.description || "")}
-                onChange={(event) =>
-                  heroSection &&
+             <Field
+               label="Tagline utama"
+               hint={`${(profile.tagline || "").trim().length}/${LANDING_COPY_BUDGET.mobileHeroTagline} mobile`}
+             >
+                <Input
+                  value={profile.tagline || ""}
+                  onChange={(event) =>
+                    onProfilePatch({ tagline: event.target.value })
+                  }
+                  placeholder="Contoh: Booking online yang lebih rapi untuk rental PS"
+                />
+                <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
+                  Mobile paling aman sekitar {LANDING_COPY_BUDGET.mobileHeroTagline} karakter. Kalau lebih panjang, renderer akan merapikan otomatis.
+                </p>
+              </Field>
+              <Field
+                label="Deskripsi hero"
+                hint={`${String(heroSection?.props?.description || "").trim().length}/${LANDING_COPY_BUDGET.mobileHeroDescription} mobile`}
+              >
+                <Textarea
+                  value={String(heroSection?.props?.description || "")}
+                  onChange={(event) =>
+                    heroSection &&
                   onSectionPropChange(
                     heroSection.id,
                     "description",
                     event.target.value,
                   )
-                }
-                className="min-h-24"
-                placeholder="Copy singkat yang tampil di hero"
-              />
-            </Field>
+                  }
+                  className="min-h-24"
+                  placeholder="Copy singkat yang tampil di hero"
+                />
+                <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
+                  Fokus ke satu value utama. Di mobile, deskripsi akan dijaga tetap ringkas sekitar {LANDING_COPY_BUDGET.mobileHeroDescription} karakter.
+                </p>
+              </Field>
           </fieldset>
           <SectionActionButton
             editing={identityPanelEditing}
@@ -3603,16 +3617,21 @@ function ChoiceChips({
 
 function Field({
   label,
+  hint,
   children,
 }: {
   label: string;
+  hint?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="space-y-2">
-      <Label className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-        {label}
-      </Label>
+      <div className="flex items-start justify-between gap-3">
+        <Label className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+          {label}
+        </Label>
+        {hint ? <div className="text-right text-[11px] text-slate-400 dark:text-slate-500">{hint}</div> : null}
+      </div>
       {children}
     </div>
   );

@@ -6,6 +6,11 @@ import { Sparkles, Zap } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { getLandingPresetTone } from "./theme-preset";
+import {
+  LANDING_COPY_BUDGET,
+  normalizeLandingCopy,
+  truncateLandingCopy,
+} from "./copy-budget";
 
 type TenantHeroProps = {
   profile: { name: string; slogan?: string };
@@ -31,6 +36,22 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
   const themePreset = theme.preset || "bookinaja-classic";
   const radiusStyle = theme.radiusStyle || "rounded";
   const tone = getLandingPresetTone(themePreset);
+  const sloganText =
+    normalizeLandingCopy(profile.slogan) || "Pengalaman Premium";
+  const mobileSlogan = truncateLandingCopy(
+    sloganText,
+    LANDING_COPY_BUDGET.mobileHeroSlogan,
+  );
+  const heroTagline = normalizeLandingCopy(content.tagline);
+  const mobileTagline = truncateLandingCopy(
+    heroTagline,
+    LANDING_COPY_BUDGET.mobileHeroTagline,
+  );
+  const heroDescription = normalizeLandingCopy(content.description);
+  const mobileDescription = truncateLandingCopy(
+    heroDescription,
+    LANDING_COPY_BUDGET.mobileHeroDescription,
+  );
 
   const heroBackgroundClass =
     themePreset === "boutique"
@@ -79,9 +100,16 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
   const accentShadow =
     theme.accent ? `0 24px 48px -16px ${theme.accent}26` : `0 20px 40px -10px ${theme.primary}88`;
   const heroFeatures = content.features.slice(0, 3);
-  const mobileFeatures = content.features.slice(0, 2);
+  const mobileFeatures = content.features.slice(0, 2).map((feature) =>
+    truncateLandingCopy(feature, LANDING_COPY_BUDGET.mobileHeroFeature),
+  );
   const floatingPanelClass = cn("border", cardRadiusClass, tone.card);
-  const heroBadgeClass = cn("border", pillRadiusClass, tone.panel);
+  const heroBadgeClass = cn(
+    "border bg-white/88 text-slate-900 shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur-md dark:bg-[#0b1120]/82 dark:text-white dark:shadow-[0_18px_40px_rgba(2,6,23,0.34)]",
+    pillRadiusClass,
+    tone.panel,
+    tone.title,
+  );
   const splitShowcaseClass = cn(
     "overflow-hidden border p-4 shadow-[0_30px_80px_rgba(15,23,42,0.18)] backdrop-blur-2xl",
     radiusStyle === "square" ? "rounded-[1.4rem]" : radiusStyle === "soft" ? "rounded-[2rem]" : "rounded-[2.5rem]",
@@ -92,7 +120,7 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
     <section
       className={cn(
         "relative flex items-center justify-center overflow-hidden bg-white dark:bg-[#050505]",
-        isCompact ? "min-h-[64dvh]" : isSplit ? "min-h-[78dvh]" : "min-h-[88dvh] md:min-h-[100dvh]",
+        isCompact ? "min-h-[60dvh] md:min-h-[64dvh]" : isSplit ? "min-h-[72dvh] md:min-h-[78dvh]" : "min-h-[80dvh] md:min-h-[100dvh]",
       )}
     >
       <div className="absolute inset-0 z-0">
@@ -125,7 +153,7 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
 
       <div
         className={cn(
-          "relative z-20 mx-auto w-full max-w-6xl px-4 pb-16 pt-32 md:px-12 md:pb-24 md:pt-32",
+          "relative z-20 mx-auto w-full max-w-6xl px-4 pb-12 pt-28 md:px-12 md:pb-24 md:pt-32",
           isSplit ? "text-left" : "text-center",
         )}
       >
@@ -134,12 +162,13 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
           <div>
             <Badge
               className={cn(
-                "px-4 py-2 font-bold text-[10px] md:text-xs uppercase tracking-[0.22em]",
+                "max-w-full px-3 py-1.5 font-bold text-[9px] md:px-4 md:py-2 md:text-xs uppercase tracking-[0.18em] md:tracking-[0.22em]",
                 heroBadgeClass,
               )}
             >
               <Sparkles className="mr-2 h-3.5 w-3.5" style={{ color: theme.primary }} />
-              {profile.slogan || "Pengalaman Premium"}
+              <span className="truncate md:hidden">{mobileSlogan}</span>
+              <span className="hidden truncate md:inline">{sloganText}</span>
             </Badge>
           </div>
 
@@ -149,10 +178,10 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
                 "font-[1000] uppercase italic tracking-[-0.06em] leading-[0.92]",
                 tone.title,
                 isCompact
-                  ? "text-[11vw] md:text-[5.4rem]"
+                  ? "text-[10vw] md:text-[5.4rem]"
                   : isSplit
-                    ? "text-[11vw] md:text-[5.8rem]"
-                    : "text-[14vw] md:text-[6.5rem]",
+                    ? "text-[10.5vw] md:text-[5.8rem]"
+                    : "text-[13vw] md:text-[6.5rem]",
               )}
             >
               <span className="block">{firstName}</span>
@@ -171,25 +200,27 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
           </div>
 
           <div className={cn("space-y-3", isSplit ? "max-w-xl px-0" : "max-w-3xl px-1")}>
-            <h2 className={cn("text-lg font-black italic leading-snug tracking-tight md:text-3xl", tone.title)}>
-              {content.tagline}
+            <h2 className={cn("line-clamp-2 text-base font-black italic leading-snug tracking-tight md:text-3xl", tone.title)}>
+              <span className="md:hidden">{mobileTagline}</span>
+              <span className="hidden md:inline">{heroTagline}</span>
             </h2>
-            <p className={cn("text-[13px] font-medium leading-5 md:text-base md:leading-7", tone.body, isSplit ? "max-w-xl" : "mx-auto max-w-2xl")}>
-              {content.description}
+            <p className={cn("line-clamp-2 text-[13px] font-medium leading-5 md:text-base md:leading-7 md:line-clamp-none", tone.body, isSplit ? "max-w-xl" : "mx-auto max-w-2xl")}>
+              <span className="md:hidden">{mobileDescription}</span>
+              <span className="hidden md:inline">{heroDescription}</span>
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 md:hidden">
+          <div className="flex flex-wrap items-center justify-center gap-2 md:hidden">
             {mobileFeatures.map((f: string, i: number) => (
               <div
                 key={i}
                 className={cn(
-                  "flex min-w-0 items-center gap-2 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em]",
+                  "flex min-w-0 max-w-full items-center gap-2 px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em]",
                   floatingPanelClass,
                 )}
               >
                 <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: theme.primary }} />
-                <span className={cn("line-clamp-1", tone.title)}>{f}</span>
+                <span className={cn("max-w-[140px] truncate", tone.title)}>{f}</span>
               </div>
             ))}
           </div>

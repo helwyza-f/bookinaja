@@ -7,6 +7,10 @@ import { Moon, Sun, UserCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCentralCustomerAuthUrl } from "@/lib/tenant";
 import { getLandingPresetTone } from "./theme-preset";
+import {
+  LANDING_COPY_BUDGET,
+  truncateLandingCopy,
+} from "./copy-budget";
 
 type TenantNavbarProfile = {
   name: string;
@@ -41,6 +45,11 @@ export function TenantNavbar({
   const radiusStyle = landingTheme?.radiusStyle || "rounded";
   const tone = getLandingPresetTone(preset);
   const isDark = resolvedTheme === "dark";
+  const businessType = profile.business_type || "Business Hub";
+  const mobileBusinessType = truncateLandingCopy(
+    businessType,
+    LANDING_COPY_BUDGET.mobileNavbarBusinessType,
+  );
 
   const shellRadiusClass =
     radiusStyle === "square"
@@ -131,7 +140,9 @@ export function TenantNavbar({
                   tone.eyebrow,
                 )}
               >
-                {profile.business_type || "Business Hub"} via Bookinaja
+                {isCompactPreview
+                  ? mobileBusinessType
+                  : `${businessType} via Bookinaja`}
               </span>
             </div>
           </div>
