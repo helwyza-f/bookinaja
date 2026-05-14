@@ -3,12 +3,17 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
-import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
+import {
+  clearTenantSession,
+  isTenantAuthError,
+  setAdminAuthCookie,
+} from "@/lib/tenant-session";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GrowthHeader } from "@/components/dashboard/growth-header";
 import { GrowthSidebar } from "@/components/dashboard/growth-sidebar";
 
 type AdminBootstrapResponse = {
+  session_token?: string;
   user?: {
     name?: string;
     role?: string;
@@ -38,6 +43,9 @@ export default function GrowthWorkspaceLayout({
       try {
         const res = await api.get<AdminBootstrapResponse>("/admin/me/bootstrap");
         const bootstrap = res.data || {};
+        if (bootstrap.session_token) {
+          setAdminAuthCookie(bootstrap.session_token);
+        }
         const userData = bootstrap.user || null;
         if (!active) return;
 

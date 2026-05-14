@@ -520,6 +520,21 @@ func (h *Handler) GetAdminBootstrap(c *gin.Context) {
 		return
 	}
 
+	sessionToken, err := h.service.RefreshAdminSessionTokenIfNeeded(
+		c.Request.Context(),
+		userID,
+		tenantID,
+		item.User.Role,
+		c.GetString("entitlementVersion"),
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyegarkan sesi admin"})
+		return
+	}
+	if strings.TrimSpace(sessionToken) != "" {
+		item.SessionToken = sessionToken
+	}
+
 	c.JSON(http.StatusOK, item)
 }
 

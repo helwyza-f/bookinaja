@@ -112,6 +112,30 @@ func setAuthContext(c *gin.Context, claims jwt.MapClaims) {
 		c.Set("userID", userID)
 		c.Set("userRole", claims["role"])
 		c.Set("authType", "admin")
+		if plan, ok := claims["plan"]; ok && plan != nil {
+			c.Set("tenantPlan", strings.TrimSpace(fmt.Sprintf("%v", plan)))
+		}
+		if status, ok := claims["subscription_status"]; ok && status != nil {
+			c.Set("tenantSubscriptionStatus", strings.TrimSpace(fmt.Sprintf("%v", status)))
+		}
+		if version, ok := claims["entitlement_version"]; ok && version != nil {
+			c.Set("entitlementVersion", strings.TrimSpace(fmt.Sprintf("%v", version)))
+		}
+		if rawFeatures, ok := claims["plan_features"]; ok && rawFeatures != nil {
+			switch items := rawFeatures.(type) {
+			case []any:
+				features := make([]string, 0, len(items))
+				for _, item := range items {
+					trimmed := strings.TrimSpace(fmt.Sprintf("%v", item))
+					if trimmed != "" && trimmed != "<nil>" {
+						features = append(features, trimmed)
+					}
+				}
+				c.Set("planFeatures", features)
+			case []string:
+				c.Set("planFeatures", items)
+			}
+		}
 	} else if custID, ok := claims["customer_id"]; ok && custID != nil {
 		c.Set("customerID", custID)
 		c.Set("authType", "customer")
@@ -205,6 +229,26 @@ func RequireAnyTenantFeature(db *sqlx.DB, features ...access.Feature) gin.Handle
 		if len(features) == 0 || db == nil {
 			c.Next()
 			return
+		}
+
+		if rawFeatures, exists := c.Get("planFeatures"); exists {
+			if featureList, ok := rawFeatures.([]string); ok && len(featureList) > 0 {
+				active := make(map[string]struct{}, len(featureList))
+				for _, item := range featureList {
+					trimmed := strings.TrimSpace(item)
+					if trimmed != "" {
+						active[trimmed] = struct{}{}
+					}
+				}
+				for _, feature := range features {
+					if _, ok := active[string(feature)]; ok {
+						c.Next()
+						return
+					}
+				}
+				abortForbidden(c, "Fitur belum aktif di plan tenant ini")
+				return
+			}
 		}
 
 		tenantID := strings.TrimSpace(c.GetString("tenantID"))

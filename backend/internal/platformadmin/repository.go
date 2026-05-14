@@ -59,6 +59,10 @@ func (r *Repository) getPlanFeatureMatrixCacheKey() string {
 	return "platform:plan-features:v1"
 }
 
+func (r *Repository) getPlanFeatureMatrixVersionCacheKey() string {
+	return "platform:plan-features:version"
+}
+
 func (r *Repository) CreateEmailLog(ctx context.Context, input CreateEmailLogInput) (string, error) {
 	var id string
 	if err := r.db.GetContext(ctx, &id, `
@@ -207,6 +211,7 @@ func (r *Repository) GetPlanFeatureSettings(ctx context.Context) (*PlanFeatureSe
 
 func (r *Repository) UpdatePlanFeatureSettings(ctx context.Context, plans map[string][]string) error {
 	normalized := access.NormalizePlanFeatureMatrix(plans)
+	now := time.Now().UTC()
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO platform_feature_settings (key, value_json, updated_at)
 		VALUES ('plan_features', jsonb_build_object('plans', $1::jsonb), NOW())
@@ -218,6 +223,7 @@ func (r *Repository) UpdatePlanFeatureSettings(ctx context.Context, plans map[st
 	)
 	if err == nil && r.rdb != nil {
 		_ = r.rdb.Del(ctx, r.getPlanFeatureMatrixCacheKey()).Err()
+		_ = r.rdb.Set(ctx, r.getPlanFeatureMatrixVersionCacheKey(), now.Format(time.RFC3339Nano), 30*time.Minute).Err()
 	}
 	return err
 }

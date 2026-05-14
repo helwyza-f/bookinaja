@@ -13,6 +13,13 @@ type Service struct {
 	secret string
 }
 
+type EntitlementSnapshot struct {
+	Plan               string
+	SubscriptionStatus string
+	PlanFeatures       []string
+	EntitlementVersion string
+}
+
 func NewService() *Service {
 	secret := security.JWTSecret()
 	return &Service{secret: secret}
@@ -20,10 +27,18 @@ func NewService() *Service {
 
 // GenerateToken membuat token baru untuk user yang berhasil login
 func (s *Service) GenerateToken(userID, tenantID uuid.UUID, role string) (string, error) {
+	return s.GenerateTokenWithSnapshot(userID, tenantID, role, EntitlementSnapshot{})
+}
+
+func (s *Service) GenerateTokenWithSnapshot(userID, tenantID uuid.UUID, role string, snapshot EntitlementSnapshot) (string, error) {
 	claims := CustomClaims{
-		UserID:   userID,
-		TenantID: tenantID,
-		Role:     role,
+		UserID:             userID,
+		TenantID:           tenantID,
+		Role:               role,
+		Plan:               snapshot.Plan,
+		SubscriptionStatus: snapshot.SubscriptionStatus,
+		PlanFeatures:       snapshot.PlanFeatures,
+		EntitlementVersion: snapshot.EntitlementVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 168)), // 7 Hari
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

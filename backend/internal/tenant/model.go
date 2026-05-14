@@ -394,15 +394,16 @@ type AdminBootstrapTenant struct {
 }
 
 type AdminBootstrapFeatures struct {
-	EnableDiscoveryPosts bool     `json:"enable_discovery_posts"`
-	PlanFeatures         []string `json:"plan_features,omitempty"`
+	EnableDiscoveryPosts bool                `json:"enable_discovery_posts"`
+	PlanFeatures         []string            `json:"plan_features,omitempty"`
 	PlanFeatureMatrix    map[string][]string `json:"plan_feature_matrix,omitempty"`
 }
 
 type AdminBootstrapResponse struct {
-	User     AdminBootstrapUser     `json:"user"`
-	Tenant   AdminBootstrapTenant   `json:"tenant"`
-	Features AdminBootstrapFeatures `json:"features"`
+	User         AdminBootstrapUser     `json:"user"`
+	Tenant       AdminBootstrapTenant   `json:"tenant"`
+	Features     AdminBootstrapFeatures `json:"features"`
+	SessionToken string                 `json:"session_token,omitempty"`
 }
 
 type TenantIdentity struct {

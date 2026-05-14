@@ -13,6 +13,7 @@ import { getCentralAdminAuthUrl, getTenantSlugFromBrowser } from "@/lib/tenant";
 import {
   clearTenantSession,
   isTenantAuthError,
+  setAdminAuthCookie,
   syncTenantCookies,
 } from "@/lib/tenant-session";
 import {
@@ -24,6 +25,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 
 type AdminBootstrapResponse = {
+  session_token?: string;
   user?: {
     id?: string;
     name?: string;
@@ -86,6 +88,9 @@ export default function DashboardInternalLayout({
 
         if (active) {
           const bootstrap = res.data || {};
+          if (bootstrap.session_token) {
+            setAdminAuthCookie(bootstrap.session_token);
+          }
           const userData: AdminSessionUser = {
             ...(bootstrap.user || {}),
             tenant_id: bootstrap.tenant?.id,

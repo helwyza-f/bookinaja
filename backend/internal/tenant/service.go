@@ -1920,7 +1920,11 @@ func (s *Service) Register(ctx context.Context, req RegisterReq) (*RegisterRespo
 		return nil, err
 	}
 
-	token, err := s.authService.GenerateToken(user.ID, user.TenantID, user.Role)
+	snapshot, err := s.buildEntitlementSnapshot(ctx, user.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	token, err := s.authService.GenerateTokenWithSnapshot(user.ID, user.TenantID, user.Role, snapshot)
 	if err != nil {
 		return nil, err
 	}
@@ -2168,7 +2172,11 @@ func (s *Service) Login(ctx context.Context, email, password, tenantSlug string)
 		return nil, errors.New("email atau password salah")
 	}
 
-	token, err := s.authService.GenerateToken(u.ID, u.TenantID, u.Role)
+	snapshot, err := s.buildEntitlementSnapshot(ctx, u.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	token, err := s.authService.GenerateTokenWithSnapshot(u.ID, u.TenantID, u.Role, snapshot)
 	if err != nil {
 		return nil, err
 	}
@@ -2213,7 +2221,11 @@ func (s *Service) LoginWithGoogle(ctx context.Context, rawToken, tenantSlug stri
 		return nil, errors.New("akun Google ini belum terhubung ke workspace bisnis tersebut")
 	}
 
-	token, err := s.authService.GenerateToken(user.ID, user.TenantID, user.Role)
+	snapshot, err := s.buildEntitlementSnapshot(ctx, user.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	token, err := s.authService.GenerateTokenWithSnapshot(user.ID, user.TenantID, user.Role, snapshot)
 	if err != nil {
 		return nil, err
 	}
@@ -2714,6 +2726,45 @@ func ownerPasswordResetURL(token string) string {
 
 func ownerEmailVerifyURL(token string) string {
 	return platformenv.PlatformURL("/admin/verify-email?token=" + url.QueryEscape(strings.TrimSpace(token)))
+}
+
+func (s *Service) buildEntitlementSnapshot(ctx context.Context, tenantID uuid.UUID) (auth.EntitlementSnapshot, error) {
+	tenant, err := s.repo.GetByID(ctx, tenantID)
+	if err != nil || tenant == nil {
+		return auth.EntitlementSnapshot{}, fmt.Errorf("tenant tidak ditemukan")
+	}
+	matrix, err := s.repo.GetPlanFeatureMatrix(ctx)
+	if err != nil {
+		return auth.EntitlementSnapshot{}, err
+	}
+	version, err := s.repo.GetPlanFeatureMatrixVersion(ctx)
+	if err != nil {
+		return auth.EntitlementSnapshot{}, err
+	}
+	return auth.EntitlementSnapshot{
+		Plan:               tenant.Plan,
+		SubscriptionStatus: tenant.SubscriptionStatus,
+		PlanFeatures:       access.ResolvePlanFeaturesWithMatrix(tenant.Plan, matrix),
+		EntitlementVersion: version,
+	}, nil
+}
+
+func (s *Service) RefreshAdminSessionTokenIfNeeded(ctx context.Context, userID, tenantID uuid.UUID, role, currentVersion string) (string, error) {
+	latestVersion, err := s.repo.GetPlanFeatureMatrixVersion(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	if strings.TrimSpace(currentVersion) != "" && strings.TrimSpace(currentVersion) == strings.TrimSpace(latestVersion) {
+		return "", nil
+	}
+
+	snapshot, err := s.buildEntitlementSnapshot(ctx, tenantID)
+	if err != nil {
+		return "", err
+	}
+
+	return s.authService.GenerateTokenWithSnapshot(userID, tenantID, role, snapshot)
 }
 
 func (s *Service) GetAdminBootstrap(ctx context.Context, userID, tenantID uuid.UUID) (*AdminBootstrapResponse, error) {

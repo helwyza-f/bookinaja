@@ -67,6 +67,10 @@ func (r *Repository) getPlanFeatureMatrixCacheKey() string {
 	return "platform:plan-features:v1"
 }
 
+func (r *Repository) getPlanFeatureMatrixVersionCacheKey() string {
+	return "platform:plan-features:version"
+}
+
 func (r *Repository) invalidateUserCache(ctx context.Context, userIDs ...uuid.UUID) {
 	if r.rdb == nil || len(userIDs) == 0 {
 		return
@@ -185,6 +189,33 @@ func (r *Repository) GetPlanFeatureMatrix(ctx context.Context) (map[string][]str
 		}
 	}
 	return matrix, nil
+}
+
+func (r *Repository) GetPlanFeatureMatrixVersion(ctx context.Context) (string, error) {
+	if r.rdb != nil {
+		if val, err := r.rdb.Get(ctx, r.getPlanFeatureMatrixVersionCacheKey()).Result(); err == nil && strings.TrimSpace(val) != "" {
+			return strings.TrimSpace(val), nil
+		}
+	}
+
+	var updatedAt time.Time
+	err := r.db.GetContext(ctx, &updatedAt, `
+		SELECT updated_at
+		FROM platform_feature_settings
+		WHERE key = 'plan_features'
+		LIMIT 1`)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+
+	version := updatedAt.UTC().Format(time.RFC3339Nano)
+	if r.rdb != nil && version != "" {
+		_ = r.rdb.Set(ctx, r.getPlanFeatureMatrixVersionCacheKey(), version, 30*time.Minute).Err()
+	}
+	return version, nil
 }
 
 func (r *Repository) GetCachedPublicDiscoverFeed(ctx context.Context) (*PublicDiscoverFeedResponse, bool) {
