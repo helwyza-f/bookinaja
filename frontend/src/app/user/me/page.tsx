@@ -26,9 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
   DiscoveryCategoryChips,
-  DiscoverySectionHeading,
   DiscoveryShowcaseCard,
-  DiscoverySpotlightCard,
 } from "@/components/discovery/discovery-cards";
 import {
   type DiscoveryFeedResponse,
@@ -416,23 +414,16 @@ export default function UserDashboardPage() {
       ) : null}
 
       <section className="space-y-3">
-        <div className="rounded-[1.75rem] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-4 shadow-sm dark:border-white/10 dark:bg-[linear-gradient(180deg,#0b0f19_0%,#101827_100%)]">
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-blue-700 dark:bg-blue-500/10 dark:text-blue-200">
-              <Sparkles className="h-3.5 w-3.5" />
-              Discovery personal
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-xl font-black tracking-tight text-slate-950 dark:text-white">
-                Cari tempat berikutnya tanpa mulai dari nol.
-              </h2>
-              <p className="max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-                Discovery di bawah menggabungkan tenant yang lagi relevan,
-                bisnis yang siap dibandingkan, dan konten yang cukup jelas
-                untuk kamu buka lebih dulu.
-              </p>
-            </div>
-          </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-600 dark:text-blue-300">
+            Discovery
+          </p>
+          <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
+            Cari tempat berikutnya
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+            Feed ini dipersingkat untuk tenant, promo, dan konten yang paling relevan buat akunmu.
+          </p>
         </div>
 
         <div className="relative">
@@ -452,47 +443,17 @@ export default function UserDashboardPage() {
         />
       </section>
 
-      {featuredTenant ? (
-        <DiscoverySpotlightCard
-          tenant={featuredTenant}
-          href={getDiscoverHref(featuredTenant)}
-          ctaLabel={featuredTenant.item_kind === "post" ? "Buka konten ini" : "Lihat tenant ini"}
-          accent={featuredTenant.item_kind === "post" ? "blue" : "emerald"}
-          stats={[
-            getDiscoveryItemReason(featuredTenant) ||
-              "Ini tenant yang paling masuk akal untuk jadi langkah eksplorasi berikutnya.",
-            featuredTenant.item_kind === "post"
-              ? `${featuredTenant.post_detail_views_7d || 0} buka detail / 7 hari`
-              : `${featuredTenant.resource_count || 0} resource aktif`,
-            featuredTenant.item_kind === "post"
-              ? `${featuredTenant.post_booking_starts_7d || 0} mulai booking`
-              : `${featuredTenant.discovery_clicks_30d || 0} klik / 30 hari`,
-          ]}
-          onVisible={() => markImpression(featuredTenant, "home-hero", "hero", 0)}
-          onClick={() =>
-            trackDiscoveryEvent({
-              tenant_id: featuredTenant.tenant_id || featuredTenant.id,
-              tenant_slug: featuredTenant.slug,
-              event_type: "click",
-              surface: "customer-hub",
-              section_id: "home-hero",
-              card_variant: "hero",
-              position_index: 0,
-              promo_label: featuredTenant.feed_label || featuredTenant.promo_label,
-              metadata: getDiscoveryEventMetadata(featuredTenant),
-            })
-          }
-        />
-      ) : null}
-
       <section className="space-y-3">
-        <DiscoverySectionHeading
-          eyebrow="Pilihan cepat"
-          title="Kartu yang cukup jelas untuk dibuka sekarang"
-          description="Kartu ini lebih ringkas daripada feed publik. Tujuannya bukan browsing panjang, tapi membantu customer kembali ke tenant yang paling relevan."
-        />
+        <div>
+          <h3 className="text-base font-semibold tracking-tight text-slate-950 dark:text-white">
+            Hasil terdekat
+          </h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Tenant dan konten yang paling relevan untuk dibuka sekarang.
+          </p>
+        </div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {discoveryGrid.map((tenant, index) => (
+        {[...(featuredTenant ? [featuredTenant] : []), ...discoveryGrid.filter((item) => item.id !== featuredTenant?.id)].slice(0, 6).map((tenant, index) => (
           <DiscoveryShowcaseCard
             key={tenant.id}
             tenant={tenant}

@@ -1,57 +1,24 @@
+import "react-native-reanimated";
 import { Stack } from "expo-router";
-import { useEffect } from "react";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
-import { SafeAreaProvider } from "react-native-safe-area-context";
-import { AppToastHost } from "@/components/app-toast-host";
-import { AppThemeProvider, useAppTheme } from "@/theme";
-import { AppQueryProvider } from "@/lib/query/provider";
-import { useSessionStore } from "@/stores/session-store";
-
-function SessionBootstrap({ children }: { children: React.ReactNode }) {
-  const hydrated = useSessionStore((state) => state.hydrated);
-  const hydrate = useSessionStore((state) => state.hydrate);
-
-  useEffect(() => {
-    if (!hydrated) {
-      void hydrate();
-    }
-  }, [hydrate, hydrated]);
-
-  return <>{children}</>;
-}
-
-function RootNavigator() {
-  const theme = useAppTheme();
-
-  return (
-    <>
-      <StatusBar style={theme.mode === "dark" ? "light" : "dark"} />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: {
-            backgroundColor: theme.colors.background,
-          },
-        }}
-      />
-    </>
-  );
-}
+import { AppProvider } from "@/providers/app-provider";
 
 export default function RootLayout() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <AppThemeProvider>
-          <AppQueryProvider>
-            <SessionBootstrap>
-              <RootNavigator />
-              <AppToastHost />
-            </SessionBootstrap>
-          </AppQueryProvider>
-        </AppThemeProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <AppProvider>
+      <StatusBar style="dark" />
+      <Stack screenOptions={{ headerShown: false, animation: "slide_from_right" }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="register" />
+        <Stack.Screen name="discovery/index" />
+        <Stack.Screen name="tenant/[slug]" />
+        <Stack.Screen name="admin/login" />
+        <Stack.Screen name="admin/(tabs)" />
+        <Stack.Screen name="user/login" />
+        <Stack.Screen name="user/google-claim" />
+        <Stack.Screen name="user/register" />
+        <Stack.Screen name="user/me/(tabs)" />
+      </Stack>
+    </AppProvider>
   );
 }

@@ -560,6 +560,7 @@ type PublicTenantProfile struct {
 	ID                 uuid.UUID      `db:"id" json:"id"`
 	Name               string         `db:"name" json:"name"`
 	Slug               string         `db:"slug" json:"slug"`
+	OwnerEmail         string         `db:"owner_email" json:"owner_email"`
 	BusinessCategory   string         `db:"business_category" json:"business_category"`
 	BusinessType       string         `db:"business_type" json:"business_type"`
 	Slogan             string         `db:"slogan" json:"slogan"`

@@ -1,35 +1,32 @@
 import { Redirect } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
-import { useSessionStore } from "@/stores/session-store";
-import { useAppTheme } from "@/theme";
+import { useSession } from "@/providers/session-provider";
 
-export default function IndexScreen() {
-  const theme = useAppTheme();
-  const hydrated = useSessionStore((state) => state.hydrated);
-  const role = useSessionStore((state) => state.role);
+export default function HomeScreen() {
+  const session = useSession();
 
-  if (!hydrated) {
+  if (!session.isReady) {
     return (
       <View
         style={{
           flex: 1,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: theme.colors.background,
+          backgroundColor: "#eff4ff",
         }}
       >
-        <ActivityIndicator size="large" color={theme.colors.accent} />
+        <ActivityIndicator size="large" color="#1d4ed8" />
       </View>
     );
   }
 
-  if (role === "admin") {
-    return <Redirect href="/(admin)/(tabs)" />;
+  if (session.adminToken) {
+    return <Redirect href="/admin/dashboard" />;
   }
 
-  if (role === "customer") {
-    return <Redirect href="/(customer)/(tabs)" />;
+  if (session.customerToken) {
+    return <Redirect href="/user/me" />;
   }
 
-  return <Redirect href="/(auth)/login" />;
+  return <Redirect href="/user/login" />;
 }

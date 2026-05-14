@@ -202,8 +202,7 @@ export default function RegisterClient() {
                 </span>
               </h1>
               <p className="mx-auto max-w-sm text-sm leading-6 text-[#334155] dark:text-slate-400">
-                Daftar cepat, lalu aktifkan akun lewat WhatsApp supaya aksesmu
-                lebih aman dan lebih praktis.
+                Buat akun cepat, lalu aktivasi via WhatsApp supaya login berikutnya tetap ringan.
               </p>
             </div>
           </header>
@@ -306,16 +305,11 @@ export default function RegisterClient() {
                   </label>
 
                   <div className="rounded-2xl border border-[#1d4ed812] bg-[#eff6ff]/70 px-4 py-3 text-sm text-[#334155] dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
-                    Aktivasi akun dilakukan lewat WhatsApp supaya proses masuk
-                    sesudahnya lebih cepat.
+                    Aktivasi akun selesai lewat WhatsApp. Setelah itu kamu bisa lanjut login normal.
                   </div>
 
-                  <div className="grid gap-2 rounded-[1.5rem] border border-[#1d4ed812] bg-white/70 p-4 text-sm text-[#334155] dark:border-white/10 dark:bg-white/[0.02] dark:text-slate-400">
-                    <div className="font-semibold text-[#0f1f4a] dark:text-slate-200">
-                      Cara paling cepat:
-                    </div>
-                    <div>Google untuk mulai dalam beberapa klik.</div>
-                    <div>Manual kalau kamu ingin langsung set email + password sendiri.</div>
+                  <div className="rounded-[1.5rem] border border-[#1d4ed812] bg-white/70 px-4 py-3 text-sm text-[#334155] dark:border-white/10 dark:bg-white/[0.02] dark:text-slate-400">
+                    Google untuk mulai dalam beberapa klik. Manual kalau kamu ingin set email dan password sendiri sejak awal.
                   </div>
 
                   <Button

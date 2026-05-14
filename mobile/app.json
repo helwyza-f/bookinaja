@@ -1,41 +1,23 @@
 {
   "expo": {
-    "name": "Bookinaja",
+    "name": "Bookinaja Mobile",
     "slug": "bookinaja-mobile",
-    "icon": "./assets/icon.png",
+    "version": "1.0.0",
+    "orientation": "portrait",
     "scheme": [
       "bookinaja"
     ],
-    "version": "0.1.0",
-    "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "experiments": {
-      "typedRoutes": true
-    },
-    "plugins": [
-      "expo-dev-client",
-      "expo-router",
-      "expo-font",
-      [
-        "@react-native-google-signin/google-signin",
-        {
-          "iosUrlScheme": "com.googleusercontent.apps.39127355505-69ph15i21481t87eoktnj2462h6ofp5h"
-        }
-      ]
-    ],
-    "assetBundlePatterns": [
-      "**/*"
-    ],
     "splash": {
-      "image": "./assets/icon.png",
+      "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#08111f"
+      "backgroundColor": "#ffffff"
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.bookinaja.mobile",
-      "icon": "./assets/icon.png",
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true,
@@ -47,13 +29,30 @@
     "android": {
       "package": "com.bookinaja.mobile",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#08111f"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
     },
     "web": {
+      "favicon": "./assets/favicon.png",
       "bundler": "metro"
+    },
+    "plugins": [
+      "expo-dev-client",
+      "expo-router",
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.39127355505-69ph15i21481t87eoktnj2462h6ofp5h"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }

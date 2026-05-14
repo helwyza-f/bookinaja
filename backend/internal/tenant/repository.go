@@ -294,34 +294,44 @@ func (r *Repository) GetPublicProfileBySlug(ctx context.Context, slug string) (*
 	var profile PublicTenantProfile
 	err := r.db.GetContext(ctx, &profile, `
 		SELECT
-			id,
-			name,
-			slug,
-			COALESCE(business_category, '') AS business_category,
-			COALESCE(business_type, '') AS business_type,
-			COALESCE(slogan, '') AS slogan,
-			COALESCE(tagline, '') AS tagline,
-			COALESCE(about_us, '') AS about_us,
-			COALESCE(features, ARRAY[]::text[]) AS features,
-			COALESCE(primary_color, '#3b82f6') AS primary_color,
-			COALESCE(logo_url, '') AS logo_url,
-			COALESCE(banner_url, '') AS banner_url,
-			COALESCE(gallery, ARRAY[]::text[]) AS gallery,
-			COALESCE(address, '') AS address,
-			COALESCE(whatsapp_number, '') AS whatsapp_number,
-			COALESCE(instagram_url, '') AS instagram_url,
-			COALESCE(tiktok_url, '') AS tiktok_url,
-			COALESCE(map_iframe_url, '') AS map_iframe_url,
-			COALESCE(meta_title, '') AS meta_title,
-			COALESCE(meta_description, '') AS meta_description,
-			COALESCE(landing_page_config, '{}'::jsonb) AS landing_page_config,
-			COALESCE(landing_theme_config, '{}'::jsonb) AS landing_theme_config,
-			COALESCE(booking_form_config, '{}'::jsonb) AS booking_form_config,
-			COALESCE(open_time, '09:00') AS open_time,
-			COALESCE(close_time, '22:00') AS close_time,
-			COALESCE(NULLIF(BTRIM(timezone), ''), 'Asia/Jakarta') AS timezone
-		FROM tenants
-		WHERE LOWER(TRIM(slug)) = $1
+			t.id,
+			t.name,
+			t.slug,
+			COALESCE(owner.email, '') AS owner_email,
+			COALESCE(t.business_category, '') AS business_category,
+			COALESCE(t.business_type, '') AS business_type,
+			COALESCE(t.slogan, '') AS slogan,
+			COALESCE(t.tagline, '') AS tagline,
+			COALESCE(t.about_us, '') AS about_us,
+			COALESCE(t.features, ARRAY[]::text[]) AS features,
+			COALESCE(t.primary_color, '#3b82f6') AS primary_color,
+			COALESCE(t.logo_url, '') AS logo_url,
+			COALESCE(t.banner_url, '') AS banner_url,
+			COALESCE(t.gallery, ARRAY[]::text[]) AS gallery,
+			COALESCE(t.address, '') AS address,
+			COALESCE(t.whatsapp_number, '') AS whatsapp_number,
+			COALESCE(t.instagram_url, '') AS instagram_url,
+			COALESCE(t.tiktok_url, '') AS tiktok_url,
+			COALESCE(t.map_iframe_url, '') AS map_iframe_url,
+			COALESCE(t.meta_title, '') AS meta_title,
+			COALESCE(t.meta_description, '') AS meta_description,
+			COALESCE(t.landing_page_config, '{}'::jsonb) AS landing_page_config,
+			COALESCE(t.landing_theme_config, '{}'::jsonb) AS landing_theme_config,
+			COALESCE(t.booking_form_config, '{}'::jsonb) AS booking_form_config,
+			COALESCE(t.open_time, '09:00') AS open_time,
+			COALESCE(t.close_time, '22:00') AS close_time,
+			COALESCE(NULLIF(BTRIM(t.timezone), ''), 'Asia/Jakarta') AS timezone
+		FROM tenants t
+		LEFT JOIN LATERAL (
+			SELECT u.email
+			FROM users u
+			WHERE u.tenant_id = t.id
+			  AND u.role = 'owner'
+			  AND u.deleted_at IS NULL
+			ORDER BY u.created_at ASC
+			LIMIT 1
+		) owner ON TRUE
+		WHERE LOWER(TRIM(t.slug)) = $1
 		LIMIT 1`,
 		slug,
 	)

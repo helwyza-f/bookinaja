@@ -256,6 +256,23 @@ export function TenantFooter({
                 </Button>
               </Link>
             </div>
+
+            <div className="space-y-1.5">
+              <a
+                href="https://bookinaja.com"
+                target="_blank"
+                rel="noreferrer"
+                className={cn("inline-flex items-center gap-2 text-sm font-semibold hover:underline", bodyTextClass)}
+              >
+                Buka bookinaja.com
+                <ArrowUpRight size={14} />
+              </a>
+              {profile.owner_email ? (
+                <p className={cn("text-sm", lowContrastTextClass)}>
+                  {profile.owner_email}
+                </p>
+              ) : null}
+            </div>
           </div>
         </div>
 

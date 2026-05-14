@@ -233,11 +233,10 @@ export function AdminLoginClient() {
 
             <div className="space-y-3">
               <h1 className="text-3xl font-black tracking-tight text-slate-950 dark:text-white sm:text-5xl">
-                Login tenant, satu jalur.
+                Login tenant.
               </h1>
               <p className="max-w-lg text-sm leading-7 text-slate-600 dark:text-slate-300">
-                Masuk dari domain pusat, lalu kembali ke workspace tenant yang
-                sedang kamu buka.
+                Masuk dari domain pusat, lalu kami kembalikan ke workspace tenant yang sedang kamu buka.
               </p>
             </div>
 
@@ -274,16 +273,14 @@ export function AdminLoginClient() {
                 <CardDescription className="mt-2 text-slate-400">
                   {tenantSlug
                     ? `Masuk ke workspace ${tenantSlug}.`
-                    : "Tenant belum terdeteksi. Buka login ini dari halaman tenant."}
+                    : "Tenant belum terdeteksi. Mulai dari halaman tenant."}
                 </CardDescription>
               </div>
             </CardHeader>
             <CardContent className="p-5 pt-0 sm:p-6 sm:pt-0">
               {showTenantRequiredHint ? (
                 <div className="mb-6 rounded-[1.5rem] border border-amber-200 bg-amber-50/80 px-4 py-4 text-sm leading-6 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
-                  Tenant belum ikut terbawa ke auth pusat. Mulai login dari
-                  halaman tenant dulu supaya kami tahu workspace tujuan sesudah
-                  autentikasi.
+                  Tenant belum ikut terbawa ke auth pusat. Mulai login dari halaman tenant supaya workspace tujuan tetap jelas.
                 </div>
               ) : (
                 <TenantGoogleButton

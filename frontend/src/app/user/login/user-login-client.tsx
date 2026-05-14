@@ -305,8 +305,8 @@ export default function UserLoginClient() {
                 </span>
               </h1>
               <p className="mx-auto max-w-sm text-sm leading-6 text-[#334155] dark:text-slate-400">
-                Akses customer dibuat cepat dan sederhana. WhatsApp jadi cara
-                utama, dan email sebagai alternatif.
+                Masuk cepat dengan Google atau WhatsApp. Email tetap tersedia
+                kalau kamu sudah pakai password.
               </p>
             </div>
           </header>
@@ -519,13 +519,8 @@ export default function UserLoginClient() {
                 </Link>
               </div>
 
-              <div className="grid gap-2 rounded-[1.5rem] border border-[#1d4ed812] bg-[#eff6ff]/65 p-4 text-sm text-[#334155] dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
-                <div className="font-semibold text-[#0f1f4a] dark:text-slate-200">
-                  Pilih jalur masuk yang paling nyaman:
-                </div>
-                <div>Google untuk akses cepat lintas device.</div>
-                <div>WhatsApp untuk OTP instan.</div>
-                <div>Email untuk akun yang sudah punya password.</div>
+              <div className="rounded-[1.5rem] border border-[#1d4ed812] bg-[#eff6ff]/65 px-4 py-3 text-sm text-[#334155] dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
+                Google untuk akses cepat, WhatsApp untuk OTP instan, email untuk akun yang sudah punya password.
               </div>
             </CardContent>
           </Card>

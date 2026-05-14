@@ -43,6 +43,7 @@ export type BuilderProfile = {
   id?: string;
   name: string;
   slug: string;
+  owner_email?: string;
   business_category?: string;
   business_type?: string;
   description?: string;
