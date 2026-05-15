@@ -30,10 +30,10 @@ export function Field({ label, hint, ...props }: FieldProps) {
       <TextInput
         placeholderTextColor="#94a3b8"
         style={{
-          borderRadius: 20,
+          borderRadius: 18,
           borderWidth: 1,
-          borderColor: "#cbd5e1",
-          backgroundColor: "#f8fafc",
+          borderColor: "#d6deea",
+          backgroundColor: "#fbfdff",
           paddingHorizontal: 16,
           paddingVertical: 14,
           fontSize: 15,

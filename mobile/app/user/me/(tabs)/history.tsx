@@ -8,19 +8,29 @@ import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { formatDateTime } from "@/lib/format";
 import { CustomerPortalItem } from "@/lib/customer-portal";
 
+type HistoryResponse = {
+  past_history?: CustomerPortalItem[];
+  past_orders?: CustomerPortalItem[];
+};
+
 export default function CustomerHistoryScreen() {
   const guard = useAuthGuard("customer");
   const historyQuery = useQuery({
     queryKey: ["customer-history"],
-    queryFn: () => apiFetch<CustomerPortalItem[]>("/user/me/history", { audience: "customer" }),
+    queryFn: () => apiFetch<HistoryResponse>("/user/me/history", { audience: "customer" }),
     enabled: guard.ready,
   });
 
+  const items = [
+    ...(historyQuery.data?.past_orders || []).map((item) => ({ ...item, kind: item.kind || "Order" })),
+    ...(historyQuery.data?.past_history || []).map((item) => ({ ...item, kind: item.kind || "Booking" })),
+  ].slice(0, 10);
+
   return (
     <ScreenShell eyebrow="Customer" title="Riwayat" description="Riwayat transaction customer mengikuti endpoint history yang sama dengan web.">
-      {(historyQuery.data || []).slice(0, 10).map((item) => (
+      {items.map((item) => (
         <Link
-          key={item.id}
+          key={`${item.kind}-${item.id}`}
           href={
             String(item.kind || "").toLowerCase().includes("order")
               ? (`/user/me/orders/${item.id}` as const)
@@ -40,7 +50,7 @@ export default function CustomerHistoryScreen() {
           </View>
         </Link>
       ))}
-      {!historyQuery.isLoading && !(historyQuery.data || []).length ? (
+      {!historyQuery.isLoading && !items.length ? (
         <CardBlock>
           <Text selectable style={{ color: "#475569", fontSize: 14, lineHeight: 22 }}>
             Riwayat customer belum tersedia di session ini.

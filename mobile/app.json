@@ -42,6 +42,13 @@
     "plugins": [
       "expo-dev-client",
       "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Bookinaja membutuhkan akses foto agar kamu bisa upload bukti pembayaran dari galeri.",
+          "cameraPermission": "Bookinaja membutuhkan akses kamera agar kamu bisa mengambil foto bukti pembayaran."
+        }
+      ],
       "expo-secure-store",
       "expo-web-browser",
       [
@@ -49,7 +56,8 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.39127355505-69ph15i21481t87eoktnj2462h6ofp5h"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

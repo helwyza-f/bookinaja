@@ -20,10 +20,15 @@ export function CtaButton({
       style={{
         alignItems: "center",
         borderRadius: 20,
-        backgroundColor: tone === "primary" ? "#1d4ed8" : "#e2e8f0",
+        backgroundColor: tone === "primary" ? "#2952d9" : "#eef2f7",
         opacity: disabled ? 0.55 : 1,
         paddingHorizontal: 18,
-        paddingVertical: 14,
+        paddingVertical: 15,
+        shadowColor: tone === "primary" ? "#2952d9" : "#0f172a",
+        shadowOpacity: tone === "primary" ? 0.12 : 0.03,
+        shadowRadius: tone === "primary" ? 10 : 8,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: tone === "primary" ? 2 : 1,
       }}
     >
       <Text

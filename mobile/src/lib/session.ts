@@ -49,6 +49,10 @@ export async function getTenantSlug() {
   return getItem(TENANT_SLUG_KEY);
 }
 
+export async function saveTenantSlug(tenantSlug: string) {
+  await setItem(TENANT_SLUG_KEY, tenantSlug);
+}
+
 export async function saveAdminSession(token: string, tenantSlug?: string | null) {
   await setItem(ADMIN_TOKEN_KEY, token);
   if (tenantSlug) {

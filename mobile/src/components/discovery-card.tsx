@@ -1,109 +1,150 @@
 import { Link } from "expo-router";
-import { Text, View } from "react-native";
-import { CardBlock } from "@/components/card-block";
-import { formatCurrency } from "@/lib/format";
-import { DiscoveryTenant, getDiscoverySummary, getDiscoveryTitle } from "@/lib/discovery";
+import { Pressable, Text, View } from "react-native";
+import { Image } from "expo-image";
+import { DiscoveryTenant } from "@/lib/discovery";
+
+function getBannerSource(item: DiscoveryTenant) {
+  return item.feed_image_url || item.featured_image_url || item.banner_url || "";
+}
+
+function getLogoSource(item: DiscoveryTenant) {
+  return item.logo_url || "";
+}
+
+function getInitial(name: string) {
+  return name.trim().charAt(0).toUpperCase() || "T";
+}
 
 export function DiscoveryCard({ item }: { item: DiscoveryTenant }) {
+  const bannerSource = getBannerSource(item);
+  const logoSource = getLogoSource(item);
+
   return (
     <Link href={`/tenant/${item.slug}` as const} asChild>
-      <View>
-        <CardBlock>
+      <Pressable>
+        <View
+          style={{
+            minHeight: 212,
+            borderRadius: 28,
+            overflow: "hidden",
+            backgroundColor: item.primary_color || "#dbeafe",
+            borderWidth: 1,
+            borderColor: "#dbeafe",
+            shadowColor: "#0f172a",
+            shadowOpacity: 0.055,
+            shadowRadius: 16,
+            shadowOffset: { width: 0, height: 8 },
+            elevation: 2,
+          }}
+        >
+          {bannerSource ? (
+            <Image source={bannerSource} contentFit="cover" style={{ width: "100%", height: 212 }} />
+          ) : (
+            <View
+              style={{
+                height: 212,
+                backgroundColor: item.primary_color || "#c7d2fe",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <View
+                style={{
+                  position: "absolute",
+                  top: 20,
+                  right: -10,
+                  width: 110,
+                  height: 110,
+                  borderRadius: 999,
+                  backgroundColor: "rgba(255,255,255,0.16)",
+                }}
+              />
+              <View
+                style={{
+                  position: "absolute",
+                  bottom: -18,
+                  left: -18,
+                  width: 126,
+                  height: 126,
+                  borderRadius: 34,
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.22)",
+                  backgroundColor: "rgba(255,255,255,0.08)",
+                  transform: [{ rotate: "-12deg" }],
+                }}
+              />
+              <Text selectable style={{ color: "#ffffff", fontSize: 52, fontWeight: "900" }}>
+                {getInitial(item.name)}
+              </Text>
+            </View>
+          )}
+
           <View
             style={{
-              minHeight: 134,
-              borderRadius: 24,
-              backgroundColor: "#0f172a",
-              padding: 16,
-              justifyContent: "space-between",
-              overflow: "hidden",
+              position: "absolute",
+              inset: 0,
+              backgroundColor: "rgba(15,23,42,0.18)",
+            }}
+          />
+
+          <View
+            style={{
+              position: "absolute",
+              left: 16,
+              right: 16,
+              bottom: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 12,
             }}
           >
             <View
               style={{
-                position: "absolute",
-                right: -24,
-                top: -18,
-                width: 118,
-                height: 118,
-                borderRadius: 999,
-                backgroundColor: "#1d4ed8",
-                opacity: 0.24,
-              }}
-            />
-            <View
-              style={{
-                position: "absolute",
-                left: -30,
-                bottom: -42,
-                width: 132,
-                height: 132,
-                borderRadius: 34,
+                width: 52,
+                height: 52,
+                borderRadius: 18,
+                backgroundColor: "rgba(255,255,255,0.98)",
                 borderWidth: 1,
-                borderColor: "rgba(191,219,254,0.24)",
-                backgroundColor: "rgba(148,163,184,0.08)",
-                transform: [{ rotate: "-14deg" }],
-              }}
-            />
-            <View
-              style={{
-                alignSelf: "flex-start",
-                borderRadius: 999,
-                backgroundColor: "rgba(219,234,254,0.12)",
-                paddingHorizontal: 10,
-                paddingVertical: 6,
+                borderColor: "rgba(226,232,240,0.92)",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+                shadowColor: "#0f172a",
+                shadowOpacity: 0.08,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 2,
               }}
             >
-              <Text selectable style={{ color: "#bfdbfe", fontSize: 11, fontWeight: "800" }}>
-                {item.business_category || item.business_type || "Tenant"}
-              </Text>
+              {logoSource ? (
+                <Image source={logoSource} contentFit="cover" style={{ width: "100%", height: "100%" }} />
+              ) : (
+                <Text selectable style={{ color: "#0f172a", fontSize: 18, fontWeight: "900" }}>
+                  {getInitial(item.name)}
+                </Text>
+              )}
             </View>
-            <Text
-              selectable
-              style={{
-                color: "#f8fafc",
-                fontSize: 22,
-                fontWeight: "900",
-                letterSpacing: -0.5,
-                lineHeight: 25,
-                maxWidth: "82%",
-              }}
-            >
-              {getDiscoveryTitle(item)}
-            </Text>
-          </View>
 
-          <Text selectable style={{ color: "#475569", fontSize: 14, lineHeight: 22 }}>
-            {getDiscoverySummary(item)}
-          </Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            <View
-              style={{
-                borderRadius: 999,
-                backgroundColor: "#eff6ff",
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-              }}
-            >
-              <Text selectable style={{ color: "#1d4ed8", fontSize: 13, fontWeight: "800" }}>
-                {formatCurrency(item.starting_price)}
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text
+                selectable
+                numberOfLines={2}
+                style={{
+                  color: "#ffffff",
+                  fontSize: 22,
+                  fontWeight: "900",
+                  lineHeight: 25,
+                }}
+              >
+                {item.name}
               </Text>
-            </View>
-            <View
-              style={{
-                borderRadius: 999,
-                backgroundColor: "#f8fafc",
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-              }}
-            >
-              <Text selectable style={{ color: "#475569", fontSize: 13, fontWeight: "700" }}>
-                {item.resource_count || 0} resource
+              <Text selectable style={{ color: "rgba(255,255,255,0.78)", fontSize: 12, fontWeight: "700" }}>
+                Buka tenant
               </Text>
             </View>
           </View>
-        </CardBlock>
-      </View>
+        </View>
+      </Pressable>
     </Link>
   );
 }

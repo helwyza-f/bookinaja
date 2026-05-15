@@ -13,6 +13,7 @@ import {
   getAdminToken,
   getCustomerToken,
   getTenantSlug,
+  saveTenantSlug,
   saveAdminSession,
   saveCustomerSession,
 } from "@/lib/session";
@@ -22,6 +23,7 @@ type SessionContextValue = {
   adminToken: string | null;
   customerToken: string | null;
   tenantSlug: string | null;
+  setTenantSlug: (tenantSlug: string | null) => Promise<void>;
   setAdminSession: (token: string, tenantSlug?: string | null) => Promise<void>;
   setCustomerSession: (token: string, tenantSlug?: string | null) => Promise<void>;
   signOutAdmin: () => Promise<void>;
@@ -66,6 +68,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       adminToken,
       customerToken,
       tenantSlug,
+      async setTenantSlug(nextTenantSlug) {
+        if (nextTenantSlug) {
+          await saveTenantSlug(nextTenantSlug);
+        }
+        setTenantSlugState(nextTenantSlug);
+      },
       async setAdminSession(token, nextTenantSlug) {
         await saveAdminSession(token, nextTenantSlug);
         setAdminTokenState(token);

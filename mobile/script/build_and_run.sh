@@ -71,13 +71,13 @@ case "$MODE" in
     exec "${EXPO_CMD[@]}" run:android
     ;;
   --android-start|android-start)
-    exec "${EXPO_CMD[@]}" start --dev-client
+    exec "${EXPO_CMD[@]}" start --dev-client --scheme bookinaja --host localhost
     ;;
   --web|web)
     exec "${EXPO_CMD[@]}" start --web
     ;;
   --dev-client|dev-client)
-    exec "${EXPO_CMD[@]}" start --dev-client
+    exec "${EXPO_CMD[@]}" start --dev-client --scheme bookinaja
     ;;
   --tunnel|tunnel)
     exec "${EXPO_CMD[@]}" start --tunnel

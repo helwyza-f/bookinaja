@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { router } from "expo-router";
-import { Alert, Pressable, Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
+import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
+import { MaterialIcons } from "@expo/vector-icons";
 import { apiFetch, ApiError } from "@/lib/api";
-import { CardBlock } from "@/components/card-block";
 import { CtaButton } from "@/components/cta-button";
 import { Field } from "@/components/field";
-import { ScreenShell } from "@/components/screen-shell";
+import { GoogleLogo } from "@/components/google-logo";
 import { getGoogleIdToken } from "@/lib/google-native";
 import { useSession } from "@/providers/session-provider";
 
@@ -20,11 +21,6 @@ type CustomerGoogleLoginResponse =
   | {
       status: "authenticated";
       token: string;
-      customer?: {
-        id?: string;
-        name?: string;
-      };
-      message?: string;
     }
   | {
       status: "needs_phone";
@@ -33,8 +29,43 @@ type CustomerGoogleLoginResponse =
         name?: string;
         email?: string | null;
       };
-      message?: string;
     };
+
+function SurfaceCard({ children }: { children: React.ReactNode }) {
+  return (
+    <View
+      style={{
+        borderRadius: 28,
+        borderWidth: 1,
+        borderColor: "#e2e8f0",
+        backgroundColor: "#ffffff",
+        padding: 18,
+        gap: 14,
+      }}
+    >
+      {children}
+    </View>
+  );
+}
+
+function GoogleMark() {
+  return (
+    <View
+      style={{
+        width: 42,
+        height: 42,
+        borderRadius: 14,
+        backgroundColor: "#ffffff",
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor: "#e5e7eb",
+      }}
+    >
+      <GoogleLogo />
+    </View>
+  );
+}
 
 export default function UserLoginScreen() {
   const session = useSession();
@@ -141,9 +172,10 @@ export default function UserLoginScreen() {
         },
       });
     } catch (error) {
-      const message = error instanceof ApiError || error instanceof Error
-        ? error.message
-        : "Google login belum berhasil.";
+      const message =
+        error instanceof ApiError || error instanceof Error
+          ? error.message
+          : "Google login belum berhasil.";
       Alert.alert("Google login gagal", message);
     } finally {
       setLoading(false);
@@ -151,169 +183,283 @@ export default function UserLoginScreen() {
   }
 
   return (
-    <ScreenShell
-      eyebrow="Customer access"
-      title="Masuk dan lanjutkan booking tanpa ribet."
-      description="Google tetap paling depan. Kalau mau cepat, pakai WhatsApp OTP. Kalau sudah punya akun, tinggal email dan password."
-    >
-      <LinearGradient
-        colors={["#0f172a", "#1d4ed8", "#60a5fa"]}
-        style={{
-          borderRadius: 28,
-          padding: 18,
-          gap: 14,
-          overflow: "hidden",
-        }}
-      >
-        <View
-          style={{
-            position: "absolute",
-            right: -22,
-            top: -12,
-            width: 124,
-            height: 124,
-            borderRadius: 999,
-            backgroundColor: "rgba(255,255,255,0.12)",
-          }}
-        />
-        <View
-          style={{
-            alignSelf: "flex-start",
-            borderRadius: 999,
-            backgroundColor: "rgba(255,255,255,0.12)",
-            paddingHorizontal: 10,
-            paddingVertical: 6,
-          }}
-        >
-          <Text selectable style={{ color: "#dbeafe", fontSize: 11, fontWeight: "800" }}>
-            Customer portal
-          </Text>
-        </View>
-        <Text selectable style={{ color: "#ffffff", fontSize: 24, fontWeight: "900", lineHeight: 28 }}>
-          Booking, bayar, dan cek sesi aktif dari satu tempat.
-        </Text>
-        <Text selectable style={{ color: "rgba(255,255,255,0.82)", fontSize: 14, lineHeight: 21 }}>
-          Struktur flow tetap sama seperti di web, tapi dipadatkan supaya terasa cepat dipakai di mobile.
-        </Text>
-      </LinearGradient>
-
-      <Pressable
-        onPress={() => void loginGoogle()}
-        disabled={loading}
-        style={{
-          borderRadius: 24,
-          borderWidth: 1,
-          borderColor: "#bfdbfe",
-          backgroundColor: "#eff6ff",
-          paddingHorizontal: 18,
-          paddingVertical: 16,
-          gap: 6,
-          opacity: loading ? 0.7 : 1,
-        }}
-      >
-        <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
-          <Text selectable style={{ color: "#0f172a", fontSize: 16, fontWeight: "800" }}>
-            {loading ? "Memproses Google..." : "Lanjut dengan Google"}
-          </Text>
-          <Text selectable style={{ color: "#2563eb", fontSize: 14, fontWeight: "700" }}>
-            Native
-          </Text>
-        </View>
-        <Text selectable style={{ color: "#334155", fontSize: 14, lineHeight: 22 }}>
-          Masuk paling cepat dengan akun Google langsung dari Android emulator.
-        </Text>
-      </Pressable>
-      <CardBlock>
-        <View style={{ flexDirection: "row", gap: 10 }}>
-          <Pressable
-            onPress={() => {
-              setMode("wa");
-              setOtpStep(false);
-            }}
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#f5f8ff" }} edges={["top", "left", "right"]}>
+      <View style={{ flex: 1 }}>
+        <View pointerEvents="none" style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+          <View
             style={{
-              flex: 1,
+              position: "absolute",
+              top: -36,
+              right: -42,
+              width: 180,
+              height: 180,
               borderRadius: 999,
-              backgroundColor: mode === "wa" ? "#1d4ed8" : "#e2e8f0",
-              paddingVertical: 12,
+              backgroundColor: "#dbeafe",
             }}
-          >
-            <Text selectable style={{ textAlign: "center", color: mode === "wa" ? "#ffffff" : "#0f172a", fontWeight: "800" }}>
-              WhatsApp
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setMode("email")}
+          />
+          <View
             style={{
-              flex: 1,
-              borderRadius: 999,
-              backgroundColor: mode === "email" ? "#1d4ed8" : "#e2e8f0",
-              paddingVertical: 12,
+              position: "absolute",
+              bottom: 108,
+              left: -60,
+              width: 180,
+              height: 180,
+              borderRadius: 48,
+              backgroundColor: "rgba(191,219,254,0.36)",
+              transform: [{ rotate: "-18deg" }],
             }}
-          >
-            <Text selectable style={{ textAlign: "center", color: mode === "email" ? "#ffffff" : "#0f172a", fontWeight: "800" }}>
-              Email
-            </Text>
-          </Pressable>
+          />
         </View>
 
-        {mode === "wa" ? (
-          <View style={{ gap: 14 }}>
-            <Text selectable style={{ color: "#475569", fontSize: 13, lineHeight: 20 }}>
-              {otpStep
-                ? "Masukkan 6 digit kode yang barusan kami kirim ke WhatsApp kamu."
-                : "Pakai nomor WhatsApp untuk akses paling cepat tanpa perlu ingat password."}
-            </Text>
-            <Field label="Nomor WhatsApp" value={phone} onChangeText={(value) => setPhone(value.replace(/\D/g, ""))} keyboardType="phone-pad" placeholder="08xxxxxxxxxx" />
-            {otpStep ? (
-              <Field label="OTP 6 digit" value={otp} onChangeText={(value) => setOtp(value.replace(/\D/g, "").slice(0, 6))} keyboardType="number-pad" placeholder="6 digit" />
-            ) : null}
-            <CtaButton
-              label={loading ? "Memproses..." : otpStep ? "Verifikasi OTP" : "Kirim OTP"}
-              disabled={loading}
-              onPress={() => {
-                void (otpStep ? verifyOtp() : requestOtp());
-              }}
-            />
-          </View>
-        ) : (
-          <View style={{ gap: 14 }}>
-            <Text selectable style={{ color: "#475569", fontSize: 13, lineHeight: 20 }}>
-              Masuk dengan email yang sudah kamu pakai di Bookinaja.
-            </Text>
-            <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="nama@domain.com" />
-            <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry placeholder="Kata sandi" />
-            <CtaButton label={loading ? "Memproses..." : "Masuk"} disabled={loading} onPress={() => void loginEmail()} />
-          </View>
-        )}
-
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          {[
-            "Google untuk akses lintas device",
-            "WhatsApp untuk OTP instan",
-            "Email kalau akunmu sudah siap",
-          ].map((item) => (
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 14, paddingBottom: 42, gap: 16 }}>
+          <Animated.View entering={FadeInUp.duration(280)} style={{ gap: 10 }}>
             <View
-              key={item}
               style={{
+                alignSelf: "flex-start",
                 borderRadius: 999,
-                backgroundColor: "#f8fafc",
-                paddingHorizontal: 10,
-                paddingVertical: 7,
+                backgroundColor: "#e8f0ff",
+                paddingHorizontal: 12,
+                paddingVertical: 8,
               }}
             >
-              <Text selectable style={{ color: "#475569", fontSize: 12, fontWeight: "700" }}>
-                {item}
+              <Text selectable style={{ color: "#1d4ed8", fontSize: 11, fontWeight: "800", letterSpacing: 1.6 }}>
+                BOOKINAJA
               </Text>
             </View>
-          ))}
-        </View>
+            <Text selectable style={{ color: "#0f172a", fontSize: 34, fontWeight: "900", lineHeight: 38 }}>
+              Masuk
+            </Text>
+            <Text selectable style={{ color: "#64748b", fontSize: 15, lineHeight: 23, maxWidth: "90%" }}>
+              Akses booking, status sesi, dan transaksi dari satu akun customer.
+            </Text>
+          </Animated.View>
 
-        <Pressable onPress={() => router.push("/user/register")}>
-          <Text selectable style={{ color: "#1d4ed8", textAlign: "center", fontWeight: "700" }}>
-            Belum punya akun? Daftar
-          </Text>
-        </Pressable>
-      </CardBlock>
-    </ScreenShell>
+          <Animated.View entering={FadeInDown.delay(40).duration(320)}>
+            <SurfaceCard>
+              <Pressable
+                onPress={() => void loginGoogle()}
+                disabled={loading}
+                style={{
+                  borderRadius: 22,
+                  backgroundColor: "#ffffff",
+                  borderWidth: 1,
+                  borderColor: "#e2e8f0",
+                  paddingHorizontal: 16,
+                  paddingVertical: 16,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  opacity: loading ? 0.7 : 1,
+                  shadowColor: "#0f172a",
+                  shadowOpacity: 0.06,
+                  shadowRadius: 12,
+                  shadowOffset: { width: 0, height: 6 },
+                  elevation: 2,
+                }}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
+                  <GoogleMark />
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text selectable style={{ color: "#0f172a", fontSize: 16, fontWeight: "800" }}>
+                      {loading ? "Memproses..." : "Lanjut dengan Google"}
+                    </Text>
+                    <Text selectable style={{ color: "#64748b", fontSize: 13 }}>
+                      Jalur tercepat untuk customer.
+                    </Text>
+                  </View>
+                </View>
+                <MaterialIcons name="arrow-forward" size={18} color="#2563eb" />
+              </Pressable>
+
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <View style={{ flex: 1, height: 1, backgroundColor: "#e2e8f0" }} />
+                <Text selectable style={{ color: "#94a3b8", fontSize: 12, fontWeight: "700" }}>
+                  atau
+                </Text>
+                <View style={{ flex: 1, height: 1, backgroundColor: "#e2e8f0" }} />
+              </View>
+
+              <View
+                style={{
+                  borderRadius: 18,
+                  backgroundColor: "#f8fafc",
+                  padding: 6,
+                  flexDirection: "row",
+                  gap: 6,
+                }}
+              >
+                {[
+                  { key: "wa" as const, label: "WhatsApp" },
+                  { key: "email" as const, label: "Email" },
+                ].map((item) => {
+                  const active = mode === item.key;
+                  return (
+                    <Pressable
+                      key={item.key}
+                      onPress={() => {
+                        setMode(item.key);
+                        if (item.key === "wa") setOtpStep(false);
+                      }}
+                      style={{
+                        flex: 1,
+                        borderRadius: 14,
+                        backgroundColor: active ? "#ffffff" : "transparent",
+                        paddingVertical: 12,
+                        alignItems: "center",
+                        shadowColor: active ? "#020617" : "transparent",
+                        shadowOpacity: active ? 0.05 : 0,
+                        shadowRadius: 8,
+                        shadowOffset: { width: 0, height: 3 },
+                        elevation: active ? 2 : 0,
+                      }}
+                    >
+                      <Text selectable style={{ color: active ? "#0f172a" : "#64748b", fontSize: 14, fontWeight: "800" }}>
+                        {item.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {mode === "wa" ? (
+                <View style={{ gap: 14 }}>
+                  <View style={{ gap: 4 }}>
+                    <Text selectable style={{ color: "#0f172a", fontSize: 20, fontWeight: "900" }}>
+                      {otpStep ? "Verifikasi kode" : "Masuk pakai WhatsApp"}
+                    </Text>
+                    <Text selectable style={{ color: "#64748b", fontSize: 14, lineHeight: 21 }}>
+                      {otpStep
+                        ? "Masukkan 6 digit kode yang kami kirim ke WhatsApp kamu."
+                        : "Cepat, tanpa password, dan cocok untuk customer yang sering booking."}
+                    </Text>
+                  </View>
+                  <Field
+                    label="Nomor WhatsApp"
+                    value={phone}
+                    onChangeText={(value) => setPhone(value.replace(/\D/g, ""))}
+                    keyboardType="phone-pad"
+                    placeholder="08xxxxxxxxxx"
+                  />
+                  {otpStep ? (
+                    <Field
+                      label="Kode OTP"
+                      value={otp}
+                      onChangeText={(value) => setOtp(value.replace(/\D/g, "").slice(0, 6))}
+                      keyboardType="number-pad"
+                      placeholder="6 digit"
+                    />
+                  ) : null}
+                  <CtaButton
+                    label={loading ? "Memproses..." : otpStep ? "Verifikasi" : "Kirim kode"}
+                    disabled={loading}
+                    onPress={() => {
+                      void (otpStep ? verifyOtp() : requestOtp());
+                    }}
+                  />
+                </View>
+              ) : (
+                <View style={{ gap: 14 }}>
+                  <View style={{ gap: 4 }}>
+                    <Text selectable style={{ color: "#0f172a", fontSize: 20, fontWeight: "900" }}>
+                      Masuk pakai email
+                    </Text>
+                    <Text selectable style={{ color: "#64748b", fontSize: 14, lineHeight: 21 }}>
+                      Untuk akun yang sudah punya email dan password customer.
+                    </Text>
+                  </View>
+                  <Field
+                    label="Email"
+                    value={email}
+                    onChangeText={setEmail}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    placeholder="nama@domain.com"
+                  />
+                  <Field
+                    label="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                    placeholder="Kata sandi"
+                  />
+                  <CtaButton
+                    label={loading ? "Memproses..." : "Masuk"}
+                    disabled={loading}
+                    onPress={() => void loginEmail()}
+                  />
+                </View>
+              )}
+            </SurfaceCard>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(90).duration(320)}>
+            <View
+              style={{
+                borderRadius: 24,
+                borderWidth: 1,
+                borderColor: "#e2e8f0",
+                backgroundColor: "rgba(255,255,255,0.78)",
+                padding: 12,
+                gap: 8,
+                shadowColor: "#0f172a",
+                shadowOpacity: 0.04,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 1,
+              }}
+            >
+              <Pressable
+                onPress={() => router.push("/user/register")}
+                style={{
+                  borderRadius: 18,
+                  paddingHorizontal: 8,
+                  paddingVertical: 8,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
+                <View style={{ gap: 3 }}>
+                  <Text selectable style={{ color: "#0f172a", fontSize: 15, fontWeight: "800" }}>
+                    Belum punya akun?
+                  </Text>
+                  <Text selectable style={{ color: "#64748b", fontSize: 13 }}>
+                    Daftar sekali, lalu pakai terus.
+                  </Text>
+                </View>
+                <MaterialIcons name="arrow-circle-right" size={22} color="#2563eb" />
+              </Pressable>
+
+              <View style={{ height: 1, backgroundColor: "#edf2f7" }} />
+
+              <Pressable
+                onPress={() => router.push("/admin/login")}
+                style={{
+                  borderRadius: 18,
+                  paddingHorizontal: 8,
+                  paddingVertical: 8,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
+                <View style={{ gap: 3 }}>
+                  <Text selectable style={{ color: "#0f172a", fontSize: 15, fontWeight: "800" }}>
+                    Masuk sebagai bisnis
+                  </Text>
+                  <Text selectable style={{ color: "#64748b", fontSize: 13 }}>
+                    Untuk owner atau tim tenant.
+                  </Text>
+                </View>
+                <MaterialIcons name="business" size={20} color="#2563eb" />
+              </Pressable>
+            </View>
+          </Animated.View>
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 }

@@ -4,12 +4,15 @@ export type DiscoveryTenant = {
   tenant_id?: string;
   name: string;
   slug: string;
+  primary_color?: string;
+  logo_url?: string;
   business_category?: string;
   business_type?: string;
   tagline?: string;
   about_us?: string;
   starting_price?: number;
   resource_count?: number;
+  feed_image_url?: string;
   featured_image_url?: string;
   banner_url?: string;
   promo_label?: string;

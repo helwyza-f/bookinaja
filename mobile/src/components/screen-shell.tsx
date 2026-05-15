@@ -1,5 +1,4 @@
 import { ReactNode } from "react";
-import { LinearGradient } from "expo-linear-gradient";
 import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
@@ -18,44 +17,42 @@ export function ScreenShell({
   children,
 }: ScreenShellProps) {
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#eef4ff" }} edges={["top", "left", "right"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#f5f8ff" }} edges={["top", "left", "right"]}>
       <View style={{ flex: 1 }}>
         <View pointerEvents="none" style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
           <View
             style={{
-              position: "absolute",
-              top: -90,
-              right: -50,
-              width: 220,
-              height: 220,
+              top: -84,
+              right: -44,
+              width: 210,
+              height: 210,
               borderRadius: 999,
-              backgroundColor: "#bfdbfe",
+              backgroundColor: "#deebff",
             }}
           />
           <View
             style={{
-              position: "absolute",
-              top: 90,
-              left: -70,
-              width: 180,
-              height: 180,
-              borderRadius: 999,
-              backgroundColor: "#dbeafe",
+              bottom: 120,
+              left: -62,
+              width: 176,
+              height: 176,
+              borderRadius: 44,
+              backgroundColor: "rgba(191,219,254,0.34)",
+              transform: [{ rotate: "-14deg" }],
             }}
           />
           <View
             style={{
-              position: "absolute",
-              top: 78,
-              right: 24,
-              width: 132,
-              height: 132,
-              borderRadius: 40,
+              top: 118,
+              right: 10,
+              width: 120,
+              height: 120,
+              borderRadius: 32,
               borderWidth: 1,
-              borderColor: "#cfe0ff",
+              borderColor: "#deebff",
               backgroundColor: "#f8fbff",
-              opacity: 0.72,
-              transform: [{ rotate: "16deg" }],
+              opacity: 0.62,
+              transform: [{ rotate: "12deg" }],
             }}
           />
         </View>
@@ -65,21 +62,21 @@ export function ScreenShell({
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 42, gap: 16 }}
         >
           <Animated.View entering={FadeIn.duration(320)}>
-            <LinearGradient
-              colors={["rgba(255,255,255,0.98)", "rgba(248,251,255,0.94)"]}
+            <View
               style={{
                 marginTop: 8,
-                borderRadius: 28,
+                borderRadius: 26,
                 borderWidth: 1,
-                borderColor: "#d7e5ff",
+                borderColor: "#e2e8f0",
+                backgroundColor: "#fbfdff",
                 paddingHorizontal: 18,
                 paddingVertical: 16,
                 gap: 8,
                 shadowColor: "#020617",
-                shadowOpacity: 0.08,
-                shadowRadius: 18,
-                shadowOffset: { width: 0, height: 10 },
-                elevation: 6,
+                shadowOpacity: 0.045,
+                shadowRadius: 14,
+                shadowOffset: { width: 0, height: 6 },
+                elevation: 2,
               }}
             >
               <View
@@ -142,7 +139,7 @@ export function ScreenShell({
                   {description}
                 </Text>
               ) : null}
-            </LinearGradient>
+            </View>
           </Animated.View>
 
           <Animated.View entering={FadeInUp.delay(60).duration(360)} style={{ gap: 14 }}>

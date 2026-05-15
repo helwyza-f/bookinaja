@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { Link } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
-import { Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
+import { Pressable, Text, View } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 import { apiFetch } from "@/lib/api";
 import { CardBlock } from "@/components/card-block";
 import { DiscoveryCard } from "@/components/discovery-card";
@@ -36,7 +36,16 @@ export default function CustomerHomeScreen() {
   const suggestions = useMemo(() => {
     const feed = feedQuery.data;
     if (!feed) return [];
-    return [...feed.featured, ...feed.sections.flatMap((section) => section.items)].slice(0, 4);
+    const pool = [...feed.featured, ...feed.sections.flatMap((section) => section.items)];
+    const seen = new Set<string>();
+    return pool.filter((item) => {
+      const itemKey = `${item.item_kind || "tenant"}:${item.id}:${item.slug}`;
+      if (seen.has(itemKey)) {
+        return false;
+      }
+      seen.add(itemKey);
+      return true;
+    }).slice(0, 4);
   }, [feedQuery.data]);
 
   const firstName = summaryQuery.data?.customer?.name?.split(" ")[0] || "Customer";
@@ -53,13 +62,13 @@ export default function CustomerHomeScreen() {
       title={`Halo, ${firstName}`}
       description="Lanjutkan sesi aktifmu, cek transaksi penting, atau lompat ke tenant yang lagi relevan buat kamu."
     >
-      <LinearGradient
-        colors={["#0f172a", "#1e3a8a", "#2563eb"]}
+      <View
         style={{
           borderRadius: 28,
           padding: 18,
           gap: 16,
           overflow: "hidden",
+          backgroundColor: "#123b87",
         }}
       >
         <View
@@ -139,17 +148,17 @@ export default function CustomerHomeScreen() {
             </View>
           ))}
         </View>
-      </LinearGradient>
+      </View>
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {[
-          { href: "/user/me/active" as const, label: "Booking aktif", hint: "Lihat sesi" },
-          { href: "/user/me/history" as const, label: "Riwayat", hint: "Track transaksi" },
-          { href: "/discovery" as const, label: "Jelajah", hint: "Cari tenant" },
-          { href: "/user/me/profile" as const, label: "Profil", hint: "Update akun" },
+          { href: "/user/me/active" as const, label: "Booking aktif", hint: "Lihat sesi", icon: "bolt" as const },
+          { href: "/user/me/history" as const, label: "Riwayat", hint: "Track transaksi", icon: "history" as const },
+          { href: "/discovery" as const, label: "Jelajah", hint: "Cari tenant", icon: "travel-explore" as const },
+          { href: "/user/me/profile" as const, label: "Profil", hint: "Update akun", icon: "person-outline" as const },
         ].map((item) => (
           <Link key={item.label} href={item.href} asChild>
-            <View
+            <Pressable
               style={{
                 width: "48%",
                 borderRadius: 22,
@@ -158,47 +167,104 @@ export default function CustomerHomeScreen() {
                 backgroundColor: "#ffffff",
                 paddingHorizontal: 14,
                 paddingVertical: 14,
-                gap: 4,
+                gap: 10,
+                shadowColor: "#0f172a",
+                shadowOpacity: 0.035,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 1,
               }}
             >
-              <Text selectable style={{ color: "#0f172a", fontSize: 14, fontWeight: "800" }}>
-                {item.label}
-              </Text>
-              <Text selectable style={{ color: "#64748b", fontSize: 12, lineHeight: 17 }}>
-                {item.hint}
-              </Text>
-            </View>
+              <View
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 14,
+                  backgroundColor: "#eff6ff",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <MaterialIcons name={item.icon} size={18} color="#2563eb" />
+              </View>
+              <View style={{ gap: 4 }}>
+                <Text selectable style={{ color: "#0f172a", fontSize: 14, fontWeight: "800" }}>
+                  {item.label}
+                </Text>
+                <Text selectable style={{ color: "#64748b", fontSize: 12, lineHeight: 17 }}>
+                  {item.hint}
+                </Text>
+              </View>
+            </Pressable>
           </Link>
         ))}
       </View>
 
       {(summaryQuery.data?.active_bookings || []).slice(0, 2).map((item) => (
         <Link key={`booking-${item.id}`} href={`/user/me/bookings/${item.id}` as const} asChild>
-          <View>
+          <Pressable>
             <CardBlock>
-              <Text selectable style={{ color: "#0f172a", fontSize: 16, fontWeight: "800" }}>
-                {item.tenant_name || "Booking aktif"}
-              </Text>
-              <Text selectable style={{ color: "#475569", fontSize: 14 }}>
-                {item.status || "status"}
-              </Text>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 14,
+                      backgroundColor: "#eff6ff",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <MaterialIcons name="event-seat" size={18} color="#2563eb" />
+                  </View>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text selectable style={{ color: "#0f172a", fontSize: 16, fontWeight: "800" }}>
+                      {item.tenant_name || "Booking aktif"}
+                    </Text>
+                    <Text selectable style={{ color: "#475569", fontSize: 14 }}>
+                      {item.status || "status"}
+                    </Text>
+                  </View>
+                </View>
+                <MaterialIcons name="chevron-right" size={22} color="#94a3b8" />
+              </View>
             </CardBlock>
-          </View>
+          </Pressable>
         </Link>
       ))}
 
       {(summaryQuery.data?.active_orders || []).slice(0, 2).map((item) => (
         <Link key={`order-${item.id}`} href={`/user/me/orders/${item.id}` as const} asChild>
-          <View>
+          <Pressable>
             <CardBlock>
-              <Text selectable style={{ color: "#0f172a", fontSize: 16, fontWeight: "800" }}>
-                {item.tenant_name || "Order aktif"}
-              </Text>
-              <Text selectable style={{ color: "#475569", fontSize: 14 }}>
-                {item.status || "status"}
-              </Text>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 14,
+                      backgroundColor: "#f8fafc",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <MaterialIcons name="receipt-long" size={18} color="#475569" />
+                  </View>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text selectable style={{ color: "#0f172a", fontSize: 16, fontWeight: "800" }}>
+                      {item.tenant_name || "Order aktif"}
+                    </Text>
+                    <Text selectable style={{ color: "#475569", fontSize: 14 }}>
+                      {item.status || "status"}
+                    </Text>
+                  </View>
+                </View>
+                <MaterialIcons name="chevron-right" size={22} color="#94a3b8" />
+              </View>
             </CardBlock>
-          </View>
+          </Pressable>
         </Link>
       ))}
 
@@ -211,8 +277,8 @@ export default function CustomerHomeScreen() {
         </Text>
       </View>
 
-      {suggestions.map((item) => (
-        <DiscoveryCard key={item.id} item={item} />
+      {suggestions.map((item, index) => (
+        <DiscoveryCard key={`${item.item_kind || "tenant"}-${item.id}-${item.slug}-${index}`} item={item} />
       ))}
     </ScreenShell>
   );

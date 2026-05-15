@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Text, TextInput, View, Pressable } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { apiFetch } from "@/lib/api";
 import { CardBlock } from "@/components/card-block";
 import { DiscoveryCard } from "@/components/discovery-card";
@@ -25,15 +24,24 @@ export default function DiscoveryScreen() {
     const feed = feedQuery.data;
     if (!feed) return [];
     const pool = [...feed.featured, ...feed.sections.flatMap((section) => section.items)];
+    const seen = new Set<string>();
     const normalized = query.trim().toLowerCase();
     return pool.filter((item) => {
+      const itemKey = `${item.item_kind || "tenant"}:${item.id}:${item.slug}`;
+      if (seen.has(itemKey)) {
+        return false;
+      }
       const matchesQuery =
         !normalized ||
         `${item.name} ${item.business_category || ""} ${item.tagline || ""}`.toLowerCase().includes(normalized);
       const category = String(item.business_category || item.business_type || "").toLowerCase();
       const matchesCategory =
         activeCategory === "Semua" || category === activeCategory.toLowerCase();
-      return matchesQuery && matchesCategory;
+      const include = matchesQuery && matchesCategory;
+      if (include) {
+        seen.add(itemKey);
+      }
+      return include;
     });
   }, [activeCategory, feedQuery.data, query]);
 
@@ -43,13 +51,13 @@ export default function DiscoveryScreen() {
       title={feedQuery.data?.hero?.title || "Cari tenant yang sudah punya konteks sebelum dibuka."}
       description={feedQuery.data?.hero?.description || "Feed ini dibikin supaya user bisa menilai tenant lebih cepat sebelum lanjut ke booking."}
     >
-      <LinearGradient
-        colors={["#0f172a", "#1d4ed8", "#3b82f6"]}
+      <View
         style={{
           borderRadius: 28,
           padding: 18,
           gap: 14,
           overflow: "hidden",
+          backgroundColor: "#123b87",
         }}
       >
         <View
@@ -93,7 +101,7 @@ export default function DiscoveryScreen() {
             </View>
           ))}
         </View>
-      </LinearGradient>
+      </View>
 
       <CardBlock>
         <TextInput
@@ -153,8 +161,8 @@ export default function DiscoveryScreen() {
       ) : null}
 
       <View style={{ gap: 12 }}>
-        {items.map((item) => (
-          <DiscoveryCard key={`${item.item_kind || "tenant"}-${item.id}`} item={item} />
+        {items.map((item, index) => (
+          <DiscoveryCard key={`${item.item_kind || "tenant"}-${item.id}-${item.slug}-${index}`} item={item} />
         ))}
         {!feedQuery.isLoading && items.length === 0 ? (
           <CardBlock>
