@@ -836,7 +836,11 @@ export default function BookingDetailPage() {
 
     if (mode === "print" || mode === "both") {
       try {
-        await printReceiptBluetooth(receiptSettings, booking);
+        await printReceiptBluetooth(receiptSettings, {
+          ...booking,
+          receipt_kind: "booking",
+          cashier_name: adminUser?.name || "Admin",
+        });
         toast.success("Nota dikirim ke printer Bluetooth");
       } catch (error) {
         const err = error as Error;

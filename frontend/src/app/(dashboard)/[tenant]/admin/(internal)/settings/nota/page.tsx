@@ -5,12 +5,9 @@ import type { AxiosError } from "axios";
 import {
   Bluetooth,
   CheckCircle2,
-  Copy,
   Edit3,
-  Lock,
   Printer,
   Save,
-  Smartphone,
   Unplug,
   X,
 } from "lucide-react";
@@ -23,7 +20,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import Link from "next/link";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { PlanFeatureCallout } from "@/components/dashboard/plan-feature-ux";
 
@@ -68,33 +64,53 @@ type BluetoothDeviceSession = {
 };
 
 const defaultTemplate = [
-  "=== {receipt_title} ===",
+  "{tenant_name}",
+  "{receipt_title}",
   "{receipt_subtitle}",
+  "--------------------------------",
+  "No. Booking : {booking_id}",
+  "Tanggal     : {booking_time}",
+  "Pelanggan   : {customer_name}",
+  "Unit        : {resource_name}",
+  "Kasir       : {cashier_name}",
   "",
-  "Kasir     : {cashier_name}",
-  "Pelanggan : {customer_name}",
-  "Booking   : {booking_id}",
-  "Unit      : {resource_name}",
+  "{line_items}",
+  "--------------------------------",
+  "Total      : {grand_total}",
+  "DP         : {deposit_amount}",
+  "Dibayar    : {paid_amount}",
+  "Sisa       : {balance_due}",
+  "Metode     : {payment_method}",
+  "Status     : {payment_status}",
   "",
-  "Total     : {grand_total}",
-  "DP        : {deposit_amount}",
-  "Dibayar   : {paid_amount}",
-  "Sisa      : {balance_due}",
-  "",
+  "--------------------------------",
   "{receipt_footer}",
 ].join("\n");
 
 const sampleReceipt = {
-  receipt_title: "Struk Bookinaja",
+  tenant_name: "Bookinaja Futsal Arena",
+  receipt_title: "Struk Pembayaran",
   receipt_subtitle: "Bukti transaksi resmi",
   cashier_name: "Admin",
   customer_name: "Helwiza",
   booking_id: "BK-1024",
   resource_name: "Lapangan Futsal",
+  booking_time: "15 Mei 2026 19:00-20:00",
+  line_items: [
+    "RINCIAN",
+    "Lapangan Futsal        Rp 120.000",
+    "  1 x Rp 120.000",
+    "",
+    "ADD-ON",
+    "Sewa Bola               Rp 30.000",
+    "  1 x Rp 30.000",
+  ].join("\n"),
   grand_total: "Rp 150.000",
   deposit_amount: "Rp 50.000",
   paid_amount: "Rp 150.000",
   balance_due: "Rp 0",
+  payment_method: "QRIS",
+  payment_status: "Lunas",
   receipt_footer: "Terima kasih sudah berkunjung",
 };
 
@@ -102,7 +118,6 @@ export default function ReceiptPrinterSettingsPage() {
   const { user } = useAdminSession();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [copying, setCopying] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
@@ -336,18 +351,6 @@ export default function ReceiptPrinterSettingsPage() {
     await savePrinterSettings(nextData);
   };
 
-  const onCopyWhatsApp = async () => {
-    setCopying(true);
-    try {
-      await navigator.clipboard.writeText(draft.receipt_whatsapp_text || "Berikut struk transaksi Anda dari Bookinaja.");
-      setMessage("Teks WhatsApp nota disalin.");
-    } catch {
-      setMessage("Gagal menyalin teks WhatsApp.");
-    } finally {
-      setCopying(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center text-sm text-slate-500">
@@ -383,23 +386,6 @@ export default function ReceiptPrinterSettingsPage() {
           </div>
         </div>
       </section>
-
-      {!isProActive && (
-        <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex gap-3">
-            <Lock className="mt-0.5 h-4 w-4 shrink-0" />
-            <div>
-              <div className="text-sm font-semibold">Nota WA dan print fisik mengikuti entitlement plan aktif.</div>
-              <p className="mt-1 text-xs leading-5 opacity-80">
-                Kamu tetap bisa cek template dan alur pengaturannya, tapi tombol kirim/cetak nota di booking dan POS akan terkunci sampai upgrade.
-              </p>
-            </div>
-          </div>
-          <Button asChild className="rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
-            <Link href="/admin/settings/billing/subscribe">Upgrade Pro</Link>
-          </Button>
-        </div>
-      )}
 
       {message && (
         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
@@ -461,32 +447,6 @@ export default function ReceiptPrinterSettingsPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-[1.5rem] border-slate-200 shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
-            <CardHeader className="space-y-2">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Smartphone className="h-4 w-4 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
-                Pesan WhatsApp
-              </CardTitle>
-              <CardDescription>Teks singkat yang dipakai saat staf kirim nota.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {isEditingReceipt ? (
-                <Textarea
-                  value={draft.receipt_whatsapp_text || ""}
-                  onChange={(event) => setField("receipt_whatsapp_text", event.target.value)}
-                  className="min-h-28"
-                />
-              ) : (
-                <div className="rounded-xl border border-slate-200 p-4 text-sm leading-6 text-slate-700 dark:border-white/10 dark:text-slate-300">
-                  {draft.receipt_whatsapp_text || "Berikut struk transaksi Anda dari Bookinaja."}
-                </div>
-              )}
-              <Button type="button" variant="outline" className="h-10 rounded-xl" onClick={onCopyWhatsApp} disabled={copying}>
-                <Copy className="mr-2 h-4 w-4" />
-                {copying ? "Menyalin..." : "Salin Pesan"}
-              </Button>
-            </CardContent>
-          </Card>
         </div>
 
         <div className="space-y-4">
@@ -538,7 +498,7 @@ export default function ReceiptPrinterSettingsPage() {
                     />
                   </Field>
                   <div className="rounded-xl border border-slate-200 px-3 py-2 text-xs leading-5 text-slate-500 dark:border-white/10 dark:text-slate-300">
-                    Placeholder yang umum: {"{receipt_title}"}, {"{customer_name}"}, {"{resource_name}"}, {"{grand_total}"}, {"{paid_amount}"}, {"{balance_due}"}.
+                    Placeholder yang tersedia: {"{tenant_name}"}, {"{receipt_title}"}, {"{receipt_subtitle}"}, {"{cashier_name}"}, {"{customer_name}"}, {"{booking_id}"}, {"{booking_time}"}, {"{resource_name}"}, {"{line_items}"}, {"{grand_total}"}, {"{deposit_amount}"}, {"{paid_amount}"}, {"{balance_due}"}, {"{payment_method}"}, {"{payment_status}"}, {"{receipt_footer}"}.
                   </div>
                 </div>
               ) : (

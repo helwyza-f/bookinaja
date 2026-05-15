@@ -248,6 +248,12 @@ function getFeatureMatrix(input?: {
   return normalized;
 }
 
+export function getPlanFeatureMatrixResolved(input?: {
+  plan_feature_matrix?: Record<string, string[]> | null;
+}) {
+  return getFeatureMatrix(input);
+}
+
 export function getFeatureMeta(feature: TenantFeatureKey): FeatureMeta {
   return FEATURE_META[feature];
 }

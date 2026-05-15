@@ -86,10 +86,7 @@ func (s *Service) SendReceiptWhatsApp(ctx context.Context, bookingIDRaw, tenantI
 }
 
 func buildReceiptMessage(receipt *ReceiptContext) string {
-	intro := strings.TrimSpace(receipt.ReceiptWhatsAppText)
-	if intro == "" {
-		intro = "Berikut struk transaksi Anda dari Bookinaja."
-	}
+	intro := "Berikut struk transaksi Anda dari Bookinaja."
 	return intro + "\n\n" + renderReceiptTemplate(receipt)
 }
 
@@ -97,19 +94,26 @@ func renderReceiptTemplate(receipt *ReceiptContext) string {
 	template := strings.TrimSpace(receipt.ReceiptTemplate)
 	if template == "" {
 		template = strings.Join([]string{
-			"=== {receipt_title} ===",
+			"{tenant_name}",
+			"{receipt_title}",
 			"{receipt_subtitle}",
+			"--------------------------------",
+			"No. Booking : {booking_id}",
+			"Tanggal     : {booking_time}",
+			"Pelanggan   : {customer_name}",
+			"Unit        : {resource_name}",
+			"Kasir       : {cashier_name}",
 			"",
-			"Pelanggan : {customer_name}",
-			"Booking   : {booking_id}",
-			"Unit      : {resource_name}",
-			"Waktu     : {booking_time}",
+			"{line_items}",
+			"--------------------------------",
+			"Total      : {grand_total}",
+			"DP         : {deposit_amount}",
+			"Dibayar    : {paid_amount}",
+			"Sisa       : {balance_due}",
+			"Metode     : {payment_method}",
+			"Status     : {payment_status}",
 			"",
-			"Total     : {grand_total}",
-			"DP        : {deposit_amount}",
-			"Dibayar   : {paid_amount}",
-			"Sisa      : {balance_due}",
-			"",
+			"--------------------------------",
 			"{receipt_footer}",
 		}, "\n")
 	}
@@ -121,20 +125,129 @@ func renderReceiptTemplate(receipt *ReceiptContext) string {
 		"tenant_name":      defaultString(receipt.TenantName, "Bookinaja"),
 		"customer_name":    defaultString(receipt.CustomerName, "Customer"),
 		"customer_phone":   defaultString(receipt.CustomerPhone, "-"),
+		"cashier_name":     defaultString(receipt.CashierName, "Admin"),
 		"booking_id":       strings.ToUpper(receipt.ID.String()[:8]),
 		"resource_name":    defaultString(receipt.ResourceName, "Unit"),
 		"booking_time":     formatReceiptTime(receipt.StartTime, receipt.EndTime, receipt.Timezone),
+		"line_items":       buildReceiptLineItems(receipt),
 		"grand_total":      formatReceiptIDR(receipt.GrandTotal),
 		"deposit_amount":   formatReceiptIDR(receipt.DepositAmount),
 		"paid_amount":      formatReceiptIDR(receipt.PaidAmount),
 		"balance_due":      formatReceiptIDR(receipt.BalanceDue),
 		"payment_status":   defaultString(receipt.PaymentStatus, "-"),
+		"payment_method":   defaultString(receipt.PaymentMethod, "Tunai"),
 	}
 
 	for key, value := range values {
 		template = strings.ReplaceAll(template, "{"+key+"}", value)
 	}
 	return template
+}
+
+func buildReceiptLineItems(receipt *ReceiptContext) string {
+	lines := make([]string, 0, 24)
+
+	primaryItems := make([]BookingOptionDetail, 0)
+	addonItems := make([]BookingOptionDetail, 0)
+	for _, item := range receipt.Options {
+		itemType := strings.ToLower(strings.TrimSpace(item.ItemType))
+		if itemType == "add_on" || itemType == "addon" {
+			addonItems = append(addonItems, item)
+			continue
+		}
+		primaryItems = append(primaryItems, item)
+	}
+
+	if len(primaryItems) > 0 {
+		lines = append(lines, "RINCIAN")
+		for _, item := range primaryItems {
+			qty := item.Quantity
+			if qty <= 0 {
+				qty = 1
+			}
+			total := item.PriceAtBooking
+			unit := total
+			if qty > 0 {
+				unit = math.Round(total / float64(qty))
+			}
+			lines = append(lines, formatReceiptItem(item.ItemName, qty, unit, total)...)
+		}
+	}
+
+	if len(addonItems) > 0 {
+		if len(lines) > 0 {
+			lines = append(lines, "")
+		}
+		lines = append(lines, "ADD-ON")
+		for _, item := range addonItems {
+			qty := item.Quantity
+			if qty <= 0 {
+				qty = 1
+			}
+			total := item.PriceAtBooking
+			unit := total
+			if qty > 0 {
+				unit = math.Round(total / float64(qty))
+			}
+			lines = append(lines, formatReceiptItem(item.ItemName, qty, unit, total)...)
+		}
+	}
+
+	if len(receipt.Orders) > 0 {
+		if len(lines) > 0 {
+			lines = append(lines, "")
+		}
+		lines = append(lines, "F&B / TAMBAHAN")
+		for _, item := range receipt.Orders {
+			qty := item.Quantity
+			if qty <= 0 {
+				qty = 1
+			}
+			total := item.Subtotal
+			unit := item.PriceAtPurchase
+			if unit <= 0 && qty > 0 {
+				unit = math.Round(total / float64(qty))
+			}
+			lines = append(lines, formatReceiptItem(item.ItemName, qty, unit, total)...)
+		}
+	}
+
+	if len(lines) == 0 {
+		lines = append(lines, "RINCIAN")
+		lines = append(lines, formatReceiptItem(defaultString(receipt.ResourceName, "Transaksi"), 1, receipt.GrandTotal, receipt.GrandTotal)...)
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+func formatReceiptItem(name string, qty int, unitPrice, total float64) []string {
+	if qty <= 0 {
+		qty = 1
+	}
+	header := formatReceiptRow(defaultString(name, "Item"), formatReceiptIDR(total), 32)
+	detail := fmt.Sprintf("  %d x %s", qty, formatReceiptIDR(unitPrice))
+	return []string{header, detail}
+}
+
+func formatReceiptRow(left, right string, width int) string {
+	left = strings.TrimSpace(left)
+	right = strings.TrimSpace(right)
+	maxLeft := width - len(right) - 1
+	if maxLeft < 8 {
+		maxLeft = 8
+	}
+	if len(left) > maxLeft {
+		if maxLeft > 1 {
+			left = left[:maxLeft-1] + "…"
+		} else {
+			left = left[:maxLeft]
+		}
+	}
+	spaces := width - len(left) - len(right)
+	if spaces < 1 {
+		spaces = 1
+	}
+	return left + strings.Repeat(" ", spaces) + right
 }
 
 func defaultString(value, fallback string) string {

@@ -6,21 +6,53 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { apiFetch } from "@/lib/api";
 import { CardBlock } from "@/components/card-block";
 import { ScreenShell } from "@/components/screen-shell";
+import { useRealtime } from "@/hooks/use-realtime";
+import { BOOKING_EVENT_PREFIXES, matchesRealtimePrefix } from "@/lib/realtime/event-types";
 import { getBookingStatusMeta, getOrderStatusMeta } from "@/lib/customer-portal";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
+import { customerBookingsChannel, customerOrdersChannel } from "@/lib/realtime/channels";
+import { isRealtimeEnabledForAPI } from "@/lib/realtime/ws-client";
 
 type ActiveResponse = {
   active_bookings?: Array<{ id: string; tenant_name?: string; status?: string }>;
   active_orders?: Array<{ id: string; tenant_name?: string; status?: string }>;
 };
 
+type MeResponse = {
+  id?: string;
+  customer_id?: string;
+  customer?: {
+    id?: string;
+  };
+};
+
 export default function CustomerActiveScreen() {
   const guard = useAuthGuard("customer");
   const [activeTab, setActiveTab] = useState<"booking" | "order">("booking");
+  const meQuery = useQuery({
+    queryKey: ["customer-me"],
+    queryFn: () => apiFetch<MeResponse>("/me", { audience: "customer" }),
+    enabled: guard.ready && isRealtimeEnabledForAPI(),
+    staleTime: 60_000,
+  });
   const activeQuery = useQuery({
     queryKey: ["customer-active"],
     queryFn: () => apiFetch<ActiveResponse>("/user/me/active", { audience: "customer" }),
     enabled: guard.ready,
+    refetchInterval: isRealtimeEnabledForAPI() ? false : 15_000,
+  });
+  const customerID = String(meQuery.data?.customer?.id || meQuery.data?.customer_id || meQuery.data?.id || "");
+
+  useRealtime({
+    enabled: guard.ready && isRealtimeEnabledForAPI() && Boolean(customerID),
+    channels: customerID ? [customerBookingsChannel(customerID), customerOrdersChannel(customerID)] : [],
+    onEvent: (event) => {
+      if (!matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) return;
+      void activeQuery.refetch();
+    },
+    onReconnect: () => {
+      void activeQuery.refetch();
+    },
   });
 
   const bookings = useMemo(

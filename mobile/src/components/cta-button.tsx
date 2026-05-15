@@ -26,11 +26,10 @@ export function CtaButton({
         opacity: disabled ? 0.55 : 1,
         paddingHorizontal: 16,
         paddingVertical: 12,
-        shadowColor: tone === "primary" ? "#2952d9" : "#0f172a",
-        shadowOpacity: tone === "primary" ? 0.1 : 0.025,
-        shadowRadius: tone === "primary" ? 8 : 6,
-        shadowOffset: { width: 0, height: 3 },
-        elevation: tone === "primary" ? 2 : 1,
+        shadowOpacity: 0,
+        shadowRadius: 0,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 0,
       }}
     >
       <Text

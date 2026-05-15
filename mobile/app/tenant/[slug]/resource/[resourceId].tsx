@@ -276,17 +276,17 @@ function getMaxAvailableSessions(params: {
 function getSlotBadge(status: SlotStatus) {
   switch (status) {
     case "selected":
-      return { label: "Dipilih", text: "#1d4ed8", bg: "#dbeafe" };
+      return { label: "Dipilih", text: "#1d4ed8", bg: "#dbeafe", cardBg: "#eff6ff", border: "#93c5fd", title: "#1d4ed8" };
     case "booked":
-      return { label: "Dibooking", text: "#b45309", bg: "#fef3c7" };
+      return { label: "Dibooking", text: "#b45309", bg: "#fef3c7", cardBg: "#fff7ed", border: "#fdba74", title: "#9a3412" };
     case "active":
-      return { label: "Aktif", text: "#0f766e", bg: "#ccfbf1" };
+      return { label: "Aktif", text: "#0f766e", bg: "#ccfbf1", cardBg: "#f0fdfa", border: "#5eead4", title: "#115e59" };
     case "done":
-      return { label: "Selesai", text: "#64748b", bg: "#e2e8f0" };
+      return { label: "Selesai", text: "#475569", bg: "#e2e8f0", cardBg: "#f8fafc", border: "#cbd5e1", title: "#475569" };
     case "passed":
-      return { label: "Lewat", text: "#94a3b8", bg: "#f1f5f9" };
+      return { label: "Lewat", text: "#94a3b8", bg: "#f1f5f9", cardBg: "#f8fafc", border: "#e2e8f0", title: "#94a3b8" };
     default:
-      return { label: "Tersedia", text: "#0f172a", bg: "#f8fafc" };
+      return { label: "Tersedia", text: "#166534", bg: "#dcfce7", cardBg: "#ffffff", border: "#d9e2ec", title: "#0f172a" };
   }
 }
 
@@ -305,7 +305,13 @@ export default function ResourceDetailScreen() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [, setNowTick] = useState(() => Date.now());
   const dateChoices = useMemo(() => getDateChoices(), []);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   const resourceQuery = useQuery({
     queryKey: ["public-resource-detail", resourceId],
@@ -1155,19 +1161,19 @@ export default function ResourceDetailScreen() {
                             minWidth: 94,
                             borderRadius: 16,
                             borderWidth: 1,
-                            borderColor: active ? "#2563eb" : slot.disabled ? "#e2e8f0" : "#d9e2ec",
-                            backgroundColor: active ? "#eff6ff" : slot.disabled ? "#f8fafc" : "#ffffff",
+                            borderColor: badge.border,
+                            backgroundColor: badge.cardBg,
                             paddingHorizontal: 12,
                             paddingVertical: 12,
                             alignItems: "flex-start",
                             gap: 6,
-                            opacity: slot.disabled && !active ? 0.82 : 1,
+                            opacity: slot.status === "passed" || slot.status === "done" ? 0.76 : 1,
                           }}
                         >
-                          <Text selectable style={{ color: active ? "#1d4ed8" : "#0f172a", fontSize: 15, fontWeight: "800" }}>
+                          <Text selectable style={{ color: badge.title, fontSize: 15, fontWeight: "800" }}>
                             {slot.value}
                           </Text>
-                          <Text selectable style={{ color: "#64748b", fontSize: 11 }}>
+                          <Text selectable style={{ color: slot.status === "passed" || slot.status === "done" ? "#94a3b8" : "#64748b", fontSize: 11 }}>
                             sampai {slot.endValue}
                           </Text>
                           <View
@@ -1419,20 +1425,22 @@ export default function ResourceDetailScreen() {
 
                 <View
                   style={{
-                    borderRadius: 22,
+                    borderRadius: 24,
                     borderWidth: 1,
-                    borderColor: "#e6ebf2",
+                    borderColor: "#eef2f7",
                     backgroundColor: "#ffffff",
-                    padding: 16,
-                    gap: 14,
+                    padding: 18,
+                    gap: 16,
                   }}
                 >
                   <View style={{ flexDirection: "row", gap: 10 }}>
                     <View
                       style={{
                         flex: 1,
-                        borderRadius: 16,
-                        backgroundColor: "#f8fafc",
+                        borderRadius: 18,
+                        borderWidth: 1,
+                        borderColor: "#f1f5f9",
+                        backgroundColor: "#fcfdff",
                         paddingHorizontal: 12,
                         paddingVertical: 12,
                         gap: 4,
@@ -1448,8 +1456,10 @@ export default function ResourceDetailScreen() {
                     <View
                       style={{
                         width: 96,
-                        borderRadius: 16,
-                        backgroundColor: "#eff6ff",
+                        borderRadius: 18,
+                        borderWidth: 1,
+                        borderColor: "#dbeafe",
+                        backgroundColor: "#f8fbff",
                         paddingHorizontal: 12,
                         paddingVertical: 12,
                         gap: 4,
@@ -1485,70 +1495,75 @@ export default function ResourceDetailScreen() {
                       </Text>
                     </View>
                   </View>
-                </View>
 
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 12,
-                    borderRadius: 18,
-                    backgroundColor: "#f8fafc",
-                    paddingHorizontal: 14,
-                    paddingVertical: 14,
-                  }}
-                >
-                  <View style={{ gap: 2 }}>
-                    <Text selectable style={{ color: "#64748b", fontSize: 11, fontWeight: "800", letterSpacing: 1 }}>
-                      TOTAL
-                    </Text>
-                    <Text selectable style={{ color: "#1d4ed8", fontSize: 24, fontWeight: "900" }}>
-                      {formatCurrency(total)}
-                    </Text>
-                  </View>
                   <View
                     style={{
-                      borderRadius: 999,
-                      backgroundColor: "#eff6ff",
-                      paddingHorizontal: 12,
-                      paddingVertical: 8,
-                    }}
-                  >
-                    <Text selectable style={{ color: "#1d4ed8", fontSize: 12, fontWeight: "800" }}>
-                      {isInterday ? "Periode" : "1 booking"}
-                    </Text>
-                  </View>
-                </View>
-
-                {estimatedDeposit > 0 ? (
-                  <View
-                    style={{
-                      borderRadius: 18,
-                      backgroundColor: "#f8fafc",
-                      paddingHorizontal: 14,
+                      borderRadius: 22,
+                      borderWidth: 1,
+                      borderColor: "#eef2f7",
+                      backgroundColor: "#fcfdff",
+                      paddingHorizontal: 16,
                       paddingVertical: 14,
-                      gap: 4,
+                      gap: 12,
                     }}
                   >
-                    <Text selectable style={{ color: "#64748b", fontSize: 11, fontWeight: "800", letterSpacing: 1 }}>
-                      DP SAAT BOOKING
-                    </Text>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", gap: 12 }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
                       <View style={{ flex: 1, gap: 2 }}>
-                        <Text selectable style={{ color: "#1d4ed8", fontSize: 22, fontWeight: "900" }}>
-                          {formatCurrency(estimatedDeposit)}
+                        <Text selectable style={{ color: "#64748b", fontSize: 11, fontWeight: "800", letterSpacing: 1 }}>
+                          TOTAL
                         </Text>
-                        <Text selectable style={{ color: "#64748b", fontSize: 12, lineHeight: 18 }}>
-                          {depositPercentage}% dari total sesuai policy tenant.
+                        <Text selectable style={{ color: "#1d4ed8", fontSize: 26, fontWeight: "900" }}>
+                          {formatCurrency(total)}
                         </Text>
                       </View>
-                      <Text selectable style={{ color: "#0f172a", fontSize: 13, fontWeight: "800", textAlign: "right" }}>
-                        Sisa {formatCurrency(Math.max(total - estimatedDeposit, 0))}
-                      </Text>
+                      <View
+                        style={{
+                          borderRadius: 999,
+                          backgroundColor: "#eff6ff",
+                          paddingHorizontal: 12,
+                          paddingVertical: 8,
+                        }}
+                      >
+                        <Text selectable style={{ color: "#1d4ed8", fontSize: 12, fontWeight: "800" }}>
+                          {isInterday ? "Periode" : "1 booking"}
+                        </Text>
+                      </View>
                     </View>
+
+                    {estimatedDeposit > 0 ? (
+                      <View
+                        style={{
+                          borderTopWidth: 1,
+                          borderTopColor: "#e8eef5",
+                          paddingTop: 12,
+                          gap: 10,
+                        }}
+                      >
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", gap: 12 }}>
+                          <View style={{ flex: 1, gap: 2 }}>
+                            <Text selectable style={{ color: "#64748b", fontSize: 11, fontWeight: "800", letterSpacing: 1 }}>
+                              DP SAAT BOOKING
+                            </Text>
+                            <Text selectable style={{ color: "#0f172a", fontSize: 22, fontWeight: "900" }}>
+                              {formatCurrency(estimatedDeposit)}
+                            </Text>
+                          </View>
+                          <View style={{ alignItems: "flex-end", gap: 2 }}>
+                            <Text selectable style={{ color: "#64748b", fontSize: 11, fontWeight: "800", letterSpacing: 1 }}>
+                              SISA
+                            </Text>
+                            <Text selectable style={{ color: "#0f172a", fontSize: 16, fontWeight: "800", textAlign: "right" }}>
+                              {formatCurrency(Math.max(total - estimatedDeposit, 0))}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text selectable style={{ color: "#64748b", fontSize: 12, lineHeight: 18 }}>
+                          DP mengikuti policy tenant sebesar {depositPercentage}% dari total booking.
+                        </Text>
+                      </View>
+                    ) : null}
                   </View>
-                ) : null}
+                </View>
 
                 <View style={{ gap: 10 }}>
                   <CtaButton

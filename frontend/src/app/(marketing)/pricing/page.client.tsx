@@ -37,12 +37,16 @@ type Plan = {
   cta: string;
   href?: string;
   icon: React.ComponentType<{ className?: string }>;
+  detailHref?: string;
+  kicker: string;
+  bestFor: string;
+  valuePoints: string[];
 };
 
 const trialFeatures = [
   "30 hari trial tanpa kartu kredit",
   "Tenant langsung punya landing + dashboard",
-  "Cocok untuk uji alur booking sebelum commit",
+  "Coba dulu sebelum bayar",
 ];
 
 const plans: Plan[] = [
@@ -51,17 +55,38 @@ const plans: Plan[] = [
     cta: "Pilih Starter",
     href: "/register?plan=starter",
     icon: Rocket,
+    detailHref: "/pricing/starter",
+    kicker: "Untuk owner solo",
+    bestFor: "Untuk bisnis yang ingin berhenti dari catatan manual dan mulai rapi.",
+    valuePoints: [
+      "Booking dan jadwal utama sudah terkumpul di satu tempat.",
+      "Customer sudah bisa masuk lewat halaman booking yang rapi dan meyakinkan.",
+    ],
   },
   {
     key: "pro",
     cta: "Pilih Pro",
     href: "/register?plan=pro",
     icon: Users,
+    detailHref: "/pricing/pro",
+    kicker: "Paling masuk akal",
+    bestFor: "Untuk bisnis yang sudah punya staff dan butuh kontrol operasional yang lebih kuat.",
+    valuePoints: [
+      "Setiap staff bisa pegang bagiannya tanpa numpang akun owner.",
+      "Pembayaran, pelanggan, dan laporan terasa lebih tertib setiap hari.",
+    ],
   },
   {
     key: "scale",
     cta: "Segera hadir",
     icon: BarChart3,
+    detailHref: "/pricing/scale",
+    kicker: "Untuk growth berikutnya",
+    bestFor: "Untuk bisnis yang ingin customer balik lagi lebih sering dan bertahan lebih lama.",
+    valuePoints: [
+      "Membership dan reward membantu repeat order tumbuh lebih sehat.",
+      "Lebih siap untuk ekspansi dengan bacaan bisnis yang lebih matang.",
+    ],
   },
 ];
 
@@ -128,7 +153,7 @@ export default function PricingPage() {
             variant="outline"
             className="border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-blue-600"
           >
-            Pricing yang mengikuti fase operasional
+            Paket untuk tiap tahap bisnis
           </Badge>
 
           <h1 className="mt-6 text-5xl font-black tracking-tight text-foreground sm:text-6xl">
@@ -143,19 +168,19 @@ export default function PricingPage() {
               Mulai dari trial, lalu pilih plan sesuai tahap bisnismu.
             </span>
             <span className="hidden sm:inline">
-              Mulai dari trial tanpa risiko, lalu pilih plan sesuai tahap
-              operasionalmu hari ini. Fokusnya bukan daftar fitur, tapi seberapa
-              cepat kamu bisa merasa bisnis ini lebih tertata.
+              Mulai dari trial tanpa risiko, lalu pilih paket yang paling pas
+              dengan keadaan bisnismu hari ini. Bukan soal fitur paling banyak,
+              tapi paket mana yang paling cepat terasa manfaatnya.
             </span>
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
-            <Pill text="Trial 30 hari" />
-            <Pill text="Tanpa kartu kredit" />
-            <div className="hidden sm:contents">
-              <Pill text="Onboarding dibantu" />
-              <Pill text="Upgrade kapan saja" />
-            </div>
+              <Pill text="Trial 30 hari" />
+              <Pill text="Tanpa kartu kredit" />
+              <div className="hidden sm:contents">
+              <Pill text="Mulai cepat" />
+              <Pill text="Naik paket kapan saja" />
+              </div>
           </div>
 
           <div className="mt-10 inline-flex items-center gap-2 rounded-2xl border border-border bg-card/60 p-1.5 backdrop-blur">
@@ -193,7 +218,7 @@ export default function PricingPage() {
               <div className="space-y-4">
                 <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">
                   <Clock3 className="h-3.5 w-3.5" />
-                  Zero-risk entry
+                  Mulai tanpa risiko
                 </div>
                 <div>
                   <h2 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">
@@ -201,11 +226,12 @@ export default function PricingPage() {
                   </h2>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:leading-7">
                     <span className="sm:hidden">
-                      Coba flow dulu. Kalau cocok, baru lanjut ke plan berbayar.
+                      Coba dulu. Kalau cocok, baru lanjut ke paket berbayar.
                     </span>
                     <span className="hidden sm:inline">
-                      Buat tenant, coba booking flow, lihat landing dan dashboard
-                      hidup dulu. Kalau ternyata fit, baru lanjut ke Starter atau Pro.
+                      Bangun tenant dulu, lihat halaman booking dan dashboard
+                      berjalan, lalu putuskan dengan kepala dingin apakah sudah
+                      waktunya lanjut ke Starter atau Pro.
                     </span>
                   </p>
                 </div>
@@ -236,13 +262,14 @@ export default function PricingPage() {
                     IDR
                   </span>
                 </div>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
                   <span className="sm:hidden">
-                    Tanpa kartu kredit. Validasi dulu flow-nya.
+                    Tanpa kartu kredit. Coba dulu, baru putuskan.
                   </span>
                   <span className="hidden sm:inline">
-                    Tidak perlu kartu kredit. Fokusnya validasi apakah flow
-                    Bookinaja cocok dengan operasional bisnismu.
+                    Tidak perlu kartu kredit. Tujuannya sederhana: biar kamu
+                    bisa merasakan dulu apakah Bookinaja benar-benar membantu
+                    bisnis ini jadi lebih rapi.
                   </span>
                 </p>
                 <Link href="/register?plan=starter&trial=1" className="mt-5 block">
@@ -272,6 +299,7 @@ export default function PricingPage() {
             return (
               <div
                 key={plan.key}
+                id={plan.key}
                 className={cn(
                   "relative flex flex-col rounded-[2rem] border p-7 shadow-[0_18px_50px_rgba(15,23,42,0.05)] transition-all duration-300",
                   billingPlan.recommended
@@ -289,14 +317,14 @@ export default function PricingPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-3">
                     <div className="inline-flex rounded-full border border-blue-500/15 bg-blue-500/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">
-                      {billingPlan.label}
+                      {plan.kicker}
                     </div>
                     <div>
                       <h3 className="text-3xl font-black tracking-tight text-foreground">
                         {billingPlan.name}
                       </h3>
                       <p className="mt-3 text-sm leading-6 text-muted-foreground sm:leading-7">
-                        {billingPlan.headline}
+                        {plan.bestFor}
                       </p>
                     </div>
                   </div>
@@ -332,20 +360,31 @@ export default function PricingPage() {
                   </p>
                 </div>
 
-                <div className="mt-7 flex-1 space-y-4 border-t border-border/70 pt-7">
+                <div className="mt-7 flex-1 border-t border-border/70 pt-7">
                   <div className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
                     Yang paling terasa
                   </div>
-                  <ul className="space-y-3">
-                    {billingPlan.publicFeatures.map((feature) => (
-                      <li key={feature} className="flex items-start gap-3 text-sm text-foreground/85">
+                  <div className="mt-4 space-y-3">
+                    {plan.valuePoints.map((point) => (
+                      <div
+                        key={point}
+                        className="rounded-2xl border border-border/70 bg-background/60 px-4 py-3 text-sm leading-6 text-foreground/85"
+                      >
+                        {point}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 grid gap-3">
+                    {billingPlan.publicFeatures.slice(0, 4).map((feature) => (
+                      <div key={feature} className="flex items-start gap-3 text-sm text-foreground/85">
                         <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-blue-600">
                           <Check className="h-3.5 w-3.5" />
                         </div>
                         <span>{feature}</span>
-                      </li>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
 
                 <p className="mt-6 text-sm leading-6 text-muted-foreground">
@@ -353,39 +392,57 @@ export default function PricingPage() {
                     {billingPlan.name === "Starter"
                       ? "Mulai cepat tanpa tim besar."
                       : billingPlan.name === "Pro"
-                        ? "Pilihan terbaik untuk operasional tim."
-                        : "Siap saat bisnis masuk fase growth."}
+                        ? "Pilihan paling aman saat tim mulai bertambah."
+                        : "Arah berikutnya saat bisnis sudah siap naik kelas."}
                   </span>
                   <span className="hidden sm:inline">{billingPlan.note}</span>
                 </p>
 
                 {billingPlan.comingSoon ? (
-                  <Button
-                    disabled
-                    variant="secondary"
-                    className="mt-6 h-12 rounded-2xl text-sm font-black opacity-100"
-                  >
-                    <Clock3 className="mr-2 h-4 w-4" />
-                    {plan.cta}
-                  </Button>
-                ) : (
-                  <Link
-                    href={`${plan.href}&interval=${isAnnual ? "annual" : "monthly"}`}
-                    className="mt-6 block"
-                  >
+                  <div className="mt-6 space-y-3">
                     <Button
-                      className={cn(
-                        "group h-12 w-full rounded-2xl text-sm font-black",
-                        billingPlan.recommended
-                          ? "bg-blue-600 text-white hover:bg-blue-700"
-                          : "bg-secondary text-foreground hover:bg-blue-500 hover:text-white",
-                      )}
-                      variant={billingPlan.recommended ? "default" : "secondary"}
+                      disabled
+                      variant="secondary"
+                      className="h-12 w-full rounded-2xl text-sm font-black opacity-100"
                     >
+                      <Clock3 className="mr-2 h-4 w-4" />
                       {plan.cta}
-                      <ChevronRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                     </Button>
-                  </Link>
+                    {plan.detailHref ? (
+                      <Link href={plan.detailHref} className="block">
+                        <Button variant="outline" className="h-11 w-full rounded-2xl">
+                          Lihat selengkapnya
+                        </Button>
+                      </Link>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="mt-6 space-y-3">
+                    <Link
+                      href={`${plan.href}&interval=${isAnnual ? "annual" : "monthly"}`}
+                      className="block"
+                    >
+                      <Button
+                        className={cn(
+                          "group h-12 w-full rounded-2xl text-sm font-black",
+                          billingPlan.recommended
+                            ? "bg-blue-600 text-white hover:bg-blue-700"
+                            : "bg-secondary text-foreground hover:bg-blue-500 hover:text-white",
+                        )}
+                        variant={billingPlan.recommended ? "default" : "secondary"}
+                      >
+                        {plan.cta}
+                        <ChevronRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                      </Button>
+                    </Link>
+                    {plan.detailHref ? (
+                      <Link href={plan.detailHref} className="block">
+                        <Button variant="outline" className="h-11 w-full rounded-2xl">
+                          Lihat selengkapnya
+                        </Button>
+                      </Link>
+                    ) : null}
+                  </div>
                 )}
               </div>
             );
@@ -396,15 +453,15 @@ export default function PricingPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <div className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-                Perbandingan inti
+                Perbandingan singkat
               </div>
               <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground">
-                Pilih berdasar hasil yang kamu butuhkan
+                Pilih dari hasil yang paling kamu butuhkan
               </h2>
             </div>
             <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-              Pricing yang baik membantu user memilih cepat. Jadi di sini kami
-              bedakan plan berdasarkan perubahan operasional yang paling terasa.
+              Starter untuk mulai rapi. Pro untuk kerja tim yang lebih tenang.
+              Scale untuk bisnis yang ingin tumbuh lewat repeat order dan loyalitas customer.
             </p>
           </div>
 
@@ -438,24 +495,24 @@ export default function PricingPage() {
           <TrustCard
             icon={<ShieldCheck className="h-5 w-5" />}
             title="Mulai tanpa risiko"
-            body="Trial 30 hari ada untuk membantu validasi flow, bukan memaksa commit terlalu cepat."
+            body="Coba trial dulu, lalu lanjut saat kamu benar-benar merasa bisnis ini lebih tertata."
           />
           <TrustCard
             icon={<Rocket className="h-5 w-5" />}
-            title="Jual hasil, bukan noise"
-            body="Starter untuk mulai rapi, Pro untuk tim yang sudah jalan, Scale untuk growth berikutnya."
+            title="Setiap paket punya peran"
+            body="Bukan sekadar lebih banyak fitur, tapi manfaat yang memang terasa berbeda di tiap tahap bisnis."
           />
           <TrustCard
             icon={<HelpCircle className="h-5 w-5" />}
-            title="Masuk akal buat Indonesia"
-            body="CTA utamanya sederhana: coba dulu, pilih fase operasionalmu, lalu upgrade saat value-nya sudah terasa."
+            title="Baca sebelum pilih"
+            body="Kalau ingin lihat lebih dalam, tiap paket punya halaman penjelasan sendiri sebelum kamu checkout."
           />
         </div>
 
         <div className="mx-auto mt-16 max-w-3xl text-center">
           <p className="text-sm leading-7 text-muted-foreground">
-            Masih ragu mulai dari mana? Lihat demo dulu atau konsultasi sebelum
-            pilih plan.
+            Kalau masih ragu mulai dari mana, lihat demo dulu atau ngobrol dulu
+            sebelum pilih paket.
           </p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <Link href="/demos">

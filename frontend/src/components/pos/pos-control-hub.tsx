@@ -63,6 +63,7 @@ import {
   printReceiptBluetooth,
   type ReceiptSettings,
 } from "@/lib/receipt";
+import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { toast } from "sonner";
 
 type POSLineItem = {
@@ -569,6 +570,7 @@ function TimedBookingControlHubInner({
   canUseReceiptActions: boolean;
   onClose?: () => void;
 }) {
+  const { user: adminUser } = useAdminSession();
   const [fnbOpen, setFnbOpen] = useState(false);
   const [extendOpen, setExtendOpen] = useState(false);
   const [addonsOpen, setAddonsOpen] = useState(false);
@@ -723,7 +725,11 @@ function TimedBookingControlHubInner({
 
     if (mode === "print" || mode === "both") {
       try {
-        await printReceiptBluetooth(receiptSettings, session);
+        await printReceiptBluetooth(receiptSettings, {
+          ...session,
+          receipt_kind: "pos",
+          cashier_name: adminUser?.name || "Admin",
+        });
         toast.success("Nota dikirim ke printer Bluetooth");
       } catch (error) {
         const err = error as Error;

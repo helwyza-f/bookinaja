@@ -221,6 +221,7 @@ type ReceiptContext struct {
 	TenantPlan          string  `db:"tenant_plan"`
 	TenantStatus        string  `db:"tenant_status"`
 	Timezone            string  `db:"timezone"`
+	CashierName         string  `db:"cashier_name"`
 	ReceiptTitle        string  `db:"receipt_title"`
 	ReceiptSubtitle     string  `db:"receipt_subtitle"`
 	ReceiptFooter       string  `db:"receipt_footer"`
@@ -231,6 +232,8 @@ type ReceiptContext struct {
 	ResourceName        string  `db:"resource_name"`
 	TotalResource       float64 `db:"total_resource"`
 	TotalFnb            float64 `db:"total_fnb"`
+	Options             []BookingOptionDetail
+	Orders              []OrderItem
 }
 
 type BookingOptionDetail struct {

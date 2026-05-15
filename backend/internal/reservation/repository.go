@@ -1679,6 +1679,23 @@ func (r *Repository) GetReceiptContext(ctx context.Context, bookingID, tenantID 
 			t.plan AS tenant_plan,
 			t.subscription_status AS tenant_status,
 			COALESCE(NULLIF(BTRIM(t.timezone), ''), 'Asia/Jakarta') AS timezone,
+			COALESCE((
+				SELECT NULLIF(BTRIM(be.actor_name), '')
+				FROM booking_events be
+				WHERE be.booking_id = b.id
+					AND be.actor_type = 'admin'
+					AND NULLIF(BTRIM(be.actor_name), '') IS NOT NULL
+					AND be.event_type IN (
+						'payment.cash.settled',
+						'payment.dp.recorded',
+						'session.activated',
+						'session.completed',
+						'session.extended',
+						'booking.created'
+					)
+				ORDER BY be.created_at DESC
+				LIMIT 1
+			), 'Admin') AS cashier_name,
 			t.receipt_title,
 			t.receipt_subtitle,
 			t.receipt_footer,
@@ -1699,5 +1716,29 @@ func (r *Repository) GetReceiptContext(ctx context.Context, bookingID, tenantID 
 		return nil, err
 	}
 	normalizeBookingFinancials(&receipt.Booking, receipt.TotalResource, receipt.TotalFnb)
+
+	receipt.Options = make([]BookingOptionDetail, 0)
+	if err := r.db.SelectContext(ctx, &receipt.Options, `
+		SELECT
+			bo.id, ri.name as item_name, ri.item_type,
+			bo.price_at_booking, bo.quantity, ri.price as unit_price
+		FROM booking_options bo
+		JOIN resource_items ri ON bo.resource_item_id = ri.id
+		WHERE bo.booking_id = $1
+		ORDER BY bo.price_at_booking DESC`, receipt.ID); err != nil {
+		return nil, err
+	}
+
+	receipt.Orders = make([]OrderItem, 0)
+	if err := r.db.SelectContext(ctx, &receipt.Orders, `
+		SELECT oi.id, oi.booking_id, oi.fnb_item_id, f.name as item_name, oi.quantity, oi.price_at_purchase,
+		(oi.quantity * oi.price_at_purchase) as subtotal
+		FROM order_items oi
+		JOIN fnb_items f ON oi.fnb_item_id = f.id
+		WHERE oi.booking_id = $1
+		ORDER BY oi.created_at DESC`, receipt.ID); err != nil {
+		return nil, err
+	}
+
 	return &receipt, nil
 }

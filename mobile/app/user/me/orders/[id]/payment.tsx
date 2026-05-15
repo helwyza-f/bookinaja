@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
-import { Link, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, Text, TextInput, View } from "react-native";
@@ -126,6 +126,14 @@ export default function CustomerOrderPaymentScreen() {
 
   const selectedMethodDetail =
     paymentMethods.find((item) => item.code === selectedMethod) || paymentMethods[0];
+
+  function goBackToOrder() {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace(`/user/me/orders/${id}`);
+  }
 
   const pendingManualAttempt = useMemo(
     () =>
@@ -579,11 +587,7 @@ export default function CustomerOrderPaymentScreen() {
         </CardBlock>
       ) : null}
 
-      <Link href={`/user/me/orders/${id}` as const} asChild>
-        <View>
-          <CtaButton label="Kembali ke order" tone="secondary" />
-        </View>
-      </Link>
+      <CtaButton label="Kembali ke order" tone="secondary" onPress={goBackToOrder} />
     </ScreenShell>
   );
 }
