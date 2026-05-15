@@ -7,6 +7,7 @@ import { Image } from "expo-image";
 import { apiFetch, ApiError } from "@/lib/api";
 import { CardBlock } from "@/components/card-block";
 import { CtaButton } from "@/components/cta-button";
+import { Field } from "@/components/field";
 import { ScreenShell } from "@/components/screen-shell";
 import { formatCurrency } from "@/lib/format";
 import { BusySlot, PublicResourceDetail, PublicResourceItem } from "@/lib/resource-public";
@@ -138,6 +139,25 @@ function getDurationUnitLabel(value?: string, count = 1) {
   if (normalized === "month") return `${count} bulan`;
   if (normalized === "year") return `${count} tahun`;
   return `${count} sesi`;
+}
+
+function getPriceUnitLabel(value?: string) {
+  const normalized = String(value || "").toLowerCase();
+  if (normalized === "hour") return "jam";
+  if (normalized === "day") return "hari";
+  if (normalized === "week") return "minggu";
+  if (normalized === "month") return "bulan";
+  if (normalized === "year") return "tahun";
+  return normalized || "sesi";
+}
+
+function calculateEstimatedDeposit(total: number, enabled?: boolean, percentage?: number) {
+  if (!enabled || total <= 0) return 0;
+  const safePercentage = Number(percentage || 0);
+  if (safePercentage <= 0) return 0;
+  const dp = Math.round(total * (safePercentage / 100));
+  if (dp < 10000) return Math.min(total, 10000);
+  return Math.min(total, dp);
 }
 
 function addDurationToDate(dateValue: string, unit: string | undefined, count: number) {
@@ -461,6 +481,25 @@ export default function ResourceDetailScreen() {
   );
 
   const total = operatingMode === "direct_sale" ? directSaleTotal : timedTotal;
+  const depositPercentage = Number(resource?.dp_percentage || 0);
+  const estimatedDeposit = calculateEstimatedDeposit(total, resource?.dp_enabled, depositPercentage);
+  const topFacts = [
+    resource?.category,
+    operatingMode === "direct_sale" ? "Direct sale" : "Booking waktu",
+    operatingMode === "timed" ? `${unitDuration} menit / sesi` : null,
+  ].filter(Boolean);
+  const statusCopy =
+    operatingMode === "direct_sale"
+      ? directSaleSelections.length
+        ? `${directSaleSelections.length} item dipilih`
+        : "Pilih item yang mau dibeli"
+      : selectedMainItem
+        ? isInterday
+          ? `${duration} ${getDurationUnitLabel(selectedMainItem.price_unit, duration)}`
+          : time
+            ? `${selectedDateLabel}, ${time} - ${selectedEndTime || "--"}`
+            : "Pilih tanggal dan jam"
+        : "Pilih paket utama dulu";
 
   function toggleAddon(item: PublicResourceItem) {
     setSelectedAddons((current) =>
@@ -647,14 +686,14 @@ export default function ResourceDetailScreen() {
 
   return (
     <ScreenShell eyebrow={flowMeta.eyebrow} title={resource?.name || "Detail resource"} description={resource?.description || flowMeta.description}>
-      <CardBlock>
+      <View style={{ gap: 12 }}>
         <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
           {(gallery.length ? gallery : [""]).map((source, index) => (
             <View
               key={`${source || "fallback"}-${index}`}
               style={{
-                width: 320,
-                height: 224,
+                width: 356,
+                height: 236,
                 borderRadius: 24,
                 overflow: "hidden",
                 backgroundColor: "#f8fafc",
@@ -677,34 +716,83 @@ export default function ResourceDetailScreen() {
         </ScrollView>
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          {[
-            resource?.category,
-            operatingMode === "direct_sale" ? "Direct sale" : "Booking waktu",
-            operatingMode === "timed" ? `${unitDuration} menit / sesi` : null,
-          ]
-            .filter(Boolean)
-            .map((item) => (
-              <View
-                key={String(item)}
-                style={{
-                  borderRadius: 999,
-                  backgroundColor: "#eff6ff",
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                }}
-              >
-                <Text selectable style={{ color: "#1d4ed8", fontSize: 12, fontWeight: "800" }}>
-                  {item}
-                </Text>
-              </View>
-            ))}
+          {topFacts.map((item) => (
+            <View
+              key={String(item)}
+              style={{
+                borderRadius: 999,
+                backgroundColor: "#eff6ff",
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+              }}
+            >
+              <Text selectable style={{ color: "#1d4ed8", fontSize: 12, fontWeight: "800" }}>
+                {item}
+              </Text>
+            </View>
+          ))}
         </View>
-      </CardBlock>
+
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <View
+            style={{
+              flex: 1,
+              borderRadius: 18,
+              backgroundColor: "#f8fafc",
+              paddingHorizontal: 14,
+              paddingVertical: 14,
+              gap: 4,
+            }}
+          >
+            <Text selectable style={{ color: "#64748b", fontSize: 10, fontWeight: "800", letterSpacing: 1 }}>
+              JADWAL
+            </Text>
+            <Text selectable style={{ color: "#0f172a", fontSize: 18, fontWeight: "900", lineHeight: 22 }}>
+              {statusCopy}
+            </Text>
+          </View>
+
+          <View
+            style={{
+              width: 112,
+              borderRadius: 18,
+              backgroundColor: "#eff6ff",
+              paddingHorizontal: 14,
+              paddingVertical: 14,
+              gap: 4,
+              justifyContent: "center",
+            }}
+          >
+            <Text selectable style={{ color: "#64748b", fontSize: 10, fontWeight: "800", letterSpacing: 1 }}>
+              MULAI
+            </Text>
+            <Text selectable style={{ color: "#1d4ed8", fontSize: 22, fontWeight: "900" }}>
+              {formatCurrency(total || selectedMainItem?.price || 0)}
+            </Text>
+          </View>
+        </View>
+
+        <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 19 }}>
+          {operatingMode === "direct_sale"
+            ? "Pilih item, isi kontak, lalu buat order."
+            : "Pilih paket, tentukan jadwal, lalu lanjutkan booking."}
+        </Text>
+      </View>
 
       <CardBlock>
-        <Text selectable style={{ color: "#0f172a", fontSize: 17, fontWeight: "900" }}>
-          {flowMeta.title}
-        </Text>
+        <View style={{ gap: 2 }}>
+          <Text selectable style={{ color: "#2563eb", fontSize: 10, fontWeight: "800", letterSpacing: 1.5 }}>
+            LANGKAH 1
+          </Text>
+          <Text selectable style={{ color: "#0f172a", fontSize: 17, fontWeight: "900" }}>
+            {operatingMode === "direct_sale" ? "Pilih item" : "Pilih paket"}
+          </Text>
+          <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 19 }}>
+            {operatingMode === "direct_sale"
+              ? "Tentukan item yang ingin dibeli."
+              : "Pilih satu paket utama yang paling sesuai."}
+          </Text>
+        </View>
 
         {operatingMode === "direct_sale" ? (
           <View style={{ gap: 10 }}>
@@ -798,20 +886,71 @@ export default function ResourceDetailScreen() {
                   style={{
                     borderRadius: 20,
                     borderWidth: 1,
-                    borderColor: active ? "#2563eb" : "#e2e8f0",
-                    backgroundColor: active ? "#eff6ff" : "#ffffff",
-                    paddingHorizontal: 14,
-                    paddingVertical: 14,
-                    gap: 4,
+                    borderColor: active ? "#2563eb" : "#d9e2ec",
+                    backgroundColor: active ? "#f8fbff" : "#ffffff",
+                    paddingHorizontal: 16,
+                    paddingVertical: 15,
+                    gap: 12,
                   }}
                 >
-                  <Text selectable style={{ color: "#0f172a", fontSize: 15, fontWeight: "800" }}>
-                    {item.name}
-                  </Text>
-                  <Text selectable style={{ color: "#64748b", fontSize: 13 }}>
-                    {formatCurrency(item.price)}
-                    {item.price_unit ? ` / ${item.price_unit}` : ""}
-                    {item.unit_duration ? ` / ${item.unit_duration} menit` : ""}
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 14 }}>
+                    <View style={{ flex: 1, gap: 6 }}>
+                      <Text selectable style={{ color: "#0f172a", fontSize: 15, fontWeight: "800" }}>
+                        {item.name}
+                      </Text>
+                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                        {item.unit_duration ? (
+                          <View
+                            style={{
+                              borderRadius: 999,
+                              backgroundColor: active ? "#dbeafe" : "#f1f5f9",
+                              paddingHorizontal: 10,
+                              paddingVertical: 6,
+                            }}
+                          >
+                            <Text selectable style={{ color: active ? "#1d4ed8" : "#475569", fontSize: 11, fontWeight: "800" }}>
+                              {item.unit_duration} menit / sesi
+                            </Text>
+                          </View>
+                        ) : null}
+                        {item.price_unit ? (
+                          <View
+                            style={{
+                              borderRadius: 999,
+                              backgroundColor: active ? "#dbeafe" : "#f8fafc",
+                              paddingHorizontal: 10,
+                              paddingVertical: 6,
+                            }}
+                          >
+                            <Text selectable style={{ color: active ? "#1d4ed8" : "#64748b", fontSize: 11, fontWeight: "800" }}>
+                              Per {getPriceUnitLabel(item.price_unit)}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    </View>
+                    <View style={{ alignItems: "flex-end", gap: 8 }}>
+                      <Text selectable style={{ color: "#1d4ed8", fontSize: 20, fontWeight: "900" }}>
+                        {formatCurrency(item.price)}
+                      </Text>
+                      <View
+                        style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 999,
+                          borderWidth: 1.5,
+                          borderColor: active ? "#2563eb" : "#cbd5e1",
+                          backgroundColor: active ? "#2563eb" : "#ffffff",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {active ? <MaterialIcons name="check" size={14} color="#ffffff" /> : null}
+                      </View>
+                    </View>
+                  </View>
+                  <Text selectable style={{ color: "#64748b", fontSize: 12 }}>
+                    {active ? "Paket ini dipakai untuk hitung jadwal dan total." : "Pilih untuk lanjut ke jadwal."}
                   </Text>
                 </Pressable>
               );
@@ -867,11 +1006,19 @@ export default function ResourceDetailScreen() {
 
       {operatingMode === "timed" ? (
         <CardBlock>
-          <Text selectable style={{ color: "#0f172a", fontSize: 17, fontWeight: "900" }}>
-            Waktu booking
-          </Text>
+          <View style={{ gap: 2 }}>
+            <Text selectable style={{ color: "#2563eb", fontSize: 10, fontWeight: "800", letterSpacing: 1.5 }}>
+              LANGKAH 2
+            </Text>
+            <Text selectable style={{ color: "#0f172a", fontSize: 17, fontWeight: "900" }}>
+              Pilih jadwal booking
+            </Text>
+            <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 19 }}>
+              Pilih tanggal, lalu tentukan jam mulai yang masih tersedia.
+            </Text>
+          </View>
 
-          <View style={{ gap: 14 }}>
+          <View style={{ gap: 12 }}>
             <View style={{ gap: 8 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                 <Text selectable style={{ color: "#64748b", fontSize: 11, fontWeight: "800", letterSpacing: 1 }}>
@@ -885,12 +1032,12 @@ export default function ResourceDetailScreen() {
               <Pressable
                 onPress={() => setCalendarOpen(true)}
                 style={{
-                  borderRadius: 18,
+                  borderRadius: 16,
                   borderWidth: 1,
-                  borderColor: "#d6deea",
-                  backgroundColor: "#fbfdff",
+                  borderColor: "#d9e2ec",
+                  backgroundColor: "#f8fafc",
                   paddingHorizontal: 14,
-                  paddingVertical: 14,
+                  paddingVertical: 12,
                   flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "space-between",
@@ -900,15 +1047,15 @@ export default function ResourceDetailScreen() {
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
                   <View
                     style={{
-                      width: 42,
-                      height: 42,
-                      borderRadius: 14,
-                      backgroundColor: "#eff6ff",
+                      width: 38,
+                      height: 38,
+                      borderRadius: 12,
+                      backgroundColor: "#ffffff",
                       alignItems: "center",
                       justifyContent: "center",
                     }}
                   >
-                    <MaterialIcons name="calendar-month" size={20} color="#2563eb" />
+                    <MaterialIcons name="calendar-month" size={18} color="#2563eb" />
                   </View>
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text selectable style={{ color: "#0f172a", fontSize: 14, fontWeight: "800" }}>
@@ -942,7 +1089,7 @@ export default function ResourceDetailScreen() {
               {isInterday ? (
                 <View
                   style={{
-                    borderRadius: 18,
+                    borderRadius: 16,
                     backgroundColor: "#f8fafc",
                     paddingHorizontal: 14,
                     paddingVertical: 14,
@@ -994,76 +1141,44 @@ export default function ResourceDetailScreen() {
                 </View>
               ) : (
                 <>
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                    {(["available", "booked", "active", "done"] as SlotStatus[]).map((status) => {
-                      const badge = getSlotBadge(status);
-                      return (
-                        <View
-                          key={status}
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 6,
-                            borderRadius: 999,
-                            backgroundColor: "#ffffff",
-                            borderWidth: 1,
-                            borderColor: "#e2e8f0",
-                            paddingHorizontal: 10,
-                            paddingVertical: 6,
-                          }}
-                        >
-                          <View
-                            style={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: 999,
-                              backgroundColor: badge.text,
-                            }}
-                          />
-                          <Text selectable style={{ color: "#475569", fontSize: 11, fontWeight: "700" }}>
-                            {badge.label}
-                          </Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
                     {timeSlots.map((slot) => {
                       const badge = getSlotBadge(slot.status);
+                      const active = slot.status === "selected";
                       return (
                         <Pressable
                           key={slot.value}
                           disabled={slot.disabled}
                           onPress={() => setTime(slot.value)}
                           style={{
-                            width: "22.5%",
-                            minWidth: 72,
-                            borderRadius: 14,
+                            width: "31%",
+                            minWidth: 94,
+                            borderRadius: 16,
                             borderWidth: 1,
-                            borderColor: slot.status === "selected" ? "#2563eb" : slot.disabled ? "#e2e8f0" : "#d6deea",
-                            backgroundColor: slot.status === "selected" ? "#eff6ff" : slot.disabled ? "#f8fafc" : "#ffffff",
-                            paddingHorizontal: 10,
-                            paddingVertical: 10,
-                            alignItems: "center",
-                            gap: 5,
+                            borderColor: active ? "#2563eb" : slot.disabled ? "#e2e8f0" : "#d9e2ec",
+                            backgroundColor: active ? "#eff6ff" : slot.disabled ? "#f8fafc" : "#ffffff",
+                            paddingHorizontal: 12,
+                            paddingVertical: 12,
+                            alignItems: "flex-start",
+                            gap: 6,
+                            opacity: slot.disabled && !active ? 0.82 : 1,
                           }}
                         >
-                          <Text selectable style={{ color: slot.status === "selected" ? "#1d4ed8" : "#0f172a", fontSize: 14, fontWeight: "800" }}>
+                          <Text selectable style={{ color: active ? "#1d4ed8" : "#0f172a", fontSize: 15, fontWeight: "800" }}>
                             {slot.value}
                           </Text>
-                          <Text selectable style={{ color: "#94a3b8", fontSize: 10 }}>
-                            {slot.endValue}
+                          <Text selectable style={{ color: "#64748b", fontSize: 11 }}>
+                            sampai {slot.endValue}
                           </Text>
                           <View
                             style={{
                               borderRadius: 999,
                               backgroundColor: badge.bg,
-                              paddingHorizontal: 7,
-                              paddingVertical: 3,
+                              paddingHorizontal: 8,
+                              paddingVertical: 4,
                             }}
                           >
-                            <Text selectable numberOfLines={1} style={{ color: badge.text, fontSize: 9, fontWeight: "800" }}>
+                            <Text selectable style={{ color: badge.text, fontSize: 10, fontWeight: "800" }}>
                               {badge.label}
                             </Text>
                           </View>
@@ -1074,11 +1189,11 @@ export default function ResourceDetailScreen() {
 
                   {!timeSlots.length ? (
                     <View
-                      style={{
-                        borderRadius: 18,
-                        backgroundColor: "#f8fafc",
-                        paddingHorizontal: 14,
-                        paddingVertical: 14,
+                    style={{
+                      borderRadius: 16,
+                      backgroundColor: "#f8fafc",
+                      paddingHorizontal: 14,
+                      paddingVertical: 14,
                       }}
                     >
                       <Text selectable style={{ color: "#64748b", fontSize: 13 }}>
@@ -1111,7 +1226,7 @@ export default function ResourceDetailScreen() {
                       onPress={() => setDuration(value)}
                       style={{
                         minWidth: 82,
-                        borderRadius: 14,
+                        borderRadius: 12,
                         borderWidth: 1,
                         borderColor: active ? "#2563eb" : "#e2e8f0",
                         backgroundColor: active ? "#eff6ff" : "#ffffff",
@@ -1135,7 +1250,7 @@ export default function ResourceDetailScreen() {
                   <View
                     style={{
                       flex: 1,
-                      borderRadius: 16,
+                      borderRadius: 14,
                       backgroundColor: "#eff6ff",
                       paddingHorizontal: 14,
                       paddingVertical: 12,
@@ -1152,7 +1267,7 @@ export default function ResourceDetailScreen() {
                   <View
                     style={{
                       flex: 1,
-                      borderRadius: 16,
+                      borderRadius: 14,
                       backgroundColor: "#f8fafc",
                       paddingHorizontal: 14,
                       paddingVertical: 12,
@@ -1264,19 +1379,19 @@ export default function ResourceDetailScreen() {
               style={{
                 flex: 1,
                 backgroundColor: "rgba(15,23,42,0.42)",
-                paddingHorizontal: 18,
-                alignItems: "center",
-                justifyContent: "center",
+                justifyContent: "flex-end",
               }}
             >
               <View
                 style={{
                   width: "100%",
-                  maxWidth: 360,
-                  borderRadius: 28,
+                  borderTopLeftRadius: 28,
+                  borderTopRightRadius: 28,
                   backgroundColor: "#ffffff",
-                  padding: 20,
-                  gap: 14,
+                  paddingHorizontal: 20,
+                  paddingTop: 12,
+                  paddingBottom: 24,
+                  gap: 18,
                   shadowColor: "#020617",
                   shadowOpacity: 0.12,
                   shadowRadius: 24,
@@ -1284,55 +1399,168 @@ export default function ResourceDetailScreen() {
                   elevation: 6,
                 }}
               >
-                <View style={{ gap: 4 }}>
-                  <Text selectable style={{ color: "#0f172a", fontSize: 20, fontWeight: "900" }}>
-                    Konfirmasi booking
+                <View
+                  style={{
+                    width: 40,
+                    height: 4,
+                    borderRadius: 999,
+                    backgroundColor: "#d9e2ec",
+                    alignSelf: "center",
+                  }}
+                />
+                <View style={{ gap: 6 }}>
+                  <Text selectable style={{ color: "#0f172a", fontSize: 22, fontWeight: "900" }}>
+                    Cek booking
                   </Text>
                   <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 20 }}>
-                    Cek ringkasannya dulu sebelum lanjut.
+                    Ringkasannya sudah siap. Kalau sudah benar, lanjutkan buat booking.
                   </Text>
                 </View>
 
-                <View style={{ gap: 10 }}>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
-                    <Text selectable style={{ color: "#64748b", fontSize: 13 }}>Paket</Text>
-                    <Text selectable style={{ color: "#0f172a", fontSize: 13, fontWeight: "800", flex: 1, textAlign: "right" }}>
-                      {selectedMainItem?.name || "-"}
-                    </Text>
+                <View
+                  style={{
+                    borderRadius: 22,
+                    borderWidth: 1,
+                    borderColor: "#e6ebf2",
+                    backgroundColor: "#ffffff",
+                    padding: 16,
+                    gap: 14,
+                  }}
+                >
+                  <View style={{ flexDirection: "row", gap: 10 }}>
+                    <View
+                      style={{
+                        flex: 1,
+                        borderRadius: 16,
+                        backgroundColor: "#f8fafc",
+                        paddingHorizontal: 12,
+                        paddingVertical: 12,
+                        gap: 4,
+                      }}
+                    >
+                      <Text selectable style={{ color: "#64748b", fontSize: 10, fontWeight: "800", letterSpacing: 1 }}>
+                        PAKET
+                      </Text>
+                      <Text selectable numberOfLines={2} style={{ color: "#0f172a", fontSize: 14, fontWeight: "800", lineHeight: 18 }}>
+                        {selectedMainItem?.name || "-"}
+                      </Text>
+                    </View>
+                    <View
+                      style={{
+                        width: 96,
+                        borderRadius: 16,
+                        backgroundColor: "#eff6ff",
+                        paddingHorizontal: 12,
+                        paddingVertical: 12,
+                        gap: 4,
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Text selectable style={{ color: "#64748b", fontSize: 10, fontWeight: "800", letterSpacing: 1 }}>
+                        DURASI
+                      </Text>
+                      <Text selectable style={{ color: "#1d4ed8", fontSize: 13, fontWeight: "900" }}>
+                        {getDurationUnitLabel(selectedMainItem?.price_unit, duration)}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
-                    <Text selectable style={{ color: "#64748b", fontSize: 13 }}>Tanggal</Text>
-                    <Text selectable style={{ color: "#0f172a", fontSize: 13, fontWeight: "800", flex: 1, textAlign: "right" }}>
-                      {selectedDateLabel}
-                    </Text>
+
+                  <View style={{ gap: 10 }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
+                      <Text selectable style={{ color: "#64748b", fontSize: 12 }}>Tanggal</Text>
+                      <Text selectable style={{ color: "#0f172a", fontSize: 13, fontWeight: "800", flex: 1, textAlign: "right" }}>
+                        {selectedDateLabel}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
+                      <Text selectable style={{ color: "#64748b", fontSize: 12 }}>Waktu</Text>
+                      <Text selectable style={{ color: "#0f172a", fontSize: 13, fontWeight: "800", flex: 1, textAlign: "right" }}>
+                        {isInterday ? `${openTime} / ${getDurationUnitLabel(selectedMainItem?.price_unit, duration)}` : `${time} - ${selectedEndTime}`}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
+                      <Text selectable style={{ color: "#64748b", fontSize: 12 }}>Kontak</Text>
+                      <Text selectable style={{ color: "#0f172a", fontSize: 13, fontWeight: "800", flex: 1, textAlign: "right" }}>
+                        {customerPhone || "-"}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
-                    <Text selectable style={{ color: "#64748b", fontSize: 13 }}>Waktu</Text>
-                    <Text selectable style={{ color: "#0f172a", fontSize: 13, fontWeight: "800", flex: 1, textAlign: "right" }}>
-                      {isInterday ? `${openTime} / ${getDurationUnitLabel(selectedMainItem?.price_unit, duration)}` : `${time} - ${selectedEndTime}`}
+                </View>
+
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    borderRadius: 18,
+                    backgroundColor: "#f8fafc",
+                    paddingHorizontal: 14,
+                    paddingVertical: 14,
+                  }}
+                >
+                  <View style={{ gap: 2 }}>
+                    <Text selectable style={{ color: "#64748b", fontSize: 11, fontWeight: "800", letterSpacing: 1 }}>
+                      TOTAL
                     </Text>
-                  </View>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
-                    <Text selectable style={{ color: "#64748b", fontSize: 13 }}>Durasi</Text>
-                    <Text selectable style={{ color: "#0f172a", fontSize: 13, fontWeight: "800", flex: 1, textAlign: "right" }}>
-                      {duration} sesi
-                    </Text>
-                  </View>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
-                    <Text selectable style={{ color: "#64748b", fontSize: 13 }}>Total</Text>
-                    <Text selectable style={{ color: "#1d4ed8", fontSize: 15, fontWeight: "900", flex: 1, textAlign: "right" }}>
+                    <Text selectable style={{ color: "#1d4ed8", fontSize: 24, fontWeight: "900" }}>
                       {formatCurrency(total)}
                     </Text>
                   </View>
+                  <View
+                    style={{
+                      borderRadius: 999,
+                      backgroundColor: "#eff6ff",
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                    }}
+                  >
+                    <Text selectable style={{ color: "#1d4ed8", fontSize: 12, fontWeight: "800" }}>
+                      {isInterday ? "Periode" : "1 booking"}
+                    </Text>
+                  </View>
                 </View>
 
-                <View style={{ flexDirection: "row", gap: 10 }}>
-                  <View style={{ flex: 1 }}>
-                    <CtaButton label="Kembali" tone="secondary" onPress={() => setConfirmBookingOpen(false)} />
+                {estimatedDeposit > 0 ? (
+                  <View
+                    style={{
+                      borderRadius: 18,
+                      backgroundColor: "#f8fafc",
+                      paddingHorizontal: 14,
+                      paddingVertical: 14,
+                      gap: 4,
+                    }}
+                  >
+                    <Text selectable style={{ color: "#64748b", fontSize: 11, fontWeight: "800", letterSpacing: 1 }}>
+                      DP SAAT BOOKING
+                    </Text>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", gap: 12 }}>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text selectable style={{ color: "#1d4ed8", fontSize: 22, fontWeight: "900" }}>
+                          {formatCurrency(estimatedDeposit)}
+                        </Text>
+                        <Text selectable style={{ color: "#64748b", fontSize: 12, lineHeight: 18 }}>
+                          {depositPercentage}% dari total sesuai policy tenant.
+                        </Text>
+                      </View>
+                      <Text selectable style={{ color: "#0f172a", fontSize: 13, fontWeight: "800", textAlign: "right" }}>
+                        Sisa {formatCurrency(Math.max(total - estimatedDeposit, 0))}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <CtaButton label={submitting ? "Memproses..." : "Konfirmasi"} disabled={submitting} onPress={() => void confirmTimedBooking()} />
-                  </View>
+                ) : null}
+
+                <View style={{ gap: 10 }}>
+                  <CtaButton
+                    label={submitting ? "Memproses..." : "Konfirmasi booking"}
+                    disabled={submitting}
+                    onPress={() => void confirmTimedBooking()}
+                  />
+                  <Pressable onPress={() => setConfirmBookingOpen(false)} style={{ alignItems: "center", paddingVertical: 6 }}>
+                    <Text selectable style={{ color: "#64748b", fontSize: 13, fontWeight: "700" }}>
+                      Ubah pilihan
+                    </Text>
+                  </Pressable>
                 </View>
               </View>
             </View>
@@ -1341,42 +1569,30 @@ export default function ResourceDetailScreen() {
       ) : null}
 
       <CardBlock>
-        <Text selectable style={{ color: "#0f172a", fontSize: 17, fontWeight: "900" }}>
-          Data customer
-        </Text>
+        <View style={{ gap: 2 }}>
+          <Text selectable style={{ color: "#2563eb", fontSize: 10, fontWeight: "800", letterSpacing: 1.5 }}>
+            LANGKAH 3
+          </Text>
+          <Text selectable style={{ color: "#0f172a", fontSize: 17, fontWeight: "900" }}>
+            Isi data customer
+          </Text>
+          <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 19 }}>
+            Data ini dipakai untuk akses detail booking dan pembayaran.
+          </Text>
+        </View>
         <View style={{ gap: 12 }}>
-          <TextInput
+          <Field
+            label="Nama customer"
             value={customerName}
             onChangeText={setCustomerName}
             placeholder="Nama lengkap"
-            placeholderTextColor="#94a3b8"
-            style={{
-              borderRadius: 18,
-              borderWidth: 1,
-              borderColor: "#d6deea",
-              backgroundColor: "#fbfdff",
-              paddingHorizontal: 14,
-              paddingVertical: 14,
-              color: "#0f172a",
-              fontSize: 15,
-            }}
           />
-          <TextInput
+          <Field
+            label="WhatsApp"
             value={customerPhone}
             onChangeText={(value) => setCustomerPhone(value.replace(/\D/g, ""))}
             keyboardType="phone-pad"
             placeholder="08xxxxxxxxxx"
-            placeholderTextColor="#94a3b8"
-            style={{
-              borderRadius: 18,
-              borderWidth: 1,
-              borderColor: "#d6deea",
-              backgroundColor: "#fbfdff",
-              paddingHorizontal: 14,
-              paddingVertical: 14,
-              color: "#0f172a",
-              fontSize: 15,
-            }}
           />
           {operatingMode === "direct_sale" ? (
             <TextInput
@@ -1387,14 +1603,14 @@ export default function ResourceDetailScreen() {
               multiline
               style={{
                 minHeight: 88,
-                borderRadius: 18,
+                borderRadius: 16,
                 borderWidth: 1,
-                borderColor: "#d6deea",
-                backgroundColor: "#fbfdff",
+                borderColor: "#d9e2ec",
+                backgroundColor: "#f8fafc",
                 paddingHorizontal: 14,
                 paddingVertical: 14,
                 color: "#0f172a",
-                fontSize: 15,
+                fontSize: 14,
                 textAlignVertical: "top",
               }}
             />

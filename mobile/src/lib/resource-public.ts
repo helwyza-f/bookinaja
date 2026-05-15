@@ -19,6 +19,8 @@ export type PublicResourceDetail = {
   image_url?: string;
   gallery?: string[];
   status?: string;
+  dp_enabled?: boolean;
+  dp_percentage?: number;
   items: PublicResourceItem[];
 };
 

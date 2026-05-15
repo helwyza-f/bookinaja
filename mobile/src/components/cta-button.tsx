@@ -19,15 +19,17 @@ export function CtaButton({
       onPress={onPress}
       style={{
         alignItems: "center",
-        borderRadius: 20,
+        minHeight: 48,
+        justifyContent: "center",
+        borderRadius: 16,
         backgroundColor: tone === "primary" ? "#2952d9" : "#eef2f7",
         opacity: disabled ? 0.55 : 1,
-        paddingHorizontal: 18,
-        paddingVertical: 15,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
         shadowColor: tone === "primary" ? "#2952d9" : "#0f172a",
-        shadowOpacity: tone === "primary" ? 0.12 : 0.03,
-        shadowRadius: tone === "primary" ? 10 : 8,
-        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: tone === "primary" ? 0.1 : 0.025,
+        shadowRadius: tone === "primary" ? 8 : 6,
+        shadowOffset: { width: 0, height: 3 },
         elevation: tone === "primary" ? 2 : 1,
       }}
     >
@@ -35,7 +37,7 @@ export function CtaButton({
         selectable
         style={{
           color: tone === "primary" ? "#ffffff" : "#0f172a",
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: "800",
         }}
       >

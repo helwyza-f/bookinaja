@@ -1,11 +1,22 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Text, TextInput, View, Pressable } from "react-native";
+import { Text, TextInput, View, Pressable, ScrollView } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { apiFetch } from "@/lib/api";
 import { CardBlock } from "@/components/card-block";
 import { DiscoveryCard } from "@/components/discovery-card";
-import { ScreenShell } from "@/components/screen-shell";
-import { DiscoveryFeedResponse } from "@/lib/discovery";
+import { DiscoveryFeedResponse, DiscoveryTenant } from "@/lib/discovery";
+
+function dedupeItems(items: DiscoveryTenant[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const itemKey = `${item.item_kind || "tenant"}:${item.id}:${item.slug}`;
+    if (seen.has(itemKey)) return false;
+    seen.add(itemKey);
+    return true;
+  });
+}
 
 export default function DiscoveryScreen() {
   const [query, setQuery] = useState("");
@@ -23,155 +34,133 @@ export default function DiscoveryScreen() {
   const items = useMemo(() => {
     const feed = feedQuery.data;
     if (!feed) return [];
-    const pool = [...feed.featured, ...feed.sections.flatMap((section) => section.items)];
-    const seen = new Set<string>();
+    const pool = dedupeItems([...feed.featured, ...feed.sections.flatMap((section) => section.items)]);
     const normalized = query.trim().toLowerCase();
     return pool.filter((item) => {
-      const itemKey = `${item.item_kind || "tenant"}:${item.id}:${item.slug}`;
-      if (seen.has(itemKey)) {
-        return false;
-      }
       const matchesQuery =
         !normalized ||
-        `${item.name} ${item.business_category || ""} ${item.tagline || ""}`.toLowerCase().includes(normalized);
+        `${item.name} ${item.business_category || ""} ${item.tagline || ""} ${item.feed_summary || ""}`
+          .toLowerCase()
+          .includes(normalized);
       const category = String(item.business_category || item.business_type || "").toLowerCase();
       const matchesCategory =
         activeCategory === "Semua" || category === activeCategory.toLowerCase();
-      const include = matchesQuery && matchesCategory;
-      if (include) {
-        seen.add(itemKey);
-      }
-      return include;
+      return matchesQuery && matchesCategory;
     });
   }, [activeCategory, feedQuery.data, query]);
 
+  const spotlightItems = useMemo(() => dedupeItems(feedQuery.data?.featured || []).slice(0, 6), [feedQuery.data?.featured]);
+  const filteredMode = Boolean(query.trim()) || activeCategory !== "Semua";
+
   return (
-    <ScreenShell
-      eyebrow="Discovery"
-      title={feedQuery.data?.hero?.title || "Cari tenant yang sudah punya konteks sebelum dibuka."}
-      description={feedQuery.data?.hero?.description || "Feed ini dibikin supaya user bisa menilai tenant lebih cepat sebelum lanjut ke booking."}
-    >
-      <View
-        style={{
-          borderRadius: 28,
-          padding: 18,
-          gap: 14,
-          overflow: "hidden",
-          backgroundColor: "#123b87",
-        }}
-      >
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#f3f6fb" }} edges={["top", "left", "right"]}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 10, paddingBottom: 42, gap: 12 }}>
+        <View style={{ gap: 6 }}>
+          <Text selectable style={{ color: "#0f172a", fontSize: 24, fontWeight: "900", lineHeight: 28 }}>
+            Jelajahi tenant
+          </Text>
+        </View>
+
         <View
           style={{
-            position: "absolute",
-            right: -24,
-            top: -18,
-            width: 124,
-            height: 124,
-            borderRadius: 999,
-            backgroundColor: "rgba(255,255,255,0.12)",
+            gap: 10,
           }}
-        />
-        <Text selectable style={{ color: "#bfdbfe", fontSize: 10, fontWeight: "800", letterSpacing: 2, textTransform: "uppercase" }}>
-          Discovery feed
-        </Text>
-        <Text selectable style={{ color: "#ffffff", fontSize: 22, fontWeight: "900", lineHeight: 26 }}>
-          Bandingkan tenant tanpa perlu lompat-lompat.
-        </Text>
-        <Text selectable style={{ color: "rgba(255,255,255,0.82)", fontSize: 14, lineHeight: 21 }}>
-          Lihat konteks, harga mulai, dan feeling bisnisnya dari satu feed yang ringkas.
-        </Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          {[
-            `${items.length} item`,
-            `${Math.max(categories.length - 1, 0)} kategori`,
-            feedQuery.data?.personalized ? "Personalized" : "Editorial",
-          ].map((item) => (
-            <View
-              key={item}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              minHeight: 48,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: "#d9e2ec",
+              backgroundColor: "#f8fafc",
+              paddingHorizontal: 14,
+            }}
+          >
+            <MaterialIcons name="search" size={18} color="#64748b" />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder={feedQuery.data?.hero?.search_hint || "Cari tempat, kategori, aktivitas, atau suasana"}
+              placeholderTextColor="#94a3b8"
               style={{
-                borderRadius: 999,
-                backgroundColor: "rgba(255,255,255,0.12)",
-                paddingHorizontal: 10,
-                paddingVertical: 7,
+                flex: 1,
+                color: "#0f172a",
+                fontSize: 14,
+                paddingVertical: 0,
               }}
-            >
-              <Text selectable style={{ color: "#dbeafe", fontSize: 12, fontWeight: "700" }}>
-                {item}
-              </Text>
-            </View>
-          ))}
+            />
+          </View>
         </View>
-      </View>
 
-      <CardBlock>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder={feedQuery.data?.hero?.search_hint || "Cari bisnis, kategori, atau suasana"}
-          placeholderTextColor="#94a3b8"
-          style={{
-            borderRadius: 18,
-            borderWidth: 1,
-            borderColor: "#cbd5e1",
-            backgroundColor: "#f8fafc",
-            paddingHorizontal: 16,
-            paddingVertical: 14,
-            color: "#0f172a",
-            fontSize: 15,
-          }}
-        />
-      </CardBlock>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+          {categories.map((category) => {
+            const active = activeCategory === category;
+            return (
+              <Pressable
+                key={category}
+                onPress={() => setActiveCategory(category)}
+                style={{
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: active ? "#1d4ed8" : "#dbeafe",
+                  backgroundColor: active ? "#1d4ed8" : "#ffffff",
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                }}
+              >
+                <Text selectable style={{ color: active ? "#ffffff" : "#0f172a", fontSize: 12, fontWeight: "800" }}>
+                  {category}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
 
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-        {categories.map((category) => {
-          const active = activeCategory === category;
-          return (
-            <Pressable
-              key={category}
-              onPress={() => setActiveCategory(category)}
-              style={{
-                borderRadius: 999,
-                borderWidth: 1,
-                borderColor: active ? "#1d4ed8" : "#dbeafe",
-                backgroundColor: active ? "#1d4ed8" : "#ffffff",
-                paddingHorizontal: 14,
-                paddingVertical: 9,
-              }}
-            >
-              <Text selectable style={{ color: active ? "#ffffff" : "#0f172a", fontSize: 12, fontWeight: "800" }}>
-                {category}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {feedQuery.data?.featured?.[0] ? (
-        <CardBlock>
-          <Text selectable style={{ color: "#1d4ed8", fontSize: 11, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase" }}>
-            Spotlight
-          </Text>
-          <Text selectable style={{ color: "#0f172a", fontSize: 22, fontWeight: "900" }}>
-            {feedQuery.data.featured[0].name}
-          </Text>
-          <Text selectable style={{ color: "#475569", fontSize: 14, lineHeight: 22 }}>
-            {feedQuery.data.featured[0].tagline || "Tenant ini sedang diangkat di permukaan discovery."}
-          </Text>
-        </CardBlock>
-      ) : null}
-
-      <View style={{ gap: 12 }}>
-        {items.map((item, index) => (
-          <DiscoveryCard key={`${item.item_kind || "tenant"}-${item.id}-${item.slug}-${index}`} item={item} />
-        ))}
-        {!feedQuery.isLoading && items.length === 0 ? (
-          <CardBlock>
-            <Text selectable style={{ color: "#475569", fontSize: 14, lineHeight: 22 }}>
-              Belum ada item yang cocok dengan pencarian ini.
-            </Text>
-          </CardBlock>
+        {!filteredMode && spotlightItems.length ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14 }}>
+            {spotlightItems.map((item, index) => (
+              <View key={`${item.id}-${index}`} style={{ width: 308 }}>
+                <DiscoveryCard item={item} />
+              </View>
+            ))}
+          </ScrollView>
         ) : null}
-      </View>
-    </ScreenShell>
+
+        {filteredMode ? (
+          <View style={{ gap: 12 }}>
+            {items.map((item, index) => (
+              <DiscoveryCard key={`${item.item_kind || "tenant"}-${item.id}-${item.slug}-${index}`} item={item} />
+            ))}
+            {!feedQuery.isLoading && items.length === 0 ? (
+              <CardBlock>
+                <Text selectable style={{ color: "#475569", fontSize: 14, lineHeight: 22 }}>
+                  Belum ada item yang cocok dengan pencarian ini.
+                </Text>
+              </CardBlock>
+            ) : null}
+          </View>
+        ) : (
+          <View style={{ gap: 16 }}>
+            {(feedQuery.data?.sections || []).map((section) => (
+              <View key={section.id} style={{ gap: 12 }}>
+                <Text selectable style={{ color: "#0f172a", fontSize: 18, fontWeight: "900" }}>
+                  {section.title}
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14 }}>
+                  {dedupeItems(section.items).slice(0, 6).map((item, index) => (
+                    <View key={`${section.id}-${item.id}-${index}`} style={{ width: 308 }}>
+                      <DiscoveryCard item={item} />
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            ))}
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }

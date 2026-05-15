@@ -18,6 +18,8 @@ type Resource struct {
 	ImageURL      string         `db:"image_url" json:"image_url"`
 	Gallery       pq.StringArray `db:"gallery" json:"gallery"`
 	Status        string         `db:"status" json:"status"`
+	DPEnabled     bool           `db:"dp_enabled" json:"dp_enabled"`
+	DPPercentage  float64        `db:"dp_percentage" json:"dp_percentage"`
 	// FIX: Gunakan pointer agar bisa handle NULL dari DB
 	Metadata           *json.RawMessage     `db:"metadata" json:"metadata"`
 	Items              []ResourceItem       `db:"-" json:"items"`

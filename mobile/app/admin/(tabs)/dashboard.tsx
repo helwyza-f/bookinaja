@@ -110,134 +110,71 @@ export default function AdminDashboardScreen() {
       description={data?.profile?.tagline || "Pantau booking, customer, dan sesi aktif tenant dari satu tempat."}
     >
       <CardBlock>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-          {[
-            {
-              label: "Booking hari ini",
-              value: String(todayBookings.length),
-              hint: formatCurrency(todayRevenue),
-              icon: "event" as const,
-              tone: "#1d4ed8",
-              bg: "#eff6ff",
-            },
-            {
-              label: "Sesi aktif",
-              value: String(data?.activeSessions?.length || 0),
-              hint: "Perlu dipantau",
-              icon: "play-circle-outline" as const,
-              tone: "#059669",
-              bg: "#ecfdf5",
-            },
-            {
-              label: "Customer",
-              value: String(data?.customersCount || 0),
-              hint: "Basis CRM tenant",
-              icon: "groups-2" as const,
-              tone: "#7c3aed",
-              bg: "#f5f3ff",
-            },
-            {
-              label: "Resource",
-              value: String(data?.resourcesCount || 0),
-              hint: data?.profile?.business_category || "Siap jual",
-              icon: "inventory-2" as const,
-              tone: "#b45309",
-              bg: "#fff7ed",
-            },
-          ].map((item) => (
-            <View
-              key={item.label}
-              style={{
-                width: "47%",
-                borderRadius: 22,
-                backgroundColor: item.bg,
-                paddingHorizontal: 14,
-                paddingVertical: 14,
-                gap: 8,
-              }}
-            >
-              <View
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 14,
-                  backgroundColor: "#ffffff",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <MaterialIcons name={item.icon} size={20} color={item.tone} />
-              </View>
-              <View style={{ gap: 2 }}>
-                <Text selectable style={{ color: "#64748b", fontSize: 11, fontWeight: "800", letterSpacing: 1 }}>
-                  {item.label.toUpperCase()}
-                </Text>
-                <Text selectable style={{ color: "#0f172a", fontSize: 22, fontWeight: "900" }}>
-                  {item.value}
-                </Text>
-                <Text selectable style={{ color: "#475569", fontSize: 12 }}>
-                  {item.hint}
-                </Text>
-              </View>
-            </View>
-          ))}
+        <View style={{ gap: 4 }}>
+          <Text selectable style={{ color: "#0f172a", fontSize: 18, fontWeight: "900" }}>
+            Perlu perhatian sekarang
+          </Text>
+          <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 19 }}>
+            Hanya angka yang langsung terkait operasi hari ini.
+          </Text>
+        </View>
+
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <View
+            style={{
+              flex: 1,
+              borderRadius: 18,
+              backgroundColor: "#f8fafc",
+              paddingHorizontal: 14,
+              paddingVertical: 14,
+              gap: 4,
+            }}
+          >
+            <Text selectable style={{ color: "#64748b", fontSize: 10, fontWeight: "800", letterSpacing: 1 }}>
+              BOOKING HARI INI
+            </Text>
+            <Text selectable style={{ color: "#0f172a", fontSize: 22, fontWeight: "900" }}>
+              {todayBookings.length}
+            </Text>
+            <Text selectable style={{ color: "#475569", fontSize: 12 }}>
+              {formatCurrency(todayRevenue)}
+            </Text>
+          </View>
+
+          <View
+            style={{
+              flex: 1,
+              borderRadius: 18,
+              backgroundColor: "#f8fafc",
+              paddingHorizontal: 14,
+              paddingVertical: 14,
+              gap: 4,
+            }}
+          >
+            <Text selectable style={{ color: "#64748b", fontSize: 10, fontWeight: "800", letterSpacing: 1 }}>
+              SESI AKTIF
+            </Text>
+            <Text selectable style={{ color: "#0f172a", fontSize: 22, fontWeight: "900" }}>
+              {data?.activeSessions?.length || 0}
+            </Text>
+            <Text selectable style={{ color: "#475569", fontSize: 12 }}>
+              {data?.activeSessions?.length ? "Sedang berjalan" : "Belum ada sesi"}
+            </Text>
+          </View>
         </View>
       </CardBlock>
 
       <CardBlock>
-        <Text selectable style={{ color: "#0f172a", fontSize: 17, fontWeight: "900" }}>
-          Shortcut cepat
-        </Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-          {[
-            { label: "Bookings", hint: "Cek antrian", icon: "calendar-month", route: "/admin/bookings" as const },
-            { label: "Customers", hint: "Lihat pelanggan", icon: "groups-2", route: "/admin/customers" as const },
-            { label: "Settings", hint: "Lanjut web", icon: "tune", route: "/admin/more" as const },
-          ].map((item) => (
-            <Pressable
-              key={item.label}
-              onPress={() => router.push(item.route)}
-              style={{
-                flex: 1,
-                minWidth: 96,
-                borderRadius: 20,
-                borderWidth: 1,
-                borderColor: "#e2e8f0",
-                backgroundColor: "#ffffff",
-                paddingHorizontal: 14,
-                paddingVertical: 14,
-                gap: 10,
-              }}
-            >
-              <View
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 14,
-                  backgroundColor: "#eff6ff",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <MaterialIcons name={item.icon as never} size={20} color="#2563eb" />
-              </View>
-              <View style={{ gap: 2 }}>
-                <Text selectable style={{ color: "#0f172a", fontSize: 14, fontWeight: "800" }}>
-                  {item.label}
-                </Text>
-                <Text selectable style={{ color: "#64748b", fontSize: 12 }}>
-                  {item.hint}
-                </Text>
-              </View>
-            </Pressable>
-          ))}
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+          <Text selectable style={{ color: "#0f172a", fontSize: 17, fontWeight: "900" }}>
+            Booking terbaru
+          </Text>
+          <Pressable onPress={() => router.push("/admin/bookings")}>
+            <Text selectable style={{ color: "#2563eb", fontSize: 13, fontWeight: "800" }}>
+              Lihat semua
+            </Text>
+          </Pressable>
         </View>
-      </CardBlock>
-
-      <CardBlock>
-        <Text selectable style={{ color: "#0f172a", fontSize: 17, fontWeight: "900" }}>
-          Booking terbaru
-        </Text>
         {(topBookings.length ? topBookings : [{ id: "empty" } as BookingRow]).map((item) =>
           item.id === "empty" ? (
             <View
@@ -298,6 +235,46 @@ export default function AdminDashboardScreen() {
           ),
         )}
       </CardBlock>
+
+      {!!data?.activeSessions?.length ? (
+        <CardBlock>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+            <Text selectable style={{ color: "#0f172a", fontSize: 17, fontWeight: "900" }}>
+              Sesi yang sedang jalan
+            </Text>
+            <Pressable onPress={() => router.push("/admin/bookings")}>
+              <Text selectable style={{ color: "#2563eb", fontSize: 13, fontWeight: "800" }}>
+                Buka bookings
+              </Text>
+            </Pressable>
+          </View>
+
+          {data.activeSessions.slice(0, 3).map((item) => (
+            <View
+              key={item.id}
+              style={{
+                borderRadius: 20,
+                borderWidth: 1,
+                borderColor: "#edf2f7",
+                backgroundColor: "#fbfdff",
+                paddingHorizontal: 14,
+                paddingVertical: 14,
+                gap: 4,
+              }}
+            >
+              <Text selectable style={{ color: "#0f172a", fontSize: 15, fontWeight: "800" }}>
+                {item.customer_name || "Customer"}
+              </Text>
+              <Text selectable style={{ color: "#64748b", fontSize: 13 }}>
+                {item.resource_name || "Resource"}
+              </Text>
+              <Text selectable style={{ color: "#475569", fontSize: 12 }}>
+                Berakhir {formatDateTime(item.end_time)}
+              </Text>
+            </View>
+          ))}
+        </CardBlock>
+      ) : null}
     </ScreenShell>
   );
 }

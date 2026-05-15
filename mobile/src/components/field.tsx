@@ -7,15 +7,15 @@ type FieldProps = TextInputProps & {
 
 export function Field({ label, hint, ...props }: FieldProps) {
   return (
-    <View style={{ gap: 8 }}>
+    <View style={{ gap: 6 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
         <Text
           selectable
           style={{
             color: "#334155",
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: "800",
-            letterSpacing: 1.2,
+            letterSpacing: 1,
             textTransform: "uppercase",
           }}
         >
@@ -30,13 +30,14 @@ export function Field({ label, hint, ...props }: FieldProps) {
       <TextInput
         placeholderTextColor="#94a3b8"
         style={{
-          borderRadius: 18,
+          minHeight: 48,
+          borderRadius: 16,
           borderWidth: 1,
-          borderColor: "#d6deea",
-          backgroundColor: "#fbfdff",
-          paddingHorizontal: 16,
-          paddingVertical: 14,
-          fontSize: 15,
+          borderColor: "#d9e2ec",
+          backgroundColor: "#f8fafc",
+          paddingHorizontal: 14,
+          paddingVertical: 0,
+          fontSize: 14,
           color: "#0f172a",
         }}
         {...props}

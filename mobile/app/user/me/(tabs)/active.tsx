@@ -38,10 +38,10 @@ export default function CustomerActiveScreen() {
       <View
         style={{
           flexDirection: "row",
-          gap: 10,
-          padding: 6,
-          borderRadius: 20,
-          backgroundColor: "#edf3ff",
+          gap: 8,
+          padding: 4,
+          borderRadius: 16,
+          backgroundColor: "#eef2f7",
         }}
       >
         {[
@@ -55,18 +55,19 @@ export default function CustomerActiveScreen() {
               onPress={() => setActiveTab(tab.key)}
               style={{
                 flex: 1,
-                borderRadius: 16,
+                minHeight: 42,
+                borderRadius: 12,
                 backgroundColor: selected ? "#ffffff" : "transparent",
-                paddingVertical: 12,
+                justifyContent: "center",
                 alignItems: "center",
                 shadowColor: selected ? "#0f172a" : "transparent",
-                shadowOpacity: selected ? 0.08 : 0,
-                shadowRadius: 10,
-                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: selected ? 0.04 : 0,
+                shadowRadius: 6,
+                shadowOffset: { width: 0, height: 2 },
                 elevation: selected ? 1 : 0,
               }}
             >
-              <Text selectable style={{ color: selected ? "#0f172a" : "#64748b", fontSize: 14, fontWeight: "800" }}>
+              <Text selectable style={{ color: selected ? "#0f172a" : "#64748b", fontSize: 13, fontWeight: "800" }}>
                 {tab.label}
               </Text>
             </Pressable>

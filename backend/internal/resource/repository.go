@@ -683,7 +683,37 @@ func (r *Repository) GetItemByID(ctx context.Context, itemID uuid.UUID) (*Resour
 // GetOneWithItems (Detail Single Resource)
 func (r *Repository) GetOneWithItems(ctx context.Context, id uuid.UUID) (*Resource, error) {
 	var res Resource
-	err := r.db.GetContext(ctx, &res, `SELECT * FROM resources WHERE id = $1`, id)
+	err := r.db.GetContext(ctx, &res, `
+		SELECT
+			r.id,
+			r.tenant_id,
+			r.name,
+			r.category,
+			r.operating_mode,
+			r.description,
+			r.image_url,
+			r.gallery,
+			r.status,
+			COALESCE(dep.override_enabled, dep.tenant_enabled, true) AS dp_enabled,
+			COALESCE(dep.override_percentage, dep.tenant_percentage, 40) AS dp_percentage,
+			r.metadata,
+			r.created_at
+		FROM resources r
+		LEFT JOIN LATERAL (
+			SELECT
+				CASE WHEN tro.override_dp THEN tro.dp_enabled ELSE NULL END AS override_enabled,
+				CASE WHEN tro.override_dp THEN tro.dp_percentage ELSE NULL END AS override_percentage,
+				tds.dp_enabled AS tenant_enabled,
+				tds.dp_percentage AS tenant_percentage
+			FROM tenant_deposit_settings tds
+			LEFT JOIN tenant_resource_deposit_overrides tro
+				ON tro.tenant_id = r.tenant_id
+				AND tro.resource_id = r.id
+			WHERE tds.tenant_id = r.tenant_id
+			LIMIT 1
+		) dep ON TRUE
+		WHERE r.id = $1
+	`, id)
 	if err != nil {
 		return nil, err
 	}

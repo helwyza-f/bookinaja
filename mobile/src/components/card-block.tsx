@@ -5,16 +5,16 @@ export function CardBlock({ children }: { children: ReactNode }) {
   return (
     <View
       style={{
-        borderRadius: 26,
+        borderRadius: 22,
         borderWidth: 1,
-        borderColor: "#e2e8f0",
+        borderColor: "#e6ebf2",
         backgroundColor: "#ffffff",
-        padding: 18,
-        gap: 14,
+        padding: 16,
+        gap: 12,
         shadowColor: "#0f172a",
-        shadowOpacity: 0.035,
-        shadowRadius: 14,
-        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.025,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
         elevation: 1,
       }}
     >

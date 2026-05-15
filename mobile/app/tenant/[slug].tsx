@@ -40,6 +40,11 @@ export default function TenantDetailScreen() {
   const gallery = [profile?.banner_url, ...(profile?.gallery || [])].filter(Boolean) as string[];
   const logoSource = profile?.logo_url || "";
   const showLoginCta = !session.customerToken;
+  const quickFacts = [
+    profile?.business_category || profile?.business_type,
+    profile?.open_time && profile?.close_time ? `${profile.open_time} - ${profile.close_time}` : null,
+    resources.length ? `${resources.length} resource` : null,
+  ].filter(Boolean);
 
   async function continueAsCustomer() {
     if (!slug) return;
@@ -53,132 +58,124 @@ export default function TenantDetailScreen() {
       title={profile?.name || String(slug || "Tenant")}
       description={profile?.tagline || profile?.slogan || "Pilih resource yang paling cocok, lalu lanjut booking langsung dari app."}
     >
-      <CardBlock>
-        <View style={{ gap: 12 }}>
-          <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-            {(gallery.length ? gallery : [""]).map((source, index) => (
-              <View
-                key={`${source || "fallback"}-${index}`}
-                style={{
-                  width: 320,
-                  height: 214,
-                  borderRadius: 26,
-                  overflow: "hidden",
-                  backgroundColor: profile?.primary_color || "#dbeafe",
-                }}
-              >
-                {source ? (
-                  <Image source={source} contentFit="cover" style={{ width: "100%", height: "100%" }} />
-                ) : (
-                  <View
-                    style={{
-                      flex: 1,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: profile?.primary_color || "#dbeafe",
-                    }}
-                  >
-                    <Text selectable style={{ color: "#ffffff", fontSize: 54, fontWeight: "900" }}>
-                      {getInitial(profile?.name)}
-                    </Text>
-                  </View>
-                )}
-
+      <View style={{ gap: 10 }}>
+        <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+          {(gallery.length ? gallery : [""]).map((source, index) => (
+            <View
+              key={`${source || "fallback"}-${index}`}
+              style={{
+                width: 356,
+                height: 244,
+                borderRadius: 24,
+                overflow: "hidden",
+                backgroundColor: profile?.primary_color || "#dbeafe",
+              }}
+            >
+              {source ? (
+                <Image source={source} contentFit="cover" style={{ width: "100%", height: "100%" }} />
+              ) : (
                 <View
                   style={{
-                    position: "absolute",
-                    inset: 0,
-                    backgroundColor: "rgba(15,23,42,0.18)",
-                  }}
-                />
-
-                <View
-                  style={{
-                    position: "absolute",
-                    left: 16,
-                    right: 16,
-                    bottom: 16,
-                    flexDirection: "row",
+                    flex: 1,
                     alignItems: "center",
-                    gap: 12,
+                    justifyContent: "center",
+                    backgroundColor: profile?.primary_color || "#dbeafe",
                   }}
                 >
-                  <View
-                    style={{
-                      width: 58,
-                      height: 58,
-                      borderRadius: 18,
-                      backgroundColor: "rgba(255,255,255,0.97)",
-                      borderWidth: 1,
-                      borderColor: "rgba(226,232,240,0.9)",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {logoSource ? (
-                      <Image source={logoSource} contentFit="cover" style={{ width: "100%", height: "100%" }} />
-                    ) : (
-                      <Text selectable style={{ color: "#0f172a", fontSize: 20, fontWeight: "900" }}>
-                        {getInitial(profile?.name)}
-                      </Text>
-                    )}
-                  </View>
+                  <Text selectable style={{ color: "#ffffff", fontSize: 54, fontWeight: "900" }}>
+                    {getInitial(profile?.name)}
+                  </Text>
+                </View>
+              )}
 
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <Text selectable style={{ color: "#ffffff", fontSize: 24, fontWeight: "900", lineHeight: 28 }}>
-                      {profile?.name || slug}
+              <View
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  backgroundColor: "rgba(15,23,42,0.24)",
+                }}
+              />
+
+              <View
+                style={{
+                  position: "absolute",
+                  left: 18,
+                  right: 18,
+                  bottom: 18,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                <View
+                  style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: 16,
+                    backgroundColor: "rgba(255,255,255,0.97)",
+                    borderWidth: 1,
+                    borderColor: "rgba(226,232,240,0.9)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    overflow: "hidden",
+                  }}
+                >
+                  {logoSource ? (
+                    <Image source={logoSource} contentFit="cover" style={{ width: "100%", height: "100%" }} />
+                  ) : (
+                    <Text selectable style={{ color: "#0f172a", fontSize: 20, fontWeight: "900" }}>
+                      {getInitial(profile?.name)}
                     </Text>
-                    <Text selectable style={{ color: "rgba(255,255,255,0.82)", fontSize: 13 }}>
-                      {profile?.business_category || profile?.business_type || "Tenant Bookinaja"}
-                    </Text>
-                  </View>
+                  )}
+                </View>
+
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Text selectable style={{ color: "#ffffff", fontSize: 22, fontWeight: "900", lineHeight: 25 }}>
+                    {profile?.name || slug}
+                  </Text>
+                  <Text selectable numberOfLines={2} style={{ color: "rgba(255,255,255,0.84)", fontSize: 13, lineHeight: 18 }}>
+                    {profile?.tagline || profile?.business_category || profile?.business_type || "Tenant Bookinaja"}
+                  </Text>
                 </View>
               </View>
-            ))}
-          </ScrollView>
-
-          {gallery.length > 1 ? (
-            <View style={{ flexDirection: "row", justifyContent: "center", gap: 6 }}>
-              {gallery.map((_, index) => (
-                <View
-                  key={`gallery-dot-${index}`}
-                  style={{
-                    width: index === 0 ? 20 : 6,
-                    height: 6,
-                    borderRadius: 999,
-                    backgroundColor: index === 0 ? "#2563eb" : "#cbd5e1",
-                  }}
-                />
-              ))}
             </View>
-          ) : null}
-        </View>
-      </CardBlock>
+          ))}
+        </ScrollView>
+
+        {gallery.length > 1 ? (
+          <View style={{ flexDirection: "row", justifyContent: "center", gap: 6 }}>
+            {gallery.map((_, index) => (
+              <View
+                key={`gallery-dot-${index}`}
+                style={{
+                  width: index === 0 ? 20 : 6,
+                  height: 6,
+                  borderRadius: 999,
+                  backgroundColor: index === 0 ? "#2563eb" : "#cbd5e1",
+                }}
+              />
+            ))}
+          </View>
+        ) : null}
+      </View>
 
       <CardBlock>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          {[
-            profile?.business_category || profile?.business_type,
-            profile?.open_time && profile?.close_time ? `${profile.open_time} - ${profile.close_time}` : null,
-            resources.length ? `${resources.length} resource` : null,
-          ]
-            .filter(Boolean)
-            .map((item) => (
-              <View
-                key={String(item)}
-                style={{
-                  borderRadius: 999,
-                  backgroundColor: "#eff6ff",
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                }}
-              >
-                <Text selectable style={{ color: "#1d4ed8", fontSize: 12, fontWeight: "800" }}>
-                  {item}
-                </Text>
-              </View>
-            ))}
+          {quickFacts.map((item) => (
+            <View
+              key={String(item)}
+              style={{
+                borderRadius: 999,
+                backgroundColor: "#eff6ff",
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+              }}
+            >
+              <Text selectable style={{ color: "#1d4ed8", fontSize: 12, fontWeight: "800" }}>
+                {item}
+              </Text>
+            </View>
+          ))}
         </View>
 
         <Text selectable style={{ color: "#475569", fontSize: 14, lineHeight: 22 }}>
@@ -188,12 +185,12 @@ export default function TenantDetailScreen() {
         {showLoginCta ? <CtaButton label="Masuk untuk booking" onPress={() => void continueAsCustomer()} /> : null}
       </CardBlock>
 
-      <View style={{ gap: 6 }}>
-        <Text selectable style={{ color: "#64748b", fontSize: 10, fontWeight: "800", letterSpacing: 1.8, textTransform: "uppercase" }}>
-          Resource
-        </Text>
+      <View style={{ gap: 2 }}>
         <Text selectable style={{ color: "#0f172a", fontSize: 20, fontWeight: "900" }}>
-          Pilihan yang tersedia
+          Pilihan resource
+        </Text>
+        <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 19 }}>
+          Buka detail resource untuk lihat paket, jadwal, dan langkah booking.
         </Text>
       </View>
 
@@ -201,12 +198,12 @@ export default function TenantDetailScreen() {
         <Link key={resource.id} href={`/tenant/${slug}/resource/${resource.id}` as const} asChild>
           <Pressable>
             <CardBlock>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
                 <View
                   style={{
-                    width: 78,
-                    height: 78,
-                    borderRadius: 22,
+                    width: 72,
+                    height: 72,
+                    borderRadius: 18,
                     overflow: "hidden",
                     backgroundColor: "#f8fafc",
                     alignItems: "center",
@@ -224,9 +221,14 @@ export default function TenantDetailScreen() {
                   <Text selectable style={{ color: "#0f172a", fontSize: 16, fontWeight: "800" }}>
                     {resource.name}
                   </Text>
-                  <Text selectable style={{ color: "#64748b", fontSize: 13 }}>
+                  <Text selectable style={{ color: "#64748b", fontSize: 12, fontWeight: "700" }}>
                     {resource.primary_offer_name || resource.category || resource.operating_mode || "Resource"}
                   </Text>
+                  {resource.description ? (
+                    <Text selectable numberOfLines={2} style={{ color: "#94a3b8", fontSize: 12, lineHeight: 18 }}>
+                      {resource.description}
+                    </Text>
+                  ) : null}
                 </View>
               </View>
 
@@ -235,7 +237,7 @@ export default function TenantDetailScreen() {
                   <Text selectable style={{ color: "#64748b", fontSize: 11, fontWeight: "800", letterSpacing: 1 }}>
                     MULAI DARI
                   </Text>
-                  <Text selectable style={{ color: "#1d4ed8", fontSize: 20, fontWeight: "900" }}>
+                  <Text selectable style={{ color: "#1d4ed8", fontSize: 19, fontWeight: "900" }}>
                     {formatCurrency(resource.starting_price)}
                   </Text>
                 </View>
@@ -245,8 +247,8 @@ export default function TenantDetailScreen() {
                     style={{
                       borderRadius: 999,
                       backgroundColor: "#eff6ff",
-                      paddingHorizontal: 12,
-                      paddingVertical: 8,
+                      paddingHorizontal: 10,
+                      paddingVertical: 7,
                     }}
                   >
                     <Text selectable style={{ color: "#1d4ed8", fontSize: 12, fontWeight: "800" }}>
@@ -258,37 +260,37 @@ export default function TenantDetailScreen() {
 
               <View
                 style={{
-                  alignSelf: "flex-start",
-                  borderRadius: 999,
-                  backgroundColor: resource.operating_mode === "direct_sale" ? "#ecfeff" : "#eef2ff",
-                  paddingHorizontal: 12,
-                  paddingVertical: 7,
-                }}
-              >
-                <Text
-                  selectable
-                  style={{
-                    color: resource.operating_mode === "direct_sale" ? "#0f766e" : "#3730a3",
-                    fontSize: 12,
-                    fontWeight: "800",
-                  }}
-                >
-                  {resource.operating_mode === "direct_sale" ? "Beli langsung" : "Booking waktu"}
-                </Text>
-              </View>
-
-              <View
-                style={{
                   flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "space-between",
                   gap: 12,
                 }}
               >
-                <Text selectable style={{ color: "#64748b", fontSize: 12, fontWeight: "700" }}>
-                  Lihat detail
-                </Text>
-                <MaterialIcons name="arrow-forward" size={18} color="#94a3b8" />
+                <View
+                  style={{
+                    borderRadius: 999,
+                    backgroundColor: resource.operating_mode === "direct_sale" ? "#ecfeff" : "#eef2ff",
+                    paddingHorizontal: 12,
+                    paddingVertical: 7,
+                  }}
+                >
+                  <Text
+                    selectable
+                    style={{
+                      color: resource.operating_mode === "direct_sale" ? "#0f766e" : "#3730a3",
+                      fontSize: 11,
+                      fontWeight: "800",
+                    }}
+                  >
+                    {resource.operating_mode === "direct_sale" ? "Beli langsung" : "Booking waktu"}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text selectable style={{ color: "#64748b", fontSize: 12, fontWeight: "800" }}>
+                    Buka detail
+                  </Text>
+                  <MaterialIcons name="arrow-forward" size={18} color="#94a3b8" />
+                </View>
               </View>
             </CardBlock>
           </Pressable>

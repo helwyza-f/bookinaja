@@ -11,13 +11,6 @@ import { formatDateTime } from "@/lib/format";
 import { CustomerPortalItem } from "@/lib/customer-portal";
 import { useSession } from "@/providers/session-provider";
 
-type PointActivity = {
-  id: string;
-  points?: number;
-  description?: string | null;
-  created_at?: string;
-};
-
 type SettingsResponse = {
   customer?: {
     name?: string;
@@ -27,7 +20,6 @@ type SettingsResponse = {
     total_visits?: number;
   };
   points?: number;
-  point_activity?: PointActivity[];
   past_history?: CustomerPortalItem[];
   identity_methods?: string[];
   has_password?: boolean;
@@ -62,7 +54,6 @@ export default function CustomerProfileScreen() {
   const customer = settingsQuery.data?.customer;
   const chips = getIdentityChips(settingsQuery.data);
   const initials = getInitials(customer?.name);
-  const recentMoments = settingsQuery.data?.point_activity || [];
   const recentHistory = settingsQuery.data?.past_history || [];
 
   async function handleLogout() {
@@ -77,62 +68,30 @@ export default function CustomerProfileScreen() {
       description="Satu tempat untuk identitas akun, loyalty, dan jejak booking yang paling relevan."
     >
       <Animated.View entering={FadeInUp.duration(320)}>
-        <View
-          style={{
-            borderRadius: 32,
-            backgroundColor: "#0f172a",
-            padding: 20,
-            overflow: "hidden",
-            gap: 18,
-          }}
-        >
-          <View
-            style={{
-              position: "absolute",
-              right: -28,
-              top: -18,
-              width: 136,
-              height: 136,
-              borderRadius: 999,
-              backgroundColor: "rgba(59,130,246,0.24)",
-            }}
-          />
-          <View
-            style={{
-              position: "absolute",
-              left: -32,
-              bottom: -48,
-              width: 148,
-              height: 148,
-              borderRadius: 42,
-              backgroundColor: "rgba(255,255,255,0.06)",
-              transform: [{ rotate: "-14deg" }],
-            }}
-          />
-
+        <CardBlock>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
             <View style={{ flex: 1, gap: 6 }}>
-              <Text selectable style={{ color: "#93c5fd", fontSize: 11, fontWeight: "800", letterSpacing: 1.8 }}>
+              <Text selectable style={{ color: "#2563eb", fontSize: 10, fontWeight: "800", letterSpacing: 1.5 }}>
                 CUSTOMER PROFILE
               </Text>
-              <Text selectable style={{ color: "#ffffff", fontSize: 28, fontWeight: "900", lineHeight: 30 }}>
+              <Text selectable style={{ color: "#0f172a", fontSize: 22, fontWeight: "900", lineHeight: 26 }}>
                 {customer?.name || "Customer"}
               </Text>
-              <Text selectable style={{ color: "rgba(255,255,255,0.78)", fontSize: 14, lineHeight: 21 }}>
+              <Text selectable style={{ color: "#64748b", fontSize: 14, lineHeight: 20 }}>
                 {customer?.email || customer?.phone || "Kontak belum tersedia"}
               </Text>
             </View>
             <View
               style={{
-                width: 68,
-                height: 68,
-                borderRadius: 24,
-                backgroundColor: "rgba(255,255,255,0.12)",
+                width: 56,
+                height: 56,
+                borderRadius: 18,
+                backgroundColor: "#eff6ff",
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <Text selectable style={{ color: "#ffffff", fontSize: 22, fontWeight: "900" }}>
+              <Text selectable style={{ color: "#1d4ed8", fontSize: 18, fontWeight: "900" }}>
                 {initials}
               </Text>
             </View>
@@ -140,7 +99,6 @@ export default function CustomerProfileScreen() {
 
           <View style={{ flexDirection: "row", gap: 10 }}>
             {[
-              { label: "Points", value: String(settingsQuery.data?.points || 0) },
               { label: "Tier", value: customer?.tier || "REGULAR" },
               { label: "Visit", value: String(customer?.total_visits || 0) },
             ].map((item) => (
@@ -148,23 +106,23 @@ export default function CustomerProfileScreen() {
                 key={item.label}
                 style={{
                   flex: 1,
-                  borderRadius: 18,
-                  backgroundColor: "rgba(255,255,255,0.1)",
+                  borderRadius: 16,
+                  backgroundColor: "#f8fafc",
                   paddingHorizontal: 12,
                   paddingVertical: 11,
                   gap: 4,
                 }}
               >
-                <Text selectable style={{ color: "#93c5fd", fontSize: 10, fontWeight: "800", letterSpacing: 1 }}>
+                <Text selectable style={{ color: "#64748b", fontSize: 10, fontWeight: "800", letterSpacing: 1 }}>
                   {item.label}
                 </Text>
-                <Text selectable style={{ color: "#ffffff", fontSize: 16, fontWeight: "900" }}>
+                <Text selectable style={{ color: "#0f172a", fontSize: 16, fontWeight: "900" }}>
                   {item.value}
                 </Text>
               </View>
             ))}
           </View>
-        </View>
+        </CardBlock>
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(60).duration(320)} style={{ gap: 14 }}>
@@ -195,6 +153,7 @@ export default function CustomerProfileScreen() {
               </Text>
             )}
           </View>
+
           <View style={{ gap: 10 }}>
             <View
               style={{
@@ -245,102 +204,67 @@ export default function CustomerProfileScreen() {
 
         <CardBlock>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-            <Text selectable style={{ color: "#0f172a", fontSize: 17, fontWeight: "900" }}>
-              Aktivitas terbaru
-            </Text>
+            <View style={{ gap: 2, flex: 1 }}>
+              <Text selectable style={{ color: "#0f172a", fontSize: 17, fontWeight: "900" }}>
+                Riwayat terbaru
+              </Text>
+              <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 19 }}>
+                Lihat transaksi terakhir dan buka detailnya lagi.
+              </Text>
+            </View>
             <Link href="/user/me/history" asChild>
               <Pressable>
                 <Text selectable style={{ color: "#2563eb", fontSize: 13, fontWeight: "800" }}>
-                  Lihat semua
-                </Text>
-              </Pressable>
-            </Link>
-          </View>
-
-          {recentMoments.length ? (
-            recentMoments.map((item) => (
-              <View
-                key={item.id}
-                style={{
-                  borderRadius: 20,
-                  backgroundColor: "#f8fafc",
-                  paddingHorizontal: 14,
-                  paddingVertical: 13,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 12,
-                }}
-              >
-                <View
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 14,
-                    backgroundColor: "#dbeafe",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <MaterialIcons name="auto-awesome" size={18} color="#1d4ed8" />
-                </View>
-                <View style={{ flex: 1, gap: 3 }}>
-                  <Text selectable style={{ color: "#0f172a", fontSize: 14, fontWeight: "800" }}>
-                    {item.description || "Aktivitas loyalty tercatat"}
-                  </Text>
-                  <Text selectable style={{ color: "#64748b", fontSize: 12 }}>
-                    {item.created_at ? formatDateTime(item.created_at) : "Baru saja"}
-                  </Text>
-                </View>
-                <Text selectable style={{ color: "#059669", fontSize: 14, fontWeight: "900" }}>
-                  +{item.points || 0}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <Text selectable style={{ color: "#64748b", fontSize: 14, lineHeight: 21 }}>
-              Belum ada aktivitas loyalty yang perlu ditonjolkan.
-            </Text>
-          )}
-        </CardBlock>
-
-        <CardBlock>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-            <Text selectable style={{ color: "#0f172a", fontSize: 17, fontWeight: "900" }}>
-              Riwayat cepat
-            </Text>
-            <Link href="/user/me/active" asChild>
-              <Pressable>
-                <Text selectable style={{ color: "#2563eb", fontSize: 13, fontWeight: "800" }}>
-                  Sesi aktif
+                  Semua
                 </Text>
               </Pressable>
             </Link>
           </View>
 
           {recentHistory.length ? (
-            recentHistory.slice(0, 2).map((item) => (
-              <View
+            recentHistory.slice(0, 3).map((item) => (
+              <Link
                 key={item.id}
-                style={{
-                  borderRadius: 20,
-                  borderWidth: 1,
-                  borderColor: "#e2e8f0",
-                  paddingHorizontal: 14,
-                  paddingVertical: 13,
-                  gap: 4,
-                }}
+                href={
+                  String(item.kind || "").toLowerCase().includes("order")
+                    ? (`/user/me/orders/${item.id}` as const)
+                    : (`/user/me/bookings/${item.id}` as const)
+                }
+                asChild
               >
-                <Text selectable style={{ color: "#0f172a", fontSize: 15, fontWeight: "800" }}>
-                  {item.tenant_name || "Tenant"}
-                </Text>
-                <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 19 }}>
-                  {item.resource || item.resource_name || "Booking"} • {formatDateTime(item.date || item.start_time)}
-                </Text>
-              </View>
+                <Pressable>
+                  <View
+                    style={{
+                      borderRadius: 18,
+                      borderWidth: 1,
+                      borderColor: "#edf2f7",
+                      backgroundColor: "#fbfdff",
+                      paddingHorizontal: 14,
+                      paddingVertical: 13,
+                      gap: 6,
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                      <View style={{ flex: 1, gap: 3 }}>
+                        <Text selectable style={{ color: "#0f172a", fontSize: 15, fontWeight: "800" }}>
+                          {item.tenant_name || "Tenant"}
+                        </Text>
+                        <Text selectable style={{ color: "#475569", fontSize: 13 }}>
+                          {item.resource || item.resource_name || (String(item.kind || "").toLowerCase().includes("order") ? "Order" : "Booking")}
+                        </Text>
+                      </View>
+                      <MaterialIcons name="chevron-right" size={18} color="#94a3b8" />
+                    </View>
+                    <Text selectable style={{ color: "#64748b", fontSize: 12 }}>
+                      {formatDateTime(item.date || item.start_time)}
+                    </Text>
+                  </View>
+                </Pressable>
+              </Link>
             ))
           ) : (
             <Text selectable style={{ color: "#64748b", fontSize: 14, lineHeight: 21 }}>
-              Riwayat ringkas belum tersedia di akun ini.
+              Riwayat belum tersedia di akun ini.
             </Text>
           )}
         </CardBlock>
