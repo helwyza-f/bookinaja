@@ -202,8 +202,8 @@ export function ManageItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-[2rem] p-4 sm:p-6 sm:max-w-[500px] border-none shadow-2xl overflow-hidden bg-background w-[94vw] sm:w-auto">
-        <DialogHeader className="space-y-2 text-left">
+      <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[94vw] flex-col overflow-hidden rounded-[2rem] border-none bg-background p-4 shadow-2xl sm:w-auto sm:max-w-[500px] sm:p-6">
+        <DialogHeader className="shrink-0 space-y-2 text-left">
           <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter leading-none">
             MANAGE <span className="text-blue-600">{config.title}</span>
           </DialogTitle>
@@ -215,7 +215,7 @@ export function ManageItemDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSave} className="space-y-5 pt-4">
+        <form onSubmit={handleSave} className="min-h-0 space-y-5 overflow-y-auto pt-4 overscroll-contain">
           {/* TIPE ITEM (DIATAS AGAR KONTEKS JELAS) */}
           <div className="space-y-3">
             <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 italic">

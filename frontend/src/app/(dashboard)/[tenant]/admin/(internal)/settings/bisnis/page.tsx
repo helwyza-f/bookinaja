@@ -5,13 +5,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   ArrowRight,
-  BriefcaseBusiness,
   CheckCircle2,
   ExternalLink,
-  ImageIcon,
   LayoutTemplate,
   RefreshCw,
-  Sparkles,
 } from "lucide-react";
 import api from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
@@ -44,27 +41,6 @@ type OnboardingSummaryResponse = {
   steps?: OnboardingStep[];
 };
 
-const sectionOrder = [
-  {
-    id: "identity",
-    title: "Identitas",
-    description: "Nama, slug, copy, dan kontak inti.",
-    icon: BriefcaseBusiness,
-  },
-  {
-    id: "media",
-    title: "Visual",
-    description: "Logo, banner, dan gallery utama.",
-    icon: ImageIcon,
-  },
-  {
-    id: "launch",
-    title: "Launch",
-    description: "Jam operasional, SEO, dan final check.",
-    icon: Sparkles,
-  },
-] as const;
-
 function StatPill({
   label,
   value,
@@ -73,11 +49,11 @@ function StatPill({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+    <div className="rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-2.5 dark:border-white/10 dark:bg-white/[0.03]">
       <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
         {label}
       </div>
-      <div className="mt-1 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
+      <div className="mt-1 text-base font-semibold tracking-tight text-slate-950 dark:text-white sm:text-lg">
         {value}
       </div>
     </div>
@@ -152,29 +128,59 @@ export default function BusinessSettingsPage() {
   const checklist = useMemo(
     () => [
       {
-        id: "identity",
-        label: "Identitas dasar",
-        done: Boolean(profile.name && profile.slug && profile.tagline),
+        id: "basic-profile",
+        label: "Profil Dasar",
+        href: "#basic-profile",
+        done: Boolean(
+          profile.name &&
+            profile.slug &&
+            profile.business_category &&
+            profile.business_type,
+        ),
       },
       {
-        id: "contact",
-        label: "Kontak tenant",
-        done: Boolean(profile.whatsapp_number && profile.address),
+        id: "landing-header",
+        label: "Landing & Header",
+        href: "#landing-header",
+        done: Boolean(
+          profile.slogan &&
+            profile.tagline &&
+            profile.about_us &&
+            profile.features?.length,
+        ),
       },
       {
-        id: "media",
-        label: "Visual utama",
-        done: Boolean(profile.logo_url || profile.banner_url),
+        id: "contact-location",
+        label: "Kontak & Lokasi",
+        href: "#contact-location",
+        done: Boolean(
+          profile.address &&
+            profile.whatsapp_number &&
+            (profile.instagram_url || profile.tiktok_url || profile.map_iframe_url),
+        ),
       },
       {
-        id: "ops",
+        id: "media-gallery",
+        label: "Media & Gallery",
+        href: "#media-gallery",
+        done: Boolean(profile.logo_url && profile.banner_url),
+      },
+      {
+        id: "operations",
         label: "Jam operasional",
-        done: Boolean(profile.open_time && profile.close_time),
+        href: "#operations",
+        done: Boolean(
+          profile.open_time &&
+            profile.close_time &&
+            profile.timezone &&
+            profile.primary_color,
+        ),
       },
       {
         id: "seo",
-        label: "SEO dasar",
-        done: Boolean(profile.meta_title || profile.meta_description),
+        label: "SEO",
+        href: "#seo",
+        done: Boolean(profile.meta_title && profile.meta_description),
       },
     ],
     [profile],
@@ -193,41 +199,41 @@ export default function BusinessSettingsPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 pb-20">
-      <Card className="rounded-3xl border-slate-200/80 p-6 shadow-sm dark:border-white/10 dark:bg-[#0f172a]">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-3xl space-y-3">
+      <Card className="rounded-3xl border-slate-200/80 p-5 shadow-sm dark:border-white/10 dark:bg-[#0f172a] sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-3xl space-y-2">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
               <span>Setup bisnis</span>
               <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600" />
               <span>Onboarding tenant</span>
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-3xl">
+            <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
               Rapikan pondasi tenant dulu
             </h1>
-            <p className="max-w-2xl text-sm leading-7 text-slate-500 dark:text-slate-400">
+            <p className="max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
               Isi identitas, kontak, dan visual utama di sini. Setelah itu baru
               masuk ke studio untuk atur urutan section dan preview publik.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 lg:justify-end">
             <Button
               type="button"
               variant="outline"
               onClick={() => void fetchData("refresh")}
-              className="h-10 rounded-2xl"
+              className="h-9 rounded-xl"
             >
               <RefreshCw className={cn("mr-2 h-4 w-4", refreshing && "animate-spin")} />
               Refresh
             </Button>
-            <Button asChild variant="outline" className="h-10 rounded-2xl">
+            <Button asChild variant="outline" className="h-9 rounded-xl">
               <Link href="/admin/settings/page-builder">
                 Buka Studio
                 <LayoutTemplate className="ml-2 h-4 w-4" />
               </Link>
             </Button>
             {publicUrl ? (
-              <Button asChild className="h-10 rounded-2xl">
+              <Button asChild className="h-9 rounded-xl">
                 <a href={publicUrl} target="_blank" rel="noreferrer">
                   Lihat Publik
                   <ExternalLink className="ml-2 h-4 w-4" />
@@ -237,7 +243,7 @@ export default function BusinessSettingsPage() {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
           <StatPill label="Progress" value={`${onboardingProgress}%`} />
           <StatPill
             label="Sudah rapi"
@@ -249,7 +255,7 @@ export default function BusinessSettingsPage() {
           />
         </div>
 
-        <div className="mt-5 h-2 rounded-full bg-slate-200 dark:bg-white/10">
+        <div className="mt-4 h-1.5 rounded-full bg-slate-200 dark:bg-white/10">
           <div
             className="h-full rounded-full bg-[var(--bookinaja-600)] transition-all"
             style={{ width: `${Math.max(onboardingProgress, 6)}%` }}
@@ -258,48 +264,32 @@ export default function BusinessSettingsPage() {
       </Card>
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="space-y-4">
-          <Card className="rounded-3xl border-slate-200/80 p-4 shadow-sm dark:border-white/10 dark:bg-[#0f172a]">
-            <div className="grid gap-3 md:grid-cols-3">
-              {sectionOrder.map((item) => (
-                <a
-                  key={item.id}
-                  href={`#${item.id}`}
-                  className="rounded-2xl border border-slate-200/80 bg-slate-50 px-4 py-4 transition-colors hover:border-[var(--bookinaja-300)] hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-[rgba(96,165,250,0.24)] dark:hover:bg-white/[0.05]"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]">
-                    <item.icon className="h-5 w-5" />
-                  </div>
-                  <div className="mt-4 text-sm font-semibold text-slate-950 dark:text-white">
-                    {item.title}
-                  </div>
-                  <div className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                    {item.description}
-                  </div>
-                </a>
-              ))}
-            </div>
-          </Card>
-
-          <section id="identity" className="space-y-4 scroll-mt-24">
-            <BasicProfileSection
-              profile={profile}
-              saving={savingKey === "basic"}
-              onSave={(patch) => void saveSection("basic", patch)}
-            />
-            <LandingContentSection
-              profile={profile}
-              saving={savingKey === "content"}
-              onSave={(patch) => void saveSection("content", patch)}
-            />
-            <ContactLocationSection
-              profile={profile}
-              saving={savingKey === "contact"}
-              onSave={(patch) => void saveSection("contact", patch)}
-            />
+        <div className="order-2 space-y-4 xl:order-1">
+          <section className="space-y-4">
+            <section id="basic-profile" className="scroll-mt-24">
+              <BasicProfileSection
+                profile={profile}
+                saving={savingKey === "basic"}
+                onSave={(patch) => void saveSection("basic", patch)}
+              />
+            </section>
+            <section id="landing-header" className="scroll-mt-24">
+              <LandingContentSection
+                profile={profile}
+                saving={savingKey === "content"}
+                onSave={(patch) => void saveSection("content", patch)}
+              />
+            </section>
+            <section id="contact-location" className="scroll-mt-24">
+              <ContactLocationSection
+                profile={profile}
+                saving={savingKey === "contact"}
+                onSave={(patch) => void saveSection("contact", patch)}
+              />
+            </section>
           </section>
 
-          <section id="media" className="space-y-4 scroll-mt-24">
+          <section id="media-gallery" className="scroll-mt-24">
             <MediaSection
               profile={profile}
               saving={savingKey === "media"}
@@ -307,21 +297,25 @@ export default function BusinessSettingsPage() {
             />
           </section>
 
-          <section id="launch" className="space-y-4 scroll-mt-24">
-            <OperationsSection
-              profile={profile}
-              saving={savingKey === "operations"}
-              onSave={(patch) => void saveSection("operations", patch)}
-            />
-            <SeoSection
-              profile={profile}
-              saving={savingKey === "seo"}
-              onSave={(patch) => void saveSection("seo", patch)}
-            />
+          <section className="space-y-4">
+            <section id="operations" className="scroll-mt-24">
+              <OperationsSection
+                profile={profile}
+                saving={savingKey === "operations"}
+                onSave={(patch) => void saveSection("operations", patch)}
+              />
+            </section>
+            <section id="seo" className="scroll-mt-24">
+              <SeoSection
+                profile={profile}
+                saving={savingKey === "seo"}
+                onSave={(patch) => void saveSection("seo", patch)}
+              />
+            </section>
           </section>
         </div>
 
-        <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+        <aside className="order-1 space-y-4 xl:order-2 xl:sticky xl:top-6 xl:self-start">
           <Card className="rounded-3xl border-slate-200/80 p-5 shadow-sm dark:border-white/10 dark:bg-[#0f172a]">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -339,9 +333,10 @@ export default function BusinessSettingsPage() {
 
             <div className="mt-4 space-y-2">
               {checklist.map((item) => (
-                <div
+                <a
                   key={item.id}
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-slate-50 px-3 py-3 text-sm dark:border-white/10 dark:bg-white/[0.03]"
+                  href={item.href}
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-slate-50 px-3 py-3 text-sm transition-colors hover:border-[var(--bookinaja-300)] hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-[rgba(96,165,250,0.24)] dark:hover:bg-white/[0.05]"
                 >
                   <span className="text-slate-700 dark:text-slate-200">
                     {item.label}
@@ -356,7 +351,7 @@ export default function BusinessSettingsPage() {
                   >
                     {item.done ? "Selesai" : "Belum"}
                   </span>
-                </div>
+                </a>
               ))}
             </div>
           </Card>

@@ -18,6 +18,14 @@ import api from "@/lib/api";
 import { analyzeTenantFeatureAccess } from "@/lib/plan-access";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -171,6 +179,14 @@ const methodIcon = (code: string) => {
   return Landmark;
 };
 
+const normalizeOperatingMode = (mode?: string) => {
+  const normalized = String(mode || "").toLowerCase();
+  if (normalized === "direct_sale" || normalized === "hybrid") return normalized;
+  return "timed" as const;
+};
+
+const sanitizePercentInput = (value: string) => value.replace(/[^\d]/g, "");
+
 export default function PaymentMethodsSettingsPage() {
   const { user } = useAdminSession();
   const [items, setItems] = useState<PaymentMethodItem[]>(defaults);
@@ -197,18 +213,27 @@ export default function PaymentMethodsSettingsPage() {
   const featureLocked = planGate.state !== "available";
 
   useEffect(() => {
-    if (featureLocked) {
-      setItems(defaults);
-      setResources([]);
-      setLoading(false);
-      return;
-    }
-    Promise.all([
-      api.get("/admin/payment-methods"),
-      api.get("/admin/deposit-settings"),
-      api.get("/admin/resources/summary"),
-    ])
-      .then(([paymentRes, depositRes, resourceRes]) => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const resourceRes = await api.get("/admin/resources/list");
+        const resourceItems = Array.isArray(resourceRes.data?.items)
+          ? resourceRes.data.items
+          : Array.isArray(resourceRes.data)
+            ? resourceRes.data
+            : [];
+        setResources(resourceItems);
+
+        if (featureLocked) {
+          setItems(defaults);
+          return;
+        }
+
+        const [paymentRes, depositRes] = await Promise.all([
+          api.get("/admin/payment-methods"),
+          api.get("/admin/deposit-settings"),
+        ]);
+
         setItems(paymentRes.data?.items?.length ? paymentRes.data.items : defaults);
         setDepositSettings({
           dp_enabled: Boolean(depositRes.data?.dp_enabled ?? true),
@@ -217,15 +242,14 @@ export default function PaymentMethodsSettingsPage() {
             ? depositRes.data.resource_configs
             : [],
         });
-        const resourceItems = Array.isArray(resourceRes.data?.items)
-          ? resourceRes.data.items
-          : Array.isArray(resourceRes.data)
-            ? resourceRes.data
-            : [];
-        setResources(resourceItems);
-      })
-      .catch(() => toast.error("Gagal memuat pengaturan pembayaran"))
-      .finally(() => setLoading(false));
+      } catch {
+        toast.error("Gagal memuat pengaturan pembayaran");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void load();
   }, [featureLocked]);
 
   const activeCount = useMemo(
@@ -236,7 +260,7 @@ export default function PaymentMethodsSettingsPage() {
   const timedResources = useMemo(
     () =>
       resources.filter(
-        (resource) => String(resource.operating_mode || "timed").toLowerCase() === "timed",
+        (resource) => normalizeOperatingMode(resource.operating_mode) === "timed",
       ),
     [resources],
   );
@@ -432,7 +456,7 @@ export default function PaymentMethodsSettingsPage() {
         description="Workflow pembayaran tenant lebih enak dipahami kalau owner langsung lihat apakah pengelolaan payment method dan verifikasi manual sudah masuk di plan sekarang."
         requirement={{ anyFeatures: ["payment_method_management", "manual_payment_verification"] }}
       />
-      <Card className="overflow-hidden rounded-[1.75rem] border border-slate-200/90 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.94))] p-5 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.94),rgba(8,47,73,0.94))]">
+      <section className="space-y-4">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
@@ -456,7 +480,7 @@ export default function PaymentMethodsSettingsPage() {
             <SummaryStat label="Override" value={String(overrideCount)} />
           </div>
         </div>
-      </Card>
+      </section>
 
       <Card className="rounded-[1.75rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
         <div className="border-b border-slate-100 px-5 py-4 dark:border-white/5">
@@ -470,8 +494,6 @@ export default function PaymentMethodsSettingsPage() {
 
         <div className="grid gap-3 p-4 sm:p-5 xl:grid-cols-2">
           {items.map((item) => {
-            const isEditing = editingCode === item.code && draftItem;
-            const currentItem = isEditing ? draftItem : item;
             const Icon = methodIcon(item.code);
             const busy = savingMethodCode === item.code || savingMethodCode === "all";
             const ready = getMethodValidationErrors(item).length === 0;
@@ -491,232 +513,77 @@ export default function PaymentMethodsSettingsPage() {
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <h2 className="text-base font-semibold text-slate-950 dark:text-white">
-                            {currentItem.display_name}
+                            {item.display_name}
                           </h2>
                           <span
                             className={cn(
                               "rounded-md px-2.5 py-1 text-[11px] font-medium",
-                              currentItem.is_active
+                              item.is_active
                                 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200"
                                 : "bg-slate-200 text-slate-600 dark:bg-white/10 dark:text-slate-300",
                             )}
                           >
-                            {currentItem.is_active ? "Aktif" : "Nonaktif"}
+                            {item.is_active ? "Aktif" : "Nonaktif"}
                           </span>
                           <span className="rounded-md bg-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:bg-white/10 dark:text-slate-300">
-                            {labelMap[currentItem.code] || currentItem.verification_type}
+                            {labelMap[item.code] || item.verification_type}
                           </span>
                         </div>
                         <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                          {methodSummary(currentItem)}
+                          {methodSummary(item)}
                         </p>
                         <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-                          {methodGuide(currentItem)}
+                          {methodGuide(item)}
                         </p>
                       </div>
 
-                      {!isEditing ? (
-                        <Switch
-                          checked={item.is_active}
-                          disabled={busy || loading}
-                          onCheckedChange={(checked) => void toggleMethod(item, checked)}
-                        />
-                      ) : null}
+                      <Switch
+                        checked={item.is_active}
+                        disabled={busy || loading}
+                        onCheckedChange={(checked) => void toggleMethod(item, checked)}
+                      />
                     </div>
 
-                    {!isEditing ? (
-                      <div className="mt-4 space-y-3">
-                        <div className="flex flex-wrap gap-2">
-                          {item.code === "bank_transfer" ? (
-                            <MiniChip label={item.metadata?.bank_name || "Bank belum diatur"} />
-                          ) : null}
-                          {item.code === "qris_static" ? (
-                            <MiniChip
-                              label={item.metadata?.qr_image_url ? "QRIS siap" : "QRIS kosong"}
-                            />
-                          ) : null}
-                          {item.code === "midtrans" ? (
-                            <MiniChip label="DP & settlement auto" />
-                          ) : null}
-                          {item.code === "cash" ? <MiniChip label="Tanpa bukti upload" /> : null}
+                    <div className="mt-4 space-y-3">
+                      <div className="flex flex-wrap gap-2">
+                        {item.code === "bank_transfer" ? (
+                          <MiniChip label={item.metadata?.bank_name || "Bank belum diatur"} />
+                        ) : null}
+                        {item.code === "qris_static" ? (
                           <MiniChip
-                            label={ready ? "Siap dipakai" : "Perlu dilengkapi"}
-                            tone={ready ? "emerald" : "amber"}
+                            label={item.metadata?.qr_image_url ? "QRIS siap" : "QRIS kosong"}
                           />
-                        </div>
-                        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
-                          <div>
-                            <p className="text-xs font-semibold text-slate-900 dark:text-white">
-                              Detail metode
-                            </p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">
-                              Nama tampil, instruksi, dan data verifikasi.
-                            </p>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => startEditing(item)}
-                            disabled={editingCode !== null || busy}
-                            className="h-10 rounded-xl px-3 text-xs"
-                          >
-                            <Edit3 className="mr-1.5 h-3.5 w-3.5" />
-                            Edit
-                          </Button>
-                        </div>
+                        ) : null}
+                        {item.code === "midtrans" ? (
+                          <MiniChip label="DP & settlement auto" />
+                        ) : null}
+                        {item.code === "cash" ? <MiniChip label="Tanpa bukti upload" /> : null}
+                        <MiniChip
+                          label={ready ? "Siap dipakai" : "Perlu dilengkapi"}
+                          tone={ready ? "emerald" : "amber"}
+                        />
                       </div>
-                    ) : (
-                      <div className="mt-4 rounded-[1.2rem] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                        <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                            Detail Metode
+                      <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+                        <div>
+                          <p className="text-xs font-semibold text-slate-900 dark:text-white">
+                            Detail metode
                           </p>
-                          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                            Lengkapi hanya field yang dipakai metode ini.
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            Nama tampil, instruksi, dan data verifikasi.
                           </p>
                         </div>
-
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <Field label="Nama tampil">
-                            <Input
-                              value={currentItem.display_name}
-                              onChange={(e) => updateDraft({ display_name: e.target.value })}
-                              disabled={busy}
-                            />
-                          </Field>
-
-                          <Field label="Aktif">
-                            <div className="flex h-11 items-center justify-between rounded-xl border border-slate-200 px-3 dark:border-white/10">
-                              <span className="text-sm text-slate-600 dark:text-slate-300">
-                                {currentItem.is_active
-                                  ? "Siap dipakai customer"
-                                  : "Disembunyikan"}
-                              </span>
-                              <Switch
-                                checked={currentItem.is_active}
-                                onCheckedChange={(checked) =>
-                                  updateDraft({ is_active: checked })
-                                }
-                                disabled={busy}
-                              />
-                            </div>
-                          </Field>
-
-                          {currentItem.code === "bank_transfer" ? (
-                            <>
-                              <Field label="Nama bank">
-                                <Input
-                                  value={currentItem.metadata?.bank_name || ""}
-                                  onChange={(e) =>
-                                    updateDraft({ metadata: { bank_name: e.target.value } })
-                                  }
-                                  disabled={busy}
-                                />
-                              </Field>
-                              <Field label="Atas nama">
-                                <Input
-                                  value={currentItem.metadata?.account_name || ""}
-                                  onChange={(e) =>
-                                    updateDraft({ metadata: { account_name: e.target.value } })
-                                  }
-                                  disabled={busy}
-                                />
-                              </Field>
-                              <Field label="Nomor rekening" className="md:col-span-2">
-                                <Input
-                                  value={currentItem.metadata?.account_number || ""}
-                                  onChange={(e) =>
-                                    updateDraft({ metadata: { account_number: e.target.value } })
-                                  }
-                                  disabled={busy}
-                                />
-                              </Field>
-                            </>
-                          ) : null}
-
-                          {currentItem.code === "qris_static" ? (
-                            <Field label="QRIS" className="md:col-span-2">
-                              <div className="space-y-3">
-                                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.03]">
-                                  <SingleImageUpload
-                                    value={currentItem.metadata?.qr_image_url || ""}
-                                    onChange={(url) =>
-                                      updateDraft({ metadata: { qr_image_url: url } })
-                                    }
-                                    endpoint="/admin/upload-media"
-                                    label=""
-                                    aspect="square"
-                                  />
-                                </div>
-                                <Input
-                                  value={currentItem.metadata?.qr_image_url || ""}
-                                  onChange={(e) =>
-                                    updateDraft({ metadata: { qr_image_url: e.target.value } })
-                                  }
-                                  disabled={busy}
-                                  placeholder="Atau isi URL gambar QRIS"
-                                />
-                                {currentItem.metadata?.qr_image_url ? (
-                                  <a
-                                    href={currentItem.metadata.qr_image_url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex items-center gap-2 text-xs font-medium text-blue-600"
-                                  >
-                                    <Link2 className="h-3.5 w-3.5" />
-                                    Preview QRIS
-                                  </a>
-                                ) : null}
-                              </div>
-                            </Field>
-                          ) : null}
-
-                          <Field label="Instruksi" className="md:col-span-2">
-                            <Textarea
-                              value={currentItem.instructions}
-                              onChange={(e) => updateDraft({ instructions: e.target.value })}
-                              rows={3}
-                              disabled={busy}
-                            />
-                          </Field>
-                        </div>
-
-                        <div className="mt-3">
-                          {draftErrors.length > 0 ? (
-                            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100">
-                              {draftErrors.join(" ")}
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-100">
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              Siap dipakai.
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="mt-4 flex gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={cancelEditing}
-                            disabled={busy}
-                            className="h-10 flex-1 rounded-xl"
-                          >
-                            <X className="mr-1.5 h-3.5 w-3.5" />
-                            Batal
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={() => void saveDraft()}
-                            disabled={busy}
-                            className="h-10 flex-1 rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
-                          >
-                            <Save className="mr-1.5 h-3.5 w-3.5" />
-                            {busy ? "Menyimpan..." : "Simpan"}
-                          </Button>
-                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => startEditing(item)}
+                          disabled={busy}
+                          className="h-10 rounded-xl px-3 text-xs"
+                        >
+                          <Edit3 className="mr-1.5 h-3.5 w-3.5" />
+                          Edit
+                        </Button>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -724,6 +591,21 @@ export default function PaymentMethodsSettingsPage() {
           })}
         </div>
       </Card>
+
+      <PaymentMethodEditorDialog
+        open={Boolean(editingCode && draftItem)}
+        item={draftItem}
+        errors={draftErrors}
+        busy={Boolean(
+          draftItem && (savingMethodCode === draftItem.code || savingMethodCode === "all"),
+        )}
+        onOpenChange={(open) => {
+          if (!open) cancelEditing();
+        }}
+        onChange={updateDraft}
+        onCancel={cancelEditing}
+        onSave={() => void saveDraft()}
+      />
 
       <Card className="rounded-[1.75rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
         <div className="border-b border-slate-100 px-5 py-4 dark:border-white/5">
@@ -739,28 +621,6 @@ export default function PaymentMethodsSettingsPage() {
                 Hanya berlaku untuk resource timed.
               </p>
             </div>
-            <div className="flex flex-wrap justify-end gap-2">
-              <MiniChip
-                label={depositSettings.dp_enabled ? "DP aktif" : "DP nonaktif"}
-                tone={depositSettings.dp_enabled ? "emerald" : "slate"}
-              />
-              <MiniChip label={`${depositSettings.dp_percentage}% default`} />
-              <MiniChip label={`${overrideCount} override`} />
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4 p-4 sm:p-5">
-          <div className="grid grid-cols-3 gap-2">
-            <SummaryStat label="Status" value={depositSettings.dp_enabled ? "On" : "Off"} />
-            <SummaryStat label="Default" value={`${depositSettings.dp_percentage}%`} />
-            <SummaryStat label="Override" value={String(overrideCount)} />
-          </div>
-
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-sm text-slate-500 dark:text-slate-400">
-              Atur default dulu. Override hanya untuk resource timed yang memang beda.
-            </div>
             {!editingDeposit ? (
               <Button
                 type="button"
@@ -773,43 +633,50 @@ export default function PaymentMethodsSettingsPage() {
               </Button>
             ) : null}
           </div>
+        </div>
 
-          <div className="grid gap-3 lg:grid-cols-[1.15fr_0.85fr]">
-            <div className="rounded-[1.35rem] border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-              <div>
-                <p className="text-sm font-semibold text-slate-950 dark:text-white">
-                  Default tenant
-                </p>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Dipakai untuk semua resource timed yang belum punya override.
-                </p>
-              </div>
+        <div className="space-y-4 p-4 sm:p-5">
+          <div className="text-sm text-slate-500 dark:text-slate-400">
+            Atur default tenant dulu. Override hanya dipakai kalau ada resource timed yang butuh aturan berbeda.
+          </div>
 
-              {!editingDeposit ? (
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
-                    <p className="text-[10px] uppercase tracking-[0.16em] text-slate-400">
-                      Status
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
-                      {depositSettings.dp_enabled ? "Aktif" : "Nonaktif"}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
-                    <p className="text-[10px] uppercase tracking-[0.16em] text-slate-400">
-                      Persentase
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
-                      {depositSettings.dp_percentage}%
-                    </p>
+          <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+            {!editingDeposit ? (
+              <div className="space-y-3">
+                <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 dark:border-white/10 dark:bg-white/[0.04]">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                        Default DP
+                      </div>
+                      <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                        {depositSettings.dp_enabled ? `${depositSettings.dp_percentage}%` : "Off"}
+                      </div>
+                    </div>
+                    <div className="text-sm text-slate-500 dark:text-slate-400 sm:text-right">
+                      {depositSettings.dp_enabled
+                        ? "Aktif untuk booking resource timed"
+                        : "Saat ini customer tidak diminta bayar DP"}
+                    </div>
                   </div>
                 </div>
-              ) : (
-                <div className="mt-3 space-y-3">
-                  <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
-                    <span className="text-sm text-slate-600 dark:text-slate-300">
-                      DP default aktif
-                    </span>
+
+                <div className="text-sm leading-6 text-slate-500 dark:text-slate-400">
+                  Resource direct sale tidak ikut aturan ini. Kalau sebagian resource timed butuh DP berbeda, baru pakai override per resource.
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid gap-3 lg:grid-cols-[260px_180px_minmax(0,1fr)]">
+                  <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+                    <div>
+                      <div className="text-sm font-medium text-slate-900 dark:text-white">
+                        Minta DP saat booking
+                      </div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        Hanya untuk resource timed
+                      </div>
+                    </div>
                     <Switch
                       checked={depositSettings.dp_enabled}
                       onCheckedChange={(checked) =>
@@ -820,55 +687,37 @@ export default function PaymentMethodsSettingsPage() {
                       }
                     />
                   </div>
+
                   <div>
                     <Label>Persentase default</Label>
                     <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={depositSettings.dp_percentage}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={String(depositSettings.dp_percentage)}
                       onChange={(event) =>
                         setDepositSettings((current) => ({
                           ...current,
-                          dp_percentage: Number(event.target.value || 0),
+                          dp_percentage: Number(sanitizePercentInput(event.target.value) || 0),
                         }))
                       }
                     />
                   </div>
-                </div>
-              )}
-            </div>
 
-            <div className="rounded-[1.35rem] border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-              <p className="text-sm font-semibold text-slate-950 dark:text-white">Ringkas</p>
-              <div className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
-                <div className="flex items-center justify-between rounded-xl bg-white px-3 py-3 dark:bg-white/[0.04]">
-                  <span>Status</span>
-                  <span className="font-semibold">
-                    {depositSettings.dp_enabled ? "Aktif" : "Nonaktif"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between rounded-xl bg-white px-3 py-3 dark:bg-white/[0.04]">
-                  <span>Default</span>
-                  <span className="font-semibold">{depositSettings.dp_percentage}%</span>
-                </div>
-                <div className="flex items-center justify-between rounded-xl bg-white px-3 py-3 dark:bg-white/[0.04]">
-                  <span>Override</span>
-                  <span className="font-semibold">{overrideCount} resource</span>
+                  <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
+                    {depositSettings.dp_enabled
+                      ? `Customer akan diminta bayar ${depositSettings.dp_percentage}% saat booking resource timed, kecuali ada override.`
+                      : "DP dimatikan. Booking resource timed tidak akan meminta uang muka secara default."}
+                  </div>
                 </div>
               </div>
-              <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs leading-5 text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400">
-                Resource direct sale tidak ikut DP policy ini. Pakai override hanya
-                kalau ada resource timed yang butuh DP berbeda.
-              </div>
-            </div>
+            )}
           </div>
 
           <button
             type="button"
             onClick={() => setShowDepositOverrides((current) => !current)}
             disabled={!editingDeposit}
-            className="flex w-full items-center justify-between rounded-[1.2rem] border border-slate-200 bg-slate-50/70 px-4 py-3 text-left disabled:cursor-not-allowed disabled:opacity-70 dark:border-white/10 dark:bg-white/[0.03]"
+            className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-left disabled:cursor-not-allowed disabled:opacity-70 dark:border-white/10 dark:bg-white/[0.03]"
           >
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-slate-900/5 p-2 dark:bg-white/10">
@@ -876,12 +725,12 @@ export default function PaymentMethodsSettingsPage() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-slate-950 dark:text-white">
-                  Override resource
+                  Override per resource
                 </p>
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   {editingDeposit
-                    ? "Buka hanya kalau ada resource timed yang memang beda dari default."
-                    : "Masuk edit mode dulu untuk mengubah override timed resource."}
+                    ? "Buka hanya kalau ada resource timed yang memang butuh aturan DP berbeda."
+                    : "Masuk edit mode dulu kalau ingin atur DP khusus per resource."}
                 </p>
               </div>
             </div>
@@ -901,7 +750,7 @@ export default function PaymentMethodsSettingsPage() {
                 return (
                   <div
                     key={resource.id}
-                    className="rounded-[1.25rem] border border-slate-200 bg-slate-50/60 p-4 dark:border-white/10 dark:bg-white/[0.03]"
+                    className="rounded-lg border border-slate-200 bg-slate-50/60 p-4 dark:border-white/10 dark:bg-white/[0.03]"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
@@ -931,7 +780,7 @@ export default function PaymentMethodsSettingsPage() {
                     </div>
 
                     {override?.override_dp ? (
-                      <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
                         <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
                           <span className="text-sm text-slate-600 dark:text-slate-300">
                             DP aktif
@@ -946,13 +795,12 @@ export default function PaymentMethodsSettingsPage() {
                         <div>
                           <Label>Persentase</Label>
                           <Input
-                            type="number"
-                            min={0}
-                            max={100}
-                            value={override.dp_percentage}
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={String(override.dp_percentage)}
                             onChange={(event) =>
                               updateDepositOverride(resource, {
-                                dp_percentage: Number(event.target.value || 0),
+                                dp_percentage: Number(sanitizePercentInput(event.target.value) || 0),
                               })
                             }
                           />
@@ -971,7 +819,7 @@ export default function PaymentMethodsSettingsPage() {
           ) : null}
 
           {editingDeposit ? (
-            <div className="flex gap-2">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row">
               <Button
                 type="button"
                 variant="outline"
@@ -1051,5 +899,209 @@ function MiniChip({
     <span className={cn("rounded-md border px-2.5 py-1 text-[11px] font-medium", tones[tone])}>
       {label}
     </span>
+  );
+}
+
+function PaymentMethodEditorDialog({
+  open,
+  item,
+  errors,
+  busy,
+  onOpenChange,
+  onChange,
+  onCancel,
+  onSave,
+}: {
+  open: boolean;
+  item: PaymentMethodItem | null;
+  errors: string[];
+  busy: boolean;
+  onOpenChange: (open: boolean) => void;
+  onChange: (patch: Partial<PaymentMethodItem>) => void;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  if (!item) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex h-dvh !w-screen !max-w-none flex-col overflow-hidden rounded-none border-0 bg-background p-0 sm:h-auto sm:!w-[760px] sm:!max-w-[calc(100vw-2rem)] sm:max-h-[calc(100dvh-2rem)] sm:rounded-xl sm:border sm:p-0">
+        <DialogHeader className="shrink-0 border-b px-4 py-4 sm:px-6 sm:py-5">
+          <DialogTitle className="text-lg font-semibold tracking-tight text-slate-950 dark:text-white sm:text-xl">
+            Edit {item.display_name}
+          </DialogTitle>
+          <DialogDescription className="text-sm leading-6 text-slate-500 dark:text-slate-400">
+            Rapikan data yang memang dipakai customer saat checkout atau saat diminta bayar manual.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+          <div className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_240px]">
+              <Field label="Nama tampil">
+                <Input
+                  value={item.display_name}
+                  onChange={(e) => onChange({ display_name: e.target.value })}
+                  disabled={busy}
+                />
+              </Field>
+
+              <Field label="Status">
+                <div className="flex min-h-11 items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
+                  <div>
+                    <div className="text-sm font-medium text-slate-900 dark:text-white">
+                      {item.is_active ? "Aktif" : "Nonaktif"}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      {item.is_active ? "Metode ini tampil ke customer" : "Metode ini disembunyikan"}
+                    </div>
+                  </div>
+                  <Switch
+                    checked={item.is_active}
+                    onCheckedChange={(checked) => onChange({ is_active: checked })}
+                    disabled={busy}
+                  />
+                </div>
+              </Field>
+            </div>
+
+            {item.code === "bank_transfer" ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field label="Nama bank">
+                  <Input
+                    value={item.metadata?.bank_name || ""}
+                    onChange={(e) =>
+                      onChange({ metadata: { bank_name: e.target.value } })
+                    }
+                    disabled={busy}
+                  />
+                </Field>
+                <Field label="Atas nama">
+                  <Input
+                    value={item.metadata?.account_name || ""}
+                    onChange={(e) =>
+                      onChange({ metadata: { account_name: e.target.value } })
+                    }
+                    disabled={busy}
+                  />
+                </Field>
+                <Field label="Nomor rekening" className="md:col-span-2">
+                  <Input
+                    value={item.metadata?.account_number || ""}
+                    onChange={(e) =>
+                      onChange({ metadata: { account_number: e.target.value } })
+                    }
+                    disabled={busy}
+                  />
+                </Field>
+              </div>
+            ) : null}
+
+            {item.code === "qris_static" ? (
+              <Field label="QRIS">
+                <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                  <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-center">
+                    <div className="flex justify-center">
+                      <div className="w-full max-w-[240px]">
+                        <SingleImageUpload
+                          value={item.metadata?.qr_image_url || ""}
+                          onChange={(url) => onChange({ metadata: { qr_image_url: url } })}
+                          endpoint="/admin/upload-media"
+                          label=""
+                          aspect="square"
+                          className="max-w-[240px]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <div className="text-sm font-medium text-slate-900 dark:text-white">
+                          Upload QRIS final
+                        </div>
+                        <div className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                          Pakai gambar QRIS yang jelas dan final. Customer cukup scan dari halaman checkout atau bukti bayar.
+                        </div>
+                      </div>
+
+                      <Input
+                        value={item.metadata?.qr_image_url || ""}
+                        onChange={(e) =>
+                          onChange({ metadata: { qr_image_url: e.target.value } })
+                        }
+                        disabled={busy}
+                        placeholder="Atau isi URL gambar QRIS"
+                      />
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <MiniChip
+                          label={item.metadata?.qr_image_url ? "QRIS terpasang" : "Belum ada QRIS"}
+                          tone={item.metadata?.qr_image_url ? "emerald" : "amber"}
+                        />
+                        {item.metadata?.qr_image_url ? (
+                          <a
+                            href={item.metadata.qr_image_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-2 text-xs font-medium text-blue-600"
+                          >
+                            <Link2 className="h-3.5 w-3.5" />
+                            Buka preview
+                          </a>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Field>
+            ) : null}
+
+            <Field label="Instruksi">
+              <Textarea
+                value={item.instructions}
+                onChange={(e) => onChange({ instructions: e.target.value })}
+                rows={4}
+                disabled={busy}
+              />
+            </Field>
+          </div>
+
+          <div className="mt-4">
+            {errors.length > 0 ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm leading-6 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100">
+                {errors.join(" ")}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-100">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Siap dipakai.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter className="shrink-0 border-t bg-background px-4 py-4 sm:px-6">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={busy}
+            className="h-10 rounded-lg"
+          >
+            <X className="mr-1.5 h-3.5 w-3.5" />
+            Batal
+          </Button>
+          <Button
+            type="button"
+            onClick={onSave}
+            disabled={busy}
+            className="h-10 rounded-lg bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
+          >
+            <Save className="mr-1.5 h-3.5 w-3.5" />
+            {busy ? "Menyimpan..." : "Simpan"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

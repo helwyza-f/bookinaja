@@ -32,6 +32,10 @@ import { hasPermission } from "@/lib/admin-access";
 import { toast } from "sonner";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { RealtimePill } from "@/components/dashboard/realtime-pill";
+import {
+  AdminSurfaceEmpty,
+  AdminSurfaceError,
+} from "@/components/dashboard/admin-surface-state";
 import { useRealtime } from "@/lib/realtime/use-realtime";
 import {
   tenantBookingsChannel,
@@ -176,6 +180,7 @@ export default function DashboardPage() {
   const [onboardingSummary, setOnboardingSummary] = useState<OnboardingSummaryResponse | null>(null);
   const [customersCount, setCustomersCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<string>("");
   const [showOnboarding, setShowOnboarding] = useState(true);
@@ -243,6 +248,7 @@ export default function DashboardPage() {
           ? actionFeedRes.value?.data?.items || []
           : [],
       );
+      setLoadError(false);
 
       if (ownerOnly) {
         const [subscriptionRes, onboardingRes] = await Promise.allSettled([
@@ -268,6 +274,9 @@ export default function DashboardPage() {
       );
       hasLoadedRef.current = true;
     } catch {
+      if (!background) {
+        setLoadError(true);
+      }
       if (!background) {
         toast.error("Gagal memuat dashboard");
       }
@@ -743,6 +752,13 @@ export default function DashboardPage() {
     }));
   }, [ownerOnly, topBookings]);
 
+  const hasOperationalData =
+    resources.length > 0 ||
+    sessions.length > 0 ||
+    bookings.length > 0 ||
+    actionFeed.length > 0 ||
+    customersCount > 0;
+
   return (
     <div className="space-y-4 px-3 pb-20 pt-4 font-plus-jakarta md:px-4">
       <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:p-5">
@@ -929,108 +945,141 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <section className="grid gap-4 xl:grid-cols-[1.45fr_0.7fr]">
-        <div className="space-y-4">
-          <DashboardLineChartPanel
-            eyebrow="7 hari"
-            title="Revenue 7 hari"
-            description="Bandingkan total revenue harian dengan porsi revenue utama di rentang yang sama."
-            points={weeklyRevenuePoints}
-            primaryLabel="Revenue"
-            secondaryLabel="Revenue utama"
-            formatValue={(value) => `Rp ${formatIDR(value)}`}
-          />
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
-            <InfoChip label="Total 7 hari" value={`Rp ${formatIDR(weeklySummary.totalRevenue)}`} icon={Wallet} />
-            <InfoChip label="Hari aktif" value={`${weeklySummary.activeDays}/7`} icon={CalendarClock} />
-            <InfoChip label="Puncak" value={`${weeklySummary.peakLabel} · Rp ${formatIDR(weeklySummary.peakRevenue)}`} icon={TrendingUp} />
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <DashboardDonutPanel
-            eyebrow={dashboardDonut.eyebrow}
-            title={dashboardDonut.title}
-            description={dashboardDonut.description}
-            totalLabel={dashboardDonut.totalLabel}
-            totalValue={dashboardDonut.totalValue}
-            segments={dashboardDonut.segments}
-          />
-
-          {ownerOnly ? (
-            <DashboardPanel
-              eyebrow="Owner pulse"
-              title="Snapshot singkat"
-              description="Konteks cepat untuk cek kondisi tenant."
-            >
-              <div className="grid grid-cols-2 gap-3">
-                {ownerSnapshot.map((item) => (
-                  <InfoChip key={item.label} label={item.label} value={item.value} icon={item.icon} />
-                ))}
-              </div>
-              <div className="flex justify-end">
-                <Button asChild variant="outline" className="rounded-lg">
-                  <Link href="/admin/settings/analytics" prefetch={false}>
-                    Open analytics
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
-            </DashboardPanel>
-          ) : (
-            <DashboardPanel
-              eyebrow="Pulse"
-              title="Ringkasan cepat"
-              description="Konteks singkat untuk baca kondisi tenant saat ini."
-            >
-              <div className="grid grid-cols-2 gap-3">
-                <InfoChip label="Okupansi" value={`${metrics.occupiedPercent}%`} icon={TrendingUp} />
-                <InfoChip label="Resource siap" value={String(metrics.availableResources)} icon={Monitor} />
-                <InfoChip label="Customer" value={customersCount.toString()} icon={Users} />
-                <InfoChip label="Verifikasi" value={String(metrics.verificationCount)} icon={Sparkles} />
-              </div>
-            </DashboardPanel>
-          )}
-        </div>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-        <DashboardLeaderboardPanel
-          eyebrow="Resource pulse"
-          title="Resource paling aktif hari ini"
-          description="Siapa yang paling aktif hari ini."
-          rows={resourceRows}
-          emptyText={
-            canManageResources
-              ? "Belum ada resource aktif hari ini."
-              : "Akses resource belum diberikan untuk akun ini."
+      {loadError && !hasLoadedRef.current ? (
+        <AdminSurfaceError
+          title="Dashboard gagal dimuat"
+          description="Semua panel dashboard bergantung pada data operasional awal. Muat ulang sebelum memakai angka di halaman ini."
+          action={
+            <Button onClick={() => void fetchDashboard("initial")} variant="outline" className="rounded-xl">
+              Coba lagi
+            </Button>
           }
         />
-
-        <DashboardLeaderboardPanel
-          eyebrow="Recent activity"
-          title="Booking terbaru"
-          description="Aktivitas booking terbaru."
-          rows={bookingRows}
-          emptyText={
-            canReadBookings
-              ? "Belum ada booking terbaru."
-              : "Akses booking belum diberikan untuk akun ini."
+      ) : !loading && !hasOperationalData ? (
+        <AdminSurfaceEmpty
+          title="Belum ada pulse operasional"
+          description="Tenant ini belum punya aktivitas yang cukup untuk mengisi dashboard. Mulai dari setup bisnis, resource, lalu booking pertama."
+          action={
+            <div className="flex flex-wrap justify-center gap-3">
+              <Button asChild className="rounded-xl">
+                <Link href="/admin/settings/bisnis" prefetch={false}>
+                  Rapikan bisnis
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="rounded-xl">
+                <Link href="/admin/resources" prefetch={false}>
+                  Buka resources
+                </Link>
+              </Button>
+            </div>
           }
         />
-      </section>
+      ) : (
+        <>
+          <section className="grid gap-4 xl:grid-cols-[1.45fr_0.7fr]">
+            <div className="space-y-4">
+              <DashboardLineChartPanel
+                eyebrow="7 hari"
+                title="Revenue 7 hari"
+                description="Bandingkan total revenue harian dengan porsi revenue utama di rentang yang sama."
+                points={weeklyRevenuePoints}
+                primaryLabel="Revenue"
+                secondaryLabel="Revenue utama"
+                formatValue={(value) => `Rp ${formatIDR(value)}`}
+              />
+              <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+                <InfoChip label="Total 7 hari" value={`Rp ${formatIDR(weeklySummary.totalRevenue)}`} icon={Wallet} />
+                <InfoChip label="Hari aktif" value={`${weeklySummary.activeDays}/7`} icon={CalendarClock} />
+                <InfoChip label="Puncak" value={`${weeklySummary.peakLabel} · Rp ${formatIDR(weeklySummary.peakRevenue)}`} icon={TrendingUp} />
+              </div>
+            </div>
 
-      {!ownerOnly && quickActions.length === 0 ? (
-        <DashboardPanel
-          eyebrow="Mode staf"
-          title="Akses operasional terbatas"
-          description="Modul sensitif tetap disimpan untuk owner."
-        >
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-300">
-            Saat ini akun ini belum memiliki modul operasional tambahan yang bisa dibuka.
-          </div>
-        </DashboardPanel>
-      ) : null}
+            <div className="space-y-4">
+              <DashboardDonutPanel
+                eyebrow={dashboardDonut.eyebrow}
+                title={dashboardDonut.title}
+                description={dashboardDonut.description}
+                totalLabel={dashboardDonut.totalLabel}
+                totalValue={dashboardDonut.totalValue}
+                segments={dashboardDonut.segments}
+              />
+
+              {ownerOnly ? (
+                <DashboardPanel
+                  eyebrow="Owner pulse"
+                  title="Snapshot singkat"
+                  description="Konteks cepat untuk cek kondisi tenant."
+                >
+                  <div className="grid grid-cols-2 gap-3">
+                    {ownerSnapshot.map((item) => (
+                      <InfoChip key={item.label} label={item.label} value={item.value} icon={item.icon} />
+                    ))}
+                  </div>
+                  <div className="flex justify-end">
+                    <Button asChild variant="outline" className="rounded-lg">
+                      <Link href="/admin/settings/analytics" prefetch={false}>
+                        Open analytics
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
+                  </div>
+                </DashboardPanel>
+              ) : (
+                <DashboardPanel
+                  eyebrow="Pulse"
+                  title="Ringkasan cepat"
+                  description="Konteks singkat untuk baca kondisi tenant saat ini."
+                >
+                  <div className="grid grid-cols-2 gap-3">
+                    <InfoChip label="Okupansi" value={`${metrics.occupiedPercent}%`} icon={TrendingUp} />
+                    <InfoChip label="Resource siap" value={String(metrics.availableResources)} icon={Monitor} />
+                    <InfoChip label="Customer" value={customersCount.toString()} icon={Users} />
+                    <InfoChip label="Verifikasi" value={String(metrics.verificationCount)} icon={Sparkles} />
+                  </div>
+                </DashboardPanel>
+              )}
+            </div>
+          </section>
+
+          <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+            <DashboardLeaderboardPanel
+              eyebrow="Resource pulse"
+              title="Resource paling aktif hari ini"
+              description="Siapa yang paling aktif hari ini."
+              rows={resourceRows}
+              emptyText={
+                canManageResources
+                  ? "Belum ada resource aktif hari ini."
+                  : "Akses resource belum diberikan untuk akun ini."
+              }
+            />
+
+            <DashboardLeaderboardPanel
+              eyebrow="Recent activity"
+              title="Booking terbaru"
+              description="Aktivitas booking terbaru."
+              rows={bookingRows}
+              emptyText={
+                canReadBookings
+                  ? "Belum ada booking terbaru."
+                  : "Akses booking belum diberikan untuk akun ini."
+              }
+            />
+          </section>
+
+          {!ownerOnly && quickActions.length === 0 ? (
+            <DashboardPanel
+              eyebrow="Mode staf"
+              title="Akses operasional terbatas"
+              description="Modul sensitif tetap disimpan untuk owner."
+            >
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-300">
+                Saat ini akun ini belum memiliki modul operasional tambahan yang bisa dibuka.
+              </div>
+            </DashboardPanel>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }

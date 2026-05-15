@@ -156,8 +156,8 @@ export function AddResourceDialog({
 
       <DialogPortal>
         <DialogOverlay className="z-[9998] bg-slate-950/30 backdrop-blur-sm" />
-        <DialogContent className="z-[9999] w-[94vw] overflow-hidden rounded-2xl border border-slate-200 bg-background p-4 shadow-2xl sm:max-w-[480px] sm:p-5 dark:border-white/10">
-          <DialogHeader className="relative z-10 space-y-2">
+        <DialogContent className="z-[9999] flex max-h-[calc(100dvh-1rem)] w-[94vw] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-background p-4 shadow-2xl sm:max-w-[480px] sm:p-5 dark:border-white/10">
+          <DialogHeader className="relative z-10 shrink-0 space-y-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
               <LayoutGrid className="h-4.5 w-4.5" />
             </div>
@@ -171,7 +171,7 @@ export function AddResourceDialog({
 
           <form
             onSubmit={onSubmit}
-            className="relative z-10 space-y-4 pt-3"
+            className="relative z-10 min-h-0 space-y-4 overflow-y-auto pt-3 overscroll-contain"
           >
             {/* INPUT NAMA */}
             <div className="space-y-3">

@@ -361,10 +361,10 @@ export default function ReceiptPrinterSettingsPage() {
       <PlanFeatureCallout
         input={user || {}}
         title="Receipt branding dan printer"
-        description="Template nota premium dan printer workflow sebaiknya diberi konteks plan yang jelas sebelum owner mulai merapikan output transaksi."
+        description="Atur template nota, branding struk, dan workflow printer untuk output transaksi."
         requirement={{ feature: "advanced_receipt_branding" }}
       />
-      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
+      <section className="space-y-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
             <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">

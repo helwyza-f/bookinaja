@@ -111,7 +111,7 @@ export default function SettingsBillingPage() {
         <BillingSkeleton />
       ) : (
         <>
-          <section className="rounded-[1.75rem] border border-slate-200/80 bg-white/96 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-[#0f1117]/96 sm:p-7">
+          <section className="space-y-5">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
               <div className="max-w-2xl space-y-3">
                 <Badge
@@ -147,7 +147,7 @@ export default function SettingsBillingPage() {
               </div>
             </div>
 
-            <div className="mt-6 grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-3">
               <CompactMetric label="Status" value={formatSubscriptionStatusLabel(sub?.status)} />
               <CompactMetric label="Plan" value={planState.title} />
               <CompactMetric label="Aktif sampai" value={periodEnd} />

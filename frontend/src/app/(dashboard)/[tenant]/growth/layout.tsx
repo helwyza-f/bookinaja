@@ -1,30 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import api from "@/lib/api";
-import {
-  clearTenantSession,
-  isTenantAuthError,
-  setAdminAuthCookie,
-} from "@/lib/tenant-session";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GrowthHeader } from "@/components/dashboard/growth-header";
 import { GrowthSidebar } from "@/components/dashboard/growth-sidebar";
-
-type AdminBootstrapResponse = {
-  session_token?: string;
-  user?: {
-    name?: string;
-    role?: string;
-  };
-  tenant?: {
-    name?: string;
-  };
-  features?: {
-    enable_discovery_posts?: boolean;
-  };
-};
+import {
+  AdminShellAuthError,
+  AdminShellLoadError,
+} from "@/components/dashboard/admin-shell-state";
+import { useAdminBootstrap } from "@/components/dashboard/use-admin-bootstrap";
+import { getCentralAdminAuthUrl } from "@/lib/tenant";
 
 export default function GrowthWorkspaceLayout({
   children,
@@ -32,53 +18,53 @@ export default function GrowthWorkspaceLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<AdminBootstrapResponse["user"] | null>(null);
-  const [tenantName, setTenantName] = useState<string>("");
+  const {
+    status,
+    errorType,
+    user,
+    tenantName,
+    tenantSlug,
+    growthVisible,
+    reload,
+  } = useAdminBootstrap();
 
   useEffect(() => {
-    let active = true;
+    if (status !== "ready") return;
+    if (user?.role !== "owner") {
+      router.replace("/admin/forbidden");
+      return;
+    }
+    if (!growthVisible) {
+      router.replace("/admin/dashboard");
+    }
+  }, [growthVisible, router, status, user?.role]);
 
-    const load = async () => {
-      try {
-        const res = await api.get<AdminBootstrapResponse>("/admin/me/bootstrap");
-        const bootstrap = res.data || {};
-        if (bootstrap.session_token) {
-          setAdminAuthCookie(bootstrap.session_token);
-        }
-        const userData = bootstrap.user || null;
-        if (!active) return;
+  if (status === "loading") {
+    return <GrowthLayoutSkeleton />;
+  }
 
-        if (userData?.role !== "owner") {
-          router.replace("/admin/forbidden");
-          return;
-        }
+  if (errorType === "auth") {
+    return (
+      <AdminShellAuthError
+        onLogin={() => {
+          window.location.replace(
+            getCentralAdminAuthUrl({
+              tenantSlug,
+              next: "/growth/feed",
+              reason: "tenant-mismatch",
+            }),
+          );
+        }}
+        onRetry={reload}
+      />
+    );
+  }
 
-        if (!bootstrap.features?.enable_discovery_posts) {
-          router.replace("/admin/dashboard");
-          return;
-        }
+  if (errorType === "unknown") {
+    return <AdminShellLoadError onRetry={reload} />;
+  }
 
-        setUser(userData);
-        setTenantName(bootstrap.tenant?.name || userData?.name || "");
-        setLoading(false);
-      } catch (error) {
-        if (active && isTenantAuthError(error)) {
-          clearTenantSession({ keepTenantSlug: true });
-          router.replace("/admin/login");
-          return;
-        }
-        if (active) router.replace("/admin/forbidden");
-      }
-    };
-
-    void load();
-    return () => {
-      active = false;
-    };
-  }, [router]);
-
-  if (loading) {
+  if (!user || user.role !== "owner" || !growthVisible) {
     return <GrowthLayoutSkeleton />;
   }
 

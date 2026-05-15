@@ -13,7 +13,6 @@ import {
   Loader2,
   Percent,
   Save,
-  Tag,
   TicketPercent,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -117,6 +116,20 @@ const EMPTY_FORM: PromoForm = {
 
 const formatIDR = (value?: number | null) =>
   `Rp ${new Intl.NumberFormat("id-ID").format(Number(value || 0))}`;
+
+const onlyDigits = (value: string) => value.replace(/[^\d]/g, "");
+
+const formatNumberInput = (value: string) => {
+  const digits = onlyDigits(value);
+  if (!digits) return "";
+  return new Intl.NumberFormat("id-ID").format(Number(digits));
+};
+
+const formatRupiahInput = (value: string) => {
+  const digits = onlyDigits(value);
+  if (!digits) return "";
+  return `Rp ${new Intl.NumberFormat("id-ID").format(Number(digits))}`;
+};
 
 function toLocalDate(value?: string | null) {
   if (!value) return "";
@@ -300,7 +313,7 @@ export function PromoFormScreen({
   if (loading) {
     return (
       <div className="space-y-4 p-4 sm:p-6">
-        <Card className="rounded-[2rem] p-8">Memuat form promo...</Card>
+        <Card className="rounded-xl p-8">Memuat form promo...</Card>
       </div>
     );
   }
@@ -308,15 +321,15 @@ export function PromoFormScreen({
   return (
     <div className="space-y-4 p-4 pb-20 sm:space-y-6 sm:p-6">
       <div className="flex items-center justify-between gap-3">
-        <Button variant="ghost" onClick={() => router.push("/admin/settings/promo")} className="rounded-2xl px-0">
+        <Button variant="ghost" onClick={() => router.push("/admin/settings/promo")} className="rounded-lg px-0">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Kembali
         </Button>
         <Badge variant="outline">{promoId ? "Edit promo" : "Promo baru"}</Badge>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-        <Card className="rounded-[2rem] border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0b0b]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <Card className="rounded-xl border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0b0b]">
           <div className="border-b border-slate-100 p-5 dark:border-white/5">
             <div className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.24em] text-sky-700 dark:bg-sky-500/10 dark:text-sky-200">
               <TicketPercent className="h-3.5 w-3.5" />
@@ -331,14 +344,6 @@ export function PromoFormScreen({
           </div>
 
           <div className="space-y-5 p-5">
-            <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                Dasar
-              </p>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Kode, nama, status, dan deskripsi singkat.
-              </p>
-            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Kode promo" required hint="Contoh: WEEKDAY10">
                 <Input
@@ -347,8 +352,8 @@ export function PromoFormScreen({
                   placeholder="WEEKDAY10"
                 />
               </Field>
-              <Field label="Status" optional hint="Boleh langsung aktif atau simpan dulu sebagai nonaktif.">
-                <div className="flex h-10 items-center justify-between rounded-xl border border-slate-200 px-3 dark:border-white/10">
+            <Field label="Status" optional hint="Boleh langsung aktif atau simpan dulu sebagai nonaktif.">
+                <div className="flex h-10 items-center justify-between rounded-lg border border-slate-200 px-3 dark:border-white/10">
                   <span className="text-sm text-slate-600 dark:text-slate-300">
                     {form.is_active ? "Aktif" : "Nonaktif"}
                   </span>
@@ -377,14 +382,6 @@ export function PromoFormScreen({
               />
             </Field>
 
-            <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                Diskon
-              </p>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Tentukan cara hitung potongan dan batas dasarnya.
-              </p>
-            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Perilaku diskon" optional hint="Locked aman untuk booking awal. Floating ikut naik saat total booking bertambah.">
                 <div className="grid grid-cols-2 gap-2">
@@ -397,7 +394,7 @@ export function PromoFormScreen({
                       type="button"
                       onClick={() => setForm((prev) => ({ ...prev, discount_behavior: option.key as PromoForm["discount_behavior"] }))}
                       className={cn(
-                        "rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all",
+                        "rounded-lg border px-3 py-2.5 text-sm font-semibold transition-all",
                         form.discount_behavior === option.key
                           ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200"
                           : "border-slate-200 dark:border-white/10",
@@ -419,7 +416,7 @@ export function PromoFormScreen({
                       type="button"
                       onClick={() => setForm((prev) => ({ ...prev, discount_type: option.key as PromoForm["discount_type"] }))}
                       className={cn(
-                        "flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all",
+                        "flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-all",
                         form.discount_type === option.key
                           ? "border-sky-500 bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-200"
                           : "border-slate-200 dark:border-white/10",
@@ -437,32 +434,38 @@ export function PromoFormScreen({
                 hint={form.discount_type === "percentage" ? "Contoh: 10 berarti diskon 10%." : "Contoh: 20000 berarti potongan Rp20.000."}
               >
                 <Input
-                  type="number"
-                  min="0"
-                  value={form.discount_value}
-                  onChange={(e) => setForm((prev) => ({ ...prev, discount_value: e.target.value }))}
-                  placeholder={form.discount_type === "percentage" ? "10" : "20000"}
+                  type="text"
+                  inputMode="numeric"
+                  value={
+                    form.discount_type === "percentage"
+                      ? formatNumberInput(form.discount_value)
+                      : formatRupiahInput(form.discount_value)
+                  }
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, discount_value: onlyDigits(e.target.value) }))
+                  }
+                  placeholder={form.discount_type === "percentage" ? "10" : "Rp 20.000"}
                 />
               </Field>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Maksimal diskon" optional hint="Pakai kalau diskon persen tidak boleh terlalu besar.">
+              <Field label="Maksimal diskon (Rp)" optional hint="Pakai kalau diskon persen tidak boleh terlalu besar.">
                 <Input
-                  type="number"
-                  min="0"
-                  value={form.max_discount_amount}
-                  onChange={(e) => setForm((prev) => ({ ...prev, max_discount_amount: e.target.value }))}
-                  placeholder="Kosongkan kalau tidak perlu"
+                  type="text"
+                  inputMode="numeric"
+                  value={formatRupiahInput(form.max_discount_amount)}
+                  onChange={(e) => setForm((prev) => ({ ...prev, max_discount_amount: onlyDigits(e.target.value) }))}
+                  placeholder="Rp 20.000"
                 />
               </Field>
-              <Field label="Minimum booking" optional hint="Promo baru berlaku kalau total booking minimal nilai ini.">
+              <Field label="Minimum booking (Rp)" optional hint="Promo baru berlaku kalau total booking minimal nilai ini.">
                 <Input
-                  type="number"
-                  min="0"
-                  value={form.min_booking_amount}
-                  onChange={(e) => setForm((prev) => ({ ...prev, min_booking_amount: e.target.value }))}
-                  placeholder="Kosongkan kalau tidak perlu"
+                  type="text"
+                  inputMode="numeric"
+                  value={formatRupiahInput(form.min_booking_amount)}
+                  onChange={(e) => setForm((prev) => ({ ...prev, min_booking_amount: onlyDigits(e.target.value) }))}
+                  placeholder="Rp 100.000"
                 />
               </Field>
             </div>
@@ -487,7 +490,7 @@ export function PromoFormScreen({
             <button
               type="button"
               onClick={() => setShowAdvanced((current) => !current)}
-              className="flex w-full items-center justify-between rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-left dark:border-white/10"
+              className="flex w-full items-center justify-between rounded-lg border border-dashed border-slate-200 px-4 py-3 text-left dark:border-white/10"
             >
               <div>
                 <div className="text-sm font-semibold text-slate-950 dark:text-white">
@@ -505,7 +508,7 @@ export function PromoFormScreen({
                 {advancedSummary.map((chip) => (
                   <span
                     key={chip}
-                    className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300"
+                    className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300"
                   >
                     {chip}
                   </span>
@@ -514,41 +517,33 @@ export function PromoFormScreen({
             ) : null}
 
             {showAdvanced ? (
-              <div className="space-y-5 rounded-[1.5rem] border border-slate-200/80 bg-slate-50/60 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                    Scope
-                  </p>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    Pakai hanya kalau promo ini tidak global.
-                  </p>
-                </div>
+              <div className="space-y-5 rounded-lg border border-slate-200/80 bg-slate-50/60 p-4 dark:border-white/10 dark:bg-white/[0.03]">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Batas penggunaan total" optional hint="Misalnya 100 berarti promo hanya bisa dipakai 100 kali.">
                     <Input
-                      type="number"
-                      min="0"
-                      value={form.usage_limit_total}
-                      onChange={(e) => setForm((prev) => ({ ...prev, usage_limit_total: e.target.value }))}
-                      placeholder="Kosongkan kalau tidak dibatasi"
+                      type="text"
+                      inputMode="numeric"
+                      value={formatNumberInput(form.usage_limit_total)}
+                      onChange={(e) => setForm((prev) => ({ ...prev, usage_limit_total: onlyDigits(e.target.value) }))}
+                      placeholder="Contoh: 100"
                     />
                   </Field>
                   <Field label="Batas per customer" optional hint="Misalnya 1 berarti satu customer hanya boleh pakai sekali.">
                     <Input
-                      type="number"
-                      min="0"
-                      value={form.usage_limit_per_customer}
-                      onChange={(e) => setForm((prev) => ({ ...prev, usage_limit_per_customer: e.target.value }))}
-                      placeholder="Kosongkan kalau tidak dibatasi"
+                      type="text"
+                      inputMode="numeric"
+                      value={formatNumberInput(form.usage_limit_per_customer)}
+                      onChange={(e) => setForm((prev) => ({ ...prev, usage_limit_per_customer: onlyDigits(e.target.value) }))}
+                      placeholder="Contoh: 1"
                     />
                   </Field>
                 </div>
 
                 <Field label="Hari berlaku" optional hint="Kalau tidak dipilih, promo berlaku setiap hari.">
-                  <div className="flex flex-wrap gap-2">
-                    {DAY_OPTIONS.map((day) => {
-                      const active = form.valid_weekdays.includes(day.value);
-                      return (
+                    <div className="flex flex-wrap gap-2">
+                      {DAY_OPTIONS.map((day) => {
+                        const active = form.valid_weekdays.includes(day.value);
+                        return (
                         <button
                           key={day.value}
                           type="button"
@@ -561,7 +556,7 @@ export function PromoFormScreen({
                             }))
                           }
                           className={cn(
-                            "rounded-full border px-3 py-2 text-xs font-bold transition-all",
+                            "rounded-md border px-3 py-2 text-xs font-bold transition-all",
                             active
                               ? "border-sky-500 bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-200"
                               : "border-slate-200 dark:border-white/10",
@@ -618,7 +613,7 @@ export function PromoFormScreen({
                             }))
                           }
                           className={cn(
-                            "rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-all",
+                            "rounded-lg border px-3 py-2.5 text-left text-sm font-medium transition-all",
                             active
                               ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200"
                               : "border-slate-200 dark:border-white/10",
@@ -633,53 +628,43 @@ export function PromoFormScreen({
               </div>
             ) : null}
 
-            <div className="flex gap-3">
-              <Button
-                onClick={() => void submit()}
-                disabled={saving}
-                className="flex-1 rounded-2xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
-              >
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Simpan Promo
-              </Button>
+            <div className="flex flex-col-reverse gap-3 sm:flex-row">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => router.push("/admin/settings/promo")}
-                className="rounded-2xl"
+                className="rounded-lg"
               >
                 Batal
+              </Button>
+              <Button
+                onClick={() => void submit()}
+                disabled={saving}
+                className="sm:flex-1 rounded-lg bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
+              >
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Simpan Promo
               </Button>
             </div>
           </div>
         </Card>
 
-        <div className="space-y-4">
-          <Card className="rounded-[2rem] border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0b0b]">
+        <div className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+          <Card className="rounded-xl border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0b0b]">
             <div className="border-b border-slate-100 p-5 dark:border-white/5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white dark:bg-white dark:text-slate-950">
-                  <Tag className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                    Checklist
-                  </div>
-                  <div className="text-xl font-[950] text-slate-950 dark:text-white">
-                    Siap simpan?
-                  </div>
-                </div>
+              <div className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                Checklist
               </div>
             </div>
             <div className="space-y-3 p-5">
               <ChecklistItem ready={form.code.trim() !== ""} label="Kode promo terisi" />
               <ChecklistItem ready={form.name.trim() !== ""} label="Nama promo terisi" />
               <ChecklistItem ready={form.discount_value.trim() !== ""} label="Nilai diskon terisi" />
-              <ChecklistItem ready className="opacity-80" label="Field lain aman dibiarkan kosong kalau belum perlu" />
+              <ChecklistItem ready className="opacity-80" label="Field lain aman dikosongkan kalau belum perlu" />
             </div>
           </Card>
 
-          <Card className="rounded-[2rem] border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0b0b]">
+          <Card className="rounded-xl border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0b0b]">
             <div className="border-b border-slate-100 p-5 dark:border-white/5">
               <div className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
                 Usage
@@ -690,18 +675,18 @@ export function PromoFormScreen({
             </div>
             <div className="space-y-3 p-5">
               {!promoId ? (
-                <div className="rounded-xl border border-dashed border-slate-200 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
+                <div className="rounded-lg border border-dashed border-slate-200 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
                   Simpan promo dulu. Setelah dipakai customer, histori akan muncul di sini.
                 </div>
               ) : redemptions.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-200 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
+                <div className="rounded-lg border border-dashed border-slate-200 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
                   Belum ada booking yang memakai promo ini.
                 </div>
               ) : (
                 redemptions.map((item) => (
                   <div
                     key={item.id}
-                    className="rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-3 dark:border-white/10 dark:bg-white/[0.03]"
+                    className="rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-3 dark:border-white/10 dark:bg-white/[0.03]"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -750,13 +735,10 @@ function Field({
 }) {
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <Label className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-          {label}
-        </Label>
-        {required ? <Badge className="bg-red-500 text-white">Wajib</Badge> : null}
-        {optional ? <Badge variant="outline">Opsional</Badge> : null}
-      </div>
+      <Label className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+        {label}
+        {required ? " *" : optional ? " (Optional)" : ""}
+      </Label>
       {children}
       {hint ? (
         <p className="text-xs text-slate-500 dark:text-slate-400">{hint}</p>
@@ -783,7 +765,7 @@ function DatePickerField({
           <Button
             type="button"
             variant="outline"
-            className="h-11 flex-1 justify-between rounded-xl border-slate-200 bg-white px-3 text-left text-sm font-medium text-slate-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-white"
+            className="h-11 flex-1 justify-between rounded-lg border-slate-200 bg-white px-3 text-left text-sm font-medium text-slate-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-white"
           >
             <span className={cn(!selectedDate && "text-slate-400 dark:text-slate-500")}>
               {selectedDate
@@ -794,7 +776,7 @@ function DatePickerField({
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-auto overflow-hidden rounded-xl border-none p-0 shadow-lg"
+          className="w-auto overflow-hidden rounded-lg border-none p-0 shadow-lg"
           align="start"
         >
           <Calendar
@@ -809,7 +791,7 @@ function DatePickerField({
         <Button
           type="button"
           variant="outline"
-          className="h-11 rounded-xl px-3"
+          className="h-11 rounded-lg px-3"
           onClick={() => onChange("")}
         >
           Reset
@@ -829,7 +811,7 @@ function ChecklistItem({
   className?: string;
 }) {
   return (
-    <div className={cn("flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-3 dark:border-white/10", className)}>
+    <div className={cn("flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-3 dark:border-white/10", className)}>
       <CheckCircle2 className={cn("h-4 w-4", ready ? "text-emerald-500" : "text-slate-300 dark:text-slate-600")} />
       <span className="text-sm text-slate-700 dark:text-slate-200">{label}</span>
     </div>

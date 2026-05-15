@@ -232,8 +232,7 @@ export default function ReferralSettingsPage() {
 
   return (
     <div className="space-y-4 p-4 pb-24 sm:space-y-6 sm:p-6">
-      <Card className="rounded-[1.5rem] border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
-        <div className="space-y-4 p-5">
+      <section className="space-y-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
@@ -289,8 +288,7 @@ export default function ReferralSettingsPage() {
               />
             <Metric label="Kode" value={summary?.referral_code || "-"} />
           </div>
-        </div>
-      </Card>
+      </section>
 
       {message ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
@@ -493,15 +491,15 @@ export default function ReferralSettingsPage() {
       </div>
 
       <Dialog open={payoutDialogOpen} onOpenChange={setPayoutDialogOpen}>
-        <DialogContent className="max-w-lg rounded-2xl">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[calc(100dvh-1rem)] max-w-lg flex-col overflow-hidden rounded-2xl">
+          <DialogHeader className="shrink-0">
             <DialogTitle>
               {payoutReady ? "Edit rekening pencairan" : "Tambah rekening pencairan"}
             </DialogTitle>
             <DialogDescription>Isi data tujuan bonus referral.</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain">
             <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
               Bank, nama pemilik, nomor rekening, dan WhatsApp dipakai untuk konfirmasi pencairan.
             </div>
@@ -542,7 +540,7 @@ export default function ReferralSettingsPage() {
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="mx-0 mb-0 mt-0 shrink-0 gap-2 rounded-none border-t bg-background px-4 py-4 sm:gap-0 sm:rounded-b-2xl">
             <Button
               type="button"
               variant="outline"

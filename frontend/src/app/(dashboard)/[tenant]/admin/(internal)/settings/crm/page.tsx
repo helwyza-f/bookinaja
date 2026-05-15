@@ -16,7 +16,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   AlertTriangle,
-  ArrowRight,
   CheckCircle2,
   Download,
   FileUp,
@@ -122,7 +121,7 @@ export default function SettingsCRMPage() {
   const [activeMessage, setActiveMessage] = useState(ACTIVE_MESSAGE);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [selectedFileName, setSelectedFileName] = useState("");
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("campaigns");
 
   const importRows = useMemo(() => parseImportRows(importText), [importText]);
   const importWarnings = useMemo(
@@ -136,8 +135,6 @@ export default function SettingsCRMPage() {
       ),
     [activity],
   );
-  const recentLegacyContacts = useMemo(() => legacyContacts.slice(0, 6), [legacyContacts]);
-  const recentCustomers = useMemo(() => customers.slice(0, 6), [customers]);
   const latestCrmActivity = crmHistory[0];
   const planGate = useMemo(
     () => analyzeTenantFeatureAccess(user || {}, { anyFeatures: ["crm_basic", "customer_import", "whatsapp_blast"] }),
@@ -238,21 +235,21 @@ export default function SettingsCRMPage() {
       <PlanFeatureCallout
         input={user || {}}
         title="Workspace CRM dan campaign"
-        description="Import pelanggan lama, blast WhatsApp, dan workspace CRM perlu punya penanda plan yang jelas sebelum owner mencoba flow-nya."
+        description="Import pelanggan lama, kelola campaign, dan jalankan aktivitas CRM dari satu workspace."
         requirement={{ anyFeatures: ["crm_basic", "customer_import", "whatsapp_blast"] }}
       />
-      <section className="overflow-hidden rounded-[1.75rem] border border-slate-200/90 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.94))] p-5 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.94),rgba(8,47,73,0.94))]">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
+      <section className="rounded-[1.25rem] border border-slate-200/90 bg-white p-4 shadow-sm dark:border-white/12 dark:bg-[#0f172a]">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
             <div className="inline-flex items-center gap-2 rounded-full border border-[var(--bookinaja-200)] bg-[var(--bookinaja-50)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-[var(--bookinaja-700)] dark:border-[rgba(96,165,250,0.24)] dark:bg-[rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]">
               <Sparkles className="h-3.5 w-3.5" />
               CRM Workspace
             </div>
-            <h1 className="mt-4 text-2xl font-black tracking-tight text-slate-950 dark:text-white sm:text-3xl">
-              CRM Workspace
+            <h1 className="mt-3 text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
+              Import pelanggan, kirim campaign, cek riwayat
             </h1>
-            <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300 sm:max-w-2xl">
-              Import legacy, campaigns, dan history.
+            <p className="mt-1 text-sm leading-5 text-slate-500 dark:text-slate-400">
+              Mulai dari import kontak lama, lalu gunakan campaign untuk legacy contact atau pelanggan aktif.
             </p>
           </div>
 
@@ -261,9 +258,14 @@ export default function SettingsCRMPage() {
               <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
             </Button>
-            <Button variant="outline" onClick={() => setActiveTab("history")} className="rounded-xl">
-              <ArrowRight className="mr-2 h-4 w-4" />
-              History
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setActiveTab("import")}
+              className="rounded-xl"
+            >
+              <FileUp className="mr-2 h-4 w-4" />
+              Import
             </Button>
             <Button
               type="button"
@@ -271,120 +273,36 @@ export default function SettingsCRMPage() {
               className="rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
             >
               <Megaphone className="mr-2 h-4 w-4" />
-              Buka Campaign
+              Campaign
             </Button>
           </div>
         </div>
+
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+          <MetricCard
+            label="Pelanggan aktif"
+            value={loading ? "-" : String(customers.length)}
+            hint="Audience customer tenant"
+          />
+          <MetricCard
+            label="Legacy contacts"
+            value={loading ? "-" : String(legacyContacts.length)}
+            hint={importRows.length > 0 ? `${importRows.length} draft import` : "Siap untuk migrasi"}
+          />
+          <MetricCard
+            label="Activity"
+            value={String(crmHistory.length)}
+            hint={latestCrmActivity ? formatDate(latestCrmActivity.created_at) : "Belum ada riwayat"}
+          />
+        </div>
       </section>
 
-      <div className="grid grid-cols-3 gap-3">
-        <MetricCard
-          label="Aktif"
-          value={loading ? "-" : String(customers.length)}
-          hint="customer aktif tenant"
-        />
-        <MetricCard
-          label="Legacy"
-          value={loading ? "-" : String(legacyContacts.length)}
-          hint="kontak migrasi/import"
-        />
-        <MetricCard
-          label="History"
-          value={String(crmHistory.length)}
-          hint={latestCrmActivity ? `terakhir ${formatDate(latestCrmActivity.created_at)}` : "audit import & blast"}
-        />
-      </div>
-
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[760px]">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="import">Import Legacy</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 lg:w-[620px]">
           <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
+          <TabsTrigger value="import">Import Legacy</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-            <Card className="rounded-[1.75rem] border-slate-200 bg-white p-5 shadow-sm dark:border-white/12 dark:bg-[#0f172a]">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-                    Separation of concern
-                  </div>
-                  <h2 className="mt-2 text-lg font-bold tracking-tight text-slate-950 dark:text-white">
-                    Tiga workflow utama CRM
-                  </h2>
-                </div>
-                <Badge variant="secondary">{crmHistory.length} activity</Badge>
-              </div>
-
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <WorkflowCard
-                  title="Legacy import"
-                  description="Tarik kontak lama dari CSV, validasi, lalu simpan ke bucket legacy."
-                  detail={`${importRows.length} baris draft`}
-                  actionLabel="Buka import"
-                  onClick={() => setActiveTab("import")}
-                />
-                <WorkflowCard
-                  title="Campaigns"
-                  description="Kelola blast untuk legacy contacts dan pelanggan aktif tenant."
-                  detail={`${legacyContacts.length + customers.length} total audience`}
-                  actionLabel="Buka campaign"
-                  onClick={() => setActiveTab("campaigns")}
-                />
-                <WorkflowCard
-                  title="History"
-                  description="Audit import dan blast yang pernah dijalankan tim."
-                  detail={latestCrmActivity ? labelAction(latestCrmActivity.action) : "Belum ada history"}
-                  actionLabel="Lihat history"
-                  onClick={() => setActiveTab("history")}
-                />
-              </div>
-            </Card>
-
-            <Card className="rounded-[1.75rem] border-slate-200 bg-white p-5 shadow-sm dark:border-white/12 dark:bg-[#0f172a]">
-              <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-                Status workspace
-              </div>
-              <div className="mt-4 space-y-3">
-                <StatusRow label="Import draft" value={`${importRows.length} baris`} />
-                <StatusRow label="Warning import" value={importWarnings ? `${importWarnings} issue` : "Aman"} />
-                <StatusRow label="Legacy contacts" value={`${legacyContacts.length} kontak`} />
-                <StatusRow label="Active customers" value={`${customers.length} customer`} />
-                <StatusRow
-                  label="Last CRM activity"
-                  value={latestCrmActivity ? formatDate(latestCrmActivity.created_at) : "-"}
-                />
-              </div>
-            </Card>
-          </div>
-
-          <div className="grid gap-4 xl:grid-cols-2">
-            <AudiencePanel
-              title="Legacy contacts"
-              eyebrow="Untuk migrasi"
-              emptyText="Belum ada kontak legacy."
-              items={recentLegacyContacts.map((item) => ({
-                id: item.id,
-                name: item.name,
-                phone: item.phone,
-                meta: item.last_blast_at ? `Blast terakhir ${formatDate(item.last_blast_at)}` : "Belum pernah diblast",
-              }))}
-            />
-            <AudiencePanel
-              title="Pelanggan aktif"
-              eyebrow="Untuk campaign tenant"
-              emptyText="Belum ada pelanggan aktif."
-              items={recentCustomers.map((item) => ({
-                id: item.id,
-                name: item.name,
-                phone: item.phone,
-                meta: "Source: booking tenant",
-              }))}
-            />
-          </div>
-        </TabsContent>
 
         <TabsContent value="import" className="space-y-4">
           <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
@@ -393,7 +311,7 @@ export default function SettingsCRMPage() {
                 icon={<FileUp className="h-5 w-5" />}
                 label="Legacy import"
                 title="Import kontak pelanggan lama"
-                description="Satu workflow khusus untuk migrasi CSV supaya tidak campur dengan blast."
+                description="Upload CSV, cek preview, lalu simpan ke bucket legacy contact."
               />
 
               <div className="mt-5 space-y-4">
@@ -459,7 +377,7 @@ Budi,081234567890`}</pre>
 
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="text-xs text-slate-500 dark:text-slate-400">
-                    Import akan tetap diverifikasi backend sesuai rules tenant.
+                    {importWarnings > 0 ? `${importWarnings} baris perlu dicek sebelum import.` : "Siap diimport."}
                   </div>
                   <Button
                     onClick={() => void handleImportLegacy()}
@@ -493,25 +411,37 @@ Budi,081234567890`}</pre>
             <CampaignComposer
               title="Blast legacy contacts"
               eyebrow="Audience legacy"
-              description="Kirim pengumuman migrasi atau reaktivasi ke kontak pelanggan lama."
+              description="Pakai ini untuk umumkan perpindahan sistem atau reaktivasi kontak lama."
               audienceCount={legacyContacts.length}
+              audienceLabel="kontak legacy"
               message={legacyMessage}
               onChangeMessage={setLegacyMessage}
               onSubmit={() => void handleBlast("legacy")}
               busy={busy}
-              helper="Pesan ini dikirim ke bucket legacy contacts."
+              helper="Pesan ini dikirim ke daftar legacy contact yang sudah kamu simpan dari import."
+              emptyTitle="Belum ada legacy contacts"
+              emptyDescription="Import CSV pelanggan lama dulu supaya kamu punya audience untuk campaign migrasi atau reaktivasi."
+              primaryLabel="Kirim ke legacy contacts"
+              previewName={legacyContacts[0]?.name || "Rani"}
+              previewPhone={legacyContacts[0]?.phone || "+628123456789"}
             />
 
             <CampaignComposer
               title="Blast pelanggan aktif"
               eyebrow="Audience aktif"
-              description="Kirim pengumuman ke customer tenant yang sudah pernah booking."
+              description="Pakai ini untuk promo atau pengumuman ke customer yang sudah pernah booking."
               audienceCount={customers.length}
+              audienceLabel="pelanggan aktif"
               message={activeMessage}
               onChangeMessage={setActiveMessage}
               onSubmit={() => void handleBlast("active")}
               busy={busy}
               helper="Pesan ini dikirim ke customer tenant aktif."
+              emptyTitle="Belum ada pelanggan aktif"
+              emptyDescription="Audience ini akan terisi otomatis setelah tenant mulai menerima booking customer."
+              primaryLabel="Kirim ke pelanggan aktif"
+              previewName={customers[0]?.name || "Budi"}
+              previewPhone={customers[0]?.phone || "+628123456789"}
             />
           </div>
         </TabsContent>
@@ -602,92 +532,15 @@ function MetricCard({
   hint: string;
 }) {
   return (
-    <Card className="rounded-[1.2rem] border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-white/12 dark:bg-[#0f172a]">
-      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-white/12 dark:bg-white/[0.03]">
+      <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
         {label}
       </div>
-      <div className="mt-1 text-2xl font-bold tracking-tight text-slate-950 dark:text-white">
+      <div className="mt-1 text-base font-semibold tracking-tight text-slate-950 dark:text-white">
         {value}
       </div>
-      <div className="mt-2 truncate text-[11px] text-slate-400">{hint}</div>
-    </Card>
-  );
-}
-
-function WorkflowCard({
-  title,
-  description,
-  detail,
-  actionLabel,
-  onClick,
-}: {
-  title: string;
-  description: string;
-  detail: string;
-  actionLabel: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-4 text-left transition-colors hover:border-[var(--bookinaja-300)] hover:bg-[var(--bookinaja-50)] dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-[rgba(96,165,250,0.24)] dark:hover:bg-[rgba(59,130,246,0.08)]"
-    >
-      <div className="text-sm font-semibold text-slate-950 dark:text-white">{title}</div>
-      <div className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">{description}</div>
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <span className="text-xs font-medium text-slate-400">{detail}</span>
-        <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
-          {actionLabel}
-          <ArrowRight className="h-3.5 w-3.5" />
-        </span>
-      </div>
-    </button>
-  );
-}
-
-function StatusRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-[1.1rem] border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/[0.03]">
-      <span className="text-sm text-slate-500 dark:text-slate-400">{label}</span>
-      <span className="text-sm font-semibold text-slate-950 dark:text-white">{value}</span>
+      <div className="mt-1 text-[11px] text-slate-400">{hint}</div>
     </div>
-  );
-}
-
-function AudiencePanel({
-  title,
-  eyebrow,
-  items,
-  emptyText,
-}: {
-  title: string;
-  eyebrow: string;
-  items: Array<{ id: string; name: string; phone: string; meta: string }>;
-  emptyText: string;
-}) {
-  return (
-    <Card className="rounded-[1.75rem] border-slate-200 bg-white p-5 shadow-sm dark:border-white/12 dark:bg-[#0f172a]">
-      <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-        {eyebrow}
-      </div>
-      <h2 className="mt-2 text-lg font-bold tracking-tight text-slate-950 dark:text-white">
-        {title}
-      </h2>
-      <div className="mt-4 space-y-3">
-        {items.map((item) => (
-          <div
-            key={item.id}
-            className="rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]"
-          >
-            <div className="font-medium text-slate-950 dark:text-white">{item.name || "Tanpa nama"}</div>
-            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{item.phone || "-"}</div>
-            <div className="mt-2 text-[11px] text-slate-400">{item.meta}</div>
-          </div>
-        ))}
-        {items.length === 0 ? <EmptyText text={emptyText} /> : null}
-      </div>
-    </Card>
   );
 }
 
@@ -764,22 +617,40 @@ function CampaignComposer({
   eyebrow,
   description,
   audienceCount,
+  audienceLabel,
   message,
   onChangeMessage,
   onSubmit,
   busy,
   helper,
+  emptyTitle,
+  emptyDescription,
+  primaryLabel,
+  previewName,
+  previewPhone,
 }: {
   title: string;
   eyebrow: string;
   description: string;
   audienceCount: number;
+  audienceLabel: string;
   message: string;
   onChangeMessage: (value: string) => void;
   onSubmit: () => void;
   busy: boolean;
   helper: string;
+  emptyTitle: string;
+  emptyDescription: string;
+  primaryLabel: string;
+  previewName: string;
+  previewPhone: string;
 }) {
+  const trimmedMessage = message.trim();
+  const hasAudience = audienceCount > 0;
+  const previewText = trimmedMessage
+    ? trimmedMessage.replaceAll("{nama pelanggan}", previewName)
+    : "";
+
   return (
     <Card className="rounded-[1.75rem] border-slate-200 bg-white p-5 shadow-sm dark:border-white/12 dark:bg-[#0f172a]">
       <div className="flex items-start justify-between gap-3">
@@ -795,28 +666,69 @@ function CampaignComposer({
         <Badge variant="secondary">{audienceCount} target</Badge>
       </div>
 
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <MiniMetric label="Audience" value={String(audienceCount)} />
+        <MiniMetric label="Karakter" value={String(trimmedMessage.length)} />
+        <MiniMetric label="Status" value={hasAudience ? "Siap" : "Kosong"} />
+      </div>
+
+      {!hasAudience ? (
+        <div className="mt-4 rounded-[1.25rem] border border-dashed border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
+          <div className="text-sm font-semibold text-slate-950 dark:text-white">
+            {emptyTitle}
+          </div>
+          <div className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+            {emptyDescription}
+          </div>
+        </div>
+      ) : null}
+
       <div className="mt-4 rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
         {helper}
       </div>
 
-      <Textarea
-        value={message}
-        onChange={(event) => onChangeMessage(event.target.value)}
-        className="mt-4 min-h-48 rounded-[1.35rem] bg-slate-50 text-sm dark:bg-slate-900/30"
-      />
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="space-y-4">
+          <Textarea
+            value={message}
+            onChange={(event) => onChangeMessage(event.target.value)}
+            className="min-h-48 rounded-[1.35rem] bg-slate-50 text-sm dark:bg-slate-900/30"
+          />
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="text-xs text-slate-500 dark:text-slate-400">
-          Placeholder <code className="rounded bg-slate-100 px-1 py-0.5 dark:bg-white/10">{"{nama pelanggan}"}</code> bisa dipakai jika backend mendukung templating.
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              Gunakan <code className="rounded bg-slate-100 px-1 py-0.5 dark:bg-white/10">{"{nama pelanggan}"}</code> untuk personalisasi nama.
+            </div>
+            <Button
+              onClick={onSubmit}
+              disabled={busy || !hasAudience || !trimmedMessage}
+              className="rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
+            >
+              <Send className="mr-2 h-4 w-4" />
+              {primaryLabel}
+            </Button>
+          </div>
         </div>
-        <Button
-          onClick={onSubmit}
-          disabled={busy}
-          className="rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
-        >
-          <Send className="mr-2 h-4 w-4" />
-          Kirim blast
-        </Button>
+
+        <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+            Preview pesan
+          </div>
+          <div className="mt-3 rounded-[1rem] border border-slate-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-[#0f172a]">
+            <div className="text-sm font-semibold text-slate-950 dark:text-white">
+              {previewName}
+            </div>
+            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {previewPhone}
+            </div>
+            <div className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600 dark:text-slate-300">
+              {previewText || "Tulis pesan untuk melihat preview blast."}
+            </div>
+          </div>
+          <div className="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            Preview ini membantu mengecek isi pesan sebelum dikirim ke {audienceLabel}.
+          </div>
+        </div>
       </div>
     </Card>
   );

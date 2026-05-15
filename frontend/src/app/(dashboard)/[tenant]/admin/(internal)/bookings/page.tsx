@@ -32,7 +32,6 @@ import {
   Wallet,
   Clock,
   Layers,
-  Box,
   MonitorPlay,
   TrendingUp,
   XCircle,
@@ -48,6 +47,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useRealtime } from "@/lib/realtime/use-realtime";
 import { RealtimePill } from "@/components/dashboard/realtime-pill";
 import { DashboardPanel } from "@/components/dashboard/analytics-kit";
+import {
+  AdminSurfaceEmpty,
+  AdminSurfaceError,
+} from "@/components/dashboard/admin-surface-state";
+import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import {
   tenantBookingsChannel,
   tenantDashboardChannel,
@@ -72,12 +76,6 @@ type BookingRow = {
   balance_due?: number;
   total_resource: number;
   total_fnb: number;
-};
-
-type AdminUser = {
-  role?: string;
-  permission_keys?: string[];
-  tenant_id?: string;
 };
 
 type RangePreset = "today" | "7days" | "custom";
@@ -216,27 +214,26 @@ function patchBookingFromEvent(prev: BookingRow[], event: RealtimeEvent) {
 
 export default function BookingsPage() {
   const router = useRouter();
+  const { user: adminUser } = useAdminSession();
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPaymentStatus, setFilterPaymentStatus] = useState("all");
   const [filterResource, setFilterResource] = useState("all");
   const [rangePreset, setRangePreset] = useState<RangePreset>("today");
   const [customRange, setCustomRange] = useState<DateRange | undefined>();
-  const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
 
   const fetchBookings = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     try {
-      const [meRes, res] = await Promise.all([
-        api.get("/auth/me"),
-        api.get(`/bookings`),
-      ]);
-      setAdminUser(meRes.data?.user || null);
+      const res = await api.get("/bookings");
       setBookings(res.data || []);
     } catch {
+      setLoadError(true);
       toast.error("Gagal mengambil data reservasi");
     } finally {
       setLoading(false);
@@ -244,7 +241,7 @@ export default function BookingsPage() {
   }, []);
 
   useEffect(() => {
-    fetchBookings();
+    void fetchBookings();
   }, [fetchBookings]);
 
   const { connected: realtimeConnected, status: realtimeStatus } = useRealtime({
@@ -919,28 +916,31 @@ export default function BookingsPage() {
           <Skeleton className="h-64 w-full rounded-2xl" />
           <Skeleton className="h-64 w-full rounded-2xl" />
         </div>
+      ) : loadError ? (
+        <AdminSurfaceError
+          title="Gagal memuat daftar booking"
+          description="List booking tidak berhasil dimuat. Filter dan realtime tidak akan akurat sebelum data awal berhasil diambil."
+          action={
+            <Button onClick={() => void fetchBookings()} variant="outline" className="rounded-xl">
+              Coba lagi
+            </Button>
+          }
+        />
       ) : filteredBookings.length === 0 ? (
-        <div className="flex min-h-[360px] flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center dark:border-white/15 dark:bg-[#0f0f17]">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--bookinaja-50)] text-[var(--bookinaja-600)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-300)]">
-            <Box size={30} />
-          </div>
-          <div>
-            <p className="text-lg font-semibold text-slate-900 dark:text-white">
-              Belum ada reservasi di filter ini
-            </p>
-            <p className="mt-1 max-w-sm text-sm text-slate-500 dark:text-slate-400">
-              Coba ganti tanggal/filter, atau buat booking manual untuk walk-in.
-            </p>
-          </div>
-          <Button
-            onClick={() => canCreateBookings && router.push("/admin/bookings/new?mode=scheduled")}
-            disabled={!canCreateBookings}
-            className="rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Booking Terjadwal
-          </Button>
-        </div>
+        <AdminSurfaceEmpty
+          title="Belum ada booking di hasil ini"
+          description="Coba ganti rentang atau filter. Kalau memang belum ada transaksi, buat booking manual untuk operasional walk-in atau terjadwal."
+          action={
+            <Button
+              onClick={() => canCreateBookings && router.push("/admin/bookings/new?mode=scheduled")}
+              disabled={!canCreateBookings}
+              className="rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Booking Terjadwal
+            </Button>
+          }
+        />
       ) : viewMode === "list" ? (
         <div className="space-y-6">
           {Object.entries(groupedData).map(([resourceName, sessions]) => (

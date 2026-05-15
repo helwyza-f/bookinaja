@@ -18,7 +18,6 @@ import {
   ChevronRight,
   Eye,
   EyeOff,
-  ExternalLink,
   ImageIcon,
   LayoutTemplate,
   Loader2,
@@ -910,14 +909,6 @@ export default function PageBuilderPage() {
 
           {workspaceMode === "flow" ? (
             <>
-              <BuilderFlowGuideCard
-                previewUrl={previewUrl}
-                activeCount={activeCount}
-                themeLabel={
-                  THEME_PRESETS.find((preset) => preset.id === theme.preset)?.label ||
-                  "Bookinaja"
-                }
-              />
               <BusinessStudioPanel
                 profile={profile}
                 heroSection={heroSection}
@@ -1250,93 +1241,6 @@ function WorkspaceModeButton({
   );
 }
 
-function BuilderFlowGuideCard({
-  previewUrl,
-  activeCount,
-  themeLabel,
-}: {
-  previewUrl?: string;
-  activeCount: number;
-  themeLabel: string;
-}) {
-  const flowItems = [
-    {
-      icon: <BriefcaseBusiness className="h-4 w-4" />,
-      title: "Isi pondasi bisnis",
-      detail: "Nama, kontak, dan CTA utama harus kebaca dulu.",
-    },
-    {
-      icon: <LayoutTemplate className="h-4 w-4" />,
-      title: `${activeCount} section aktif`,
-      detail: "Rapikan urutan dulu sebelum utak-atik detail kecil.",
-    },
-    {
-      icon: <Wand2 className="h-4 w-4" />,
-      title: themeLabel,
-      detail: "Pilih satu mood visual yang paling cocok lalu publish.",
-    },
-  ];
-
-  return (
-    <Card className="rounded-[1.75rem] border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-4 shadow-sm dark:border-white/12 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,12,24,0.98))]">
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-            Flow
-          </div>
-          <h2 className="text-lg font-bold tracking-tight text-slate-950 dark:text-white">
-            Bikin halaman publik terasa jadi dalam 3 langkah
-          </h2>
-          <p className="text-sm leading-6 text-slate-500 dark:text-slate-400">
-            Di sini kita kejar hasil akhirnya: halaman tenant terasa siap dilihat,
-            bukan sekadar penuh setting.
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          {flowItems.map((item, index) => (
-            <div
-              key={item.title}
-              className="flex items-start gap-3 rounded-[1.2rem] border border-slate-200 bg-white/85 px-3 py-3 dark:border-white/10 dark:bg-white/[0.03]"
-            >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]">
-                {item.icon}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                    0{index + 1}
-                  </span>
-                  <div className="text-sm font-semibold text-slate-950 dark:text-white">
-                    {item.title}
-                  </div>
-                </div>
-                <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                  {item.detail}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-        <Button asChild variant="outline" className="rounded-xl">
-          <Link href="/admin/settings/bisnis">Edit pondasi bisnis</Link>
-        </Button>
-        {previewUrl ? (
-          <Button asChild variant="outline" className="rounded-xl">
-            <a href={previewUrl} target="_blank" rel="noreferrer">
-              Lihat halaman publik
-              <ExternalLink className="ml-2 h-4 w-4" />
-            </a>
-          </Button>
-        ) : null}
-      </div>
-    </Card>
-  );
-}
-
 function BusinessStudioPanel({
   profile,
   heroSection,
@@ -1509,7 +1413,7 @@ function BusinessStudioPanel({
                   placeholder="Contoh: Booking online yang lebih rapi untuk rental PS"
                 />
                 <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
-                  Mobile paling aman sekitar {LANDING_COPY_BUDGET.mobileHeroTagline} karakter. Kalau lebih panjang, renderer akan merapikan otomatis.
+                  Jaga tetap singkat supaya headline tetap enak dibaca di mobile.
                 </p>
               </Field>
               <Field

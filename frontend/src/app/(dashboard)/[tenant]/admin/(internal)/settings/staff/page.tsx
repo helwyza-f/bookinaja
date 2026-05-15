@@ -335,7 +335,7 @@ export default function StaffSettingsPage() {
       <PlanFeatureCallout
         input={user || {}}
         title="Akses tim dan role permission"
-        description="Status capability staff sebaiknya terlihat dari awal, jadi owner langsung tahu apakah tenant ini memang sudah punya fitur team access penuh."
+        description="Kelola akun staff tambahan dan atur role permission untuk operasional tim."
         requirement={{ anyFeatures: ["staff_accounts", "role_permissions"] }}
       />
       <MobileStaffHero
@@ -629,13 +629,13 @@ export default function StaffSettingsPage() {
       </div>
 
       <Dialog open={staffDialogOpen} onOpenChange={setStaffDialogOpen}>
-        <DialogContent className="left-0 top-0 h-[100dvh] max-h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-none border-0 p-0 sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[88vh] sm:w-full sm:max-w-xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[1.75rem] sm:border sm:border-slate-200">
-          <DialogHeader className="border-b border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] px-4 py-4 sm:px-6">
+        <DialogContent className="left-0 top-0 flex h-[100dvh] max-h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 flex-col overflow-hidden rounded-none border-0 p-0 sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[88vh] sm:w-full sm:max-w-xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[1.75rem] sm:border sm:border-slate-200">
+          <DialogHeader className="shrink-0 border-b border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] px-4 py-4 sm:px-6">
             <DialogTitle>{editingStaff ? "Edit Pegawai" : "Tambah Pegawai"}</DialogTitle>
             <DialogDescription>{editingStaff ? "Update akses dan identitas staff." : "Buat akun staff baru untuk tenant ini."}</DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 overflow-y-auto px-4 py-4 sm:px-6">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 overscroll-contain sm:px-6">
             <div className="rounded-[1.35rem] border border-[color:rgba(59,130,246,0.18)] bg-[var(--bookinaja-50)] p-4 dark:border-[color:rgba(96,165,250,0.18)] dark:bg-[color:rgba(59,130,246,0.12)]">
               <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-100)]">
                 Akun staff
@@ -742,7 +742,7 @@ export default function StaffSettingsPage() {
             </div>
           </div>
 
-          <DialogFooter className="mt-auto border-t border-slate-200 bg-white px-4 py-4 sm:px-6">
+          <DialogFooter className="mx-0 mb-0 mt-0 shrink-0 rounded-none border-t border-slate-200 bg-white px-4 py-4 sm:rounded-b-[1.75rem] sm:px-6">
             <Button onClick={submitStaff} disabled={saving} className="rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
               {editingStaff ? "Simpan" : "Tambah"}
             </Button>
@@ -754,13 +754,13 @@ export default function StaffSettingsPage() {
       </Dialog>
 
       <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
-        <DialogContent className="left-0 top-0 h-[100dvh] max-h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-none border-0 p-0 sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[88vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[1.75rem] sm:border sm:border-slate-200">
-          <DialogHeader className="border-b border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] px-4 py-4 sm:px-6">
+        <DialogContent className="left-0 top-0 flex h-[100dvh] max-h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 flex-col overflow-hidden rounded-none border-0 p-0 sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[88vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[1.75rem] sm:border sm:border-slate-200">
+          <DialogHeader className="shrink-0 border-b border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] px-4 py-4 sm:px-6">
             <DialogTitle>{editingRole ? "Edit Role" : "Buat Role"}</DialogTitle>
             <DialogDescription>Atur akses role untuk tim tenant.</DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 overflow-y-auto px-4 py-4 sm:px-6">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 overscroll-contain sm:px-6">
             <div className="grid gap-2">
               <Label htmlFor="role-name">Nama Role</Label>
               <Input
@@ -824,7 +824,7 @@ export default function StaffSettingsPage() {
             </div>
           </div>
 
-          <DialogFooter className="mt-auto border-t border-slate-200 bg-white px-4 py-4 sm:px-6">
+          <DialogFooter className="mx-0 mb-0 mt-0 shrink-0 rounded-none border-t border-slate-200 bg-white px-4 py-4 sm:rounded-b-[1.75rem] sm:px-6">
             <Button variant="outline" onClick={() => setRoleDialogOpen(false)} disabled={saving} className="rounded-xl">
               Batal
             </Button>

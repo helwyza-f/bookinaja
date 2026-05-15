@@ -111,7 +111,7 @@ export function PlanFeatureCallout({
       ? `${featureNames.join(", ")} sudah aktif di plan ${formatPlanLabel(input.plan)}.`
       : analysis.state === "inactive_subscription"
         ? `${featureNames.join(", ")} ada di ${analysis.requiredPlanLabel}, tapi status langganan tenant belum aktif.`
-        : `${featureNames.join(", ")} belum masuk di plan tenant saat ini. Upgrade ke ${analysis.requiredPlanLabel} supaya fitur ini terbuka penuh.`;
+        : `${featureNames.join(", ")} tersedia di ${analysis.requiredPlanLabel}. Upgrade plan untuk membuka fitur ini.`;
 
   if (analysis.state === "available") {
     return (

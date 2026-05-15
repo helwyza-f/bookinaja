@@ -9,8 +9,6 @@ import {
   Layers,
   Settings2,
   Trash2,
-  Inbox,
-  AlertCircle,
   Gamepad2,
   Camera,
   Trophy,
@@ -20,6 +18,10 @@ import {
 } from "lucide-react";
 import { AddResourceDialog } from "@/components/resources/add-resources-dialog";
 import { DashboardPanel } from "@/components/dashboard/analytics-kit";
+import {
+  AdminSurfaceEmpty,
+  AdminSurfaceError,
+} from "@/components/dashboard/admin-surface-state";
 import api from "@/lib/api";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { toast } from "sonner";
@@ -184,7 +186,6 @@ export default function ResourcesPage() {
 
       setResources(merged);
     } catch {
-      console.error("Fetch Error:");
       setError(true);
     } finally {
       setLoading(false);
@@ -365,20 +366,16 @@ export default function ResourcesPage() {
       {loading ? (
         <ResourceSkeleton />
       ) : error ? (
-        <div className="flex h-72 flex-col items-center justify-center rounded-lg border border-red-100 bg-red-50/30 dark:border-red-900/20 dark:bg-red-950/5">
-          <AlertCircle className="h-10 w-10 text-red-400 mb-4 opacity-40" />
-          <h3 className="text-sm font-semibold text-red-900 dark:text-red-400">
-            Gagal memuat resource
-          </h3>
-          <Button
-            onClick={fetchResources}
-            variant="ghost"
-            className="mt-4 text-[10px] font-semibold hover:bg-red-100 dark:hover:bg-red-900/20"
-          >
-            Coba lagi
-          </Button>
-        </div>
-      ) : resources.length > 0 ? (
+        <AdminSurfaceError
+          title="Gagal memuat resource"
+          description="Daftar resource tidak berhasil dimuat. Tanpa data awal ini, status unit dan konfigurasi device tidak bisa dipercaya."
+          action={
+            <Button onClick={() => void fetchResources()} variant="outline" className="rounded-xl">
+              Coba lagi
+            </Button>
+          }
+        />
+      ) : resources.length > 0 && filteredResources.length > 0 ? (
         <DashboardPanel
           eyebrow="Catalog"
           title="Daftar resource"
@@ -535,23 +532,33 @@ export default function ResourcesPage() {
           })}
           </div>
         </DashboardPanel>
+      ) : resources.length > 0 ? (
+        <AdminSurfaceEmpty
+          title="Tidak ada resource di mode ini"
+          description="Filter mode sedang aktif, tapi belum ada resource yang cocok. Ganti filter untuk melihat katalog lain."
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setModeFilter("all")}
+              className="rounded-xl"
+            >
+              Tampilkan semua mode
+            </Button>
+          }
+        />
       ) : (
-        /* 3. EMPTY STATE */
-        <div className="flex h-[42vh] flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white p-8 text-center dark:border-slate-800 dark:bg-slate-950">
-          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-lg bg-slate-50 dark:bg-slate-900">
-            <Inbox size={32} className="text-slate-200" />
-          </div>
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-            Belum ada resource
-          </h3>
-          <p className="mb-6 mt-2 max-w-sm text-sm text-slate-500">
-            Tambahkan resource pertama untuk mulai mengelola operasional.
-          </p>
-          <AddResourceDialog
-            category={businessCategory}
-            onRefresh={fetchResources}
-          />
-        </div>
+        <AdminSurfaceEmpty
+          title="Belum ada resource"
+          description="Tambahkan resource pertama untuk mulai mengelola operasional, pricing, dan pairing device."
+          action={
+            <AddResourceDialog
+              category={businessCategory}
+              onRefresh={fetchResources}
+            />
+          }
+          className="min-h-[42vh]"
+        />
       )}
     </div>
   );

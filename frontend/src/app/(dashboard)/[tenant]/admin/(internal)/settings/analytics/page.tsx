@@ -50,7 +50,6 @@ import {
   EmptyPanel,
 } from "@/components/dashboard/analytics-kit";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
-import { PlanFeatureCallout } from "@/components/dashboard/plan-feature-ux";
 
 type RangeKey = "7d" | "30d" | "90d";
 type SourceKey =
@@ -449,31 +448,33 @@ export default function SettingsAnalyticsPage() {
   const currentStatusLabel = formatSubscriptionStatusLabel(
     subscription?.status || user?.subscription_status,
   );
+  const analyticsAccessTitle =
+    planGate.state === "inactive_subscription"
+      ? `Aktifkan kembali plan ${currentPlanLabel}`
+      : `Analytics lengkap tersedia di ${planGate.requiredPlanLabel}`;
   const analyticsUnlockCopy =
     planGate.state === "inactive_subscription"
-      ? `Plan ${currentPlanLabel} tenant ini butuh aktivasi ulang supaya dashboard analytics bisa sinkron live lagi.`
-      : `Upgrade ke ${planGate.requiredPlanLabel} untuk membuka revenue mix, margin, leaderboard resource, dan pembacaan owner yang lebih tajam.`;
-  const analyticsPreviewCards = useMemo(
+      ? `Status billing saat ini ${currentStatusLabel}. Setelah aktif lagi, laporan revenue, margin, customer, dan resource akan terbuka normal.`
+      : currentPlanLabel === "Free Trial"
+        ? `Tenant ini masih di Free Trial. Upgrade ke ${planGate.requiredPlanLabel} untuk melihat revenue, margin, customer, dan resource dalam satu dashboard.`
+        : `Plan ${currentPlanLabel} belum membuka analytics lanjutan. Upgrade ke ${planGate.requiredPlanLabel} untuk membaca performa bisnis dengan lebih lengkap.`;
+  const analyticsAccessPoints = useMemo(
     () => [
       {
         label: "Revenue mix",
         value: "Booking + POS",
-        hint: "Gabungan pemasukan lintas channel",
       },
       {
         label: "Profit pulse",
         value: "Margin & expense",
-        hint: "Pantau laba bersih dan rasio biaya",
       },
       {
         label: "Customer value",
         value: "Repeat spender",
-        hint: "Lihat customer paling bernilai",
       },
       {
         label: "Resource watch",
         value: "Top performer",
-        hint: "Rank resource dan transaksi terbaru",
       },
     ],
     [],
@@ -771,13 +772,7 @@ export default function SettingsAnalyticsPage() {
   const addonBookings = bookingSummary?.addon_bookings || [];
 
   return (
-    <div className="space-y-5 p-4 pb-20 sm:p-6">
-      <PlanFeatureCallout
-        input={user || {}}
-        title="Analytics lanjutan tenant"
-        description="Insight performa adalah area yang paling sensitif terhadap gating plan, jadi statusnya perlu terbaca sebelum owner menggantungkan keputusan ke data ini."
-        requirement={{ feature: "advanced_analytics" }}
-      />
+    <div className="space-y-4 p-4 pb-20 sm:p-6">
       <AnalyticsHero
         onRefresh={() => void fetchAnalytics("background")}
         refreshing={refreshing}
@@ -808,82 +803,51 @@ export default function SettingsAnalyticsPage() {
 
       {featureLocked ? (
         <>
-          <DashboardStatStrip
-            items={[
-              { label: "Plan sekarang", value: currentPlanLabel, tone: "slate" },
-              { label: "Status", value: currentStatusLabel, tone: "rose" },
-              { label: "Unlock", value: planGate.requiredPlanLabel, tone: "indigo" },
-              { label: "Range preview", value: rangeLabel, tone: "emerald" },
-            ]}
-          />
-
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {analyticsPreviewCards.map((card, index) => (
-              <DashboardMetricCard
-                key={card.label}
-                label={card.label}
-                value={card.value}
-                hint={card.hint}
-                icon={
-                  index === 0
-                    ? TrendingUp
-                    : index === 1
-                      ? Coins
-                      : index === 2
-                        ? Wallet
-                        : LineChart
-                }
-                tone={
-                  index === 0
-                    ? "indigo"
-                    : index === 1
-                      ? "emerald"
-                      : index === 2
-                        ? "amber"
-                        : "slate"
-                }
-              />
-            ))}
-          </div>
-
-          <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+          <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
             <DashboardPanel
-              eyebrow="Preview value"
-              title="Apa yang owner akan dapat setelah upgrade"
+              eyebrow="Plan access"
+              title={analyticsAccessTitle}
               description={analyticsUnlockCopy}
               actions={
                 <Button asChild className="rounded-2xl bg-slate-950 text-white hover:bg-slate-800">
                   <Link href="/admin/settings/billing/subscribe">
                     <ArrowRight className="mr-2 h-4 w-4" />
-                    Lihat paket
+                    {planGate.state === "inactive_subscription" ? "Kelola billing" : "Lihat paket"}
                   </Link>
                 </Button>
               }
             >
+              <div className="mb-3 flex flex-wrap gap-2">
+                <Badge variant="secondary" className="rounded-full px-3 py-1">
+                  Plan aktif: {currentPlanLabel}
+                </Badge>
+                <Badge variant="secondary" className="rounded-full px-3 py-1">
+                  Status: {currentStatusLabel}
+                </Badge>
+                <Badge variant="secondary" className="rounded-full px-3 py-1">
+                  Buka di: {planGate.requiredPlanLabel}
+                </Badge>
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <InfoChip label="Revenue mix" value="Booking, POS, dan add-on dalam satu bacaan" />
-                <InfoChip label="Profit pulse" value="Margin, expense ratio, dan saldo tertagih" />
-                <InfoChip label="Leaderboard" value="Top resource, customer, dan transaksi terbaru" />
-                <InfoChip label="Realtime" value="Refresh cepat saat booking dan POS berubah" />
+                {analyticsAccessPoints.map((item) => (
+                  <InfoChip key={item.label} label={item.label} value={item.value} />
+                ))}
               </div>
             </DashboardPanel>
 
             <DashboardPanel
-              eyebrow="Plan reading"
-              title="Kenapa halaman ini tetap dibuka"
-              actions={<Badge variant="secondary">{currentPlanLabel}</Badge>}
+              eyebrow="Saat terbuka"
+              title="Yang akan muncul di halaman ini"
+              actions={<Badge variant="secondary">{rangeLabel}</Badge>}
             >
               <div className="text-muted-foreground space-y-3 text-sm">
                 <p>
-                  Owner tetap bisa melihat blueprint analytics supaya value upgrade terasa jelas
-                  sebelum memutuskan naik plan.
+                  Setelah analytics aktif, halaman ini akan menampilkan ringkasan revenue, margin,
+                  customer bernilai tinggi, dan resource paling aktif dalam satu tempat.
                 </p>
                 <p>
-                  Saat fitur ini belum aktif, aplikasi sengaja tidak memanggil endpoint analytics
-                  yang terkunci supaya UX tetap rapi dan tidak mentok ke error backend.
-                </p>
-                <p className="text-foreground font-medium">
-                  Status saat ini: {currentStatusLabel}. Requirement: {planGate.requiredPlanLabel}.
+                  Data akan mengikuti range {rangeLabel} dan ikut refresh saat booking atau POS
+                  berubah.
                 </p>
               </div>
             </DashboardPanel>
@@ -1191,37 +1155,34 @@ function AnalyticsHero({
   realtimeStatus: "idle" | "connecting" | "connected" | "reconnecting";
 }) {
   return (
-    <div className="bg-card relative overflow-hidden rounded-[1.35rem] border border-border p-4 shadow-[0_18px_42px_rgba(15,23,42,0.06)] sm:rounded-[2rem] sm:p-7">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.14),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(30,143,146,0.08),transparent_32%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(45,212,191,0.10),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(37,99,235,0.10),transparent_32%)]" />
-      <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge className="rounded-full border-none bg-[var(--bookinaja-600)] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white">
-              Analytics
-            </Badge>
-            <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
-          </div>
-          <div>
-            <h1 className="text-foreground text-3xl font-[950] tracking-tight sm:text-4xl">
-              Analytics
-            </h1>
-            <p className="text-muted-foreground mt-2 max-w-2xl text-sm">
-              Laporan owner yang lebih lengkap untuk booking, direct sale, pengeluaran, dan pulse operasional.
-            </p>
-          </div>
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge className="rounded-full border-none bg-[var(--bookinaja-600)] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white">
+            Analytics
+          </Badge>
+          <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={onRefresh} variant="outline" className="rounded-2xl">
-            <RefreshCcw className={refreshing ? "mr-2 h-4 w-4 animate-spin" : "mr-2 h-4 w-4"} />
-            Refresh
-          </Button>
-          <Button asChild className="rounded-2xl bg-slate-950 text-white hover:bg-slate-800">
-            <Link href="/admin/dashboard">
-              <LineChart className="mr-2 h-4 w-4" />
-              Dashboard
-            </Link>
-          </Button>
+        <div>
+          <h1 className="text-foreground text-[2rem] font-[950] tracking-tight sm:text-[2.4rem]">
+            Analytics
+          </h1>
+          <p className="text-muted-foreground mt-1 max-w-2xl text-sm">
+            Pantau booking, direct sale, pengeluaran, dan performa tenant dari satu halaman.
+          </p>
         </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={onRefresh} variant="outline" className="h-10 rounded-2xl px-4">
+          <RefreshCcw className={refreshing ? "mr-2 h-4 w-4 animate-spin" : "mr-2 h-4 w-4"} />
+          Refresh
+        </Button>
+        <Button asChild className="h-10 rounded-2xl bg-slate-950 px-4 text-white hover:bg-slate-800">
+          <Link href="/admin/dashboard">
+            <LineChart className="mr-2 h-4 w-4" />
+            Dashboard
+          </Link>
+        </Button>
       </div>
     </div>
   );

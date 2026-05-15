@@ -2,55 +2,27 @@
 
 import { memo, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useParams } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { AdminSessionProvider } from "@/components/dashboard/admin-session-context";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import api from "@/lib/api";
-import { getCentralAdminAuthUrl, getTenantSlugFromBrowser } from "@/lib/tenant";
-import {
-  clearTenantSession,
-  isTenantAuthError,
-  setAdminAuthCookie,
-  syncTenantCookies,
-} from "@/lib/tenant-session";
+import { getCentralAdminAuthUrl } from "@/lib/tenant";
 import {
   canAccessAdminRoute,
   getFirstAccessibleAdminPath,
   normalizeAdminPath,
-  type AdminSessionUser,
 } from "@/lib/admin-access";
 import { Skeleton } from "@/components/ui/skeleton";
-
-type AdminBootstrapResponse = {
-  session_token?: string;
-  user?: {
-    id?: string;
-    name?: string;
-    email?: string;
-    role?: string;
-    permission_keys?: string[];
-    email_verified_at?: string | null;
-    password_setup_required?: boolean;
-    google_linked?: boolean;
-  };
-  tenant?: {
-    id?: string;
-    name?: string;
-    slug?: string;
-    logo_url?: string;
-    business_category?: string;
-    plan?: string;
-    status?: string;
-  };
-  features?: {
-    enable_discovery_posts?: boolean;
-    plan_features?: string[];
-    plan_feature_matrix?: Record<string, string[]>;
-  };
-};
+import {
+  AdminShellAuthError,
+  AdminShellLoadError,
+} from "@/components/dashboard/admin-shell-state";
+import { useAdminBootstrap } from "@/components/dashboard/use-admin-bootstrap";
+import {
+  operationalNavItems,
+  settingsNavItems,
+} from "@/components/dashboard/admin-nav-config";
 
 const AdminMainContent = memo(function AdminMainContent({
   children,
@@ -71,57 +43,50 @@ export default function DashboardInternalLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const params = useParams();
   const [isCollapsed, setIsCollapsed] = useState(true);
-  const [checkingSession, setCheckingSession] = useState(true);
-  const [sessionUser, setSessionUser] = useState<AdminSessionUser | null>(null);
-  const [tenantName, setTenantName] = useState<string>(String(params.tenant || "HUB"));
-  const [tenantCategory, setTenantCategory] = useState<string>("");
-  const [growthVisible, setGrowthVisible] = useState(false);
+  const {
+    status,
+    errorType,
+    user,
+    tenantName,
+    tenantCategory,
+    tenantSlug,
+    growthVisible,
+    reload,
+  } = useAdminBootstrap();
+  const normalizedPath = normalizeAdminPath(pathname);
 
   useEffect(() => {
-    let active = true;
+    if (status !== "ready" || !user) return;
+    if (!canAccessAdminRoute(pathname, user)) {
+      router.replace(
+        normalizedPath === "/admin/dashboard"
+          ? getFirstAccessibleAdminPath(user)
+          : "/admin/forbidden",
+      );
+    }
+  }, [normalizedPath, pathname, router, status, user]);
 
-    const checkSession = async () => {
-      try {
-        const res = await api.get<AdminBootstrapResponse>("/admin/me/bootstrap");
+  const sessionValue = useMemo(
+    () => ({
+      user,
+      tenantName,
+      tenantCategory,
+      growthVisible,
+      planFeatures: user?.plan_features || [],
+      planFeatureMatrix: user?.plan_feature_matrix || {},
+    }),
+    [growthVisible, tenantCategory, tenantName, user],
+  );
 
-        if (active) {
-          const bootstrap = res.data || {};
-          if (bootstrap.session_token) {
-            setAdminAuthCookie(bootstrap.session_token);
-          }
-          const userData: AdminSessionUser = {
-            ...(bootstrap.user || {}),
-            tenant_id: bootstrap.tenant?.id,
-            logo_url: bootstrap.tenant?.logo_url || "",
-            plan: bootstrap.tenant?.plan,
-            subscription_status: bootstrap.tenant?.status,
-            plan_features: bootstrap.features?.plan_features || [],
-            plan_feature_matrix: bootstrap.features?.plan_feature_matrix || {},
-          };
+  if (status === "loading") {
+    return <DashboardLayoutSkeleton isCollapsed={isCollapsed} />;
+  }
 
-          syncTenantCookies(getTenantSlugFromBrowser());
-          setSessionUser(userData);
-          setTenantName(bootstrap.tenant?.name || String(params.tenant || "HUB"));
-          setTenantCategory(bootstrap.tenant?.business_category || "");
-          setGrowthVisible(Boolean(bootstrap.features?.enable_discovery_posts));
-
-          if (!canAccessAdminRoute(pathname, userData)) {
-            router.replace(
-              normalizeAdminPath(pathname) === "/admin/dashboard"
-                ? getFirstAccessibleAdminPath(userData)
-                : "/admin/forbidden",
-            );
-            return;
-          }
-
-          setCheckingSession(false);
-        }
-      } catch (error) {
-        if (active && isTenantAuthError(error)) {
-          const tenantSlug = getTenantSlugFromBrowser() || String(params.tenant || "");
-          clearTenantSession({ keepTenantSlug: true });
+  if (errorType === "auth") {
+    return (
+      <AdminShellAuthError
+        onLogin={() => {
           window.location.replace(
             getCentralAdminAuthUrl({
               tenantSlug,
@@ -129,76 +94,24 @@ export default function DashboardInternalLayout({
               reason: "tenant-mismatch",
             }),
           );
-          return;
-        }
+        }}
+        onRetry={reload}
+      />
+    );
+  }
 
-        if (active) {
-          setCheckingSession(false);
-        }
-      }
-    };
+  if (errorType === "unknown") {
+    return <AdminShellLoadError onRetry={reload} />;
+  }
 
-    checkSession();
-    return () => {
-      active = false;
-    };
-  }, [params.tenant, pathname, router]);
-
-  useEffect(() => {
-    if (!sessionUser || checkingSession) return;
-    if (!canAccessAdminRoute(pathname, sessionUser)) {
-      router.replace(
-        normalizeAdminPath(pathname) === "/admin/dashboard"
-          ? getFirstAccessibleAdminPath(sessionUser)
-          : "/admin/forbidden",
-      );
-    }
-  }, [checkingSession, pathname, router, sessionUser]);
-
-  const sessionValue = useMemo(
-    () => ({
-      user: sessionUser,
-      tenantName,
-      tenantCategory,
-      growthVisible,
-      planFeatures: sessionUser?.plan_features || [],
-      planFeatureMatrix: sessionUser?.plan_feature_matrix || {},
-    }),
-    [growthVisible, sessionUser, tenantCategory, tenantName],
-  );
-
-  if (checkingSession) {
+  if (!user || !canAccessAdminRoute(pathname, user)) {
     return <DashboardLayoutSkeleton isCollapsed={isCollapsed} />;
   }
 
-  const pageTitle = (() => {
-    const cleanPath = pathname.replace(/^\/[a-zA-Z0-9-]+\/admin\//, "");
-    const first = cleanPath.split("/")[0] || "dashboard";
-    switch (first) {
-      case "dashboard":
-        return "Dashboard";
-      case "bookings":
-        return "Bookings";
-      case "resources":
-        return "Resources";
-      case "devices":
-        return "Smart Devices";
-      case "customers":
-        return "Customers";
-      case "fnb":
-        return "F&B";
-      case "expenses":
-        return "Expenses";
-      case "settings":
-        return "Settings";
-      case "pos":
-        return "POS";
-      case "":
-        return "Dashboard";
-      default:
-        return first.charAt(0).toUpperCase() + first.slice(1);
-    }
-  })();
+  const pageTitle = resolveAdminPageTitle(normalizedPath);
+  const mobileNavMode = normalizedPath.startsWith("/admin/settings")
+    ? "settings"
+    : "operational";
 
   return (
     <AdminSessionProvider value={sessionValue}>
@@ -223,14 +136,14 @@ export default function DashboardInternalLayout({
               <div className="flex h-16 items-center justify-between gap-3 px-4">
                 <div className="min-w-0">
                   <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    Admin
+                    {mobileNavMode === "settings" ? "Settings" : "Admin"}
                   </div>
                   <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">
                     {pageTitle}
                   </div>
                 </div>
                 <MobileNav
-                  mode="operational"
+                  mode={mobileNavMode}
                   triggerClassName="relative left-auto bottom-auto z-auto h-10 w-10 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
                 />
               </div>
@@ -242,6 +155,28 @@ export default function DashboardInternalLayout({
       </TooltipProvider>
     </AdminSessionProvider>
   );
+}
+
+function resolveAdminPageTitle(pathname: string) {
+  const matched = [...settingsNavItems, ...operationalNavItems]
+    .sort((a, b) => b.href.length - a.href.length)
+    .find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+
+  if (matched) {
+    return matched.label;
+  }
+
+  if (pathname === "/admin/settings" || pathname.startsWith("/admin/settings/")) {
+    return "Settings";
+  }
+
+  if (pathname === "/admin" || pathname === "/admin/dashboard") {
+    return "Dashboard";
+  }
+
+  const cleanPath = pathname.replace(/^\/admin\/?/, "");
+  const first = cleanPath.split("/")[0] || "dashboard";
+  return first.charAt(0).toUpperCase() + first.slice(1);
 }
 
 // --- LOADING SKELETON COMPONENT ---
