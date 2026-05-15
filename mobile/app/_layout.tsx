@@ -14,6 +14,8 @@ export default function RootLayout() {
         <Stack.Screen name="tenant/[slug]" />
         <Stack.Screen name="admin/login" />
         <Stack.Screen name="admin/(tabs)" />
+        <Stack.Screen name="admin/bookings/[id]" />
+        <Stack.Screen name="admin/customers/[id]" />
         <Stack.Screen name="user/login" />
         <Stack.Screen name="user/google-claim" />
         <Stack.Screen name="user/register" />

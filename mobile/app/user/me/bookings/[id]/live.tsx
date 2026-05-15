@@ -909,12 +909,12 @@ export default function CustomerBookingLiveScreen() {
   );
   const renderConfirmFooter = useCallback(
     (props: ComponentProps<typeof BottomSheetFooter>) => (
-      <BottomSheetFooter {...props} bottomInset={12}>
+      <BottomSheetFooter {...props} bottomInset={Math.max(insets.bottom, 12) + 12}>
         <View
           style={{
             paddingHorizontal: 20,
             paddingTop: 12,
-            paddingBottom: Math.max(insets.bottom, 12) + 12,
+            paddingBottom: Math.max(insets.bottom, 12) + 16,
             gap: 10,
             backgroundColor: "#ffffff",
             borderTopWidth: 1,
@@ -960,12 +960,12 @@ export default function CustomerBookingLiveScreen() {
   );
   const renderPickerFooter = useCallback(
     (props: ComponentProps<typeof BottomSheetFooter>) => (
-      <BottomSheetFooter {...props} bottomInset={12}>
+      <BottomSheetFooter {...props} bottomInset={Math.max(insets.bottom, 12) + 12}>
         <View
           style={{
             paddingHorizontal: 20,
             paddingTop: 12,
-            paddingBottom: Math.max(insets.bottom, 12) + 12,
+            paddingBottom: Math.max(insets.bottom, 12) + 16,
             gap: 10,
             backgroundColor: "#ffffff",
             borderTopWidth: 1,
@@ -1448,7 +1448,15 @@ export default function CustomerBookingLiveScreen() {
           handleIndicatorStyle={{ backgroundColor: "#d9e2ec", width: 42, height: 5 }}
           backgroundStyle={{ backgroundColor: "#ffffff" }}
         >
-          <BottomSheetView style={{ flex: 1, paddingHorizontal: 20, paddingTop: 6, paddingBottom: 8, gap: 16 }}>
+          <BottomSheetView
+            style={{
+              flex: 1,
+              paddingHorizontal: 20,
+              paddingTop: 6,
+              paddingBottom: Math.max(insets.bottom, 12) + 8,
+              gap: 16,
+            }}
+          >
             <View style={{ gap: 6 }}>
               <Text selectable style={{ color: "#0f172a", fontSize: 21, fontWeight: "900" }}>
                 {pickerSheet.title}
@@ -1482,7 +1490,7 @@ export default function CustomerBookingLiveScreen() {
               showsVerticalScrollIndicator={false}
               bounces={false}
               keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ gap: 10, paddingBottom: 220 }}
+              contentContainerStyle={{ gap: 10, paddingBottom: 220 + Math.max(insets.bottom, 12) }}
             >
             {(pickerSheet?.kind === "fnb" ? filteredMenuItems : filteredAddonItems).map((item) => (
               <View

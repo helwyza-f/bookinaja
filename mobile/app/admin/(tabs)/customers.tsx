@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
@@ -6,7 +7,11 @@ import { apiFetch } from "@/lib/api";
 import { CardBlock } from "@/components/card-block";
 import { ScreenShell } from "@/components/screen-shell";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
+import { useAdminIdentity } from "@/hooks/use-admin-identity";
+import { useRealtime } from "@/hooks/use-realtime";
 import { formatCurrency } from "@/lib/format";
+import { BOOKING_EVENT_PREFIXES, matchesRealtimePrefix } from "@/lib/realtime/event-types";
+import { tenantBookingsChannel, tenantOrdersChannel } from "@/lib/realtime/channels";
 
 type CustomerRow = {
   id: string;
@@ -37,11 +42,26 @@ function getTierMeta(value?: string) {
 
 export default function AdminCustomersScreen() {
   const guard = useAuthGuard("admin");
+  const identityQuery = useAdminIdentity();
   const [search, setSearch] = useState("");
   const customersQuery = useQuery({
     queryKey: ["admin-customers"],
     queryFn: () => apiFetch<CustomerRow[]>("/customers", { audience: "admin" }),
     enabled: guard.ready,
+  });
+
+  useRealtime({
+    enabled: Boolean(identityQuery.data?.tenant_id && guard.ready),
+    channels: identityQuery.data?.tenant_id
+      ? [tenantBookingsChannel(identityQuery.data.tenant_id), tenantOrdersChannel(identityQuery.data.tenant_id)]
+      : [],
+    onEvent: (event) => {
+      if (!matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) return;
+      void customersQuery.refetch();
+    },
+    onReconnect: () => {
+      void customersQuery.refetch();
+    },
   });
 
   const customers = customersQuery.data || [];
@@ -56,7 +76,7 @@ export default function AdminCustomersScreen() {
   const vipCount = customers.filter((item) => String(item.tier || "").toUpperCase() === "VIP").length;
 
   return (
-    <ScreenShell eyebrow="Admin" title="Customers" description="Lihat pelanggan tenant, tier, kunjungan, dan nilai customer dengan cepat.">
+    <ScreenShell eyebrow="Admin" title="Customers" description="CRM ringkas untuk lihat nilai customer, kunjungan, dan riwayat terdekat.">
       <CardBlock>
         <TextInput
           value={search}
@@ -97,7 +117,7 @@ export default function AdminCustomersScreen() {
             },
             {
               label: "Total spent",
-              value: formatCurrency(totalSpent),
+              value: formatCurrency(totalSpent) === "Cek harga" ? "Rp 0" : formatCurrency(totalSpent),
               hint: "Lifetime value",
               icon: "payments" as const,
               tone: "#059669",
@@ -136,7 +156,7 @@ export default function AdminCustomersScreen() {
       {filtered.map((item) => {
         const tier = getTierMeta(item.tier);
         return (
-          <Pressable key={item.id}>
+          <Pressable key={item.id} onPress={() => router.push(`/admin/customers/${item.id}`)}>
             <CardBlock>
               <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
                 <View style={{ flexDirection: "row", gap: 12, flex: 1 }}>
@@ -187,7 +207,7 @@ export default function AdminCustomersScreen() {
                     SPENT
                   </Text>
                   <Text selectable style={{ color: "#1d4ed8", fontSize: 14, fontWeight: "900" }}>
-                    {formatCurrency(item.total_spent || 0)}
+                    {formatCurrency(item.total_spent || 0) === "Cek harga" ? "Rp 0" : formatCurrency(item.total_spent || 0)}
                   </Text>
                 </View>
               </View>

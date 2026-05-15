@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 
 type ScreenShellProps = {
@@ -16,12 +16,19 @@ export function ScreenShell({
   description,
   children,
 }: ScreenShellProps) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#f3f6fb" }} edges={["top", "left", "right"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#f3f6fb" }} edges={["top", "right", "bottom", "left"]}>
       <View style={{ flex: 1 }}>
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 10, paddingBottom: 42, gap: 16 }}
+          contentContainerStyle={{
+            paddingHorizontal: 18,
+            paddingTop: 10,
+            paddingBottom: Math.max(insets.bottom, 12) + 24,
+            gap: 16,
+          }}
         >
           <Animated.View entering={FadeIn.duration(320)}>
             <View

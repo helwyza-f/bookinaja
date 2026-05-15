@@ -1,13 +1,22 @@
 import { router } from "expo-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pressable, Text, View } from "react-native";
-import { MaterialIcons } from "@expo/vector-icons";
 import { apiFetch } from "@/lib/api";
 import { CardBlock } from "@/components/card-block";
 import { ScreenShell } from "@/components/screen-shell";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
+import { useAdminIdentity } from "@/hooks/use-admin-identity";
+import { useRealtime } from "@/hooks/use-realtime";
 import { useSession } from "@/providers/session-provider";
+import {
+  AdminBookingRow,
+  getAdminBookingStatusMeta,
+  getAdminBookingTotal,
+  patchAdminBookingList,
+} from "@/lib/admin-bookings";
 import { formatCurrency, formatDateTime } from "@/lib/format";
+import { BOOKING_EVENT_PREFIXES, matchesRealtimePrefix } from "@/lib/realtime/event-types";
+import { tenantBookingsChannel, tenantDashboardChannel } from "@/lib/realtime/channels";
 
 type AdminProfile = {
   id?: string;
@@ -19,18 +28,6 @@ type AdminProfile = {
 
 type ResourceSummaryResponse = {
   items?: Array<{ id?: string; name?: string; status?: string }>;
-};
-
-type BookingRow = {
-  id: string;
-  customer_name?: string;
-  resource_name?: string;
-  status?: string;
-  payment_status?: string;
-  start_time?: string;
-  grand_total?: number;
-  total_resource?: number;
-  total_fnb?: number;
 };
 
 type SessionRow = {
@@ -45,28 +42,19 @@ type DashboardPayload = {
   resourcesCount: number;
   customersCount: number;
   activeSessions: SessionRow[];
-  bookings: BookingRow[];
+  bookings: AdminBookingRow[];
 };
 
-function getBookingTotal(item: BookingRow) {
-  const explicit = Number(item.grand_total || 0);
-  if (explicit > 0) return explicit;
-  return Number(item.total_resource || 0) + Number(item.total_fnb || 0);
-}
-
-function getBookingStatusMeta(status?: string, paymentStatus?: string) {
-  const booking = String(status || "").toLowerCase();
-  const payment = String(paymentStatus || "").toLowerCase();
-  if (payment === "awaiting_verification") return { label: "Verifikasi", tone: "#d97706", bg: "#fef3c7" };
-  if (booking === "active" || booking === "ongoing") return { label: "Aktif", tone: "#059669", bg: "#d1fae5" };
-  if (booking === "confirmed") return { label: "Terjadwal", tone: "#2563eb", bg: "#dbeafe" };
-  if (booking === "completed") return { label: "Selesai", tone: "#475569", bg: "#e2e8f0" };
-  return { label: "Pending", tone: "#b45309", bg: "#fef3c7" };
+function formatAmount(value: number) {
+  const formatted = formatCurrency(value);
+  return formatted === "Cek harga" ? "Rp 0" : formatted;
 }
 
 export default function AdminDashboardScreen() {
   const guard = useAuthGuard("admin");
   const session = useSession();
+  const identityQuery = useAdminIdentity();
+  const queryClient = useQueryClient();
   const dashboardQuery = useQuery({
     queryKey: ["admin-dashboard-mobile"],
     enabled: guard.ready,
@@ -75,7 +63,7 @@ export default function AdminDashboardScreen() {
         apiFetch<AdminProfile>("/admin/profile", { audience: "admin" }),
         apiFetch<ResourceSummaryResponse>("/admin/resources/summary", { audience: "admin" }),
         apiFetch<SessionRow[]>("/bookings/pos/active", { audience: "admin" }),
-        apiFetch<BookingRow[] | { items?: BookingRow[] }>("/bookings", { audience: "admin" }),
+        apiFetch<AdminBookingRow[] | { items?: AdminBookingRow[] }>("/bookings", { audience: "admin" }),
         apiFetch<{ count?: number }>("/customers/count", { audience: "admin" }),
       ]);
 
@@ -94,13 +82,35 @@ export default function AdminDashboardScreen() {
     },
   });
 
+  useRealtime({
+    enabled: Boolean(identityQuery.data?.tenant_id && guard.ready),
+    channels: identityQuery.data?.tenant_id
+      ? [tenantBookingsChannel(identityQuery.data.tenant_id), tenantDashboardChannel(identityQuery.data.tenant_id)]
+      : [],
+    onEvent: (event) => {
+      if (!matchesRealtimePrefix(event.type, BOOKING_EVENT_PREFIXES)) return;
+      queryClient.setQueryData<DashboardPayload>(["admin-dashboard-mobile"], (current) =>
+        current
+          ? {
+              ...current,
+              bookings: patchAdminBookingList(current.bookings, event),
+            }
+          : current,
+      );
+      void dashboardQuery.refetch();
+    },
+    onReconnect: () => {
+      void dashboardQuery.refetch();
+    },
+  });
+
   const data = dashboardQuery.data;
   const todayKey = new Date().toDateString();
   const todayBookings = (data?.bookings || []).filter((item) => {
     const parsed = item.start_time ? new Date(item.start_time) : null;
-    return parsed && !Number.isNaN(parsed.getTime()) && parsed.toDateString() === todayKey;
+    return !!parsed && !Number.isNaN(parsed.getTime()) && parsed.toDateString() === todayKey;
   });
-  const todayRevenue = todayBookings.reduce((sum, item) => sum + getBookingTotal(item), 0);
+  const todayRevenue = todayBookings.reduce((sum, item) => sum + getAdminBookingTotal(item), 0);
   const topBookings = (data?.bookings || []).slice(0, 4);
 
   return (
@@ -115,7 +125,7 @@ export default function AdminDashboardScreen() {
             Perlu perhatian sekarang
           </Text>
           <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 19 }}>
-            Hanya angka yang langsung terkait operasi hari ini.
+            Fokus ke booking hari ini, sesi berjalan, dan customer yang butuh tindak lanjut.
           </Text>
         </View>
 
@@ -137,7 +147,7 @@ export default function AdminDashboardScreen() {
               {todayBookings.length}
             </Text>
             <Text selectable style={{ color: "#475569", fontSize: 12 }}>
-              {formatCurrency(todayRevenue)}
+              {formatAmount(todayRevenue)}
             </Text>
           </View>
 
@@ -175,7 +185,7 @@ export default function AdminDashboardScreen() {
             </Text>
           </Pressable>
         </View>
-        {(topBookings.length ? topBookings : [{ id: "empty" } as BookingRow]).map((item) =>
+        {(topBookings.length ? topBookings : [{ id: "empty" } as AdminBookingRow]).map((item) =>
           item.id === "empty" ? (
             <View
               key="empty"
@@ -191,8 +201,9 @@ export default function AdminDashboardScreen() {
               </Text>
             </View>
           ) : (
-            <View
+            <Pressable
               key={item.id}
+              onPress={() => router.push(`/admin/bookings/${item.id}`)}
               style={{
                 borderRadius: 20,
                 borderWidth: 1,
@@ -213,7 +224,7 @@ export default function AdminDashboardScreen() {
                   </Text>
                 </View>
                 {(() => {
-                  const meta = getBookingStatusMeta(item.status, item.payment_status);
+                  const meta = getAdminBookingStatusMeta(item);
                   return (
                     <View style={{ borderRadius: 999, backgroundColor: meta.bg, paddingHorizontal: 10, paddingVertical: 6 }}>
                       <Text selectable style={{ color: meta.tone, fontSize: 11, fontWeight: "800" }}>
@@ -228,10 +239,10 @@ export default function AdminDashboardScreen() {
                   {formatDateTime(item.start_time)}
                 </Text>
                 <Text selectable style={{ color: "#0f172a", fontSize: 13, fontWeight: "800" }}>
-                  {formatCurrency(getBookingTotal(item))}
+                  {formatAmount(getAdminBookingTotal(item))}
                 </Text>
               </View>
-            </View>
+            </Pressable>
           ),
         )}
       </CardBlock>
@@ -250,8 +261,9 @@ export default function AdminDashboardScreen() {
           </View>
 
           {data.activeSessions.slice(0, 3).map((item) => (
-            <View
+            <Pressable
               key={item.id}
+              onPress={() => router.push(`/admin/bookings/${item.id}`)}
               style={{
                 borderRadius: 20,
                 borderWidth: 1,
@@ -271,7 +283,7 @@ export default function AdminDashboardScreen() {
               <Text selectable style={{ color: "#475569", fontSize: 12 }}>
                 Berakhir {formatDateTime(item.end_time)}
               </Text>
-            </View>
+            </Pressable>
           ))}
         </CardBlock>
       ) : null}

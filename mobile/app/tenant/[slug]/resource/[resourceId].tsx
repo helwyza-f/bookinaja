@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { apiFetch, ApiError } from "@/lib/api";
 import { CardBlock } from "@/components/card-block";
 import { CtaButton } from "@/components/cta-button";
@@ -291,6 +292,7 @@ function getSlotBadge(status: SlotStatus) {
 }
 
 export default function ResourceDetailScreen() {
+  const insets = useSafeAreaInsets();
   const { slug, resourceId } = useLocalSearchParams<{ slug: string; resourceId: string }>();
   const session = useSession();
   const [selectedMainItemId, setSelectedMainItemId] = useState<string>("");
@@ -1396,7 +1398,7 @@ export default function ResourceDetailScreen() {
                   backgroundColor: "#ffffff",
                   paddingHorizontal: 20,
                   paddingTop: 12,
-                  paddingBottom: 24,
+                  paddingBottom: Math.max(insets.bottom, 12) + 20,
                   gap: 18,
                   shadowColor: "#020617",
                   shadowOpacity: 0.12,

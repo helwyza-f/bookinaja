@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Text, TextInput, View, Pressable, ScrollView } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { apiFetch } from "@/lib/api";
 import { CardBlock } from "@/components/card-block";
 import { DiscoveryCard } from "@/components/discovery-card";
@@ -19,6 +19,7 @@ function dedupeItems(items: DiscoveryTenant[]) {
 }
 
 export default function DiscoveryScreen() {
+  const insets = useSafeAreaInsets();
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("Semua");
   const feedQuery = useQuery({
@@ -53,8 +54,15 @@ export default function DiscoveryScreen() {
   const filteredMode = Boolean(query.trim()) || activeCategory !== "Semua";
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#f3f6fb" }} edges={["top", "left", "right"]}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 10, paddingBottom: 42, gap: 12 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#f3f6fb" }} edges={["top", "right", "bottom", "left"]}>
+      <ScrollView
+        contentContainerStyle={{
+          paddingHorizontal: 18,
+          paddingTop: 10,
+          paddingBottom: Math.max(insets.bottom, 12) + 24,
+          gap: 12,
+        }}
+      >
         <View style={{ gap: 6 }}>
           <Text selectable style={{ color: "#0f172a", fontSize: 24, fontWeight: "900", lineHeight: 28 }}>
             Jelajahi tenant

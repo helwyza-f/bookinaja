@@ -1,9 +1,11 @@
 import { Redirect, Tabs } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSession } from "@/providers/session-provider";
 
 export default function AdminTabsLayout() {
   const session = useSession();
+  const insets = useSafeAreaInsets();
 
   if (session.isReady && !session.adminToken) {
     return <Redirect href="/admin/login" />;
@@ -16,9 +18,9 @@ export default function AdminTabsLayout() {
         tabBarActiveTintColor: "#1d4ed8",
         tabBarInactiveTintColor: "#94a3b8",
         tabBarStyle: {
-          height: 68,
+          height: 50 + Math.max(insets.bottom, 8),
           paddingTop: 8,
-          paddingBottom: 8,
+          paddingBottom: Math.max(insets.bottom, 8),
           borderTopColor: "#dbe4f2",
           backgroundColor: "#fbfdff",
         },

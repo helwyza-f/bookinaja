@@ -1,9 +1,11 @@
 import { Redirect, Tabs } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSession } from "@/providers/session-provider";
 
 export default function CustomerTabsLayout() {
   const session = useSession();
+  const insets = useSafeAreaInsets();
 
   if (session.isReady && !session.customerToken) {
     return <Redirect href="/user/login" />;
@@ -17,9 +19,9 @@ export default function CustomerTabsLayout() {
         tabBarInactiveTintColor: "#94a3b8",
         tabBarShowLabel: true,
         tabBarStyle: {
-          height: 78,
+          height: 58 + Math.max(insets.bottom, 8),
           paddingTop: 10,
-          paddingBottom: 10,
+          paddingBottom: Math.max(insets.bottom, 8),
           borderTopColor: "#dbeafe",
           backgroundColor: "#fbfdff",
         },

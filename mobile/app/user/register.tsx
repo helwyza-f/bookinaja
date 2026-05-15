@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { router } from "expo-router";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { MaterialIcons } from "@expo/vector-icons";
 import { apiFetch, ApiError } from "@/lib/api";
@@ -51,6 +51,7 @@ function SurfaceCard({ children }: { children: React.ReactNode }) {
 }
 
 export default function UserRegisterScreen() {
+  const insets = useSafeAreaInsets();
   const session = useSession();
   const [step, setStep] = useState<"form" | "otp">("form");
   const [loading, setLoading] = useState(false);
@@ -146,7 +147,7 @@ export default function UserRegisterScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#f5f8ff" }} edges={["top", "left", "right"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#f5f8ff" }} edges={["top", "right", "bottom", "left"]}>
       <View style={{ flex: 1 }}>
         <View pointerEvents="none" style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
           <View
@@ -174,7 +175,14 @@ export default function UserRegisterScreen() {
           />
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 14, paddingBottom: 42, gap: 16 }}>
+        <ScrollView
+          contentContainerStyle={{
+            paddingHorizontal: 18,
+            paddingTop: 14,
+            paddingBottom: Math.max(insets.bottom, 12) + 24,
+            gap: 16,
+          }}
+        >
           <Animated.View entering={FadeInUp.duration(280)} style={{ gap: 10 }}>
             <View
               style={{
