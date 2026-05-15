@@ -16,7 +16,7 @@ function AdminSurfaceState({
   title,
   description,
   action,
-  icon: Icon,
+  icon: Icon = Inbox,
   className,
 }: AdminSurfaceStateProps) {
   return (
