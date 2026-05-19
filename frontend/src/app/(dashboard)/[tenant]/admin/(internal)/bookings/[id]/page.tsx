@@ -273,6 +273,8 @@ type AdminControlCardProps = {
   disabled?: boolean;
   className?: string;
   tone?: "neutral" | "primary" | "success" | "dark";
+  variant?: "tile" | "row";
+  eyebrow?: string;
 };
 
 function AdminControlCard({
@@ -283,6 +285,8 @@ function AdminControlCard({
   disabled,
   className,
   tone = "neutral",
+  variant = "tile",
+  eyebrow,
 }: AdminControlCardProps) {
   const toneClass =
     tone === "primary"
@@ -314,14 +318,29 @@ function AdminControlCard({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "group h-auto min-h-[96px] flex-col items-stretch justify-start rounded-xl border px-0 py-0 text-left shadow-sm transition-colors duration-150",
+        "group h-auto rounded-xl border px-0 py-0 text-left shadow-sm transition-colors duration-150",
+        variant === "tile"
+          ? "min-h-[96px] flex-col items-stretch justify-start"
+          : "min-h-0 items-stretch justify-start",
         "disabled:cursor-not-allowed disabled:opacity-55",
         toneClass,
         className,
       )}
     >
-      <div className="flex h-full flex-col justify-between gap-4 p-4">
-        <div className="flex items-start justify-between gap-3">
+      <div
+        className={cn(
+          "flex h-full p-4",
+          variant === "tile"
+            ? "min-w-0 flex-col justify-between gap-4"
+            : "items-start gap-3",
+        )}
+      >
+        <div
+          className={cn(
+            "flex items-start gap-3",
+            variant === "tile" ? "justify-between" : "shrink-0",
+          )}
+        >
           <span
             className={cn(
               "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
@@ -330,20 +349,35 @@ function AdminControlCard({
           >
             <Icon className="h-4.5 w-4.5" />
           </span>
-          <span
+        </div>
+        <div className="min-w-0 flex-1 overflow-hidden">
+          {eyebrow ? (
+            <div
+              className={cn(
+                "text-[10px] font-semibold uppercase tracking-[0.16em]",
+                tone === "success" || tone === "dark"
+                  ? "text-white/65"
+                  : "text-slate-400 dark:text-slate-500",
+              )}
+            >
+              {eyebrow}
+            </div>
+          ) : null}
+          <div
             className={cn(
-              "text-[10px] font-semibold uppercase tracking-[0.16em]",
-              tone === "success" || tone === "dark"
-                ? "text-white/65"
-                : "text-slate-400 dark:text-slate-500",
+              "break-words font-semibold leading-tight",
+              variant === "tile" ? "text-sm" : "text-base",
             )}
           >
-            Kontrol
-          </span>
-        </div>
-        <div>
-          <div className="text-sm font-semibold leading-tight">{title}</div>
-          <p className={cn("mt-2 text-xs leading-5", descriptionClass)}>
+            {title}
+          </div>
+          <p
+            className={cn(
+              "mt-2 break-words text-xs leading-5",
+              variant === "tile" && "line-clamp-3",
+              descriptionClass,
+            )}
+          >
             {description}
           </p>
         </div>
@@ -567,7 +601,6 @@ export default function BookingDetailPage() {
     !hasPendingManualVerification &&
     paymentStatus !== "awaiting_verification" &&
     Number(booking?.balance_due || 0) > 0;
-  const isFinal = status === "completed" || status === "cancelled";
   const canUseReceipt = isReceiptProEnabled(receiptSettings);
   const canConfirmBooking = hasPermission(adminUser, "bookings.confirm");
   const canStartSession = hasPermission(adminUser, "sessions.start");
@@ -607,6 +640,193 @@ export default function BookingDetailPage() {
     canSettle ||
     (isPaymentSettled && (canSendReceipt || canPrintReceipt)) ||
     canCancel;
+
+  type AdminActionItem = {
+    key: string;
+    title: string;
+    description: string;
+    icon: LucideIcon;
+    onClick?: () => void;
+    disabled?: boolean;
+    tone?: "neutral" | "primary" | "success" | "dark";
+    menuItems?: Array<{
+      key: string;
+      label: string;
+      icon: LucideIcon;
+      onClick: () => void;
+      disabled?: boolean;
+      className?: string;
+    }>;
+  };
+
+  const adminActions: AdminActionItem[] = [];
+
+  if (canConfirm) {
+    adminActions.push({
+      key: "confirm",
+      title: "Konfirmasi booking",
+      description: "Siapkan booking agar masuk ke tahap operasional.",
+      icon: ShieldCheck,
+      onClick: () => handleUpdateStatus("confirmed"),
+      disabled: updating || !canConfirmBooking,
+      tone: "primary",
+    });
+  }
+  if (canRecordDeposit) {
+    adminActions.push({
+      key: "deposit",
+      title: "Catat DP masuk",
+      description: "Tandai DP sudah benar-benar diterima offline.",
+      icon: Receipt,
+      onClick: () => setRecordDepositDialogOpen(true),
+      disabled: updating || !canSettleCash,
+      tone: "primary",
+    });
+  }
+  if (canOverrideDeposit) {
+    adminActions.push({
+      key: "override",
+      title: "Jalankan tanpa DP",
+      description: "Izinkan sesi berjalan tanpa mengubah status pembayaran.",
+      icon: Clock,
+      onClick: () => setOverrideDepositDialogOpen(true),
+      disabled: updating || !canStartSession,
+      tone: "neutral",
+    });
+  }
+  if (status === "active") {
+    adminActions.push({
+      key: "pos",
+      title: "Buka POS live",
+      description: "Pantau sesi aktif, tambah order, dan kelola billing.",
+      icon: Zap,
+      onClick: () => router.push(`/admin/pos?active=${booking.id}`),
+      disabled: !canOperatePos,
+      tone: "success",
+    });
+  }
+  if ((status === "pending" || status === "confirmed") && canStartSession) {
+    adminActions.push({
+      key: "start",
+      title: "Mulai sesi",
+      description: canStart
+        ? "Aktifkan sesi customer sekarang."
+        : "Mulai sesi terbuka setelah DP masuk atau override aktif.",
+      icon: Zap,
+      onClick: () => handleUpdateStatus("active"),
+      disabled: updating || !canStart || !canStartSession,
+      tone: "success",
+    });
+  }
+  if (canComplete) {
+    adminActions.push({
+      key: "complete",
+      title: "Akhiri sesi",
+      description: "Tutup sesi dan siapkan billing akhir.",
+      icon: CheckCircle2,
+      onClick: () => handleUpdateStatus("completed"),
+      disabled: updating || !canCompleteSession,
+      tone: "dark",
+    });
+  }
+  if (canSettle) {
+    adminActions.push({
+      key: "settle",
+      title: "Pelunasan",
+      description: "Selesaikan sisa tagihan booking ini.",
+      icon: CreditCard,
+      onClick: () => router.push(`/admin/bookings/${booking.id}/payment`),
+      disabled: updating || !canSettleCash,
+      tone: "dark",
+    });
+  }
+  if (isPaymentSettled && (canSendReceipt || canPrintReceipt)) {
+    adminActions.push({
+      key: "receipt",
+      title: "Nota",
+      description: "Kirim atau cetak nota setelah pembayaran selesai.",
+      icon: Receipt,
+      menuItems: [
+        ...(!canUseReceipt
+          ? [
+              {
+                key: "upgrade",
+                label: "Upgrade Pro untuk pakai nota",
+                icon: CreditCard,
+                onClick: () => router.push("/admin/settings/billing/subscribe"),
+                className: "text-amber-700",
+              },
+            ]
+          : []),
+        {
+          key: "wa",
+          label: "Kirim nota WA",
+          icon: MessageCircle,
+          onClick: () => handleReceiptAction("whatsapp"),
+          disabled: !canUseReceipt || !canSendReceipt,
+        },
+        {
+          key: "print",
+          label: "Cetak nota fisik",
+          icon: Printer,
+          onClick: () => handleReceiptAction("print"),
+          disabled: !canUseReceipt || !canPrintReceipt,
+        },
+        {
+          key: "both",
+          label: "WA + cetak",
+          icon: Receipt,
+          onClick: () => handleReceiptAction("both"),
+          disabled: !canUseReceipt || !canSendReceipt || !canPrintReceipt,
+        },
+      ],
+    });
+  }
+  if (canCancel) {
+    adminActions.push({
+      key: "cancel",
+      title: "Aksi lain",
+      description: "Batalkan booking bila memang tidak dilanjutkan.",
+      icon: MoreVertical,
+      menuItems: [
+        {
+          key: "cancel-booking",
+          label: "Batalkan booking",
+          icon: Trash2,
+          onClick: () => handleUpdateStatus("cancelled"),
+          className: "text-red-600",
+        },
+      ],
+    });
+  }
+
+  const primaryActionKey =
+    status === "active" && canOperatePos
+      ? "pos"
+      : canSettle
+        ? "settle"
+        : canComplete
+          ? "complete"
+          : canRecordDeposit
+            ? "deposit"
+            : canConfirm
+              ? "confirm"
+              : canStart
+                ? "start"
+                : canOverrideDeposit
+                  ? "override"
+                  : isPaymentSettled && (canSendReceipt || canPrintReceipt)
+                    ? "receipt"
+                    : canCancel
+                      ? "cancel"
+                      : null;
+
+  const primaryAction = primaryActionKey
+    ? adminActions.find((action) => action.key === primaryActionKey) || null
+    : null;
+  const secondaryActions = adminActions.filter(
+    (action) => action.key !== primaryAction?.key,
+  );
 
   const timelineSection = (
     <Card className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
@@ -954,10 +1174,13 @@ export default function BookingDetailPage() {
 
           {hasAdminControls && (
             <Card className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] xl:flex-1 xl:p-5">
-              <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                     Kontrol Admin
+                  </p>
+                  <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                    Fokuskan satu langkah utama sesuai state booking saat ini.
                   </p>
                 </div>
                 <Badge
@@ -970,120 +1193,95 @@ export default function BookingDetailPage() {
                 </Badge>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                {canConfirm && (
-                  <AdminControlCard
-                    title="Konfirmasi"
-                    description="Siapkan booking untuk dijalankan."
-                    icon={ShieldCheck}
-                    onClick={() => handleUpdateStatus("confirmed")}
-                    disabled={updating || !canConfirmBooking}
-                    tone="primary"
-                  />
-                )}
-                {canRecordDeposit && (
-                  <AdminControlCard
-                    title="Catat DP"
-                    description="Tandai DP sudah diterima offline."
-                    icon={Receipt}
-                    onClick={() => setRecordDepositDialogOpen(true)}
-                    disabled={updating || !canSettleCash}
-                    tone="primary"
-                  />
-                )}
-                {canOverrideDeposit && (
-                  <AdminControlCard
-                    title="Tanpa DP"
-                    description="Booking jalan tanpa DP."
-                    icon={Clock}
-                    onClick={() => setOverrideDepositDialogOpen(true)}
-                    disabled={updating || !canStartSession}
-                    tone="neutral"
-                  />
-                )}
-                {status === "active" && (
-                  <AdminControlCard
-                    title="POS"
-                    description="Buka panel live sesi."
-                    icon={Zap}
-                    onClick={() => router.push(`/admin/pos?active=${booking.id}`)}
-                    disabled={!canOperatePos}
-                    tone="primary"
-                  />
-                )}
-                {(status === "pending" || status === "confirmed") && (
-                  <AdminControlCard
-                    title="Mulai Sesi"
-                    description="Aktifkan sesi customer."
-                    icon={Zap}
-                    onClick={() => handleUpdateStatus("active")}
-                    disabled={updating || !canStart || !canStartSession}
-                    tone="success"
-                  />
-                )}
-                {canComplete && (
-                  <AdminControlCard
-                    title="Akhiri Sesi"
-                    description="Tutup sesi dan siapkan billing."
-                    icon={CheckCircle2}
-                    onClick={() => handleUpdateStatus("completed")}
-                    disabled={updating || !canCompleteSession}
-                    tone="dark"
-                  />
-                )}
-                {canSettle && (
-                  <AdminControlCard
-                    title="Pelunasan"
-                    description="Selesaikan sisa tagihan."
-                    icon={CreditCard}
-                    onClick={() => router.push(`/admin/bookings/${booking.id}/payment`)}
-                    disabled={updating || !canSettleCash}
-                  />
-                )}
-                {isPaymentSettled && (canSendReceipt || canPrintReceipt) && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <AdminControlCard
-                        title="Nota"
-                        description="Kirim atau cetak nota."
-                        icon={Receipt}
-                      />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 dark:bg-[#0f0f17]">
-                      {!canUseReceipt && (
-                        <DropdownMenuItem onClick={() => router.push("/admin/settings/billing/subscribe")} className="rounded-xl text-amber-700">
-                          Upgrade Pro untuk pakai nota
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem onClick={() => handleReceiptAction("whatsapp")} className="rounded-xl" disabled={!canUseReceipt || !canSendReceipt}>
-                        <MessageCircle size={14} className="mr-2" /> Kirim nota WA
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleReceiptAction("print")} className="rounded-xl" disabled={!canUseReceipt || !canPrintReceipt}>
-                        <Printer size={14} className="mr-2" /> Cetak nota fisik
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleReceiptAction("both")} className="rounded-xl" disabled={!canUseReceipt || !canSendReceipt || !canPrintReceipt}>
-                        <Receipt size={14} className="mr-2" /> WA + cetak
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-                {canCancel && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <AdminControlCard
-                        title="Lainnya"
-                        description="Aksi tambahan booking."
-                        icon={MoreVertical}
-                      />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-52 rounded-2xl p-2 dark:bg-[#0f0f17]">
-                      <DropdownMenuItem onClick={() => handleUpdateStatus("cancelled")} className="rounded-xl text-red-600">
-                        <Trash2 size={14} className="mr-2" /> Batalkan booking
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </div>
+              {primaryAction ? (
+                <div className="mb-4">
+                  {primaryAction.menuItems ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <AdminControlCard
+                          title={primaryAction.title}
+                          description={primaryAction.description}
+                          icon={primaryAction.icon}
+                          disabled={primaryAction.disabled}
+                          tone={primaryAction.tone}
+                          variant="row"
+                          eyebrow="Langkah utama"
+                        />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 dark:bg-[#0f0f17]">
+                        {primaryAction.menuItems.map((item) => (
+                          <DropdownMenuItem
+                            key={item.key}
+                            onClick={item.onClick}
+                            className={cn("rounded-xl", item.className)}
+                            disabled={item.disabled}
+                          >
+                            <item.icon size={14} className="mr-2" /> {item.label}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    <AdminControlCard
+                      title={primaryAction.title}
+                      description={primaryAction.description}
+                      icon={primaryAction.icon}
+                      onClick={primaryAction.onClick}
+                      disabled={primaryAction.disabled}
+                      tone={primaryAction.tone}
+                      variant="row"
+                      eyebrow="Langkah utama"
+                    />
+                  )}
+                </div>
+              ) : null}
+
+              {secondaryActions.length > 0 ? (
+                <div className="space-y-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                    Aksi pendukung
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {secondaryActions.map((action) =>
+                      action.menuItems ? (
+                        <DropdownMenu key={action.key}>
+                          <DropdownMenuTrigger asChild>
+                            <AdminControlCard
+                              title={action.title}
+                              description={action.description}
+                              icon={action.icon}
+                              disabled={action.disabled}
+                              tone={action.tone}
+                            />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 dark:bg-[#0f0f17]">
+                            {action.menuItems.map((item) => (
+                              <DropdownMenuItem
+                                key={item.key}
+                                onClick={item.onClick}
+                                className={cn("rounded-xl", item.className)}
+                                disabled={item.disabled}
+                              >
+                                <item.icon size={14} className="mr-2" /> {item.label}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : (
+                        <AdminControlCard
+                          key={action.key}
+                          title={action.title}
+                          description={action.description}
+                          icon={action.icon}
+                          onClick={action.onClick}
+                          disabled={action.disabled}
+                          tone={action.tone}
+                        />
+                      ),
+                    )}
+                  </div>
+                </div>
+              ) : null}
               {Number(booking?.deposit_amount || 0) > 0 && !hasPaidDp && (status === "pending" || status === "confirmed") && !hasDepositOverride ? (
                 <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-slate-700">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-700">DP Booking</p>

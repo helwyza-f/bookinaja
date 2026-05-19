@@ -2,6 +2,10 @@ bookinaja.pem
 .gocache/
 .gocache/
 .cache/
+.DS_Store
+tmp-*.png
+tmp-*.jpg
+tmp-*.jpeg
 device-simulator/.env
 device-simulator/*.exe
 device-simulator/device-simulator

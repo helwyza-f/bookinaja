@@ -22,6 +22,7 @@ import { getCentralAdminAuthUrl, getTenantSlugFromBrowser } from "@/lib/tenant";
 import { Badge } from "@/components/ui/badge";
 import {
   growthHubNavItem,
+  isAdminNavItemActive,
   operationalNavItems,
   settingsNavItems,
   type AdminNavItem,
@@ -58,6 +59,10 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
     const source = mode === "settings" ? settingsNavItems : operationalNavItems;
     return source.filter((item) => canAccessAdminRoute(item.href, userData));
   }, [mode, userData]);
+  const operationalHrefs = useMemo(
+    () => operationalNavItems.map((item) => item.href),
+    [],
+  );
 
   const settingsItems = useMemo(
     () => settingsNavItems.filter((item) => getAdminRouteGate(item.href, userData).visible),
@@ -124,7 +129,10 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
           <div className="flex-1 overflow-y-auto px-3 py-3">
             <nav className="space-y-1">
               {items.map((item) => {
-                const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const active =
+                  mode === "operational"
+                    ? isAdminNavItemActive(pathname, item.href, operationalHrefs)
+                    : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
                 return (
                   <Link

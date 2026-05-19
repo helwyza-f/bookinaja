@@ -18,13 +18,13 @@ export function BookinajaSignal({
       : tone === "soft"
         ? {
             ring: adminUi.colors.accent,
-            line: "rgba(36,87,230,0.18)",
+            line: "rgba(0,82,255,0.18)",
             bg: "#ffffff",
           }
         : {
-            ring: adminUi.colors.accentStrong,
+            ring: adminUi.colors.accent,
             line: "rgba(255,255,255,0.48)",
-            bg: adminUi.colors.accentStrong,
+            bg: adminUi.colors.accent,
           };
 
   const ringSizes = [1, 0.72, 0.44];

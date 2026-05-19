@@ -34,10 +34,10 @@ export function ScreenShell({
           pointerEvents="none"
           style={{
             position: "absolute",
-            top: -84,
-            right: -56,
-            width: 208,
-            height: 208,
+            top: -96,
+            right: -48,
+            width: 224,
+            height: 224,
             borderRadius: 999,
             backgroundColor: adminUi.colors.glowPrimary,
           }}
@@ -46,10 +46,10 @@ export function ScreenShell({
           pointerEvents="none"
           style={{
             position: "absolute",
-            top: 78,
-            left: -88,
-            width: 168,
-            height: 168,
+            top: 92,
+            left: -76,
+            width: 176,
+            height: 176,
             borderRadius: 999,
             backgroundColor: adminUi.colors.glowSecondary,
           }}
@@ -58,24 +58,29 @@ export function ScreenShell({
           contentInsetAdjustmentBehavior="automatic"
           contentContainerStyle={{
             paddingHorizontal: adminUi.spacing.pageX,
-            paddingTop: 8,
+            paddingTop: 12,
             paddingBottom: (includeBottomSafeArea ? Math.max(insets.bottom, 12) : 0) + bottomDockInset + 22,
-            gap: adminUi.spacing.section,
+            gap: adminUi.spacing.section + 4,
           }}
         >
           <Animated.View entering={FadeIn.duration(320)}>
             <View
               style={{
-                gap: 6,
+                gap: 8,
                 borderRadius: adminUi.radius.cardLarge,
                 borderWidth: 1,
-                borderColor: "rgba(255,255,255,0.88)",
+                borderColor: "rgba(255,255,255,0.92)",
                 backgroundColor: adminUi.colors.surfaceSoft,
-                paddingHorizontal: 16,
-                paddingVertical: 14,
+                paddingHorizontal: 20,
+                paddingVertical: 18,
+                shadowColor: adminUi.colors.shadow,
+                shadowOpacity: 0.08,
+                shadowRadius: 30,
+                shadowOffset: { width: 0, height: 18 },
+                elevation: 2,
               }}
             >
-              <View style={{ position: "absolute", top: 14, right: 16, opacity: 0.96 }}>
+              <View style={{ position: "absolute", top: 18, right: 18, opacity: 0.96 }}>
                 <BookinajaSignal size={40} tone="soft" />
               </View>
               {eyebrow ? (
@@ -83,9 +88,9 @@ export function ScreenShell({
                   selectable
                   style={{
                     color: adminUi.colors.accent,
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: "800",
-                    letterSpacing: 1.5,
+                    letterSpacing: 1.8,
                     textTransform: "uppercase",
                   }}
                 >
@@ -97,10 +102,11 @@ export function ScreenShell({
                 selectable
                 style={{
                   color: adminUi.colors.textStrong,
-                  fontSize: 24,
+                  fontSize: 28,
                   fontWeight: "900",
-                  letterSpacing: -0.8,
-                  lineHeight: 28,
+                  letterSpacing: -0.9,
+                  lineHeight: 36,
+                  maxWidth: "84%",
                 }}
               >
                 {title}
@@ -111,9 +117,9 @@ export function ScreenShell({
                   selectable
                   style={{
                     color: adminUi.colors.textMuted,
-                    fontSize: 13,
-                    lineHeight: 19,
-                    maxWidth: "94%",
+                    fontSize: 16,
+                    lineHeight: 24,
+                    maxWidth: "92%",
                   }}
                 >
                   {description}

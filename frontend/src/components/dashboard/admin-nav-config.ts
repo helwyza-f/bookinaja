@@ -1,7 +1,8 @@
 import {
   BarChart3,
   BriefcaseBusiness,
-  CalendarDays,
+  CalendarRange,
+  ClipboardList,
   CreditCard,
   Landmark,
   Link2,
@@ -40,13 +41,30 @@ export const growthHubNavItem: AdminNavItem = {
 
 export const operationalNavItems: AdminNavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
-  { label: "Bookings", icon: CalendarDays, href: "/admin/bookings" },
+  { label: "Bookings", icon: ClipboardList, href: "/admin/bookings" },
+  { label: "Kalender", icon: CalendarRange, href: "/admin/bookings/calendar" },
   { label: "POS", icon: MonitorPlay, href: "/admin/pos" },
   { label: "Resources", icon: Grid2x2, href: "/admin/resources" },
   { label: "Menu", icon: Utensils, href: "/admin/fnb" },
   { label: "Pengeluaran", icon: Banknote, href: "/admin/expenses" },
   { label: "Customers", icon: Users, href: "/admin/customers" },
 ];
+
+export function isAdminNavItemActive(
+  pathname: string,
+  href: string,
+  allHrefs: string[],
+) {
+  if (pathname === href) return true;
+  if (!pathname.startsWith(`${href}/`)) return false;
+
+  return !allHrefs.some(
+    (candidate) =>
+      candidate !== href &&
+      candidate.startsWith(`${href}/`) &&
+      (pathname === candidate || pathname.startsWith(`${candidate}/`)),
+  );
+}
 
 export const settingsNavItems: AdminNavItem[] = [
   {

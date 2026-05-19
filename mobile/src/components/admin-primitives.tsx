@@ -36,7 +36,7 @@ export function SectionHeader({
             style={{
               width: 28,
               height: 28,
-              borderRadius: 11,
+              borderRadius: 14,
               backgroundColor: adminUi.tones.blue.soft,
               borderWidth: 1,
               borderColor: adminUi.tones.blue.border,
@@ -46,12 +46,12 @@ export function SectionHeader({
           >
             <MaterialCommunityIcons name={icon} size={14} color={adminUi.colors.accent} />
           </View>
-          <Text selectable style={{ color: adminUi.colors.textStrong, fontSize: 16, fontWeight: "900" }}>
+          <Text selectable style={{ color: adminUi.colors.textStrong, fontSize: 18, fontWeight: "900", letterSpacing: -0.3 }}>
             {title}
           </Text>
         </View>
         {description ? (
-          <Text selectable style={{ color: adminUi.colors.textMuted, fontSize: 13, lineHeight: 19 }}>
+          <Text selectable style={{ color: adminUi.colors.textMuted, fontSize: 14, lineHeight: 21 }}>
             {description}
           </Text>
         ) : null}
@@ -82,11 +82,11 @@ export function StatusPill({
         borderWidth: 1,
         borderColor: colors.border,
         backgroundColor: colors.soft,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 7,
       }}
     >
-      <Text selectable style={{ color: colors.text, fontSize: 11, fontWeight: "800" }}>
+      <Text selectable style={{ color: colors.text, fontSize: 11, fontWeight: "800", letterSpacing: 0.2 }}>
         {label}
       </Text>
     </View>
@@ -114,10 +114,15 @@ export function HeroPanel({
         borderRadius: adminUi.radius.card,
         borderWidth: 1,
         borderColor: palette.border,
-        backgroundColor: palette.soft,
-        paddingHorizontal: 15,
-        paddingVertical: 15,
-        gap: 8,
+        backgroundColor: "rgba(255,255,255,0.88)",
+        paddingHorizontal: adminUi.spacing.card,
+        paddingVertical: adminUi.spacing.card,
+        gap: 10,
+        shadowColor: adminUi.colors.shadow,
+        shadowOpacity: 0.08,
+        shadowRadius: 24,
+        shadowOffset: { width: 0, height: 16 },
+        elevation: 2,
       }}
     >
       <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
@@ -125,7 +130,7 @@ export function HeroPanel({
           style={{
             width: 38,
             height: 38,
-            borderRadius: 14,
+            borderRadius: 19,
             backgroundColor: "#ffffff",
             borderWidth: 1,
             borderColor: palette.border,
@@ -138,14 +143,14 @@ export function HeroPanel({
         <BookinajaSignal size={24} tone="soft" />
       </View>
       {eyebrow ? (
-        <Text selectable style={{ color: palette.text, fontSize: 10, fontWeight: "800", letterSpacing: 1 }}>
+        <Text selectable style={{ color: palette.text, fontSize: 11, fontWeight: "800", letterSpacing: 1.4 }}>
           {eyebrow.toUpperCase()}
         </Text>
       ) : null}
-      <Text selectable style={{ color: adminUi.colors.textStrong, fontSize: 18, fontWeight: "900" }}>
+      <Text selectable style={{ color: adminUi.colors.textStrong, fontSize: 20, fontWeight: "900", letterSpacing: -0.4 }}>
         {title}
       </Text>
-      <Text selectable style={{ color: adminUi.colors.textMuted, fontSize: 13, lineHeight: 19 }}>
+      <Text selectable style={{ color: adminUi.colors.textMuted, fontSize: 14, lineHeight: 22 }}>
         {description}
       </Text>
     </View>
@@ -168,12 +173,12 @@ export function FilterChip({
         borderRadius: adminUi.radius.chip,
         borderWidth: 1,
         borderColor: active ? adminUi.tones.blue.border : adminUi.colors.line,
-        backgroundColor: active ? adminUi.tones.blue.soft : "#ffffff",
+        backgroundColor: active ? adminUi.tones.blue.soft : "rgba(255,255,255,0.9)",
         paddingHorizontal: 14,
-        paddingVertical: 10,
+        paddingVertical: 11,
       }}
     >
-      <Text selectable style={{ color: active ? adminUi.tones.blue.text : adminUi.colors.textMuted, fontSize: 12, fontWeight: "800" }}>
+      <Text selectable style={{ color: active ? adminUi.tones.blue.text : adminUi.colors.textMuted, fontSize: 12, fontWeight: "800", letterSpacing: 0.15 }}>
         {label}
       </Text>
     </Pressable>
@@ -194,10 +199,10 @@ export function EmptyStateCard({
         borderWidth: 1,
         borderStyle: "dashed",
         borderColor: adminUi.colors.line,
-        backgroundColor: adminUi.colors.surfaceMuted,
-        paddingHorizontal: 15,
-        paddingVertical: 16,
-        gap: 4,
+        backgroundColor: "rgba(255,255,255,0.74)",
+        paddingHorizontal: 18,
+        paddingVertical: 18,
+        gap: 6,
       }}
     >
       <Text selectable style={{ color: adminUi.colors.textStrong, fontSize: 14, fontWeight: "800" }}>
@@ -225,15 +230,15 @@ export function SummaryPair({
         flex: 1,
         borderRadius: adminUi.radius.control,
         backgroundColor: adminUi.colors.surfaceAlt,
-        paddingHorizontal: 12,
-        paddingVertical: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 14,
         gap: 4,
       }}
     >
       <Text selectable style={{ color: adminUi.colors.textFaint, fontSize: 10, fontWeight: "800", letterSpacing: 0.9 }}>
         {label.toUpperCase()}
       </Text>
-      <Text selectable style={{ color: accent ? adminUi.colors.accent : adminUi.colors.textStrong, fontSize: 14, fontWeight: "900" }}>
+      <Text selectable style={{ color: accent ? adminUi.colors.accent : adminUi.colors.textStrong, fontSize: 15, fontWeight: "900", letterSpacing: -0.2 }}>
         {value}
       </Text>
     </View>

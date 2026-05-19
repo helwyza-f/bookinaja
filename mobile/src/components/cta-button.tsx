@@ -11,19 +11,19 @@ type CtaButtonProps = {
 
 const paletteMap = {
   primary: {
-    backgroundColor: adminUi.colors.accentStrong,
-    borderColor: adminUi.colors.accentStrong,
+    backgroundColor: adminUi.colors.accent,
+    borderColor: adminUi.colors.accent,
     textColor: "#ffffff",
-    shadowColor: adminUi.colors.accentStrong,
-    shadowOpacity: 0.18,
-    elevation: 3,
+    shadowColor: adminUi.colors.accent,
+    shadowOpacity: 0.22,
+    elevation: 4,
   },
   secondary: {
-    backgroundColor: "#ffffff",
-    borderColor: adminUi.colors.line,
-    textColor: adminUi.colors.textStrong,
-    shadowColor: adminUi.colors.shadow,
-    shadowOpacity: 0.045,
+    backgroundColor: "rgba(255,255,255,0.86)",
+    borderColor: adminUi.colors.accentSoft,
+    textColor: adminUi.colors.accentStrong,
+    shadowColor: adminUi.colors.accent,
+    shadowOpacity: 0.06,
     elevation: 0,
   },
   danger: {
@@ -53,19 +53,19 @@ export function CtaButton({
         alignItems: "center",
         justifyContent: "center",
         minHeight: 52,
-        borderRadius: adminUi.radius.control,
+        borderRadius: adminUi.radius.chip,
         borderWidth: 1,
         borderColor: palette.borderColor,
         backgroundColor: palette.backgroundColor,
-        paddingHorizontal: 18,
-        paddingVertical: 13,
+        paddingHorizontal: 20,
+        paddingVertical: 14,
         opacity: disabled ? 0.52 : pressed ? 0.9 : 1,
         shadowColor: palette.shadowColor,
         shadowOpacity: palette.shadowOpacity,
-        shadowRadius: tone === "primary" ? 16 : 10,
-        shadowOffset: { width: 0, height: tone === "primary" ? 10 : 4 },
+        shadowRadius: tone === "primary" ? 18 : 12,
+        shadowOffset: { width: 0, height: tone === "primary" ? 12 : 6 },
         elevation: palette.elevation,
-        transform: [{ scale: pressed ? 0.995 : 1 }],
+        transform: [{ scale: pressed ? 0.98 : 1 }],
         ...style,
       })}
     >
@@ -74,7 +74,7 @@ export function CtaButton({
           color: palette.textColor,
           fontSize: 14,
           fontWeight: "800",
-          letterSpacing: 0.15,
+          letterSpacing: 0.2,
         }}
       >
         {label}

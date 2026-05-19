@@ -34,6 +34,7 @@ import { Badge } from "../ui/badge";
 import { getCentralAdminAuthUrl, getTenantSlugFromBrowser } from "@/lib/tenant";
 import {
   growthHubNavItem,
+  isAdminNavItemActive,
   operationalNavItems,
   settingsNavItems,
 } from "./admin-nav-config";
@@ -76,6 +77,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   };
 
   const hasAccess = (href: string) => canAccessAdminRoute(href, userData);
+  const operationalHrefs = operationalNavItems.map((item) => item.href);
 
   const itemBase = isCollapsed
     ? "mx-auto flex h-10 w-10 items-center justify-center rounded-lg"
@@ -139,8 +141,11 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       >
         <div className="flex flex-col gap-1">
           {operationalNavItems.filter((route) => hasAccess(route.href)).map((route) => {
-            const isActive =
-              pathname === route.href || pathname.startsWith(`${route.href}/`);
+            const isActive = isAdminNavItemActive(
+              pathname,
+              route.href,
+              operationalHrefs,
+            );
             return (
               <Tooltip key={route.href}>
                 <TooltipTrigger asChild>
