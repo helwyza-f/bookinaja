@@ -9,6 +9,12 @@ export type AdminIdentity = {
   role?: string;
   tenant_id?: string;
   permission_keys?: string[];
+  logo_url?: string;
+};
+
+type AdminIdentityResponse = {
+  status?: string;
+  user?: AdminIdentity | null;
 };
 
 export function useAdminIdentity() {
@@ -16,7 +22,12 @@ export function useAdminIdentity() {
 
   return useQuery({
     queryKey: ["admin-identity"],
-    queryFn: () => apiFetch<AdminIdentity>("/auth/me", { audience: "admin" }),
+    queryFn: async () => {
+      const response = await apiFetch<AdminIdentityResponse>("/auth/me", {
+        audience: "admin",
+      });
+      return response?.user || {};
+    },
     enabled: guard.ready,
     staleTime: 60_000,
   });

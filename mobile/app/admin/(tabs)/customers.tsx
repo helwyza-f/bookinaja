@@ -1,9 +1,10 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ScrollView, Text, TextInput, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { apiFetch } from "@/lib/api";
+import { EmptyStateCard, HeroPanel, ListRow, SectionHeader, StatusPill, SummaryPair } from "@/components/admin-primitives";
 import { CardBlock } from "@/components/card-block";
 import { ScreenShell } from "@/components/screen-shell";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
@@ -76,7 +77,26 @@ export default function AdminCustomersScreen() {
   const vipCount = customers.filter((item) => String(item.tier || "").toUpperCase() === "VIP").length;
 
   return (
-    <ScreenShell eyebrow="Admin" title="Customers" description="CRM ringkas untuk lihat nilai customer, kunjungan, dan riwayat terdekat.">
+    <ScreenShell
+      eyebrow="Admin"
+      title="Customers"
+      description="CRM ringkas untuk nilai customer, kunjungan, dan follow-up."
+      includeBottomSafeArea={false}
+      bottomDockInset={118}
+    >
+      <CardBlock>
+        <HeroPanel
+          eyebrow="CRM"
+          title="Basis customer"
+          description="Lihat tier, total spent, dan buka profil customer yang butuh follow-up."
+          tone="slate"
+        />
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <SummaryPair label="Customer" value={String(customers.length)} />
+          <SummaryPair label="VIP" value={String(vipCount)} accent />
+        </View>
+      </CardBlock>
+
       <CardBlock>
         <TextInput
           value={search}
@@ -97,6 +117,7 @@ export default function AdminCustomersScreen() {
       </CardBlock>
 
       <CardBlock>
+        <SectionHeader title="Snapshot" description="Ringkas saja untuk baca kesehatan customer base." />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
           {[
             {
@@ -153,85 +174,39 @@ export default function AdminCustomersScreen() {
         </ScrollView>
       </CardBlock>
 
-      {filtered.map((item) => {
+      <CardBlock>
+        <SectionHeader title="Daftar customer" description={`${filtered.length} customer cocok dengan pencarian.`} />
+        {filtered.map((item) => {
         const tier = getTierMeta(item.tier);
         return (
-          <Pressable key={item.id} onPress={() => router.push(`/admin/customers/${item.id}`)}>
-            <CardBlock>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
-                <View style={{ flexDirection: "row", gap: 12, flex: 1 }}>
-                  <View
-                    style={{
-                      width: 42,
-                      height: 42,
-                      borderRadius: 15,
-                      backgroundColor: "#f1f5f9",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Text selectable style={{ color: "#475569", fontSize: 16, fontWeight: "900" }}>
-                      {String(item.name || "C").trim().charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <Text selectable style={{ color: "#0f172a", fontSize: 16, fontWeight: "800" }}>
-                      {item.name || "Customer"}
-                    </Text>
-                    <Text selectable style={{ color: "#475569", fontSize: 13 }}>
-                      {item.phone || item.email || "Kontak belum tersedia"}
-                    </Text>
-                    <Text selectable style={{ color: "#94a3b8", fontSize: 12 }}>
-                      {item.email || "Email belum ada"}
-                    </Text>
-                  </View>
-                </View>
-                <View style={{ borderRadius: 999, backgroundColor: tier.bg, paddingHorizontal: 10, paddingVertical: 6, alignSelf: "flex-start" }}>
-                  <Text selectable style={{ color: tier.tone, fontSize: 11, fontWeight: "800" }}>
-                    {tier.label}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={{ flexDirection: "row", gap: 10 }}>
-                <View style={{ flex: 1, borderRadius: 16, backgroundColor: "#f8fafc", paddingHorizontal: 12, paddingVertical: 12, gap: 3 }}>
-                  <Text selectable style={{ color: "#94a3b8", fontSize: 10, fontWeight: "800", letterSpacing: 1 }}>
-                    KUNJUNGAN
-                  </Text>
-                  <Text selectable style={{ color: "#0f172a", fontSize: 14, fontWeight: "900" }}>
-                    {Number(item.total_visits || 0)}
-                  </Text>
-                </View>
-                <View style={{ flex: 1, borderRadius: 16, backgroundColor: "#f8fafc", paddingHorizontal: 12, paddingVertical: 12, gap: 3 }}>
-                  <Text selectable style={{ color: "#94a3b8", fontSize: 10, fontWeight: "800", letterSpacing: 1 }}>
-                    SPENT
-                  </Text>
-                  <Text selectable style={{ color: "#1d4ed8", fontSize: 14, fontWeight: "900" }}>
-                    {formatCurrency(item.total_spent || 0) === "Cek harga" ? "Rp 0" : formatCurrency(item.total_spent || 0)}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                <Text selectable style={{ color: "#64748b", fontSize: 12 }}>
-                  Last visit {formatDate(item.last_visit)}
-                </Text>
-                <Text selectable style={{ color: "#64748b", fontSize: 12 }}>
-                  {Number(item.loyalty_points || 0)} pts
-                </Text>
-              </View>
-            </CardBlock>
-          </Pressable>
+          <ListRow
+            key={item.id}
+            onPress={() =>
+              router.push({
+                pathname: "/admin/customers/[id]",
+                params: { id: item.id },
+              })
+            }
+            title={item.name || "Customer"}
+            subtitle={item.phone || item.email || "Kontak belum tersedia"}
+            meta={`Visit ${Number(item.total_visits || 0)} • ${formatCurrency(item.total_spent || 0) === "Cek harga" ? "Rp 0" : formatCurrency(item.total_spent || 0)} • Last ${formatDate(item.last_visit)} • ${Number(item.loyalty_points || 0)} pts`}
+            badge={<StatusPill label={tier.label} tone={mapTierTone(tier.label)} />}
+          />
         );
       })}
+      </CardBlock>
 
       {!customersQuery.isLoading && !filtered.length ? (
-        <CardBlock>
-          <Text selectable style={{ color: "#475569", fontSize: 14, lineHeight: 22 }}>
-            Belum ada customer yang cocok dengan pencarian ini.
-          </Text>
-        </CardBlock>
+        <EmptyStateCard title="Tidak ada hasil" description="Coba ubah kata kunci pencarian customer." />
       ) : null}
     </ScreenShell>
   );
+}
+
+function mapTierTone(label: string): "blue" | "success" | "amber" | "danger" | "slate" {
+  const normalized = label.toLowerCase();
+  if (normalized === "vip") return "success";
+  if (normalized === "gold") return "amber";
+  if (normalized === "new") return "blue";
+  return "slate";
 }

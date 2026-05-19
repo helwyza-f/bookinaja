@@ -5,6 +5,7 @@
   "scripts": {
     "env:local": "node ./script/use-env.mjs local",
     "env:prod": "node ./script/use-env.mjs prod",
+    "sync:routes": "node ./script/sync-routes.mjs",
     "start": "expo start",
     "start:local": "npm run env:local && expo start",
     "start:prod": "npm run env:prod && expo start",
@@ -13,12 +14,15 @@
     "android:local": "npm run env:local && expo run:android",
     "android:prod": "npm run env:prod && expo run:android",
     "android:start": "expo start --dev-client --scheme bookinaja --host localhost",
+    "android:start:clean": "expo start --dev-client --scheme bookinaja --host localhost -c",
     "android:start:local": "npm run env:local && expo start --dev-client --scheme bookinaja --host localhost",
+    "android:start:local:clean": "npm run env:local && expo start --dev-client --scheme bookinaja --host localhost -c",
     "android:start:prod": "npm run env:prod && expo start --dev-client --scheme bookinaja --host localhost",
+    "android:start:prod:clean": "npm run env:prod && expo start --dev-client --scheme bookinaja --host localhost -c",
     "ios": "expo run:ios",
     "web": "expo start --web",
     "doctor": "npx expo-doctor",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "npm run sync:routes && tsc --noEmit"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
@@ -37,6 +41,7 @@
     "expo-linking": "~8.0.12",
     "expo-router": "~6.0.23",
     "expo-secure-store": "~15.0.8",
+    "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
     "expo-web-browser": "~15.0.11",
     "react": "19.1.0",

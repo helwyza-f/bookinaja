@@ -66,6 +66,7 @@ export default function CustomerProfileScreen() {
       eyebrow="Account"
       title="Profil"
       description="Satu tempat untuk identitas akun, loyalty, dan jejak booking yang paling relevan."
+      includeBottomSafeArea={false}
     >
       <Animated.View entering={FadeInUp.duration(320)}>
         <CardBlock>

@@ -49,6 +49,21 @@ func TestValidateBookingTransitionAllowsCompletionOnlyFromActive(t *testing.T) {
 	}
 }
 
+func TestValidateBookingTransitionAllowsCancellationOnlyBeforeSessionStarts(t *testing.T) {
+	if err := validateBookingTransition("pending", "cancelled", "pending", 0, false); err != nil {
+		t.Fatalf("validateBookingTransition() error = %v, want nil for pending cancellation", err)
+	}
+	if err := validateBookingTransition("confirmed", "cancelled", "pending", 0, false); err != nil {
+		t.Fatalf("validateBookingTransition() error = %v, want nil for confirmed cancellation", err)
+	}
+}
+
+func TestValidateBookingTransitionRejectsCancellationAfterSessionStarts(t *testing.T) {
+	if err := validateBookingTransition("active", "cancelled", "partial_paid", 15000, false); err == nil {
+		t.Fatal("validateBookingTransition() error = nil, want invalid cancellation error")
+	}
+}
+
 func TestResolveBookingLifecycleUsesPendingAndDepositForScheduled(t *testing.T) {
 	status, deposit, paid, balance, paymentStatus, paymentMethod := resolveBookingLifecycle(
 		CreateBookingReq{BookingMode: "scheduled"},

@@ -152,7 +152,7 @@ function getLiveMeta(status?: string) {
       label: "Sesi sedang berjalan",
       tone: "#059669",
       bg: "#ecfdf5",
-      hint: "Pantau waktu sesi, tambah layanan, atau akhiri saat pemakaian selesai.",
+      hint: "Timer aktif.",
     };
   }
   if (normalized === "completed") {
@@ -160,7 +160,7 @@ function getLiveMeta(status?: string) {
       label: "Sesi selesai",
       tone: "#0f172a",
       bg: "#f8fafc",
-      hint: "Sesi sudah ditutup. Lanjutkan pelunasan bila masih ada sisa tagihan.",
+      hint: "Sesi sudah ditutup.",
     };
   }
   if (normalized === "confirmed") {
@@ -168,14 +168,14 @@ function getLiveMeta(status?: string) {
       label: "Siap dimulai",
       tone: "#2563eb",
       bg: "#eff6ff",
-      hint: "Booking siap dipakai. Aktifkan sesi saat customer mulai menggunakan resource.",
+      hint: "Aktifkan saat mulai dipakai.",
     };
   }
   return {
     label: "Menunggu sesi",
     tone: "#d97706",
     bg: "#fff7ed",
-    hint: "Pantau status booking dan aktifkan sesi saat waktunya tiba.",
+    hint: "Tunggu jam mulai.",
   };
 }
 
@@ -194,9 +194,9 @@ function getPaymentMeta(status?: string) {
 }
 
 function getActivationReason(hasPaidDp: boolean, isTimeReached: boolean) {
-  if (!hasPaidDp) return "DP untuk booking ini belum tercatat. Selesaikan pembayaran awal dulu sebelum sesi diaktifkan.";
-  if (!isTimeReached) return "Jam mulai booking belum tiba. Aktivasi baru tersedia saat sesi memang sudah bisa dipakai.";
-  return "Booking ini siap diaktifkan sekarang.";
+  if (!hasPaidDp) return "Bayar DP dulu sebelum aktivasi.";
+  if (!isTimeReached) return "Aktivasi terbuka saat jam mulai.";
+  return "Siap diaktifkan.";
 }
 
 function formatCountdown(totalSeconds: number) {
@@ -405,13 +405,13 @@ function resolveLiveJourneyAction(input: {
     if (paymentStatus === "awaiting_verification") {
       return {
         primary: { href: `/user/me/bookings/${input.bookingID}/payment?scope=deposit` as const, label: "Lihat pembayaran" },
-        secondary: { href: `/user/me/bookings/${input.bookingID}` as const, label: "Kembali", tone: "secondary" },
+        secondary: null,
       };
     }
     if (!input.hasPaidDp && depositAmount > 0) {
       return {
         primary: { href: `/user/me/bookings/${input.bookingID}/payment?scope=deposit` as const, label: "Bayar DP" },
-        secondary: { href: `/user/me/bookings/${input.bookingID}` as const, label: "Kembali", tone: "secondary" },
+        secondary: null,
       };
     }
     if (!input.isTimeReached) {
@@ -419,21 +419,21 @@ function resolveLiveJourneyAction(input: {
         primary: {
           label: "Menunggu jam mulai",
           disabled: true,
-          hint: "Aktivasi baru terbuka saat waktu booking sudah masuk.",
+          hint: "Buka lagi saat jam mulai.",
         },
-        secondary: { href: `/user/me/bookings/${input.bookingID}` as const, label: "Kembali", tone: "secondary" },
+        secondary: null,
       };
     }
     return {
       primary: { label: "Aktifkan sesi", onPress: input.onActivate },
-      secondary: { href: `/user/me/bookings/${input.bookingID}` as const, label: "Kembali", tone: "secondary" },
+      secondary: null,
     };
   }
 
   if (input.isCompleted && balanceDue > 0) {
     return {
       primary: { href: `/user/me/bookings/${input.bookingID}/payment?scope=settlement` as const, label: "Bayar sisa tagihan" },
-      secondary: { href: `/user/me/bookings/${input.bookingID}` as const, label: "Kembali", tone: "secondary" },
+      secondary: null,
     };
   }
 
@@ -447,19 +447,19 @@ function resolveLiveJourneyAction(input: {
   if (input.isActiveStatus) {
     return {
       primary: balanceDue > 0 ? { href: `/user/me/bookings/${input.bookingID}/payment?scope=settlement` as const, label: "Buka pembayaran", tone: "secondary" } : null,
-      secondary: { href: `/user/me/bookings/${input.bookingID}` as const, label: "Kembali", tone: "secondary" },
+      secondary: null,
     };
   }
 
   if (status === "cancelled") {
     return {
-      primary: { href: `/user/me/bookings/${input.bookingID}` as const, label: "Kembali" },
+      primary: null,
       secondary: null,
     };
   }
 
   return {
-    primary: { href: `/user/me/bookings/${input.bookingID}` as const, label: "Kembali" },
+    primary: null,
     secondary: null,
   };
 }
@@ -888,10 +888,6 @@ export default function CustomerBookingLiveScreen() {
   }
 
   function handleJourneyAction(action: LiveAction) {
-    if (action.label.toLowerCase().includes("kembali")) {
-      goBackToBooking();
-      return;
-    }
     if (action.onPress) {
       action.onPress();
       return;
@@ -909,13 +905,13 @@ export default function CustomerBookingLiveScreen() {
   );
   const renderConfirmFooter = useCallback(
     (props: ComponentProps<typeof BottomSheetFooter>) => (
-      <BottomSheetFooter {...props} bottomInset={Math.max(insets.bottom, 12) + 12}>
+      <BottomSheetFooter {...props} bottomInset={Math.max(insets.bottom - 6, 2)}>
         <View
           style={{
             paddingHorizontal: 20,
-            paddingTop: 12,
-            paddingBottom: Math.max(insets.bottom, 12) + 16,
-            gap: 10,
+            paddingTop: 10,
+            paddingBottom: Math.max(insets.bottom, 6) + 2,
+            gap: 8,
             backgroundColor: "#ffffff",
             borderTopWidth: 1,
             borderTopColor: "#eef2f7",
@@ -960,13 +956,13 @@ export default function CustomerBookingLiveScreen() {
   );
   const renderPickerFooter = useCallback(
     (props: ComponentProps<typeof BottomSheetFooter>) => (
-      <BottomSheetFooter {...props} bottomInset={Math.max(insets.bottom, 12) + 12}>
+      <BottomSheetFooter {...props} bottomInset={Math.max(insets.bottom - 6, 2)}>
         <View
           style={{
             paddingHorizontal: 20,
-            paddingTop: 12,
-            paddingBottom: Math.max(insets.bottom, 12) + 16,
-            gap: 10,
+            paddingTop: 10,
+            paddingBottom: Math.max(insets.bottom, 6) + 2,
+            gap: 8,
             backgroundColor: "#ffffff",
             borderTopWidth: 1,
             borderTopColor: "#eef2f7",
@@ -1035,7 +1031,7 @@ export default function CustomerBookingLiveScreen() {
     <ScreenShell
       eyebrow="Live booking"
       title={booking?.resource_name || "Sesi booking"}
-      description="Controller mobile untuk mengaktifkan sesi, memantau waktu, dan menjalankan aksi live yang penting."
+      description="Timer, aksi sesi, dan pembayaran."
     >
       <CardBlock>
         <View style={{ gap: 14 }}>
@@ -1103,7 +1099,7 @@ export default function CustomerBookingLiveScreen() {
               Menunggu jam mulai
             </Text>
             <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 20 }}>
-              Booking belum masuk ke waktu pemakaian. Saat countdown habis, sesi bisa diaktifkan dari layar ini.
+              Saat countdown habis, sesi bisa diaktifkan.
             </Text>
           </View>
 
@@ -1183,7 +1179,7 @@ export default function CustomerBookingLiveScreen() {
               Kontrol live
             </Text>
             <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 20 }}>
-              Ikuti alur web: tambah durasi, pesan F&B, tambah add-on, lalu tutup sesi saat selesai.
+              Tambah durasi, F&B, add-on, atau tutup sesi.
             </Text>
           </View>
 
@@ -1275,10 +1271,10 @@ export default function CustomerBookingLiveScreen() {
         <CardBlock>
           <View style={{ gap: 6 }}>
             <Text selectable style={{ color: "#0f172a", fontSize: 18, fontWeight: "900" }}>
-              Ringkasan booking
+              Ringkasan
             </Text>
             <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 20 }}>
-              Susunan booking ini mengikuti pola web: layanan utama, add-on, lalu pesanan F&B yang sudah masuk.
+              Paket, add-on, dan F&B yang sudah masuk.
             </Text>
           </View>
 
@@ -1337,10 +1333,10 @@ export default function CustomerBookingLiveScreen() {
       <CardBlock>
         <View style={{ gap: 6 }}>
           <Text selectable style={{ color: "#0f172a", fontSize: 18, fontWeight: "900" }}>
-            Pembayaran booking
+            Pembayaran
           </Text>
           <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 20 }}>
-            Polanya sama seperti web: DP sebelum sesi aktif, pelunasan setelah sesi selesai.
+            DP sebelum sesi, pelunasan setelah selesai.
           </Text>
         </View>
 
@@ -1363,10 +1359,10 @@ export default function CustomerBookingLiveScreen() {
         <CardBlock>
           <View style={{ gap: 6 }}>
             <Text selectable style={{ color: "#0f172a", fontSize: 18, fontWeight: "900" }}>
-              Riwayat aktivitas
+              Aktivitas
             </Text>
             <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 20 }}>
-              Jejak tindakan dan perubahan status terbaru pada booking ini.
+              Jejak aksi terbaru.
             </Text>
           </View>
 
@@ -1406,6 +1402,12 @@ export default function CustomerBookingLiveScreen() {
         </CardBlock>
       ) : null}
 
+      <Pressable onPress={goBackToBooking} style={{ alignItems: "center", paddingVertical: 4 }}>
+        <Text selectable style={{ color: "#64748b", fontSize: 13, fontWeight: "700" }}>
+          Kembali ke booking
+        </Text>
+      </Pressable>
+
       {confirmSheet ? (
         <BottomSheetModal
           ref={confirmSheetRef}
@@ -1419,7 +1421,7 @@ export default function CustomerBookingLiveScreen() {
         handleIndicatorStyle={{ backgroundColor: "#d9e2ec", width: 42, height: 5 }}
         backgroundStyle={{ backgroundColor: "#ffffff" }}
       >
-          <BottomSheetView style={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 120, gap: 16 }}>
+          <BottomSheetView style={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 96, gap: 16 }}>
             <View style={{ gap: 6 }}>
               <Text selectable style={{ color: "#0f172a", fontSize: 21, fontWeight: "900" }}>
                 {confirmSheet.title}
@@ -1453,7 +1455,7 @@ export default function CustomerBookingLiveScreen() {
               flex: 1,
               paddingHorizontal: 20,
               paddingTop: 6,
-              paddingBottom: Math.max(insets.bottom, 12) + 8,
+              paddingBottom: Math.max(insets.bottom, 6) + 2,
               gap: 16,
             }}
           >
@@ -1463,8 +1465,8 @@ export default function CustomerBookingLiveScreen() {
               </Text>
               <Text selectable style={{ color: "#64748b", fontSize: 14, lineHeight: 21 }}>
                 {pickerSheet.kind === "fnb"
-                  ? "Pilih item F&B lalu tambahkan ke booking aktif."
-                  : "Pilih add-on yang ingin dimasukkan ke booking ini."}
+                  ? "Pilih item F&B."
+                  : "Pilih add-on."}
               </Text>
             </View>
 
@@ -1490,7 +1492,7 @@ export default function CustomerBookingLiveScreen() {
               showsVerticalScrollIndicator={false}
               bounces={false}
               keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ gap: 10, paddingBottom: 220 + Math.max(insets.bottom, 12) }}
+              contentContainerStyle={{ gap: 10, paddingBottom: 124 + Math.max(insets.bottom, 6) }}
             >
             {(pickerSheet?.kind === "fnb" ? filteredMenuItems : filteredAddonItems).map((item) => (
               <View

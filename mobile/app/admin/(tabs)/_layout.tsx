@@ -1,11 +1,49 @@
 import { Redirect, Tabs } from "expo-router";
-import { MaterialIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSession } from "@/providers/session-provider";
+import { adminUi } from "@/theme/admin-ui";
+import { BookinajaSignal } from "@/components/bookinaja-signal";
+
+function TabIcon({
+  name,
+  color,
+  size,
+  focused,
+}: {
+  name: keyof typeof MaterialCommunityIcons.glyphMap;
+  color: string;
+  size: number;
+  focused: boolean;
+}) {
+  return (
+    <View
+      style={{
+        width: 36,
+        height: 36,
+        borderRadius: 14,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: focused ? adminUi.tones.blue.soft : "transparent",
+        borderWidth: focused ? 1 : 0,
+        borderColor: focused ? adminUi.tones.blue.border : "transparent",
+      }}
+    >
+      {focused ? (
+        <View style={{ position: "absolute", top: -3, right: -3 }}>
+          <BookinajaSignal size={11} tone="blue" />
+        </View>
+      ) : null}
+      <MaterialCommunityIcons name={name} size={size} color={color} />
+    </View>
+  );
+}
 
 export default function AdminTabsLayout() {
   const session = useSession();
   const insets = useSafeAreaInsets();
+  const tabBarBottomPadding = Math.max(insets.bottom, 10);
 
   if (session.isReady && !session.adminToken) {
     return <Redirect href="/admin/login" />;
@@ -15,18 +53,38 @@ export default function AdminTabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#1d4ed8",
-        tabBarInactiveTintColor: "#94a3b8",
+        tabBarActiveTintColor: adminUi.colors.accent,
+        tabBarInactiveTintColor: adminUi.colors.textFaint,
+        tabBarHideOnKeyboard: true,
+        sceneStyle: {
+          backgroundColor: adminUi.colors.page,
+        },
         tabBarStyle: {
-          height: 50 + Math.max(insets.bottom, 8),
+          position: "absolute",
+          left: 14,
+          right: 14,
+          bottom: adminUi.layout.floatingTabBottom,
+          height: adminUi.layout.floatingTabHeight + tabBarBottomPadding,
           paddingTop: 8,
-          paddingBottom: Math.max(insets.bottom, 8),
-          borderTopColor: "#dbe4f2",
-          backgroundColor: "#fbfdff",
+          paddingBottom: tabBarBottomPadding,
+          borderTopWidth: 1,
+          borderTopColor: adminUi.colors.lineSoft,
+          borderRadius: 26,
+          backgroundColor: "rgba(255,255,255,0.98)",
+          elevation: 0,
+          shadowColor: adminUi.colors.shadow,
+          shadowOpacity: 0.1,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 10 },
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: "700",
+          fontSize: 10,
+          fontWeight: "800",
+          marginTop: 4,
+        },
+        tabBarItemStyle: {
+          paddingTop: 2,
+          paddingBottom: 0,
         },
       }}
     >
@@ -34,28 +92,35 @@ export default function AdminTabsLayout() {
         name="dashboard"
         options={{
           title: "Dashboard",
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="space-dashboard" size={size} color={color} />,
+          tabBarIcon: ({ color, size, focused }) => <TabIcon name="view-dashboard-outline" size={size} color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="bookings"
         options={{
           title: "Bookings",
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="calendar-month" size={size} color={color} />,
+          tabBarIcon: ({ color, size, focused }) => <TabIcon name="calendar-month-outline" size={size} color={color} focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="operations"
+        options={{
+          title: "Ops",
+          tabBarIcon: ({ color, size, focused }) => <TabIcon name="lightning-bolt-outline" size={size} color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="customers"
         options={{
           title: "Customers",
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="groups-2" size={size} color={color} />,
+          tabBarIcon: ({ color, size, focused }) => <TabIcon name="account-group-outline" size={size} color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
-        name="more"
+        name="workspace"
         options={{
-          title: "More",
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="tune" size={size} color={color} />,
+          title: "Workspace",
+          tabBarIcon: ({ color, size, focused }) => <TabIcon name="briefcase-outline" size={size} color={color} focused={focused} />,
         }}
       />
     </Tabs>

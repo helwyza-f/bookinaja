@@ -1,15 +1,17 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import { Link, router } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
-import { MaterialIcons } from "@expo/vector-icons";
+import { Pressable, Text, TextInput, View } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { apiFetch, ApiError } from "@/lib/api";
+import { CardBlock } from "@/components/card-block";
 import { CtaButton } from "@/components/cta-button";
 import { Field } from "@/components/field";
 import { GoogleLogo } from "@/components/google-logo";
+import { ScreenShell } from "@/components/screen-shell";
+import { StatusPill } from "@/components/admin-primitives";
 import { getGoogleIdToken } from "@/lib/google-native";
+import { useToast } from "@/providers/toast-provider";
 import { useSession } from "@/providers/session-provider";
 
 type LoginResponse = {
@@ -29,50 +31,146 @@ type TenantListResponse = {
   items: TenantOption[];
 };
 
-function SurfaceCard({ children }: { children: React.ReactNode }) {
+function SearchField({
+  value,
+  onChangeText,
+}: {
+  value: string;
+  onChangeText: (value: string) => void;
+}) {
   return (
     <View
       style={{
-        borderRadius: 28,
+        borderRadius: 18,
         borderWidth: 1,
-        borderColor: "#e2e8f0",
-        backgroundColor: "#ffffff",
-        padding: 18,
-        gap: 14,
-        shadowColor: "#0f172a",
-        shadowOpacity: 0.04,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 6 },
-        elevation: 1,
+        borderColor: "#d7dfeb",
+        backgroundColor: "#fbfcff",
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
       }}
     >
-      {children}
+      <MaterialCommunityIcons name="magnify" size={18} color="#64748b" />
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder="Cari nama bisnis atau slug"
+        placeholderTextColor="#94a3b8"
+        style={{
+          flex: 1,
+          color: "#0f172a",
+          fontSize: 15,
+          paddingVertical: 10,
+        }}
+      />
     </View>
   );
 }
 
-function GoogleMark() {
+function BusinessRow({
+  item,
+  active,
+  onPress,
+}: {
+  item: TenantOption;
+  active: boolean;
+  onPress: () => void;
+}) {
   return (
-    <View
+    <Pressable
+      onPress={onPress}
       style={{
-        width: 42,
-        height: 42,
-        borderRadius: 14,
-        backgroundColor: "#ffffff",
-        alignItems: "center",
-        justifyContent: "center",
+        borderRadius: 20,
         borderWidth: 1,
-        borderColor: "#e5e7eb",
+        borderColor: active ? "#c7d7ff" : "#e6edf5",
+        backgroundColor: active ? "#f5f8ff" : "#ffffff",
+        paddingHorizontal: 14,
+        paddingVertical: 14,
+        gap: 8,
       }}
     >
-      <GoogleLogo />
-    </View>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text
+            style={{
+              color: "#0f172a",
+              fontSize: 15,
+              fontWeight: "800",
+            }}
+          >
+            {item.name}
+          </Text>
+          <Text style={{ color: "#5b687c", fontSize: 13, lineHeight: 19 }}>
+            {item.tagline || item.business_type || item.business_category || item.slug}
+          </Text>
+        </View>
+        <View style={{ alignItems: "flex-end", gap: 8 }}>
+          <StatusPill label={active ? "Dipilih" : item.slug} tone={active ? "blue" : "slate"} />
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+function GoogleLoginCard({
+  loading,
+  onPress,
+}: {
+  loading: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={loading}
+      style={{
+        borderRadius: 22,
+        borderWidth: 1,
+        borderColor: "#dbe7ff",
+        backgroundColor: "#f8fbff",
+        paddingHorizontal: 16,
+        paddingVertical: 16,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        opacity: loading ? 0.7 : 1,
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: "#e5e7eb",
+            backgroundColor: "#ffffff",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <GoogleLogo />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={{ color: "#0f172a", fontSize: 15, fontWeight: "800" }}>
+            {loading ? "Memproses..." : "Masuk dengan Google"}
+          </Text>
+          <Text style={{ color: "#5b687c", fontSize: 13, lineHeight: 19 }}>
+            Jalur cepat untuk owner dan tim tenant.
+          </Text>
+        </View>
+      </View>
+      <MaterialCommunityIcons name="arrow-right" size={18} color="#2563eb" />
+    </Pressable>
   );
 }
 
 export default function AdminLoginScreen() {
-  const insets = useSafeAreaInsets();
   const session = useSession();
+  const { showToast } = useToast();
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const [selectedBusiness, setSelectedBusiness] = useState<TenantOption | null>(null);
@@ -102,7 +200,11 @@ export default function AdminLoginScreen() {
 
   async function loginGoogle() {
     if (!selectedBusiness?.slug) {
-      Alert.alert("Pilih bisnis dulu", "Cari lalu pilih bisnis yang ingin kamu kelola.");
+      showToast({
+        tone: "warning",
+        title: "Pilih bisnis dulu",
+        message: "Cari lalu pilih tenant yang ingin kamu kelola.",
+      });
       return;
     }
 
@@ -123,7 +225,7 @@ export default function AdminLoginScreen() {
         error instanceof ApiError || error instanceof Error
           ? error.message
           : "Login Google admin gagal.";
-      Alert.alert("Google login gagal", message);
+      showToast({ tone: "error", title: "Google login gagal", message });
     } finally {
       setLoading(false);
     }
@@ -131,7 +233,11 @@ export default function AdminLoginScreen() {
 
   async function submit() {
     if (!selectedBusiness?.slug || !email || !password) {
-      Alert.alert("Data belum lengkap", "Pilih bisnis, isi email, dan password terlebih dulu.");
+      showToast({
+        tone: "warning",
+        title: "Data belum lengkap",
+        message: "Pilih bisnis, isi email, lalu masukkan password.",
+      });
       return;
     }
 
@@ -149,269 +255,174 @@ export default function AdminLoginScreen() {
       router.replace("/admin/dashboard");
     } catch (error) {
       const message = error instanceof ApiError ? error.message : "Login admin gagal.";
-      Alert.alert("Login gagal", message);
+      showToast({ tone: "error", title: "Login gagal", message });
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#f5f8ff" }} edges={["top", "right", "bottom", "left"]}>
-      <View style={{ flex: 1 }}>
-        <View pointerEvents="none" style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
-          <View
-            style={{
-              top: -38,
-              right: -42,
-              width: 184,
-              height: 184,
-              borderRadius: 999,
-              backgroundColor: "#deebff",
-            }}
-          />
-        </View>
+    <ScreenShell
+      eyebrow="Admin access"
+      title="Masuk ke bisnis"
+      description="Pilih tenant dulu, lalu lanjut masuk cepat dengan Google atau email."
+    >
+      <CardBlock>
+        <View style={{ gap: 10 }}>
+          <SearchField value={query} onChangeText={setQuery} />
 
-        <ScrollView
-          contentContainerStyle={{
-            paddingHorizontal: 18,
-            paddingTop: 14,
-            paddingBottom: Math.max(insets.bottom, 12) + 24,
-            gap: 16,
-          }}
-        >
-          <Animated.View entering={FadeInUp.duration(280)} style={{ gap: 10 }}>
+          {selectedBusiness ? (
             <View
               style={{
-                alignSelf: "flex-start",
-                borderRadius: 999,
-                backgroundColor: "#e8f0ff",
-                paddingHorizontal: 12,
-                paddingVertical: 8,
+                borderRadius: 18,
+                backgroundColor: "#f8fbff",
+                borderWidth: 1,
+                borderColor: "#dbe7ff",
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
               }}
             >
-              <Text selectable style={{ color: "#1d4ed8", fontSize: 11, fontWeight: "800", letterSpacing: 1.5 }}>
-                BUSINESS LOGIN
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={{ color: "#0f172a", fontSize: 14, fontWeight: "800" }}>
+                  {selectedBusiness.name}
+                </Text>
+                <Text style={{ color: "#5b687c", fontSize: 12 }}>
+                  {selectedBusiness.slug}
+                </Text>
+              </View>
+              <StatusPill label="Dipilih" tone="blue" />
+            </View>
+          ) : null}
+        </View>
+
+        <View style={{ gap: 10 }}>
+          {tenantsQuery.isLoading ? (
+            <View
+              style={{
+                borderRadius: 18,
+                backgroundColor: "#f8fafc",
+                paddingHorizontal: 14,
+                paddingVertical: 16,
+              }}
+            >
+              <Text style={{ color: "#64748b", fontSize: 13 }}>
+                Memuat daftar bisnis...
               </Text>
             </View>
-            <Text selectable style={{ color: "#0f172a", fontSize: 34, fontWeight: "900", lineHeight: 38 }}>
-              Cari bisnis
-            </Text>
-            <Text selectable style={{ color: "#64748b", fontSize: 15, lineHeight: 23, maxWidth: "92%" }}>
-              Temukan bisnis yang ingin kamu kelola, lalu lanjut masuk sebagai owner atau tim tenant.
-            </Text>
-          </Animated.View>
+          ) : null}
 
-          <Animated.View entering={FadeInDown.delay(40).duration(320)} style={{ gap: 12 }}>
-            <SurfaceCard>
-              <View
-                style={{
-                  borderRadius: 20,
-                  borderWidth: 1,
-                  borderColor: "#d6deea",
-                  backgroundColor: "#fbfdff",
-                  paddingHorizontal: 14,
-                  paddingVertical: 6,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 10,
-                }}
-              >
-                <MaterialIcons name="search" size={18} color="#64748b" />
-                <TextInput
-                  value={query}
-                  onChangeText={setQuery}
-                  placeholder="Cari nama bisnis atau slug"
-                  placeholderTextColor="#94a3b8"
-                  style={{
-                    flex: 1,
-                    color: "#0f172a",
-                    fontSize: 15,
-                    paddingVertical: 10,
-                  }}
-                />
+          {filteredBusinesses.map((item) => (
+            <BusinessRow
+              key={item.id}
+              item={item}
+              active={selectedBusiness?.id === item.id}
+              onPress={() => setSelectedBusiness(item)}
+            />
+          ))}
+
+          {!tenantsQuery.isLoading && !filteredBusinesses.length ? (
+            <View
+              style={{
+                borderRadius: 18,
+                borderWidth: 1,
+                borderStyle: "dashed",
+                borderColor: "#d9e2ee",
+                backgroundColor: "#fbfdff",
+                paddingHorizontal: 14,
+                paddingVertical: 16,
+                gap: 4,
+              }}
+            >
+              <Text style={{ color: "#0f172a", fontSize: 14, fontWeight: "800" }}>
+                Bisnis belum ketemu
+              </Text>
+              <Text style={{ color: "#64748b", fontSize: 13, lineHeight: 19 }}>
+                Coba kata kunci lain, atau buat tenant baru kalau belum ada.
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        <Link href="/register" asChild>
+          <Pressable
+            style={{
+              borderRadius: 18,
+              borderWidth: 1,
+              borderColor: "#e6edf5",
+              backgroundColor: "#fbfdff",
+              paddingHorizontal: 14,
+              paddingVertical: 14,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <View style={{ gap: 3 }}>
+              <Text style={{ color: "#0f172a", fontSize: 14, fontWeight: "800" }}>
+                Daftar bisnis baru
+              </Text>
+              <Text style={{ color: "#64748b", fontSize: 12, lineHeight: 18 }}>
+                Buat tenant baru kalau belum ada di daftar.
+              </Text>
+            </View>
+            <MaterialCommunityIcons name="plus-circle-outline" size={20} color="#2563eb" />
+          </Pressable>
+        </Link>
+      </CardBlock>
+
+      {selectedBusiness ? (
+        <CardBlock>
+          <View style={{ gap: 10 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={{ color: "#0f172a", fontSize: 18, fontWeight: "900" }}>
+                  {selectedBusiness.name}
+                </Text>
+                <Text style={{ color: "#5b687c", fontSize: 13, lineHeight: 19 }}>
+                  Masuk sebagai owner atau tim tenant untuk bisnis ini.
+                </Text>
               </View>
+              <StatusPill label={selectedBusiness.slug} tone="slate" />
+            </View>
 
-              <View style={{ gap: 10 }}>
-                {filteredBusinesses.map((item) => {
-                  const active = selectedBusiness?.id === item.id;
-                  return (
-                    <Pressable
-                      key={item.id}
-                      onPress={() => setSelectedBusiness(item)}
-                      style={{
-                        borderRadius: 20,
-                        borderWidth: 1,
-                        borderColor: active ? "#2952d9" : "#e2e8f0",
-                        backgroundColor: active ? "#eef3ff" : "#ffffff",
-                        paddingHorizontal: 14,
-                        paddingVertical: 14,
-                        gap: 4,
-                      }}
-                    >
-                      <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
-                        <View style={{ flex: 1, gap: 4 }}>
-                          <Text selectable style={{ color: "#0f172a", fontSize: 15, fontWeight: "800" }}>
-                            {item.name}
-                          </Text>
-                          <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 19 }}>
-                            {item.tagline || item.business_type || item.business_category || item.slug}
-                          </Text>
-                        </View>
-                        <View
-                          style={{
-                            alignSelf: "flex-start",
-                            borderRadius: 999,
-                            backgroundColor: active ? "#dbe7ff" : "#f8fafc",
-                            paddingHorizontal: 10,
-                            paddingVertical: 7,
-                          }}
-                        >
-                          <Text selectable style={{ color: active ? "#2952d9" : "#64748b", fontSize: 12, fontWeight: "800" }}>
-                            {item.slug}
-                          </Text>
-                        </View>
-                      </View>
-                    </Pressable>
-                  );
-                })}
+            <GoogleLoginCard loading={loading} onPress={() => void loginGoogle()} />
+          </View>
 
-                {!tenantsQuery.isLoading && !filteredBusinesses.length ? (
-                  <View
-                    style={{
-                      borderRadius: 20,
-                      backgroundColor: "#f8fafc",
-                      paddingHorizontal: 14,
-                      paddingVertical: 16,
-                      gap: 4,
-                    }}
-                  >
-                    <Text selectable style={{ color: "#0f172a", fontSize: 14, fontWeight: "800" }}>
-                      Bisnis belum ketemu
-                    </Text>
-                    <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 19 }}>
-                      Coba kata kunci lain, atau daftar bisnis baru kalau tenant kamu belum ada.
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <View style={{ flex: 1, height: 1, backgroundColor: "#e6edf5" }} />
+            <Text style={{ color: "#94a3b8", fontSize: 12, fontWeight: "700" }}>
+              atau email
+            </Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: "#e6edf5" }} />
+          </View>
 
-              <Link href="/register" asChild>
-                <Pressable
-                  style={{
-                    borderRadius: 18,
-                    backgroundColor: "#f8fafc",
-                    paddingHorizontal: 14,
-                    paddingVertical: 14,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 12,
-                  }}
-                >
-                  <View style={{ gap: 3 }}>
-                    <Text selectable style={{ color: "#0f172a", fontSize: 15, fontWeight: "800" }}>
-                      Daftar bisnis baru
-                    </Text>
-                    <Text selectable style={{ color: "#64748b", fontSize: 13 }}>
-                      Buat tenant baru kalau belum ada di daftar.
-                    </Text>
-                  </View>
-                  <MaterialIcons name="add-circle-outline" size={20} color="#2563eb" />
-                </Pressable>
-              </Link>
-            </SurfaceCard>
-
-            {selectedBusiness ? (
-              <SurfaceCard>
-                <View
-                  style={{
-                    borderRadius: 20,
-                    backgroundColor: "#0f172a",
-                    paddingHorizontal: 16,
-                    paddingVertical: 16,
-                    gap: 4,
-                  }}
-                >
-                  <Text selectable style={{ color: "#93c5fd", fontSize: 11, fontWeight: "800", letterSpacing: 1.2 }}>
-                    BISNIS TERPILIH
-                  </Text>
-                  <Text selectable style={{ color: "#ffffff", fontSize: 20, fontWeight: "900" }}>
-                    {selectedBusiness.name}
-                  </Text>
-                  <Text selectable style={{ color: "rgba(255,255,255,0.72)", fontSize: 13 }}>
-                    {selectedBusiness.slug}
-                  </Text>
-                </View>
-
-                <Pressable
-                  onPress={() => void loginGoogle()}
-                  disabled={loading}
-                  style={{
-                    borderRadius: 22,
-                    backgroundColor: "#ffffff",
-                    borderWidth: 1,
-                    borderColor: "#e2e8f0",
-                    paddingHorizontal: 16,
-                    paddingVertical: 16,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 12,
-                    opacity: loading ? 0.7 : 1,
-                    shadowColor: "#0f172a",
-                    shadowOpacity: 0.06,
-                    shadowRadius: 12,
-                    shadowOffset: { width: 0, height: 6 },
-                    elevation: 2,
-                  }}
-                >
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
-                    <GoogleMark />
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <Text selectable style={{ color: "#0f172a", fontSize: 16, fontWeight: "800" }}>
-                        {loading ? "Memproses..." : "Masuk dengan Google"}
-                      </Text>
-                      <Text selectable style={{ color: "#64748b", fontSize: 13 }}>
-                        Jalur cepat untuk akun bisnis yang sudah aktif.
-                      </Text>
-                    </View>
-                  </View>
-                  <MaterialIcons name="arrow-forward" size={18} color="#2563eb" />
-                </Pressable>
-
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                  <View style={{ flex: 1, height: 1, backgroundColor: "#e2e8f0" }} />
-                  <Text selectable style={{ color: "#94a3b8", fontSize: 12, fontWeight: "700" }}>
-                    atau login manual
-                  </Text>
-                  <View style={{ flex: 1, height: 1, backgroundColor: "#e2e8f0" }} />
-                </View>
-
-                <Field
-                  label="Email"
-                  value={email}
-                  onChangeText={setEmail}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  placeholder="admin@bisnis.com"
-                />
-                <Field
-                  label="Password"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  placeholder="Kata sandi"
-                />
-                <CtaButton
-                  label={loading ? "Memverifikasi..." : "Masuk"}
-                  disabled={loading}
-                  onPress={() => void submit()}
-                />
-              </SurfaceCard>
-            ) : null}
-          </Animated.View>
-        </ScrollView>
-      </View>
-    </SafeAreaView>
+          <Field
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            placeholder="admin@bisnis.com"
+          />
+          <Field
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            placeholder="Kata sandi"
+          />
+          <CtaButton
+            label={loading ? "Memverifikasi..." : "Masuk"}
+            disabled={loading}
+            onPress={() => void submit()}
+          />
+        </CardBlock>
+      ) : null}
+    </ScreenShell>
   );
 }

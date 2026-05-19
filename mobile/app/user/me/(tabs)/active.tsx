@@ -64,9 +64,80 @@ export default function CustomerActiveScreen() {
     [activeQuery.data?.active_orders],
   );
   const items = activeTab === "booking" ? bookings : orders;
+  const totalActive = bookings.length + orders.length;
 
   return (
-    <ScreenShell eyebrow="Customer" title="Aktif" description="Semua sesi dan transaksi yang masih berjalan ada di sini.">
+    <ScreenShell
+      eyebrow="Customer"
+      title="Aktif"
+      description="Semua sesi dan transaksi yang masih berjalan ada di sini."
+      includeBottomSafeArea={false}
+    >
+      <View style={{ flexDirection: "row", gap: 10 }}>
+        {[
+          {
+            label: "Booking",
+            value: String(bookings.length),
+            hint: bookings.length ? "Masih dipantau" : "Belum ada",
+            tone: "#2563eb",
+            bg: "#eff6ff",
+            icon: "event-seat" as const,
+          },
+          {
+            label: "Order",
+            value: String(orders.length),
+            hint: orders.length ? "Siap dibuka" : "Belum ada",
+            tone: "#0f766e",
+            bg: "#ecfeff",
+            icon: "receipt-long" as const,
+          },
+          {
+            label: "Semua",
+            value: String(totalActive),
+            hint: totalActive ? "Masih berjalan" : "Kosong",
+            tone: "#7c3aed",
+            bg: "#f5f3ff",
+            icon: "bolt" as const,
+          },
+        ].map((item) => (
+          <View
+            key={item.label}
+            style={{
+              flex: 1,
+              borderRadius: 18,
+              backgroundColor: item.bg,
+              paddingHorizontal: 12,
+              paddingVertical: 12,
+              gap: 8,
+            }}
+          >
+            <View
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 12,
+                backgroundColor: "#ffffff",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <MaterialIcons name={item.icon} size={18} color={item.tone} />
+            </View>
+            <View style={{ gap: 2 }}>
+              <Text selectable style={{ color: "#64748b", fontSize: 10, fontWeight: "800", letterSpacing: 1 }}>
+                {item.label.toUpperCase()}
+              </Text>
+              <Text selectable style={{ color: "#0f172a", fontSize: 18, fontWeight: "900" }}>
+                {item.value}
+              </Text>
+              <Text selectable style={{ color: "#64748b", fontSize: 11 }}>
+                {item.hint}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
+
       <View
         style={{
           flexDirection: "row",
@@ -119,13 +190,13 @@ export default function CustomerActiveScreen() {
         >
           <Pressable>
             <CardBlock>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
+                <View style={{ flexDirection: "row", gap: 12, flex: 1 }}>
                   <View
                     style={{
-                      width: 42,
-                      height: 42,
-                      borderRadius: 15,
+                      width: 44,
+                      height: 44,
+                      borderRadius: 16,
                       backgroundColor: item.kind === "order" ? "#f8fafc" : "#eff6ff",
                       alignItems: "center",
                       justifyContent: "center",
@@ -137,38 +208,43 @@ export default function CustomerActiveScreen() {
                       color={item.kind === "order" ? "#475569" : "#2563eb"}
                     />
                   </View>
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <Text selectable style={{ color: "#0f172a", fontSize: 16, fontWeight: "800" }}>
-                      {item.tenant_name || "Tenant"}
-                    </Text>
-                    <Text selectable style={{ color: "#475569", fontSize: 14 }}>
-                      {item.kind === "order" ? "Direct sale" : "Booking"}
-                    </Text>
+                  <View style={{ flex: 1, gap: 8 }}>
+                    <View style={{ gap: 3 }}>
+                      <Text selectable style={{ color: "#0f172a", fontSize: 16, fontWeight: "800" }}>
+                        {item.tenant_name || "Tenant"}
+                      </Text>
+                      <Text selectable style={{ color: "#64748b", fontSize: 13 }}>
+                        {item.kind === "order" ? "Direct sale aktif" : "Booking aktif"}
+                      </Text>
+                    </View>
+                    {(() => {
+                      const statusMeta =
+                        item.kind === "order"
+                          ? getOrderStatusMeta(item.status, item.status, 0)
+                          : getBookingStatusMeta(item.status);
+                      return (
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                          <View
+                            style={{
+                              borderRadius: 999,
+                              backgroundColor: `${statusMeta.tone}14`,
+                              paddingHorizontal: 10,
+                              paddingVertical: 6,
+                            }}
+                          >
+                            <Text selectable style={{ color: statusMeta.tone, fontSize: 11, fontWeight: "800" }}>
+                              {statusMeta.label}
+                            </Text>
+                          </View>
+                          <Text selectable style={{ color: "#2563eb", fontSize: 12, fontWeight: "800" }}>
+                            Buka detail
+                          </Text>
+                        </View>
+                      );
+                    })()}
                   </View>
                 </View>
-                <View style={{ alignItems: "flex-end", gap: 6 }}>
-                  {(() => {
-                    const statusMeta =
-                      item.kind === "order"
-                        ? getOrderStatusMeta(item.status, item.status, 0)
-                        : getBookingStatusMeta(item.status);
-                    return (
-                  <View
-                    style={{
-                      borderRadius: 999,
-                      backgroundColor: `${statusMeta.tone}14`,
-                      paddingHorizontal: 10,
-                      paddingVertical: 6,
-                    }}
-                  >
-                    <Text selectable style={{ color: statusMeta.tone, fontSize: 11, fontWeight: "800" }}>
-                      {statusMeta.label}
-                    </Text>
-                  </View>
-                    );
-                  })()}
-                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-                </View>
+                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
               </View>
             </CardBlock>
           </Pressable>
@@ -176,7 +252,7 @@ export default function CustomerActiveScreen() {
       ))}
       {!activeQuery.isLoading && !items.length ? (
         <CardBlock>
-          <View style={{ alignItems: "center", gap: 10, paddingVertical: 8 }}>
+          <View style={{ alignItems: "center", gap: 12, paddingVertical: 8 }}>
             <View
               style={{
                 width: 52,
@@ -197,6 +273,20 @@ export default function CustomerActiveScreen() {
                 ? "Booking yang masih berjalan atau menunggu sesi akan muncul di sini."
                 : "Order direct sale yang masih berjalan akan muncul di sini."}
             </Text>
+            <Link href="/discovery" asChild>
+              <Pressable
+                style={{
+                  borderRadius: 999,
+                  backgroundColor: "#eff6ff",
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                }}
+              >
+                <Text selectable style={{ color: "#2563eb", fontSize: 12, fontWeight: "800" }}>
+                  Cari tenant dulu
+                </Text>
+              </Pressable>
+            </Link>
           </View>
         </CardBlock>
       ) : null}

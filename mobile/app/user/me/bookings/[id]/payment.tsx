@@ -92,7 +92,7 @@ function getPaymentStatusMeta(status?: string) {
       label: "Menunggu verifikasi",
       tone: "#d97706",
       bg: "#fff7ed",
-      hint: "Bukti bayar sudah masuk dan sedang dicek admin tenant.",
+      hint: "Bukti bayar sedang dicek.",
     };
   }
   if (normalized === "partial_paid") {
@@ -100,7 +100,7 @@ function getPaymentStatusMeta(status?: string) {
       label: "DP tercatat",
       tone: "#2563eb",
       bg: "#eff6ff",
-      hint: "Booking lanjut diproses. Sisa tagihan dibayar setelah sesi selesai.",
+      hint: "Sisa dibayar setelah sesi selesai.",
     };
   }
   if (normalized === "settled" || normalized === "paid") {
@@ -108,7 +108,7 @@ function getPaymentStatusMeta(status?: string) {
       label: "Lunas",
       tone: "#059669",
       bg: "#ecfdf5",
-      hint: "Pembayaran booking sudah tercatat penuh.",
+      hint: "Semua pembayaran selesai.",
     };
   }
   if (normalized === "expired" || normalized === "failed") {
@@ -116,14 +116,14 @@ function getPaymentStatusMeta(status?: string) {
       label: "Perlu bayar ulang",
       tone: "#dc2626",
       bg: "#fef2f2",
-      hint: "Pembayaran sebelumnya tidak bisa dipakai. Mulai lagi dari metode bayar.",
+      hint: "Pembayaran sebelumnya gagal.",
     };
   }
   return {
     label: "Menunggu pembayaran",
     tone: "#475569",
     bg: "#f8fafc",
-    hint: "Selesaikan pembayaran agar status booking lanjut ke tahap berikutnya.",
+    hint: "Selesaikan pembayaran.",
   };
 }
 
@@ -198,17 +198,17 @@ function resolveExitActions(
         primary:
           status === "completed"
             ? { href: `/user/me/bookings/${bookingID}/live` as const, label: "Lihat ringkasan sesi" }
-            : { href: `/user/me/bookings/${bookingID}` as const, label: "Kembali" },
+            : null,
         secondary:
           status === "completed" && balanceDue > 0
             ? { href: `/user/me/bookings/${bookingID}/payment?scope=settlement` as const, label: "Lanjutkan pelunasan", tone: "secondary" }
-            : { href: `/user/me/bookings/${bookingID}` as const, label: "Kembali", tone: "secondary" },
+            : null,
       };
     }
     if (depositAmount <= 0) {
       return {
         primary: { href: `/user/me/bookings/${bookingID}/live` as const, label: "Buka mode live" },
-        secondary: { href: `/user/me/bookings/${bookingID}` as const, label: "Kembali", tone: "secondary" },
+        secondary: null,
       };
     }
   }
@@ -217,28 +217,19 @@ function resolveExitActions(
     if (status !== "completed") {
       return {
         primary: { href: `/user/me/bookings/${bookingID}/live` as const, label: "Buka mode live" },
-        secondary: { href: `/user/me/bookings/${bookingID}` as const, label: "Kembali", tone: "secondary" },
+        secondary: null,
       };
     }
     if (balanceDue <= 0 || paymentStatus === "settled" || paymentStatus === "paid") {
-      return {
-        primary: { href: `/user/me/bookings/${bookingID}` as const, label: "Kembali" },
-        secondary: null,
-      };
+      return { primary: null, secondary: null };
     }
   }
 
   if (hasAccessError) {
-    return {
-      primary: { href: `/user/me/bookings/${bookingID}` as const, label: "Kembali" },
-      secondary: null,
-    };
+    return { primary: null, secondary: null };
   }
 
-  return {
-    primary: { href: `/user/me/bookings/${bookingID}` as const, label: "Kembali", tone: "secondary" },
-    secondary: null,
-  };
+  return { primary: null, secondary: null };
 }
 
 function resolveAccessState(
@@ -546,10 +537,6 @@ export default function CustomerBookingPaymentScreen() {
   }
 
   function handleExitAction(action: ExitAction) {
-    if (action.label.toLowerCase().includes("kembali")) {
-      goBackToBooking();
-      return;
-    }
     router.push(action.href);
   }
 
@@ -559,8 +546,8 @@ export default function CustomerBookingPaymentScreen() {
       title={booking?.resource_name || "Pembayaran booking"}
       description={
         resolvedScope === "deposit"
-          ? "Selesaikan DP agar booking siap diproses tanpa cek manual berulang."
-          : "Tutup sisa tagihan booking dari halaman pembayaran yang sama."
+          ? "Selesaikan DP."
+          : "Selesaikan sisa tagihan."
       }
     >
       <CardBlock>
@@ -596,7 +583,7 @@ export default function CustomerBookingPaymentScreen() {
           {resolvedScope === "deposit" ? (
             <View style={{ borderRadius: 16, backgroundColor: "#f8fafc", paddingHorizontal: 12, paddingVertical: 12 }}>
               <Text selectable style={{ color: "#64748b", fontSize: 12, lineHeight: 19 }}>
-                Setelah DP tercatat, tenant bisa lanjut memproses booking ini sesuai jadwal.
+                Setelah DP masuk, booking lanjut diproses.
               </Text>
             </View>
           ) : null}
@@ -639,7 +626,7 @@ export default function CustomerBookingPaymentScreen() {
               Menunggu review admin
             </Text>
             <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 20 }}>
-              Bukti pembayaran sudah dikirim. Status di halaman ini akan berubah otomatis setelah dicek tenant.
+              Bukti pembayaran sudah dikirim.
             </Text>
           </View>
 
@@ -684,8 +671,8 @@ export default function CustomerBookingPaymentScreen() {
           <View style={{ borderRadius: 16, backgroundColor: "#f8fafc", paddingHorizontal: 12, paddingVertical: 12 }}>
             <Text selectable style={{ color: "#64748b", fontSize: 12, lineHeight: 19 }}>
               {resolvedScope === "deposit"
-                ? "Begitu admin menyetujui pembayaran ini, booking akan lanjut ke tahap sesi."
-                : "Begitu admin menyetujui pembayaran ini, sisa tagihan booking akan dianggap selesai."}
+                ? "Setelah disetujui, booking lanjut ke tahap sesi."
+                : "Setelah disetujui, sisa tagihan selesai."}
             </Text>
           </View>
         </CardBlock>
@@ -875,7 +862,11 @@ export default function CustomerBookingPaymentScreen() {
           onPress={() => handleExitAction(exitActions.secondary!)}
         />
       ) : !exitActions.primary ? (
-        <CtaButton label="Kembali" tone="secondary" onPress={goBackToBooking} />
+        <Pressable onPress={goBackToBooking} style={{ alignItems: "center", paddingVertical: 4 }}>
+          <Text selectable style={{ color: "#64748b", fontSize: 13, fontWeight: "700" }}>
+            Kembali ke booking
+          </Text>
+        </Pressable>
       ) : null}
     </ScreenShell>
   );

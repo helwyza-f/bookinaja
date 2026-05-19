@@ -45,7 +45,7 @@ function getPaymentMeta(status?: string) {
       label: "Menunggu verifikasi",
       tone: "#d97706",
       bg: "#fff7ed",
-      hint: "Bukti bayar sudah masuk dan sedang dicek admin tenant.",
+      hint: "Bukti bayar sedang dicek.",
     };
   }
   if (normalized === "partial_paid") {
@@ -53,7 +53,7 @@ function getPaymentMeta(status?: string) {
       label: "DP tercatat",
       tone: "#2563eb",
       bg: "#eff6ff",
-      hint: "DP sudah tercatat. Sisanya dibayar setelah sesi selesai.",
+      hint: "Sisa dibayar setelah sesi selesai.",
     };
   }
   if (normalized === "settled" || normalized === "paid") {
@@ -61,7 +61,7 @@ function getPaymentMeta(status?: string) {
       label: "Lunas",
       tone: "#059669",
       bg: "#ecfdf5",
-      hint: "Pembayaran booking sudah tercatat penuh.",
+      hint: "Semua pembayaran selesai.",
     };
   }
   if (normalized === "expired" || normalized === "failed") {
@@ -69,14 +69,14 @@ function getPaymentMeta(status?: string) {
       label: "Perlu dibayar ulang",
       tone: "#dc2626",
       bg: "#fef2f2",
-      hint: "Pembayaran sebelumnya tidak bisa dipakai. Mulai lagi dari halaman bayar.",
+      hint: "Pembayaran sebelumnya gagal.",
     };
   }
   return {
     label: "Menunggu pembayaran",
     tone: "#475569",
     bg: "#f8fafc",
-    hint: "Selesaikan pembayaran awal agar booking bisa lanjut diproses.",
+    hint: "Selesaikan pembayaran awal.",
   };
 }
 
@@ -86,31 +86,31 @@ function formatMoneyOrFallback(value?: number | null, fallback = "-") {
 }
 
 function resolveNextStep(booking: BookingDetail | null) {
-  if (!booking) return "Status booking sedang dimuat.";
+  if (!booking) return "Memuat status booking.";
   const paymentStatus = String(booking.payment_status || "").toLowerCase();
   const status = String(booking.status || "").toLowerCase();
   const depositAmount = Number(booking.deposit_amount || 0);
   const balanceDue = Number(booking.balance_due || 0);
 
   if (paymentStatus === "awaiting_verification") {
-    return "Tunggu admin tenant menyelesaikan verifikasi pembayaran manual.";
+    return "Tunggu verifikasi pembayaran.";
   }
   if (depositAmount > 0 && paymentStatus === "pending") {
-    return "Bayar DP dulu agar booking bisa siap dipakai tepat waktu.";
+    return "Bayar DP untuk lanjut.";
   }
   if (status === "pending" || status === "confirmed") {
-    return "Booking sudah siap. Saat waktunya tiba, buka mode live untuk mulai sesi.";
+    return "Saat waktunya tiba, buka mode live.";
   }
   if (status === "active" || status === "ongoing") {
-    return "Sesi sedang berjalan. Pantau sisa waktu dan lanjutkan aksi dari mode live.";
+    return "Sesi sedang berjalan.";
   }
   if (status === "completed" && balanceDue > 0) {
-    return "Sesi selesai. Lanjutkan pelunasan untuk menutup booking ini.";
+    return "Selesaikan pelunasan.";
   }
   if (status === "completed") {
-    return "Booking sudah selesai dan tidak ada langkah yang tertinggal.";
+    return "Booking sudah selesai.";
   }
-  return "Pantau perubahan status booking dari halaman ini.";
+  return "Pantau status booking di sini.";
 }
 
 function resolvePrimaryAction(booking: BookingDetail | null): BookingAction | null {
@@ -162,12 +162,7 @@ function resolveSecondaryAction(booking: BookingDetail | null): BookingAction | 
   const status = String(booking.status || "").toLowerCase();
   const balanceDue = Number(booking.balance_due || 0);
 
-  if (paymentStatus === "awaiting_verification") {
-    return {
-      href: `/user/me/bookings/${booking.id}` as const,
-      label: "Pantau status booking",
-    };
-  }
+  if (paymentStatus === "awaiting_verification") return null;
 
   if (depositAmount > 0 && paymentStatus === "pending") {
     return {
@@ -235,8 +230,8 @@ export default function CustomerBookingDetailScreen() {
       title={booking?.resource_name || booking?.resource || booking?.tenant_name || "Detail booking"}
       description={
         booking?.tenant_name
-          ? `Pantau status booking di ${booking.tenant_name} dan lanjutkan langkah berikutnya.`
-          : "Pantau status booking dan lanjutkan langkah berikutnya."
+          ? `Status booking di ${booking.tenant_name}.`
+          : "Status booking."
       }
     >
       <CardBlock>
@@ -383,15 +378,15 @@ export default function CustomerBookingDetailScreen() {
       <CardBlock>
         <View style={{ gap: 10 }}>
           <Text selectable style={{ color: "#2563eb", fontSize: 10, fontWeight: "800", letterSpacing: 1.3 }}>
-            LANGKAH BERIKUTNYA
+            NEXT
           </Text>
           <Text selectable style={{ color: "#0f172a", fontSize: 18, fontWeight: "900" }}>
             {nextStep}
           </Text>
           <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 20 }}>
             {String(booking?.status || "").toLowerCase() === "active" || String(booking?.status || "").toLowerCase() === "ongoing"
-              ? "Masuk ke mode live saat kamu perlu memantau waktu, tambah durasi, atau menyelesaikan sesi."
-              : "Aksi di bawah selalu menyesuaikan tahap booking yang sedang berjalan."}
+              ? "Buka live untuk timer dan aksi sesi."
+              : "Aksi di bawah mengikuti status booking."}
           </Text>
         </View>
 
@@ -402,7 +397,7 @@ export default function CustomerBookingDetailScreen() {
 
       <Pressable onPress={goBackHome} style={{ alignItems: "center", paddingVertical: 4 }}>
         <Text selectable style={{ color: "#64748b", fontSize: 13, fontWeight: "700" }}>
-          Kembali
+          Kembali ke daftar
         </Text>
       </Pressable>
     </ScreenShell>

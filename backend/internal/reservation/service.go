@@ -1437,6 +1437,9 @@ func validateBookingTransition(currentStatus, nextStatus, paymentStatus string, 
 		return errors.New("BOOKING SUDAH FINAL DAN TIDAK BISA DIUBAH")
 	}
 	if nextStatus == "cancelled" {
+		if currentStatus != "pending" && currentStatus != "confirmed" {
+			return errors.New("BOOKING YANG SUDAH DIMULAI HARUS DIAKHIRI, BUKAN DIBATALKAN")
+		}
 		return nil
 	}
 	if nextStatus == "confirmed" {

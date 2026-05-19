@@ -1,8 +1,17 @@
 import { router } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { apiFetch } from "@/lib/api";
+import {
+  EmptyStateCard,
+  ListRow,
+  SectionHeader,
+  StatusPill,
+  SummaryPair,
+} from "@/components/admin-primitives";
+import { PatternDashboardCard } from "@/components/admin-patterns";
 import { CardBlock } from "@/components/card-block";
+import { CtaButton } from "@/components/cta-button";
 import { ScreenShell } from "@/components/screen-shell";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useAdminIdentity } from "@/hooks/use-admin-identity";
@@ -14,6 +23,7 @@ import {
   getAdminBookingTotal,
   patchAdminBookingList,
 } from "@/lib/admin-bookings";
+import { hasAdminPermission } from "@/lib/admin-access";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import { BOOKING_EVENT_PREFIXES, matchesRealtimePrefix } from "@/lib/realtime/event-types";
 import { tenantBookingsChannel, tenantDashboardChannel } from "@/lib/realtime/channels";
@@ -105,6 +115,7 @@ export default function AdminDashboardScreen() {
   });
 
   const data = dashboardQuery.data;
+  const canCreateBookings = hasAdminPermission(identityQuery.data, "bookings.create");
   const todayKey = new Date().toDateString();
   const todayBookings = (data?.bookings || []).filter((item) => {
     const parsed = item.start_time ? new Date(item.start_time) : null;
@@ -118,175 +129,108 @@ export default function AdminDashboardScreen() {
       eyebrow="Admin"
       title={data?.profile?.name || session.tenantSlug || "Workspace tenant"}
       description={data?.profile?.tagline || "Pantau booking, customer, dan sesi aktif tenant dari satu tempat."}
+      includeBottomSafeArea={false}
+      bottomDockInset={118}
     >
-      <CardBlock>
-        <View style={{ gap: 4 }}>
-          <Text selectable style={{ color: "#0f172a", fontSize: 18, fontWeight: "900" }}>
-            Perlu perhatian sekarang
-          </Text>
-          <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 19 }}>
-            Fokus ke booking hari ini, sesi berjalan, dan customer yang butuh tindak lanjut.
-          </Text>
-        </View>
-
+      <PatternDashboardCard
+          title="Fokus operasional"
+          description="Cek booking hari ini, sesi yang masih berjalan, lalu lanjut ke antrian yang butuh keputusan."
+          badge="Hari ini"
+      >
         <View style={{ flexDirection: "row", gap: 10 }}>
-          <View
-            style={{
-              flex: 1,
-              borderRadius: 18,
-              backgroundColor: "#f8fafc",
-              paddingHorizontal: 14,
-              paddingVertical: 14,
-              gap: 4,
-            }}
-          >
-            <Text selectable style={{ color: "#64748b", fontSize: 10, fontWeight: "800", letterSpacing: 1 }}>
-              BOOKING HARI INI
-            </Text>
-            <Text selectable style={{ color: "#0f172a", fontSize: 22, fontWeight: "900" }}>
-              {todayBookings.length}
-            </Text>
-            <Text selectable style={{ color: "#475569", fontSize: 12 }}>
-              {formatAmount(todayRevenue)}
-            </Text>
-          </View>
-
-          <View
-            style={{
-              flex: 1,
-              borderRadius: 18,
-              backgroundColor: "#f8fafc",
-              paddingHorizontal: 14,
-              paddingVertical: 14,
-              gap: 4,
-            }}
-          >
-            <Text selectable style={{ color: "#64748b", fontSize: 10, fontWeight: "800", letterSpacing: 1 }}>
-              SESI AKTIF
-            </Text>
-            <Text selectable style={{ color: "#0f172a", fontSize: 22, fontWeight: "900" }}>
-              {data?.activeSessions?.length || 0}
-            </Text>
-            <Text selectable style={{ color: "#475569", fontSize: 12 }}>
-              {data?.activeSessions?.length ? "Sedang berjalan" : "Belum ada sesi"}
-            </Text>
-          </View>
+          <SummaryPair label="Booking hari ini" value={String(todayBookings.length)} />
+          <SummaryPair
+            label="Sesi aktif"
+            value={String(data?.activeSessions?.length || 0)}
+            accent={Boolean(data?.activeSessions?.length)}
+          />
         </View>
-      </CardBlock>
+        <Text selectable style={{ color: "#64748b", fontSize: 12 }}>
+          Revenue hari ini {formatAmount(todayRevenue)}
+        </Text>
+      </PatternDashboardCard>
+
+      {canCreateBookings ? (
+        <CardBlock>
+          <SectionHeader
+            title="Mulai cepat"
+            description="Buka booking baru tanpa pindah ke desktop."
+          />
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <CtaButton
+                label="Booking baru"
+                onPress={() => router.push({ pathname: "/admin/bookings/new", params: { mode: "scheduled" } })}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <CtaButton
+                tone="secondary"
+                label="Walk-in"
+                onPress={() => router.push({ pathname: "/admin/bookings/new", params: { mode: "walkin" } })}
+              />
+            </View>
+          </View>
+        </CardBlock>
+      ) : null}
 
       <CardBlock>
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-          <Text selectable style={{ color: "#0f172a", fontSize: 17, fontWeight: "900" }}>
-            Booking terbaru
-          </Text>
-          <Pressable onPress={() => router.push("/admin/bookings")}>
-            <Text selectable style={{ color: "#2563eb", fontSize: 13, fontWeight: "800" }}>
-              Lihat semua
-            </Text>
-          </Pressable>
-        </View>
+        <SectionHeader title="Booking terbaru" actionLabel="Lihat semua" onAction={() => router.push("/admin/bookings")} />
         {(topBookings.length ? topBookings : [{ id: "empty" } as AdminBookingRow]).map((item) =>
           item.id === "empty" ? (
-            <View
+            <EmptyStateCard
               key="empty"
-              style={{
-                borderRadius: 20,
-                backgroundColor: "#f8fafc",
-                paddingHorizontal: 14,
-                paddingVertical: 14,
-              }}
-            >
-              <Text selectable style={{ color: "#64748b", fontSize: 13 }}>
-                Belum ada booking yang tampil di tenant ini.
-              </Text>
-            </View>
+              title="Belum ada booking"
+              description="Booking baru akan muncul di sini begitu transaksi masuk."
+            />
           ) : (
-            <Pressable
+            <ListRow
               key={item.id}
-              onPress={() => router.push(`/admin/bookings/${item.id}`)}
-              style={{
-                borderRadius: 20,
-                borderWidth: 1,
-                borderColor: "#edf2f7",
-                backgroundColor: "#fbfdff",
-                paddingHorizontal: 14,
-                paddingVertical: 14,
-                gap: 8,
-              }}
-            >
-              <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 10 }}>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text selectable style={{ color: "#0f172a", fontSize: 15, fontWeight: "800" }}>
-                    {item.customer_name || "Customer"}
-                  </Text>
-                  <Text selectable style={{ color: "#64748b", fontSize: 13 }}>
-                    {item.resource_name || "Resource"}
-                  </Text>
-                </View>
-                {(() => {
-                  const meta = getAdminBookingStatusMeta(item);
-                  return (
-                    <View style={{ borderRadius: 999, backgroundColor: meta.bg, paddingHorizontal: 10, paddingVertical: 6 }}>
-                      <Text selectable style={{ color: meta.tone, fontSize: 11, fontWeight: "800" }}>
-                        {meta.label}
-                      </Text>
-                    </View>
-                  );
-                })()}
-              </View>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
-                <Text selectable style={{ color: "#64748b", fontSize: 12 }}>
-                  {formatDateTime(item.start_time)}
-                </Text>
-                <Text selectable style={{ color: "#0f172a", fontSize: 13, fontWeight: "800" }}>
-                  {formatAmount(getAdminBookingTotal(item))}
-                </Text>
-              </View>
-            </Pressable>
+              onPress={() =>
+                router.push({
+                  pathname: "/admin/bookings/[id]",
+                  params: { id: item.id },
+                })
+              }
+              title={item.customer_name || "Customer"}
+              subtitle={item.resource_name || "Resource"}
+              meta={`${formatDateTime(item.start_time)} • ${formatAmount(getAdminBookingTotal(item))}`}
+              badge={<StatusPill label={getAdminBookingStatusMeta(item).label} tone={mapStatusTone(getAdminBookingStatusMeta(item).label)} />}
+            />
           ),
         )}
       </CardBlock>
 
       {!!data?.activeSessions?.length ? (
         <CardBlock>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-            <Text selectable style={{ color: "#0f172a", fontSize: 17, fontWeight: "900" }}>
-              Sesi yang sedang jalan
-            </Text>
-            <Pressable onPress={() => router.push("/admin/bookings")}>
-              <Text selectable style={{ color: "#2563eb", fontSize: 13, fontWeight: "800" }}>
-                Buka bookings
-              </Text>
-            </Pressable>
-          </View>
+          <SectionHeader title="Sesi aktif" actionLabel="Buka bookings" onAction={() => router.push("/admin/bookings")} />
 
           {data.activeSessions.slice(0, 3).map((item) => (
-            <Pressable
+            <ListRow
               key={item.id}
-              onPress={() => router.push(`/admin/bookings/${item.id}`)}
-              style={{
-                borderRadius: 20,
-                borderWidth: 1,
-                borderColor: "#edf2f7",
-                backgroundColor: "#fbfdff",
-                paddingHorizontal: 14,
-                paddingVertical: 14,
-                gap: 4,
-              }}
-            >
-              <Text selectable style={{ color: "#0f172a", fontSize: 15, fontWeight: "800" }}>
-                {item.customer_name || "Customer"}
-              </Text>
-              <Text selectable style={{ color: "#64748b", fontSize: 13 }}>
-                {item.resource_name || "Resource"}
-              </Text>
-              <Text selectable style={{ color: "#475569", fontSize: 12 }}>
-                Berakhir {formatDateTime(item.end_time)}
-              </Text>
-            </Pressable>
+              onPress={() =>
+                router.push({
+                  pathname: "/admin/bookings/[id]",
+                  params: { id: item.id },
+                })
+              }
+              title={item.customer_name || "Customer"}
+              subtitle={item.resource_name || "Resource"}
+              meta={`Berakhir ${formatDateTime(item.end_time)}`}
+              badge={<StatusPill label="Sedang berjalan" tone="success" />}
+            />
           ))}
         </CardBlock>
       ) : null}
     </ScreenShell>
   );
+}
+
+function mapStatusTone(label: string): "blue" | "success" | "amber" | "danger" | "slate" {
+  const normalized = label.toLowerCase();
+  if (normalized.includes("selesai")) return "slate";
+  if (normalized.includes("aktif") || normalized.includes("berjalan")) return "success";
+  if (normalized.includes("batal")) return "danger";
+  if (normalized.includes("pending")) return "amber";
+  return "blue";
 }

@@ -573,6 +573,8 @@ export default function BookingDetailPage() {
   const canStartSession = hasPermission(adminUser, "sessions.start");
   const canCompleteSession = hasPermission(adminUser, "sessions.complete");
   const canCancelBooking = hasPermission(adminUser, "bookings.cancel");
+  const canCancel =
+    (status === "pending" || status === "confirmed") && canCancelBooking;
   const canSettleCash = hasPermission(adminUser, "pos.cash.settle");
   const canOperatePos = hasPermission(adminUser, "pos.read");
   const canSendReceipt = hasPermission(adminUser, "receipts.send");
@@ -604,7 +606,7 @@ export default function BookingDetailPage() {
     canComplete ||
     canSettle ||
     (isPaymentSettled && (canSendReceipt || canPrintReceipt)) ||
-    (!isFinal && canCancelBooking);
+    canCancel;
 
   const timelineSection = (
     <Card className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
@@ -1065,7 +1067,7 @@ export default function BookingDetailPage() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
-                {!isFinal && canCancelBooking && (
+                {canCancel && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <AdminControlCard

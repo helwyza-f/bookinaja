@@ -782,23 +782,20 @@ export default function ResourceDetailScreen() {
 
         <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 19 }}>
           {operatingMode === "direct_sale"
-            ? "Pilih item, isi kontak, lalu buat order."
-            : "Pilih paket, tentukan jadwal, lalu lanjutkan booking."}
+            ? "Pilih item dan isi kontak."
+            : "Pilih paket dan jadwal."}
         </Text>
       </View>
 
       <CardBlock>
         <View style={{ gap: 2 }}>
-          <Text selectable style={{ color: "#2563eb", fontSize: 10, fontWeight: "800", letterSpacing: 1.5 }}>
-            LANGKAH 1
-          </Text>
           <Text selectable style={{ color: "#0f172a", fontSize: 17, fontWeight: "900" }}>
             {operatingMode === "direct_sale" ? "Pilih item" : "Pilih paket"}
           </Text>
           <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 19 }}>
             {operatingMode === "direct_sale"
               ? "Tentukan item yang ingin dibeli."
-              : "Pilih satu paket utama yang paling sesuai."}
+              : "Pilih paket utama."}
           </Text>
         </View>
 
@@ -957,9 +954,6 @@ export default function ResourceDetailScreen() {
                       </View>
                     </View>
                   </View>
-                  <Text selectable style={{ color: "#64748b", fontSize: 12 }}>
-                    {active ? "Paket ini dipakai untuk hitung jadwal dan total." : "Pilih untuk lanjut ke jadwal."}
-                  </Text>
                 </Pressable>
               );
             })}
@@ -1015,14 +1009,11 @@ export default function ResourceDetailScreen() {
       {operatingMode === "timed" ? (
         <CardBlock>
           <View style={{ gap: 2 }}>
-            <Text selectable style={{ color: "#2563eb", fontSize: 10, fontWeight: "800", letterSpacing: 1.5 }}>
-              LANGKAH 2
-            </Text>
             <Text selectable style={{ color: "#0f172a", fontSize: 17, fontWeight: "900" }}>
               Pilih jadwal booking
             </Text>
             <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 19 }}>
-              Pilih tanggal, lalu tentukan jam mulai yang masih tersedia.
+              Pilih tanggal dan jam mulai.
             </Text>
           </View>
 
@@ -1070,7 +1061,7 @@ export default function ResourceDetailScreen() {
                       {selectedDateLabel}
                     </Text>
                     <Text selectable style={{ color: "#64748b", fontSize: 12 }}>
-                      Tap untuk ganti tanggal
+                      Ganti tanggal
                     </Text>
                   </View>
                 </View>
@@ -1108,7 +1099,7 @@ export default function ResourceDetailScreen() {
                     Booking periodik
                   </Text>
                   <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 20 }}>
-                    Untuk paket {String(selectedMainItem?.price_unit || "").toLowerCase()}, kamu cukup pilih tanggal mulai dan durasinya. Jam mulai akan mengikuti jam buka tenant.
+                    Cukup pilih tanggal mulai dan durasi.
                   </Text>
                   <View style={{ flexDirection: "row", gap: 10 }}>
                     <View
@@ -1398,8 +1389,8 @@ export default function ResourceDetailScreen() {
                   backgroundColor: "#ffffff",
                   paddingHorizontal: 20,
                   paddingTop: 12,
-                  paddingBottom: Math.max(insets.bottom, 12) + 20,
-                  gap: 18,
+                  paddingBottom: Math.max(insets.bottom, 6) + 4,
+                  gap: 14,
                   shadowColor: "#020617",
                   shadowOpacity: 0.12,
                   shadowRadius: 24,
@@ -1418,10 +1409,10 @@ export default function ResourceDetailScreen() {
                 />
                 <View style={{ gap: 6 }}>
                   <Text selectable style={{ color: "#0f172a", fontSize: 22, fontWeight: "900" }}>
-                    Cek booking
+                    Review booking
                   </Text>
                   <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 20 }}>
-                    Ringkasannya sudah siap. Kalau sudah benar, lanjutkan buat booking.
+                    Pastikan detailnya sudah benar.
                   </Text>
                 </View>
 
@@ -1560,7 +1551,7 @@ export default function ResourceDetailScreen() {
                           </View>
                         </View>
                         <Text selectable style={{ color: "#64748b", fontSize: 12, lineHeight: 18 }}>
-                          DP mengikuti policy tenant sebesar {depositPercentage}% dari total booking.
+                          DP {depositPercentage}% dari total booking.
                         </Text>
                       </View>
                     ) : null}
@@ -1569,13 +1560,13 @@ export default function ResourceDetailScreen() {
 
                 <View style={{ gap: 10 }}>
                   <CtaButton
-                    label={submitting ? "Memproses..." : "Konfirmasi booking"}
+                    label={submitting ? "Memproses..." : "Buat booking"}
                     disabled={submitting}
                     onPress={() => void confirmTimedBooking()}
                   />
                   <Pressable onPress={() => setConfirmBookingOpen(false)} style={{ alignItems: "center", paddingVertical: 6 }}>
                     <Text selectable style={{ color: "#64748b", fontSize: 13, fontWeight: "700" }}>
-                      Ubah pilihan
+                      Edit
                     </Text>
                   </Pressable>
                 </View>
@@ -1587,14 +1578,11 @@ export default function ResourceDetailScreen() {
 
       <CardBlock>
         <View style={{ gap: 2 }}>
-          <Text selectable style={{ color: "#2563eb", fontSize: 10, fontWeight: "800", letterSpacing: 1.5 }}>
-            LANGKAH 3
-          </Text>
           <Text selectable style={{ color: "#0f172a", fontSize: 17, fontWeight: "900" }}>
             Isi data customer
           </Text>
           <Text selectable style={{ color: "#64748b", fontSize: 13, lineHeight: 19 }}>
-            Data ini dipakai untuk akses detail booking dan pembayaran.
+            Dipakai untuk akses booking dan pembayaran.
           </Text>
         </View>
         <View style={{ gap: 12 }}>

@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { SessionProvider } from "@/providers/session-provider";
+import { ToastProvider } from "@/providers/toast-provider";
 import { queryClient } from "@/lib/query-client";
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -12,7 +13,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       <SafeAreaProvider>
         <BottomSheetModalProvider>
           <QueryClientProvider client={queryClient}>
-            <SessionProvider>{children}</SessionProvider>
+            <SessionProvider>
+              <ToastProvider>{children}</ToastProvider>
+            </SessionProvider>
           </QueryClientProvider>
         </BottomSheetModalProvider>
       </SafeAreaProvider>

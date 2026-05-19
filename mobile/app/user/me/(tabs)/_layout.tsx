@@ -6,6 +6,8 @@ import { useSession } from "@/providers/session-provider";
 export default function CustomerTabsLayout() {
   const session = useSession();
   const insets = useSafeAreaInsets();
+  const compactBarHeight = 50;
+  const tabBarBottomPadding = Math.max(insets.bottom, 10);
 
   if (session.isReady && !session.customerToken) {
     return <Redirect href="/user/login" />;
@@ -18,16 +20,26 @@ export default function CustomerTabsLayout() {
         tabBarActiveTintColor: "#2563eb",
         tabBarInactiveTintColor: "#94a3b8",
         tabBarShowLabel: true,
+        sceneStyle: {
+          backgroundColor: "#f3f6fb",
+        },
         tabBarStyle: {
-          height: 58 + Math.max(insets.bottom, 8),
-          paddingTop: 10,
-          paddingBottom: Math.max(insets.bottom, 8),
-          borderTopColor: "#dbeafe",
-          backgroundColor: "#fbfdff",
+          height: compactBarHeight + tabBarBottomPadding,
+          paddingTop: 5,
+          paddingBottom: tabBarBottomPadding,
+          borderTopWidth: 0,
+          backgroundColor: "#f3f6fb",
+          elevation: 0,
+          shadowOpacity: 0,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: "700",
+          marginTop: 0,
+        },
+        tabBarItemStyle: {
+          paddingTop: 1,
+          paddingBottom: 0,
         },
       }}
     >

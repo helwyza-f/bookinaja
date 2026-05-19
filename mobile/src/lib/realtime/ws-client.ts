@@ -1,5 +1,5 @@
 import { env } from "@/lib/env";
-import { getCustomerToken, getTenantSlug } from "@/lib/session";
+import { getAdminToken, getCustomerToken, getTenantSlug } from "@/lib/session";
 
 function isProdRealtimeHost(hostname: string) {
   return hostname === "bookinaja.com" || hostname === "www.bookinaja.com" || hostname.endsWith(".bookinaja.com");
@@ -23,7 +23,9 @@ function resolveRealtimeURL() {
 }
 
 export async function buildRealtimeURL() {
-  const token = await getCustomerToken();
+  const adminToken = await getAdminToken();
+  const customerToken = await getCustomerToken();
+  const token = adminToken || customerToken;
   const slug = await getTenantSlug();
   const url = resolveRealtimeURL();
 
