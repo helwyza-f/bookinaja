@@ -11,7 +11,6 @@ import {
   Package,
   Search,
   Info,
-  TimerReset,
   X,
   User,
   MessageCircle,
@@ -55,6 +54,7 @@ import {
   type AddonCartItem,
   type AddonItem,
 } from "./addons-catalog-dialog";
+import { BookingLiveController } from "@/components/customer/booking-live-controller";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { format, differenceInSeconds, parseISO } from "date-fns";
@@ -81,6 +81,15 @@ type POSOrderItem = {
   quantity: number;
   subtotal: number;
   price_at_purchase: number;
+};
+
+type LiveCatalogItem = {
+  id: string;
+  name: string;
+  category?: string;
+  price?: number;
+  unit_price?: number;
+  quantity?: number;
 };
 
 export type POSCatalogItem = {
@@ -292,11 +301,50 @@ function formatIDR(value: number) {
 }
 
 function getPaymentMethodHint(method: POSPaymentMethod) {
-  if (method.code === "cash") return "Paling cepat untuk bayar langsung di kasir.";
-  if (method.code === "midtrans") return "Lanjutkan ke payment gateway otomatis.";
-  if (method.code === "bank_transfer") return "Cocok untuk transfer manual dan review bukti bayar.";
-  if (method.code === "qris_static") return "Scan QR tenant lalu verifikasi bila perlu.";
+  if (method.code === "cash") return "Bayar langsung di kasir.";
+  if (method.code === "midtrans") return "Buka QRIS atau gateway otomatis.";
+  if (method.code === "bank_transfer") return "Transfer lalu review bukti bayar.";
+  if (method.code === "qris_static") return "Scan QR tenant lalu cek masuknya.";
   return method.instructions || "Gunakan metode ini sesuai SOP tenant.";
+}
+
+function getBookingStatusLabel(status: string) {
+  switch (status) {
+    case "pending":
+      return "Menunggu";
+    case "confirmed":
+      return "Terkonfirmasi";
+    case "active":
+    case "ongoing":
+      return "Berjalan";
+    case "completed":
+      return "Selesai";
+    case "cancelled":
+      return "Batal";
+    default:
+      return status || "Booking";
+  }
+}
+
+function getPaymentStatusLabel(status: string, balanceDue: number) {
+  switch (status) {
+    case "partial_paid":
+      return "DP masuk";
+    case "awaiting_verification":
+      return "Menunggu cek";
+    case "pending":
+    case "unpaid":
+      return "Belum bayar";
+    case "failed":
+      return "Gagal bayar";
+    case "expired":
+      return "Kedaluwarsa";
+    case "paid":
+    case "settled":
+      return balanceDue > 0 ? "Belum lunas" : "Lunas";
+    default:
+      return status || "Pembayaran";
+  }
 }
 
 function PaymentMethodSelector({
@@ -362,7 +410,7 @@ function PaymentMethodSelector({
                     : "bg-amber-500 text-white",
                 )}
               >
-                {method.verification_type === "auto" ? "Otomatis" : "Manual"}
+                {method.verification_type === "auto" ? "Instan" : "Cek admin"}
               </Badge>
             </div>
           </button>
@@ -378,7 +426,7 @@ function PaymentMethodDetails({ method }: { method?: POSPaymentMethod }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
       <div className="flex items-center gap-2">
-        <p className="text-sm font-semibold text-slate-950 dark:text-white">{method.display_name}</p>
+        <p className="text-sm font-semibold text-slate-950 dark:text-white">Metode terpilih: {method.display_name}</p>
         <Badge
           className={cn(
             "rounded-full border-none",
@@ -387,7 +435,7 @@ function PaymentMethodDetails({ method }: { method?: POSPaymentMethod }) {
               : "bg-amber-500 text-white",
           )}
         >
-          {method.verification_type === "auto" ? "Otomatis" : "Manual"}
+          {method.verification_type === "auto" ? "Instan" : "Cek admin"}
         </Badge>
       </div>
 
@@ -415,7 +463,7 @@ function PaymentMethodDetails({ method }: { method?: POSPaymentMethod }) {
       ) : null}
 
       {method.code === "qris_static" && method.metadata?.qr_image_url ? (
-        <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
+        <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5 sm:mx-auto sm:max-w-[420px]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={method.metadata?.qr_image_url || ""}
@@ -625,6 +673,10 @@ function TimedBookingControlHubInner({
   const isPaymentSettled =
     paymentStatus === "settled" ||
     (paymentStatus === "paid" && Number(session.balance_due || 0) === 0);
+  const isCompletedSettled =
+    sessionStatus === "completed" &&
+    balanceDue <= 0 &&
+    isPaymentSettled;
   const enableFnb = session.controller_features?.enable_fnb !== false;
   const enableAddons = session.controller_features?.enable_addons !== false;
   const paymentMethods = (session.payment_methods || []).filter((item) => item.is_active !== false);
@@ -671,6 +723,8 @@ function TimedBookingControlHubInner({
   const activePaymentScope = canSettle ? "settlement" : canPayDeposit ? "deposit" : "";
   const activePaymentLabel = activePaymentScope === "settlement" ? "Pelunasan" : "DP";
   const activePaymentAmount = activePaymentScope === "deposit" ? depositAmount : balanceDue;
+  const bookingStatusLabel = getBookingStatusLabel(sessionStatus);
+  const paymentStatusLabel = getPaymentStatusLabel(paymentStatus, balanceDue);
   const scopePendingAttempt = pendingPaymentAttempts.find(
     (item) => item.payment_scope === activePaymentScope,
   );
@@ -691,10 +745,14 @@ function TimedBookingControlHubInner({
   }, [selectablePaymentMethods, selectedPaymentMethod]);
 
   useEffect(() => {
-    if (hasPendingPaymentReview && activeStep !== "payment") {
+    if ((hasPendingPaymentReview || isOutstanding) && activeStep !== "payment") {
       setActiveStep("payment");
+      return;
     }
-  }, [activeStep, hasPendingPaymentReview]);
+    if (!(hasPendingPaymentReview || isOutstanding) && activeStep !== "summary") {
+      setActiveStep("summary");
+    }
+  }, [activeStep, hasPendingPaymentReview, isOutstanding]);
 
   const selectedPaymentMethodDetail =
     selectablePaymentMethods.find((item) => item.code === selectedPaymentMethod) ||
@@ -798,6 +856,37 @@ function TimedBookingControlHubInner({
     }
   };
 
+  const handleLiveExtend = async (count: number) => {
+    await api.post(`/bookings/${session.id}/extend`, {
+      additional_duration: count,
+    });
+    toast.success("Sesi diperpanjang");
+    await onRefresh(session.id);
+  };
+
+  const handleLiveAddFnb = async (cartItems: LiveCatalogItem[]) => {
+    for (const item of cartItems) {
+      await api.post(`/bookings/pos/order/${session.id}`, {
+        fnb_item_id: item.id,
+        quantity: item.quantity,
+      });
+    }
+    toast.success("Pesanan F&B ditambahkan");
+    await onRefresh(session.id);
+  };
+
+  const handleLiveAddons = async (cartItems: LiveCatalogItem[]) => {
+    for (const item of cartItems) {
+      for (let i = 0; i < Number(item.quantity || 0); i += 1) {
+        await api.post(`/bookings/${session.id}/addons`, {
+          item_id: item.id,
+        });
+      }
+    }
+    toast.success("Add-on ditambahkan");
+    await onRefresh(session.id);
+  };
+
   const handleProceedPayment = async () => {
     if (!selectedPaymentMethodDetail || !activePaymentScope) return;
     try {
@@ -876,15 +965,6 @@ function TimedBookingControlHubInner({
       return minutes === 0 ? `${hours}j` : `${hours}j ${minutes}m`;
     };
 
-    if (isOutstanding) {
-      return {
-        label: "Tagihan",
-        value: `Rp${formatIDR(balanceDue)}`,
-        hint: "Perlu pelunasan",
-        tone: "amber" as const,
-      };
-    }
-
     if (["active", "ongoing"].includes(sessionStatus) && session.end_time) {
       const diff = differenceInSeconds(parseISO(session.end_time), now);
       return {
@@ -916,7 +996,7 @@ function TimedBookingControlHubInner({
     }
 
     return null;
-  }, [balanceDue, isOutstanding, isPreSession, now, session.end_time, session.start_time, sessionStatus]);
+  }, [isPreSession, now, session.end_time, session.start_time, sessionStatus]);
 
   // --- LOGIKA GROUPING REFACTORED (Data Direct from Backend) ---
   const groupedOptions = useMemo(() => {
@@ -1062,31 +1142,33 @@ function TimedBookingControlHubInner({
   const canOpenPaymentStep = Boolean(
     pendingPaymentAttempts.length > 0 || (!shouldKeepBookingPreStartSimple && activePaymentScope),
   );
+  const showLiveController = isSessionEditable && canWriteBookings;
+  const showPrestartSummaryOutsidePayment = shouldKeepBookingPreStartSimple && activeStep !== "payment";
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-white font-plus-jakarta dark:bg-slate-950">
-      <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-slate-950">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/30">
-              <User className="h-4.5 w-4.5" />
+      <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-2.5 dark:border-white/10 dark:bg-slate-950">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/30">
+              <User className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                <Badge className="rounded-full border-none bg-blue-600 text-white">
-                  Booking timed
+              <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                <Badge className="rounded-full border-none bg-blue-600 px-2.5 py-0.5 text-[11px] text-white">
+                  Booking
                 </Badge>
-                <Badge className="rounded-full border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
-                  {session.status || "pending"}
+                <Badge className="rounded-full border-none bg-slate-100 px-2.5 py-0.5 text-[11px] text-slate-700 dark:bg-white/10 dark:text-slate-200">
+                  {bookingStatusLabel}
                 </Badge>
-                <Badge className="rounded-full border-none bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-200">
-                  {paymentStatus || "unpaid"}
+                <Badge className="rounded-full border-none bg-blue-50 px-2.5 py-0.5 text-[11px] text-blue-700 dark:bg-blue-500/10 dark:text-blue-200">
+                  {paymentStatusLabel}
                 </Badge>
               </div>
               <h2 className="truncate pr-2 text-[15px] font-semibold leading-tight text-slate-950 dark:text-white">
                 {session.customer_name || "Customer"}
               </h2>
-              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                 <p className="truncate pr-1 font-medium text-blue-600 dark:text-blue-300">
                   {session.resource_name || "Unit"}
                 </p>
@@ -1095,21 +1177,18 @@ function TimedBookingControlHubInner({
                 {isOutstanding ? (
                   <>
                     <span className="h-1 w-1 rounded-full bg-slate-300" />
-                    <span className="font-semibold text-amber-600">Perlu pelunasan</span>
+                    <span className="font-semibold text-amber-600">Belum lunas</span>
                   </>
                 ) : null}
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:bg-white/10 dark:text-slate-300">
-                  {activeStep === "payment" ? "Tahap 2: Pembayaran" : "Tahap 1: Ringkasan"}
-                </span>
               </div>
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-start gap-2">
             {countdownMeta ? (
               <div
                 className={cn(
-                  "flex min-w-[86px] flex-col items-end rounded-2xl border px-3 py-1.5 text-right transition-all",
+                  "flex min-w-[74px] flex-col items-end rounded-xl border px-2.5 py-1.5 text-right transition-all",
                   countdownMeta.tone === "red"
                     ? "border-red-200 bg-red-50"
                     : countdownMeta.tone === "amber"
@@ -1123,7 +1202,7 @@ function TimedBookingControlHubInner({
               >
                 <span
                   className={cn(
-                    "text-[10px] font-semibold uppercase tracking-[0.14em]",
+                    "text-[9px] font-semibold uppercase tracking-[0.12em]",
                     countdownMeta.tone === "red"
                       ? "text-red-700"
                       : countdownMeta.tone === "amber"
@@ -1139,7 +1218,7 @@ function TimedBookingControlHubInner({
                 </span>
                 <span
                   className={cn(
-                    "mt-0.5 text-base font-semibold leading-none sm:text-[1.05rem]",
+                    "mt-0.5 text-sm font-semibold leading-none sm:text-[0.95rem]",
                     countdownMeta.tone === "red"
                       ? "text-red-700"
                       : countdownMeta.tone === "amber"
@@ -1153,7 +1232,7 @@ function TimedBookingControlHubInner({
                 >
                   {countdownMeta.value}
                 </span>
-                <span className="mt-1 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                <span className="mt-0.5 text-[9px] font-medium text-slate-500 dark:text-slate-400">
                   {countdownMeta.hint}
                 </span>
               </div>
@@ -1173,38 +1252,7 @@ function TimedBookingControlHubInner({
       </div>
 
       <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-slate-950">
-        <div className="mb-3 flex gap-2">
-          <Button
-            type="button"
-            variant={activeStep === "summary" ? "default" : "outline"}
-            onClick={() => setActiveStep("summary")}
-            className={cn(
-              "h-9 rounded-xl px-3 text-xs font-semibold",
-              activeStep === "summary"
-                ? "bg-slate-950 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950"
-                : "bg-white text-slate-700 dark:bg-white/[0.03] dark:text-slate-200",
-            )}
-          >
-            Ringkasan booking
-          </Button>
-          {canOpenPaymentStep ? (
-            <Button
-              type="button"
-              variant={activeStep === "payment" ? "default" : "outline"}
-              onClick={() => setActiveStep("payment")}
-              className={cn(
-                "h-9 rounded-xl px-3 text-xs font-semibold",
-                activeStep === "payment"
-                  ? "bg-blue-600 text-white hover:bg-blue-500"
-                  : "bg-white text-slate-700 dark:bg-white/[0.03] dark:text-slate-200",
-              )}
-            >
-              Pembayaran
-            </Button>
-          ) : null}
-        </div>
-
-        {(canConfirm || canRecordDeposit || canOverrideDeposit || canStart || canComplete) ? (
+        {!showLiveController && (canConfirm || canRecordDeposit || canOverrideDeposit || canStart || canComplete) ? (
           <div className="mb-3 grid grid-cols-2 gap-2 lg:grid-cols-3">
             {canConfirm ? (
               <Button
@@ -1260,27 +1308,6 @@ function TimedBookingControlHubInner({
           </div>
         ) : null}
 
-        {depositAmount > 0 && !hasPaidDp && isPreSession && !hasDepositOverride ? (
-          <div className="mb-3 rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-3 dark:border-blue-500/20 dark:bg-blue-500/[0.08]">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
-                  DP Booking
-                </p>
-                <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
-                  Rp{formatIDR(depositAmount)}
-                </p>
-                <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">
-                  DP dipakai sebagai syarat muka sebelum sesi mulai.
-                </p>
-              </div>
-              <span className="inline-flex w-fit rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-blue-700 shadow-sm dark:bg-white/10 dark:text-blue-200">
-                Menunggu DP
-              </span>
-            </div>
-          </div>
-        ) : null}
-
         {hasDepositOverride ? (
           <div className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100">
             <span className="font-semibold">Tanpa DP aktif.</span>{" "}
@@ -1289,40 +1316,35 @@ function TimedBookingControlHubInner({
           </div>
         ) : null}
 
-        {isSessionEditable && canWriteBookings ? (
-          <div className={cn("grid gap-2", enableFnb && enableAddons ? "grid-cols-3" : "grid-cols-2")}>
-            {enableFnb ? (
-            <button
-              onClick={() => canManageFnb && setFnbOpen(true)}
-              disabled={!canManageFnb}
-              className="group flex h-14 flex-col items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-blue-300 hover:text-blue-600 dark:border-white/10 dark:bg-slate-950 dark:text-white"
-            >
-              <ShoppingCart className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
-              <span className="pr-1 text-[11px] font-semibold">F&B Menu</span>
-            </button>
-            ) : null}
-            {enableAddons ? (
-            <button
-              onClick={() => setAddonsOpen(true)}
-              className="group flex h-14 flex-col items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-orange-300 hover:text-orange-600 dark:border-white/10 dark:bg-slate-950 dark:text-white"
-            >
-              <Package className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
-              <span className="pr-1 text-[11px] font-semibold">Add-ons</span>
-            </button>
-            ) : null}
-            <button
-              onClick={() => setExtendOpen(true)}
-              className="group flex h-14 flex-col items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-slate-400 dark:border-white/10 dark:bg-slate-950 dark:text-white"
-            >
-              <TimerReset className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
-              <span className="pr-1 text-[11px] font-semibold">Extend</span>
-            </button>
+        {showLiveController ? (
+          <div className="mb-1">
+            <BookingLiveController
+              active
+              booking={{
+                unit_duration: session.unit_duration,
+                unit_price: session.unit_price,
+              }}
+              menuItems={enableFnb ? menuItems : []}
+              addonItems={enableAddons ? session.resource_addons || [] : []}
+              enableFnb={enableFnb}
+              enableAddons={enableAddons}
+              canExtend={canWriteBookings}
+              canOrderFnb={canManageFnb}
+              canOrderAddon={canWriteBookings}
+              canComplete={canCompleteSessions}
+              onExtend={handleLiveExtend}
+              onOrderFnb={handleLiveAddFnb}
+              onOrderAddon={handleLiveAddons}
+              onComplete={() => handleStatusUpdate("completed")}
+            />
           </div>
         ) : !hasDepositOverride ? (
           <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
             {canWriteBookings
-              ? isOutstanding
-                ? "Sesi sudah selesai. Fokus berikutnya adalah pelunasan tagihan."
+              ? isCompletedSettled
+                ? "Sesi selesai dan tagihan sudah lunas."
+                : isOutstanding
+                ? "Sesi selesai. Lanjutkan pelunasan tagihan."
                 : isPreSession
                   ? hasDepositOverride
                     ? "Booking ini jalan tanpa DP."
@@ -1335,58 +1357,24 @@ function TimedBookingControlHubInner({
 
         <div className="flex-1 overflow-y-auto bg-white pr-1 scrollbar-hide scroll-smooth dark:bg-slate-950">
         <div className="space-y-4 p-4 sm:space-y-5 sm:p-6">
-          {activeStep === "payment" ? (
-            <div className="rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-4 dark:border-blue-500/20 dark:bg-blue-500/[0.08]">
-              <div className="flex items-start gap-3">
-                <CreditCard className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-300" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                    Ringkasan pembayaran booking
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                    Review billing sesi, status DP atau pelunasan, lalu pilih metode bayar.
-                  </p>
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <div className="rounded-xl border border-white/70 bg-white/80 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Billing</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
-                        Rp{formatIDR(Number(session.grand_total || 0))}
-                      </p>
-                    </div>
-                    <div className="rounded-xl border border-white/70 bg-white/80 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                        {activePaymentScope === "deposit" ? "DP" : "Sisa tagihan"}
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
-                        Rp{formatIDR(activePaymentAmount)}
-                      </p>
-                    </div>
-                    <div className="rounded-xl border border-white/70 bg-white/80 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Layanan</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">{groupedServices.length} item</p>
-                    </div>
-                    <div className="rounded-xl border border-white/70 bg-white/80 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Tambahan</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
-                        {(enableAddons ? groupedAddons.length : 0) + (enableFnb ? groupedFnb.length : 0)} item
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
+          {activeStep !== "payment" ? (
             <>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
                 <div className="flex items-start gap-3">
                   <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
                   <div>
                     <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                      {shouldKeepBookingPreStartSimple ? "Booking pramulai" : "Ringkasan booking aktif"}
+                      {shouldKeepBookingPreStartSimple
+                        ? "Booking pramulai"
+                        : isCompletedSettled
+                          ? "Ringkasan booking selesai"
+                          : "Ringkasan booking aktif"}
                     </p>
                     <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
                       {shouldKeepBookingPreStartSimple
                         ? "Booking ini belum masuk tahap billing POS. Operator cukup konfirmasi booking, mencatat DP yang benar-benar diterima, atau mengaktifkan tanpa DP."
+                        : isCompletedSettled
+                        ? "Booking ini sudah selesai dan lunas. Tinggal kirim atau cetak nota jika dibutuhkan."
                         : isOutstanding
                         ? "Sesi sudah selesai. Fokus utama sekarang adalah menutup sisa tagihan booking."
                         : `Booking timed ini bisa kamu kelola per kategori: ${[
@@ -1401,7 +1389,7 @@ function TimedBookingControlHubInner({
                 </div>
               </div>
 
-              {shouldKeepBookingPreStartSimple ? (
+              {showPrestartSummaryOutsidePayment ? (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
                     <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Total booking</div>
@@ -1428,7 +1416,7 @@ function TimedBookingControlHubInner({
                     </div>
                   </div>
                 </div>
-              ) : (
+              ) : !shouldKeepBookingPreStartSimple ? (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
                     <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Layanan</div>
@@ -1447,15 +1435,17 @@ function TimedBookingControlHubInner({
                     </div>
                   </div>
                   <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
-                    <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Sisa tagihan</div>
+                    <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                      {isCompletedSettled ? "Dibayar" : "Sisa tagihan"}
+                    </div>
                     <div className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
-                      Rp{formatIDR(balanceDue)}
+                      Rp{formatIDR(isCompletedSettled ? Number(session.grand_total || 0) : balanceDue)}
                     </div>
                   </div>
                 </div>
-              )}
+              ) : null}
             </>
-          )}
+          ) : null}
 
           {activeStep === "payment" && (activePaymentScope || pendingPaymentAttempts.length > 0) && (
             <section className="rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.03]">
@@ -1463,12 +1453,12 @@ function TimedBookingControlHubInner({
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-slate-950 dark:text-white">
-                      {activePaymentScope === "deposit" ? "Pembayaran DP" : "Kontrol pembayaran"}
+                      {activePaymentScope === "deposit" ? "Bayar DP" : "Bayar tagihan"}
                     </p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       {activePaymentScope
-                        ? `Pilih metode untuk memproses ${activePaymentLabel.toLowerCase()} langsung dari drawer POS.`
-                        : "Review pembayaran manual yang masih antre di panel ini."}
+                        ? "Pilih metode bayar yang paling cocok."
+                        : "Selesaikan review pembayaran manual yang masih antre."}
                     </p>
                   </div>
                   {activePaymentScope ? (
@@ -1480,6 +1470,49 @@ function TimedBookingControlHubInner({
               </div>
 
               <div className="space-y-4 p-4">
+                {shouldKeepBookingPreStartSimple ? (
+                  <div className="rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-4 dark:border-blue-500/20 dark:bg-blue-500/[0.08]">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-700 dark:text-blue-200">
+                          Ringkasan DP
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+                          Booking belum mulai. Selesaikan DP atau verifikasi dulu.
+                        </p>
+                      </div>
+                      <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-slate-950 shadow-sm dark:bg-white/10 dark:text-white">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                          DP
+                        </span>
+                        <span className="text-base font-black leading-none">
+                          Rp{formatIDR(depositAmount)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-xl border border-white/70 bg-white/80 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Total booking</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+                          Rp{formatIDR(Number(session.grand_total || 0))}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-white/70 bg-white/80 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Jadwal</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+                          {sessionStartLabel} - {sessionEndLabel}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-white/70 bg-white/80 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Status</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+                          {hasPendingPaymentReview ? "Menunggu verifikasi" : "Menunggu DP"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
                 {pendingPaymentAttempts.length > 0 ? (
                   <div className="space-y-3">
                     {pendingPaymentAttempts.map((attempt) => (
@@ -1496,10 +1529,10 @@ function TimedBookingControlHubInner({
                 {(canRecordDeposit || canOverrideDeposit) && !hasPendingPaymentReview ? (
                   <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                      Aksi admin cepat
+                      Aksi cepat
                     </p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                      Catat DP kalau uang sudah benar-benar diterima, atau pakai override operasional tanpa mengubah pembukuan.
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      Catat pembayaran yang sudah masuk atau izinkan mulai tanpa DP.
                     </p>
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       {canRecordDeposit ? (
@@ -1529,7 +1562,7 @@ function TimedBookingControlHubInner({
 
                 {hasPendingPaymentReview ? (
                   <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-4 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100">
-                    Selesaikan review pembayaran manual yang sedang antre dulu. Opsi metode pembayaran lain akan muncul lagi setelah verifikasi selesai atau ditolak.
+                    Review pembayaran manual yang antre dulu sebelum membuka metode lain.
                   </div>
                 ) : null}
 
@@ -1542,27 +1575,37 @@ function TimedBookingControlHubInner({
                     />
                     <PaymentMethodDetails method={selectedPaymentMethodDetail} />
                     <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                            Aksi berikutnya
-                          </p>
-                          <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
-                            {selectedPaymentMethodDetail?.code === "cash"
-                              ? `Terima ${activePaymentLabel} cash`
-                              : selectedPaymentMethodDetail?.verification_type === "auto"
-                                ? `Lanjutkan ${activePaymentLabel.toLowerCase()} ke gateway`
-                                : `Buat transaksi manual ${activePaymentLabel.toLowerCase()}`}
-                          </p>
-                          <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                            {paymentDisabledReason || "Setelah sukses, status booking akan ikut diperbarui otomatis."}
-                          </p>
+                      <div className="flex flex-col gap-4">
+                        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px] sm:items-start">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                              Langkah berikutnya
+                            </p>
+                            <p className="mt-1 text-base font-semibold text-slate-950 dark:text-white">
+                              {selectedPaymentMethodDetail?.code === "cash"
+                                ? `Terima ${activePaymentLabel.toLowerCase()} cash`
+                                : selectedPaymentMethodDetail?.verification_type === "auto"
+                                  ? "Buka gateway pembayaran"
+                                  : "Buat pembayaran manual"}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                              {paymentDisabledReason || "Status booking akan ikut diperbarui otomatis."}
+                            </p>
+                          </div>
+                          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 sm:text-right dark:border-white/10 dark:bg-white/[0.04]">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                              {activePaymentScope === "deposit" ? "DP" : "Sisa tagihan"}
+                            </p>
+                            <p className="mt-1 text-2xl font-black leading-none text-slate-950 dark:text-white">
+                              Rp{formatIDR(activePaymentAmount)}
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex flex-col gap-2 sm:w-[280px]">
+                        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_220px]">
                           <Button
                             onClick={() => void handleProceedPayment()}
                             disabled={Boolean(paymentDisabledReason || paymentProcessing || !selectedPaymentMethodDetail)}
-                            className="h-11 rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
+                            className="h-11 flex-1 rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
                           >
                             {paymentProcessing
                               ? "Memproses..."
@@ -1570,14 +1613,14 @@ function TimedBookingControlHubInner({
                                 ? `Terima ${activePaymentLabel} cash`
                                 : selectedPaymentMethodDetail?.verification_type === "auto"
                                   ? "Lanjut ke gateway"
-                                  : "Buat transaksi manual"}
+                                  : "Buat pembayaran manual"}
                           </Button>
                           <Button
                             variant="outline"
                             onClick={() => (window.location.href = `/admin/bookings/${session.id}`)}
-                            className="h-11 rounded-xl"
+                            className="h-11 rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-950 dark:border-white/10 dark:bg-transparent dark:text-slate-200 dark:hover:bg-white/[0.03] dark:hover:text-white"
                           >
-                            Detail booking lengkap
+                            Lihat detail booking
                           </Button>
                         </div>
                       </div>
@@ -1681,96 +1724,145 @@ function TimedBookingControlHubInner({
               }) : null}
             </>
           ) : null}
-        </div>
-      </div>
 
-      {/* 4. STICKY FOOTER SECTION */}
-      {(activeStep === "payment" || canOpenPaymentStep || isOutstanding || hasPendingPaymentReview || shouldKeepBookingPreStartSimple || (isPaymentSettled && canUseReceiptActions)) ? (
-      <div className="shrink-0 border-t border-white/5 bg-slate-900 px-4 py-3 text-white shadow-[0_-12px_24px_rgba(0,0,0,0.24)] sm:px-5 sm:py-3.5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="space-y-0.5">
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic leading-none pr-1">
-              {isOutstanding ? "Sisa Tagihan" : "Total Billing"}
-            </p>
-            <p className="flex items-baseline whitespace-nowrap pr-2 text-2xl font-black leading-none tracking-tight sm:text-[2rem]">
-              <span className="text-blue-500 text-lg mr-1.5 font-black not-italic">
-                Rp
-              </span>
-              {formatIDR(isOutstanding ? balanceDue : session.grand_total || 0)}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {activeStep === "payment" ? (
-              <Button
-                variant="outline"
-                onClick={() => setActiveStep("summary")}
-                className="h-11 rounded-xl border-white/10 bg-white/10 px-3 text-white hover:bg-white/15 hover:text-white"
-              >
-                Kembali
-              </Button>
-            ) : null}
-            {activeStep === "summary" ? (
-              <Button
-                onClick={() => {
-                  if (canOpenPaymentStep) {
-                    setActiveStep("payment");
-                    return;
-                  }
-                  window.location.href = `/admin/bookings/${session.id}`;
-                }}
-                className="group h-11 gap-2 rounded-xl bg-blue-600 px-4 pr-3 text-xs font-semibold text-white shadow-lg hover:bg-blue-500 sm:h-12 sm:px-6"
-              >
-                {canOpenPaymentStep
-                  ? hasPendingPaymentReview
-                    ? "Review pembayaran"
-                    : isPreSession
-                      ? "Buka kontrol pembayaran"
-                      : "Lanjutkan ke pembayaran"
-                  : isOutstanding
-                    ? "Buka pelunasan"
-                    : isPreSession
-                      ? "Buka detail booking"
-                      : "Checkout"}
-                <ChevronUp className="w-4 h-4 transition-transform group-hover:-translate-y-0.5" />
-              </Button>
-            ) : null}
-          </div>
-        </div>
-        {isPaymentSettled && canUseReceiptActions && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="mt-2 h-10 w-full rounded-xl border-white/10 bg-white/10 text-white hover:bg-white/15 hover:text-white"
-              >
-                <ReceiptText className="mr-2 h-4 w-4" />
-                Nota pelanggan
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 dark:bg-slate-900">
-              {!canUseReceipt && (
-                <DropdownMenuItem onClick={() => (window.location.href = "/admin/settings/billing/subscribe")} className="rounded-xl text-amber-700">
-                  Upgrade Pro untuk pakai nota
-                </DropdownMenuItem>
+          {(activeStep === "payment" ||
+            canOpenPaymentStep ||
+            isOutstanding ||
+            hasPendingPaymentReview ||
+            shouldKeepBookingPreStartSimple ||
+            (isPaymentSettled && canUseReceiptActions)) &&
+          !(activePaymentScope && !hasPendingPaymentReview) &&
+          !isPreSession ? (
+            <div
+              className={cn(
+                "rounded-2xl border px-4 py-4 shadow-sm",
+                isCompletedSettled
+                  ? "border-slate-200 bg-slate-50/80 text-slate-950 dark:border-white/10 dark:bg-white/[0.03] dark:text-white"
+                  : "border-slate-200 bg-slate-950 text-white dark:border-white/10 dark:bg-[#0f172a]",
               )}
-              <DropdownMenuItem onClick={() => handleReceiptAction("whatsapp")} className="rounded-xl" disabled={!canUseReceipt}>
-                <MessageCircle size={14} className="mr-2" /> Kirim nota WA
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleReceiptAction("print")} className="rounded-xl" disabled={!canUseReceipt}>
-                <Printer size={14} className="mr-2" /> Cetak nota fisik
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleReceiptAction("both")} className="rounded-xl" disabled={!canUseReceipt}>
-                <ReceiptText size={14} className="mr-2" /> WA + cetak
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+            >
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <p
+                    className={cn(
+                      "text-[10px] font-semibold uppercase tracking-[0.16em]",
+                      isCompletedSettled ? "text-slate-400" : "text-slate-400",
+                    )}
+                  >
+                    {isOutstanding ? "Sisa tagihan" : isCompletedSettled ? "Total transaksi" : "Total billing"}
+                  </p>
+                  <p className={cn("text-2xl font-black leading-none tracking-tight sm:text-[2rem]", isCompletedSettled ? "text-slate-950 dark:text-white" : "text-white")}>
+                    <span className={cn("mr-1.5 text-base", isCompletedSettled ? "text-blue-600 dark:text-blue-300" : "text-blue-400")}>Rp</span>
+                    {formatIDR(isOutstanding ? balanceDue : session.grand_total || 0)}
+                  </p>
+                  {isCompletedSettled ? (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Booking sudah selesai dan lunas. Nota bisa langsung dikirim atau dicetak.
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {activeStep === "payment" ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => setActiveStep("summary")}
+                      className={cn(
+                        "h-11 rounded-xl px-3",
+                        isCompletedSettled
+                          ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-950 dark:border-white/10 dark:bg-transparent dark:text-slate-200 dark:hover:bg-white/[0.03] dark:hover:text-white"
+                          : "border-white/10 bg-white/10 text-white hover:bg-white/15 hover:text-white",
+                      )}
+                    >
+                      Kembali
+                    </Button>
+                  ) : null}
+                  {activeStep === "summary" && !isCompletedSettled ? (
+                    <Button
+                      onClick={() => {
+                        if (canOpenPaymentStep) {
+                          setActiveStep("payment");
+                          return;
+                        }
+                        window.location.href = `/admin/bookings/${session.id}`;
+                      }}
+                      className="group h-11 gap-2 rounded-xl bg-blue-600 px-4 pr-3 text-xs font-semibold text-white shadow-lg hover:bg-blue-500 sm:h-12 sm:px-6"
+                    >
+                      {canOpenPaymentStep
+                        ? hasPendingPaymentReview
+                          ? "Review pembayaran"
+                          : isPreSession
+                            ? "Buka kontrol pembayaran"
+                            : "Lanjutkan ke pembayaran"
+                        : isOutstanding
+                          ? "Buka pelunasan"
+                          : isPreSession
+                            ? "Buka detail booking"
+                            : "Checkout"}
+                      <ChevronUp className="h-4 w-4 transition-transform group-hover:-translate-y-0.5" />
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+              {isPaymentSettled && canUseReceiptActions ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "mt-4 h-10 w-full rounded-xl",
+                        isCompletedSettled
+                          ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-950 dark:border-white/10 dark:bg-transparent dark:text-slate-200 dark:hover:bg-white/[0.03] dark:hover:text-white"
+                          : "border-white/10 bg-white/10 text-white hover:bg-white/15 hover:text-white",
+                      )}
+                    >
+                      <ReceiptText className="mr-2 h-4 w-4" />
+                      Nota pelanggan
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 dark:bg-slate-900">
+                    {!canUseReceipt && (
+                      <DropdownMenuItem
+                        onClick={() => (window.location.href = "/admin/settings/billing/subscribe")}
+                        className="rounded-xl text-amber-700"
+                      >
+                        Upgrade Pro untuk pakai nota
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem
+                      onClick={() => handleReceiptAction("whatsapp")}
+                      className="rounded-xl"
+                      disabled={!canUseReceipt}
+                    >
+                      <MessageCircle size={14} className="mr-2" /> Kirim nota WA
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleReceiptAction("print")}
+                      className="rounded-xl"
+                      disabled={!canUseReceipt}
+                    >
+                      <Printer size={14} className="mr-2" /> Cetak nota fisik
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleReceiptAction("both")}
+                      className="rounded-xl"
+                      disabled={!canUseReceipt}
+                    >
+                      <ReceiptText size={14} className="mr-2" /> WA + cetak
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </div>
-      ) : null}
 
       {/* DIALOGS */}
       <Dialog open={recordDepositDialogOpen} onOpenChange={setRecordDepositDialogOpen}>
-        <DialogContent className="overflow-hidden rounded-3xl p-0 sm:max-w-lg">
+        <DialogContent
+          className="overflow-hidden rounded-3xl p-0 sm:max-w-lg"
+          onOpenAutoFocus={(event) => event.preventDefault()}
+        >
           <DialogHeader className="border-b border-slate-200 px-6 py-5 text-left">
             <DialogTitle>Catat DP masuk</DialogTitle>
             <DialogDescription>
@@ -1815,7 +1907,10 @@ function TimedBookingControlHubInner({
         </DialogContent>
       </Dialog>
       <Dialog open={overrideDepositDialogOpen} onOpenChange={setOverrideDepositDialogOpen}>
-        <DialogContent className="overflow-hidden rounded-3xl p-0 sm:max-w-xl">
+        <DialogContent
+          className="overflow-hidden rounded-3xl p-0 sm:max-w-xl"
+          onOpenAutoFocus={(event) => event.preventDefault()}
+        >
           <DialogHeader className="border-b border-slate-200 px-6 py-5 text-left">
             <DialogTitle>Jalankan tanpa DP</DialogTitle>
             <DialogDescription>
@@ -2728,27 +2823,37 @@ function DirectSaleControlHub({
                   />
                   <PaymentMethodDetails method={selectedPaymentMethodDetail} />
                   <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                          Aksi berikutnya
-                        </p>
-                        <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
-                          {selectedPaymentMethodDetail?.code === "cash"
-                            ? "Terima pembayaran cash"
-                            : selectedPaymentMethodDetail?.verification_type === "auto"
-                              ? "Lanjutkan ke gateway"
-                              : "Buat transaksi manual"}
-                        </p>
-                        <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                          {paymentDisabledReason || "Setelah lunas, transaksi bisa langsung ditutup dari drawer ini."}
-                        </p>
+                    <div className="flex flex-col gap-4">
+                      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px] sm:items-start">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                            Langkah berikutnya
+                          </p>
+                          <p className="mt-1 text-base font-semibold text-slate-950 dark:text-white">
+                            {selectedPaymentMethodDetail?.code === "cash"
+                              ? "Terima pembayaran cash"
+                              : selectedPaymentMethodDetail?.verification_type === "auto"
+                                ? "Buka gateway pembayaran"
+                                : "Buat pembayaran manual"}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            {paymentDisabledReason || "Setelah lunas, transaksi bisa langsung ditutup dari drawer ini."}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 sm:text-right dark:border-white/10 dark:bg-white/[0.04]">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                            Sisa tagihan
+                          </p>
+                          <p className="mt-1 text-2xl font-black leading-none text-slate-950 dark:text-white">
+                            Rp{formatIDR(balanceDue)}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex flex-col gap-2 sm:w-[280px]">
+                      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_220px]">
                         <Button
                           onClick={() => void handleProceedPayment()}
                           disabled={Boolean(paymentDisabledReason || paymentProcessing || !selectedPaymentMethodDetail)}
-                          className="h-11 rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
+                          className="h-11 flex-1 rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
                         >
                           {paymentProcessing
                             ? "Memproses..."
@@ -2756,14 +2861,14 @@ function DirectSaleControlHub({
                               ? "Terima cash"
                               : selectedPaymentMethodDetail?.verification_type === "auto"
                                 ? "Lanjut ke gateway"
-                                : "Buat transaksi manual"}
+                                : "Buat pembayaran manual"}
                         </Button>
                         {canMarkPending ? (
                           <Button
                             variant="outline"
                             onClick={() => void handleMarkPending()}
                             disabled={busy}
-                            className="h-11 rounded-xl"
+                            className="h-11 rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-950 dark:border-white/10 dark:bg-transparent dark:text-slate-200 dark:hover:bg-white/[0.03] dark:hover:text-white"
                           >
                             Tandai pending
                           </Button>
@@ -2784,64 +2889,64 @@ function DirectSaleControlHub({
             </div>
           </div>
         ) : null}
-      </div>
 
-      <div className="shrink-0 border-t border-white/5 bg-slate-900 p-4 text-white sm:p-6">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-              Total transaksi
-            </p>
-            <p className="mt-1 text-2xl font-semibold">
-              <span className="mr-1 text-base text-blue-400">Rp</span>
-              {formatIDR(Number(order.grand_total || 0))}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {activeStep === "payment" ? (
-              <Button
-                variant="outline"
-                onClick={() => setActiveStep("summary")}
-                className="h-11 rounded-xl border-white/10 bg-white/10 px-3 text-white hover:bg-white/15 hover:text-white"
-              >
-                Kembali
-              </Button>
-            ) : null}
-            {activeStep === "summary" && canMarkPending ? (
-              <Button
-                variant="outline"
-                onClick={() => void handleMarkPending()}
-                className="h-11 rounded-xl border-white/10 bg-white/10 px-3 text-white hover:bg-white/15 hover:text-white"
-                disabled={busy}
-              >
-                Tandai pending
-              </Button>
-            ) : null}
-            {activeStep === "summary" ? (
-              <Button
-                onClick={() => {
-                  if (canOpenPaymentStep) {
-                    setActiveStep("payment");
-                    return;
-                  }
-                  if (canClose) {
-                    void handleCloseOrder();
-                  }
-                }}
-                disabled={Boolean(
-                  busy || paymentProcessing || (!canOpenPaymentStep && !canClose),
-                )}
-                className="h-11 rounded-xl bg-[var(--bookinaja-600)] px-4 text-sm font-semibold text-white hover:bg-[var(--bookinaja-700)]"
-              >
-                {busy || paymentProcessing
-                  ? "Memproses..."
-                  : canOpenPaymentStep
-                    ? hasPendingPaymentReview
-                      ? "Review pembayaran"
-                      : "Lanjutkan ke pembayaran"
-                    : "Tutup transaksi"}
-              </Button>
-            ) : null}
+        <div className="rounded-2xl border border-slate-200 bg-slate-950 p-4 text-white shadow-sm dark:border-white/10 dark:bg-[#0f172a]">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                Total transaksi
+              </p>
+              <p className="mt-1 text-2xl font-semibold">
+                <span className="mr-1 text-base text-blue-400">Rp</span>
+                {formatIDR(Number(order.grand_total || 0))}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {activeStep === "payment" ? (
+                <Button
+                  variant="outline"
+                  onClick={() => setActiveStep("summary")}
+                  className="h-11 rounded-xl border-white/10 bg-white/10 px-3 text-white hover:bg-white/15 hover:text-white"
+                >
+                  Kembali
+                </Button>
+              ) : null}
+              {activeStep === "summary" && canMarkPending ? (
+                <Button
+                  variant="outline"
+                  onClick={() => void handleMarkPending()}
+                  className="h-11 rounded-xl border-white/10 bg-white/10 px-3 text-white hover:bg-white/15 hover:text-white"
+                  disabled={busy}
+                >
+                  Tandai pending
+                </Button>
+              ) : null}
+              {activeStep === "summary" ? (
+                <Button
+                  onClick={() => {
+                    if (canOpenPaymentStep) {
+                      setActiveStep("payment");
+                      return;
+                    }
+                    if (canClose) {
+                      void handleCloseOrder();
+                    }
+                  }}
+                  disabled={Boolean(
+                    busy || paymentProcessing || (!canOpenPaymentStep && !canClose),
+                  )}
+                  className="h-11 rounded-xl bg-[var(--bookinaja-600)] px-4 text-sm font-semibold text-white hover:bg-[var(--bookinaja-700)]"
+                >
+                  {busy || paymentProcessing
+                    ? "Memproses..."
+                    : canOpenPaymentStep
+                      ? hasPendingPaymentReview
+                        ? "Review pembayaran"
+                        : "Lanjutkan ke pembayaran"
+                      : "Tutup transaksi"}
+                </Button>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

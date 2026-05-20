@@ -732,10 +732,10 @@ export default function NewManualBookingPage() {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent
-                    className="w-auto overflow-hidden rounded-xl border-none p-0 shadow-lg"
+                    className="w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-950"
                     align="end"
                   >
-                      <Calendar
+                    <Calendar
                       mode="single"
                       selected={date}
                       onSelect={(value) =>
@@ -746,6 +746,8 @@ export default function NewManualBookingPage() {
                           ? !isSameDay(normalizeCalendarDate(d), tenantToday)
                           : normalizeCalendarDate(d) < tenantToday
                       }
+                      initialFocus
+                      className="w-full [--cell-size:2.55rem]"
                     />
                   </PopoverContent>
                 </Popover>

@@ -581,7 +581,7 @@ export default function BookingsPage() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                className="w-auto max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-950"
+                className="w-[min(22rem,calc(100vw-1.5rem))] max-w-none overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-950"
                 align="start"
               >
                 <Calendar
@@ -589,7 +589,7 @@ export default function BookingsPage() {
                   selected={customRange}
                   onSelect={setCustomRange}
                   numberOfMonths={1}
-                  className="[--cell-size:2.55rem]"
+                  className="w-full [--cell-size:2.55rem]"
                 />
               </PopoverContent>
             </Popover>
@@ -768,7 +768,7 @@ export default function BookingsPage() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                className="w-auto min-w-[640px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-950"
+                className="w-[min(42rem,calc(100vw-2rem))] max-w-none overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-950"
                 align="start"
               >
                 <Calendar
@@ -776,7 +776,11 @@ export default function BookingsPage() {
                   selected={customRange}
                   onSelect={setCustomRange}
                   numberOfMonths={2}
-                  className="[--cell-size:2.4rem]"
+                  className="w-full [--cell-size:2.4rem]"
+                  classNames={{
+                    months: "grid w-full gap-4 md:grid-cols-2",
+                    month: "min-w-0",
+                  }}
                 />
               </PopoverContent>
             </Popover>

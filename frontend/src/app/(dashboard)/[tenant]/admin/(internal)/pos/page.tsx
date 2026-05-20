@@ -313,6 +313,92 @@ function getRelativeWindow(item: POSFeedItem, now: Date) {
   return "Perlu aksi";
 }
 
+function requiresVerification(item: POSFeedItem) {
+  return (
+    String(item.payment_status || "").toLowerCase() === "awaiting_verification"
+  );
+}
+
+function isOpenSalesOrder(item: POSFeedItem) {
+  if (!isSalesOrderItem(item)) return false;
+  const status = String(item.status || "").toLowerCase();
+  return status !== "completed" && status !== "closed" && status !== "cancelled";
+}
+
+function EmptyLane({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center dark:border-white/10 dark:bg-[#0f0f17]">
+      <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+        {title}
+      </div>
+      <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        {description}
+      </div>
+    </div>
+  );
+}
+
+function ActionLane({
+  title,
+  description,
+  badge,
+  items,
+  now,
+  selectedKey,
+  onOpen,
+  emptyTitle,
+  emptyDescription,
+}: {
+  title: string;
+  description: string;
+  badge: string;
+  items: POSFeedItem[];
+  now: Date;
+  selectedKey: string | null;
+  onOpen: (item: POSFeedItem) => void;
+  emptyTitle: string;
+  emptyDescription: string;
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-950 dark:text-white">
+            {title}
+          </h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            {description}
+          </p>
+        </div>
+        <Badge className="rounded-full bg-slate-100 text-xs font-semibold text-slate-600 dark:bg-white/10 dark:text-slate-300">
+          {badge}
+        </Badge>
+      </div>
+      {items.length === 0 ? (
+        <EmptyLane title={emptyTitle} description={emptyDescription} />
+      ) : (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
+          {items.map((item) => (
+            <ActionCard
+              key={`${item.kind}:${item.id}`}
+              item={item}
+              now={now}
+              isSelected={selectedKey === `${item.kind}:${item.id}`}
+              onOpen={() => onOpen(item)}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function compareActionItems(a: POSFeedItem, b: POSFeedItem) {
   const aPriority = Number(a.priority || 999);
   const bPriority = Number(b.priority || 999);
@@ -702,23 +788,34 @@ export default function POSPage() {
     );
   }, [actions, searchQuery]);
 
-  const summary = useMemo(() => {
-    return {
-      verification: filteredActions.filter(
-        (item) =>
-          item.kind === "booking" &&
-          String(item.payment_status || "").toLowerCase() === "awaiting_verification",
-      ).length,
-      settlement: filteredActions.filter(
-        (item) =>
-          needsBookingSettlement(item) ||
-          (item.kind === "sales_order" &&
-            ["pending_payment", "paid"].includes(String(item.status || "").toLowerCase())),
-      ).length,
-      active: filteredActions.filter((item) => isActiveBooking(item)).length,
-      directSale: filteredActions.filter((item) => item.kind === "sales_order").length,
-    };
-  }, [filteredActions]);
+  const operationalLanes = useMemo(() => {
+    const priority: POSFeedItem[] = [];
+    const active: POSFeedItem[] = [];
+    const upcoming: POSFeedItem[] = [];
+    const backlog: POSFeedItem[] = [];
+
+    filteredActions.forEach((item) => {
+      if (
+        isOpenSalesOrder(item) ||
+        requiresVerification(item) ||
+        needsBookingSettlement(item)
+      ) {
+        priority.push(item);
+        return;
+      }
+      if (isActiveBooking(item)) {
+        active.push(item);
+        return;
+      }
+      if (isUpcomingBooking(item, now)) {
+        upcoming.push(item);
+        return;
+      }
+      backlog.push(item);
+    });
+
+    return { priority, active, upcoming, backlog };
+  }, [filteredActions, now]);
 
   const directSaleResources = useMemo(
     () =>
@@ -955,22 +1052,24 @@ export default function POSPage() {
       </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+      <div className="grid gap-2.5 md:grid-cols-3 xl:grid-cols-3">
         <Card className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] md:p-3.5">
-          <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Verifikasi bayar</div>
-          <div className="mt-1.5 text-lg font-semibold text-amber-600 md:text-xl">{summary.verification}</div>
-        </Card>
-        <Card className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] md:p-3.5">
-          <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Perlu tindakan</div>
-          <div className="mt-1.5 text-lg font-semibold text-orange-600 md:text-xl">{summary.settlement}</div>
+          <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Prioritas sekarang</div>
+          <div className="mt-1.5 text-lg font-semibold text-orange-600 md:text-xl">
+            {operationalLanes.priority.length}
+          </div>
         </Card>
         <Card className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] md:p-3.5">
           <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Sedang berjalan</div>
-          <div className="mt-1.5 text-lg font-semibold text-emerald-600 md:text-xl">{summary.active}</div>
+          <div className="mt-1.5 text-lg font-semibold text-emerald-600 md:text-xl">
+            {operationalLanes.active.length}
+          </div>
         </Card>
         <Card className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] md:p-3.5">
-          <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Order langsung</div>
-          <div className="mt-1.5 text-lg font-semibold text-[var(--bookinaja-600)] md:text-xl">{summary.directSale}</div>
+          <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Siap mulai</div>
+          <div className="mt-1.5 text-lg font-semibold text-[var(--bookinaja-600)] md:text-xl">
+            {operationalLanes.upcoming.length}
+          </div>
         </Card>
       </div>
 
@@ -1012,16 +1111,53 @@ export default function POSPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {filteredActions.map((item) => (
-            <ActionCard
-              key={`${item.kind}:${item.id}`}
-              item={item}
+        <div className="space-y-6">
+          <ActionLane
+            title="Prioritas sekarang"
+            description="Buka bagian ini dulu untuk verifikasi bayar, order langsung, dan booking yang perlu pelunasan."
+            badge={`${operationalLanes.priority.length} tindakan`}
+            items={operationalLanes.priority}
+            now={now}
+            selectedKey={selectedKey}
+            onOpen={(item) => void openActionDetail(item)}
+            emptyTitle="Tidak ada prioritas mendesak"
+            emptyDescription="Verifikasi pembayaran, direct sale terbuka, dan pelunasan booking sedang bersih."
+          />
+          <ActionLane
+            title="Sesi berjalan"
+            description="Pantau sesi yang sedang aktif, lalu masuk untuk extend, tambah order, atau tutup sesi."
+            badge={`${operationalLanes.active.length} sesi`}
+            items={operationalLanes.active}
+            now={now}
+            selectedKey={selectedKey}
+            onOpen={(item) => void openActionDetail(item)}
+            emptyTitle="Belum ada sesi aktif"
+            emptyDescription="Saat sesi mulai berjalan, kartunya akan muncul di sini."
+          />
+          <ActionLane
+            title="Siap mulai"
+            description="Booking yang sebentar lagi mulai dipisah di sini supaya operator bisa prepare lebih cepat."
+            badge={`${operationalLanes.upcoming.length} booking`}
+            items={operationalLanes.upcoming}
+            now={now}
+            selectedKey={selectedKey}
+            onOpen={(item) => void openActionDetail(item)}
+            emptyTitle="Tidak ada booking dekat waktu mulai"
+            emptyDescription="Antrian booking terdekat akan muncul di bagian ini."
+          />
+          {operationalLanes.backlog.length > 0 ? (
+            <ActionLane
+              title="Lainnya"
+              description="Transaksi yang masih perlu dipantau tapi bukan lane utama operasional."
+              badge={`${operationalLanes.backlog.length} item`}
+              items={operationalLanes.backlog}
               now={now}
-              isSelected={selectedKey === `${item.kind}:${item.id}`}
-              onOpen={() => void openActionDetail(item)}
+              selectedKey={selectedKey}
+              onOpen={(item) => void openActionDetail(item)}
+              emptyTitle=""
+              emptyDescription=""
             />
-          ))}
+          ) : null}
         </div>
       )}
 

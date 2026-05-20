@@ -86,6 +86,52 @@ func (r *Repository) invalidateUserCache(ctx context.Context, userIDs ...uuid.UU
 	}
 }
 
+func (r *Repository) invalidateReservationCacheForTenant(ctx context.Context, tenantID uuid.UUID) {
+	if r.rdb == nil || tenantID == uuid.Nil {
+		return
+	}
+
+	keys := []string{
+		fmt.Sprintf("reservation:booking:active:%s", tenantID.String()),
+		fmt.Sprintf("reservation:payment-methods:%s", tenantID.String()),
+		fmt.Sprintf("reservation:booking:list:%s:all", tenantID.String()),
+	}
+
+	var bookingRows []struct {
+		ID          uuid.UUID  `db:"id"`
+		CustomerID  *uuid.UUID `db:"customer_id"`
+		AccessToken *uuid.UUID `db:"access_token"`
+		Status      string     `db:"status"`
+	}
+	if err := r.db.SelectContext(ctx, &bookingRows, `
+		SELECT id, customer_id, access_token, status
+		FROM bookings
+		WHERE tenant_id = $1`, tenantID); err != nil {
+		return
+	}
+
+	for _, row := range bookingRows {
+		if row.ID == uuid.Nil {
+			continue
+		}
+		keys = append(keys,
+			fmt.Sprintf("reservation:booking:admin:%s:%s", row.ID.String(), tenantID.String()),
+			fmt.Sprintf("reservation:booking:list:%s:%s", tenantID.String(), strings.ToLower(strings.TrimSpace(row.Status))),
+		)
+		if row.CustomerID != nil && *row.CustomerID != uuid.Nil {
+			keys = append(keys, fmt.Sprintf("reservation:booking:customer:%s:%s", row.ID.String(), row.CustomerID.String()))
+		}
+		if row.AccessToken != nil && *row.AccessToken != uuid.Nil {
+			keys = append(keys, fmt.Sprintf("reservation:booking:public:%s", row.AccessToken.String()))
+		}
+	}
+
+	if len(keys) == 0 {
+		return
+	}
+	_ = r.rdb.Del(ctx, keys...).Err()
+}
+
 func (r *Repository) invalidateStaffCacheByRole(ctx context.Context, tenantID, roleID uuid.UUID) {
 	if r.rdb == nil || tenantID == uuid.Nil || roleID == uuid.Nil {
 		return
@@ -894,6 +940,8 @@ func (r *Repository) Update(ctx context.Context, t Tenant) error {
 			}
 		}
 	}
+
+	r.invalidateReservationCacheForTenant(ctx, t.ID)
 
 	return nil
 }

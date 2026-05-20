@@ -494,17 +494,6 @@ func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error
 	if err != nil {
 		return err
 	}
-	if !b.ControllerFeatures.EnableAddons {
-		filtered := make([]BookingOptionDetail, 0, len(b.Options))
-		for _, item := range b.Options {
-			itemType := strings.ToLower(strings.TrimSpace(item.ItemType))
-			if itemType == "add_on" || itemType == "addon" {
-				continue
-			}
-			filtered = append(filtered, item)
-		}
-		b.Options = filtered
-	}
 
 	// 2. Load F&B Orders
 	b.Orders = make([]OrderItem, 0)
@@ -518,11 +507,9 @@ func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error
 	if err != nil {
 		return err
 	}
-	if !b.ControllerFeatures.EnableFnb {
-		b.Orders = make([]OrderItem, 0)
-	}
 
 	// 3. Load Katalog Addons
+	// Snapshot transaksi lama harus tetap tampil; yang dimatikan hanya kemampuan tambah add-on baru.
 	b.ResourceAddons = make([]ResourceItemSimple, 0)
 	err = r.db.SelectContext(ctx, &b.ResourceAddons, `
 		SELECT id, name, price, item_type 
@@ -543,21 +530,6 @@ func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error
 		WHERE booking_id = $1
 		ORDER BY created_at ASC`, b.ID); err != nil {
 		return err
-	}
-	if !b.ControllerFeatures.EnableFnb || !b.ControllerFeatures.EnableAddons {
-		filtered := make([]BookingEvent, 0, len(b.Events))
-		for _, event := range b.Events {
-			eventType := strings.ToLower(strings.TrimSpace(event.EventType))
-			title := strings.ToLower(strings.TrimSpace(event.Title))
-			if !b.ControllerFeatures.EnableFnb && (strings.Contains(eventType, "fnb") || strings.Contains(title, "f&b")) {
-				continue
-			}
-			if !b.ControllerFeatures.EnableAddons && strings.Contains(eventType, "addon") {
-				continue
-			}
-			filtered = append(filtered, event)
-		}
-		b.Events = filtered
 	}
 	return nil
 }

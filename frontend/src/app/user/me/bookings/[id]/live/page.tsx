@@ -490,6 +490,8 @@ export default function CustomerBookingDetail() {
   }, [booking?.orders]);
   const enableFnb = booking?.controller_features?.enable_fnb !== false;
   const enableAddons = booking?.controller_features?.enable_addons !== false;
+  const hasAddonSnapshot = groupedAddonOptions.length > 0;
+  const hasFnbSnapshot = groupedOrders.length > 0;
 
   const copyMagicLink = () => {
     const url = window.location.href;
@@ -856,7 +858,7 @@ export default function CustomerBookingDetail() {
               </p>
             </div>
             <Badge className="border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
-              {groupedMainOptions.length + (enableAddons ? groupedAddonOptions.length : 0) + (enableFnb ? groupedOrders.length : 0)} item
+                {groupedMainOptions.length + ((enableAddons || hasAddonSnapshot) ? groupedAddonOptions.length : 0) + ((enableFnb || hasFnbSnapshot) ? groupedOrders.length : 0)} item
             </Badge>
           </div>
 
@@ -880,7 +882,7 @@ export default function CustomerBookingDetail() {
               )}
             </div>
 
-            {enableAddons ? (
+            {enableAddons || hasAddonSnapshot ? (
               <div className="space-y-2 border-t border-slate-200 pt-4 dark:border-white/10">
                 <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                   <CreditCard className="h-4 w-4 text-emerald-600" />
@@ -901,7 +903,7 @@ export default function CustomerBookingDetail() {
               </div>
             ) : null}
 
-            {enableFnb ? (
+            {enableFnb || hasFnbSnapshot ? (
               <div className="space-y-2 border-t border-slate-200 pt-4 dark:border-white/10">
                 <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                   <UtensilsCrossed className="h-4 w-4 text-orange-500" />

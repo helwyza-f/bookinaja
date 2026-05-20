@@ -43,6 +43,10 @@ type ControllerProps = {
   addonItems: CatalogItem[];
   enableFnb: boolean;
   enableAddons: boolean;
+  canExtend?: boolean;
+  canOrderFnb?: boolean;
+  canOrderAddon?: boolean;
+  canComplete?: boolean;
   onExtend: (count: number) => Promise<void>;
   onOrderFnb: (cart: CatalogItem[]) => Promise<void>;
   onOrderAddon: (cart: CatalogItem[]) => Promise<void>;
@@ -116,6 +120,10 @@ export function BookingLiveController({
   addonItems,
   enableFnb,
   enableAddons,
+  canExtend = true,
+  canOrderFnb = true,
+  canOrderAddon = true,
+  canComplete = true,
   onExtend,
   onOrderFnb,
   onOrderAddon,
@@ -206,7 +214,7 @@ export function BookingLiveController({
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2">
         <ActionTile
-          disabled={!active}
+          disabled={!active || !canExtend}
           title="Tambah Durasi"
           icon={Timer}
           tone="blue"
@@ -214,7 +222,7 @@ export function BookingLiveController({
         />
         {enableFnb ? (
           <ActionTile
-            disabled={!active}
+            disabled={!active || !canOrderFnb}
             title="Pesan F&B"
             icon={Coffee}
             tone="orange"
@@ -223,7 +231,7 @@ export function BookingLiveController({
         ) : null}
         {enableAddons ? (
           <ActionTile
-            disabled={!active}
+            disabled={!active || !canOrderAddon}
             title="Tambah Add-on"
             icon={PlusCircle}
             tone="emerald"
@@ -231,12 +239,12 @@ export function BookingLiveController({
           />
         ) : null}
         <ActionTile
-          disabled={!active}
+          disabled={!active || !canComplete}
           title="Akhiri Sesi"
           icon={ReceiptText}
           tone="slate"
           onClick={() => {
-            if (!onComplete) return;
+            if (!onComplete || !canComplete) return;
             openConfirm({
               kind: "complete",
               title: "Akhiri sesi",
@@ -534,9 +542,11 @@ function CatalogSheet({
   accent: "orange" | "emerald";
   onSubmit: () => Promise<void>;
 }) {
+  const [searchOpen, setSearchOpen] = useState(false);
   const cartItems = Object.values(cart);
   const formatIDR = (value: number) =>
     new Intl.NumberFormat("id-ID").format(Number(value || 0));
+  const isSearchVisible = searchOpen || Boolean(search);
 
   const add = (item: CatalogItem) => {
     setCart((prev) => ({
@@ -556,17 +566,37 @@ function CatalogSheet({
   };
 
   return (
-    <MobileSheet open={open} onClose={onClose} title={title} eyebrow={eyebrow}>
+    <MobileSheet
+      open={open}
+      onClose={() => {
+        setSearchOpen(false);
+        onClose();
+      }}
+      title={title}
+      eyebrow={eyebrow}
+    >
       <div className="space-y-4 p-4">
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Cari item..."
-            className="h-12 rounded-2xl border-slate-200 bg-slate-50 pl-11 dark:border-white/10 dark:bg-white/[0.04]"
-          />
-        </div>
+        {isSearchVisible ? (
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Cari item..."
+              className="h-12 rounded-2xl border-slate-200 bg-slate-50 pl-11 dark:border-white/10 dark:bg-white/[0.04]"
+            />
+          </div>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 rounded-2xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-950 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-200"
+            onClick={() => setSearchOpen(true)}
+          >
+            <Search className="mr-2 h-4 w-4" />
+            Cari item
+          </Button>
+        )}
 
         <div className="max-h-[46vh] space-y-3 overflow-y-auto pr-1">
           {items.length ? (

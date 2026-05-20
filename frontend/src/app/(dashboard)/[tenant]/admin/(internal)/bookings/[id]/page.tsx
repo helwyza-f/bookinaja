@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { format } from "date-fns";
+import { differenceInSeconds, format, parseISO } from "date-fns";
 import { id as localeID } from "date-fns/locale";
 import {
   ArrowLeft,
@@ -60,6 +60,7 @@ import {
   type RealtimeEvent,
   matchesRealtimePrefix,
 } from "@/lib/realtime/event-types";
+import { BookingLiveController } from "@/components/customer/booking-live-controller";
 
 type BookingOption = {
   id?: string;
@@ -78,6 +79,24 @@ type BookingOrder = {
   quantity?: number;
   price_at_purchase?: number;
   subtotal?: number;
+};
+
+type ResourceAddon = {
+  id: string;
+  name?: string;
+  price?: number;
+  unit_price?: number;
+  quantity?: number;
+};
+
+type FnbCatalogItem = {
+  id: string;
+  name: string;
+  category?: string;
+  price?: number;
+  unit_price?: number;
+  quantity?: number;
+  is_available?: boolean;
 };
 
 type BookingEvent = {
@@ -132,6 +151,8 @@ type BookingDetail = {
   resource_name?: string;
   start_time: string;
   end_time: string;
+  unit_price?: number;
+  unit_duration?: number;
   promo_code?: string;
   original_grand_total?: number;
   discount_amount?: number;
@@ -141,6 +162,7 @@ type BookingDetail = {
   balance_due?: number;
   total_fnb?: number;
   access_token?: string;
+  resource_addons?: ResourceAddon[];
   payment_methods?: BookingPaymentMethod[];
   payment_attempts?: BookingPaymentAttempt[];
   options?: BookingOption[];
@@ -401,6 +423,8 @@ export default function BookingDetailPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [attemptNotes, setAttemptNotes] = useState<Record<string, string>>({});
   const [processingAttemptId, setProcessingAttemptId] = useState<string | null>(null);
+  const [fnbCatalog, setFnbCatalog] = useState<FnbCatalogItem[]>([]);
+  const [now, setNow] = useState(() => new Date());
   const hasLoadedRef = useRef(false);
   const refreshTimerRef = useRef<number | null>(null);
   const lastRealtimeToastRef = useRef("");
@@ -436,6 +460,13 @@ export default function BookingDetailPage() {
       }
     };
   }, [fetchDetail]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const scheduleDetailRefresh = useCallback(
     (delay = 300) => {
@@ -564,10 +595,21 @@ export default function BookingDetailPage() {
     () => groupedOptions.filter((item) => item.item_type !== "main_option"),
     [groupedOptions],
   );
+  const hasAddonSnapshot = addonOptions.length > 0;
+  const hasFnbSnapshot = groupedOrders.length > 0;
+  const controllerAddonItems = useMemo(
+    () =>
+      (booking?.resource_addons || []).map((item) => ({
+        id: item.id,
+        name: String(item.name || "Add-on"),
+        price: Number(item.price || item.unit_price || 0),
+      })),
+    [booking?.resource_addons],
+  );
   const visibleItemCount =
     mainOptions.length +
-    (enableAddons ? addonOptions.length : 0) +
-    (enableFnb ? groupedOrders.length : 0);
+    ((enableAddons || hasAddonSnapshot) ? addonOptions.length : 0) +
+    ((enableFnb || hasFnbSnapshot) ? groupedOrders.length : 0);
 
   const handleUpdateStatus = async (newStatus: string) => {
     setUpdating(true);
@@ -602,6 +644,43 @@ export default function BookingDetailPage() {
   const hasDepositOverride = Boolean(booking?.deposit_override_active);
   const sessionStatusMeta = adminSessionStatusMeta(status);
   const paymentStatusMeta = adminPaymentStatusMeta(paymentStatus, booking?.balance_due, hasDepositOverride);
+  const countdownData = useMemo(() => {
+    if (!booking) return null;
+    const start = parseISO(booking.start_time);
+    const end = parseISO(booking.end_time);
+
+    if (["active", "ongoing"].includes(status)) {
+      const diff = differenceInSeconds(end, now);
+      return {
+        label: "Sisa waktu sesi",
+        value: [
+          String(Math.max(0, Math.floor(diff / 3600))).padStart(2, "0"),
+          String(Math.max(0, Math.floor((diff % 3600) / 60))).padStart(2, "0"),
+          String(Math.max(0, diff % 60)).padStart(2, "0"),
+        ].join(":"),
+        tone:
+          diff < 300
+            ? "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100"
+            : "border-slate-950 bg-slate-950 text-white dark:border-white/10 dark:bg-[#06081a]",
+      };
+    }
+
+    if (now < start && !["completed", "cancelled", "active", "ongoing"].includes(status)) {
+      const diff = differenceInSeconds(start, now);
+      return {
+        label: "Waktu tunggu",
+        value: [
+          String(Math.max(0, Math.floor(diff / 3600))).padStart(2, "0"),
+          String(Math.max(0, Math.floor((diff % 3600) / 60))).padStart(2, "0"),
+          String(Math.max(0, diff % 60)).padStart(2, "0"),
+        ].join(":"),
+        tone:
+          "border-blue-100 bg-blue-50 text-blue-900 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100",
+      };
+    }
+
+    return null;
+  }, [booking, now, status]);
   const hasPaidDp = paymentStatus === "partial_paid" || paymentStatus === "paid" || paymentStatus === "settled" || Number(booking?.deposit_amount || 0) === 0;
   const canConfirm = status === "pending" && paymentStatus !== "awaiting_verification";
   const canStart = (status === "pending" || status === "confirmed") && (hasPaidDp || hasDepositOverride);
@@ -620,7 +699,8 @@ export default function BookingDetailPage() {
   const canCancel =
     (status === "pending" || status === "confirmed") && canCancelBooking;
   const canSettleCash = hasPermission(adminUser, "pos.cash.settle");
-  const canOperatePos = hasPermission(adminUser, "pos.read");
+  const canExtendSession = hasPermission(adminUser, "sessions.extend");
+  const canManageLiveOrders = hasPermission(adminUser, "pos.order.add");
   const canSendReceipt = hasPermission(adminUser, "receipts.send");
   const canPrintReceipt = hasPermission(adminUser, "receipts.print");
   const canRecordDeposit =
@@ -651,6 +731,71 @@ export default function BookingDetailPage() {
     canSettle ||
     (isPaymentSettled && (canSendReceipt || canPrintReceipt)) ||
     canCancel;
+  const showLiveController = status === "active" && Boolean(booking?.id);
+  const canAddFnb = showLiveController && enableFnb && canManageLiveOrders;
+  const canAddAddon = showLiveController && enableAddons && canManageLiveOrders;
+
+  useEffect(() => {
+    if (!showLiveController || !enableFnb || !canManageLiveOrders) {
+      setFnbCatalog([]);
+      return;
+    }
+    let cancelled = false;
+    api
+      .get("/fnb")
+      .then((res) => {
+        if (cancelled) return;
+        const items = Array.isArray(res.data) ? res.data : [];
+        setFnbCatalog(items.filter((item) => item?.is_available !== false));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setFnbCatalog([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showLiveController, enableFnb, canManageLiveOrders]);
+
+  const handleExtendSession = useCallback(
+    async (count: number) => {
+      await api.post(`/bookings/${params.id}/extend`, {
+        additional_duration: count,
+      });
+      toast.success("Sesi diperpanjang");
+      await fetchDetail("background");
+    },
+    [fetchDetail, params.id],
+  );
+
+  const handleAddFnb = useCallback(
+    async (cartItems: FnbCatalogItem[]) => {
+      for (const item of cartItems) {
+        await api.post(`/bookings/pos/order/${params.id}`, {
+          fnb_item_id: item.id,
+          quantity: item.quantity,
+        });
+      }
+      toast.success("Pesanan F&B ditambahkan");
+      await fetchDetail("background");
+    },
+    [fetchDetail, params.id],
+  );
+
+  const handleAddons = useCallback(
+    async (cartItems: ResourceAddon[]) => {
+      for (const item of cartItems) {
+        for (let i = 0; i < Number(item.quantity || 0); i += 1) {
+          await api.post(`/bookings/${params.id}/addons`, {
+            item_id: item.id,
+          });
+        }
+      }
+      toast.success("Add-on ditambahkan");
+      await fetchDetail("background");
+    },
+    [fetchDetail, params.id],
+  );
 
   type AdminActionItem = {
     key: string;
@@ -705,17 +850,6 @@ export default function BookingDetailPage() {
       tone: "neutral",
     });
   }
-  if (status === "active" && booking?.id) {
-    adminActions.push({
-      key: "pos",
-      title: "Buka POS live",
-      description: "Pantau sesi aktif, tambah order, dan kelola billing.",
-      icon: Zap,
-      onClick: () => router.push(`/admin/pos?active=${booking.id}`),
-      disabled: !canOperatePos,
-      tone: "success",
-    });
-  }
   if ((status === "pending" || status === "confirmed") && canStartSession) {
     adminActions.push({
       key: "start",
@@ -729,7 +863,7 @@ export default function BookingDetailPage() {
       tone: "success",
     });
   }
-  if (canComplete) {
+  if (canComplete && !showLiveController) {
     adminActions.push({
       key: "complete",
       title: "Akhiri sesi",
@@ -811,26 +945,25 @@ export default function BookingDetailPage() {
     });
   }
 
-  const primaryActionKey =
-    status === "active" && canOperatePos
-      ? "pos"
-      : canSettle
-        ? "settle"
-        : canComplete
-          ? "complete"
-          : canRecordDeposit
-            ? "deposit"
-            : canConfirm
-              ? "confirm"
-              : canStart
-                ? "start"
-                : canOverrideDeposit
-                  ? "override"
-                  : isPaymentSettled && (canSendReceipt || canPrintReceipt)
-                    ? "receipt"
-                    : canCancel
-                      ? "cancel"
-                      : null;
+  const primaryActionKey = showLiveController
+    ? null
+    : canSettle
+      ? "settle"
+      : canComplete
+        ? "complete"
+        : canRecordDeposit
+          ? "deposit"
+          : canConfirm
+            ? "confirm"
+            : canStart
+              ? "start"
+              : canOverrideDeposit
+                ? "override"
+                : isPaymentSettled && (canSendReceipt || canPrintReceipt)
+                  ? "receipt"
+                  : canCancel
+                    ? "cancel"
+                    : null;
 
   const primaryAction = primaryActionKey
     ? adminActions.find((action) => action.key === primaryActionKey) || null
@@ -1191,7 +1324,9 @@ export default function BookingDetailPage() {
                     Kontrol Admin
                   </p>
                   <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                    Fokuskan satu langkah utama sesuai state booking saat ini.
+                    {showLiveController
+                      ? "Kelola sesi aktif langsung di halaman ini."
+                      : "Fokuskan satu langkah utama sesuai state booking saat ini."}
                   </p>
                 </div>
                 <Badge
@@ -1203,6 +1338,59 @@ export default function BookingDetailPage() {
                   {sessionStatusMeta.label}
                 </Badge>
               </div>
+
+              {showLiveController ? (
+                <div className="mb-4">
+                  {countdownData ? (
+                    <div
+                      className={cn(
+                        "mb-3 rounded-xl border px-4 py-4",
+                        countdownData.tone,
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-75">
+                            {countdownData.label}
+                          </p>
+                          <p className="mt-2 text-3xl font-semibold tracking-tight">
+                            {countdownData.value}
+                          </p>
+                        </div>
+                        <Badge
+                          className={cn(
+                            "border-none",
+                            ["active", "ongoing"].includes(status)
+                              ? "bg-emerald-500 text-white"
+                              : "bg-blue-600 text-white",
+                          )}
+                        >
+                          {["active", "ongoing"].includes(status) ? "Sesi berjalan" : "Belum mulai"}
+                        </Badge>
+                      </div>
+                    </div>
+                  ) : null}
+                  <BookingLiveController
+                    active
+                    booking={{
+                      unit_duration: booking.unit_duration,
+                      unit_price: booking.unit_price,
+                    }}
+                    menuItems={enableFnb ? fnbCatalog : []}
+                    addonItems={enableAddons ? controllerAddonItems : []}
+                    enableFnb={enableFnb}
+                    enableAddons={enableAddons}
+                    canExtend={canExtendSession}
+                    canOrderFnb={canAddFnb}
+                    canOrderAddon={canAddAddon}
+                    canComplete={canCompleteSession}
+                    onExtend={handleExtendSession}
+                    onOrderFnb={handleAddFnb}
+                    onOrderAddon={handleAddons}
+                    onComplete={() => handleUpdateStatus("completed")}
+                  />
+                </div>
+              ) : null}
 
               {primaryAction ? (
                 <div className="mb-4">
@@ -1477,7 +1665,7 @@ export default function BookingDetailPage() {
                 )}
               </div>
 
-              {enableAddons ? (
+              {enableAddons || hasAddonSnapshot ? (
               <div className="border-t border-slate-100 pt-5 dark:border-white/10">
                 <div className="flex items-center gap-2 text-slate-950 dark:text-white">
                   <Layers className="h-4 w-4 text-emerald-500" />
@@ -1514,7 +1702,7 @@ export default function BookingDetailPage() {
               </div>
               ) : null}
 
-              {enableFnb ? (
+              {enableFnb || hasFnbSnapshot ? (
               <div className="border-t border-slate-100 pt-5 dark:border-white/10">
                 <div className="flex items-center gap-2 text-slate-950 dark:text-white">
                   <Utensils className="h-4 w-4 text-orange-500" />
@@ -1669,7 +1857,10 @@ export default function BookingDetailPage() {
             {timelineSection}
           </div>
           <Dialog open={recordDepositDialogOpen} onOpenChange={setRecordDepositDialogOpen}>
-            <DialogContent className="overflow-hidden rounded-3xl p-0 sm:max-w-lg">
+            <DialogContent
+              className="overflow-hidden rounded-3xl p-0 sm:max-w-lg"
+              onOpenAutoFocus={(event) => event.preventDefault()}
+            >
               <DialogHeader className="border-b border-slate-200 px-6 py-5 text-left">
                 <DialogTitle>Catat DP masuk</DialogTitle>
                 <DialogDescription>
@@ -1703,7 +1894,10 @@ export default function BookingDetailPage() {
             </DialogContent>
           </Dialog>
           <Dialog open={overrideDepositDialogOpen} onOpenChange={setOverrideDepositDialogOpen}>
-            <DialogContent className="overflow-hidden rounded-3xl p-0 sm:max-w-xl">
+            <DialogContent
+              className="overflow-hidden rounded-3xl p-0 sm:max-w-xl"
+              onOpenAutoFocus={(event) => event.preventDefault()}
+            >
               <DialogHeader className="border-b border-slate-200 px-6 py-5 text-left">
                 <DialogTitle>Jalankan tanpa DP</DialogTitle>
                 <DialogDescription>
