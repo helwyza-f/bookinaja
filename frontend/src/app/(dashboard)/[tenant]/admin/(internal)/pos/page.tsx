@@ -898,20 +898,21 @@ export default function POSPage() {
   }
 
   return (
-    <div className="mx-auto max-w-360 space-y-4 px-3 pb-20 pt-4 font-plus-jakarta">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+    <div className="mx-auto max-w-360 space-y-3 px-3 pb-20 pt-3 font-plus-jakarta">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-[#0f0f17]">
+        <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <Badge className="rounded-full border-none bg-[var(--bookinaja-600)] text-white">
             POS
           </Badge>
           <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
-          <Button
-            variant="ghost"
-            onClick={() => router.push("/admin/bookings")}
-            className="h-8 rounded-lg px-3 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-white/5 dark:hover:text-white"
-          >
-            Ledger booking
-          </Button>
+            <Button
+              variant="ghost"
+              onClick={() => router.push("/admin/bookings")}
+              className="h-8 rounded-lg px-3 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-white/5 dark:hover:text-white"
+            >
+              Ledger booking
+            </Button>
         </div>
 
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-end">
@@ -952,8 +953,9 @@ export default function POSPage() {
           </div>
         </div>
       </div>
+      </div>
 
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
         <Card className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#0f0f17] md:p-3.5">
           <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Verifikasi bayar</div>
           <div className="mt-1.5 text-lg font-semibold text-amber-600 md:text-xl">{summary.verification}</div>

@@ -117,22 +117,22 @@ function CompactMetricCard({
   const colors = toneMap[tone];
 
   return (
-    <Card className={cn("rounded-xl border p-3 sm:p-4", colors.shell)}>
+    <Card className={cn("rounded-xl border p-2.5 sm:p-3", colors.shell)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
             {label}
           </div>
-          <div className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
+          <div className="mt-1.5 text-lg font-semibold tracking-tight text-slate-950 dark:text-white sm:text-[1.55rem]">
             {value}
           </div>
-          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 sm:text-xs">
+          <div className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400 sm:text-xs">
             {hint}
           </div>
         </div>
         <div
           className={cn(
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl sm:h-11 sm:w-11",
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-10 sm:w-10",
             colors.icon,
           )}
         >
@@ -464,91 +464,85 @@ export default function BookingsPage() {
 
   return (
     <div className="mx-auto w-full space-y-4 px-3 pb-20 pt-4 font-plus-jakarta md:px-4">
-      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:p-5">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="max-w-3xl space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
-              <MonitorPlay className="h-3.5 w-3.5 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
-              Booking
-            </div>
-            <div className="space-y-1">
-              <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
+      <Card className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950 sm:p-3.5">
+        <div className="space-y-3">
+          <div className="flex flex-col gap-2.5 xl:flex-row xl:items-start xl:justify-between">
+            <div className="max-w-3xl space-y-1.5">
+              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+                <MonitorPlay className="h-3.5 w-3.5 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
+                Booking
+              </div>
+              <h1 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-white sm:text-[1.5rem]">
                 Booking
               </h1>
-            </div>
-            <div className="flex flex-wrap items-center gap-2.5">
-              <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
-              <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-                Rentang: {timeRangeLabel}
+              <div className="flex flex-wrap items-center gap-2">
+                <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
+                <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+                  Rentang: {timeRangeLabel}
+                </div>
               </div>
             </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() => canCreateBookings && router.push(`/admin/bookings/new?mode=scheduled`)}
+                disabled={!canCreateBookings}
+                className="h-8.5 rounded-lg bg-slate-950 px-3.5 text-sm font-medium text-white hover:bg-[var(--bookinaja-700)] dark:bg-white dark:text-slate-950"
+              >
+                <Plus size={16} strokeWidth={4} className="mr-2" />
+                Jadwal
+              </Button>
+              <Button
+                onClick={() => canCreateBookings && router.push(`/admin/bookings/new?mode=walkin`)}
+                disabled={!canCreateBookings}
+                variant="outline"
+                className="h-8.5 rounded-lg border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-950 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+              >
+                Walk-in
+              </Button>
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <Button
-              onClick={() => canCreateBookings && router.push(`/admin/bookings/new?mode=scheduled`)}
-              disabled={!canCreateBookings}
-              className="h-10 rounded-lg bg-slate-950 px-4 text-sm font-medium text-white hover:bg-[var(--bookinaja-700)] dark:bg-white dark:text-slate-950"
-            >
-              <Plus size={16} strokeWidth={4} className="mr-2" />
-              Jadwal
-            </Button>
-            <Button
-              onClick={() => canCreateBookings && router.push(`/admin/bookings/new?mode=walkin`)}
-              disabled={!canCreateBookings}
-              variant="outline"
-              className="h-10 rounded-lg border-slate-200 bg-white px-4 text-sm font-medium text-slate-950 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
-            >
-              Walk-in
-            </Button>
+          <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+            <CompactMetricCard
+              label="Revenue"
+              value={`Rp ${formatIDR(stats.totalRevenue)}`}
+              hint="Filter aktif"
+              icon={Wallet}
+              tone="indigo"
+            />
+            <CompactMetricCard
+              label="Aktif"
+              value={String(stats.activeSess)}
+              hint="Sesi"
+              icon={TrendingUp}
+              tone="emerald"
+            />
+            <CompactMetricCard
+              label="Pelunasan"
+              value={String(stats.needsSettlement)}
+              hint="Saldo"
+              icon={Clock}
+              tone="amber"
+            />
+            <CompactMetricCard
+              label="Resource"
+              value={String(stats.resourceCount)}
+              hint="Terlihat"
+              icon={Layers}
+              tone="slate"
+            />
           </div>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-2.5 md:grid-cols-2 md:gap-3 xl:grid-cols-4">
-        <CompactMetricCard
-          label="Revenue Tampil"
-          value={`Rp ${formatIDR(stats.totalRevenue)}`}
-          hint="Filter aktif"
-          icon={Wallet}
-          tone="indigo"
-        />
-        <CompactMetricCard
-          label="Sesi Aktif"
-          value={String(stats.activeSess)}
-          hint="Aktif"
-          icon={TrendingUp}
-          tone="emerald"
-        />
-        <CompactMetricCard
-          label="Pelunasan"
-          value={String(stats.needsSettlement)}
-          hint="Saldo sisa"
-          icon={Clock}
-          tone="amber"
-        />
-        <CompactMetricCard
-          label="Resource"
-          value={String(stats.resourceCount)}
-          hint="Terlihat"
-          icon={Layers}
-          tone="slate"
-        />
-      </div>
-
-      <DashboardPanel
-        eyebrow="Filter"
-        title="Cari & saring"
-        description="Rentang waktu, status booking, dan status pembayaran."
-      >
-        <div className="space-y-4 lg:hidden">
+          <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-2.5 dark:border-slate-800 dark:bg-slate-900/30 sm:p-3">
+            <div className="space-y-3 lg:hidden">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
               placeholder="Cari customer / WA"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-10 rounded-lg border-slate-200 bg-slate-50 pl-11 text-xs font-medium dark:border-slate-800 dark:bg-slate-900/30"
+              className="h-9 rounded-lg border-slate-200 bg-slate-50 pl-11 text-xs font-medium dark:border-slate-800 dark:bg-slate-900/30"
             />
           </div>
 
@@ -564,7 +558,7 @@ export default function BookingsPage() {
                 variant="outline"
                 onClick={() => setRangePreset(preset.value)}
                 className={cn(
-                  "h-9 rounded-full px-3 text-[11px] font-semibold",
+                  "h-8 rounded-full px-3 text-[11px] font-semibold",
                   rangePreset === preset.value
                     ? "border-[var(--bookinaja-600)] bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
                     : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-300",
@@ -580,7 +574,7 @@ export default function BookingsPage() {
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className="h-10 w-full justify-start rounded-lg border-slate-200 bg-slate-50 px-3 text-xs font-medium dark:border-slate-800 dark:bg-slate-900/30"
+                  className="h-9 w-full justify-start rounded-lg border-slate-200 bg-slate-50 px-3 text-xs font-medium dark:border-slate-800 dark:bg-slate-900/30"
                 >
                   <CalendarIcon className="mr-2 h-4 w-4 text-blue-600" />
                   {timeRangeLabel}
@@ -603,7 +597,7 @@ export default function BookingsPage() {
 
           <div className="grid grid-cols-2 gap-2 md:gap-3">
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="min-h-[40px] w-full rounded-lg border-slate-200 bg-slate-50 text-xs font-medium dark:border-slate-800 dark:bg-slate-900/30">
+              <SelectTrigger className="min-h-[38px] w-full rounded-lg border-slate-200 bg-slate-50 text-xs font-medium dark:border-slate-800 dark:bg-slate-900/30">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent className="rounded-xl p-2">
@@ -632,7 +626,7 @@ export default function BookingsPage() {
             </Select>
 
             <Select value={filterPaymentStatus} onValueChange={setFilterPaymentStatus}>
-              <SelectTrigger className="min-h-[40px] w-full rounded-lg border-slate-200 bg-slate-50 text-xs font-medium dark:border-slate-800 dark:bg-slate-900/30">
+              <SelectTrigger className="min-h-[38px] w-full rounded-lg border-slate-200 bg-slate-50 text-xs font-medium dark:border-slate-800 dark:bg-slate-900/30">
                 <SelectValue placeholder="Pembayaran" />
               </SelectTrigger>
               <SelectContent className="rounded-xl p-2">
@@ -661,7 +655,7 @@ export default function BookingsPage() {
             </Select>
 
             <Select value={filterResource} onValueChange={setFilterResource}>
-              <SelectTrigger className="min-h-[40px] w-full rounded-lg border-slate-200 bg-slate-50 text-xs font-medium dark:border-slate-800 dark:bg-slate-900/30">
+              <SelectTrigger className="min-h-[38px] w-full rounded-lg border-slate-200 bg-slate-50 text-xs font-medium dark:border-slate-800 dark:bg-slate-900/30">
                 <SelectValue placeholder="Resource" />
               </SelectTrigger>
               <SelectContent className="rounded-xl p-2">
@@ -687,23 +681,23 @@ export default function BookingsPage() {
               <Button
                 onClick={resetFilters}
                 variant="ghost"
-                className="h-10 w-full rounded-lg px-3 text-xs font-medium text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
+                className="h-9 w-full rounded-lg px-3 text-xs font-medium text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
               >
                 <XCircle size={16} /> Clear
               </Button>
             ) : (
-              <div className="flex h-10 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-[10px] font-medium text-slate-400 dark:border-slate-800 dark:bg-slate-900/30">
+              <div className="flex h-9 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-[10px] font-medium text-slate-400 dark:border-slate-800 dark:bg-slate-900/30">
                 {bookingCountLabel}
               </div>
             )}
 
-            <div className="col-span-2 flex w-full gap-1.5 rounded-lg bg-slate-50 p-1 dark:bg-slate-900/30">
+            <div className="col-span-2 flex w-full gap-1 rounded-lg bg-slate-50 p-1 dark:bg-slate-900/30">
               <Button
                 variant={viewMode === "list" ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => setViewMode("list")}
                 className={cn(
-                  "h-10 flex-1 rounded-lg px-4",
+                  "h-9 flex-1 rounded-lg px-4",
                   viewMode === "list"
                     ? "bg-white font-medium dark:bg-slate-950"
                     : "text-slate-400",
@@ -716,7 +710,7 @@ export default function BookingsPage() {
                 size="sm"
                 onClick={() => setViewMode("grid")}
                 className={cn(
-                  "h-10 flex-1 rounded-lg px-4",
+                  "h-9 flex-1 rounded-lg px-4",
                   viewMode === "grid"
                     ? "bg-white font-medium dark:bg-slate-950"
                     : "text-slate-400",
@@ -728,18 +722,18 @@ export default function BookingsPage() {
           </div>
         </div>
 
-        <div className="hidden lg:flex lg:flex-wrap lg:items-center lg:gap-3">
-          <div className="relative flex-1 min-w-[320px]">
+            <div className="hidden lg:flex lg:flex-wrap lg:items-center lg:gap-2.5">
+          <div className="relative min-w-[280px] flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
               placeholder="Search customer name or phone..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-11 h-12 rounded-2xl border-none bg-slate-50 dark:bg-slate-800/50 font-semibold text-xs shadow-inner focus:ring-2 focus:ring-blue-600/20"
+              className="h-10 rounded-lg border-slate-200 bg-white pl-11 text-xs font-medium shadow-none dark:border-slate-800 dark:bg-slate-950"
             />
           </div>
 
-          <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-1.5 dark:bg-slate-800/50">
+          <div className="flex items-center gap-1 rounded-lg bg-white p-1 dark:bg-slate-950">
             {[
               { value: "today" as const, label: "Hari ini" },
               { value: "7days" as const, label: "7 hari" },
@@ -751,9 +745,9 @@ export default function BookingsPage() {
                 variant={rangePreset === preset.value ? "secondary" : "ghost"}
                 onClick={() => setRangePreset(preset.value)}
                 className={cn(
-                  "h-10 rounded-xl px-4 text-xs font-semibold",
+                  "h-8 rounded-md px-3 text-xs font-semibold",
                   rangePreset === preset.value
-                    ? "bg-white text-slate-900 shadow-sm dark:bg-slate-950 dark:text-white"
+                    ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white"
                     : "text-slate-500",
                 )}
               >
@@ -767,7 +761,7 @@ export default function BookingsPage() {
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className="h-12 px-5 rounded-xl border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-800 font-semibold text-xs gap-3 shadow-sm min-w-[220px]"
+                  className="h-10 min-w-[210px] gap-3 rounded-lg border-slate-200 bg-white px-4 text-xs font-medium dark:border-slate-800 dark:bg-slate-950"
                 >
                   <CalendarIcon className="h-4 w-4 text-blue-600" />
                   {timeRangeLabel}
@@ -789,7 +783,7 @@ export default function BookingsPage() {
           ) : null}
 
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="h-12 w-[170px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-semibold text-xs focus:ring-0 shadow-sm">
+            <SelectTrigger className="h-10 w-[154px] rounded-lg border-slate-200 bg-white text-xs font-medium shadow-none dark:border-slate-800 dark:bg-slate-950">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent className="rounded-2xl border-none shadow-sm p-2">
@@ -814,7 +808,7 @@ export default function BookingsPage() {
           </Select>
 
           <Select value={filterPaymentStatus} onValueChange={setFilterPaymentStatus}>
-            <SelectTrigger className="h-12 w-[190px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-semibold text-xs focus:ring-0 shadow-sm">
+            <SelectTrigger className="h-10 w-[184px] rounded-lg border-slate-200 bg-white text-xs font-medium shadow-none dark:border-slate-800 dark:bg-slate-950">
               <SelectValue placeholder="Pembayaran" />
             </SelectTrigger>
             <SelectContent className="rounded-2xl border-none shadow-sm p-2">
@@ -843,7 +837,7 @@ export default function BookingsPage() {
           </Select>
 
           <Select value={filterResource} onValueChange={setFilterResource}>
-            <SelectTrigger className="h-12 w-[180px] rounded-xl border-none bg-slate-50 dark:bg-slate-800 font-semibold text-xs focus:ring-0 shadow-sm">
+            <SelectTrigger className="h-10 w-[170px] rounded-lg border-slate-200 bg-white text-xs font-medium shadow-none dark:border-slate-800 dark:bg-slate-950">
               <SelectValue placeholder="Resource" />
             </SelectTrigger>
             <SelectContent className="rounded-2xl border-none shadow-sm p-2">
@@ -865,7 +859,7 @@ export default function BookingsPage() {
             </SelectContent>
           </Select>
 
-          <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 dark:bg-white/5 dark:text-slate-400">
+          <div className="rounded-lg border border-dashed border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
             {bookingCountLabel}
           </div>
 
@@ -873,21 +867,21 @@ export default function BookingsPage() {
             <Button
               onClick={resetFilters}
               variant="ghost"
-              className="h-12 px-4 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 font-semibold text-xs gap-2 rounded-2xl"
+              className="h-10 rounded-lg px-3 text-xs font-medium text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
             >
               <XCircle size={16} /> Clear
             </Button>
           ) : null}
 
-          <div className="ml-auto flex gap-1.5 bg-slate-50 dark:bg-slate-800 p-1.5 rounded-2xl">
+          <div className="ml-auto flex gap-1 bg-white p-1 dark:bg-slate-950">
             <Button
               variant={viewMode === "list" ? "secondary" : "ghost"}
               size="sm"
               onClick={() => setViewMode("list")}
               className={cn(
-                "rounded-xl h-11 px-4 min-w-[78px]",
+                "h-8 min-w-[68px] rounded-md px-3",
                 viewMode === "list"
-                  ? "bg-white dark:bg-slate-700 shadow-sm font-semibold"
+                  ? "bg-slate-100 font-semibold dark:bg-slate-800"
                   : "text-slate-400",
               )}
             >
@@ -898,9 +892,9 @@ export default function BookingsPage() {
               size="sm"
               onClick={() => setViewMode("grid")}
               className={cn(
-                "rounded-xl h-11 px-4 min-w-[78px]",
+                "h-8 min-w-[68px] rounded-md px-3",
                 viewMode === "grid"
-                  ? "bg-white dark:bg-slate-700 shadow-sm font-semibold"
+                  ? "bg-slate-100 font-semibold dark:bg-slate-800"
                   : "text-slate-400",
               )}
             >
@@ -908,7 +902,9 @@ export default function BookingsPage() {
             </Button>
           </div>
         </div>
-      </DashboardPanel>
+          </div>
+        </div>
+      </Card>
 
       {/* 3. DYNAMIC CONTENT AREA */}
       {loading ? (

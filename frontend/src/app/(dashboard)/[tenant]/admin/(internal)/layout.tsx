@@ -109,9 +109,6 @@ export default function DashboardInternalLayout({
   }
 
   const pageTitle = resolveAdminPageTitle(normalizedPath);
-  const mobileNavMode = normalizedPath.startsWith("/admin/settings")
-    ? "settings"
-    : "operational";
 
   return (
     <AdminSessionProvider value={sessionValue}>
@@ -136,14 +133,14 @@ export default function DashboardInternalLayout({
               <div className="flex h-16 items-center justify-between gap-3 px-4">
                 <div className="min-w-0">
                   <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    {mobileNavMode === "settings" ? "Settings" : "Admin"}
+                    Admin
                   </div>
                   <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">
                     {pageTitle}
                   </div>
                 </div>
                 <MobileNav
-                  mode={mobileNavMode}
+                  mode="operational"
                   triggerClassName="relative left-auto bottom-auto z-auto h-10 w-10 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
                 />
               </div>

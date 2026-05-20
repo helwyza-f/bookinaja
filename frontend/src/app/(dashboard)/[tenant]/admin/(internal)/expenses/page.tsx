@@ -298,59 +298,52 @@ export default function ExpensesPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-4 px-3 pb-20 pt-4 font-plus-jakarta animate-in fade-in duration-300 md:px-4">
-      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl space-y-2">
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
-              <Banknote className="h-3.5 w-3.5 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
-              Expenses
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
+    <div className="mx-auto max-w-[1440px] space-y-3 px-3 pb-20 pt-3 font-plus-jakarta animate-in fade-in duration-300 md:px-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950 sm:p-3.5">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-3xl space-y-1">
+              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+                <Banknote className="h-3.5 w-3.5 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
+                Expenses
+              </div>
+              <h1 className="text-[1.65rem] font-semibold leading-none tracking-tight text-slate-950 dark:text-white sm:text-[1.75rem]">
                 Expenses
               </h1>
             </div>
+            <Button
+              onClick={openCreate}
+              disabled={!canCreateExpenses}
+              className="h-8.5 rounded-lg bg-slate-950 px-3.5 text-sm font-medium text-white hover:bg-[var(--bookinaja-700)] dark:bg-white dark:text-slate-950"
+            >
+              <Plus size={15} className="mr-2" />
+              Tambah
+            </Button>
           </div>
-          <Button
-            onClick={openCreate}
-            disabled={!canCreateExpenses}
-            className="h-10 rounded-lg bg-slate-950 px-4 text-sm font-medium text-white hover:bg-[var(--bookinaja-700)] dark:bg-white dark:text-slate-950"
-          >
-            <Plus size={15} className="mr-2" />
-            Tambah
-          </Button>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-2.5 md:grid-cols-2 md:gap-3 xl:grid-cols-4">
-        {stats.map((item) => (
-          <CompactMetricCard
-            key={item.label}
-            label={item.label}
-            value={item.value}
-            hint={item.hint}
-            icon={item.icon}
-            tone={item.tone}
-            loading={loading}
-          />
-        ))}
-        <CompactMetricCard
-          label="Rentang"
-          value={formatCompactRange(from, to)}
-          hint="Periode"
-          icon={CalendarIcon}
-          tone="slate"
-          loading={loading}
-        />
-      </div>
+          <div className="flex flex-wrap gap-2">
+            {[...stats, {
+              label: "Rentang",
+              value: formatCompactRange(from, to),
+              hint: "Periode",
+            }].map((item) => (
+              <div
+                key={item.label}
+                className="inline-flex min-w-[128px] items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/50"
+              >
+                <div className="min-w-0">
+                  <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                    {item.label}
+                  </div>
+                  <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                    {loading ? "..." : item.value}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
 
-      <DashboardPanel
-        eyebrow="Filter"
-        title="Cari pengeluaran"
-        description="Saring kategori dan periode."
-      >
-        <div className="grid gap-2.5 lg:grid-cols-[minmax(0,1.4fr)_0.95fr_0.95fr_0.95fr_auto]">
+          <div className="grid gap-2.5 lg:grid-cols-[minmax(0,1.4fr)_0.95fr_0.95fr_0.95fr_auto]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
@@ -389,8 +382,9 @@ export default function ExpensesPage() {
           >
             Reset
           </Button>
+          </div>
         </div>
-      </DashboardPanel>
+      </div>
 
       {loading ? (
         <div className="space-y-3">
@@ -420,6 +414,7 @@ export default function ExpensesPage() {
           eyebrow="Expense Records"
           title="Daftar pengeluaran"
           description="Record pengeluaran aktif."
+          compact
         >
           <div className="grid gap-3 md:hidden">
             {filteredItems.map((expense) => (

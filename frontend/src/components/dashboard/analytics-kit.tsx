@@ -23,6 +23,7 @@ type PanelProps = {
   title: string;
   description?: string;
   actions?: ReactNode;
+  compact?: boolean;
   className?: string;
   children: ReactNode;
 };
@@ -169,30 +170,32 @@ export function DashboardPanel({
   title,
   description,
   actions,
+  compact = false,
   className,
   children,
 }: PanelProps) {
   return (
     <Card
       className={cn(
-        "rounded-xl border border-border bg-card p-4 sm:p-4",
+        "rounded-xl border border-border bg-card",
+        compact ? "p-3 sm:p-3.5" : "p-4 sm:p-4",
         className,
       )}
     >
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-2">
+      <div className={cn("flex flex-col", compact ? "gap-3" : "gap-4")}>
+        <div className={cn("flex flex-col sm:flex-row sm:justify-between", compact ? "gap-2 sm:items-center" : "gap-3 sm:items-start")}>
+          <div className={cn(compact ? "space-y-1" : "space-y-2")}>
             {eyebrow ? (
               <div className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
                 {eyebrow}
               </div>
             ) : null}
             <div>
-              <h2 className="text-foreground text-base font-semibold sm:text-lg">
+              <h2 className={cn("text-foreground font-semibold", compact ? "text-[1.05rem]" : "text-base sm:text-lg")}>
                 {title}
               </h2>
               {description ? (
-                <p className="text-muted-foreground mt-1 max-w-2xl text-sm leading-6">
+                <p className={cn("text-muted-foreground mt-1 max-w-2xl text-sm", compact ? "leading-5" : "leading-6")}>
                   {description}
                 </p>
               ) : null}

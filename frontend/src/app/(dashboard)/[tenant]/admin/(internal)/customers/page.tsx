@@ -268,20 +268,17 @@ export default function CustomersPage() {
   };
 
   return (
-    <div className="mx-auto max-w-350 space-y-4 px-3 pb-20 pt-4 font-plus-jakarta md:px-4 md:pt-5">
-      <div className="relative overflow-hidden rounded-[1.8rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(238,252,249,0.95)_40%,rgba(255,248,240,0.9))] p-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(10,24,26,0.96),rgba(8,30,31,0.94)_45%,rgba(49,25,14,0.82))] dark:shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-6">
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.22),transparent_58%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(129,216,208,0.2),transparent_58%)]" />
-        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl space-y-2.5">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.24em] text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-200">
+    <div className="mx-auto max-w-350 space-y-3 px-3 pb-20 pt-3 font-plus-jakarta md:px-4 md:pt-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950 sm:p-3.5">
+        <div className="relative flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="max-w-3xl space-y-1">
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
               <Users className="h-3.5 w-3.5 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
               Customers
             </div>
-            <div>
-              <h1 className="text-2xl font-[950] tracking-tight text-slate-950 dark:text-white sm:text-4xl">
-                Customers
-              </h1>
-            </div>
+            <h1 className="text-[1.65rem] font-semibold leading-none tracking-tight text-slate-950 dark:text-white sm:text-[1.75rem]">
+              Customers
+            </h1>
           </div>
           <div className="relative w-full lg:max-w-sm">
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -289,13 +286,13 @@ export default function CustomersPage() {
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Cari nama / WA / email"
-              className="h-12 rounded-[1.2rem] border-white/70 bg-white/85 pl-10 text-sm shadow-sm dark:border-white/10 dark:bg-white/[0.06]"
+              className="h-10 rounded-lg border-slate-200 bg-slate-50 pl-10 text-sm dark:border-slate-800 dark:bg-slate-900/30"
             />
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5 md:grid-cols-2 md:gap-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
         <CompactMetricCard
           label="Customer"
           value={loading ? "..." : formatIDR(stats.customers)}
@@ -333,6 +330,7 @@ export default function CustomersPage() {
       <DashboardPanel
         eyebrow="List"
         title="Daftar customer"
+        compact
       >
         <div className="grid gap-2.5 md:hidden">
         {loading ? (

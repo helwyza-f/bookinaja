@@ -303,18 +303,19 @@ export default function ResourcesPage() {
   }, [availableModeFilters, modeFilter]);
 
   return (
-    <div className="mx-auto max-w-[1600px] space-y-4 px-3 pb-20 pt-4 font-plus-jakarta md:px-4">
-      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[rgba(74,141,255,0.12)] dark:text-[var(--bookinaja-200)]">
+    <div className="mx-auto max-w-[1600px] space-y-3 px-3 pb-20 pt-3 font-plus-jakarta md:px-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950 sm:p-3.5">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[rgba(74,141,255,0.12)] dark:text-[var(--bookinaja-200)]">
               {labels.icon}
             </div>
-            <div className="space-y-1">
-              <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <div className="space-y-0">
+              <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                 Resources
               </div>
-              <h1 className="text-xl font-semibold text-slate-950 dark:text-white sm:text-2xl">
+              <h1 className="text-[1.65rem] font-semibold leading-none text-slate-950 dark:text-white sm:text-[1.75rem]">
                 {labels.title}
               </h1>
             </div>
@@ -325,64 +326,30 @@ export default function ResourcesPage() {
             onRefresh={fetchResources}
           />
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
-        <ResourceMetricCard
-          label="Total"
-          value={String(resources.length)}
-          hint="Resource"
-          icon={Layers}
-          tone="indigo"
-          loading={loading}
-        />
-        <ResourceMetricCard
-          label="Available"
-          value={String(availableResources)}
-          hint="Siap"
-          icon={Check}
-          tone="emerald"
-          loading={loading}
-        />
-        <ResourceMetricCard
-          label="Paket Aktif"
-          value={String(totalPackages)}
-          hint="Aktif"
-          icon={Settings2}
-          tone="amber"
-          loading={loading}
-        />
-        <ResourceMetricCard
-          label="Smart Device"
-          value={String(smartDeviceCount)}
-          hint="Terhubung"
-          icon={Gamepad2}
-          tone="slate"
-          loading={loading}
-        />
-      </div>
-
-      {/* 2. GRID CONTENT */}
-      {loading ? (
-        <ResourceSkeleton />
-      ) : error ? (
-        <AdminSurfaceError
-          title="Gagal memuat resource"
-          description="Daftar resource tidak berhasil dimuat. Tanpa data awal ini, status unit dan konfigurasi device tidak bisa dipercaya."
-          action={
-            <Button onClick={() => void fetchResources()} variant="outline" className="rounded-xl">
-              Coba lagi
-            </Button>
-          }
-        />
-      ) : resources.length > 0 && filteredResources.length > 0 ? (
-        <DashboardPanel
-          eyebrow="Catalog"
-          title="Daftar resource"
-          description="Daftar resource aktif untuk operasional harian."
-        >
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label: "Total", value: String(resources.length), tone: "text-slate-950 dark:text-white" },
+              { label: "Available", value: String(availableResources), tone: "text-emerald-600 dark:text-emerald-300" },
+              { label: "Paket", value: String(totalPackages), tone: "text-amber-600 dark:text-amber-300" },
+              { label: "Smart device", value: String(smartDeviceCount), tone: "text-slate-600 dark:text-slate-300" },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="inline-flex min-w-[112px] items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/50"
+              >
+                <div className="min-w-0">
+                  <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                    {stat.label}
+                  </div>
+                  <div className={cn("text-sm font-semibold", stat.tone)}>
+                    {loading ? "..." : stat.value}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
           {shouldShowModeFilter ? (
-            <div className="mb-4 flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2">
               {modeFilterOptions.map((option) => {
                 const isActive = modeFilter === option.value;
                 return (
@@ -403,6 +370,24 @@ export default function ResourcesPage() {
               })}
             </div>
           ) : null}
+        </div>
+      </div>
+
+      {/* 2. GRID CONTENT */}
+      {loading ? (
+        <ResourceSkeleton />
+      ) : error ? (
+        <AdminSurfaceError
+          title="Gagal memuat resource"
+          description="Daftar resource tidak berhasil dimuat. Tanpa data awal ini, status unit dan konfigurasi device tidak bisa dipercaya."
+          action={
+            <Button onClick={() => void fetchResources()} variant="outline" className="rounded-xl">
+              Coba lagi
+            </Button>
+          }
+        />
+      ) : resources.length > 0 && filteredResources.length > 0 ? (
+        <DashboardPanel title="Daftar resource" compact>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:gap-4">
           {filteredResources.map((res) => {
             const mainItemsCount = Number(res.main_option_count || 0);

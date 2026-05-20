@@ -316,6 +316,7 @@ export default function BookingCalendarPage() {
       eyebrow="Admin"
       title="Kalender"
       description="Pilih tanggal di kalender, lalu lihat booking yang jatuh pada hari itu."
+      compact
       className="max-w-none space-y-4 px-3 pb-20 pt-4 font-plus-jakarta md:px-4"
       actions={
         <>

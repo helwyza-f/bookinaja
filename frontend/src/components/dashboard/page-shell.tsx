@@ -8,6 +8,7 @@ type PageShellProps = {
   description: string;
   eyebrow?: string;
   actions?: ReactNode;
+  compact?: boolean;
   stats?: Array<{
     label: string;
     value: string;
@@ -22,30 +23,61 @@ export function PageShell({
   description,
   eyebrow,
   actions,
+  compact = false,
   stats,
   children,
   className,
 }: PageShellProps) {
   return (
-    <main className={cn("mx-auto max-w-7xl space-y-4 px-4 py-4 sm:space-y-5 sm:px-6 lg:px-8", className)}>
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 sm:p-5">
-        <div className="flex flex-col gap-4">
-          <div className="min-w-0 space-y-3">
+    <main className={cn("mx-auto max-w-7xl space-y-3 px-4 py-3 sm:space-y-4 sm:px-6 lg:px-8", className)}>
+      <section
+        className={cn(
+          "overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
+          compact ? "p-3 sm:p-3.5" : "p-4 sm:p-5",
+        )}
+      >
+        <div className={cn("flex flex-col", compact ? "gap-2.5" : "gap-4")}>
+          <div className={cn("min-w-0", compact ? "space-y-1.5" : "space-y-3")}>
             {eyebrow ? (
-              <Badge variant="outline" className="w-fit rounded-full border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide dark:border-slate-800 dark:bg-slate-900">
-                {eyebrow}
-              </Badge>
+              compact ? (
+                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                  {eyebrow}
+                </div>
+              ) : (
+                <Badge variant="outline" className="w-fit rounded-full border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide dark:border-slate-800 dark:bg-slate-900">
+                  {eyebrow}
+                </Badge>
+              )
             ) : null}
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-              <div className="space-y-2">
-              <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
-                {title}
-              </h1>
-              <p className="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-                {description}
-              </p>
+            <div className={cn("grid lg:grid-cols-[minmax(0,1fr)_auto]", compact ? "gap-2.5 lg:items-center" : "gap-4 lg:items-end")}>
+              <div className={cn(compact ? "space-y-0.5" : "space-y-2")}>
+                <h1
+                  className={cn(
+                    "font-semibold tracking-tight text-slate-950 dark:text-white",
+                    compact ? "text-[1.65rem] leading-none sm:text-[1.75rem]" : "text-xl sm:text-2xl",
+                  )}
+                >
+                  {title}
+                </h1>
+                <p
+                  className={cn(
+                    "text-slate-600 dark:text-slate-300",
+                    compact ? "max-w-2xl text-[13px] leading-5" : "max-w-3xl text-sm leading-6",
+                  )}
+                >
+                  {description}
+                </p>
               </div>
-              {actions ? <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">{actions}</div> : null}
+              {actions ? (
+                <div
+                  className={cn(
+                    "flex gap-2 sm:flex-row sm:flex-wrap",
+                    compact ? "flex-wrap lg:justify-end [&_button]:h-9 [&_a]:h-9" : "flex-col lg:justify-end",
+                  )}
+                >
+                  {actions}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

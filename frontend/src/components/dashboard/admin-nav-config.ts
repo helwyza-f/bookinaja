@@ -41,8 +41,8 @@ export const growthHubNavItem: AdminNavItem = {
 
 export const operationalNavItems: AdminNavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
-  { label: "Bookings", icon: ClipboardList, href: "/admin/bookings" },
   { label: "Kalender", icon: CalendarRange, href: "/admin/bookings/calendar" },
+  { label: "Bookings", icon: ClipboardList, href: "/admin/bookings" },
   { label: "POS", icon: MonitorPlay, href: "/admin/pos" },
   { label: "Resources", icon: Grid2x2, href: "/admin/resources" },
   { label: "Menu", icon: Utensils, href: "/admin/fnb" },
