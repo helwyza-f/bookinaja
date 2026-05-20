@@ -399,12 +399,12 @@ export default function BookingCalendarPage() {
                 onMonthChange={setVisibleMonth}
                 onSelect={(date) => date && setSelectedDate(startOfDay(date))}
                 components={{ DayButton: DayButtonWithCount }}
-                className="w-full bg-transparent p-0 [--cell-size:3.9rem] sm:[--cell-size:4.2rem] xl:[--cell-size:4.75rem]"
+                className="w-full bg-transparent p-0 [--cell-size:4.05rem] sm:[--cell-size:4.7rem] lg:[--cell-size:6.1rem] xl:[--cell-size:4.75rem]"
                 classNames={{
                   root: "w-full rounded-[1.5rem] border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
                   months: "w-full",
                   month: "w-full min-w-0 gap-0 bg-white p-0 dark:bg-slate-950",
-                  table: "w-full table-fixed border-collapse",
+                  month_grid: "w-full table-fixed border-collapse",
                   nav: "absolute inset-x-0 top-0 flex items-center justify-between px-2 sm:px-3",
                   button_previous:
                     "size-8 rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800",
@@ -415,11 +415,11 @@ export default function BookingCalendarPage() {
                   caption_label:
                     "text-lg font-semibold tracking-tight text-slate-950 dark:text-white",
                   weekdays:
-                    "border-b border-slate-100 dark:border-slate-800",
+                    "grid w-full grid-cols-7 border-b border-slate-100 dark:border-slate-800",
                   weekday:
-                    "h-10 whitespace-nowrap px-0 text-center align-middle text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500",
-                  week: "border-b border-slate-100 last:border-b-0 dark:border-slate-800",
-                  day: "relative h-[var(--cell-size)] overflow-hidden border-r border-slate-100 p-0 align-middle last:border-r-0 dark:border-slate-800",
+                    "flex h-10 min-w-0 items-center justify-center whitespace-nowrap px-0 text-center text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500",
+                  week: "grid w-full grid-cols-7 border-b border-slate-100 last:border-b-0 dark:border-slate-800",
+                  day: "relative aspect-square h-auto min-w-0 w-full overflow-hidden border-r border-slate-100 p-0 last:border-r-0 dark:border-slate-800",
                   outside:
                     "text-slate-300 dark:text-slate-700 aria-selected:text-slate-300 dark:aria-selected:text-slate-700",
                   today: "text-slate-950 dark:text-white",
