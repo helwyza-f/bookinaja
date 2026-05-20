@@ -37,6 +37,10 @@ export type BookingFormConfig = {
   sticky_mobile_cta: boolean;
   show_whatsapp_help: boolean;
   whatsapp_label: string;
+  controller_features?: {
+    enable_fnb?: boolean;
+    enable_addons?: boolean;
+  };
 };
 
 export type BuilderProfile = {

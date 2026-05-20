@@ -896,6 +896,9 @@ func (s *Service) AddAddonOrder(ctx context.Context, bookingID string, tenantID 
 	if booking.Status != "active" && booking.Status != "ongoing" {
 		return errors.New("ADD-ON HANYA BISA DITAMBAHKAN PADA SESI YANG SEDANG BERJALAN")
 	}
+	if !booking.ControllerFeatures.EnableAddons {
+		return errors.New("FITUR ADD-ON SEDANG DINONAKTIFKAN OLEH TENANT")
+	}
 
 	err = s.repo.AddAddonOrder(ctx, bID, iID, actor)
 	if err == nil {
@@ -948,6 +951,9 @@ func (s *Service) AddFnbOrder(ctx context.Context, bookingID string, tenantID st
 
 	if booking.Status != "active" && booking.Status != "ongoing" {
 		return errors.New("PESANAN HANYA BISA DITAMBAHKAN PADA SESI AKTIF")
+	}
+	if !booking.ControllerFeatures.EnableFnb {
+		return errors.New("FITUR F&B SEDANG DINONAKTIFKAN OLEH TENANT")
 	}
 
 	err = s.repo.AddFnbOrder(ctx, bID, req.FnbItemID, req.Quantity, actor)
@@ -1074,6 +1080,9 @@ func (s *Service) GetCustomerFnbMenuByBooking(ctx context.Context, bookingID, te
 	detail, err := s.GetDetailForCustomer(ctx, bookingID, tenantID, customerID)
 	if err != nil {
 		return nil, err
+	}
+	if !detail.ControllerFeatures.EnableFnb {
+		return []fnb.Item{}, nil
 	}
 	return s.GetCustomerFnbMenu(ctx, detail.TenantID.String(), search)
 }

@@ -299,29 +299,29 @@ export default function ExpensesPage() {
 
   return (
     <div className="mx-auto max-w-[1440px] space-y-3 px-3 pb-20 pt-3 font-plus-jakarta animate-in fade-in duration-300 md:px-4">
-      <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950 sm:p-3.5">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+        <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="max-w-3xl space-y-1">
               <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
                 <Banknote className="h-3.5 w-3.5 text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]" />
                 Expenses
               </div>
-              <h1 className="text-[1.65rem] font-semibold leading-none tracking-tight text-slate-950 dark:text-white sm:text-[1.75rem]">
+              <h1 className="text-[1.45rem] font-semibold leading-none tracking-tight text-slate-950 dark:text-white sm:text-[1.55rem]">
                 Expenses
               </h1>
             </div>
             <Button
               onClick={openCreate}
               disabled={!canCreateExpenses}
-              className="h-8.5 rounded-lg bg-slate-950 px-3.5 text-sm font-medium text-white hover:bg-[var(--bookinaja-700)] dark:bg-white dark:text-slate-950"
+              className="h-8 rounded-lg bg-slate-950 px-3.5 text-sm font-medium text-white hover:bg-[var(--bookinaja-700)] dark:bg-white dark:text-slate-950"
             >
               <Plus size={15} className="mr-2" />
               Tambah
             </Button>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {[...stats, {
               label: "Rentang",
               value: formatCompactRange(from, to),
@@ -329,7 +329,7 @@ export default function ExpensesPage() {
             }].map((item) => (
               <div
                 key={item.label}
-                className="inline-flex min-w-[128px] items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/50"
+                className="inline-flex min-w-[112px] items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 dark:border-slate-800 dark:bg-slate-900/50"
               >
                 <div className="min-w-0">
                   <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
@@ -343,19 +343,19 @@ export default function ExpensesPage() {
             ))}
           </div>
 
-          <div className="grid gap-2.5 lg:grid-cols-[minmax(0,1.4fr)_0.95fr_0.95fr_0.95fr_auto]">
+          <div className="grid gap-2 lg:grid-cols-[minmax(0,1.4fr)_0.95fr_0.95fr_0.95fr_auto]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Cari judul, vendor, notes"
-              className="h-10 rounded-lg border-slate-200 bg-slate-50 pl-10 text-sm font-medium dark:border-slate-800 dark:bg-slate-900/30"
+              className="h-9 rounded-lg border-slate-200 bg-slate-50 pl-10 text-sm font-medium dark:border-slate-800 dark:bg-slate-900/30"
             />
           </div>
 
           <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger className="h-10 rounded-lg border-slate-200 bg-slate-50 text-sm font-medium dark:border-slate-800 dark:bg-slate-900/30">
+            <SelectTrigger className="h-9 rounded-lg border-slate-200 bg-slate-50 text-sm font-medium dark:border-slate-800 dark:bg-slate-900/30">
               <SelectValue placeholder="Kategori" />
             </SelectTrigger>
             <SelectContent className="rounded-xl font-medium">

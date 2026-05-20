@@ -247,6 +247,8 @@ export default function NewManualBookingPage() {
   const tenantTimezone = profile?.timezone || "Asia/Jakarta";
   const tenantOpenTime = normalizeTenantClock(profile?.open_time || "09:00");
   const tenantCloseTime = normalizeTenantClock(profile?.close_time || "22:00");
+  const enableAddons =
+    profile?.booking_form_config?.controller_features?.enable_addons !== false;
   const tenantNow = useMemo(
     () => getTenantNow(new Date(), tenantTimezone),
     [tenantTimezone],
@@ -271,10 +273,17 @@ export default function NewManualBookingPage() {
 
   const addonOptions = useMemo(
     () =>
-      currentResource?.items?.filter((item) =>
-        ["add_on", "addon"].includes(item.item_type),
-      ) || [],
-    [currentResource],
+      enableAddons
+        ? currentResource?.items?.filter((item) =>
+            ["add_on", "addon"].includes(item.item_type),
+          ) || []
+        : [],
+    [currentResource, enableAddons],
+  );
+
+  const effectiveSelectedAddons = useMemo(
+    () => (enableAddons ? selectedAddons : []),
+    [enableAddons, selectedAddons],
   );
 
   useEffect(() => {
@@ -412,7 +421,7 @@ export default function NewManualBookingPage() {
     if (!selectedItem) return 0;
     const addonsPrice =
       currentResource?.items
-        ?.filter((i) => selectedAddons.includes(i.id))
+        ?.filter((i) => effectiveSelectedAddons.includes(i.id))
         .reduce((acc, curr) => acc + (curr.price || 0), 0) || 0;
     return selectedItem.price * durationValue + addonsPrice;
   };
@@ -422,7 +431,7 @@ export default function NewManualBookingPage() {
 
   useEffect(() => {
     setPromoPreview(null);
-  }, [selectedResourceId, selectedMainId, selectedAddons, selectedTime, date, durationValue]);
+  }, [selectedResourceId, selectedMainId, effectiveSelectedAddons, selectedTime, date, durationValue]);
 
   const handlePromoPreview = async () => {
     if (!promoCode.trim()) return toast.error("Masukkan kode promo.");
@@ -469,7 +478,7 @@ export default function NewManualBookingPage() {
         resource_id: selectedResourceId,
         customer_name: custName.toUpperCase(),
         customer_phone: custPhone,
-        item_ids: [selectedMainId, ...selectedAddons],
+        item_ids: [selectedMainId, ...effectiveSelectedAddons],
         start_time: fullDate.toISOString(),
         duration: durationValue,
         booking_mode: bookingMode,
@@ -920,6 +929,7 @@ export default function NewManualBookingPage() {
                   </div>
                 </div>
 
+                {enableAddons ? (
                 <div className="space-y-3">
                   <p className="text-xs font-semibold text-slate-400 dark:text-slate-300">
                     Layanan Tambahan
@@ -950,6 +960,7 @@ export default function NewManualBookingPage() {
                       })}
                   </div>
                 </div>
+                ) : null}
               </div>
 
               <div className="space-y-3">

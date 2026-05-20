@@ -73,11 +73,18 @@ type OrderItem struct {
 	Subtotal        float64   `db:"subtotal" json:"subtotal"`
 }
 
+type ControllerFeatureFlags struct {
+	EnableFnb    bool `json:"enable_fnb"`
+	EnableAddons bool `json:"enable_addons"`
+}
+
 type BookingDetail struct {
 	Booking
 	TenantName      string                         `db:"tenant_name" json:"tenant_name"`
 	TenantSlug      string                         `db:"tenant_slug" json:"tenant_slug"`
 	Timezone        string                         `db:"timezone" json:"timezone"`
+	BookingFormConfig JSONB                        `db:"booking_form_config" json:"-"`
+	ControllerFeatures ControllerFeatureFlags      `json:"controller_features"`
 	CustomerName    string                         `db:"customer_name" json:"customer_name"`
 	CustomerPhone   string                         `db:"customer_phone" json:"customer_phone"`
 	ResourceName    string                         `db:"resource_name" json:"resource_name"`
@@ -198,6 +205,37 @@ type ActorContext struct {
 	Name   string
 	Email  string
 	Role   string
+}
+
+func defaultControllerFeatures() ControllerFeatureFlags {
+	return ControllerFeatureFlags{
+		EnableFnb:    true,
+		EnableAddons: true,
+	}
+}
+
+func resolveControllerFeatures(raw JSONB) ControllerFeatureFlags {
+	features := defaultControllerFeatures()
+	if len(raw) == 0 || string(raw) == "{}" {
+		return features
+	}
+
+	var payload struct {
+		ControllerFeatures struct {
+			EnableFnb    *bool `json:"enable_fnb"`
+			EnableAddons *bool `json:"enable_addons"`
+		} `json:"controller_features"`
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return features
+	}
+	if payload.ControllerFeatures.EnableFnb != nil {
+		features.EnableFnb = *payload.ControllerFeatures.EnableFnb
+	}
+	if payload.ControllerFeatures.EnableAddons != nil {
+		features.EnableAddons = *payload.ControllerFeatures.EnableAddons
+	}
+	return features
 }
 
 type ReceiptDeliveryResult struct {

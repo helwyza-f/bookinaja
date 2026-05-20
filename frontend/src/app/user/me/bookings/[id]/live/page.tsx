@@ -115,6 +115,11 @@ export default function CustomerBookingDetail() {
   }, [params.id, router]);
 
   const fetchMenuItems = useCallback(async (slug?: string) => {
+    const enableFnb = booking?.controller_features?.enable_fnb !== false;
+    if (!enableFnb) {
+      setMenuItems([]);
+      return;
+    }
     try {
       const menuRes = await api.get("/customer/fnb", {
         params: { booking_id: params.id, ...(slug ? { slug } : {}) },
@@ -139,7 +144,7 @@ export default function CustomerBookingDetail() {
         setMenuItems([]);
       }
     }
-  }, [params.id]);
+  }, [booking?.controller_features?.enable_fnb, params.id]);
 
   const fetchLiveContext = useCallback(async () => {
     const status = String(booking?.status || "").toLowerCase();
@@ -483,6 +488,8 @@ export default function CustomerBookingDetail() {
     }, {});
     return Object.values(groups);
   }, [booking?.orders]);
+  const enableFnb = booking?.controller_features?.enable_fnb !== false;
+  const enableAddons = booking?.controller_features?.enable_addons !== false;
 
   const copyMagicLink = () => {
     const url = window.location.href;
@@ -753,8 +760,10 @@ export default function CustomerBookingDetail() {
           <BookingLiveController
             active={isActiveStatus}
             booking={booking}
-            menuItems={menuItems}
-            addonItems={booking?.resource_addons || []}
+            menuItems={enableFnb ? menuItems : []}
+            addonItems={enableAddons ? booking?.resource_addons || [] : []}
+            enableFnb={enableFnb}
+            enableAddons={enableAddons}
             onExtend={handleExtend}
             onOrderFnb={handleAddFnb}
             onOrderAddon={handleAddons}
@@ -847,7 +856,7 @@ export default function CustomerBookingDetail() {
               </p>
             </div>
             <Badge className="border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
-              {groupedMainOptions.length + groupedAddonOptions.length + groupedOrders.length} item
+              {groupedMainOptions.length + (enableAddons ? groupedAddonOptions.length : 0) + (enableFnb ? groupedOrders.length : 0)} item
             </Badge>
           </div>
 
@@ -871,43 +880,47 @@ export default function CustomerBookingDetail() {
               )}
             </div>
 
-            <div className="space-y-2 border-t border-slate-200 pt-4 dark:border-white/10">
-              <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
-                <CreditCard className="h-4 w-4 text-emerald-600" />
-                Add-on
+            {enableAddons ? (
+              <div className="space-y-2 border-t border-slate-200 pt-4 dark:border-white/10">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+                  <CreditCard className="h-4 w-4 text-emerald-600" />
+                  Add-on
+                </div>
+                {groupedAddonOptions.length ? (
+                  groupedAddonOptions.map((opt: any) => (
+                    <LineRow
+                      key={`${opt.item_name}-${opt.item_type}`}
+                      title={opt.item_name}
+                      subtitle={`${opt.quantity} unit · Rp ${Number(opt.unitPrice || 0).toLocaleString("id-ID")}`}
+                      value={`Rp ${Number(opt.totalPrice || 0).toLocaleString("id-ID")}`}
+                    />
+                  ))
+                ) : (
+                  <EmptyState label="Belum ada add-on." />
+                )}
               </div>
-              {groupedAddonOptions.length ? (
-                groupedAddonOptions.map((opt: any) => (
-                  <LineRow
-                    key={`${opt.item_name}-${opt.item_type}`}
-                    title={opt.item_name}
-                    subtitle={`${opt.quantity} unit · Rp ${Number(opt.unitPrice || 0).toLocaleString("id-ID")}`}
-                    value={`Rp ${Number(opt.totalPrice || 0).toLocaleString("id-ID")}`}
-                  />
-                ))
-              ) : (
-                <EmptyState label="Belum ada add-on." />
-              )}
-            </div>
+            ) : null}
 
-            <div className="space-y-2 border-t border-slate-200 pt-4 dark:border-white/10">
-              <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
-                <UtensilsCrossed className="h-4 w-4 text-orange-500" />
-                Pesanan F&B
+            {enableFnb ? (
+              <div className="space-y-2 border-t border-slate-200 pt-4 dark:border-white/10">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+                  <UtensilsCrossed className="h-4 w-4 text-orange-500" />
+                  Pesanan F&B
+                </div>
+                {groupedOrders.length ? (
+                  groupedOrders.map((order: any) => (
+                    <LineRow
+                      key={String(order.item_name || "").toLowerCase()}
+                      title={order.item_name}
+                      subtitle={`${order.quantity} porsi · Rp ${Number(order.price_at_purchase || 0).toLocaleString("id-ID")}`}
+                      value={`Rp ${Number(order.subtotal || 0).toLocaleString("id-ID")}`}
+                    />
+                  ))
+                ) : (
+                  <EmptyState label="Belum ada pesanan F&B." />
+                )}
               </div>
-              {groupedOrders.length ? (
-                groupedOrders.map((order: any) => (
-                  <LineRow
-                    key={String(order.item_name || "").toLowerCase()}
-                    title={order.item_name}
-                    subtitle={`${order.quantity} porsi · Rp ${Number(order.price_at_purchase || 0).toLocaleString("id-ID")}`}
-                    value={`Rp ${Number(order.subtotal || 0).toLocaleString("id-ID")}`}
-                  />
-                ))
-              ) : (
-                <EmptyState label="Belum ada pesanan F&B." />
-              )}
-            </div>
+            ) : null}
           </div>
         </Card>
 

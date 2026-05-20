@@ -304,29 +304,30 @@ export default function ResourcesPage() {
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-3 px-3 pb-20 pt-3 font-plus-jakarta md:px-4">
-      <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950 sm:p-3.5">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[rgba(74,141,255,0.12)] dark:text-[var(--bookinaja-200)]">
-              {labels.icon}
-            </div>
-            <div className="space-y-0">
-              <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                Resources
+      <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+        <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex min-w-0 items-start gap-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[rgba(74,141,255,0.12)] dark:text-[var(--bookinaja-200)]">
+                {labels.icon}
               </div>
-              <h1 className="text-[1.65rem] font-semibold leading-none text-slate-950 dark:text-white sm:text-[1.75rem]">
-                {labels.title}
-              </h1>
+              <div className="min-w-0">
+                <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                  Resources
+                </div>
+                <h1 className="mt-0.5 text-[1.45rem] font-semibold leading-none text-slate-950 dark:text-white sm:text-[1.55rem]">
+                  {labels.title}
+                </h1>
+              </div>
             </div>
+
+            <AddResourceDialog
+              category={businessCategory}
+              onRefresh={fetchResources}
+            />
           </div>
 
-          <AddResourceDialog
-            category={businessCategory}
-            onRefresh={fetchResources}
-          />
-        </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {[
               { label: "Total", value: String(resources.length), tone: "text-slate-950 dark:text-white" },
               { label: "Available", value: String(availableResources), tone: "text-emerald-600 dark:text-emerald-300" },
@@ -335,7 +336,7 @@ export default function ResourcesPage() {
             ].map((stat) => (
               <div
                 key={stat.label}
-                className="inline-flex min-w-[112px] items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/50"
+                className="inline-flex min-w-[100px] items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 dark:border-slate-800 dark:bg-slate-900/50"
               >
                 <div className="min-w-0">
                   <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
@@ -349,7 +350,7 @@ export default function ResourcesPage() {
             ))}
           </div>
           {shouldShowModeFilter ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {modeFilterOptions.map((option) => {
                 const isActive = modeFilter === option.value;
                 return (
@@ -358,7 +359,7 @@ export default function ResourcesPage() {
                     type="button"
                     onClick={() => setModeFilter(option.value)}
                     className={cn(
-                      "inline-flex rounded-full border px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide transition-colors",
+                      "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide transition-colors",
                       isActive
                         ? "border-[var(--bookinaja-600)] bg-[var(--bookinaja-600)] text-white"
                         : "border-slate-200 bg-white text-slate-600 hover:border-[var(--bookinaja-200)] hover:text-[var(--bookinaja-700)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300",

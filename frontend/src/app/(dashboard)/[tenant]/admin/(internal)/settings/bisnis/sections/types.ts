@@ -34,6 +34,16 @@ export type TenantProfile = {
   discovery_priority: number;
   promo_starts_at: string | null;
   promo_ends_at: string | null;
+  booking_form_config?: {
+    cta_button_label?: string;
+    sticky_mobile_cta?: boolean;
+    show_whatsapp_help?: boolean;
+    whatsapp_label?: string;
+    controller_features?: {
+      enable_fnb?: boolean;
+      enable_addons?: boolean;
+    };
+  };
   [key: string]: unknown;
 };
 
@@ -70,6 +80,12 @@ export const defaultTenantProfile: TenantProfile = {
   discovery_priority: 0,
   promo_starts_at: null,
   promo_ends_at: null,
+  booking_form_config: {
+    controller_features: {
+      enable_fnb: true,
+      enable_addons: true,
+    },
+  },
 };
 
 export type SectionProps = {

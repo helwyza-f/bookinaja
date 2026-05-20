@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Clock, Palette } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { SectionShell, ViewGrid, ViewItem } from "./section-shell";
 import type { SectionProps } from "./types";
 
@@ -13,6 +14,15 @@ export function OperationsSection({ profile, saving, onSave }: SectionProps) {
     close_time: profile.close_time || "21:00",
     timezone: profile.timezone || "Asia/Jakarta",
     primary_color: profile.primary_color || "#3b82f6",
+    booking_form_config: {
+      ...(profile.booking_form_config || {}),
+      controller_features: {
+        enable_fnb:
+          profile.booking_form_config?.controller_features?.enable_fnb ?? true,
+        enable_addons:
+          profile.booking_form_config?.controller_features?.enable_addons ?? true,
+      },
+    },
   });
   const [editing, setEditing] = useState(false);
 
@@ -22,13 +32,22 @@ export function OperationsSection({ profile, saving, onSave }: SectionProps) {
       close_time: profile.close_time || "21:00",
       timezone: profile.timezone || "Asia/Jakarta",
       primary_color: profile.primary_color || "#3b82f6",
+      booking_form_config: {
+        ...(profile.booking_form_config || {}),
+        controller_features: {
+          enable_fnb:
+            profile.booking_form_config?.controller_features?.enable_fnb ?? true,
+          enable_addons:
+            profile.booking_form_config?.controller_features?.enable_addons ?? true,
+        },
+      },
     });
   };
 
   return (
     <SectionShell
-      title="Operasional & Brand Token"
-      description="Jam tampil di landing dan warna utama public page."
+      title="Controller, Jam Operasional, & Brand"
+      description="Atur fitur controller, jam operasional, timezone, dan warna utama tenant."
       icon={Clock}
       saving={saving}
       editing={editing}
@@ -53,6 +72,22 @@ export function OperationsSection({ profile, saving, onSave }: SectionProps) {
                 <span className="h-3 w-3 rounded-full" style={{ backgroundColor: profile.primary_color }} />
                 {profile.primary_color}
               </span>
+            }
+          />
+          <ViewItem
+            label="Controller F&B"
+            value={
+              draft.booking_form_config.controller_features.enable_fnb
+                ? "Aktif"
+                : "Nonaktif"
+            }
+          />
+          <ViewItem
+            label="Controller add-on"
+            value={
+              draft.booking_form_config.controller_features.enable_addons
+                ? "Aktif"
+                : "Nonaktif"
             }
           />
         </ViewGrid>
@@ -88,6 +123,43 @@ export function OperationsSection({ profile, saving, onSave }: SectionProps) {
           </div>
         </Field>
       </div>
+
+      <div className="mt-5 grid gap-3 md:grid-cols-2">
+        <ToggleRow
+          title="Fitur F&B di controller"
+          description="Kalau dimatikan, menu F&B tidak muncul di controller live, POS, atau history booking."
+          checked={draft.booking_form_config.controller_features.enable_fnb}
+          onCheckedChange={(checked) =>
+            setDraft((current) => ({
+              ...current,
+              booking_form_config: {
+                ...current.booking_form_config,
+                controller_features: {
+                  ...current.booking_form_config.controller_features,
+                  enable_fnb: checked,
+                },
+              },
+            }))
+          }
+        />
+        <ToggleRow
+          title="Fitur add-on di controller"
+          description="Kalau dimatikan, add-on tambahan tidak bisa dipesan saat sesi berjalan dan tidak muncul di history controller."
+          checked={draft.booking_form_config.controller_features.enable_addons}
+          onCheckedChange={(checked) =>
+            setDraft((current) => ({
+              ...current,
+              booking_form_config: {
+                ...current.booking_form_config,
+                controller_features: {
+                  ...current.booking_form_config.controller_features,
+                  enable_addons: checked,
+                },
+              },
+            }))
+          }
+        />
+      </div>
     </SectionShell>
   );
 }
@@ -97,6 +169,30 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div className="space-y-2">
       <Label className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-300">{label}</Label>
       {children}
+    </div>
+  );
+}
+
+function ToggleRow({
+  title,
+  description,
+  checked,
+  onCheckedChange,
+}: {
+  title: string;
+  description: string;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-slate-950 dark:text-white">{title}</p>
+        <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+          {description}
+        </p>
+      </div>
+      <Switch checked={checked} onCheckedChange={onCheckedChange} />
     </div>
   );
 }

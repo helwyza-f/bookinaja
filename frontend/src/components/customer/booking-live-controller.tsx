@@ -41,6 +41,8 @@ type ControllerProps = {
   booking: BookingLite;
   menuItems: CatalogItem[];
   addonItems: CatalogItem[];
+  enableFnb: boolean;
+  enableAddons: boolean;
   onExtend: (count: number) => Promise<void>;
   onOrderFnb: (cart: CatalogItem[]) => Promise<void>;
   onOrderAddon: (cart: CatalogItem[]) => Promise<void>;
@@ -112,6 +114,8 @@ export function BookingLiveController({
   booking,
   menuItems,
   addonItems,
+  enableFnb,
+  enableAddons,
   onExtend,
   onOrderFnb,
   onOrderAddon,
@@ -208,20 +212,24 @@ export function BookingLiveController({
           tone="blue"
           onClick={() => setExtendOpen(true)}
         />
-        <ActionTile
-          disabled={!active}
-          title="Pesan F&B"
-          icon={Coffee}
-          tone="orange"
-          onClick={() => setFnbOpen(true)}
-        />
-        <ActionTile
-          disabled={!active}
-          title="Tambah Add-on"
-          icon={PlusCircle}
-          tone="emerald"
-          onClick={() => setAddonOpen(true)}
-        />
+        {enableFnb ? (
+          <ActionTile
+            disabled={!active}
+            title="Pesan F&B"
+            icon={Coffee}
+            tone="orange"
+            onClick={() => setFnbOpen(true)}
+          />
+        ) : null}
+        {enableAddons ? (
+          <ActionTile
+            disabled={!active}
+            title="Tambah Add-on"
+            icon={PlusCircle}
+            tone="emerald"
+            onClick={() => setAddonOpen(true)}
+          />
+        ) : null}
         <ActionTile
           disabled={!active}
           title="Akhiri Sesi"

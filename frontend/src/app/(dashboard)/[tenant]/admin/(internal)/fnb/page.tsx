@@ -135,45 +135,47 @@ export default function FnbManagementPage() {
   return (
     <div className="mx-auto max-w-[1600px] space-y-3 px-3 pb-32 pt-3 font-plus-jakarta animate-in fade-in duration-500 md:px-4">
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
-        <div className="flex flex-col gap-2.5 border-b border-slate-100 p-3 md:flex-row md:items-center md:justify-between md:p-3.5 dark:border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--bookinaja-600)] text-white">
+        <div className="flex flex-col gap-2.5 border-b border-slate-100 p-3 dark:border-white/10">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--bookinaja-600)] text-white">
               <Coffee size={16} />
-            </div>
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-                Katalog F&B
               </div>
-              <h1 className="text-[1.65rem] font-semibold leading-none tracking-tight text-slate-950 dark:text-white md:text-[1.75rem]">
-                Menu dan produk
-              </h1>
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+                  Katalog F&B
+                </div>
+                <h1 className="text-[1.45rem] font-semibold leading-none tracking-tight text-slate-950 dark:text-white md:text-[1.55rem]">
+                  Menu dan produk
+                </h1>
+              </div>
             </div>
-          </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button
-              variant="outline"
-              onClick={fetchMenu}
-              disabled={loading}
-              className="h-8.5 rounded-lg border-slate-200 px-3 text-sm dark:border-white/15 dark:bg-white/[0.03]"
-            >
-              <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-              Refresh
-            </Button>
-            <Button
-              onClick={() => {
-                setEditingItem(null);
-                setOpen(true);
-              }}
-              className="h-8.5 rounded-lg bg-[var(--bookinaja-600)] px-3.5 text-sm font-semibold text-white hover:bg-[var(--bookinaja-700)]"
-            >
-              <Plus className="mr-2 h-4 w-4" /> Tambah
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                variant="outline"
+                onClick={fetchMenu}
+                disabled={loading}
+                className="h-8 rounded-lg border-slate-200 px-3 text-sm dark:border-white/15 dark:bg-white/[0.03]"
+              >
+                <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
+                Refresh
+              </Button>
+              <Button
+                onClick={() => {
+                  setEditingItem(null);
+                  setOpen(true);
+                }}
+                className="h-8 rounded-lg bg-[var(--bookinaja-600)] px-3.5 text-sm font-semibold text-white hover:bg-[var(--bookinaja-700)]"
+              >
+                <Plus className="mr-2 h-4 w-4" /> Tambah
+              </Button>
+            </div>
           </div>
         </div>
 
-        <div className="space-y-2.5 p-3">
-          <div className="flex flex-wrap gap-2">
+        <div className="space-y-2 p-3">
+          <div className="flex flex-wrap gap-1.5">
             <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-white/[0.04]">
               <div>
                 <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500">Total</div>
@@ -195,16 +197,17 @@ export default function FnbManagementPage() {
               </div>
             </div>
           </div>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Cari menu / kategori"
-              className="h-10 rounded-lg bg-slate-50 pl-10 dark:border-white/15 dark:bg-white/[0.04]"
-            />
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="grid gap-2 lg:grid-cols-[minmax(0,1.25fr)_auto]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Cari menu / kategori"
+                className="h-9 rounded-lg bg-slate-50 pl-10 dark:border-white/15 dark:bg-white/[0.04]"
+              />
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1">
             {categories.map((cat) => (
               <button
                 key={cat}
@@ -219,6 +222,7 @@ export default function FnbManagementPage() {
                 {cat === "all" ? "Semua" : cat}
               </button>
             ))}
+            </div>
           </div>
         </div>
       </section>

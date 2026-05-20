@@ -432,6 +432,7 @@ func (r *Repository) FindByID(ctx context.Context, id, tenantID uuid.UUID) (*Boo
 		SELECT 
 			b.*, t.name as tenant_name, t.slug as tenant_slug,
 			COALESCE(NULLIF(BTRIM(t.timezone), ''), 'Asia/Jakarta') as timezone,
+			COALESCE(t.booking_form_config, '{}'::jsonb) as booking_form_config,
 			c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
 			COALESCE(ri.price, 0) as unit_price, 
 			COALESCE(ri.unit_duration, 60) as unit_duration,
@@ -469,6 +470,7 @@ func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error
 		return err
 	}
 	b.PaymentMethods = paymentMethods
+	b.ControllerFeatures = resolveControllerFeatures(b.BookingFormConfig)
 
 	b.PaymentAttempts = make([]BookingPaymentAttemptSummary, 0)
 	if err := r.db.SelectContext(ctx, &b.PaymentAttempts, `
@@ -492,6 +494,17 @@ func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error
 	if err != nil {
 		return err
 	}
+	if !b.ControllerFeatures.EnableAddons {
+		filtered := make([]BookingOptionDetail, 0, len(b.Options))
+		for _, item := range b.Options {
+			itemType := strings.ToLower(strings.TrimSpace(item.ItemType))
+			if itemType == "add_on" || itemType == "addon" {
+				continue
+			}
+			filtered = append(filtered, item)
+		}
+		b.Options = filtered
+	}
 
 	// 2. Load F&B Orders
 	b.Orders = make([]OrderItem, 0)
@@ -505,6 +518,9 @@ func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error
 	if err != nil {
 		return err
 	}
+	if !b.ControllerFeatures.EnableFnb {
+		b.Orders = make([]OrderItem, 0)
+	}
 
 	// 3. Load Katalog Addons
 	b.ResourceAddons = make([]ResourceItemSimple, 0)
@@ -516,13 +532,34 @@ func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error
 	if err != nil {
 		return err
 	}
+	if !b.ControllerFeatures.EnableAddons {
+		b.ResourceAddons = make([]ResourceItemSimple, 0)
+	}
 
 	b.Events = make([]BookingEvent, 0)
-	return r.db.SelectContext(ctx, &b.Events, `
+	if err := r.db.SelectContext(ctx, &b.Events, `
 		SELECT id, booking_id, tenant_id, customer_id, actor_user_id, actor_type, actor_name, actor_email, actor_role, event_type, title, description, metadata, created_at
 		FROM booking_events
 		WHERE booking_id = $1
-		ORDER BY created_at ASC`, b.ID)
+		ORDER BY created_at ASC`, b.ID); err != nil {
+		return err
+	}
+	if !b.ControllerFeatures.EnableFnb || !b.ControllerFeatures.EnableAddons {
+		filtered := make([]BookingEvent, 0, len(b.Events))
+		for _, event := range b.Events {
+			eventType := strings.ToLower(strings.TrimSpace(event.EventType))
+			title := strings.ToLower(strings.TrimSpace(event.Title))
+			if !b.ControllerFeatures.EnableFnb && (strings.Contains(eventType, "fnb") || strings.Contains(title, "f&b")) {
+				continue
+			}
+			if !b.ControllerFeatures.EnableAddons && strings.Contains(eventType, "addon") {
+				continue
+			}
+			filtered = append(filtered, event)
+		}
+		b.Events = filtered
+	}
+	return nil
 }
 
 func (r *Repository) loadTenantPaymentMethods(ctx context.Context, tenantID uuid.UUID) ([]BookingPaymentMethod, error) {
@@ -598,6 +635,7 @@ func (r *Repository) GetByToken(ctx context.Context, token uuid.UUID) (*BookingD
 	query := `
 		SELECT b.*, t.name as tenant_name, t.slug as tenant_slug,
 		COALESCE(NULLIF(BTRIM(t.timezone), ''), 'Asia/Jakarta') as timezone,
+		COALESCE(t.booking_form_config, '{}'::jsonb) as booking_form_config,
 		c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
 		COALESCE((SELECT SUM(price_at_booking) FROM booking_options WHERE booking_id = b.id), 0) as total_resource,
 		COALESCE((SELECT SUM(price_at_purchase * quantity) FROM order_items WHERE booking_id = b.id), 0) as total_fnb
@@ -636,6 +674,7 @@ func (r *Repository) FindByIDForCustomer(ctx context.Context, id, tenantID, cust
 		SELECT 
 			b.*, t.name as tenant_name, t.slug as tenant_slug,
 			COALESCE(NULLIF(BTRIM(t.timezone), ''), 'Asia/Jakarta') as timezone,
+			COALESCE(t.booking_form_config, '{}'::jsonb) as booking_form_config,
 			c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
 			COALESCE(ri.price, 0) as unit_price, 
 			COALESCE(ri.unit_duration, 60) as unit_duration,
@@ -675,6 +714,7 @@ func (r *Repository) FindByIDForCustomerGlobal(ctx context.Context, id, customer
 		SELECT 
 			b.*, t.name as tenant_name, t.slug as tenant_slug,
 			COALESCE(NULLIF(BTRIM(t.timezone), ''), 'Asia/Jakarta') as timezone,
+			COALESCE(t.booking_form_config, '{}'::jsonb) as booking_form_config,
 			c.name as customer_name, c.phone as customer_phone, res.name as resource_name,
 			COALESCE(ri.price, 0) as unit_price, 
 			COALESCE(ri.unit_duration, 60) as unit_duration,

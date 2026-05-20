@@ -147,6 +147,10 @@ type POSPaymentAttempt = {
 
 export type POSSessionDetail = ExtendSession & {
   id: string;
+  controller_features?: {
+    enable_fnb?: boolean;
+    enable_addons?: boolean;
+  };
   customer_name?: string;
   customer_phone?: string;
   resource_name?: string;
@@ -621,6 +625,8 @@ function TimedBookingControlHubInner({
   const isPaymentSettled =
     paymentStatus === "settled" ||
     (paymentStatus === "paid" && Number(session.balance_due || 0) === 0);
+  const enableFnb = session.controller_features?.enable_fnb !== false;
+  const enableAddons = session.controller_features?.enable_addons !== false;
   const paymentMethods = (session.payment_methods || []).filter((item) => item.is_active !== false);
   const pendingPaymentAttempts =
     (session.payment_attempts || []).filter(
@@ -1284,7 +1290,8 @@ function TimedBookingControlHubInner({
         ) : null}
 
         {isSessionEditable && canWriteBookings ? (
-          <div className="grid grid-cols-3 gap-2">
+          <div className={cn("grid gap-2", enableFnb && enableAddons ? "grid-cols-3" : "grid-cols-2")}>
+            {enableFnb ? (
             <button
               onClick={() => canManageFnb && setFnbOpen(true)}
               disabled={!canManageFnb}
@@ -1293,6 +1300,8 @@ function TimedBookingControlHubInner({
               <ShoppingCart className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
               <span className="pr-1 text-[11px] font-semibold">F&B Menu</span>
             </button>
+            ) : null}
+            {enableAddons ? (
             <button
               onClick={() => setAddonsOpen(true)}
               className="group flex h-14 flex-col items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-orange-300 hover:text-orange-600 dark:border-white/10 dark:bg-slate-950 dark:text-white"
@@ -1300,6 +1309,7 @@ function TimedBookingControlHubInner({
               <Package className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
               <span className="pr-1 text-[11px] font-semibold">Add-ons</span>
             </button>
+            ) : null}
             <button
               onClick={() => setExtendOpen(true)}
               className="group flex h-14 flex-col items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-slate-400 dark:border-white/10 dark:bg-slate-950 dark:text-white"
@@ -1358,7 +1368,7 @@ function TimedBookingControlHubInner({
                     <div className="rounded-xl border border-white/70 bg-white/80 px-3 py-3 dark:border-white/10 dark:bg-white/[0.04]">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Tambahan</p>
                       <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
-                        {groupedAddons.length + groupedFnb.length} item
+                        {(enableAddons ? groupedAddons.length : 0) + (enableFnb ? groupedFnb.length : 0)} item
                       </p>
                     </div>
                   </div>
@@ -1379,7 +1389,13 @@ function TimedBookingControlHubInner({
                         ? "Booking ini belum masuk tahap billing POS. Operator cukup konfirmasi booking, mencatat DP yang benar-benar diterima, atau mengaktifkan tanpa DP."
                         : isOutstanding
                         ? "Sesi sudah selesai. Fokus utama sekarang adalah menutup sisa tagihan booking."
-                        : "Booking timed ini bisa kamu kelola per kategori: layanan utama, add-on, dan F&B."}
+                        : `Booking timed ini bisa kamu kelola per kategori: ${[
+                            "layanan utama",
+                            enableAddons ? "add-on" : null,
+                            enableFnb ? "F&B" : null,
+                          ]
+                            .filter(Boolean)
+                            .join(", ")}.`}
                     </p>
                   </div>
                 </div>
@@ -1421,7 +1437,7 @@ function TimedBookingControlHubInner({
                   <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
                     <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Tambahan</div>
                     <div className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
-                      {groupedAddons.length + groupedFnb.length}
+                      {(enableAddons ? groupedAddons.length : 0) + (enableFnb ? groupedFnb.length : 0)}
                     </div>
                   </div>
                   <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
@@ -1604,7 +1620,7 @@ function TimedBookingControlHubInner({
                 )),
               })}
 
-              {renderSummarySection({
+              {enableAddons ? renderSummarySection({
                 title: "Add-on",
                 caption: "Tambahan manual di luar paket utama",
                 icon: <Package className="h-4 w-4" />,
@@ -1632,9 +1648,9 @@ function TimedBookingControlHubInner({
                     </span>
                   </div>
                 )),
-              })}
+              }) : null}
 
-              {renderSummarySection({
+              {enableFnb ? renderSummarySection({
                 title: "F&B",
                 caption: "Pesanan makanan dan minuman customer",
                 icon: <ShoppingCart className="h-4 w-4" />,
@@ -1662,7 +1678,7 @@ function TimedBookingControlHubInner({
                     </span>
                   </div>
                 )),
-              })}
+              }) : null}
             </>
           ) : null}
         </div>

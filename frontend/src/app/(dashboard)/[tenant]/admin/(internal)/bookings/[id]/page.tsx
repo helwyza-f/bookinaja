@@ -119,6 +119,10 @@ type BookingDetail = {
   id: string;
   status?: string;
   payment_status?: string;
+  controller_features?: {
+    enable_fnb?: boolean;
+    enable_addons?: boolean;
+  };
   deposit_override_active?: boolean;
   deposit_override_reason?: string;
   deposit_override_by?: string;
@@ -553,10 +557,17 @@ export default function BookingDetailPage() {
     [groupedOptions],
   );
 
+  const enableFnb = booking?.controller_features?.enable_fnb !== false;
+  const enableAddons = booking?.controller_features?.enable_addons !== false;
+
   const addonOptions = useMemo(
     () => groupedOptions.filter((item) => item.item_type !== "main_option"),
     [groupedOptions],
   );
+  const visibleItemCount =
+    mainOptions.length +
+    (enableAddons ? addonOptions.length : 0) +
+    (enableFnb ? groupedOrders.length : 0);
 
   const handleUpdateStatus = async (newStatus: string) => {
     setUpdating(true);
@@ -1426,7 +1437,7 @@ export default function BookingDetailPage() {
                 </p>
               </div>
               <Badge variant="secondary" className="rounded-full px-3">
-                {groupedOptions.length + groupedOrders.length} item
+                {visibleItemCount} item
               </Badge>
             </div>
 
@@ -1466,6 +1477,7 @@ export default function BookingDetailPage() {
                 )}
               </div>
 
+              {enableAddons ? (
               <div className="border-t border-slate-100 pt-5 dark:border-white/10">
                 <div className="flex items-center gap-2 text-slate-950 dark:text-white">
                   <Layers className="h-4 w-4 text-emerald-500" />
@@ -1500,7 +1512,9 @@ export default function BookingDetailPage() {
                   </div>
                 )}
               </div>
+              ) : null}
 
+              {enableFnb ? (
               <div className="border-t border-slate-100 pt-5 dark:border-white/10">
                 <div className="flex items-center gap-2 text-slate-950 dark:text-white">
                   <Utensils className="h-4 w-4 text-orange-500" />
@@ -1535,6 +1549,7 @@ export default function BookingDetailPage() {
                   </div>
                 )}
               </div>
+              ) : null}
 
               {hasPromo ? (
                 <div className="border-t border-slate-100 pt-5 dark:border-white/10">

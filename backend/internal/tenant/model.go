@@ -289,6 +289,11 @@ type BookingFormConfig struct {
 	WhatsappLabel    string `json:"whatsapp_label"`
 }
 
+type BookingControllerFeatures struct {
+	EnableFnb    bool `json:"enable_fnb"`
+	EnableAddons bool `json:"enable_addons"`
+}
+
 type TenantPaymentMethod struct {
 	ID               uuid.UUID `db:"id" json:"id"`
 	TenantID         uuid.UUID `db:"tenant_id" json:"tenant_id"`
@@ -633,6 +638,103 @@ func DefaultBookingFormConfig() BookingFormConfig {
 		StickyMobileCTA:  true,
 		ShowWhatsappHelp: true,
 		WhatsappLabel:    "Butuh bantuan cepat? Chat WhatsApp",
+	}
+}
+
+func DefaultBookingControllerFeatures() BookingControllerFeatures {
+	return BookingControllerFeatures{
+		EnableFnb:    true,
+		EnableAddons: true,
+	}
+}
+
+func DefaultBookingFormConfigJSON() JSONB {
+	payload, _ := json.Marshal(map[string]any{
+		"cta_button_label":   DefaultBookingFormConfig().CTAButtonLabel,
+		"sticky_mobile_cta":  DefaultBookingFormConfig().StickyMobileCTA,
+		"show_whatsapp_help": DefaultBookingFormConfig().ShowWhatsappHelp,
+		"whatsapp_label":     DefaultBookingFormConfig().WhatsappLabel,
+		"controller_features": map[string]any{
+			"enable_fnb":    true,
+			"enable_addons": true,
+		},
+	})
+	return JSONB(payload)
+}
+
+func MergeBookingFormConfigJSON(current, incoming JSONB) JSONB {
+	base := map[string]any{}
+	_ = json.Unmarshal(DefaultBookingFormConfigJSON(), &base)
+
+	merge := func(raw JSONB) {
+		if len(raw) == 0 || string(raw) == "{}" {
+			return
+		}
+		var patch map[string]any
+		if err := json.Unmarshal(raw, &patch); err != nil {
+			return
+		}
+		mergeMaps(base, patch)
+	}
+
+	merge(current)
+	merge(incoming)
+
+	controllerFeatures, _ := base["controller_features"].(map[string]any)
+	if controllerFeatures == nil {
+		controllerFeatures = map[string]any{}
+	}
+	if _, ok := controllerFeatures["enable_fnb"]; !ok {
+		controllerFeatures["enable_fnb"] = true
+	}
+	if _, ok := controllerFeatures["enable_addons"]; !ok {
+		controllerFeatures["enable_addons"] = true
+	}
+	base["controller_features"] = controllerFeatures
+
+	payload, err := json.Marshal(base)
+	if err != nil {
+		return DefaultBookingFormConfigJSON()
+	}
+	return JSONB(payload)
+}
+
+func ExtractBookingControllerFeatures(raw JSONB) BookingControllerFeatures {
+	features := DefaultBookingControllerFeatures()
+	if len(raw) == 0 || string(raw) == "{}" {
+		return features
+	}
+
+	var payload struct {
+		ControllerFeatures struct {
+			EnableFnb    *bool `json:"enable_fnb"`
+			EnableAddons *bool `json:"enable_addons"`
+		} `json:"controller_features"`
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return features
+	}
+	if payload.ControllerFeatures.EnableFnb != nil {
+		features.EnableFnb = *payload.ControllerFeatures.EnableFnb
+	}
+	if payload.ControllerFeatures.EnableAddons != nil {
+		features.EnableAddons = *payload.ControllerFeatures.EnableAddons
+	}
+	return features
+}
+
+func mergeMaps(dst, src map[string]any) {
+	for key, value := range src {
+		if valueMap, ok := value.(map[string]any); ok {
+			dstMap, dstOK := dst[key].(map[string]any)
+			if !dstOK || dstMap == nil {
+				dstMap = map[string]any{}
+			}
+			mergeMaps(dstMap, valueMap)
+			dst[key] = dstMap
+			continue
+		}
+		dst[key] = value
 	}
 }
 

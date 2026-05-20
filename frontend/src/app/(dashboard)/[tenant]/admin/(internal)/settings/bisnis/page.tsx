@@ -167,7 +167,7 @@ export default function BusinessSettingsPage() {
       },
       {
         id: "operations",
-        label: "Jam operasional",
+        label: "Controller & jam operasional",
         href: "#operations",
         done: Boolean(
           profile.open_time &&
@@ -273,6 +273,13 @@ export default function BusinessSettingsPage() {
                 onSave={(patch) => void saveSection("basic", patch)}
               />
             </section>
+            <section id="operations" className="scroll-mt-24">
+              <OperationsSection
+                profile={profile}
+                saving={savingKey === "operations"}
+                onSave={(patch) => void saveSection("operations", patch)}
+              />
+            </section>
             <section id="landing-header" className="scroll-mt-24">
               <LandingContentSection
                 profile={profile}
@@ -298,13 +305,6 @@ export default function BusinessSettingsPage() {
           </section>
 
           <section className="space-y-4">
-            <section id="operations" className="scroll-mt-24">
-              <OperationsSection
-                profile={profile}
-                saving={savingKey === "operations"}
-                onSave={(patch) => void saveSection("operations", patch)}
-              />
-            </section>
             <section id="seo" className="scroll-mt-24">
               <SeoSection
                 profile={profile}

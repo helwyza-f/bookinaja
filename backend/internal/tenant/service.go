@@ -191,7 +191,7 @@ func (s *Service) UpdatePageBuilder(ctx context.Context, actorUserID, id uuid.UU
 	formJSON, _ := json.Marshal(form)
 	tenant.LandingPageConfig = JSONB(pageJSON)
 	tenant.LandingThemeConfig = JSONB(themeJSON)
-	tenant.BookingFormConfig = JSONB(formJSON)
+	tenant.BookingFormConfig = MergeBookingFormConfigJSON(tenant.BookingFormConfig, JSONB(formJSON))
 
 	if err := s.repo.Update(ctx, *tenant); err != nil {
 		return nil, err
@@ -237,11 +237,7 @@ func (s *Service) applyBuilderDefaults(tenant *Tenant) {
 			tenant.LandingThemeConfig = JSONB(payload)
 		}
 	}
-	if len(tenant.BookingFormConfig) == 0 || string(tenant.BookingFormConfig) == "{}" {
-		if payload, err := json.Marshal(DefaultBookingFormConfig()); err == nil {
-			tenant.BookingFormConfig = JSONB(payload)
-		}
-	}
+	tenant.BookingFormConfig = MergeBookingFormConfigJSON(tenant.BookingFormConfig, nil)
 }
 
 func (s *Service) applyBuilderDefaultsToPublicProfile(profile *PublicTenantProfile) {
@@ -258,11 +254,7 @@ func (s *Service) applyBuilderDefaultsToPublicProfile(profile *PublicTenantProfi
 			profile.LandingThemeConfig = JSONB(payload)
 		}
 	}
-	if len(profile.BookingFormConfig) == 0 || string(profile.BookingFormConfig) == "{}" {
-		if payload, err := json.Marshal(DefaultBookingFormConfig()); err == nil {
-			profile.BookingFormConfig = JSONB(payload)
-		}
-	}
+	profile.BookingFormConfig = MergeBookingFormConfigJSON(profile.BookingFormConfig, nil)
 }
 
 func (s *Service) decodeLandingPageConfig(tenant *Tenant) LandingPageConfig {
@@ -3185,7 +3177,7 @@ func (s *Service) UpdateReferralPayout(ctx context.Context, actorUserID uuid.UUI
 	req.PrinterStatus = curr.PrinterStatus
 	req.LandingPageConfig = curr.LandingPageConfig
 	req.LandingThemeConfig = curr.LandingThemeConfig
-	req.BookingFormConfig = curr.BookingFormConfig
+	req.BookingFormConfig = MergeBookingFormConfigJSON(curr.BookingFormConfig, req.BookingFormConfig)
 	req.CreatedAt = curr.CreatedAt
 	req.Timezone = curr.Timezone
 	if err := s.repo.Update(ctx, req); err != nil {
@@ -3220,7 +3212,7 @@ func (s *Service) UpdateProfile(ctx context.Context, actorUserID uuid.UUID, id u
 	req.PayoutWhatsApp = curr.PayoutWhatsApp
 	req.LandingPageConfig = curr.LandingPageConfig
 	req.LandingThemeConfig = curr.LandingThemeConfig
-	req.BookingFormConfig = curr.BookingFormConfig
+	req.BookingFormConfig = MergeBookingFormConfigJSON(curr.BookingFormConfig, req.BookingFormConfig)
 	req.CreatedAt = curr.CreatedAt
 	if strings.TrimSpace(req.Timezone) == "" {
 		req.Timezone = curr.Timezone

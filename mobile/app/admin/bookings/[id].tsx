@@ -110,6 +110,10 @@ type BookingDetail = {
   id: string;
   status?: string;
   payment_status?: string;
+  controller_features?: {
+    enable_fnb?: boolean;
+    enable_addons?: boolean;
+  };
   customer_id?: string;
   customer_name?: string;
   customer_phone?: string;
@@ -322,6 +326,10 @@ export default function AdminBookingDetailScreen() {
     status === "active" && hasAdminPermission(adminUser, "sessions.extend");
   const canAddLineItems =
     status === "active" && hasAdminPermission(adminUser, "pos.order.add");
+  const enableFnb = booking?.controller_features?.enable_fnb !== false;
+  const enableAddons = booking?.controller_features?.enable_addons !== false;
+  const canAddFnb = canAddLineItems && enableFnb;
+  const canAddAddon = canAddLineItems && enableAddons;
   const canRecordDeposit =
     hasAdminPermission(adminUser, "pos.cash.settle") &&
     (status === "pending" || status === "confirmed") &&
@@ -342,11 +350,11 @@ export default function AdminBookingDetailScreen() {
   );
   const fnbCatalogQuery = useQuery({
     queryKey: ["admin-booking-fnb-catalog", id],
-    enabled: guard.ready && Boolean(id) && canAddLineItems,
+    enabled: guard.ready && Boolean(id) && canAddFnb,
     queryFn: () => apiFetch<FnbCatalogItem[]>("/fnb", { audience: "admin" }),
     staleTime: 30_000,
   });
-  const resourceAddons = booking?.resource_addons || [];
+  const resourceAddons = enableAddons ? booking?.resource_addons || [] : [];
   const fnbItems = (fnbCatalogQuery.data || []).filter(
     (item) => item.is_available !== false,
   );
@@ -1161,7 +1169,7 @@ export default function AdminBookingDetailScreen() {
 
             <View style={{ gap: 8 }}>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-                {canAddLineItems ? (
+                {canAddFnb ? (
                   <CompactActionCard
                     title="Tambah F&B"
                     label="Pilih"
@@ -1172,7 +1180,7 @@ export default function AdminBookingDetailScreen() {
                     badge={String(fnbItems.length || 0)}
                   />
                 ) : null}
-                {canAddLineItems ? (
+                {canAddAddon ? (
                   <CompactActionCard
                     title="Tambah add-on"
                     label="Pilih"
@@ -1571,7 +1579,7 @@ export default function AdminBookingDetailScreen() {
         </SubduedSection>
       ) : null}
 
-      {addonOptions.length ? (
+      {enableAddons && addonOptions.length ? (
         <SubduedSection title="Add-on">
           <Text selectable style={{ color: "#0f172a", fontSize: 15, fontWeight: "800" }}>
             Add-on booking
@@ -1595,7 +1603,7 @@ export default function AdminBookingDetailScreen() {
         </SubduedSection>
       ) : null}
 
-      {groupedOrders.length ? (
+      {enableFnb && groupedOrders.length ? (
         <SubduedSection title="F&B">
           <Text selectable style={{ color: "#0f172a", fontSize: 15, fontWeight: "800" }}>
             Pesanan F&B
