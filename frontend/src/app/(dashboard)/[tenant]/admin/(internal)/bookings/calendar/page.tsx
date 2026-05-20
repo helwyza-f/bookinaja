@@ -313,15 +313,15 @@ export default function BookingCalendarPage() {
 
   return (
     <PageShell
-      eyebrow="Planner booking"
-      title="Kalender booking"
+      eyebrow="Admin"
+      title="Kalender"
       description="Pilih tanggal di kalender, lalu lihat booking yang jatuh pada hari itu."
       className="max-w-none space-y-4 px-3 pb-20 pt-4 font-plus-jakarta md:px-4"
       actions={
         <>
           <div className="flex flex-wrap items-center gap-2">
             <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
-            <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+            <div className="whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
               {monthBookings.length} booking bulan ini
             </div>
           </div>
@@ -380,11 +380,11 @@ export default function BookingCalendarPage() {
                   {format(visibleMonth, "MMMM yyyy", { locale: id })}
                 </h2>
               </div>
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-[var(--bookinaja-700)] dark:border-slate-800 dark:bg-slate-900 dark:text-[var(--bookinaja-200)]">
+              <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+                <div className="whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-[var(--bookinaja-700)] dark:border-slate-800 dark:bg-slate-900 dark:text-[var(--bookinaja-200)]">
                   {monthBookings.length} booking
                 </div>
-                <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+                <div className="whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
                   {format(selectedDate, "dd MMM yyyy", { locale: id })}
                 </div>
               </div>
@@ -417,7 +417,7 @@ export default function BookingCalendarPage() {
                   weekdays:
                     "border-b border-slate-100 dark:border-slate-800",
                   weekday:
-                    "h-10 px-0 text-center align-middle text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500",
+                    "h-10 whitespace-nowrap px-0 text-center align-middle text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500",
                   week: "border-b border-slate-100 last:border-b-0 dark:border-slate-800",
                   day: "relative h-[var(--cell-size)] overflow-hidden border-r border-slate-100 p-0 align-middle last:border-r-0 dark:border-slate-800",
                   outside:
