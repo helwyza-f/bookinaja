@@ -694,7 +694,7 @@ export default function BookingDetailPage() {
       tone: "neutral",
     });
   }
-  if (status === "active") {
+  if (status === "active" && booking?.id) {
     adminActions.push({
       key: "pos",
       title: "Buka POS live",
@@ -729,7 +729,7 @@ export default function BookingDetailPage() {
       tone: "dark",
     });
   }
-  if (canSettle) {
+  if (canSettle && booking?.id) {
     adminActions.push({
       key: "settle",
       title: "Pelunasan",
