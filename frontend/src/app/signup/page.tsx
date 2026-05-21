@@ -1,19 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useState } from "react";
-import { ArrowRight, LogIn } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { FormEvent, useState } from "react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { CompactGoogleButton } from "@/components/auth/compact-google-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { googleAuthAccount, loginAccount } from "@/lib/auth-client";
+import { googleAuthAccount, signupAccount } from "@/lib/auth-client";
 
-function LoginScreen() {
+export default function SignupPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,12 +23,12 @@ function LoginScreen() {
     event.preventDefault();
     setLoading(true);
     try {
-      await loginAccount({ email, password });
-      toast.success("Masuk ke akun Bookinaja berhasil.");
-      router.replace(searchParams.get("next") || "/app");
+      await signupAccount({ name, email, password });
+      toast.success("Akun Bookinaja dibuat.");
+      router.replace("/app");
     } catch (error) {
       const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      toast.error(message || "Login belum berhasil.");
+      toast.error(message || "Signup belum berhasil.");
     } finally {
       setLoading(false);
     }
@@ -39,10 +39,10 @@ function LoginScreen() {
     try {
       await googleAuthAccount(credential);
       toast.success("Masuk dengan Google berhasil.");
-      router.replace(searchParams.get("next") || "/app");
+      router.replace("/app/workspaces/new");
     } catch (error) {
       const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      toast.error(message || "Google login belum berhasil.");
+      toast.error(message || "Google signup belum berhasil.");
     } finally {
       setGoogleLoading(false);
     }
@@ -50,17 +50,17 @@ function LoginScreen() {
 
   return (
     <main className="min-h-screen bg-[#f6f8fb] text-slate-950">
-      <div className="mx-auto grid min-h-screen max-w-6xl grid-cols-1 px-5 py-8 lg:grid-cols-[1fr_420px] lg:items-center lg:gap-16">
+      <div className="mx-auto grid min-h-screen max-w-6xl grid-cols-1 px-5 py-8 lg:grid-cols-[1fr_430px] lg:items-center lg:gap-16">
         <section className="hidden lg:block">
           <div className="max-w-xl">
             <div className="mb-6 inline-flex h-11 w-11 items-center justify-center rounded-lg bg-[#10275c] text-white">
-              <LogIn className="h-5 w-5" />
+              <Sparkles className="h-5 w-5" />
             </div>
             <h1 className="text-5xl font-semibold leading-tight tracking-normal">
-              Masuk ke akun, pilih workspace, lanjut operasional.
+              Buat akun dulu. Workspace disiapkan setelah kamu masuk.
             </h1>
             <p className="mt-5 text-base leading-7 text-slate-600">
-              Satu akun Bookinaja bisa mengelola beberapa workspace. Area admin tetap memakai subdomain workspace supaya konteks bisnis selalu jelas.
+              Signup dibuat ringan supaya owner tidak dipaksa mengisi konfigurasi bisnis sebelum punya akun.
             </p>
           </div>
         </section>
@@ -69,16 +69,16 @@ function LoginScreen() {
           <div className="w-full rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <div className="mb-6">
               <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-[#10275c] text-white lg:hidden">
-                <LogIn className="h-5 w-5" />
+                <Sparkles className="h-5 w-5" />
               </div>
-              <h2 className="text-2xl font-semibold tracking-normal">Login akun</h2>
+              <h2 className="text-2xl font-semibold tracking-normal">Sign up</h2>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                Gunakan akun global Bookinaja.
+                Setelah akun aktif, kamu lanjut membuat workspace pertama.
               </p>
             </div>
 
             <CompactGoogleButton
-              text="continue_with"
+              text="signup_with"
               loading={googleLoading}
               onCredential={onGoogleCredential}
             />
@@ -90,6 +90,15 @@ function LoginScreen() {
             </div>
 
             <form onSubmit={onSubmit} className="space-y-4">
+              <label className="block space-y-2">
+                <Label>Nama</Label>
+                <Input
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Nama owner"
+                  required
+                />
+              </label>
               <label className="block space-y-2">
                 <Label>Email</Label>
                 <Input
@@ -108,31 +117,24 @@ function LoginScreen() {
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="Minimal 6 karakter"
                   required
+                  minLength={6}
                 />
               </label>
               <Button type="submit" disabled={loading} className="h-10 w-full">
-                {loading ? "Memverifikasi..." : "Masuk"}
+                {loading ? "Membuat akun..." : "Buat akun"}
                 {!loading ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
               </Button>
             </form>
 
             <p className="mt-5 text-center text-sm text-slate-500">
-              Belum punya akun?{" "}
-              <Link href="/signup" className="font-semibold text-[#174ea6]">
-                Sign up
+              Sudah punya akun?{" "}
+              <Link href="/login" className="font-semibold text-[#174ea6]">
+                Login
               </Link>
             </p>
           </div>
         </section>
       </div>
     </main>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen bg-[#f6f8fb]" />}>
-      <LoginScreen />
-    </Suspense>
   );
 }

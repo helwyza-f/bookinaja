@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 	"strings"
@@ -8,6 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+	"github.com/helwiza/backend/internal/account"
 	"github.com/helwiza/backend/internal/platform/access"
 	"github.com/helwiza/backend/internal/platform/security"
 	"github.com/helwiza/backend/internal/tenant"
@@ -49,6 +52,17 @@ func AuthMiddleware(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Account tokens are global. Workspace authorization is resolved later
+		// against the active subdomain/tenant context by AccountWorkspaceAdminBridge.
+		if accountID, ok := claims["account_id"]; ok && accountID != nil {
+			accountIDValue := strings.TrimSpace(fmt.Sprintf("%v", accountID))
+			if accountIDValue != "" && accountIDValue != "<nil>" && accountIDValue != "00000000-0000-0000-0000-000000000000" {
+				setAuthContext(c, claims)
+				c.Next()
+				return
+			}
+		}
+
 		// 3. MULTI-TENANCY CROSS-CHECK (CRITICAL FIX)
 		activeTenantID := c.GetString("tenantID")
 		tokenTenantID := fmt.Sprintf("%v", claims["tenant_id"])
@@ -71,7 +85,13 @@ func AuthMiddleware(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if userID, ok := claims["user_id"]; ok && userID != nil && db != nil {
-			permissions, err := loadUserPermissions(c, db, fmt.Sprintf("%v", userID), fmt.Sprintf("%v", c.GetString("tenantID")))
+			userIDValue := strings.TrimSpace(fmt.Sprintf("%v", userID))
+			if userIDValue == "" || userIDValue == "00000000-0000-0000-0000-000000000000" {
+				setAuthContext(c, claims)
+				c.Next()
+				return
+			}
+			permissions, err := loadUserPermissions(c, db, userIDValue, fmt.Sprintf("%v", c.GetString("tenantID")))
 			if err == nil {
 				c.Set("permissions", tenant.ExpandPermissionKeys(permissions))
 			}
@@ -79,6 +99,61 @@ func AuthMiddleware(db *sqlx.DB) gin.HandlerFunc {
 
 		// 4. Injeksi Identitas ke Context
 		setAuthContext(c, claims)
+
+		c.Next()
+	}
+}
+
+func AccountWorkspaceAdminBridge(db *sqlx.DB) gin.HandlerFunc {
+	repo := account.NewRepository(db)
+	return func(c *gin.Context) {
+		if c.GetString("authType") != "account" {
+			c.Next()
+			return
+		}
+		if db == nil {
+			c.Next()
+			return
+		}
+
+		accountID, err := uuid.Parse(strings.TrimSpace(c.GetString("accountID")))
+		if err != nil {
+			c.Next()
+			return
+		}
+
+		activeTenantID := strings.TrimSpace(c.GetString("tenantID"))
+		if activeTenantID == "" {
+			c.Next()
+			return
+		}
+
+		adminCtx, err := repo.GetWorkspaceAdminContext(c.Request.Context(), accountID, activeTenantID)
+		if err == sql.ErrNoRows {
+			abortForbidden(c, "Akun ini tidak punya akses ke workspace ini")
+			return
+		}
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memuat akses workspace"})
+			c.Abort()
+			return
+		}
+
+		role := strings.TrimSpace(adminCtx.Role)
+		if role == "" {
+			role = "owner"
+		}
+
+		c.Set("workspaceID", adminCtx.WorkspaceID.String())
+		c.Set("tenantID", adminCtx.TenantID.String())
+		c.Set("userID", adminCtx.AdminUserID.String())
+		c.Set("userRole", role)
+		c.Set("authType", "admin")
+		c.Set("tenantPlan", adminCtx.Plan)
+		c.Set("tenantSubscriptionStatus", adminCtx.SubscriptionStatus)
+		if len(adminCtx.PermissionKeys) > 0 {
+			c.Set("permissions", tenant.ExpandPermissionKeys(adminCtx.PermissionKeys))
+		}
 
 		c.Next()
 	}
@@ -108,7 +183,11 @@ func parseJWT(tokenString string) (*jwt.Token, error) {
 }
 
 func setAuthContext(c *gin.Context, claims jwt.MapClaims) {
-	if userID, ok := claims["user_id"]; ok && userID != nil {
+	if accountID, ok := claims["account_id"]; ok && accountID != nil && strings.TrimSpace(fmt.Sprintf("%v", accountID)) != "00000000-0000-0000-0000-000000000000" {
+		c.Set("accountID", accountID)
+		c.Set("userRole", claims["role"])
+		c.Set("authType", "account")
+	} else if userID, ok := claims["user_id"]; ok && userID != nil {
 		c.Set("userID", userID)
 		c.Set("userRole", claims["role"])
 		c.Set("authType", "admin")
@@ -139,6 +218,17 @@ func setAuthContext(c *gin.Context, claims jwt.MapClaims) {
 	} else if custID, ok := claims["customer_id"]; ok && custID != nil {
 		c.Set("customerID", custID)
 		c.Set("authType", "customer")
+	}
+}
+
+func AccountOnly() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.GetString("authType") != "account" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Akun Bookinaja diperlukan"})
+			c.Abort()
+			return
+		}
+		c.Next()
 	}
 }
 

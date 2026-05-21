@@ -1,6 +1,7 @@
 package routecfg
 
 import (
+	"github.com/helwiza/backend/internal/account"
 	"github.com/helwiza/backend/internal/auth"
 	"github.com/helwiza/backend/internal/billing"
 	"github.com/helwiza/backend/internal/customer"
@@ -20,6 +21,7 @@ import (
 
 type Config struct {
 	DB                 *sqlx.DB
+	AccountHandler     *account.Handler
 	TenantHandler      *tenant.Handler
 	ResourceHandler    *resource.Handler
 	ReservationHandler *reservation.Handler

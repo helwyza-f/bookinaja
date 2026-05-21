@@ -258,7 +258,7 @@ function resolveRootRedirect(
 
   if (isPlatformLogin) {
     if (auth.hasAdminToken) {
-      return "/dashboard/overview";
+      return "/app";
     }
     return null;
   }

@@ -121,6 +121,16 @@ export function getTenantMismatchMessage(kind: "admin" | "customer" | "platform"
 }
 
 function normalizeCookieDomain(value?: string | null) {
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") {
+      return "";
+    }
+    if (host.endsWith(".lvh.me")) {
+      return ".lvh.me";
+    }
+  }
+
   const cleaned = (value || "").replace(/(^"|"$)/g, "").trim();
   if (!cleaned) return "";
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/helwiza/backend/internal/account"
 	"github.com/helwiza/backend/internal/auth"
 	"github.com/helwiza/backend/internal/billing"
 	"github.com/helwiza/backend/internal/customer"
@@ -103,6 +104,7 @@ func main() {
 	}
 
 	tenantRepo := tenant.NewRepository(db, rdb)
+	accountRepo := account.NewRepository(db)
 	customerRepo := customer.NewRepository(db, rdb)
 	expenseRepo := expense.NewRepository(db)
 	resourceRepo := resource.NewRepository(db, rdb)
@@ -117,6 +119,7 @@ func main() {
 	resendMailer := mailer.NewResendFromEnv()
 
 	authSvc := auth.NewService()
+	accountSvc := account.NewService(accountRepo, authSvc)
 	tenantSvc := tenant.NewService(
 		tenantRepo,
 		authSvc,
@@ -149,6 +152,7 @@ func main() {
 	reconciler := smartdevice.NewReconciler(smartDeviceSvc, 90*time.Second)
 
 	authHdl := auth.NewHandler(authSvc, tenantSvc)
+	accountHdl := account.NewHandler(accountSvc)
 	customerHdl := customer.NewHandler(customerSvc)
 	expenseHdl := expense.NewHandler(expenseSvc)
 	tenantHdl := tenant.NewHandler(tenantSvc)
@@ -166,6 +170,7 @@ func main() {
 
 	routerConfig := routecfg.Config{
 		DB:                 db,
+		AccountHandler:     accountHdl,
 		TenantHandler:      tenantHdl,
 		ResourceHandler:    resourceHdl,
 		ReservationHandler: reservationHdl,

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { LogOut, Menu, Moon, Sun, X } from "lucide-react";
+import { Building2, LogOut, Menu, Moon, Sun, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +18,11 @@ import {
 import { clearTenantSession } from "@/lib/tenant-session";
 import { canAccessAdminRoute, getAdminRouteGate } from "@/lib/admin-access";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
-import { getCentralAdminAuthUrl, getTenantSlugFromBrowser } from "@/lib/tenant";
+import {
+  getCentralAdminAuthUrl,
+  getRootPortalUrl,
+  getTenantSlugFromBrowser,
+} from "@/lib/tenant";
 import { Badge } from "@/components/ui/badge";
 import {
   growthHubNavItem,
@@ -239,6 +243,18 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
               <Button
                 type="button"
                 variant="outline"
+                onClick={() => {
+                  window.location.href = getRootPortalUrl("/app/workspaces");
+                }}
+                className="h-10 justify-start gap-2 rounded-lg px-3 text-sm"
+              >
+                <Building2 className="h-4 w-4" />
+                Workspace
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                 className="h-10 justify-start gap-2 rounded-lg px-3 text-sm"
               >
@@ -250,7 +266,7 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
                 type="button"
                 variant="outline"
                 onClick={handleLogout}
-                className="h-10 justify-start gap-2 rounded-lg border-red-200 px-3 text-sm text-red-600 hover:bg-red-50 dark:border-red-500/20 dark:text-red-300 dark:hover:bg-red-500/10"
+                className="col-span-2 h-10 justify-start gap-2 rounded-lg border-red-200 px-3 text-sm text-red-600 hover:bg-red-50 dark:border-red-500/20 dark:text-red-300 dark:hover:bg-red-500/10"
               >
                 <LogOut className="h-4 w-4" />
                 Keluar
