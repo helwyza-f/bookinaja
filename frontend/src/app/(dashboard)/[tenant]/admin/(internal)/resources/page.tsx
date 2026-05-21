@@ -7,6 +7,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Layers,
   Trash2,
   Gamepad2,
@@ -16,6 +24,7 @@ import {
   Check,
   Package2,
   ShoppingBag,
+  AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
 import { AddResourceDialog } from "@/components/resources/add-resources-dialog";
@@ -154,6 +163,8 @@ export default function ResourcesPage() {
   const { tenantCategory } = useAdminSession();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ResourceRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [modeFilter, setModeFilter] = useState<
     "all" | "timed" | "direct_sale" | "hybrid"
   >("all");
@@ -202,14 +213,18 @@ export default function ResourcesPage() {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Hapus ${name} secara permanen?`)) return;
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await api.delete(`/resources-all/${id}`);
-      toast.success(`${name} berhasil dihapus`);
+      await api.delete(`/resources-all/${deleteTarget.id}`);
+      toast.success(`${deleteTarget.name} berhasil dihapus`);
+      setDeleteTarget(null);
       void fetchResources();
     } catch {
       toast.error("Gagal menghapus resource");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -454,6 +469,13 @@ export default function ResourcesPage() {
               const cardDescription = isDirectSale
                 ? "Jual langsung di POS tanpa jadwal sesi."
                 : "Dipakai untuk booking per jam, sesi, atau durasi.";
+              const summaryLabel = isDirectSale
+                ? `${mainItemsCount} item jual`
+                : `${mainItemsCount} paket`;
+              const addonLabel =
+                addonCount > 0 ? `${addonCount} add-on` : "Tanpa add-on";
+              const readinessLabel =
+                mainItemsCount > 0 ? "Harga siap" : "Harga belum lengkap";
 
               return (
                 <Card
@@ -475,94 +497,70 @@ export default function ResourcesPage() {
                         {labels.icon}
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/5 to-transparent" />
-                  </div>
-                  <CardContent className="relative z-10 flex flex-1 flex-col p-4">
-                    <div className="mb-4">
-                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent" />
+                    <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span
                           className={cn(
-                            "inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+                            "inline-flex rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide backdrop-blur-sm",
                             modeMeta.className,
                           )}
                         >
                           {modeMeta.label}
                         </span>
-                        <span
-                          className={cn(
-                            "inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
-                            statusTone(res.status),
-                          )}
-                        >
-                          {res.status || "draft"}
-                        </span>
                       </div>
+                      <span
+                        className={cn(
+                          "inline-flex rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide backdrop-blur-sm",
+                          statusTone(res.status),
+                        )}
+                      >
+                        {res.status || "draft"}
+                      </span>
+                    </div>
+                  </div>
+                  <CardContent className="relative z-10 flex flex-1 flex-col p-4">
+                    <div className="mb-4 space-y-2.5">
                       <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
                         {res.category || "General"}
                       </p>
-                      <h3 className="mt-1 truncate text-base font-semibold text-slate-950 transition-colors group-hover:text-[var(--bookinaja-700)] dark:text-white dark:group-hover:text-[var(--bookinaja-300)]">
+                      <h3 className="truncate text-lg font-semibold text-slate-950 transition-colors group-hover:text-[var(--bookinaja-700)] dark:text-white dark:group-hover:text-[var(--bookinaja-300)]">
                         {res.name}
                       </h3>
-                      <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                      <p className="line-clamp-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
                         {res.description || cardDescription}
                       </p>
+
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          summaryLabel,
+                          addonLabel,
+                          readinessLabel,
+                        ].map((label) => (
+                          <span
+                            key={label}
+                            className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                          >
+                            {label}
+                          </span>
+                        ))}
+                      </div>
                     </div>
 
-                    <div
-                      className={cn(
-                        "mb-4 grid gap-2",
-                        "grid-cols-2",
-                      )}
-                    >
-                      {[
-                        {
-                          label: isDirectSale ? "Item jual" : "Paket",
-                          value: String(mainItemsCount),
-                        },
-                        { label: "Add-on", value: String(addonCount) },
-                      ].map((metric) => (
-                        <div
-                          key={metric.label}
-                          className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900/30"
-                        >
-                          <div className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                            {metric.label}
-                          </div>
-                          <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
-                            {metric.value}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="mt-auto flex items-center gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+                    <div className="mt-auto flex items-center gap-2 pt-1">
                       <Link href={`/admin/resources/${res.id}`} className="flex-1">
                         <Button className="h-10 w-full rounded-xl bg-slate-950 text-sm font-semibold text-white hover:bg-[var(--bookinaja-600)] dark:bg-[var(--bookinaja-600)]">
-                          Atur resource
+                          Buka detail
                         </Button>
                       </Link>
                       <Button
                         variant="outline"
-                        onClick={() => handleDelete(res.id, res.name)}
+                        onClick={() => setDeleteTarget(res)}
                         className="h-10 rounded-xl border-rose-200 px-3 text-rose-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-500/30 dark:text-rose-300 dark:hover:bg-rose-500/10"
                       >
                         <Trash2 size={14} />
                         <span className="sr-only">Hapus</span>
                       </Button>
-                    </div>
-
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                        {res.operating_mode === "direct_sale"
-                          ? "POS flow"
-                          : "Booking flow"}
-                      </span>
-                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                        {mainItemsCount > 0 ? "Harga siap" : "Harga belum lengkap"}
-                      </span>
-                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                        {addonCount > 0 ? `${addonCount} add-on` : "Tanpa add-on"}
-                      </span>
                     </div>
                   </CardContent>
                 </Card>
@@ -598,6 +596,66 @@ export default function ResourcesPage() {
           className="min-h-[42vh]"
         />
       )}
+
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteTarget(null);
+        }}
+      >
+        <DialogContent className="max-w-md rounded-3xl border-slate-200 bg-white p-0 shadow-xl dark:border-slate-800 dark:bg-slate-950">
+          <DialogHeader className="space-y-4 px-6 pb-5 pt-6">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 space-y-1.5">
+                <DialogTitle className="text-left text-xl font-semibold text-slate-950 dark:text-white">
+                  Hapus resource
+                </DialogTitle>
+                <DialogDescription className="text-left text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                  {deleteTarget
+                    ? `Resource ${deleteTarget.name} akan dihapus permanen dari katalog dan tidak bisa dikembalikan.`
+                    : "Resource akan dihapus permanen dari katalog dan tidak bisa dikembalikan."}
+                </DialogDescription>
+              </div>
+            </div>
+
+            {deleteTarget ? (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/40">
+                <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
+                  Resource
+                </div>
+                <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+                  {deleteTarget.name}
+                </div>
+                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  {deleteTarget.category || "General"}
+                </div>
+              </div>
+            ) : null}
+          </DialogHeader>
+          <DialogFooter className="mt-0 flex flex-row gap-3 border-t border-slate-200 bg-white px-6 py-4 dark:border-slate-800 dark:bg-slate-950 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 flex-1 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-900"
+              disabled={deleting}
+              onClick={() => setDeleteTarget(null)}
+            >
+              Batal
+            </Button>
+            <Button
+              type="button"
+              className="h-11 flex-1 rounded-xl bg-slate-950 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"
+              disabled={deleting}
+              onClick={() => void handleDelete()}
+            >
+              {deleting ? "Menghapus..." : "Hapus"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

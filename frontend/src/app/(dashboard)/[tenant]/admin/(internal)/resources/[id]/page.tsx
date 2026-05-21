@@ -435,22 +435,55 @@ export default function ResourceDetailPage() {
                     {description || "Belum ada deskripsi untuk resource ini."}
                   </p>
                 </div>
-                {gallery.length > 0 ? (
-                  <div className="grid grid-cols-3 gap-2 md:grid-cols-4">
-                    {gallery.slice(0, 4).map((img, index) => (
-                      <div
-                        key={index}
-                        className="aspect-square overflow-hidden rounded-lg border border-slate-100 dark:border-white/5"
-                      >
-                        <img
-                          src={img}
-                          className="h-full w-full object-cover opacity-80 transition-opacity hover:opacity-100"
-                          alt="gallery"
-                        />
-                      </div>
-                    ))}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                      Gallery
+                    </div>
+                    <div className="text-[11px] text-slate-400 dark:text-slate-500">
+                      {gallery.length} foto
+                    </div>
                   </div>
-                ) : null}
+                  {gallery.length > 0 ? (
+                    <div className="grid grid-cols-3 gap-2 md:grid-cols-4">
+                      {gallery.slice(0, 4).map((img, index) => (
+                        <div
+                          key={index}
+                          className="aspect-square overflow-hidden rounded-lg border border-slate-100 dark:border-white/5"
+                        >
+                          <img
+                            src={img}
+                            className="h-full w-full object-cover opacity-80 transition-opacity hover:opacity-100"
+                            alt="gallery"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditMode(true)}
+                      className="flex w-full items-center justify-between rounded-xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-3 text-left transition hover:border-[var(--bookinaja-300)] hover:bg-white dark:border-white/10 dark:bg-slate-900/30 dark:hover:bg-slate-900/50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-[var(--bookinaja-600)] shadow-sm dark:bg-slate-800">
+                          <Camera size={16} />
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium text-slate-900 dark:text-white">
+                            Tambah gallery
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            Masukkan foto detail resource.
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-xs font-medium text-[var(--bookinaja-600)]">
+                        Buka editor
+                      </div>
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </Card>

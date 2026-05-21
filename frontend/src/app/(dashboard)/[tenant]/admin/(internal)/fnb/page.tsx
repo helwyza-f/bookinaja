@@ -135,23 +135,48 @@ export default function FnbManagementPage() {
   return (
     <div className="mx-auto max-w-[1600px] space-y-3 px-3 pb-32 pt-3 font-plus-jakarta animate-in fade-in duration-500 md:px-4">
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
-        <div className="flex flex-col gap-2.5 border-b border-slate-100 p-3 dark:border-white/10">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--bookinaja-600)] text-white">
-              <Coffee size={16} />
-              </div>
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-                  Katalog F&B
+        <div className="space-y-3 p-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0 space-y-2">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--bookinaja-600)] text-white">
+                  <Coffee size={16} />
                 </div>
-                <h1 className="text-[1.45rem] font-semibold leading-none tracking-tight text-slate-950 dark:text-white md:text-[1.55rem]">
-                  Menu dan produk
-                </h1>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+                    Katalog F&B
+                  </div>
+                  <h1 className="text-[1.35rem] font-semibold leading-none tracking-tight text-slate-950 dark:text-white md:text-[1.45rem]">
+                    Menu dan produk
+                  </h1>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 dark:border-white/10 dark:bg-white/[0.04]">
+                  <div>
+                    <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500">Total</div>
+                    <div className="text-sm font-semibold text-slate-950 dark:text-white">{stats.total}</div>
+                  </div>
+                </div>
+                <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 dark:border-white/10 dark:bg-white/[0.04]">
+                  <div>
+                    <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500">Siap</div>
+                    <div className="flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
+                      {stats.ready} <BadgeCheck className="h-3.5 w-3.5" />
+                    </div>
+                  </div>
+                </div>
+                <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 dark:border-white/10 dark:bg-white/[0.04]">
+                  <div>
+                    <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500">Habis</div>
+                    <div className="text-sm font-semibold text-amber-600">{stats.empty}</div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex gap-2 self-start lg:self-center">
               <Button
                 variant="outline"
                 onClick={fetchMenu}
@@ -172,32 +197,8 @@ export default function FnbManagementPage() {
               </Button>
             </div>
           </div>
-        </div>
 
-        <div className="space-y-2 p-3">
-          <div className="flex flex-wrap gap-1.5">
-            <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-white/[0.04]">
-              <div>
-                <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500">Total</div>
-                <div className="text-sm font-semibold text-slate-950 dark:text-white">{stats.total}</div>
-              </div>
-            </div>
-            <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-white/[0.04]">
-              <div>
-                <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500">Siap dijual</div>
-                <div className="flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
-                  {stats.ready} <BadgeCheck className="h-3.5 w-3.5" />
-                </div>
-              </div>
-            </div>
-            <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-white/[0.04]">
-              <div>
-                <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500">Habis</div>
-                <div className="text-sm font-semibold text-amber-600">{stats.empty}</div>
-              </div>
-            </div>
-          </div>
-          <div className="grid gap-2 lg:grid-cols-[minmax(0,1.25fr)_auto]">
+          <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
@@ -208,20 +209,20 @@ export default function FnbManagementPage() {
               />
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={cn(
-                  "h-8 shrink-0 rounded-lg border px-3 text-xs font-medium transition",
-                  categoryFilter === cat
-                    ? "border-[var(--bookinaja-600)] bg-[var(--bookinaja-600)] text-white"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-[var(--bookinaja-200)] hover:text-[var(--bookinaja-700)] dark:border-white/15 dark:bg-white/[0.03] dark:text-slate-300 dark:hover:border-[var(--bookinaja-200)] dark:hover:text-[var(--bookinaja-100)]",
-                )}
-              >
-                {cat === "all" ? "Semua" : cat}
-              </button>
-            ))}
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setCategoryFilter(cat)}
+                  className={cn(
+                    "h-8 shrink-0 rounded-lg border px-3 text-xs font-medium transition",
+                    categoryFilter === cat
+                      ? "border-[var(--bookinaja-600)] bg-[var(--bookinaja-600)] text-white"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-[var(--bookinaja-200)] hover:text-[var(--bookinaja-700)] dark:border-white/15 dark:bg-white/[0.03] dark:text-slate-300 dark:hover:border-[var(--bookinaja-200)] dark:hover:text-[var(--bookinaja-100)]",
+                  )}
+                >
+                  {cat === "all" ? "Semua" : cat}
+                </button>
+              ))}
             </div>
           </div>
         </div>

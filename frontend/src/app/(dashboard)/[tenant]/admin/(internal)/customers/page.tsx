@@ -112,6 +112,100 @@ function formatShortDate(value?: string) {
   return format(date, "dd MMM");
 }
 
+function paymentStatusMeta(value?: string) {
+  const normalized = (value || "").toLowerCase();
+
+  switch (normalized) {
+    case "pending":
+      return {
+        label: "Menunggu bayar",
+        className:
+          "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200",
+      };
+    case "awaiting_verification":
+      return {
+        label: "Menunggu verifikasi",
+        className:
+          "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-200",
+      };
+    case "partial_paid":
+      return {
+        label: "DP masuk",
+        className:
+          "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-400/20 dark:bg-blue-400/10 dark:text-blue-200",
+      };
+    case "paid":
+    case "settled":
+      return {
+        label: "Lunas",
+        className:
+          "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200",
+      };
+    case "expired":
+      return {
+        label: "Kedaluwarsa",
+        className:
+          "border-slate-200 bg-slate-100 text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-300",
+      };
+    case "failed":
+      return {
+        label: "Gagal",
+        className:
+          "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200",
+      };
+    case "refunded":
+      return {
+        label: "Refund",
+        className:
+          "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-400/20 dark:bg-fuchsia-400/10 dark:text-fuchsia-200",
+      };
+    default:
+      return {
+        label: "Belum diproses",
+        className:
+          "border-slate-200 bg-slate-100 text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-300",
+      };
+  }
+}
+
+function bookingStatusMeta(value?: string) {
+  const normalized = (value || "").toLowerCase();
+
+  switch (normalized) {
+    case "pending":
+      return "Menunggu";
+    case "confirmed":
+      return "Siap";
+    case "active":
+      return "Berjalan";
+    case "completed":
+      return "Selesai";
+    case "cancelled":
+      return "Batal";
+    default:
+      return "-";
+  }
+}
+
+function pointEventLabel(event: CustomerPointEvent) {
+  const type = (event.event_type || "").toLowerCase();
+  if (event.description && !/earned from booking payment/i.test(event.description)) {
+    return event.description;
+  }
+
+  switch (type) {
+    case "booking_payment":
+    case "booking_paid":
+      return "Poin dari pembayaran booking";
+    case "manual_adjustment":
+      return "Penyesuaian poin";
+    case "refund":
+      return "Pengurangan karena refund";
+    default:
+      return "Poin dari transaksi";
+  }
+}
+
 function CompactMetricCard({
   label,
   value,
@@ -346,9 +440,8 @@ export default function CustomersPage() {
           <EmptyState label="Tidak ada customer yang cocok." />
         ) : (
           filteredCustomers.map((customer) => (
-            <button
+            <div
               key={customer.id}
-              type="button"
               onClick={() => fetchDetail(customer.id)}
               className="rounded-xl border border-slate-200 bg-white p-3.5 text-left shadow-sm transition-colors active:bg-slate-50 dark:border-white/10 dark:bg-slate-950 dark:active:bg-white/5"
             >
@@ -384,137 +477,81 @@ export default function CustomersPage() {
               </div>
               <div className="mt-3 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                 <span>ID {customer.id.slice(0, 8)}</span>
-                <ArrowUpRight className="h-4 w-4 text-slate-400" />
+                <button
+                  type="button"
+                  onClick={() => fetchDetail(customer.id)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5"
+                >
+                  Lihat
+                  <ArrowUpRight className="h-3.5 w-3.5 text-slate-400" />
+                </button>
               </div>
-            </button>
+            </div>
           ))
         )}
         </div>
 
-        <Card className="hidden overflow-hidden rounded-[1.8rem] border-slate-200/80 bg-white/95 shadow-[0_18px_55px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-[#0f1117]/96 dark:shadow-[0_24px_70px_rgba(0,0,0,0.24)] md:block">
-        <Table>
-          <TableHeader>
-            <TableRow className="h-11 bg-slate-50 hover:bg-slate-50 dark:bg-white/5 dark:hover:bg-white/5">
-              <TableHead className="pl-5 text-xs font-semibold text-slate-500">
-                Customer
-              </TableHead>
-              <TableHead className="text-xs font-semibold text-slate-500">
-                Kontak
-              </TableHead>
-              <TableHead className="text-right text-xs font-semibold text-slate-500">
-                Visit
-              </TableHead>
-              <TableHead className="text-right text-xs font-semibold text-slate-500">
-                Spend tenant
-              </TableHead>
-              <TableHead className="text-right text-xs font-semibold text-slate-500">
-                Points global
-              </TableHead>
-              <TableHead className="text-xs font-semibold text-slate-500">
-                Terakhir datang
-              </TableHead>
-              <TableHead className="pr-5 text-right text-xs font-semibold text-slate-500">
-                Aksi
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              Array.from({ length: 7 }).map((_, index) => (
-                <TableRow key={index}>
-                  <TableCell className="pl-5 py-4">
-                    <Skeleton className="h-8 w-44" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-5 w-32" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="ml-auto h-5 w-12" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="ml-auto h-5 w-24" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="ml-auto h-5 w-16" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-5 w-20" />
-                  </TableCell>
-                  <TableCell className="pr-5">
-                    <Skeleton className="ml-auto h-8 w-20" />
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : filteredCustomers.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={7}
-                  className="h-44 text-center text-sm text-slate-500"
-                >
-                  Tidak ada customer yang cocok.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredCustomers.map((customer) => (
-                <TableRow
-                  key={customer.id}
-                  className="hover:bg-slate-50/70 dark:hover:bg-white/[0.03]"
-                >
-                  <TableCell className="pl-5 py-4">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold text-slate-600 dark:bg-white/5 dark:text-slate-200">
-                        {(customer.name || "C").slice(0, 1)}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">
+        <div className="hidden gap-3 md:grid">
+          {loading ? (
+            Array.from({ length: 5 }).map((_, index) => (
+              <Card
+                key={index}
+                className="rounded-2xl border-slate-200 p-4 shadow-sm dark:border-white/10 dark:bg-slate-950"
+              >
+                <Skeleton className="h-20 rounded-lg" />
+              </Card>
+            ))
+          ) : filteredCustomers.length === 0 ? (
+            <Card className="rounded-2xl border-slate-200 p-8 text-center text-sm text-slate-500 shadow-sm dark:border-white/10 dark:bg-slate-950">
+              Tidak ada customer yang cocok.
+            </Card>
+          ) : (
+            filteredCustomers.map((customer) => (
+              <div
+                key={customer.id}
+                className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:bg-slate-50/70 dark:border-white/10 dark:bg-slate-950 dark:hover:bg-white/[0.03]"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-600 dark:bg-white/5 dark:text-slate-200">
+                      {(customer.name || "C").slice(0, 1)}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="truncate text-base font-semibold text-slate-950 dark:text-white">
                           {customer.name || "Customer"}
                         </div>
-                        <div className="mt-1 flex items-center gap-2">
-                          <TierBadge tier={customer.tier} />
-                          <span className="text-xs text-slate-400">
-                            ID {customer.id.slice(0, 8)}
-                          </span>
-                        </div>
+                        <TierBadge tier={customer.tier} />
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
+                        <span>{customer.phone || "-"}</span>
+                        <span>{customer.email || "Email belum ada"}</span>
                       </div>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm text-slate-700 dark:text-slate-200">
-                      {customer.phone || "-"}
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      {customer.email || "Email belum ada"}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right text-sm font-semibold">
-                    {formatIDR(customer.total_visits)}
-                  </TableCell>
-                  <TableCell className="text-right text-sm font-semibold">
-                    Rp {formatIDR(customer.total_spent)}
-                  </TableCell>
-                  <TableCell className="text-right text-sm font-semibold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
-                    {formatIDR(customer.loyalty_points)}
-                  </TableCell>
-                  <TableCell className="text-sm text-slate-500">
-                    {formatDate(customer.last_visit)}
-                  </TableCell>
-                  <TableCell className="pr-5 text-right">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fetchDetail(customer.id)}
-                      className="h-8 rounded-lg"
-                    >
-                      Detail
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-        </Card>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      fetchDetail(customer.id);
+                    }}
+                    className="h-8 rounded-lg"
+                  >
+                    Lihat
+                  </Button>
+                </div>
+
+                <div className="mt-4 grid grid-cols-4 gap-2">
+                  <Metric label="Kunjungan" value={formatIDR(customer.total_visits)} />
+                  <Metric label="Belanja" value={`Rp ${formatIDR(customer.total_spent)}`} />
+                  <Metric label="Poin" value={formatIDR(customer.loyalty_points)} />
+                  <Metric label="Terakhir" value={formatShortDate(customer.last_visit)} />
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </DashboardPanel>
 
       <Dialog open={!!selectedId} onOpenChange={closeDetail}>
@@ -553,7 +590,7 @@ export default function CustomersPage() {
                   </div>
                   <div className="rounded-xl border border-[color:rgba(59,130,246,0.18)] bg-[var(--bookinaja-50)] px-4 py-3 text-left dark:border-[color:rgba(96,165,250,0.18)] dark:bg-[color:rgba(59,130,246,0.14)] md:min-w-[210px] md:text-right">
                     <p className="text-xs font-medium text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
-                      Saldo points global
+                      Poin tersedia
                     </p>
                     <p className="text-xl font-bold text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-100)] md:text-2xl">
                       {formatIDR(
@@ -567,15 +604,15 @@ export default function CustomersPage() {
               <div className="overflow-y-auto p-3 md:p-5">
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   <Metric
-                    label="Visit tenant"
+                    label="Kunjungan"
                     value={formatIDR(customerDetail.total_visits)}
                   />
                   <Metric
-                    label="Spend tenant"
+                    label="Belanja"
                     value={`Rp ${formatIDR(customerDetail.total_spent)}`}
                   />
                   <Metric
-                    label="Points dari tenant ini"
+                    label="Poin tenant ini"
                     value={formatIDR(pointSummary?.earned_at_tenant)}
                   />
                   <Metric
@@ -588,7 +625,7 @@ export default function CustomersPage() {
                   <section className="rounded-xl border border-slate-200 bg-white dark:border-white/15 dark:bg-[#0f0f17]">
                     <div className="border-b border-slate-200 px-4 py-3 dark:border-white/10">
                       <h3 className="text-sm font-semibold text-slate-950 dark:text-white">
-                        Aktivitas points
+                        Ringkasan poin
                       </h3>
                       <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                         {pointSummary?.earning_rule_label ||
@@ -608,7 +645,7 @@ export default function CustomersPage() {
                           >
                             <div className="min-w-0">
                               <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
-                                {event.description || "Poin dari booking"}
+                                {pointEventLabel(event)}
                               </p>
                               <p className="text-xs text-slate-500">
                                 {formatDate(event.created_at)}
@@ -626,7 +663,7 @@ export default function CustomersPage() {
                   <section className="rounded-xl border border-slate-200 bg-white dark:border-white/15 dark:bg-[#0f0f17]">
                     <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-white/10">
                       <h3 className="text-sm font-semibold text-slate-950 dark:text-white">
-                        Transaksi terakhir
+                        Booking terbaru
                       </h3>
                       <Badge variant="outline" className="rounded-lg text-xs">
                         {customerHistory.length} data
@@ -640,37 +677,48 @@ export default function CustomersPage() {
                       ) : (
                         <>
                         <div className="divide-y divide-slate-100 dark:divide-white/10 md:hidden">
-                          {customerHistory.map((transaction) => (
-                            <div key={transaction.id} className="space-y-3 px-4 py-3">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-semibold text-slate-950 dark:text-white">
-                                    {transaction.resource || "-"}
-                                  </p>
-                                  <p className="mt-1 text-xs text-slate-500">
-                                    {formatShortDate(transaction.date)}
-                                  </p>
+                          {customerHistory.map((transaction) => {
+                            const paymentMeta = paymentStatusMeta(
+                              transaction.payment_status,
+                            );
+                            return (
+                              <div key={transaction.id} className="space-y-3 px-4 py-3">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-semibold text-slate-950 dark:text-white">
+                                      {transaction.resource || "-"}
+                                    </p>
+                                    <p className="mt-1 text-xs text-slate-500">
+                                      {formatShortDate(transaction.date)}
+                                    </p>
+                                  </div>
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "shrink-0 rounded-lg border text-xs font-medium",
+                                      paymentMeta.className,
+                                    )}
+                                  >
+                                    {paymentMeta.label}
+                                  </Badge>
                                 </div>
-                                <Badge variant="outline" className="shrink-0 rounded-lg text-xs">
-                                  {transaction.payment_status || transaction.status || "-"}
-                                </Badge>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
-                                <div>
-                                  <span className="text-[10px] text-slate-500">Total</span>
-                                  <div className="mt-1 text-sm font-bold text-slate-950 dark:text-white">
-                                    Rp {formatIDR(transaction.grand_total || transaction.total_spent)}
+                                <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
+                                  <div>
+                                    <span className="text-[10px] text-slate-500">Total</span>
+                                    <div className="mt-1 text-sm font-bold text-slate-950 dark:text-white">
+                                      Rp {formatIDR(transaction.grand_total || transaction.total_spent)}
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="text-[10px] text-slate-500">Booking</span>
+                                    <div className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-300">
+                                      {bookingStatusMeta(transaction.status)}
+                                    </div>
                                   </div>
                                 </div>
-                                <div className="text-right">
-                                  <span className="text-[10px] text-slate-500">Status</span>
-                                  <div className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-300">
-                                    {transaction.status || "-"}
-                                  </div>
-                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                         <Table className="hidden md:table">
                           <TableHeader>
@@ -681,40 +729,46 @@ export default function CustomersPage() {
                               <TableHead className="text-xs">
                                 Resource
                               </TableHead>
-                              <TableHead className="text-xs">Status</TableHead>
+                              <TableHead className="text-xs">Pembayaran</TableHead>
                               <TableHead className="pr-4 text-right text-xs">
                                 Total
                               </TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {customerHistory.map((transaction) => (
-                              <TableRow key={transaction.id}>
-                                <TableCell className="pl-4 text-sm">
-                                  {formatShortDate(transaction.date)}
-                                </TableCell>
-                                <TableCell className="max-w-[180px] truncate text-sm">
-                                  {transaction.resource || "-"}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge
-                                    variant="outline"
-                                    className="rounded-lg text-xs"
-                                  >
-                                    {transaction.payment_status ||
-                                      transaction.status ||
-                                      "-"}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="pr-4 text-right text-sm font-semibold">
-                                  Rp{" "}
-                                  {formatIDR(
-                                    transaction.grand_total ||
-                                      transaction.total_spent,
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            ))}
+                            {customerHistory.map((transaction) => {
+                              const paymentMeta = paymentStatusMeta(
+                                transaction.payment_status,
+                              );
+                              return (
+                                <TableRow key={transaction.id}>
+                                  <TableCell className="pl-4 text-sm">
+                                    {formatShortDate(transaction.date)}
+                                  </TableCell>
+                                  <TableCell className="max-w-[180px] truncate text-sm">
+                                    {transaction.resource || "-"}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge
+                                      variant="outline"
+                                      className={cn(
+                                        "rounded-lg border text-xs font-medium",
+                                        paymentMeta.className,
+                                      )}
+                                    >
+                                      {paymentMeta.label}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="pr-4 text-right text-sm font-semibold">
+                                    Rp{" "}
+                                    {formatIDR(
+                                      transaction.grand_total ||
+                                        transaction.total_spent,
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
                           </TableBody>
                         </Table>
                         </>
