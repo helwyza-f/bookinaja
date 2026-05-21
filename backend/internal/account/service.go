@@ -330,10 +330,23 @@ func (s *Service) UpdateOnboardingStep(ctx context.Context, accountID, workspace
 			workspaceID,
 			req.ResourceName,
 			req.ResourceCategory,
+			req.ResourceDesc,
+			req.ResourceImageURL,
 			req.PriceName,
 			req.Price,
 			req.PriceUnit,
 			req.UnitDuration,
+		); err != nil {
+			return nil, err
+		}
+	}
+	if stepKey == "business" {
+		if err := s.repo.UpdateOnboardingBusinessBasics(
+			ctx,
+			workspaceID,
+			req.OpenTime,
+			req.CloseTime,
+			req.WhatsappNumber,
 		); err != nil {
 			return nil, err
 		}

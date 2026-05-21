@@ -248,7 +248,7 @@ func (r *Repository) AccountCanAccessWorkspace(ctx context.Context, accountID, w
 	return exists, err
 }
 
-func (r *Repository) CreateOnboardingResource(ctx context.Context, workspaceID uuid.UUID, name, category, priceName string, price int64, priceUnit string, unitDuration int) error {
+func (r *Repository) CreateOnboardingResource(ctx context.Context, workspaceID uuid.UUID, name, category, description, imageURL, priceName string, price int64, priceUnit string, unitDuration int) error {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil
@@ -310,8 +310,8 @@ func (r *Repository) CreateOnboardingResource(ctx context.Context, workspaceID u
 			id, tenant_id, name, category, description,
 			operating_mode, image_url, gallery, status, metadata
 		)
-		VALUES ($1, $2, $3, $4, $5, 'timed', '', '{}', 'available', $6::jsonb)
-	`, resourceID, tenantID, name, category, "Resource pertama dari onboarding Bookinaja.", string(meta)); err != nil {
+		VALUES ($1, $2, $3, $4, $5, 'timed', $6, '{}', 'available', $7::jsonb)
+	`, resourceID, tenantID, name, category, defaultOnboardingResourceDescription(description), strings.TrimSpace(imageURL), string(meta)); err != nil {
 		return err
 	}
 
@@ -456,6 +456,48 @@ func (r *Repository) ConfigureOnboardingPaymentMethods(ctx context.Context, work
 	return tx.Commit()
 }
 
+func (r *Repository) UpdateOnboardingBusinessBasics(ctx context.Context, workspaceID uuid.UUID, openTime, closeTime, whatsappNumber string) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var tenantID uuid.UUID
+	if err := tx.GetContext(ctx, &tenantID, `
+		SELECT tenant_id
+		FROM workspaces
+		WHERE id = $1
+	`, workspaceID); err != nil {
+		return err
+	}
+
+	openTime = defaultClockValue(openTime, "09:00")
+	closeTime = defaultClockValue(closeTime, "22:00")
+	whatsappNumber = strings.TrimSpace(whatsappNumber)
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE workspaces
+		SET whatsapp_number = $2, updated_at = NOW()
+		WHERE id = $1
+	`, workspaceID, whatsappNumber); err != nil {
+		return err
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE tenants
+		SET whatsapp_number = $2,
+		    open_time = $3,
+		    close_time = $4,
+		    updated_at = NOW()
+		WHERE id = $1
+	`, tenantID, whatsappNumber, openTime, closeTime); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 func (r *Repository) GetWorkspaceTenantIDForAccount(ctx context.Context, accountID, workspaceID uuid.UUID) (uuid.UUID, error) {
 	var tenantID uuid.UUID
 	err := r.db.GetContext(ctx, &tenantID, `
@@ -538,4 +580,20 @@ func (r *Repository) InsertOnboardingEvent(ctx context.Context, workspaceID, acc
 		VALUES ($1, $2, $3, $4)
 	`, workspaceID, accountID, eventKey, stepKey)
 	return err
+}
+
+func defaultOnboardingResourceDescription(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed != "" {
+		return trimmed
+	}
+	return "Resource pertama dari onboarding Bookinaja."
+}
+
+func defaultClockValue(value, fallback string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return fallback
+	}
+	return trimmed
 }

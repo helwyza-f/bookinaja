@@ -51,10 +51,15 @@ export async function updateWorkspaceOnboardingStep(
     complete?: boolean;
     resource_name?: string;
     resource_category?: string;
+    resource_description?: string;
+    resource_image_url?: string;
     price_name?: string;
     price?: number;
     price_unit?: string;
     unit_duration?: number;
+    open_time?: string;
+    close_time?: string;
+    whatsapp_number?: string;
     payment_methods?: {
       bank_transfer_enabled?: boolean;
       bank_name?: string;

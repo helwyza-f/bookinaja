@@ -10,16 +10,18 @@ import {
   Clock3,
   Gamepad2,
   ImagePlus,
+  Info,
   LayoutDashboard,
   MessageCircle,
   Sparkles,
   Upload,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import api from "@/lib/api";
 import { getTenantUrl } from "@/lib/tenant";
 import { updateWorkspaceOnboardingStep } from "@/lib/workspace-client";
@@ -56,42 +58,36 @@ const minuteOptions = ["00", "15", "30", "45"];
 
 const stepTitles: Record<string, { title: string; subtitle: string; action: string }> = {
   template: {
-    title: "Set up a booking flow customers can use today.",
-    subtitle: "Kita akan buat satu contoh real: resource, harga, jam operasional, payment mode, lalu simulasi booking.",
-    action: "Start setup",
+    title: "Siapkan alur booking pertamamu.",
+    subtitle: "Kita bikin satu setup real: unit, paket harga, jam operasional, payment mode, lalu simulasi booking.",
+    action: "Mulai setup",
   },
   resource: {
-    title: "Create your first bookable resource.",
-    subtitle: "Ini data real pertama. Resource dan harga ini langsung disimpan ke workspace kamu.",
-    action: "Create resource",
+    title: "Buat unit dan paket pertamamu.",
+    subtitle: "Customer nanti melihat cover, nama unit, dan harga mulai dari paket utama yang kamu isi di sini.",
+    action: "Simpan unit pertama",
   },
   business: {
-    title: "Define how your business accepts bookings.",
+    title: "Atur dasar operasional bisnis.",
     subtitle: "Isi aturan dasar agar customer tahu kapan bisa booking dan bagaimana menghubungi kamu.",
-    action: "Save business basics",
+    action: "Simpan info bisnis",
   },
   payments: {
-    title: "Set up payment methods.",
+    title: "Aktifkan metode pembayaran.",
     subtitle: "Default: Midtrans dan cash. Tambahkan transfer atau QRIS kalau sudah siap.",
-    action: "Save payment methods",
+    action: "Simpan pembayaran",
   },
   "first-booking": {
-    title: "Run a first booking simulation.",
+    title: "Coba simulasi booking pertama.",
     subtitle: "Preview bagaimana customer booking dan apa yang owner lihat di admin calendar.",
-    action: "Finish onboarding",
+    action: "Lanjut ke langkah akhir",
   },
   done: {
-    title: "Workspace is ready.",
+    title: "Workspace kamu sudah siap.",
     subtitle: "Masuk dashboard untuk melihat resource, kalender, dan checklist setup lanjutan.",
-    action: "Open dashboard",
+    action: "Buka dashboard",
   },
 };
-
-const templates = [
-  { name: "PS5 Room 1", category: "gaming_room", price: 25000, unit: "hour", duration: 60 },
-  { name: "Studio A", category: "studio", price: 150000, unit: "session", duration: 120 },
-  { name: "Court 1", category: "court", price: 80000, unit: "hour", duration: 60 },
-];
 
 const readableInputStyle = {
   color: "#020617",
@@ -110,6 +106,67 @@ function hasQrisConfig(qrisImageUrl: string) {
   return Boolean(qrisImageUrl.trim());
 }
 
+function digitsOnly(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function formatRupiahInput(value: string) {
+  const digits = digitsOnly(value);
+  if (!digits) return "";
+  return Number(digits).toLocaleString("id-ID");
+}
+
+function priceUnitLabel(value: string) {
+  switch (value) {
+    case "session":
+      return "sesi";
+    case "day":
+      return "hari";
+    case "week":
+      return "minggu";
+    case "month":
+      return "bulan";
+    case "year":
+      return "tahun";
+    default:
+      return "jam";
+  }
+}
+
+function durationHintByPriceUnit(value: string) {
+  switch (value) {
+    case "session":
+      return "Isi durasi dalam menit untuk 1 sesi. Contoh: 120 berarti satu paket ini berlaku 2 jam per sesi.";
+    case "day":
+      return "Isi total menit untuk 1 hari layanan. Contoh: 720 untuk 12 jam, atau 1440 untuk full day.";
+    case "week":
+      return "Isi total menit yang dicakup paket mingguan ini. Cocok kalau durasi paket memang dihitung per minggu.";
+    case "month":
+      return "Isi total menit yang dicakup paket bulanan ini bila memang durasi layanan dibatasi per bulan.";
+    case "year":
+      return "Isi total menit yang dicakup paket tahunan ini bila memang ada kuota durasi per tahun.";
+    default:
+      return "Isi durasi dalam menit untuk 1 jam layanan. Contoh umum: 60 menit untuk per jam, atau 30 menit kalau billing setengah jam.";
+  }
+}
+
+function defaultDurationByPriceUnit(value: string) {
+  switch (value) {
+    case "day":
+      return "1440";
+    case "week":
+      return "10080";
+    case "month":
+      return "43200";
+    case "year":
+      return "525600";
+    case "session":
+      return "";
+    default:
+      return "60";
+  }
+}
+
 function nextUrl(step: string, workspaceId: string, slug?: string | null) {
   return `/app/onboarding/${step}?workspace=${workspaceId}${slug ? `&slug=${slug}` : ""}`;
 }
@@ -124,6 +181,10 @@ export function OnboardingStepScreen({ step }: { step: string }) {
   const [loading, setLoading] = useState(false);
   const [resourceName, setResourceName] = useState("");
   const [resourceCategory, setResourceCategory] = useState("");
+  const [resourceDescription, setResourceDescription] = useState("");
+  const [resourceImageUrl, setResourceImageUrl] = useState("");
+  const [priceName, setPriceName] = useState("");
+  const [priceUnit, setPriceUnit] = useState("hour");
   const [price, setPrice] = useState("");
   const [duration, setDuration] = useState("");
   const [openTime, setOpenTime] = useState("");
@@ -162,10 +223,12 @@ export function OnboardingStepScreen({ step }: { step: string }) {
         ...(step === "resource"
           ? {
               resource_name: resourceName,
-              resource_category: resourceCategory,
-              price_name: "Standard",
+              resource_category: resourceCategory || "main",
+              resource_description: resourceDescription,
+              resource_image_url: resourceImageUrl,
+              price_name: priceName,
               price: Number(price || 0),
-              price_unit: "hour",
+              price_unit: priceUnit,
               unit_duration: Number(duration || 60),
             }
           : {}),
@@ -181,6 +244,13 @@ export function OnboardingStepScreen({ step }: { step: string }) {
                 qris_image_url: qrisImageUrl,
                 qris_instructions: qrisInstructions,
               },
+            }
+          : {}),
+        ...(step === "business"
+          ? {
+              open_time: openTime || "09:00",
+              close_time: closeTime || "22:00",
+              whatsapp_number: whatsapp,
             }
           : {}),
       });
@@ -207,7 +277,7 @@ export function OnboardingStepScreen({ step }: { step: string }) {
 
   return (
     <main className="min-h-screen bg-[#f5f6f8] px-4 py-6 text-slate-950">
-      <section className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <section className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm lg:overflow-visible">
         <div className="flex flex-1 flex-col p-5 sm:p-6 lg:p-8">
           <div className="mb-5 flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-white">B</div>
@@ -229,10 +299,18 @@ export function OnboardingStepScreen({ step }: { step: string }) {
             <ResourceStep
               resourceName={resourceName}
               resourceCategory={resourceCategory}
+              resourceDescription={resourceDescription}
+              resourceImageUrl={resourceImageUrl}
+              priceName={priceName}
+              priceUnit={priceUnit}
               price={price}
               duration={duration}
               setResourceName={setResourceName}
               setResourceCategory={setResourceCategory}
+              setResourceDescription={setResourceDescription}
+              setResourceImageUrl={setResourceImageUrl}
+              setPriceName={setPriceName}
+              setPriceUnit={setPriceUnit}
               setPrice={setPrice}
               setDuration={setDuration}
             />
@@ -300,16 +378,16 @@ export function OnboardingStepScreen({ step }: { step: string }) {
 
 function StartStep() {
   const cards = [
-    ["1", "Create a real resource", "Buat unit pertama yang bisa dibooking customer."],
-    ["2", "Set booking rules", "Jam operasional dan kontak bisnis disiapkan."],
-    ["3", "Simulate a booking", "Lihat customer journey sampai masuk admin."],
+    ["1", "Buat unit pertama", "Siapkan unit dan paket utama yang benar-benar akan dijual."],
+    ["2", "Atur dasar operasional", "Jam operasional, kontak, dan payment mode disiapkan."],
+    ["3", "Coba alur booking", "Lihat simulasi dari sisi customer sampai masuk admin."],
   ];
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center py-8 text-center">
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-white">
         <Sparkles className="h-6 w-6" />
       </div>
-      <h2 className="mt-5 text-4xl font-semibold tracking-tight">Let’s make your workspace usable.</h2>
+      <h2 className="mt-5 text-4xl font-semibold tracking-tight">Mari bikin workspace ini siap dipakai.</h2>
       <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-500">
         Bukan tour pasif. Kita akan membuat data pertama dan preview flow booking yang sama seperti produk asli.
       </p>
@@ -333,80 +411,331 @@ function StartStep() {
 function ResourceStep(props: {
   resourceName: string;
   resourceCategory: string;
+  resourceDescription: string;
+  resourceImageUrl: string;
+  priceName: string;
+  priceUnit: string;
   price: string;
   duration: string;
   setResourceName: (value: string) => void;
   setResourceCategory: (value: string) => void;
+  setResourceDescription: (value: string) => void;
+  setResourceImageUrl: (value: string) => void;
+  setPriceName: (value: string) => void;
+  setPriceUnit: (value: string) => void;
   setPrice: (value: string) => void;
   setDuration: (value: string) => void;
 }) {
+  const searchParams = useSearchParams();
+  const workspaceId = searchParams.get("workspace");
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [activeHint, setActiveHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.closest("[data-guided-field='true']")) return;
+      setActiveHint(null);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () => document.removeEventListener("pointerdown", handlePointerDown, true);
+  }, []);
+
+  async function uploadCover(file: File | null) {
+    if (!file || !workspaceId) return;
+    const formData = new FormData();
+    formData.append("image", file);
+    setUploadingCover(true);
+    try {
+      const res = await api.post<{ url: string }>(`/app/workspaces/${workspaceId}/upload`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      props.setResourceImageUrl(String(res.data?.url || ""));
+      toast.success("Cover unit berhasil diunggah.");
+    } catch {
+      toast.error("Upload cover belum berhasil.");
+    } finally {
+      setUploadingCover(false);
+    }
+  }
+
+  function selectPriceUnit(nextValue: string) {
+    props.setPriceUnit(nextValue);
+    props.setDuration(defaultDurationByPriceUnit(nextValue));
+    setActiveHint(nextValue === "session" ? "duration" : "price_unit");
+  }
+
+  function handleDurationChange(nextValue: string) {
+    const digits = digitsOnly(nextValue);
+    props.setDuration(digits);
+
+    if (props.priceUnit === "hour" && digits && digits !== "60") {
+      props.setPriceUnit("session");
+      return;
+    }
+
+    if (props.priceUnit === "day" && digits && digits !== "1440") {
+      props.setPriceUnit("session");
+    }
+  }
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px] xl:grid-cols-[minmax(0,1fr)_460px]">
       <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="space-y-2">
-            <Label>Resource name</Label>
-            <OnboardingInput
-              value={props.resourceName}
-              onChange={(event) => props.setResourceName(event.target.value)}
-              placeholder="PS5 Room 1"
-            />
-          </label>
-          <label className="space-y-2">
-            <Label>Type</Label>
-            <OnboardingInput
-              value={props.resourceCategory}
-              onChange={(event) => props.setResourceCategory(event.target.value)}
-              placeholder="gaming_room"
-            />
-          </label>
-          <label className="space-y-2">
-            <Label>Price</Label>
-            <OnboardingInput
-              value={props.price}
-              onChange={(event) => props.setPrice(event.target.value)}
-              inputMode="numeric"
-              placeholder="25000"
-            />
-          </label>
-          <label className="space-y-2">
-            <Label>Duration (minutes)</Label>
-            <OnboardingInput
-              value={props.duration}
-              onChange={(event) => props.setDuration(event.target.value)}
-              inputMode="numeric"
-              placeholder="60"
-            />
-          </label>
+        <div className="rounded-2xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-slate-700">
+          Isi dua level inti ini dulu:
+          <span className="font-semibold text-slate-950"> unit</span> yang customer pilih, lalu
+          <span className="font-semibold text-slate-950"> paket utama</span> yang jadi harga mulai dari.
         </div>
-        <div className="grid gap-2 sm:grid-cols-3">
-          {templates.map((item) => (
-            <button
-              key={item.name}
-              type="button"
-              onClick={() => {
-                props.setResourceName(item.name);
-                props.setResourceCategory(item.category);
-                props.setPrice(String(item.price));
-                props.setDuration(String(item.duration));
-              }}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-left text-sm hover:border-blue-300 hover:bg-blue-50"
-            >
-              <div className="font-semibold">{item.name}</div>
-              <div className="mt-1 text-xs text-slate-500">Rp{item.price.toLocaleString("id-ID")} / {item.unit}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-      <PreviewCard title="Customer sees">
-        <div className="rounded-2xl bg-slate-950 p-4 text-white">
-          <div className="text-lg font-semibold">{props.resourceName || "Resource name"}</div>
-          <div className="mt-2 text-sm text-slate-300">{props.duration || "60"} menit</div>
-          <div className="mt-5 rounded-xl bg-white px-3 py-2 text-sm font-semibold text-slate-950">
-            Rp{Number(props.price || 0).toLocaleString("id-ID")}
+
+        <section className="space-y-4 rounded-2xl border border-slate-200 p-4">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">Unit</div>
+            <h3 className="mt-2 text-lg font-semibold">Yang customer lihat lebih dulu</h3>
           </div>
-        </div>
-      </PreviewCard>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <GuidedField
+              label="Nama unit"
+              hint="Nama ini muncul di kartu booking customer. Pakai nama singkat dan jelas, misalnya PC Reguler atau VIP Room."
+              activeHint={activeHint}
+              onFocus={() => setActiveHint("resource_name")}
+              hintKey="resource_name"
+            >
+              <OnboardingInput
+                value={props.resourceName}
+                onChange={(event) => props.setResourceName(event.target.value)}
+                placeholder="PC Reguler"
+              />
+            </GuidedField>
+            <GuidedField
+              label="Ringkasan singkat"
+              hint="Satu sampai dua baris saja. Ini membantu customer cepat paham isi unitnya, misalnya spesifikasi PC atau fasilitas room."
+              activeHint={activeHint}
+              onFocus={() => setActiveHint("resource_description")}
+              hintKey="resource_description"
+              className="sm:col-span-2"
+            >
+              <OnboardingInput
+                value={props.resourceDescription}
+                onChange={(event) => props.setResourceDescription(event.target.value)}
+                placeholder="RTX 3060, Ryzen 5, 16GB RAM, monitor 144Hz"
+              />
+            </GuidedField>
+          </div>
+
+          <GuidedField
+            label="Cover banner"
+            hint="Foto ini jadi visual utama di kartu customer. Pakai foto landscape yang langsung menjelaskan unitnya."
+            activeHint={activeHint}
+            onFocus={() => setActiveHint("resource_image")}
+            hintKey="resource_image"
+          >
+            <label className="block">
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => void uploadCover(event.target.files?.[0] || null)}
+              />
+              <div className="flex min-h-[180px] cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 transition hover:border-blue-300 hover:bg-blue-50/40">
+                {props.resourceImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={props.resourceImageUrl} alt="Cover unit" className="h-full min-h-[180px] w-full object-cover" />
+                ) : (
+                  <div className="px-6 text-center">
+                    {uploadingCover ? <Upload className="mx-auto h-7 w-7 animate-pulse text-blue-600" /> : <ImagePlus className="mx-auto h-7 w-7 text-slate-400" />}
+                    <div className="mt-3 text-sm font-semibold text-slate-950">
+                      {uploadingCover ? "Mengunggah cover..." : "Upload cover unit"}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500">Landscape PNG/JPG agar preview customer terasa nyata.</div>
+                  </div>
+                )}
+              </div>
+            </label>
+          </GuidedField>
+        </section>
+
+        <section className="space-y-4 rounded-2xl border border-slate-200 p-4">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">Paket utama</div>
+            <h3 className="mt-2 text-lg font-semibold">Harga mulai dari untuk unit ini</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Biar gampang, pilih dulu pola jualnya. Setelah itu isi paket pertama yang paling sering dipilih customer.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">1. Pilih pola jual</div>
+            <GuidedField
+              label="Satuan harga"
+              hint="Pilih cara kamu menjual paket ini: per jam, per sesi, atau per hari. Durasi di bawah tetap diisi dalam menit."
+              activeHint={activeHint}
+              onFocus={() => setActiveHint("price_unit")}
+              hintKey="price_unit"
+            >
+              <div className="grid gap-2 sm:grid-cols-3">
+                {[
+                  ["hour", "Per jam", "Cocok untuk PC, PS, room, dan court."],
+                  ["session", "Per sesi", "Cocok untuk studio atau slot tetap."],
+                  ["day", "Per hari", "Cocok untuk sewa harian atau full day."],
+                ].map(([value, label, desc]) => {
+                  const active = props.priceUnit === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => selectPriceUnit(value)}
+                      className={`rounded-xl border px-4 py-3 text-left transition ${
+                        active
+                          ? "border-blue-500 bg-white text-slate-950 shadow-sm"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/40"
+                      }`}
+                    >
+                      <div className="font-semibold">{label}</div>
+                      <div className="mt-1 text-xs text-slate-500">{desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </GuidedField>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">2. Isi paket pertama</div>
+            <div className="mb-4 flex flex-wrap gap-2">
+              {["Reguler", "VIP", "Harian", "Weekend", "Sesi Pagi", "Sesi Malam", "2 Jam"].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => props.setPriceName(preset)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                    props.priceName === preset
+                      ? "border-blue-500 bg-blue-50 text-blue-700"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/40"
+                  }`}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <GuidedField
+                label="Nama paket"
+                hint="Isi dengan nama harga yang memang kamu jual. Contoh: Reguler, VIP, Harian, Weekend, Sesi Malam, 2 Jam, atau Member Pagi."
+                activeHint={activeHint}
+                onFocus={() => setActiveHint("price_name")}
+                hintKey="price_name"
+              >
+                <OnboardingInput
+                  value={props.priceName}
+                  onChange={(event) => props.setPriceName(event.target.value)}
+                  placeholder="Member Reguler"
+                />
+              </GuidedField>
+              <GuidedField
+                label="Harga"
+                hint="Harga ini tampil sebagai mulai dari di kartu customer dan jadi paket pertama di dashboard resource."
+                activeHint={activeHint}
+                onFocus={() => setActiveHint("price")}
+                hintKey="price"
+              >
+                <OnboardingInput
+                  value={formatRupiahInput(props.price)}
+                  onChange={(event) => props.setPrice(digitsOnly(event.target.value))}
+                  inputMode="numeric"
+                  placeholder="6.000"
+                />
+              </GuidedField>
+            <GuidedField
+              label="Durasi paket (menit)"
+              hint={durationHintByPriceUnit(props.priceUnit)}
+              activeHint={activeHint}
+              onFocus={() => setActiveHint("duration")}
+                hintKey="duration"
+              >
+                <OnboardingInput
+                  value={props.duration}
+                  onChange={(event) => handleDurationChange(event.target.value)}
+                  inputMode="numeric"
+                placeholder="60"
+              />
+            </GuidedField>
+            </div>
+            <div className="mt-4 rounded-xl bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
+              Semua durasi tetap diisi dalam menit. Sekarang kamu memilih pola
+              <span className="font-semibold text-slate-950"> {priceUnitLabel(props.priceUnit)}</span>, jadi preview customer akan membaca harga sebagai
+              <span className="font-semibold text-slate-950"> Rp{Number(props.price || 0).toLocaleString("id-ID")} / {priceUnitLabel(props.priceUnit)}</span>.
+              {props.priceUnit === "session" ? (
+                <>
+                  {" "}Untuk
+                  <span className="font-semibold text-slate-950"> per sesi</span>, isi sendiri berapa menit durasi 1 sesi kamu.
+                </>
+              ) : null}
+              {props.priceUnit === "hour" ? (
+                <>
+                  {" "}Kalau durasi kamu ubah dari
+                  <span className="font-semibold text-slate-950"> 60 menit</span>, sistem akan membaca paket ini sebagai
+                  <span className="font-semibold text-slate-950"> per sesi</span>.
+                </>
+              ) : null}
+              {props.priceUnit === "day" ? (
+                <>
+                  {" "}Kalau durasi kamu ubah dari
+                  <span className="font-semibold text-slate-950"> 1440 menit</span>, sistem akan membaca paket ini sebagai
+                  <span className="font-semibold text-slate-950"> per sesi</span>.
+                </>
+              ) : null}
+            </div>
+          </div>
+        </section>
+
+      </div>
+      <div className="lg:sticky lg:top-8 lg:self-start">
+        <PreviewCard title="Preview customer">
+          <div className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_20px_48px_rgba(15,23,42,0.08)]">
+            <div className="relative h-[240px] bg-slate-100 xl:h-[260px]">
+              {props.resourceImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={props.resourceImageUrl} alt="Preview customer resource" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.2),_transparent_42%),linear-gradient(180deg,#dbeafe_0%,#eff6ff_45%,#ffffff_100%)] px-6 text-center text-sm text-slate-500">
+                  Cover unit nanti tampil di sini
+                </div>
+              )}
+              <div className="absolute left-4 top-4 rounded-full bg-slate-950/90 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-white">
+                Timed
+              </div>
+            </div>
+            <div className="space-y-6 p-7">
+              <div className="text-[clamp(1.9rem,2vw,2.85rem)] font-black uppercase italic leading-[1.02] tracking-[-0.045em] text-slate-950 break-words">
+                {props.resourceName || "Nama unit"}
+              </div>
+              <p className="min-h-[64px] text-[15px] leading-8 text-slate-600">
+                {props.resourceDescription || "Ringkasan unit akan membantu customer cepat paham isi atau fasilitas utama."}
+              </p>
+              <div className="border-t border-slate-200 pt-6">
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Mulai dari</div>
+                <div className="mt-4 flex items-end gap-2.5">
+                  <span className="text-[clamp(2.2rem,2.4vw,3.6rem)] font-black leading-none tracking-[-0.05em] text-orange-500">
+                    Rp{Number(props.price || 0).toLocaleString("id-ID")}
+                  </span>
+                  <span className="pb-1.5 text-[15px] font-semibold text-slate-500">
+                    / {priceUnitLabel(props.priceUnit)}
+                  </span>
+                </div>
+                <div className="mt-5 text-[1.02rem] font-semibold tracking-[-0.02em] text-slate-900">
+                  {props.priceName || "Nama paket utama"}
+                </div>
+                <div className="mt-2 text-[13px] text-slate-500">
+                  Durasi {props.duration || "60"} menit
+                </div>
+              </div>
+            </div>
+          </div>
+        </PreviewCard>
+      </div>
     </div>
   );
 }
@@ -419,39 +748,134 @@ function BusinessStep(props: {
   setCloseTime: (value: string) => void;
   setWhatsapp: (value: string) => void;
 }) {
+  const [activeHint, setActiveHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.closest("[data-guided-field='true']")) return;
+      setActiveHint(null);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () => document.removeEventListener("pointerdown", handlePointerDown, true);
+  }, []);
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_440px]">
       <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="space-y-2">
-            <Label>Open time</Label>
-            <OnboardingTimePicker value={props.openTime} onChange={props.setOpenTime} placeholder="09:00" />
-          </label>
-          <label className="space-y-2">
-            <Label>Close time</Label>
-            <OnboardingTimePicker value={props.closeTime} onChange={props.setCloseTime} placeholder="22:00" />
-          </label>
+        <div className="rounded-2xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-slate-700">
+          Di langkah ini kita tentukan
+          <span className="font-semibold text-slate-950"> kapan customer bisa booking</span> dan
+          <span className="font-semibold text-slate-950"> ke nomor mana mereka diarahkan</span> kalau butuh konfirmasi cepat.
         </div>
-        <label className="block space-y-2">
-          <Label>WhatsApp for booking follow-up</Label>
-          <div className="relative">
-            <MessageCircle className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <OnboardingInput
-              value={props.whatsapp}
-              onChange={(event) => props.setWhatsapp(event.target.value)}
-              placeholder="08123456789"
-              autoComplete="off"
-              inputMode="tel"
-              className="pl-11"
-            />
+        <section className="space-y-4 rounded-2xl border border-slate-200 p-4">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">Jam operasional</div>
+            <h3 className="mt-2 text-lg font-semibold">Kapan booking dibuka</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Customer hanya akan melihat slot booking di rentang jam ini.
+            </p>
           </div>
-        </label>
+          <div className="flex flex-wrap gap-2">
+            {[
+              ["09:00", "22:00", "09.00 - 22.00"],
+              ["10:00", "22:00", "10.00 - 22.00"],
+              ["00:00", "23:59", "24 jam"],
+            ].map(([open, close, label]) => (
+              <button
+                key={`${open}-${close}`}
+                type="button"
+                onClick={() => {
+                  props.setOpenTime(open);
+                  props.setCloseTime(close);
+                }}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  props.openTime === open && props.closeTime === close
+                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/40"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <GuidedField
+              label="Jam buka"
+              hint="Jam paling awal customer bisa melihat slot dan membuat booking."
+              activeHint={activeHint}
+              onFocus={() => setActiveHint("open_time")}
+              hintKey="open_time"
+            >
+              <OnboardingTimePicker value={props.openTime} onChange={props.setOpenTime} placeholder="09:00" />
+            </GuidedField>
+            <GuidedField
+              label="Jam tutup"
+              hint="Jam terakhir booking masih bisa dijadwalkan di hari yang sama."
+              activeHint={activeHint}
+              onFocus={() => setActiveHint("close_time")}
+              hintKey="close_time"
+            >
+              <OnboardingTimePicker value={props.closeTime} onChange={props.setCloseTime} placeholder="22:00" />
+            </GuidedField>
+          </div>
+        </section>
+
+        <section className="space-y-4 rounded-2xl border border-slate-200 p-4">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">Kontak cepat</div>
+            <h3 className="mt-2 text-lg font-semibold">Nomor WhatsApp bisnis</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Ini dipakai kalau customer perlu tanya jadwal, konfirmasi, atau follow-up cepat.
+            </p>
+          </div>
+          <GuidedField
+            label="WhatsApp bisnis"
+            hint="Pakai nomor yang benar-benar aktif untuk admin atau CS. Contoh: 0812xxxx atau 62812xxxx."
+            activeHint={activeHint}
+            onFocus={() => setActiveHint("whatsapp")}
+            hintKey="whatsapp"
+          >
+            <div className="relative">
+              <MessageCircle className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <OnboardingInput
+                value={props.whatsapp}
+                onChange={(event) => props.setWhatsapp(event.target.value)}
+                placeholder="08123456789"
+                autoComplete="off"
+                inputMode="tel"
+                className="pl-11"
+              />
+            </div>
+          </GuidedField>
+        </section>
       </div>
-      <PreviewCard title="Public page behavior">
-        <InfoLine icon={Clock3} label={`Booking available ${props.openTime || "09:00"} - ${props.closeTime || "22:00"}`} />
-        <InfoLine icon={Building2} label="Business profile appears on public page" />
-        <InfoLine icon={CalendarCheck} label="Calendar uses your operating hours" />
-      </PreviewCard>
+      <div className="lg:sticky lg:top-8 lg:self-start">
+        <PreviewCard title="Preview public booking">
+          <div className="space-y-4 rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_48px_rgba(15,23,42,0.08)]">
+            <div className="rounded-2xl bg-blue-50 px-4 py-3">
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">Customer bisa booking</div>
+              <div className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                {props.openTime || "09:00"} - {props.closeTime || "22:00"}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 px-4 py-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Kontak follow-up</div>
+              <div className="mt-2 flex items-center gap-3 text-sm text-slate-700">
+                <MessageCircle className="h-4 w-4 text-emerald-600" />
+                <span>{props.whatsapp || "Nomor WhatsApp bisnis akan tampil di sini"}</span>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <InfoLine icon={Clock3} label={`Booking dibuka ${props.openTime || "09:00"} - ${props.closeTime || "22:00"}`} />
+              <InfoLine icon={CalendarCheck} label="Kalender customer mengikuti jam operasional ini" />
+              <InfoLine icon={Building2} label="Customer tahu ke mana harus kontak saat butuh bantuan" />
+            </div>
+          </div>
+        </PreviewCard>
+      </div>
     </div>
   );
 }
@@ -479,12 +903,25 @@ function PaymentStep(props: {
   const workspaceId = searchParams.get("workspace");
   const [panel, setPanel] = useState<"methods" | "bank" | "qris">("methods");
   const [uploadingQris, setUploadingQris] = useState(false);
+  const [activeHint, setActiveHint] = useState<string | null>(null);
   const bankConfigured = hasBankTransferConfig(props.bankName, props.bankAccountName, props.bankAccountNumber);
   const qrisConfigured = hasQrisConfig(props.qrisImageUrl);
   const bankActive = props.bankTransferEnabled && bankConfigured;
   const qrisActive = props.qrisStaticEnabled && qrisConfigured;
   const bankStatus: PaymentStatus = bankActive ? "active" : props.bankTransferEnabled ? "required" : "off";
   const qrisStatus: PaymentStatus = qrisActive ? "active" : props.qrisStaticEnabled ? "required" : "off";
+
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.closest("[data-guided-field='true']")) return;
+      setActiveHint(null);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () => document.removeEventListener("pointerdown", handlePointerDown, true);
+  }, []);
 
   async function uploadQris(file: File | null) {
     if (!file || !workspaceId) return;
@@ -507,96 +944,142 @@ function PaymentStep(props: {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-      <div className="space-y-4">
-        <div className="grid w-full max-w-[360px] grid-cols-3 rounded-2xl bg-slate-100 p-1 text-sm font-semibold sm:w-[360px]">
-          {[
-            ["methods", "Methods"],
-            ["bank", "Bank"],
-            ["qris", "QRIS"],
-          ].map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setPanel(key as "methods" | "bank" | "qris")}
-              className={`rounded-xl px-4 py-2 transition ${
-                panel === key ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="rounded-2xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-slate-700">
+          Midtrans dan cash sudah aktif.
+          <span className="font-semibold text-slate-950"> Transfer manual</span> dan
+          <span className="font-semibold text-slate-950"> QRIS static</span> opsional.
         </div>
 
-        {panel === "methods" ? (
+        <div className="lg:hidden">
+          <div className="grid w-full max-w-[360px] grid-cols-3 rounded-2xl bg-slate-100 p-1 text-sm font-semibold sm:w-[360px]">
+            {[
+              ["methods", "Methods"],
+              ["bank", "Bank"],
+              ["qris", "QRIS"],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setPanel(key as "methods" | "bank" | "qris")}
+                className={`rounded-xl px-4 py-2 transition ${
+                  panel === key ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <section className={`${panel === "methods" ? "block" : "hidden"} space-y-4 lg:block`}>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">Metode pembayaran</div>
+            <h3 className="mt-2 text-lg font-semibold">Opsi checkout customer</h3>
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <PaymentMethodCard
               title="Midtrans / QRIS Gateway"
-              description="Auto verification"
+              description="Default"
               status="active"
               locked
             />
             <PaymentMethodCard
               title="Cash / Bayar di tempat"
-              description="Manual settlement"
+              description="Default"
               status="active"
               locked
             />
             <PaymentMethodCard
               title="Transfer manual"
-              description={bankActive ? "Configured" : props.bankTransferEnabled ? "Complete bank details" : "Optional"}
+              description={bankActive ? "Siap" : bankConfigured ? "Bisa diaktifkan" : "Lengkapi data"}
               status={bankStatus}
               onClick={() => setPanel("bank")}
             />
             <PaymentMethodCard
               title="QRIS static"
-              description={qrisActive ? "Configured" : props.qrisStaticEnabled ? "Upload QRIS image" : "Optional"}
+              description={qrisActive ? "Siap" : qrisConfigured ? "Bisa diaktifkan" : "Upload QR"}
               status={qrisStatus}
               onClick={() => setPanel("qris")}
             />
           </div>
-        ) : null}
+        </section>
 
-        {panel === "bank" ? (
-          <section className="rounded-2xl border border-slate-200 bg-white p-5">
-            <PanelHeader
-              title="Transfer manual"
-              status={bankStatus}
-              onToggle={() => props.setBankTransferEnabled(!props.bankTransferEnabled)}
+        <section className={`${panel === "bank" ? "block" : "hidden"} space-y-4 rounded-2xl border border-slate-200 p-4 lg:block`}>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">Transfer manual</div>
+            <h3 className="mt-2 text-lg font-semibold">Siapkan rekening tujuan</h3>
+          </div>
+          <PanelHeader
+            title="Transfer manual"
+            status={bankStatus}
+            canEnable={bankConfigured}
+            onToggle={() => props.setBankTransferEnabled(!props.bankTransferEnabled)}
+          />
+          <div className="grid gap-3 sm:grid-cols-3">
+            <GuidedField
+              label="Bank"
+              hint="Pakai nama bank yang benar-benar menerima transfer customer, misalnya BCA, BRI, Mandiri, atau BNI."
+              activeHint={activeHint}
+              onFocus={() => setActiveHint("bank_name")}
+              hintKey="bank_name"
+            >
+              <OnboardingInput value={props.bankName} onChange={(event) => props.setBankName(event.target.value)} placeholder="BCA" />
+            </GuidedField>
+            <GuidedField
+              label="Account name"
+              hint="Nama ini tampil sebagai nama penerima transfer. Cocokkan dengan nama rekening agar customer tidak ragu."
+              activeHint={activeHint}
+              onFocus={() => setActiveHint("bank_account_name")}
+              hintKey="bank_account_name"
+            >
+              <OnboardingInput value={props.bankAccountName} onChange={(event) => props.setBankAccountName(event.target.value)} placeholder="PT Contoh Bisnis" />
+            </GuidedField>
+            <GuidedField
+              label="Account number"
+              hint="Isi nomor rekening tanpa spasi tambahan. Ini dipakai customer untuk transfer manual."
+              activeHint={activeHint}
+              onFocus={() => setActiveHint("bank_account_number")}
+              hintKey="bank_account_number"
+            >
+              <OnboardingInput value={props.bankAccountNumber} onChange={(event) => props.setBankAccountNumber(event.target.value)} placeholder="1234567890" />
+            </GuidedField>
+          </div>
+          <GuidedField
+            label="Instructions"
+            hint="Tulis alur singkat setelah transfer, misalnya kirim bukti bayar lewat WhatsApp admin agar verifikasi lebih cepat."
+            activeHint={activeHint}
+            onFocus={() => setActiveHint("bank_instructions")}
+            hintKey="bank_instructions"
+          >
+            <OnboardingInput
+              value={props.bankInstructions}
+              onChange={(event) => props.setBankInstructions(event.target.value)}
+              placeholder="Transfer lalu kirim bukti bayar."
             />
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <label className="space-y-2">
-                <Label>Bank</Label>
-                <OnboardingInput value={props.bankName} onChange={(event) => props.setBankName(event.target.value)} placeholder="BCA" />
-              </label>
-              <label className="space-y-2">
-                <Label>Account name</Label>
-                <OnboardingInput value={props.bankAccountName} onChange={(event) => props.setBankAccountName(event.target.value)} placeholder="PT Contoh Bisnis" />
-              </label>
-              <label className="space-y-2">
-                <Label>Account number</Label>
-                <OnboardingInput value={props.bankAccountNumber} onChange={(event) => props.setBankAccountNumber(event.target.value)} placeholder="1234567890" />
-              </label>
-            </div>
-            <label className="mt-3 block space-y-2">
-              <Label>Instructions</Label>
-              <OnboardingInput
-                value={props.bankInstructions}
-                onChange={(event) => props.setBankInstructions(event.target.value)}
-                placeholder="Transfer lalu kirim bukti bayar."
-              />
-            </label>
-          </section>
-        ) : null}
+          </GuidedField>
+        </section>
 
-        {panel === "qris" ? (
-          <section className="rounded-2xl border border-slate-200 bg-white p-5">
-            <PanelHeader
-              title="QRIS static"
-              status={qrisStatus}
-              onToggle={() => props.setQrisStaticEnabled(!props.qrisStaticEnabled)}
-            />
-            <div className="mt-4 grid gap-4 sm:grid-cols-[220px_1fr]">
+        <section className={`${panel === "qris" ? "block" : "hidden"} space-y-4 rounded-2xl border border-slate-200 p-4 lg:block`}>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">QRIS static</div>
+            <h3 className="mt-2 text-lg font-semibold">Upload QR yang siap dipindai</h3>
+          </div>
+          <PanelHeader
+            title="QRIS static"
+            status={qrisStatus}
+            canEnable={qrisConfigured}
+            onToggle={() => props.setQrisStaticEnabled(!props.qrisStaticEnabled)}
+          />
+          <div className="grid gap-4 sm:grid-cols-[220px_1fr]">
+            <GuidedField
+              label="Upload QRIS"
+              hint="Upload gambar QRIS yang final dan mudah dipindai. Gunakan file yang tajam, tidak blur, dan bukan screenshot terpotong."
+              activeHint={activeHint}
+              onFocus={() => setActiveHint("qris_image")}
+              hintKey="qris_image"
+            >
               <label className="block">
                 <span className="sr-only">Upload QRIS static</span>
                 <input
@@ -620,28 +1103,41 @@ function PaymentStep(props: {
                   <span className="mt-1 text-xs text-slate-500">PNG/JPG up to 5MB</span>
                 </div>
               </label>
-              <label className="space-y-2">
-                <Label>Instructions</Label>
-                <OnboardingInput
-                  value={props.qrisInstructions}
-                  onChange={(event) => props.setQrisInstructions(event.target.value)}
-                  placeholder="Scan QRIS lalu kirim bukti bayar."
-                />
-              </label>
-            </div>
-          </section>
-        ) : null}
+            </GuidedField>
+            <GuidedField
+              label="Instructions"
+              hint="Beritahu customer apa yang harus dilakukan setelah scan, misalnya kirim bukti transfer atau tunggu konfirmasi otomatis."
+              activeHint={activeHint}
+              onFocus={() => setActiveHint("qris_instructions")}
+              hintKey="qris_instructions"
+            >
+              <OnboardingInput
+                value={props.qrisInstructions}
+                onChange={(event) => props.setQrisInstructions(event.target.value)}
+                placeholder="Scan QRIS lalu kirim bukti bayar."
+              />
+            </GuidedField>
+          </div>
+        </section>
       </div>
-      <PreviewCard title="Payment preview">
-        <div className="text-sm text-slate-500">Booking total</div>
-        <div className="mt-1 text-3xl font-semibold">Rp{Number(props.price || 0).toLocaleString("id-ID")}</div>
-        <div className="mt-4 space-y-2 text-sm">
-          <PaymentPreviewLine label="Midtrans / QRIS Gateway" status="active" />
-          <PaymentPreviewLine label="Cash" status="active" />
-          <PaymentPreviewLine label={`Transfer bank${props.bankName ? ` (${props.bankName})` : ""}`} status={bankStatus} />
-          <PaymentPreviewLine label="QRIS static" status={qrisStatus} />
-        </div>
-      </PreviewCard>
+      <div className="lg:sticky lg:top-8 lg:self-start">
+        <PreviewCard title="Payment preview">
+          <div className="space-y-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_20px_48px_rgba(15,23,42,0.08)]">
+            <div className="rounded-2xl bg-blue-50 px-4 py-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">Booking total</div>
+              <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+                Rp{Number(props.price || 0).toLocaleString("id-ID")}
+              </div>
+            </div>
+            <div className="space-y-2 text-sm">
+              <PaymentPreviewLine label="Midtrans / QRIS Gateway" status="active" />
+              <PaymentPreviewLine label="Cash" status="active" />
+              <PaymentPreviewLine label={`Transfer bank${props.bankName ? ` (${props.bankName})` : ""}`} status={bankStatus} />
+              <PaymentPreviewLine label="QRIS static" status={qrisStatus} />
+            </div>
+          </div>
+        </PreviewCard>
+      </div>
     </div>
   );
 }
@@ -686,6 +1182,58 @@ function BookingStep(props: {
   );
 }
 
+function GuidedField({
+  label,
+  hint,
+  hintKey,
+  activeHint,
+  onFocus,
+  children,
+  className = "",
+}: {
+  label: string;
+  hint: string;
+  hintKey: string;
+  activeHint: string | null;
+  onFocus: () => void;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const open = activeHint === hintKey;
+
+  return (
+    <TooltipProvider delayDuration={100}>
+      <Tooltip open={open}>
+        <label className={`space-y-2 ${className}`} onFocusCapture={onFocus} data-guided-field="true">
+          <div className="flex items-center gap-2">
+            <Label>{label}</Label>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-label={`Panduan ${label}`}
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+              >
+                <Info className="h-3.5 w-3.5" />
+              </button>
+            </TooltipTrigger>
+          </div>
+          {children}
+        </label>
+        <TooltipContent
+          side="top"
+          align="center"
+          sideOffset={10}
+          collisionPadding={16}
+          className="z-[60] max-w-[260px] rounded-xl bg-slate-950 px-3 py-2 text-[11px] leading-5 text-white"
+        >
+          {hint}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 function PaymentMethodCard(props: { title: string; description: string; status: PaymentStatus; locked?: boolean; onClick?: () => void }) {
   const Comp = props.onClick ? "button" : "div";
   const badge = paymentStatusBadge(props.locked ? "default" : props.status);
@@ -706,9 +1254,11 @@ function PaymentMethodCard(props: { title: string; description: string; status: 
   );
 }
 
-function PanelHeader(props: { title: string; status: PaymentStatus; onToggle: () => void }) {
+function PanelHeader(props: { title: string; status: PaymentStatus; canEnable: boolean; onToggle: () => void }) {
   const badge = paymentStatusBadge(props.status);
-  const cta = props.status === "active" ? "Disable" : props.status === "required" ? "Disable" : "Enable";
+  const isOn = props.status === "active" || props.status === "required";
+  const disabled = !isOn && !props.canEnable;
+  const cta = isOn ? "Matikan" : disabled ? "Lengkapi dulu" : "Aktifkan";
 
   return (
     <div className="flex items-center justify-between gap-4">
@@ -721,7 +1271,12 @@ function PanelHeader(props: { title: string; status: PaymentStatus; onToggle: ()
       <button
         type="button"
         onClick={props.onToggle}
-        className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-200 hover:text-slate-950"
+        disabled={disabled}
+        className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+          disabled
+            ? "cursor-not-allowed bg-slate-100 text-slate-400"
+            : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-950"
+        }`}
       >
         {cta}
       </button>
@@ -781,9 +1336,9 @@ function DoneStep({ workspaceSlug }: { workspaceSlug?: string | null }) {
       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
         <Check className="h-7 w-7" />
       </div>
-      <h2 className="mt-5 text-3xl font-semibold tracking-tight">Your first booking system is ready.</h2>
+      <h2 className="mt-5 text-3xl font-semibold tracking-tight">Sistem booking pertamamu sudah siap.</h2>
       <p className="mt-3 text-sm leading-6 text-slate-500">
-        Resource pertama sudah disiapkan. Buka dashboard untuk melanjutkan setup real data, staff, payment method, dan public booking page.
+        Unit dan paket pertama sudah masuk. Buka dashboard untuk melanjutkan setup data real, staff, payment method, dan public booking page.
       </p>
       <div className="mt-6 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">
         {workspaceSlug ? `${workspaceSlug}.bookinaja.com/admin` : "Workspace admin"}
@@ -817,10 +1372,10 @@ function OnboardingFooter(props: {
           onClick={props.onBack}
           className="h-10 rounded-xl px-5 text-slate-500 hover:bg-transparent hover:text-slate-950"
         >
-          ← Back
+          ← Kembali
         </Button>
         <Button onClick={props.onContinue} disabled={props.loading} className="h-12 min-w-[220px] rounded-xl px-8">
-          {props.loading ? "Saving..." : props.action}
+          {props.loading ? "Menyimpan..." : props.action}
           {!props.loading ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
         </Button>
       </div>

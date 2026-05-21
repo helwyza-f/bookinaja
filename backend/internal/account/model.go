@@ -95,10 +95,15 @@ type OnboardingStepUpdateReq struct {
 	Complete          bool                 `json:"complete"`
 	ResourceName      string               `json:"resource_name"`
 	ResourceCategory  string               `json:"resource_category"`
+	ResourceDesc      string               `json:"resource_description"`
+	ResourceImageURL  string               `json:"resource_image_url"`
 	PriceName         string               `json:"price_name"`
 	Price             int64                `json:"price"`
 	PriceUnit         string               `json:"price_unit"`
 	UnitDuration      int                  `json:"unit_duration"`
+	OpenTime          string               `json:"open_time"`
+	CloseTime         string               `json:"close_time"`
+	WhatsappNumber    string               `json:"whatsapp_number"`
 	PaymentMethods    PaymentOnboardingReq `json:"payment_methods"`
 }
 
