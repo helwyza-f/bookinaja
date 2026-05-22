@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import { ArrowRight, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { CompactGoogleButton } from "@/components/auth/compact-google-button";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { googleAuthAccount, loginAccount } from "@/lib/auth-client";
+import { clearTenantSession } from "@/lib/tenant-session";
 
 function LoginScreen() {
   const router = useRouter();
@@ -18,6 +19,11 @@ function LoginScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("signed_out") !== "1") return;
+    clearTenantSession();
+  }, [searchParams]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

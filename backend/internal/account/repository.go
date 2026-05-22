@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -118,16 +120,17 @@ func (r *Repository) CreateWorkspaceWithOwner(ctx context.Context, workspace Wor
 
 	tenantID := uuid.New()
 	ownerUserID := uuid.New()
+	referralCode := generateWorkspaceReferralCode(workspace.Slug)
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO tenants (
 			id, name, slug, business_category, business_type,
 			plan, subscription_status, timezone, whatsapp_number,
-			tagline, about_us, primary_color, created_at
+			tagline, about_us, primary_color, referral_code, created_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
 	`, tenantID, workspace.Name, workspace.Slug, workspace.BusinessCategory, workspace.BusinessType,
 		workspace.Plan, workspace.SubscriptionStatus, workspace.Timezone, workspace.WhatsappNumber,
-		"Booking simpel untuk bisnis yang bergerak cepat.", "Kelola reservasi, resource, customer, dan pembayaran dari satu workspace.", "#2563eb"); err != nil {
+		"Booking simpel untuk bisnis yang bergerak cepat.", "Kelola reservasi, resource, customer, dan pembayaran dari satu workspace.", "#2563eb", referralCode); err != nil {
 		return nil, nil, nil, err
 	}
 
@@ -303,10 +306,10 @@ func (r *Repository) GetOnboardingSeed(ctx context.Context, workspaceID uuid.UUI
 	}
 
 	type paymentRow struct {
-		Code      string `db:"code"`
-		IsActive  bool   `db:"is_active"`
-		MetaJSON  string `db:"metadata"`
-		Instr     string `db:"instructions"`
+		Code     string `db:"code"`
+		IsActive bool   `db:"is_active"`
+		MetaJSON string `db:"metadata"`
+		Instr    string `db:"instructions"`
 	}
 	var rows []paymentRow
 	if err := r.db.SelectContext(ctx, &rows, `
@@ -665,6 +668,209 @@ func (r *Repository) UpdateOnboardingBusinessBasics(ctx context.Context, workspa
 	return tx.Commit()
 }
 
+func (r *Repository) CreateOnboardingFirstBooking(ctx context.Context, workspaceID uuid.UUID, req FirstBookingReq) error {
+	req.CustomerName = strings.TrimSpace(req.CustomerName)
+	req.CustomerPhone = strings.TrimSpace(req.CustomerPhone)
+	req.BookingDate = strings.TrimSpace(req.BookingDate)
+	req.BookingTime = strings.TrimSpace(req.BookingTime)
+	req.BookingMode = strings.ToLower(strings.TrimSpace(req.BookingMode))
+	if req.CustomerName == "" {
+		req.CustomerName = "Demo Customer"
+	}
+	if req.CustomerPhone == "" {
+		return errors.New("nomor WhatsApp customer wajib diisi")
+	}
+	if req.BookingMode != "walkin" {
+		req.BookingMode = "scheduled"
+	}
+	if req.Quantity <= 0 {
+		req.Quantity = 1
+	}
+	if req.BookingDate == "" {
+		req.BookingDate = time.Now().In(time.FixedZone("WIB", 7*60*60)).Format("2006-01-02")
+	}
+	if req.BookingTime == "" {
+		return errors.New("slot booking wajib dipilih")
+	}
+
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	type seedRow struct {
+		TenantID     uuid.UUID `db:"tenant_id"`
+		ResourceID   uuid.UUID `db:"resource_id"`
+		ItemID       uuid.UUID `db:"item_id"`
+		ItemName     string    `db:"item_name"`
+		Price        int64     `db:"price"`
+		UnitDuration int       `db:"unit_duration"`
+		Timezone     string    `db:"timezone"`
+	}
+
+	var seed seedRow
+	if err := tx.GetContext(ctx, &seed, `
+		SELECT
+			w.tenant_id,
+			r.id AS resource_id,
+			ri.id AS item_id,
+			ri.name AS item_name,
+			COALESCE(ri.price, 0) AS price,
+			COALESCE(NULLIF(ri.unit_duration, 0), 60) AS unit_duration,
+			COALESCE(NULLIF(BTRIM(t.timezone), ''), 'Asia/Jakarta') AS timezone
+		FROM workspaces w
+		JOIN tenants t ON t.id = w.tenant_id
+		JOIN resources r
+			ON r.tenant_id = w.tenant_id
+			AND r.metadata->>'onboarding_seed' = 'true'
+			AND r.status <> 'deleted'
+		JOIN resource_items ri
+			ON ri.resource_id = r.id
+			AND ri.item_type = 'main_option'
+			AND ri.is_default = TRUE
+		WHERE w.id = $1
+		ORDER BY r.created_at DESC
+		LIMIT 1
+	`, workspaceID); err != nil {
+		if err == sql.ErrNoRows {
+			return errors.New("buat resource onboarding dulu sebelum simulasi booking")
+		}
+		return err
+	}
+
+	var existingID uuid.UUID
+	existingErr := tx.GetContext(ctx, &existingID, `
+		SELECT be.booking_id
+		FROM booking_events be
+		JOIN bookings b ON b.id = be.booking_id
+		WHERE be.tenant_id = $1
+		  AND be.event_type = 'onboarding.first_booking_created'
+		  AND be.metadata->>'workspace_id' = $2
+		  AND b.status <> 'cancelled'
+		ORDER BY be.created_at DESC
+		LIMIT 1
+	`, seed.TenantID, workspaceID.String())
+	if existingErr == nil {
+		return tx.Commit()
+	}
+	if existingErr != nil && existingErr != sql.ErrNoRows {
+		return existingErr
+	}
+
+	location, err := time.LoadLocation(seed.Timezone)
+	if err != nil {
+		location = time.FixedZone("WIB", 7*60*60)
+	}
+	startLocal, err := time.ParseInLocation("2006-01-02 15:04", req.BookingDate+" "+req.BookingTime, location)
+	if err != nil {
+		return errors.New("format tanggal atau jam booking tidak valid")
+	}
+	start := startLocal.UTC()
+	end := start.Add(time.Duration(seed.UnitDuration*req.Quantity) * time.Minute)
+
+	var overlapCount int
+	if err := tx.GetContext(ctx, &overlapCount, `
+		SELECT COUNT(*)
+		FROM bookings
+		WHERE resource_id = $1
+		  AND status NOT IN ('cancelled', 'rejected')
+		  AND (start_time, end_time) OVERLAPS ($2, $3)
+	`, seed.ResourceID, start, end); err != nil {
+		return err
+	}
+	if overlapCount > 0 {
+		return errors.New("slot booking onboarding sudah terisi")
+	}
+
+	var customerID uuid.UUID
+	if err := tx.GetContext(ctx, &customerID, `
+		INSERT INTO customers (
+			id, name, phone, total_visits, total_spent, tier, loyalty_points,
+			account_status, account_stage, registration_source, silent_registered_at,
+			phone_verified_at, country_code, created_at, updated_at
+		) VALUES (
+			$1, $2, $3, 0, 0, 'NEW', 0,
+			'verified', 'provisioned', 'onboarding', NOW(),
+			NOW(), 'ID', NOW(), NOW()
+		)
+		ON CONFLICT (phone)
+		DO UPDATE SET
+			name = CASE
+				WHEN COALESCE(BTRIM(customers.name), '') = '' THEN EXCLUDED.name
+				ELSE customers.name
+			END,
+			silent_registered_at = COALESCE(customers.silent_registered_at, NOW()),
+			registration_source = COALESCE(NULLIF(customers.registration_source, ''), 'onboarding'),
+			account_stage = CASE
+				WHEN COALESCE(customers.account_stage, '') = '' THEN 'provisioned'
+				ELSE customers.account_stage
+			END,
+			updated_at = NOW()
+		RETURNING id
+	`, uuid.New(), req.CustomerName, req.CustomerPhone); err != nil {
+		return err
+	}
+
+	status := "pending"
+	paymentStatus := "pending"
+	paymentMethod := "cash"
+	var sessionActivatedAt *time.Time
+	now := time.Now().UTC()
+	if req.BookingMode == "walkin" {
+		status = "active"
+		paymentStatus = "unpaid"
+		sessionActivatedAt = &now
+	}
+
+	bookingID := uuid.New()
+	accessToken := uuid.New()
+	grandTotal := seed.Price * int64(req.Quantity)
+	originalGrandTotal := float64(grandTotal)
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO bookings (
+			id, tenant_id, customer_id, resource_id, start_time, end_time, access_token,
+			status, original_grand_total, discount_amount, promo_snapshot,
+			grand_total, deposit_amount, paid_amount, balance_due, payment_status, payment_method,
+			session_activated_at, last_status_changed_at, created_at
+		)
+		VALUES (
+			$1, $2, $3, $4, $5, $6, $7,
+			$8, $9, 0::double precision, '{}'::jsonb,
+			$10, 0, 0, $10, $11, $12,
+			$13, NOW(), NOW()
+		)
+	`, bookingID, seed.TenantID, customerID, seed.ResourceID, start, end, accessToken, status, originalGrandTotal, grandTotal, paymentStatus, paymentMethod, sessionActivatedAt); err != nil {
+		return err
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO booking_options (id, booking_id, resource_item_id, quantity, price_at_booking)
+		VALUES ($1, $2, $3, $4, $5)
+	`, uuid.New(), bookingID, seed.ItemID, req.Quantity, grandTotal); err != nil {
+		return err
+	}
+
+	metadata := map[string]any{
+		"workspace_id":  workspaceID.String(),
+		"booking_mode":  req.BookingMode,
+		"quantity":      req.Quantity,
+		"resource_item": seed.ItemName,
+		"source":        "account_onboarding",
+	}
+	metadataJSON, _ := json.Marshal(metadata)
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO booking_events (
+			id, booking_id, tenant_id, customer_id, actor_type, actor_name, actor_email, actor_role, event_type, title, description, metadata, created_at
+		)
+		VALUES ($1, $2, $3, $4, 'system', '', '', '', 'onboarding.first_booking_created', $5, $6, $7::jsonb, NOW())
+	`, uuid.New(), bookingID, seed.TenantID, customerID, "Booking pertama dibuat dari onboarding", "Booking ini dibuat dari simulasi onboarding agar langsung muncul di admin.", string(metadataJSON)); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 func (r *Repository) GetWorkspaceTenantIDForAccount(ctx context.Context, accountID, workspaceID uuid.UUID) (uuid.UUID, error) {
 	var tenantID uuid.UUID
 	err := r.db.GetContext(ctx, &tenantID, `
@@ -772,4 +978,18 @@ func defaultClockValue(value, fallback string) string {
 		return fallback
 	}
 	return trimmed
+}
+
+func generateWorkspaceReferralCode(slug string) string {
+	base := strings.ToUpper(strings.TrimSpace(slug))
+	base = strings.ReplaceAll(base, " ", "")
+	base = strings.ReplaceAll(base, ".", "")
+	base = strings.ReplaceAll(base, "-", "")
+	if base == "" {
+		base = "BOOK"
+	}
+	if len(base) > 8 {
+		base = base[:8]
+	}
+	return fmt.Sprintf("%s%s", base, strings.ToUpper(uuid.NewString()[:4]))
 }

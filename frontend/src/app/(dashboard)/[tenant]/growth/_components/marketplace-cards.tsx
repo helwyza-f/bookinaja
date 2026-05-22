@@ -301,7 +301,7 @@ export function FeedIdeaCard({
 export function WorkspaceEmptyLink() {
   return (
     <Button asChild variant="outline" className="rounded-xl">
-      <Link href="/admin/settings/bisnis">Buka Konfigurasi Bisnis</Link>
+      <Link href="/admin/brand">Buka Konfigurasi Bisnis</Link>
     </Button>
   );
 }

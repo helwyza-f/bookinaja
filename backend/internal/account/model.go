@@ -48,21 +48,21 @@ type WorkspaceMembership struct {
 }
 
 type OnboardingState struct {
-	WorkspaceID       uuid.UUID      `db:"workspace_id" json:"workspace_id"`
-	CurrentStep       string         `db:"current_step" json:"current_step"`
-	CompletedSteps    pq.StringArray `db:"completed_steps" json:"completed_steps"`
-	SelectedStartMode string         `db:"selected_start_mode" json:"selected_start_mode"`
-	IsCompleted       bool           `db:"is_completed" json:"is_completed"`
-	StartedAt         time.Time      `db:"started_at" json:"started_at"`
-	CompletedAt       *time.Time     `db:"completed_at" json:"completed_at,omitempty"`
-	UpdatedAt         time.Time      `db:"updated_at" json:"updated_at"`
+	WorkspaceID       uuid.UUID       `db:"workspace_id" json:"workspace_id"`
+	CurrentStep       string          `db:"current_step" json:"current_step"`
+	CompletedSteps    pq.StringArray  `db:"completed_steps" json:"completed_steps"`
+	SelectedStartMode string          `db:"selected_start_mode" json:"selected_start_mode"`
+	IsCompleted       bool            `db:"is_completed" json:"is_completed"`
+	StartedAt         time.Time       `db:"started_at" json:"started_at"`
+	CompletedAt       *time.Time      `db:"completed_at" json:"completed_at,omitempty"`
+	UpdatedAt         time.Time       `db:"updated_at" json:"updated_at"`
 	Seed              *OnboardingSeed `db:"-" json:"seed,omitempty"`
 }
 
 type OnboardingSeed struct {
-	Resource        OnboardingResourceSeed `json:"resource"`
-	Business        OnboardingBusinessSeed `json:"business"`
-	PaymentMethods  PaymentOnboardingReq   `json:"payment_methods"`
+	Resource       OnboardingResourceSeed `json:"resource"`
+	Business       OnboardingBusinessSeed `json:"business"`
+	PaymentMethods PaymentOnboardingReq   `json:"payment_methods"`
 }
 
 type OnboardingResourceSeed struct {
@@ -129,6 +129,7 @@ type OnboardingStepUpdateReq struct {
 	CloseTime         string               `json:"close_time"`
 	WhatsappNumber    string               `json:"whatsapp_number"`
 	PaymentMethods    PaymentOnboardingReq `json:"payment_methods"`
+	FirstBooking      FirstBookingReq      `json:"first_booking"`
 }
 
 type PaymentOnboardingReq struct {
@@ -140,6 +141,15 @@ type PaymentOnboardingReq struct {
 	QRISStaticEnabled   bool   `json:"qris_static_enabled"`
 	QRISImageURL        string `json:"qris_image_url"`
 	QRISInstructions    string `json:"qris_instructions"`
+}
+
+type FirstBookingReq struct {
+	CustomerName  string `json:"customer_name"`
+	CustomerPhone string `json:"customer_phone"`
+	BookingDate   string `json:"booking_date"`
+	BookingTime   string `json:"booking_time"`
+	BookingMode   string `json:"booking_mode"`
+	Quantity      int    `json:"quantity"`
 }
 
 type WorkspaceListItem struct {

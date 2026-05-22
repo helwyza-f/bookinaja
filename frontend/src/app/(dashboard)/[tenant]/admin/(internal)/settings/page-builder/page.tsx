@@ -870,7 +870,7 @@ export default function PageBuilderPage() {
   }
 
   return (
-    <div className="space-y-4 pb-20">
+    <div className="space-y-4 px-3 py-3 pb-20 sm:px-4 lg:px-5">
       <PageBuilderStudioHeader
         hasUnpublishedChanges={hasUnpublishedChanges}
         previewSource={previewSource}
@@ -2670,7 +2670,7 @@ function MobilePageBuilderExperience({
                   1. Isi bisnis
                 </div>
                 <Button asChild variant="outline" className="mt-3 rounded-xl">
-                  <Link href="/admin/settings/bisnis">Buka Settings Bisnis</Link>
+                  <Link href="/admin/brand">Buka Settings Bisnis</Link>
                 </Button>
               </div>
 

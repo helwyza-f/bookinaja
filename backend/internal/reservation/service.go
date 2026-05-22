@@ -574,6 +574,32 @@ func (s *Service) UpdateStatus(ctx context.Context, id, tenantID, status string,
 	return nil
 }
 
+func (s *Service) Delete(ctx context.Context, id, tenantID string, actor ActorContext) error {
+	bID, err := uuid.Parse(id)
+	if err != nil {
+		return errors.New("booking tidak valid")
+	}
+	tID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return errors.New("tenant tidak valid")
+	}
+	if actor.Type == "" {
+		return errors.New("aktor admin tidak valid")
+	}
+
+	deleted, err := s.repo.Delete(ctx, bID, tID, actor)
+	if err != nil {
+		return err
+	}
+	if deleted != nil {
+		s.customerService.InvalidateTenantCache(ctx, tID)
+		if s.deviceService != nil && (deleted.Status == "active" || deleted.Status == "ongoing") {
+			_ = s.deviceService.EnqueueStandbyByResource(ctx, tID.String(), deleted.ResourceID.String())
+		}
+	}
+	return nil
+}
+
 func (s *Service) RecordDepositByAdmin(ctx context.Context, id, tenantID, notes string, actor ActorContext) error {
 	bID, err := uuid.Parse(id)
 	if err != nil {

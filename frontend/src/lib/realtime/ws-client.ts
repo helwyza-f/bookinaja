@@ -16,7 +16,7 @@ function resolveRealtimeURL() {
 }
 
 export function buildRealtimeURL() {
-  const token = getCookie("auth_token") || getCookie("customer_auth");
+  const token = getCookie("account_token") || getCookie("auth_token") || getCookie("customer_auth");
   const slug = getTenantSlugFromBrowser();
   const url = resolveRealtimeURL();
 

@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
       ...(cookieDomain ? { domain: cookieDomain } : {}),
     };
 
+    response.cookies.set("account_token", token, cookieOptions);
     response.cookies.set("auth_token", token, cookieOptions);
     if (tenantSlug) {
       response.cookies.set("current_tenant_slug", tenantSlug, cookieOptions);

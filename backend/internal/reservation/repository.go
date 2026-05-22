@@ -525,7 +525,12 @@ func (r *Repository) HydrateBooking(ctx context.Context, b *BookingDetail) error
 
 	b.Events = make([]BookingEvent, 0)
 	if err := r.db.SelectContext(ctx, &b.Events, `
-		SELECT id, booking_id, tenant_id, customer_id, actor_user_id, actor_type, actor_name, actor_email, actor_role, event_type, title, description, metadata, created_at
+		SELECT id, booking_id, tenant_id, customer_id, actor_user_id,
+			COALESCE(actor_type, 'system') AS actor_type,
+			COALESCE(actor_name, '') AS actor_name,
+			COALESCE(actor_email, '') AS actor_email,
+			COALESCE(actor_role, '') AS actor_role,
+			event_type, title, description, metadata, created_at
 		FROM booking_events
 		WHERE booking_id = $1
 		ORDER BY created_at ASC`, b.ID); err != nil {
@@ -1172,6 +1177,59 @@ func (r *Repository) UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, s
 	}
 	r.InvalidateBookingCacheByID(ctx, id)
 	return nil
+}
+
+func (r *Repository) Delete(ctx context.Context, id, tenantID uuid.UUID, actor ActorContext) (*Booking, error) {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	var booking Booking
+	if err := tx.GetContext(ctx, &booking, `
+		SELECT *
+		FROM bookings
+		WHERE id = $1 AND tenant_id = $2
+		FOR UPDATE
+	`, id, tenantID); err != nil {
+		return nil, err
+	}
+
+	if err := r.CreateBookingEvent(ctx, tx, BookingEventInput{
+		BookingID:   id,
+		TenantID:    tenantID,
+		CustomerID:  &booking.CustomerID,
+		ActorUserID: actor.UserID,
+		ActorType:   actor.Type,
+		ActorName:   actor.Name,
+		ActorEmail:  actor.Email,
+		ActorRole:   actor.Role,
+		EventType:   "booking.deleted",
+		Title:       "Booking dihapus permanen",
+		Description: "Booking dihapus dari admin.",
+		Metadata: map[string]any{
+			"status":         booking.Status,
+			"payment_status": booking.PaymentStatus,
+			"grand_total":    booking.GrandTotal,
+			"deleted_by":     actor.Name,
+		},
+	}); err != nil {
+		return nil, err
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM bookings
+		WHERE id = $1 AND tenant_id = $2
+	`, id, tenantID); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	r.InvalidateBookingCache(ctx, booking)
+	return &booking, nil
 }
 
 func (r *Repository) RecordDepositByAdmin(ctx context.Context, id, tenantID uuid.UUID, notes string, actor ActorContext) error {

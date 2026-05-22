@@ -324,6 +324,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				bookings.GET("/analytics-summary", middleware.RequirePermission(tenant.PermissionAnalyticsRead), middleware.RequireAnyTenantFeature(cfg.DB, access.FeatureAdvancedAnalytics), cfg.ReservationHandler.GetAnalyticsSummary)
 				bookings.GET("/:id", middleware.RequirePermission(tenant.PermissionBookingsRead), cfg.ReservationHandler.GetDetail)
 				bookings.GET("/:id/payment-attempts", middleware.RequirePermission(tenant.PermissionBookingsRead), cfg.BillingHandler.ListBookingPaymentAttempts)
+				bookings.DELETE("/:id", middleware.RequirePermission(tenant.PermissionBookingsDelete), cfg.ReservationHandler.Delete)
 				bookings.PUT("/:id/status", middleware.RequireBookingStatusPermission(), cfg.ReservationHandler.UpdateStatus)
 				bookings.POST("/:id/record-deposit", middleware.RequirePermission(tenant.PermissionPosCashSettle), cfg.ReservationHandler.RecordDeposit)
 				bookings.POST("/:id/override-deposit", middleware.RequirePermission(tenant.PermissionSessionsStart), cfg.ReservationHandler.OverrideDeposit)

@@ -44,12 +44,14 @@ type BillingPlanBoardProps = {
   sub: BillingPlanBoardSubscription | null;
   showHeader?: boolean;
   backHref?: string;
+  compact?: boolean;
 };
 
 export function BillingPlanBoard({
   sub,
   showHeader = false,
   backHref,
+  compact = false,
 }: BillingPlanBoardProps) {
   const [isAnnual, setIsAnnual] = useState(false);
   const planState = resolvePlanState({
@@ -73,10 +75,10 @@ export function BillingPlanBoard({
     : `Current plan`;
 
   const boardClasses =
-    "rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#0f1117]/96 sm:p-6";
+    "rounded-[1.75rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0f1117]/96";
 
   return (
-    <div className="space-y-5">
+    <div className={cn("space-y-5", compact ? "pb-2" : "")}>
       {showHeader ? (
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -95,7 +97,7 @@ export function BillingPlanBoard({
         </div>
       ) : null}
 
-      <Card className={boardClasses}>
+      <Card className={cn(boardClasses, compact ? "p-4 sm:p-5" : "p-5 sm:p-6")}>
         <div className="space-y-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="inline-flex w-fit items-center gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-white/[0.06]">
@@ -287,19 +289,21 @@ export function BillingPlanBoard({
             </div>
           ) : null}
 
-          <div className="flex flex-wrap gap-3">
-            <Button asChild variant="outline" className="rounded-xl bg-white dark:bg-transparent">
-              <Link href="/admin/settings/billing">Manage Billing</Link>
-            </Button>
-            {!showHeader ? (
-              <Button asChild variant="ghost" className="rounded-xl text-slate-600 dark:text-slate-300">
-                <Link href="/pricing" target="_blank">
-                  Compare public pricing
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
+          {!compact ? (
+            <div className="flex flex-wrap gap-3">
+              <Button asChild variant="outline" className="rounded-xl bg-white dark:bg-transparent">
+                <Link href="/admin/settings/billing">Manage Billing</Link>
               </Button>
-            ) : null}
-          </div>
+              {!showHeader ? (
+                <Button asChild variant="ghost" className="rounded-xl text-slate-600 dark:text-slate-300">
+                  <Link href="/pricing" target="_blank">
+                    Compare public pricing
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </Card>
     </div>

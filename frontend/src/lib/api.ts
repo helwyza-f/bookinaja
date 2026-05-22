@@ -22,12 +22,18 @@ const api = axios.create({
   withCredentials: true,
 });
 
-function resolveScopedToken() {
+function resolveRequestToken(url?: string) {
+  const accountToken = getCookie("account_token");
   const adminToken = getCookie("auth_token");
   const customerToken = getCookie("customer_auth");
+  const requestPath = String(url || "");
+
+  if (requestPath.startsWith("/app/") || requestPath === "/app/workspaces" || requestPath.startsWith("/auth/account")) {
+    return accountToken || adminToken;
+  }
 
   if (typeof window === "undefined") {
-    return adminToken || customerToken;
+    return accountToken || adminToken || customerToken;
   }
 
   const path = window.location.pathname;
@@ -37,7 +43,7 @@ function resolveScopedToken() {
     path.startsWith("/admin/") ||
     path.startsWith("/dashboard")
   ) {
-    return adminToken;
+    return accountToken || adminToken;
   }
 
   if (
@@ -49,11 +55,11 @@ function resolveScopedToken() {
     return customerToken;
   }
 
-  return adminToken || customerToken;
+  return accountToken || adminToken || customerToken;
 }
 
 api.interceptors.request.use((config) => {
-  const token = resolveScopedToken();
+  const token = resolveRequestToken(config.url);
   const browserTenantSlug = getTenantSlugFromBrowser();
   const tenantSlug = browserTenantSlug
     ? browserTenantSlug
@@ -80,7 +86,7 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (isCrossTenantSessionError(err) && typeof window !== "undefined") {
-      const hasAdminToken = Boolean(getCookie("auth_token"));
+      const hasAdminToken = Boolean(getCookie("auth_token") || getCookie("account_token"));
       const hasCustomerToken = Boolean(getCookie("customer_auth"));
       const tenantSlug = getTenantSlugFromBrowser();
       const isTenantSurface = Boolean(tenantSlug);

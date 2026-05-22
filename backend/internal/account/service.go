@@ -361,6 +361,11 @@ func (s *Service) UpdateOnboardingStep(ctx context.Context, accountID, workspace
 			return nil, err
 		}
 	}
+	if stepKey == "first-booking" {
+		if err := s.repo.CreateOnboardingFirstBooking(ctx, workspaceID, req.FirstBooking); err != nil {
+			return nil, err
+		}
+	}
 
 	state, err := s.repo.UpdateOnboardingState(ctx, workspaceID, stepKey, nextStep, strings.TrimSpace(req.SelectedStartMode), complete)
 	if err != nil {

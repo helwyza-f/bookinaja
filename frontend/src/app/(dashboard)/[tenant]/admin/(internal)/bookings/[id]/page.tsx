@@ -316,12 +316,12 @@ function AdminControlCard({
 }: AdminControlCardProps) {
   const toneClass =
     tone === "primary"
-      ? "border-blue-200 bg-blue-50 text-slate-950 hover:border-blue-300 hover:bg-blue-100 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-white"
+      ? "border-blue-200 bg-blue-50 text-slate-950 hover:border-blue-300 hover:bg-blue-100 hover:shadow-md dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-white dark:hover:bg-blue-500/15"
       : tone === "success"
-        ? "border-emerald-200 bg-emerald-600 text-white hover:bg-emerald-700 dark:border-emerald-400/20"
+        ? "border-emerald-600 bg-emerald-600 text-white hover:border-emerald-700 hover:bg-emerald-700 hover:shadow-md dark:border-emerald-400/20"
         : tone === "dark"
-          ? "border-slate-900 bg-slate-950 text-white hover:bg-slate-800 dark:border-white/10"
-          : "border-slate-200 bg-white text-slate-950 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-[#111827] dark:text-white dark:hover:bg-[#172033]";
+          ? "border-slate-900 bg-slate-950 text-white hover:border-slate-800 hover:bg-slate-800 hover:shadow-md dark:border-white/10"
+          : "border-slate-200 bg-white text-slate-950 hover:border-blue-200 hover:bg-blue-50/40 hover:shadow-md dark:border-white/10 dark:bg-[#111827] dark:text-white dark:hover:bg-[#172033]";
 
   const iconToneClass =
     tone === "success"
@@ -344,9 +344,9 @@ function AdminControlCard({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "group h-auto rounded-xl border px-0 py-0 text-left shadow-sm transition-colors duration-150",
+        "group h-auto w-full rounded-xl border px-0 py-0 text-left shadow-sm transition-colors duration-150",
         variant === "tile"
-          ? "min-h-[96px] flex-col items-stretch justify-start"
+          ? "min-h-[76px] w-full flex-col items-stretch justify-start"
           : "min-h-0 items-stretch justify-start",
         "disabled:cursor-not-allowed disabled:opacity-55",
         toneClass,
@@ -357,14 +357,14 @@ function AdminControlCard({
         className={cn(
           "flex h-full p-4",
           variant === "tile"
-            ? "min-w-0 flex-col justify-between gap-4"
-            : "items-start gap-3",
+            ? "min-w-0 items-center gap-3"
+            : "items-center gap-3",
         )}
       >
         <div
           className={cn(
             "flex items-start gap-3",
-            variant === "tile" ? "justify-between" : "shrink-0",
+            "shrink-0",
           )}
         >
           <span
@@ -399,8 +399,8 @@ function AdminControlCard({
           </div>
           <p
             className={cn(
-              "mt-2 break-words text-xs leading-5",
-              variant === "tile" && "line-clamp-3",
+              "mt-1 break-words text-xs leading-5",
+              variant === "tile" ? "line-clamp-1" : "line-clamp-2",
               descriptionClass,
             )}
           >
@@ -624,6 +624,25 @@ export default function BookingDetailPage() {
     }
   };
 
+  const handleDeleteBooking = async () => {
+    const confirmed = window.confirm(
+      "Hapus booking ini permanen? Aksi ini hanya untuk koreksi data dan tidak bisa dibatalkan.",
+    );
+    if (!confirmed) return;
+
+    setUpdating(true);
+    try {
+      await api.delete(`/bookings/${params.id}`);
+      toast.success("Booking dihapus");
+      router.replace("/admin/bookings");
+    } catch (error) {
+      const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(message || "Gagal menghapus booking");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
   const pendingManualAttempts =
     (booking?.payment_attempts || []).filter(
@@ -696,6 +715,7 @@ export default function BookingDetailPage() {
   const canStartSession = hasPermission(adminUser, "sessions.start");
   const canCompleteSession = hasPermission(adminUser, "sessions.complete");
   const canCancelBooking = hasPermission(adminUser, "bookings.cancel");
+  const canDeleteBooking = hasPermission(adminUser, "bookings.delete");
   const canCancel =
     (status === "pending" || status === "confirmed") && canCancelBooking;
   const canSettleCash = hasPermission(adminUser, "pos.cash.settle");
@@ -730,7 +750,8 @@ export default function BookingDetailPage() {
     canComplete ||
     canSettle ||
     (isPaymentSettled && (canSendReceipt || canPrintReceipt)) ||
-    canCancel;
+    canCancel ||
+    canDeleteBooking;
   const showLiveController = status === "active" && Boolean(booking?.id);
   const canAddFnb = showLiveController && enableFnb && canManageLiveOrders;
   const canAddAddon = showLiveController && enableAddons && canManageLiveOrders;
@@ -821,7 +842,7 @@ export default function BookingDetailPage() {
     adminActions.push({
       key: "confirm",
       title: "Konfirmasi booking",
-      description: "Siapkan booking agar masuk ke tahap operasional.",
+      description: "Masukkan ke operasional.",
       icon: ShieldCheck,
       onClick: () => handleUpdateStatus("confirmed"),
       disabled: updating || !canConfirmBooking,
@@ -832,7 +853,7 @@ export default function BookingDetailPage() {
     adminActions.push({
       key: "deposit",
       title: "Catat DP masuk",
-      description: "Tandai DP sudah benar-benar diterima offline.",
+      description: "DP diterima offline.",
       icon: Receipt,
       onClick: () => setRecordDepositDialogOpen(true),
       disabled: updating || !canSettleCash,
@@ -843,7 +864,7 @@ export default function BookingDetailPage() {
     adminActions.push({
       key: "override",
       title: "Jalankan tanpa DP",
-      description: "Izinkan sesi berjalan tanpa mengubah status pembayaran.",
+      description: "Mulai tanpa DP.",
       icon: Clock,
       onClick: () => setOverrideDepositDialogOpen(true),
       disabled: updating || !canStartSession,
@@ -854,9 +875,7 @@ export default function BookingDetailPage() {
     adminActions.push({
       key: "start",
       title: "Mulai sesi",
-      description: canStart
-        ? "Aktifkan sesi customer sekarang."
-        : "Mulai sesi terbuka setelah DP masuk atau override aktif.",
+      description: canStart ? "Aktifkan sesi sekarang." : "Perlu DP atau override.",
       icon: Zap,
       onClick: () => handleUpdateStatus("active"),
       disabled: updating || !canStart || !canStartSession,
@@ -867,7 +886,7 @@ export default function BookingDetailPage() {
     adminActions.push({
       key: "complete",
       title: "Akhiri sesi",
-      description: "Tutup sesi dan siapkan billing akhir.",
+      description: "Tutup dan hitung billing.",
       icon: CheckCircle2,
       onClick: () => handleUpdateStatus("completed"),
       disabled: updating || !canCompleteSession,
@@ -878,7 +897,7 @@ export default function BookingDetailPage() {
     adminActions.push({
       key: "settle",
       title: "Pelunasan",
-      description: "Selesaikan sisa tagihan booking ini.",
+      description: "Selesaikan tagihan.",
       icon: CreditCard,
       onClick: () => router.push(`/admin/bookings/${booking.id}/payment`),
       disabled: updating || !canSettleCash,
@@ -889,7 +908,7 @@ export default function BookingDetailPage() {
     adminActions.push({
       key: "receipt",
       title: "Nota",
-      description: "Kirim atau cetak nota setelah pembayaran selesai.",
+      description: "Kirim atau cetak nota.",
       icon: Receipt,
       menuItems: [
         ...(!canUseReceipt
@@ -927,20 +946,36 @@ export default function BookingDetailPage() {
       ],
     });
   }
-  if (canCancel) {
+  if (canCancel || canDeleteBooking) {
     adminActions.push({
       key: "cancel",
       title: "Aksi lain",
-      description: "Batalkan booking bila memang tidak dilanjutkan.",
+      description: "Koreksi data.",
       icon: MoreVertical,
       menuItems: [
-        {
-          key: "cancel-booking",
-          label: "Batalkan booking",
-          icon: Trash2,
-          onClick: () => handleUpdateStatus("cancelled"),
-          className: "text-red-600",
-        },
+        ...(canCancel
+          ? [
+              {
+                key: "cancel-booking",
+                label: "Batalkan booking",
+                icon: Trash2,
+                onClick: () => handleUpdateStatus("cancelled"),
+                className: "text-red-600",
+              },
+            ]
+          : []),
+        ...(canDeleteBooking
+          ? [
+              {
+                key: "delete-booking",
+                label: "Hapus permanen",
+                icon: Trash2,
+                onClick: handleDeleteBooking,
+                disabled: updating,
+                className: "text-red-700",
+              },
+            ]
+          : []),
       ],
     });
   }
@@ -1324,9 +1359,7 @@ export default function BookingDetailPage() {
                     Kontrol Admin
                   </p>
                   <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                    {showLiveController
-                      ? "Kelola sesi aktif langsung di halaman ini."
-                      : "Fokuskan satu langkah utama sesuai state booking saat ini."}
+                    {showLiveController ? "Sesi aktif." : "Aksi utama sesuai status."}
                   </p>
                 </div>
                 <Badge
@@ -1440,7 +1473,7 @@ export default function BookingDetailPage() {
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                     Aksi pendukung
                   </p>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3">
                     {secondaryActions.map((action) =>
                       action.menuItems ? (
                         <DropdownMenu key={action.key}>

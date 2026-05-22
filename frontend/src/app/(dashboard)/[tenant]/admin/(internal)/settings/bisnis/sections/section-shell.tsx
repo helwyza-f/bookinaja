@@ -29,20 +29,20 @@ export function SectionShell({
   onSave,
 }: SectionShellProps) {
   return (
-    <Card className="rounded-xl border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950 md:p-5">
-      <div className="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-slate-800 md:flex-row md:items-start md:justify-between">
+    <Card className="rounded-xl border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950 md:p-4">
+      <div className="flex flex-col gap-3 border-b border-slate-200 pb-3 dark:border-slate-800 md:flex-row md:items-start md:justify-between">
         <div className="flex min-w-0 gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-200)]">
-            <Icon className="h-5 w-5" />
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-200)]">
+            <Icon className="h-4 w-4" />
           </div>
           <div className="min-w-0">
             <h2 className="text-base font-semibold text-slate-950 dark:text-white">{title}</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
+            <p className="mt-0.5 text-sm leading-5 text-slate-500 dark:text-slate-400">{description}</p>
           </div>
         </div>
         {editing ? (
           <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={onCancel} disabled={saving} className="h-10 rounded-lg">
+            <Button type="button" variant="outline" onClick={onCancel} disabled={saving} className="h-9 rounded-lg">
               <X className="mr-2 h-4 w-4" />
               Batal
             </Button>
@@ -50,31 +50,31 @@ export function SectionShell({
               type="button"
               onClick={onSave}
               disabled={saving}
-              className="h-10 rounded-lg bg-[var(--bookinaja-600)] hover:bg-[var(--bookinaja-700)]"
+              className="h-9 rounded-lg bg-[var(--bookinaja-600)] hover:bg-[var(--bookinaja-700)]"
             >
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Simpan
             </Button>
           </div>
         ) : (
-          <Button type="button" variant="outline" onClick={onEdit} className="h-10 rounded-lg">
+          <Button type="button" variant="outline" onClick={onEdit} className="h-9 rounded-lg">
             <Pencil className="mr-2 h-4 w-4" />
             Edit
           </Button>
         )}
       </div>
-      <div className="pt-4">{editing ? children : view}</div>
+      <div className="pt-3">{editing ? children : view}</div>
     </Card>
   );
 }
 
 export function ViewGrid({ children }: { children: React.ReactNode }) {
-  return <div className="grid gap-3 md:grid-cols-2">{children}</div>;
+  return <div className="grid gap-2 md:grid-cols-2">{children}</div>;
 }
 
 export function ViewItem({ label, value }: { label: string; value?: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900/30">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/30">
       <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
       <div className="mt-1 min-h-5 break-words text-sm font-semibold text-slate-950 dark:text-white">
         {value || "-"}

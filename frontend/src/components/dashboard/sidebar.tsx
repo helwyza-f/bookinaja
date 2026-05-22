@@ -14,12 +14,10 @@ import {
   useAdminSession,
 } from "@/components/dashboard/admin-session-context";
 import { WorkspaceSwitcher } from "@/components/dashboard/workspace-switcher";
-import { UpgradeEntry } from "@/components/dashboard/upgrade-entry";
-import { SettingsCenterTrigger } from "@/components/dashboard/settings-center-trigger";
 import {
-  growthHubNavItem,
   isAdminNavItemActive,
   operationalNavItems,
+  workspaceUtilityNavItems,
 } from "@/components/dashboard/admin-nav-config";
 import { canAccessAdminRoute } from "@/lib/admin-access";
 
@@ -53,7 +51,6 @@ export function Sidebar({
   const {
     user,
     tenantName,
-    growthVisible,
     currentWorkspace,
     trialInfo,
   } = useAdminSession();
@@ -102,11 +99,12 @@ export function Sidebar({
 
       <nav
         className={cn(
-          "flex flex-1 flex-col overflow-y-auto scrollbar-hide",
+          "flex min-h-0 flex-1 flex-col overflow-hidden",
           isCollapsed ? "gap-2 p-2 pt-3" : "gap-1 p-3",
         )}
       >
-        <div className="flex flex-col gap-1">
+        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-hide">
+          <div className="flex flex-col gap-1">
           {operationalNavItems.filter((route) => hasAccess(route.href)).map((route) => {
             const isActive = isAdminNavItemActive(pathname, route.href, operationalHrefs);
             return (
@@ -131,90 +129,69 @@ export function Sidebar({
               </Tooltip>
             );
           })}
-        </div>
-
-        {userData?.role === "owner" && growthVisible && hasAccess(growthHubNavItem.href) ? (
-          <div
-            className={cn(
-              isCollapsed ? "mt-2 border-t border-slate-200 pt-2 dark:border-slate-800" : "mt-4 border-t border-slate-200 pt-4 dark:border-slate-800",
-            )}
-          >
-            {!isCollapsed ? (
-              <div className="mb-2 px-3 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                Promosi
-              </div>
-            ) : null}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link
-                  href={growthHubNavItem.href}
-                  prefetch={false}
-                  className={cn(
-                    itemBase,
-                    "transition-colors",
-                    pathname === growthHubNavItem.href || pathname.startsWith(`${growthHubNavItem.href}/`)
-                      ? itemActive
-                      : itemIdle,
-                  )}
-                >
-                  <growthHubNavItem.icon className={cn("shrink-0", isCollapsed ? "h-4.5 w-4.5" : "h-4 w-4")} />
-                  {!isCollapsed ? (
-                    <span className="truncate text-sm font-semibold">{growthHubNavItem.label}</span>
-                  ) : null}
-                </Link>
-              </TooltipTrigger>
-              {isCollapsed ? (
-                <TooltipContent side="right" className="ml-2 border-none bg-[var(--bookinaja-900)] px-3 py-1.5 text-xs font-semibold text-white shadow-lg">
-                  {growthHubNavItem.label}
-                </TooltipContent>
-              ) : null}
-            </Tooltip>
           </div>
-        ) : null}
+        </div>
 
         {userData?.role === "owner" ? (
           <div
             className={cn(
-              isCollapsed ? "mt-2 border-t border-slate-200 pt-2 dark:border-slate-800" : "mt-4 border-t border-slate-200 pt-4 dark:border-slate-800",
+              "mt-auto shrink-0",
+              isCollapsed ? "border-t border-slate-200 pt-2 dark:border-slate-800" : "border-t border-slate-200 pt-3 dark:border-slate-800",
             )}
           >
-            {!isCollapsed ? (
-              <div className="mb-2 px-3 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                Workspace
-              </div>
-            ) : null}
-            <div className={cn("flex flex-col gap-2", isCollapsed ? "items-center" : "px-1")}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <UpgradeEntry
-                      onClick={onOpenUpgrade}
-                      trialInfo={trialInfo}
-                      iconOnly={isCollapsed}
-                    />
-                  </div>
-                </TooltipTrigger>
-                {isCollapsed ? (
-                  <TooltipContent side="right" className="ml-2 border-none bg-[var(--bookinaja-900)] px-3 py-1.5 text-xs font-semibold text-white shadow-lg">
-                    Upgrade
-                  </TooltipContent>
-                ) : null}
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <SettingsCenterTrigger
-                      onClick={onOpenSettings}
-                      iconOnly={isCollapsed}
-                    />
-                  </div>
-                </TooltipTrigger>
-                {isCollapsed ? (
-                  <TooltipContent side="right" className="ml-2 border-none bg-[var(--bookinaja-900)] px-3 py-1.5 text-xs font-semibold text-white shadow-lg">
-                    Settings
-                  </TooltipContent>
-                ) : null}
-              </Tooltip>
+            <div className={cn("flex flex-col gap-1", isCollapsed ? "items-center" : "")}>
+              {workspaceUtilityNavItems.map((item) => {
+                const active =
+                  item.href && (pathname === item.href || pathname.startsWith(`${item.href}/`));
+                const Icon = item.icon;
+                const commonClass = cn(
+                  itemBase,
+                  "transition-colors",
+                  active ? itemActive : itemIdle,
+                  item.key === "upgrade" &&
+                    "border border-amber-200 bg-amber-50/70 text-amber-900 hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200 dark:hover:bg-amber-500/15",
+                );
+                const content = (
+                  <>
+                    <Icon className={cn("shrink-0", isCollapsed ? "h-4.5 w-4.5" : "h-4 w-4")} />
+                    {!isCollapsed ? (
+                      <span className="truncate text-sm font-semibold">{item.label}</span>
+                    ) : null}
+                  </>
+                );
+
+                const node =
+                  item.kind === "upgrade" ? (
+                    <button type="button" onClick={onOpenUpgrade} className={commonClass}>
+                      {content}
+                    </button>
+                  ) : item.kind === "settings" ? (
+                    <button type="button" onClick={onOpenSettings} className={commonClass}>
+                      {content}
+                    </button>
+                  ) : item.kind === "external" && item.href ? (
+                    <a href={item.href} target="_blank" rel="noreferrer" className={commonClass}>
+                      {content}
+                    </a>
+                  ) : item.href ? (
+                    <Link href={item.href} prefetch={false} className={commonClass}>
+                      {content}
+                    </Link>
+                  ) : null;
+
+                if (!node) return null;
+
+                return (
+                  <Tooltip key={item.key}>
+                    <TooltipTrigger asChild>{node}</TooltipTrigger>
+                    {isCollapsed ? (
+                      <TooltipContent side="right" className="ml-2 border-none bg-[var(--bookinaja-900)] px-3 py-1.5 text-xs font-semibold text-white shadow-lg">
+                        {item.label}
+                      </TooltipContent>
+                    ) : null}
+                  </Tooltip>
+                );
+              })}
             </div>
           </div>
         ) : null}

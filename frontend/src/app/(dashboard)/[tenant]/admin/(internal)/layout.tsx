@@ -22,11 +22,13 @@ import { useAdminBootstrap } from "@/components/dashboard/use-admin-bootstrap";
 import {
   operationalNavItems,
   settingsNavItems,
+  workspaceUtilityNavItems,
 } from "@/components/dashboard/admin-nav-config";
-import { getRootPortalUrl, getTenantSlugFromBrowser } from "@/lib/tenant";
+import { getGlobalAuthLoginUrl, getRootPortalUrl, getTenantSlugFromBrowser } from "@/lib/tenant";
 import { clearTenantSession } from "@/lib/tenant-session";
 import { resolveWorkspaceSwitchUrl } from "@/lib/workspace-routing";
 import { getSettingsDefaultRoute } from "@/components/dashboard/workspace-shell-config";
+import { UpgradePlanDialog } from "@/components/dashboard/upgrade-plan-dialog";
 
 const AdminMainContent = memo(function AdminMainContent({
   children,
@@ -48,6 +50,7 @@ export default function DashboardInternalLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const {
     status,
     errorType,
@@ -68,7 +71,7 @@ export default function DashboardInternalLayout({
   };
 
   const handleOpenUpgrade = () => {
-    router.push("/admin/settings/billing");
+    setUpgradeOpen(true);
   };
 
   const handleCreateWorkspace = () => {
@@ -76,11 +79,14 @@ export default function DashboardInternalLayout({
   };
 
   const handleSignOut = () => {
-    clearTenantSession({ keepTenantSlug: true });
-    window.location.href = getCentralAdminAuthUrl({
-      tenantSlug: getTenantSlugFromBrowser(),
-      next: "/admin/dashboard",
-    });
+    const isOwner = user?.role === "owner";
+    clearTenantSession({ keepTenantSlug: !isOwner });
+    window.location.href = isOwner
+      ? getGlobalAuthLoginUrl({ signed_out: 1 })
+      : getCentralAdminAuthUrl({
+          tenantSlug: getTenantSlugFromBrowser(),
+          next: "/admin/dashboard",
+        });
   };
 
   useEffect(() => {
@@ -204,6 +210,8 @@ export default function DashboardInternalLayout({
 
             <AdminMainContent>{children}</AdminMainContent>
           </div>
+
+          <UpgradePlanDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
         </div>
       </TooltipProvider>
     </AdminSessionProvider>
@@ -211,7 +219,10 @@ export default function DashboardInternalLayout({
 }
 
 function resolveAdminPageTitle(pathname: string) {
-  const matched = [...settingsNavItems, ...operationalNavItems]
+  const routeUtilities = workspaceUtilityNavItems
+    .filter((item) => item.kind === "route" && item.href?.startsWith("/admin"))
+    .map((item) => ({ href: item.href || "", label: item.label }));
+  const matched = [...settingsNavItems, ...routeUtilities, ...operationalNavItems]
     .sort((a, b) => b.href.length - a.href.length)
     .find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
 

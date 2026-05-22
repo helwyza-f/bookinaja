@@ -1,5 +1,5 @@
 import api from "@/lib/api";
-import { setAdminAuthCookie } from "@/lib/tenant-session";
+import { setAccountAuthCookie, setAdminAuthCookie } from "@/lib/tenant-session";
 
 type Account = {
   id: string;
@@ -34,6 +34,7 @@ export async function signupAccount(input: {
   password: string;
 }) {
   const res = await api.post<AuthResponse>("/auth/signup", input);
+  setAccountAuthCookie(res.data.token);
   setAdminAuthCookie(res.data.token);
   return res.data;
 }
@@ -43,12 +44,14 @@ export async function loginAccount(input: {
   password: string;
 }) {
   const res = await api.post<AuthResponse>("/auth/login", input);
+  setAccountAuthCookie(res.data.token);
   setAdminAuthCookie(res.data.token);
   return res.data;
 }
 
 export async function googleAuthAccount(idToken: string) {
   const res = await api.post<AuthResponse>("/auth/google", { id_token: idToken });
+  setAccountAuthCookie(res.data.token);
   setAdminAuthCookie(res.data.token);
   return res.data;
 }

@@ -3055,6 +3055,15 @@ func (s *Service) GetReferralSummary(ctx context.Context, id uuid.UUID) (map[str
 	if err != nil || tenant == nil {
 		return nil, errors.New("tenant tidak ditemukan")
 	}
+	if strings.TrimSpace(tenant.ReferralCode) == "" {
+		for i := 0; i < 5; i++ {
+			code := generateReferralCode(tenant.Slug)
+			if err := s.repo.UpdateReferralCode(ctx, id, code); err == nil {
+				tenant.ReferralCode = code
+				break
+			}
+		}
+	}
 	summary, err := s.repo.ReferralSummary(ctx, id)
 	if err != nil {
 		return nil, err

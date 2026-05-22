@@ -106,6 +106,9 @@ export function useAdminBootstrap() {
       };
 
       syncTenantCookies(resolvedTenantSlug);
+      if (typeof window !== "undefined" && resolvedTenantSlug) {
+        window.localStorage.setItem("bookinaja:last_workspace_slug", resolvedTenantSlug);
+      }
 
       setState({
         status: "ready",

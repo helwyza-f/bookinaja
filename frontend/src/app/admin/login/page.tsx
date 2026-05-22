@@ -1,10 +1,14 @@
-import { Suspense } from "react";
-import { AdminLoginClient } from "./admin-login-client";
+"use client";
+
+import { useEffect } from "react";
+import { getGlobalAuthLoginUrl } from "@/lib/tenant";
 
 export default function AdminLoginPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-950" />}>
-      <AdminLoginClient />
-    </Suspense>
-  );
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const nextUrl = params.get("next") || "";
+    window.location.replace(getGlobalAuthLoginUrl({ next: nextUrl }));
+  }, []);
+
+  return <div className="min-h-screen bg-slate-950" />;
 }

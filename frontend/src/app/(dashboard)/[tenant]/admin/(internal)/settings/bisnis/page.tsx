@@ -4,14 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
-  ArrowRight,
-  CheckCircle2,
   ExternalLink,
   LayoutTemplate,
   RefreshCw,
 } from "lucide-react";
 import api from "@/lib/api";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,25 +37,6 @@ type OnboardingSummaryResponse = {
   progress_percent?: number;
   steps?: OnboardingStep[];
 };
-
-function StatPill({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-2.5 dark:border-white/10 dark:bg-white/[0.03]">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-        {label}
-      </div>
-      <div className="mt-1 text-base font-semibold tracking-tight text-slate-950 dark:text-white sm:text-lg">
-        {value}
-      </div>
-    </div>
-  );
-}
 
 export default function BusinessSettingsPage() {
   const [profile, setProfile] = useState<TenantProfile>(defaultTenantProfile);
@@ -198,245 +176,121 @@ export default function BusinessSettingsPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 pb-20">
-      <Card className="overflow-hidden rounded-[1.75rem] border-slate-200/80 bg-white/98 p-0 shadow-sm dark:border-white/10 dark:bg-[#0f1117]/96">
-        <div className="grid gap-0 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-          <div className="p-5 sm:p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="max-w-3xl space-y-2">
-                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                  <span>Setup bisnis</span>
-                  <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600" />
-                  <span>Onboarding tenant</span>
-                </div>
-                <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-3xl">
-                  Rapikan pondasi tenant dulu
-                </h1>
-                <p className="max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-                  Isi identitas, kontak, dan visual utama di sini. Setelah itu baru masuk ke studio untuk atur urutan section dan preview publik.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2 lg:justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void fetchData("refresh")}
-                  className="h-9 rounded-xl"
-                >
-                  <RefreshCw className={cn("mr-2 h-4 w-4", refreshing && "animate-spin")} />
-                  Refresh
-                </Button>
-                <Button asChild variant="outline" className="h-9 rounded-xl">
-                  <Link href="/admin/settings/page-builder">
-                    Buka Studio
-                    <LayoutTemplate className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-                {publicUrl ? (
-                  <Button asChild className="h-9 rounded-xl">
-                    <a href={publicUrl} target="_blank" rel="noreferrer">
-                      Lihat Publik
-                      <ExternalLink className="ml-2 h-4 w-4" />
-                    </a>
-                  </Button>
-                ) : null}
-              </div>
+    <div className="mx-auto w-full max-w-6xl space-y-3 pb-16">
+      <Card className="rounded-2xl border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+              <span>Bisnis</span>
+              <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600" />
+              <span>{onboardingProgress}% siap</span>
+              <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600" />
+              <span>{completedChecklist}/{checklist.length} area</span>
             </div>
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">
+              Setup bisnis
+            </h1>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Identitas, jam operasional, konten publik, media, dan SEO tenant.
+              {nextPendingStep?.label ? ` Fokus berikutnya: ${nextPendingStep.label}.` : ""}
+            </p>
           </div>
 
-          <div className="border-t border-slate-200/80 bg-slate-50/80 p-5 dark:border-white/10 dark:bg-white/[0.03] lg:border-l lg:border-t-0 sm:p-6">
-            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
-              Snapshot
-            </div>
-            <div className="mt-4 grid gap-3">
-              <StatPill label="Progress" value={`${onboardingProgress}%`} />
-              <StatPill
-                label="Sudah rapi"
-                value={`${completedChecklist}/${checklist.length} area`}
-              />
-              <StatPill
-                label="Fokus berikutnya"
-                value={nextPendingStep?.label || "Siap masuk studio"}
-              />
-            </div>
+          <div className="flex flex-wrap gap-2 lg:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void fetchData("refresh")}
+              className="h-9 rounded-xl"
+            >
+              <RefreshCw className={cn("mr-2 h-4 w-4", refreshing && "animate-spin")} />
+              Refresh
+            </Button>
+            <Button asChild variant="outline" className="h-9 rounded-xl">
+              <Link href="/admin/page-builder">
+                Page Builder
+                <LayoutTemplate className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+            {publicUrl ? (
+              <Button asChild className="h-9 rounded-xl">
+                <a href={publicUrl} target="_blank" rel="noreferrer">
+                  Publik
+                  <ExternalLink className="ml-2 h-4 w-4" />
+                </a>
+              </Button>
+            ) : null}
           </div>
         </div>
 
-        <div className="border-t border-slate-200/80 px-5 py-4 dark:border-white/10 sm:px-6">
-          <div className="h-1.5 rounded-full bg-slate-200 dark:bg-white/10">
-            <div
-              className="h-full rounded-full bg-[var(--bookinaja-600)] transition-all"
-              style={{ width: `${Math.max(onboardingProgress, 6)}%` }}
-            />
-          </div>
+        <div className="mt-3 h-1.5 rounded-full bg-slate-100 dark:bg-white/10">
+          <div
+            className="h-full rounded-full bg-[var(--bookinaja-600)] transition-all"
+            style={{ width: `${Math.max(onboardingProgress, 6)}%` }}
+          />
+        </div>
+
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+          {checklist.map((item) => (
+            <a
+              key={item.id}
+              href={item.href}
+              className={cn(
+                "shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                item.done
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200"
+                  : "border-slate-200 bg-slate-50 text-slate-600 hover:border-[var(--bookinaja-300)] hover:bg-white dark:border-slate-800 dark:bg-white/[0.03] dark:text-slate-300",
+              )}
+            >
+              {item.label}
+            </a>
+          ))}
         </div>
       </Card>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="order-2 space-y-4 xl:order-1">
-          <section className="space-y-4">
-            <section id="basic-profile" className="scroll-mt-24">
-              <BasicProfileSection
-                profile={profile}
-                saving={savingKey === "basic"}
-                onSave={(patch) => void saveSection("basic", patch)}
-              />
-            </section>
-            <section id="operations" className="scroll-mt-24">
-              <OperationsSection
-                profile={profile}
-                saving={savingKey === "operations"}
-                onSave={(patch) => void saveSection("operations", patch)}
-              />
-            </section>
-            <section id="landing-header" className="scroll-mt-24">
-              <LandingContentSection
-                profile={profile}
-                saving={savingKey === "content"}
-                onSave={(patch) => void saveSection("content", patch)}
-              />
-            </section>
-            <section id="contact-location" className="scroll-mt-24">
-              <ContactLocationSection
-                profile={profile}
-                saving={savingKey === "contact"}
-                onSave={(patch) => void saveSection("contact", patch)}
-              />
-            </section>
-          </section>
-
-          <section id="media-gallery" className="scroll-mt-24">
-            <MediaSection
-              profile={profile}
-              saving={savingKey === "media"}
-              onSave={(patch) => void saveSection("media", patch)}
-            />
-          </section>
-
-          <section className="space-y-4">
-            <section id="seo" className="scroll-mt-24">
-              <SeoSection
-                profile={profile}
-                saving={savingKey === "seo"}
-                onSave={(patch) => void saveSection("seo", patch)}
-              />
-            </section>
-          </section>
-        </div>
-
-        <aside className="order-1 space-y-4 xl:order-2 xl:sticky xl:top-6 xl:self-start">
-          <Card className="rounded-3xl border-slate-200/80 p-5 shadow-sm dark:border-white/10 dark:bg-[#0f172a]">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                  Readiness
-                </div>
-                <div className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
-                  {onboardingProgress}%
-                </div>
-              </div>
-              <Badge className="rounded-full border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
-                {completedChecklist}/{checklist.length}
-              </Badge>
-            </div>
-
-            <div className="mt-4 space-y-2">
-              {checklist.map((item) => (
-                <a
-                  key={item.id}
-                  href={item.href}
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-slate-50 px-3 py-3 text-sm transition-colors hover:border-[var(--bookinaja-300)] hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-[rgba(96,165,250,0.24)] dark:hover:bg-white/[0.05]"
-                >
-                  <span className="text-slate-700 dark:text-slate-200">
-                    {item.label}
-                  </span>
-                  <span
-                    className={cn(
-                      "rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]",
-                      item.done
-                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200"
-                        : "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200",
-                    )}
-                  >
-                    {item.done ? "Selesai" : "Belum"}
-                  </span>
-                </a>
-              ))}
-            </div>
-          </Card>
-
-          <Card className="rounded-3xl border-slate-200/80 p-5 shadow-sm dark:border-white/10 dark:bg-[#0f172a]">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-              Next step
-            </div>
-            <div className="mt-3 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
-              {nextPendingStep?.label || "Masuk ke page builder"}
-            </div>
-            <p className="mt-2 text-sm leading-7 text-slate-500 dark:text-slate-400">
-              {nextPendingStep?.description ||
-                "Kalau pondasi tenant sudah rapi, lanjutkan ke studio untuk atur section dan preview live."}
-            </p>
-            <Button asChild className="mt-4 w-full rounded-2xl">
-              <Link href="/admin/settings/page-builder">
-                Buka Page Builder
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          </Card>
-
-          {(summary?.steps || []).length > 0 ? (
-            <Card className="rounded-3xl border-slate-200/80 p-5 shadow-sm dark:border-white/10 dark:bg-[#0f172a]">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                Checklist owner
-              </div>
-              <div className="mt-4 space-y-3">
-                {(summary?.steps || []).map((step, index) => (
-                  <Link
-                    key={step.id}
-                    href={step.href}
-                    className="block rounded-2xl border border-slate-200/80 bg-slate-50 px-4 py-3 transition-colors hover:border-[var(--bookinaja-300)] hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-[rgba(96,165,250,0.24)] dark:hover:bg-white/[0.05]"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={cn(
-                          "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
-                          step.complete
-                            ? "bg-emerald-600 text-white"
-                            : "bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-200",
-                        )}
-                      >
-                        {step.complete ? (
-                          <CheckCircle2 className="h-4 w-4" />
-                        ) : (
-                          <span className="text-xs font-semibold">{index + 1}</span>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <div className="text-sm font-medium text-slate-950 dark:text-white">
-                            {step.label}
-                          </div>
-                          {step.required ? (
-                            <Badge
-                              variant="outline"
-                              className="rounded-full text-[10px] uppercase"
-                            >
-                              Prioritas
-                            </Badge>
-                          ) : null}
-                        </div>
-                        <div className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                          {step.description}
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </Card>
-          ) : null}
-        </aside>
+      <section className="grid gap-3 xl:grid-cols-2">
+        <section id="basic-profile" className="scroll-mt-24">
+          <BasicProfileSection
+            profile={profile}
+            saving={savingKey === "basic"}
+            onSave={(patch) => void saveSection("basic", patch)}
+          />
+        </section>
+        <section id="operations" className="scroll-mt-24">
+          <OperationsSection
+            profile={profile}
+            saving={savingKey === "operations"}
+            onSave={(patch) => void saveSection("operations", patch)}
+          />
+        </section>
+        <section id="landing-header" className="scroll-mt-24">
+          <LandingContentSection
+            profile={profile}
+            saving={savingKey === "content"}
+            onSave={(patch) => void saveSection("content", patch)}
+          />
+        </section>
+        <section id="contact-location" className="scroll-mt-24">
+          <ContactLocationSection
+            profile={profile}
+            saving={savingKey === "contact"}
+            onSave={(patch) => void saveSection("contact", patch)}
+          />
+        </section>
+        <section id="media-gallery" className="scroll-mt-24">
+          <MediaSection
+            profile={profile}
+            saving={savingKey === "media"}
+            onSave={(patch) => void saveSection("media", patch)}
+          />
+        </section>
+        <section id="seo" className="scroll-mt-24">
+          <SeoSection
+            profile={profile}
+            saving={savingKey === "seo"}
+            onSave={(patch) => void saveSection("seo", patch)}
+          />
+        </section>
       </section>
     </div>
   );
@@ -444,20 +298,13 @@ export default function BusinessSettingsPage() {
 
 function BusinessSettingsSkeleton() {
   return (
-    <div className="space-y-4 pb-20">
-      <Skeleton className="h-52 rounded-3xl" />
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="space-y-4">
-          <Skeleton className="h-32 rounded-3xl" />
-          <Skeleton className="h-64 rounded-3xl" />
-          <Skeleton className="h-72 rounded-3xl" />
-          <Skeleton className="h-72 rounded-3xl" />
-        </div>
-        <div className="space-y-4">
-          <Skeleton className="h-72 rounded-3xl" />
-          <Skeleton className="h-48 rounded-3xl" />
-          <Skeleton className="h-80 rounded-3xl" />
-        </div>
+    <div className="space-y-3 pb-16">
+      <Skeleton className="h-32 rounded-2xl" />
+      <div className="grid gap-3 xl:grid-cols-2">
+        <Skeleton className="h-48 rounded-2xl" />
+        <Skeleton className="h-48 rounded-2xl" />
+        <Skeleton className="h-64 rounded-2xl" />
+        <Skeleton className="h-64 rounded-2xl" />
       </div>
     </div>
   );

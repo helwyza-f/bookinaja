@@ -962,7 +962,7 @@ export default function DashboardPage() {
           action={
             <div className="flex flex-wrap justify-center gap-3">
               <Button asChild className="rounded-xl">
-                <Link href="/admin/settings/bisnis" prefetch={false}>
+                <Link href="/admin/brand" prefetch={false}>
                   Rapikan bisnis
                 </Link>
               </Button>

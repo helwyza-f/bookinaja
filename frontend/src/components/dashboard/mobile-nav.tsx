@@ -10,6 +10,7 @@ import {
   Sheet,
   SheetContent,
   SheetHeader,
+  SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { canAccessAdminRoute } from "@/lib/admin-access";
@@ -18,14 +19,12 @@ import {
   useAdminSession,
 } from "@/components/dashboard/admin-session-context";
 import {
-  growthHubNavItem,
   isAdminNavItemActive,
   operationalNavItems,
+  workspaceUtilityNavItems,
   type AdminNavItem,
 } from "@/components/dashboard/admin-nav-config";
 import { WorkspaceSwitcher } from "@/components/dashboard/workspace-switcher";
-import { UpgradeEntry } from "@/components/dashboard/upgrade-entry";
-import { SettingsCenterTrigger } from "@/components/dashboard/settings-center-trigger";
 
 type MobileNavMode = "operational" | "settings";
 
@@ -66,7 +65,6 @@ export function MobileNav({
   const {
     user,
     tenantName,
-    growthVisible,
     currentWorkspace,
     trialInfo,
   } = useAdminSession();
@@ -80,14 +78,6 @@ export function MobileNav({
     () => operationalNavItems.map((item) => item.href),
     [],
   );
-  const marketplaceItems = useMemo(
-    () =>
-      growthVisible && canAccessAdminRoute(growthHubNavItem.href, userData)
-        ? [growthHubNavItem]
-        : [],
-    [growthVisible, userData],
-  );
-
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
@@ -110,6 +100,7 @@ export function MobileNav({
       >
         <div className="flex h-full flex-col overflow-hidden">
           <SheetHeader className="border-b border-slate-200 px-4 py-3 text-left dark:border-slate-800">
+            <SheetTitle className="sr-only">Admin navigation</SheetTitle>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <WorkspaceSwitcher
@@ -156,8 +147,8 @@ export function MobileNav({
             </div>
           </SheetHeader>
 
-          <div className="flex-1 overflow-y-auto px-3 py-3">
-            <nav className="space-y-1">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 py-3">
+            <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto scrollbar-hide">
               {items.map((item) => {
                 const active =
                   mode === "operational"
@@ -182,54 +173,88 @@ export function MobileNav({
               })}
             </nav>
 
-            {mode === "operational" && userData?.role === "owner" && marketplaceItems.length > 0 ? (
-              <div className="mt-4 border-t border-slate-200 pt-4 dark:border-slate-800">
-                <div className="mb-2 px-3 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                  Promosi
-                </div>
+            {userData?.role === "owner" ? (
+              <div className="mt-auto shrink-0 border-t border-slate-200 pt-3 dark:border-slate-800">
                 <div className="space-y-1">
-                  {marketplaceItems.map((item) => {
-                    const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  {workspaceUtilityNavItems.map((item) => {
+                    const active =
+                      item.href && (pathname === item.href || pathname.startsWith(`${item.href}/`));
+                    const Icon = item.icon;
+                    const className = cn(
+                      "flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors",
+                      active ? activeItemClass : idleItemClass,
+                      item.key === "upgrade" &&
+                        "border border-amber-200 bg-amber-50/70 text-amber-900 hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200 dark:hover:bg-amber-500/15",
+                    );
+
+                    const content = (
+                      <>
+                        <Icon className="h-4 w-4 shrink-0" />
+                        <div className="min-w-0 flex-1 truncate font-medium">{item.label}</div>
+                      </>
+                    );
+
+                    if (item.kind === "upgrade") {
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          className={className}
+                          onClick={() => {
+                            setOpen(false);
+                            onOpenUpgrade();
+                          }}
+                        >
+                          {content}
+                        </button>
+                      );
+                    }
+
+                    if (item.kind === "settings") {
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          className={className}
+                          onClick={() => {
+                            setOpen(false);
+                            onOpenSettings();
+                          }}
+                        >
+                          {content}
+                        </button>
+                      );
+                    }
+
+                    if (item.kind === "external" && item.href) {
+                      return (
+                        <a
+                          key={item.key}
+                          href={item.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={className}
+                          onClick={() => setOpen(false)}
+                        >
+                          {content}
+                        </a>
+                      );
+                    }
+
+                    if (!item.href) return null;
+
                     return (
                       <Link
-                        key={item.href}
+                        key={item.key}
                         href={item.href}
                         prefetch={false}
                         onClick={() => setOpen(false)}
-                        className={cn(
-                          "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
-                          active ? activeItemClass : idleItemClass,
-                        )}
+                        className={className}
                       >
-                        <item.icon className="h-4 w-4 shrink-0" />
-                        <div className="min-w-0 flex-1 truncate font-medium">{item.label}</div>
+                        {content}
                       </Link>
                     );
                   })}
-                </div>
-              </div>
-            ) : null}
-
-            {userData?.role === "owner" ? (
-              <div className="mt-4 border-t border-slate-200 pt-4 dark:border-slate-800">
-                <div className="mb-2 px-3 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                  Workspace
-                </div>
-                <div className="space-y-2 px-3">
-                  <UpgradeEntry
-                    variant="mobile"
-                    trialInfo={trialInfo}
-                    onClick={() => {
-                      setOpen(false);
-                      onOpenUpgrade();
-                    }}
-                  />
-                  <SettingsCenterTrigger
-                    onClick={() => {
-                      setOpen(false);
-                      onOpenSettings();
-                    }}
-                  />
                 </div>
               </div>
             ) : null}

@@ -249,8 +249,10 @@ export function OnboardingStepScreen({ step }: { step: string }) {
   const [qrisInstructions, setQrisInstructions] = useState("");
   const [bookingName, setBookingName] = useState("");
   const [bookingPhone, setBookingPhone] = useState("");
+  const [bookingDate, setBookingDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [bookingTime, setBookingTime] = useState("");
   const [bookingMode, setBookingMode] = useState<"scheduled" | "walkin">("scheduled");
+  const [bookingQuantity, setBookingQuantity] = useState(0);
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -309,6 +311,20 @@ export function OnboardingStepScreen({ step }: { step: string }) {
       else router.replace("/app/workspaces");
       return;
     }
+    if (step === "first-booking") {
+      if (!bookingQuantity || bookingQuantity <= 0) {
+        toast.error("Pilih resource, paket, dan jumlah booking dulu.");
+        return;
+      }
+      if (!bookingTime) {
+        toast.error("Pilih slot jam booking dulu.");
+        return;
+      }
+      if (!bookingName.trim() || !bookingPhone.trim()) {
+        toast.error("Isi nama dan WhatsApp customer simulasi.");
+        return;
+      }
+    }
 
     setLoading(true);
     try {
@@ -348,6 +364,18 @@ export function OnboardingStepScreen({ step }: { step: string }) {
               open_time: openTime || "09:00",
               close_time: closeTime || "22:00",
               whatsapp_number: whatsapp,
+            }
+          : {}),
+        ...(step === "first-booking"
+          ? {
+              first_booking: {
+                customer_name: bookingName,
+                customer_phone: bookingPhone,
+                booking_date: bookingDate,
+                booking_time: bookingTime,
+                booking_mode: bookingMode,
+                quantity: bookingQuantity,
+              },
             }
           : {}),
       });
@@ -446,10 +474,13 @@ export function OnboardingStepScreen({ step }: { step: string }) {
               bookingPhone={bookingPhone}
               bookingTime={bookingTime}
               bookingMode={bookingMode}
+              bookingQuantity={bookingQuantity}
               setBookingName={setBookingName}
               setBookingPhone={setBookingPhone}
+              setBookingDate={setBookingDate}
               setBookingTime={setBookingTime}
               setBookingMode={setBookingMode}
+              setBookingQuantity={setBookingQuantity}
               resourceName={resourceName}
               priceName={priceName}
               priceUnit={priceUnit}
@@ -1507,6 +1538,7 @@ function BookingExperienceStep(props: {
   bookingPhone: string;
   bookingTime: string;
   bookingMode: "scheduled" | "walkin";
+  bookingQuantity: number;
   resourceName: string;
   priceName: string;
   priceUnit: string;
@@ -1517,17 +1549,21 @@ function BookingExperienceStep(props: {
   paymentLabel: string;
   setBookingName: (value: string) => void;
   setBookingPhone: (value: string) => void;
+  setBookingDate: (value: string) => void;
   setBookingTime: (value: string) => void;
   setBookingMode: (value: "scheduled" | "walkin") => void;
+  setBookingQuantity: (value: number) => void;
 }) {
   const bookingTime = props.bookingTime;
   const setBookingTime = props.setBookingTime;
+  const quantity = props.bookingQuantity;
+  const setQuantity = props.setBookingQuantity;
+  const setBookingDate = props.setBookingDate;
   const todayValue = format(new Date(), "yyyy-MM-dd");
   const tomorrowDate = addDays(new Date(), 1);
   const tomorrowValue = format(tomorrowDate, "yyyy-MM-dd");
   const [selectedResource, setSelectedResource] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState(false);
-  const [quantity, setQuantity] = useState(0);
   const [selectedDay, setSelectedDay] = useState<"today" | "tomorrow" | "custom">("today");
   const [customDate, setCustomDate] = useState(format(addDays(new Date(), 7), "yyyy-MM-dd"));
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -1559,6 +1595,10 @@ function BookingExperienceStep(props: {
     }
     return slots;
   }, [baseUnitMinutes, operatingWindow.closeMinutes, operatingWindow.openMinutes, unitMinutes]);
+
+  useEffect(() => {
+    setBookingDate(bookingDateValue);
+  }, [bookingDateValue, setBookingDate]);
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
@@ -2417,4 +2457,3 @@ function InfoLine({ icon: Icon, label }: { icon: typeof Clock3; label: string })
     </div>
   );
 }
-

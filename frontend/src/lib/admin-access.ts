@@ -44,6 +44,11 @@ const DASHBOARD_PERMISSIONS = [
 ];
 
 const ROUTE_RULES: RouteRule[] = [
+  { prefix: "/admin/referral", ownerOnly: true },
+  { prefix: "/admin/brand", ownerOnly: true },
+  { prefix: "/admin/guide", ownerOnly: true },
+  { prefix: "/admin/feedback", ownerOnly: true },
+  { prefix: "/admin/community", ownerOnly: true },
   { prefix: "/admin/growth", ownerOnly: true },
   { prefix: "/admin/settings/staff", ownerOnly: true, anyFeatures: ["staff_accounts", "role_permissions"] },
   { prefix: "/admin/settings/crm", ownerOnly: true, anyFeatures: ["crm_basic", "customer_import", "whatsapp_blast"] },

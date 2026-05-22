@@ -97,6 +97,14 @@ export async function updateWorkspaceOnboardingStep(
       qris_image_url?: string;
       qris_instructions?: string;
     };
+    first_booking?: {
+      customer_name?: string;
+      customer_phone?: string;
+      booking_date?: string;
+      booking_time?: string;
+      booking_mode?: "scheduled" | "walkin";
+      quantity?: number;
+    };
   } = {},
 ) {
   const res = await api.put<OnboardingState>(

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getCookie } from "cookies-next";
 import { ChevronDown, ChevronsUpDown } from "lucide-react";
 import {
   DropdownMenu,
@@ -40,6 +41,12 @@ export function WorkspaceSwitcher({
 
   useEffect(() => {
     let alive = true;
+    const hasAccountSession = Boolean(getCookie("account_token"));
+    if (!hasAccountSession) {
+      return () => {
+        alive = false;
+      };
+    }
     void listWorkspaces()
       .then((workspaces) => {
         if (!alive) return;

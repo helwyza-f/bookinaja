@@ -4,7 +4,7 @@ import { getCookie } from "cookies-next";
 import { getRootPortalUrl, getTenantUrl } from "@/lib/tenant";
 
 function isLocalDevHost(hostname: string) {
-  return hostname === "localhost" || hostname === "127.0.0.1";
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "lvh.me" || hostname.endsWith(".lvh.me");
 }
 
 function normalizeTarget(value: string) {
@@ -13,17 +13,33 @@ function normalizeTarget(value: string) {
   return trimmed;
 }
 
+function shouldBridgeWorkspaceEntry(targetUrl: string) {
+  if (typeof window === "undefined" || process.env.NODE_ENV === "production") {
+    return false;
+  }
+  if (!isLocalDevHost(window.location.hostname)) {
+    return false;
+  }
+
+  try {
+    const target = new URL(targetUrl, window.location.href);
+    return target.host !== window.location.host;
+  } catch {
+    return false;
+  }
+}
+
 export function getWorkspaceEntryUrl(targetUrl: string, tenantSlug?: string | null) {
   if (typeof window === "undefined") {
     return normalizeTarget(targetUrl);
   }
 
   const normalizedTarget = normalizeTarget(targetUrl);
-  if (!isLocalDevHost(window.location.hostname)) {
+  if (!shouldBridgeWorkspaceEntry(normalizedTarget)) {
     return normalizedTarget;
   }
 
-  const token = String(getCookie("auth_token") || "").trim();
+  const token = String(getCookie("account_token") || "").trim();
   if (!token) {
     return normalizedTarget;
   }

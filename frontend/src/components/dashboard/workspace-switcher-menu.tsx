@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, LogOut, Plus, Settings } from "lucide-react";
+import { Check, LogOut, Plus, Settings, ArrowLeftRight } from "lucide-react";
+import { getRootPortalUrl } from "@/lib/tenant";
 import {
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -70,6 +71,13 @@ export function WorkspaceSwitcherMenu({
       <DropdownMenuSeparator className="mx-2 bg-slate-100 dark:bg-slate-800" />
 
       <DropdownMenuGroup className="p-1">
+        <DropdownMenuItem
+          onClick={() => { window.location.href = getRootPortalUrl("/app/workspaces"); }}
+          className="cursor-pointer rounded-lg px-3 py-2.5 text-slate-600 dark:text-slate-300"
+        >
+          <ArrowLeftRight className="mr-3 h-4 w-4" />
+          <span className="text-sm font-semibold">Switch Workspace</span>
+        </DropdownMenuItem>
         <DropdownMenuItem
           onClick={onCreateWorkspace}
           className="cursor-pointer rounded-lg px-3 py-2.5 text-slate-600 dark:text-slate-300"

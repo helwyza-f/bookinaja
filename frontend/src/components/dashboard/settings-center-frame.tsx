@@ -3,83 +3,17 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  BriefcaseBusiness,
-  CreditCard,
-  LogOut,
-  ShieldUser,
-  X,
-} from "lucide-react";
+import { LogOut, ShieldUser, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { getAdminRouteGate } from "@/lib/admin-access";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { settingsNavItems } from "@/components/dashboard/admin-nav-config";
+import { isAdminNavItemActive, settingsNavItems } from "@/components/dashboard/admin-nav-config";
 import api from "@/lib/api";
 import { clearTenantSession } from "@/lib/tenant-session";
-
-type SectionKey = "account" | "billing" | "workspace";
-
-type SectionConfig = {
-  key: SectionKey;
-  label: string;
-  description: string;
-  icon: typeof ShieldUser;
-  match: (pathname: string) => boolean;
-  items: string[];
-};
-
-const SECTION_CONFIG: SectionConfig[] = [
-  {
-    key: "account",
-    label: "Account",
-    description: "Manage your account.",
-    icon: ShieldUser,
-    match: (pathname) => pathname.startsWith("/admin/settings/akun"),
-    items: ["/admin/settings/akun"],
-  },
-  {
-    key: "billing",
-    label: "Billing",
-    description: "Manage billing and subscription.",
-    icon: CreditCard,
-    match: (pathname) => pathname.startsWith("/admin/settings/billing"),
-    items: ["/admin/settings/billing"],
-  },
-  {
-    key: "workspace",
-    label: "Workspace",
-    description: "Manage your workspace.",
-    icon: BriefcaseBusiness,
-    match: (pathname) =>
-      pathname.startsWith("/admin/settings/bisnis") ||
-      pathname.startsWith("/admin/settings/payment-methods") ||
-      pathname.startsWith("/admin/settings/staff") ||
-      pathname.startsWith("/admin/settings/promo") ||
-      pathname.startsWith("/admin/settings/page-builder") ||
-      pathname.startsWith("/admin/settings/analytics") ||
-      pathname.startsWith("/admin/settings/crm") ||
-      pathname.startsWith("/admin/settings/nota") ||
-      pathname.startsWith("/admin/settings/referral"),
-    items: [
-      "/admin/settings/bisnis",
-      "/admin/settings/payment-methods",
-      "/admin/settings/staff",
-      "/admin/settings/promo",
-      "/admin/settings/page-builder",
-      "/admin/settings/analytics",
-      "/admin/settings/crm",
-      "/admin/settings/nota",
-      "/admin/settings/referral",
-    ],
-  },
-];
-
-function resolveActiveSection(pathname: string) {
-  return SECTION_CONFIG.find((section) => section.match(pathname)) || SECTION_CONFIG[0];
-}
+import { getCentralAdminAuthUrl, getGlobalAuthLoginUrl, getTenantSlugFromBrowser } from "@/lib/tenant";
 
 type SecondaryNavItem = {
   key: string;
@@ -97,13 +31,17 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
   const [signingOut, setSigningOut] = useState(false);
   const [hash, setHash] = useState("");
 
-  const activeSection = useMemo(() => resolveActiveSection(pathname), [pathname]);
-  const visibleRouteItems = useMemo(() => {
-    const allowed = new Set(activeSection.items);
-    return settingsNavItems.filter(
-      (item) => allowed.has(item.href) && getAdminRouteGate(item.href, user).visible,
-    );
-  }, [activeSection.items, user]);
+  const primaryItems = useMemo(
+    () => settingsNavItems.filter((item) => getAdminRouteGate(item.href, user).visible),
+    [user],
+  );
+  const primaryHrefs = useMemo(() => primaryItems.map((item) => item.href), [primaryItems]);
+  const activeItem = useMemo(
+    () =>
+      primaryItems.find((item) => isAdminNavItemActive(pathname, item.href, primaryHrefs)) ||
+      primaryItems[0],
+    [pathname, primaryHrefs, primaryItems],
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -114,7 +52,7 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
   }, [pathname]);
 
   const secondaryItems = useMemo<SecondaryNavItem[]>(() => {
-    if (activeSection.key === "account") {
+    if (activeItem?.href === "/admin/settings/akun") {
       return [
         {
           key: "profile",
@@ -131,35 +69,36 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
       ];
     }
 
-    return visibleRouteItems.map((item) => ({
-      key: item.href,
-      label: item.label,
-      hint: item.hint,
-      href: item.href,
-      icon: item.icon,
-      kind: "route",
-    }));
-  }, [activeSection.key, visibleRouteItems]);
+    return [];
+  }, [activeItem?.href]);
 
   const hasSecondaryNav = secondaryItems.length > 1;
 
   const handleSignOut = async () => {
     setSigningOut(true);
+    const isOwner = user?.role === "owner";
     try {
       await api.post("/auth/logout");
     } catch {
       toast.error("Sesi tidak sempat logout rapi. Saya tutup lokal dulu.");
     } finally {
-      clearTenantSession();
-      window.location.assign("/admin/login");
+      clearTenantSession({ keepTenantSlug: !isOwner });
+      window.location.assign(
+        isOwner
+          ? getGlobalAuthLoginUrl({ signed_out: 1 })
+          : getCentralAdminAuthUrl({
+              tenantSlug: getTenantSlugFromBrowser(),
+              next: "/admin/dashboard",
+            }),
+      );
     }
   };
 
   return (
     <div className="fixed inset-0 z-[80] bg-slate-950/45 backdrop-blur-[5px]">
       <div className="flex min-h-full items-stretch justify-center p-0 md:p-4">
-        <div className="flex min-h-full w-full overflow-hidden bg-white shadow-2xl dark:bg-slate-950 md:min-h-0 md:max-h-[calc(100vh-2rem)] md:max-w-[1440px] md:rounded-[2rem] md:border md:border-slate-200 dark:md:border-slate-800">
-          <aside className="hidden w-[260px] shrink-0 border-r border-slate-200 bg-[#f7f9fc] px-5 py-5 dark:border-slate-800 dark:bg-[#0b1120] md:flex md:flex-col">
+        <div className="flex min-h-full w-full overflow-hidden bg-white shadow-2xl dark:bg-slate-950 md:min-h-0 md:max-h-[calc(100vh-2rem)] md:max-w-[1180px] md:rounded-[1.5rem] md:border md:border-slate-200 dark:md:border-slate-800">
+          <aside className="hidden w-[230px] shrink-0 border-r border-slate-200 bg-[#f7f9fc] px-4 py-4 dark:border-slate-800 dark:bg-[#0b1120] md:flex md:flex-col">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                 Settings
@@ -167,23 +106,22 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
             </div>
 
             <nav className="mt-6 space-y-1">
-              {SECTION_CONFIG.map((section) => {
-                const active = section.key === activeSection.key;
-                const Icon = section.icon;
-                const href = section.items[0];
+              {primaryItems.map((item) => {
+                const active = activeItem?.href === item.href;
+                const Icon = item.icon;
                 return (
                   <Link
-                    key={section.key}
-                    href={href}
+                    key={item.href}
+                    href={item.href}
                     className={cn(
-                      "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors",
+                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                       active
                         ? "bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)]"
                         : "text-slate-600 hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white",
                     )}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
-                    <span className="truncate">{section.label}</span>
+                    <span className="truncate">{item.label}</span>
                   </Link>
                 );
               })}
@@ -193,7 +131,7 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
               <Link
                 href="/pricing"
                 target="_blank"
-                className="flex items-center justify-between gap-3 rounded-2xl border border-orange-400 px-4 py-3 text-sm font-semibold text-slate-900 transition-colors hover:bg-orange-50 dark:text-white dark:hover:bg-orange-500/10"
+                className="flex items-center justify-between gap-3 rounded-xl border border-orange-400 px-3 py-2.5 text-sm font-semibold text-slate-900 transition-colors hover:bg-orange-50 dark:text-white dark:hover:bg-orange-500/10"
               >
                 <span>Book a call with us</span>
                 <span className="text-base leading-none">↗</span>
@@ -211,28 +149,28 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
           </aside>
 
           <div className="flex min-h-full min-w-0 flex-1 flex-col">
-            <div className="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-4 md:px-6 md:py-5 dark:border-slate-800 dark:bg-slate-950">
+            <div className="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-4 md:px-5 dark:border-slate-800 dark:bg-slate-950">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 md:hidden">
                     Settings
                   </div>
-                  <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 md:text-[2rem] dark:text-white">
-                    {activeSection.label}
+                  <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 md:text-[1.75rem] dark:text-white">
+                    {activeItem?.label || "Settings"}
                   </h1>
                   <p className="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-                    {activeSection.description}
+                    {activeItem?.hint || "Manage workspace settings."}
                   </p>
                   <div className="mt-4 flex md:hidden">
                     <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       <div className="flex w-max gap-2">
-                        {SECTION_CONFIG.map((section) => {
-                          const active = section.key === activeSection.key;
-                          const Icon = section.icon;
+                        {primaryItems.map((item) => {
+                          const active = activeItem?.href === item.href;
+                          const Icon = item.icon;
                           return (
                             <Link
-                              key={section.key}
-                              href={section.items[0]}
+                              key={item.href}
+                              href={item.href}
                               className={cn(
                                 "inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition-colors",
                                 active
@@ -241,7 +179,7 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
                               )}
                             >
                               <Icon className="h-3.5 w-3.5" />
-                              {section.label}
+                              {item.label}
                             </Link>
                           );
                         })}
@@ -266,11 +204,11 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
             <div
               className={cn(
                 "flex min-h-0 flex-1 flex-col",
-                hasSecondaryNav ? "md:grid md:grid-cols-[280px_minmax(0,1fr)]" : "",
+                hasSecondaryNav ? "md:grid md:grid-cols-[240px_minmax(0,1fr)]" : "",
               )}
             >
               {hasSecondaryNav ? (
-                <aside className="border-b border-slate-200 bg-[#f7f9fc] px-4 py-4 dark:border-slate-800 dark:bg-[#0b1120] md:border-b-0 md:border-r md:px-6 md:py-6">
+                <aside className="border-b border-slate-200 bg-[#f7f9fc] px-4 py-4 dark:border-slate-800 dark:bg-[#0b1120] md:border-b-0 md:border-r md:px-5 md:py-5">
                   <div className="mt-0">
                     <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:overflow-visible">
                       <nav className="flex w-max gap-2 md:w-auto md:flex-col md:gap-1">
@@ -298,14 +236,16 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
                                   ) : null}
                                 </div>
                                 {item.hint ? (
-                                  <div className="mt-1 text-xs text-slate-400">{item.hint}</div>
+                                  <div className="mt-0.5 truncate text-[11px] text-slate-400">
+                                    {item.hint}
+                                  </div>
                                 ) : null}
                               </div>
                             </div>
                           );
 
                           const className = cn(
-                            "min-w-[170px] rounded-2xl border px-4 py-3 transition-colors md:min-w-0",
+                            "min-w-[150px] rounded-xl border px-3 py-2.5 transition-colors md:min-w-0",
                             active
                               ? "border-slate-200 bg-white text-[var(--bookinaja-700)] shadow-sm dark:border-white/10 dark:bg-slate-950 dark:text-[var(--bookinaja-100)]"
                               : "border-transparent text-slate-600 hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-950 dark:hover:text-white",
@@ -331,7 +271,7 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
                 </aside>
               ) : null}
 
-              <main className="min-h-0 overflow-y-auto bg-white px-4 py-4 dark:bg-slate-950 md:px-6 md:py-6">
+              <main className="min-h-0 overflow-y-auto bg-white px-4 py-4 dark:bg-slate-950 md:px-5 md:py-5">
                 {children}
               </main>
             </div>

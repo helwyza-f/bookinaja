@@ -12,6 +12,10 @@ const REUSABLE_PREFIXES = [
   "/admin/settings/akun",
   "/admin/settings/billing",
   "/admin/settings/bisnis",
+  "/admin/settings/workspaces",
+  "/admin/brand",
+  "/admin/page-builder",
+  "/admin/referral",
 ];
 
 export function canReuseWorkspaceRoute(pathname: string) {
