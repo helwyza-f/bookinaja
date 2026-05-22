@@ -19,6 +19,33 @@ export type OnboardingState = {
   completed_steps: string[];
   selected_start_mode: string;
   is_completed: boolean;
+  seed?: {
+    resource?: {
+      resource_name?: string;
+      resource_category?: string;
+      resource_description?: string;
+      resource_image_url?: string;
+      price_name?: string;
+      price?: number;
+      price_unit?: string;
+      unit_duration?: number;
+    };
+    business?: {
+      open_time?: string;
+      close_time?: string;
+      whatsapp_number?: string;
+    };
+    payment_methods?: {
+      bank_transfer_enabled?: boolean;
+      bank_name?: string;
+      bank_account_name?: string;
+      bank_account_number?: string;
+      bank_instructions?: string;
+      qris_static_enabled?: boolean;
+      qris_image_url?: string;
+      qris_instructions?: string;
+    };
+  };
 };
 
 export async function listWorkspaces() {

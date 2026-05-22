@@ -3,40 +3,40 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useTheme } from "next-themes";
-import { Building2, LogOut, Menu, Moon, Sun, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
-  SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { clearTenantSession } from "@/lib/tenant-session";
-import { canAccessAdminRoute, getAdminRouteGate } from "@/lib/admin-access";
-import { useAdminSession } from "@/components/dashboard/admin-session-context";
+import { canAccessAdminRoute } from "@/lib/admin-access";
 import {
-  getCentralAdminAuthUrl,
-  getRootPortalUrl,
-  getTenantSlugFromBrowser,
-} from "@/lib/tenant";
-import { Badge } from "@/components/ui/badge";
+  type WorkspaceSummary,
+  useAdminSession,
+} from "@/components/dashboard/admin-session-context";
 import {
   growthHubNavItem,
   isAdminNavItemActive,
   operationalNavItems,
-  settingsNavItems,
   type AdminNavItem,
-} from "./admin-nav-config";
+} from "@/components/dashboard/admin-nav-config";
+import { WorkspaceSwitcher } from "@/components/dashboard/workspace-switcher";
+import { UpgradeEntry } from "@/components/dashboard/upgrade-entry";
+import { SettingsCenterTrigger } from "@/components/dashboard/settings-center-trigger";
 
 type MobileNavMode = "operational" | "settings";
 
 type MobileNavProps = {
   mode: MobileNavMode;
   triggerClassName?: string;
+  onOpenSettings: () => void;
+  onOpenUpgrade: () => void;
+  onCreateWorkspace: () => void;
+  onSwitchWorkspace: (workspace: WorkspaceSummary) => void;
+  onSignOut: () => void;
 };
 
 type MobileUser = {
@@ -52,39 +52,41 @@ const activeItemClass =
 const idleItemClass =
   "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-900";
 
-export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
+export function MobileNav({
+  mode,
+  triggerClassName,
+  onOpenSettings,
+  onOpenUpgrade,
+  onCreateWorkspace,
+  onSwitchWorkspace,
+  onSignOut,
+}: MobileNavProps) {
   const pathname = usePathname();
-  const { theme, setTheme } = useTheme();
   const [open, setOpen] = useState(false);
-  const { user, tenantName, growthVisible } = useAdminSession();
+  const {
+    user,
+    tenantName,
+    growthVisible,
+    currentWorkspace,
+    trialInfo,
+  } = useAdminSession();
   const userData = (user as MobileUser | null) ?? null;
 
   const items = useMemo<AdminNavItem[]>(() => {
-    const source = mode === "settings" ? settingsNavItems : operationalNavItems;
+    const source = mode === "settings" ? [] : operationalNavItems;
     return source.filter((item) => canAccessAdminRoute(item.href, userData));
   }, [mode, userData]);
   const operationalHrefs = useMemo(
     () => operationalNavItems.map((item) => item.href),
     [],
   );
-
-  const settingsItems = useMemo(
-    () => settingsNavItems.filter((item) => getAdminRouteGate(item.href, userData).visible),
-    [userData],
-  );
-
   const marketplaceItems = useMemo(
-    () => (growthVisible && canAccessAdminRoute(growthHubNavItem.href, userData) ? [growthHubNavItem] : []),
+    () =>
+      growthVisible && canAccessAdminRoute(growthHubNavItem.href, userData)
+        ? [growthHubNavItem]
+        : [],
     [growthVisible, userData],
   );
-
-  const handleLogout = () => {
-    clearTenantSession({ keepTenantSlug: true });
-    window.location.href = getCentralAdminAuthUrl({
-      tenantSlug: getTenantSlugFromBrowser(),
-      next: "/admin/dashboard",
-    });
-  };
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -109,13 +111,37 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
         <div className="flex h-full flex-col overflow-hidden">
           <SheetHeader className="border-b border-slate-200 px-4 py-3 text-left dark:border-slate-800">
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <SheetTitle className="truncate text-base font-semibold text-slate-950 dark:text-white">
-                  {tenantName}
-                </SheetTitle>
-                <SheetDescription className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
-                  {userData?.name || "Admin"} · {String(userData?.role || "staff").toUpperCase()}
-                </SheetDescription>
+              <div className="min-w-0 flex-1">
+                <WorkspaceSwitcher
+                  currentWorkspace={
+                    currentWorkspace || {
+                      name: tenantName,
+                      slug: "",
+                      role: userData?.role || "owner",
+                    }
+                  }
+                  trialInfo={trialInfo}
+                  onSwitchWorkspace={(workspace) => {
+                    setOpen(false);
+                    onSwitchWorkspace(workspace);
+                  }}
+                  onCreateWorkspace={() => {
+                    setOpen(false);
+                    onCreateWorkspace();
+                  }}
+                  onOpenUpgrade={() => {
+                    setOpen(false);
+                    onOpenUpgrade();
+                  }}
+                  onOpenSettings={() => {
+                    setOpen(false);
+                    onOpenSettings();
+                  }}
+                  onSignOut={() => {
+                    setOpen(false);
+                    onSignOut();
+                  }}
+                />
               </div>
               <Button
                 type="button"
@@ -156,122 +182,57 @@ export function MobileNav({ mode, triggerClassName }: MobileNavProps) {
               })}
             </nav>
 
-            {mode === "operational" &&
-            userData?.role === "owner" &&
-            (marketplaceItems.length > 0 || settingsItems.length > 0) ? (
+            {mode === "operational" && userData?.role === "owner" && marketplaceItems.length > 0 ? (
               <div className="mt-4 border-t border-slate-200 pt-4 dark:border-slate-800">
-                {marketplaceItems.length > 0 ? (
-                  <>
-                    <div className="mb-2 px-3 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                      Promosi
-                    </div>
-                    <div className="space-y-1">
-                      {marketplaceItems.map((item) => {
-                        const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-
-                        return (
-                          <Link
-                            key={item.href}
-                            href={item.href}
-                            prefetch={false}
-                            onClick={() => setOpen(false)}
-                            className={cn(
-                              "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
-                              active ? activeItemClass : idleItemClass,
-                            )}
-                          >
-                            <item.icon className="h-4 w-4 shrink-0" />
-                            <div className="min-w-0 flex-1 truncate font-medium">{item.label}</div>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </>
-                ) : null}
-
-                {settingsItems.length > 0 ? (
-                  <>
-                    <div className="mb-2 mt-4 px-3 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                      Settings
-                    </div>
-                    <div className="space-y-1">
-                      {settingsItems.map((item) => {
-                        const gate = getAdminRouteGate(item.href, userData);
-                        const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-
-                        return (
-                          <Link
-                            key={item.href}
-                            href={item.href}
-                            prefetch={false}
-                            onClick={() => setOpen(false)}
-                            className={cn(
-                              "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
-                              active
-                                ? activeItemClass
-                                : gate.lockedByPlan
-                                  ? "border border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
-                                  : idleItemClass,
-                            )}
-                          >
-                            <item.icon className="h-4 w-4 shrink-0" />
-                            <div className="flex min-w-0 flex-1 items-center gap-2 truncate font-medium">
-                              <span className="truncate">{item.label}</span>
-                              {gate.lockedByPlan ? (
-                                <Badge className="border-0 bg-amber-600/10 px-1.5 py-0 text-[9px] font-bold uppercase tracking-[0.16em] text-current">
-                                  {gate.requiredPlanLabel}
-                                </Badge>
-                              ) : null}
-                            </div>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </>
-                ) : null}
+                <div className="mb-2 px-3 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                  Promosi
+                </div>
+                <div className="space-y-1">
+                  {marketplaceItems.map((item) => {
+                    const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        prefetch={false}
+                        onClick={() => setOpen(false)}
+                        className={cn(
+                          "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                          active ? activeItemClass : idleItemClass,
+                        )}
+                      >
+                        <item.icon className="h-4 w-4 shrink-0" />
+                        <div className="min-w-0 flex-1 truncate font-medium">{item.label}</div>
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
             ) : null}
-          </div>
 
-          <div className="border-t border-slate-200 p-3 dark:border-slate-800">
-            <div className="mb-3 min-w-0 px-1">
-              <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-                {userData?.email || "syncing..."}
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  window.location.href = getRootPortalUrl("/app/workspaces");
-                }}
-                className="h-10 justify-start gap-2 rounded-lg px-3 text-sm"
-              >
-                <Building2 className="h-4 w-4" />
-                Workspace
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="h-10 justify-start gap-2 rounded-lg px-3 text-sm"
-              >
-                {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                Tema
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleLogout}
-                className="col-span-2 h-10 justify-start gap-2 rounded-lg border-red-200 px-3 text-sm text-red-600 hover:bg-red-50 dark:border-red-500/20 dark:text-red-300 dark:hover:bg-red-500/10"
-              >
-                <LogOut className="h-4 w-4" />
-                Keluar
-              </Button>
-            </div>
+            {userData?.role === "owner" ? (
+              <div className="mt-4 border-t border-slate-200 pt-4 dark:border-slate-800">
+                <div className="mb-2 px-3 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                  Workspace
+                </div>
+                <div className="space-y-2 px-3">
+                  <UpgradeEntry
+                    variant="mobile"
+                    trialInfo={trialInfo}
+                    onClick={() => {
+                      setOpen(false);
+                      onOpenUpgrade();
+                    }}
+                  />
+                  <SettingsCenterTrigger
+                    onClick={() => {
+                      setOpen(false);
+                      onOpenSettings();
+                    }}
+                  />
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </SheetContent>

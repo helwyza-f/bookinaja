@@ -199,67 +199,77 @@ export default function BusinessSettingsPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 pb-20">
-      <Card className="rounded-3xl border-slate-200/80 p-5 shadow-sm dark:border-white/10 dark:bg-[#0f172a] sm:p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-3xl space-y-2">
-            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-              <span>Setup bisnis</span>
-              <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600" />
-              <span>Onboarding tenant</span>
+      <Card className="overflow-hidden rounded-[1.75rem] border-slate-200/80 bg-white/98 p-0 shadow-sm dark:border-white/10 dark:bg-[#0f1117]/96">
+        <div className="grid gap-0 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+          <div className="p-5 sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-3xl space-y-2">
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                  <span>Setup bisnis</span>
+                  <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600" />
+                  <span>Onboarding tenant</span>
+                </div>
+                <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-3xl">
+                  Rapikan pondasi tenant dulu
+                </h1>
+                <p className="max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+                  Isi identitas, kontak, dan visual utama di sini. Setelah itu baru masuk ke studio untuk atur urutan section dan preview publik.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2 lg:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void fetchData("refresh")}
+                  className="h-9 rounded-xl"
+                >
+                  <RefreshCw className={cn("mr-2 h-4 w-4", refreshing && "animate-spin")} />
+                  Refresh
+                </Button>
+                <Button asChild variant="outline" className="h-9 rounded-xl">
+                  <Link href="/admin/settings/page-builder">
+                    Buka Studio
+                    <LayoutTemplate className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+                {publicUrl ? (
+                  <Button asChild className="h-9 rounded-xl">
+                    <a href={publicUrl} target="_blank" rel="noreferrer">
+                      Lihat Publik
+                      <ExternalLink className="ml-2 h-4 w-4" />
+                    </a>
+                  </Button>
+                ) : null}
+              </div>
             </div>
-            <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
-              Rapikan pondasi tenant dulu
-            </h1>
-            <p className="max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Isi identitas, kontak, dan visual utama di sini. Setelah itu baru
-              masuk ke studio untuk atur urutan section dan preview publik.
-            </p>
           </div>
 
-          <div className="flex flex-wrap gap-2 lg:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void fetchData("refresh")}
-              className="h-9 rounded-xl"
-            >
-              <RefreshCw className={cn("mr-2 h-4 w-4", refreshing && "animate-spin")} />
-              Refresh
-            </Button>
-            <Button asChild variant="outline" className="h-9 rounded-xl">
-              <Link href="/admin/settings/page-builder">
-                Buka Studio
-                <LayoutTemplate className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-            {publicUrl ? (
-              <Button asChild className="h-9 rounded-xl">
-                <a href={publicUrl} target="_blank" rel="noreferrer">
-                  Lihat Publik
-                  <ExternalLink className="ml-2 h-4 w-4" />
-                </a>
-              </Button>
-            ) : null}
+          <div className="border-t border-slate-200/80 bg-slate-50/80 p-5 dark:border-white/10 dark:bg-white/[0.03] lg:border-l lg:border-t-0 sm:p-6">
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+              Snapshot
+            </div>
+            <div className="mt-4 grid gap-3">
+              <StatPill label="Progress" value={`${onboardingProgress}%`} />
+              <StatPill
+                label="Sudah rapi"
+                value={`${completedChecklist}/${checklist.length} area`}
+              />
+              <StatPill
+                label="Fokus berikutnya"
+                value={nextPendingStep?.label || "Siap masuk studio"}
+              />
+            </div>
           </div>
         </div>
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-3">
-          <StatPill label="Progress" value={`${onboardingProgress}%`} />
-          <StatPill
-            label="Sudah rapi"
-            value={`${completedChecklist}/${checklist.length} area`}
-          />
-          <StatPill
-            label="Fokus berikutnya"
-            value={nextPendingStep?.label || "Siap masuk studio"}
-          />
-        </div>
-
-        <div className="mt-4 h-1.5 rounded-full bg-slate-200 dark:bg-white/10">
-          <div
-            className="h-full rounded-full bg-[var(--bookinaja-600)] transition-all"
-            style={{ width: `${Math.max(onboardingProgress, 6)}%` }}
-          />
+        <div className="border-t border-slate-200/80 px-5 py-4 dark:border-white/10 sm:px-6">
+          <div className="h-1.5 rounded-full bg-slate-200 dark:bg-white/10">
+            <div
+              className="h-full rounded-full bg-[var(--bookinaja-600)] transition-all"
+              style={{ width: `${Math.max(onboardingProgress, 6)}%` }}
+            />
+          </div>
         </div>
       </Card>
 

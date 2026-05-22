@@ -3,13 +3,32 @@
 import { createContext, useContext } from "react";
 import type { AdminSessionUser } from "@/lib/admin-access";
 
+export type WorkspaceSummary = {
+  id?: string;
+  name: string;
+  slug: string;
+  role?: string;
+  logo_url?: string;
+  onboarding_completed?: boolean;
+};
+
+export type TrialInfo = {
+  plan?: string;
+  status?: string;
+  daysLeft?: number | null;
+};
+
 type AdminSessionContextValue = {
   user: AdminSessionUser | null;
   tenantName: string;
+  tenantSlug?: string;
   tenantCategory?: string;
   growthVisible: boolean;
   planFeatures: string[];
   planFeatureMatrix: Record<string, string[]>;
+  currentWorkspace?: WorkspaceSummary | null;
+  workspaces?: WorkspaceSummary[];
+  trialInfo?: TrialInfo | null;
 };
 
 const AdminSessionContext = createContext<AdminSessionContextValue | null>(null);

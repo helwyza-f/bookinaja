@@ -9,7 +9,8 @@ import api from "@/lib/api";
 import { TenantGoogleButton } from "@/components/auth/tenant-google-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getCentralAdminAuthUrl, getTenantUrl } from "@/lib/tenant";
+import { getCentralAdminAuthUrl } from "@/lib/tenant";
+import { getTenantAdminEntryUrl } from "@/lib/workspace-entry";
 
 type OwnerAccountResponse = {
   user?: {
@@ -71,7 +72,7 @@ function AdminGoogleConnectScreen() {
       const resolvedTenant = String(res.data?.data?.tenant?.slug || tenantSlug || "");
       toast.success(res.data?.message || "Akun Google owner berhasil dihubungkan.");
       if (resolvedTenant) {
-        window.location.assign(getTenantUrl(resolvedTenant, nextPath));
+        window.location.assign(getTenantAdminEntryUrl(resolvedTenant, nextPath));
         return;
       }
       window.location.assign("/");

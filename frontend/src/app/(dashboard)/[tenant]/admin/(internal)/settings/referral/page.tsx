@@ -232,63 +232,62 @@ export default function ReferralSettingsPage() {
 
   return (
     <div className="space-y-4 p-4 pb-24 sm:space-y-6 sm:p-6">
-      <section className="space-y-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-                Referral
-              </p>
-              <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white sm:text-3xl">
-                Bonus Referral
-              </h1>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Share link, pantau saldo, lalu cairkan bonus.
-              </p>
-            </div>
+      <Card className="overflow-hidden rounded-[1.75rem] border-slate-200/80 bg-white/98 p-0 shadow-sm dark:border-white/10 dark:bg-[#0f1117]/96">
+        <div className="grid gap-0 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+          <div className="p-5 sm:p-6">
+            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+              Referral
+            </p>
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white sm:text-3xl">
+              Bonus Referral
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+              Share link, pantau saldo, lalu cairkan bonus dari satu tempat.
+            </p>
 
-            <div className="grid grid-cols-2 gap-2 sm:w-auto">
+            <div className="mt-5 grid grid-cols-2 gap-2 lg:flex lg:flex-wrap">
+              <Button variant="outline" onClick={loadData} className="h-10 rounded-xl">
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh
+              </Button>
+              <Button
+                variant="outline"
+                onClick={requestWithdrawal}
+                disabled={!canWithdraw || withdrawing || loading}
+                className="h-10 rounded-xl"
+              >
+                <Banknote className="mr-2 h-4 w-4" />
+                Cairkan
+              </Button>
+              <Button
+                asChild
+                className="col-span-2 h-10 rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)] lg:col-span-1"
+              >
+                <Link href="/admin/settings/billing">
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Billing
+                </Link>
+              </Button>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-200/80 bg-slate-50/80 p-5 dark:border-white/10 dark:bg-white/[0.03] lg:border-l lg:border-t-0 sm:p-6">
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+              Snapshot
+            </div>
+            <div className="mt-4 grid gap-3">
               <Metric label="Saldo" value={`Rp ${formatIDR(summary?.available_balance)}`} tone="emerald" />
+              <Metric label="Referral" value={String(summary?.total_referred || 0)} />
               <Metric
-                label="Referral"
-                value={String(summary?.total_referred || 0)}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap">
-            <Button variant="outline" onClick={loadData} className="h-10 rounded-xl">
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </Button>
-            <Button
-              variant="outline"
-              onClick={requestWithdrawal}
-              disabled={!canWithdraw || withdrawing || loading}
-              className="h-10 rounded-xl"
-            >
-              <Banknote className="mr-2 h-4 w-4" />
-              Cairkan
-            </Button>
-            <Button
-              asChild
-              className="col-span-2 h-10 rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)] lg:col-span-1"
-            >
-              <Link href="/admin/settings/billing">
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Billing
-              </Link>
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <Metric
-              label="Pending"
+                label="Pending"
                 value={`Rp ${formatIDR(summary?.pending_withdrawal)}`}
                 tone="amber"
               />
-            <Metric label="Kode" value={summary?.referral_code || "-"} />
+              <Metric label="Kode" value={summary?.referral_code || "-"} />
+            </div>
           </div>
-      </section>
+        </div>
+      </Card>
 
       {message ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">

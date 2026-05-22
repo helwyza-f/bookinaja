@@ -56,6 +56,30 @@ type OnboardingState struct {
 	StartedAt         time.Time      `db:"started_at" json:"started_at"`
 	CompletedAt       *time.Time     `db:"completed_at" json:"completed_at,omitempty"`
 	UpdatedAt         time.Time      `db:"updated_at" json:"updated_at"`
+	Seed              *OnboardingSeed `db:"-" json:"seed,omitempty"`
+}
+
+type OnboardingSeed struct {
+	Resource        OnboardingResourceSeed `json:"resource"`
+	Business        OnboardingBusinessSeed `json:"business"`
+	PaymentMethods  PaymentOnboardingReq   `json:"payment_methods"`
+}
+
+type OnboardingResourceSeed struct {
+	ResourceName     string `db:"resource_name" json:"resource_name"`
+	ResourceCategory string `db:"resource_category" json:"resource_category"`
+	ResourceDesc     string `db:"resource_description" json:"resource_description"`
+	ResourceImageURL string `db:"resource_image_url" json:"resource_image_url"`
+	PriceName        string `db:"price_name" json:"price_name"`
+	Price            int64  `db:"price" json:"price"`
+	PriceUnit        string `db:"price_unit" json:"price_unit"`
+	UnitDuration     int    `db:"unit_duration" json:"unit_duration"`
+}
+
+type OnboardingBusinessSeed struct {
+	OpenTime       string `db:"open_time" json:"open_time"`
+	CloseTime      string `db:"close_time" json:"close_time"`
+	WhatsappNumber string `db:"whatsapp_number" json:"whatsapp_number"`
 }
 
 type SignupReq struct {

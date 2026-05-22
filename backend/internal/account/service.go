@@ -298,6 +298,11 @@ func (s *Service) GetOnboarding(ctx context.Context, accountID, workspaceID uuid
 	if state == nil {
 		return nil, errors.New("onboarding workspace tidak ditemukan")
 	}
+	seed, err := s.repo.GetOnboardingSeed(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	state.Seed = seed
 	return state, nil
 }
 

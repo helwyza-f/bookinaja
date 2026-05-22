@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowRight, Building2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getTenantUrl } from "@/lib/tenant";
+import { getTenantAdminEntryUrl } from "@/lib/workspace-entry";
 import { listWorkspaces, type WorkspaceListItem } from "@/lib/workspace-client";
 
 export default function WorkspacesPage() {
@@ -69,7 +69,7 @@ export default function WorkspacesPage() {
                 key={item.id}
                 href={
                   item.onboarding_state?.is_completed
-                    ? getTenantUrl(item.slug, "/admin/dashboard")
+                    ? getTenantAdminEntryUrl(item.slug, "/admin/dashboard")
                     : `/app/onboarding/${item.onboarding_state?.current_step || "template"}?workspace=${item.id}&slug=${item.slug}`
                 }
                 className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-[#174ea6] sm:flex-row sm:items-center sm:justify-between"

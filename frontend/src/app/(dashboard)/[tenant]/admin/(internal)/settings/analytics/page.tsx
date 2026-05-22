@@ -26,6 +26,7 @@ import {
 } from "@/lib/plan-access";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { RealtimePill } from "@/components/dashboard/realtime-pill";
 import { hasPermission } from "@/lib/admin-access";
 import { toast } from "sonner";
@@ -778,6 +779,10 @@ export default function SettingsAnalyticsPage() {
         refreshing={refreshing}
         realtimeConnected={realtimeConnected}
         realtimeStatus={realtimeStatus}
+        currentPlanLabel={currentPlanLabel}
+        rangeLabel={rangeLabel}
+        lastSync={lastSync}
+        totalRevenue={summary.totalRevenue}
       />
 
       <div className="flex flex-wrap gap-2">
@@ -1148,41 +1153,83 @@ function AnalyticsHero({
   refreshing,
   realtimeConnected,
   realtimeStatus,
+  currentPlanLabel,
+  rangeLabel,
+  lastSync,
+  totalRevenue,
 }: {
   onRefresh: () => void;
   refreshing: boolean;
   realtimeConnected: boolean;
   realtimeStatus: "idle" | "connecting" | "connected" | "reconnecting";
+  currentPlanLabel: string;
+  rangeLabel: string;
+  lastSync: string;
+  totalRevenue: number;
 }) {
   return (
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge className="rounded-full border-none bg-[var(--bookinaja-600)] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white">
-            Analytics
-          </Badge>
-          <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
+    <Card className="overflow-hidden rounded-[1.75rem] border-slate-200/80 bg-white/98 p-0 shadow-sm dark:border-white/10 dark:bg-[#0f1117]/96">
+      <div className="grid gap-0 xl:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)]">
+        <div className="p-5 sm:p-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className="rounded-full border-none bg-[var(--bookinaja-600)] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white">
+              Analytics
+            </Badge>
+            <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
+          </div>
+          <div className="mt-3">
+            <h1 className="text-foreground text-[2rem] font-[950] tracking-tight sm:text-[2.4rem]">
+              Analytics
+            </h1>
+            <p className="text-muted-foreground mt-2 max-w-2xl text-sm leading-6">
+              Pantau booking, direct sale, pengeluaran, dan performa tenant dari satu halaman.
+            </p>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Button onClick={onRefresh} variant="outline" className="h-10 rounded-2xl px-4">
+              <RefreshCcw className={refreshing ? "mr-2 h-4 w-4 animate-spin" : "mr-2 h-4 w-4"} />
+              Refresh
+            </Button>
+            <Button asChild className="h-10 rounded-2xl bg-slate-950 px-4 text-white hover:bg-slate-800">
+              <Link href="/admin/dashboard">
+                <LineChart className="mr-2 h-4 w-4" />
+                Dashboard
+              </Link>
+            </Button>
+          </div>
         </div>
-        <div>
-          <h1 className="text-foreground text-[2rem] font-[950] tracking-tight sm:text-[2.4rem]">
-            Analytics
-          </h1>
-          <p className="text-muted-foreground mt-1 max-w-2xl text-sm">
-            Pantau booking, direct sale, pengeluaran, dan performa tenant dari satu halaman.
-          </p>
+
+        <div className="border-t border-slate-200/80 bg-slate-50/80 p-5 dark:border-white/10 dark:bg-white/[0.03] xl:border-l xl:border-t-0 sm:p-6">
+          <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+            Snapshot
+          </div>
+          <div className="mt-4 grid gap-3">
+            <AnalyticsStat label="Plan" value={currentPlanLabel || "-"} />
+            <AnalyticsStat label="Range" value={rangeLabel} />
+            <AnalyticsStat label="Sinkron" value={lastSync || "--:--"} />
+            <AnalyticsStat label="Revenue total" value={`Rp ${formatIDR(totalRevenue)}`} />
+          </div>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={onRefresh} variant="outline" className="h-10 rounded-2xl px-4">
-          <RefreshCcw className={refreshing ? "mr-2 h-4 w-4 animate-spin" : "mr-2 h-4 w-4"} />
-          Refresh
-        </Button>
-        <Button asChild className="h-10 rounded-2xl bg-slate-950 px-4 text-white hover:bg-slate-800">
-          <Link href="/admin/dashboard">
-            <LineChart className="mr-2 h-4 w-4" />
-            Dashboard
-          </Link>
-        </Button>
+    </Card>
+  );
+}
+
+function AnalyticsStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-slate-950/70">
+      <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+        {label}
+      </div>
+      <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+        {value}
       </div>
     </div>
   );

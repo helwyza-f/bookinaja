@@ -30,8 +30,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TenantGoogleButton } from "@/components/auth/tenant-google-button";
-import { getTenantUrl } from "@/lib/tenant";
 import { setAdminAuthCookie, syncTenantCookies } from "@/lib/tenant-session";
+import { getTenantAdminEntryUrl } from "@/lib/workspace-entry";
 
 type RegisterFormValues = {
   businessName: string;
@@ -376,7 +376,7 @@ function RegisterFlow() {
           ? `/admin/billing?${redirectParams.toString()}`
           : `/admin/dashboard?${redirectParams.toString()}`;
 
-      window.location.href = getTenantUrl(res.data.tenant.slug, targetPath);
+      window.location.href = getTenantAdminEntryUrl(res.data.tenant.slug, targetPath);
     } catch (error) {
       const message = (error as { response?: { data?: { error?: string } } })
         .response?.data?.error;

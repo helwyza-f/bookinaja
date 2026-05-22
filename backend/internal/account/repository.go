@@ -226,12 +226,115 @@ func (r *Repository) GetOnboardingState(ctx context.Context, workspaceID uuid.UU
 		WHERE workspace_id = $1
 	`, workspaceID)
 	if err == sql.ErrNoRows {
-		return nil, nil
+		return r.ensureOnboardingState(ctx, workspaceID)
 	}
 	if err != nil {
 		return nil, err
 	}
 	return &item, nil
+}
+
+func (r *Repository) GetOnboardingSeed(ctx context.Context, workspaceID uuid.UUID) (*OnboardingSeed, error) {
+	var tenantID uuid.UUID
+	if err := r.db.GetContext(ctx, &tenantID, `
+		SELECT tenant_id
+		FROM workspaces
+		WHERE id = $1
+	`, workspaceID); err != nil {
+		return nil, err
+	}
+
+	seed := &OnboardingSeed{
+		Resource: OnboardingResourceSeed{
+			ResourceCategory: "main",
+			PriceUnit:        "hour",
+			UnitDuration:     60,
+		},
+		Business: OnboardingBusinessSeed{
+			OpenTime:  "09:00",
+			CloseTime: "22:00",
+		},
+	}
+
+	var resourceRow struct {
+		ResourceName     string `db:"resource_name"`
+		ResourceCategory string `db:"resource_category"`
+		ResourceDesc     string `db:"resource_description"`
+		ResourceImageURL string `db:"resource_image_url"`
+		PriceName        string `db:"price_name"`
+		Price            int64  `db:"price"`
+		PriceUnit        string `db:"price_unit"`
+		UnitDuration     int    `db:"unit_duration"`
+	}
+	resourceErr := r.db.GetContext(ctx, &resourceRow, `
+		SELECT
+			COALESCE(r.name, '') AS resource_name,
+			COALESCE(r.category, 'main') AS resource_category,
+			COALESCE(r.description, '') AS resource_description,
+			COALESCE(r.image_url, '') AS resource_image_url,
+			COALESCE(ri.name, '') AS price_name,
+			COALESCE(ri.price, 0) AS price,
+			COALESCE(ri.price_unit, 'hour') AS price_unit,
+			COALESCE(ri.unit_duration, 60) AS unit_duration
+		FROM resources r
+		LEFT JOIN resource_items ri
+			ON ri.resource_id = r.id
+			AND ri.item_type = 'main_option'
+			AND ri.is_default = TRUE
+		WHERE r.tenant_id = $1
+		  AND r.metadata->>'onboarding_seed' = 'true'
+		  AND r.status <> 'deleted'
+		ORDER BY r.created_at DESC
+		LIMIT 1
+	`, tenantID)
+	if resourceErr == nil {
+		seed.Resource = OnboardingResourceSeed(resourceRow)
+	}
+
+	if err := r.db.GetContext(ctx, &seed.Business, `
+		SELECT
+			COALESCE(open_time, '09:00') AS open_time,
+			COALESCE(close_time, '22:00') AS close_time,
+			COALESCE(whatsapp_number, '') AS whatsapp_number
+		FROM tenants
+		WHERE id = $1
+	`, tenantID); err != nil {
+		return nil, err
+	}
+
+	type paymentRow struct {
+		Code      string `db:"code"`
+		IsActive  bool   `db:"is_active"`
+		MetaJSON  string `db:"metadata"`
+		Instr     string `db:"instructions"`
+	}
+	var rows []paymentRow
+	if err := r.db.SelectContext(ctx, &rows, `
+		SELECT code, is_active, COALESCE(metadata::text, '{}') AS metadata, COALESCE(instructions, '') AS instructions
+		FROM tenant_payment_methods
+		WHERE tenant_id = $1
+	`, tenantID); err != nil {
+		return nil, err
+	}
+
+	for _, row := range rows {
+		meta := map[string]any{}
+		_ = json.Unmarshal([]byte(row.MetaJSON), &meta)
+		switch row.Code {
+		case "bank_transfer":
+			seed.PaymentMethods.BankTransferEnabled = row.IsActive
+			seed.PaymentMethods.BankName = strings.TrimSpace(anyToString(meta["bank_name"]))
+			seed.PaymentMethods.BankAccountName = strings.TrimSpace(anyToString(meta["account_name"]))
+			seed.PaymentMethods.BankAccountNumber = strings.TrimSpace(anyToString(meta["account_number"]))
+			seed.PaymentMethods.BankInstructions = strings.TrimSpace(row.Instr)
+		case "qris_static":
+			seed.PaymentMethods.QRISStaticEnabled = row.IsActive
+			seed.PaymentMethods.QRISImageURL = strings.TrimSpace(anyToString(meta["qr_image_url"]))
+			seed.PaymentMethods.QRISInstructions = strings.TrimSpace(row.Instr)
+		}
+	}
+
+	return seed, nil
 }
 
 func (r *Repository) AccountCanAccessWorkspace(ctx context.Context, accountID, workspaceID uuid.UUID) (bool, error) {
@@ -284,52 +387,117 @@ func (r *Repository) CreateOnboardingResource(ctx context.Context, workspaceID u
 		return err
 	}
 
-	var exists bool
-	if err := tx.GetContext(ctx, &exists, `
-		SELECT EXISTS (
-			SELECT 1
-			FROM resources
-			WHERE tenant_id = $1
-			  AND metadata->>'onboarding_seed' = 'true'
-			  AND status <> 'deleted'
-		)
-	`, tenantID); err != nil {
-		return err
-	}
-	if exists {
-		return tx.Commit()
-	}
-
-	resourceID := uuid.New()
 	meta, _ := json.Marshal(map[string]any{
 		"onboarding_seed": true,
 		"source":          "account_onboarding",
 	})
-	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO resources (
-			id, tenant_id, name, category, description,
-			operating_mode, image_url, gallery, status, metadata
-		)
-		VALUES ($1, $2, $3, $4, $5, 'timed', $6, '{}', 'available', $7::jsonb)
-	`, resourceID, tenantID, name, category, defaultOnboardingResourceDescription(description), strings.TrimSpace(imageURL), string(meta)); err != nil {
-		return err
-	}
 
 	itemMeta, _ := json.Marshal(map[string]any{
 		"onboarding_seed": true,
 		"source":          "account_onboarding",
 	})
-	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO resource_items (
-			id, resource_id, name, price, price_unit,
-			unit_duration, item_type, is_default, metadata
-		)
-		VALUES ($1, $2, $3, $4, $5, $6, 'main_option', TRUE, $7::jsonb)
-	`, uuid.New(), resourceID, priceName, price, priceUnit, unitDuration, string(itemMeta)); err != nil {
-		return err
+
+	var resourceID uuid.UUID
+	resourceErr := tx.GetContext(ctx, &resourceID, `
+		SELECT id
+		FROM resources
+		WHERE tenant_id = $1
+		  AND metadata->>'onboarding_seed' = 'true'
+		  AND status <> 'deleted'
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, tenantID)
+	if resourceErr != nil && resourceErr != sql.ErrNoRows {
+		return resourceErr
+	}
+
+	if resourceErr == sql.ErrNoRows {
+		resourceID = uuid.New()
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO resources (
+				id, tenant_id, name, category, description,
+				operating_mode, image_url, gallery, status, metadata
+			)
+			VALUES ($1, $2, $3, $4, $5, 'timed', $6, '{}', 'available', $7::jsonb)
+		`, resourceID, tenantID, name, category, defaultOnboardingResourceDescription(description), strings.TrimSpace(imageURL), string(meta)); err != nil {
+			return err
+		}
+	} else {
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE resources
+			SET
+				name = $2,
+				category = $3,
+				description = $4,
+				image_url = $5,
+				metadata = $6::jsonb
+			WHERE id = $1
+		`, resourceID, name, category, defaultOnboardingResourceDescription(description), strings.TrimSpace(imageURL), string(meta)); err != nil {
+			return err
+		}
+	}
+
+	var itemID uuid.UUID
+	itemErr := tx.GetContext(ctx, &itemID, `
+		SELECT id
+		FROM resource_items
+		WHERE resource_id = $1
+		  AND item_type = 'main_option'
+		  AND is_default = TRUE
+		ORDER BY price ASC, id DESC
+		LIMIT 1
+	`, resourceID)
+	if itemErr != nil && itemErr != sql.ErrNoRows {
+		return itemErr
+	}
+
+	if itemErr == sql.ErrNoRows {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO resource_items (
+				id, resource_id, name, price, price_unit,
+				unit_duration, item_type, is_default, metadata
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, 'main_option', TRUE, $7::jsonb)
+		`, uuid.New(), resourceID, priceName, price, priceUnit, unitDuration, string(itemMeta)); err != nil {
+			return err
+		}
+	} else {
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE resource_items
+			SET
+				name = $2,
+				price = $3,
+				price_unit = $4,
+				unit_duration = $5,
+				metadata = $6::jsonb
+			WHERE id = $1
+		`, itemID, priceName, price, priceUnit, unitDuration, string(itemMeta)); err != nil {
+			return err
+		}
 	}
 
 	return tx.Commit()
+}
+
+func (r *Repository) ensureOnboardingState(ctx context.Context, workspaceID uuid.UUID) (*OnboardingState, error) {
+	var item OnboardingState
+	err := r.db.GetContext(ctx, &item, `
+		INSERT INTO workspace_onboarding_states (
+			workspace_id,
+			current_step,
+			completed_steps,
+			selected_start_mode,
+			is_completed
+		)
+		VALUES ($1, 'template', '{}', '', FALSE)
+		ON CONFLICT (workspace_id) DO UPDATE
+		SET workspace_id = workspace_onboarding_states.workspace_id
+		RETURNING workspace_id, current_step, completed_steps, selected_start_mode, is_completed, started_at, completed_at, updated_at
+	`, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
 }
 
 func (r *Repository) ConfigureOnboardingPaymentMethods(ctx context.Context, workspaceID uuid.UUID, req PaymentOnboardingReq) error {
@@ -488,8 +656,7 @@ func (r *Repository) UpdateOnboardingBusinessBasics(ctx context.Context, workspa
 		UPDATE tenants
 		SET whatsapp_number = $2,
 		    open_time = $3,
-		    close_time = $4,
-		    updated_at = NOW()
+		    close_time = $4
 		WHERE id = $1
 	`, tenantID, whatsappNumber, openTime, closeTime); err != nil {
 		return err
@@ -588,6 +755,15 @@ func defaultOnboardingResourceDescription(value string) string {
 		return trimmed
 	}
 	return "Resource pertama dari onboarding Bookinaja."
+}
+
+func anyToString(value any) string {
+	switch typed := value.(type) {
+	case string:
+		return typed
+	default:
+		return ""
+	}
 }
 
 func defaultClockValue(value, fallback string) string {

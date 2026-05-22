@@ -23,6 +23,10 @@ import {
   operationalNavItems,
   settingsNavItems,
 } from "@/components/dashboard/admin-nav-config";
+import { getRootPortalUrl, getTenantSlugFromBrowser } from "@/lib/tenant";
+import { clearTenantSession } from "@/lib/tenant-session";
+import { resolveWorkspaceSwitchUrl } from "@/lib/workspace-routing";
+import { getSettingsDefaultRoute } from "@/components/dashboard/workspace-shell-config";
 
 const AdminMainContent = memo(function AdminMainContent({
   children,
@@ -52,9 +56,32 @@ export default function DashboardInternalLayout({
     tenantCategory,
     tenantSlug,
     growthVisible,
+    currentWorkspace,
+    workspaces,
+    trialInfo,
     reload,
   } = useAdminBootstrap();
   const normalizedPath = normalizeAdminPath(pathname);
+
+  const handleOpenSettings = () => {
+    router.push(getSettingsDefaultRoute());
+  };
+
+  const handleOpenUpgrade = () => {
+    router.push("/admin/settings/billing");
+  };
+
+  const handleCreateWorkspace = () => {
+    window.location.href = getRootPortalUrl("/app/workspaces/new");
+  };
+
+  const handleSignOut = () => {
+    clearTenantSession({ keepTenantSlug: true });
+    window.location.href = getCentralAdminAuthUrl({
+      tenantSlug: getTenantSlugFromBrowser(),
+      next: "/admin/dashboard",
+    });
+  };
 
   useEffect(() => {
     if (status !== "ready" || !user) return;
@@ -71,12 +98,16 @@ export default function DashboardInternalLayout({
     () => ({
       user,
       tenantName,
+      tenantSlug,
       tenantCategory,
       growthVisible,
       planFeatures: user?.plan_features || [],
       planFeatureMatrix: user?.plan_feature_matrix || {},
+      currentWorkspace,
+      workspaces,
+      trialInfo,
     }),
-    [growthVisible, tenantCategory, tenantName, user],
+    [currentWorkspace, growthVisible, tenantCategory, tenantName, tenantSlug, trialInfo, user, workspaces],
   );
 
   if (status === "loading") {
@@ -120,7 +151,21 @@ export default function DashboardInternalLayout({
               isCollapsed ? "w-20" : "w-72",
             )}
           >
-            <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+            <Sidebar
+              isCollapsed={isCollapsed}
+              setIsCollapsed={setIsCollapsed}
+              onOpenSettings={handleOpenSettings}
+              onOpenUpgrade={handleOpenUpgrade}
+              onCreateWorkspace={handleCreateWorkspace}
+              onSwitchWorkspace={(workspace) => {
+                window.location.href = resolveWorkspaceSwitchUrl(
+                  workspace.slug,
+                  normalizedPath,
+                  window.location.search,
+                );
+              }}
+              onSignOut={handleSignOut}
+            />
           </aside>
 
           <div
@@ -141,6 +186,17 @@ export default function DashboardInternalLayout({
                 </div>
                 <MobileNav
                   mode="operational"
+                  onOpenSettings={handleOpenSettings}
+                  onOpenUpgrade={handleOpenUpgrade}
+                  onCreateWorkspace={handleCreateWorkspace}
+                  onSwitchWorkspace={(workspace) => {
+                    window.location.href = resolveWorkspaceSwitchUrl(
+                      workspace.slug,
+                      normalizedPath,
+                      window.location.search,
+                    );
+                  }}
+                  onSignOut={handleSignOut}
                   triggerClassName="relative left-auto bottom-auto z-auto h-10 w-10 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
                 />
               </div>

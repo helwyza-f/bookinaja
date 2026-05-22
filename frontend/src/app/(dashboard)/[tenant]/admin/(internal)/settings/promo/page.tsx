@@ -115,9 +115,9 @@ export default function PromoSettingsPage() {
 
   return (
     <div className="space-y-4 p-4 pb-20 sm:space-y-6 sm:p-6">
-      <section className="space-y-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
+      <Card className="overflow-hidden rounded-[1.75rem] border-slate-200/80 bg-white/98 p-0 shadow-sm dark:border-white/10 dark:bg-[#0f1117]/96">
+        <div className="grid gap-0 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+          <div className="p-5 sm:p-6">
             <div className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-sky-700 dark:bg-sky-500/10 dark:text-sky-200">
               <TicketPercent className="h-3.5 w-3.5" />
               Promo
@@ -125,26 +125,31 @@ export default function PromoSettingsPage() {
             <h1 className="mt-3 text-2xl font-black tracking-tight text-slate-950 dark:text-white sm:text-3xl">
               Voucher Booking
             </h1>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
               Bikin, aktifkan, dan rapikan promo booking dari satu tempat.
             </p>
+
+            <Button
+              onClick={() => router.push("/admin/settings/promo/new")}
+              className="mt-5 rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Promo Baru
+            </Button>
           </div>
 
-          <Button
-            onClick={() => router.push("/admin/settings/promo/new")}
-            className="rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Promo Baru
-          </Button>
+          <div className="border-t border-slate-200/80 bg-slate-50/80 p-5 dark:border-white/10 dark:bg-white/[0.03] lg:border-l lg:border-t-0 sm:p-6">
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+              Snapshot
+            </div>
+            <div className="mt-4 grid gap-3">
+              <Metric label="Total" value={String(items.length)} />
+              <Metric label="Aktif" value={String(activeCount)} tone="emerald" />
+              <Metric label="Dipakai" value={String(usageCount)} tone="amber" />
+            </div>
+          </div>
         </div>
-
-        <div className="grid grid-cols-3 gap-2 md:max-w-[720px]">
-          <Metric label="Total" value={String(items.length)} />
-          <Metric label="Aktif" value={String(activeCount)} tone="emerald" />
-          <Metric label="Dipakai" value={String(usageCount)} tone="amber" />
-        </div>
-      </section>
+      </Card>
 
       <Card className="rounded-[1.75rem] border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b0b0b]">
         <div className="border-b border-slate-100 p-4 dark:border-white/5 sm:p-5">
