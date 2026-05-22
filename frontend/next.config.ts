@@ -62,6 +62,7 @@ const nextConfig: NextConfig = {
     "gaming-demo.lvh.me",
     "office-demo.lvh.me",
     "sports-demo.lvh.me",
+    "studio-demo.lvh.me",
     "*.lvh.me:3000",
   ],
 };
