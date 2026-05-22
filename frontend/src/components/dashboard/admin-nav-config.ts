@@ -5,7 +5,6 @@ import {
   ClipboardList,
   CreditCard,
   Landmark,
-  Link2,
   Printer,
   Grid2x2,
   LayoutDashboard,
@@ -43,8 +42,6 @@ export type WorkspaceUtilityNavItem = {
     | "business"
     | "page_builder"
     | "guide"
-    | "feedback"
-    | "discord"
     | "settings";
   label: string;
   icon: LucideIcon;
@@ -77,8 +74,6 @@ export const workspaceUtilityNavItems: WorkspaceUtilityNavItem[] = [
   { key: "business", label: "Bisnis", icon: BriefcaseBusiness, href: "/admin/brand", kind: "route" },
   { key: "page_builder", label: "Page Builder", icon: Wand2, href: "/admin/page-builder", kind: "route" },
   { key: "guide", label: "Guide", icon: Map, href: "/admin/guide", kind: "route" },
-  { key: "feedback", label: "Feedback", icon: MessageSquare, href: "/admin/feedback", kind: "route" },
-  { key: "discord", label: "Discord", icon: LifeBuoy, href: "/admin/community", kind: "route" },
   { key: "settings", label: "Settings", icon: Settings, kind: "settings" },
 ];
 
@@ -143,7 +138,7 @@ export const settingsNavItems: AdminNavItem[] = [
   },
   {
     label: "Smart Point",
-    href: "/admin/devices",
+    href: "/admin/settings/smart-point",
     icon: Radio,
     hint: "Alat & pairing",
     group: "system",
@@ -170,11 +165,18 @@ export const settingsNavItems: AdminNavItem[] = [
     group: "system",
   },
   {
-    label: "Referral",
-    href: "/admin/settings/referral",
-    icon: Link2,
-    hint: "Kode referral & bonus",
-    group: "growth",
+    label: "Feedback",
+    href: "/admin/settings/feedback",
+    icon: MessageSquare,
+    hint: "Masukan produk",
+    group: "system",
+  },
+  {
+    label: "Discord",
+    href: "/admin/settings/discord",
+    icon: LifeBuoy,
+    hint: "Komunitas & bantuan",
+    group: "system",
   },
 ];
 

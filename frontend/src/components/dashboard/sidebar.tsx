@@ -69,32 +69,55 @@ export function Sidebar({
   const itemIdle =
     "text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white";
 
+  const fallbackWorkspace =
+    currentWorkspace || {
+      name: tenantName,
+      slug: "",
+      role: userData?.role || "owner",
+    };
+
   return (
     <div className="relative flex h-full flex-col bg-white font-sans text-slate-900 dark:bg-slate-950 dark:text-white">
-      <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-5 z-[60] flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:border-[var(--bookinaja-300)] hover:text-[var(--bookinaja-600)] dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 dark:hover:border-[rgba(74,141,255,0.35)] dark:hover:text-[var(--bookinaja-200)]"
-      >
-        {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
-      </button>
-
-      <div className={cn("border-b border-slate-200 px-3 py-3 dark:border-slate-800", isCollapsed ? "flex justify-center" : "")}>
-        <WorkspaceSwitcher
-          collapsed={isCollapsed}
-          currentWorkspace={
-            currentWorkspace || {
-              name: tenantName,
-              slug: "",
-              role: userData?.role || "owner",
-            }
-          }
-          trialInfo={trialInfo}
-          onSwitchWorkspace={onSwitchWorkspace}
-          onCreateWorkspace={onCreateWorkspace}
-          onOpenUpgrade={onOpenUpgrade}
-          onOpenSettings={onOpenSettings}
-          onSignOut={onSignOut}
-        />
+      <div className={cn("px-3 py-3", isCollapsed ? "px-2 pb-2" : "pb-4")}>
+        {isCollapsed ? (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={() => setIsCollapsed(false)}
+              className="group relative flex h-10 w-10 items-center justify-center rounded-xl bg-white text-white outline-none ring-1 ring-slate-200 transition duration-200 hover:ring-slate-300 dark:bg-slate-950 dark:ring-slate-800 dark:hover:ring-slate-700"
+              aria-label="Expand sidebar"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 text-xs font-semibold uppercase text-white transition duration-200 group-hover:scale-[0.96] group-hover:opacity-15">
+                {fallbackWorkspace.name?.trim()?.charAt(0) || "W"}
+              </div>
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl bg-white/92 opacity-0 transition duration-200 group-hover:opacity-100 dark:bg-slate-950/92">
+                <ChevronRight className="h-4 w-4 text-slate-500 dark:text-slate-300" />
+              </div>
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <WorkspaceSwitcher
+                currentWorkspace={fallbackWorkspace}
+                trialInfo={trialInfo}
+                onSwitchWorkspace={onSwitchWorkspace}
+                onCreateWorkspace={onCreateWorkspace}
+                onOpenUpgrade={onOpenUpgrade}
+                onOpenSettings={onOpenSettings}
+                onSignOut={onSignOut}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsCollapsed(true)}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition duration-200 hover:border-[var(--bookinaja-300)] hover:text-[var(--bookinaja-600)] dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 dark:hover:border-[rgba(74,141,255,0.35)] dark:hover:text-[var(--bookinaja-200)]"
+              aria-label="Collapse sidebar"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
       <nav

@@ -27,7 +27,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import api from "@/lib/api";
 import { getTenantAdminEntryUrl } from "@/lib/workspace-entry";
-import { getWorkspaceOnboarding, updateWorkspaceOnboardingStep } from "@/lib/workspace-client";
+import { getWorkspaceOnboarding, listWorkspaces, updateWorkspaceOnboardingStep } from "@/lib/workspace-client";
 
 const steps = [
   { key: "template", label: "Start", icon: Sparkles },
@@ -92,6 +92,61 @@ const stepTitles: Record<string, { title: string; subtitle: string; action: stri
   },
 };
 
+const categoryProfiles: Record<string, {
+  label: string;
+  unitPlaceholder: string;
+  summaryPlaceholder: string;
+  packagePlaceholder: string;
+  packageTip: string;
+  businessTip: string;
+}> = {
+  gaming_hub: {
+    label: "Gaming & Rental",
+    unitPlaceholder: "PC Reguler",
+    summaryPlaceholder: "RTX 3060, Ryzen 5, 16GB RAM, monitor 144Hz",
+    packagePlaceholder: "Main 1 Jam",
+    packageTip: "Contoh umum: paket per jam untuk PC, PS, atau room gaming.",
+    businessTip: "Contoh yang cocok: slot main per jam, kontak admin aktif, dan jadwal operasional jelas.",
+  },
+  creative_space: {
+    label: "Studio & Creative",
+    unitPlaceholder: "Studio Foto A",
+    summaryPlaceholder: "Backdrop putih, lighting 3 titik, area make-up",
+    packagePlaceholder: "Sesi Studio",
+    packageTip: "Contoh umum: paket per sesi untuk studio, rehearsal, atau ruang meeting kecil.",
+    businessTip: "Biasanya customer butuh sesi jelas, kontak cepat, dan instruksi booking yang ringkas.",
+  },
+  sport_center: {
+    label: "Sport & Courts",
+    unitPlaceholder: "Lapangan Badminton 1",
+    summaryPlaceholder: "Karpet standar turnamen, pencahayaan terang, tribun kecil",
+    packagePlaceholder: "Sewa 1 Jam",
+    packageTip: "Contoh umum: paket per jam untuk lapangan, court, atau meja game.",
+    businessTip: "Biasanya customer melihat jam operasional, slot yang masih kosong, dan metode bayar yang cepat.",
+  },
+  social_space: {
+    label: "Social & Office",
+    unitPlaceholder: "Meeting Room A",
+    summaryPlaceholder: "Kapasitas 10 orang, proyektor, whiteboard, AC",
+    packagePlaceholder: "Sewa Harian",
+    packageTip: "Contoh umum: paket per hari untuk meeting room, event space, atau coworking.",
+    businessTip: "Biasanya customer ingin tahu jam buka, kontak admin, dan durasi sewa yang jelas.",
+  },
+};
+
+function categoryProfileFor(value: string) {
+  const normalized = value.trim().toLowerCase();
+  if (categoryProfiles[normalized]) return categoryProfiles[normalized];
+  return {
+    label: value.trim() || "Kategori bisnis",
+    unitPlaceholder: "Unit utama",
+    summaryPlaceholder: "Jelaskan fasilitas atau isi utama unit ini dengan singkat.",
+    packagePlaceholder: "Paket utama",
+    packageTip: "Pakai nama paket yang memang kamu jual ke customer.",
+    businessTip: "Tips dan contoh di langkah ini akan menyesuaikan kategori bisnis yang kamu pilih.",
+  };
+}
+
 const readableInputStyle = {
   color: "#020617",
   caretColor: "#2563eb",
@@ -136,6 +191,9 @@ function minutesToClock(totalMinutes: number) {
 function getOperatingWindow(openTime: string, closeTime: string) {
   const openMinutes = clockToMinutes(openTime);
   let closeMinutes = clockToMinutes(closeTime);
+  if (normalizeTenantClock(closeTime) === "23:59") {
+    closeMinutes = 24 * 60;
+  }
   if (closeMinutes <= openMinutes) {
     closeMinutes = 23 * 60 + 59;
   }
@@ -225,9 +283,11 @@ export function OnboardingStepScreen({ step }: { step: string }) {
   const searchParams = useSearchParams();
   const workspaceId = searchParams.get("workspace");
   const workspaceSlug = searchParams.get("slug");
+  const workspaceCategoryQuery = searchParams.get("category") || "";
   const currentIndex = Math.max(steps.findIndex((item) => item.key === step), 0);
   const copy = stepTitles[step] || stepTitles.template;
   const [loading, setLoading] = useState(false);
+  const [workspaceCategory, setWorkspaceCategory] = useState(workspaceCategoryQuery);
   const [resourceName, setResourceName] = useState("");
   const [resourceCategory, setResourceCategory] = useState("");
   const [resourceDescription, setResourceDescription] = useState("");
@@ -253,11 +313,22 @@ export function OnboardingStepScreen({ step }: { step: string }) {
   const [bookingTime, setBookingTime] = useState("");
   const [bookingMode, setBookingMode] = useState<"scheduled" | "walkin">("scheduled");
   const [bookingQuantity, setBookingQuantity] = useState(0);
+  const categoryProfile = categoryProfileFor(workspaceCategory);
 
   useEffect(() => {
     if (!workspaceId) return;
 
     let alive = true;
+    void listWorkspaces()
+      .then((items) => {
+        if (!alive) return;
+        const current = items.find((item) => item.id === workspaceId);
+        if (current?.business_category) {
+          setWorkspaceCategory(String(current.business_category));
+        }
+      })
+      .catch(() => {});
+
     void getWorkspaceOnboarding(workspaceId)
       .then((state) => {
         if (!alive || !state.seed) return;
@@ -271,7 +342,11 @@ export function OnboardingStepScreen({ step }: { step: string }) {
           setResourceDescription((current) => current || String(resource.resource_description || ""));
           setResourceImageUrl((current) => current || String(resource.resource_image_url || ""));
           setPriceName((current) => current || String(resource.price_name || ""));
-          setPriceUnit((current) => current || String(resource.price_unit || "hour"));
+          setPriceUnit((current) =>
+            current === "hour" && String(resource.price_unit || "hour") !== "hour"
+              ? String(resource.price_unit || "hour")
+              : current || String(resource.price_unit || "hour"),
+          );
           setPrice((current) => current || String(resource.price || ""));
           setDuration((current) => current || String(resource.unit_duration || ""));
         }
@@ -299,6 +374,37 @@ export function OnboardingStepScreen({ step }: { step: string }) {
       alive = false;
     };
   }, [workspaceId]);
+
+  useEffect(() => {
+    if (!resourceCategory && workspaceCategory) {
+      setResourceCategory(workspaceCategory);
+    }
+  }, [resourceCategory, workspaceCategory]);
+
+  const resourceValid = Boolean(
+    resourceName.trim() &&
+    resourceDescription.trim() &&
+    priceName.trim() &&
+    digitsOnly(price).trim() &&
+    digitsOnly(duration).trim(),
+  );
+  const businessValid = Boolean(openTime.trim() && closeTime.trim() && whatsapp.trim());
+  const paymentsValid = Boolean(
+    (!bankTransferEnabled || hasBankTransferConfig(bankName, bankAccountName, bankAccountNumber)) &&
+    (!qrisStaticEnabled || hasQrisConfig(qrisImageUrl)),
+  );
+  const firstBookingValid = Boolean(
+    bookingQuantity > 0 && bookingTime && bookingName.trim() && bookingPhone.trim(),
+  );
+  const continueDisabled = step === "resource"
+    ? !resourceValid
+    : step === "business"
+      ? !businessValid
+      : step === "payments"
+        ? !paymentsValid
+        : step === "first-booking"
+          ? !firstBookingValid
+          : false;
 
   async function continueStep() {
     if (!workspaceId) {
@@ -336,7 +442,7 @@ export function OnboardingStepScreen({ step }: { step: string }) {
         ...(step === "resource"
           ? {
               resource_name: resourceName,
-              resource_category: resourceCategory || "main",
+              resource_category: resourceCategory || workspaceCategory || "main",
               resource_description: resourceDescription,
               resource_image_url: resourceImageUrl,
               price_name: priceName,
@@ -419,9 +525,10 @@ export function OnboardingStepScreen({ step }: { step: string }) {
           </header>
 
           {step === "template" ? (
-            <StartStep />
+            <StartStep categoryLabel={categoryProfile.label} />
           ) : step === "resource" ? (
             <ResourceStep
+              categoryProfile={categoryProfile}
               resourceName={resourceName}
               resourceCategory={resourceCategory}
               resourceDescription={resourceDescription}
@@ -441,6 +548,7 @@ export function OnboardingStepScreen({ step }: { step: string }) {
             />
           ) : step === "business" ? (
             <BusinessStep
+              categoryProfile={categoryProfile}
               openTime={openTime}
               closeTime={closeTime}
               whatsapp={whatsapp}
@@ -470,6 +578,7 @@ export function OnboardingStepScreen({ step }: { step: string }) {
             />
           ) : step === "first-booking" ? (
             <BookingExperienceStep
+              categoryLabel={categoryProfile.label}
               bookingName={bookingName}
               bookingPhone={bookingPhone}
               bookingTime={bookingTime}
@@ -504,6 +613,7 @@ export function OnboardingStepScreen({ step }: { step: string }) {
             currentIndex={currentIndex}
             action={copy.action}
             loading={loading}
+            disabled={continueDisabled}
             onBack={backStep}
             onContinue={continueStep}
           />
@@ -513,7 +623,7 @@ export function OnboardingStepScreen({ step }: { step: string }) {
   );
 }
 
-function StartStep() {
+function StartStep({ categoryLabel }: { categoryLabel: string }) {
   const cards = [
     ["1", "Buat unit pertama", "Siapkan unit dan paket utama yang benar-benar akan dijual."],
     ["2", "Atur dasar operasional", "Jam operasional, kontak, dan payment mode disiapkan."],
@@ -526,7 +636,7 @@ function StartStep() {
       </div>
       <h2 className="mt-5 text-4xl font-semibold tracking-tight">Mari bikin workspace ini siap dipakai.</h2>
       <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-500">
-        Bukan tour pasif. Kita akan membuat data pertama dan preview flow booking yang sama seperti produk asli.
+        Setup ini disesuaikan untuk kategori <span className="font-semibold text-slate-950">{categoryLabel}</span>, jadi contoh data dan tipsnya lebih relevan.
       </p>
       <div className="mt-8 grid gap-3 text-left">
         {cards.map(([number, title, description]) => (
@@ -546,6 +656,7 @@ function StartStep() {
 }
 
 function ResourceStep(props: {
+  categoryProfile: ReturnType<typeof categoryProfileFor>;
   resourceName: string;
   resourceCategory: string;
   resourceDescription: string;
@@ -602,6 +713,13 @@ function ResourceStep(props: {
     props.setPriceUnit(nextValue);
     props.setDuration(defaultDurationByPriceUnit(nextValue));
     setActiveHint(nextValue === "session" ? "duration" : "price_unit");
+    if (nextValue === "hour") {
+      toast.success("Durasi paket otomatis diisi 60 menit untuk pola per jam.");
+    } else if (nextValue === "day") {
+      toast.success("Durasi paket otomatis diisi 1440 menit untuk pola per hari.");
+    } else {
+      toast.message("Isi sendiri durasi sesi dalam menit.");
+    }
   }
 
   function handleDurationChange(nextValue: string) {
@@ -625,6 +743,7 @@ function ResourceStep(props: {
           Isi dua level inti ini dulu:
           <span className="font-semibold text-slate-950"> unit</span> yang customer pilih, lalu
           <span className="font-semibold text-slate-950"> paket utama</span> yang jadi harga mulai dari.
+          <span className="mt-1 block text-slate-500">Kategori aktif: {props.categoryProfile.label}.</span>
         </div>
 
         <section className="space-y-4 rounded-2xl border border-slate-200 p-4">
@@ -643,7 +762,7 @@ function ResourceStep(props: {
               <OnboardingInput
                 value={props.resourceName}
                 onChange={(event) => props.setResourceName(event.target.value)}
-                placeholder="PC Reguler"
+                placeholder={props.categoryProfile.unitPlaceholder}
               />
             </GuidedField>
             <GuidedField
@@ -657,7 +776,7 @@ function ResourceStep(props: {
               <OnboardingInput
                 value={props.resourceDescription}
                 onChange={(event) => props.setResourceDescription(event.target.value)}
-                placeholder="RTX 3060, Ryzen 5, 16GB RAM, monitor 144Hz"
+                placeholder={props.categoryProfile.summaryPlaceholder}
               />
             </GuidedField>
           </div>
@@ -737,30 +856,19 @@ function ResourceStep(props: {
                 })}
               </div>
             </GuidedField>
+            <div className="mt-3 rounded-xl bg-white px-3 py-2 text-xs leading-5 text-slate-600">
+              Per jam otomatis mengisi <span className="font-semibold text-slate-950">60 menit</span>.
+              Per hari otomatis mengisi <span className="font-semibold text-slate-950">1440 menit</span>.
+              {props.priceUnit === "session" ? " Untuk per sesi, isi sendiri durasinya." : ""}
+            </div>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <div className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">2. Isi paket pertama</div>
-            <div className="mb-4 flex flex-wrap gap-2">
-              {["Reguler", "VIP", "Harian", "Weekend", "Sesi Pagi", "Sesi Malam", "2 Jam"].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => props.setPriceName(preset)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                    props.priceName === preset
-                      ? "border-blue-500 bg-blue-50 text-blue-700"
-                      : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/40"
-                  }`}
-                >
-                  {preset}
-                </button>
-              ))}
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <GuidedField
                 label="Nama paket"
-                hint="Isi dengan nama harga yang memang kamu jual. Contoh: Reguler, VIP, Harian, Weekend, Sesi Malam, 2 Jam, atau Member Pagi."
+                hint={props.categoryProfile.packageTip}
                 activeHint={activeHint}
                 onFocus={() => setActiveHint("price_name")}
                 hintKey="price_name"
@@ -768,38 +876,43 @@ function ResourceStep(props: {
                 <OnboardingInput
                   value={props.priceName}
                   onChange={(event) => props.setPriceName(event.target.value)}
-                  placeholder="Member Reguler"
+                  placeholder={props.categoryProfile.packagePlaceholder}
                 />
               </GuidedField>
               <GuidedField
-                label="Harga"
-                hint="Harga ini tampil sebagai mulai dari di kartu customer dan jadi paket pertama di dashboard resource."
+                label="Durasi paket (menit)"
+                hint={durationHintByPriceUnit(props.priceUnit)}
                 activeHint={activeHint}
-                onFocus={() => setActiveHint("price")}
-                hintKey="price"
-              >
-                <OnboardingInput
-                  value={formatRupiahInput(props.price)}
-                  onChange={(event) => props.setPrice(digitsOnly(event.target.value))}
-                  inputMode="numeric"
-                  placeholder="6.000"
-                />
-              </GuidedField>
-            <GuidedField
-              label="Durasi paket (menit)"
-              hint={durationHintByPriceUnit(props.priceUnit)}
-              activeHint={activeHint}
-              onFocus={() => setActiveHint("duration")}
+                onFocus={() => setActiveHint("duration")}
                 hintKey="duration"
               >
                 <OnboardingInput
                   value={props.duration}
                   onChange={(event) => handleDurationChange(event.target.value)}
                   inputMode="numeric"
-                placeholder="60"
-              />
-            </GuidedField>
+                  placeholder={props.priceUnit === "day" ? "1440" : props.priceUnit === "hour" ? "60" : "90"}
+                />
+              </GuidedField>
             </div>
+            <GuidedField
+              label="Harga"
+              hint="Harga ini tampil sebagai mulai dari di kartu customer dan jadi fokus utama saat customer membandingkan unit."
+              activeHint={activeHint}
+              onFocus={() => setActiveHint("price")}
+              hintKey="price"
+              className="mt-5"
+            >
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
+                <div className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">Paling dilihat customer</div>
+                <OnboardingInput
+                  value={formatRupiahInput(props.price)}
+                  onChange={(event) => props.setPrice(digitsOnly(event.target.value))}
+                  inputMode="numeric"
+                  placeholder="6.000"
+                  className="h-14 text-xl font-semibold"
+                />
+              </div>
+            </GuidedField>
             <div className="mt-4 rounded-xl bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
               Semua durasi tetap diisi dalam menit. Sekarang kamu memilih pola
               <span className="font-semibold text-slate-950"> {priceUnitLabel(props.priceUnit)}</span>, jadi preview customer akan membaca harga sebagai
@@ -878,6 +991,7 @@ function ResourceStep(props: {
 }
 
 function BusinessStep(props: {
+  categoryProfile: ReturnType<typeof categoryProfileFor>;
   openTime: string;
   closeTime: string;
   whatsapp: string;
@@ -906,6 +1020,7 @@ function BusinessStep(props: {
           Di langkah ini kita tentukan
           <span className="font-semibold text-slate-950"> kapan customer bisa booking</span> dan
           <span className="font-semibold text-slate-950"> ke nomor mana mereka diarahkan</span> kalau butuh konfirmasi cepat.
+          <span className="mt-1 block text-slate-500">{props.categoryProfile.businessTip}</span>
         </div>
         <section className="space-y-4 rounded-2xl border border-slate-200 p-4">
           <div>
@@ -1534,6 +1649,7 @@ function BookingStep(props: {
 /* eslint-enable @typescript-eslint/no-unused-vars */
 
 function BookingExperienceStep(props: {
+  categoryLabel: string;
   bookingName: string;
   bookingPhone: string;
   bookingTime: string;
@@ -1569,11 +1685,12 @@ function BookingExperienceStep(props: {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [activeHint, setActiveHint] = useState<string | null>(null);
   const baseUnitMinutes = Math.max(Number(props.duration || 60), 30);
-  const selectionReady = selectedResource && selectedPackage && quantity > 0;
+  const selectionReady = selectedResource && selectedPackage;
   const unitMinutes = baseUnitMinutes * Math.max(quantity, 1);
   const startClock = normalizeTenantClock(props.openTime || "09:00");
   const endClock = normalizeTenantClock(props.closeTime || "22:00");
   const operatingWindow = getOperatingWindow(startClock, endClock);
+  const maxQuantity = Math.max(1, Math.floor((operatingWindow.closeMinutes - operatingWindow.openMinutes) / baseUnitMinutes));
   const effectiveDay = props.bookingMode === "walkin" ? "today" : selectedDay;
   const bookingDateValue = effectiveDay === "today"
     ? todayValue
@@ -1586,15 +1703,23 @@ function BookingExperienceStep(props: {
     : effectiveDay === "tomorrow"
       ? "Besok"
       : format(bookingDate, "dd MMM");
+  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
   const availableSlots = useMemo(() => {
-    const slots: string[] = [];
+    const slots: { value: string; label: string; note?: string; disabled: boolean }[] = [];
     let currentMinutes = operatingWindow.openMinutes;
     while (currentMinutes + unitMinutes <= operatingWindow.closeMinutes) {
-      slots.push(minutesToClock(currentMinutes));
+      const value = minutesToClock(currentMinutes);
+      const isPast = bookingDateValue === todayValue && currentMinutes <= nowMinutes;
+      slots.push({
+        value,
+        label: props.priceUnit === "day" ? "Full day" : value,
+        note: props.priceUnit === "day" ? `${startClock} - ${props.closeTime || "23:59"}` : isPast ? "Lewat" : undefined,
+        disabled: isPast,
+      });
       currentMinutes += baseUnitMinutes;
     }
     return slots;
-  }, [baseUnitMinutes, operatingWindow.closeMinutes, operatingWindow.openMinutes, unitMinutes]);
+  }, [baseUnitMinutes, bookingDateValue, nowMinutes, operatingWindow.closeMinutes, operatingWindow.openMinutes, props.closeTime, props.priceUnit, startClock, todayValue, unitMinutes]);
 
   useEffect(() => {
     setBookingDate(bookingDateValue);
@@ -1614,7 +1739,7 @@ function BookingExperienceStep(props: {
 
   useEffect(() => {
     if (!bookingTime) return;
-    if (!selectionReady || !availableSlots.includes(bookingTime)) {
+    if (!selectionReady || !availableSlots.some((slot) => slot.value === bookingTime && !slot.disabled)) {
       setBookingTime("");
     }
   }, [availableSlots, bookingTime, selectionReady, setBookingTime]);
@@ -1636,6 +1761,11 @@ function BookingExperienceStep(props: {
   const unitLabel = priceUnitLabel(props.priceUnit);
   const quantityLabel = quantityUnitLabel(props.priceUnit);
   const bookingTotal = Number(props.price || 0) * quantity;
+  const timeRangeLabel = props.bookingTime
+    ? props.priceUnit === "day"
+      ? `${startClock} - ${props.closeTime || "23:59"}`
+      : `${props.bookingTime}${endTime ? ` - ${endTime}` : ""}`
+    : "--:--";
   const paymentTypeTone = props.paymentLabel.includes("Bank") || props.paymentLabel.includes("QRIS")
     ? "bg-sky-50 text-sky-700"
     : props.paymentLabel.includes("Cash")
@@ -1653,14 +1783,14 @@ function BookingExperienceStep(props: {
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_420px]">
       <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
         <div className="rounded-2xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-slate-700">
-          Simulasikan booking yang owner lihat di admin.
+          Simulasikan booking admin untuk kategori {props.categoryLabel}.
         </div>
 
         <section className="space-y-4 rounded-2xl border border-slate-200 p-4">
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">1. Unit & paket</div>
-            <h3 className="mt-2 text-lg font-semibold">Pilih resource utama</h3>
-            <p className="mt-1 text-sm text-slate-500">Urutannya: unit, paket, lalu durasi.</p>
+            <h3 className="mt-2 text-lg font-semibold">Pilih dulu yang dibooking</h3>
+            <p className="mt-1 text-sm text-slate-500">Mulai dari unit, lalu paket utamanya.</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <button
@@ -1710,73 +1840,15 @@ function BookingExperienceStep(props: {
               </div>
             </button>
           </div>
-          <div className={`rounded-2xl border p-4 transition ${selectedPackage ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50 opacity-60"}`}>
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Durasi booking</div>
-            <h4 className="mt-2 text-base font-semibold text-slate-950">Tentukan jumlah {quantityLabel}</h4>
-            <div className="mt-4 flex items-center justify-center gap-3">
-              <button
-                type="button"
-                disabled={!selectedPackage || quantity <= 1}
-                onClick={() => {
-                  if (!selectedPackage) return;
-                  const next = Math.max(1, quantity - 1);
-                  setQuantity(next);
-                  props.setBookingTime("");
-                }}
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-lg font-semibold text-slate-700 disabled:cursor-not-allowed disabled:border-slate-100 disabled:bg-slate-50 disabled:text-slate-300"
-              >
-                -
-              </button>
-              <div className="min-w-[136px] rounded-2xl bg-slate-50 px-4 py-3 text-center sm:min-w-[160px]">
-                <div className="text-2xl font-semibold text-slate-950">{quantity || "--"}</div>
-                <div className="mt-1 text-sm text-slate-500">
-                  {quantity > 0 ? `${quantity} ${quantityLabel}` : "Pilih paket dulu"}
-                </div>
-              </div>
-              <button
-                type="button"
-                disabled={!selectedPackage}
-                onClick={() => {
-                  if (!selectedPackage) return;
-                  const next = Math.min(12, Math.max(1, quantity + 1));
-                  setQuantity(next);
-                  props.setBookingTime("");
-                }}
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-lg font-semibold text-slate-700 disabled:cursor-not-allowed disabled:border-slate-100 disabled:bg-slate-50 disabled:text-slate-300"
-              >
-                +
-              </button>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {[1, 2, 3, 4].map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  disabled={!selectedPackage}
-                  onClick={() => {
-                    if (!selectedPackage) return;
-                    setQuantity(value);
-                    props.setBookingTime("");
-                  }}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                    !selectedPackage
-                      ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300"
-                      : quantity === value
-                        ? "border-blue-500 bg-blue-50 text-blue-700"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/40"
-                  }`}
-                >
-                  {value} {quantityLabel}
-                </button>
-              ))}
-            </div>
-          </div>
         </section>
 
-        <section className="space-y-4 rounded-2xl border border-slate-200 p-4">
+        <section className={`space-y-4 rounded-2xl border p-4 transition ${selectionReady ? "border-slate-200" : "border-slate-100 bg-slate-50/70 opacity-70"}`}>
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">Mode booking</div>
-            <h3 className="mt-2 text-lg font-semibold">Pilih jalur operasional</h3>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">2. Jadwal</div>
+            <h3 className="mt-2 text-lg font-semibold">Pilih hari dan slot mulai</h3>
+            {!selectionReady ? (
+              <p className="mt-1 text-sm text-slate-500">Selesaikan step di atas dulu.</p>
+            ) : null}
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {[
@@ -1804,16 +1876,6 @@ function BookingExperienceStep(props: {
                 </button>
               );
             })}
-          </div>
-        </section>
-
-        <section className={`space-y-4 rounded-2xl border p-4 transition ${selectionReady ? "border-slate-200" : "border-slate-100 bg-slate-50/70 opacity-70"}`}>
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">3. Jadwal</div>
-            <h3 className="mt-2 text-lg font-semibold">Pilih hari dan slot mulai</h3>
-            {!selectionReady ? (
-              <p className="mt-1 text-sm text-slate-500">Selesaikan step di atas dulu.</p>
-            ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
             {[
@@ -1886,36 +1948,108 @@ function BookingExperienceStep(props: {
             </Popover>
           </div>
           <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
-            Jam operasional {startClock} - {endClock} | durasi booking {unitMinutes} menit
+            Jam operasional {startClock} - {props.closeTime || "23:59"} | dasar slot {baseUnitMinutes} menit
           </div>
           {selectionReady && !availableSlots.length ? (
             <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-5 text-sm text-slate-500">
-              Durasi {quantity} {quantityLabel} tidak muat di rentang jam operasional ini. Kurangi jumlah atau ubah jam buka-tutup.
+              {quantity > maxQuantity
+                ? `Jumlah ${quantityLabel} melebihi kapasitas harian. Maksimal ${maxQuantity} ${quantityLabel}.`
+                : `Durasi total ${unitMinutes} menit tidak muat di rentang operasional ini. Kurangi jumlah ${quantityLabel} atau ubah jam buka-tutup.`}
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2 min-[520px]:grid-cols-3 sm:grid-cols-4">
               {availableSlots.map((slot) => {
-                const active = props.bookingTime === slot;
+                const active = props.bookingTime === slot.value;
                 return (
                   <button
-                    key={slot}
+                    key={slot.value}
                     type="button"
-                    disabled={!selectionReady}
-                    onClick={() => props.setBookingTime(slot)}
+                    disabled={!selectionReady || slot.disabled}
+                    onClick={() => props.setBookingTime(slot.value)}
                     className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
-                      !selectionReady
+                      !selectionReady || slot.disabled
                         ? "cursor-not-allowed border-slate-100 bg-slate-100 text-slate-300"
                         : active
                           ? "border-blue-500 bg-blue-600 text-white"
                           : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/40"
                     }`}
                   >
-                    {slot}
+                    <div>{slot.label}</div>
+                    {slot.note ? (
+                      <div className={`mt-1 text-[11px] font-medium ${active ? "text-blue-100" : slot.disabled ? "text-rose-500" : "text-slate-400"}`}>
+                        {slot.note}
+                      </div>
+                    ) : null}
                   </button>
                 );
               })}
             </div>
           )}
+        </section>
+
+        <section className={`space-y-4 rounded-2xl border p-4 transition ${selectedPackage ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50 opacity-60"}`}>
+          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">3. Durasi booking</div>
+          <h4 className="text-base font-semibold text-slate-950">Tentukan jumlah {quantityLabel}</h4>
+          <p className="text-sm text-slate-500">
+            Maksimal {maxQuantity} {quantityLabel} dari jam operasional dan paket dasar yang kamu isi.
+          </p>
+          <div className="mt-2 flex items-center justify-center gap-3">
+            <button
+              type="button"
+              disabled={!selectedPackage || quantity <= 1}
+              onClick={() => {
+                if (!selectedPackage) return;
+                const next = Math.max(1, quantity - 1);
+                setQuantity(next);
+                props.setBookingTime("");
+              }}
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-lg font-semibold text-slate-700 disabled:cursor-not-allowed disabled:border-slate-100 disabled:bg-slate-50 disabled:text-slate-300"
+            >
+              -
+            </button>
+            <div className="min-w-[136px] rounded-2xl bg-slate-50 px-4 py-3 text-center sm:min-w-[160px]">
+              <div className="text-2xl font-semibold text-slate-950">{quantity || "--"}</div>
+              <div className="mt-1 text-sm text-slate-500">
+                {quantity > 0 ? `${quantity} ${quantityLabel}` : "Pilih paket dulu"}
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={!selectedPackage || quantity >= maxQuantity}
+              onClick={() => {
+                if (!selectedPackage) return;
+                const next = Math.min(maxQuantity, Math.max(1, quantity + 1));
+                setQuantity(next);
+                props.setBookingTime("");
+              }}
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-lg font-semibold text-slate-700 disabled:cursor-not-allowed disabled:border-slate-100 disabled:bg-slate-50 disabled:text-slate-300"
+            >
+              +
+            </button>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {Array.from({ length: Math.min(4, maxQuantity) }, (_, index) => index + 1).map((value) => (
+              <button
+                key={value}
+                type="button"
+                disabled={!selectedPackage}
+                onClick={() => {
+                  if (!selectedPackage) return;
+                  setQuantity(value);
+                  props.setBookingTime("");
+                }}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  !selectedPackage
+                    ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300"
+                    : quantity === value
+                      ? "border-blue-500 bg-blue-50 text-blue-700"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/40"
+                }`}
+              >
+                {value} {quantityLabel}
+              </button>
+            ))}
+          </div>
         </section>
 
         <section className="space-y-4 rounded-2xl border border-slate-200 p-4">
@@ -1977,7 +2111,7 @@ function BookingExperienceStep(props: {
                     {selectedResource ? (props.resourceName || "Unit pertama") : "Pilih unit"}
                   </div>
                   <div className="mt-1 text-sm text-slate-500">
-                    {format(bookingDate, "dd MMM yyyy")} | {props.bookingTime || "--:--"}{endTime ? ` - ${endTime}` : ""}
+                    {format(bookingDate, "dd MMM yyyy")} | {timeRangeLabel}
                   </div>
                 </div>
                 <span className="text-sm font-semibold text-slate-950">Rp{bookingTotal.toLocaleString("id-ID")}</span>
@@ -2024,7 +2158,7 @@ function BookingExperienceStep(props: {
                           {selectedResource ? (props.resourceName || "Unit pertama") : "Pilih unit"}
                         </div>
                         <div className="mt-1 text-sm text-slate-500">
-                          {props.bookingTime || "--:--"}{endTime ? ` - ${endTime}` : ""} | {props.bookingName || "Demo Customer"}
+                          {timeRangeLabel} | {props.bookingName || "Demo Customer"}
                         </div>
                         <div className="mt-2 text-xs text-slate-500">
                           {selectedPackage ? packageLabel : "Pilih paket"} | {quantity > 0 ? `${quantity} ${quantityLabel}` : `Pilih jumlah ${quantityLabel}`}
@@ -2244,6 +2378,7 @@ function OnboardingFooter(props: {
   currentIndex: number;
   action: string;
   loading: boolean;
+  disabled?: boolean;
   onBack: () => void;
   onContinue: () => void;
 }) {
@@ -2258,7 +2393,7 @@ function OnboardingFooter(props: {
         >
           ← Kembali
         </Button>
-        <Button onClick={props.onContinue} disabled={props.loading} className="h-12 min-w-[220px] rounded-xl px-8">
+        <Button onClick={props.onContinue} disabled={props.loading || props.disabled} className="h-12 min-w-[220px] rounded-xl px-8">
           {props.loading ? "Menyimpan..." : props.action}
           {!props.loading ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
         </Button>

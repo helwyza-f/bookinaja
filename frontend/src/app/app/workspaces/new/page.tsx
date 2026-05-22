@@ -15,6 +15,7 @@ const categories = [
   { id: "creative_space", label: "Studio & Creative" },
   { id: "sport_center", label: "Sport & Courts" },
   { id: "social_space", label: "Social & Office" },
+  { id: "other", label: "Kategori lain" },
 ];
 
 function slugFromName(value: string) {
@@ -30,21 +31,27 @@ export default function NewWorkspacePage() {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [category, setCategory] = useState("gaming_hub");
+  const [customCategory, setCustomCategory] = useState("");
   const [loading, setLoading] = useState(false);
 
   const resolvedSlug = slugFromName(slug || name);
+  const finalCategory = category === "other" ? customCategory.trim() : category;
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!finalCategory) {
+      toast.error("Isi kategori bisnis dulu.");
+      return;
+    }
     setLoading(true);
     try {
       const workspace = await createWorkspace({
         name,
         slug: resolvedSlug,
-        business_category: category,
+        business_category: finalCategory,
       });
       toast.success("Workspace dibuat. Lanjut onboarding.");
-      router.replace(`/app/onboarding/template?workspace=${workspace.id}&slug=${workspace.slug}`);
+      router.replace(`/app/onboarding/template?workspace=${workspace.id}&slug=${workspace.slug}&category=${encodeURIComponent(finalCategory)}`);
     } catch (error) {
       const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
       toast.error(message || "Workspace belum berhasil dibuat.");
@@ -112,9 +119,16 @@ export default function NewWorkspacePage() {
                   </button>
                 ))}
               </div>
+              {category === "other" ? (
+                <Input
+                  value={customCategory}
+                  onChange={(event) => setCustomCategory(event.target.value)}
+                  placeholder="Contoh: Music Rehearsal, Kids Playground, atau lainnya"
+                />
+              ) : null}
             </div>
 
-            <Button type="submit" disabled={loading || !name.trim()} className="h-10 w-full">
+            <Button type="submit" disabled={loading || !name.trim() || !finalCategory.trim()} className="h-10 w-full">
               {loading ? "Membuat workspace..." : "Buat workspace"}
               {!loading ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
             </Button>
