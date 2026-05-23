@@ -276,11 +276,17 @@ func (r *Repository) GetCachedPublicDiscoverFeed(ctx context.Context) (*PublicDi
 	if err := json.Unmarshal([]byte(val), &feed); err != nil {
 		return nil, false
 	}
+	if len(feed.Featured) == 0 && len(feed.Sections) == 0 {
+		return nil, false
+	}
 	return &feed, true
 }
 
 func (r *Repository) CachePublicDiscoverFeed(ctx context.Context, feed *PublicDiscoverFeedResponse, ttl time.Duration) {
 	if r.rdb == nil || feed == nil {
+		return
+	}
+	if len(feed.Featured) == 0 && len(feed.Sections) == 0 {
 		return
 	}
 	raw, err := json.Marshal(feed)
@@ -535,7 +541,9 @@ func (r *Repository) ListPublicTenants(ctx context.Context) ([]TenantDirectoryIt
 	cacheKey := r.getPublicTenantsCacheKey()
 	if val, err := r.rdb.Get(ctx, cacheKey).Result(); err == nil {
 		if err := json.Unmarshal([]byte(val), &items); err == nil {
-			return items, nil
+			if len(items) > 0 {
+				return items, nil
+			}
 		}
 	}
 	err := r.db.SelectContext(ctx, &items, `
@@ -621,8 +629,10 @@ func (r *Repository) ListPublicTenants(ctx context.Context) ([]TenantDirectoryIt
 			return nil, err
 		}
 	}
-	if raw, marshalErr := json.Marshal(items); marshalErr == nil {
-		_ = r.rdb.Set(ctx, cacheKey, raw, 30*time.Minute).Err()
+	if len(items) > 0 {
+		if raw, marshalErr := json.Marshal(items); marshalErr == nil {
+			_ = r.rdb.Set(ctx, cacheKey, raw, 30*time.Minute).Err()
+		}
 	}
 	return items, nil
 }
