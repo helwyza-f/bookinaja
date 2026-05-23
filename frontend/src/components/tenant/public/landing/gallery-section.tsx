@@ -140,7 +140,6 @@ export function GallerySection({
                 src={url}
                 alt={`Gallery ${i + 1}`}
                 fill
-                unoptimized
                 sizes="(min-width: 768px) 25vw, 50vw"
                 className="object-cover object-center transition-transform duration-1000 group-hover:scale-110"
               />

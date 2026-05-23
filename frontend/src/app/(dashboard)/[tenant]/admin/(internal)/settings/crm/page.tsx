@@ -22,7 +22,6 @@ import {
   Megaphone,
   RefreshCw,
   Send,
-  Sparkles,
   Upload,
 } from "lucide-react";
 
@@ -231,28 +230,27 @@ export default function SettingsCRMPage() {
   };
 
   return (
-    <div className="space-y-4 p-4 pb-20 sm:space-y-6 sm:p-6">
+    <div className="space-y-4 pb-10">
       <PlanFeatureCallout
         input={user || {}}
-        title="Workspace CRM dan campaign"
-        description="Import pelanggan lama, kelola campaign, dan jalankan aktivitas CRM dari satu workspace."
+        title="CRM dan campaign"
+        description="Import kontak lama, kirim pesan, dan lihat riwayat aktivitas."
         requirement={{ anyFeatures: ["crm_basic", "customer_import", "whatsapp_blast"] }}
       />
-      <Card className="overflow-hidden rounded-[1.75rem] border-slate-200/80 bg-white/98 p-0 shadow-sm dark:border-white/10 dark:bg-[#0f1117]/96">
-        <div className="grid gap-0 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-          <div className="p-5 sm:p-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--bookinaja-200)] bg-[var(--bookinaja-50)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-[var(--bookinaja-700)] dark:border-[rgba(96,165,250,0.24)] dark:bg-[rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]">
-              <Sparkles className="h-3.5 w-3.5" />
-              CRM Workspace
-            </div>
-            <h1 className="mt-3 text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-3xl">
-              Import pelanggan, kirim campaign, cek riwayat
+      <Card className="rounded-2xl border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+              CRM
+            </p>
+            <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
+              Customer & Campaign
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Mulai dari import kontak lama, lalu gunakan campaign untuk legacy contact atau pelanggan aktif.
+            <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+              Kelola kontak dan pesan customer tanpa keluar dari settings.
             </p>
 
-            <div className="mt-5 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               <Button variant="outline" onClick={() => void loadAll()} className="rounded-xl">
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Refresh
@@ -277,40 +275,35 @@ export default function SettingsCRMPage() {
             </div>
           </div>
 
-          <div className="border-t border-slate-200/80 bg-slate-50/80 p-5 dark:border-white/10 dark:bg-white/[0.03] xl:border-l xl:border-t-0 sm:p-6">
-            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
-              Snapshot
-            </div>
-            <div className="mt-4 grid gap-3">
-              <MetricCard
-                label="Pelanggan aktif"
-                value={loading ? "-" : String(customers.length)}
-                hint="Audience customer tenant"
-              />
-              <MetricCard
-                label="Legacy contacts"
-                value={loading ? "-" : String(legacyContacts.length)}
-                hint={importRows.length > 0 ? `${importRows.length} draft import` : "Siap untuk migrasi"}
-              />
-              <MetricCard
-                label="Activity"
-                value={String(crmHistory.length)}
-                hint={latestCrmActivity ? formatDate(latestCrmActivity.created_at) : "Belum ada riwayat"}
-              />
-            </div>
+          <div className="grid grid-cols-3 gap-2 lg:min-w-[420px]">
+            <MetricCard
+              label="Aktif"
+              value={loading ? "-" : String(customers.length)}
+              hint="customer"
+            />
+            <MetricCard
+              label="Legacy"
+              value={loading ? "-" : String(legacyContacts.length)}
+              hint={importRows.length > 0 ? `${importRows.length} draft` : "kontak"}
+            />
+            <MetricCard
+              label="Riwayat"
+              value={String(crmHistory.length)}
+              hint={latestCrmActivity ? "update terakhir" : "kosong"}
+            />
           </div>
         </div>
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 lg:w-[620px]">
+        <TabsList className="grid w-full grid-cols-3 lg:w-[520px]">
           <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
           <TabsTrigger value="import">Import Legacy</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
         <TabsContent value="import" className="space-y-4">
-          <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+          <div className="grid gap-4 2xl:grid-cols-[1.1fr_0.9fr]">
             <Card className="rounded-[1.75rem] border-slate-200 bg-white p-5 shadow-sm dark:border-white/12 dark:bg-[#0f172a]">
               <SectionHeader
                 icon={<FileUp className="h-5 w-5" />}
@@ -412,7 +405,7 @@ Budi,081234567890`}</pre>
         </TabsContent>
 
         <TabsContent value="campaigns" className="space-y-4">
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid gap-4 2xl:grid-cols-2">
             <CampaignComposer
               title="Blast legacy contacts"
               eyebrow="Audience legacy"
@@ -692,7 +685,7 @@ function CampaignComposer({
         {helper}
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="mt-4 grid gap-4 2xl:grid-cols-[minmax(0,1fr)_280px]">
         <div className="space-y-4">
           <Textarea
             value={message}

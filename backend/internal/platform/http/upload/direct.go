@@ -86,7 +86,8 @@ func HandleDirectInitiate(c *gin.Context, folderPrefix string) {
 			"url":        s3Client.PublicURLForKey(objectKey),
 			"object_key": objectKey,
 			"headers": gin.H{
-				"Content-Type": req.ContentType,
+				"Content-Type":  req.ContentType,
+				"Cache-Control": storage.PublicAssetCacheControl(),
 			},
 		})
 		return

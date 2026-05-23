@@ -31,6 +31,12 @@ type S3Client struct {
 	publicURL string
 }
 
+const publicAssetCacheControl = "public, max-age=31536000, immutable"
+
+func PublicAssetCacheControl() string {
+	return publicAssetCacheControl
+}
+
 func NewS3Client() (*S3Client, error) {
 	s3ClientOnce.Do(func() {
 		bucket := os.Getenv("AWS_BUCKET")
@@ -75,10 +81,11 @@ func (s *S3Client) UploadFile(ctx context.Context, file *multipart.FileHeader, f
 	newFileName := fmt.Sprintf("%s/%s%s", folder, uuid.New().String(), fileExt)
 
 	_, err = s.client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket:      aws.String(s.bucket),
-		Key:         aws.String(newFileName),
-		Body:        f,
-		ContentType: aws.String(file.Header.Get("Content-Type")),
+		Bucket:       aws.String(s.bucket),
+		Key:          aws.String(newFileName),
+		Body:         f,
+		ContentType:  aws.String(file.Header.Get("Content-Type")),
+		CacheControl: aws.String(publicAssetCacheControl),
 	})
 
 	if err != nil {
@@ -91,10 +98,11 @@ func (s *S3Client) UploadFile(ctx context.Context, file *multipart.FileHeader, f
 
 func (s *S3Client) UploadReader(ctx context.Context, body io.Reader, objectKey string, contentType string) (string, error) {
 	_, err := s.client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket:      aws.String(s.bucket),
-		Key:         aws.String(objectKey),
-		Body:        body,
-		ContentType: aws.String(contentType),
+		Bucket:       aws.String(s.bucket),
+		Key:          aws.String(objectKey),
+		Body:         body,
+		ContentType:  aws.String(contentType),
+		CacheControl: aws.String(publicAssetCacheControl),
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to upload to R2, %v", err)
@@ -145,9 +153,10 @@ func (s *S3Client) PublicURLForKey(objectKey string) string {
 
 func (s *S3Client) CreateMultipartUpload(ctx context.Context, objectKey string, contentType string) (string, error) {
 	result, err := s.client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
-		Bucket:      aws.String(s.bucket),
-		Key:         aws.String(objectKey),
-		ContentType: aws.String(contentType),
+		Bucket:       aws.String(s.bucket),
+		Key:          aws.String(objectKey),
+		ContentType:  aws.String(contentType),
+		CacheControl: aws.String(publicAssetCacheControl),
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to create multipart upload, %v", err)
@@ -157,9 +166,10 @@ func (s *S3Client) CreateMultipartUpload(ctx context.Context, objectKey string, 
 
 func (s *S3Client) PresignPutObject(ctx context.Context, objectKey string, contentType string) (string, error) {
 	result, err := s.presign.PresignPutObject(ctx, &s3.PutObjectInput{
-		Bucket:      aws.String(s.bucket),
-		Key:         aws.String(objectKey),
-		ContentType: aws.String(contentType),
+		Bucket:       aws.String(s.bucket),
+		Key:          aws.String(objectKey),
+		ContentType:  aws.String(contentType),
+		CacheControl: aws.String(publicAssetCacheControl),
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to presign put object, %v", err)

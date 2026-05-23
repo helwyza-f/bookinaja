@@ -7,40 +7,45 @@ type ImageUploadConfig = {
   minQuality: number;
   qualityStep: number;
   preservePng: boolean;
+  outputMimeType?: "image/webp" | "image/jpeg";
 };
 
 const IMAGE_UPLOAD_CONFIGS: Record<ImageUploadPreset, ImageUploadConfig> = {
   default: {
-    targetBytes: 3.2 * 1024 * 1024,
-    maxDimension: 2800,
-    initialQuality: 0.88,
-    minQuality: 0.62,
-    qualityStep: 0.05,
+    targetBytes: 1.2 * 1024 * 1024,
+    maxDimension: 2200,
+    initialQuality: 0.86,
+    minQuality: 0.72,
+    qualityStep: 0.04,
     preservePng: false,
+    outputMimeType: "image/webp",
   },
   hero: {
-    targetBytes: 4.95 * 1024 * 1024,
-    maxDimension: 3840,
-    initialQuality: 1,
-    minQuality: 0.92,
-    qualityStep: 0.02,
+    targetBytes: 2.2 * 1024 * 1024,
+    maxDimension: 2880,
+    initialQuality: 0.94,
+    minQuality: 0.84,
+    qualityStep: 0.03,
     preservePng: false,
+    outputMimeType: "image/webp",
   },
   media: {
-    targetBytes: 3.6 * 1024 * 1024,
-    maxDimension: 3200,
+    targetBytes: 1.6 * 1024 * 1024,
+    maxDimension: 2400,
     initialQuality: 0.88,
-    minQuality: 0.66,
-    qualityStep: 0.05,
+    minQuality: 0.76,
+    qualityStep: 0.04,
     preservePng: false,
+    outputMimeType: "image/webp",
   },
   logo: {
-    targetBytes: 2 * 1024 * 1024,
-    maxDimension: 1800,
+    targetBytes: 420 * 1024,
+    maxDimension: 900,
     initialQuality: 0.9,
-    minQuality: 0.68,
-    qualityStep: 0.05,
-    preservePng: true,
+    minQuality: 0.78,
+    qualityStep: 0.04,
+    preservePng: false,
+    outputMimeType: "image/webp",
   },
   qris: {
     targetBytes: 2.5 * 1024 * 1024,
@@ -51,12 +56,13 @@ const IMAGE_UPLOAD_CONFIGS: Record<ImageUploadPreset, ImageUploadConfig> = {
     preservePng: true,
   },
   thumbnail: {
-    targetBytes: 1.8 * 1024 * 1024,
-    maxDimension: 1800,
-    initialQuality: 0.86,
-    minQuality: 0.62,
-    qualityStep: 0.05,
+    targetBytes: 520 * 1024,
+    maxDimension: 1200,
+    initialQuality: 0.84,
+    minQuality: 0.7,
+    qualityStep: 0.04,
     preservePng: false,
+    outputMimeType: "image/webp",
   },
 };
 
@@ -65,7 +71,7 @@ export async function prepareImageForUpload(
   preset: ImageUploadPreset = "default",
 ) {
   const config = IMAGE_UPLOAD_CONFIGS[preset] || IMAGE_UPLOAD_CONFIGS.default;
-  if (file.size <= config.targetBytes) {
+  if (file.type === "image/gif") {
     return file;
   }
 
@@ -97,6 +103,7 @@ export async function prepareImageForUpload(
 }
 
 function getPreparedMimeType(fileType: string, config: ImageUploadConfig) {
+  if (config.outputMimeType) return config.outputMimeType;
   if (fileType === "image/png" && config.preservePng) return "image/png";
   if (fileType === "image/webp") return "image/webp";
   if (fileType === "image/png") return "image/webp";
