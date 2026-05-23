@@ -132,7 +132,6 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
               fill
               priority
               loading="eager"
-              unoptimized
               sizes="100vw"
               className="object-cover object-center opacity-68 scale-[1.03] md:opacity-86 md:scale-100"
             />
@@ -286,26 +285,14 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
                       radiusStyle === "square" ? "rounded-[1rem]" : radiusStyle === "soft" ? "rounded-[1.6rem]" : "rounded-[2rem]",
                     )}
                   >
-                    <>
-                      <Image
-                        src={content.banner || ""}
-                        alt="Business Banner Backdrop"
-                        fill
-                        loading="eager"
-                        unoptimized
-                        sizes="(min-width: 1024px) 40vw, 100vw"
-                        className="object-cover object-center scale-110 opacity-45 blur-xl"
-                      />
-                      <Image
-                        src={content.banner || ""}
-                        alt="Business Banner"
-                        fill
-                        loading="eager"
-                        unoptimized
-                        sizes="(min-width: 1024px) 40vw, 100vw"
-                        className="object-cover object-center"
-                      />
-                    </>
+                    <Image
+                      src={content.banner || ""}
+                      alt="Business Banner"
+                      fill
+                      loading="eager"
+                      sizes="(min-width: 1024px) 40vw, 100vw"
+                      className="object-cover object-center"
+                    />
                   </div>
                 ) : (
                   <div

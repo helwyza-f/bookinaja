@@ -342,7 +342,6 @@ function renderSection({
                                     src={resource.image_url}
                                     alt={resource.name}
                                     fill
-                                    unoptimized
                                     sizes="176px"
                                     className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
                                   />
@@ -429,7 +428,6 @@ function renderSection({
                       src={image}
                       alt={`Galeri ${index + 1}`}
                       fill
-                      unoptimized
                       sizes="(min-width: 1024px) 30vw, 50vw"
                       className="object-cover object-center"
                     />
@@ -462,7 +460,6 @@ function renderSection({
                     src={galleryImages[0]}
                     alt="Galeri utama"
                     fill
-                    unoptimized
                     sizes="(min-width: 1024px) 55vw, 100vw"
                     className="object-cover object-center"
                   />
@@ -476,7 +473,6 @@ function renderSection({
                         src={image}
                         alt={`Galeri ${index + 2}`}
                         fill
-                        unoptimized
                         sizes="(min-width: 1024px) 22vw, 33vw"
                         className="object-cover object-center"
                       />
@@ -688,7 +684,6 @@ function renderSection({
                     src={aboutImage}
                     alt={String(section.props?.title || `Tentang ${profile.name || "bisnis ini"}`)}
                     fill
-                    unoptimized
                     sizes="(min-width: 1024px) 40vw, 100vw"
                     className="object-cover object-center"
                   />

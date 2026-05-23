@@ -72,7 +72,6 @@ export function ResourceCard({
                 src={res.image_url}
                 alt={res.name}
                 fill
-                unoptimized
                 sizes="(min-width: 1280px) 360px, (min-width: 768px) 50vw, 100vw"
                 className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
               />

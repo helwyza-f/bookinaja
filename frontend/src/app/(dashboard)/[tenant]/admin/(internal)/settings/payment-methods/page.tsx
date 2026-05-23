@@ -453,35 +453,29 @@ export default function PaymentMethodsSettingsPage() {
       <PlanFeatureCallout
         input={user || {}}
         title="Metode bayar dan verifikasi manual"
-        description="Workflow pembayaran tenant lebih enak dipahami kalau owner langsung lihat apakah pengelolaan payment method dan verifikasi manual sudah masuk di plan sekarang."
+        description="Atur metode yang tampil ke customer dan cara verifikasi pembayaran."
         requirement={{ anyFeatures: ["payment_method_management", "manual_payment_verification"] }}
       />
-      <Card className="overflow-hidden rounded-[1.75rem] border-slate-200/80 bg-white/98 p-0 shadow-sm dark:border-white/10 dark:bg-[#0f1117]/96">
-        <div className="grid gap-0 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-          <div className="p-5 sm:p-6">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+      <Card className="rounded-2xl border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
               Payments
             </p>
-            <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white sm:text-3xl">
-              Payment Methods
+            <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
+              Metode Bayar
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-              Pilih metode bayar yang tampil ke customer, lalu atur DP default untuk resource timed hanya kalau memang diperlukan.
+            <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+              Pilih metode pembayaran dan aturan DP yang dipakai saat checkout.
             </p>
           </div>
-
-          <div className="border-t border-slate-200/80 bg-slate-50/80 p-5 dark:border-white/10 dark:bg-white/[0.03] lg:border-l lg:border-t-0 sm:p-6">
-            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
-              Snapshot
-            </div>
-            <div className="mt-4 grid gap-3">
-              <SummaryStat label="Aktif" value={String(activeCount)} />
-              <SummaryStat
-                label="DP"
-                value={depositSettings.dp_enabled ? `${depositSettings.dp_percentage}%` : "Off"}
-              />
-              <SummaryStat label="Override" value={String(overrideCount)} />
-            </div>
+          <div className="grid grid-cols-3 gap-2 lg:min-w-[360px]">
+            <SummaryStat label="Aktif" value={String(activeCount)} />
+            <SummaryStat
+              label="DP"
+              value={depositSettings.dp_enabled ? `${depositSettings.dp_percentage}%` : "Off"}
+            />
+            <SummaryStat label="Override" value={String(overrideCount)} />
           </div>
         </div>
       </Card>
@@ -492,7 +486,7 @@ export default function PaymentMethodsSettingsPage() {
             Metode Bayar
           </p>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Aktifkan yang dipakai, edit hanya data yang penting.
+            Aktifkan yang tersedia untuk customer.
           </p>
         </div>
 
