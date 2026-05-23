@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
+import { prepareImageForUpload } from "@/lib/image-upload-prep";
 import { clearTenantSession } from "@/lib/tenant-session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -459,8 +460,13 @@ export default function UserSettingsPage() {
   };
 
   const handleAvatarUpload = async (file: File) => {
+    const preparedFile = await prepareImageForUpload(file, "logo").catch(() => file);
+    if (preparedFile.size > 5 * 1024 * 1024) {
+      toast.error("Foto masih terlalu besar setelah diproses, maksimal 5MB");
+      return;
+    }
     const formData = new FormData();
-    formData.append("image", file);
+    formData.append("image", preparedFile);
 
     setAvatarUploading(true);
     try {

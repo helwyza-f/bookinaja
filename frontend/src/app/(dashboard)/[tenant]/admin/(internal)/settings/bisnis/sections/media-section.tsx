@@ -66,12 +66,14 @@ export function MediaSection({ profile, saving, onSave }: SectionProps) {
             value={draft.logo_url}
             onChange={(url) => setDraft({ ...draft, logo_url: url })}
             aspect="square"
+            uploadPreset="logo"
           />
           <SingleImageUpload
             label="Banner / hero"
             value={draft.banner_url}
             onChange={(url) => setDraft({ ...draft, banner_url: url })}
             aspect="video"
+            uploadPreset="hero"
           />
         </div>
         <BulkImageUpload

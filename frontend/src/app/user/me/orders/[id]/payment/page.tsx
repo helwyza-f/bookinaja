@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import api from "@/lib/api";
+import { prepareImageForUpload } from "@/lib/image-upload-prep";
 import { toast } from "sonner";
 import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
 import { getOrderStatusMeta } from "@/lib/customer-portal";
@@ -198,8 +199,13 @@ export default function CustomerOrderPaymentPage() {
       toast.error("Bukti bayar harus berupa gambar");
       return;
     }
+    const preparedFile = await prepareImageForUpload(file, "default").catch(() => file);
+    if (preparedFile.size > 5 * 1024 * 1024) {
+      toast.error("Bukti bayar masih terlalu besar setelah diproses, maksimal 5MB");
+      return;
+    }
     const formData = new FormData();
-    formData.append("image", file);
+    formData.append("image", preparedFile);
     setProofUploading(true);
     try {
       const res = await api.post(`/user/me/orders/${params.id}/upload-proof`, formData, {

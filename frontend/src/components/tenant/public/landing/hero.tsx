@@ -68,14 +68,14 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
 
   const overlayClass =
     themePreset === "dark-pro"
-      ? "bg-slate-950/10 dark:bg-black/54 backdrop-blur-[0.5px]"
+      ? "bg-slate-950/10 dark:bg-black/54"
       : themePreset === "mono-luxe"
-        ? "bg-slate-900/8 dark:bg-black/46 backdrop-blur-[0.5px]"
+        ? "bg-slate-900/8 dark:bg-black/46"
       : themePreset === "boutique"
-        ? "bg-[#fffaf0]/18 dark:bg-black/38 backdrop-blur-[0.5px]"
-        : themePreset === "sunset-glow"
-          ? "bg-[#fff7ed]/18 dark:bg-black/34 backdrop-blur-[0.5px]"
-        : "bg-white/20 dark:bg-black/40 backdrop-blur-[0.5px]";
+        ? "bg-[#fffaf0]/18 dark:bg-black/38"
+      : themePreset === "sunset-glow"
+          ? "bg-[#fff7ed]/18 dark:bg-black/34"
+        : "bg-white/16 dark:bg-black/40";
 
   const centerGlowClass =
     themePreset === "boutique"
@@ -134,13 +134,13 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
               loading="eager"
               unoptimized
               sizes="100vw"
-              className="object-cover object-center opacity-42 scale-[1.06] md:opacity-70 md:scale-100"
+              className="object-cover object-center opacity-68 scale-[1.03] md:opacity-86 md:scale-100"
             />
           </>
         ) : (
           <div className={cn("h-full w-full", heroBackgroundClass)} />
         )}
-        <div className={cn("absolute inset-0", overlayClass, "backdrop-blur-[1px]")} />
+        <div className={cn("absolute inset-0", overlayClass)} />
         <div className={cn("absolute inset-0", centerGlowClass)} />
         <div
           className="absolute inset-0 opacity-8 dark:opacity-16 mix-blend-overlay"

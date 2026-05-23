@@ -500,6 +500,7 @@ export function PostEditorScreen({ mode, postId }: Props) {
                     }))
                   }
                   aspect="video"
+                  uploadPreset="media"
                 />
               ) : (
                 <SingleImageUpload
@@ -527,6 +528,7 @@ export function PostEditorScreen({ mode, postId }: Props) {
                     }))
                   }
                   aspect="video"
+                  uploadPreset="media"
                 />
               )}
             </FormField>
@@ -547,6 +549,7 @@ export function PostEditorScreen({ mode, postId }: Props) {
                     }))
                   }
                   aspect="video"
+                  uploadPreset="thumbnail"
                 />
               </FormField>
             </div>

@@ -1014,6 +1014,7 @@ function PaymentMethodEditorDialog({
                           label=""
                           aspect="square"
                           className="max-w-[240px]"
+                          uploadPreset="qris"
                         />
                       </div>
                     </div>

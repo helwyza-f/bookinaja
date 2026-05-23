@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import api from "@/lib/api";
+import { prepareImageForUpload } from "@/lib/image-upload-prep";
 import { getTenantAdminEntryUrl } from "@/lib/workspace-entry";
 import { getWorkspaceOnboarding, listWorkspaces, updateWorkspaceOnboardingStep } from "@/lib/workspace-client";
 
@@ -693,8 +694,13 @@ function ResourceStep(props: {
 
   async function uploadCover(file: File | null) {
     if (!file || !workspaceId) return;
+    const preparedFile = await prepareImageForUpload(file, "media").catch(() => file);
+    if (preparedFile.size > 5 * 1024 * 1024) {
+      toast.error("Cover masih terlalu besar setelah diproses, maksimal 5MB.");
+      return;
+    }
     const formData = new FormData();
-    formData.append("image", file);
+    formData.append("image", preparedFile);
     setUploadingCover(true);
     try {
       const res = await api.post<{ url: string }>(`/app/workspaces/${workspaceId}/upload`, formData, {
@@ -1177,9 +1183,14 @@ function PaymentStep(props: {
 
   async function uploadQris(file: File | null) {
     if (!file || !workspaceId) return;
+    const preparedFile = await prepareImageForUpload(file, "qris").catch(() => file);
+    if (preparedFile.size > 5 * 1024 * 1024) {
+      toast.error("QRIS masih terlalu besar setelah diproses, maksimal 5MB.");
+      return;
+    }
 
     const formData = new FormData();
-    formData.append("image", file);
+    formData.append("image", preparedFile);
     setUploadingQris(true);
     try {
       const res = await api.post<{ url: string }>(`/app/workspaces/${workspaceId}/upload`, formData, {

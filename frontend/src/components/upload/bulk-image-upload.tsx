@@ -8,6 +8,7 @@ import { Loader2, Plus, X, LayoutGrid } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { prepareImageForUpload } from "@/lib/image-upload-prep";
 
 interface BulkImageUploadProps {
   values: string[];
@@ -26,13 +27,24 @@ export function BulkImageUpload({
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const formData = new FormData();
-    Array.from(files).forEach((file) => {
-      formData.append("images", file);
-    });
-
     setLoading(true);
     try {
+      const formData = new FormData();
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith("image/")) continue;
+        const preparedFile = await prepareImageForUpload(file, "media").catch(() => file);
+        if (preparedFile.size > 5 * 1024 * 1024) {
+          toast.error(`${file.name} masih lebih dari 5MB setelah diproses`);
+          continue;
+        }
+        formData.append("images", preparedFile);
+      }
+
+      if (!formData.has("images")) {
+        toast.error("Tidak ada gambar yang siap diupload");
+        return;
+      }
+
       const res = await api.post(endpoint, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });

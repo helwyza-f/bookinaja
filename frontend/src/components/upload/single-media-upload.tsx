@@ -10,6 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Film, ImagePlus, Loader2, Trash2, Upload } from "lucide-react";
 import type { PostMediaMetadata } from "@/lib/discovery";
 import { uploadFileInChunks } from "@/lib/chunk-upload";
+import {
+  prepareImageForUpload,
+  type ImageUploadPreset,
+} from "@/lib/image-upload-prep";
 
 type SingleMediaUploadProps = {
   value: string;
@@ -21,6 +25,7 @@ type SingleMediaUploadProps = {
   accept?: string;
   mediaKind?: "image" | "video";
   maxSizeMb?: number;
+  uploadPreset?: ImageUploadPreset;
   onMetadataChange?: (metadata: PostMediaMetadata) => void;
 };
 
@@ -34,6 +39,7 @@ export function SingleMediaUpload({
   accept = "image/*,video/mp4,video/webm,video/quicktime",
   mediaKind = "image",
   maxSizeMb = 60,
+  uploadPreset = "media",
   onMetadataChange,
 }: SingleMediaUploadProps) {
   const [loading, setLoading] = useState(false);
@@ -44,7 +50,9 @@ export function SingleMediaUpload({
     if (!file) return;
 
     const preparedFile =
-      file.type.startsWith("image/") ? await prepareImageForUpload(file).catch(() => file) : file;
+      file.type.startsWith("image/")
+        ? await prepareImageForUpload(file, uploadPreset).catch(() => file)
+        : file;
 
     if (preparedFile.size > maxSizeMb * 1024 * 1024) {
       toast.error(`File terlalu besar (Maks ${maxSizeMb}MB)`);
@@ -222,56 +230,8 @@ async function extractMediaMetadata(file: File): Promise<PostMediaMetadata> {
   return { mime_type };
 }
 
-async function prepareImageForUpload(file: File) {
-  const targetBytes = 950 * 1024;
-  if (file.size <= targetBytes) {
-    return file;
-  }
-
-  const image = await loadImage(file);
-  const maxDimension = 1600;
-  const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
-  const width = Math.max(1, Math.round(image.naturalWidth * scale));
-  const height = Math.max(1, Math.round(image.naturalHeight * scale));
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
-    return file;
-  }
-  ctx.drawImage(image, 0, 0, width, height);
-
-  const mimeType = file.type === "image/png" ? "image/png" : "image/jpeg";
-  let quality = mimeType === "image/png" ? undefined : 0.82;
-  let blob = await canvasToBlob(canvas, mimeType, quality);
-
-  while (blob.size > targetBytes && mimeType !== "image/png" && quality && quality > 0.45) {
-    quality = Math.max(0.45, quality - 0.08);
-    blob = await canvasToBlob(canvas, mimeType, quality);
-  }
-
-  const nextName = file.name.replace(/\.(png|jpg|jpeg|webp)$/i, mimeType === "image/png" ? ".png" : ".jpg");
-  return new File([blob], nextName, {
-    type: blob.type || mimeType,
-    lastModified: Date.now(),
-  });
-}
-
 function getAxiosStatus(error: unknown): number | undefined {
   return axios.isAxiosError(error) ? error.response?.status : undefined;
-}
-
-function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality?: number) {
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        reject(new Error("image compression failed"));
-        return;
-      }
-      resolve(blob);
-    }, type, quality);
-  });
 }
 
 function loadImage(file: File): Promise<HTMLImageElement> {
