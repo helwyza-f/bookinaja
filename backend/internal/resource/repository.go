@@ -63,7 +63,9 @@ func (r *Repository) ListPublicCatalogByTenant(ctx context.Context, tenantID uui
 				Type      string                      `json:"type"`
 			}
 			if err := json.Unmarshal([]byte(val), &cachedResult); err == nil {
-				return cachedResult.Resources, cachedResult.Category, cachedResult.Type, nil
+				if cachedResult.Resources != nil {
+					return cachedResult.Resources, cachedResult.Category, cachedResult.Type, nil
+				}
 			}
 		}
 	}
@@ -77,7 +79,7 @@ func (r *Repository) ListPublicCatalogByTenant(ctx context.Context, tenantID uui
 		return nil, "", "", err
 	}
 
-	var resources []PublicResourceCatalogItem
+	resources := make([]PublicResourceCatalogItem, 0)
 	err = r.db.SelectContext(ctx, &resources, `
 		WITH ranked_items AS (
 			SELECT
