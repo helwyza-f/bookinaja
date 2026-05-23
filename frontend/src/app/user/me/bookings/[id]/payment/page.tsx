@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import api from "@/lib/api";
+import { prepareImageForUpload } from "@/lib/image-upload-prep";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { clearTenantSession, isTenantAuthError } from "@/lib/tenant-session";
@@ -337,8 +338,13 @@ export default function BookingPaymentPage() {
       toast.error("Bukti bayar harus berupa gambar");
       return;
     }
+    const preparedFile = await prepareImageForUpload(file, "default").catch(() => file);
+    if (preparedFile.size > 5 * 1024 * 1024) {
+      toast.error("Bukti bayar masih terlalu besar setelah diproses, maksimal 5MB");
+      return;
+    }
     const formData = new FormData();
-    formData.append("image", file);
+    formData.append("image", preparedFile);
     setProofUploading(true);
     try {
       const res = await api.post(`/user/me/bookings/${params.id}/upload-proof`, formData, {

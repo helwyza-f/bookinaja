@@ -45,6 +45,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { uploadFileInChunks } from "@/lib/chunk-upload";
+import { prepareImageForUpload } from "@/lib/image-upload-prep";
 import {
   DEFAULT_BOOKING_FORM_CONFIG,
   DEFAULT_PAGE_BUILDER_CONFIG,
@@ -3179,79 +3180,7 @@ function readObjectArray(value: unknown): Record<string, string>[] {
 }
 
 async function prepareStudioImageUpload(file: File) {
-  const maxBytes = 4.8 * 1024 * 1024;
-  if (file.size <= maxBytes) return file;
-  return compressImageForStudio(file, maxBytes);
-}
-
-async function compressImageForStudio(file: File, targetBytes: number) {
-  const imageUrl = URL.createObjectURL(file);
-  try {
-    const image = await loadImageElement(imageUrl);
-    const maxDimension = 2200;
-    let width = image.naturalWidth;
-    let height = image.naturalHeight;
-    const scale = Math.min(1, maxDimension / Math.max(width, height));
-    width = Math.max(1, Math.round(width * scale));
-    height = Math.max(1, Math.round(height * scale));
-
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Canvas tidak tersedia");
-    ctx.drawImage(image, 0, 0, width, height);
-
-    const mimeType =
-      file.type === "image/png" ? "image/webp" : file.type || "image/jpeg";
-    const qualities = [0.9, 0.82, 0.74, 0.66, 0.58, 0.5];
-    for (const quality of qualities) {
-      const blob = await canvasToBlob(canvas, mimeType, quality);
-      if (!blob) continue;
-      if (blob.size <= targetBytes) {
-        const extension =
-          mimeType === "image/webp"
-            ? "webp"
-            : mimeType === "image/png"
-              ? "png"
-              : "jpg";
-        const fileName = file.name.replace(/\.[^.]+$/, `.${extension}`);
-        return new File([blob], fileName, { type: mimeType });
-      }
-    }
-
-    const fallbackBlob = await canvasToBlob(canvas, mimeType, 0.45);
-    if (!fallbackBlob) throw new Error("Kompresi gambar gagal");
-    const extension =
-      mimeType === "image/webp"
-        ? "webp"
-        : mimeType === "image/png"
-          ? "png"
-          : "jpg";
-    const fileName = file.name.replace(/\.[^.]+$/, `.${extension}`);
-    return new File([fallbackBlob], fileName, { type: mimeType });
-  } finally {
-    URL.revokeObjectURL(imageUrl);
-  }
-}
-
-function loadImageElement(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Gagal membaca gambar"));
-    image.src = src;
-  });
-}
-
-function canvasToBlob(
-  canvas: HTMLCanvasElement,
-  mimeType: string,
-  quality: number,
-) {
-  return new Promise<Blob | null>((resolve) => {
-    canvas.toBlob((blob) => resolve(blob), mimeType, quality);
-  });
+  return prepareImageForUpload(file, "hero");
 }
 
 function readUploadErrorMessage(error: unknown, label: string) {

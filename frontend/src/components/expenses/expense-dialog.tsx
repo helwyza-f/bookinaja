@@ -9,6 +9,7 @@ import {
   Upload,
 } from "lucide-react";
 import api from "@/lib/api";
+import { prepareImageForUpload } from "@/lib/image-upload-prep";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -110,13 +111,14 @@ export function ExpenseDialog({
   };
 
   const handleReceiptUpload = async (file: File) => {
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("File terlalu besar, maksimal 2MB");
+    const preparedFile = await prepareImageForUpload(file, "default").catch(() => file);
+    if (preparedFile.size > 5 * 1024 * 1024) {
+      toast.error("File masih terlalu besar setelah diproses, maksimal 5MB");
       return;
     }
 
     const formData = new FormData();
-    formData.append("image", file);
+    formData.append("image", preparedFile);
 
     setIsUploading(true);
     try {

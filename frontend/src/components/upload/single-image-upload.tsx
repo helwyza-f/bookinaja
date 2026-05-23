@@ -10,6 +10,10 @@ import { cn } from "@/lib/utils";
 import { Label } from "../ui/label";
 import type { PostMediaMetadata } from "@/lib/discovery";
 import { uploadFileInChunks } from "@/lib/chunk-upload";
+import {
+  prepareImageForUpload,
+  type ImageUploadPreset,
+} from "@/lib/image-upload-prep";
 
 interface SingleImageUploadProps {
   value: string;
@@ -18,6 +22,7 @@ interface SingleImageUploadProps {
   label?: string;
   className?: string;
   aspect?: "square" | "video" | "auto"; // Fleksibilitas rasio
+  uploadPreset?: ImageUploadPreset;
   onMetadataChange?: (metadata: PostMediaMetadata) => void;
 }
 
@@ -28,6 +33,7 @@ export function SingleImageUpload({
   label = "Upload Image",
   className,
   aspect = "square", // DEFAULT: SQUARE (1:1)
+  uploadPreset = "default",
   onMetadataChange,
 }: SingleImageUploadProps) {
   const [loading, setLoading] = useState(false);
@@ -42,7 +48,7 @@ export function SingleImageUpload({
       return;
     }
 
-    const preparedFile = await prepareImageForUpload(file).catch(() => file);
+    const preparedFile = await prepareImageForUpload(file, uploadPreset).catch(() => file);
     if (preparedFile.size > 5 * 1024 * 1024) {
       toast.error("Ukuran gambar setelah diproses masih terlalu besar (Maks 5MB)");
       return;
@@ -162,7 +168,7 @@ export function SingleImageUpload({
                     Drop Image Here
                   </p>
                   <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-2 leading-none">
-                    Auto-Compress · Max 5MB
+                    Quality Optimized · Max 5MB
                   </p>
                 </div>
               </div>
@@ -181,72 +187,8 @@ export function SingleImageUpload({
   );
 }
 
-async function prepareImageForUpload(file: File) {
-  const targetBytes = 950 * 1024;
-  if (file.size <= targetBytes) {
-    return file;
-  }
-
-  const image = await loadImage(file);
-  const maxDimension = 1600;
-  const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
-  const width = Math.max(1, Math.round(image.naturalWidth * scale));
-  const height = Math.max(1, Math.round(image.naturalHeight * scale));
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
-    return file;
-  }
-  ctx.drawImage(image, 0, 0, width, height);
-
-  const mimeType = file.type === "image/png" ? "image/png" : "image/jpeg";
-  let quality = mimeType === "image/png" ? undefined : 0.82;
-  let blob = await canvasToBlob(canvas, mimeType, quality);
-
-  while (blob.size > targetBytes && mimeType !== "image/png" && quality && quality > 0.45) {
-    quality = Math.max(0.45, quality - 0.08);
-    blob = await canvasToBlob(canvas, mimeType, quality);
-  }
-
-  const nextName = file.name.replace(/\.(png|jpg|jpeg|webp)$/i, mimeType === "image/png" ? ".png" : ".jpg");
-  return new File([blob], nextName, {
-    type: blob.type || mimeType,
-    lastModified: Date.now(),
-  });
-}
-
 function getAxiosStatus(error: unknown): number | undefined {
   return axios.isAxiosError(error) ? error.response?.status : undefined;
-}
-
-function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality?: number) {
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        reject(new Error("image compression failed"));
-        return;
-      }
-      resolve(blob);
-    }, type, quality);
-  });
-}
-
-function loadImage(file: File): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const objectUrl = URL.createObjectURL(file);
-    const image = new Image();
-    image.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      resolve(image);
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      reject(new Error("image metadata unavailable"));
-    };
-    image.src = objectUrl;
-  });
 }
 
 function extractImageMetadata(file: File): Promise<PostMediaMetadata> {
