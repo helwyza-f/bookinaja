@@ -173,3 +173,142 @@
     @apply font-sans;
   }
 }
+
+@layer components {
+  .marketing-calm {
+    --marketing-page-pad-y: clamp(4.5rem, 7vw, 6.5rem);
+    --marketing-section-gap: clamp(3rem, 6vw, 5rem);
+  }
+
+  .marketing-calm h1 {
+    font-size: clamp(2.65rem, 5vw, 4.2rem) !important;
+    line-height: 1.06 !important;
+    letter-spacing: -0.055em !important;
+    font-weight: 650 !important;
+    text-transform: none !important;
+  }
+
+  .marketing-calm h2 {
+    font-size: clamp(1.9rem, 3.5vw, 3rem) !important;
+    line-height: 1.08 !important;
+    letter-spacing: -0.045em !important;
+    font-weight: 650 !important;
+    text-transform: none !important;
+  }
+
+  .marketing-calm h3 {
+    font-weight: 650 !important;
+    letter-spacing: -0.025em !important;
+    text-transform: none !important;
+  }
+
+  .marketing-calm p {
+    font-weight: 500 !important;
+  }
+
+  .marketing-calm section {
+    scroll-margin-top: 7rem;
+  }
+
+  .marketing-calm .font-black,
+  .marketing-calm .font-\[1000\] {
+    font-weight: 650 !important;
+  }
+
+  .marketing-calm .text-6xl,
+  .marketing-calm .text-7xl,
+  .marketing-calm .text-8xl,
+  .marketing-calm .text-9xl,
+  .marketing-calm .text-\[3\.4rem\],
+  .marketing-calm .text-\[2\.4rem\] {
+    font-size: clamp(2.35rem, 4.8vw, 3.75rem) !important;
+    line-height: 1.07 !important;
+  }
+
+  .marketing-calm .min-h-\[620px\] {
+    min-height: 520px !important;
+  }
+
+  .marketing-calm .rounded-\[2rem\],
+  .marketing-calm .rounded-\[2\.25rem\],
+  .marketing-calm .rounded-\[2\.5rem\] {
+    border-radius: 1.5rem !important;
+  }
+
+  .marketing-calm .py-24,
+  .marketing-calm .py-32 {
+    padding-top: var(--marketing-page-pad-y) !important;
+    padding-bottom: var(--marketing-page-pad-y) !important;
+  }
+
+  .marketing-calm .pt-24,
+  .marketing-calm .pt-28,
+  .marketing-calm .pt-32 {
+    padding-top: var(--marketing-page-pad-y) !important;
+  }
+
+  .marketing-calm .pb-20,
+  .marketing-calm .pb-24,
+  .marketing-calm .pb-32 {
+    padding-bottom: var(--marketing-page-pad-y) !important;
+  }
+
+  .marketing-calm .mt-24,
+  .marketing-calm .mt-20,
+  .marketing-calm .mt-16 {
+    margin-top: var(--marketing-section-gap) !important;
+  }
+
+  .marketing-calm .mb-16,
+  .marketing-calm .mb-14,
+  .marketing-calm .mb-12 {
+    margin-bottom: clamp(2rem, 4vw, 3.5rem) !important;
+  }
+
+  .marketing-calm button,
+  .marketing-calm a[role="button"] {
+    letter-spacing: 0.08em !important;
+  }
+
+  @media (max-width: 767px) {
+    .marketing-calm h1 {
+      font-size: clamp(2.1rem, 12vw, 3.05rem) !important;
+      letter-spacing: -0.05em !important;
+    }
+
+    .marketing-calm h2 {
+      font-size: clamp(1.65rem, 8vw, 2.25rem) !important;
+    }
+  }
+
+  .discovery-calm .font-black,
+  .discovery-calm .font-\[1000\] {
+    font-weight: 650 !important;
+  }
+
+  .discovery-calm h1 {
+    font-size: clamp(2rem, 4vw, 3.4rem) !important;
+    line-height: 1.08 !important;
+    letter-spacing: -0.045em !important;
+    font-weight: 650 !important;
+  }
+
+  .discovery-calm h2 {
+    font-size: clamp(1.55rem, 3vw, 2.4rem) !important;
+    line-height: 1.1 !important;
+    letter-spacing: -0.035em !important;
+    font-weight: 650 !important;
+  }
+
+  .discovery-calm .rounded-\[2rem\],
+  .discovery-calm .rounded-\[2\.5rem\] {
+    border-radius: 1.5rem !important;
+  }
+
+  .discovery-calm .text-6xl,
+  .discovery-calm .text-7xl,
+  .discovery-calm .text-\[3\.4rem\] {
+    font-size: clamp(2.25rem, 4.5vw, 3.5rem) !important;
+    line-height: 1.08 !important;
+  }
+}

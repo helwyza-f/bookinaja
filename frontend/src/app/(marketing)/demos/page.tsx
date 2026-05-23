@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import DemosPage from "./page.client";
 
 export const metadata: Metadata = {
-  title: "Live Demos | Bookinaja",
+  title: "Demo per Jenis Bisnis | Bookinaja",
   description:
-    "Demo live Bookinaja untuk gaming rental, studio, sport/court booking, dan coworking/meeting room. Setiap demo menampilkan credential login yang bisa langsung dipakai.",
+    "Pilih demo Bookinaja yang paling dekat dengan bisnis kamu: gaming rental, studio creative, sport courts, atau office space.",
   alternates: { canonical: "/demos" },
 };
 

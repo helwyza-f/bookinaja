@@ -8,9 +8,7 @@ import {
   Check,
   ChevronRight,
   Clock3,
-  HelpCircle,
   Rocket,
-  ShieldCheck,
   Sparkles,
   Users,
 } from "lucide-react";
@@ -40,13 +38,12 @@ type Plan = {
   detailHref?: string;
   kicker: string;
   bestFor: string;
-  valuePoints: string[];
 };
 
 const trialFeatures = [
-  "30 hari trial tanpa kartu kredit",
-  "Tenant langsung punya landing + dashboard",
-  "Coba dulu sebelum bayar",
+  "Trial 30 hari",
+  "Tanpa kartu kredit",
+  "Setup tenant dulu",
 ];
 
 const plans: Plan[] = [
@@ -56,12 +53,8 @@ const plans: Plan[] = [
     href: "/register?plan=starter",
     icon: Rocket,
     detailHref: "/pricing/starter",
-    kicker: "Untuk owner solo",
-    bestFor: "Untuk bisnis yang ingin berhenti dari catatan manual dan mulai rapi.",
-    valuePoints: [
-      "Booking dan jadwal utama sudah terkumpul di satu tempat.",
-      "Customer sudah bisa masuk lewat halaman booking yang rapi dan meyakinkan.",
-    ],
+    kicker: "Core booking",
+    bestFor: "Untuk owner yang ingin booking dan jadwal lebih rapi.",
   },
   {
     key: "pro",
@@ -69,54 +62,46 @@ const plans: Plan[] = [
     href: "/register?plan=pro",
     icon: Users,
     detailHref: "/pricing/pro",
-    kicker: "Paling masuk akal",
-    bestFor: "Untuk bisnis yang sudah punya staff dan butuh kontrol operasional yang lebih kuat.",
-    valuePoints: [
-      "Setiap staff bisa pegang bagiannya tanpa numpang akun owner.",
-      "Pembayaran, pelanggan, dan laporan terasa lebih tertib setiap hari.",
-    ],
+    kicker: "Team ops",
+    bestFor: "Untuk bisnis dengan staff, kasir, dan pembayaran harian.",
   },
   {
     key: "scale",
     cta: "Segera hadir",
     icon: BarChart3,
     detailHref: "/pricing/scale",
-    kicker: "Untuk growth berikutnya",
-    bestFor: "Untuk bisnis yang ingin customer balik lagi lebih sering dan bertahan lebih lama.",
-    valuePoints: [
-      "Membership dan reward membantu repeat order tumbuh lebih sehat.",
-      "Lebih siap untuk ekspansi dengan bacaan bisnis yang lebih matang.",
-    ],
+    kicker: "Growth",
+    bestFor: "Untuk membership, loyalty, dan repeat order.",
   },
 ];
 
 const comparisonRows = [
   {
-    label: "Landing tenant dan customer portal",
+    label: "Website booking dan customer portal",
     starter: true,
     pro: true,
     scale: true,
   },
   {
-    label: "Booking flow tidak dicatat manual lagi",
+    label: "Booking dan jadwal terpusat",
     starter: true,
     pro: true,
     scale: true,
   },
   {
-    label: "Staff account dan role-based access",
+    label: "Akun staff dan kontrol akses",
     starter: false,
     pro: true,
     scale: true,
   },
   {
-    label: "Payment ops dan checkout lebih disiplin",
+    label: "Kasir, payment, dan checkout",
     starter: false,
     pro: true,
     scale: true,
   },
   {
-    label: "Membership dan retention tools",
+    label: "Membership, loyalty, dan retention",
     starter: false,
     pro: false,
     scale: true,
@@ -141,7 +126,7 @@ export default function PricingPage() {
       : 0;
 
   return (
-    <section className="relative flex-1 overflow-hidden py-24 md:py-32">
+    <section className="relative flex-1 overflow-hidden pb-20 pt-32 md:py-24">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-1/2 top-0 h-[900px] w-full -translate-x-1/2 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.14)_0%,transparent_68%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:radial-gradient(ellipse_78%_76%_at_50%_35%,#000_100%,transparent_100%)]" />
@@ -151,87 +136,52 @@ export default function PricingPage() {
         <div className="mx-auto max-w-4xl text-center">
           <Badge
             variant="outline"
-            className="border-blue-500/20 bg-blue-500/5 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-blue-600"
+            className="border-blue-500/20 bg-blue-500/5 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-blue-600"
           >
-            Paket untuk tiap tahap bisnis
+            Pricing
           </Badge>
 
-          <h1 className="mt-6 text-5xl font-black tracking-tight text-foreground sm:text-6xl">
-            Pilih plan yang bikin
-            <span className="block italic text-blue-500">
-              bisnis makin rapi, bukan makin ribet.
-            </span>
+          <h1 className="mt-5 text-4xl font-semibold tracking-[-0.045em] text-foreground sm:text-5xl">
+            Harga sederhana untuk bisnis yang ingin lebih rapi.
           </h1>
 
-          <p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
             <span className="sm:hidden">
-              Mulai dari trial, lalu pilih plan sesuai tahap bisnismu.
+              Mulai gratis. Lanjut saat sudah cocok.
             </span>
             <span className="hidden sm:inline">
-              Mulai dari trial tanpa risiko, lalu pilih paket yang paling pas
-              dengan keadaan bisnismu hari ini. Bukan soal fitur paling banyak,
-              tapi paket mana yang paling cepat terasa manfaatnya.
+              Coba 30 hari tanpa kartu kredit. Setelah cocok, pilih paket yang
+              sesuai dengan cara bisnismu berjalan.
             </span>
           </p>
 
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
               <Pill text="Trial 30 hari" />
               <Pill text="Tanpa kartu kredit" />
-              <div className="hidden sm:contents">
-              <Pill text="Mulai cepat" />
-              <Pill text="Naik paket kapan saja" />
-              </div>
+              <Pill text="Upgrade kapan saja" />
           </div>
 
-          <div className="mt-10 inline-flex items-center gap-2 rounded-2xl border border-border bg-card/60 p-1.5 backdrop-blur">
-            <button
-              onClick={() => setIsAnnual(false)}
-              className={cn(
-                "rounded-xl px-5 py-2.5 text-sm font-bold transition-all",
-                !isAnnual
-                  ? "bg-background text-blue-600 shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              Bulanan
-            </button>
-            <button
-              onClick={() => setIsAnnual(true)}
-              className={cn(
-                "inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition-all",
-                isAnnual
-                  ? "bg-background text-blue-600 shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              Tahunan
-              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600">
-                Hemat {annualDiscount}%
-              </span>
-            </button>
-          </div>
         </div>
 
-        <div className="mx-auto mt-14 max-w-6xl">
-          <div className="rounded-[2rem] border border-emerald-500/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(240,253,244,0.88))] p-6 shadow-[0_24px_60px_rgba(15,23,42,0.05)] dark:border-emerald-500/15 dark:bg-[linear-gradient(180deg,rgba(9,16,23,0.96),rgba(8,28,21,0.96))]">
+        <div className="mx-auto mt-10 max-w-6xl">
+          <div className="rounded-[1.5rem] border border-emerald-500/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(240,253,244,0.88))] p-5 shadow-[0_18px_48px_rgba(15,23,42,0.045)] dark:border-emerald-500/15 dark:bg-[linear-gradient(180deg,rgba(9,16,23,0.96),rgba(8,28,21,0.96))]">
             <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
               <div className="space-y-4">
-                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-600">
                   <Clock3 className="h-3.5 w-3.5" />
                   Mulai tanpa risiko
                 </div>
                 <div>
-                  <h2 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">
-                    Free Trial 30 hari
+                  <h2 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                    Mulai gratis 30 hari
                   </h2>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:leading-7">
                     <span className="sm:hidden">
                       Coba dulu. Kalau cocok, baru lanjut ke paket berbayar.
                     </span>
                     <span className="hidden sm:inline">
-                      Bangun tenant dulu, lihat halaman booking dan dashboard
-                      berjalan, lalu putuskan dengan kepala dingin apakah sudah
-                      waktunya lanjut ke Starter atau Pro.
+                      Coba website booking dan dashboard. Kalau alurnya cocok,
+                      baru lanjut berlangganan.
                     </span>
                   </p>
                 </div>
@@ -250,15 +200,15 @@ export default function PricingPage() {
                 </ul>
               </div>
 
-              <div className="rounded-[1.75rem] border border-border/60 bg-background/70 p-5">
-                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+              <div className="rounded-[1.35rem] border border-border/60 bg-background/70 p-5">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   Mulai dari sini
                 </div>
                 <div className="mt-4 flex items-end gap-2">
-                  <span className="text-6xl font-black tracking-[-0.08em] text-foreground">
+                  <span className="text-5xl font-semibold tracking-[-0.07em] text-foreground">
                     0
                   </span>
-                  <span className="pb-3 text-sm font-bold uppercase text-muted-foreground">
+                  <span className="pb-2 text-sm font-semibold uppercase text-muted-foreground">
                     IDR
                   </span>
                 </div>
@@ -267,13 +217,12 @@ export default function PricingPage() {
                     Tanpa kartu kredit. Coba dulu, baru putuskan.
                   </span>
                   <span className="hidden sm:inline">
-                    Tidak perlu kartu kredit. Tujuannya sederhana: biar kamu
-                    bisa merasakan dulu apakah Bookinaja benar-benar membantu
-                    bisnis ini jadi lebih rapi.
+                    Tidak perlu kartu kredit. Lanjut hanya kalau Bookinaja
+                    memang membantu operasional harian.
                   </span>
                 </p>
                 <Link href="/register?plan=starter&trial=1" className="mt-5 block">
-                  <Button className="h-12 w-full rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700">
+                  <Button className="h-11 w-full rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700">
                     Mulai Trial
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
@@ -283,7 +232,37 @@ export default function PricingPage() {
           </div>
         </div>
 
-        <div className="mx-auto mt-10 grid max-w-6xl gap-6 lg:grid-cols-3">
+        <div className="mt-6 flex justify-center">
+          <div className="inline-flex items-center gap-2 rounded-2xl border border-border bg-card/60 p-1.5 backdrop-blur">
+            <button
+              onClick={() => setIsAnnual(false)}
+              className={cn(
+                "rounded-xl px-5 py-2.5 text-sm font-semibold transition-all",
+                !isAnnual
+                  ? "bg-background text-blue-600 shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Bulanan
+            </button>
+            <button
+              onClick={() => setIsAnnual(true)}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all",
+                isAnnual
+                  ? "bg-background text-blue-600 shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Tahunan
+              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-600">
+                Hemat {annualDiscount}%
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div className="mx-auto mt-8 grid max-w-6xl gap-5 lg:grid-cols-3">
           {plans.map((plan) => {
             const Icon = plan.icon;
             const billingPlan = BILLING_PLANS.find((item) => item.key === plan.key);
@@ -301,14 +280,14 @@ export default function PricingPage() {
                 key={plan.key}
                 id={plan.key}
                 className={cn(
-                  "relative flex flex-col rounded-[2rem] border p-7 shadow-[0_18px_50px_rgba(15,23,42,0.05)] transition-all duration-300",
+                  "relative flex flex-col rounded-[1.5rem] border p-5 shadow-[0_14px_38px_rgba(15,23,42,0.045)] transition-all duration-300",
                   billingPlan.recommended
-                    ? "border-blue-500 bg-card shadow-[0_28px_80px_rgba(59,130,246,0.14)]"
+                    ? "border-blue-500 bg-card shadow-[0_22px_60px_rgba(59,130,246,0.12)]"
                     : "border-border/70 bg-card/70",
                 )}
               >
                 {billingPlan.recommended ? (
-                  <div className="absolute -top-3 left-6 inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white">
+                  <div className="absolute -top-3 left-5 inline-flex items-center gap-2 rounded-full bg-blue-600 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white">
                     <Sparkles className="h-3.5 w-3.5" />
                     Rekomendasi
                   </div>
@@ -316,11 +295,11 @@ export default function PricingPage() {
 
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-3">
-                    <div className="inline-flex rounded-full border border-blue-500/15 bg-blue-500/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">
+                    <div className="inline-flex rounded-full border border-blue-500/15 bg-blue-500/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-blue-600">
                       {plan.kicker}
                     </div>
                     <div>
-                      <h3 className="text-3xl font-black tracking-tight text-foreground">
+                      <h3 className="text-2xl font-semibold tracking-tight text-foreground">
                         {billingPlan.name}
                       </h3>
                       <p className="mt-3 text-sm leading-6 text-muted-foreground sm:leading-7">
@@ -334,21 +313,21 @@ export default function PricingPage() {
                   </div>
                 </div>
 
-                <div className="mt-8 border-t border-border/70 pt-7">
+                <div className="mt-7 border-t border-border/70 pt-6">
                   {displayBefore ? (
-                    <div className="text-sm font-bold italic text-muted-foreground/45 line-through">
+                    <div className="text-sm font-semibold italic text-muted-foreground/45 line-through">
                       IDR {displayBefore}
                     </div>
                   ) : null}
 
                   <div className="mt-2 flex items-end gap-2">
-                    <span className="text-sm font-black uppercase text-muted-foreground">
+                    <span className="text-sm font-semibold uppercase text-muted-foreground">
                       IDR
                     </span>
-                    <span className="text-[3.4rem] font-black leading-none tracking-[-0.08em] text-foreground">
+                    <span className="text-[2.85rem] font-semibold leading-none tracking-[-0.075em] text-foreground">
                       {displayMainPrice}
                     </span>
-                    <span className="pb-2 text-sm font-bold text-muted-foreground">
+                    <span className="pb-1.5 text-sm font-semibold text-muted-foreground">
                       /{isAnnual ? "tahun" : "bln"}
                     </span>
                   </div>
@@ -360,23 +339,13 @@ export default function PricingPage() {
                   </p>
                 </div>
 
-                <div className="mt-7 flex-1 border-t border-border/70 pt-7">
-                  <div className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-                    Yang paling terasa
-                  </div>
-                  <div className="mt-4 space-y-3">
-                    {plan.valuePoints.map((point) => (
-                      <div
-                        key={point}
-                        className="rounded-2xl border border-border/70 bg-background/60 px-4 py-3 text-sm leading-6 text-foreground/85"
-                      >
-                        {point}
-                      </div>
-                    ))}
+                <div className="mt-7 flex-1 border-t border-border/70 pt-6">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    Yang didapat
                   </div>
 
-                  <div className="mt-5 grid gap-3">
-                    {billingPlan.publicFeatures.slice(0, 4).map((feature) => (
+                  <div className="mt-4 grid gap-3">
+                    {billingPlan.publicFeatures.slice(0, 6).map((feature) => (
                       <div key={feature} className="flex items-start gap-3 text-sm text-foreground/85">
                         <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-blue-600">
                           <Check className="h-3.5 w-3.5" />
@@ -387,23 +356,12 @@ export default function PricingPage() {
                   </div>
                 </div>
 
-                <p className="mt-6 text-sm leading-6 text-muted-foreground">
-                  <span className="sm:hidden">
-                    {billingPlan.name === "Starter"
-                      ? "Mulai cepat tanpa tim besar."
-                      : billingPlan.name === "Pro"
-                        ? "Pilihan paling aman saat tim mulai bertambah."
-                        : "Arah berikutnya saat bisnis sudah siap naik kelas."}
-                  </span>
-                  <span className="hidden sm:inline">{billingPlan.note}</span>
-                </p>
-
                 {billingPlan.comingSoon ? (
                   <div className="mt-6 space-y-3">
                     <Button
                       disabled
                       variant="secondary"
-                      className="h-12 w-full rounded-2xl text-sm font-black opacity-100"
+                      className="h-11 w-full rounded-2xl text-sm font-semibold opacity-100"
                     >
                       <Clock3 className="mr-2 h-4 w-4" />
                       {plan.cta}
@@ -424,7 +382,7 @@ export default function PricingPage() {
                     >
                       <Button
                         className={cn(
-                          "group h-12 w-full rounded-2xl text-sm font-black",
+                          "group h-11 w-full rounded-2xl text-sm font-semibold",
                           billingPlan.recommended
                             ? "bg-blue-600 text-white hover:bg-blue-700"
                             : "bg-secondary text-foreground hover:bg-blue-500 hover:text-white",
@@ -449,19 +407,19 @@ export default function PricingPage() {
           })}
         </div>
 
-        <div className="mx-auto mt-16 max-w-6xl rounded-[2rem] border border-border/70 bg-card/60 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.05)] md:p-8">
+        <div className="mx-auto mt-12 max-w-6xl rounded-[1.5rem] border border-border/70 bg-card/60 p-5 shadow-[0_14px_38px_rgba(15,23,42,0.045)] md:p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-                Perbandingan singkat
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Ringkasan fitur
               </div>
-              <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground">
-                Pilih dari hasil yang paling kamu butuhkan
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+                Lihat bedanya sekilas
               </h2>
             </div>
             <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-              Starter untuk mulai rapi. Pro untuk kerja tim yang lebih tenang.
-              Scale untuk bisnis yang ingin tumbuh lewat repeat order dan loyalitas customer.
+              Starter untuk operasional inti. Pro untuk tim. Scale untuk
+              membership dan repeat order.
             </p>
           </div>
 
@@ -491,25 +449,7 @@ export default function PricingPage() {
           </div>
         </div>
 
-        <div className="mx-auto mt-16 grid max-w-5xl gap-6 md:grid-cols-3">
-          <TrustCard
-            icon={<ShieldCheck className="h-5 w-5" />}
-            title="Mulai tanpa risiko"
-            body="Coba trial dulu, lalu lanjut saat kamu benar-benar merasa bisnis ini lebih tertata."
-          />
-          <TrustCard
-            icon={<Rocket className="h-5 w-5" />}
-            title="Setiap paket punya peran"
-            body="Bukan sekadar lebih banyak fitur, tapi manfaat yang memang terasa berbeda di tiap tahap bisnis."
-          />
-          <TrustCard
-            icon={<HelpCircle className="h-5 w-5" />}
-            title="Baca sebelum pilih"
-            body="Kalau ingin lihat lebih dalam, tiap paket punya halaman penjelasan sendiri sebelum kamu checkout."
-          />
-        </div>
-
-        <div className="mx-auto mt-16 max-w-3xl text-center">
+        <div className="mx-auto mt-12 max-w-3xl text-center">
           <p className="text-sm leading-7 text-muted-foreground">
             Kalau masih ragu mulai dari mana, lihat demo dulu atau ngobrol dulu
             sebelum pilih paket.
@@ -535,29 +475,9 @@ export default function PricingPage() {
 
 function Pill({ text }: { text: string }) {
   return (
-    <span className="rounded-full border border-border bg-background/70 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+    <span className="rounded-full border border-border bg-background/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
       {text}
     </span>
-  );
-}
-
-function TrustCard({
-  icon,
-  title,
-  body,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  body: string;
-}) {
-  return (
-    <div className="rounded-[1.75rem] border border-border/70 bg-card/60 p-5 text-center shadow-[0_16px_40px_rgba(15,23,42,0.04)]">
-      <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-500/8 text-blue-600">
-        {icon}
-      </div>
-      <h3 className="mt-4 text-sm font-black text-foreground">{title}</h3>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">{body}</p>
-    </div>
   );
 }
 
@@ -565,7 +485,7 @@ function ComparisonCell({ enabled }: { enabled: boolean }) {
   if (!enabled) {
     return (
       <TableCell>
-        <span className="font-black text-muted-foreground/40">—</span>
+        <span className="font-semibold text-muted-foreground/40">-</span>
       </TableCell>
     );
   }

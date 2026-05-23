@@ -66,13 +66,13 @@ export default function FAQPage() {
             <span className="text-blue-600 italic">Sering Ditanya</span>
           </h1>
           <p className="text-base md:text-xl font-semibold text-muted-foreground leading-relaxed max-w-3xl mx-auto">
-            Kalau kamu lagi menilai platform Bookinaja, mulai dari sini. Kalau
-            butuh detail teknis, cek Documentation.
+            Kalau kamu lagi menilai Bookinaja, mulai dari sini. Kalau ingin
+            lihat contoh website bisnis yang sudah terdaftar, buka Jelajah.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/documentation">
+            <Link href="/discovery">
               <Button className="h-12 rounded-2xl bg-blue-600 px-6 font-black uppercase tracking-widest text-white hover:bg-blue-700 shadow-lg shadow-blue-600/20">
-                Buka Documentation
+                Buka Jelajah
               </Button>
             </Link>
             <Link href="/pricing">

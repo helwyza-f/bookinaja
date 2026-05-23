@@ -363,7 +363,7 @@ async function PricingPlanDetailContent({
   const nextPlanHighlights = getNextPlanHighlights(normalizedPlan);
 
   return (
-    <section className="relative overflow-hidden py-20 md:py-24">
+    <section className="relative overflow-hidden pb-20 pt-32 md:py-24">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-1/2 top-0 h-[720px] w-full -translate-x-1/2 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.12)_0%,transparent_72%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808010_1px,transparent_1px),linear-gradient(to_bottom,#80808010_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:radial-gradient(ellipse_78%_76%_at_50%_35%,#000_100%,transparent_100%)]" />

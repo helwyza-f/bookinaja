@@ -20,6 +20,8 @@ import {
   formatStartingPrice,
   getDiscoveryByline,
   getDiscoveryCardKind,
+  getDiscoveryCategoryLabel,
+  getDiscoveryFallbackCover,
   getDiscoveryItemBadges,
   getDiscoveryItemImage,
   getDiscoveryItemLabel,
@@ -39,10 +41,10 @@ export function DiscoverySectionHeading({
 }) {
   return (
     <div className="space-y-2">
-      <div className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-600">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-blue-600">
         {eyebrow}
       </div>
-      <h2 className="text-2xl font-black uppercase tracking-[-0.04em] text-slate-950 md:text-3xl">
+      <h2 className="text-2xl font-semibold tracking-[-0.035em] text-slate-950 md:text-3xl">
         {title}
       </h2>
       <p className="max-w-2xl text-sm leading-7 text-slate-500">
@@ -70,7 +72,7 @@ export function DiscoveryCategoryChips({
           key={category}
           onClick={() => onChange(category)}
           className={cn(
-            "whitespace-nowrap rounded-full px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.14em] transition-all",
+            "whitespace-nowrap rounded-full px-3.5 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition-all",
             activeCategory === category
               ? "bg-blue-600 text-white shadow-[0_14px_28px_rgba(37,99,235,0.22)]"
               : tone === "dark"
@@ -103,6 +105,7 @@ export function DiscoverySpotlightCard({
   onClick?: () => void;
 }) {
   const trackedRef = useRef(false);
+  const coverImage = getDiscoveryItemImage(tenant);
 
   useEffect(() => {
     if (trackedRef.current) return;
@@ -117,14 +120,14 @@ export function DiscoverySpotlightCard({
       : "from-blue-500/22 via-blue-300/8 to-transparent";
 
   return (
-    <Card className="overflow-hidden rounded-[2rem] border-0 bg-slate-950 text-white shadow-[0_24px_64px_rgba(15,23,42,0.18)]">
+    <Card className="overflow-hidden rounded-[1.5rem] border-0 bg-slate-950 text-white shadow-[0_18px_48px_rgba(15,23,42,0.14)]">
       <CardContent className="relative p-0">
         <div
           className="absolute inset-0 bg-cover bg-center opacity-45"
           style={{
-            backgroundImage: getDiscoveryItemImage(tenant)
-              ? `url(${getDiscoveryItemImage(tenant)})`
-              : "linear-gradient(135deg, rgba(13,31,39,0.94), rgba(29,78,216,0.65))",
+            backgroundImage: coverImage
+              ? `url(${coverImage})`
+              : getDiscoveryFallbackCover(tenant),
           }}
         />
         <div className="absolute inset-0 bg-gradient-to-tr from-black/80 via-black/55 to-white/5" />
@@ -133,12 +136,12 @@ export function DiscoverySpotlightCard({
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <DiscoveryTypeChip tenant={tenant} />
-              <Badge className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white">
-                {getDiscoverySurfaceLabel(tenant)}
+              <Badge className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white">
+                {formatDiscoveryDisplayLabel(getDiscoverySurfaceLabel(tenant))}
               </Badge>
             </div>
             <div className="rounded-2xl border border-white/15 bg-white/10 px-3 py-2 text-right">
-              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-white/70">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/70">
                 {isBusiness ? "Mulai" : "Format"}
               </div>
               <div className="mt-1 text-sm font-semibold text-white">
@@ -150,11 +153,11 @@ export function DiscoverySpotlightCard({
           </div>
 
           <div className="space-y-4">
-            <div className="text-[11px] font-black uppercase tracking-[0.18em] text-white/72">
-              {getDiscoveryByline(tenant)}
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/72">
+              {formatDiscoveryDisplayLabel(getDiscoveryByline(tenant))}
             </div>
             <div className="space-y-3">
-              <h3 className="max-w-3xl text-3xl font-black uppercase leading-[0.95] tracking-[-0.05em] md:text-4xl">
+              <h3 className="max-w-3xl text-2xl font-semibold leading-[1.08] tracking-[-0.04em] md:text-3xl">
                 {getDiscoveryItemTitle(tenant)}
               </h3>
               <p className="max-w-2xl text-sm leading-7 text-white/85 md:text-base">
@@ -213,6 +216,7 @@ export function DiscoveryShowcaseCard({
 }) {
   const trackedRef = useRef(false);
   const isBusinessCard = tenant.item_kind !== "post";
+  const coverImage = getDiscoveryItemImage(tenant);
 
   useEffect(() => {
     if (trackedRef.current) return;
@@ -242,38 +246,48 @@ export function DiscoveryShowcaseCard({
   return (
     <Card
       className={cn(
-        "group overflow-hidden rounded-[1.7rem] border bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-md",
+        "group overflow-hidden rounded-[1.35rem] border !bg-white !py-0 !text-slate-950 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:!bg-white dark:!text-slate-950",
         toneClasses.border,
       )}
     >
       <CardContent className="p-0">
-        <div className={cn("relative overflow-hidden", isBusinessCard ? "h-56" : "h-40")}>
+        <div className={cn("relative overflow-hidden", isBusinessCard ? "h-36" : "h-32")}>
           <div
             className="h-full w-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
             style={{
-              backgroundImage: getDiscoveryItemImage(tenant)
-                ? `url(${getDiscoveryItemImage(tenant)})`
-                : "linear-gradient(135deg, rgba(13,31,39,0.92), rgba(96,165,250,0.72))",
+              backgroundImage: coverImage
+                ? `url(${coverImage})`
+                : getDiscoveryFallbackCover(tenant),
             }}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/45 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-slate-950/10 to-transparent" />
+          {!coverImage ? (
+            <div className="absolute bottom-3 left-3 max-w-[75%] rounded-2xl bg-white/14 px-3 py-2 text-sm font-semibold leading-tight text-white backdrop-blur">
+              {formatDiscoveryDisplayLabel(getDiscoveryCategoryLabel(tenant))}
+            </div>
+          ) : null}
           <div className="absolute left-3 top-3 flex flex-wrap gap-2">
             <DiscoveryTypeChip tenant={tenant} />
             <Badge className={cn("rounded-full", toneClasses.label)}>
-              {getDiscoveryItemLabel(tenant)}
+              {formatDiscoveryDisplayLabel(getDiscoveryItemLabel(tenant))}
             </Badge>
           </div>
         </div>
 
-        <div className={cn("p-4", isBusinessCard ? "space-y-3" : "space-y-4")}>
+        <div
+          className={cn(
+            "!bg-white p-4 dark:!bg-white",
+            isBusinessCard ? "space-y-3" : "space-y-4",
+          )}
+        >
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                {getDiscoveryByline(tenant)}
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                {formatDiscoveryDisplayLabel(getDiscoveryByline(tenant))}
               </div>
               {isBusinessCard ? (
                 <>
-                  <h3 className="mt-2 line-clamp-1 text-lg font-black tracking-tight text-slate-950">
+                  <h3 className="mt-1.5 line-clamp-1 text-base font-semibold tracking-tight text-slate-950">
                     {tenant.name || getDiscoveryItemTitle(tenant)}
                   </h3>
                   <p className="mt-1 line-clamp-1 text-sm text-slate-500">
@@ -281,12 +295,12 @@ export function DiscoveryShowcaseCard({
                   </p>
                 </>
               ) : (
-                <h3 className="mt-2 line-clamp-2 text-lg font-black tracking-tight text-slate-950">
+                <h3 className="mt-1.5 line-clamp-2 text-base font-semibold tracking-tight text-slate-950">
                   {getDiscoveryItemTitle(tenant)}
                 </h3>
               )}
             </div>
-            <span className="text-[11px] font-semibold text-slate-500">
+            <span className="shrink-0 text-right text-[11px] font-semibold text-slate-500">
               {formatStartingPrice(tenant.starting_price)}
             </span>
           </div>
@@ -298,13 +312,15 @@ export function DiscoveryShowcaseCard({
           ) : null}
 
           <div className={cn(
-            "rounded-2xl px-3 py-3 text-[11px] font-semibold text-slate-600",
+            "rounded-2xl px-3 py-2.5 text-[11px] font-semibold text-slate-600",
             toneClasses.meta,
             isBusinessCard ? "flex items-center justify-between gap-3" : "grid gap-2",
           )}>
             {isBusinessCard ? (
               <>
-                <span className="truncate">{getDiscoveryItemLabel(tenant)}</span>
+                <span className="truncate">
+                  {formatDiscoveryDisplayLabel(getDiscoveryItemLabel(tenant))}
+                </span>
                 <span className="shrink-0 uppercase tracking-[0.12em] text-slate-500">
                   {stat}
                 </span>
@@ -317,7 +333,7 @@ export function DiscoveryShowcaseCard({
                 </span>
                 <div className="flex items-center justify-between gap-3 uppercase tracking-[0.12em] text-slate-500">
                   <span>{stat}</span>
-                  <span>{getDiscoverySurfaceLabel(tenant)}</span>
+                  <span>{formatDiscoveryDisplayLabel(getDiscoverySurfaceLabel(tenant))}</span>
                 </div>
               </>
             )}
@@ -338,7 +354,7 @@ export function DiscoveryShowcaseCard({
 
           <Button
             asChild
-            className="h-11 w-full rounded-2xl bg-slate-950 text-sm font-semibold text-white hover:bg-slate-900"
+            className="h-10 w-full rounded-2xl bg-slate-950 text-sm font-semibold text-white hover:bg-slate-900"
           >
             <a href={href} onClick={onClick}>
               {ctaLabel}
@@ -369,6 +385,7 @@ export function DiscoveryCompactCard({
   onClick?: () => void;
 }) {
   const trackedRef = useRef(false);
+  const coverImage = getDiscoveryItemImage(tenant);
 
   useEffect(() => {
     if (trackedRef.current) return;
@@ -377,24 +394,24 @@ export function DiscoveryCompactCard({
   }, [onVisible]);
 
   return (
-    <Card className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm">
+    <Card className="overflow-hidden rounded-[1.5rem] border border-slate-200 !bg-white !py-0 !text-slate-950 shadow-sm dark:!bg-white dark:!text-slate-950">
       <CardContent className="space-y-4 p-0">
         <div
           className="h-36 bg-cover bg-center"
           style={{
-            backgroundImage: getDiscoveryItemImage(tenant)
-              ? `url(${getDiscoveryItemImage(tenant)})`
-              : "linear-gradient(135deg, rgba(13,31,39,0.92), rgba(59,130,246,0.72))",
+            backgroundImage: coverImage
+              ? `url(${coverImage})`
+              : getDiscoveryFallbackCover(tenant),
           }}
         />
         <div className="space-y-3 px-4 pb-4">
           <div className="flex items-start justify-between gap-3">
             <div>
               <Badge className="rounded-full bg-slate-100 text-slate-700">
-                {getDiscoverySurfaceLabel(tenant)}
+                {formatDiscoveryDisplayLabel(getDiscoverySurfaceLabel(tenant))}
               </Badge>
               <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                {getDiscoveryByline(tenant)}
+                {formatDiscoveryDisplayLabel(getDiscoveryByline(tenant))}
               </p>
             </div>
             <span className="text-xs font-semibold text-slate-500">
@@ -432,7 +449,7 @@ function DiscoveryTypeChip({ tenant }: { tenant: DiscoveryTenant }) {
 
   if (tenant.item_kind !== "post") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700">
         <Store className="h-3.5 w-3.5" />
         Bisnis
       </span>
@@ -441,7 +458,7 @@ function DiscoveryTypeChip({ tenant }: { tenant: DiscoveryTenant }) {
 
   if (cardKind === "video") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-950/75 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-950/75 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
         <PlayCircle className="h-3.5 w-3.5" />
         {formatDiscoveryDuration(tenant.post_duration_seconds) || "Video"}
       </span>
@@ -450,7 +467,7 @@ function DiscoveryTypeChip({ tenant }: { tenant: DiscoveryTenant }) {
 
   if (cardKind === "promo") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-amber-950">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-950">
         <Megaphone className="h-3.5 w-3.5" />
         Promo
       </span>
@@ -459,7 +476,7 @@ function DiscoveryTypeChip({ tenant }: { tenant: DiscoveryTenant }) {
 
   if (cardKind === "photo") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/85 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-900">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/85 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-900">
         <Camera className="h-3.5 w-3.5" />
         Foto
       </span>
@@ -467,9 +484,17 @@ function DiscoveryTypeChip({ tenant }: { tenant: DiscoveryTenant }) {
   }
 
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-blue-700">
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-700">
       <TrendingUp className="h-3.5 w-3.5" />
       Sorotan
     </span>
   );
+}
+
+function formatDiscoveryDisplayLabel(value: string) {
+  return value
+    .split("_")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
 }

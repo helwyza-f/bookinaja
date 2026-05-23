@@ -12,6 +12,7 @@ import {
   truncateLandingCopy,
 } from "./copy-budget";
 import { useCustomerSessionPreview } from "@/lib/customer-session-preview";
+import { BOOKINAJA_LOGO_FRAMELESS_SRC } from "@/lib/brand";
 
 type TenantNavbarProfile = {
   name: string;
@@ -119,20 +120,17 @@ export function TenantNavbar({
               boxShadow: `0 12px 28px ${primaryColor}33`,
             }}
           >
-            {profile.logo_url ? (
-              <Image
-                src={profile.logo_url}
-                alt={`${profile.name} logo`}
-                fill
-                unoptimized
-                sizes="56px"
-                className="object-cover object-center"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center font-black italic">
-                {profile.name.charAt(0)}
-              </div>
-            )}
+            <Image
+              src={profile.logo_url || BOOKINAJA_LOGO_FRAMELESS_SRC}
+              alt={profile.logo_url ? `${profile.name} logo` : "Bookinaja logo"}
+              fill
+              unoptimized={Boolean(profile.logo_url)}
+              sizes="56px"
+              className={cn(
+                "object-center",
+                profile.logo_url ? "object-cover" : "object-contain p-2",
+              )}
+            />
           </div>
 
           <div className="min-w-0">
