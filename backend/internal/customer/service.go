@@ -2,13 +2,14 @@ package customer
 
 import (
 	"context"
+	cryptorand "crypto/rand"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"math"
-	"math/rand"
+	"math/big"
 	"os"
 	"strings"
 	"time"
@@ -31,6 +32,14 @@ const (
 	otpScopeAuth          = "auth"
 	otpScopeResetPassword = "reset-password"
 	otpScopeChangePhone   = "change-phone"
+)
+
+const (
+	otpSendCooldown  = 60 * time.Second
+	otpSendWindow    = 15 * time.Minute
+	otpMaxSends      = 5
+	otpAttemptWindow = 5 * time.Minute
+	otpMaxAttempts   = 5
 )
 
 const googleClaimTTL = 15 * time.Minute
@@ -1583,7 +1592,14 @@ func (s *Service) GetPointSummary(ctx context.Context, id, tenantID string, limi
 }
 
 func (s *Service) sendOTP(ctx context.Context, key, phone, name, purpose string) error {
-	otpCode := fmt.Sprintf("%06d", rand.New(rand.NewSource(time.Now().UnixNano())).Intn(1000000))
+	if err := s.enforceOTPSendLimit(ctx, key); err != nil {
+		return err
+	}
+
+	otpCode, err := generateOTPCode()
+	if err != nil {
+		return fmt.Errorf("sistem verifikasi sedang sibuk. Silakan coba lagi sebentar")
+	}
 	if err := s.redis.Set(ctx, key, otpCode, 5*time.Minute).Err(); err != nil {
 		return fmt.Errorf("sistem verifikasi sedang sibuk. Silakan coba lagi sebentar")
 	}
@@ -1620,14 +1636,73 @@ func (s *Service) consumeOTP(ctx context.Context, key, code string) error {
 		return fmt.Errorf("verifikasi sedang mengalami kendala. Silakan coba lagi sebentar")
 	}
 	if savedCode != code {
+		if s.tooManyOTPAttempts(ctx, key) {
+			s.redis.Del(ctx, key)
+			return fmt.Errorf("terlalu banyak percobaan kode. Silakan kirim ulang OTP")
+		}
 		return fmt.Errorf("kode verifikasi belum sesuai. Coba periksa lagi")
 	}
-	s.redis.Del(ctx, key)
+	s.redis.Del(ctx, key, otpAttemptKey(key))
 	return nil
+}
+
+func (s *Service) enforceOTPSendLimit(ctx context.Context, key string) error {
+	if s.redis == nil {
+		return nil
+	}
+
+	cooldownKey := key + ":cooldown"
+	allowed, err := s.redis.SetNX(ctx, cooldownKey, "1", otpSendCooldown).Result()
+	if err != nil {
+		return fmt.Errorf("sistem verifikasi sedang sibuk. Silakan coba lagi sebentar")
+	}
+	if !allowed {
+		return fmt.Errorf("tunggu sebentar sebelum meminta kode baru")
+	}
+
+	countKey := key + ":send-count"
+	count, err := s.redis.Incr(ctx, countKey).Result()
+	if err != nil {
+		return fmt.Errorf("sistem verifikasi sedang sibuk. Silakan coba lagi sebentar")
+	}
+	if count == 1 {
+		s.redis.Expire(ctx, countKey, otpSendWindow)
+	}
+	if count > otpMaxSends {
+		return fmt.Errorf("terlalu banyak permintaan OTP. Coba lagi beberapa menit")
+	}
+	return nil
+}
+
+func (s *Service) tooManyOTPAttempts(ctx context.Context, key string) bool {
+	if s.redis == nil {
+		return false
+	}
+	attemptKey := otpAttemptKey(key)
+	count, err := s.redis.Incr(ctx, attemptKey).Result()
+	if err != nil {
+		return false
+	}
+	if count == 1 {
+		s.redis.Expire(ctx, attemptKey, otpAttemptWindow)
+	}
+	return count >= otpMaxAttempts
+}
+
+func generateOTPCode() (string, error) {
+	n, err := cryptorand.Int(cryptorand.Reader, big.NewInt(1000000))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%06d", n.Int64()), nil
 }
 
 func otpRedisKey(scope, subject string) string {
 	return fmt.Sprintf("otp:%s:%s", scope, subject)
+}
+
+func otpAttemptKey(key string) string {
+	return key + ":attempts"
 }
 
 func emailActionRedisKey(action, token string) string {
