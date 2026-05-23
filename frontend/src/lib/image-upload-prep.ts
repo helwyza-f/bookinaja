@@ -5,6 +5,7 @@ type ImageUploadConfig = {
   maxDimension: number;
   initialQuality: number;
   minQuality: number;
+  qualityStep: number;
   preservePng: boolean;
 };
 
@@ -14,13 +15,15 @@ const IMAGE_UPLOAD_CONFIGS: Record<ImageUploadPreset, ImageUploadConfig> = {
     maxDimension: 2800,
     initialQuality: 0.88,
     minQuality: 0.62,
+    qualityStep: 0.05,
     preservePng: false,
   },
   hero: {
-    targetBytes: 4.6 * 1024 * 1024,
+    targetBytes: 4.95 * 1024 * 1024,
     maxDimension: 3840,
-    initialQuality: 0.9,
-    minQuality: 0.72,
+    initialQuality: 1,
+    minQuality: 0.92,
+    qualityStep: 0.02,
     preservePng: false,
   },
   media: {
@@ -28,6 +31,7 @@ const IMAGE_UPLOAD_CONFIGS: Record<ImageUploadPreset, ImageUploadConfig> = {
     maxDimension: 3200,
     initialQuality: 0.88,
     minQuality: 0.66,
+    qualityStep: 0.05,
     preservePng: false,
   },
   logo: {
@@ -35,6 +39,7 @@ const IMAGE_UPLOAD_CONFIGS: Record<ImageUploadPreset, ImageUploadConfig> = {
     maxDimension: 1800,
     initialQuality: 0.9,
     minQuality: 0.68,
+    qualityStep: 0.05,
     preservePng: true,
   },
   qris: {
@@ -42,6 +47,7 @@ const IMAGE_UPLOAD_CONFIGS: Record<ImageUploadPreset, ImageUploadConfig> = {
     maxDimension: 2200,
     initialQuality: 0.92,
     minQuality: 0.74,
+    qualityStep: 0.05,
     preservePng: true,
   },
   thumbnail: {
@@ -49,6 +55,7 @@ const IMAGE_UPLOAD_CONFIGS: Record<ImageUploadPreset, ImageUploadConfig> = {
     maxDimension: 1800,
     initialQuality: 0.86,
     minQuality: 0.62,
+    qualityStep: 0.05,
     preservePng: false,
   },
 };
@@ -79,7 +86,7 @@ export async function prepareImageForUpload(
   let blob = await canvasToBlob(canvas, mimeType, quality);
 
   while (blob.size > config.targetBytes && mimeType !== "image/png" && quality && quality > config.minQuality) {
-    quality = Math.max(config.minQuality, quality - 0.05);
+    quality = Math.max(config.minQuality, quality - config.qualityStep);
     blob = await canvasToBlob(canvas, mimeType, quality);
   }
 
