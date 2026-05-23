@@ -3,274 +3,414 @@
 
 import { Button } from "@/components/ui/button";
 import {
-  Zap,
-  ArrowRight,
-  Sparkles,
-  Globe,
-  ShieldCheck,
-  Monitor,
-  Camera,
-  Briefcase,
-  TrendingUp,
-  Lock,
-  CheckCircle2,
-  ArrowUpRight,
-  Star,
-  BarChart3,
-  Clock,
-  Users,
-  Play,
-  Wallet,
-  Bell,
   Activity,
-  X,
+  ArrowUpRight,
+  BadgeCheck,
+  BarChart3,
+  Bell,
+  BriefcaseBusiness,
+  Building2,
+  CalendarClock,
+  CheckCircle2,
   ChevronDown,
-  MessageCircle,
-  AlertTriangle,
+  Clock3,
+  CreditCard,
+  Gamepad2,
+  Globe2,
+  LockKeyhole,
+  MonitorPlay,
+  MousePointer2,
+  Play,
+  ReceiptText,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  TimerReset,
+  TrendingUp,
+  UsersRound,
+  Video,
+  WalletCards,
+  Zap,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState, useSyncExternalStore } from "react";
-import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
-/* ─────────────────────────────────────────────
-   HOOK: Scroll reveal
-───────────────────────────────────────────── */
-function useReveal(threshold = 0.08) {
+type DemoTab = "monitor" | "booking" | "payment" | "staff" | "report";
+type UseCaseKey =
+  | "gaming"
+  | "studio"
+  | "sport"
+  | "office"
+  | "barber"
+  | "pool"
+  | "vr";
+
+function useReveal(threshold = 0.12) {
   const [node, setNode] = useState<HTMLElement | null>(null);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     if (!node) return;
-    const obs = new IntersectionObserver(
+
+    const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
           setVisible(true);
-          obs.disconnect();
+          observer.disconnect();
         }
       },
       { threshold },
     );
-    obs.observe(node);
-    return () => obs.disconnect();
+
+    observer.observe(node);
+    return () => observer.disconnect();
   }, [node, threshold]);
+
   return [setNode, visible] as const;
 }
 
-function revealStyle(visible: boolean, delay = 0): React.CSSProperties {
+function revealStyle(visible: boolean, delay = 0): CSSProperties {
   return {
     opacity: visible ? 1 : 0,
-    transform: visible ? "translateY(0)" : "translateY(20px)",
-    transition: `opacity 0.55s ease ${delay}s, transform 0.55s ease ${delay}s`,
+    transform: visible ? "translateY(0)" : "translateY(26px)",
+    transition: `opacity 650ms cubic-bezier(.2,.8,.2,1) ${delay}s, transform 650ms cubic-bezier(.2,.8,.2,1) ${delay}s`,
   };
 }
 
-/* ─────────────────────────────────────────────
-   ANIMATED COUNTER
-───────────────────────────────────────────── */
 function AnimatedCounter({
   target,
   suffix = "",
+  prefix = "",
 }: {
   target: number;
   suffix?: string;
+  prefix?: string;
 }) {
   const [count, setCount] = useState(0);
-  const [setNode, visible] = useReveal(0.3);
+  const [ref, visible] = useReveal(0.35);
+
   useEffect(() => {
     if (!visible) return;
-    let start = 0;
-    const step = target / (1600 / 16);
-    const timer = setInterval(() => {
-      start += step;
-      if (start >= target) {
-        setCount(target);
-        clearInterval(timer);
-      } else setCount(Math.floor(start));
-    }, 16);
-    return () => clearInterval(timer);
-  }, [visible, target]);
+
+    let frame = 0;
+    const totalFrames = 70;
+    const timer = window.setInterval(() => {
+      frame += 1;
+      const progress = 1 - Math.pow(1 - frame / totalFrames, 3);
+      setCount(Math.round(target * progress));
+      if (frame >= totalFrames) window.clearInterval(timer);
+    }, 18);
+
+    return () => window.clearInterval(timer);
+  }, [target, visible]);
+
   return (
-    <span ref={setNode}>
-      {count.toLocaleString()}
+    <span ref={ref}>
+      {prefix}
+      {count.toLocaleString("id-ID")}
       {suffix}
     </span>
   );
 }
 
-/* ─────────────────────────────────────────────
-   THEME HELPERS
-───────────────────────────────────────────── */
-function useThemeClasses() {
-  const { resolvedTheme } = useTheme();
-  const mounted = useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false,
-  );
-
-  const isDark = mounted && resolvedTheme === "dark";
-  return {
-    isDark,
-    bg: isDark ? "bg-[#06080f]" : "bg-slate-50",
-    heading: isDark ? "text-white" : "text-slate-950",
-    muted: isDark ? "text-white/40" : "text-slate-500",
-    card: isDark
-      ? "bg-white/[0.035] border-white/[0.08]"
-      : "bg-white border-slate-200",
-    panel: isDark
-      ? "bg-slate-900 border-white/[0.06]"
-      : "bg-slate-100 border-slate-200",
-    gridLine: isDark
-      ? "bg-[linear-gradient(to_right,#ffffff07_1px,transparent_1px),linear-gradient(to_bottom,#ffffff07_1px,transparent_1px)]"
-      : "bg-[linear-gradient(to_right,#0f172a09_1px,transparent_1px),linear-gradient(to_bottom,#0f172a09_1px,transparent_1px)]",
-    divider: isDark ? "border-white/[0.06]" : "border-slate-200",
-  };
-}
-
-/* ─────────────────────────────────────────────
-   SECTION BADGE
-───────────────────────────────────────────── */
-function SectionBadge({
-  icon,
-  label,
+function SectionHeader({
+  eyebrow,
+  title,
+  description,
+  align = "center",
 }: {
-  icon: React.ReactNode;
-  label: string;
+  eyebrow: string;
+  title: ReactNode;
+  description: string;
+  align?: "center" | "left";
 }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/[0.07] px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.28em] text-blue-500">
-      {icon} {label}
-    </span>
-  );
-}
-
-/* ─────────────────────────────────────────────
-   ROCKET ICON
-───────────────────────────────────────────── */
-function Rocket({ className, size }: { className?: string; size?: number }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width={size ?? 24}
-      height={size ?? 24}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
-      <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
-      <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
-      <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
-    </svg>
-  );
-}
-
-/* ─────────────────────────────────────────────
-   DASHBOARD WIDGET
-───────────────────────────────────────────── */
-function DashboardWidget() {
-  const { isDark, heading, panel, divider, muted } = useThemeClasses();
-  const slots = [
-    { id: "PS-01", status: "busy", time: "2j 15m", customer: "Rafi A." },
-    { id: "PS-02", status: "free", time: "—", customer: "—" },
-    { id: "PS-03", status: "busy", time: "0j 45m", customer: "Dimas K." },
-    { id: "PC-01", status: "busy", time: "1j 30m", customer: "Sari W." },
-    { id: "PC-02", status: "free", time: "—", customer: "—" },
-    { id: "PC-03", status: "busy", time: "3j 00m", customer: "Andi P." },
-  ];
-  return (
     <div
-      className={`rounded-[1.5rem] border overflow-hidden ${panel} ${divider}`}
+      className={`mx-auto max-w-3xl space-y-4 ${
+        align === "center" ? "text-center" : "text-left"
+      }`}
     >
       <div
-        className={`px-4 py-3 border-b flex items-center justify-between ${divider}`}
+        className={`inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.24em] text-blue-500 dark:text-blue-300 ${
+          align === "center" ? "mx-auto" : ""
+        }`}
       >
-        <div className="flex items-center gap-2.5">
-          <div className="h-7 w-7 rounded-xl bg-blue-600 flex items-center justify-center shrink-0">
-            <Activity size={12} className="text-white" />
-          </div>
-          <div>
-            <p
-              className={`text-[10px] font-black uppercase tracking-widest leading-none ${heading}`}
-            >
-              Live Monitor
-            </p>
-            <p className="text-green-400 text-[8px] font-bold uppercase tracking-widest flex items-center gap-1 mt-0.5">
-              <span
-                className="inline-block w-1 h-1 rounded-full bg-green-400"
-                style={{ animation: "pulse-dot 2s ease-in-out infinite" }}
-              />
-              Realtime
-            </p>
-          </div>
-        </div>
-        <div className="text-right">
-          <p className={`text-sm font-black italic ${heading}`}>Rp 847.000</p>
-          <p className="text-blue-400 text-[8px] font-bold uppercase tracking-widest">
-            Cuan Hari Ini
-          </p>
-        </div>
+        <Sparkles className="h-3.5 w-3.5" />
+        {eyebrow}
       </div>
-      <div className="p-3 grid grid-cols-2 gap-2">
-        {slots.map((slot) => (
+      <h2 className="font-[var(--font-syne)] text-4xl font-black uppercase leading-[0.9] tracking-[-0.055em] text-slate-950 dark:text-white sm:text-5xl md:text-6xl">
+        {title}
+      </h2>
+      <p className="mx-auto max-w-2xl text-base font-medium leading-7 text-slate-600 dark:text-slate-300">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function PrimaryCta({ children = "Coba Gratis 30 Hari" }: { children?: string }) {
+  return (
+    <Link href="/register" className="w-full sm:w-auto">
+      <Button className="h-14 w-full rounded-2xl bg-blue-600 px-8 text-[12px] font-black uppercase tracking-[0.16em] text-white shadow-2xl shadow-blue-600/25 transition-all hover:-translate-y-0.5 hover:bg-blue-500 sm:w-auto">
+        {children}
+        <ArrowUpRight className="ml-2 h-4 w-4" />
+      </Button>
+    </Link>
+  );
+}
+
+function SecondaryCta() {
+  return (
+    <Link href="/demos" className="w-full sm:w-auto">
+      <Button
+        variant="outline"
+        className="h-14 w-full rounded-2xl border-slate-300 bg-white/70 px-7 text-[12px] font-black uppercase tracking-[0.16em] text-slate-900 backdrop-blur transition-all hover:-translate-y-0.5 hover:bg-white dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15 sm:w-auto"
+      >
+        <Play className="mr-2 h-4 w-4 fill-current" />
+        Lihat Demo 2 Menit
+      </Button>
+    </Link>
+  );
+}
+
+function TrustMicrocopy() {
+  return (
+    <div className="flex flex-wrap justify-center gap-3 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 sm:gap-5">
+      {["Tanpa kartu kredit", "Gratis 30 hari", "Setup cepat"].map(
+        (item) => (
+          <span key={item} className="inline-flex items-center gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />
+            {item}
+          </span>
+        ),
+      )}
+    </div>
+  );
+}
+
+function AvatarStack() {
+  const avatars = [
+    "bg-blue-500",
+    "bg-cyan-500",
+    "bg-emerald-500",
+    "bg-amber-500",
+    "bg-rose-500",
+  ];
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+      <div className="flex -space-x-3">
+        {avatars.map((color, index) => (
           <div
-            key={slot.id}
-            className={`rounded-xl p-2.5 border transition-colors duration-200 ${
-              slot.status === "busy"
-                ? "bg-blue-600/10 border-blue-500/25"
-                : isDark
-                  ? "bg-white/3 border-white/6"
-                  : "bg-white border-slate-200"
-            }`}
+            key={color}
+            className={`grid h-10 w-10 place-items-center rounded-full border-4 border-white text-[11px] font-black text-white shadow-lg dark:border-slate-950 ${color}`}
           >
-            <div className="flex items-center justify-between mb-1">
-              <span className={`text-[9px] font-black uppercase ${heading}`}>
-                {slot.id}
-              </span>
-              <span
-                className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded-full ${
-                  slot.status === "busy"
-                    ? "bg-blue-500/20 text-blue-400"
-                    : isDark
-                      ? "bg-white/10 text-white/30"
-                      : "bg-slate-200 text-slate-400"
-                }`}
-              >
-                {slot.status === "busy" ? "Terisi" : "Kosong"}
-              </span>
-            </div>
-            <p className={`text-[8px] font-medium ${muted}`}>{slot.customer}</p>
-            <p
-              className={`text-[9px] font-black ${slot.status === "busy" ? "text-orange-400" : isDark ? "text-white/15" : "text-slate-300"}`}
-            >
-              {slot.time}
-            </p>
+            {String.fromCharCode(65 + index)}
           </div>
         ))}
       </div>
-      <div className="px-3 pb-3">
+      <div className="text-center text-sm font-bold text-slate-700 dark:text-slate-200 sm:text-left">
+        2.400+ bisnis aktif di Indonesia
+        <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+          rental, studio, venue, sport, dan service appointment
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const demoTabs: Array<{ key: DemoTab; label: string; icon: ReactNode }> = [
+  { key: "monitor", label: "Live Monitor", icon: <Activity className="h-4 w-4" /> },
+  { key: "booking", label: "Booking", icon: <CalendarClock className="h-4 w-4" /> },
+  { key: "payment", label: "Bayar", icon: <WalletCards className="h-4 w-4" /> },
+  { key: "staff", label: "Staff", icon: <UsersRound className="h-4 w-4" /> },
+  { key: "report", label: "Laporan", icon: <BarChart3 className="h-4 w-4" /> },
+];
+
+function SlotGrid({ compact = false }: { compact?: boolean }) {
+  const slots = [
+    ["PS-01", "Live", "bg-blue-500/20 text-blue-300 border-blue-400/30"],
+    ["PS-02", "Kosong", "bg-emerald-500/15 text-emerald-300 border-emerald-400/25"],
+    ["PC-01", "DP", "bg-amber-500/15 text-amber-300 border-amber-400/25"],
+    ["PC-02", "Live", "bg-blue-500/20 text-blue-300 border-blue-400/30"],
+    ["VIP", "Ditahan", "bg-rose-500/15 text-rose-300 border-rose-400/25"],
+    ["VR-02", "Kosong", "bg-emerald-500/15 text-emerald-300 border-emerald-400/25"],
+  ];
+
+  return (
+    <div className={`grid ${compact ? "grid-cols-3 gap-2" : "grid-cols-2 gap-3 sm:grid-cols-3"}`}>
+      {slots.map(([name, status, color], index) => (
         <div
-          className={`rounded-xl px-3 py-2 flex items-center justify-between ${isDark ? "bg-white/3" : "bg-slate-200/60"}`}
+          key={name}
+          className={`rounded-2xl border p-3 ${color}`}
+          style={{ animation: `demo-pop 540ms ease ${index * 90}ms both` }}
         >
-          <span
-            className={`text-[8px] font-bold uppercase tracking-widest ${muted}`}
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-black uppercase tracking-[0.16em]">
+              {name}
+            </span>
+            <span className="h-2 w-2 rounded-full bg-current" />
+          </div>
+          <div className="mt-4 text-[10px] font-bold uppercase tracking-[0.16em] opacity-80">
+            {status}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MonitorPanel() {
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-3 sm:grid-cols-3">
+        {[
+          ["Occupancy", "76%", "w-[76%]"],
+          ["Bayar Masuk", "Rp8,4 jt", "w-[88%]"],
+          ["Antrian", "12", "w-[42%]"],
+        ].map(([label, value, width]) => (
+          <div
+            key={label}
+            className="rounded-3xl border border-white/10 bg-white/[0.06] p-4"
           >
-            Occupancy
-          </span>
-          <div className="flex items-center gap-2">
-            <div
-              className={`w-16 h-1 rounded-full overflow-hidden ${isDark ? "bg-white/10" : "bg-slate-300"}`}
-            >
-              <div
-                className="h-full bg-blue-500 rounded-full"
-                style={{ width: "67%" }}
-              />
+            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-white/45">
+              {label}
             </div>
-            <span className="text-blue-400 text-[10px] font-black">67%</span>
+            <div className="mt-2 text-2xl font-black tracking-tight text-white">
+              {value}
+            </div>
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
+              <div className={`h-full rounded-full bg-blue-400 ${width} animate-fill`} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <SlotGrid />
+    </div>
+  );
+}
+
+function BookingPanel() {
+  const rows = [
+    ["Rafi", "PS-01", "14:00", "DP paid"],
+    ["Maya", "Studio A", "15:30", "Confirmed"],
+    ["Doni", "Futsal 2", "17:00", "Pending"],
+  ];
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-[1fr_0.85fr]">
+      <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-4">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-200">
+              Booking Hari Ini
+            </div>
+            <div className="mt-1 text-2xl font-black text-white">34 order</div>
+          </div>
+          <CalendarClock className="h-9 w-9 text-blue-300" />
+        </div>
+        <div className="space-y-2">
+          {rows.map((row, index) => (
+            <div
+              key={row.join("-")}
+              className="grid grid-cols-4 items-center gap-2 rounded-2xl bg-slate-950/35 px-3 py-3 text-xs font-bold text-white"
+              style={{ animation: `slide-in-right 620ms ease ${index * 140}ms both` }}
+            >
+              <span>{row[0]}</span>
+              <span className="text-white/55">{row[1]}</span>
+              <span className="text-white/55">{row[2]}</span>
+              <span className="rounded-full bg-blue-500/20 px-2 py-1 text-[10px] uppercase tracking-wide text-blue-200">
+                {row[3]}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-4">
+        <div className="text-[10px] font-black uppercase tracking-[0.22em] text-white/45">
+          Calendar View
+        </div>
+        <div className="mt-4 grid grid-cols-7 gap-1.5">
+          {Array.from({ length: 28 }).map((_, index) => (
+            <div
+              key={index}
+              className={`aspect-square rounded-xl ${
+                [2, 5, 8, 12, 13, 17, 20, 21, 24].includes(index)
+                  ? "bg-blue-500 text-white"
+                  : "bg-white/8 text-white/40"
+              } grid place-items-center text-[10px] font-black`}
+            >
+              {index + 1}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PaymentPanel() {
+  const payments = [
+    ["DP Studio A", "Rp350.000", "QRIS", "Tercatat"],
+    ["Pelunasan PS-01", "Rp125.000", "Cash", "Masuk POS"],
+    ["Booking Futsal 2", "Rp220.000", "Transfer", "Menunggu cek"],
+  ];
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
+      <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5">
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-200">
+              Pembayaran Hari Ini
+            </div>
+            <div className="mt-1 text-3xl font-black text-white">Rp8,4 jt</div>
+          </div>
+          <WalletCards className="h-9 w-9 text-emerald-300" />
+        </div>
+        <div className="space-y-2">
+          {payments.map((payment, index) => (
+            <div
+              key={payment.join("-")}
+              className="grid grid-cols-[1fr_auto] gap-3 rounded-2xl bg-slate-950/35 px-4 py-3 text-sm font-bold text-white"
+              style={{ animation: `slide-in-right 620ms ease ${index * 130}ms both` }}
+            >
+              <div>
+                <div>{payment[0]}</div>
+                <div className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/40">
+                  {payment[2]} · {payment[3]}
+                </div>
+              </div>
+              <div className="text-right font-black text-emerald-300">
+                {payment[1]}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5">
+        <div className="text-[10px] font-black uppercase tracking-[0.22em] text-white/45">
+          Metode aktif
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          {["QRIS", "Transfer", "Cash", "DP"].map((method) => (
+            <div
+              key={method}
+              className="rounded-2xl border border-emerald-400/25 bg-emerald-400/10 px-4 py-4 text-center text-xs font-black uppercase tracking-[0.16em] text-emerald-200"
+            >
+              {method}
+            </div>
+          ))}
+        </div>
+        <div className="mt-5 rounded-2xl bg-emerald-400/10 p-4">
+          <div className="flex items-center justify-between text-sm font-black text-white">
+            <span>Tercatat otomatis</span>
+            <span className="text-emerald-300">Realtime</span>
+          </div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+            <div className="h-full w-full rounded-full bg-emerald-400 animate-fill" />
           </div>
         </div>
       </div>
@@ -278,1616 +418,1853 @@ function DashboardWidget() {
   );
 }
 
-/* ─────────────────────────────────────────────
-   MAIN PAGE
-───────────────────────────────────────────── */
-export default function LandingPage() {
-  const { isDark, bg, heading, muted, card, panel, gridLine, divider } =
-    useThemeClasses();
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [openPersona, setOpenPersona] = useState<number | null>(0);
-
-  const [heroRef, heroVisible] = useReveal(0.04);
-  const [painRef, painVisible] = useReveal(0.06);
-  const [solutionRef, solutionVisible] = useReveal(0.06);
-  const [compareRef, compareVisible] = useReveal(0.06);
-  const [featRef, featVisible] = useReveal(0.06);
-  const [personaRef, personaVisible] = useReveal(0.06);
-  const [howRef, howVisible] = useReveal(0.06);
-  const [indRef, indVisible] = useReveal(0.06);
-  const [staffRef, staffVisible] = useReveal(0.06);
-  const [testimRef, testimVisible] = useReveal(0.06);
-  const [faqRef, faqVisible] = useReveal(0.06);
-  const [ctaRef, ctaVisible] = useReveal(0.06);
-
+function StaffPanel() {
   return (
-    <div
-      className={`relative flex flex-col items-center overflow-x-hidden font-sans ${bg}`}
-    >
-      <style>{`
-        @keyframes shimmer {
-          0%   { background-position: -300% center; }
-          100% { background-position:  300% center; }
-        }
-        @keyframes marquee {
-          from { transform: translateX(0); }
-          to   { transform: translateX(-50%); }
-        }
-        @keyframes pulse-dot {
-          0%, 100% { opacity: 1; }
-          50%       { opacity: 0.35; }
-        }
-        .shimmer-text {
-          background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 30%, #93c5fd 50%, #60a5fa 70%, #3b82f6 100%);
-          background-size: 300% auto;
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          animation: shimmer 6s linear infinite;
-        }
-        .accent-text {
-          background: linear-gradient(120deg, #2563eb, #3b82f6);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-        .marquee-track {
-          display: flex;
-          gap: 2.5rem;
-          animation: marquee 28s linear infinite;
-          white-space: nowrap;
-          will-change: transform;
-        }
-        .hover-lift {
-          transition: transform 0.22s ease, border-color 0.22s ease;
-        }
-        .hover-lift:hover { transform: translateY(-3px); }
-        .group:hover .icon-btn {
-          background: #2563eb !important;
-          color: white !important;
-          border-color: #2563eb !important;
-        }
-        .pain-card-before {
-          position: relative;
-        }
-        .pain-card-before::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          border-radius: inherit;
-          background: linear-gradient(135deg, rgba(239,68,68,0.04), transparent);
-          pointer-events: none;
-        }
-      `}</style>
-
-      {/* ── BACKGROUND ── */}
-      <div className="fixed inset-0 pointer-events-none z-0" aria-hidden>
-        <div className={`absolute inset-0 ${bg}`} />
-        <div
-          className={`absolute inset-0 ${gridLine} bg-size-[48px_48px] sm:bg-size-[56px_56px]`}
-        />
-        <div
-          className={`absolute top-0 inset-x-0 h-125 ${
-            isDark
-              ? "bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(59,130,246,0.10)_0%,transparent_100%)]"
-              : "bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(59,130,246,0.06)_0%,transparent_100%)]"
-          }`}
-        />
-        <div
-          className={`absolute bottom-0 right-0 w-64 h-64 rounded-full blur-[70px] ${isDark ? "bg-blue-800/15" : "bg-blue-200/30"}`}
-        />
+    <div className="grid gap-4 lg:grid-cols-[0.95fr_1fr]">
+      <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5">
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-200">
+              Hak Akses Tim
+            </div>
+            <div className="mt-1 text-2xl font-black text-white">
+              Owner tetap pegang kontrol
+            </div>
+          </div>
+          <ShieldCheck className="h-9 w-9 text-blue-300" />
+        </div>
+        {[
+          ["Owner", "Laporan, harga, setting", "8 menu"],
+          ["Kasir", "Booking, POS, pembayaran", "3 menu"],
+          ["Staff", "Check-in dan sesi aktif", "1 menu"],
+        ].map(([role, access, menu], index) => (
+          <div
+            key={role}
+            className="mb-2 flex items-center justify-between rounded-2xl bg-slate-950/35 px-4 py-3"
+            style={{ animation: `slide-in-right 620ms ease ${index * 120}ms both` }}
+          >
+            <div>
+              <div className="text-sm font-black text-white">{role}</div>
+              <div className="mt-1 text-xs font-medium text-white/45">{access}</div>
+            </div>
+            <div className="rounded-full bg-blue-500/20 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-blue-200">
+              {menu}
+            </div>
+          </div>
+        ))}
       </div>
-
-      {/* ══════════════════════════════
-          1. HERO
-      ══════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 pt-24 sm:pt-24 md:pt-32 pb-10 sm:pb-14 text-center">
-        <div ref={heroRef} className="space-y-5 sm:space-y-6">
-          <div
-            className="flex justify-center"
-            style={revealStyle(heroVisible, 0.05)}
-          >
-            <div
-              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 ${isDark ? "border-blue-500/20 bg-blue-500/[0.07]" : "border-blue-300/50 bg-blue-50"}`}
-            >
-              <Sparkles className="h-3 w-3 text-blue-500 fill-current shrink-0" />
-              <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.22em] text-blue-500">
-                Sistem Operasional untuk Bisnis Rental
-              </span>
-              <span
-                className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0"
-                style={{ animation: "pulse-dot 2s ease-in-out infinite" }}
-              />
-            </div>
-          </div>
-
-          <div style={revealStyle(heroVisible, 0.1)}>
-            <h1
-              className={`mx-auto text-[38px] sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-[-0.05em] leading-[0.88] uppercase ${heading}`}
-            >
-              Berhenti Jalankan
-              <br />
-              <span className="shimmer-text">Bisnis Secara Manual.</span>
-            </h1>
-          </div>
-
-          <div style={revealStyle(heroVisible, 0.16)}>
-            <p
-              className={`max-w-sm sm:max-w-2xl mx-auto text-sm sm:text-base md:text-lg font-medium leading-relaxed ${muted}`}
-            >
-              Bookinaja membantu booking lebih rapi, operasional lebih
-              terkontrol, dan owner lebih tenang menjalankan bisnisnya.
-            </p>
-          </div>
-
-          <div
-            className="flex flex-col sm:flex-row justify-center items-center gap-3"
-            style={revealStyle(heroVisible, 0.22)}
-          >
-            <Link href="/register" className="w-full sm:w-auto">
-              <Button className="w-full sm:w-auto h-12 px-8 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl bg-blue-600 hover:bg-blue-500 text-white border-0 transition-colors duration-200 shadow-lg shadow-blue-600/20">
-                Coba Gratis 30 Hari <ArrowRight className="ml-2 h-3.5 w-3.5" />
-              </Button>
-            </Link>
-            <Link href="/demos" className="w-full sm:w-auto">
-              <Button
-                variant="ghost"
-                className={`w-full sm:w-auto h-12 px-8 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl border transition-colors duration-200 ${isDark ? "border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-white" : "border-slate-200 bg-white hover:bg-slate-50 text-slate-800"}`}
-              >
-                <Play className="mr-2 h-3 w-3 fill-current" /> Lihat Demo
-              </Button>
-            </Link>
-          </div>
-
-          {/* Trust micro-copy */}
-          <div
-            className="flex flex-wrap justify-center gap-4 sm:gap-6"
-            style={revealStyle(heroVisible, 0.27)}
-          >
-            {[
-              "✓ Trial 30 hari",
-              "✓ Tanpa kartu kredit",
-              "✓ Dibantu sampai live",
-            ].map((f) => (
-              <span key={f} className={`text-[11px] font-medium ${muted}`}>
-                {f}
-              </span>
-            ))}
-          </div>
-
-          {/* Social proof avatars */}
-          <div
-            className="flex justify-center items-center gap-4"
-            style={revealStyle(heroVisible, 0.32)}
-          >
-            <div className="flex -space-x-2">
-              {[
-                "bg-orange-400",
-                "bg-blue-500",
-                "bg-emerald-400",
-                "bg-pink-400",
-                "bg-purple-400",
-              ].map((c, i) => (
-                <div
-                  key={i}
-                  className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 ${isDark ? "border-[#06080f]" : "border-white"} ${c} flex items-center justify-center`}
-                >
-                  <span className="text-[7px] sm:text-[8px] font-black text-white">
-                    {String.fromCharCode(65 + i)}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <p className={`text-[10px] sm:text-[11px] font-medium ${muted}`}>
-              <span className={`font-black ${heading}`}>2.400+</span> bisnis
-              aktif di Indonesia
-            </p>
-          </div>
+      <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5">
+        <div className="text-[10px] font-black uppercase tracking-[0.22em] text-white/45">
+          Aktivitas staff
         </div>
-
-        {/* Dashboard preview */}
-        <div
-          className="relative mt-10 sm:mt-14 mx-auto max-w-5xl"
-          style={revealStyle(heroVisible, 0.38)}
-        >
-          <div
-            className={`absolute inset-0 rounded-[2rem] blur-2xl ${isDark ? "bg-blue-600/8" : "bg-blue-400/8"}`}
-          />
-          <div
-            className={`relative rounded-[1.25rem] sm:rounded-[2rem] border p-1 sm:p-1.5 ${isDark ? "border-white/8 bg-white/3" : "border-slate-200 bg-white"}`}
-          >
-            <div
-              className={`overflow-hidden rounded-[0.875rem] sm:rounded-[1.5rem] ${isDark ? "border border-white/4" : "border border-slate-100"}`}
-            >
-              <div
-                className={`relative overflow-hidden ${isDark ? "bg-slate-950" : "bg-slate-100"}`}
-                style={{ height: "clamp(200px, 42vw, 440px)" }}
-              >
-                <div className="absolute inset-0 p-3 sm:p-5 grid grid-cols-12 grid-rows-6 gap-1.5 sm:gap-2">
-                  <div
-                    className={`col-span-2 row-span-6 rounded-xl border p-1.5 sm:p-2 flex flex-col gap-1.5 ${isDark ? "bg-white/3 border-white/[0.05]" : "bg-white border-slate-200"}`}
-                  >
-                    <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-lg bg-blue-600 mx-auto mb-1.5" />
-                    {[...Array(6)].map((_, i) => (
-                      <div
-                        key={i}
-                        className={`h-5 sm:h-6 rounded-lg ${i === 1 ? "bg-blue-600/25 border border-blue-500/25" : isDark ? "bg-white/[0.04]" : "bg-slate-100"}`}
-                      />
-                    ))}
-                  </div>
-                  {[
-                    { l: "Booking", v: "1,284", c: "text-white" },
-                    { l: "Pendapatan", v: "Rp 28.4jt", c: "text-emerald-400" },
-                    { l: "Unit Aktif", v: "18/24", c: "text-blue-400" },
-                    { l: "Rating", v: "4.9★", c: "text-yellow-400" },
-                  ].map((s, i) => (
-                    <div
-                      key={i}
-                      className={`col-span-2 row-span-1 rounded-xl border p-1.5 flex flex-col justify-between ${isDark ? "bg-white/[0.04] border-white/[0.05]" : "bg-white border-slate-200"}`}
-                    >
-                      <span
-                        className={`text-[6px] sm:text-[7px] font-bold uppercase truncate ${isDark ? "text-white/30" : "text-slate-400"}`}
-                      >
-                        {s.l}
-                      </span>
-                      <span
-                        className={`text-[10px] sm:text-xs font-black ${s.c}`}
-                      >
-                        {s.v}
-                      </span>
-                    </div>
-                  ))}
-                  <div
-                    className={`col-span-7 row-span-3 rounded-xl border p-2 ${isDark ? "bg-white/[0.03] border-white/[0.05]" : "bg-white border-slate-200"}`}
-                  >
-                    <div className="flex items-end gap-0.5 h-full pb-1">
-                      {[40, 65, 45, 80, 95, 70, 85, 60, 90, 75, 100, 88].map(
-                        (h, i) => (
-                          <div
-                            key={i}
-                            className="flex-1 rounded-t bg-blue-600/30 border-t border-blue-500/40"
-                            style={{ height: `${h}%` }}
-                          />
-                        ),
-                      )}
-                    </div>
-                  </div>
-                  <div
-                    className={`col-span-3 row-span-3 rounded-xl border p-2 ${isDark ? "bg-white/[0.03] border-white/[0.05]" : "bg-white border-slate-200"}`}
-                  >
-                    {[...Array(4)].map((_, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center gap-1 sm:gap-1.5 mb-1.5 sm:mb-2"
-                      >
-                        <div
-                          className={`h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-lg flex-shrink-0 ${["bg-blue-600/40", "bg-emerald-500/40", "bg-orange-500/40", "bg-purple-500/40"][i]}`}
-                        />
-                        <div className="flex-1 space-y-1">
-                          <div
-                            className={`h-1.5 rounded-full w-full ${isDark ? "bg-white/15" : "bg-slate-200"}`}
-                          />
-                          <div
-                            className={`h-1 rounded-full w-2/3 ${isDark ? "bg-white/8" : "bg-slate-100"}`}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div
-                    className={`col-span-10 row-span-2 rounded-xl border p-1.5 sm:p-2 ${isDark ? "bg-white/[0.03] border-white/[0.05]" : "bg-white border-slate-200"}`}
-                  >
-                    <div className="grid grid-cols-6 gap-1 sm:gap-1.5 h-full">
-                      {[
-                        "PS-01•",
-                        "PS-02○",
-                        "PS-03•",
-                        "PC-01•",
-                        "PC-02○",
-                        "VIP•",
-                      ].map((s, i) => (
-                        <div
-                          key={i}
-                          className={`rounded-lg flex items-center justify-center text-[6px] sm:text-[7px] font-black uppercase ${s.includes("○") ? (isDark ? "bg-white/[0.04] text-white/20" : "bg-slate-100 text-slate-400") : "bg-blue-600/20 border border-blue-500/25 text-blue-400"}`}
-                        >
-                          {s.replace("•", "").replace("○", "")}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div
-            className={`absolute -bottom-4 left-3 sm:-bottom-5 sm:-left-3 flex p-3 sm:p-4 rounded-2xl shadow-xl flex-col items-start -rotate-1 border ${isDark ? "bg-slate-900 border-white/[0.08]" : "bg-white border-slate-200 shadow-slate-200/60"}`}
-          >
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <TrendingUp size={11} className="text-emerald-400" />
-              <span className="text-emerald-400 text-[8px] font-black uppercase tracking-widest">
-                Cuan Hari Ini
-              </span>
-            </div>
-            <p
-              className={`text-lg sm:text-xl font-black italic leading-none ${heading}`}
-            >
-              +124%
-            </p>
-            <p className={`text-[8px] font-medium mt-0.5 ${muted}`}>
-              vs bulan lalu
-            </p>
-          </div>
-          <div className="absolute -top-3 right-3 sm:-top-4 sm:-right-3 flex bg-blue-600 p-3 sm:p-4 rounded-2xl shadow-xl shadow-blue-600/20 flex-col items-start rotate-1">
-            <Bell size={12} className="text-white mb-0.5" />
-            <p className="text-white text-[9px] font-black uppercase tracking-widest leading-none">
-              Booking Baru!
-            </p>
-            <p className="text-blue-200 text-[8px] font-medium mt-0.5">
-              Ahmad — PS-03 · 2 jam
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════
-          MARQUEE
-      ══════════════════════════════ */}
-      <div
-        className={`relative z-10 w-full py-5 overflow-hidden border-y ${divider}`}
-      >
-        <div className="marquee-track">
-          {[...Array(2)].map((_, rep) =>
-            [
-              "Gaming Hub",
-              "Studio Foto",
-              "Lapangan Futsal",
-              "Coworking",
-              "Barbershop",
-              "Kolam Renang",
-              "VR Arena",
-              "Mesin Arcade",
-            ].map((name, i) => (
-              <div
-                key={`${rep}-${i}`}
-                className="flex items-center gap-2.5 flex-shrink-0"
-              >
-                <span className="h-1 w-1 rounded-full bg-blue-500/50" />
-                <span
-                  className={`text-[10px] font-black uppercase tracking-[0.22em] ${muted}`}
-                >
-                  {name}
-                </span>
-              </div>
-            )),
-          )}
-        </div>
-      </div>
-
-      {/* ══════════════════════════════
-          2. PAIN SECTION — "Masih Begini?"
-      ══════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
-        <div ref={painRef} style={revealStyle(painVisible)}>
-          <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
-            <SectionBadge
-              icon={<AlertTriangle className="h-3 w-3" />}
-              label="Kenali Masalahnya"
-            />
-            <h2
-              className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
-            >
-              Bisnis kamu masih
-              <br />
-              <span className="text-red-500">begini?</span>
-            </h2>
-            <p
-              className={`max-w-sm sm:max-w-lg mx-auto text-sm font-medium ${muted}`}
-            >
-              Kalau ada satu yang nyambung, kamu butuh Bookinaja.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[
-              {
-                emoji: "📓",
-                title: "Masih nulis di buku",
-                desc: "Booking dicatat manual, mudah hilang, susah dilacak. Kalau penuh pun kasir sering lupa.",
-                color: "red",
-              },
-              {
-                emoji: "📱",
-                title: "Terima booking via WA",
-                desc: "Customer WA satu-satu, kamu atau kasir harus balas manual tiap hari. Nggak ada waktu lain?",
-                color: "orange",
-              },
-              {
-                emoji: "💸",
-                title: "Nggak tau uang masuk berapa",
-                desc: "Akhir hari hitung manual. Sering beda. Entah salah hitung atau ada yang 'nyantol' di tangan kasir.",
-                color: "red",
-              },
-              {
-                emoji: "😤",
-                title: "Slot sering double-booked",
-                desc: "Customer datang, ternyata sudah ada orang. Malu, refund, kehilangan pelanggan seumur hidup.",
-                color: "orange",
-              },
-              {
-                emoji: "🤷",
-                title: "Nggak bisa pantau dari jauh",
-                desc: "Mau lihat bisnis lagi ramai apa nggak, harus telepon kasir dulu. Padahal kamu lagi di luar.",
-                color: "red",
-              },
-              {
-                emoji: "🔒",
-                title: "Kasir susah dikontrol",
-                desc: "Kamu nggak tahu transaksi mana yang benar-benar terjadi. Kepercayaan itu mahal tapi rapuh.",
-                color: "orange",
-              },
-            ].map((item, i) => (
-              <div
-                key={i}
-                className={`pain-card-before hover-lift rounded-[1.75rem] border p-6 relative overflow-hidden ${isDark ? "bg-white/[0.03] border-red-500/10" : "bg-white border-red-100"}`}
-              >
-                <div
-                  className={`h-10 w-10 rounded-2xl flex items-center justify-center text-xl mb-4 ${isDark ? "bg-red-500/10" : "bg-red-50"}`}
-                >
-                  {item.emoji}
-                </div>
-                <h3 className={`text-base font-black mb-2 ${heading}`}>
-                  {item.title}
-                </h3>
-                <p className={`text-sm font-medium leading-relaxed ${muted}`}>
-                  {item.desc}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-10 text-center">
-            <p className={`text-sm font-medium mb-4 ${muted}`}>
-              Kalau iya, kamu bukan sendiri. Ribuan owner rental pernah di
-              posisi yang sama.
-            </p>
-            <Link href="/register">
-              <Button className="h-12 px-8 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl bg-blue-600 hover:bg-blue-500 text-white border-0 transition-colors duration-200">
-                Selesaikan Sekarang <ArrowRight className="ml-2 h-3.5 w-3.5" />
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════
-          3. SOLUTION INTRO
-      ══════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        <div ref={solutionRef} style={revealStyle(solutionVisible)}>
-          <div
-            className={`relative overflow-hidden rounded-[2rem] border px-6 sm:px-12 py-12 sm:py-16 text-center ${isDark ? "bg-blue-600/[0.07] border-blue-500/20" : "bg-blue-50 border-blue-100"}`}
-          >
-            <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_60%_50%_at_50%_0%,rgba(59,130,246,0.12),transparent)]" />
-            <div className="relative max-w-2xl mx-auto space-y-5">
-              <div className="text-4xl sm:text-5xl mb-2">⚡</div>
-              <h2
-                className={`text-2xl sm:text-3xl md:text-4xl font-black tracking-[-0.04em] leading-tight ${heading}`}
-              >
-                Bookinaja hadir untuk satu tujuan:
-              </h2>
-              <p
-                className={`text-base sm:text-lg font-medium leading-relaxed ${muted}`}
-              >
-                Mengubah bisnis rental yang masih jalan manual jadi operasional
-                yang{" "}
-                <span className={`font-black ${heading}`}>
-                  terorganisir, terpantau, dan menghasilkan lebih banyak
-                </span>{" "}
-                — tanpa kamu harus ada di sana terus.
-              </p>
-              <div className="flex flex-wrap justify-center gap-3 pt-2">
-                {[
-                  "Booking otomatis 24/7",
-                  "Pembayaran digital",
-                  "Laporan real-time",
-                  "Kontrol staff penuh",
-                ].map((t) => (
-                  <span
-                    key={t}
-                    className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-blue-500 bg-blue-500/10 border border-blue-500/20 px-3 py-1.5 rounded-full"
-                  >
-                    <CheckCircle2 size={11} /> {t}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════
-          4. COMPARISON TABLE
-      ══════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
-        <div ref={compareRef} style={revealStyle(compareVisible)}>
-          <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
-            <SectionBadge
-              icon={<CheckCircle2 className="h-3 w-3" />}
-              label="Perbandingan"
-            />
-            <h2
-              className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
-            >
-              Bookinaja vs
-              <br />
-              <span className="text-red-500">Cara Lama.</span>
-            </h2>
-            <p
-              className={`max-w-sm sm:max-w-md mx-auto text-sm font-medium ${muted}`}
-            >
-              Lihat sendiri bedanya.
-            </p>
-          </div>
-
-          <div className={`rounded-[2rem] border overflow-hidden ${card}`}>
-            {/* Header */}
-            <div
-              className={`grid grid-cols-3 gap-px ${isDark ? "bg-white/[0.05]" : "bg-slate-200"}`}
-            >
-              <div
-                className={`p-4 sm:p-5 ${isDark ? "bg-white/[0.02]" : "bg-slate-50"}`}
-              >
-                <p
-                  className={`text-[10px] sm:text-xs font-black uppercase tracking-wider ${muted}`}
-                >
-                  Fitur
-                </p>
-              </div>
-              <div className="p-4 sm:p-5 bg-blue-600 text-center">
-                <p className="text-white text-[10px] sm:text-xs font-black uppercase tracking-wider">
-                  Bookinaja ✓
-                </p>
-              </div>
-              <div
-                className={`p-4 sm:p-5 text-center ${isDark ? "bg-white/[0.02]" : "bg-slate-50"}`}
-              >
-                <p
-                  className={`text-[10px] sm:text-xs font-black uppercase tracking-wider ${muted}`}
-                >
-                  Cara Manual ✗
-                </p>
-              </div>
-            </div>
-
-            {/* Rows */}
-            {[
-              {
-                feature: "Booking online 24/7",
-                us: true,
-                them: false,
-                note: "Customer booking langsung, tanpa WA",
-              },
-              {
-                feature: "Pembayaran digital otomatis",
-                us: true,
-                them: false,
-                note: "QRIS, transfer, dompet digital",
-              },
-              {
-                feature: "Monitor slot real-time",
-                us: true,
-                them: false,
-                note: "Dari HP, kapan saja",
-              },
-              {
-                feature: "Laporan keuangan otomatis",
-                us: true,
-                them: false,
-                note: "Harian, mingguan, bulanan",
-              },
-              {
-                feature: "Kontrol akses staff",
-                us: true,
-                them: false,
-                note: "Kasir hanya lihat yang perlu",
-              },
-              {
-                feature: "Notifikasi & reminder",
-                us: true,
-                them: false,
-                note: "WA otomatis ke customer",
-              },
-              {
-                feature: "Website booking profesional",
-                us: true,
-                them: false,
-                note: "Subdomain langsung aktif",
-              },
-              {
-                feature: "Audit log transaksi",
-                us: true,
-                them: false,
-                note: "Setiap aksi tercatat",
-              },
-            ].map((row, i) => (
-              <div
-                key={i}
-                className={`grid grid-cols-3 gap-px ${isDark ? "bg-white/[0.05]" : "bg-slate-200"}`}
-              >
-                <div
-                  className={`p-4 sm:p-5 flex flex-col justify-center ${isDark ? "bg-[#06080f]" : "bg-white"}`}
-                >
-                  <p className={`text-xs sm:text-sm font-black ${heading}`}>
-                    {row.feature}
-                  </p>
-                  <p
-                    className={`text-[10px] sm:text-xs mt-0.5 hidden sm:block ${muted}`}
-                  >
-                    {row.note}
-                  </p>
-                </div>
-                <div
-                  className={`p-4 sm:p-5 flex items-center justify-center ${isDark ? "bg-blue-600/[0.08]" : "bg-blue-50"}`}
-                >
-                  <div className="h-6 w-6 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-                    <CheckCircle2 size={13} className="text-white" />
-                  </div>
-                </div>
-                <div
-                  className={`p-4 sm:p-5 flex items-center justify-center ${isDark ? "bg-white/[0.01]" : "bg-white"}`}
-                >
-                  <div
-                    className={`h-6 w-6 rounded-full flex items-center justify-center flex-shrink-0 ${isDark ? "bg-white/10" : "bg-red-50"}`}
-                  >
-                    <X size={13} className="text-red-400" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════
-          5. FEATURES BENTO
-      ══════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-8">
-        <div ref={featRef} style={revealStyle(featVisible)}>
-          <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
-            <SectionBadge
-              icon={<Zap className="h-3 w-3 fill-current" />}
-              label="Fitur Unggulan"
-            />
-            <h2
-              className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
-            >
-              Semua yang Kamu
-              <br />
-              <span className="shimmer-text">Butuhkan.</span>
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Live Monitor — large */}
-            <div
-              className={`sm:col-span-2 hover-lift group rounded-[1.75rem] border p-6 sm:p-8 overflow-hidden relative ${card}`}
-            >
-              <div className="absolute top-0 right-0 w-36 h-36 rounded-full blur-3xl bg-blue-600/[0.06] pointer-events-none" />
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center icon-btn transition-all duration-200 flex-shrink-0">
-                  <Activity size={16} className="text-blue-400" />
-                </div>
-                <span className="text-[8px] font-black uppercase tracking-[0.22em] text-blue-400 border border-blue-500/20 rounded-full px-3 py-1">
-                  Live
-                </span>
-              </div>
-              <h3
-                className={`text-lg sm:text-xl font-black tracking-tight mb-2 ${heading}`}
-              >
-                Monitor Slot Real-time
-              </h3>
-              <p
-                className={`text-sm font-medium leading-relaxed mb-2 ${muted}`}
-              >
-                Pantau semua unit dari HP — mana yang kosong, siapa yang pakai,
-                berapa sisa waktu.
-              </p>
-              <p className="text-blue-500 text-xs font-black mb-5">
-                → Nggak perlu telepon kasir lagi.
-              </p>
-              <DashboardWidget />
-            </div>
-
-            {/* Website */}
-            <div
-              className={`hover-lift group rounded-[1.75rem] border p-6 sm:p-8 relative overflow-hidden ${card}`}
-            >
-              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-purple-600/15 border border-purple-500/20 flex items-center justify-center mb-4 icon-btn transition-all duration-200">
-                <Globe size={16} className="text-purple-400" />
-              </div>
-              <h3
-                className={`text-lg font-black tracking-tight mb-2 ${heading}`}
-              >
-                Website Booking Otomatis
-              </h3>
-              <p
-                className={`text-sm font-medium leading-relaxed mb-2 ${muted}`}
-              >
-                Portal booking profesional{" "}
-                <span className={`font-black ${heading}`}>
-                  namakamu.bookinaja.com
-                </span>{" "}
-                langsung aktif saat daftar.
-              </p>
-              <p className="text-purple-500 text-xs font-black mb-4">
-                → Customer bisa booking sendiri, 24 jam.
-              </p>
-              <div
-                className={`rounded-xl border p-3.5 ${isDark ? "bg-slate-900 border-white/[0.06]" : "bg-slate-50 border-slate-200"}`}
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="flex gap-1 flex-shrink-0">
-                    {["bg-red-400", "bg-yellow-400", "bg-green-400"].map(
-                      (c, i) => (
-                        <div key={i} className={`w-2 h-2 rounded-full ${c}`} />
-                      ),
-                    )}
-                  </div>
-                  <div
-                    className={`flex-1 min-w-0 rounded-md h-5 flex items-center px-2 ${isDark ? "bg-white/[0.05]" : "bg-white border border-slate-200"}`}
-                  >
-                    <span className={`text-[9px] font-mono truncate ${muted}`}>
-                      gaminghub.bookinaja.com
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div
-                    className={`h-2.5 rounded w-3/4 ${isDark ? "bg-white/10" : "bg-slate-200"}`}
-                  />
-                  <div
-                    className={`h-2.5 rounded w-1/2 ${isDark ? "bg-white/[0.06]" : "bg-slate-100"}`}
-                  />
-                  <div className="h-7 bg-blue-600/25 border border-blue-500/25 rounded-lg mt-3" />
-                </div>
-              </div>
-            </div>
-
-            {/* Payment */}
-            <div
-              className={`hover-lift group rounded-[1.75rem] border p-6 sm:p-8 relative overflow-hidden ${card}`}
-            >
-              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-emerald-600/15 border border-emerald-500/20 flex items-center justify-center mb-4 icon-btn transition-all duration-200">
-                <Wallet size={16} className="text-emerald-400" />
-              </div>
-              <h3
-                className={`text-lg font-black tracking-tight mb-2 ${heading}`}
-              >
-                Pembayaran Digital
-              </h3>
-              <p
-                className={`text-sm font-medium leading-relaxed mb-2 ${muted}`}
-              >
-                QRIS, transfer bank, GoPay, OVO, Dana — semua tercatat otomatis
-                tanpa rekap manual.
-              </p>
-              <p className="text-emerald-500 text-xs font-black mb-4">
-                → Nggak ada lagi &ldquo;bayar nanti ya&rdquo;.
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                {["QRIS", "Bank", "OVO", "GoPay", "Dana", "ShopeePay"].map(
-                  (p, i) => (
-                    <div
-                      key={i}
-                      className={`rounded-xl py-2 text-center border ${isDark ? "bg-white/[0.04] border-white/[0.06]" : "bg-slate-50 border-slate-200"}`}
-                    >
-                      <span
-                        className={`text-[9px] font-black uppercase ${muted}`}
-                      >
-                        {p}
-                      </span>
-                    </div>
-                  ),
-                )}
-              </div>
-            </div>
-
-            {/* Reports */}
-            <div
-              className={`hover-lift group rounded-[1.75rem] border p-6 sm:p-8 relative overflow-hidden ${card}`}
-            >
-              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-orange-600/15 border border-orange-500/20 flex items-center justify-center mb-4 icon-btn transition-all duration-200">
-                <BarChart3 size={16} className="text-orange-400" />
-              </div>
-              <h3
-                className={`text-lg font-black tracking-tight mb-2 ${heading}`}
-              >
-                Laporan & Analitik
-              </h3>
-              <p
-                className={`text-sm font-medium leading-relaxed mb-2 ${muted}`}
-              >
-                Tren pendapatan, unit terpopuler, jam paling ramai — semua
-                tersaji otomatis.
-              </p>
-              <p className="text-orange-500 text-xs font-black mb-4">
-                → Ambil keputusan bisnis pakai data, bukan feeling.
-              </p>
-              <div className="flex items-end gap-1 h-12">
-                {[30, 55, 40, 80, 65, 90, 75].map((h, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 rounded-t-sm bg-orange-500/25 border-t border-orange-500/40"
-                    style={{ height: `${h}%` }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Security */}
-            <div
-              className={`hover-lift group rounded-[1.75rem] border p-6 sm:p-8 relative overflow-hidden ${card}`}
-            >
-              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center mb-4 icon-btn transition-all duration-200">
-                <ShieldCheck size={16} className="text-blue-400" />
-              </div>
-              <h3
-                className={`text-lg font-black tracking-tight mb-2 ${heading}`}
-              >
-                Data Terisolasi 100%
-              </h3>
-              <p
-                className={`text-sm font-medium leading-relaxed mb-2 ${muted}`}
-              >
-                Setiap bisnis punya database terpisah. Data kamu tidak pernah
-                campur dengan bisnis lain.
-              </p>
-              <p className="text-blue-500 text-xs font-black mb-4">
-                → Privasi & keamanan adalah standar, bukan fitur tambahan.
-              </p>
-              <div className="flex items-center gap-2">
-                <ShieldCheck
-                  size={13}
-                  className="text-blue-400 flex-shrink-0"
-                />
-                <span className="text-blue-400 text-[10px] font-black uppercase tracking-widest">
-                  Enterprise-grade Encryption
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════
-          6. STATS
-      ══════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
-        <div
-          className={`grid grid-cols-2 md:grid-cols-4 gap-px rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden border ${divider} ${isDark ? "bg-white/[0.05]" : "bg-slate-200"}`}
-        >
+        <div className="mt-5 space-y-3">
           {[
-            {
-              val: 2400,
-              suffix: "+",
-              label: "Bisnis Terdaftar",
-              desc: "Di seluruh Indonesia",
-            },
-            {
-              val: 98,
-              suffix: "%",
-              label: "Uptime Platform",
-              desc: "SLA terjamin 24/7",
-            },
-            {
-              val: 50,
-              suffix: "M+",
-              label: "Transaksi Diproses",
-              desc: "Setiap bulan",
-            },
-            {
-              val: 4,
-              suffix: ".9★",
-              label: "Rating Pengguna",
-              desc: "Dari 2.000+ ulasan",
-            },
-          ].map((s, i) => (
+            ["Kasir Rini", "Terima DP Studio A", "15:28"],
+            ["Staff Doni", "Check-in PS-01", "15:31"],
+            ["Owner", "Export laporan harian", "15:40"],
+            ["Kasir Rini", "Pelunasan PC-02", "15:46"],
+          ].map(([name, action, time], index) => (
             <div
-              key={i}
-              className={`p-6 sm:p-9 text-center transition-colors duration-200 hover:bg-blue-600/[0.04] ${isDark ? "bg-white/[0.02]" : "bg-white"}`}
+              key={`${name}-${time}`}
+              className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/35 p-3"
+              style={{ animation: `demo-pop 520ms ease ${index * 90}ms both` }}
             >
-              <p className="text-3xl sm:text-4xl md:text-5xl font-black mb-1.5 tabular-nums accent-text">
-                <AnimatedCounter target={s.val} suffix={s.suffix} />
-              </p>
-              <p
-                className={`text-[10px] sm:text-[11px] font-black uppercase tracking-wider ${heading}`}
-              >
-                {s.label}
-              </p>
-              <p className={`text-[10px] sm:text-xs mt-0.5 ${muted}`}>
-                {s.desc}
-              </p>
+              <div className="grid h-9 w-9 place-items-center rounded-xl bg-blue-500/20 text-xs font-black text-blue-200">
+                {name.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-black text-white">{action}</div>
+                <div className="text-xs font-medium text-white/40">{name}</div>
+              </div>
+              <div className="text-xs font-black text-white/45">{time}</div>
             </div>
           ))}
         </div>
-      </section>
+      </div>
+    </div>
+  );
+}
 
-      {/* ══════════════════════════════
-          7. PERSONA — "Cocok Untuk Kamu Yang..."
-      ══════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        <div ref={personaRef} style={revealStyle(personaVisible)}>
-          <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
-            <SectionBadge
-              icon={<Users className="h-3 w-3" />}
-              label="Untuk Siapa"
+function ReportPanel() {
+  return (
+    <div className="grid gap-4 lg:grid-cols-[0.9fr_1fr]">
+      <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5">
+        <div className="text-[10px] font-black uppercase tracking-[0.22em] text-white/45">
+          Revenue
+        </div>
+        <div className="mt-2 text-4xl font-black tracking-tight text-white">
+          Rp128jt
+        </div>
+        <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-black text-emerald-300">
+          <TrendingUp className="h-3.5 w-3.5" />
+          naik 31%
+        </div>
+        <div className="mt-6 flex h-32 items-end gap-2">
+          {[36, 54, 48, 70, 62, 82, 96].map((height, index) => (
+            <div
+              key={height + index}
+              className="flex-1 rounded-t-2xl bg-gradient-to-t from-blue-700 to-blue-300"
+              style={{
+                height: `${height}%`,
+                animation: `bar-rise 720ms ease ${index * 80}ms both`,
+              }}
             />
-            <h2
-              className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
-            >
-              Cocok untuk kamu
-              <br />
-              <span className="shimmer-text">yang ingin...</span>
-            </h2>
+          ))}
+        </div>
+      </div>
+      <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5">
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-white/45">
+              Owner Summary
+            </div>
+            <div className="mt-1 text-xl font-black text-white">
+              Semua cabang terkendali
+            </div>
           </div>
+          <BadgeCheck className="h-9 w-9 text-blue-300" />
+        </div>
+        {[
+          ["Booking selesai", "1.204"],
+          ["Pembayaran tercatat", "Realtime"],
+          ["Staff activity", "842 log"],
+          ["Jam ramai", "19:00"],
+        ].map(([label, value]) => (
+          <div
+            key={label}
+            className="flex items-center justify-between border-t border-white/10 py-3"
+          >
+            <span className="text-sm font-medium text-white/55">{label}</span>
+            <span className="text-sm font-black text-white">{value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-          <div className="max-w-3xl mx-auto space-y-3">
-            {[
-              {
-                icon: "🏠",
-                title: "Tidak harus ada di tempat terus",
-                desc: "Kamu bisa pantau semua booking, cek pendapatan hari ini, dan lihat unit mana yang terisi — dari HP, dari rumah, dari manapun. Bisnis jalan, kamu bebas.",
-              },
-              {
-                icon: "💰",
-                title: "Tidak ada lagi uang yang 'hilang'",
-                desc: "Setiap transaksi tercatat otomatis dan real-time. Kamu tau persis berapa yang masuk, dari unit mana, dan kapan — tanpa perlu percaya 100% pada laporan kasir.",
-              },
-              {
-                icon: "📈",
-                title: "Bisnis tumbuh tanpa chaos operasional",
-                desc: "Tambah unit baru, buka cabang baru, atau rekrut kasir baru — sistem Bookinaja scale bersama bisnis kamu. Tidak ada yang perlu diubah, tinggal tambah.",
-              },
-              {
-                icon: "😌",
-                title: "Tenang karena semuanya terkontrol",
-                desc: "Kasir hanya bisa akses apa yang kamu izinkan. Laporan keuangan hanya kamu yang lihat. Tidak ada lagi was-was atau curiga — hanya fokus tumbuh.",
-              },
-            ].map((item, i) => (
-              <div
-                key={i}
-                className={`rounded-[1.5rem] border overflow-hidden transition-all duration-200 ${card}`}
-              >
-                <button
-                  className="w-full flex items-center gap-4 p-5 sm:p-6 text-left"
-                  onClick={() => setOpenPersona(openPersona === i ? null : i)}
-                >
-                  <span className="text-2xl flex-shrink-0">{item.icon}</span>
-                  <span
-                    className={`font-black text-sm sm:text-base flex-1 ${heading}`}
-                  >
-                    {item.title}
-                  </span>
-                  <ChevronDown
-                    size={18}
-                    className={`flex-shrink-0 transition-transform duration-200 ${muted} ${openPersona === i ? "rotate-180" : ""}`}
-                  />
-                </button>
-                {openPersona === i && (
-                  <div
-                    className={`px-5 sm:px-6 pb-5 sm:pb-6 pt-0 border-t ${divider}`}
-                  >
-                    <p
-                      className={`text-sm font-medium leading-relaxed pt-4 ${muted}`}
-                    >
-                      {item.desc}
-                    </p>
-                  </div>
-                )}
-              </div>
-            ))}
+function AnimatedDashboard() {
+  const [activeTab, setActiveTab] = useState<DemoTab>("monitor");
+
+  useEffect(() => {
+    const order: DemoTab[] = ["monitor", "booking", "payment", "staff", "report"];
+    const timer = window.setInterval(() => {
+      setActiveTab((current) => order[(order.indexOf(current) + 1) % order.length]);
+    }, 5200);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="relative mx-auto max-w-6xl">
+      <div className="absolute -left-4 top-16 z-20 hidden w-64 rounded-3xl border border-blue-300/30 bg-slate-950/90 p-4 text-white shadow-2xl shadow-blue-950/30 backdrop-blur-xl animate-float lg:block">
+        <div className="flex items-start gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-2xl bg-blue-500">
+            <Bell className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="text-xs font-black uppercase tracking-[0.18em] text-blue-200">
+              Booking Baru
+            </div>
+            <div className="mt-1 text-sm font-bold">Studio A, 15:30, DP masuk</div>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* ══════════════════════════════
-          8. HOW IT WORKS
-      ══════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
-        <div ref={howRef} style={revealStyle(howVisible)}>
-          <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
-            <SectionBadge
-              icon={<Clock className="h-3 w-3" />}
-              label="Cara Kerja"
-            />
-            <h2
-              className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
-            >
-              Live dalam
-              <br />
-              <span className="shimmer-text">5 menit.</span>
-            </h2>
-            <p
-              className={`max-w-sm sm:max-w-md mx-auto text-sm font-medium ${muted}`}
-            >
-              Tanpa install apapun. Buka browser, isi form, langsung live.
-            </p>
+      <div className="absolute -right-3 bottom-12 z-20 hidden w-64 rounded-3xl border border-emerald-300/30 bg-slate-950/90 p-4 text-white shadow-2xl shadow-blue-950/30 backdrop-blur-xl animate-float-delayed lg:block">
+        <div className="flex items-start gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-2xl bg-emerald-500">
+            <WalletCards className="h-5 w-5" />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[
-              {
-                step: "01",
-                title: "Daftar & isi profil bisnis",
-                desc: "Masukkan nama bisnis, jenis usaha, dan jam operasional kamu. Selesai dalam 2 menit, tanpa perlu download apapun.",
-                icon: <Users size={17} />,
-                outcome: "Akun kamu langsung aktif.",
-              },
-              {
-                step: "02",
-                title: "Tambah unit & tentukan harga",
-                desc: "Tambahkan unit satu per satu — PS5, meja podcast, lapangan badminton, apapun. Set harga per jam atau per sesi.",
-                icon: <Clock size={17} />,
-                outcome: "Portal booking kamu siap.",
-              },
-              {
-                step: "03",
-                title: "Mulai terima booking & bayaran",
-                desc: "Customer buka link kamu, pilih waktu, bayar digital — masuk ke dashboard kamu seketika. Tidak ada lagi WA manual.",
-                icon: <CheckCircle2 size={17} />,
-                outcome: "Bisnis kamu autopilot.",
-              },
-            ].map((s, i) => (
-              <div
-                key={i}
-                className={`group hover-lift rounded-[1.75rem] border p-6 sm:p-8 transition-colors duration-200 hover:border-blue-500/30 ${card}`}
-              >
-                <div className="flex items-center gap-3 mb-4 sm:mb-5">
-                  <span
-                    className={`text-4xl font-black leading-none ${isDark ? "text-white/[0.06]" : "text-slate-200"}`}
-                  >
-                    {s.step}
-                  </span>
-                  <div className="h-9 w-9 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center text-blue-400 transition-all duration-200 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 flex-shrink-0">
-                    {s.icon}
-                  </div>
+          <div>
+            <div className="text-xs font-black uppercase tracking-[0.18em] text-emerald-200">
+              Pembayaran Masuk
+            </div>
+            <div className="mt-1 text-sm font-bold">Rp350.000 via QRIS</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950 shadow-[0_40px_120px_-50px_rgba(37,99,235,0.75)]">
+        <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.03] px-4 py-4 sm:px-6">
+          <div className="flex items-center gap-2">
+            <span className="h-3 w-3 rounded-full bg-rose-400" />
+            <span className="h-3 w-3 rounded-full bg-amber-400" />
+            <span className="h-3 w-3 rounded-full bg-emerald-400" />
+          </div>
+          <div className="hidden rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[10px] font-black uppercase tracking-[0.24em] text-white/50 sm:block">
+            app.bookinaja.com/{activeTab === "monitor" ? "live" : activeTab}
+          </div>
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            realtime
+          </div>
+        </div>
+
+        <div className="grid gap-0 lg:grid-cols-[240px_1fr]">
+          <aside className="hidden border-r border-white/10 bg-white/[0.025] p-5 lg:block">
+            <div className="mb-8 flex items-center gap-3">
+              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-600 font-black text-white">
+                B
+              </div>
+              <div>
+                <div className="text-sm font-black uppercase text-white">Bookinaja</div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/40">
+                  Ops Command
                 </div>
-                <h3
-                  className={`text-lg font-black tracking-tight mb-2 ${heading}`}
-                >
-                  {s.title}
-                </h3>
-                <p
-                  className={`text-sm font-medium leading-relaxed mb-3 ${muted}`}
-                >
-                  {s.desc}
-                </p>
-                <p className="text-blue-500 text-xs font-black">
-                  → {s.outcome}
-                </p>
               </div>
-            ))}
+            </div>
+            {[
+              ["monitor", "Live"],
+              ["booking", "Booking"],
+              ["payment", "Bayar"],
+              ["staff", "Staff"],
+              ["report", "Laporan"],
+            ].map(
+              ([key, item]) => (
+                <div
+                  key={item}
+                  className={`mb-2 flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-black ${
+                    activeTab === key
+                      ? "bg-blue-500 text-white"
+                      : "text-white/45 hover:bg-white/[0.04]"
+                  }`}
+                >
+                  <span className="h-2 w-2 rounded-full bg-current" />
+                  {item}
+                </div>
+              ),
+            )}
+          </aside>
+
+          <div className="p-4 sm:p-6">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-300">
+                  Dashboard Preview
+                </div>
+                <h3 className="mt-1 text-2xl font-black tracking-tight text-white">
+                  Satu layar untuk booking, kasir, dan owner.
+                </h3>
+              </div>
+              <div className="grid grid-cols-5 gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
+                {demoTabs.map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] transition ${
+                      activeTab === tab.key
+                        ? "bg-blue-500 text-white"
+                        : "text-white/45 hover:text-white"
+                    }`}
+                  >
+                    {tab.icon}
+                    <span className="hidden sm:inline">{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div key={activeTab} className="demo-panel min-h-[360px]">
+              {activeTab === "monitor" && <MonitorPanel />}
+              {activeTab === "booking" && <BookingPanel />}
+              {activeTab === "payment" && <PaymentPanel />}
+              {activeTab === "staff" && <StaffPanel />}
+              {activeTab === "report" && <ReportPanel />}
+            </div>
           </div>
         </div>
-      </section>
+      </div>
+    </div>
+  );
+}
 
-      {/* ══════════════════════════════
-          9. INDUSTRIES
-      ══════════════════════════════ */}
-      <section
-        id="industries"
-        className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-8 sm:py-12"
-      >
-        <div ref={indRef} style={revealStyle(indVisible)}>
-          <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
-            <SectionBadge
-              icon={<Globe className="h-3 w-3" />}
-              label="Sektor Usaha"
-            />
-            <h2
-              className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
-            >
-              <span className="accent-text">Satu platform.</span>
-              <br />
-              <span className="shimmer-text">Semua bisnis rental.</span>
-            </h2>
-            <p
-              className={`max-w-sm sm:max-w-md mx-auto text-sm font-medium ${muted}`}
-            >
-              Kalau bisnismu punya slot waktu yang bisa dipesan — Bookinaja
-              dibuat untuk itu.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              {
-                icon: <Monitor size={20} />,
-                title: "Gaming Hub",
-                desc: "Rental PS, PC, & VR. Billing per jam otomatis tanpa stopwatch manual.",
-                accent: "blue",
-                tags: ["PS5", "Xbox", "PC", "VR"],
-              },
-              {
-                icon: <Camera size={20} />,
-                title: "Studio Kreatif",
-                desc: "Studio foto, podcast, & rekaman. Atur sesi dan paket alat dalam satu layar.",
-                accent: "purple",
-                tags: ["Foto", "Video", "Podcast", "Musik"],
-              },
-              {
-                icon: <Zap size={20} />,
-                title: "Arena Olahraga",
-                desc: "Futsal, badminton, gym, renang. Customer cek slot langsung dari HP mereka.",
-                accent: "emerald",
-                tags: ["Futsal", "Badminton", "Gym", "Renang"],
-              },
-              {
-                icon: <Briefcase size={20} />,
-                title: "Office Space",
-                desc: "Coworking, meeting room, private office. Kelola akses harian atau bulanan.",
-                accent: "orange",
-                tags: ["Cowork", "Meeting", "Private", "Hot Desk"],
-              },
-            ].map((item, i) => {
-              const iconCls: Record<string, string> = {
-                blue: "bg-blue-600/12 border-blue-500/20 text-blue-400 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600",
-                purple:
-                  "bg-purple-600/12 border-purple-500/20 text-purple-400 group-hover:bg-purple-600 group-hover:text-white group-hover:border-purple-600",
-                emerald:
-                  "bg-emerald-600/12 border-emerald-500/20 text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white group-hover:border-emerald-600",
-                orange:
-                  "bg-orange-600/12 border-orange-500/20 text-orange-400 group-hover:bg-orange-600 group-hover:text-white group-hover:border-orange-600",
-              };
+function SocialProof() {
+  const logos: Array<[string, LucideIcon]> = [
+    ["Gaming Hub", Gamepad2],
+    ["Creative Studio", Video],
+    ["Sport Arena", TimerReset],
+    ["Office Space", Building2],
+    ["Barbershop", UsersRound],
+    ["Pool Club", Activity],
+    ["VR Arena", MonitorPlay],
+    ["Rental Gear", BriefcaseBusiness],
+  ];
+
+  return (
+    <section id="proof" className="relative z-10 w-full px-4 py-12 sm:px-6">
+      <div className="mx-auto max-w-7xl overflow-hidden rounded-[2rem] border border-slate-200 bg-white/80 p-4 shadow-xl shadow-slate-950/[0.03] backdrop-blur dark:border-white/10 dark:bg-white/[0.035]">
+        <div className="marquee-mask overflow-hidden">
+          <div className="marquee-track">
+            {[...logos, ...logos].map(([label, LogoIcon], index) => {
               return (
                 <div
-                  key={i}
-                  className={`group hover-lift rounded-[1.75rem] border p-6 sm:p-7 relative overflow-hidden ${card}`}
+                  key={`${label}-${index}`}
+                  className="flex min-w-max items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 dark:border-white/10 dark:bg-white/[0.04]"
                 >
-                  <div
-                    className={`h-10 w-10 sm:h-11 sm:w-11 rounded-2xl border flex items-center justify-center mb-4 sm:mb-5 transition-all duration-200 ${iconCls[item.accent]}`}
-                  >
-                    {item.icon}
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-600 text-white">
+                    <LogoIcon className="h-5 w-5" />
                   </div>
-                  <h4
-                    className={`text-base font-black tracking-tight mb-2 ${heading}`}
-                  >
-                    {item.title}
-                  </h4>
-                  <p
-                    className={`text-sm font-medium leading-relaxed mb-4 ${muted}`}
-                  >
-                    {item.desc}
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {item.tags.map((t, j) => (
-                      <span
-                        key={j}
-                        className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${isDark ? "bg-white/[0.05] text-white/25" : "bg-slate-100 text-slate-400"}`}
-                      >
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                  <ArrowUpRight
-                    size={22}
-                    className={`absolute top-5 right-5 opacity-0 group-hover:opacity-15 transition-opacity duration-200 ${heading}`}
-                  />
+                  <span className="text-sm font-black uppercase tracking-[0.16em] text-slate-700 dark:text-white/70">
+                    {label}
+                  </span>
                 </div>
               );
             })}
           </div>
         </div>
-      </section>
 
-      {/* ══════════════════════════════
-          10. STAFF MANAGEMENT
-      ══════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-        <div
-          ref={staffRef}
-          className={`relative overflow-hidden rounded-[2rem] border p-6 sm:p-10 md:p-16 ${isDark ? "bg-white/[0.02] border-white/[0.07]" : "bg-white border-slate-200"}`}
-          style={revealStyle(staffVisible)}
-        >
-          <div
-            className={`absolute inset-0 pointer-events-none ${isDark ? "bg-[radial-gradient(circle_at_100%_0%,rgba(59,130,246,0.06),transparent_55%)]" : "bg-[radial-gradient(circle_at_100%_0%,rgba(59,130,246,0.04),transparent_55%)]"}`}
-          />
-          <div className="absolute top-0 right-0 p-4 sm:p-8 opacity-[0.025] pointer-events-none text-blue-400">
-            <Lock size={120} strokeWidth={0.5} className="block sm:hidden" />
-            <Lock size={280} strokeWidth={0.5} className="hidden sm:block" />
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 lg:gap-14 items-start lg:items-center">
-            <div className="space-y-4 sm:space-y-5">
-              <SectionBadge
-                icon={<Lock className="h-3 w-3" />}
-                label="Kontrol Staff"
-              />
-              <h2
-                className={`text-3xl sm:text-4xl md:text-[48px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
-              >
-                <span className="accent-text">Tim kamu bekerja.</span>
-                <br />
-                <span className="shimmer-text">Kamu yang pegang kendali.</span>
-              </h2>
-              <p
-                className={`text-sm sm:text-base font-medium leading-relaxed ${muted}`}
-              >
-                Buat akun kasir yang bisa terima booking dan pembayaran — tapi
-                tidak bisa melihat total pendapatan, mengubah harga, atau ekspor
-                laporan. Batas akses, bukan batas kepercayaan.
-              </p>
-              <div className="space-y-2.5">
-                {[
-                  {
-                    label: "Akses kasir terbatas",
-                    desc: "Kasir hanya lihat booking aktif yang relevan",
-                  },
-                  {
-                    label: "Cegah fraud transaksi",
-                    desc: "Setiap pembayaran tercatat dengan timestamp & ID",
-                  },
-                  {
-                    label: "Log aktivitas real-time",
-                    desc: "Audit trail lengkap — kamu tau siapa lakukan apa",
-                  },
-                  {
-                    label: "Laporan khusus owner",
-                    desc: "Data keuangan hanya bisa diakses akunmu",
-                  },
-                ].map((item) => (
-                  <div
-                    key={item.label}
-                    className={`flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl border transition-colors duration-200 hover:border-blue-500/25 ${isDark ? "bg-white/[0.03] border-white/[0.06]" : "bg-slate-50 border-slate-200"}`}
-                  >
-                    <CheckCircle2 className="text-blue-500 w-4 h-4 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p
-                        className={`text-sm font-black uppercase tracking-wide ${heading}`}
-                      >
-                        {item.label}
-                      </p>
-                      <p className={`text-xs mt-0.5 ${muted}`}>{item.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-col gap-3 lg:block lg:relative lg:h-72">
-              <div
-                className={`lg:absolute lg:top-0 lg:right-0 lg:left-8 rounded-[1.5rem] p-5 border shadow-lg ${panel} ${divider}`}
-              >
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center font-black text-white text-sm flex-shrink-0">
-                    OW
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className={`font-black uppercase text-sm leading-none ${heading}`}
-                    >
-                      Owner Admin
-                    </p>
-                    <p className="text-blue-400 text-[9px] font-bold uppercase tracking-widest mt-0.5">
-                      Full Access
-                    </p>
-                  </div>
-                  <div className="flex gap-1 flex-shrink-0">
-                    {["bg-emerald-500", "bg-blue-500", "bg-purple-500"].map(
-                      (c, i) => (
-                        <div key={i} className={`h-2 w-2 rounded-full ${c}`} />
-                      ),
-                    )}
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {[
-                    "Booking",
-                    "Laporan",
-                    "Keuangan",
-                    "Staff",
-                    "Setting",
-                    "Unit",
-                    "Analitik",
-                    "Export",
-                  ].map((f, i) => (
-                    <div
-                      key={i}
-                      className="bg-blue-600/20 border border-blue-500/20 rounded-lg py-1 text-center"
-                    >
-                      <span className="text-blue-400 text-[8px] font-black uppercase">
-                        {f}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div
-                className={`lg:absolute lg:bottom-0 lg:left-0 lg:right-8 rounded-[1.5rem] p-5 border shadow-lg lg:rotate-1 hover:rotate-0 transition-transform duration-300 ${panel} ${divider}`}
-              >
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="h-9 w-9 rounded-xl bg-slate-600 flex items-center justify-center font-black text-white text-sm flex-shrink-0">
-                    KS
-                  </div>
-                  <div>
-                    <p
-                      className={`font-black uppercase text-sm leading-none ${heading}`}
-                    >
-                      Kasir
-                    </p>
-                    <p className="text-orange-400 text-[9px] font-bold uppercase tracking-widest mt-0.5">
-                      Limited Access
-                    </p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {[
-                    { l: "Booking", a: true },
-                    { l: "Laporan", a: false },
-                    { l: "Keuangan", a: false },
-                    { l: "Staff", a: false },
-                    { l: "Setting", a: false },
-                    { l: "Unit", a: true },
-                    { l: "Analitik", a: false },
-                    { l: "Export", a: false },
-                  ].map((f, i) => (
-                    <div
-                      key={i}
-                      className={`rounded-lg py-1 text-center border ${f.a ? "bg-emerald-600/20 border-emerald-500/20" : isDark ? "bg-white/[0.03] border-white/[0.05] opacity-40" : "bg-slate-200 border-slate-200 opacity-50"}`}
-                    >
-                      <span
-                        className={`text-[8px] font-black uppercase ${f.a ? "text-emerald-400" : isDark ? "text-white/25" : "text-slate-400"}`}
-                      >
-                        {f.l}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════
-          11. FOUNDER STORY
-      ══════════════════════════════ */}
-
-      {/* ══════════════════════════════
-          12. TESTIMONIALS
-      ══════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        <div ref={testimRef} style={revealStyle(testimVisible)}>
-          <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
-            <SectionBadge
-              icon={<Star className="h-3 w-3 fill-current" />}
-              label="Kenapa Masuk Sekarang"
-            />
-            <h2
-              className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          {[
+            ["2.400+", "bisnis aktif"],
+            ["Realtime", "update dashboard"],
+            ["50M+", "transaksi tercatat"],
+            ["4.9", "rating onboarding"],
+          ].map(([value, label]) => (
+            <div
+              key={label}
+              className="rounded-3xl border border-slate-200 bg-white px-5 py-6 text-center dark:border-white/10 dark:bg-slate-950/50"
             >
-              Belum launch penuh.
-              <br />
-              <span className="shimmer-text">Justru itu keuntungannya.</span>
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="text-3xl font-black tracking-tight text-slate-950 dark:text-white">
+                {value === "2.400+" ? (
+                  <AnimatedCounter target={2400} suffix="+" />
+                ) : value === "50M+" ? (
+                  <AnimatedCounter target={50} suffix="M+" />
+                ) : value === "4.9" ? (
+                  <>
+                    <Star className="mb-1 mr-1 inline h-5 w-5 fill-amber-400 text-amber-400" />
+                    {value}
+                  </>
+                ) : (
+                  value
+                )}
+              </div>
+              <div className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-white/40">
+                {label}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProblemSolution() {
+  const [ref, visible] = useReveal();
+  const problems = [
+    ["Booking tercecer", "Chat dan walk-in tidak sinkron."],
+    ["Owner stand-by", "Cek slot masih tanya tim."],
+    ["Akses terlalu bebas", "Staff tanpa batas kontrol."],
+  ];
+
+  return (
+    <section ref={ref} className="relative z-10 w-full px-4 py-16 sm:px-6">
+      <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+        <div style={revealStyle(visible)} className="space-y-5">
+          <SectionHeader
+            align="left"
+            eyebrow="Tantangan Harian"
+            title={
+              <>
+                Ramai saja
+                <br />
+                belum cukup.
+              </>
+            }
+            description="Kalau booking, pembayaran, dan staff tidak terkoneksi, bisnis tetap terasa berantakan."
+          />
+
+          <div className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white/80 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10">
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-white/45">
+                Tanpa sistem
+              </div>
+            </div>
             {[
-              {
-                name: "Akses Early Partner",
-                role: "Untuk bisnis yang ingin setup lebih cepat",
-                text: "Masuk di fase prelaunch berarti kamu tidak cuma pakai produk. Kamu ikut membentuk alur operasional yang paling cocok untuk bisnis kamu sejak awal.",
-                result: "Feedback kamu diprioritaskan",
-                stars: 5,
-                av: "EP",
-                color: "bg-blue-600",
-              },
-              {
-                name: "Onboarding Lebih Dekat",
-                role: "Bukan dibiarkan jalan sendiri",
-                text: "Di tahap ini kami bisa dampingi setup lebih intens, bantu mapping kebutuhan bisnis, dan pastikan flow booking kamu tidak berantakan saat mulai live.",
-                result: "Dibantu sampai paham",
-                stars: 5,
-                av: "OB",
-                color: "bg-purple-600",
-              },
-              {
-                name: "Trial Tanpa Tekanan",
-                role: "Masuk, coba, nilai dengan tenang",
-                text: "Kamu bisa uji apakah Bookinaja benar-benar membantu mengurangi chaos booking, beban admin, dan potensi kebocoran operasional sebelum commit berbayar.",
-                result: "30 hari tanpa kartu kredit",
-                stars: 5,
-                av: "TR",
-                color: "bg-emerald-600",
-              },
-            ].map((t, i) => (
+              ["Booking", "nyebar di chat dan walk-in"],
+              ["Pembayaran", "harus dicek manual"],
+              ["Owner", "tetap bergantung ke update staff"],
+            ].map(([label, value]) => (
               <div
-                key={i}
-                className={`hover-lift rounded-[1.75rem] border p-6 sm:p-8 flex flex-col ${card}`}
+                key={label}
+                className="flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-4 last:border-0 dark:border-white/5"
               >
-                <div className="flex gap-1 mb-4">
-                  {[...Array(t.stars)].map((_, j) => (
-                    <Star
-                      key={j}
-                      size={12}
-                      className="fill-yellow-400 text-yellow-400"
-                    />
-                  ))}
-                </div>
-                <p
-                  className={`text-sm font-medium leading-relaxed mb-4 italic flex-1 ${isDark ? "text-white/55" : "text-slate-600"}`}
-                >
-                  &ldquo;{t.text}&rdquo;
-                </p>
-                <div
-                  className={`text-xs font-black px-3 py-1.5 rounded-full mb-5 inline-flex self-start ${isDark ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" : "bg-emerald-50 text-emerald-600 border border-emerald-200"}`}
-                >
-                  {t.result}
-                </div>
-                <div className="flex items-center gap-3 pt-4 border-t border-white/5">
-                  <div
-                    className={`h-9 w-9 rounded-2xl ${t.color} flex items-center justify-center font-black text-white text-sm flex-shrink-0`}
-                  >
-                    {t.av}
-                  </div>
-                  <div className="min-w-0">
-                    <p className={`text-sm font-black truncate ${heading}`}>
-                      {t.name}
-                    </p>
-                    <p className={`text-xs truncate ${muted}`}>{t.role}</p>
-                  </div>
-                </div>
+                <span className="text-sm font-black text-slate-950 dark:text-white">
+                  {label}
+                </span>
+                <span className="text-right text-sm font-medium text-slate-500 dark:text-slate-300">
+                  {value}
+                </span>
               </div>
             ))}
           </div>
         </div>
-      </section>
 
-      {/* ══════════════════════════════
-          13. FAQ
-      ══════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
-        <div ref={faqRef} style={revealStyle(faqVisible)}>
-          <div className="text-center mb-10 sm:mb-14 space-y-3 sm:space-y-4">
-            <SectionBadge
-              icon={<MessageCircle className="h-3 w-3" />}
-              label="Pertanyaan Umum"
-            />
-            <h2
-              className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-[-0.05em] leading-[0.9] uppercase ${heading}`}
-            >
-              Sebelum kamu
-              <br />
-              <span className="shimmer-text">bertanya-tanya.</span>
-            </h2>
-          </div>
-          <div className="max-w-3xl mx-auto space-y-3">
-            {[
-              {
-                q: "Apakah saya butuh keahlian teknis untuk setup?",
-                a: "Tidak. Bookinaja dirancang untuk owner dan tim operasional, bukan programmer. Karena masih prelaunch, kami juga bisa bantu onboarding lebih dekat supaya bisnis kamu tidak setup sendirian.",
-              },
-              {
-                q: "Apakah ada biaya tersembunyi?",
-                a: "Tidak ada. Harga yang tertera sudah all-inclusive — hosting, domain subdomain, update fitur, dan support. Tidak ada biaya per transaksi, tidak ada biaya setup, tidak ada kejutan di tagihan bulanan.",
-              },
-              {
-                q: "Bagaimana kalau bisnis saya punya banyak unit atau cabang?",
-                a: "Bookinaja dirancang untuk bisnis yang ingin tumbuh. Kamu bisa mulai dari satu lokasi dulu, lalu tambah unit dan operasional yang lebih kompleks saat bisnis sudah siap scale.",
-              },
-              {
-                q: "Apakah data saya aman?",
-                a: "Kami membangun Bookinaja dengan pemisahan data per bisnis dan alur autentikasi yang jelas. Untuk prelaunch, kami lebih memilih jujur soal progres produk daripada membuat klaim keamanan yang berlebihan.",
-              },
-              {
-                q: "Bagaimana kalau saya ingin berhenti berlangganan?",
-                a: "Kamu bisa berhenti kapan saja. Tidak ada kontrak panjang dan trial 30 hari tidak memerlukan kartu kredit. Tujuannya supaya kamu bisa menilai value produknya tanpa tekanan.",
-              },
-              {
-                q: "Apakah ada support kalau saya butuh bantuan?",
-                a: "Ya. Justru di fase prelaunch kami ingin dekat dengan pengguna awal. Kamu bisa masuk, coba alurnya, lalu kasih feedback dan kami bantu kalau ada bagian yang belum cocok.",
-              },
-            ].map((item, i) => (
+        <div className="space-y-4" style={revealStyle(visible, 0.12)}>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {problems.map(([title, desc], index) => (
               <div
-                key={i}
-                className={`rounded-[1.5rem] border overflow-hidden transition-all duration-200 ${card}`}
+                key={title}
+                className="group rounded-[1.5rem] border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur transition hover:-translate-y-1 hover:border-blue-300 dark:border-white/10 dark:bg-white/[0.04]"
               >
-                <button
-                  className="w-full flex items-start gap-4 p-5 sm:p-6 text-left"
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                >
-                  <span
-                    className={`font-black text-sm sm:text-base flex-1 leading-snug ${heading}`}
-                  >
-                    {item.q}
-                  </span>
-                  <ChevronDown
-                    size={18}
-                    className={`flex-shrink-0 mt-0.5 transition-transform duration-200 ${muted} ${openFaq === i ? "rotate-180" : ""}`}
-                  />
-                </button>
-                {openFaq === i && (
+                <div className="mb-4 grid h-10 w-10 place-items-center rounded-2xl bg-slate-100 text-slate-500 group-hover:bg-blue-600 group-hover:text-white dark:bg-white/10 dark:text-white/55">
+                  {index === 0 && <CalendarClock className="h-4 w-4" />}
+                  {index === 1 && <Clock3 className="h-4 w-4" />}
+                  {index === 2 && <LockKeyhole className="h-4 w-4" />}
+                </div>
+                <h3 className="text-sm font-black tracking-tight text-slate-950 dark:text-white">
+                  {title}
+                </h3>
+                <p className="mt-1 text-sm font-medium leading-5 text-slate-600 dark:text-slate-300">
+                  {desc}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="overflow-hidden rounded-[2rem] bg-slate-950 p-5 text-white shadow-[0_35px_100px_-55px_rgba(37,99,235,0.9)]">
+            <div className="mb-5 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-300">
+                  Dengan Bookinaja
+                </div>
+                <div className="mt-1 text-2xl font-black tracking-tight">
+                  Semua bergerak dalam satu alur.
+                </div>
+              </div>
+              <span className="hidden rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-300 sm:inline-flex">
+                Live update
+              </span>
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-[1fr_0.9fr]">
+              <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.05] p-4">
+                {[
+                  ["Booking masuk", "Studio A · 15:30"],
+                  ["Slot terkunci", "Tidak bisa double booking"],
+                  ["DP tercatat", "Rp50.000 via QRIS"],
+                  ["Staff melihat", "Siap check-in"],
+                ].map(([label, value], index) => (
                   <div
-                    className={`px-5 sm:px-6 pb-5 sm:pb-6 pt-0 border-t ${divider}`}
+                    key={label}
+                    className="flex items-center justify-between gap-4 border-b border-white/10 py-3 last:border-0"
+                    style={{ animation: `slide-in-right 520ms ease ${index * 90}ms both` }}
                   >
-                    <p
-                      className={`text-sm font-medium leading-relaxed pt-4 ${muted}`}
-                    >
-                      {item.a}
-                    </p>
+                    <div className="flex items-center gap-3">
+                      <span className="grid h-7 w-7 place-items-center rounded-xl bg-blue-500/20 text-[10px] font-black text-blue-200">
+                        {index + 1}
+                      </span>
+                      <span className="text-sm font-black">{label}</span>
+                    </div>
+                    <span className="text-right text-xs font-semibold text-white/55">
+                      {value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-[1.4rem] border border-white/10 bg-blue-500/10 p-4">
+                <div className="mb-4 flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-200">
+                    Owner View
+                  </span>
+                  <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
+                    realtime
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    ["Booking", "34"],
+                    ["Pendapatan", "Rp847k"],
+                    ["Terisi", "67%"],
+                    ["Staff log", "128"],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-2xl bg-white/10 p-3">
+                      <div className="text-[9px] font-black uppercase tracking-[0.16em] text-white/45">
+                        {label}
+                      </div>
+                      <div className="mt-1 text-lg font-black">{value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MiniVisual({ type }: { type: "monitor" | "web" | "pay" | "report" | "staff" }) {
+  if (type === "monitor") {
+    const slots = [
+      ["PS-01", "Rafi A.", "2j 15m", "Terisi"],
+      ["PS-02", "-", "-", "Kosong"],
+      ["PS-03", "Dimas K.", "0j 45m", "Terisi"],
+      ["PC-01", "Sari W.", "1j 30m", "Terisi"],
+      ["PC-02", "-", "-", "Kosong"],
+      ["PC-03", "Andi P.", "3j 00m", "Terisi"],
+    ];
+
+    return (
+      <div className="overflow-hidden rounded-[1.6rem] border border-slate-200 bg-slate-50 shadow-inner dark:border-white/10 dark:bg-slate-950">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="flex items-center gap-3">
+            <div className="grid h-9 w-9 place-items-center rounded-2xl bg-blue-600 text-white">
+              <Activity className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-950 dark:text-white">
+                Live Monitor
+              </div>
+              <div className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.16em] text-emerald-500">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Realtime
+              </div>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-sm font-black text-slate-950 dark:text-white">
+              Rp 847.000
+            </div>
+            <div className="text-[9px] font-black uppercase tracking-[0.16em] text-blue-500">
+              Cuan hari ini
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-2 p-3 sm:grid-cols-2">
+          {slots.map(([unit, customer, time, status]) => {
+            const busy = status === "Terisi";
+            return (
+              <div
+                key={unit}
+                className={`rounded-2xl border p-3 ${
+                  busy
+                    ? "border-blue-300 bg-blue-100/70 text-blue-950 dark:border-blue-400/30 dark:bg-blue-500/15 dark:text-blue-50"
+                    : "border-slate-200 bg-white text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/45"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-xs font-black">{unit}</div>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.12em] ${
+                      busy
+                        ? "bg-blue-500/15 text-blue-600 dark:text-blue-300"
+                        : "bg-slate-200 text-slate-500 dark:bg-white/10"
+                    }`}
+                  >
+                    {status}
+                  </span>
+                </div>
+                <div className="mt-3 text-[11px] font-semibold">{customer}</div>
+                <div
+                  className={`text-[11px] font-black ${
+                    busy ? "text-orange-500" : "text-slate-400"
+                  }`}
+                >
+                  {time}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="px-3 pb-3">
+          <div className="flex items-center justify-between rounded-2xl bg-slate-200/70 px-4 py-3 dark:bg-white/10">
+            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-white/45">
+              Occupancy
+            </span>
+            <div className="flex items-center gap-3">
+              <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-300 dark:bg-white/10">
+                <div className="h-full w-[67%] rounded-full bg-blue-500 animate-fill" />
+              </div>
+              <span className="text-xs font-black text-blue-500">67%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "web") {
+    return (
+      <div className="overflow-hidden rounded-[1.6rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950">
+        <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
+            <span className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+            <div className="ml-2 flex-1 rounded-full bg-slate-100 px-3 py-1 text-[9px] font-bold text-slate-500 dark:bg-white/10 dark:text-white/50">
+              gaminghub.bookinaja.com
+            </div>
+          </div>
+          <div className="mt-4 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-400 p-4 text-white">
+            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-white/70">
+              Gaming Hub
+            </div>
+            <div className="mt-8 text-2xl font-black tracking-tight">
+              Pilih unit, bayar DP, main.
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            {["14:00", "15:00", "16:00"].map((time, index) => (
+              <div
+                key={time}
+                className={`rounded-xl px-2 py-2 text-center text-[10px] font-black ${
+                  index === 1
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-white/50"
+                }`}
+              >
+                {time}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "pay") {
+    return (
+      <div className="rounded-[1.6rem] border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-400/20 dark:bg-emerald-400/10">
+        <div className="grid grid-cols-3 gap-2">
+          {["QRIS", "BANK", "OVO", "GOPAY", "DANA", "DP"].map((item) => (
+            <div
+              key={item}
+              className="rounded-2xl border border-emerald-200 bg-white px-3 py-3 text-center text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700 dark:border-emerald-400/20 dark:bg-slate-950/50 dark:text-emerald-300"
+            >
+              {item}
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 rounded-2xl bg-white p-3 dark:bg-slate-950/50">
+          <div className="flex items-center justify-between text-xs font-black text-slate-950 dark:text-white">
+            <span>Tercatat otomatis</span>
+            <span className="text-emerald-500">Realtime</span>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-emerald-100 dark:bg-white/10">
+            <div className="h-full w-full rounded-full bg-emerald-500 animate-fill" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "report") {
+    return (
+      <div className="rounded-[1.6rem] border border-orange-200 bg-orange-50/70 p-4 dark:border-orange-400/20 dark:bg-orange-400/10">
+        <div className="flex items-end gap-2">
+          {[38, 62, 49, 76, 58, 88, 70].map((height, index) => (
+            <div
+              key={index}
+              className="flex-1 rounded-t-xl bg-gradient-to-t from-orange-400 to-orange-200"
+              style={{ height: `${height}px` }}
+            />
+          ))}
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {[
+            ["Jam ramai", "19:00"],
+            ["Top unit", "PS-01"],
+          ].map(([label, value]) => (
+            <div
+              key={label}
+              className="rounded-2xl bg-white p-3 dark:bg-slate-950/50"
+            >
+              <div className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">
+                {label}
+              </div>
+              <div className="mt-1 text-sm font-black text-slate-950 dark:text-white">
+                {value}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-[1.6rem] border border-blue-200 bg-blue-50/70 p-4 dark:border-blue-400/20 dark:bg-blue-400/10">
+      {[
+        ["Owner", "Akses penuh", "bg-blue-500", "8 menu"],
+        ["Kasir", "Terbatas", "bg-amber-500", "2 menu"],
+        ["Staff", "Khusus booking", "bg-emerald-500", "1 menu"],
+      ].map(([name, access, color, menu]) => (
+        <div
+          key={name}
+          className="mb-2 flex items-center justify-between rounded-2xl bg-white px-3 py-3 dark:bg-slate-950/50"
+        >
+          <div className="flex items-center gap-2">
+            <span className={`h-8 w-8 rounded-xl ${color}`} />
+            <span className="text-sm font-black text-slate-950 dark:text-white">
+              {name}
+            </span>
+          </div>
+          <div className="text-right">
+            <span className="block text-[10px] font-black uppercase tracking-wide text-slate-500 dark:text-white/45">
+              {access}
+            </span>
+            <span className="text-[10px] font-black text-blue-500">{menu}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FeatureBento() {
+  const [ref, visible] = useReveal();
+  const features = [
+    {
+      title: "Monitor Slot Real-time",
+      desc: "Pantau unit kosong, sesi berjalan, sisa waktu, dan pemasukan hari ini dari satu layar.",
+      icon: <MonitorPlay className="h-5 w-5" />,
+      visual: <MiniVisual type="monitor" />,
+      className: "lg:col-span-2",
+      accent: "blue",
+      label: "Live",
+    },
+    {
+      title: "Website Booking Otomatis",
+      desc: "Portal publik tenant langsung siap dipakai untuk pilih unit, jadwal, dan DP.",
+      icon: <Globe2 className="h-5 w-5" />,
+      visual: <MiniVisual type="web" />,
+      className: "lg:col-span-1",
+      accent: "purple",
+      label: "Halaman publik",
+    },
+    {
+      title: "Pembayaran Digital",
+      desc: "QRIS, bank, e-wallet, DP, dan pelunasan tercatat otomatis tanpa rekap manual.",
+      icon: <CreditCard className="h-5 w-5" />,
+      visual: <MiniVisual type="pay" />,
+      className: "lg:col-span-1",
+      accent: "emerald",
+      label: "Pembayaran",
+    },
+    {
+      title: "Laporan & Analitik",
+      desc: "Owner tahu jam ramai, unit terlaris, dan tren pendapatan tanpa buka spreadsheet.",
+      icon: <ReceiptText className="h-5 w-5" />,
+      visual: <MiniVisual type="report" />,
+      className: "lg:col-span-1",
+      accent: "orange",
+      label: "Laporan",
+    },
+    {
+      title: "Kontrol Staff",
+      desc: "Kasir bisa jalan, tapi laporan, harga, dan setting tetap di tangan owner.",
+      icon: <ShieldCheck className="h-5 w-5" />,
+      visual: <MiniVisual type="staff" />,
+      className: "lg:col-span-1",
+      accent: "blue",
+      label: "Akses",
+    },
+  ];
+
+  return (
+    <section id="features" ref={ref} className="relative z-10 w-full px-4 py-16 sm:px-6">
+      <div className="mx-auto max-w-7xl">
+        <div style={revealStyle(visible)}>
+          <SectionHeader
+            eyebrow="Fitur Unggulan"
+            title={
+              <>
+                Semua yang kamu
+                <br />
+                <span className="text-blue-600 dark:text-blue-300">
+                  butuhkan.
+                </span>
+              </>
+            }
+            description="Pantau slot, terima booking, catat pembayaran, dan baca laporan dari satu tempat."
+          />
+        </div>
+
+        <div className="mt-12 grid gap-5 lg:grid-cols-3" style={revealStyle(visible, 0.12)}>
+          {features.map((feature) => (
+            <div
+              key={feature.title}
+              className={`group relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_70px_-45px_rgba(15,23,42,0.45)] transition hover:-translate-y-1 hover:border-blue-300 dark:border-white/10 dark:bg-white/[0.04] ${feature.className}`}
+            >
+              <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-blue-500/10 blur-3xl" />
+              <div className="mb-5 flex items-start justify-between gap-5">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/20 transition group-hover:scale-105">
+                    {feature.icon}
+                  </div>
+                  <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-blue-600 dark:border-blue-400/20 dark:bg-blue-400/10 dark:text-blue-300">
+                    {feature.label}
+                  </span>
+                </div>
+              </div>
+              <h3 className="relative text-2xl font-black tracking-tight text-slate-950 dark:text-white">
+                {feature.title}
+              </h3>
+              <p className="relative mt-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
+                {feature.desc}
+              </p>
+              <div className="relative mt-6">{feature.visual}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Testimonials() {
+  const [ref, visible] = useReveal();
+  const testimonials = [
+    {
+      name: "Raka Pradana",
+      role: "Owner Gaming Hub",
+      quote: (
+        <>
+          Slot aktif jadi <Mark>lebih gampang dipantau</Mark>. Kasir tidak
+          perlu bolak-balik konfirmasi ke owner.
+        </>
+      ),
+      color: "from-blue-500 to-cyan-400",
+      initials: "RP",
+    },
+    {
+      name: "Maya Lestari",
+      role: "Studio Foto",
+      quote: (
+        <>
+          Jadwal dan DP customer sekarang <Mark>langsung tercatat</Mark>.
+          Tidak perlu rekap manual dari chat.
+        </>
+      ),
+      color: "from-rose-500 to-orange-400",
+      initials: "ML",
+    },
+    {
+      name: "Bimo Aditya",
+      role: "Arena Olahraga",
+      quote: (
+        <>
+          Laporan harian lebih jelas. Owner bisa cek performa
+          <Mark> tanpa harus ada di lokasi</Mark>.
+        </>
+      ),
+      color: "from-emerald-500 to-lime-400",
+      initials: "BA",
+    },
+  ];
+
+  return (
+    <section ref={ref} className="relative z-10 w-full px-4 py-16 sm:px-6">
+      <div className="mx-auto max-w-7xl">
+        <div style={revealStyle(visible)}>
+          <SectionHeader
+            eyebrow="Cerita Pengguna"
+            title={
+              <>
+                Dipakai untuk
+                <br />
+                operasional harian.
+              </>
+            }
+            description="Cerita singkat dari bisnis yang ingin booking lebih rapi, pembayaran lebih jelas, dan owner lebih mudah memantau."
+          />
+        </div>
+        <div className="mt-12 grid gap-4 md:grid-cols-3" style={revealStyle(visible, 0.12)}>
+          {testimonials.map((item) => (
+            <div
+              key={item.name}
+              className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]"
+            >
+              <div className="mb-5 flex gap-1">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <Star
+                    key={index}
+                    className="h-4 w-4 fill-amber-400 text-amber-400"
+                  />
+                ))}
+              </div>
+              <p className="text-lg font-bold leading-8 text-slate-800 dark:text-white">
+                &quot;{item.quote}&quot;
+              </p>
+              <div className="mt-8 flex items-center gap-3 border-t border-slate-200 pt-5 dark:border-white/10">
+                <div
+                  className={`grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br ${item.color} text-sm font-black text-white`}
+                >
+                  {item.initials}
+                </div>
+                <div>
+                  <div className="font-black text-slate-950 dark:text-white">
+                    {item.name}
+                  </div>
+                  <div className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                    {item.role}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Mark({ children }: { children: ReactNode }) {
+  return (
+    <span className="rounded-md bg-blue-500/15 px-1.5 py-0.5 text-blue-600 dark:text-blue-300">
+      {children}
+    </span>
+  );
+}
+
+const useCases: Record<
+  UseCaseKey,
+  {
+    label: string;
+    title: string;
+    desc: string;
+    features: string[];
+    icon: ReactNode;
+    mockup: {
+      unitLabel: string;
+      price: string;
+      progress: string;
+      accent: string;
+      items: Array<{
+        name: string;
+        status: string;
+        note: string;
+        tone: "blue" | "emerald" | "amber" | "rose" | "cyan" | "violet";
+      }>;
+    };
+  }
+> = {
+  gaming: {
+    label: "Gaming Hub",
+    title: "Kontrol PS, PC, billing waktu, dan sesi walk-in.",
+    desc: "Cocok untuk rental PS, warnet modern, dan game center yang butuh live monitor per unit.",
+    features: ["Durasi aktif", "Extend sesi", "POS kasir", "DP booking"],
+    icon: <Gamepad2 className="h-4 w-4" />,
+    mockup: {
+      unitLabel: "Unit billing",
+      price: "Rp125.000",
+      progress: "72%",
+      accent: "bg-blue-400",
+      items: [
+        { name: "PS-01", status: "Live", note: "2j 15m", tone: "blue" },
+        { name: "PS-02", status: "Kosong", note: "Siap", tone: "emerald" },
+        { name: "PC-01", status: "DP", note: "14:00", tone: "amber" },
+        { name: "PC-02", status: "Live", note: "1j 30m", tone: "blue" },
+        { name: "VIP", status: "Ditahan", note: "Maya", tone: "rose" },
+        { name: "VR-02", status: "Kosong", note: "Siap", tone: "emerald" },
+      ],
+    },
+  },
+  studio: {
+    label: "Studio Kreatif",
+    title: "Jadwal studio, paket sesi, dan DP masuk di satu flow.",
+    desc: "Untuk studio foto, podcast, rehearsal, atau konten kreatif yang menjual slot terbatas.",
+    features: ["Calendar booking", "Paket per sesi", "Addon", "Reminder"],
+    icon: <Video className="h-4 w-4" />,
+    mockup: {
+      unitLabel: "Studio schedule",
+      price: "Rp350.000",
+      progress: "64%",
+      accent: "bg-cyan-400",
+      items: [
+        { name: "Studio A", status: "Dipesan", note: "Pre-wed", tone: "cyan" },
+        { name: "Studio B", status: "Kosong", note: "Siap", tone: "emerald" },
+        { name: "Podcast", status: "DP", note: "16:00", tone: "amber" },
+        { name: "Makeup", status: "Addon", note: "+Rp75k", tone: "violet" },
+        { name: "Lighting", status: "Dipakai", note: "2 jam", tone: "blue" },
+        { name: "Editor", status: "Ditahan", note: "Review", tone: "rose" },
+      ],
+    },
+  },
+  sport: {
+    label: "Arena Olahraga",
+    title: "Lapangan, court, dan sesi ramai tetap bisa dipantau.",
+    desc: "Buat futsal, badminton, mini soccer, atau venue olahraga dengan peak hour padat.",
+    features: ["Grid jadwal", "Jam ramai", "Multi lapangan", "Pelunasan"],
+    icon: <TimerReset className="h-4 w-4" />,
+    mockup: {
+      unitLabel: "Court booking",
+      price: "Rp220.000",
+      progress: "86%",
+      accent: "bg-emerald-400",
+      items: [
+        { name: "Futsal 1", status: "Main", note: "19:00", tone: "emerald" },
+        { name: "Futsal 2", status: "DP", note: "20:00", tone: "amber" },
+        { name: "Badminton A", status: "Kosong", note: "Siap", tone: "cyan" },
+        { name: "Badminton B", status: "Main", note: "1j 10m", tone: "blue" },
+        { name: "Mini Soccer", status: "Penuh", note: "Ramai", tone: "rose" },
+        { name: "Court C", status: "Kosong", note: "Siap", tone: "emerald" },
+      ],
+    },
+  },
+  office: {
+    label: "Office Space",
+    title: "Meeting room dan coworking space tanpa spreadsheet.",
+    desc: "Cocok untuk office space yang butuh jadwal ruangan dan laporan pemakaian.",
+    features: ["Room booking", "Invoice", "Company account", "Report"],
+    icon: <Building2 className="h-4 w-4" />,
+    mockup: {
+      unitLabel: "Room schedule",
+      price: "Rp450.000",
+      progress: "58%",
+      accent: "bg-violet-400",
+      items: [
+        { name: "Meeting 01", status: "Dipesan", note: "PT Asta", tone: "violet" },
+        { name: "Meeting 02", status: "Kosong", note: "Siap", tone: "emerald" },
+        { name: "Private 1", status: "Invoice", note: "Sent", tone: "blue" },
+        { name: "Coworking", status: "12 pax", note: "Today", tone: "cyan" },
+        { name: "Boardroom", status: "Ditahan", note: "13:00", tone: "amber" },
+        { name: "Event Hall", status: "Dipesan", note: "Seharian", tone: "rose" },
+      ],
+    },
+  },
+  barber: {
+    label: "Barbershop",
+    title: "Appointment barber lebih rapi, antrean lebih terukur.",
+    desc: "Pelanggan pilih jam, staff tahu antrean, owner lihat performa harian.",
+    features: ["Appointment", "Staff schedule", "Deposit", "Repeat customer"],
+    icon: <UsersRound className="h-4 w-4" />,
+    mockup: {
+      unitLabel: "Stylist queue",
+      price: "Rp85.000",
+      progress: "69%",
+      accent: "bg-amber-400",
+      items: [
+        { name: "Barber A", status: "Cutting", note: "Rafi", tone: "amber" },
+        { name: "Barber B", status: "Next", note: "Maya", tone: "blue" },
+        { name: "Chair 03", status: "Kosong", note: "Siap", tone: "emerald" },
+        { name: "Hair Wash", status: "Addon", note: "+Rp20k", tone: "cyan" },
+        { name: "Premium", status: "Dipesan", note: "17:00", tone: "violet" },
+        { name: "Walk-in", status: "Queue", note: "3 orang", tone: "rose" },
+      ],
+    },
+  },
+  pool: {
+    label: "Kolam Renang",
+    title: "Tiket, paket keluarga, dan kapasitas bisa dikontrol.",
+    desc: "Bantu pool club atau waterpark kecil mengelola pengunjung dan pembayaran.",
+    features: ["Ticket slot", "Capacity", "QR check-in", "Cashless"],
+    icon: <Activity className="h-4 w-4" />,
+    mockup: {
+      unitLabel: "Capacity control",
+      price: "Rp40.000",
+      progress: "81%",
+      accent: "bg-cyan-400",
+      items: [
+        { name: "Reguler", status: "128 pax", note: "Open", tone: "cyan" },
+        { name: "Family", status: "DP", note: "6 pax", tone: "amber" },
+        { name: "Cabana 1", status: "Dipesan", note: "Seharian", tone: "blue" },
+        { name: "Cabana 2", status: "Kosong", note: "Siap", tone: "emerald" },
+        { name: "QR Gate", status: "Check-in", note: "87", tone: "violet" },
+        { name: "Locker", status: "Penuh", note: "Ramai", tone: "rose" },
+      ],
+    },
+  },
+  vr: {
+    label: "VR Arena",
+    title: "Sesi VR, headset, dan room tetap sinkron.",
+    desc: "Untuk bisnis experience-based yang butuh inventory dan jadwal ketat.",
+    features: ["Asset unit", "Session timer", "Bundle", "Live status"],
+    icon: <MonitorPlay className="h-4 w-4" />,
+    mockup: {
+      unitLabel: "VR session",
+      price: "Rp180.000",
+      progress: "74%",
+      accent: "bg-blue-400",
+      items: [
+        { name: "Room A", status: "Live", note: "18m", tone: "blue" },
+        { name: "Room B", status: "Siap", note: "Bersih", tone: "emerald" },
+        { name: "Headset 01", status: "Dipakai", note: "Raka", tone: "violet" },
+        { name: "Headset 02", status: "Isi daya", note: "72%", tone: "amber" },
+        { name: "Zombie Pack", status: "Dipesan", note: "19:30", tone: "rose" },
+        { name: "Racing", status: "Kosong", note: "Siap", tone: "cyan" },
+      ],
+    },
+  },
+};
+
+const useCaseKeys = Object.keys(useCases) as UseCaseKey[];
+
+function UseCaseMockup({ current }: { current: (typeof useCases)[UseCaseKey] }) {
+  const toneClass = {
+    blue: "border-blue-400/30 bg-blue-500/15 text-blue-100",
+    emerald: "border-emerald-400/30 bg-emerald-500/15 text-emerald-100",
+    amber: "border-amber-400/30 bg-amber-500/15 text-amber-100",
+    rose: "border-rose-400/30 bg-rose-500/15 text-rose-100",
+    cyan: "border-cyan-400/30 bg-cyan-500/15 text-cyan-100",
+    violet: "border-violet-400/30 bg-violet-500/15 text-violet-100",
+  };
+
+  return (
+    <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.05] p-5">
+      <div className="mb-5 flex items-center justify-between">
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-200">
+            {current.label}
+          </div>
+          <div className="mt-1 text-xl font-black text-white">
+            {current.mockup.unitLabel}
+          </div>
+        </div>
+        <MousePointer2 className="h-8 w-8 text-blue-300" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {current.mockup.items.map((item, index) => (
+          <div
+            key={item.name}
+            className={`rounded-2xl border p-4 ${toneClass[item.tone]}`}
+            style={{ animation: `demo-pop 480ms ease ${index * 55}ms both` }}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-[11px] font-black uppercase tracking-[0.14em]">
+                {item.name}
+              </span>
+              <span className="mt-1 h-2.5 w-2.5 rounded-full bg-current" />
+            </div>
+            <div className="mt-5 text-[10px] font-black uppercase tracking-[0.14em] opacity-80">
+              {item.status}
+            </div>
+            <div className="mt-1 text-xs font-black text-white">
+              {item.note}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-5 rounded-2xl bg-blue-500/15 p-4">
+        <div className="flex items-center justify-between text-sm font-black text-white">
+          <span>Siap dibooking</span>
+          <span>{current.mockup.price}</span>
+        </div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+          <div
+            className={`h-full rounded-full ${current.mockup.accent} animate-fill`}
+            style={{ width: current.mockup.progress }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UseCases() {
+  const [active, setActive] = useState<UseCaseKey>("gaming");
+  const [ref, visible] = useReveal();
+  const current = useCases[active];
+
+  useEffect(() => {
+    if (!visible) return;
+
+    const timer = window.setInterval(() => {
+      setActive((currentKey) => {
+        const index = useCaseKeys.indexOf(currentKey);
+        return useCaseKeys[(index + 1) % useCaseKeys.length];
+      });
+    }, 4500);
+
+    return () => window.clearInterval(timer);
+  }, [visible]);
+
+  return (
+    <section id="use-cases" ref={ref} className="relative z-10 w-full px-4 py-16 sm:px-6">
+      <div className="mx-auto max-w-7xl">
+        <div style={revealStyle(visible)}>
+          <SectionHeader
+            eyebrow="Jenis Bisnis"
+            title={
+              <>
+                Satu sistem,
+                <br />
+                banyak jenis bisnis.
+              </>
+            }
+            description="Bookinaja fleksibel untuk bisnis berbasis jadwal, sesi, unit, ruangan, tiket, atau appointment."
+          />
+        </div>
+
+        <div className="mt-10 flex flex-wrap justify-center gap-2" style={revealStyle(visible, 0.1)}>
+          {useCaseKeys.map((key) => (
+            <button
+              key={key}
+              onClick={() => setActive(key)}
+              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.12em] transition ${
+                active === key
+                  ? "border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/60"
+              }`}
+            >
+              {useCases[key].icon}
+              {useCases[key].label}
+            </button>
+          ))}
+        </div>
+
+        <div
+          key={active}
+          className="mt-8 grid overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.04] lg:grid-cols-[1fr_1fr]"
+          style={revealStyle(visible, 0.16)}
+        >
+          <div className="p-6 sm:p-10">
+            <div className="inline-flex items-center gap-2 rounded-full bg-blue-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-300">
+              {current.icon}
+              {current.label}
+            </div>
+            <h3 className="mt-6 text-3xl font-black tracking-tight text-slate-950 dark:text-white sm:text-4xl">
+              {current.title}
+            </h3>
+            <p className="mt-4 text-base font-medium leading-7 text-slate-600 dark:text-slate-300">
+              {current.desc}
+            </p>
+            <div className="mt-8 grid gap-3 sm:grid-cols-2">
+              {current.features.map((item) => (
+                <div
+                  key={item}
+                  className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-black text-slate-800 dark:border-white/10 dark:bg-slate-950/50 dark:text-white"
+                >
+                  <CheckCircle2 className="h-4 w-4 text-blue-500" />
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="bg-slate-950 p-6 sm:p-10">
+            <UseCaseMockup current={current} />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function HowItWorks() {
+  const [ref, visible] = useReveal();
+  const steps = [
+    {
+      step: "01",
+      title: "Pelanggan buka halaman booking",
+      outcome: "Link publik siap dibagikan",
+      desc: "Mereka pilih unit, tanggal, jam, dan paket tanpa harus chat admin dulu.",
+      icon: <Globe2 className="h-5 w-5" />,
+      visual: "booking",
+    },
+    {
+      step: "02",
+      title: "Bookinaja kunci slot & catat pembayaran",
+      outcome: "Tidak ada jadwal tabrakan",
+      desc: "DP, pelunasan, status booking, dan ketersediaan unit langsung sinkron.",
+      icon: <LockKeyhole className="h-5 w-5" />,
+      visual: "system",
+    },
+    {
+      step: "03",
+      title: "Tim menjalankan dari dashboard",
+      outcome: "Owner tetap pegang kontrol",
+      desc: "Kasir melihat sesi aktif. Owner melihat revenue, laporan, dan aktivitas staff.",
+      icon: <MonitorPlay className="h-5 w-5" />,
+      visual: "dashboard",
+    },
+  ];
+
+  return (
+    <section id="demo" ref={ref} className="relative z-10 w-full px-4 py-16 sm:px-6">
+      <div className="mx-auto max-w-7xl">
+        <div style={revealStyle(visible)}>
+          <SectionHeader
+            eyebrow="Cara Kerja"
+            title={
+              <>
+                Cara Bookinaja
+                <br />
+                menjalankan flow.
+              </>
+            }
+            description="Pelanggan booking dari link bisnis kamu, Bookinaja mengunci jadwal dan mencatat pembayaran, lalu tim memantau semuanya dari dashboard."
+          />
+        </div>
+
+        <div className="relative mt-14 grid gap-5 lg:grid-cols-3" style={revealStyle(visible, 0.12)}>
+          <div className="absolute left-0 right-0 top-20 hidden h-px bg-gradient-to-r from-transparent via-blue-400/50 to-transparent lg:block" />
+          {steps.map((item, index) => (
+            <div
+              key={item.step}
+              className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]"
+            >
+              <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-blue-500/10 blur-3xl" />
+              <div className="mb-8 flex items-center justify-between">
+                <div className="grid h-16 w-16 place-items-center rounded-3xl bg-blue-600 text-xl font-black text-white shadow-xl shadow-blue-600/20">
+                  {item.step}
+                </div>
+                <div
+                  className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-blue-600 dark:bg-white/10 dark:text-blue-300"
+                  style={{ animation: `demo-bob 2.8s ease-in-out ${index * 0.2}s infinite` }}
+                >
+                  {item.icon}
+                </div>
+              </div>
+              <h3 className="text-2xl font-black tracking-tight text-slate-950 dark:text-white">
+                {item.title}
+              </h3>
+              <p className="mt-3 text-sm font-medium leading-6 text-slate-600 dark:text-slate-300">
+                {item.desc}
+              </p>
+              <div className="mt-6 rounded-[1.4rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950/50">
+                {item.visual === "booking" && (
+                  <div>
+                    <div className="mb-3 flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                      <span className="ml-2 rounded-full bg-white px-3 py-1 text-[9px] font-bold text-slate-500 dark:bg-white/10 dark:text-white/50">
+                        tenant.bookinaja.com
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {["14:00", "15:00", "16:00"].map((slot, slotIndex) => (
+                        <div
+                          key={slot}
+                          className={`rounded-xl px-2 py-3 text-center text-[10px] font-black ${
+                            slotIndex === 1
+                              ? "bg-blue-600 text-white"
+                              : "bg-white text-slate-500 dark:bg-white/10 dark:text-white/50"
+                          }`}
+                        >
+                          {slot}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {item.visual === "system" && (
+                  <div className="space-y-3">
+                    {[
+                      ["Slot locked", "PS-01 / 15:00"],
+                      ["DP tercatat", "Rp50.000"],
+                      ["Status berubah", "Terkonfirmasi"],
+                    ].map(([label, value], rowIndex) => (
+                      <div
+                        key={label}
+                        className="flex items-center justify-between rounded-2xl bg-white px-3 py-3 text-xs font-black dark:bg-white/10"
+                        style={{ animation: `slide-in-right 520ms ease ${rowIndex * 100}ms both` }}
+                      >
+                        <span className="text-slate-500 dark:text-white/50">
+                          {label}
+                        </span>
+                        <span className="text-blue-600 dark:text-blue-300">
+                          {value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {item.visual === "dashboard" && (
+                  <div>
+                    <div className="mb-3 flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-white/45">
+                        Live dashboard
+                      </span>
+                      <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-500">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Sync
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        ["Pendapatan", "Rp847k"],
+                        ["Occupancy", "67%"],
+                      ].map(([label, value]) => (
+                        <div
+                          key={label}
+                          className="rounded-2xl bg-white p-3 dark:bg-white/10"
+                        >
+                          <div className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">
+                            {label}
+                          </div>
+                          <div className="mt-1 text-sm font-black text-slate-950 dark:text-white">
+                            {value}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
+              <div className="mt-6 rounded-2xl bg-blue-500/10 px-4 py-3 text-sm font-black text-blue-600 dark:text-blue-300">
+                {item.outcome}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Pricing() {
+  const [annual, setAnnual] = useState(true);
+  const [ref, visible] = useReveal();
+  const plans = [
+    {
+      name: "Starter",
+      monthly: 149000,
+      annual: 1490000,
+      desc: "Untuk owner solo atau bisnis kecil yang ingin keluar dari catatan manual.",
+      cta: "Pilih Starter",
+      note: "Booking Inti",
+      href: "/register",
+      features: [
+        "Dashboard admin dasar",
+        "Kalender booking",
+        "Kelola unit/resource",
+        "Website booking + subdomain",
+        "Portal pelanggan & detail booking",
+        "Tracking pembayaran dasar",
+        "Promo code dasar",
+        "Laporan pendapatan dasar",
+        "1 akun owner",
+      ],
+    },
+    {
+      name: "Pro",
+      monthly: 349000,
+      annual: 3490000,
+      desc: "Untuk bisnis dengan staff, kasir, dan operasional pembayaran yang lebih disiplin.",
+      cta: "Pilih Pro",
+      popular: true,
+      note: "Operasional Tim",
+      href: "/register",
+      features: [
+        "Semua fitur Starter",
+        "Multi staff account",
+        "Hak akses staff",
+        "Alur POS / kasir lengkap",
+        "Kelola metode pembayaran",
+        "Verifikasi pembayaran manual",
+        "Impor & data pelanggan tanpa batas",
+        "WhatsApp reminder dasar",
+        "Aturan harga fleksibel",
+        "Visibilitas pelanggan dasar",
+      ],
+    },
+    {
+      name: "Scale",
+      monthly: 499000,
+      annual: 4990000,
+      desc: "Untuk growth, repeat order, membership, loyalty, dan kontrol bisnis lebih dalam.",
+      cta: "Masuk Waitlist",
+      comingSoon: true,
+      note: "Segera Hadir",
+      href: "/demos",
+      features: [
+        "Semua fitur Pro",
+        "Membership otomatis",
+        "Wallet loyalty & reward",
+        "Reward pembelian berulang",
+        "Segmentasi pelanggan lanjutan",
+        "Analitik retention & growth",
+        "Siap multi-outlet",
+        "Kontrol automasi lanjutan",
+        "Visibilitas group bisnis",
+      ],
+    },
+  ];
+
+  return (
+    <section id="pricing" ref={ref} className="relative z-10 w-full px-4 py-16 sm:px-6">
+      <div className="mx-auto max-w-7xl">
+        <div style={revealStyle(visible)}>
+          <SectionHeader
+            eyebrow="Paket Harga"
+            title={
+              <>
+                Pilih plan sesuai
+                <br />
+                tahap bisnis.
+              </>
+            }
+            description="Mulai dari operasional booking yang rapi, lalu naik ke kontrol staff, CRM, loyalty, dan growth saat bisnis sudah siap."
+          />
+        </div>
+
+        <div className="mt-8 flex justify-center" style={revealStyle(visible, 0.08)}>
+          <div className="inline-flex items-center rounded-full border border-slate-200 bg-white p-1 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+            {[
+              ["Bulanan", false],
+              ["Tahunan", true],
+            ].map(([label, value]) => (
+              <button
+                key={String(label)}
+                onClick={() => setAnnual(Boolean(value))}
+                className={`rounded-full px-5 py-2 text-xs font-black uppercase tracking-[0.16em] transition ${
+                  annual === Boolean(value)
+                    ? "bg-blue-600 text-white"
+                    : "text-slate-500 dark:text-white/50"
+                }`}
+              >
+                {label}
+                  {value && (
+                    <span className="ml-2 rounded-full bg-emerald-400/20 px-2 py-0.5 text-[9px] text-emerald-300">
+                      hemat 2 bulan
+                    </span>
+                  )}
+                </button>
             ))}
           </div>
         </div>
-      </section>
 
-      {/* ══════════════════════════════
-          14. FINAL CTA
-      ══════════════════════════════ */}
-      <section className="relative z-10 w-full max-w-screen-xl mx-auto px-4 sm:px-6 pb-14 sm:pb-24">
-        <div ref={ctaRef} style={revealStyle(ctaVisible)}>
-          <div
-            className={`relative overflow-hidden rounded-[2rem] border px-6 sm:px-10 py-14 sm:py-24 md:py-32 text-center ${isDark ? "bg-slate-950 border-white/[0.07]" : "bg-white border-slate-200"}`}
-          >
-            <div
-              className={`absolute inset-0 pointer-events-none ${
-                isDark
-                  ? "bg-[radial-gradient(ellipse_70%_50%_at_50%_110%,rgba(59,130,246,0.15),transparent)]"
-                  : "bg-[radial-gradient(ellipse_70%_50%_at_50%_110%,rgba(59,130,246,0.07),transparent)]"
-              }`}
-            />
-            <div className="relative z-10 max-w-sm sm:max-w-2xl md:max-w-3xl mx-auto space-y-6 sm:space-y-8">
-              <SectionBadge
-                icon={<Rocket className="h-3 w-3" />}
-                label="Batch Prelaunch"
-              />
-              <h2
-                className={`text-4xl sm:text-5xl md:text-7xl font-black tracking-[-0.06em] leading-[0.86] uppercase ${heading}`}
+        <div className="mt-10 grid gap-5 lg:grid-cols-3" style={revealStyle(visible, 0.14)}>
+          {plans.map((plan) => {
+            const price = annual ? plan.annual : plan.monthly;
+            return (
+              <div
+                key={plan.name}
+                className={`relative flex min-h-[620px] flex-col rounded-[2rem] border p-6 shadow-sm ${
+                  plan.popular
+                    ? "border-blue-500 bg-blue-600 text-white shadow-2xl shadow-blue-600/25"
+                    : "border-slate-200 bg-white text-slate-950 dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
+                }`}
               >
-                Bisnis kamu layak
-                <br />
-                <span className="shimmer-text">lebih dari ini.</span>
-              </h2>
-              <p
-                className={`text-sm sm:text-base font-medium max-w-xs sm:max-w-md mx-auto ${muted}`}
-              >
-                Kami belum launch penuh, dan itu justru kesempatanmu masuk lebih
-                awal. Coba gratis 30 hari, dapat onboarding lebih dekat, dan
-                nilai sendiri apakah Bookinaja bisa bikin operasionalmu lebih
-                rapi.
-              </p>
-              <div className="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4">
-                <Link href="/register" className="w-full sm:w-auto">
-                  <Button className="w-full sm:w-auto h-12 sm:h-14 md:h-16 px-8 sm:px-10 text-[11px] font-black uppercase tracking-[0.18em] rounded-2xl bg-blue-600 hover:bg-blue-500 text-white border-0 transition-colors duration-200 shadow-lg shadow-blue-600/20">
-                    Coba Gratis 30 Hari{" "}
-                    <ArrowUpRight className="ml-2 h-4 w-4" />
+                {plan.popular && (
+                  <div className="absolute right-6 top-6 rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">
+                    Most Popular
+                  </div>
+                )}
+                {plan.comingSoon && (
+                  <div className="absolute right-6 top-6 rounded-full bg-slate-950 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white dark:bg-white dark:text-slate-950">
+                    Segera Hadir
+                  </div>
+                )}
+                <div
+                  className={`mb-4 inline-flex self-start rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${
+                    plan.popular
+                      ? "bg-white/15 text-blue-50"
+                      : "bg-blue-500/10 text-blue-600 dark:text-blue-300"
+                  }`}
+                >
+                  {plan.note}
+                </div>
+                <h3 className="text-2xl font-black">{plan.name}</h3>
+                <p
+                  className={`mt-3 min-h-20 text-sm font-medium leading-6 ${
+                    plan.popular ? "text-blue-50" : "text-slate-600 dark:text-slate-300"
+                  }`}
+                >
+                  {plan.desc}
+                </p>
+                <div className="mt-6">
+                  <span className="text-4xl font-black tracking-tight">
+                    {price === 0
+                      ? "Gratis"
+                      : `Rp${price.toLocaleString("id-ID")}`}
+                  </span>
+                  {price > 0 && (
+                    <span
+                      className={`ml-2 text-sm font-bold ${
+                        plan.popular ? "text-blue-100" : "text-slate-500 dark:text-slate-400"
+                      }`}
+                    >
+                      /{annual ? "tahun" : "bulan"}
+                    </span>
+                  )}
+                </div>
+                {annual && plan.monthly > 0 && (
+                  <div
+                    className={`mt-2 text-xs font-bold ${
+                      plan.popular ? "text-blue-100" : "text-slate-500 dark:text-slate-400"
+                    }`}
+                  >
+                    Setara Rp{Math.round(plan.annual / 12).toLocaleString("id-ID")} / bulan
+                  </div>
+                )}
+                <Link href={plan.href}>
+                  <Button
+                    className={`mt-8 h-13 w-full rounded-2xl text-[11px] font-black uppercase tracking-[0.16em] ${
+                      plan.popular
+                        ? "bg-white text-blue-600 hover:bg-blue-50"
+                        : "bg-slate-950 text-white hover:bg-blue-600 dark:bg-white dark:text-slate-950"
+                    }`}
+                  >
+                    {plan.cta}
                   </Button>
                 </Link>
-                <Link
-                  href="/demos"
-                  className={`text-[10px] font-black uppercase tracking-[0.3em] underline underline-offset-8 decoration-blue-500/40 transition-colors duration-200 ${muted} hover:text-blue-500`}
-                >
-                  Lihat Demo Dulu →
-                </Link>
-              </div>
-              <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
-                {[
-                  "✓ Gratis 30 hari",
-                  "✓ Tanpa kartu kredit",
-                  "✓ Onboarding dibantu",
-                  "✓ Batalkan kapan saja",
-                  "✓ Feedback diprioritaskan",
-                ].map((f) => (
-                  <span
-                    key={f}
-                    className={`text-[11px] sm:text-xs font-medium ${muted}`}
+                <div className="mt-8 flex-1 space-y-3">
+                  <div
+                    className={`mb-4 text-[10px] font-black uppercase tracking-[0.2em] ${
+                      plan.popular ? "text-blue-100" : "text-slate-400"
+                    }`}
                   >
-                    {f}
-                  </span>
-                ))}
+                    Yang didapat
+                  </div>
+                  {plan.features.map((feature) => (
+                    <div key={feature} className="flex items-start gap-3 text-sm font-bold leading-5">
+                      <CheckCircle2
+                        className={`mt-0.5 h-4 w-4 shrink-0 ${
+                          plan.popular ? "text-blue-100" : "text-blue-500"
+                        }`}
+                      />
+                      {feature}
+                    </div>
+                  ))}
+                </div>
               </div>
+            );
+          })}
+        </div>
+
+        <div
+          className="mt-6 rounded-[2rem] border border-blue-200 bg-white/80 p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/[0.04] sm:flex sm:items-center sm:justify-between sm:gap-6"
+          style={revealStyle(visible, 0.18)}
+        >
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-600 dark:text-blue-300">
+              Mulai gratis
             </div>
+            <div className="mt-1 text-xl font-black tracking-tight text-slate-950 dark:text-white">
+              Coba Bookinaja 30 hari sebelum pilih plan.
+            </div>
+            <p className="mt-1 text-sm font-medium text-slate-600 dark:text-slate-300">
+              Tanpa kartu kredit. Coba flow booking, setup workspace, dan lihat
+              apakah operasionalmu jadi lebih rapi.
+            </p>
+          </div>
+          <Link href="/register" className="mt-4 block shrink-0 sm:mt-0">
+            <Button className="h-12 w-full rounded-2xl bg-blue-600 px-6 text-[11px] font-black uppercase tracking-[0.16em] text-white hover:bg-blue-500 sm:w-auto">
+              Mulai Trial Gratis
+            </Button>
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Faq() {
+  const [open, setOpen] = useState(0);
+  const [ref, visible] = useReveal();
+  const items = [
+    [
+      "Apakah bisa coba tanpa kartu kredit?",
+      "Bisa. Trial 30 hari dibuat supaya owner bisa melihat value sebelum memilih plan berbayar.",
+    ],
+    [
+      "Bookinaja cocok untuk bisnis apa saja?",
+      "Paling cocok untuk bisnis yang menjual slot, sesi, unit, ruangan, lapangan, atau appointment.",
+    ],
+    [
+      "Apakah bisa dipakai oleh kasir?",
+      "Bisa. Role staff dibuat agar kasir bisa operasional tanpa melihat atau mengubah area sensitif owner.",
+    ],
+    [
+      "Apakah customer perlu install aplikasi?",
+      "Tidak. Pelanggan booking lewat website publik bisnis kamu, jadi link bisa dibagikan lewat WhatsApp, Instagram, atau Google Business.",
+    ],
+    [
+      "Di mana saya bisa belajar lebih detail?",
+      "Kamu bisa lihat demo, pricing, FAQ, dan Jelajah untuk memahami alur Bookinaja lebih lanjut.",
+    ],
+  ];
+
+  return (
+    <section id="faq" ref={ref} className="relative z-10 w-full px-4 py-16 sm:px-6">
+      <div className="mx-auto max-w-4xl">
+        <div style={revealStyle(visible)}>
+          <SectionHeader
+            eyebrow="Pertanyaan Umum"
+            title={
+              <>
+                Pertanyaan sebelum
+                <br />
+                mulai trial.
+              </>
+            }
+            description="Jawaban singkat sebelum kamu mencoba Bookinaja untuk operasional bisnismu."
+          />
+        </div>
+        <div className="mt-10 space-y-3" style={revealStyle(visible, 0.12)}>
+          {items.map(([question, answer], index) => (
+            <div
+              key={question}
+              className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.04]"
+            >
+              <button
+                onClick={() => setOpen(open === index ? -1 : index)}
+                className="flex w-full items-center justify-between gap-5 p-5 text-left"
+              >
+                <span className="text-base font-black text-slate-950 dark:text-white">
+                  {question}
+                </span>
+                <ChevronDown
+                  className={`h-5 w-5 shrink-0 text-slate-400 transition ${
+                    open === index ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+              {open === index && (
+                <div className="border-t border-slate-200 px-5 pb-5 pt-4 dark:border-white/10">
+                  <p className="text-sm font-medium leading-6 text-slate-600 dark:text-slate-300">
+                    {answer}
+                  </p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FinalCta() {
+  const [ref, visible] = useReveal();
+
+  return (
+    <section ref={ref} className="relative z-10 w-full px-4 pb-20 pt-8 sm:px-6 sm:pb-24">
+      <div
+        className="mx-auto max-w-6xl overflow-hidden rounded-[2rem] border border-blue-400/20 bg-slate-950 p-6 text-white shadow-[0_35px_110px_-65px_rgba(37,99,235,0.85)] sm:p-8 md:p-10"
+        style={revealStyle(visible)}
+      >
+        <div className="grid gap-8 md:grid-cols-[1fr_auto] md:items-center">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-blue-200">
+              <Zap className="h-3.5 w-3.5" />
+              Mulai gratis
+            </div>
+            <h2 className="mt-5 text-3xl font-black leading-[1.02] tracking-[-0.045em] sm:text-4xl md:text-5xl">
+              Coba dulu. Rasakan operasional yang lebih rapi.
+            </h2>
+            <p className="mt-4 max-w-xl text-sm font-medium leading-6 text-blue-50/70 sm:text-base">
+              Pakai Bookinaja gratis 30 hari untuk melihat apakah booking,
+              pembayaran, dan kontrol staff benar-benar lebih mudah di bisnis kamu.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 md:w-72">
+            <PrimaryCta />
+            <SecondaryCta />
           </div>
         </div>
-      </section>
+      </div>
+    </section>
+  );
+}
+
+export default function LandingPage() {
+  const [heroRef, heroVisible] = useReveal(0.04);
+  const [demoRef, demoVisible] = useReveal(0.08);
+
+  return (
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#f7fbff] text-slate-950 dark:bg-[#050914] dark:text-white">
+      <style>{`
+        @keyframes marquee {
+          from { transform: translateX(0); }
+          to { transform: translateX(-50%); }
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0) rotate(-1deg); }
+          50% { transform: translateY(-14px) rotate(1deg); }
+        }
+        @keyframes float-delayed {
+          0%, 100% { transform: translateY(0) rotate(1deg); }
+          50% { transform: translateY(12px) rotate(-1deg); }
+        }
+        @keyframes slide-in-right {
+          from { opacity: 0; transform: translateX(24px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes demo-pop {
+          from { opacity: 0; transform: scale(.92) translateY(10px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes fill {
+          from { width: 0; }
+        }
+        @keyframes bar-rise {
+          from { height: 8%; opacity: .25; }
+        }
+        @keyframes demo-bob {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-8px); }
+        }
+        .marquee-track {
+          display: flex;
+          width: max-content;
+          gap: 1rem;
+          animation: marquee 30s linear infinite;
+        }
+        .marquee-mask {
+          mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+        }
+        .animate-float { animation: float 5s ease-in-out infinite; }
+        .animate-float-delayed { animation: float-delayed 5.5s ease-in-out infinite; }
+        .animate-fill { animation: fill 1.1s cubic-bezier(.2,.8,.2,1) both; }
+        .demo-panel { animation: demo-pop 520ms ease both; }
+      `}</style>
+
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.06)_1px,transparent_1px)] bg-[size:54px_54px] dark:bg-[linear-gradient(to_right,rgba(255,255,255,0.055)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.055)_1px,transparent_1px)]" />
+        <div className="absolute left-1/2 top-0 h-[520px] w-[900px] -translate-x-1/2 rounded-full bg-blue-500/15 blur-[120px] dark:bg-blue-500/20" />
+        <div className="absolute -bottom-40 right-0 h-[440px] w-[440px] rounded-full bg-cyan-400/10 blur-[100px]" />
+      </div>
+
+      <main className="relative z-10">
+        <section
+          ref={heroRef}
+          className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-7xl flex-col items-center justify-center px-4 pb-12 pt-40 text-center sm:px-6 sm:pt-36"
+        >
+          <div style={revealStyle(heroVisible)} className="space-y-6">
+            <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-white/70 px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-blue-600 shadow-sm backdrop-blur dark:bg-white/5 dark:text-blue-300">
+              <Sparkles className="h-3.5 w-3.5 fill-current" />
+              Sistem booking dan operasional untuk bisnis Indonesia
+            </div>
+
+            <h1 className="mx-auto max-w-5xl font-sans text-[2.35rem] font-[900] leading-[1.04] tracking-[-0.055em] text-slate-950 dark:text-white sm:text-[3.25rem] md:text-[4.1rem] lg:text-[4.75rem]">
+              <span className="block">Kendali Penuh Operasional</span>
+              <span className="block text-blue-600 dark:text-blue-300">
+                Bisnis Anda
+              </span>
+            </h1>
+
+            <p className="mx-auto max-w-2xl text-base font-medium leading-8 text-slate-600 dark:text-slate-300 sm:text-lg">
+              Bookinaja merapikan booking otomatis, memantau unit secara
+              real-time, dan membantu owner tetap pegang kontrol tanpa harus
+              selalu ada di tempat.
+            </p>
+
+            <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <PrimaryCta />
+              <SecondaryCta />
+            </div>
+
+            <TrustMicrocopy />
+            <AvatarStack />
+          </div>
+        </section>
+
+        <section ref={demoRef} className="relative z-10 w-full px-4 pb-16 sm:px-6">
+          <div style={revealStyle(demoVisible)}>
+            <AnimatedDashboard />
+          </div>
+        </section>
+
+        <SocialProof />
+        <ProblemSolution />
+        <FeatureBento />
+        <Testimonials />
+        <UseCases />
+        <HowItWorks />
+        <Pricing />
+        <Faq />
+        <FinalCta />
+      </main>
     </div>
   );
 }

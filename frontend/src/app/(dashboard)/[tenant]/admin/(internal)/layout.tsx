@@ -22,7 +22,13 @@ import { useAdminBootstrap } from "@/components/dashboard/use-admin-bootstrap";
 import {
   operationalNavItems,
   settingsNavItems,
+  workspaceUtilityNavItems,
 } from "@/components/dashboard/admin-nav-config";
+import { getGlobalAuthLoginUrl, getRootPortalUrl, getTenantSlugFromBrowser } from "@/lib/tenant";
+import { clearTenantSession } from "@/lib/tenant-session";
+import { resolveWorkspaceSwitchUrl } from "@/lib/workspace-routing";
+import { getSettingsDefaultRoute } from "@/components/dashboard/workspace-shell-config";
+import { UpgradePlanDialog } from "@/components/dashboard/upgrade-plan-dialog";
 
 const AdminMainContent = memo(function AdminMainContent({
   children,
@@ -44,6 +50,7 @@ export default function DashboardInternalLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const {
     status,
     errorType,
@@ -52,9 +59,35 @@ export default function DashboardInternalLayout({
     tenantCategory,
     tenantSlug,
     growthVisible,
+    currentWorkspace,
+    workspaces,
+    trialInfo,
     reload,
   } = useAdminBootstrap();
   const normalizedPath = normalizeAdminPath(pathname);
+
+  const handleOpenSettings = () => {
+    router.push(getSettingsDefaultRoute());
+  };
+
+  const handleOpenUpgrade = () => {
+    setUpgradeOpen(true);
+  };
+
+  const handleCreateWorkspace = () => {
+    window.location.href = getRootPortalUrl("/app/workspaces/new");
+  };
+
+  const handleSignOut = () => {
+    const isOwner = user?.role === "owner";
+    clearTenantSession({ keepTenantSlug: !isOwner });
+    window.location.href = isOwner
+      ? getGlobalAuthLoginUrl({ signed_out: 1 })
+      : getCentralAdminAuthUrl({
+          tenantSlug: getTenantSlugFromBrowser(),
+          next: "/admin/dashboard",
+        });
+  };
 
   useEffect(() => {
     if (status !== "ready" || !user) return;
@@ -71,12 +104,16 @@ export default function DashboardInternalLayout({
     () => ({
       user,
       tenantName,
+      tenantSlug,
       tenantCategory,
       growthVisible,
       planFeatures: user?.plan_features || [],
       planFeatureMatrix: user?.plan_feature_matrix || {},
+      currentWorkspace,
+      workspaces,
+      trialInfo,
     }),
-    [growthVisible, tenantCategory, tenantName, user],
+    [currentWorkspace, growthVisible, tenantCategory, tenantName, tenantSlug, trialInfo, user, workspaces],
   );
 
   if (status === "loading") {
@@ -120,7 +157,21 @@ export default function DashboardInternalLayout({
               isCollapsed ? "w-20" : "w-72",
             )}
           >
-            <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+            <Sidebar
+              isCollapsed={isCollapsed}
+              setIsCollapsed={setIsCollapsed}
+              onOpenSettings={handleOpenSettings}
+              onOpenUpgrade={handleOpenUpgrade}
+              onCreateWorkspace={handleCreateWorkspace}
+              onSwitchWorkspace={(workspace) => {
+                window.location.href = resolveWorkspaceSwitchUrl(
+                  workspace.slug,
+                  normalizedPath,
+                  window.location.search,
+                );
+              }}
+              onSignOut={handleSignOut}
+            />
           </aside>
 
           <div
@@ -141,6 +192,17 @@ export default function DashboardInternalLayout({
                 </div>
                 <MobileNav
                   mode="operational"
+                  onOpenSettings={handleOpenSettings}
+                  onOpenUpgrade={handleOpenUpgrade}
+                  onCreateWorkspace={handleCreateWorkspace}
+                  onSwitchWorkspace={(workspace) => {
+                    window.location.href = resolveWorkspaceSwitchUrl(
+                      workspace.slug,
+                      normalizedPath,
+                      window.location.search,
+                    );
+                  }}
+                  onSignOut={handleSignOut}
                   triggerClassName="relative left-auto bottom-auto z-auto h-10 w-10 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
                 />
               </div>
@@ -148,6 +210,8 @@ export default function DashboardInternalLayout({
 
             <AdminMainContent>{children}</AdminMainContent>
           </div>
+
+          <UpgradePlanDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
         </div>
       </TooltipProvider>
     </AdminSessionProvider>
@@ -155,7 +219,10 @@ export default function DashboardInternalLayout({
 }
 
 function resolveAdminPageTitle(pathname: string) {
-  const matched = [...settingsNavItems, ...operationalNavItems]
+  const routeUtilities = workspaceUtilityNavItems
+    .filter((item) => item.kind === "route" && item.href?.startsWith("/admin"))
+    .map((item) => ({ href: item.href || "", label: item.label }));
+  const matched = [...settingsNavItems, ...routeUtilities, ...operationalNavItems]
     .sort((a, b) => b.href.length - a.href.length)
     .find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
 

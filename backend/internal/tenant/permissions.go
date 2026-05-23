@@ -8,6 +8,7 @@ const (
 	PermissionBookingsUpdate  = "bookings.update"
 	PermissionBookingsConfirm = "bookings.confirm"
 	PermissionBookingsCancel  = "bookings.cancel"
+	PermissionBookingsDelete  = "bookings.delete"
 
 	PermissionSessionsStart    = "sessions.start"
 	PermissionSessionsExtend   = "sessions.extend"
@@ -57,6 +58,7 @@ var AllowedPermissionKeys = map[string]struct{}{
 	PermissionBookingsUpdate:  {},
 	PermissionBookingsConfirm: {},
 	PermissionBookingsCancel:  {},
+	PermissionBookingsDelete:  {},
 
 	PermissionSessionsStart:    {},
 	PermissionSessionsExtend:   {},
@@ -152,6 +154,7 @@ var permissionImplications = map[string][]string{
 	PermissionBookingsUpdate:  {PermissionBookingsRead},
 	PermissionBookingsConfirm: {PermissionBookingsRead, PermissionBookingsUpdate},
 	PermissionBookingsCancel:  {PermissionBookingsRead, PermissionBookingsUpdate},
+	PermissionBookingsDelete:  {PermissionBookingsRead},
 	PermissionSessionsStart:   {PermissionBookingsRead, PermissionBookingsUpdate, PermissionPosRead},
 	PermissionSessionsExtend:  {PermissionBookingsRead, PermissionPosRead},
 	PermissionSessionsComplete: {

@@ -49,6 +49,20 @@ func (s *Service) GenerateTokenWithSnapshot(userID, tenantID uuid.UUID, role str
 	return token.SignedString([]byte(s.secret))
 }
 
+func (s *Service) GenerateAccountToken(accountID uuid.UUID) (string, error) {
+	claims := CustomClaims{
+		AccountID: accountID,
+		Role:      "account",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 168)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(s.secret))
+}
+
 // ValidateToken mengecek apakah token valid dan mengembalikan claims-nya
 func (s *Service) ValidateToken(tokenString string) (*CustomClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {

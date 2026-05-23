@@ -136,6 +136,42 @@ export const getDiscoveryItemImage = (item: DiscoveryTenant) =>
   item.logo_url ||
   "";
 
+export const getDiscoveryFallbackCover = (item: DiscoveryTenant) => {
+  const category = getDiscoveryCategoryLabel(item).toLowerCase();
+
+  if (category.includes("gaming") || category.includes("rental")) {
+    return "radial-gradient(circle at 18% 18%, rgba(96,165,250,0.55), transparent 30%), linear-gradient(135deg, #0f172a 0%, #1d4ed8 55%, #38bdf8 100%)";
+  }
+
+  if (
+    category.includes("creative") ||
+    category.includes("studio") ||
+    category.includes("photo")
+  ) {
+    return "radial-gradient(circle at 18% 18%, rgba(244,114,182,0.46), transparent 30%), linear-gradient(135deg, #111827 0%, #7c3aed 54%, #ec4899 100%)";
+  }
+
+  if (
+    category.includes("sport") ||
+    category.includes("court") ||
+    category.includes("arena") ||
+    category.includes("lapangan")
+  ) {
+    return "radial-gradient(circle at 18% 18%, rgba(134,239,172,0.46), transparent 30%), linear-gradient(135deg, #052e16 0%, #059669 55%, #22c55e 100%)";
+  }
+
+  if (
+    category.includes("social") ||
+    category.includes("office") ||
+    category.includes("space") ||
+    category.includes("meeting")
+  ) {
+    return "radial-gradient(circle at 18% 18%, rgba(251,191,36,0.5), transparent 30%), linear-gradient(135deg, #1f2937 0%, #f97316 56%, #facc15 100%)";
+  }
+
+  return "radial-gradient(circle at 18% 18%, rgba(125,211,252,0.42), transparent 30%), linear-gradient(135deg, #0f172a 0%, #334155 55%, #60a5fa 100%)";
+};
+
 export const getDiscoveryItemLabel = (item: DiscoveryTenant) =>
   item.feed_label || item.promo_label || getDiscoveryCategoryLabel(item);
 

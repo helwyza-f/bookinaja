@@ -7,6 +7,7 @@ import (
 
 // CustomClaims adalah isi dari JWT Token kita
 type CustomClaims struct {
+	AccountID          uuid.UUID `json:"account_id,omitempty"`
 	UserID             uuid.UUID `json:"user_id"`
 	TenantID           uuid.UUID `json:"tenant_id"`
 	Role               string    `json:"role"`

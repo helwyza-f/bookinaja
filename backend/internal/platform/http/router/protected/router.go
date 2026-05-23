@@ -13,6 +13,19 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 	protected := r.Group("/")
 	protected.Use(middleware.AuthMiddleware(cfg.DB))
 	{
+		if cfg.AccountHandler != nil {
+			protected.GET("/auth/account/me", middleware.AccountOnly(), cfg.AccountHandler.Me)
+			appArea := protected.Group("/app")
+			appArea.Use(middleware.AccountOnly())
+			{
+				appArea.GET("/workspaces", cfg.AccountHandler.ListWorkspaces)
+				appArea.POST("/workspaces", cfg.AccountHandler.CreateWorkspace)
+				appArea.GET("/workspaces/:workspaceId/onboarding", cfg.AccountHandler.GetOnboarding)
+				appArea.PUT("/workspaces/:workspaceId/onboarding/:step", cfg.AccountHandler.UpdateOnboardingStep)
+				appArea.POST("/workspaces/:workspaceId/upload", cfg.AccountHandler.UploadWorkspaceAsset)
+			}
+		}
+
 		platformProtected := protected.Group("/platform")
 		platformProtected.Use(middleware.PlatformOnly())
 		{
@@ -114,6 +127,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 		}
 
 		adminArea := protected.Group("/")
+		adminArea.Use(middleware.AccountWorkspaceAdminBridge(cfg.DB))
 		adminArea.Use(middleware.AdminOnly())
 		{
 			adminArea.GET("/auth/me", cfg.AuthHandler.CheckMe)
@@ -310,6 +324,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				bookings.GET("/analytics-summary", middleware.RequirePermission(tenant.PermissionAnalyticsRead), middleware.RequireAnyTenantFeature(cfg.DB, access.FeatureAdvancedAnalytics), cfg.ReservationHandler.GetAnalyticsSummary)
 				bookings.GET("/:id", middleware.RequirePermission(tenant.PermissionBookingsRead), cfg.ReservationHandler.GetDetail)
 				bookings.GET("/:id/payment-attempts", middleware.RequirePermission(tenant.PermissionBookingsRead), cfg.BillingHandler.ListBookingPaymentAttempts)
+				bookings.DELETE("/:id", middleware.RequirePermission(tenant.PermissionBookingsDelete), cfg.ReservationHandler.Delete)
 				bookings.PUT("/:id/status", middleware.RequireBookingStatusPermission(), cfg.ReservationHandler.UpdateStatus)
 				bookings.POST("/:id/record-deposit", middleware.RequirePermission(tenant.PermissionPosCashSettle), cfg.ReservationHandler.RecordDeposit)
 				bookings.POST("/:id/override-deposit", middleware.RequirePermission(tenant.PermissionSessionsStart), cfg.ReservationHandler.OverrideDeposit)

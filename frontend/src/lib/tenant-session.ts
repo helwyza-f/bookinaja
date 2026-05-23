@@ -31,6 +31,13 @@ export function setAdminAuthCookie(token: string) {
   });
 }
 
+export function setAccountAuthCookie(token: string) {
+  setCookie("account_token", token, {
+    maxAge: 60 * 60 * 24 * 30,
+    ...COOKIE_BASE_OPTIONS,
+  });
+}
+
 export function setCustomerAuthCookie(token: string) {
   setCookie("customer_auth", token, {
     maxAge: 60 * 60 * 24 * 7,
@@ -58,12 +65,18 @@ export function clearCustomerSession(options?: { keepTenantSlug?: boolean }) {
   }
 }
 
+export function clearAccountSession() {
+  deleteCookie("account_token", COOKIE_BASE_OPTIONS);
+  deleteCookie("account_token", { path: "/" });
+}
+
 /**
  * Membersihkan semua sesi saat logout atau auth error
  */
 export function clearTenantSession(options?: { keepTenantSlug?: boolean }) {
   clearAdminSession({ keepTenantSlug: true });
   clearCustomerSession({ keepTenantSlug: true });
+  clearAccountSession();
 
   if (!options?.keepTenantSlug) {
     deleteCookie("current_tenant_slug", COOKIE_BASE_OPTIONS);
@@ -121,6 +134,16 @@ export function getTenantMismatchMessage(kind: "admin" | "customer" | "platform"
 }
 
 function normalizeCookieDomain(value?: string | null) {
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") {
+      return "";
+    }
+    if (host.endsWith(".lvh.me")) {
+      return ".lvh.me";
+    }
+  }
+
   const cleaned = (value || "").replace(/(^"|"$)/g, "").trim();
   if (!cleaned) return "";
 

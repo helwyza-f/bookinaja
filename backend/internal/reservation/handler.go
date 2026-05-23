@@ -618,6 +618,16 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "STATUS BERHASIL DIPERBARUI"})
 }
 
+func (h *Handler) Delete(c *gin.Context) {
+	id := c.Param("id")
+	tenantID := c.MustGet("tenantID").(string)
+	if err := h.service.Delete(c.Request.Context(), id, tenantID, h.adminActor(c)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "BOOKING BERHASIL DIHAPUS"})
+}
+
 func (h *Handler) SettleCash(c *gin.Context) {
 	id := c.Param("id")
 	tenantID := c.MustGet("tenantID").(string)

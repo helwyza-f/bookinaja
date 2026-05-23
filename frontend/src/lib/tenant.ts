@@ -148,6 +148,26 @@ export function getRootPortalUrl(
   return `${protocol}//${root.host}${port}${safePath}${search ? `?${search}` : ""}`;
 }
 
+export function getGlobalAuthLoginUrl(
+  searchParams?: Record<string, string | number | boolean | null | undefined>,
+) {
+  const params = { ...(searchParams || {}) };
+  if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+    const url = new URL(window.location.href);
+    url.hostname = "localhost";
+    url.port = "3000";
+    url.pathname = "/login";
+    url.search = "";
+    for (const [key, value] of Object.entries(params)) {
+      if (value === undefined || value === null) continue;
+      url.searchParams.set(key, String(value));
+    }
+    url.hash = "";
+    return url.toString();
+  }
+  return getRootPortalUrl("/login", params);
+}
+
 export function getCurrentPathWithSearch() {
   if (typeof window === "undefined") return "/";
   return `${window.location.pathname}${window.location.search}`;

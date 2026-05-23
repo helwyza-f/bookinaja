@@ -5,7 +5,6 @@ import {
   ClipboardList,
   CreditCard,
   Landmark,
-  Link2,
   Printer,
   Grid2x2,
   LayoutDashboard,
@@ -20,6 +19,11 @@ import {
   Utensils,
   Wand2,
   UserCog,
+  Gift,
+  Map,
+  MessageSquare,
+  LifeBuoy,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 
@@ -29,6 +33,20 @@ export type AdminNavItem = {
   icon: LucideIcon;
   hint?: string;
   group?: "core" | "growth" | "ops" | "system";
+};
+
+export type WorkspaceUtilityNavItem = {
+  key:
+    | "upgrade"
+    | "refer"
+    | "business"
+    | "page_builder"
+    | "guide"
+    | "settings";
+  label: string;
+  icon: LucideIcon;
+  href?: string;
+  kind: "route" | "upgrade" | "settings" | "external";
 };
 
 export const growthHubNavItem: AdminNavItem = {
@@ -50,6 +68,15 @@ export const operationalNavItems: AdminNavItem[] = [
   { label: "Customers", icon: Users, href: "/admin/customers" },
 ];
 
+export const workspaceUtilityNavItems: WorkspaceUtilityNavItem[] = [
+  { key: "upgrade", label: "Upgrade", icon: CreditCard, kind: "upgrade" },
+  { key: "refer", label: "Refer & Earn", icon: Gift, href: "/admin/referral", kind: "route" },
+  { key: "business", label: "Bisnis", icon: BriefcaseBusiness, href: "/admin/brand", kind: "route" },
+  { key: "page_builder", label: "Page Builder", icon: Wand2, href: "/admin/page-builder", kind: "route" },
+  { key: "guide", label: "Guide", icon: Map, href: "/admin/guide", kind: "route" },
+  { key: "settings", label: "Settings", icon: Settings, kind: "settings" },
+];
+
 export function isAdminNavItemActive(
   pathname: string,
   href: string,
@@ -68,24 +95,24 @@ export function isAdminNavItemActive(
 
 export const settingsNavItems: AdminNavItem[] = [
   {
-    label: "Akun Owner",
+    label: "Account",
     href: "/admin/settings/akun",
     icon: UserCog,
-    hint: "Email, Google, password",
+    hint: "Profile & security",
     group: "core",
   },
   {
-    label: "Bisnis",
-    href: "/admin/settings/bisnis",
+    label: "Billing",
+    href: "/admin/settings/billing",
+    icon: CreditCard,
+    hint: "Plan & subscription",
+    group: "system",
+  },
+  {
+    label: "Workspaces",
+    href: "/admin/settings/workspaces",
     icon: BriefcaseBusiness,
-    hint: "Setup inti tenant",
-    group: "core",
-  },
-  {
-    label: "Page Builder",
-    href: "/admin/settings/page-builder",
-    icon: Wand2,
-    hint: "Layout & preview",
+    hint: "Switch & tambah",
     group: "core",
   },
   {
@@ -111,7 +138,7 @@ export const settingsNavItems: AdminNavItem[] = [
   },
   {
     label: "Smart Point",
-    href: "/admin/devices",
+    href: "/admin/settings/smart-point",
     icon: Radio,
     hint: "Alat & pairing",
     group: "system",
@@ -131,13 +158,6 @@ export const settingsNavItems: AdminNavItem[] = [
     group: "growth",
   },
   {
-    label: "Billing",
-    href: "/admin/settings/billing",
-    icon: CreditCard,
-    hint: "Paket & Midtrans",
-    group: "system",
-  },
-  {
     label: "Nota",
     href: "/admin/settings/nota",
     icon: Printer,
@@ -145,11 +165,18 @@ export const settingsNavItems: AdminNavItem[] = [
     group: "system",
   },
   {
-    label: "Referral",
-    href: "/admin/settings/referral",
-    icon: Link2,
-    hint: "Kode referral & bonus",
-    group: "growth",
+    label: "Feedback",
+    href: "/admin/settings/feedback",
+    icon: MessageSquare,
+    hint: "Masukan produk",
+    group: "system",
+  },
+  {
+    label: "Discord",
+    href: "/admin/settings/discord",
+    icon: LifeBuoy,
+    hint: "Komunitas & bantuan",
+    group: "system",
   },
 ];
 

@@ -44,7 +44,7 @@ export default function Page() {
       "@type": "Organization",
       name: "Bookinaja",
       url: "https://bookinaja.com/",
-      logo: "https://bookinaja.com/android-chrome-512x512.png",
+      logo: "https://bookinaja.com/logo/logo_bookinaja_frameless.webp",
       email: "support@bookinaja.com",
       address: {
         "@type": "PostalAddress",

@@ -1,6 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { MapPin, Clock } from "lucide-react";
+import { BOOKINAJA_LOGO_FRAMELESS_SRC } from "@/lib/brand";
 
 type LandingPreviewData = {
   banner_url?: string;
@@ -37,13 +38,11 @@ export function LandingPreview({ data }: { data: LandingPreviewData }) {
               alt={data.name || "Banner bisnis"}
             />
             <div className="relative z-10 text-center px-4">
-              {data.logo_url && (
-                <img
-                  src={data.logo_url}
-                  className="h-10 w-10 mx-auto rounded-lg mb-2 shadow-lg"
-                  alt={`${data.name || "Bisnis"} logo`}
-                />
-              )}
+              <img
+                src={data.logo_url || BOOKINAJA_LOGO_FRAMELESS_SRC}
+                className="h-10 w-10 mx-auto rounded-lg mb-2 object-contain shadow-lg"
+                alt={`${data.name || "Bisnis"} logo`}
+              />
               <h4 className="text-white text-sm font-black uppercase tracking-tighter truncate">
                 {data.name || "Nama Bisnis"}
               </h4>

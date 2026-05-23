@@ -7,11 +7,11 @@ import {
   KeyRound,
   Loader2,
   Mail,
+  ShieldCheck,
   ShieldAlert,
   Trash2,
 } from "lucide-react";
 import api from "@/lib/api";
-import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -92,8 +92,38 @@ function SectionTitle({
   );
 }
 
+function StatTile({
+  label,
+  value,
+  tone = "neutral",
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  tone?: "neutral" | "success" | "warning";
+  icon: typeof ShieldCheck;
+}) {
+  const toneClassName =
+    tone === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200"
+      : tone === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
+        : "border-slate-200 bg-white text-slate-700 dark:border-white/10 dark:bg-slate-950/70 dark:text-slate-200";
+
+  return (
+    <div className={`rounded-2xl border px-4 py-3 ${toneClassName}`}>
+      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-current/70">
+        <Icon className="h-3.5 w-3.5" />
+        {label}
+      </div>
+      <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+        {value}
+      </div>
+    </div>
+  );
+}
+
 export default function OwnerAccountSettingsPage() {
-  const { tenantName } = useAdminSession();
   const [data, setData] = useState<OwnerAccountResponse>(emptyAccount);
   const [loading, setLoading] = useState(true);
   const [savingIdentity, setSavingIdentity] = useState(false);
@@ -148,6 +178,31 @@ export default function OwnerAccountSettingsPage() {
     () => getCentralAdminForgotPasswordUrl({ tenantSlug }),
     [tenantSlug],
   );
+  const identityStatusLabel = effectiveEmailVerified
+    ? "Verified"
+    : hasEmail
+      ? "Perlu verifikasi"
+      : "Belum diisi";
+  const accountSnapshot = [
+    {
+      label: "Email owner",
+      value: hasEmail ? email.trim() : "Belum diisi",
+      tone: effectiveEmailVerified ? "success" : "warning",
+      icon: Mail,
+    },
+    {
+      label: "Google owner",
+      value: data.auth.google_linked ? "Terhubung" : "Belum terhubung",
+      tone: data.auth.google_linked ? "success" : "neutral",
+      icon: ArrowRightLeft,
+    },
+    {
+      label: "Password fallback",
+      value: needsPasswordSetup ? "Perlu setup" : "Aktif",
+      tone: needsPasswordSetup ? "warning" : "success",
+      icon: KeyRound,
+    },
+  ] as const;
 
   async function handleSaveIdentity() {
     if (!name.trim() || !email.trim()) {
@@ -279,27 +334,32 @@ export default function OwnerAccountSettingsPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 pb-20">
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
-          <span>Akun owner</span>
-          <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600" />
-          <span>{tenantName || data.tenant.name || "Tenant"}</span>
+      <Card
+        id="profile"
+        className="rounded-3xl border-slate-200/80 p-6 shadow-sm dark:border-white/10 dark:bg-[#0f172a]"
+      >
+        <SectionTitle
+          title="Profile"
+          description="Name, email, and Google login."
+        />
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          {accountSnapshot.map((item) => (
+            <StatTile
+              key={item.label}
+              label={item.label}
+              value={item.value}
+              tone={item.tone}
+              icon={item.icon}
+            />
+          ))}
         </div>
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
-            Login, recovery, dan Google owner
-          </h1>
-          <p className="max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-            Rapikan email login, cek status verifikasi, atur password cadangan,
-            lalu hubungkan atau ganti Google tanpa keluar dari tenant.
-          </p>
-        </div>
-      </div>
+      </Card>
 
       <Card className="rounded-3xl border-slate-200/80 p-6 shadow-sm dark:border-white/10 dark:bg-[#0f172a]">
         <SectionTitle
-          title="Identitas owner"
-          description="Email ini dipakai untuk login manual, reset password, dan notifikasi keamanan."
+          title="Owner"
+          description="Used for login and recovery."
           badge={
             <Badge
               className={
@@ -308,7 +368,7 @@ export default function OwnerAccountSettingsPage() {
                   : "rounded-full border-none bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200"
               }
             >
-              {effectiveEmailVerified ? "Verified" : hasEmail ? "Perlu verifikasi" : "Belum diisi"}
+              {identityStatusLabel}
             </Badge>
           }
         />
@@ -332,14 +392,14 @@ export default function OwnerAccountSettingsPage() {
             />
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
             {emailChanged
-              ? "Email baru masih draft. Simpan dulu, lalu kirim verifikasi untuk mengaktifkannya."
+              ? "Save email first, then verify."
               : effectiveEmailVerified
-                ? "Email ini sudah siap dipakai untuk login manual dan recovery."
+                ? "Email is ready."
                 : hasEmail
-                  ? "Verifikasi email ini dulu supaya forgot password tetap aman."
-                  : "Isi email aktif dulu supaya kamu punya jalur recovery yang rapi."}
+                  ? "Verify this email first."
+                  : "Add an active email first."}
           </div>
 
           <div className="flex flex-wrap gap-3">
@@ -376,8 +436,8 @@ export default function OwnerAccountSettingsPage() {
 
       <Card className="rounded-3xl border-slate-200/80 p-6 shadow-sm dark:border-white/10 dark:bg-[#0f172a]">
         <SectionTitle
-          title="Google owner"
-          description="Google dipakai untuk login cepat. Akun yang kamu pilih di popup akan menjadi akun Google owner yang aktif."
+          title="Google"
+          description="Connect or replace your Google login."
           badge={
             <Badge className="rounded-full border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
               {data.auth.google_linked ? "Terhubung" : "Belum terhubung"}
@@ -386,32 +446,22 @@ export default function OwnerAccountSettingsPage() {
         />
 
         <div className="mt-5 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
-          <div className="space-y-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+          <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
             {data.auth.google_linked ? (
               <>
                 <p>
-                  Saat ini Google owner mengikuti email login ini:{" "}
+                  Google login follows this email:{" "}
                   <span className="font-medium text-slate-950 dark:text-white">
                     {data.user.email}
                   </span>
                   .
                 </p>
-                <p>
-                  Kalau kamu ganti akun Google, pilih akun baru di popup. Akun
-                  lama akan diganti, lalu email owner ikut memakai email Google
-                  baru yang sudah verified.
-                </p>
+                <p>Choose a new account in the popup to replace it.</p>
               </>
             ) : (
               <>
-                <p>
-                  Hubungkan Google kalau kamu mau login owner lebih cepat tanpa
-                  meninggalkan email recovery.
-                </p>
-                <p>
-                  Popup Google memang bisa menampilkan beberapa akun browser.
-                  Pilih satu akun yang benar-benar mau dijadikan login owner.
-                </p>
+                <p>Connect Google for faster sign-in.</p>
+                <p>Pick the account you want to use as owner login.</p>
               </>
             )}
           </div>
@@ -425,10 +475,13 @@ export default function OwnerAccountSettingsPage() {
         </div>
       </Card>
 
-      <Card className="rounded-3xl border-slate-200/80 p-6 shadow-sm dark:border-white/10 dark:bg-[#0f172a]">
+      <Card
+        id="security"
+        className="scroll-mt-24 rounded-3xl border-slate-200/80 p-6 shadow-sm dark:border-white/10 dark:bg-[#0f172a]"
+      >
         <SectionTitle
-          title="Password dan recovery"
-          description="Kalau owner pertama kali masuk lewat Google, buat password cadangan sekali. Setelah itu kamu bisa ganti password seperti biasa."
+          title="Security"
+          description="Password and recovery."
           badge={
             <Badge className="rounded-full border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
               {needsPasswordSetup ? "Perlu setup" : "Aktif"}
@@ -437,12 +490,12 @@ export default function OwnerAccountSettingsPage() {
         />
 
         <div className="mt-5 grid gap-4">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
             {needsPasswordSetup
-              ? "Belum ada password manual. Buat sekali di sini supaya nanti kamu bisa login pakai email dan punya jalur fallback selain Google."
+              ? "Set a password once for manual login."
               : effectiveEmailVerified
-                ? "Kalau lupa password, link reset akan dikirim ke email owner aktif ini."
-                : "Password manual sudah ada. Kalau lupa password, pastikan email owner aktif dan terverifikasi dulu."}
+                ? "Reset links will go to this email."
+                : "Make sure the owner email is active and verified."}
           </div>
 
           {!needsPasswordSetup ? (
@@ -499,8 +552,8 @@ export default function OwnerAccountSettingsPage() {
 
       <Card className="rounded-3xl border-rose-200/80 p-6 shadow-sm dark:border-rose-500/20 dark:bg-[#19090b]">
         <SectionTitle
-          title="Hapus akun owner"
-          description="Ini hanya untuk menutup akses owner aktif. Sistem akan menolak kalau tenant masih punya staff."
+          title="Delete owner"
+          description="Remove owner access."
           badge={
             <Badge className="rounded-full border-none bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-200">
               Risiko tinggi
@@ -552,6 +605,7 @@ export default function OwnerAccountSettingsPage() {
           </div>
         </div>
       </Card>
+
     </div>
   );
 }

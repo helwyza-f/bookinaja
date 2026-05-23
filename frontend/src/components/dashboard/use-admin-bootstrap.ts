@@ -10,6 +10,10 @@ import {
   syncTenantCookies,
 } from "@/lib/tenant-session";
 import type { AdminSessionUser } from "@/lib/admin-access";
+import type {
+  TrialInfo,
+  WorkspaceSummary,
+} from "@/components/dashboard/admin-session-context";
 
 type AdminBootstrapResponse = {
   session_token?: string;
@@ -47,6 +51,9 @@ type AdminBootstrapState = {
   tenantCategory: string;
   tenantSlug: string;
   growthVisible: boolean;
+  currentWorkspace: WorkspaceSummary | null;
+  workspaces: WorkspaceSummary[];
+  trialInfo: TrialInfo | null;
 };
 
 const initialState: AdminBootstrapState = {
@@ -57,6 +64,9 @@ const initialState: AdminBootstrapState = {
   tenantCategory: "",
   tenantSlug: "",
   growthVisible: false,
+  currentWorkspace: null,
+  workspaces: [],
+  trialInfo: null,
 };
 
 export function useAdminBootstrap() {
@@ -96,6 +106,9 @@ export function useAdminBootstrap() {
       };
 
       syncTenantCookies(resolvedTenantSlug);
+      if (typeof window !== "undefined" && resolvedTenantSlug) {
+        window.localStorage.setItem("bookinaja:last_workspace_slug", resolvedTenantSlug);
+      }
 
       setState({
         status: "ready",
@@ -105,6 +118,29 @@ export function useAdminBootstrap() {
         tenantCategory: bootstrap.tenant?.business_category || "",
         tenantSlug: resolvedTenantSlug,
         growthVisible: Boolean(bootstrap.features?.enable_discovery_posts),
+        currentWorkspace: {
+          id: bootstrap.tenant?.id || "",
+          name: bootstrap.tenant?.name || tenantParam || "HUB",
+          slug: resolvedTenantSlug,
+          role: bootstrap.user?.role || "owner",
+          logo_url: bootstrap.tenant?.logo_url || "",
+        },
+        workspaces: bootstrap.tenant?.id
+          ? [
+              {
+                id: bootstrap.tenant.id,
+                name: bootstrap.tenant?.name || tenantParam || "HUB",
+                slug: resolvedTenantSlug,
+                role: bootstrap.user?.role || "owner",
+                logo_url: bootstrap.tenant?.logo_url || "",
+              },
+            ]
+          : [],
+        trialInfo: {
+          plan: bootstrap.tenant?.plan || "",
+          status: bootstrap.tenant?.status || "",
+          daysLeft: null,
+        },
       });
     } catch (error) {
       setState((current) => ({

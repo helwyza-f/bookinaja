@@ -1,20 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
   Banknote,
+  CheckCircle2,
   Copy,
   Download,
   ExternalLink,
-  Fingerprint,
   RefreshCw,
   Send,
   Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -75,10 +75,10 @@ const statusLabel: Record<string, string> = {
 };
 
 const rewardTone: Record<string, string> = {
-  available: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200",
-  pending: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200",
-  withdrawn: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200",
-  rejected: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200",
+  available: "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-500/20",
+  pending: "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/20",
+  withdrawn: "bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-500/10 dark:text-blue-200 dark:ring-blue-500/20",
+  rejected: "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-200 dark:ring-rose-500/20",
 };
 
 const formatDate = (value?: string) => {
@@ -171,7 +171,7 @@ export default function ReferralSettingsPage() {
       !payout.account_number.trim() ||
       !payout.whatsapp.trim()
     ) {
-      setMessage("Lengkapi nama bank, pemilik rekening, nomor rekening, dan WhatsApp.");
+      setMessage("Lengkapi rekening dan WhatsApp pencairan.");
       return;
     }
 
@@ -207,10 +207,10 @@ export default function ReferralSettingsPage() {
     setMessage(null);
     try {
       await api.post("/admin/settings/referrals/withdrawals");
-      toast.success("Request pencairan berhasil diajukan.");
+      toast.success("Request pencairan diajukan.");
       await loadData();
     } catch {
-      setMessage("Request pencairan gagal. Pastikan saldo dan rekening sudah siap.");
+      setMessage("Pencairan gagal. Pastikan saldo dan rekening sudah siap.");
     } finally {
       setWithdrawing(false);
     }
@@ -231,191 +231,155 @@ export default function ReferralSettingsPage() {
   };
 
   return (
-    <div className="space-y-4 p-4 pb-24 sm:space-y-6 sm:p-6">
-      <section className="space-y-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
-                Referral
-              </p>
-              <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white sm:text-3xl">
-                Bonus Referral
-              </h1>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Share link, pantau saldo, lalu cairkan bonus.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 sm:w-auto">
-              <Metric label="Saldo" value={`Rp ${formatIDR(summary?.available_balance)}`} tone="emerald" />
-              <Metric
-                label="Referral"
-                value={String(summary?.total_referred || 0)}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap">
-            <Button variant="outline" onClick={loadData} className="h-10 rounded-xl">
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </Button>
-            <Button
-              variant="outline"
-              onClick={requestWithdrawal}
-              disabled={!canWithdraw || withdrawing || loading}
-              className="h-10 rounded-xl"
-            >
-              <Banknote className="mr-2 h-4 w-4" />
-              Cairkan
-            </Button>
-            <Button
-              asChild
-              className="col-span-2 h-10 rounded-xl bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)] lg:col-span-1"
-            >
-              <Link href="/admin/settings/billing">
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Billing
-              </Link>
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <Metric
-              label="Pending"
-                value={`Rp ${formatIDR(summary?.pending_withdrawal)}`}
-                tone="amber"
-              />
-            <Metric label="Kode" value={summary?.referral_code || "-"} />
-          </div>
-      </section>
+    <div className="space-y-3 px-3 py-3 pb-16 sm:px-4 lg:px-5">
+      <div className="flex flex-col gap-3 border-b border-slate-200 pb-3 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--bookinaja-600)]">
+            Referral
+          </p>
+          <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">
+            Refer & Earn
+          </h2>
+          <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+            Kode, link, saldo, dan payout dalam satu halaman.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={loadData} className="rounded-xl">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={requestWithdrawal}
+            disabled={!canWithdraw || withdrawing || loading}
+            className="rounded-xl"
+          >
+            <Banknote className="mr-2 h-4 w-4" />
+            Cairkan
+          </Button>
+          <Button asChild size="sm" className="rounded-xl">
+            <Link href="/admin/settings/billing">
+              Billing
+              <ExternalLink className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+      </div>
 
       {message ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
           {message}
         </div>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-        <Card className="rounded-[1.5rem] border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
-          <CardHeader className="space-y-2">
-            <CardTitle className="text-base">Share</CardTitle>
-            <CardDescription>Bagikan link referral tenant.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="rounded-xl border border-slate-200 p-4 dark:border-white/10">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                    Kode Referral
-                  </p>
-                  <p className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
-                    {summary?.referral_code || "-"}
-                  </p>
-                </div>
-                <Fingerprint className="h-5 w-5 text-slate-400" />
-              </div>
-
-              <div className="mt-3 rounded-xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500 dark:border-white/10 dark:text-slate-300">
-                {referralUrl || "Link akan muncul setelah kode referral tersedia."}
-              </div>
-
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                <Button onClick={copyReferralLink} disabled={!referralUrl} className="h-10 rounded-xl sm:w-auto">
-                  <Copy className="mr-2 h-4 w-4" />
-                  Salin Link
-                </Button>
-                <div className="rounded-xl border border-slate-200 px-3 py-3 text-sm text-slate-500 dark:border-white/10 dark:text-slate-300">
-                  Bonus masuk saat tenant referral jadi subscriber aktif.
-                </div>
-              </div>
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_280px]">
+        <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-base font-semibold text-slate-950 dark:text-white">
+                Referral link
+              </h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Bagikan link ini ke calon tenant.
+              </p>
             </div>
-          </CardContent>
-        </Card>
+            <StatusPill active={Boolean(summary?.referral_code)}>
+              {summary?.referral_code ? "Kode aktif" : "Menyiapkan kode"}
+            </StatusPill>
+          </div>
 
-        <Card className="rounded-[1.5rem] border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
-          <CardHeader className="space-y-2">
-            <CardTitle className="text-base">Payout</CardTitle>
-            <CardDescription>Siapkan rekening dan ajukan pencairan.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {payoutReady ? (
-              <div className="rounded-xl border border-slate-200 p-4 dark:border-white/10">
-                <p className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                  Rekening Aktif
-                </p>
-                <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
-                  <InfoRow label="Bank" value={summary?.payout_bank_name} />
-                  <InfoRow label="Nama" value={summary?.payout_account_name} />
-                  <InfoRow label="No. rekening" value={summary?.payout_account_number} />
-                  <InfoRow label="WhatsApp" value={summary?.payout_whatsapp} />
-                </div>
+          <div className="mt-3 grid gap-2">
+            <InfoLine label="Kode" value={summary?.referral_code || (loading ? "Memuat..." : "-")} />
+            <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 dark:border-slate-800 dark:bg-white/[0.03] sm:flex-row sm:items-center">
+              <div className="min-w-0 flex-1 truncate rounded-lg bg-white px-3 py-2 font-mono text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                {referralUrl || "Link akan muncul setelah kode tersedia"}
               </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-slate-200 p-5 text-center dark:border-white/10">
-                <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 dark:bg-white/[0.03]">
-                  <Wallet className="h-5 w-5" />
-                </div>
-                <div className="mt-3 text-sm font-semibold text-slate-950 dark:text-white">
-                  Rekening pencairan belum diatur
-                </div>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Tambah rekening dulu supaya bonus bisa dicairkan.
-                </p>
-              </div>
-            )}
-
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Button onClick={openPayoutDialog} variant="outline" className="h-10 rounded-xl">
-                <Download className="mr-2 h-4 w-4" />
-                {payoutReady ? "Edit Rekening" : "Tambah Rekening"}
-              </Button>
               <Button
-                onClick={requestWithdrawal}
-                disabled={!canWithdraw || withdrawing}
-                className="h-10 rounded-xl"
+                type="button"
+                size="sm"
+                onClick={copyReferralLink}
+                disabled={!referralUrl}
+                className="rounded-lg sm:w-auto"
               >
-                <Send className="mr-2 h-4 w-4" />
-                Ajukan Cair
+                <Copy className="mr-2 h-4 w-4" />
+                Salin
               </Button>
             </div>
+          </div>
+        </section>
 
-            <div
-              className={cn(
-                "rounded-xl border px-4 py-3 text-sm",
-                payoutReady
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200"
-                  : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200",
-              )}
-            >
-              {payoutReady
-                ? "Rekening siap. Saldo bisa diajukan kalau tersedia."
-                : "Lengkapi rekening dulu sebelum ajukan pencairan."}
-            </div>
-          </CardContent>
-        </Card>
+        <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Snapshot</h3>
+          <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">
+            <StatRow label="Saldo" value={`Rp ${formatIDR(summary?.available_balance)}`} tone="emerald" />
+            <StatRow label="Pending" value={`Rp ${formatIDR(summary?.pending_withdrawal)}`} tone="amber" />
+            <StatRow label="Referral" value={String(summary?.total_referred || 0)} />
+            <StatRow label="Aktif" value={String(summary?.active_referred || 0)} />
+          </div>
+        </section>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Card className="rounded-[1.5rem] border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
-          <CardHeader>
-            <CardTitle className="text-base">Referral</CardTitle>
-            <CardDescription>Tenant yang masuk dari kode kamu.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_280px]">
+        <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-slate-950 dark:text-white">Payout</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Rekening pencairan bonus.
+              </p>
+            </div>
+            <StatusPill active={payoutReady}>{payoutReady ? "Siap" : "Belum lengkap"}</StatusPill>
+          </div>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <InfoLine label="Bank" value={summary?.payout_bank_name || "-"} />
+            <InfoLine label="Nama" value={summary?.payout_account_name || "-"} />
+            <InfoLine label="No. rekening" value={summary?.payout_account_number || "-"} />
+            <InfoLine label="WhatsApp" value={summary?.payout_whatsapp || "-"} />
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button onClick={openPayoutDialog} variant="outline" size="sm" className="rounded-xl">
+              <Wallet className="mr-2 h-4 w-4" />
+              {payoutReady ? "Edit rekening" : "Tambah rekening"}
+            </Button>
+            <Button
+              onClick={requestWithdrawal}
+              disabled={!canWithdraw || withdrawing}
+              size="sm"
+              className="rounded-xl"
+            >
+              <Send className="mr-2 h-4 w-4" />
+              Ajukan cair
+            </Button>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Aturan bonus</h3>
+          <div className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
+            <RuleLine>Tenant daftar lewat link referral.</RuleLine>
+            <RuleLine>Bonus masuk saat tenant jadi subscriber aktif.</RuleLine>
+            <RuleLine>Pencairan butuh rekening terverifikasi.</RuleLine>
+          </div>
+        </section>
+      </div>
+
+      <div className="grid gap-3 xl:grid-cols-2">
+        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <ListHeader title="Referral" subtitle="Tenant yang masuk dari kode kamu." />
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {loading ? (
-              <div className="rounded-xl border border-dashed border-slate-200 p-6 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
-                Memuat referral...
-              </div>
+              <EmptyLine label="Memuat referral..." />
             ) : referrals.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 p-6 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
-                Belum ada tenant referral.
-              </div>
+              <EmptyLine label="Belum ada tenant referral." />
             ) : (
               referrals.map((item) => {
                 const rewardStatus = item.reward_status || "pending";
                 return (
-                  <div key={`${item.tenant_slug}-${item.tenant_name}`} className="rounded-xl border border-slate-200 p-4 dark:border-white/10">
+                  <div key={`${item.tenant_slug}-${item.tenant_name}`} className="p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">
@@ -425,46 +389,37 @@ export default function ReferralSettingsPage() {
                           {item.tenant_slug || "-"}
                         </div>
                       </div>
-                      <div
+                      <span
                         className={cn(
-                          "inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold",
+                          "shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ring-1",
                           rewardTone[rewardStatus] ||
-                            "border-slate-200 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300",
+                            "bg-slate-100 text-slate-600 ring-slate-200 dark:bg-white/[0.06] dark:text-slate-300 dark:ring-white/10",
                         )}
                       >
                         {statusLabel[rewardStatus] || rewardStatus || "-"}
-                      </div>
+                      </span>
                     </div>
-
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <MiniPanel label="Reward" value={`Rp ${formatIDR(item.reward_amount)}`} />
-                      <MiniPanel
-                        label="Tenant"
-                        value={statusLabel[item.status || ""] || item.status || "-"}
-                      />
-                      <MiniPanel label="Trial berakhir" value={formatDate(item.trial_ends_at)} />
-                      <MiniPanel label="Subscribe" value={formatDate(item.subscribed_at)} />
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                      <MiniValue label="Reward" value={`Rp ${formatIDR(item.reward_amount)}`} />
+                      <MiniValue label="Tenant" value={statusLabel[item.status || ""] || item.status || "-"} />
+                      <MiniValue label="Trial" value={formatDate(item.trial_ends_at)} />
+                      <MiniValue label="Subscribe" value={formatDate(item.subscribed_at)} />
                     </div>
                   </div>
                 );
               })
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
 
-        <Card className="rounded-[1.5rem] border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
-          <CardHeader>
-            <CardTitle className="text-base">Withdrawal</CardTitle>
-            <CardDescription>Riwayat pencairan bonus referral.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <ListHeader title="Withdrawal" subtitle="Riwayat pencairan bonus." />
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {withdrawals.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 p-6 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
-                Belum ada riwayat pencairan.
-              </div>
+              <EmptyLine label="Belum ada riwayat pencairan." />
             ) : (
               withdrawals.map((item) => (
-                <div key={item.id} className="rounded-xl border border-slate-200 p-4 dark:border-white/10">
+                <div key={item.id} className="p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-sm font-semibold text-slate-950 dark:text-white">
@@ -474,73 +429,61 @@ export default function ReferralSettingsPage() {
                         {formatDate(item.created_at)}
                       </div>
                     </div>
-                    <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold text-white dark:bg-white dark:text-slate-950">
+                    <span className="rounded-full bg-slate-950 px-2.5 py-1 text-xs font-semibold text-white dark:bg-white dark:text-slate-950">
                       {statusLabel[item.status || ""] || item.status || "-"}
                     </span>
                   </div>
                   {item.note ? (
-                    <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
-                      {item.note}
-                    </div>
+                    <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{item.note}</p>
                   ) : null}
                 </div>
               ))
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       </div>
 
       <Dialog open={payoutDialogOpen} onOpenChange={setPayoutDialogOpen}>
         <DialogContent className="flex max-h-[calc(100dvh-1rem)] max-w-lg flex-col overflow-hidden rounded-2xl">
           <DialogHeader className="shrink-0">
-            <DialogTitle>
-              {payoutReady ? "Edit rekening pencairan" : "Tambah rekening pencairan"}
-            </DialogTitle>
-            <DialogDescription>Isi data tujuan bonus referral.</DialogDescription>
+            <DialogTitle>{payoutReady ? "Edit rekening" : "Tambah rekening"}</DialogTitle>
+            <DialogDescription>Data ini dipakai saat pencairan bonus referral.</DialogDescription>
           </DialogHeader>
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain">
-            <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
-              Bank, nama pemilik, nomor rekening, dan WhatsApp dipakai untuk konfirmasi pencairan.
-            </div>
-
-            <div className="grid gap-3">
-              <Field label="Nama bank">
-                <Input
-                  value={payout.bank_name}
-                  onChange={(e) => setPayout((prev) => ({ ...prev, bank_name: e.target.value }))}
-                  placeholder="BCA / BRI / Mandiri"
-                />
-              </Field>
-              <Field label="Nama pemilik rekening">
-                <Input
-                  value={payout.account_name}
-                  onChange={(e) =>
-                    setPayout((prev) => ({ ...prev, account_name: e.target.value }))
-                  }
-                  placeholder="Sesuai buku rekening"
-                />
-              </Field>
-              <Field label="Nomor rekening">
-                <Input
-                  value={payout.account_number}
-                  onChange={(e) =>
-                    setPayout((prev) => ({ ...prev, account_number: e.target.value }))
-                  }
-                  placeholder="1234567890"
-                />
-              </Field>
-              <Field label="WhatsApp konfirmasi">
-                <Input
-                  value={payout.whatsapp}
-                  onChange={(e) => setPayout((prev) => ({ ...prev, whatsapp: e.target.value }))}
-                  placeholder="08xxxxxxxxxx"
-                />
-              </Field>
-            </div>
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain">
+            <Field label="Nama bank">
+              <Input
+                value={payout.bank_name}
+                onChange={(e) => setPayout((prev) => ({ ...prev, bank_name: e.target.value }))}
+                placeholder="BCA / BRI / Mandiri"
+              />
+            </Field>
+            <Field label="Nama pemilik rekening">
+              <Input
+                value={payout.account_name}
+                onChange={(e) => setPayout((prev) => ({ ...prev, account_name: e.target.value }))}
+                placeholder="Sesuai rekening"
+              />
+            </Field>
+            <Field label="Nomor rekening">
+              <Input
+                value={payout.account_number}
+                onChange={(e) =>
+                  setPayout((prev) => ({ ...prev, account_number: e.target.value }))
+                }
+                placeholder="1234567890"
+              />
+            </Field>
+            <Field label="WhatsApp konfirmasi">
+              <Input
+                value={payout.whatsapp}
+                onChange={(e) => setPayout((prev) => ({ ...prev, whatsapp: e.target.value }))}
+                placeholder="08xxxxxxxxxx"
+              />
+            </Field>
           </div>
 
-          <DialogFooter className="mx-0 mb-0 mt-0 shrink-0 gap-2 rounded-none border-t bg-background px-4 py-4 sm:gap-0 sm:rounded-b-2xl">
+          <DialogFooter className="shrink-0 gap-2 border-t bg-background px-4 py-4">
             <Button
               type="button"
               variant="outline"
@@ -560,64 +503,97 @@ export default function ReferralSettingsPage() {
   );
 }
 
-function Metric({
+function InfoLine({ label, value }: { label: string; value?: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-white/[0.03]">
+      <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+        {label}
+      </div>
+      <div className="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-white">
+        {value || "-"}
+      </div>
+    </div>
+  );
+}
+
+function StatRow({
   label,
   value,
-  tone = "slate",
+  tone,
 }: {
   label: string;
   value: string;
-  tone?: "slate" | "emerald" | "amber";
+  tone?: "emerald" | "amber";
 }) {
-  const tones = {
-    slate: "bg-white/85 text-slate-900 dark:bg-white/[0.04] dark:text-white",
-    emerald: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200",
-    amber: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200",
-  };
-
   return (
-    <div
-      className={cn(
-        "rounded-[1.1rem] border border-slate-200 px-3 py-3 shadow-sm dark:border-white/10",
-        tones[tone],
-      )}
-    >
-      <div className="text-[10px] font-black uppercase tracking-[0.18em] opacity-70">
-        {label}
-      </div>
-      <div className="mt-1 text-lg font-black tracking-tight break-words">{value}</div>
-    </div>
-  );
-}
-
-function MiniPanel({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-slate-200 px-3 py-3 dark:border-white/10">
-      <div className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
-        {label}
-      </div>
-      <div className="mt-1 text-sm font-medium text-slate-900 dark:text-white">{value}</div>
-    </div>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value?: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span>{label}</span>
-      <span className="text-right font-semibold text-slate-950 dark:text-white">
-        {value || "-"}
+    <div className="flex items-center justify-between gap-3 py-2.5">
+      <span className="text-sm text-slate-500 dark:text-slate-400">{label}</span>
+      <span
+        className={cn(
+          "text-sm font-semibold text-slate-950 dark:text-white",
+          tone === "emerald" && "text-emerald-700 dark:text-emerald-300",
+          tone === "amber" && "text-amber-700 dark:text-amber-300",
+        )}
+      >
+        {value}
       </span>
     </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function StatusPill({ active, children }: { active: boolean; children: ReactNode }) {
   return (
-    <div className="space-y-2">
-      <Label className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1",
+        active
+          ? "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-500/20"
+          : "bg-slate-100 text-slate-500 ring-slate-200 dark:bg-white/[0.06] dark:text-slate-300 dark:ring-white/10",
+      )}
+    >
+      {active ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
+      {children}
+    </span>
+  );
+}
+
+function RuleLine({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex gap-2">
+      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+      <span>{children}</span>
+    </div>
+  );
+}
+
+function ListHeader({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div className="border-b border-slate-100 p-3 dark:border-slate-800">
+      <h3 className="text-base font-semibold text-slate-950 dark:text-white">{title}</h3>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>
+    </div>
+  );
+}
+
+function EmptyLine({ label }: { label: string }) {
+  return <div className="p-3 text-sm text-slate-500 dark:text-slate-400">{label}</div>;
+}
+
+function MiniValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
+      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
         {label}
-      </Label>
+      </div>
+      <div className="mt-1 truncate font-semibold text-slate-700 dark:text-slate-200">{value}</div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300">{label}</Label>
       {children}
     </div>
   );

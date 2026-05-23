@@ -1,10 +1,22 @@
 "use client";
+import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Mail, Phone, MapPin, Moon, Sun, Menu, X } from "lucide-react";
+import {
+  Mail,
+  Phone,
+  MapPin,
+  Moon,
+  Sun,
+  Menu,
+  X,
+  ChevronDown,
+} from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { demoSectors } from "./demos/demo-data";
+import { BOOKINAJA_LOGO_NORMAL_SRC } from "@/lib/brand";
 
 export default function MarketingLayout({
   children,
@@ -13,6 +25,9 @@ export default function MarketingLayout({
 }) {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [openMobileSubmenu, setOpenMobileSubmenu] = useState<string | null>(
+    null,
+  );
   const [isScrolled, setIsScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
   const currentTheme = resolvedTheme || theme;
@@ -30,26 +45,30 @@ export default function MarketingLayout({
     };
   }, []);
 
+  const demoNavLinks = demoSectors.map((sector) => ({
+    name: sector.shortTitle,
+    href: `/demos/${sector.slug}`,
+  }));
+
   const navLinks = [
     { name: "Home", href: "/" },
-    { name: "Demo", href: "/demos" },
+    { name: "Demo", href: "/demos", children: demoNavLinks },
     { name: "Pricing", href: "/pricing" },
-    { name: "Discovery", href: "/discovery" },
+    { name: "Jelajah", href: "/discovery" },
   ];
 
   return (
-    <div className="flex min-h-screen flex-col selection:bg-blue-600/30 font-plus-jakarta transition-colors duration-300 relative">
+    <div className="marketing-calm flex min-h-screen flex-col selection:bg-blue-600/30 font-plus-jakarta transition-colors duration-300 relative">
       {/* --- HEADER (MELAYANG / FIXED) --- */}
       {/* Kita pakai fixed agar Hero naik ke paling atas layar */}
-      <header className="fixed top-0 left-0 right-0 z-[100] w-full px-4 py-4 md:py-6 transition-all duration-300">
+      <header className="fixed top-0 left-0 right-0 z-[100] w-full px-4 py-3 md:py-5 transition-all duration-300">
         <div className="container mx-auto max-w-7xl">
           <div
             className={cn(
-              "flex h-16 md:h-20 items-center justify-between rounded-[1rem] md:rounded-[1rem] border px-5 md:px-8 transition-all duration-500",
-              // Efek Glassmorphism yang menyesuaikan scroll
+              "flex h-[3.75rem] md:h-[4.5rem] items-center justify-between rounded-[1rem] border px-5 md:px-8 transition-all duration-500 backdrop-blur-xl",
               isScrolled
-                ? "border-border/50 dark:border-white/10 bg-background/80 dark:bg-[#07070d]/80 shadow-2xl backdrop-blur-2xl py-2"
-                : "border-transparent bg-transparent py-4 shadow-none backdrop-blur-none",
+                ? "border-border/70 bg-background/92 shadow-[0_18px_48px_rgba(15,23,42,0.10)] dark:border-white/10 dark:bg-[#07070d]/88"
+                : "border-border/55 bg-background/82 shadow-[0_12px_34px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-[#07070d]/72",
             )}
           >
             {/* Logo */}
@@ -57,42 +76,61 @@ export default function MarketingLayout({
               href="/"
               className="group flex items-center gap-3 md:gap-4 shrink-0"
             >
-              <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-2xl bg-[#0f1f4a] shadow-lg transition-transform group-hover:rotate-6">
-                <svg width="28" height="28" viewBox="0 0 64 64" fill="none">
-                  <rect
-                    x="10"
-                    y="18"
-                    width="46"
-                    height="12"
-                    rx="5"
-                    fill="#3b82f6"
-                  />
-                  <rect
-                    x="10"
-                    y="37"
-                    width="26"
-                    height="12"
-                    rx="5"
-                    fill="#1d4ed8"
-                  />
-                </svg>
+              <div className="relative flex h-10 w-10 md:h-12 md:w-12 items-center justify-center overflow-hidden rounded-xl bg-[#05070f] p-2 shadow-[0_12px_28px_rgba(15,31,74,0.22)] ring-1 ring-white/10 transition-transform group-hover:rotate-3 dark:bg-[#101827] dark:ring-blue-400/20">
+                <Image
+                  src={BOOKINAJA_LOGO_NORMAL_SRC}
+                  alt="Bookinaja"
+                  fill
+                  sizes="48px"
+                  priority
+                  className="scale-[0.78] object-contain"
+                />
               </div>
-              <span className="text-xl md:text-2xl font-[1000] tracking-tighter text-foreground italic uppercase">
+              <span className="text-xl md:text-2xl font-[850] tracking-tighter text-foreground italic uppercase">
                 <span className="text-blue-500">book</span>inaja
               </span>
             </Link>
 
             {/* Navigation - Desktop */}
             <nav className="hidden lg:flex items-center gap-8">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.name}
-                  href={link.href}
-                  className="text-[14px] font-black uppercase tracking-[0.25em] text-foreground/70 hover:text-blue-500 transition-colors italic"
-                >
-                  {link.name}
-                </Link>
-              ))}
+              {navLinks.map((link) =>
+                link.children ? (
+                  <div key={link.name} className="group relative">
+                    <Link
+                      href={link.href}
+                      className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-[0.2em] text-foreground/82 transition-colors hover:text-blue-500 italic"
+                    >
+                      {link.name}
+                      <ChevronDown className="h-3.5 w-3.5 transition-transform group-hover:rotate-180" />
+                    </Link>
+                    <div className="invisible absolute left-1/2 top-full z-[120] mt-4 w-72 -translate-x-1/2 translate-y-2 rounded-[1.5rem] border border-border bg-background/95 p-3 opacity-0 shadow-2xl backdrop-blur-xl transition-all duration-200 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
+                      <Link
+                        href="/demos"
+                        className="mb-2 block rounded-2xl px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:bg-blue-500/10 hover:text-blue-500"
+                      >
+                        Semua demo
+                      </Link>
+                      {link.children.map((child) => (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          className="block rounded-2xl px-4 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground/78 transition-colors hover:bg-blue-500/10 hover:text-blue-500"
+                        >
+                          {child.name}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <Link
+                    key={link.name}
+                    href={link.href}
+                    className="text-[13px] font-bold uppercase tracking-[0.2em] text-foreground/82 hover:text-blue-500 transition-colors italic"
+                  >
+                    {link.name}
+                  </Link>
+                ),
+              )}
             </nav>
 
             {/* Actions */}
@@ -101,7 +139,9 @@ export default function MarketingLayout({
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => setTheme(currentTheme === "dark" ? "light" : "dark")}
+                  onClick={() =>
+                    setTheme(currentTheme === "dark" ? "light" : "dark")
+                  }
                   className="rounded-xl hidden md:flex hover:bg-secondary/80 text-foreground"
                 >
                   <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
@@ -112,7 +152,7 @@ export default function MarketingLayout({
               )}
 
               <Link href="/register" className="hidden sm:block">
-                <Button className="rounded-xl md:rounded-2xl bg-blue-600 px-6 md:px-8 h-10 md:h-12 font-black text-white hover:bg-blue-700 shadow-xl shadow-blue-500/20 active:scale-95 transition-all text-[10px] md:text-xs uppercase italic tracking-widest border-b-4 border-blue-800 active:border-b-0">
+                <Button className="rounded-xl md:rounded-2xl bg-blue-600 px-6 md:px-8 h-10 md:h-11 font-semibold text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-95 transition-all text-[10px] md:text-xs uppercase italic tracking-[0.12em] border-b-4 border-blue-800 active:border-b-0">
                   Mulai Bisnis
                 </Button>
               </Link>
@@ -120,7 +160,7 @@ export default function MarketingLayout({
               <Link href="/user/me" className="hidden sm:block">
                 <Button
                   variant="outline"
-                  className="rounded-xl md:rounded-2xl px-6 md:px-8 h-10 md:h-12 font-black uppercase italic tracking-widest text-[10px] md:text-xs"
+                  className="rounded-xl md:rounded-2xl px-6 md:px-8 h-10 md:h-11 font-bold uppercase italic tracking-[0.12em] text-[10px] md:text-xs text-foreground"
                 >
                   Portal Customer
                 </Button>
@@ -142,32 +182,80 @@ export default function MarketingLayout({
         {/* Mobile Menu Dropdown */}
         <div
           className={cn(
-            "lg:hidden absolute top-24 left-4 right-4 bg-background/95 border border-border rounded-[2.5rem] p-8 shadow-2xl transition-all duration-500 origin-top backdrop-blur-xl",
+            "lg:hidden absolute top-20 left-4 right-4 bg-background/95 border border-border rounded-[1.5rem] p-5 shadow-xl transition-all duration-500 origin-top backdrop-blur-xl",
             isMobileMenuOpen
               ? "scale-y-100 opacity-100 visible translate-y-0"
               : "scale-y-95 opacity-0 invisible -translate-y-4",
           )}
         >
-          <nav className="flex flex-col gap-6">
-            {navLinks.map((link) => (
-              <Link
-                key={link.name}
-                href={link.href}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="text-xs font-black uppercase tracking-[0.3em] text-foreground/80 py-4 border-b border-border/50 italic"
-              >
-                {link.name}
-              </Link>
-            ))}
+          <nav className="flex flex-col gap-3">
+            {navLinks.map((link) =>
+              link.children ? (
+                <div key={link.name} className="border-b border-border/50 pb-4">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenMobileSubmenu((current) =>
+                        current === link.name ? null : link.name,
+                      )
+                    }
+                    className="flex w-full items-center justify-between py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-foreground/80 italic"
+                  >
+                    <span>{link.name}</span>
+                    <ChevronDown
+                      className={cn(
+                        "h-4 w-4 transition-transform",
+                        openMobileSubmenu === link.name && "rotate-180",
+                      )}
+                    />
+                  </button>
+                  <div
+                    className={cn(
+                      "grid overflow-hidden transition-all duration-300",
+                      openMobileSubmenu === link.name
+                        ? "max-h-80 gap-2 opacity-100"
+                        : "max-h-0 gap-0 opacity-0",
+                    )}
+                  >
+                    <Link
+                      href={link.href}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="rounded-2xl bg-secondary/60 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+                    >
+                      Semua demo
+                    </Link>
+                    {link.children.map((child) => (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="rounded-2xl bg-secondary/60 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+                      >
+                        {child.name}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <Link
+                  key={link.name}
+                  href={link.href}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/80 py-3 border-b border-border/50 italic"
+                >
+                  {link.name}
+                </Link>
+              ),
+            )}
             <Link href="/register" onClick={() => setIsMobileMenuOpen(false)}>
-              <Button className="w-full h-16 rounded-[1.5rem] bg-blue-600 font-black text-white uppercase italic tracking-[0.2em] shadow-xl shadow-blue-500/20 border-b-4 border-blue-800">
+              <Button className="w-full h-12 rounded-[1.25rem] bg-blue-600 font-semibold text-white uppercase italic tracking-[0.14em] shadow-lg shadow-blue-500/20 border-b-4 border-blue-800">
                 Mulai Bisnis Sekarang
               </Button>
             </Link>
             <Link href="/user/me" onClick={() => setIsMobileMenuOpen(false)}>
               <Button
                 variant="outline"
-                className="w-full h-16 rounded-[1.5rem] font-black uppercase italic tracking-[0.2em]"
+                className="w-full h-12 rounded-[1.25rem] font-semibold uppercase italic tracking-[0.14em]"
               >
                 Portal Customer
               </Button>
@@ -195,166 +283,177 @@ export default function MarketingLayout({
       )}
 
       {/* --- FOOTER --- */}
-      <footer className="relative z-10 border-t border-border/50 bg-secondary/10 pt-24 pb-12 backdrop-blur-md">
+      <footer className="relative z-10 border-t border-border/70 bg-background pt-12 pb-8">
         <div className="container mx-auto max-w-7xl px-6">
-          <div className="grid gap-16 md:grid-cols-2 lg:grid-cols-4 text-sm">
-            <div className="space-y-8">
-              <div className="text-2xl font-[1000] text-foreground tracking-tighter uppercase italic">
-                <span className="text-blue-500">book</span>inaja
+          <div className="rounded-[1.5rem] border border-border/70 bg-card/70 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.05)] md:p-8">
+            <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4 text-sm">
+              <div className="space-y-8">
+                <div className="flex items-center gap-3 text-2xl font-[850] text-foreground tracking-tighter uppercase italic">
+                <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-[#05070f] p-2 ring-1 ring-white/10 dark:bg-[#101827] dark:ring-blue-400/20">
+                  <Image
+                    src={BOOKINAJA_LOGO_NORMAL_SRC}
+                    alt="Bookinaja"
+                    fill
+                    sizes="36px"
+                    className="scale-[0.78] object-contain"
+                  />
+                </span>
+                  <span className="text-blue-500">book</span>inaja
+                </div>
+                <div className="space-y-4 text-foreground/75 font-semibold">
+                  <p className="flex items-start gap-4">
+                    <MapPin className="h-5 w-5 text-blue-500 shrink-0 mt-1" />
+                    <span className="leading-relaxed text-[11px] font-bold uppercase tracking-[0.08em]">
+                      Kec. Batam Kota, Kota Batam,
+                      <br />
+                      Kepulauan Riau 29464
+                    </span>
+                  </p>
+                  <p className="flex items-center gap-4">
+                    <Mail className="h-5 w-5 text-blue-500" />
+                    <span className="text-[11px] font-bold uppercase tracking-[0.08em]">
+                      support@bookinaja.com
+                    </span>
+                  </p>
+                  <p className="flex items-center gap-4">
+                    <Phone className="h-5 w-5 text-blue-500" />
+                    <span className="text-[11px] font-bold uppercase tracking-[0.08em]">
+                      +62 812-xxxx-xxxx
+                    </span>
+                  </p>
+                </div>
               </div>
-              <div className="space-y-4 text-muted-foreground font-medium">
-                <p className="flex items-start gap-4">
-                  <MapPin className="h-5 w-5 text-blue-500 shrink-0 mt-1" />
-                  <span className="leading-relaxed text-[11px] font-bold uppercase tracking-wider">
-                    Kec. Batam Kota, Kota Batam,
-                    <br />
-                    Kepulauan Riau 29464
-                  </span>
-                </p>
-                <p className="flex items-center gap-4">
-                  <Mail className="h-5 w-5 text-blue-500" />
-                  <span className="text-[11px] font-bold uppercase tracking-wider">
-                    support@bookinaja.com
-                  </span>
-                </p>
-                <p className="flex items-center gap-4">
-                  <Phone className="h-5 w-5 text-blue-500" />
-                  <span className="text-[11px] font-bold uppercase tracking-wider">
-                    +62 812-xxxx-xxxx
-                  </span>
-                </p>
+
+              {/* Rest of the footer links... */}
+              <div>
+                <h4 className="mb-5 text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600">
+                  Layanan
+                </h4>
+                <ul className="space-y-3 text-foreground/70 font-bold text-[10px] uppercase tracking-[0.1em] italic">
+                  <li>
+                    <Link
+                      href="/pricing"
+                      className="hover:text-blue-500 transition-colors"
+                    >
+                      Pricing Paket
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/demos"
+                      className="hover:text-blue-500 transition-colors"
+                    >
+                      Demo Bisnis
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/discovery"
+                      className="hover:text-blue-500 transition-colors"
+                    >
+                      Jelajah Bisnis
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/faq"
+                      className="hover:text-blue-500 transition-colors"
+                    >
+                      FAQ
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="mb-5 text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600">
+                  Kebijakan
+                </h4>
+                <ul className="space-y-3 text-foreground/70 font-bold text-[10px] uppercase tracking-[0.1em] italic">
+                  <li>
+                    <Link
+                      href="/terms"
+                      className="hover:text-blue-500 transition-colors"
+                    >
+                      Syarat & Ketentuan
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/privacy"
+                      className="hover:text-blue-500 transition-colors"
+                    >
+                      Kebijakan Privasi
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/refund"
+                      className="hover:text-blue-500 transition-colors"
+                    >
+                      Kebijakan Refund
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-8">
+                <h4 className="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600">
+                  Connect
+                </h4>
+                <div className="flex gap-4">
+                  <Link
+                    href="https://instagram.com/bookinajacom"
+                    target="_blank"
+                    className="p-3 rounded-2xl bg-background border border-border/50 hover:bg-blue-500 hover:text-white transition-all hover:-translate-y-1"
+                  >
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+                    </svg>
+                  </Link>
+                  <Link
+                    href="https://linkedin.com"
+                    target="_blank"
+                    className="p-3 rounded-2xl bg-background border border-border/50 hover:bg-blue-500 hover:text-white transition-all hover:-translate-y-1"
+                  >
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
+                      <rect width="4" height="12" x="2" y="9" />
+                      <circle cx="4" cy="4" r="2" />
+                    </svg>
+                  </Link>
+                </div>
               </div>
             </div>
 
-            {/* Rest of the footer links... */}
-            <div>
-              <h4 className="mb-8 font-black text-[10px] font-bold uppercase tracking-[0.3em] text-blue-500">
-                Layanan
-              </h4>
-              <ul className="space-y-5 text-muted-foreground font-bold text-[10px] uppercase tracking-widest italic">
-                <li>
-                  <Link
-                    href="/pricing"
-                    className="hover:text-blue-500 transition-colors"
-                  >
-                    Pricing Paket
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/demos"
-                    className="hover:text-blue-500 transition-colors"
-                  >
-                    Live Demos
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/documentation"
-                    className="hover:text-blue-500 transition-colors"
-                  >
-                    Documentation
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/faq"
-                    className="hover:text-blue-500 transition-colors"
-                  >
-                    FAQ
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="mb-8 font-black text-[10px] font-bold uppercase tracking-[0.3em] text-blue-500">
-                Kebijakan
-              </h4>
-              <ul className="space-y-5 text-muted-foreground font-bold text-[10px] uppercase tracking-widest italic">
-                <li>
-                  <Link
-                    href="/terms"
-                    className="hover:text-blue-500 transition-colors"
-                  >
-                    Syarat & Ketentuan
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/privacy"
-                    className="hover:text-blue-500 transition-colors"
-                  >
-                    Kebijakan Privasi
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/refund"
-                    className="hover:text-blue-500 transition-colors"
-                  >
-                    Kebijakan Refund
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div className="space-y-8">
-              <h4 className="font-black text-[10px] font-bold uppercase tracking-[0.3em] text-blue-500">
-                Connect
-              </h4>
-              <div className="flex gap-4">
-                <Link
-                  href="https://instagram.com/bookinajacom"
-                  target="_blank"
-                  className="p-3 rounded-2xl bg-background border border-border/50 hover:bg-blue-500 hover:text-white transition-all hover:-translate-y-1"
-                >
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
-                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-                    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
-                  </svg>
-                </Link>
-                <Link
-                  href="https://linkedin.com"
-                  target="_blank"
-                  className="p-3 rounded-2xl bg-background border border-border/50 hover:bg-blue-500 hover:text-white transition-all hover:-translate-y-1"
-                >
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
-                    <rect width="4" height="12" x="2" y="9" />
-                    <circle cx="4" cy="4" r="2" />
-                  </svg>
-                </Link>
+            <div className="mt-10 border-t border-border/60 pt-6 flex flex-col md:flex-row justify-between items-center gap-5 text-center md:text-left">
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/55 italic">
+                © 2026 bookinaja.com · Indonesia 🇮🇩
               </div>
-            </div>
-          </div>
-
-          <div className="mt-24 border-t border-border/50 pt-10 flex flex-col md:flex-row justify-between items-center gap-6 text-center md:text-left">
-            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 italic">
-              © 2026 bookinaja.com · Indonesia 🇮🇩
-            </div>
-            <div className="flex items-center gap-8 text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 italic">
-              <span>Security Verified</span>
-              <span>IDCloudHost Infrastructure</span>
+              <div className="flex items-center gap-8 text-[9px] font-bold uppercase tracking-[0.14em] text-foreground/45 italic">
+                <span>Security Verified</span>
+                <span>IDCloudHost Infrastructure</span>
+              </div>
             </div>
           </div>
         </div>

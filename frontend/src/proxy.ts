@@ -5,6 +5,7 @@ import type { NextRequest } from "next/server";
 export default async function proxy(req: NextRequest) {
   const url = req.nextUrl;
   const path = url.pathname;
+  const accountToken = req.cookies.get("account_token")?.value;
   const adminToken = req.cookies.get("auth_token")?.value;
   const customerToken = req.cookies.get("customer_auth")?.value;
 
@@ -35,12 +36,13 @@ export default async function proxy(req: NextRequest) {
   const hasBookingTokenQuery =
     url.pathname.startsWith("/me/bookings/") && url.searchParams.has("token");
   const rootRedirect = resolveRootRedirect(path, {
-    hasAdminToken: Boolean(adminToken),
+    hasAdminToken: Boolean(adminToken || accountToken),
     hasCustomerToken: Boolean(customerToken),
     hasBookingTokenQuery:
       url.pathname.startsWith("/user/me/bookings/") &&
       url.searchParams.has("token"),
     search: url.search,
+    signedOut: url.searchParams.get("signed_out") === "1",
   });
 
   if (isRootDomainHost && rootRedirect) {
@@ -86,12 +88,17 @@ export default async function proxy(req: NextRequest) {
     }
 
     const redirectTarget = resolveTenantRedirect(path, {
-      hasAdminToken: Boolean(adminToken),
+      hasAdminToken: Boolean(adminToken || accountToken),
       hasCustomerToken: Boolean(customerToken),
       hasBookingTokenQuery,
     });
 
     if (redirectTarget) {
+      if (redirectTarget === "/admin/login") {
+        return NextResponse.redirect(
+          buildRootUrl(req, "/login", `?next=${encodeURIComponent(req.url)}`, rootConfig)
+        );
+      }
       return NextResponse.redirect(new URL(redirectTarget, req.url));
     }
 
@@ -124,6 +131,10 @@ export default async function proxy(req: NextRequest) {
 }
 
 function resolveRootDomainConfig(hostname: string) {
+  if (isLocalRootHost(hostname)) {
+    return { host: hostname, port: "" };
+  }
+
   const configured = (process.env.NEXT_PUBLIC_ROOT_DOMAIN || "")
     .replace(/(^"|"$)/g, "")
     .trim();
@@ -157,7 +168,7 @@ function buildRootUrl(
   rootUrl.hostname = rootConfig.host;
   if (rootConfig.port) {
     rootUrl.port = rootConfig.port;
-  } else {
+  } else if (!isLocalRootHost(rootConfig.host)) {
     rootUrl.port = "";
   }
   rootUrl.pathname = pathname;
@@ -177,6 +188,10 @@ function buildRootRedirectUrl(
 
 function stripPort(value: string) {
   return value.split(":")[0];
+}
+
+function isLocalRootHost(hostname: string) {
+  return hostname === "localhost" || hostname === "127.0.0.1";
 }
 
 function resolveRequestProtocol(req: NextRequest) {
@@ -245,6 +260,7 @@ function resolveRootRedirect(
     hasCustomerToken: boolean;
     hasBookingTokenQuery?: boolean;
     search?: string;
+    signedOut?: boolean;
   },
 ) {
   const isPlatformLogin = path === "/login";
@@ -257,8 +273,11 @@ function resolveRootRedirect(
   const isCustomerVerify = path === "/user/verify" || path.startsWith("/user/verify/");
 
   if (isPlatformLogin) {
+    if (auth.signedOut) {
+      return null;
+    }
     if (auth.hasAdminToken) {
-      return "/dashboard/overview";
+      return "/app";
     }
     return null;
   }

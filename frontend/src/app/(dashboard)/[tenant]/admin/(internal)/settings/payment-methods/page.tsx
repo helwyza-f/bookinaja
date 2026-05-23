@@ -456,9 +456,9 @@ export default function PaymentMethodsSettingsPage() {
         description="Workflow pembayaran tenant lebih enak dipahami kalau owner langsung lihat apakah pengelolaan payment method dan verifikasi manual sudah masuk di plan sekarang."
         requirement={{ anyFeatures: ["payment_method_management", "manual_payment_verification"] }}
       />
-      <section className="space-y-4">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
+      <Card className="overflow-hidden rounded-[1.75rem] border-slate-200/80 bg-white/98 p-0 shadow-sm dark:border-white/10 dark:bg-[#0f1117]/96">
+        <div className="grid gap-0 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+          <div className="p-5 sm:p-6">
             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
               Payments
             </p>
@@ -466,21 +466,25 @@ export default function PaymentMethodsSettingsPage() {
               Payment Methods
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-              Pilih metode bayar yang tampil ke customer, lalu atur DP default kalau
-              perlu untuk resource timed.
+              Pilih metode bayar yang tampil ke customer, lalu atur DP default untuk resource timed hanya kalau memang diperlukan.
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 sm:w-auto">
-            <SummaryStat label="Aktif" value={String(activeCount)} />
-            <SummaryStat
-              label="DP"
-              value={depositSettings.dp_enabled ? `${depositSettings.dp_percentage}%` : "Off"}
-            />
-            <SummaryStat label="Override" value={String(overrideCount)} />
+          <div className="border-t border-slate-200/80 bg-slate-50/80 p-5 dark:border-white/10 dark:bg-white/[0.03] lg:border-l lg:border-t-0 sm:p-6">
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+              Snapshot
+            </div>
+            <div className="mt-4 grid gap-3">
+              <SummaryStat label="Aktif" value={String(activeCount)} />
+              <SummaryStat
+                label="DP"
+                value={depositSettings.dp_enabled ? `${depositSettings.dp_percentage}%` : "Off"}
+              />
+              <SummaryStat label="Override" value={String(overrideCount)} />
+            </div>
           </div>
         </div>
-      </section>
+      </Card>
 
       <Card className="rounded-[1.75rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0f0f17]">
         <div className="border-b border-slate-100 px-5 py-4 dark:border-white/5">

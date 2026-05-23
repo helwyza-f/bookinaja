@@ -71,7 +71,7 @@ export default function DiscoverPostDetailPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-5xl space-y-4 px-4 py-6 md:px-6">
+      <div className="discovery-calm mx-auto max-w-5xl space-y-4 px-4 py-6 md:px-6">
         <Skeleton className="h-12 rounded-2xl" />
         <Skeleton className="h-[520px] rounded-[2rem]" />
       </div>
@@ -80,7 +80,7 @@ export default function DiscoverPostDetailPage() {
 
   if (!data) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-10 md:px-6">
+      <div className="discovery-calm mx-auto max-w-4xl px-4 py-10 md:px-6">
         <Card className="rounded-[2rem] border-slate-200 bg-white p-8 shadow-sm">
           <div className="text-2xl font-black tracking-tight text-slate-950">Postingan tidak ditemukan</div>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-500">
@@ -110,7 +110,7 @@ export default function DiscoverPostDetailPage() {
   const tenantHref = getDiscoveryTenantHrefFromPost(item);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 px-4 py-5 md:px-6 md:py-6">
+    <div className="discovery-calm mx-auto max-w-6xl space-y-5 px-4 py-5 md:px-6 md:py-6">
       <Button asChild variant="ghost" className="-ml-3 h-10 rounded-xl px-3 text-slate-500 hover:text-slate-950">
         <Link href="/discovery">
           <ArrowLeft className="mr-2 h-4 w-4" />

@@ -1051,6 +1051,18 @@ func (r *Repository) ReferralSummary(ctx context.Context, tenantID uuid.UUID) (m
 	return out, nil
 }
 
+func (r *Repository) UpdateReferralCode(ctx context.Context, tenantID uuid.UUID, code string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE tenants
+		SET referral_code = $2, updated_at = NOW()
+		WHERE id = $1
+	`, tenantID, code)
+	if err == nil && r.rdb != nil {
+		_ = r.rdb.Del(ctx, r.getProfileByIDCacheKey(tenantID.String())).Err()
+	}
+	return err
+}
+
 func (r *Repository) CreateReferralReward(ctx context.Context, reward ReferralReward) error {
 	_, err := r.db.NamedExecContext(ctx, `
 		INSERT INTO referral_rewards (

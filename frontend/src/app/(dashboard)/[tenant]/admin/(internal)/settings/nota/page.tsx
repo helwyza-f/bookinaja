@@ -367,25 +367,31 @@ export default function ReceiptPrinterSettingsPage() {
         description="Atur template nota, branding struk, dan workflow printer untuk output transaksi."
         requirement={{ feature: "advanced_receipt_branding" }}
       />
-      <section className="space-y-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0">
+      <Card className="overflow-hidden rounded-[1.75rem] border-slate-200/80 bg-white/98 p-0 shadow-sm dark:border-white/10 dark:bg-[#0f1117]/96">
+        <div className="grid gap-0 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+          <div className="p-5 sm:p-6">
             <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
               Nota
             </div>
-            <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white">
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white sm:text-3xl">
               Pengaturan Nota
             </h1>
-            <p className="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-              Atur template struk, pesan WhatsApp, dan printer Bluetooth.
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-400">
+              Atur template struk, pesan WhatsApp, dan printer Bluetooth dalam satu surface.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:w-auto">
-            <StatusPill label="Printer" value={printerStatus} active={!!savedData.printer_enabled} />
-            <StatusPill label="Paket" value={formatPlanLabel(savedData.plan)} active={isProActive} />
+
+          <div className="border-t border-slate-200/80 bg-slate-50/80 p-5 dark:border-white/10 dark:bg-white/[0.03] lg:border-l lg:border-t-0 sm:p-6">
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+              Snapshot
+            </div>
+            <div className="mt-4 grid gap-3">
+              <StatusPill label="Printer" value={printerStatus} active={!!savedData.printer_enabled} />
+              <StatusPill label="Paket" value={formatPlanLabel(savedData.plan)} active={isProActive} />
+            </div>
           </div>
         </div>
-      </section>
+      </Card>
 
       {message && (
         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">

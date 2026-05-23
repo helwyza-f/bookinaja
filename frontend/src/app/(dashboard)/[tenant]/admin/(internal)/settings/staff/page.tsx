@@ -346,6 +346,47 @@ export default function StaffSettingsPage() {
         onCreateStaff={openCreateStaff}
       />
 
+      <section className="hidden sm:block">
+        <Card className="overflow-hidden rounded-[1.75rem] border-slate-200/80 bg-white/98 p-0 shadow-sm dark:border-white/10 dark:bg-[#0f1117]/96">
+          <div className="grid gap-0 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+            <div className="p-5 sm:p-6">
+              <div className="flex items-center gap-2 text-sm font-semibold text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+                <Users className="h-4 w-4" />
+                Staff
+              </div>
+              <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-3xl">
+                Staff & Role
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+                Atur siapa yang bisa bantu operasional tenant dan akses apa yang mereka pegang per role.
+              </p>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                <Button variant="outline" onClick={openCreateRole} className="gap-2 dark:border-white/10 dark:bg-white/[0.03]">
+                  <UserCog className="h-4 w-4" />
+                  Role
+                </Button>
+                <Button onClick={openCreateStaff} className="gap-2 bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)]">
+                  <Plus className="h-4 w-4" />
+                  Tambah Staff
+                </Button>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-200/80 bg-slate-50/80 p-5 dark:border-white/10 dark:bg-white/[0.03] xl:border-l xl:border-t-0 sm:p-6">
+              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                Snapshot
+              </div>
+              <div className="mt-4 grid gap-3">
+                <StaffStat label="Staff" value={staff.length} />
+                <StaffStat label="Default role" value={defaultRolesCount} />
+                <StaffStat label="Custom role" value={customRolesCount} />
+              </div>
+            </div>
+          </div>
+        </Card>
+      </section>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-sm font-semibold text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
@@ -898,6 +939,25 @@ function MobileHeroMetric({
       <div className="text-lg font-black tracking-tight text-slate-950">{value}</div>
       <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
         {label}
+      </div>
+    </div>
+  );
+}
+
+function StaffStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-slate-950/70">
+      <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+        {label}
+      </div>
+      <div className="mt-1 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
+        {value}
       </div>
     </div>
   );

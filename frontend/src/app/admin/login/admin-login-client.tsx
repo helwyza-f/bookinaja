@@ -24,7 +24,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getCentralAdminForgotPasswordUrl, getCentralTenantRegisterUrl, getTenantUrl } from "@/lib/tenant";
+import { getCentralAdminForgotPasswordUrl, getCentralTenantRegisterUrl } from "@/lib/tenant";
+import { getTenantAdminEntryUrl } from "@/lib/workspace-entry";
 import {
   getTenantMismatchMessage,
   setAdminAuthCookie,
@@ -74,7 +75,7 @@ function resolveAdminPostLoginUrl({
     if (plan) qp.set("plan", plan);
     if (interval) qp.set("interval", interval);
     if (welcome) qp.set("welcome", welcome);
-    return getTenantUrl(
+    return getTenantAdminEntryUrl(
       tenantSlug,
       `/admin/billing${qp.toString() ? `?${qp.toString()}` : ""}`,
     );
@@ -87,7 +88,7 @@ function resolveAdminPostLoginUrl({
       ? `/admin/dashboard?${qp.toString()}`
       : nextPath;
 
-  return getTenantUrl(tenantSlug, resolvedNext);
+  return getTenantAdminEntryUrl(tenantSlug, resolvedNext);
 }
 
 export function AdminLoginClient() {

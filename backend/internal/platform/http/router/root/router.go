@@ -6,6 +6,11 @@ import (
 )
 
 func Register(r *gin.RouterGroup, cfg routecfg.Config) {
+	if cfg.AccountHandler != nil {
+		r.POST("/auth/signup", cfg.AccountHandler.Signup)
+		r.POST("/auth/login", cfg.AccountHandler.Login)
+		r.POST("/auth/google", cfg.AccountHandler.GoogleAuth)
+	}
 	r.POST("/register", cfg.TenantHandler.Register)
 	r.POST("/register/google/identity", cfg.TenantHandler.GoogleIdentity)
 	r.POST("/login", cfg.TenantHandler.Login)
