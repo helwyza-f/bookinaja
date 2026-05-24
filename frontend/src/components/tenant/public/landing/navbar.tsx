@@ -124,7 +124,6 @@ export function TenantNavbar({
               src={profile.logo_url || BOOKINAJA_LOGO_FRAMELESS_SRC}
               alt={profile.logo_url ? `${profile.name} logo` : "Bookinaja logo"}
               fill
-              priority
               sizes="56px"
               className={cn(
                 "object-center",

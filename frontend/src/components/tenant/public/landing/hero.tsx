@@ -130,8 +130,8 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
               src={content.banner || ""}
               alt="Business Banner"
               fill
-              priority
               loading="eager"
+              fetchPriority="high"
               sizes="100vw"
               className="object-cover object-center opacity-68 scale-[1.03] md:opacity-86 md:scale-100"
             />
@@ -289,7 +289,7 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
                       src={content.banner || ""}
                       alt="Business Banner"
                       fill
-                      loading="eager"
+                      loading="lazy"
                       sizes="(min-width: 1024px) 40vw, 100vw"
                       className="object-cover object-center"
                     />
