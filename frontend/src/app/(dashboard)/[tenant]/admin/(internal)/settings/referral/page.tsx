@@ -110,7 +110,7 @@ export default function ReferralSettingsPage() {
 
   const referralUrl = useMemo(() => {
     if (!summary?.referral_code) return "";
-    const url = new URL("https://bookinaja.com/register");
+    const url = new URL("https://bookinaja.com/signup");
     url.searchParams.set("ref", summary.referral_code);
     return url.toString();
   }, [summary?.referral_code]);
@@ -282,7 +282,7 @@ export default function ReferralSettingsPage() {
                 Referral link
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Bagikan link ini ke calon tenant.
+                Bagikan link ini ke owner bisnis yang mau daftar Bookinaja.
               </p>
             </div>
             <StatusPill active={Boolean(summary?.referral_code)}>
@@ -360,8 +360,8 @@ export default function ReferralSettingsPage() {
         <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
           <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Aturan bonus</h3>
           <div className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
-            <RuleLine>Tenant daftar lewat link referral.</RuleLine>
-            <RuleLine>Bonus masuk saat tenant jadi subscriber aktif.</RuleLine>
+            <RuleLine>Owner daftar dan membuat workspace lewat link referral.</RuleLine>
+            <RuleLine>Bonus masuk saat workspace itu jadi subscriber aktif.</RuleLine>
             <RuleLine>Pencairan butuh rekening terverifikasi.</RuleLine>
           </div>
         </section>

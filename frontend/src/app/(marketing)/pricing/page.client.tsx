@@ -50,7 +50,7 @@ const plans: Plan[] = [
   {
     key: "starter",
     cta: "Pilih Starter",
-    href: "/register?plan=starter",
+    href: "/signup?plan=starter",
     icon: Rocket,
     detailHref: "/pricing/starter",
     kicker: "Core booking",
@@ -59,7 +59,7 @@ const plans: Plan[] = [
   {
     key: "pro",
     cta: "Pilih Pro",
-    href: "/register?plan=pro",
+    href: "/signup?plan=pro",
     icon: Users,
     detailHref: "/pricing/pro",
     kicker: "Team ops",
@@ -221,7 +221,7 @@ export default function PricingPage() {
                     memang membantu operasional harian.
                   </span>
                 </p>
-                <Link href="/register?plan=starter&trial=1" className="mt-5 block">
+                <Link href="/signup?plan=starter&trial=1" className="mt-5 block">
                   <Button className="h-11 w-full rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700">
                     Mulai Trial
                     <ArrowRight className="ml-2 h-4 w-4" />

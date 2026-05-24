@@ -9,7 +9,7 @@ import { CompactGoogleButton } from "@/components/auth/compact-google-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { googleAuthAccount, loginAccount } from "@/lib/auth-client";
+import { getAccountMe, googleAuthAccount, loginAccount } from "@/lib/auth-client";
 import { clearTenantSession } from "@/lib/tenant-session";
 
 function LoginScreen() {
@@ -25,13 +25,26 @@ function LoginScreen() {
     clearTenantSession();
   }, [searchParams]);
 
+  async function resolvePostLoginHref() {
+    const next = searchParams.get("next");
+    try {
+      const me = await getAccountMe();
+      if (me.workspaces.length === 0) {
+        return "/app/workspaces/new";
+      }
+      return next || "/app/workspaces";
+    } catch {
+      return next || "/app/workspaces";
+    }
+  }
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
     try {
       await loginAccount({ email, password });
       toast.success("Masuk ke akun Bookinaja berhasil.");
-      router.replace(searchParams.get("next") || "/app");
+      router.replace(await resolvePostLoginHref());
     } catch (error) {
       const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
       toast.error(message || "Login belum berhasil.");
@@ -45,7 +58,7 @@ function LoginScreen() {
     try {
       await googleAuthAccount(credential);
       toast.success("Masuk dengan Google berhasil.");
-      router.replace(searchParams.get("next") || "/app");
+      router.replace(await resolvePostLoginHref());
     } catch (error) {
       const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
       toast.error(message || "Google login belum berhasil.");

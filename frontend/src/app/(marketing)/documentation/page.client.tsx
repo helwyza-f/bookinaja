@@ -395,7 +395,7 @@ export default function DocumentationPage() {
                       database untuk Anda.
                     </p>
                   </div>
-                  <Link href="/register" className="mt-8">
+                  <Link href="/signup" className="mt-8">
                     <Button className="w-full h-12 rounded-xl bg-white text-blue-600 font-black uppercase italic tracking-widest hover:bg-slate-100 transition-all">
                       Daftar Sekarang
                     </Button>
@@ -586,7 +586,7 @@ export default function DocumentationPage() {
                 dalam satu ekosistem yang gahar.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
-                <Link href="/register">
+                <Link href="/signup">
                   <Button className="h-14 px-10 rounded-xl bg-blue-600 text-white font-black uppercase italic text-[11px] tracking-[0.2em] shadow-xl hover:scale-105 active:scale-95 transition-all">
                     Daftar Bisnis
                   </Button>

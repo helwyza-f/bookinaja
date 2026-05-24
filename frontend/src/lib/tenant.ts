@@ -131,6 +131,12 @@ export function getRootPortalUrl(
 
   if (typeof window !== "undefined") {
     const url = new URL(window.location.href);
+    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
+      url.pathname = safePath;
+      url.search = search ? `?${search}` : "";
+      url.hash = "";
+      return url.toString();
+    }
     url.hostname = root.host;
     if (root.port) {
       url.port = root.port;
@@ -250,7 +256,7 @@ export function getCentralTenantRegisterUrl(options?: {
   const ref = (options?.ref || "").trim();
   const category = (options?.category || "").trim();
 
-  return getRootPortalUrl("/register", {
+  return getRootPortalUrl("/signup", {
     ...(plan ? { plan } : {}),
     ...(interval ? { interval } : {}),
     ...(ref ? { ref } : {}),

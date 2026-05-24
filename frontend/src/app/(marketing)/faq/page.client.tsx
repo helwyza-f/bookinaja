@@ -110,7 +110,7 @@ export default function FAQPage() {
                 Buat subdomain bisnis kamu dan mulai konfigurasi resources + booking.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
-                <Link href="/register">
+                <Link href="/signup">
                   <Button className="rounded-2xl bg-blue-600 font-black uppercase tracking-widest text-white hover:bg-blue-700">
                     <Zap className="mr-2 h-4 w-4 fill-white" />
                     Mulai Bisnis

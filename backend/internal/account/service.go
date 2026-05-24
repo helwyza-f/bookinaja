@@ -257,6 +257,18 @@ func (s *Service) CreateWorkspace(ctx context.Context, accountID uuid.UUID, req 
 		category = "gaming_hub"
 	}
 
+	var referredBy *uuid.UUID
+	if referralCode := strings.TrimSpace(req.ReferralCode); referralCode != "" {
+		referrerTenantID, err := s.repo.GetTenantIDByReferralCode(ctx, referralCode)
+		if err != nil {
+			return nil, err
+		}
+		if referrerTenantID == nil {
+			return nil, errors.New("kode referral tidak valid")
+		}
+		referredBy = referrerTenantID
+	}
+
 	workspace := Workspace{
 		ID:                 uuid.New(),
 		TenantID:           uuid.Nil,
@@ -270,6 +282,7 @@ func (s *Service) CreateWorkspace(ctx context.Context, accountID uuid.UUID, req 
 		SubscriptionStatus: "trial",
 		Timezone:           "Asia/Jakarta",
 		WhatsappNumber:     "",
+		ReferredByTenantID: referredBy,
 	}
 
 	createdWorkspace, membership, state, err := s.repo.CreateWorkspaceWithOwner(ctx, workspace, accountID)

@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createWorkspace } from "@/lib/workspace-client";
+
+const REFERRAL_STORAGE_KEY = "bookinaja_referral_code";
 
 const categories = [
   { id: "gaming_hub", label: "Gaming & Rental" },
@@ -27,15 +29,39 @@ function slugFromName(value: string) {
 }
 
 export default function NewWorkspacePage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-[#f6f8fb]" />}>
+      <NewWorkspaceContent />
+    </Suspense>
+  );
+}
+
+function NewWorkspaceContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [category, setCategory] = useState("gaming_hub");
   const [customCategory, setCustomCategory] = useState("");
+  const [storedReferralCode, setStoredReferralCode] = useState("");
   const [loading, setLoading] = useState(false);
 
   const resolvedSlug = slugFromName(slug || name);
   const finalCategory = category === "other" ? customCategory.trim() : category;
+  const referralCode = useMemo(
+    () => (searchParams.get("ref") || storedReferralCode || "").trim().toUpperCase(),
+    [searchParams, storedReferralCode],
+  );
+
+  useEffect(() => {
+    const fromUrl = (searchParams.get("ref") || "").trim().toUpperCase();
+    if (fromUrl) {
+      window.localStorage.setItem(REFERRAL_STORAGE_KEY, fromUrl);
+      setStoredReferralCode(fromUrl);
+      return;
+    }
+    setStoredReferralCode(window.localStorage.getItem(REFERRAL_STORAGE_KEY) || "");
+  }, [searchParams]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -49,7 +75,11 @@ export default function NewWorkspacePage() {
         name,
         slug: resolvedSlug,
         business_category: finalCategory,
+        referral_code: referralCode || undefined,
       });
+      if (referralCode) {
+        window.localStorage.removeItem(REFERRAL_STORAGE_KEY);
+      }
       toast.success("Workspace dibuat. Lanjut onboarding.");
       router.replace(`/app/onboarding/template?workspace=${workspace.id}&slug=${workspace.slug}&category=${encodeURIComponent(finalCategory)}`);
     } catch (error) {
@@ -75,6 +105,11 @@ export default function NewWorkspacePage() {
           <p className="mt-3 text-sm leading-6 text-slate-500">
             Buat identitas dasar dulu. Konfigurasi operasional masuk ke onboarding berikutnya.
           </p>
+          {referralCode ? (
+            <p className="mt-4 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 ring-1 ring-blue-100">
+              Referral aktif: {referralCode}
+            </p>
+          ) : null}
         </section>
 
         <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">

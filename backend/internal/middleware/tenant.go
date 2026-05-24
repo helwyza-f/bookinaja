@@ -79,10 +79,9 @@ func lookupTenantIDBySlug(ctx context.Context, db *sqlx.DB, rdb *redis.Client, s
 	cacheKey := fmt.Sprintf("tenant_id_by_slug:%s", slug)
 	id, err := rdb.Get(ctx, cacheKey).Result()
 	if err == nil && id != "" {
-		if id == missingTenantCacheValue {
-			return "", sql.ErrNoRows
+		if id != missingTenantCacheValue {
+			return id, nil
 		}
-		return id, nil
 	}
 
 	var dbID string
@@ -120,9 +119,9 @@ func isRootDomain(host, slug string) bool {
 		return false
 	}
 	rootLike := map[string]bool{
-		"bookinaja.com": true,
+		"bookinaja.com":   true,
 		"bookinaja.local": true,
-		"lvh.me": true,
+		"lvh.me":          true,
 	}
 	if rootLike[h] {
 		return true

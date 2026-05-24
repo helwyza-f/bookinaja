@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { CompactGoogleButton } from "@/components/auth/compact-google-button";
@@ -11,21 +11,45 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { googleAuthAccount, signupAccount } from "@/lib/auth-client";
 
+const REFERRAL_STORAGE_KEY = "bookinaja_referral_code";
+
 export default function SignupPage() {
+  return (
+    <Suspense fallback={<SignupShell />}>
+      <SignupContent />
+    </Suspense>
+  );
+}
+
+function SignupShell() {
+  return <main className="min-h-screen bg-[#f6f8fb]" />;
+}
+
+function SignupContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const referralCode = useMemo(
+    () => (searchParams.get("ref") || "").trim().toUpperCase(),
+    [searchParams],
+  );
+
+  useEffect(() => {
+    if (!referralCode) return;
+    window.localStorage.setItem(REFERRAL_STORAGE_KEY, referralCode);
+  }, [referralCode]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
     try {
-      await signupAccount({ name, email, password });
+      await signupAccount({ name, email, password, referral_code: referralCode || undefined });
       toast.success("Akun Bookinaja dibuat.");
-      router.replace("/app");
+      router.replace(referralCode ? `/app/workspaces/new?ref=${encodeURIComponent(referralCode)}` : "/app/workspaces/new");
     } catch (error) {
       const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
       toast.error(message || "Signup belum berhasil.");
@@ -39,7 +63,7 @@ export default function SignupPage() {
     try {
       await googleAuthAccount(credential);
       toast.success("Masuk dengan Google berhasil.");
-      router.replace("/app/workspaces/new");
+      router.replace(referralCode ? `/app/workspaces/new?ref=${encodeURIComponent(referralCode)}` : "/app/workspaces/new");
     } catch (error) {
       const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
       toast.error(message || "Google signup belum berhasil.");
@@ -75,6 +99,11 @@ export default function SignupPage() {
               <p className="mt-2 text-sm leading-6 text-slate-500">
                 Setelah akun aktif, kamu lanjut membuat workspace pertama.
               </p>
+              {referralCode ? (
+                <p className="mt-3 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 ring-1 ring-blue-100">
+                  Referral aktif: {referralCode}
+                </p>
+              ) : null}
             </div>
 
             <CompactGoogleButton

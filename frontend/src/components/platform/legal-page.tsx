@@ -140,7 +140,7 @@ export function LegalPage({
                   Lihat FAQ
                 </Button>
               </Link>
-              <Link href="/register">
+              <Link href="/signup">
                 <Button className="w-full rounded-2xl bg-blue-600 px-6 font-black uppercase tracking-widest text-white hover:bg-blue-700 sm:w-auto">
                   Mulai dengan Bookinaja
                   <ArrowRight className="ml-2 h-4 w-4" />

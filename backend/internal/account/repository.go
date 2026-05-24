@@ -12,14 +12,20 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
 )
 
 type Repository struct {
-	db *sqlx.DB
+	db  *sqlx.DB
+	rdb *redis.Client
 }
 
-func NewRepository(db *sqlx.DB) *Repository {
-	return &Repository{db: db}
+func NewRepository(db *sqlx.DB, rdb ...*redis.Client) *Repository {
+	var client *redis.Client
+	if len(rdb) > 0 {
+		client = rdb[0]
+	}
+	return &Repository{db: db, rdb: client}
 }
 
 func (r *Repository) CreateAccount(ctx context.Context, item Account) (*Account, error) {
@@ -102,6 +108,23 @@ func (r *Repository) LinkGoogleAccount(ctx context.Context, accountID uuid.UUID,
 	return &item, nil
 }
 
+func (r *Repository) GetTenantIDByReferralCode(ctx context.Context, code string) (*uuid.UUID, error) {
+	var id uuid.UUID
+	err := r.db.GetContext(ctx, &id, `
+		SELECT id
+		FROM tenants
+		WHERE LOWER(TRIM(referral_code)) = $1
+		LIMIT 1
+	`, strings.ToLower(strings.TrimSpace(code)))
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &id, nil
+}
+
 func (r *Repository) CreateWorkspaceWithOwner(ctx context.Context, workspace Workspace, accountID uuid.UUID) (*Workspace, *WorkspaceMembership, *OnboardingState, error) {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -125,12 +148,12 @@ func (r *Repository) CreateWorkspaceWithOwner(ctx context.Context, workspace Wor
 		INSERT INTO tenants (
 			id, name, slug, business_category, business_type,
 			plan, subscription_status, timezone, whatsapp_number,
-			tagline, about_us, primary_color, referral_code, created_at
+			tagline, about_us, primary_color, referral_code, referred_by_tenant_id, created_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
 	`, tenantID, workspace.Name, workspace.Slug, workspace.BusinessCategory, workspace.BusinessType,
 		workspace.Plan, workspace.SubscriptionStatus, workspace.Timezone, workspace.WhatsappNumber,
-		"Booking simpel untuk bisnis yang bergerak cepat.", "Kelola reservasi, resource, customer, dan pembayaran dari satu workspace.", "#2563eb", referralCode); err != nil {
+		"Booking simpel untuk bisnis yang bergerak cepat.", "Kelola reservasi, resource, customer, dan pembayaran dari satu workspace.", "#2563eb", referralCode, workspace.ReferredByTenantID); err != nil {
 		return nil, nil, nil, err
 	}
 
@@ -190,6 +213,7 @@ func (r *Repository) CreateWorkspaceWithOwner(ctx context.Context, workspace Wor
 	if err := tx.Commit(); err != nil {
 		return nil, nil, nil, err
 	}
+	r.invalidateWorkspacePublicCache(ctx, tenantID, workspace.Slug)
 	return &createdWorkspace, &createdMembership, &createdState, nil
 }
 
@@ -479,7 +503,11 @@ func (r *Repository) CreateOnboardingResource(ctx context.Context, workspaceID u
 		}
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	r.invalidateWorkspacePublicCache(ctx, tenantID, "")
+	return nil
 }
 
 func (r *Repository) ensureOnboardingState(ctx context.Context, workspaceID uuid.UUID) (*OnboardingState, error) {
@@ -978,6 +1006,38 @@ func defaultClockValue(value, fallback string) string {
 		return fallback
 	}
 	return trimmed
+}
+
+func (r *Repository) invalidateWorkspacePublicCache(ctx context.Context, tenantID uuid.UUID, slug string) {
+	if r.rdb == nil {
+		return
+	}
+	slug = strings.ToLower(strings.TrimSpace(slug))
+	if slug == "" && tenantID != uuid.Nil {
+		_ = r.db.GetContext(ctx, &slug, `SELECT LOWER(TRIM(slug)) FROM tenants WHERE id = $1`, tenantID)
+	}
+
+	keys := []string{
+		"tenant:public:list",
+		"discover:public:feed:v1",
+	}
+	if slug != "" {
+		keys = append(keys,
+			fmt.Sprintf("tenant:profile:slug:%s", slug),
+			fmt.Sprintf("tenant:public_profile:slug:%s", slug),
+			fmt.Sprintf("landing:full:%s", slug),
+			fmt.Sprintf("tenant_id_by_slug:%s", slug),
+		)
+	}
+	if tenantID != uuid.Nil {
+		keys = append(keys,
+			fmt.Sprintf("tenant:profile:id:%s", tenantID.String()),
+			fmt.Sprintf("katalog_resources:%s", tenantID.String()),
+			fmt.Sprintf("public:katalog_resources:%s", tenantID.String()),
+		)
+	}
+
+	_ = r.rdb.Del(ctx, keys...).Err()
 }
 
 func generateWorkspaceReferralCode(slug string) string {

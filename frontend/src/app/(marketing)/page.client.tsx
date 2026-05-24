@@ -150,9 +150,13 @@ function SectionHeader({
   );
 }
 
-function PrimaryCta({ children = "Coba Gratis 30 Hari" }: { children?: string }) {
+function PrimaryCta({
+  children = "Coba Gratis 30 Hari",
+}: {
+  children?: string;
+}) {
   return (
-    <Link href="/register" className="w-full sm:w-auto">
+    <Link href="/signup" className="w-full sm:w-auto">
       <Button className="h-14 w-full rounded-2xl bg-blue-600 px-8 text-[12px] font-black uppercase tracking-[0.16em] text-white shadow-2xl shadow-blue-600/25 transition-all hover:-translate-y-0.5 hover:bg-blue-500 sm:w-auto">
         {children}
         <ArrowUpRight className="ml-2 h-4 w-4" />
@@ -178,14 +182,12 @@ function SecondaryCta() {
 function TrustMicrocopy() {
   return (
     <div className="flex flex-wrap justify-center gap-3 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 sm:gap-5">
-      {["Tanpa kartu kredit", "Gratis 30 hari", "Setup cepat"].map(
-        (item) => (
-          <span key={item} className="inline-flex items-center gap-1.5">
-            <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />
-            {item}
-          </span>
-        ),
-      )}
+      {["Tanpa kartu kredit", "Gratis 30 hari", "Setup cepat"].map((item) => (
+        <span key={item} className="inline-flex items-center gap-1.5">
+          <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />
+          {item}
+        </span>
+      ))}
     </div>
   );
 }
@@ -222,8 +224,16 @@ function AvatarStack() {
 }
 
 const demoTabs: Array<{ key: DemoTab; label: string; icon: ReactNode }> = [
-  { key: "monitor", label: "Live Monitor", icon: <Activity className="h-4 w-4" /> },
-  { key: "booking", label: "Booking", icon: <CalendarClock className="h-4 w-4" /> },
+  {
+    key: "monitor",
+    label: "Live Monitor",
+    icon: <Activity className="h-4 w-4" />,
+  },
+  {
+    key: "booking",
+    label: "Booking",
+    icon: <CalendarClock className="h-4 w-4" />,
+  },
   { key: "payment", label: "Bayar", icon: <WalletCards className="h-4 w-4" /> },
   { key: "staff", label: "Staff", icon: <UsersRound className="h-4 w-4" /> },
   { key: "report", label: "Laporan", icon: <BarChart3 className="h-4 w-4" /> },
@@ -232,15 +242,25 @@ const demoTabs: Array<{ key: DemoTab; label: string; icon: ReactNode }> = [
 function SlotGrid({ compact = false }: { compact?: boolean }) {
   const slots = [
     ["PS-01", "Live", "bg-blue-500/20 text-blue-300 border-blue-400/30"],
-    ["PS-02", "Kosong", "bg-emerald-500/15 text-emerald-300 border-emerald-400/25"],
+    [
+      "PS-02",
+      "Kosong",
+      "bg-emerald-500/15 text-emerald-300 border-emerald-400/25",
+    ],
     ["PC-01", "DP", "bg-amber-500/15 text-amber-300 border-amber-400/25"],
     ["PC-02", "Live", "bg-blue-500/20 text-blue-300 border-blue-400/30"],
     ["VIP", "Ditahan", "bg-rose-500/15 text-rose-300 border-rose-400/25"],
-    ["VR-02", "Kosong", "bg-emerald-500/15 text-emerald-300 border-emerald-400/25"],
+    [
+      "VR-02",
+      "Kosong",
+      "bg-emerald-500/15 text-emerald-300 border-emerald-400/25",
+    ],
   ];
 
   return (
-    <div className={`grid ${compact ? "grid-cols-3 gap-2" : "grid-cols-2 gap-3 sm:grid-cols-3"}`}>
+    <div
+      className={`grid ${compact ? "grid-cols-3 gap-2" : "grid-cols-2 gap-3 sm:grid-cols-3"}`}
+    >
       {slots.map(([name, status, color], index) => (
         <div
           key={name}
@@ -282,7 +302,9 @@ function MonitorPanel() {
               {value}
             </div>
             <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
-              <div className={`h-full rounded-full bg-blue-400 ${width} animate-fill`} />
+              <div
+                className={`h-full rounded-full bg-blue-400 ${width} animate-fill`}
+              />
             </div>
           </div>
         ))}
@@ -316,7 +338,9 @@ function BookingPanel() {
             <div
               key={row.join("-")}
               className="grid grid-cols-4 items-center gap-2 rounded-2xl bg-slate-950/35 px-3 py-3 text-xs font-bold text-white"
-              style={{ animation: `slide-in-right 620ms ease ${index * 140}ms both` }}
+              style={{
+                animation: `slide-in-right 620ms ease ${index * 140}ms both`,
+              }}
             >
               <span>{row[0]}</span>
               <span className="text-white/55">{row[1]}</span>
@@ -375,7 +399,9 @@ function PaymentPanel() {
             <div
               key={payment.join("-")}
               className="grid grid-cols-[1fr_auto] gap-3 rounded-2xl bg-slate-950/35 px-4 py-3 text-sm font-bold text-white"
-              style={{ animation: `slide-in-right 620ms ease ${index * 130}ms both` }}
+              style={{
+                animation: `slide-in-right 620ms ease ${index * 130}ms both`,
+              }}
             >
               <div>
                 <div>{payment[0]}</div>
@@ -441,11 +467,15 @@ function StaffPanel() {
           <div
             key={role}
             className="mb-2 flex items-center justify-between rounded-2xl bg-slate-950/35 px-4 py-3"
-            style={{ animation: `slide-in-right 620ms ease ${index * 120}ms both` }}
+            style={{
+              animation: `slide-in-right 620ms ease ${index * 120}ms both`,
+            }}
           >
             <div>
               <div className="text-sm font-black text-white">{role}</div>
-              <div className="mt-1 text-xs font-medium text-white/45">{access}</div>
+              <div className="mt-1 text-xs font-medium text-white/45">
+                {access}
+              </div>
             </div>
             <div className="rounded-full bg-blue-500/20 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-blue-200">
               {menu}
@@ -547,9 +577,17 @@ function AnimatedDashboard() {
   const [activeTab, setActiveTab] = useState<DemoTab>("monitor");
 
   useEffect(() => {
-    const order: DemoTab[] = ["monitor", "booking", "payment", "staff", "report"];
+    const order: DemoTab[] = [
+      "monitor",
+      "booking",
+      "payment",
+      "staff",
+      "report",
+    ];
     const timer = window.setInterval(() => {
-      setActiveTab((current) => order[(order.indexOf(current) + 1) % order.length]);
+      setActiveTab(
+        (current) => order[(order.indexOf(current) + 1) % order.length],
+      );
     }, 5200);
     return () => window.clearInterval(timer);
   }, []);
@@ -565,7 +603,9 @@ function AnimatedDashboard() {
             <div className="text-xs font-black uppercase tracking-[0.18em] text-blue-200">
               Booking Baru
             </div>
-            <div className="mt-1 text-sm font-bold">Studio A, 15:30, DP masuk</div>
+            <div className="mt-1 text-sm font-bold">
+              Studio A, 15:30, DP masuk
+            </div>
           </div>
         </div>
       </div>
@@ -607,7 +647,9 @@ function AnimatedDashboard() {
                 B
               </div>
               <div>
-                <div className="text-sm font-black uppercase text-white">Bookinaja</div>
+                <div className="text-sm font-black uppercase text-white">
+                  Bookinaja
+                </div>
                 <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/40">
                   Ops Command
                 </div>
@@ -619,21 +661,19 @@ function AnimatedDashboard() {
               ["payment", "Bayar"],
               ["staff", "Staff"],
               ["report", "Laporan"],
-            ].map(
-              ([key, item]) => (
-                <div
-                  key={item}
-                  className={`mb-2 flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-black ${
-                    activeTab === key
-                      ? "bg-blue-500 text-white"
-                      : "text-white/45 hover:bg-white/[0.04]"
-                  }`}
-                >
-                  <span className="h-2 w-2 rounded-full bg-current" />
-                  {item}
-                </div>
-              ),
-            )}
+            ].map(([key, item]) => (
+              <div
+                key={item}
+                className={`mb-2 flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-black ${
+                  activeTab === key
+                    ? "bg-blue-500 text-white"
+                    : "text-white/45 hover:bg-white/[0.04]"
+                }`}
+              >
+                <span className="h-2 w-2 rounded-full bg-current" />
+                {item}
+              </div>
+            ))}
           </aside>
 
           <div className="p-4 sm:p-6">
@@ -847,7 +887,9 @@ function ProblemSolution() {
                   <div
                     key={label}
                     className="flex items-center justify-between gap-4 border-b border-white/10 py-3 last:border-0"
-                    style={{ animation: `slide-in-right 520ms ease ${index * 90}ms both` }}
+                    style={{
+                      animation: `slide-in-right 520ms ease ${index * 90}ms both`,
+                    }}
                   >
                     <div className="flex items-center gap-3">
                       <span className="grid h-7 w-7 place-items-center rounded-xl bg-blue-500/20 text-[10px] font-black text-blue-200">
@@ -896,7 +938,11 @@ function ProblemSolution() {
   );
 }
 
-function MiniVisual({ type }: { type: "monitor" | "web" | "pay" | "report" | "staff" }) {
+function MiniVisual({
+  type,
+}: {
+  type: "monitor" | "web" | "pay" | "report" | "staff";
+}) {
   if (type === "monitor") {
     const slots = [
       ["PS-01", "Rafi A.", "2j 15m", "Terisi"],
@@ -1167,7 +1213,11 @@ function FeatureBento() {
   ];
 
   return (
-    <section id="features" ref={ref} className="relative z-10 w-full px-4 py-16 sm:px-6">
+    <section
+      id="features"
+      ref={ref}
+      className="relative z-10 w-full px-4 py-16 sm:px-6"
+    >
       <div className="mx-auto max-w-7xl">
         <div style={revealStyle(visible)}>
           <SectionHeader
@@ -1185,7 +1235,10 @@ function FeatureBento() {
           />
         </div>
 
-        <div className="mt-12 grid gap-5 lg:grid-cols-3" style={revealStyle(visible, 0.12)}>
+        <div
+          className="mt-12 grid gap-5 lg:grid-cols-3"
+          style={revealStyle(visible, 0.12)}
+        >
           {features.map((feature) => (
             <div
               key={feature.title}
@@ -1225,8 +1278,8 @@ function Testimonials() {
       role: "Owner Gaming Hub",
       quote: (
         <>
-          Slot aktif jadi <Mark>lebih gampang dipantau</Mark>. Kasir tidak
-          perlu bolak-balik konfirmasi ke owner.
+          Slot aktif jadi <Mark>lebih gampang dipantau</Mark>. Kasir tidak perlu
+          bolak-balik konfirmasi ke owner.
         </>
       ),
       color: "from-blue-500 to-cyan-400",
@@ -1237,8 +1290,8 @@ function Testimonials() {
       role: "Studio Foto",
       quote: (
         <>
-          Jadwal dan DP customer sekarang <Mark>langsung tercatat</Mark>.
-          Tidak perlu rekap manual dari chat.
+          Jadwal dan DP customer sekarang <Mark>langsung tercatat</Mark>. Tidak
+          perlu rekap manual dari chat.
         </>
       ),
       color: "from-rose-500 to-orange-400",
@@ -1274,7 +1327,10 @@ function Testimonials() {
             description="Cerita singkat dari bisnis yang ingin booking lebih rapi, pembayaran lebih jelas, dan owner lebih mudah memantau."
           />
         </div>
-        <div className="mt-12 grid gap-4 md:grid-cols-3" style={revealStyle(visible, 0.12)}>
+        <div
+          className="mt-12 grid gap-4 md:grid-cols-3"
+          style={revealStyle(visible, 0.12)}
+        >
           {testimonials.map((item) => (
             <div
               key={item.name}
@@ -1419,12 +1475,22 @@ const useCases: Record<
       progress: "58%",
       accent: "bg-violet-400",
       items: [
-        { name: "Meeting 01", status: "Dipesan", note: "PT Asta", tone: "violet" },
+        {
+          name: "Meeting 01",
+          status: "Dipesan",
+          note: "PT Asta",
+          tone: "violet",
+        },
         { name: "Meeting 02", status: "Kosong", note: "Siap", tone: "emerald" },
         { name: "Private 1", status: "Invoice", note: "Sent", tone: "blue" },
         { name: "Coworking", status: "12 pax", note: "Today", tone: "cyan" },
         { name: "Boardroom", status: "Ditahan", note: "13:00", tone: "amber" },
-        { name: "Event Hall", status: "Dipesan", note: "Seharian", tone: "rose" },
+        {
+          name: "Event Hall",
+          status: "Dipesan",
+          note: "Seharian",
+          tone: "rose",
+        },
       ],
     },
   },
@@ -1495,7 +1561,11 @@ const useCases: Record<
 
 const useCaseKeys = Object.keys(useCases) as UseCaseKey[];
 
-function UseCaseMockup({ current }: { current: (typeof useCases)[UseCaseKey] }) {
+function UseCaseMockup({
+  current,
+}: {
+  current: (typeof useCases)[UseCaseKey];
+}) {
   const toneClass = {
     blue: "border-blue-400/30 bg-blue-500/15 text-blue-100",
     emerald: "border-emerald-400/30 bg-emerald-500/15 text-emerald-100",
@@ -1577,7 +1647,11 @@ function UseCases() {
   }, [visible]);
 
   return (
-    <section id="use-cases" ref={ref} className="relative z-10 w-full px-4 py-16 sm:px-6">
+    <section
+      id="use-cases"
+      ref={ref}
+      className="relative z-10 w-full px-4 py-16 sm:px-6"
+    >
       <div className="mx-auto max-w-7xl">
         <div style={revealStyle(visible)}>
           <SectionHeader
@@ -1593,7 +1667,10 @@ function UseCases() {
           />
         </div>
 
-        <div className="mt-10 flex flex-wrap justify-center gap-2" style={revealStyle(visible, 0.1)}>
+        <div
+          className="mt-10 flex flex-wrap justify-center gap-2"
+          style={revealStyle(visible, 0.1)}
+        >
           {useCaseKeys.map((key) => (
             <button
               key={key}
@@ -1677,7 +1754,11 @@ function HowItWorks() {
   ];
 
   return (
-    <section id="demo" ref={ref} className="relative z-10 w-full px-4 py-16 sm:px-6">
+    <section
+      id="demo"
+      ref={ref}
+      className="relative z-10 w-full px-4 py-16 sm:px-6"
+    >
       <div className="mx-auto max-w-7xl">
         <div style={revealStyle(visible)}>
           <SectionHeader
@@ -1693,7 +1774,10 @@ function HowItWorks() {
           />
         </div>
 
-        <div className="relative mt-14 grid gap-5 lg:grid-cols-3" style={revealStyle(visible, 0.12)}>
+        <div
+          className="relative mt-14 grid gap-5 lg:grid-cols-3"
+          style={revealStyle(visible, 0.12)}
+        >
           <div className="absolute left-0 right-0 top-20 hidden h-px bg-gradient-to-r from-transparent via-blue-400/50 to-transparent lg:block" />
           {steps.map((item, index) => (
             <div
@@ -1707,7 +1791,9 @@ function HowItWorks() {
                 </div>
                 <div
                   className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-blue-600 dark:bg-white/10 dark:text-blue-300"
-                  style={{ animation: `demo-bob 2.8s ease-in-out ${index * 0.2}s infinite` }}
+                  style={{
+                    animation: `demo-bob 2.8s ease-in-out ${index * 0.2}s infinite`,
+                  }}
                 >
                   {item.icon}
                 </div>
@@ -1755,7 +1841,9 @@ function HowItWorks() {
                       <div
                         key={label}
                         className="flex items-center justify-between rounded-2xl bg-white px-3 py-3 text-xs font-black dark:bg-white/10"
-                        style={{ animation: `slide-in-right 520ms ease ${rowIndex * 100}ms both` }}
+                        style={{
+                          animation: `slide-in-right 520ms ease ${rowIndex * 100}ms both`,
+                        }}
                       >
                         <span className="text-slate-500 dark:text-white/50">
                           {label}
@@ -1821,7 +1909,7 @@ function Pricing() {
       desc: "Untuk owner solo atau bisnis kecil yang ingin keluar dari catatan manual.",
       cta: "Pilih Starter",
       note: "Booking Inti",
-      href: "/register",
+      href: "/signup",
       features: [
         "Dashboard admin dasar",
         "Kalender booking",
@@ -1842,7 +1930,7 @@ function Pricing() {
       cta: "Pilih Pro",
       popular: true,
       note: "Operasional Tim",
-      href: "/register",
+      href: "/signup",
       features: [
         "Semua fitur Starter",
         "Multi staff account",
@@ -1880,7 +1968,11 @@ function Pricing() {
   ];
 
   return (
-    <section id="pricing" ref={ref} className="relative z-10 w-full px-4 py-16 sm:px-6">
+    <section
+      id="pricing"
+      ref={ref}
+      className="relative z-10 w-full px-4 py-16 sm:px-6"
+    >
       <div className="mx-auto max-w-7xl">
         <div style={revealStyle(visible)}>
           <SectionHeader
@@ -1896,7 +1988,10 @@ function Pricing() {
           />
         </div>
 
-        <div className="mt-8 flex justify-center" style={revealStyle(visible, 0.08)}>
+        <div
+          className="mt-8 flex justify-center"
+          style={revealStyle(visible, 0.08)}
+        >
           <div className="inline-flex items-center rounded-full border border-slate-200 bg-white p-1 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
             {[
               ["Bulanan", false],
@@ -1912,17 +2007,20 @@ function Pricing() {
                 }`}
               >
                 {label}
-                  {value && (
-                    <span className="ml-2 rounded-full bg-emerald-400/20 px-2 py-0.5 text-[9px] text-emerald-300">
-                      hemat 2 bulan
-                    </span>
-                  )}
-                </button>
+                {value && (
+                  <span className="ml-2 rounded-full bg-emerald-400/20 px-2 py-0.5 text-[9px] text-emerald-300">
+                    hemat 2 bulan
+                  </span>
+                )}
+              </button>
             ))}
           </div>
         </div>
 
-        <div className="mt-10 grid gap-5 lg:grid-cols-3" style={revealStyle(visible, 0.14)}>
+        <div
+          className="mt-10 grid gap-5 lg:grid-cols-3"
+          style={revealStyle(visible, 0.14)}
+        >
           {plans.map((plan) => {
             const price = annual ? plan.annual : plan.monthly;
             return (
@@ -1956,7 +2054,9 @@ function Pricing() {
                 <h3 className="text-2xl font-black">{plan.name}</h3>
                 <p
                   className={`mt-3 min-h-20 text-sm font-medium leading-6 ${
-                    plan.popular ? "text-blue-50" : "text-slate-600 dark:text-slate-300"
+                    plan.popular
+                      ? "text-blue-50"
+                      : "text-slate-600 dark:text-slate-300"
                   }`}
                 >
                   {plan.desc}
@@ -1970,7 +2070,9 @@ function Pricing() {
                   {price > 0 && (
                     <span
                       className={`ml-2 text-sm font-bold ${
-                        plan.popular ? "text-blue-100" : "text-slate-500 dark:text-slate-400"
+                        plan.popular
+                          ? "text-blue-100"
+                          : "text-slate-500 dark:text-slate-400"
                       }`}
                     >
                       /{annual ? "tahun" : "bulan"}
@@ -1980,10 +2082,14 @@ function Pricing() {
                 {annual && plan.monthly > 0 && (
                   <div
                     className={`mt-2 text-xs font-bold ${
-                      plan.popular ? "text-blue-100" : "text-slate-500 dark:text-slate-400"
+                      plan.popular
+                        ? "text-blue-100"
+                        : "text-slate-500 dark:text-slate-400"
                     }`}
                   >
-                    Setara Rp{Math.round(plan.annual / 12).toLocaleString("id-ID")} / bulan
+                    Setara Rp
+                    {Math.round(plan.annual / 12).toLocaleString("id-ID")} /
+                    bulan
                   </div>
                 )}
                 <Link href={plan.href}>
@@ -2006,7 +2112,10 @@ function Pricing() {
                     Yang didapat
                   </div>
                   {plan.features.map((feature) => (
-                    <div key={feature} className="flex items-start gap-3 text-sm font-bold leading-5">
+                    <div
+                      key={feature}
+                      className="flex items-start gap-3 text-sm font-bold leading-5"
+                    >
                       <CheckCircle2
                         className={`mt-0.5 h-4 w-4 shrink-0 ${
                           plan.popular ? "text-blue-100" : "text-blue-500"
@@ -2037,7 +2146,7 @@ function Pricing() {
               apakah operasionalmu jadi lebih rapi.
             </p>
           </div>
-          <Link href="/register" className="mt-4 block shrink-0 sm:mt-0">
+          <Link href="/signup" className="mt-4 block shrink-0 sm:mt-0">
             <Button className="h-12 w-full rounded-2xl bg-blue-600 px-6 text-[11px] font-black uppercase tracking-[0.16em] text-white hover:bg-blue-500 sm:w-auto">
               Mulai Trial Gratis
             </Button>
@@ -2075,7 +2184,11 @@ function Faq() {
   ];
 
   return (
-    <section id="faq" ref={ref} className="relative z-10 w-full px-4 py-16 sm:px-6">
+    <section
+      id="faq"
+      ref={ref}
+      className="relative z-10 w-full px-4 py-16 sm:px-6"
+    >
       <div className="mx-auto max-w-4xl">
         <div style={revealStyle(visible)}>
           <SectionHeader
@@ -2128,7 +2241,10 @@ function FinalCta() {
   const [ref, visible] = useReveal();
 
   return (
-    <section ref={ref} className="relative z-10 w-full px-4 pb-20 pt-8 sm:px-6 sm:pb-24">
+    <section
+      ref={ref}
+      className="relative z-10 w-full px-4 pb-20 pt-8 sm:px-6 sm:pb-24"
+    >
       <div
         className="mx-auto max-w-6xl overflow-hidden rounded-[2rem] border border-blue-400/20 bg-slate-950 p-6 text-white shadow-[0_35px_110px_-65px_rgba(37,99,235,0.85)] sm:p-8 md:p-10"
         style={revealStyle(visible)}
@@ -2144,7 +2260,8 @@ function FinalCta() {
             </h2>
             <p className="mt-4 max-w-xl text-sm font-medium leading-6 text-blue-50/70 sm:text-base">
               Pakai Bookinaja gratis 30 hari untuk melihat apakah booking,
-              pembayaran, dan kontrol staff benar-benar lebih mudah di bisnis kamu.
+              pembayaran, dan kontrol staff benar-benar lebih mudah di bisnis
+              kamu.
             </p>
           </div>
           <div className="flex flex-col gap-3 md:w-72">
@@ -2218,7 +2335,7 @@ export default function LandingPage() {
       <main className="relative z-10">
         <section
           ref={heroRef}
-          className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-7xl flex-col items-center justify-center px-4 pb-12 pt-40 text-center sm:px-6 sm:pt-36"
+          className="mx-auto flex min-h-[calc(100svh-7rem)] w-full max-w-7xl flex-col items-center justify-start px-4 pb-12 pt-36 text-center sm:px-6 sm:pt-32 md:min-h-[calc(100vh-2rem)] md:justify-center md:pt-36"
         >
           <div style={revealStyle(heroVisible)} className="space-y-6">
             <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-white/70 px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-blue-600 shadow-sm backdrop-blur dark:bg-white/5 dark:text-blue-300">
@@ -2249,7 +2366,10 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section ref={demoRef} className="relative z-10 w-full px-4 pb-16 sm:px-6">
+        <section
+          ref={demoRef}
+          className="relative z-10 w-full px-4 pb-16 sm:px-6"
+        >
           <div style={revealStyle(demoVisible)}>
             <AnimatedDashboard />
           </div>

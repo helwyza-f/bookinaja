@@ -57,6 +57,7 @@ export async function createWorkspace(input: {
   name: string;
   slug?: string;
   business_category?: string;
+  referral_code?: string;
 }) {
   const res = await api.post<{
     workspace: WorkspaceListItem;

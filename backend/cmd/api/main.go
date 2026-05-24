@@ -104,7 +104,7 @@ func main() {
 	}
 
 	tenantRepo := tenant.NewRepository(db, rdb)
-	accountRepo := account.NewRepository(db)
+	accountRepo := account.NewRepository(db, rdb)
 	customerRepo := customer.NewRepository(db, rdb)
 	expenseRepo := expense.NewRepository(db)
 	resourceRepo := resource.NewRepository(db, rdb)

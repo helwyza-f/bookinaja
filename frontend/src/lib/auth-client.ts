@@ -32,6 +32,7 @@ export async function signupAccount(input: {
   name: string;
   email: string;
   password: string;
+  referral_code?: string;
 }) {
   const res = await api.post<AuthResponse>("/auth/signup", input);
   setAccountAuthCookie(res.data.token);
@@ -58,5 +59,8 @@ export async function googleAuthAccount(idToken: string) {
 
 export async function getAccountMe() {
   const res = await api.get<AuthMeResponse>("/auth/account/me");
-  return res.data;
+  return {
+    ...res.data,
+    workspaces: Array.isArray(res.data?.workspaces) ? res.data.workspaces : [],
+  };
 }

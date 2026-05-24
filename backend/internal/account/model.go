@@ -19,20 +19,21 @@ type Account struct {
 }
 
 type Workspace struct {
-	ID                 uuid.UUID `db:"id" json:"id"`
-	TenantID           uuid.UUID `db:"tenant_id" json:"tenant_id"`
-	OwnerUserID        uuid.UUID `db:"owner_user_id" json:"owner_user_id"`
-	Name               string    `db:"name" json:"name"`
-	Slug               string    `db:"slug" json:"slug"`
-	BusinessCategory   string    `db:"business_category" json:"business_category"`
-	BusinessType       string    `db:"business_type" json:"business_type"`
-	Status             string    `db:"status" json:"status"`
-	Plan               string    `db:"plan" json:"plan"`
-	SubscriptionStatus string    `db:"subscription_status" json:"subscription_status"`
-	Timezone           string    `db:"timezone" json:"timezone"`
-	WhatsappNumber     string    `db:"whatsapp_number" json:"whatsapp_number"`
-	CreatedAt          time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt          time.Time `db:"updated_at" json:"updated_at"`
+	ID                 uuid.UUID  `db:"id" json:"id"`
+	TenantID           uuid.UUID  `db:"tenant_id" json:"tenant_id"`
+	OwnerUserID        uuid.UUID  `db:"owner_user_id" json:"owner_user_id"`
+	Name               string     `db:"name" json:"name"`
+	Slug               string     `db:"slug" json:"slug"`
+	BusinessCategory   string     `db:"business_category" json:"business_category"`
+	BusinessType       string     `db:"business_type" json:"business_type"`
+	Status             string     `db:"status" json:"status"`
+	Plan               string     `db:"plan" json:"plan"`
+	SubscriptionStatus string     `db:"subscription_status" json:"subscription_status"`
+	Timezone           string     `db:"timezone" json:"timezone"`
+	WhatsappNumber     string     `db:"whatsapp_number" json:"whatsapp_number"`
+	ReferredByTenantID *uuid.UUID `db:"referred_by_tenant_id" json:"referred_by_tenant_id,omitempty"`
+	CreatedAt          time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt          time.Time  `db:"updated_at" json:"updated_at"`
 }
 
 type WorkspaceMembership struct {
@@ -83,9 +84,10 @@ type OnboardingBusinessSeed struct {
 }
 
 type SignupReq struct {
-	Name     string `json:"name" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6"`
+	Name         string `json:"name" binding:"required"`
+	Email        string `json:"email" binding:"required,email"`
+	Password     string `json:"password" binding:"required,min=6"`
+	ReferralCode string `json:"referral_code"`
 }
 
 type LoginReq struct {
@@ -111,6 +113,7 @@ type CreateWorkspaceReq struct {
 	Name             string `json:"name" binding:"required"`
 	Slug             string `json:"slug"`
 	BusinessCategory string `json:"business_category"`
+	ReferralCode     string `json:"referral_code"`
 }
 
 type OnboardingStepUpdateReq struct {

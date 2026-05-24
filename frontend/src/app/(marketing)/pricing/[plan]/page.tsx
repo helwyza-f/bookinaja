@@ -463,7 +463,7 @@ async function PricingPlanDetailContent({
                   </Button>
                 ) : (
                   <Button asChild className="h-12 rounded-xl bg-blue-600 text-white hover:bg-blue-700">
-                    <Link href={`/register?plan=${billingPlan.key}`}>
+                    <Link href={`/signup?plan=${billingPlan.key}`}>
                       Pilih {billingPlan.name}
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
