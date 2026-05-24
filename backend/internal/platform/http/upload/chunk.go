@@ -171,6 +171,20 @@ func HandleChunkComplete(c *gin.Context) {
 		return
 	}
 	defer file.Close()
+	detectedType, err := detectSupportedUploadContentType(file)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if !contentTypesCompatible(session.ContentType, detectedType) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "format file tidak sesuai dengan content type"})
+		return
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal membaca ulang file hasil upload"})
+		return
+	}
+	session.ContentType = detectedType
 
 	s3, err := storage.NewS3Client()
 	if err != nil {
@@ -192,6 +206,11 @@ func HandleChunkComplete(c *gin.Context) {
 }
 
 func validateUploadDescriptor(contentType string, size int64) error {
+	contentType = strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
+	if !isAllowedUploadContentType(contentType) {
+		return errors.New("format file tidak didukung")
+	}
+
 	switch {
 	case strings.HasPrefix(contentType, "image/"):
 		const maxImageBytes = 5 * 1024 * 1024

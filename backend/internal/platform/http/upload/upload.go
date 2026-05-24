@@ -2,6 +2,7 @@ package upload
 
 import (
 	"errors"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"strings"
@@ -62,23 +63,75 @@ func validateUploadFile(file *multipart.FileHeader) error {
 	if contentType == "" {
 		return errors.New("content type file tidak dikenali")
 	}
-
-	switch {
-	case strings.HasPrefix(contentType, "image/"):
-		const maxImageBytes = 5 * 1024 * 1024
-		if file.Size > maxImageBytes {
-			return errors.New("ukuran gambar melebihi 5MB")
-		}
-		return nil
-	case strings.HasPrefix(contentType, "video/"):
-		const maxVideoBytes = 80 * 1024 * 1024
-		if file.Size > maxVideoBytes {
-			return errors.New("ukuran video melebihi 80MB")
-		}
-		return nil
-	default:
-		return errors.New("hanya file gambar atau video yang didukung")
+	if err := validateUploadDescriptor(contentType, file.Size); err != nil {
+		return err
 	}
+
+	src, err := file.Open()
+	if err != nil {
+		return errors.New("file tidak bisa dibaca")
+	}
+	defer src.Close()
+
+	detected, err := detectSupportedUploadContentType(src)
+	if err != nil {
+		return err
+	}
+	if !contentTypesCompatible(contentType, detected) {
+		return errors.New("format file tidak sesuai dengan content type")
+	}
+	file.Header.Set("Content-Type", detected)
+	return nil
+}
+
+func detectSupportedUploadContentType(reader io.Reader) (string, error) {
+	buffer := make([]byte, 512)
+	n, err := reader.Read(buffer)
+	if err != nil && err != io.EOF {
+		return "", errors.New("file tidak bisa dibaca")
+	}
+	if n == 0 {
+		return "", errors.New("file kosong")
+	}
+
+	detected := strings.ToLower(http.DetectContentType(buffer[:n]))
+	if isAllowedUploadContentType(detected) {
+		return detected, nil
+	}
+	if isWebP(buffer[:n]) {
+		return "image/webp", nil
+	}
+	if isQuickTime(buffer[:n]) {
+		return "video/quicktime", nil
+	}
+	return "", errors.New("format file tidak didukung")
+}
+
+func isAllowedUploadContentType(contentType string) bool {
+	switch strings.ToLower(strings.TrimSpace(contentType)) {
+	case "image/jpeg", "image/png", "image/webp", "image/gif",
+		"video/mp4", "video/mpeg", "video/webm", "video/quicktime":
+		return true
+	default:
+		return false
+	}
+}
+
+func contentTypesCompatible(claimed string, detected string) bool {
+	claimed = strings.ToLower(strings.TrimSpace(strings.Split(claimed, ";")[0]))
+	detected = strings.ToLower(strings.TrimSpace(strings.Split(detected, ";")[0]))
+	if claimed == detected {
+		return true
+	}
+	return strings.HasPrefix(claimed, "video/") && strings.HasPrefix(detected, "video/")
+}
+
+func isWebP(data []byte) bool {
+	return len(data) >= 12 && string(data[0:4]) == "RIFF" && string(data[8:12]) == "WEBP"
+}
+
+func isQuickTime(data []byte) bool {
+	return len(data) >= 12 && string(data[4:8]) == "ftyp" && strings.Contains(string(data[8:12]), "qt")
 }
 
 // HandleBulkUpload mengurus upload banyak file (gallery)

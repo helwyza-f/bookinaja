@@ -1,6 +1,8 @@
 name: Fast Deploy Bookinaja Monorepo to IDCloudHost
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
 
