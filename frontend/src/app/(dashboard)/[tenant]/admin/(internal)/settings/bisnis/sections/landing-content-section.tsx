@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { SectionShell, ViewItem } from "./section-shell";
+import { SectionShell } from "./section-shell";
 import type { SectionProps } from "./types";
 
 export function LandingContentSection({ profile, saving, onSave }: SectionProps) {
@@ -57,23 +57,14 @@ export function LandingContentSection({ profile, saving, onSave }: SectionProps)
         setEditing(false);
       }}
       view={
-        <div className="space-y-3">
-          <div className="grid gap-3 md:grid-cols-2">
-            <ViewItem label="Slogan" value={profile.slogan} />
-            <ViewItem label="Headline" value={profile.tagline} />
-          </div>
-          <ViewItem label="Tentang bisnis" value={profile.about_us} />
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-white/10 dark:bg-white/[0.03]">
-            <p className="text-xs text-slate-500 dark:text-slate-400">Selling points</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {profile.features?.length ? profile.features.map((feature, index) => (
-                <span key={`${feature}-${index}`} className="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-700 ring-1 ring-slate-200 dark:bg-[#0f0f17] dark:text-slate-200 dark:ring-white/10">
-                  {feature}
-                </span>
-              )) : <span className="text-sm text-slate-400">-</span>}
-            </div>
-          </div>
-        </div>
+        <LandingPreview
+          slogan={profile.slogan}
+          tagline={profile.tagline}
+          about={profile.about_us}
+          features={profile.features || []}
+          businessName={profile.name}
+          bannerUrl={profile.banner_url}
+        />
       }
     >
       <div className="space-y-4">
@@ -132,6 +123,79 @@ export function LandingContentSection({ profile, saving, onSave }: SectionProps)
         </div>
       </div>
     </SectionShell>
+  );
+}
+
+function LandingPreview({
+  slogan,
+  tagline,
+  about,
+  features,
+  businessName,
+  bannerUrl,
+}: {
+  slogan?: string;
+  tagline?: string;
+  about?: string;
+  features: string[];
+  businessName?: string;
+  bannerUrl?: string;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        <PreviewChip label="Slogan" ready={Boolean(slogan)} />
+        <PreviewChip label="Headline" ready={Boolean(tagline)} />
+        <PreviewChip label="Selling points" ready={features.length > 0} value={`${features.length} item`} />
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-950 dark:border-slate-800">
+        <div className="relative min-h-[260px] px-5 py-6 sm:px-7 sm:py-8">
+          {bannerUrl ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={bannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-45" />
+              <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/75 to-slate-950/20" />
+            </>
+          ) : null}
+          <div className="relative max-w-2xl">
+            <span className="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/15">
+              {slogan || businessName || "Slogan landing"}
+            </span>
+            <h3 className="mt-5 text-2xl font-semibold leading-tight text-white sm:text-3xl">
+              {tagline || "Headline utama landing public akan tampil di sini"}
+            </h3>
+            <p className="mt-3 line-clamp-3 max-w-xl text-sm leading-6 text-white/75">
+              {about || "Deskripsi singkat bisnis membantu customer paham value sebelum lanjut booking."}
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {(features.length ? features : ["Selling point pertama", "Benefit utama"]).slice(0, 4).map((feature, index) => (
+                <span key={`${feature}-${index}`} className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-900">
+                  {feature}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PreviewChip({
+  label,
+  ready,
+  value,
+}: {
+  label: string;
+  ready: boolean;
+  value?: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-slate-800 dark:bg-white/[0.03] dark:text-slate-200">
+      <span className={`h-2 w-2 rounded-full ${ready ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-700"}`} />
+      {label}: {value || (ready ? "Terisi" : "Belum")}
+    </span>
   );
 }
 

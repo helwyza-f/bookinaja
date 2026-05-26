@@ -184,6 +184,21 @@ func (r *Repository) GetTenantTimezone(ctx context.Context, tenantID uuid.UUID) 
 	return timezone, err
 }
 
+func (r *Repository) GetTenantOperatingHours(ctx context.Context, tenantID uuid.UUID) (string, string, error) {
+	var row struct {
+		OpenTime  string `db:"open_time"`
+		CloseTime string `db:"close_time"`
+	}
+	err := r.db.GetContext(ctx, &row, `
+		SELECT
+			COALESCE(NULLIF(BTRIM(open_time), ''), '09:00') AS open_time,
+			COALESCE(NULLIF(BTRIM(close_time), ''), '22:00') AS close_time
+		FROM tenants
+		WHERE id = $1
+		LIMIT 1`, tenantID)
+	return row.OpenTime, row.CloseTime, err
+}
+
 func (r *Repository) GetTenantIDByBookingID(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
 	var tID uuid.UUID
 	err := r.db.GetContext(ctx, &tID, `SELECT tenant_id FROM bookings WHERE id = $1 LIMIT 1`, id)

@@ -5,7 +5,7 @@ import { Clock, Palette } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { SectionShell, ViewGrid, ViewItem } from "./section-shell";
+import { SectionShell } from "./section-shell";
 import type { SectionProps } from "./types";
 
 export function OperationsSection({ profile, saving, onSave }: SectionProps) {
@@ -61,36 +61,14 @@ export function OperationsSection({ profile, saving, onSave }: SectionProps) {
         setEditing(false);
       }}
       view={
-        <ViewGrid>
-          <ViewItem label="Jam buka" value={profile.open_time} />
-          <ViewItem label="Jam tutup" value={profile.close_time} />
-          <ViewItem label="Timezone" value={profile.timezone || "Asia/Jakarta"} />
-          <ViewItem
-            label="Warna utama"
-            value={
-              <span className="inline-flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full" style={{ backgroundColor: profile.primary_color }} />
-                {profile.primary_color}
-              </span>
-            }
-          />
-          <ViewItem
-            label="Controller F&B"
-            value={
-              draft.booking_form_config.controller_features.enable_fnb
-                ? "Aktif"
-                : "Nonaktif"
-            }
-          />
-          <ViewItem
-            label="Controller add-on"
-            value={
-              draft.booking_form_config.controller_features.enable_addons
-                ? "Aktif"
-                : "Nonaktif"
-            }
-          />
-        </ViewGrid>
+        <OperationsPreview
+          openTime={profile.open_time}
+          closeTime={profile.close_time}
+          timezone={profile.timezone}
+          primaryColor={profile.primary_color}
+          enableFnb={profile.booking_form_config?.controller_features?.enable_fnb ?? true}
+          enableAddons={profile.booking_form_config?.controller_features?.enable_addons ?? true}
+        />
       }
     >
       <div className="grid gap-4 md:grid-cols-4">
@@ -161,6 +139,84 @@ export function OperationsSection({ profile, saving, onSave }: SectionProps) {
         />
       </div>
     </SectionShell>
+  );
+}
+
+function OperationsPreview({
+  openTime,
+  closeTime,
+  timezone,
+  primaryColor,
+  enableFnb,
+  enableAddons,
+}: {
+  openTime?: string;
+  closeTime?: string;
+  timezone?: string;
+  primaryColor?: string;
+  enableFnb: boolean;
+  enableAddons: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        <PreviewChip label="Jam" ready={Boolean(openTime && closeTime)} />
+        <PreviewChip label="Timezone" ready={Boolean(timezone)} />
+        <PreviewChip label="F&B" ready={enableFnb} value={enableFnb ? "Aktif" : "Nonaktif"} />
+        <PreviewChip label="Add-on" ready={enableAddons} value={enableAddons ? "Aktif" : "Nonaktif"} />
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-white/[0.03]">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+              Jam operasional
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
+              {openTime || "09:00"} - {closeTime || "21:00"}
+            </p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              {timezone || "Asia/Jakarta"}
+            </p>
+          </div>
+          <div className="flex items-center gap-3 rounded-xl bg-white px-3 py-3 ring-1 ring-slate-200 dark:bg-slate-950 dark:ring-slate-800">
+            <span className="h-9 w-9 rounded-lg" style={{ backgroundColor: primaryColor || "#3b82f6" }} />
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Warna utama</p>
+              <p className="font-mono text-sm font-semibold text-slate-950 dark:text-white">
+                {primaryColor || "#3b82f6"}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+          <div className="h-full w-2/3 rounded-full" style={{ backgroundColor: primaryColor || "#3b82f6" }} />
+        </div>
+        <div className="mt-2 flex justify-between text-xs text-slate-500 dark:text-slate-400">
+          <span>Buka</span>
+          <span>Booking aktif</span>
+          <span>Tutup</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PreviewChip({
+  label,
+  ready,
+  value,
+}: {
+  label: string;
+  ready: boolean;
+  value?: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-slate-800 dark:bg-white/[0.03] dark:text-slate-200">
+      <span className={`h-2 w-2 rounded-full ${ready ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-700"}`} />
+      {label}: {value || (ready ? "Terisi" : "Belum")}
+    </span>
   );
 }
 

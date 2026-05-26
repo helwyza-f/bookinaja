@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { Maximize2, Camera } from "lucide-react";
+import { Camera } from "lucide-react";
 import { getLandingPresetTone } from "./theme-preset";
 
 interface GallerySectionProps {
@@ -28,9 +28,10 @@ export function GallerySection({
 }: GallerySectionProps) {
   const safeImages = (images || []).filter((url) => Boolean(url?.trim()));
   if (!safeImages.length) return null;
+  const railImages = safeImages.length > 1 ? [...safeImages, ...safeImages] : safeImages;
   const tone = getLandingPresetTone(preset);
   const frameRadiusClass =
-    radiusStyle === "square" ? "rounded-[1.25rem] md:rounded-[1.8rem]" : radiusStyle === "soft" ? "rounded-[2.2rem] md:rounded-[2.75rem]" : "rounded-[2rem] md:rounded-[3rem]";
+    radiusStyle === "square" ? "rounded-[1.1rem] md:rounded-[1.5rem]" : radiusStyle === "soft" ? "rounded-[1.6rem] md:rounded-[2.1rem]" : "rounded-[1.5rem] md:rounded-[2rem]";
   const tagRadiusClass =
     radiusStyle === "square" ? "rounded-[0.9rem]" : radiusStyle === "soft" ? "rounded-[1.15rem]" : "rounded-full";
   const sectionBackgroundClass = tone.section;
@@ -62,16 +63,16 @@ export function GallerySection({
   const bodyTextClass = tone.body;
 
   return (
-    <section className={cn("py-24 md:py-40 px-6 border-t relative overflow-hidden", sectionBackgroundClass)}>
+    <section className={cn("relative overflow-hidden border-t px-0 py-20 md:py-32", sectionBackgroundClass)}>
       {/* Glow Effect Background */}
       <div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[500px] w-[500px] opacity-[0.03] blur-[120px] pointer-events-none rounded-full"
         style={{ backgroundColor: accentColor || primaryColor }}
       />
 
-      <div className="container mx-auto max-w-7xl relative z-10">
+      <div className="relative z-10">
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-16 md:mb-24">
+        <div className="container mx-auto mb-10 flex max-w-7xl flex-col items-start justify-between gap-6 px-6 md:mb-14 md:flex-row md:items-end">
           <div className="space-y-4 text-left">
             <div className="flex items-center gap-3">
               <div
@@ -87,7 +88,7 @@ export function GallerySection({
                 {eyebrow || "Visual Experience"}
               </span>
             </div>
-            <h2 className={cn("text-5xl md:text-8xl font-[1000] uppercase italic tracking-tighter leading-none", tone.title)}>
+            <h2 className={cn("text-4xl font-[1000] uppercase italic leading-none tracking-tighter md:text-7xl", tone.title)}>
               {title ? (
                 title
               ) : (
@@ -97,7 +98,7 @@ export function GallerySection({
               )}
             </h2>
             {description ? (
-              <p className={cn("max-w-2xl text-sm font-medium leading-7", tone.body)}>
+              <p className={cn("max-w-2xl text-sm font-medium leading-7 md:text-base", tone.body)}>
                 {description}
               </p>
             ) : null}
@@ -119,48 +120,64 @@ export function GallerySection({
           </div>
         </div>
 
-        {/* Bento Grid Layout */}
-        <div className="grid grid-cols-2 md:grid-cols-4 md:grid-rows-2 gap-4 md:gap-6 h-auto md:h-[800px]">
-          {safeImages.map((url, i) => (
+        <div className="relative">
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-14 bg-gradient-to-r from-white to-transparent dark:from-[#050505] md:w-28" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-14 bg-gradient-to-l from-white to-transparent dark:from-[#050505] md:w-28" />
+          <div className="scrollbar-hide overflow-x-auto overscroll-x-contain pb-3">
             <div
-              key={i}
               className={cn(
-                "relative overflow-hidden group border",
-                frameRadiusClass,
-                frameClass,
-                // Logic Bento: Foto pertama besar, sisanya kecil
-                i === 0 && "col-span-2 row-span-2 md:col-span-2 md:row-span-2",
-                i === 1 && "col-span-2 md:col-span-2 md:row-span-1",
-                i === 2 && "col-span-1 md:col-span-1 md:row-span-1",
-                i === 3 && "col-span-1 md:col-span-1 md:row-span-1",
-                i > 3 && "hidden md:block", // Sembunyikan foto lebih dari 4 di mobile biar ga kepanjangan
+                "flex w-max gap-4 px-6 md:gap-6",
+                safeImages.length > 1 && "animate-[bookinaja-gallery-rail_42s_linear_infinite] hover:[animation-play-state:paused]",
               )}
             >
-              <Image
-                src={url}
-                alt={`Gallery ${i + 1}`}
-                fill
-                sizes="(min-width: 768px) 25vw, 50vw"
-                className="object-cover object-center transition-transform duration-1000 group-hover:scale-110"
-              />
-
-              {/* Overlay on Hover */}
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-center justify-center">
-                <div className="h-16 w-16 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center scale-50 group-hover:scale-100 transition-transform duration-500">
-                  <Maximize2 className="text-white" size={24} />
-                </div>
-              </div>
-
-              {/* Tagging detail kecil */}
-              <div className="absolute bottom-6 left-6 md:bottom-10 md:left-10 opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all duration-500">
-                <p className={cn("text-white font-[1000] uppercase italic text-xs tracking-widest bg-black/20 backdrop-blur-md px-4 py-2 border border-white/10", tagRadiusClass)}>
-                  Shot 0{i + 1}
-                </p>
-              </div>
+              {railImages.map((url, i) => {
+                const sourceIndex = i % safeImages.length;
+                return (
+                  <div
+                    key={`${url}-${i}`}
+                    className={cn(
+                      "group relative h-[300px] w-[78vw] shrink-0 overflow-hidden border sm:h-[360px] sm:w-[460px] lg:h-[420px] lg:w-[620px]",
+                      frameRadiusClass,
+                      frameClass,
+                    )}
+                  >
+                    <Image
+                      src={url}
+                      alt={`Gallery ${sourceIndex + 1}`}
+                      fill
+                      sizes="(min-width: 1024px) 620px, (min-width: 640px) 460px, 78vw"
+                      className="object-cover object-center transition-transform duration-1000 group-hover:scale-[1.04]"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/55 to-transparent" />
+                    <div className="absolute bottom-5 left-5 md:bottom-7 md:left-7">
+                      <p className={cn("border border-white/15 bg-black/24 px-4 py-2 text-xs font-[1000] uppercase italic tracking-widest text-white backdrop-blur-md", tagRadiusClass)}>
+                        Shot {String(sourceIndex + 1).padStart(2, "0")}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          ))}
+          </div>
         </div>
       </div>
+      <style>{`
+        @keyframes bookinaja-gallery-rail {
+          from {
+            transform: translateX(0);
+          }
+          to {
+            transform: translateX(-50%);
+          }
+        }
+        .scrollbar-hide {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </section>
   );
 }

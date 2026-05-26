@@ -5,13 +5,8 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
   format,
-  isBefore,
   parse,
   addMinutes,
-  addDays,
-  addWeeks,
-  addMonths,
-  addYears,
   isSameDay,
 } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
@@ -166,7 +161,7 @@ export default function ResourceBookingDetail() {
   }, [isInterday, profile]);
 
   useEffect(() => {
-    if (date && params.id && !isInterday) {
+    if (date && params.id) {
       const fetchBusy = async () => {
         try {
           const formattedDate = format(date, "yyyy-MM-dd");
@@ -177,17 +172,21 @@ export default function ResourceBookingDetail() {
             (slot: any) => {
               const [h, m] = slot.start_time.split(":").map(Number);
               const [eh, em] = slot.end_time.split(":").map(Number);
-              return { start_min: h * 60 + m, end_min: eh * 60 + em };
+              const startMin = h * 60 + m;
+              let endMin = eh * 60 + em;
+              if (endMin <= startMin) endMin = 24 * 60;
+              return { start_min: startMin, end_min: endMin };
             },
           );
           setBusySlots(normalized);
         } catch {
           console.error("Gagal sinkron jadwal");
+          setBusySlots([]);
         }
       };
       fetchBusy();
     }
-  }, [date, params.id, isInterday]);
+  }, [date, params.id]);
 
   useEffect(() => {
     if (!hasCustomerSession || !sessionCustomer) return;
@@ -254,33 +253,19 @@ export default function ResourceBookingDetail() {
     if (!selectedItem || !profile || isInterday) return [];
     const step =
       selectedItem.unit_duration > 0 ? selectedItem.unit_duration : 60;
-    const [closeH, closeM] = (profile.close_time || "22:00")
-      .split(":")
-      .map(Number);
-    const closeTotalMin = closeH * 60 + closeM;
-
-    const slots = [];
-    let current = parse(
+    const operatingWindow = getOperatingWindow(
       profile.open_time || "08:00",
-      "HH:mm",
-      date || new Date(),
-    );
-    const endOperasi = parse(
       profile.close_time || "22:00",
-      "HH:mm",
-      date || new Date(),
     );
+    const slots = [];
+    let currentMinutes = operatingWindow.openMinutes;
 
-    while (isBefore(current, endOperasi)) {
-      const timeStr = format(current, "HH:mm");
-      const [h, m] = timeStr.split(":").map(Number);
-      if (h * 60 + m + step <= closeTotalMin) {
-        slots.push(timeStr);
-      }
-      current = addMinutes(current, step);
+    while (currentMinutes + step <= operatingWindow.closeMinutes) {
+      slots.push(minutesToClock(currentMinutes));
+      currentMinutes += step;
     }
     return slots;
-  }, [selectedItem, date, profile, isInterday]);
+  }, [selectedItem, profile, isInterday]);
 
   const formattedSelectedDate = useMemo(() => {
     if (!date) return "";
@@ -294,15 +279,15 @@ export default function ResourceBookingDetail() {
     const [h, m] = selectedTime.split(":").map(Number);
     const startMin = h * 60 + m;
     const unitMin = selectedItem.unit_duration || 60;
-    const [closeH, closeM] = (profile.close_time || "22:00")
-      .split(":")
-      .map(Number);
-    const closeTotalMin = closeH * 60 + closeM;
+    const operatingWindow = getOperatingWindow(
+      profile.open_time || "08:00",
+      profile.close_time || "22:00",
+    );
 
     const nextBusy = busySlots
       .filter((s) => s.start_min > startMin)
       .sort((a, b) => a.start_min - b.start_min)[0];
-    let availableMin = closeTotalMin - startMin;
+    let availableMin = operatingWindow.closeMinutes - startMin;
     if (nextBusy) {
       availableMin = Math.min(availableMin, nextBusy.start_min - startMin);
     }
@@ -318,27 +303,10 @@ export default function ResourceBookingDetail() {
   const smartTimeline = useMemo(() => {
     if (!selectedTime || !selectedItem || !date) return { start: "", end: "" };
     const startObj = parse(selectedTime, "HH:mm", date);
-    let endObj;
-
-    switch (selectedItem.price_unit) {
-      case "day":
-        endObj = addDays(startObj, durationValue);
-        break;
-      case "week":
-        endObj = addWeeks(startObj, durationValue);
-        break;
-      case "month":
-        endObj = addMonths(startObj, durationValue);
-        break;
-      case "year":
-        endObj = addYears(startObj, durationValue);
-        break;
-      default:
-        endObj = addMinutes(
-          startObj,
-          selectedItem.unit_duration * durationValue,
-        );
-    }
+    const endObj = addMinutes(
+      startObj,
+      (selectedItem.unit_duration || 60) * durationValue,
+    );
 
     return {
       start: isInterday
@@ -350,6 +318,24 @@ export default function ResourceBookingDetail() {
       fullDate: format(date, "EEEE, dd MMMM yyyy", { locale: idLocale }),
     };
   }, [selectedTime, selectedItem, date, durationValue, isInterday]);
+
+  const selectedRangeState = useMemo(() => {
+    if (!selectedTime || !selectedItem || !date) {
+      return { isPast: false, isBusy: false };
+    }
+    const startMin = clockToMinutes(selectedTime);
+    const durationMin = (selectedItem.unit_duration || 60) * durationValue;
+    const endMin = isInterday
+      ? Math.min(24 * 60, startMin + durationMin)
+      : startMin + durationMin;
+    const isPast =
+      isSameDay(date, tenantToday) &&
+      startMin <= tenantNow.getHours() * 60 + tenantNow.getMinutes();
+    const isBusy = busySlots.some((slot) =>
+      intervalsOverlap(startMin, endMin, slot.start_min, slot.end_min),
+    );
+    return { isPast, isBusy };
+  }, [busySlots, date, durationValue, isInterday, selectedItem, selectedTime, tenantNow, tenantToday]);
 
   const calculateTotal = () => {
     if (!selectedItem) return 0;
@@ -404,6 +390,10 @@ export default function ResourceBookingDetail() {
       return toast.error("Nomor WhatsApp tidak valid");
     if (!custName || !selectedTime || !date)
       return toast.error("Lengkapi formulir boking");
+    if (selectedRangeState.isPast)
+      return toast.error("Jam booking sudah lewat");
+    if (selectedRangeState.isBusy)
+      return toast.error("Slot ini sudah dibooking");
 
     setIsSubmitting(true);
     try {
@@ -744,10 +734,28 @@ export default function ResourceBookingDetail() {
             )}
 
             {isInterday && (
-              <div className="p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10 flex items-center gap-3 animate-in slide-in-from-top-2">
-                <ShieldCheck className="text-emerald-500 h-5 w-5 shrink-0" />
+              <div
+                className={cn(
+                  "p-4 rounded-2xl border flex items-center gap-3 animate-in slide-in-from-top-2",
+                  selectedRangeState.isPast || selectedRangeState.isBusy
+                    ? "border-red-500/15 bg-red-500/5"
+                    : "border-emerald-500/10 bg-emerald-500/5",
+                )}
+              >
+                <ShieldCheck
+                  className={cn(
+                    "h-5 w-5 shrink-0",
+                    selectedRangeState.isPast || selectedRangeState.isBusy
+                      ? "text-red-500"
+                      : "text-emerald-500",
+                  )}
+                />
                 <p className={cn("text-[10px] font-black uppercase italic", themeVisuals.strongBodyClass)}>
-                  Akses harian aktif otomatis dari jam buka toko
+                  {selectedRangeState.isPast
+                    ? "Jam mulai hari ini sudah lewat"
+                    : selectedRangeState.isBusy
+                      ? "Tanggal mulai ini sudah punya booking"
+                      : "Akses aktif otomatis dari jam buka toko"}
                 </p>
               </div>
             )}
@@ -1086,7 +1094,9 @@ export default function ResourceBookingDetail() {
                 phoneStatus !== "valid" ||
                 !selectedTime ||
                 isSubmitting ||
-                !custName
+                !custName ||
+                selectedRangeState.isPast ||
+                selectedRangeState.isBusy
               }
               onClick={handleBooking}
               className="h-14 md:h-16 w-full md:w-auto md:px-10 rounded-2xl text-white font-[1000] uppercase italic text-sm shadow-xl transition-all active:scale-95 gap-2 active:border-b-0"
@@ -1131,6 +1141,45 @@ function BookingSkeleton() {
 
 function normalizeCalendarDate(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+}
+
+function normalizeTenantClock(value: string) {
+  const match = value.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return "09:00";
+  const hours = Math.min(23, Math.max(0, Number(match[1] || "9")));
+  const minutes = Math.min(59, Math.max(0, Number(match[2] || "0")));
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function clockToMinutes(value: string) {
+  const [hours, minutes] = normalizeTenantClock(value).split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function minutesToClock(totalMinutes: number) {
+  const safe = Math.max(0, Math.min(totalMinutes, 24 * 60));
+  if (safe === 24 * 60) return "24:00";
+  const hours = Math.floor(safe / 60);
+  const minutes = safe % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function getOperatingWindow(openTime: string, closeTime: string) {
+  const openMinutes = clockToMinutes(openTime);
+  let closeMinutes = clockToMinutes(closeTime);
+  if (normalizeTenantClock(closeTime) === "23:59") {
+    closeMinutes = 24 * 60;
+  }
+  if (closeMinutes <= openMinutes) {
+    closeMinutes = 24 * 60;
+  }
+  return { openMinutes, closeMinutes };
+}
+
+function intervalsOverlap(startA: number, endA: number, startB: number, endB: number) {
+  const normalizedEndA = endA <= startA ? 24 * 60 : endA;
+  const normalizedEndB = endB <= startB ? 24 * 60 : endB;
+  return startA < normalizedEndB && normalizedEndA > startB;
 }
 
 function getTimeZoneParts(date: Date, timezone = "Asia/Jakarta") {

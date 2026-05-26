@@ -3,14 +3,15 @@
 import Image from "next/image";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
-import { Moon, Sun, UserCircle2 } from "lucide-react";
+import { Moon, ShieldCheck, Sun, UserCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getCentralCustomerAuthUrl, getCustomerPostAuthUrl } from "@/lib/tenant";
-import { getLandingPresetTone } from "./theme-preset";
 import {
-  LANDING_COPY_BUDGET,
-  truncateLandingCopy,
-} from "./copy-budget";
+  getCentralAdminAuthUrl,
+  getCentralCustomerAuthUrl,
+  getCustomerPostAuthUrl,
+} from "@/lib/tenant";
+import { getLandingPresetTone } from "./theme-preset";
+import { truncateLandingCopy } from "./copy-budget";
 import { useCustomerSessionPreview } from "@/lib/customer-session-preview";
 import { BOOKINAJA_LOGO_NORMAL_SRC } from "@/lib/brand";
 
@@ -38,22 +39,15 @@ type TenantNavbarProps = {
 export function TenantNavbar({
   profile,
   landingTheme,
-  previewMode = "desktop",
-  embedded = false,
   enableCustomerContext = true,
 }: TenantNavbarProps) {
   const { resolvedTheme, setTheme } = useTheme();
-  const isCompactPreview = embedded && previewMode === "mobile";
   const primaryColor = landingTheme?.primary || profile.primary_color || "#3b82f6";
   const preset = landingTheme?.preset || "bookinaja-classic";
   const radiusStyle = landingTheme?.radiusStyle || "rounded";
   const tone = getLandingPresetTone(preset);
   const isDark = resolvedTheme === "dark";
   const businessType = profile.business_type || "Business Hub";
-  const mobileBusinessType = truncateLandingCopy(
-    businessType,
-    LANDING_COPY_BUDGET.mobileNavbarBusinessType,
-  );
   const { customer, firstName, isAuthenticated } = useCustomerSessionPreview({
     enabled: enableCustomerContext,
   });
@@ -72,13 +66,17 @@ export function TenantNavbar({
         tenantSlug: profile.slug,
         next: "/user/me",
       });
+  const adminHref = getCentralAdminAuthUrl({
+    tenantSlug: profile.slug,
+    next: "/admin/dashboard",
+  });
 
-  const shellRadiusClass =
+  const desktopShellRadiusClass =
     radiusStyle === "square"
-      ? "rounded-[1rem] md:rounded-[1.35rem]"
+      ? "md:rounded-[1.35rem]"
       : radiusStyle === "soft"
-        ? "rounded-[1.4rem] md:rounded-[1.9rem]"
-        : "rounded-[1.4rem] md:rounded-[2rem]";
+        ? "md:rounded-[1.9rem]"
+        : "md:rounded-[2rem]";
   const logoRadiusClass =
     radiusStyle === "square"
       ? "rounded-[0.9rem]"
@@ -97,24 +95,22 @@ export function TenantNavbar({
     <div
       className={cn(
         "fixed inset-x-0 top-0 z-[100]",
-        isCompactPreview ? "px-3 pt-3" : "px-4 pt-4 md:px-6 md:pt-6",
+        "px-0 pt-0 md:px-6 md:pt-6",
       )}
     >
       <nav
         className={cn(
           "mx-auto flex items-center justify-between border shadow-[0_18px_45px_rgba(15,23,42,0.12)] backdrop-blur-2xl",
-          isCompactPreview
-            ? "h-[68px] max-w-none px-3"
-            : "h-[74px] max-w-6xl px-4 md:h-[88px] md:px-6",
-          shellRadiusClass,
+          "h-[82px] w-full max-w-none border-x-0 border-t-0 px-4 shadow-[0_12px_32px_rgba(15,23,42,0.12)] md:h-[88px] md:max-w-6xl md:border md:px-6 md:shadow-[0_18px_45px_rgba(15,23,42,0.12)]",
+          cn("rounded-none", desktopShellRadiusClass),
           tone.shell,
         )}
       >
-        <div className={cn("flex min-w-0 items-center", isCompactPreview ? "gap-2.5" : "gap-3 md:gap-4")}>
+        <div className="flex min-w-0 items-center gap-2.5 md:gap-4">
           <div
             className={cn(
               "relative shrink-0 overflow-hidden",
-              isCompactPreview ? "h-10 w-10 rounded-xl" : cn("h-11 w-11 md:h-14 md:w-14", logoRadiusClass),
+              cn("h-11 w-11 md:h-14 md:w-14", logoRadiusClass),
               hasCustomLogo
                 ? "text-white"
                 : "bg-white ring-1 ring-white/18",
@@ -142,7 +138,7 @@ export function TenantNavbar({
             <div
               className={cn(
                 "truncate font-[1000] uppercase italic tracking-tighter",
-                isCompactPreview ? "max-w-[140px] text-[14px]" : "max-w-[180px] text-[15px] md:max-w-[320px] md:text-[24px]",
+                "max-w-[112px] text-[16px] sm:max-w-[180px] sm:text-[18px] md:max-w-[320px] md:text-[24px]",
               )}
             >
               {profile.name}
@@ -151,37 +147,31 @@ export function TenantNavbar({
               <div
                 className={cn(
                   "rounded-full",
-                  isCompactPreview ? "h-1 w-3" : "h-1 w-4 md:w-5",
+                  "h-1 w-4 md:w-5",
                 )}
                 style={{ backgroundColor: primaryColor }}
               />
                 <span
                   className={cn(
                   "truncate font-black uppercase",
-                  isCompactPreview
-                    ? "max-w-[110px] text-[8px] tracking-[0.18em]"
-                    : "max-w-[180px] text-[9px] tracking-[0.22em] md:max-w-[320px] md:text-[10px] md:tracking-[0.28em]",
+                  "max-w-[110px] text-[8px] tracking-[0.18em] sm:max-w-[170px] sm:text-[9px] sm:tracking-[0.2em] md:max-w-[320px] md:text-[10px] md:tracking-[0.28em]",
                   tone.eyebrow,
                 )}
               >
-                {isCompactPreview
-                  ? mobileBusinessType
-                  : `${businessType} via Bookinaja`}
+                {`${businessType} via Bookinaja`}
               </span>
             </div>
           </div>
         </div>
 
-        <div className={cn("flex items-center", isCompactPreview ? "gap-2" : "gap-2.5 md:gap-3")}>
+        <div className="flex shrink-0 items-center gap-2 md:gap-3">
           <Button
             type="button"
             variant="outline"
             onClick={() => setTheme(isDark ? "light" : "dark")}
             className={cn(
-              "shrink-0 border font-semibold",
-              isCompactPreview
-                ? "h-10 w-10 rounded-xl px-0"
-                : cn("h-11 w-11 px-0 md:h-12 md:w-12", buttonRadiusClass),
+              "hidden shrink-0 border font-semibold md:inline-flex",
+              cn("h-12 w-12 px-0 md:h-12 md:w-12", buttonRadiusClass),
               tone.social,
             )}
             aria-label={isDark ? "Aktifkan mode terang" : "Aktifkan mode gelap"}
@@ -193,16 +183,29 @@ export function TenantNavbar({
             )}
           </Button>
 
+          <a href={adminHref} className="shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              className={cn(
+                "h-11 border bg-white px-3 text-[10px] font-black uppercase italic tracking-[0.1em] text-slate-900 shadow-[0_14px_30px_rgba(15,23,42,0.12)] ring-1 ring-slate-200/80 transition-transform hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_18px_38px_rgba(15,23,42,0.16)] dark:bg-white/10 dark:text-white dark:ring-white/10 md:h-12 md:px-4 md:text-[11px]",
+                buttonRadiusClass,
+              )}
+            >
+              <ShieldCheck className="mr-1.5 h-4 w-4" />
+              <span className="md:hidden">Admin</span>
+              <span className="hidden md:inline">Masuk Admin</span>
+            </Button>
+          </a>
+
           <a href={customerHref} className="shrink-0">
             <Button
               className={cn(
                 "border-none font-black uppercase italic tracking-[0.14em] text-white",
-                isCompactPreview
-                  ? "h-10 w-10 px-0"
-                  : cn(
-                      "h-11 min-w-[44px] px-0 text-[10px] md:h-12 md:w-auto md:px-5 md:text-[11px]",
-                      buttonRadiusClass,
-                    ),
+                cn(
+                  "h-11 px-3 text-[10px] md:h-12 md:w-auto md:px-5 md:text-[11px]",
+                  buttonRadiusClass,
+                ),
               )}
               style={{
                 backgroundColor: primaryColor,
@@ -223,15 +226,16 @@ export function TenantNavbar({
                   {customerInitials || "CU"}
                 </span>
               ) : (
-                <UserCircle2 className={cn(isCompactPreview ? "h-4.5 w-4.5" : "h-4.5 w-4.5 md:mr-1.5 md:h-4 md:w-4")} />
+                <UserCircle2 className="mr-1.5 h-4 w-4" />
               )}
-              {!isCompactPreview ? (
-                <span className="hidden md:inline">
-                  {isAuthenticated
-                    ? `Halo, ${truncateLandingCopy(firstName || customer?.name || "Customer", 16)}`
-                    : "Customer Sign In"}
-                </span>
-              ) : null}
+              <span className="inline md:hidden">
+                {isAuthenticated ? "Akun" : "Customer"}
+              </span>
+              <span className="hidden md:inline">
+                {isAuthenticated
+                  ? `Halo, ${truncateLandingCopy(firstName || customer?.name || "Customer", 16)}`
+                  : "Masuk Customer"}
+              </span>
             </Button>
           </a>
         </div>

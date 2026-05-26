@@ -95,6 +95,12 @@ func (h *Handler) Create(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 			return
 		}
+		if err.Error() == "WAKTU BOOKING SUDAH LEWAT" ||
+			err.Error() == "WAKTU MULAI DI LUAR JAM OPERASIONAL" ||
+			err.Error() == "JADWAL DI LUAR JAM OPERASIONAL" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

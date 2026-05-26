@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Building2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SectionShell, ViewGrid, ViewItem } from "./section-shell";
+import { SectionShell } from "./section-shell";
 import type { SectionProps } from "./types";
 
 export function BasicProfileSection({ profile, saving, onSave }: SectionProps) {
@@ -42,12 +42,14 @@ export function BasicProfileSection({ profile, saving, onSave }: SectionProps) {
         setEditing(false);
       }}
       view={
-        <ViewGrid>
-          <ViewItem label="Nama bisnis" value={profile.name} />
-          <ViewItem label="Slug public" value={profile.slug} />
-          <ViewItem label="Kategori bisnis" value={profile.business_category as string} />
-          <ViewItem label="Tipe bisnis" value={profile.business_type as string} />
-        </ViewGrid>
+        <ProfilePreview
+          name={profile.name}
+          slug={profile.slug}
+          category={profile.business_category as string}
+          type={profile.business_type as string}
+          logoUrl={profile.logo_url}
+          primaryColor={profile.primary_color}
+        />
       }
     >
       <div className="grid gap-4 md:grid-cols-2">
@@ -65,6 +67,79 @@ export function BasicProfileSection({ profile, saving, onSave }: SectionProps) {
         </Field>
       </div>
     </SectionShell>
+  );
+}
+
+function ProfilePreview({
+  name,
+  slug,
+  category,
+  type,
+  logoUrl,
+  primaryColor,
+}: {
+  name?: string;
+  slug?: string;
+  category?: string;
+  type?: string;
+  logoUrl?: string;
+  primaryColor?: string;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        <PreviewChip label="Nama" ready={Boolean(name)} />
+        <PreviewChip label="Slug" ready={Boolean(slug)} />
+        <PreviewChip label="Kategori" ready={Boolean(category)} />
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-white/[0.03]">
+        <div className="flex items-start gap-4">
+          <div
+            className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white text-lg font-semibold text-white shadow-sm ring-1 ring-slate-200 dark:bg-slate-950 dark:ring-slate-800"
+            style={{ backgroundColor: logoUrl ? undefined : primaryColor || "#3b82f6" }}
+          >
+            {logoUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={logoUrl} alt="Logo bisnis" className="h-full w-full object-contain p-2" />
+            ) : (
+              (name || "B").trim().charAt(0).toUpperCase()
+            )}
+          </div>
+          <div className="min-w-0">
+            <h3 className="truncate text-xl font-semibold text-slate-950 dark:text-white">
+              {name || "Nama bisnis"}
+            </h3>
+            <p className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">
+              {slug ? `${slug}.bookinaja.com` : "slug.bookinaja.com"}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 dark:bg-slate-950 dark:text-slate-200 dark:ring-slate-800">
+                {category || "Kategori bisnis"}
+              </span>
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 dark:bg-slate-950 dark:text-slate-200 dark:ring-slate-800">
+                {type || "Tipe bisnis"}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PreviewChip({
+  label,
+  ready,
+}: {
+  label: string;
+  ready: boolean;
+}) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-slate-800 dark:bg-white/[0.03] dark:text-slate-200">
+      <span className={`h-2 w-2 rounded-full ${ready ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-700"}`} />
+      {label}: {ready ? "Terisi" : "Belum"}
+    </span>
   );
 }
 

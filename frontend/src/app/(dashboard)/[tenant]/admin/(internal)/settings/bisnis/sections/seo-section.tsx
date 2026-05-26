@@ -5,7 +5,7 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { SectionShell, ViewItem } from "./section-shell";
+import { SectionShell } from "./section-shell";
 import type { SectionProps } from "./types";
 
 export function SeoSection({ profile, saving, onSave }: SectionProps) {
@@ -39,10 +39,10 @@ export function SeoSection({ profile, saving, onSave }: SectionProps) {
         setEditing(false);
       }}
       view={
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="space-y-3">
-            <ViewItem label="Meta title" value={profile.meta_title} />
-            <ViewItem label="Meta description" value={profile.meta_description} />
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <PreviewChip label="Title" ready={Boolean(profile.meta_title)} />
+            <PreviewChip label="Description" ready={Boolean(profile.meta_description)} />
           </div>
           <SearchPreview title={profile.meta_title || profile.name} description={profile.meta_description} slug={profile.slug} />
         </div>
@@ -64,6 +64,21 @@ export function SeoSection({ profile, saving, onSave }: SectionProps) {
         <SearchPreview title={draft.meta_title || profile.name} description={draft.meta_description} slug={profile.slug} />
       </div>
     </SectionShell>
+  );
+}
+
+function PreviewChip({
+  label,
+  ready,
+}: {
+  label: string;
+  ready: boolean;
+}) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-slate-800 dark:bg-white/[0.03] dark:text-slate-200">
+      <span className={`h-2 w-2 rounded-full ${ready ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-700"}`} />
+      {label}: {ready ? "Terisi" : "Belum"}
+    </span>
   );
 }
 

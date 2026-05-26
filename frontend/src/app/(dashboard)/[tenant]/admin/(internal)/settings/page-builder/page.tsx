@@ -238,8 +238,8 @@ const SECTION_VARIANTS: Record<
   gallery: [
     {
       value: "bento",
-      label: "Bento",
-      description: "Kolase editorial dengan komposisi visual besar.",
+      label: "Auto rail",
+      description: "Frame horizontal yang bisa discroll dan bergerak otomatis.",
     },
     { value: "grid", label: "Grid", description: "Galeri rapi berbasis kisi." },
     {
@@ -1688,7 +1688,7 @@ function BusinessStudioPanel({
       <CollapsibleSidebarCard
         icon={<ImageIcon className="h-4 w-4" />}
         title="Media Landing"
-        description="Logo, banner, foto, dan identitas visual galeri"
+        description="Logo, banner, dan galeri horizontal auto-scroll"
         open={mediaPanelOpen}
         onToggle={onToggleMedia}
       >
@@ -2452,6 +2452,7 @@ function MobilePreviewFrame({
 }) {
   const basePhoneWidth = 400;
   const basePhoneHeight = 720;
+  const phoneSafeTop = 28;
   const fitScale = 0.7;
   const mobileFitScale = 0.83;
 
@@ -2462,8 +2463,12 @@ function MobilePreviewFrame({
     >
       <div className="absolute left-1/2 top-2.5 z-20 h-6 w-28 -translate-x-1/2 rounded-full bg-[#0c1426]" />
       <div
+        className="border-b border-slate-100 bg-white dark:border-white/10 dark:bg-[#050505]"
+        style={{ height: `${phoneSafeTop}px` }}
+      />
+      <div
         className="overflow-auto"
-        style={{ height: `${basePhoneHeight}px` }}
+        style={{ height: `${basePhoneHeight - phoneSafeTop}px` }}
       >
         {children}
       </div>

@@ -316,10 +316,12 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 	mainItemID, _ := uuid.Parse(req.ItemIDs[0])
 	var unitMinutes int = 60 // Default fallback
 	var grandTotal float64
+	mainPriceUnit := "hour"
 
 	for _, item := range resDetail.Items {
 		if item.ID == mainItemID {
 			unitMinutes = item.UnitDuration
+			mainPriceUnit = strings.ToLower(strings.TrimSpace(item.PriceUnit))
 			grandTotal += item.Price * float64(req.Duration)
 			break
 		}
@@ -340,6 +342,9 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 
 	totalMinutes := req.Duration * unitMinutes
 	end := start.Add(time.Duration(totalMinutes) * time.Minute)
+	if err := s.validateBookingSchedule(ctx, tID, localStart, end.In(tenantLocation), mainPriceUnit, isManualWalkIn); err != nil {
+		return nil, nil, err
+	}
 
 	// 4. SILENT REGISTER / UPSERT PELANGGAN (CRM INTEGRATION)
 	cust, err := s.customerService.Register(ctx, customer.RegisterReq{
@@ -1027,8 +1032,14 @@ func (s *Service) GetAvailability(ctx context.Context, resourceID string, date t
 		// Konversi UTC ke Local agar frontend tidak geser jamnya
 		localStart := b.StartTime.In(location)
 		localEnd := b.EndTime.In(location)
-		if localEnd.Before(startOfDay) || localStart.After(endOfDay) {
+		if !localEnd.After(startOfDay) || !localStart.Before(endOfDay) {
 			continue
+		}
+		if localStart.Before(startOfDay) {
+			localStart = startOfDay
+		}
+		if localEnd.After(endOfDay) {
+			localEnd = endOfDay
 		}
 
 		busySlots = append(busySlots, map[string]string{
@@ -1039,6 +1050,76 @@ func (s *Service) GetAvailability(ctx context.Context, resourceID string, date t
 	}
 
 	return busySlots, nil
+}
+
+func (s *Service) validateBookingSchedule(ctx context.Context, tenantID uuid.UUID, localStart, localEnd time.Time, priceUnit string, isManualWalkIn bool) error {
+	if !isManualWalkIn && localStart.Before(time.Now().In(localStart.Location()).Add(-1*time.Minute)) {
+		return errors.New("WAKTU BOOKING SUDAH LEWAT")
+	}
+
+	openTime, closeTime := "09:00", "22:00"
+	if s != nil && s.repo != nil {
+		if dbOpen, dbClose, err := s.repo.GetTenantOperatingHours(ctx, tenantID); err == nil {
+			openTime = dbOpen
+			closeTime = dbClose
+		}
+	}
+
+	openMinutes := clockMinutes(openTime, 9*60)
+	closeMinutes := clockMinutes(closeTime, 22*60)
+	if closeMinutes <= openMinutes {
+		closeMinutes = 24 * 60
+	}
+	startMinutes := localStart.Hour()*60 + localStart.Minute()
+	endMinutes := localEnd.Hour()*60 + localEnd.Minute()
+	if localEnd.Year() != localStart.Year() || localEnd.YearDay() != localStart.YearDay() {
+		endMinutes = 24 * 60
+	}
+
+	if isInterdayPriceUnit(priceUnit) {
+		if startMinutes < openMinutes || startMinutes >= closeMinutes {
+			return errors.New("WAKTU MULAI DI LUAR JAM OPERASIONAL")
+		}
+		return nil
+	}
+
+	if startMinutes < openMinutes || endMinutes > closeMinutes || !localEnd.After(localStart) {
+		return errors.New("JADWAL DI LUAR JAM OPERASIONAL")
+	}
+	return nil
+}
+
+func isInterdayPriceUnit(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "day", "week", "month", "year":
+		return true
+	default:
+		return false
+	}
+}
+
+func clockMinutes(value string, fallback int) int {
+	parts := strings.Split(strings.TrimSpace(value), ":")
+	if len(parts) < 2 {
+		return fallback
+	}
+	var hour, minute int
+	if _, err := fmt.Sscanf(parts[0]+":"+parts[1], "%d:%d", &hour, &minute); err != nil {
+		return fallback
+	}
+	if hour < 0 {
+		hour = 0
+	}
+	if hour > 23 {
+		hour = 23
+	}
+	if minute < 0 {
+		minute = 0
+	}
+	if minute > 59 {
+		minute = 59
+	}
+	return hour*60 + minute
 }
 
 func (s *Service) GetStatusByToken(ctx context.Context, token string) (*BookingDetail, error) {
