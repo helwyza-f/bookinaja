@@ -23,20 +23,29 @@ type AuthResponse = {
   account: Account;
 };
 
+export type SignupResponse = {
+  account: Account;
+  verification_required: boolean;
+  email_sent: boolean;
+  message: string;
+};
+
+export type EmailVerificationResponse = {
+  email?: string;
+  message: string;
+};
+
 export type AuthMeResponse = {
   account: Account;
   workspaces: Workspace[];
 };
 
 export async function signupAccount(input: {
-  name: string;
   email: string;
   password: string;
   referral_code?: string;
 }) {
-  const res = await api.post<AuthResponse>("/auth/signup", input);
-  setAccountAuthCookie(res.data.token);
-  setAdminAuthCookie(res.data.token);
+  const res = await api.post<SignupResponse>("/auth/signup", input);
   return res.data;
 }
 
@@ -54,6 +63,16 @@ export async function googleAuthAccount(idToken: string) {
   const res = await api.post<AuthResponse>("/auth/google", { id_token: idToken });
   setAccountAuthCookie(res.data.token);
   setAdminAuthCookie(res.data.token);
+  return res.data;
+}
+
+export async function requestAccountEmailVerification(email: string) {
+  const res = await api.post<EmailVerificationResponse>("/auth/email/verify/request", { email });
+  return res.data;
+}
+
+export async function verifyAccountEmail(token: string) {
+  const res = await api.post<EmailVerificationResponse>("/auth/email/verify", { token });
   return res.data;
 }
 

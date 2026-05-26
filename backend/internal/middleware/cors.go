@@ -69,7 +69,7 @@ func loadAllowedOrigins() []string {
 		raw = strings.TrimSpace(os.Getenv("APP_ALLOWED_ORIGINS"))
 	}
 	if raw == "" {
-		raw = "https://bookinaja.com,https://www.bookinaja.com,https://*.bookinaja.com,http://localhost:3000,http://*.lvh.me:3000"
+		raw = "https://bookinaja.com,https://www.bookinaja.com,https://*.bookinaja.com,http://localhost:3000,http://lvh.me:3000,http://*.lvh.me:3000"
 	}
 
 	parts := strings.Split(raw, ",")

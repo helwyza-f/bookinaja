@@ -12,7 +12,7 @@ import {
   truncateLandingCopy,
 } from "./copy-budget";
 import { useCustomerSessionPreview } from "@/lib/customer-session-preview";
-import { BOOKINAJA_LOGO_FRAMELESS_SRC } from "@/lib/brand";
+import { BOOKINAJA_LOGO_NORMAL_SRC } from "@/lib/brand";
 
 type TenantNavbarProfile = {
   name: string;
@@ -91,6 +91,7 @@ export function TenantNavbar({
       : radiusStyle === "soft"
         ? "rounded-[1.1rem]"
         : "rounded-[1rem]";
+  const hasCustomLogo = Boolean(profile.logo_url);
 
   return (
     <div
@@ -112,22 +113,27 @@ export function TenantNavbar({
         <div className={cn("flex min-w-0 items-center", isCompactPreview ? "gap-2.5" : "gap-3 md:gap-4")}>
           <div
             className={cn(
-              "relative shrink-0 overflow-hidden text-white",
+              "relative shrink-0 overflow-hidden",
               isCompactPreview ? "h-10 w-10 rounded-xl" : cn("h-11 w-11 md:h-14 md:w-14", logoRadiusClass),
+              hasCustomLogo
+                ? "text-white"
+                : "bg-white ring-1 ring-white/18",
             )}
             style={{
-              backgroundColor: primaryColor,
-              boxShadow: `0 12px 28px ${primaryColor}33`,
+              backgroundColor: hasCustomLogo ? primaryColor : undefined,
+              boxShadow: hasCustomLogo
+                ? `0 12px 28px ${primaryColor}33`
+                : "0 12px 24px rgba(15, 23, 42, 0.14)",
             }}
           >
             <Image
-              src={profile.logo_url || BOOKINAJA_LOGO_FRAMELESS_SRC}
+              src={profile.logo_url || BOOKINAJA_LOGO_NORMAL_SRC}
               alt={profile.logo_url ? `${profile.name} logo` : "Bookinaja logo"}
               fill
               sizes="56px"
               className={cn(
                 "object-center",
-                profile.logo_url ? "object-cover" : "object-contain p-2",
+                profile.logo_url ? "object-cover" : "object-contain p-1.5",
               )}
             />
           </div>

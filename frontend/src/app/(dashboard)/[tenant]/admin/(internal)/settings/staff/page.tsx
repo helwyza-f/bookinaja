@@ -329,7 +329,7 @@ export default function StaffSettingsPage() {
   };
 
   return (
-    <div className="space-y-4 pb-10">
+    <div className="space-y-3 pb-10">
       <PlanFeatureCallout
         input={user || {}}
         title="Staff dan akses tim"
@@ -337,21 +337,21 @@ export default function StaffSettingsPage() {
         requirement={{ anyFeatures: ["staff_accounts", "role_permissions"] }}
       />
 
-      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-xs font-semibold text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
               <Users className="h-4 w-4" />
               Staff
             </div>
-            <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">
               Staff & Role
             </h1>
-            <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               Kelola akun staff dan role akses dari satu tempat.
             </p>
           </div>
-          <div className="grid grid-cols-3 gap-2 lg:min-w-[360px]">
+          <div className="grid grid-cols-3 gap-2 lg:min-w-[300px]">
             <StaffStat label="Staff" value={staff.length} />
             <StaffStat label="Default" value={defaultRolesCount} />
             <StaffStat label="Custom" value={customRolesCount} />
@@ -385,7 +385,7 @@ export default function StaffSettingsPage() {
         </div>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr] xl:gap-6">
+      <div className="grid gap-3 xl:grid-cols-[1.35fr_0.95fr]">
         <Card className="rounded-xl border-slate-200 bg-white p-3 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:rounded-2xl sm:p-4">
           <div className="mb-4 flex items-center justify-between">
             <div>
@@ -537,13 +537,13 @@ export default function StaffSettingsPage() {
           </div>
 
           <div className="space-y-3">
-            <div className="rounded-lg border border-[color:rgba(59,130,246,0.18)] bg-[var(--bookinaja-50)] p-3 dark:border-[color:rgba(96,165,250,0.18)] dark:bg-[color:rgba(59,130,246,0.12)]">
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-100)]">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-400">
                 2 role bawaan
               </div>
               <div className="mt-3 space-y-3">
                 {RECOMMENDED_ROLE_PRESETS.map((preset) => (
-                  <div key={preset.name} className="rounded-[1.25rem] border border-white/70 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+                  <div key={preset.name} className="rounded-xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-slate-950/60">
                     <div className="text-sm font-semibold text-slate-950 dark:text-white">
                       {preset.name}
                     </div>
@@ -576,7 +576,7 @@ export default function StaffSettingsPage() {
               />
             ) : (
               roles.map((role) => (
-                <div key={role.id} className="rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+                <div key={role.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">

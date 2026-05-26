@@ -89,6 +89,26 @@ func (r *Repository) GetAccountByID(ctx context.Context, id uuid.UUID) (*Account
 	return &item, nil
 }
 
+func (r *Repository) MarkAccountEmailVerified(ctx context.Context, accountID uuid.UUID, email string) (*Account, error) {
+	var item Account
+	err := r.db.GetContext(ctx, &item, `
+		UPDATE accounts
+		SET
+			email_verified_at = COALESCE(email_verified_at, NOW()),
+			updated_at = NOW()
+		WHERE id = $1
+		  AND LOWER(BTRIM(email)) = LOWER(BTRIM($2))
+		RETURNING id, name, email, password_hash, google_subject, email_verified_at, created_at, updated_at
+	`, accountID, email)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
 func (r *Repository) LinkGoogleAccount(ctx context.Context, accountID uuid.UUID, subject, name, email string, verifiedAt *time.Time) (*Account, error) {
 	var item Account
 	err := r.db.GetContext(ctx, &item, `

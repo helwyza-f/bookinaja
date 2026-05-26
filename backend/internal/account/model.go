@@ -84,10 +84,17 @@ type OnboardingBusinessSeed struct {
 }
 
 type SignupReq struct {
-	Name         string `json:"name" binding:"required"`
+	Name         string `json:"name"`
 	Email        string `json:"email" binding:"required,email"`
 	Password     string `json:"password" binding:"required,min=6"`
 	ReferralCode string `json:"referral_code"`
+}
+
+type SignupResponse struct {
+	Account              Account `json:"account"`
+	VerificationRequired bool    `json:"verification_required"`
+	EmailSent            bool    `json:"email_sent"`
+	Message              string  `json:"message"`
 }
 
 type LoginReq struct {
@@ -99,9 +106,22 @@ type GoogleAuthReq struct {
 	IDToken string `json:"id_token" binding:"required"`
 }
 
+type EmailVerificationRequestReq struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+type EmailVerificationVerifyReq struct {
+	Token string `json:"token" binding:"required"`
+}
+
 type AuthResponse struct {
 	Token   string  `json:"token"`
 	Account Account `json:"account"`
+}
+
+type EmailVerificationResponse struct {
+	Email   string `json:"email,omitempty"`
+	Message string `json:"message"`
 }
 
 type AuthMeResponse struct {

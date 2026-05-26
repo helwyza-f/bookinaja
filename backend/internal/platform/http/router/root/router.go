@@ -10,6 +10,8 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 		r.POST("/auth/signup", cfg.AccountHandler.Signup)
 		r.POST("/auth/login", cfg.AccountHandler.Login)
 		r.POST("/auth/google", cfg.AccountHandler.GoogleAuth)
+		r.POST("/auth/email/verify/request", cfg.AccountHandler.RequestEmailVerification)
+		r.POST("/auth/email/verify", cfg.AccountHandler.VerifyEmail)
 	}
 	r.POST("/register", cfg.TenantHandler.Register)
 	r.POST("/register/google/identity", cfg.TenantHandler.GoogleIdentity)

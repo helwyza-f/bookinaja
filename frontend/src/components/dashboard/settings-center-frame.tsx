@@ -97,15 +97,15 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
   return (
     <div className="fixed inset-0 z-[80] bg-slate-950/45 backdrop-blur-[5px]">
       <div className="flex min-h-full items-stretch justify-center p-0 md:p-4">
-        <div className="flex min-h-full w-full overflow-hidden bg-white shadow-2xl dark:bg-slate-950 md:min-h-0 md:max-h-[calc(100vh-2rem)] md:max-w-[1180px] md:rounded-[1.5rem] md:border md:border-slate-200 dark:md:border-slate-800">
-          <aside className="hidden w-[230px] shrink-0 border-r border-slate-200 bg-[#f7f9fc] px-4 py-4 dark:border-slate-800 dark:bg-[#0b1120] md:flex md:flex-col">
+        <div className="flex min-h-full w-full overflow-hidden bg-white shadow-2xl dark:bg-slate-950 md:min-h-0 md:max-h-[calc(100vh-2rem)] md:max-w-[1120px] md:rounded-[1.35rem] md:border md:border-slate-200 dark:md:border-slate-800">
+          <aside className="hidden w-[214px] shrink-0 border-r border-slate-200 bg-[#f8fafc] px-3 py-3 dark:border-slate-800 dark:bg-[#0b1120] md:flex md:flex-col">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                 Settings
               </div>
             </div>
 
-            <nav className="mt-6 space-y-1">
+            <nav className="mt-5 space-y-1">
               {primaryItems.map((item) => {
                 const active = activeItem?.href === item.href;
                 const Icon = item.icon;
@@ -114,7 +114,7 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                      "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
                       active
                         ? "bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)]"
                         : "text-slate-600 hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white",
@@ -127,20 +127,20 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
               })}
             </nav>
 
-            <div className="mt-auto space-y-4 pt-6">
+            <div className="mt-auto space-y-3 pt-5">
               <Link
                 href="/pricing"
                 target="_blank"
-                className="flex items-center justify-between gap-3 rounded-xl border border-orange-400 px-3 py-2.5 text-sm font-semibold text-slate-900 transition-colors hover:bg-orange-50 dark:text-white dark:hover:bg-orange-500/10"
+                className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-white hover:text-slate-950 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white"
               >
-                <span>Book a call with us</span>
-                <span className="text-base leading-none">↗</span>
+                <span>Lihat upgrade</span>
+                <span className="text-sm leading-none">↗</span>
               </Link>
               <button
                 type="button"
                 onClick={() => void handleSignOut()}
                 disabled={signingOut}
-                className="flex w-full items-center gap-3 border-t border-slate-200 px-2 pt-5 text-left text-sm font-medium text-slate-600 transition-colors hover:text-slate-950 disabled:opacity-60 dark:border-slate-800 dark:text-slate-300 dark:hover:text-white"
+                className="flex w-full items-center gap-3 border-t border-slate-200 px-2 pt-4 text-left text-sm font-medium text-slate-600 transition-colors hover:text-slate-950 disabled:opacity-60 dark:border-slate-800 dark:text-slate-300 dark:hover:text-white"
               >
                 <LogOut className="h-4 w-4" />
                 {signingOut ? "Signing out..." : "Sign out"}
@@ -149,19 +149,19 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
           </aside>
 
           <div className="flex min-h-full min-w-0 flex-1 flex-col">
-            <div className="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-4 md:px-5 dark:border-slate-800 dark:bg-slate-950">
+            <div className="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-3 md:px-5 dark:border-slate-800 dark:bg-slate-950">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 md:hidden">
                     Settings
                   </div>
-                  <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 md:text-[1.75rem] dark:text-white">
+                  <h1 className="mt-1 text-[1.65rem] font-semibold tracking-tight text-slate-950 md:text-[1.6rem] dark:text-white">
                     {activeItem?.label || "Settings"}
                   </h1>
-                  <p className="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+                  <p className="mt-1.5 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
                     {activeItem?.hint || "Manage workspace settings."}
                   </p>
-                  <div className="mt-4 flex md:hidden">
+                  <div className="mt-3 flex md:hidden">
                     <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       <div className="flex w-max gap-2">
                         {primaryItems.map((item) => {
@@ -193,7 +193,7 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
                   variant="ghost"
                   size="icon"
                   onClick={() => router.push("/admin/dashboard")}
-                  className="h-10 w-10 rounded-xl"
+                  className="h-9 w-9 rounded-xl"
                   aria-label="Close settings"
                 >
                   <X className="h-5 w-5" />
@@ -208,7 +208,7 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
               )}
             >
               {hasSecondaryNav ? (
-                <aside className="border-b border-slate-200 bg-[#f7f9fc] px-4 py-4 dark:border-slate-800 dark:bg-[#0b1120] md:border-b-0 md:border-r md:px-5 md:py-5">
+                <aside className="border-b border-slate-200 bg-[#f8fafc] px-4 py-3 dark:border-slate-800 dark:bg-[#0b1120] md:border-b-0 md:border-r md:px-4 md:py-4">
                   <div className="mt-0">
                     <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:overflow-visible">
                       <nav className="flex w-max gap-2 md:w-auto md:flex-col md:gap-1">
@@ -245,7 +245,7 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
                           );
 
                           const className = cn(
-                            "min-w-[150px] rounded-xl border px-3 py-2.5 transition-colors md:min-w-0",
+                            "min-w-[150px] rounded-xl border px-3 py-2 transition-colors md:min-w-0",
                             active
                               ? "border-slate-200 bg-white text-[var(--bookinaja-700)] shadow-sm dark:border-white/10 dark:bg-slate-950 dark:text-[var(--bookinaja-100)]"
                               : "border-transparent text-slate-600 hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-950 dark:hover:text-white",
@@ -271,7 +271,7 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
                 </aside>
               ) : null}
 
-              <main className="min-h-0 overflow-y-auto bg-white px-4 py-4 dark:bg-slate-950 md:px-5 md:py-5">
+              <main className="min-h-0 overflow-y-auto bg-white px-4 py-4 dark:bg-slate-950 md:px-4 md:py-4">
                 {children}
               </main>
             </div>

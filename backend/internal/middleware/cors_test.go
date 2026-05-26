@@ -31,6 +31,30 @@ func TestCORSMiddlewareAllowsConfiguredOrigin(t *testing.T) {
 	}
 }
 
+func TestCORSMiddlewareAllowsExactLVHMeOrigin(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("CORS_ALLOWED_ORIGINS", "http://lvh.me:3000,http://*.lvh.me:3000")
+
+	router := gin.New()
+	router.Use(CORSMiddleware())
+	router.POST("/ping", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodOptions, "/ping", nil)
+	req.Header.Set("Origin", "http://lvh.me:3000")
+	req.Header.Set("Access-Control-Request-Headers", "authorization,content-type")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://lvh.me:3000" {
+		t.Fatalf("Access-Control-Allow-Origin = %q", got)
+	}
+}
+
 func TestCORSMiddlewareRejectsUnknownPreflightOrigin(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	t.Setenv("CORS_ALLOWED_ORIGINS", "https://bookinaja.com")

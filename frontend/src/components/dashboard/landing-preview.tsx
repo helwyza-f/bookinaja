@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { MapPin, Clock } from "lucide-react";
-import { BOOKINAJA_LOGO_FRAMELESS_SRC } from "@/lib/brand";
+import { BOOKINAJA_LOGO_NORMAL_SRC } from "@/lib/brand";
 
 type LandingPreviewData = {
   banner_url?: string;
@@ -15,6 +15,8 @@ type LandingPreviewData = {
 };
 
 export function LandingPreview({ data }: { data: LandingPreviewData }) {
+  const hasCustomLogo = Boolean(data.logo_url);
+
   return (
     <div className="sticky top-28 flex flex-col items-center">
       <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-4 italic">
@@ -39,8 +41,12 @@ export function LandingPreview({ data }: { data: LandingPreviewData }) {
             />
             <div className="relative z-10 text-center px-4">
               <img
-                src={data.logo_url || BOOKINAJA_LOGO_FRAMELESS_SRC}
-                className="h-10 w-10 mx-auto rounded-lg mb-2 object-contain shadow-lg"
+                src={data.logo_url || BOOKINAJA_LOGO_NORMAL_SRC}
+                className={
+                  hasCustomLogo
+                    ? "h-10 w-10 mx-auto rounded-lg mb-2 object-cover shadow-lg"
+                    : "h-10 w-10 mx-auto rounded-xl mb-2 bg-white p-1.5 object-contain shadow-[0_10px_24px_rgba(15,23,42,0.18)]"
+                }
                 alt={`${data.name || "Bisnis"} logo`}
               />
               <h4 className="text-white text-sm font-black uppercase tracking-tighter truncate">

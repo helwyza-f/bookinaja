@@ -66,31 +66,31 @@ export function BulkImageUpload({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between px-1">
-        <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900 dark:text-slate-400 italic flex items-center gap-2">
-          <LayoutGrid className="h-4 w-4 text-blue-600" /> Photo Gallery Detail
+        <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+          <LayoutGrid className="h-4 w-4 text-[var(--bookinaja-600)]" /> Photo gallery
         </h3>
-        <span className="text-[9px] font-bold text-slate-400 uppercase italic">
-          {values.length} Photos
+        <span className="text-[11px] text-slate-400">
+          {values.length} foto
         </span>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {values.map((url, index) => (
           <div
             key={index}
-            className="relative aspect-square rounded-[1.5rem] overflow-hidden group border-2 border-slate-100 dark:border-slate-800"
+            className="group relative aspect-square overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-white/[0.03]"
           >
             <img
               src={url}
               alt="Gallery"
-              className="w-full h-full object-cover transition-transform group-hover:scale-110"
+              className="h-full w-full object-cover transition-transform group-hover:scale-105"
             />
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
               <Button
                 type="button"
                 variant="destructive"
                 size="icon"
-                className="h-8 w-8 rounded-full"
+                className="h-8 w-8 rounded-xl"
                 onClick={() => removeImage(url)}
               >
                 <X className="h-4 w-4" />
@@ -99,20 +99,19 @@ export function BulkImageUpload({
           </div>
         ))}
 
-        {/* Upload Trigger Square */}
         <label
           className={cn(
-            "aspect-square rounded-[1.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-blue-500/50",
+            "flex aspect-square cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 transition-all hover:border-[var(--bookinaja-300)] hover:bg-slate-50 dark:border-slate-800 dark:bg-white/[0.03] dark:hover:bg-white/[0.05]",
             loading && "opacity-50 pointer-events-none",
           )}
         >
           {loading ? (
-            <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+            <Loader2 className="h-6 w-6 animate-spin text-[var(--bookinaja-600)]" />
           ) : (
             <>
-              <Plus className="h-6 w-6 text-slate-300" />
-              <span className="text-[8px] font-black uppercase italic text-slate-400 mt-1">
-                Add Photo
+              <Plus className="h-6 w-6 text-slate-400" />
+              <span className="mt-2 text-xs font-medium text-slate-500">
+                Tambah foto
               </span>
             </>
           )}

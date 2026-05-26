@@ -22,7 +22,22 @@ const api = axios.create({
   withCredentials: true,
 });
 
+function isPublicAccountAuthRequest(url?: string) {
+  const requestPath = String(url || "");
+  return (
+    requestPath === "/auth/signup" ||
+    requestPath === "/auth/login" ||
+    requestPath === "/auth/google" ||
+    requestPath === "/auth/email/verify" ||
+    requestPath === "/auth/email/verify/request"
+  );
+}
+
 function resolveRequestToken(url?: string) {
+  if (isPublicAccountAuthRequest(url)) {
+    return "";
+  }
+
   const accountToken = getCookie("account_token");
   const adminToken = getCookie("auth_token");
   const customerToken = getCookie("customer_auth");
@@ -64,16 +79,17 @@ api.interceptors.request.use((config) => {
   const tenantSlug = browserTenantSlug
     ? browserTenantSlug
     : (getCookie("current_tenant_slug") as string);
+  const isPublicAuth = isPublicAccountAuthRequest(config.url);
 
   if (token && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
-  if (browserTenantSlug && tenantSlug) {
+  if (!isPublicAuth && browserTenantSlug && tenantSlug) {
     config.headers["X-Tenant-Slug"] = tenantSlug;
   }
 
-  if (browserTenantSlug && tenantSlug) {
+  if (!isPublicAuth && browserTenantSlug && tenantSlug) {
     if (config.method?.toLowerCase() === "get") {
       config.params = { ...config.params, slug: tenantSlug };
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -126,12 +126,7 @@ export function DashboardMetricCard({
   const colors = toneMap[tone];
 
   return (
-    <Card
-      className={cn(
-        "rounded-xl border p-3 sm:p-3.5",
-        colors.shell,
-      )}
-    >
+    <Card className={cn("rounded-xl border p-3 sm:p-3.5", colors.shell)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-2">
           <div className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
@@ -155,7 +150,10 @@ export function DashboardMetricCard({
         </div>
         {Icon ? (
           <div
-            className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", colors.icon)}
+            className={cn(
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+              colors.icon,
+            )}
           >
             <Icon className="h-4 w-4" />
           </div>
@@ -183,7 +181,12 @@ export function DashboardPanel({
       )}
     >
       <div className={cn("flex flex-col", compact ? "gap-3" : "gap-4")}>
-        <div className={cn("flex flex-col sm:flex-row sm:justify-between", compact ? "gap-2 sm:items-center" : "gap-3 sm:items-start")}>
+        <div
+          className={cn(
+            "flex flex-col sm:flex-row sm:justify-between",
+            compact ? "gap-2 sm:items-center" : "gap-3 sm:items-start",
+          )}
+        >
           <div className={cn(compact ? "space-y-1" : "space-y-2")}>
             {eyebrow ? (
               <div className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
@@ -191,11 +194,21 @@ export function DashboardPanel({
               </div>
             ) : null}
             <div>
-              <h2 className={cn("text-foreground font-semibold", compact ? "text-[1.05rem]" : "text-base sm:text-lg")}>
+              <h2
+                className={cn(
+                  "text-foreground font-semibold",
+                  compact ? "text-[1.05rem]" : "text-base sm:text-lg",
+                )}
+              >
                 {title}
               </h2>
               {description ? (
-                <p className={cn("text-muted-foreground mt-1 max-w-2xl text-sm", compact ? "leading-5" : "leading-6")}>
+                <p
+                  className={cn(
+                    "text-muted-foreground mt-1 max-w-2xl text-sm",
+                    compact ? "leading-5" : "leading-6",
+                  )}
+                >
                   {description}
                 </p>
               ) : null}
@@ -221,44 +234,69 @@ export function DashboardLineChartPanel({
   className,
 }: LineChartPanelProps) {
   const gradientId = useId();
-  const secondaryGradientId = useId();
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const maxValue = Math.max(
-    1,
+    0,
     ...points.flatMap((point) => [
       point.primary,
       point.secondary ?? 0,
       point.tertiary ?? 0,
     ]),
   );
-  const width = 720;
-  const height = 260;
-  const paddingX = 24;
-  const paddingY = 20;
-  const innerWidth = width - paddingX * 2;
-  const innerHeight = height - paddingY * 2;
+  const width = 760;
+  const height = 272;
+  const paddingLeft = 56;
+  const paddingRight = 18;
+  const paddingTop = 18;
+  const paddingBottom = 32;
+  const innerWidth = width - paddingLeft - paddingRight;
+  const innerHeight = height - paddingTop - paddingBottom;
+  const yTicks = buildYAxisTicks(maxValue);
+  const domainMax = yTicks[yTicks.length - 1] ?? 1;
+  const fallbackActiveIndex = Math.max(
+    points.findLastIndex(
+      (point) =>
+        point.primary > 0 ||
+        (point.secondary ?? 0) > 0 ||
+        (point.tertiary ?? 0) > 0,
+    ),
+    0,
+  );
+  const activeIndex = hoveredIndex ?? fallbackActiveIndex;
 
-  const primaryCoordinates = points.map((point, index) => {
-    const x =
-      paddingX +
-      (points.length <= 1 ? innerWidth / 2 : (innerWidth / (points.length - 1)) * index);
-    const y =
-      paddingY + innerHeight - (point.primary / maxValue) * innerHeight;
-    return { x, y };
+  const primaryCoordinates = buildChartCoordinates({
+    points,
+    valueKey: "primary",
+    width: innerWidth,
+    height: innerHeight,
+    paddingLeft,
+    paddingTop,
+    domainMax,
   });
-  const secondaryCoordinates = points.map((point, index) => {
-    const x =
-      paddingX +
-      (points.length <= 1 ? innerWidth / 2 : (innerWidth / (points.length - 1)) * index);
-    const y =
-      paddingY +
-      innerHeight -
-      ((point.secondary ?? 0) / maxValue) * innerHeight;
-    return { x, y };
+  const secondaryCoordinates = buildChartCoordinates({
+    points,
+    valueKey: "secondary",
+    width: innerWidth,
+    height: innerHeight,
+    paddingLeft,
+    paddingTop,
+    domainMax,
+  });
+  const tertiaryCoordinates = buildChartCoordinates({
+    points,
+    valueKey: "tertiary",
+    width: innerWidth,
+    height: innerHeight,
+    paddingLeft,
+    paddingTop,
+    domainMax,
   });
   const primaryLine = buildLinePath(primaryCoordinates);
-  const primaryArea = buildAreaPath(primaryCoordinates, height - paddingY);
+  const primaryArea = buildAreaPath(primaryCoordinates, height - paddingBottom);
   const secondaryLine = buildLinePath(secondaryCoordinates);
-
+  const tertiaryLine = buildLinePath(tertiaryCoordinates);
+  const activePoint = points[activeIndex];
+  const activePrimary = primaryCoordinates[activeIndex];
   return (
     <DashboardPanel
       eyebrow={eyebrow}
@@ -268,48 +306,135 @@ export function DashboardLineChartPanel({
     >
       {points.length ? (
         <>
-          <div className="flex flex-wrap gap-2">
-            <LegendPill tone="primary" label={primaryLabel} />
-            {secondaryLabel ? (
-              <LegendPill tone="secondary" label={secondaryLabel} />
-            ) : null}
-            {tertiaryLabel ? (
-              <LegendPill tone="tertiary" label={tertiaryLabel} />
-            ) : null}
-          </div>
-          <div className="bg-muted/40 overflow-hidden rounded-lg border border-border p-3">
-            <svg viewBox={`0 0 ${width} ${height}`} className="h-[210px] w-full">
+          <div className="bg-muted/30 overflow-hidden rounded-lg border border-border p-3 sm:p-4">
+            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-wrap gap-2">
+                <LegendPill tone="primary" label={primaryLabel} />
+                {secondaryLabel ? (
+                  <LegendPill tone="secondary" label={secondaryLabel} />
+                ) : null}
+                {tertiaryLabel ? (
+                  <LegendPill tone="tertiary" label={tertiaryLabel} />
+                ) : null}
+              </div>
+              {activePoint ? (
+                <div className="bg-card/80 min-w-[180px] rounded-lg border border-border px-3 py-2 backdrop-blur-sm sm:text-right">
+                  <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-[0.22em]">
+                    {activePoint.label}
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm sm:justify-end">
+                    <span className="font-medium text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
+                      {formatValue(activePoint.primary)}
+                    </span>
+                    {secondaryLabel ? (
+                      <span className="font-medium text-emerald-600 dark:text-emerald-300">
+                        {formatValue(activePoint.secondary ?? 0)}
+                      </span>
+                    ) : null}
+                    {tertiaryLabel ? (
+                      <span className="font-medium text-amber-600 dark:text-amber-300">
+                        {formatValue(activePoint.tertiary ?? 0)}
+                      </span>
+                    ) : null}
+                  </div>
+                  {activePoint.meta ? (
+                    <div className="text-muted-foreground mt-1 text-[11px]">
+                      {activePoint.meta}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+            <svg
+              viewBox={`0 0 ${width} ${height}`}
+              className="h-[240px] w-full"
+            >
               <defs>
                 <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgba(37,99,235,0.16)" />
+                  <stop offset="0%" stopColor="rgba(37,99,235,0.16)" />
                   <stop offset="100%" stopColor="rgba(37,99,235,0)" />
                 </linearGradient>
-                <linearGradient
-                  id={secondaryGradientId}
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <stop offset="0%" stopColor="rgba(16,185,129,0.16)" />
-                  <stop offset="100%" stopColor="rgba(16,185,129,0)" />
-                </linearGradient>
               </defs>
-              {[0, 1, 2, 3].map((item) => {
-                const y = paddingY + (innerHeight / 3) * item;
+              {yTicks.map((tick) => {
+                const y = resolveChartY(
+                  tick,
+                  domainMax,
+                  paddingTop,
+                  innerHeight,
+                );
                 return (
-                  <line
-                    key={item}
-                    x1={paddingX}
-                    y1={y}
-                    x2={width - paddingX}
-                    y2={y}
-                    stroke="currentColor"
-                    className="text-slate-200/80 dark:text-white/8"
-                    strokeDasharray="4 6"
-                  />
+                  <g key={tick}>
+                    <line
+                      x1={paddingLeft}
+                      y1={y}
+                      x2={width - paddingRight}
+                      y2={y}
+                      stroke="currentColor"
+                      className="text-slate-200/80 dark:text-white/8"
+                      strokeDasharray="4 6"
+                    />
+                    <text
+                      x={paddingLeft - 10}
+                      y={y + 4}
+                      textAnchor="end"
+                      className="fill-slate-400 text-[10px] font-medium dark:fill-slate-500"
+                    >
+                      {formatAxisTick(tick, formatValue)}
+                    </text>
+                  </g>
                 );
               })}
+              {points.map((point, index) => {
+                const x = primaryCoordinates[index]?.x ?? paddingLeft;
+                const bandStart =
+                  index === 0
+                    ? paddingLeft
+                    : (primaryCoordinates[index - 1]?.x + x) / 2;
+                const bandEnd =
+                  index === points.length - 1
+                    ? width - paddingRight
+                    : (x + (primaryCoordinates[index + 1]?.x ?? x)) / 2;
+                return (
+                  <g key={`${point.label}-${index}-axis`}>
+                    <rect
+                      x={bandStart}
+                      y={paddingTop}
+                      width={Math.max(bandEnd - bandStart, 24)}
+                      height={innerHeight}
+                      fill="transparent"
+                      onClick={() => setHoveredIndex(index)}
+                      onMouseEnter={() => setHoveredIndex(index)}
+                      onMouseMove={() => setHoveredIndex(index)}
+                      onMouseLeave={() => setHoveredIndex(null)}
+                      onTouchStart={() => setHoveredIndex(index)}
+                    />
+                    <text
+                      x={x}
+                      y={height - 10}
+                      textAnchor="middle"
+                      className={cn(
+                        "text-[10px] font-medium uppercase tracking-wide",
+                        activeIndex === index
+                          ? "fill-slate-900 dark:fill-white"
+                          : "fill-slate-400 dark:fill-slate-500",
+                      )}
+                    >
+                      {point.label}
+                    </text>
+                  </g>
+                );
+              })}
+              {activePrimary ? (
+                <line
+                  x1={activePrimary.x}
+                  y1={paddingTop}
+                  x2={activePrimary.x}
+                  y2={height - paddingBottom}
+                  stroke="currentColor"
+                  className="text-slate-300/70 dark:text-white/12"
+                  strokeDasharray="3 6"
+                />
+              ) : null}
               <path d={primaryArea} fill={`url(#${gradientId})`} />
               <path
                 d={primaryLine}
@@ -324,10 +449,20 @@ export function DashboardLineChartPanel({
                   d={secondaryLine}
                   fill="none"
                   stroke="rgb(16 185 129)"
-                  strokeWidth="3"
+                  strokeWidth="2.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeDasharray="8 8"
+                />
+              ) : null}
+              {tertiaryLabel ? (
+                <path
+                  d={tertiaryLine}
+                  fill="none"
+                  stroke="rgb(245 158 11)"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeDasharray="7 7"
                 />
               ) : null}
               {primaryCoordinates.map((point, index) => (
@@ -335,49 +470,82 @@ export function DashboardLineChartPanel({
                   <circle
                     cx={point.x}
                     cy={point.y}
-                    r="4"
+                    r={activeIndex === index ? "5" : "4"}
                     fill="rgb(37 99 235)"
                     stroke="rgba(255,255,255,0.92)"
-                    strokeWidth="3"
+                    strokeWidth={activeIndex === index ? "3.5" : "3"}
                   />
                   {secondaryLabel ? (
                     <circle
                       cx={secondaryCoordinates[index]?.x}
                       cy={secondaryCoordinates[index]?.y}
-                      r="3"
+                      r={activeIndex === index ? "4" : "3"}
                       fill="rgb(16 185 129)"
+                      stroke="rgba(255,255,255,0.92)"
+                      strokeWidth="2"
+                    />
+                  ) : null}
+                  {tertiaryLabel ? (
+                    <circle
+                      cx={tertiaryCoordinates[index]?.x}
+                      cy={tertiaryCoordinates[index]?.y}
+                      r={activeIndex === index ? "4" : "3"}
+                      fill="rgb(245 158 11)"
                       stroke="rgba(255,255,255,0.92)"
                       strokeWidth="2"
                     />
                   ) : null}
                 </g>
               ))}
+              {activePrimary && activePoint ? (
+                <g>
+                  <rect
+                    x={Math.min(
+                      Math.max(activePrimary.x - 72, paddingLeft + 8),
+                      width - paddingRight - 152,
+                    )}
+                    y={Math.max(activePrimary.y - 58, paddingTop + 8)}
+                    width="152"
+                    height={activePoint.meta ? "44" : "34"}
+                    rx="10"
+                    fill="rgba(15, 23, 42, 0.92)"
+                    stroke="rgba(148, 163, 184, 0.22)"
+                  />
+                  <text
+                    x={Math.min(
+                      Math.max(activePrimary.x - 60, paddingLeft + 20),
+                      width - paddingRight - 140,
+                    )}
+                    y={Math.max(activePrimary.y - 38, paddingTop + 28)}
+                    className="fill-white text-[10px] font-semibold uppercase tracking-[0.2em]"
+                  >
+                    {activePoint.label}
+                  </text>
+                  <text
+                    x={Math.min(
+                      Math.max(activePrimary.x - 60, paddingLeft + 20),
+                      width - paddingRight - 140,
+                    )}
+                    y={Math.max(activePrimary.y - 20, paddingTop + 46)}
+                    className="fill-white text-[12px] font-semibold"
+                  >
+                    {formatValue(activePoint.primary)}
+                  </text>
+                  {activePoint.meta ? (
+                    <text
+                      x={Math.min(
+                        Math.max(activePrimary.x - 60, paddingLeft + 20),
+                        width - paddingRight - 140,
+                      )}
+                      y={Math.max(activePrimary.y - 6, paddingTop + 60)}
+                      className="fill-slate-300 text-[10px]"
+                    >
+                      {activePoint.meta}
+                    </text>
+                  ) : null}
+                </g>
+              ) : null}
             </svg>
-            <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6">
-              {points.map((point, index) => (
-                <div
-                  key={`${point.label}-${index}`}
-                    className="rounded-lg border border-border bg-card px-2.5 py-2"
-                >
-                  <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-wide">
-                    {point.label}
-                  </div>
-                  <div className="text-foreground mt-1 text-sm font-medium">
-                    {formatValue(point.primary)}
-                  </div>
-                  {secondaryLabel ? (
-                    <div className="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-300">
-                      {formatValue(point.secondary ?? 0)}
-                    </div>
-                  ) : null}
-                  {point.meta ? (
-                    <div className="text-muted-foreground mt-1 text-[11px]">
-                      {point.meta}
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-            </div>
           </div>
         </>
       ) : (
@@ -413,11 +581,7 @@ export function DashboardDonutPanel({
     : "conic-gradient(#e2e8f0 0deg 360deg)";
 
   return (
-    <DashboardPanel
-      eyebrow={eyebrow}
-      title={title}
-      description={description}
-    >
+    <DashboardPanel eyebrow={eyebrow} title={title} description={description}>
       <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-center">
         <div className="mx-auto flex w-full max-w-[220px] items-center justify-center">
           <div
@@ -441,7 +605,10 @@ export function DashboardDonutPanel({
             segments.map((segment) => {
               const share = (segment.value / safeTotal) * 100;
               return (
-                <div key={segment.label} className="bg-muted/40 rounded-lg border border-border px-3 py-2.5">
+                <div
+                  key={segment.label}
+                  className="bg-muted/40 rounded-lg border border-border px-3 py-2.5"
+                >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <span
@@ -619,6 +786,67 @@ function buildAreaPath(
 
 function defaultNumberFormatter(value: number) {
   return value.toLocaleString("id-ID");
+}
+
+function buildChartCoordinates({
+  points,
+  valueKey,
+  width,
+  height,
+  paddingLeft,
+  paddingTop,
+  domainMax,
+}: {
+  points: ChartPoint[];
+  valueKey: "primary" | "secondary" | "tertiary";
+  width: number;
+  height: number;
+  paddingLeft: number;
+  paddingTop: number;
+  domainMax: number;
+}) {
+  return points.map((point, index) => {
+    const rawValue = point[valueKey] ?? 0;
+    const x =
+      paddingLeft +
+      (points.length <= 1 ? width / 2 : (width / (points.length - 1)) * index);
+    const y = resolveChartY(rawValue, domainMax, paddingTop, height);
+    return { x, y };
+  });
+}
+
+function resolveChartY(
+  value: number,
+  domainMax: number,
+  paddingTop: number,
+  innerHeight: number,
+) {
+  const safeDomain = domainMax <= 0 ? 1 : domainMax;
+  return paddingTop + innerHeight - (value / safeDomain) * innerHeight;
+}
+
+function buildYAxisTicks(maxValue: number) {
+  if (maxValue <= 0) {
+    return [0];
+  }
+
+  const roughStep = maxValue / 4;
+  const magnitude = 10 ** Math.floor(Math.log10(Math.max(roughStep, 1)));
+  const residual = roughStep / magnitude;
+  const niceStep =
+    residual <= 1 ? 1 : residual <= 2 ? 2 : residual <= 5 ? 5 : 10;
+  const step = niceStep * magnitude;
+  const maxTick = Math.ceil(maxValue / step) * step;
+
+  return Array.from(
+    { length: Math.max(Math.round(maxTick / step), 1) + 1 },
+    (_, index) => index * step,
+  );
+}
+
+function formatAxisTick(value: number, formatValue: (value: number) => string) {
+  if (value === 0) return "0";
+  return formatValue(value);
 }
 
 function mapCssColorClass(token: string) {

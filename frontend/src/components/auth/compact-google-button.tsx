@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 type CompactGoogleButtonProps = {
@@ -19,6 +19,9 @@ export function CompactGoogleButton({
     () => typeof window !== "undefined" && !!window.google?.accounts?.id,
   );
   const googleClientID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+  const handleCredential = useEffectEvent(async (credential: string) => {
+    await onCredential(credential);
+  });
 
   useEffect(() => {
     if (!googleClientID || scriptReady) return;
@@ -69,7 +72,7 @@ export function CompactGoogleButton({
       client_id: googleClientID,
       callback: async (response) => {
         if (!response.credential) return;
-        await onCredential(response.credential);
+        await handleCredential(response.credential);
       },
       auto_select: false,
       cancel_on_tap_outside: true,
@@ -82,7 +85,7 @@ export function CompactGoogleButton({
       shape: "pill",
       logo_alignment: "left",
     });
-  }, [googleClientID, onCredential, scriptReady, text]);
+  }, [googleClientID, scriptReady, text]);
 
   if (!googleClientID) return null;
 

@@ -20,6 +20,8 @@ interface SingleImageUploadProps {
   onChange: (url: string) => void;
   endpoint?: string;
   label?: string;
+  emptyTitle?: string;
+  emptyHint?: string;
   className?: string;
   aspect?: "square" | "video" | "auto"; // Fleksibilitas rasio
   uploadPreset?: ImageUploadPreset;
@@ -31,6 +33,8 @@ export function SingleImageUpload({
   onChange,
   endpoint = "/admin/upload",
   label = "Upload Image",
+  emptyTitle = "Upload gambar",
+  emptyHint = "PNG/JPG • maks 5MB",
   className,
   aspect = "square", // DEFAULT: SQUARE (1:1)
   uploadPreset = "default",
@@ -94,16 +98,16 @@ export function SingleImageUpload({
   };
 
   return (
-    <div className={cn("space-y-3 w-full", className)}>
+    <div className={cn("w-full space-y-3", className)}>
       {label && (
-        <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 italic px-1 leading-none">
+        <Label className="px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
           {label}
         </Label>
       )}
 
       <div
         className={cn(
-          "relative group w-full rounded-[2.5rem] bg-slate-50 dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 overflow-hidden flex items-center justify-center transition-all hover:border-blue-500/50 hover:bg-slate-100/50 dark:hover:bg-slate-800/50",
+          "group relative flex w-full items-center justify-center overflow-hidden rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 transition-all hover:border-[var(--bookinaja-300)] hover:bg-slate-50 dark:border-slate-800 dark:bg-white/[0.03] dark:hover:bg-white/[0.05]",
           aspect === "square" && "aspect-square",
           aspect === "video" && "aspect-video",
           !value && "cursor-pointer",
@@ -114,25 +118,24 @@ export function SingleImageUpload({
             <img
               src={value}
               alt="Preview"
-              className="w-full h-full object-cover animate-in fade-in duration-500"
+              className="h-full w-full object-cover animate-in fade-in duration-500"
             />
-            {/* Overlay Action */}
-            <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-[2px] flex items-center justify-center gap-3">
+            <div className="absolute inset-0 flex items-center justify-center gap-2 bg-slate-950/50 opacity-0 transition-all duration-200 backdrop-blur-[2px] group-hover:opacity-100">
               <Button
                 type="button"
                 variant="destructive"
                 size="icon"
-                className="rounded-2xl h-12 w-12 shadow-2xl transition-transform hover:scale-110 active:scale-95"
+                className="h-10 w-10 rounded-xl shadow-xl transition-transform hover:scale-105 active:scale-95"
                 onClick={(e) => {
                   e.preventDefault();
                   onChange("");
                   onMetadataChange?.({});
                 }}
               >
-                <Trash2 className="h-5 w-5" />
+                <Trash2 className="h-4 w-4" />
               </Button>
-              <label className="cursor-pointer h-12 w-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-2xl transition-transform hover:scale-110 active:scale-95">
-                <Upload className="h-5 w-5" />
+              <label className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl bg-[var(--bookinaja-600)] text-white shadow-xl transition-transform hover:scale-105 active:scale-95">
+                <Upload className="h-4 w-4" />
                 <input
                   type="file"
                   className="hidden"
@@ -144,31 +147,31 @@ export function SingleImageUpload({
             </div>
           </>
         ) : (
-          <label className="flex flex-col items-center justify-center w-full h-full space-y-4 cursor-pointer">
+          <label className="flex h-full w-full cursor-pointer flex-col items-center justify-center px-6 py-8 text-center">
             {loading ? (
               <div className="flex flex-col items-center gap-3">
-                <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
-                <span className="text-[10px] font-black uppercase text-blue-600 animate-pulse">
+                <Loader2 className="h-8 w-8 animate-spin text-[var(--bookinaja-600)]" />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--bookinaja-700)]">
                   Uploading {progress}%
                 </span>
-                <div className="h-2 w-40 overflow-hidden rounded-full bg-slate-200">
+                <div className="h-2 w-36 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
                   <div
-                    className="h-full rounded-full bg-blue-600 transition-all"
+                    className="h-full rounded-full bg-[var(--bookinaja-600)] transition-all"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-4">
-                <div className="h-16 w-16 rounded-[1.5rem] bg-white dark:bg-slate-800 shadow-xl flex items-center justify-center text-slate-300 dark:text-slate-600 group-hover:text-blue-600 group-hover:scale-110 transition-all duration-500">
-                  <ImagePlus className="h-8 w-8" strokeWidth={1.5} />
+              <div className="flex flex-col items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-400 ring-1 ring-slate-200 transition-all duration-200 group-hover:text-[var(--bookinaja-600)] dark:bg-slate-900 dark:ring-slate-700">
+                  <ImagePlus className="h-6 w-6" strokeWidth={1.75} />
                 </div>
                 <div className="text-center">
-                  <p className="text-[11px] font-[1000] uppercase italic tracking-tighter text-slate-900 dark:text-white leading-none">
-                    Drop Image Here
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {emptyTitle}
                   </p>
-                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-2 leading-none">
-                    Quality Optimized · Max 5MB
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {emptyHint}
                   </p>
                 </div>
               </div>

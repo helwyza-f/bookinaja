@@ -106,17 +106,6 @@ export default function BusinessSettingsPage() {
   const checklist = useMemo(
     () => [
       {
-        id: "basic-profile",
-        label: "Profil Dasar",
-        href: "#basic-profile",
-        done: Boolean(
-          profile.name &&
-            profile.slug &&
-            profile.business_category &&
-            profile.business_type,
-        ),
-      },
-      {
         id: "landing-header",
         label: "Landing & Header",
         href: "#landing-header",
@@ -128,6 +117,23 @@ export default function BusinessSettingsPage() {
         ),
       },
       {
+        id: "media-gallery",
+        label: "Media & Gallery",
+        href: "#media-gallery",
+        done: Boolean(profile.logo_url && profile.banner_url),
+      },
+      {
+        id: "basic-profile",
+        label: "Profil Dasar",
+        href: "#basic-profile",
+        done: Boolean(
+          profile.name &&
+            profile.slug &&
+            profile.business_category &&
+            profile.business_type,
+        ),
+      },
+      {
         id: "contact-location",
         label: "Kontak & Lokasi",
         href: "#contact-location",
@@ -136,12 +142,6 @@ export default function BusinessSettingsPage() {
             profile.whatsapp_number &&
             (profile.instagram_url || profile.tiktok_url || profile.map_iframe_url),
         ),
-      },
-      {
-        id: "media-gallery",
-        label: "Media & Gallery",
-        href: "#media-gallery",
-        done: Boolean(profile.logo_url && profile.banner_url),
       },
       {
         id: "operations",
@@ -170,6 +170,8 @@ export default function BusinessSettingsPage() {
     Math.round((completedChecklist / checklist.length) * 100);
   const nextPendingStep =
     (summary?.steps || []).find((step) => !step.complete) || null;
+  const priorityNow = checklist.slice(0, 3);
+  const priorityLater = checklist.slice(3);
 
   if (loading) {
     return <BusinessSettingsSkeleton />;
@@ -191,7 +193,7 @@ export default function BusinessSettingsPage() {
               Setup bisnis
             </h1>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Identitas, jam operasional, konten publik, media, dan SEO tenant.
+              Mulai dari yang paling terasa ke customer: landing, media, lalu profil dasar.
               {nextPendingStep?.label ? ` Fokus berikutnya: ${nextPendingStep.label}.` : ""}
             </p>
           </div>
@@ -230,6 +232,44 @@ export default function BusinessSettingsPage() {
           />
         </div>
 
+        <div className="mt-3 grid gap-2 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-3 dark:border-slate-800 dark:bg-white/[0.03]">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+              Prioritas sekarang
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {priorityNow.map((item, index) => (
+                <a
+                  key={item.id}
+                  href={item.href}
+                  className="inline-flex items-center gap-2 rounded-full border border-[var(--bookinaja-200)] bg-white px-3 py-1.5 text-xs font-medium text-slate-700 dark:border-[rgba(59,130,246,0.2)] dark:bg-slate-950 dark:text-slate-200"
+                >
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--bookinaja-50)] text-[10px] font-semibold text-[var(--bookinaja-700)]">
+                    {index + 1}
+                  </span>
+                  {item.label}
+                </a>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 dark:border-slate-800 dark:bg-slate-950">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+              Bisa menyusul
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {priorityLater.map((item) => (
+                <a
+                  key={item.id}
+                  href={item.href}
+                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 dark:border-slate-800 dark:bg-white/[0.03] dark:text-slate-300"
+                >
+                  {item.label}
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
           {checklist.map((item) => (
             <a
@@ -249,25 +289,25 @@ export default function BusinessSettingsPage() {
       </Card>
 
       <section className="grid gap-3 xl:grid-cols-2">
+        <section id="landing-header" className="scroll-mt-24 xl:col-span-2">
+          <LandingContentSection
+            profile={profile}
+            saving={savingKey === "content"}
+            onSave={(patch) => void saveSection("content", patch)}
+          />
+        </section>
+        <section id="media-gallery" className="scroll-mt-24 xl:col-span-2">
+          <MediaSection
+            profile={profile}
+            saving={savingKey === "media"}
+            onSave={(patch) => void saveSection("media", patch)}
+          />
+        </section>
         <section id="basic-profile" className="scroll-mt-24">
           <BasicProfileSection
             profile={profile}
             saving={savingKey === "basic"}
             onSave={(patch) => void saveSection("basic", patch)}
-          />
-        </section>
-        <section id="operations" className="scroll-mt-24">
-          <OperationsSection
-            profile={profile}
-            saving={savingKey === "operations"}
-            onSave={(patch) => void saveSection("operations", patch)}
-          />
-        </section>
-        <section id="landing-header" className="scroll-mt-24">
-          <LandingContentSection
-            profile={profile}
-            saving={savingKey === "content"}
-            onSave={(patch) => void saveSection("content", patch)}
           />
         </section>
         <section id="contact-location" className="scroll-mt-24">
@@ -277,11 +317,11 @@ export default function BusinessSettingsPage() {
             onSave={(patch) => void saveSection("contact", patch)}
           />
         </section>
-        <section id="media-gallery" className="scroll-mt-24">
-          <MediaSection
+        <section id="operations" className="scroll-mt-24">
+          <OperationsSection
             profile={profile}
-            saving={savingKey === "media"}
-            onSave={(patch) => void saveSection("media", patch)}
+            saving={savingKey === "operations"}
+            onSave={(patch) => void saveSection("operations", patch)}
           />
         </section>
         <section id="seo" className="scroll-mt-24">
@@ -298,8 +338,8 @@ export default function BusinessSettingsPage() {
 
 function BusinessSettingsSkeleton() {
   return (
-    <div className="space-y-3 pb-16">
-      <Skeleton className="h-32 rounded-2xl" />
+    <div className="space-y-4 pb-16">
+      <Skeleton className="h-40 rounded-2xl" />
       <div className="grid gap-3 xl:grid-cols-2">
         <Skeleton className="h-48 rounded-2xl" />
         <Skeleton className="h-48 rounded-2xl" />

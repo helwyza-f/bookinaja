@@ -123,11 +123,11 @@ export function PlanFeatureCallout({
   }
 
   return (
-    <div className={cn("rounded-2xl border p-4 shadow-sm", tone, className)}>
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-2">
+    <div className={cn("rounded-xl border px-3 py-3", tone, className)}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="text-sm font-black tracking-tight text-slate-950 dark:text-white">
+            <div className="text-sm font-semibold tracking-tight text-slate-950 dark:text-white">
               {title}
             </div>
             <PlanFeatureBadge input={input} requirement={requirement} />
@@ -135,9 +135,9 @@ export function PlanFeatureCallout({
           <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
             {description}
           </p>
-          <p className="text-sm leading-6 text-slate-500 dark:text-slate-400">{copy}</p>
+          <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">{copy}</p>
         </div>
-        <Button asChild variant="outline" className="rounded-xl">
+        <Button asChild variant="outline" className="h-8 shrink-0 rounded-lg px-3 text-xs">
           <Link href={href}>Lihat opsi upgrade</Link>
         </Button>
       </div>

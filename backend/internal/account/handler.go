@@ -1,6 +1,7 @@
 package account
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -20,7 +21,7 @@ func NewHandler(service *Service) *Handler {
 func (h *Handler) Signup(c *gin.Context) {
 	var req SignupReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "data signup tidak lengkap"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "email dan password wajib diisi"})
 		return
 	}
 
@@ -41,6 +42,13 @@ func (h *Handler) Login(c *gin.Context) {
 
 	res, err := h.service.Login(c.Request.Context(), req)
 	if err != nil {
+		if errors.Is(err, errAccountEmailNotVerified) {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": err.Error(),
+				"code":  "email_not_verified",
+			})
+			return
+		}
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
@@ -57,6 +65,36 @@ func (h *Handler) GoogleAuth(c *gin.Context) {
 	res, err := h.service.GoogleAuth(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) RequestEmailVerification(c *gin.Context) {
+	var req EmailVerificationRequestReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "email wajib diisi"})
+		return
+	}
+
+	res, err := h.service.RequestEmailVerification(c.Request.Context(), req.Email)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) VerifyEmail(c *gin.Context) {
+	var req EmailVerificationVerifyReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "token verifikasi wajib diisi"})
+		return
+	}
+
+	res, err := h.service.VerifyEmail(c.Request.Context(), req.Token)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, res)

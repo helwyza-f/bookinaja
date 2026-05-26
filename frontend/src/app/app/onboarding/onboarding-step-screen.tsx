@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
@@ -26,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import api from "@/lib/api";
+import { BOOKINAJA_LOGO_FRAMELESS_SRC } from "@/lib/brand";
 import { prepareImageForUpload } from "@/lib/image-upload-prep";
 import { getTenantAdminEntryUrl } from "@/lib/workspace-entry";
 import { getWorkspaceOnboarding, listWorkspaces, updateWorkspaceOnboardingStep } from "@/lib/workspace-client";
@@ -374,7 +376,7 @@ export function OnboardingStepScreen({ step }: { step: string }) {
     return () => {
       alive = false;
     };
-  }, [workspaceId]);
+  }, [workspaceCategoryQuery, workspaceId]);
 
   useEffect(() => {
     if (!resourceCategory && workspaceCategory) {
@@ -414,7 +416,7 @@ export function OnboardingStepScreen({ step }: { step: string }) {
       return;
     }
     if (step === "done") {
-      if (workspaceSlug) window.location.href = getTenantAdminEntryUrl(workspaceSlug, "/admin/dashboard");
+      if (workspaceSlug) window.location.href = getTenantAdminEntryUrl(workspaceSlug, "/admin/dashboard?welcome=1");
       else router.replace("/app/workspaces");
       return;
     }
@@ -512,8 +514,21 @@ export function OnboardingStepScreen({ step }: { step: string }) {
       <section className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm lg:overflow-visible">
         <div className="flex flex-1 flex-col p-5 sm:p-6 lg:p-8">
           <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-white">B</div>
-            <div className="font-semibold">Bookinaja</div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eff6ff] ring-1 ring-[#dbeafe]">
+              <Image
+                src={BOOKINAJA_LOGO_FRAMELESS_SRC}
+                alt="Bookinaja"
+                width={28}
+                height={28}
+                className="h-7 w-7 object-contain"
+              />
+            </div>
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                Powered by
+              </div>
+              <div className="text-base font-semibold tracking-tight text-slate-950">Bookinaja</div>
+            </div>
           </div>
           <header className="mb-6 flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
             <div>

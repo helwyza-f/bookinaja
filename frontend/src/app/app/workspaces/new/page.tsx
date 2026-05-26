@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { clearTenantSession } from "@/lib/tenant-session";
 import { createWorkspace } from "@/lib/workspace-client";
 
 const REFERRAL_STORAGE_KEY = "bookinaja_referral_code";
@@ -63,6 +64,11 @@ function NewWorkspaceContent() {
     setStoredReferralCode(window.localStorage.getItem(REFERRAL_STORAGE_KEY) || "");
   }, [searchParams]);
 
+  function handleSignOut() {
+    clearTenantSession();
+    router.replace("/login?signed_out=1");
+  }
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!finalCategory) {
@@ -92,12 +98,18 @@ function NewWorkspaceContent() {
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-4xl px-5 py-8">
-      <Button asChild variant="ghost" className="mb-6 h-9 px-0">
-        <Link href="/app/workspaces">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Kembali
-        </Link>
-      </Button>
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <Button asChild variant="ghost" className="h-9 px-0">
+          <Link href="/app/workspaces">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Kembali
+          </Link>
+        </Button>
+        <Button type="button" variant="outline" className="h-9 shrink-0" onClick={handleSignOut}>
+          <LogOut className="mr-2 h-4 w-4" />
+          Sign out
+        </Button>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <section>
