@@ -65,11 +65,14 @@ function paymentStatusMeta(status?: string) {
       hint: "Pembayaran sebelumnya sudah lewat batas waktu. Silakan mulai lagi dari halaman pembayaran.",
     };
   }
-  if (normalized === "failed") {
+  if (normalized === "failed" || normalized === "denied" || normalized === "cancelled") {
     return {
-      label: "Gagal",
+      label: normalized === "cancelled" ? "Dibatalkan" : "Gagal",
       className: "rounded-full bg-red-500 text-white",
-      hint: "Pembayaran belum berhasil diproses. Coba ulangi dengan metode yang sama atau pilih metode lain.",
+      hint:
+        normalized === "cancelled"
+          ? "Pembayaran dibatalkan. Mulai ulang pembayaran jika booking masih bisa diproses."
+          : "Pembayaran belum berhasil diproses. Coba ulangi dengan metode yang sama atau pilih metode lain.",
     };
   }
   return {

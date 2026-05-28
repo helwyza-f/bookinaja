@@ -279,8 +279,11 @@ function adminPaymentStatusMeta(status?: string, balanceDue?: number, hasDeposit
   if (normalized === "expired") {
     return { label: "Kadaluarsa", className: "bg-red-500 text-white" };
   }
-  if (normalized === "failed") {
-    return { label: "Gagal", className: "bg-red-500 text-white" };
+  if (normalized === "failed" || normalized === "denied" || normalized === "cancelled") {
+    return {
+      label: normalized === "cancelled" ? "Pembayaran Dibatalkan" : "Gagal",
+      className: "bg-red-500 text-white",
+    };
   }
   if (hasDepositOverride) {
     return { label: "Tanpa DP", className: "bg-amber-500 text-white" };

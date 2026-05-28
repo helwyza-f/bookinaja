@@ -35,6 +35,11 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { hasPermission } from "@/lib/admin-access";
+import {
+  getSignupIntentPlanLabel,
+  readSignupIntentFromParams,
+  signupIntentToQuery,
+} from "@/lib/signup-intent";
 import { toast } from "sonner";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { RealtimePill } from "@/components/dashboard/realtime-pill";
@@ -187,6 +192,7 @@ export default function DashboardPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user: sessionUser } = useAdminSession();
+  const signupIntent = useMemo(() => readSignupIntentFromParams(searchParams), [searchParams]);
   const [resources, setResources] = useState<ResourceRow[]>([]);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [bookings, setBookings] = useState<BookingRow[]>([]);
@@ -638,7 +644,7 @@ export default function DashboardPage() {
         label: "Pace 7 hari",
         value: `Rp ${formatIDR(weeklySummary.totalRevenue)}`,
         detail: `Puncak di ${weeklySummary.peakLabel} dengan Rp ${formatIDR(weeklySummary.peakRevenue)}.`,
-        href: "/admin/settings/analytics",
+        href: "/admin/analytics",
         icon: TrendingUp,
       });
     }
@@ -685,6 +691,15 @@ export default function DashboardPage() {
     : 100);
   const onboardingDismissKey = tenantId ? `tenant-onboarding-dismissed:${tenantId}` : "";
   const onboardingWelcome = searchParams.get("welcome") === "1";
+  const intendedPlanLabel = getSignupIntentPlanLabel(signupIntent);
+  const intendedIntervalLabel = signupIntent.interval === "monthly" ? "bulanan" : "tahunan";
+  const intendedCheckoutQuery = signupIntentToQuery({
+    ...signupIntent,
+    interval: signupIntent.interval || "annual",
+  }).toString();
+  const intendedBillingHref = signupIntent.plan
+    ? `/admin/settings/billing/subscribe/checkout?${intendedCheckoutQuery}`
+    : "/admin/settings/billing/subscribe";
 
   useEffect(() => {
     if (!ownerOnly || !tenantId || !onboardingSteps.length) {
@@ -725,7 +740,7 @@ export default function DashboardPage() {
     ? [
         { href: "/admin/bookings", label: "Bookings", icon: CalendarClock },
         { href: "/admin/resources", label: "Resources", icon: Monitor },
-        { href: "/admin/settings/analytics", label: "Analytics", icon: PanelsTopLeft },
+        { href: "/admin/analytics", label: "Analytics", icon: PanelsTopLeft },
       ]
     : ([
         canReadBookings
@@ -1177,51 +1192,65 @@ export default function DashboardPage() {
       )}
 
       <Dialog open={welcomeDialogOpen} onOpenChange={(open) => (!open ? dismissWelcomeDialog() : setWelcomeDialogOpen(true))}>
-        <DialogContent className="max-w-sm rounded-[1.5rem] border border-slate-200 bg-white p-0 shadow-[0_28px_80px_-32px_rgba(15,23,42,0.35)]" showCloseButton={false}>
+        <DialogContent
+          className="max-w-sm rounded-[1.5rem] border border-slate-200 bg-white p-0 text-slate-950 shadow-[0_28px_80px_-32px_rgba(15,23,42,0.35)] dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:shadow-[0_28px_90px_-30px_rgba(0,0,0,0.75)]"
+          showCloseButton={false}
+        >
           <div className="p-5">
             <div className="flex items-start justify-between gap-4">
-              <div className="inline-flex rounded-full border border-[rgba(37,99,235,0.14)] bg-[rgba(239,246,255,0.95)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-700)]">
+              <div className="inline-flex rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-700)] dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200">
                 Next step
               </div>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                className="rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-slate-200"
                 onClick={dismissWelcomeDialog}
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
 
-            <div className="mt-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)]">
+            <div className="mt-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-blue-500/10 dark:text-blue-200">
               <Building2 className="h-5 w-5" />
             </div>
 
             <DialogHeader className="mt-4">
-              <DialogTitle className="text-[1.5rem] font-semibold leading-tight tracking-tight text-slate-950">
-                Dashboard siap.
+              <DialogTitle className="text-[1.5rem] font-semibold leading-tight tracking-tight text-slate-950 dark:text-white">
+                Onboarding awal selesai.
               </DialogTitle>
-              <DialogDescription className="max-w-sm text-sm leading-6 text-slate-500">
-                Rapikan dulu halaman bisnis supaya identitas dan tampilan public-nya tidak kosong.
+              <DialogDescription className="max-w-sm text-sm leading-6 text-slate-500 dark:text-slate-400">
+                Booking simulasi sudah masuk ke dashboard. Cek data internal dulu, lalu lanjutkan keputusan billing dari area admin.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="mt-4 text-sm text-slate-600">
-              Isi yang paling penting: nama bisnis, kontak, jam operasional, dan landing.
+            <div className="mt-4 text-sm text-slate-600 dark:text-slate-300">
+              Data awal sudah siap untuk dicek: resource, jadwal, booking simulasi, dan ringkasan operasional.
             </div>
 
             <div className="mt-6 flex flex-col gap-2">
               <Button asChild className="w-full rounded-xl">
-                <Link href="/admin/brand" prefetch={false} onClick={dismissWelcomeDialog}>
-                  Rapikan halaman bisnis
+                <Link href={intendedBillingHref} prefetch={false} onClick={dismissWelcomeDialog}>
+                  {signupIntent.plan
+                    ? `Lanjut billing ${intendedPlanLabel} ${intendedIntervalLabel}`
+                    : "Buka pilihan paket"}
                   <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                className="w-full rounded-xl bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-950 dark:border-white/10 dark:bg-transparent dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white"
+              >
+                <Link href="/admin/bookings" prefetch={false} onClick={dismissWelcomeDialog}>
+                  Cek booking pertama
                 </Link>
               </Button>
               <Button
                 type="button"
                 variant="ghost"
-                className="w-full rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                className="w-full rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-200"
                 onClick={dismissWelcomeDialog}
               >
                 Masuk dashboard dulu

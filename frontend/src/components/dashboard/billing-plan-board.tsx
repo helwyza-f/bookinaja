@@ -12,6 +12,7 @@ import {
   annualMonthlyEquivalent,
   annualSavingsPercent,
   BILLING_PLANS,
+  formatIDR,
   getBillingPlan,
 } from "@/lib/pricing";
 
@@ -27,6 +28,13 @@ const PLAN_EMOJI: Record<string, string> = {
   starter: "🏍️",
   pro: "🏎️",
   scale: "🚚",
+};
+
+const PLAN_LABEL: Record<string, string> = {
+  trial: "Trial",
+  starter: "Starter",
+  pro: "Pro",
+  scale: "Scale",
 };
 
 function formatDate(value?: string | null) {
@@ -72,7 +80,7 @@ export function BillingPlanBoard({
   const currentFeatures = (currentPlan?.adminFeatures || []).slice(0, 6);
   const trialBadge = planState.isTrial
     ? `Trial (${activeUntil === "-" ? "aktif" : `sampai ${activeUntil}`})`
-    : `Current plan`;
+    : "Paket aktif";
 
   const boardClasses =
     "rounded-[1.75rem] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0f1117]/96";
@@ -83,10 +91,10 @@ export function BillingPlanBoard({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
-              Upgrade your plan
+              Pilih paket setelah flow terasa cocok
             </h1>
             <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Unlock more features and grow your workspace faster.
+              Lanjutkan trial ke paket berbayar saat booking, admin, dan operasionalnya sudah terasa membantu.
             </p>
           </div>
           {backHref ? (
@@ -111,7 +119,7 @@ export function BillingPlanBoard({
                     : "text-slate-500 dark:text-slate-400",
                 )}
               >
-                Monthly
+                Bulanan
               </button>
               <button
                 type="button"
@@ -123,10 +131,10 @@ export function BillingPlanBoard({
                     : "text-slate-500 dark:text-slate-400",
                 )}
               >
-                Yearly
+                Tahunan
               </button>
               <span className="px-2 text-sm font-semibold text-emerald-600">
-                Save {annualDiscount}%
+                Hemat {annualDiscount}%
               </span>
             </div>
 
@@ -139,7 +147,10 @@ export function BillingPlanBoard({
 
           <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50/70 p-5 dark:border-white/10 dark:bg-white/[0.03]">
             <div className="grid gap-5 lg:grid-cols-[180px_minmax(0,260px)_minmax(0,1fr)] lg:items-center">
-              <div className="flex h-24 items-center justify-center rounded-2xl bg-white text-6xl shadow-sm dark:bg-slate-950">
+              <div className="flex h-24 items-center justify-center rounded-2xl bg-white text-[0px] shadow-sm dark:bg-slate-950">
+                <span className="text-2xl font-semibold tracking-tight text-slate-500 dark:text-slate-300">
+                  {PLAN_LABEL[planState.rawPlan] || "Trial"}
+                </span>
                 {PLAN_EMOJI[planState.rawPlan] || "🛹"}
               </div>
               <div>
@@ -147,11 +158,11 @@ export function BillingPlanBoard({
                   {currentPlan?.name || planState.title}
                 </div>
                 <div className="mt-2 text-4xl font-black tracking-tight text-slate-950 dark:text-white">
-                  ${isAnnual ? annualMonthlyEquivalent(currentPlan?.annualTotal || 0) : currentPlan?.monthly || 0}
-                  <span className="ml-2 text-lg font-medium text-slate-400">/month</span>
+                  Rp {formatIDR(isAnnual ? annualMonthlyEquivalent(currentPlan?.annualTotal || 0) : currentPlan?.monthly || 0)}
+                  <span className="ml-2 text-lg font-medium text-slate-400">/bulan</span>
                 </div>
                 <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                  {currentPlan?.headline || "Current workspace plan"}
+                  {currentPlan?.headline || "Paket workspace aktif"}
                 </div>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
@@ -167,7 +178,7 @@ export function BillingPlanBoard({
                   ))
                 ) : (
                   <div className="text-sm text-slate-500 dark:text-slate-400">
-                    Current plan features will appear here after subscription is active.
+                    Fitur paket aktif akan muncul setelah subscription berjalan.
                   </div>
                 )}
               </div>
@@ -180,8 +191,8 @@ export function BillingPlanBoard({
                 ? annualMonthlyEquivalent(plan.annualTotal)
                 : plan.monthly;
               const billingLine = isAnnual
-                ? `$${plan.annualTotal} / year`
-                : `$${plan.monthly} / month`;
+                ? `Rp ${formatIDR(plan.annualTotal)} / tahun`
+                : `Rp ${formatIDR(plan.monthly)} / bulan`;
               const active = plan.recommended;
 
               return (
@@ -194,7 +205,10 @@ export function BillingPlanBoard({
                       : "border-slate-200 dark:border-white/10",
                   )}
                 >
-                  <div className="flex h-28 items-center justify-center rounded-2xl bg-slate-50 text-7xl dark:bg-white/[0.03]">
+                  <div className="flex h-28 items-center justify-center rounded-2xl bg-slate-50 text-[0px] dark:bg-white/[0.03]">
+                    <span className="text-2xl font-semibold tracking-tight text-slate-500 dark:text-slate-300">
+                      {PLAN_LABEL[plan.key] || plan.name}
+                    </span>
                     {PLAN_EMOJI[plan.key]}
                   </div>
 
@@ -203,8 +217,8 @@ export function BillingPlanBoard({
                       {plan.name}
                     </div>
                     <div className="mt-2 text-4xl font-black tracking-tight text-slate-950 dark:text-white">
-                      ${monthlyEquivalent}
-                      <span className="ml-2 text-lg font-medium text-slate-400">/month</span>
+                      Rp {formatIDR(monthlyEquivalent)}
+                      <span className="ml-2 text-lg font-medium text-slate-400">/bulan</span>
                     </div>
                     <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                       {billingLine}
@@ -231,7 +245,7 @@ export function BillingPlanBoard({
                       <Link
                         href={`/admin/settings/billing/subscribe/checkout?plan=${plan.key}&interval=${isAnnual ? "annual" : "monthly"}`}
                       >
-                        Upgrade to {plan.name}
+                        Pilih {plan.name}
                       </Link>
                     </Button>
                   </div>
@@ -245,7 +259,7 @@ export function BillingPlanBoard({
               type="button"
               className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/[0.04]"
             >
-              See all features breakdown
+              Lihat detail fitur
               <ChevronDown className="h-4 w-4" />
             </button>
           </div>
@@ -253,7 +267,10 @@ export function BillingPlanBoard({
           {enterprisePlan ? (
             <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50/70 p-5 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="grid gap-5 lg:grid-cols-[160px_minmax(0,220px)_minmax(0,1fr)_180px] lg:items-center">
-                <div className="flex h-24 items-center justify-center rounded-2xl bg-white text-6xl shadow-sm dark:bg-slate-950">
+                <div className="flex h-24 items-center justify-center rounded-2xl bg-white text-[0px] shadow-sm dark:bg-slate-950">
+                  <span className="text-2xl font-semibold tracking-tight text-slate-500 dark:text-slate-300">
+                    {PLAN_LABEL.scale}
+                  </span>
                   {PLAN_EMOJI.scale}
                 </div>
                 <div>
@@ -281,7 +298,7 @@ export function BillingPlanBoard({
                 <div className="flex lg:justify-end">
                   <Button asChild variant="outline" className="rounded-xl bg-white dark:bg-transparent">
                     <Link href="/pricing/scale" target="_blank">
-                      Contact us
+                      Konsultasi
                     </Link>
                   </Button>
                 </div>
@@ -292,12 +309,12 @@ export function BillingPlanBoard({
           {!compact ? (
             <div className="flex flex-wrap gap-3">
               <Button asChild variant="outline" className="rounded-xl bg-white dark:bg-transparent">
-                <Link href="/admin/settings/billing">Manage Billing</Link>
+                <Link href="/admin/settings/billing">Kelola billing</Link>
               </Button>
               {!showHeader ? (
                 <Button asChild variant="ghost" className="rounded-xl text-slate-600 dark:text-slate-300">
                   <Link href="/pricing" target="_blank">
-                    Compare public pricing
+                    Bandingkan pricing publik
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>

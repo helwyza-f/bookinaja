@@ -216,6 +216,12 @@ export default function BookingPaymentPage() {
         ? "DP Tercatat"
         : paymentStatus === "settled" || paymentStatus === "paid"
           ? "Tercatat"
+          : paymentStatus === "expired"
+            ? "Kedaluwarsa"
+            : paymentStatus === "failed" || paymentStatus === "denied"
+              ? "Gagal"
+              : paymentStatus === "cancelled"
+                ? "Dibatalkan"
           : booking?.payment_status || "pending";
 
   const selectedMethodRequiresProof =

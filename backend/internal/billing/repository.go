@@ -268,6 +268,7 @@ func (r *Repository) ApplyManualDepositPayment(ctx context.Context, exec sqlx.Ex
 	_, err := exec.ExecContext(ctx, `
 		UPDATE bookings
 		SET payment_status = CASE
+				WHEN GREATEST(grand_total - GREATEST(paid_amount, deposit_amount), 0) <= 0 THEN 'settled'
 				WHEN deposit_amount > 0 THEN 'partial_paid'
 				ELSE 'paid'
 			END,
@@ -278,6 +279,10 @@ func (r *Repository) ApplyManualDepositPayment(ctx context.Context, exec sqlx.Ex
 			payment_method = $2,
 			paid_amount = GREATEST(paid_amount, deposit_amount),
 			balance_due = GREATEST(grand_total - GREATEST(paid_amount, deposit_amount), 0),
+			settled_at = CASE
+				WHEN GREATEST(grand_total - GREATEST(paid_amount, deposit_amount), 0) <= 0 THEN COALESCE(settled_at, NOW())
+				ELSE settled_at
+			END,
 			last_status_changed_at = CASE
 				WHEN status = 'pending' THEN NOW()
 				ELSE last_status_changed_at
@@ -515,6 +520,94 @@ func (r *Repository) ListBookingPaymentAttempts(ctx context.Context, bookingID u
 	query += ` ORDER BY created_at DESC`
 	err := r.db.SelectContext(ctx, &items, query, args...)
 	return items, err
+}
+
+func normalizeReportPage(page, pageSize int) (int, int, int) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 50
+	}
+	if pageSize > 200 {
+		pageSize = 200
+	}
+	return page, pageSize, (page - 1) * pageSize
+}
+
+func (r *Repository) ListTenantLedgerEntries(ctx context.Context, tenantID uuid.UUID, page, pageSize int) (TenantLedgerReportRes, error) {
+	page, pageSize, offset := normalizeReportPage(page, pageSize)
+	_ = page
+
+	var items []TenantLedgerEntry
+	if err := r.db.SelectContext(ctx, &items, `
+		SELECT *
+		FROM tenant_ledger_entries
+		WHERE tenant_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3`,
+		tenantID, pageSize, offset,
+	); err != nil {
+		return TenantLedgerReportRes{}, err
+	}
+
+	var total int
+	if err := r.db.GetContext(ctx, &total, `
+		SELECT COUNT(*)
+		FROM tenant_ledger_entries
+		WHERE tenant_id = $1`,
+		tenantID,
+	); err != nil {
+		return TenantLedgerReportRes{}, err
+	}
+
+	var summary TenantLedgerSummary
+	if err := r.db.GetContext(ctx, &summary, `
+		SELECT
+			COALESCE(SUM(CASE WHEN status = 'settled' AND direction = 'credit' THEN net_amount ELSE 0 END), 0)
+				- COALESCE(SUM(CASE WHEN status = 'settled' AND direction = 'debit' THEN net_amount ELSE 0 END), 0) AS balance,
+			COALESCE(SUM(CASE WHEN status = 'settled' AND direction = 'credit' THEN net_amount ELSE 0 END), 0) AS settled_credit,
+			COALESCE(SUM(CASE WHEN status = 'settled' AND direction = 'debit' THEN net_amount ELSE 0 END), 0) AS settled_debit,
+			COALESCE(SUM(CASE WHEN status = 'pending' AND direction = 'credit' THEN net_amount ELSE 0 END), 0) AS pending_credit,
+			COALESCE(SUM(CASE WHEN status = 'pending' AND direction = 'debit' THEN net_amount ELSE 0 END), 0) AS pending_debit,
+			COUNT(*) AS entries
+		FROM tenant_ledger_entries
+		WHERE tenant_id = $1`,
+		tenantID,
+	); err != nil {
+		return TenantLedgerReportRes{}, err
+	}
+
+	return TenantLedgerReportRes{Items: items, Total: total, Summary: summary}, nil
+}
+
+func (r *Repository) ListTenantMidtransNotifications(ctx context.Context, tenantID uuid.UUID, page, pageSize int) (TenantMidtransNotificationReportRes, error) {
+	page, pageSize, offset := normalizeReportPage(page, pageSize)
+	_ = page
+
+	var items []MidtransNotificationLog
+	if err := r.db.SelectContext(ctx, &items, `
+		SELECT *
+		FROM midtrans_notification_logs
+		WHERE tenant_id = $1
+		ORDER BY received_at DESC
+		LIMIT $2 OFFSET $3`,
+		tenantID, pageSize, offset,
+	); err != nil {
+		return TenantMidtransNotificationReportRes{}, err
+	}
+
+	var total int
+	if err := r.db.GetContext(ctx, &total, `
+		SELECT COUNT(*)
+		FROM midtrans_notification_logs
+		WHERE tenant_id = $1`,
+		tenantID,
+	); err != nil {
+		return TenantMidtransNotificationReportRes{}, err
+	}
+
+	return TenantMidtransNotificationReportRes{Items: items, Total: total}, nil
 }
 
 func (r *Repository) ListPendingManualPaymentAttempts(ctx context.Context, tenantID uuid.UUID) ([]BookingPaymentAttempt, error) {

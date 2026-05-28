@@ -80,9 +80,15 @@ export function getOrderStatusMeta(status?: string, paymentStatus?: string, bala
       className: "rounded-full border-none bg-rose-500 text-white",
     };
   }
-  if (payment === "failed") {
+  if (payment === "failed" || payment === "denied") {
     return {
       label: "Pembayaran gagal",
+      className: "rounded-full border-none bg-rose-500 text-white",
+    };
+  }
+  if (payment === "cancelled") {
+    return {
+      label: "Pembayaran dibatalkan",
       className: "rounded-full border-none bg-rose-500 text-white",
     };
   }

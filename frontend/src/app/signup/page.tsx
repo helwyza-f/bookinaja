@@ -11,6 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { googleAuthAccount, signupAccount } from "@/lib/auth-client";
+import {
+  getSignupIntentPlanLabel,
+  hasSignupIntent,
+  readSignupIntentFromParams,
+  saveSignupIntent,
+  signupIntentToQuery,
+} from "@/lib/signup-intent";
 
 const REFERRAL_STORAGE_KEY = "bookinaja_referral_code";
 
@@ -33,15 +40,21 @@ function SignupContent() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const signupIntent = useMemo(() => readSignupIntentFromParams(searchParams), [searchParams]);
   const referralCode = useMemo(
-    () => (searchParams.get("ref") || "").trim().toUpperCase(),
-    [searchParams],
+    () => (signupIntent.ref || "").trim().toUpperCase(),
+    [signupIntent.ref],
   );
+  const selectedPlanLabel = getSignupIntentPlanLabel(signupIntent);
 
   useEffect(() => {
-    if (!referralCode) return;
-    window.localStorage.setItem(REFERRAL_STORAGE_KEY, referralCode);
-  }, [referralCode]);
+    if (referralCode) {
+      window.localStorage.setItem(REFERRAL_STORAGE_KEY, referralCode);
+    }
+    if (hasSignupIntent(signupIntent)) {
+      saveSignupIntent(signupIntent);
+    }
+  }, [referralCode, signupIntent]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -65,7 +78,9 @@ function SignupContent() {
     try {
       await googleAuthAccount(credential);
       toast.success("Masuk dengan Google berhasil.");
-      router.replace(referralCode ? `/app/workspaces/new?ref=${encodeURIComponent(referralCode)}` : "/app/workspaces/new");
+      const params = signupIntentToQuery(signupIntent);
+      const query = params.toString();
+      router.replace(query ? `/app/workspaces/new?${query}` : "/app/workspaces/new");
     } catch (error) {
       const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
       toast.error(message || "Google signup belum berhasil.");
@@ -81,10 +96,10 @@ function SignupContent() {
           <div className="max-w-xl">
             <BookinajaAuthLogo priority className="mb-6" />
             <h1 className="text-5xl font-semibold leading-tight tracking-normal">
-              Buat akun dulu. Workspace disiapkan setelah kamu masuk.
+              Coba flow booking dulu. Berlangganan setelah terasa cocok.
             </h1>
             <p className="mt-5 text-base leading-7 text-slate-600">
-              Signup dibuat ringan supaya owner tidak dipaksa mengisi konfigurasi bisnis sebelum punya akun.
+              Buat akun, siapkan workspace, lalu rasakan booking pertama masuk ke admin sebelum memilih paket berbayar.
             </p>
           </div>
         </section>
@@ -97,6 +112,12 @@ function SignupContent() {
               <p className="mt-2 text-sm leading-6 text-slate-500">
                 Setelah akun aktif, kamu lanjut membuat workspace pertama.
               </p>
+              {signupIntent.plan ? (
+                <p className="mt-3 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
+                  Niat paket: {selectedPlanLabel}
+                  {signupIntent.interval ? ` / ${signupIntent.interval === "annual" ? "Tahunan" : "Bulanan"}` : ""}
+                </p>
+              ) : null}
               {referralCode ? (
                 <p className="mt-3 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 ring-1 ring-blue-100">
                   Referral aktif: {referralCode}

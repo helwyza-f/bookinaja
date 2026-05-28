@@ -317,3 +317,66 @@ func (h *Handler) ListBookingPaymentAttempts(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"items": items})
 }
+
+func (h *Handler) ListTenantLedgerEntries(c *gin.Context) {
+	tenantID, ok := parseTenantIDFromContext(c)
+	if !ok {
+		return
+	}
+	page, pageSize := parsePagination(c, 1, 50)
+	res, err := h.svc.ListTenantLedgerEntries(c.Request.Context(), tenantID, page, pageSize)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) ListTenantMidtransNotifications(c *gin.Context) {
+	tenantID, ok := parseTenantIDFromContext(c)
+	if !ok {
+		return
+	}
+	page, pageSize := parsePagination(c, 1, 50)
+	res, err := h.svc.ListTenantMidtransNotifications(c.Request.Context(), tenantID, page, pageSize)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
+func parseTenantIDFromContext(c *gin.Context) (uuid.UUID, bool) {
+	tenantIDVal, ok := c.Get("tenantID")
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID missing"})
+		return uuid.Nil, false
+	}
+	tenantID, err := uuid.Parse(tenantIDVal.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenantID invalid"})
+		return uuid.Nil, false
+	}
+	return tenantID, true
+}
+
+func parsePagination(c *gin.Context, defaultPage, defaultPageSize int) (int, int) {
+	page := defaultPage
+	pageSize := defaultPageSize
+	if v := c.Query("page"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil {
+			page = parsed
+		}
+	}
+	if v := c.Query("page_size"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil {
+			pageSize = parsed
+		}
+	}
+	if v := c.Query("limit"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil {
+			pageSize = parsed
+		}
+	}
+	return page, pageSize
+}

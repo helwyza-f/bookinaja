@@ -8,6 +8,16 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  clearStoredSignupIntent,
+  getSignupIntentPlanLabel,
+  getStoredSignupIntent,
+  hasSignupIntent,
+  mergeSignupIntent,
+  readSignupIntentFromParams,
+  saveSignupIntent,
+  signupIntentToQuery,
+} from "@/lib/signup-intent";
 import { clearTenantSession } from "@/lib/tenant-session";
 import { createWorkspace } from "@/lib/workspace-client";
 
@@ -45,14 +55,40 @@ function NewWorkspaceContent() {
   const [category, setCategory] = useState("gaming_hub");
   const [customCategory, setCustomCategory] = useState("");
   const [storedReferralCode, setStoredReferralCode] = useState("");
+  const [storedIntentLoaded, setStoredIntentLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const urlIntent = useMemo(() => readSignupIntentFromParams(searchParams), [searchParams]);
+  const [signupIntent, setSignupIntent] = useState(urlIntent);
   const resolvedSlug = slugFromName(slug || name);
   const finalCategory = category === "other" ? customCategory.trim() : category;
   const referralCode = useMemo(
-    () => (searchParams.get("ref") || storedReferralCode || "").trim().toUpperCase(),
-    [searchParams, storedReferralCode],
+    () => (signupIntent.ref || storedReferralCode || "").trim().toUpperCase(),
+    [signupIntent.ref, storedReferralCode],
   );
+
+  useEffect(() => {
+    const stored = getStoredSignupIntent();
+    const merged = mergeSignupIntent(stored, urlIntent);
+    setSignupIntent(merged);
+    if (hasSignupIntent(merged)) {
+      saveSignupIntent(merged);
+    }
+    setStoredIntentLoaded(true);
+  }, [urlIntent]);
+
+  useEffect(() => {
+    if (!storedIntentLoaded) return;
+    const desiredCategory = (signupIntent.category || "").trim();
+    if (!desiredCategory) return;
+    const knownCategory = categories.find((item) => item.id === desiredCategory);
+    if (knownCategory) {
+      setCategory(knownCategory.id);
+      return;
+    }
+    setCategory("other");
+    setCustomCategory(desiredCategory);
+  }, [signupIntent.category, storedIntentLoaded]);
 
   useEffect(() => {
     const fromUrl = (searchParams.get("ref") || "").trim().toUpperCase();
@@ -83,11 +119,20 @@ function NewWorkspaceContent() {
         business_category: finalCategory,
         referral_code: referralCode || undefined,
       });
+      const intentQuery = signupIntentToQuery({
+        ...signupIntent,
+        category: finalCategory,
+        ref: referralCode || signupIntent.ref,
+      });
+      intentQuery.set("workspace", workspace.id);
+      intentQuery.set("slug", workspace.slug);
+      intentQuery.set("category", finalCategory);
       if (referralCode) {
         window.localStorage.removeItem(REFERRAL_STORAGE_KEY);
       }
+      clearStoredSignupIntent();
       toast.success("Workspace dibuat. Lanjut onboarding.");
-      router.replace(`/app/onboarding/template?workspace=${workspace.id}&slug=${workspace.slug}&category=${encodeURIComponent(finalCategory)}`);
+      router.replace(`/app/onboarding/template?${intentQuery.toString()}`);
     } catch (error) {
       const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
       toast.error(message || "Workspace belum berhasil dibuat.");
@@ -115,8 +160,14 @@ function NewWorkspaceContent() {
         <section>
           <h1 className="text-3xl font-semibold tracking-normal">Workspace pertama</h1>
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            Buat identitas dasar dulu. Konfigurasi operasional masuk ke onboarding berikutnya.
+            Buat identitas dasar dulu. Setelah itu kita setup data real sampai booking pertama terlihat di admin.
           </p>
+          {signupIntent.plan ? (
+            <p className="mt-4 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
+              Paket yang kamu incar: {getSignupIntentPlanLabel(signupIntent)}
+              {signupIntent.interval ? ` / ${signupIntent.interval === "annual" ? "Tahunan" : "Bulanan"}` : ""}
+            </p>
+          ) : null}
           {referralCode ? (
             <p className="mt-4 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 ring-1 ring-blue-100">
               Referral aktif: {referralCode}

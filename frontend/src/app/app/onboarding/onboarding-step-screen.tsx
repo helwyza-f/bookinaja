@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  ArrowLeft,
   ArrowRight,
   Banknote,
   Building2,
@@ -29,6 +30,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import api from "@/lib/api";
 import { BOOKINAJA_LOGO_FRAMELESS_SRC } from "@/lib/brand";
 import { prepareImageForUpload } from "@/lib/image-upload-prep";
+import {
+  getSignupIntentPlanLabel,
+  readSignupIntentFromParams,
+  signupIntentToQuery,
+  type SignupIntent,
+} from "@/lib/signup-intent";
 import { getTenantAdminEntryUrl } from "@/lib/workspace-entry";
 import { getWorkspaceOnboarding, listWorkspaces, updateWorkspaceOnboardingStep } from "@/lib/workspace-client";
 
@@ -89,9 +96,9 @@ const stepTitles: Record<string, { title: string; subtitle: string; action: stri
     action: "Lanjut ke langkah akhir",
   },
   done: {
-    title: "Siap masuk dashboard.",
-    subtitle: "Booking pertama sudah terset. Lanjutkan operasional dari dashboard admin.",
-    action: "Buka dashboard",
+    title: "Setup awal workspace selesai.",
+    subtitle: "Booking simulasi sudah tercatat. Buka dashboard untuk cek data internal dan lanjutkan keputusan billing dari sana.",
+    action: "Lihat dashboard",
   },
 };
 
@@ -277,8 +284,17 @@ function defaultDurationByPriceUnit(value: string) {
   }
 }
 
-function nextUrl(step: string, workspaceId: string, slug?: string | null) {
-  return `/app/onboarding/${step}?workspace=${workspaceId}${slug ? `&slug=${slug}` : ""}`;
+function nextUrl(step: string, workspaceId: string, slug?: string | null, signupIntent?: SignupIntent) {
+  const params = signupIntentToQuery(signupIntent || {});
+  params.set("workspace", workspaceId);
+  if (slug) params.set("slug", slug);
+  return `/app/onboarding/${step}?${params.toString()}`;
+}
+
+function adminWelcomePath(signupIntent: SignupIntent) {
+  const params = signupIntentToQuery(signupIntent);
+  params.set("welcome", "1");
+  return `/admin/dashboard?${params.toString()}`;
 }
 
 export function OnboardingStepScreen({ step }: { step: string }) {
@@ -287,6 +303,7 @@ export function OnboardingStepScreen({ step }: { step: string }) {
   const workspaceId = searchParams.get("workspace");
   const workspaceSlug = searchParams.get("slug");
   const workspaceCategoryQuery = searchParams.get("category") || "";
+  const signupIntent = useMemo(() => readSignupIntentFromParams(searchParams), [searchParams]);
   const currentIndex = Math.max(steps.findIndex((item) => item.key === step), 0);
   const copy = stepTitles[step] || stepTitles.template;
   const [loading, setLoading] = useState(false);
@@ -416,7 +433,7 @@ export function OnboardingStepScreen({ step }: { step: string }) {
       return;
     }
     if (step === "done") {
-      if (workspaceSlug) window.location.href = getTenantAdminEntryUrl(workspaceSlug, "/admin/dashboard?welcome=1");
+      if (workspaceSlug) window.location.href = getTenantAdminEntryUrl(workspaceSlug, adminWelcomePath(signupIntent));
       else router.replace("/app/workspaces");
       return;
     }
@@ -488,7 +505,7 @@ export function OnboardingStepScreen({ step }: { step: string }) {
             }
           : {}),
       });
-      router.push(nextUrl(state.current_step, workspaceId, workspaceSlug));
+      router.push(nextUrl(state.current_step, workspaceId, workspaceSlug, signupIntent));
     } catch (error) {
       const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
       toast.error(message || "Onboarding belum berhasil disimpan.");
@@ -506,7 +523,7 @@ export function OnboardingStepScreen({ step }: { step: string }) {
       router.replace("/app/workspaces");
       return;
     }
-    router.push(nextUrl(stepPrevious[step] || "template", workspaceId, workspaceSlug));
+    router.push(nextUrl(stepPrevious[step] || "template", workspaceId, workspaceSlug, signupIntent));
   }
 
   return (
@@ -622,7 +639,7 @@ export function OnboardingStepScreen({ step }: { step: string }) {
               }
             />
           ) : (
-            <DoneStep workspaceSlug={workspaceSlug} />
+            <DoneStep workspaceSlug={workspaceSlug} signupIntent={signupIntent} />
           )}
 
           <OnboardingFooter
@@ -2371,18 +2388,28 @@ function paymentStatusBadge(status: PaymentStatus | "default") {
   };
 }
 
-function DoneStep({ workspaceSlug }: { workspaceSlug?: string | null }) {
+function DoneStep({ workspaceSlug, signupIntent }: { workspaceSlug?: string | null; signupIntent: SignupIntent }) {
+  const planLabel = getSignupIntentPlanLabel(signupIntent);
   return (
-    <div className="mx-auto flex max-w-xl flex-col items-center justify-center py-12 text-center">
+    <div className="mx-auto flex max-w-2xl flex-col items-center justify-center py-12 text-center">
       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
         <Check className="h-7 w-7" />
       </div>
-      <h2 className="mt-5 text-3xl font-semibold tracking-tight">Selamat, booking manual pertamamu sudah berhasil dibuat.</h2>
+      <h2 className="mt-5 text-3xl font-semibold tracking-tight">Booking simulasi sudah tercatat.</h2>
       <p className="mt-3 text-sm leading-6 text-slate-500">
-        Customer juga bisa booking dari sisi customer, dan booking baru akan masuk ke dashboard kamu.
+        Data setup awal sudah masuk ke workspace. Gunakan dashboard untuk cek resource, booking, dan status operasional sebelum lanjut ke billing.
       </p>
-      <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-        Lanjut ke dashboard untuk cek booking masuk dan rapikan data real.
+      <div className="mt-5 grid gap-3 text-left sm:grid-cols-3">
+        {[
+          ["Setup", "Resource dan aturan dasar tersimpan."],
+          ["Dashboard", "Booking simulasi siap dicek."],
+          ["Billing", signupIntent.plan ? `Plan ${planLabel} sudah terbawa.` : "Pilih plan dari dashboard."],
+        ].map(([label, body]) => (
+          <div key={label} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{label}</div>
+            <div className="mt-2 text-sm font-medium text-slate-700">{body}</div>
+          </div>
+        ))}
       </div>
       <div className="mt-6 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">
         {workspaceSlug ? `${workspaceSlug}.bookinaja.com/admin` : "Workspace admin"}
@@ -2417,7 +2444,8 @@ function OnboardingFooter(props: {
           onClick={props.onBack}
           className="h-10 rounded-xl px-5 text-slate-500 hover:bg-transparent hover:text-slate-950"
         >
-          ← Kembali
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          <span className="text-sm">Kembali</span>
         </Button>
         <Button onClick={props.onContinue} disabled={props.loading || props.disabled} className="h-12 min-w-[220px] rounded-xl px-8">
           {props.loading ? "Menyimpan..." : props.action}

@@ -5,6 +5,7 @@ import {
   ClipboardList,
   CreditCard,
   Landmark,
+  ReceiptText,
   Printer,
   Grid2x2,
   LayoutDashboard,
@@ -66,6 +67,8 @@ export const operationalNavItems: AdminNavItem[] = [
   { label: "Menu", icon: Utensils, href: "/admin/fnb" },
   { label: "Pengeluaran", icon: Banknote, href: "/admin/expenses" },
   { label: "Customers", icon: Users, href: "/admin/customers" },
+  { label: "Analitik", icon: BarChart3, href: "/admin/analytics" },
+  { label: "Laporan", icon: ReceiptText, href: "/admin/reports" },
 ];
 
 export const workspaceUtilityNavItems: WorkspaceUtilityNavItem[] = [
@@ -128,13 +131,6 @@ export const settingsNavItems: AdminNavItem[] = [
     icon: Megaphone,
     hint: "Blast & migrasi",
     group: "growth",
-  },
-  {
-    label: "Analitik",
-    href: "/admin/settings/analytics",
-    icon: BarChart3,
-    hint: "Grafik & export",
-    group: "ops",
   },
   {
     label: "Smart Point",

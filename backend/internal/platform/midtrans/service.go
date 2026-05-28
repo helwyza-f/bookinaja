@@ -209,6 +209,10 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 					logCommon.ErrorMessage = err.Error()
 					return s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon)
 				}
+				updatedBookingInfo, err := s.repo.GetBookingNotificationContext(ctx, tx, bookingID)
+				if err != nil {
+					return err
+				}
 				if isFinalStatus {
 					if err := s.repo.UpdatePromoRedemptionStatus(ctx, tx, bookingID, "redeemed"); err != nil {
 						return err
@@ -261,10 +265,10 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 					return err
 				}
 				if shouldNotifyBookingPayment(bookingInfo.PaymentStatus, newStatus) {
-					notify = &bookingInfo
+					notify = &updatedBookingInfo
 					notifyMode = "settlement"
 				}
-				if err := s.repo.AwardCustomerBookingPoints(ctx, tx, bookingInfo, int64(bookingInfo.GrandTotal)); err != nil {
+				if err := s.repo.AwardCustomerBookingPoints(ctx, tx, updatedBookingInfo, int64(updatedBookingInfo.GrandTotal)); err != nil {
 					return err
 				}
 				return nil
@@ -273,6 +277,10 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 				logCommon.ProcessingStatus = "failed"
 				logCommon.ErrorMessage = err.Error()
 				return s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon)
+			}
+			updatedBookingInfo, err := s.repo.GetBookingNotificationContext(ctx, tx, bookingID)
+			if err != nil {
+				return err
 			}
 			if isFinalStatus {
 				if err := s.repo.UpdatePromoRedemptionStatus(ctx, tx, bookingID, "redeemed"); err != nil {
@@ -326,11 +334,11 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 				return err
 			}
 			if shouldNotifyBookingPayment(bookingInfo.PaymentStatus, newStatus) {
-				notify = &bookingInfo
+				notify = &updatedBookingInfo
 				notifyMode = "deposit"
 			}
-			if bookingInfo.BalanceDue <= 0 {
-				if err := s.repo.AwardCustomerBookingPoints(ctx, tx, bookingInfo, int64(bookingInfo.GrandTotal)); err != nil {
+			if updatedBookingInfo.BalanceDue <= 0 {
+				if err := s.repo.AwardCustomerBookingPoints(ctx, tx, updatedBookingInfo, int64(updatedBookingInfo.GrandTotal)); err != nil {
 					return err
 				}
 			}
@@ -451,6 +459,7 @@ func (s *Service) emitBookingPaymentRealtime(eventType string, info BookingNotif
 	_ = s.realtime.Publish(platformrealtime.TenantBookingsChannel(info.TenantID.String()), event)
 	_ = s.realtime.Publish(platformrealtime.TenantBookingChannel(info.TenantID.String(), info.BookingID.String()), event)
 	_ = s.realtime.Publish(platformrealtime.TenantDashboardChannel(info.TenantID.String()), event)
+	_ = s.realtime.Publish(platformrealtime.CustomerBookingsChannel(info.CustomerID.String()), event)
 	_ = s.realtime.Publish(platformrealtime.CustomerBookingChannel(info.CustomerID.String(), info.BookingID.String()), event)
 }
 

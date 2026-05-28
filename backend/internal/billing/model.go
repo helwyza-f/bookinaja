@@ -187,3 +187,23 @@ type MidtransNotificationLog struct {
 	ReceivedAt        time.Time  `db:"received_at" json:"received_at"`
 	ProcessedAt       *time.Time `db:"processed_at" json:"processed_at"`
 }
+
+type TenantLedgerSummary struct {
+	Balance       int64 `db:"balance" json:"balance"`
+	SettledCredit int64 `db:"settled_credit" json:"settled_credit"`
+	SettledDebit  int64 `db:"settled_debit" json:"settled_debit"`
+	PendingCredit int64 `db:"pending_credit" json:"pending_credit"`
+	PendingDebit  int64 `db:"pending_debit" json:"pending_debit"`
+	Entries       int64 `db:"entries" json:"entries"`
+}
+
+type TenantLedgerReportRes struct {
+	Items   []TenantLedgerEntry `json:"items"`
+	Total   int                 `json:"total"`
+	Summary TenantLedgerSummary `json:"summary"`
+}
+
+type TenantMidtransNotificationReportRes struct {
+	Items []MidtransNotificationLog `json:"items"`
+	Total int                       `json:"total"`
+}

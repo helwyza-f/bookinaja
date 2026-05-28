@@ -117,6 +117,15 @@ function paymentMeta(status?: string, balanceDue?: number) {
   if (normalized === "awaiting_verification") {
     return { label: "Menunggu Verifikasi", className: "bg-amber-500 text-white" };
   }
+  if (normalized === "expired") {
+    return { label: "Kadaluarsa", className: "bg-red-500 text-white" };
+  }
+  if (normalized === "failed" || normalized === "denied" || normalized === "cancelled") {
+    return {
+      label: normalized === "cancelled" ? "Pembayaran Dibatalkan" : "Gagal",
+      className: "bg-red-500 text-white",
+    };
+  }
   return {
     label: "Menunggu Pembayaran",
     className: "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200",

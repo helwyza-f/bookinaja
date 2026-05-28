@@ -25,6 +25,7 @@ func TestApplyManualDepositPaymentRedeemsPromo(t *testing.T) {
 	mock.ExpectExec(regexp.QuoteMeta(`
 		UPDATE bookings
 		SET payment_status = CASE
+				WHEN GREATEST(grand_total - GREATEST(paid_amount, deposit_amount), 0) <= 0 THEN 'settled'
 				WHEN deposit_amount > 0 THEN 'partial_paid'
 				ELSE 'paid'
 			END,
@@ -35,6 +36,10 @@ func TestApplyManualDepositPaymentRedeemsPromo(t *testing.T) {
 			payment_method = $2,
 			paid_amount = GREATEST(paid_amount, deposit_amount),
 			balance_due = GREATEST(grand_total - GREATEST(paid_amount, deposit_amount), 0),
+			settled_at = CASE
+				WHEN GREATEST(grand_total - GREATEST(paid_amount, deposit_amount), 0) <= 0 THEN COALESCE(settled_at, NOW())
+				ELSE settled_at
+			END,
 			last_status_changed_at = CASE
 				WHEN status = 'pending' THEN NOW()
 				ELSE last_status_changed_at

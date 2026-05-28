@@ -318,10 +318,18 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				pos.GET("/action-feed", middleware.RequirePermission(tenant.PermissionPosRead), cfg.SalesHandler.ActionFeed)
 			}
 
+			reports := adminArea.Group("/reports")
+			reports.Use(middleware.RequirePermission(tenant.PermissionAnalyticsRead))
+			reports.Use(middleware.RequireAnyTenantFeature(cfg.DB, access.FeatureAdvancedAnalytics))
+			{
+				reports.GET("/ledger", cfg.BillingHandler.ListTenantLedgerEntries)
+				reports.GET("/midtrans-notifications", cfg.BillingHandler.ListTenantMidtransNotifications)
+			}
+
 			bookings := adminArea.Group("/bookings")
 			{
 				bookings.GET("", middleware.RequirePermission(tenant.PermissionBookingsRead), cfg.ReservationHandler.ListAll)
-				bookings.GET("/analytics-summary", middleware.RequirePermission(tenant.PermissionAnalyticsRead), middleware.RequireAnyTenantFeature(cfg.DB, access.FeatureAdvancedAnalytics), cfg.ReservationHandler.GetAnalyticsSummary)
+				bookings.GET("/analytics-summary", middleware.RequirePermission(tenant.PermissionAnalyticsRead), cfg.ReservationHandler.GetAnalyticsSummary)
 				bookings.GET("/:id", middleware.RequirePermission(tenant.PermissionBookingsRead), cfg.ReservationHandler.GetDetail)
 				bookings.GET("/:id/payment-attempts", middleware.RequirePermission(tenant.PermissionBookingsRead), cfg.BillingHandler.ListBookingPaymentAttempts)
 				bookings.DELETE("/:id", middleware.RequirePermission(tenant.PermissionBookingsDelete), cfg.ReservationHandler.Delete)

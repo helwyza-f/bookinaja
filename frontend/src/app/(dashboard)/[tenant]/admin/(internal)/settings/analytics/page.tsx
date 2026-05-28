@@ -19,11 +19,7 @@ import {
   Wallet,
 } from "lucide-react";
 import api from "@/lib/api";
-import {
-  analyzeTenantFeatureAccess,
-  formatPlanLabel,
-  formatSubscriptionStatusLabel,
-} from "@/lib/plan-access";
+import { formatPlanLabel, formatSubscriptionStatusLabel } from "@/lib/plan-access";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -247,28 +243,9 @@ export default function SettingsAnalyticsPage() {
     [range],
   );
   const rangeEnd = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
-  const planGate = useMemo(
-    () => analyzeTenantFeatureAccess(user || {}, { feature: "advanced_analytics" }),
-    [user],
-  );
-  const featureLocked = planGate.state !== "available";
 
   const fetchAnalytics = useCallback(
     async (mode: "initial" | "background" = "initial") => {
-      if (featureLocked) {
-        setBookingSummary(null);
-        setExpenseSummary(null);
-        setExpenses([]);
-        setCustomers([]);
-        setSalesOrders([]);
-        setResources([]);
-        setActionFeed([]);
-        setSubscription(null);
-        setSourceHealth([]);
-        setLoading(false);
-        setRefreshing(false);
-        return;
-      }
       const background = mode === "background" && hasLoadedRef.current;
       if (!background) setLoading(true);
       setRefreshing(true);
@@ -389,7 +366,6 @@ export default function SettingsAnalyticsPage() {
       canReadExpenses,
       canReadPos,
       canReadResources,
-      featureLocked,
       ownerOnly,
       range,
       rangeEnd,
@@ -446,40 +422,6 @@ export default function SettingsAnalyticsPage() {
   const rangeLabel =
     range === "7d" ? "7 hari terakhir" : range === "90d" ? "90 hari terakhir" : "30 hari terakhir";
   const currentPlanLabel = formatPlanLabel(subscription?.plan || user?.plan);
-  const currentStatusLabel = formatSubscriptionStatusLabel(
-    subscription?.status || user?.subscription_status,
-  );
-  const analyticsAccessTitle =
-    planGate.state === "inactive_subscription"
-      ? `Aktifkan kembali plan ${currentPlanLabel}`
-      : `Analytics lengkap tersedia di ${planGate.requiredPlanLabel}`;
-  const analyticsUnlockCopy =
-    planGate.state === "inactive_subscription"
-      ? `Status billing saat ini ${currentStatusLabel}. Setelah aktif lagi, laporan revenue, margin, customer, dan resource akan terbuka normal.`
-      : currentPlanLabel === "Free Trial"
-        ? `Tenant ini masih di Free Trial. Upgrade ke ${planGate.requiredPlanLabel} untuk melihat revenue, margin, customer, dan resource dalam satu dashboard.`
-        : `Plan ${currentPlanLabel} belum membuka analytics lanjutan. Upgrade ke ${planGate.requiredPlanLabel} untuk membaca performa bisnis dengan lebih lengkap.`;
-  const analyticsAccessPoints = useMemo(
-    () => [
-      {
-        label: "Revenue mix",
-        value: "Booking + POS",
-      },
-      {
-        label: "Profit pulse",
-        value: "Margin & expense",
-      },
-      {
-        label: "Customer value",
-        value: "Repeat spender",
-      },
-      {
-        label: "Resource watch",
-        value: "Top performer",
-      },
-    ],
-    [],
-  );
 
   const filteredExpenses = useMemo(
     () =>
@@ -806,58 +748,6 @@ export default function SettingsAnalyticsPage() {
         </div>
       </div>
 
-      {featureLocked ? (
-        <>
-          <section className="grid gap-3 xl:grid-cols-[1.1fr_0.9fr]">
-            <DashboardPanel
-              eyebrow="Plan access"
-              title={analyticsAccessTitle}
-              description={analyticsUnlockCopy}
-              actions={
-                <Button asChild className="rounded-xl bg-slate-950 text-white hover:bg-slate-800">
-                  <Link href="/admin/settings/billing/subscribe">
-                    <ArrowRight className="mr-2 h-4 w-4" />
-                    {planGate.state === "inactive_subscription" ? "Kelola billing" : "Lihat paket"}
-                  </Link>
-                </Button>
-              }
-            >
-              <div className="mb-3 flex flex-wrap gap-2">
-                <Badge variant="secondary" className="rounded-full px-3 py-1">
-                  Plan aktif: {currentPlanLabel}
-                </Badge>
-                <Badge variant="secondary" className="rounded-full px-3 py-1">
-                  Status: {currentStatusLabel}
-                </Badge>
-                <Badge variant="secondary" className="rounded-full px-3 py-1">
-                  Buka di: {planGate.requiredPlanLabel}
-                </Badge>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {analyticsAccessPoints.map((item) => (
-                  <InfoChip key={item.label} label={item.label} value={item.value} />
-                ))}
-              </div>
-            </DashboardPanel>
-
-            <DashboardPanel
-              eyebrow="Saat terbuka"
-              title="Yang akan muncul di halaman ini"
-              actions={<Badge variant="secondary">{rangeLabel}</Badge>}
-            >
-              <div className="grid gap-2 text-sm text-slate-600 dark:text-slate-300">
-                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
-                  Revenue, margin, customer, dan resource akan muncul di satu halaman.
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
-                  Data mengikuti range {rangeLabel} dan ikut refresh saat booking atau POS berubah.
-                </div>
-              </div>
-            </DashboardPanel>
-          </section>
-        </>
-      ) : (
-        <>
           {softFailures.length ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               <div className="flex items-start gap-3">
@@ -1140,8 +1030,6 @@ export default function SettingsAnalyticsPage() {
               <EmptyPanel text="Belum ada pengeluaran pada rentang ini." />
             )}
           </DashboardPanel>
-        </>
-      )}
     </div>
   );
 }

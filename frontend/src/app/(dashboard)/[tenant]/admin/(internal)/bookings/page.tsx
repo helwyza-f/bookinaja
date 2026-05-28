@@ -312,8 +312,11 @@ export default function BookingsPage() {
     if (status === "expired") {
       return { label: "DP Kadaluarsa", className: "bg-red-500 text-white" };
     }
-    if (status === "failed") {
-      return { label: "Gagal Bayar", className: "bg-red-500 text-white" };
+    if (status === "failed" || status === "denied" || status === "cancelled") {
+      return {
+        label: status === "cancelled" ? "Pembayaran Dibatalkan" : "Gagal Bayar",
+        className: "bg-red-500 text-white",
+      };
     }
     return { label: "Belum Dibayar", className: "bg-slate-500 text-white" };
   };
@@ -332,7 +335,7 @@ export default function BookingsPage() {
     }
     if (status === "pending") return "pending";
     if (status === "expired") return "expired";
-    if (status === "failed") return "failed";
+    if (status === "failed" || status === "denied" || status === "cancelled") return "failed";
     return "unpaid";
   };
 

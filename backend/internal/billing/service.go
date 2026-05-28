@@ -406,6 +406,14 @@ func (s *Service) ListBookingPaymentAttempts(ctx context.Context, tenantID, book
 	return s.repo.ListBookingPaymentAttempts(ctx, bookingID, tenantID)
 }
 
+func (s *Service) ListTenantLedgerEntries(ctx context.Context, tenantID uuid.UUID, page, pageSize int) (TenantLedgerReportRes, error) {
+	return s.repo.ListTenantLedgerEntries(ctx, tenantID, page, pageSize)
+}
+
+func (s *Service) ListTenantMidtransNotifications(ctx context.Context, tenantID uuid.UUID, page, pageSize int) (TenantMidtransNotificationReportRes, error) {
+	return s.repo.ListTenantMidtransNotifications(ctx, tenantID, page, pageSize)
+}
+
 func (s *Service) GetSubscription(ctx context.Context, tenantID uuid.UUID) (SubscriptionInfo, error) {
 	info, err := s.repo.GetSubscriptionInfo(ctx, tenantID)
 	if err != nil {
@@ -452,6 +460,7 @@ func (s *Service) emitManualPaymentRealtime(eventType string, info BookingNotifi
 	_ = s.realtime.Publish(platformrealtime.TenantBookingsChannel(info.TenantID.String()), event)
 	_ = s.realtime.Publish(platformrealtime.TenantBookingChannel(info.TenantID.String(), info.BookingID.String()), event)
 	_ = s.realtime.Publish(platformrealtime.TenantDashboardChannel(info.TenantID.String()), event)
+	_ = s.realtime.Publish(platformrealtime.CustomerBookingsChannel(info.CustomerID.String()), event)
 	_ = s.realtime.Publish(platformrealtime.CustomerBookingChannel(info.CustomerID.String(), info.BookingID.String()), event)
 }
 
