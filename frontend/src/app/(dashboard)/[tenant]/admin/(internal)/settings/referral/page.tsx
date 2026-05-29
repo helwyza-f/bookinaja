@@ -5,13 +5,22 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
+  ArrowRight,
   Banknote,
   CheckCircle2,
+  Clock3,
   Copy,
   Download,
-  ExternalLink,
+  Gift,
+  Link2,
   RefreshCw,
   Send,
+  Share2,
+  Sparkles,
+  Target,
+  Trophy,
+  type LucideIcon,
+  Users,
   Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -164,6 +173,19 @@ export default function ReferralSettingsPage() {
     toast.success("Link referral disalin.");
   };
 
+  const shareReferralLink = async () => {
+    if (!referralUrl) return;
+    if (navigator.share) {
+      await navigator.share({
+        title: "Bookinaja Referral",
+        text: "Coba Bookinaja untuk booking, POS, dan operasional tenant.",
+        url: referralUrl,
+      });
+      return;
+    }
+    await copyReferralLink();
+  };
+
   const savePayout = async () => {
     if (
       !payout.bank_name.trim() ||
@@ -230,43 +252,80 @@ export default function ReferralSettingsPage() {
     setPayoutDialogOpen(true);
   };
 
+  const totalReferred = summary?.total_referred || 0;
+  const activeReferred = summary?.active_referred || 0;
+  const trialReferred = summary?.trial_referred || 0;
+  const conversionRate = totalReferred > 0 ? Math.round((activeReferred / totalReferred) * 100) : 0;
+
   return (
-    <div className="space-y-3 px-3 py-3 pb-16 sm:px-4 lg:px-5">
-      <div className="flex flex-col gap-3 border-b border-slate-200 pb-3 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--bookinaja-600)]">
-            Referral
-          </p>
-          <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-950 dark:text-white">
-            Refer & Earn
-          </h2>
-          <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
-            Kode, link, saldo, dan payout dalam satu halaman.
-          </p>
+    <div className="space-y-4 px-3 py-3 pb-16 sm:px-4 lg:px-5">
+      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-950 text-white shadow-sm dark:border-white/10">
+        <div className="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-6">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-blue-100">
+              <Sparkles className="h-3.5 w-3.5" />
+              Referral program
+            </div>
+            <h1 className="mt-4 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl">
+              Bawa owner baru, bonus masuk saat mereka aktif berlangganan.
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+              Satu link untuk tracking referral, saldo bonus, rekening payout, dan riwayat pencairan.
+            </p>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Button onClick={copyReferralLink} disabled={!referralUrl} className="rounded-xl bg-white text-slate-950 hover:bg-slate-100">
+                <Copy className="mr-2 h-4 w-4" />
+                Salin link
+              </Button>
+              <Button
+                onClick={shareReferralLink}
+                disabled={!referralUrl}
+                variant="outline"
+                className="rounded-xl border-white/20 bg-white/10 text-white hover:bg-white/15 hover:text-white"
+              >
+                <Share2 className="mr-2 h-4 w-4" />
+                Bagikan
+              </Button>
+              <Button
+                onClick={loadData}
+                variant="outline"
+                className="rounded-xl border-white/20 bg-white/10 text-white hover:bg-white/15 hover:text-white"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh
+              </Button>
+              <Button
+                variant="outline"
+                onClick={requestWithdrawal}
+                disabled={!canWithdraw || withdrawing || loading}
+                className="rounded-xl border-white/20 bg-white/10 text-white hover:bg-white/15 hover:text-white"
+              >
+                <Banknote className="mr-2 h-4 w-4" />
+                Ajukan cair
+              </Button>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Saldo tersedia</p>
+                <p className="mt-2 text-3xl font-semibold">Rp {formatIDR(summary?.available_balance)}</p>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-200">
+                <Trophy className="h-6 w-6" />
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4 lg:grid-cols-2 2xl:grid-cols-4">
+              <HeroMiniStat label="Referral" value={String(totalReferred)} />
+              <HeroMiniStat label="Aktif" value={String(activeReferred)} />
+              <HeroMiniStat label="Trial" value={String(trialReferred)} />
+              <HeroMiniStat label="Convert" value={`${conversionRate}%`} />
+            </div>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={loadData} className="rounded-xl">
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={requestWithdrawal}
-            disabled={!canWithdraw || withdrawing || loading}
-            className="rounded-xl"
-          >
-            <Banknote className="mr-2 h-4 w-4" />
-            Cairkan
-          </Button>
-          <Button asChild size="sm" className="rounded-xl">
-            <Link href="/admin/settings/billing">
-              Billing
-              <ExternalLink className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
-      </div>
+      </section>
 
       {message ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
@@ -274,15 +333,23 @@ export default function ReferralSettingsPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricTile icon={Wallet} label="Saldo cair" value={`Rp ${formatIDR(summary?.available_balance)}`} tone="emerald" />
+        <MetricTile icon={Clock3} label="Menunggu" value={`Rp ${formatIDR(summary?.pending_withdrawal)}`} tone="amber" />
+        <MetricTile icon={Users} label="Referral masuk" value={String(totalReferred)} tone="blue" />
+        <MetricTile icon={Target} label="Subscriber aktif" value={`${activeReferred}/${totalReferred}`} tone="violet" />
+      </section>
+
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-base font-semibold text-slate-950 dark:text-white">
-                Referral link
+              <h3 className="flex items-center gap-2 text-base font-semibold text-slate-950 dark:text-white">
+                <Link2 className="h-4 w-4 text-blue-600" />
+                Link siap dibagikan
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Bagikan link ini ke owner bisnis yang mau daftar Bookinaja.
+                Kirim ke owner bisnis yang butuh booking, POS, dan laporan operasional.
               </p>
             </div>
             <StatusPill active={Boolean(summary?.referral_code)}>
@@ -290,42 +357,49 @@ export default function ReferralSettingsPage() {
             </StatusPill>
           </div>
 
-          <div className="mt-3 grid gap-2">
-            <InfoLine label="Kode" value={summary?.referral_code || (loading ? "Memuat..." : "-")} />
-            <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 dark:border-slate-800 dark:bg-white/[0.03] sm:flex-row sm:items-center">
-              <div className="min-w-0 flex-1 truncate rounded-lg bg-white px-3 py-2 font-mono text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200">
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-white/[0.03]">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <div className="rounded-xl bg-white px-3 py-2 dark:bg-slate-900">
+                <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Kode</div>
+                <div className="mt-1 font-mono text-lg font-semibold text-slate-950 dark:text-white">
+                  {summary?.referral_code || (loading ? "Memuat..." : "-")}
+                </div>
+              </div>
+              <div className="min-w-0 flex-1 truncate rounded-xl bg-white px-3 py-3 font-mono text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200">
                 {referralUrl || "Link akan muncul setelah kode tersedia"}
               </div>
-              <Button
-                type="button"
-                size="sm"
-                onClick={copyReferralLink}
-                disabled={!referralUrl}
-                className="rounded-lg sm:w-auto"
-              >
-                <Copy className="mr-2 h-4 w-4" />
-                Salin
-              </Button>
+              <div className="flex gap-2">
+                <Button type="button" onClick={copyReferralLink} disabled={!referralUrl} className="rounded-xl">
+                  <Copy className="mr-2 h-4 w-4" />
+                  Salin
+                </Button>
+                <Button type="button" variant="outline" onClick={shareReferralLink} disabled={!referralUrl} className="rounded-xl">
+                  <Share2 className="mr-2 h-4 w-4" />
+                  Share
+                </Button>
+              </div>
             </div>
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-          <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Snapshot</h3>
-          <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">
-            <StatRow label="Saldo" value={`Rp ${formatIDR(summary?.available_balance)}`} tone="emerald" />
-            <StatRow label="Pending" value={`Rp ${formatIDR(summary?.pending_withdrawal)}`} tone="amber" />
-            <StatRow label="Referral" value={String(summary?.total_referred || 0)} />
-            <StatRow label="Aktif" value={String(summary?.active_referred || 0)} />
+        <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <h3 className="text-base font-semibold text-slate-950 dark:text-white">Cara bonus jalan</h3>
+          <div className="mt-4 space-y-3">
+            <StepLine index="1" title="Owner daftar" text="Mereka signup lewat link referral kamu." />
+            <StepLine index="2" title="Workspace aktif" text="Tenant dibuat dan mulai pakai Bookinaja." />
+            <StepLine index="3" title="Bonus cair" text="Reward masuk saat subscription aktif." />
           </div>
         </section>
       </div>
 
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-base font-semibold text-slate-950 dark:text-white">Payout</h3>
+              <h3 className="flex items-center gap-2 text-base font-semibold text-slate-950 dark:text-white">
+                <Wallet className="h-4 w-4 text-emerald-600" />
+                Payout
+              </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 Rekening pencairan bonus.
               </p>
@@ -333,7 +407,7 @@ export default function ReferralSettingsPage() {
             <StatusPill active={payoutReady}>{payoutReady ? "Siap" : "Belum lengkap"}</StatusPill>
           </div>
 
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
             <InfoLine label="Bank" value={summary?.payout_bank_name || "-"} />
             <InfoLine label="Nama" value={summary?.payout_account_name || "-"} />
             <InfoLine label="No. rekening" value={summary?.payout_account_number || "-"} />
@@ -357,24 +431,43 @@ export default function ReferralSettingsPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-          <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Aturan bonus</h3>
-          <div className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
-            <RuleLine>Owner daftar dan membuat workspace lewat link referral.</RuleLine>
-            <RuleLine>Bonus masuk saat workspace itu jadi subscriber aktif.</RuleLine>
-            <RuleLine>Pencairan butuh rekening terverifikasi.</RuleLine>
+        <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <h3 className="flex items-center gap-2 text-base font-semibold text-slate-950 dark:text-white">
+            <Gift className="h-4 w-4 text-amber-500" />
+            Status program
+          </h3>
+          <div className="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300">
+            <RuleLine>Reward dihitung saat referral berubah menjadi subscriber aktif.</RuleLine>
+            <RuleLine>Saldo pending menunggu review pencairan.</RuleLine>
+            <RuleLine>Rekening payout harus lengkap sebelum request cair.</RuleLine>
           </div>
+          <Button asChild variant="outline" className="mt-5 w-full rounded-xl">
+            <Link href="/admin/settings/billing">
+              Cek billing tenant
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
         </section>
       </div>
 
       <div className="grid gap-3 xl:grid-cols-2">
-        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
-          <ListHeader title="Referral" subtitle="Tenant yang masuk dari kode kamu." />
+        <section className="rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <ListHeader title="Referral pipeline" subtitle="Tenant yang masuk dari kode kamu." />
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {loading ? (
               <EmptyLine label="Memuat referral..." />
             ) : referrals.length === 0 ? (
-              <EmptyLine label="Belum ada tenant referral." />
+              <EmptyAction
+                icon={Users}
+                title="Belum ada referral masuk"
+                text="Mulai dari share link ke owner yang sudah kamu kenal."
+                action={
+                  <Button onClick={copyReferralLink} disabled={!referralUrl} size="sm" className="rounded-xl">
+                    <Copy className="mr-2 h-4 w-4" />
+                    Salin link
+                  </Button>
+                }
+              />
             ) : (
               referrals.map((item) => {
                 const rewardStatus = item.reward_status || "pending";
@@ -412,11 +505,21 @@ export default function ReferralSettingsPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <section className="rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
           <ListHeader title="Withdrawal" subtitle="Riwayat pencairan bonus." />
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {withdrawals.length === 0 ? (
-              <EmptyLine label="Belum ada riwayat pencairan." />
+              <EmptyAction
+                icon={Banknote}
+                title="Belum ada pencairan"
+                text={payoutReady ? "Request pencairan akan muncul di sini." : "Lengkapi rekening payout dulu agar saldo bisa dicairkan."}
+                action={
+                  <Button onClick={openPayoutDialog} variant="outline" size="sm" className="rounded-xl">
+                    <Wallet className="mr-2 h-4 w-4" />
+                    {payoutReady ? "Edit rekening" : "Tambah rekening"}
+                  </Button>
+                }
+              />
             ) : (
               withdrawals.map((item) => (
                 <div key={item.id} className="p-3">
@@ -503,6 +606,93 @@ export default function ReferralSettingsPage() {
   );
 }
 
+function HeroMiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2">
+      <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+        {label}
+      </div>
+      <div className="mt-1 text-lg font-semibold text-white">{value}</div>
+    </div>
+  );
+}
+
+function MetricTile({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  tone: "emerald" | "amber" | "blue" | "violet";
+}) {
+  const toneClass = {
+    emerald: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200",
+    amber: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200",
+    blue: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-200",
+    violet: "bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-200",
+  }[tone];
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+            {label}
+          </div>
+          <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
+            {value}
+          </div>
+        </div>
+        <div className={cn("flex h-10 w-10 items-center justify-center rounded-2xl", toneClass)}>
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StepLine({ index, title, text }: { index: string; title: string; text: string }) {
+  return (
+    <div className="flex gap-3">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+        {index}
+      </div>
+      <div>
+        <div className="text-sm font-semibold text-slate-950 dark:text-white">{title}</div>
+        <div className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{text}</div>
+      </div>
+    </div>
+  );
+}
+
+function EmptyAction({
+  icon: Icon,
+  title,
+  text,
+  action,
+}: {
+  icon: LucideIcon;
+  title: string;
+  text: string;
+  action: ReactNode;
+}) {
+  return (
+    <div className="p-5">
+      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center dark:border-slate-800 dark:bg-white/[0.03]">
+        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-blue-600 shadow-sm dark:bg-slate-900">
+          <Icon className="h-5 w-5" />
+        </div>
+        <h4 className="mt-3 text-sm font-semibold text-slate-950 dark:text-white">{title}</h4>
+        <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500 dark:text-slate-400">{text}</p>
+        <div className="mt-4 flex justify-center">{action}</div>
+      </div>
+    </div>
+  );
+}
+
 function InfoLine({ label, value }: { label: string; value?: string }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-white/[0.03]">
@@ -512,31 +702,6 @@ function InfoLine({ label, value }: { label: string; value?: string }) {
       <div className="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-white">
         {value || "-"}
       </div>
-    </div>
-  );
-}
-
-function StatRow({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone?: "emerald" | "amber";
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 py-2.5">
-      <span className="text-sm text-slate-500 dark:text-slate-400">{label}</span>
-      <span
-        className={cn(
-          "text-sm font-semibold text-slate-950 dark:text-white",
-          tone === "emerald" && "text-emerald-700 dark:text-emerald-300",
-          tone === "amber" && "text-amber-700 dark:text-amber-300",
-        )}
-      >
-        {value}
-      </span>
     </div>
   );
 }
