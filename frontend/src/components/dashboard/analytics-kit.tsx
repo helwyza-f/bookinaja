@@ -263,6 +263,13 @@ export function DashboardLineChartPanel({
     0,
   );
   const activeIndex = hoveredIndex ?? fallbackActiveIndex;
+  const baselineY = height - paddingBottom;
+  const primaryActiveCount = points.filter((point) => point.primary > 0).length;
+  const secondaryActiveCount = points.filter((point) => (point.secondary ?? 0) > 0).length;
+  const tertiaryActiveCount = points.filter((point) => (point.tertiary ?? 0) > 0).length;
+  const showPrimaryAsBars = primaryActiveCount > 0 && primaryActiveCount <= Math.max(2, Math.ceil(points.length * 0.2));
+  const barWidth = Math.max(5, Math.min(18, innerWidth / Math.max(points.length * 2.4, 1)));
+  const labelEvery = points.length <= 10 ? 1 : points.length <= 18 ? 2 : Math.ceil(points.length / 8);
 
   const primaryCoordinates = buildChartCoordinates({
     points,
@@ -292,7 +299,7 @@ export function DashboardLineChartPanel({
     domainMax,
   });
   const primaryLine = buildLinePath(primaryCoordinates);
-  const primaryArea = buildAreaPath(primaryCoordinates, height - paddingBottom);
+  const primaryArea = buildAreaPath(primaryCoordinates, baselineY);
   const secondaryLine = buildLinePath(secondaryCoordinates);
   const tertiaryLine = buildLinePath(tertiaryCoordinates);
   const activePoint = points[activeIndex];
@@ -306,7 +313,7 @@ export function DashboardLineChartPanel({
     >
       {points.length ? (
         <>
-          <div className="bg-muted/30 overflow-hidden rounded-lg border border-border p-3 sm:p-4">
+          <div className="overflow-hidden rounded-lg border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-3 shadow-inner dark:border-white/10 dark:from-white/[0.04] dark:to-transparent sm:p-4">
             <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex flex-wrap gap-2">
                 <LegendPill tone="primary" label={primaryLabel} />
@@ -347,7 +354,7 @@ export function DashboardLineChartPanel({
             </div>
             <svg
               viewBox={`0 0 ${width} ${height}`}
-              className="h-[240px] w-full"
+              className="h-[220px] w-full"
             >
               <defs>
                 <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -386,6 +393,11 @@ export function DashboardLineChartPanel({
               })}
               {points.map((point, index) => {
                 const x = primaryCoordinates[index]?.x ?? paddingLeft;
+                const showLabel =
+                  index === 0 ||
+                  index === points.length - 1 ||
+                  index === activeIndex ||
+                  index % labelEvery === 0;
                 const bandStart =
                   index === 0
                     ? paddingLeft
@@ -408,23 +420,25 @@ export function DashboardLineChartPanel({
                       onMouseLeave={() => setHoveredIndex(null)}
                       onTouchStart={() => setHoveredIndex(index)}
                     />
-                    <text
-                      x={x}
-                      y={height - 10}
-                      textAnchor="middle"
-                      className={cn(
-                        "text-[10px] font-medium uppercase tracking-wide",
-                        activeIndex === index
-                          ? "fill-slate-900 dark:fill-white"
-                          : "fill-slate-400 dark:fill-slate-500",
-                      )}
-                    >
-                      {point.label}
-                    </text>
+                    {showLabel ? (
+                      <text
+                        x={x}
+                        y={height - 10}
+                        textAnchor="middle"
+                        className={cn(
+                          "text-[10px] font-medium uppercase tracking-wide",
+                          activeIndex === index
+                            ? "fill-slate-900 dark:fill-white"
+                            : "fill-slate-400 dark:fill-slate-500",
+                        )}
+                      >
+                        {point.label}
+                      </text>
+                    ) : null}
                   </g>
                 );
               })}
-              {activePrimary ? (
+              {activePrimary && hoveredIndex !== null ? (
                 <line
                   x1={activePrimary.x}
                   y1={paddingTop}
@@ -435,31 +449,52 @@ export function DashboardLineChartPanel({
                   strokeDasharray="3 6"
                 />
               ) : null}
-              <path d={primaryArea} fill={`url(#${gradientId})`} />
-              <path
-                d={primaryLine}
-                fill="none"
-                stroke="rgb(37 99 235)"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              {secondaryLabel ? (
+              {showPrimaryAsBars
+                ? primaryCoordinates.map((point, index) => {
+                    const value = points[index]?.primary ?? 0;
+                    if (value <= 0) return null;
+                    return (
+                      <rect
+                        key={`${points[index]?.label || "point"}-${index}-bar`}
+                        x={point.x - barWidth / 2}
+                        y={point.y}
+                        width={barWidth}
+                        height={Math.max(baselineY - point.y, 2)}
+                        rx={Math.min(barWidth / 2, 5)}
+                        fill="rgb(37 99 235)"
+                        opacity={activeIndex === index ? "0.95" : "0.62"}
+                      />
+                    );
+                  })
+                : (
+                  <>
+                    <path d={primaryArea} fill={`url(#${gradientId})`} />
+                    <path
+                      d={primaryLine}
+                      fill="none"
+                      stroke="rgb(37 99 235)"
+                      strokeWidth="2.75"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </>
+                )}
+              {secondaryLabel && (secondaryActiveCount > 0 || hoveredIndex !== null) ? (
                 <path
                   d={secondaryLine}
                   fill="none"
                   stroke="rgb(16 185 129)"
-                  strokeWidth="2.5"
+                  strokeWidth="2.25"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
               ) : null}
-              {tertiaryLabel ? (
+              {tertiaryLabel && (tertiaryActiveCount > 0 || hoveredIndex !== null) ? (
                 <path
                   d={tertiaryLine}
                   fill="none"
                   stroke="rgb(245 158 11)"
-                  strokeWidth="2.5"
+                  strokeWidth="2.25"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeDasharray="7 7"
@@ -467,15 +502,17 @@ export function DashboardLineChartPanel({
               ) : null}
               {primaryCoordinates.map((point, index) => (
                 <g key={`${points[index]?.label || "point"}-${index}-primary`}>
-                  <circle
-                    cx={point.x}
-                    cy={point.y}
-                    r={activeIndex === index ? "5" : "4"}
-                    fill="rgb(37 99 235)"
-                    stroke="rgba(255,255,255,0.92)"
-                    strokeWidth={activeIndex === index ? "3.5" : "3"}
-                  />
-                  {secondaryLabel ? (
+                  {(!showPrimaryAsBars || activeIndex === index) && (points[index]?.primary > 0 || activeIndex === index) ? (
+                    <circle
+                      cx={point.x}
+                      cy={point.y}
+                      r={activeIndex === index ? "5" : "3.5"}
+                      fill="rgb(37 99 235)"
+                      stroke="rgba(255,255,255,0.92)"
+                      strokeWidth={activeIndex === index ? "3.5" : "2.5"}
+                    />
+                  ) : null}
+                  {secondaryLabel && ((points[index]?.secondary ?? 0) > 0 || hoveredIndex === index) ? (
                     <circle
                       cx={secondaryCoordinates[index]?.x}
                       cy={secondaryCoordinates[index]?.y}
@@ -485,7 +522,7 @@ export function DashboardLineChartPanel({
                       strokeWidth="2"
                     />
                   ) : null}
-                  {tertiaryLabel ? (
+                  {tertiaryLabel && ((points[index]?.tertiary ?? 0) > 0 || hoveredIndex === index) ? (
                     <circle
                       cx={tertiaryCoordinates[index]?.x}
                       cy={tertiaryCoordinates[index]?.y}
@@ -497,7 +534,7 @@ export function DashboardLineChartPanel({
                   ) : null}
                 </g>
               ))}
-              {activePrimary && activePoint ? (
+              {activePrimary && activePoint && hoveredIndex !== null ? (
                 <g>
                   <rect
                     x={Math.min(
