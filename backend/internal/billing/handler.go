@@ -323,8 +323,7 @@ func (h *Handler) ListTenantRevenueReport(c *gin.Context) {
 	if !ok {
 		return
 	}
-	page, pageSize := parsePagination(c, 1, 50)
-	res, err := h.svc.ListTenantRevenueReport(c.Request.Context(), tenantID, page, pageSize)
+	res, err := h.svc.ListTenantRevenueReport(c.Request.Context(), tenantID, parseReportQuery(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -337,8 +336,7 @@ func (h *Handler) ListTenantExpenseReport(c *gin.Context) {
 	if !ok {
 		return
 	}
-	page, pageSize := parsePagination(c, 1, 50)
-	res, err := h.svc.ListTenantExpenseReport(c.Request.Context(), tenantID, page, pageSize)
+	res, err := h.svc.ListTenantExpenseReport(c.Request.Context(), tenantID, parseReportQuery(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -351,8 +349,7 @@ func (h *Handler) ListTenantTransactionReport(c *gin.Context) {
 	if !ok {
 		return
 	}
-	page, pageSize := parsePagination(c, 1, 50)
-	res, err := h.svc.ListTenantTransactionReport(c.Request.Context(), tenantID, page, pageSize)
+	res, err := h.svc.ListTenantTransactionReport(c.Request.Context(), tenantID, parseReportQuery(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -365,8 +362,7 @@ func (h *Handler) ListTenantCustomerReport(c *gin.Context) {
 	if !ok {
 		return
 	}
-	page, pageSize := parsePagination(c, 1, 50)
-	res, err := h.svc.ListTenantCustomerReport(c.Request.Context(), tenantID, page, pageSize)
+	res, err := h.svc.ListTenantCustomerReport(c.Request.Context(), tenantID, parseReportQuery(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -379,8 +375,7 @@ func (h *Handler) ListTenantLedgerEntries(c *gin.Context) {
 	if !ok {
 		return
 	}
-	page, pageSize := parsePagination(c, 1, 50)
-	res, err := h.svc.ListTenantLedgerEntries(c.Request.Context(), tenantID, page, pageSize)
+	res, err := h.svc.ListTenantLedgerEntries(c.Request.Context(), tenantID, parseReportQuery(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -393,8 +388,7 @@ func (h *Handler) ListTenantMidtransNotifications(c *gin.Context) {
 	if !ok {
 		return
 	}
-	page, pageSize := parsePagination(c, 1, 50)
-	res, err := h.svc.ListTenantMidtransNotifications(c.Request.Context(), tenantID, page, pageSize)
+	res, err := h.svc.ListTenantMidtransNotifications(c.Request.Context(), tenantID, parseReportQuery(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -414,6 +408,20 @@ func parseTenantIDFromContext(c *gin.Context) (uuid.UUID, bool) {
 		return uuid.Nil, false
 	}
 	return tenantID, true
+}
+
+func parseReportQuery(c *gin.Context) ReportQuery {
+	page, pageSize := parsePagination(c, 1, 50)
+	return ReportQuery{
+		Page:     page,
+		PageSize: pageSize,
+		From:     c.Query("from"),
+		To:       c.Query("to"),
+		Status:   c.Query("status"),
+		Method:   c.Query("method"),
+		Source:   c.Query("source"),
+		Search:   c.Query("search"),
+	}
 }
 
 func parsePagination(c *gin.Context, defaultPage, defaultPageSize int) (int, int) {

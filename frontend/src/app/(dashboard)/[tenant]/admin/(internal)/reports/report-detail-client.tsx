@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export type ReportKind =
@@ -23,9 +24,26 @@ type ReportConfig = {
   filename: string;
   columns: string[];
   moneyColumns?: string[];
+  dateColumns?: string[];
 };
 
 type ApiRecord = Record<string, unknown>;
+type ReportFilters = {
+  search: string;
+  from: string;
+  to: string;
+  status: string;
+  method: string;
+  source: string;
+  page: number;
+  pageSize: number;
+};
+
+type ReportFetchResult = {
+  rows: Record<string, unknown>[];
+  summary?: Record<string, number>;
+  total?: number;
+};
 
 const configs: Record<ReportKind, ReportConfig> = {
   revenue: {
@@ -34,6 +52,7 @@ const configs: Record<ReportKind, ReportConfig> = {
     filename: "bookinaja-pendapatan.csv",
     columns: ["tipe", "ref", "customer", "status", "total", "paid", "sisa", "tanggal"],
     moneyColumns: ["total", "paid", "sisa"],
+    dateColumns: ["tanggal"],
   },
   expenses: {
     title: "Laporan pengeluaran",
@@ -41,6 +60,7 @@ const configs: Record<ReportKind, ReportConfig> = {
     filename: "bookinaja-pengeluaran.csv",
     columns: ["tanggal", "judul", "kategori", "vendor", "jumlah"],
     moneyColumns: ["jumlah"],
+    dateColumns: ["tanggal"],
   },
   transactions: {
     title: "Semua transaksi",
@@ -48,6 +68,7 @@ const configs: Record<ReportKind, ReportConfig> = {
     filename: "bookinaja-semua-transaksi.csv",
     columns: ["tipe", "ref", "customer", "status_booking", "status_bayar", "total", "paid", "sisa", "tanggal"],
     moneyColumns: ["total", "paid", "sisa"],
+    dateColumns: ["tanggal"],
   },
   customers: {
     title: "Laporan pelanggan",
@@ -55,6 +76,7 @@ const configs: Record<ReportKind, ReportConfig> = {
     filename: "bookinaja-pelanggan.csv",
     columns: ["nama", "phone", "email", "kunjungan", "belanja", "terakhir"],
     moneyColumns: ["belanja"],
+    dateColumns: ["terakhir"],
   },
   ledger: {
     title: "Ledger tenant",
@@ -62,6 +84,7 @@ const configs: Record<ReportKind, ReportConfig> = {
     filename: "bookinaja-ledger-tenant.csv",
     columns: ["tanggal", "source", "order_id", "transaction_id", "status", "type", "direction", "gross", "fee", "net", "saldo"],
     moneyColumns: ["gross", "fee", "net", "saldo"],
+    dateColumns: ["tanggal"],
   },
   midtrans: {
     title: "Webhook Midtrans",
@@ -69,6 +92,7 @@ const configs: Record<ReportKind, ReportConfig> = {
     filename: "bookinaja-midtrans-webhook.csv",
     columns: ["diterima", "order_id", "transaction_id", "status", "fraud", "payment_type", "amount", "proses", "error"],
     moneyColumns: ["amount"],
+    dateColumns: ["diterima"],
   },
 };
 
@@ -86,11 +110,6 @@ const formatDateTime = (value?: string) => {
     minute: "2-digit",
   });
 };
-
-function getReportItems(payload: unknown) {
-  const data = payload as { items?: unknown };
-  return (Array.isArray(data?.items) ? data.items : []) as ApiRecord[];
-}
 
 function exportCsv(filename: string, rows: Record<string, unknown>[], columns: string[]) {
   if (rows.length === 0) {
@@ -119,28 +138,48 @@ export function ReportDetailClient({ kind }: { kind: ReportKind }) {
   const config = configs[kind];
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [summary, setSummary] = useState<Record<string, number>>({});
+  const [total, setTotal] = useState(0);
+  const [filters, setFilters] = useState<ReportFilters>({
+    search: "",
+    from: "",
+    to: "",
+    status: "all",
+    method: "all",
+    source: "all",
+    page: 1,
+    pageSize: 50,
+  });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
       setRefreshing(true);
-      const next = await fetchReportRows(kind);
+      const next = await fetchReportRows(kind, filters);
       setRows(next.rows);
       setSummary(next.summary || {});
+      setTotal(next.total || next.rows.length);
     } catch {
       toast.error("Gagal memuat laporan");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [kind]);
+  }, [filters, kind]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   const metricCards = useMemo(() => buildMetrics(kind, rows, summary), [kind, rows, summary]);
+  const hasStatusFilter = kind === "revenue" || kind === "transactions" || kind === "ledger" || kind === "midtrans";
+  const hasMethodFilter = kind !== "customers";
+  const hasSourceFilter = kind === "ledger";
+  const totalPages = Math.max(1, Math.ceil(total / filters.pageSize));
+
+  const updateFilter = (patch: Partial<ReportFilters>) => {
+    setFilters((current) => ({ ...current, page: 1, ...patch }));
+  };
 
   return (
     <div className="space-y-4 p-4 md:p-6">
@@ -187,7 +226,80 @@ export function ReportDetailClient({ kind }: { kind: ReportKind }) {
         ))}
       </section>
 
+      <Card className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950 md:grid-cols-6">
+        <Input
+          value={filters.search}
+          onChange={(event) => updateFilter({ search: event.target.value })}
+          placeholder="Cari ref, customer, status"
+          className="rounded-xl md:col-span-2"
+        />
+        <Input
+          type="date"
+          value={filters.from}
+          onChange={(event) => updateFilter({ from: event.target.value })}
+          className="rounded-xl"
+        />
+        <Input
+          type="date"
+          value={filters.to}
+          onChange={(event) => updateFilter({ to: event.target.value })}
+          className="rounded-xl"
+        />
+        {hasStatusFilter ? (
+          <select
+            value={filters.status}
+            onChange={(event) => updateFilter({ status: event.target.value })}
+            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-200"
+          >
+            <option value="all">Semua status</option>
+            <option value="pending">Pending</option>
+            <option value="settled">Settled</option>
+            <option value="paid">Paid</option>
+            <option value="partial">Partial</option>
+            <option value="failed">Failed</option>
+            <option value="expired">Expired</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="completed">Completed</option>
+            <option value="processed">Processed</option>
+          </select>
+        ) : null}
+        {hasMethodFilter ? (
+          <select
+            value={filters.method}
+            onChange={(event) => updateFilter({ method: event.target.value })}
+            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-200"
+          >
+            <option value="all">Semua metode</option>
+            <option value="midtrans">Midtrans</option>
+            <option value="qris">QRIS</option>
+            <option value="cash">Cash</option>
+            <option value="transfer">Transfer</option>
+            <option value="bank_transfer">Bank transfer</option>
+            <option value="credit_card">Credit card</option>
+          </select>
+        ) : null}
+        {hasSourceFilter ? (
+          <select
+            value={filters.source}
+            onChange={(event) => updateFilter({ source: event.target.value })}
+            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-200"
+          >
+            <option value="all">Semua source</option>
+            <option value="booking_payment">Booking</option>
+            <option value="sales_order">POS</option>
+            <option value="refund">Refund</option>
+            <option value="adjustment">Adjustment</option>
+          </select>
+        ) : null}
+      </Card>
+
       <Card className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950">
+        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 text-xs text-slate-500 dark:border-white/10 dark:text-slate-400">
+          <span>
+            {total} data, halaman {filters.page} dari {totalPages}
+          </span>
+          <span>{rows.length} tampil</span>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[920px] text-left text-sm">
             <thead className="bg-slate-50 text-[11px] uppercase tracking-[0.14em] text-slate-400 dark:bg-white/[0.03]">
@@ -219,9 +331,7 @@ export function ReportDetailClient({ kind }: { kind: ReportKind }) {
                   <tr key={index} className="text-slate-700 dark:text-slate-200">
                     {config.columns.map((column) => (
                       <td key={column} className="whitespace-nowrap px-4 py-3">
-                        {config.moneyColumns?.includes(column)
-                          ? formatIDR(Number(row[column] || 0))
-                          : String(row[column] ?? "-")}
+                        {renderCell(config, column, row[column])}
                       </td>
                     ))}
                   </tr>
@@ -230,44 +340,71 @@ export function ReportDetailClient({ kind }: { kind: ReportKind }) {
             </tbody>
           </table>
         </div>
+        <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-3 text-sm dark:border-white/10 md:flex-row md:items-center md:justify-between">
+          <select
+            value={filters.pageSize}
+            onChange={(event) => updateFilter({ pageSize: Number(event.target.value) })}
+            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-200"
+          >
+            <option value={25}>25 / halaman</option>
+            <option value={50}>50 / halaman</option>
+            <option value={100}>100 / halaman</option>
+            <option value={200}>200 / halaman</option>
+          </select>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              disabled={filters.page <= 1 || refreshing}
+              onClick={() => setFilters((current) => ({ ...current, page: Math.max(1, current.page - 1) }))}
+            >
+              Sebelumnya
+            </Button>
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              disabled={filters.page >= totalPages || refreshing}
+              onClick={() => setFilters((current) => ({ ...current, page: current.page + 1 }))}
+            >
+              Berikutnya
+            </Button>
+          </div>
+        </div>
       </Card>
     </div>
   );
 }
 
-async function fetchReportRows(kind: ReportKind) {
-  if (kind === "expenses") {
-    const res = await api.get("/reports/expenses", { params: { page_size: 200 } });
-    const items = getReportItems(res.data);
-    const rows = items.map((item) => ({
-      tanggal: formatDateTime(String(item.tanggal || "")),
-      judul: String(item.judul || "-"),
-      kategori: String(item.kategori || "-"),
-      vendor: String(item.vendor || "-"),
-      jumlah: Number(item.jumlah || 0),
-    }));
-    return { rows };
-  }
+function renderCell(config: ReportConfig, column: string, value: unknown) {
+  if (config.moneyColumns?.includes(column)) return formatIDR(Number(value || 0));
+  if (config.dateColumns?.includes(column)) return formatDateTime(String(value || ""));
+  return String(value ?? "-");
+}
 
-  if (kind === "customers") {
-    const res = await api.get("/reports/customers", { params: { page_size: 200 } });
-    const items = getReportItems(res.data);
-    const rows = items.map((item) => ({
-      nama: String(item.nama || "-"),
-      phone: String(item.phone || "-"),
-      email: String(item.email || "-"),
-      kunjungan: Number(item.kunjungan || 0),
-      belanja: Number(item.belanja || 0),
-      terakhir: formatDateTime(String(item.terakhir || "")),
-    }));
-    return { rows };
+function buildReportParams(kind: ReportKind, filters: ReportFilters) {
+  const params: Record<string, string | number> = {
+    page: filters.page,
+    page_size: filters.pageSize,
+  };
+  if (filters.search) params.search = filters.search;
+  if (filters.from) params.from = filters.from;
+  if (filters.to) params.to = filters.to;
+  if (filters.status !== "all" && (kind === "revenue" || kind === "transactions" || kind === "ledger" || kind === "midtrans")) {
+    params.status = filters.status;
   }
+  if (filters.method !== "all" && kind !== "customers") params.method = filters.method;
+  if (filters.source !== "all" && kind === "ledger") params.source = filters.source;
+  return params;
+}
+
+async function fetchReportRows(kind: ReportKind, filters: ReportFilters): Promise<ReportFetchResult> {
+  const params = buildReportParams(kind, filters);
 
   if (kind === "ledger") {
-    const res = await api.get("/reports/ledger", { params: { page_size: 200 } });
+    const res = await api.get("/reports/ledger", { params });
     const items = (Array.isArray(res.data?.items) ? res.data.items : []) as ApiRecord[];
     const rows = items.map((item) => ({
-      tanggal: formatDateTime(String(item.created_at || "")),
+      tanggal: String(item.created_at || ""),
       source: String(item.source_type || "-"),
       order_id: String(item.midtrans_order_id || item.source_ref || "-"),
       transaction_id: String(item.midtrans_transaction_id || "-"),
@@ -279,14 +416,14 @@ async function fetchReportRows(kind: ReportKind) {
       net: Number(item.net_amount || 0),
       saldo: Number(item.balance_after || 0),
     }));
-    return { rows, summary: res.data?.summary || {} };
+    return { rows, summary: res.data?.summary || {}, total: Number(res.data?.total || 0) };
   }
 
   if (kind === "midtrans") {
-    const res = await api.get("/reports/midtrans-notifications", { params: { page_size: 200 } });
+    const res = await api.get("/reports/midtrans-notifications", { params });
     const items = (Array.isArray(res.data?.items) ? res.data.items : []) as ApiRecord[];
     const rows = items.map((item) => ({
-      diterima: formatDateTime(String(item.received_at || "")),
+      diterima: String(item.received_at || ""),
       order_id: String(item.order_id || "-"),
       transaction_id: String(item.transaction_id || "-"),
       status: String(item.transaction_status || "-"),
@@ -296,25 +433,12 @@ async function fetchReportRows(kind: ReportKind) {
       proses: String(item.processing_status || "-"),
       error: String(item.error_message || ""),
     }));
-    return { rows };
+    return { rows, total: Number(res.data?.total || 0) };
   }
 
-  const endpoint = kind === "revenue" ? "/reports/revenue" : "/reports/transactions";
-  const res = await api.get(endpoint, { params: { page_size: 200 } });
-  const items = getReportItems(res.data);
-  const rows = items.map((item) => ({
-    tipe: String(item.tipe || "-"),
-    ref: String(item.ref || "-"),
-    customer: String(item.customer || "-"),
-    status: String(item.status || "-"),
-    status_booking: String(item.status_booking || "-"),
-    status_bayar: String(item.status_bayar || item.status || "-"),
-    total: Number(item.total || 0),
-    paid: Number(item.paid || 0),
-    sisa: Number(item.sisa || 0),
-    tanggal: formatDateTime(String(item.tanggal || "")),
-  }));
-  return { rows };
+  const res = await api.get(`/reports/${kind}`, { params });
+  const rows = (Array.isArray(res.data?.items) ? res.data.items : []) as Record<string, unknown>[];
+  return { rows, summary: res.data?.summary || {}, total: Number(res.data?.total || 0) };
 }
 
 function buildMetrics(kind: ReportKind, rows: Record<string, unknown>[], summary: Record<string, number>) {
@@ -332,12 +456,14 @@ function buildMetrics(kind: ReportKind, rows: Record<string, unknown>[], summary
       { label: "Failed", value: String(rows.filter((row) => row.proses === "failed").length) },
     ];
   }
-  const total = rows.reduce((sum, row) => sum + Number(row.total || row.jumlah || row.belanja || 0), 0);
-  const paid = rows.reduce((sum, row) => sum + Number(row.paid || 0), 0);
-  const due = rows.reduce((sum, row) => sum + Number(row.sisa || 0), 0);
+  const pageTotal = rows.reduce((sum, row) => sum + Number(row.total || row.jumlah || row.belanja || 0), 0);
+  const total = Number(summary.total || summary.total_spent || pageTotal);
+  const paid = Number(summary.paid || rows.reduce((sum, row) => sum + Number(row.paid || 0), 0));
+  const due = Number(summary.outstanding || rows.reduce((sum, row) => sum + Number(row.sisa || 0), 0));
+  const entries = Number(summary.entries || rows.length);
   return [
-    { label: "Total data", value: String(rows.length) },
+    { label: "Total data", value: String(entries) },
     { label: kind === "customers" ? "Total belanja" : "Total nilai", value: formatIDR(total) },
-    { label: kind === "expenses" ? "Rata-rata" : "Paid / sisa", value: kind === "expenses" ? formatIDR(rows.length ? total / rows.length : 0) : `${formatIDR(paid)} / ${formatIDR(due)}` },
+    { label: kind === "expenses" ? "Rata-rata" : "Paid / sisa", value: kind === "expenses" ? formatIDR(entries ? total / entries : 0) : `${formatIDR(paid)} / ${formatIDR(due)}` },
   ];
 }

@@ -213,3 +213,14 @@ type TenantReportRowsRes struct {
 	Total   int              `json:"total"`
 	Summary map[string]any   `json:"summary,omitempty"`
 }
+
+type ReportQuery struct {
+	Page     int
+	PageSize int
+	From     string
+	To       string
+	Status   string
+	Method   string
+	Source   string
+	Search   string
+}

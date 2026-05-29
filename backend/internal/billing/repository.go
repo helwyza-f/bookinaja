@@ -550,7 +550,6 @@ func normalizeReportRow(row map[string]any) map[string]any {
 
 func scanReportRows(rows *sqlx.Rows) ([]map[string]any, error) {
 	defer rows.Close()
-
 	items := []map[string]any{}
 	for rows.Next() {
 		row := map[string]any{}
@@ -559,225 +558,275 @@ func scanReportRows(rows *sqlx.Rows) ([]map[string]any, error) {
 		}
 		items = append(items, normalizeReportRow(row))
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+	return items, rows.Err()
 }
 
-func (r *Repository) ListTenantRevenueReport(ctx context.Context, tenantID uuid.UUID, page, pageSize int) (TenantReportRowsRes, error) {
-	page, pageSize, offset := normalizeReportPage(page, pageSize)
-	_ = page
+func reportQueryDefaults(q ReportQuery) (ReportQuery, int) {
+	page, pageSize, offset := normalizeReportPage(q.Page, q.PageSize)
+	q.Page = page
+	q.PageSize = pageSize
+	q.From = strings.TrimSpace(q.From)
+	q.To = strings.TrimSpace(q.To)
+	q.Status = strings.ToLower(strings.TrimSpace(q.Status))
+	q.Method = strings.ToLower(strings.TrimSpace(q.Method))
+	q.Source = strings.ToLower(strings.TrimSpace(q.Source))
+	q.Search = strings.TrimSpace(q.Search)
+	return q, offset
+}
 
-	rows, err := r.db.QueryxContext(ctx, `
-		SELECT *
-		FROM (
+func appendReportFilter(where *[]string, args *[]any, clause string, value any) {
+	*args = append(*args, value)
+	*where = append(*where, fmt.Sprintf(clause, len(*args)))
+}
+
+type reportFilterOptions struct {
+	DateColumn    string
+	SearchColumns []string
+	StatusColumns []string
+	MethodColumn  string
+	SourceColumn  string
+}
+
+func buildReportWhere(q ReportQuery, opts reportFilterOptions, initialArgs ...any) (string, []any) {
+	where := []string{}
+	args := append([]any{}, initialArgs...)
+	if q.From != "" && opts.DateColumn != "" {
+		appendReportFilter(&where, &args, opts.DateColumn+" >= $%d::date", q.From)
+	}
+	if q.To != "" && opts.DateColumn != "" {
+		appendReportFilter(&where, &args, opts.DateColumn+" < ($%d::date + INTERVAL '1 day')", q.To)
+	}
+	if q.Status != "" && q.Status != "all" && len(opts.StatusColumns) > 0 {
+		args = append(args, q.Status)
+		placeholder := fmt.Sprintf("$%d", len(args))
+		statusClauses := make([]string, 0, len(opts.StatusColumns))
+		for _, column := range opts.StatusColumns {
+			statusClauses = append(statusClauses, fmt.Sprintf("LOWER(COALESCE(%s,'')) = %s", column, placeholder))
+		}
+		where = append(where, "("+strings.Join(statusClauses, " OR ")+")")
+	}
+	if q.Method != "" && q.Method != "all" && opts.MethodColumn != "" {
+		appendReportFilter(&where, &args, "LOWER(COALESCE("+opts.MethodColumn+",'')) = $%d", q.Method)
+	}
+	if q.Source != "" && q.Source != "all" && opts.SourceColumn != "" {
+		appendReportFilter(&where, &args, "LOWER(COALESCE("+opts.SourceColumn+",'')) = $%d", q.Source)
+	}
+	if q.Search != "" && len(opts.SearchColumns) > 0 {
+		args = append(args, "%"+q.Search+"%")
+		placeholder := fmt.Sprintf("$%d", len(args))
+		likeClauses := make([]string, 0, len(opts.SearchColumns))
+		for _, column := range opts.SearchColumns {
+			likeClauses = append(likeClauses, fmt.Sprintf("%s ILIKE %s", column, placeholder))
+		}
+		where = append(where, "("+strings.Join(likeClauses, " OR ")+")")
+	}
+	if len(where) == 0 {
+		return "", args
+	}
+	return " WHERE " + strings.Join(where, " AND "), args
+}
+
+func (r *Repository) reportRows(ctx context.Context, cteSQL string, selectSQL string, whereSQL string, args []any, orderBy string, pageSize, offset int) (TenantReportRowsRes, error) {
+	var total int
+	if err := r.db.GetContext(ctx, &total, cteSQL+" SELECT COUNT(*) FROM report"+whereSQL, args...); err != nil {
+		return TenantReportRowsRes{}, err
+	}
+
+	listArgs := append([]any{}, args...)
+	listArgs = append(listArgs, pageSize, offset)
+	rows, err := r.db.QueryxContext(ctx,
+		cteSQL+" "+selectSQL+whereSQL+" "+orderBy+fmt.Sprintf(" LIMIT $%d OFFSET $%d", len(listArgs)-1, len(listArgs)),
+		listArgs...,
+	)
+	if err != nil {
+		return TenantReportRowsRes{}, err
+	}
+	items, err := scanReportRows(rows)
+	if err != nil {
+		return TenantReportRowsRes{}, err
+	}
+	return TenantReportRowsRes{Items: items, Total: total}, nil
+}
+
+func (r *Repository) revenueReportBaseSQL() string {
+	return `
+		WITH report AS (
 			SELECT
 				'booking'::text AS tipe,
 				b.id::text AS ref,
 				COALESCE(c.name, '-') AS customer,
-				COALESCE(b.payment_status, '-') AS status,
-				COALESCE(b.grand_total, 0)::double precision AS total,
-				COALESCE(b.paid_amount, 0)::double precision AS paid,
-				COALESCE(b.balance_due, 0)::double precision AS sisa,
+				COALESCE(res.name, '-') AS resource,
+				b.status AS status,
+				b.status AS status_booking,
+				b.payment_status AS status_bayar,
+				b.payment_method,
+				COALESCE(b.grand_total, 0)::numeric AS total,
+				COALESCE(b.paid_amount, 0)::numeric AS paid,
+				COALESCE(b.balance_due, 0)::numeric AS sisa,
 				COALESCE(b.start_time, b.created_at) AS tanggal
 			FROM bookings b
 			LEFT JOIN customers c ON c.id = b.customer_id
+			LEFT JOIN resources res ON res.id = b.resource_id
 			WHERE b.tenant_id = $1
 			UNION ALL
 			SELECT
 				'pos'::text AS tipe,
-				so.order_number::text AS ref,
+				so.order_number AS ref,
 				COALESCE(c.name, '-') AS customer,
-				COALESCE(so.payment_status, so.status, '-') AS status,
-				COALESCE(so.grand_total, 0)::double precision AS total,
-				COALESCE(so.paid_amount, 0)::double precision AS paid,
-				COALESCE(so.balance_due, 0)::double precision AS sisa,
-				so.created_at AS tanggal
+				COALESCE(res.name, '-') AS resource,
+				so.status AS status,
+				so.status AS status_booking,
+				so.payment_status AS status_bayar,
+				so.payment_method,
+				COALESCE(so.grand_total, 0)::numeric AS total,
+				COALESCE(so.paid_amount, 0)::numeric AS paid,
+				COALESCE(so.balance_due, 0)::numeric AS sisa,
+				COALESCE(so.completed_at, so.updated_at, so.created_at) AS tanggal
 			FROM sales_orders so
 			LEFT JOIN customers c ON c.id = so.customer_id
+			LEFT JOIN resources res ON res.id = so.resource_id
 			WHERE so.tenant_id = $1
-		) report_rows
-		ORDER BY tanggal DESC
-		LIMIT $2 OFFSET $3`,
-		tenantID, pageSize, offset,
-	)
-	if err != nil {
-		return TenantReportRowsRes{}, err
-	}
-	items, err := scanReportRows(rows)
-	if err != nil {
-		return TenantReportRowsRes{}, err
-	}
-
-	var total int
-	if err := r.db.GetContext(ctx, &total, `
-		SELECT
-			(SELECT COUNT(*) FROM bookings WHERE tenant_id = $1)
-			+ (SELECT COUNT(*) FROM sales_orders WHERE tenant_id = $1)`,
-		tenantID,
-	); err != nil {
-		return TenantReportRowsRes{}, err
-	}
-
-	return TenantReportRowsRes{Items: items, Total: total}, nil
+		)`
 }
 
-func (r *Repository) ListTenantExpenseReport(ctx context.Context, tenantID uuid.UUID, page, pageSize int) (TenantReportRowsRes, error) {
-	page, pageSize, offset := normalizeReportPage(page, pageSize)
-	_ = page
+func (r *Repository) ListTenantRevenueReport(ctx context.Context, tenantID uuid.UUID, q ReportQuery) (TenantReportRowsRes, error) {
+	q, offset := reportQueryDefaults(q)
+	base := r.revenueReportBaseSQL()
+	whereSQL, args := buildReportWhere(q, reportFilterOptions{
+		DateColumn:    "tanggal",
+		SearchColumns: []string{"ref", "customer", "resource", "status", "status_bayar", "payment_method"},
+		StatusColumns: []string{"status", "status_bayar"},
+		MethodColumn:  "payment_method",
+	}, tenantID)
 
-	rows, err := r.db.QueryxContext(ctx, `
-		SELECT
-			expense_date AS tanggal,
-			title AS judul,
-			category AS kategori,
-			COALESCE(vendor, '-') AS vendor,
-			COALESCE(amount, 0)::double precision AS jumlah
-		FROM expenses
-		WHERE tenant_id = $1
-		ORDER BY expense_date DESC, created_at DESC
-		LIMIT $2 OFFSET $3`,
-		tenantID, pageSize, offset,
-	)
+	res, err := r.reportRows(ctx, base, "SELECT * FROM report", whereSQL, args, "ORDER BY tanggal DESC", q.PageSize, offset)
 	if err != nil {
 		return TenantReportRowsRes{}, err
 	}
-	items, err := scanReportRows(rows)
-	if err != nil {
+	summary := map[string]any{}
+	if err := r.db.QueryRowxContext(ctx, base+` SELECT
+			COALESCE(SUM(total), 0) AS total,
+			COALESCE(SUM(paid), 0) AS paid,
+			COALESCE(SUM(sisa), 0) AS outstanding,
+			COUNT(*) AS entries
+		FROM report`+whereSQL, args...).MapScan(summary); err != nil {
 		return TenantReportRowsRes{}, err
 	}
-
-	var total int
-	if err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM expenses WHERE tenant_id = $1`, tenantID); err != nil {
-		return TenantReportRowsRes{}, err
-	}
-
-	return TenantReportRowsRes{Items: items, Total: total}, nil
+	res.Summary = normalizeReportRow(summary)
+	return res, nil
 }
 
-func (r *Repository) ListTenantTransactionReport(ctx context.Context, tenantID uuid.UUID, page, pageSize int) (TenantReportRowsRes, error) {
-	page, pageSize, offset := normalizeReportPage(page, pageSize)
-	_ = page
-
-	rows, err := r.db.QueryxContext(ctx, `
-		SELECT *
-		FROM (
+func (r *Repository) ListTenantExpenseReport(ctx context.Context, tenantID uuid.UUID, q ReportQuery) (TenantReportRowsRes, error) {
+	q, offset := reportQueryDefaults(q)
+	base := `
+		WITH report AS (
 			SELECT
-				'booking'::text AS tipe,
-				b.id::text AS ref,
-				COALESCE(c.name, '-') AS customer,
-				COALESCE(b.status, '-') AS status_booking,
-				COALESCE(b.payment_status, '-') AS status_bayar,
-				COALESCE(b.grand_total, 0)::double precision AS total,
-				COALESCE(b.paid_amount, 0)::double precision AS paid,
-				COALESCE(b.balance_due, 0)::double precision AS sisa,
-				COALESCE(b.start_time, b.created_at) AS tanggal
-			FROM bookings b
-			LEFT JOIN customers c ON c.id = b.customer_id
-			WHERE b.tenant_id = $1
-			UNION ALL
+				e.id::text AS ref,
+				e.expense_date AS tanggal,
+				e.title AS judul,
+				e.category AS kategori,
+				e.vendor,
+				e.payment_method,
+				COALESCE(e.amount, 0)::numeric AS jumlah,
+				e.notes
+			FROM expenses e
+			WHERE e.tenant_id = $1
+		)`
+	whereSQL, args := buildReportWhere(q, reportFilterOptions{
+		DateColumn:    "tanggal",
+		SearchColumns: []string{"ref", "judul", "kategori", "vendor", "payment_method", "notes"},
+		MethodColumn:  "payment_method",
+	}, tenantID)
+	res, err := r.reportRows(ctx, base, "SELECT * FROM report", whereSQL, args, "ORDER BY tanggal DESC", q.PageSize, offset)
+	if err != nil {
+		return TenantReportRowsRes{}, err
+	}
+	summary := map[string]any{}
+	if err := r.db.QueryRowxContext(ctx, base+` SELECT COALESCE(SUM(jumlah), 0) AS total, COUNT(*) AS entries FROM report`+whereSQL, args...).MapScan(summary); err != nil {
+		return TenantReportRowsRes{}, err
+	}
+	res.Summary = normalizeReportRow(summary)
+	return res, nil
+}
+
+func (r *Repository) ListTenantTransactionReport(ctx context.Context, tenantID uuid.UUID, q ReportQuery) (TenantReportRowsRes, error) {
+	return r.ListTenantRevenueReport(ctx, tenantID, q)
+}
+
+func (r *Repository) ListTenantCustomerReport(ctx context.Context, tenantID uuid.UUID, q ReportQuery) (TenantReportRowsRes, error) {
+	q, offset := reportQueryDefaults(q)
+	base := `
+		WITH report AS (
 			SELECT
-				'pos'::text AS tipe,
-				so.order_number::text AS ref,
-				COALESCE(c.name, '-') AS customer,
-				COALESCE(so.status, '-') AS status_booking,
-				COALESCE(so.payment_status, '-') AS status_bayar,
-				COALESCE(so.grand_total, 0)::double precision AS total,
-				COALESCE(so.paid_amount, 0)::double precision AS paid,
-				COALESCE(so.balance_due, 0)::double precision AS sisa,
-				so.created_at AS tanggal
-			FROM sales_orders so
-			LEFT JOIN customers c ON c.id = so.customer_id
-			WHERE so.tenant_id = $1
-		) report_rows
-		ORDER BY tanggal DESC
-		LIMIT $2 OFFSET $3`,
-		tenantID, pageSize, offset,
-	)
+				c.id::text AS ref,
+				c.name AS nama,
+				c.phone,
+				COALESCE(c.email, '') AS email,
+				COALESCE(c.tier, '') AS tier,
+				COALESCE(c.total_visits, 0) AS kunjungan,
+				COALESCE(c.total_spent, 0)::numeric AS belanja,
+				c.last_visit AS terakhir,
+				c.created_at AS tanggal
+			FROM customers c
+			WHERE c.tenant_id = $1
+		)`
+	whereSQL, args := buildReportWhere(q, reportFilterOptions{
+		DateColumn:    "tanggal",
+		SearchColumns: []string{"ref", "nama", "phone", "email", "tier"},
+	}, tenantID)
+	res, err := r.reportRows(ctx, base, "SELECT * FROM report", whereSQL, args, "ORDER BY belanja DESC, tanggal DESC", q.PageSize, offset)
 	if err != nil {
 		return TenantReportRowsRes{}, err
 	}
-	items, err := scanReportRows(rows)
-	if err != nil {
+	summary := map[string]any{}
+	if err := r.db.QueryRowxContext(ctx, base+` SELECT COALESCE(SUM(belanja), 0) AS total_spent, COALESCE(SUM(kunjungan), 0) AS total_visits, COUNT(*) AS entries FROM report`+whereSQL, args...).MapScan(summary); err != nil {
 		return TenantReportRowsRes{}, err
 	}
-
-	var total int
-	if err := r.db.GetContext(ctx, &total, `
-		SELECT
-			(SELECT COUNT(*) FROM bookings WHERE tenant_id = $1)
-			+ (SELECT COUNT(*) FROM sales_orders WHERE tenant_id = $1)`,
-		tenantID,
-	); err != nil {
-		return TenantReportRowsRes{}, err
-	}
-
-	return TenantReportRowsRes{Items: items, Total: total}, nil
+	res.Summary = normalizeReportRow(summary)
+	return res, nil
 }
 
-func (r *Repository) ListTenantCustomerReport(ctx context.Context, tenantID uuid.UUID, page, pageSize int) (TenantReportRowsRes, error) {
-	page, pageSize, offset := normalizeReportPage(page, pageSize)
-	_ = page
-
-	rows, err := r.db.QueryxContext(ctx, `
-		SELECT
-			name AS nama,
-			phone,
-			COALESCE(email, '-') AS email,
-			COALESCE(total_visits, 0) AS kunjungan,
-			COALESCE(total_spent, 0)::double precision AS belanja,
-			last_visit AS terakhir
-		FROM customers
-		WHERE tenant_id = $1
-		ORDER BY COALESCE(total_spent, 0) DESC, updated_at DESC
-		LIMIT $2 OFFSET $3`,
-		tenantID, pageSize, offset,
-	)
-	if err != nil {
-		return TenantReportRowsRes{}, err
-	}
-	items, err := scanReportRows(rows)
-	if err != nil {
-		return TenantReportRowsRes{}, err
-	}
-
-	var total int
-	if err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM customers WHERE tenant_id = $1`, tenantID); err != nil {
-		return TenantReportRowsRes{}, err
-	}
-
-	return TenantReportRowsRes{Items: items, Total: total}, nil
-}
-
-func (r *Repository) ListTenantLedgerEntries(ctx context.Context, tenantID uuid.UUID, page, pageSize int) (TenantLedgerReportRes, error) {
-	page, pageSize, offset := normalizeReportPage(page, pageSize)
-	_ = page
+func (r *Repository) ListTenantLedgerEntries(ctx context.Context, tenantID uuid.UUID, q ReportQuery) (TenantLedgerReportRes, error) {
+	q, offset := reportQueryDefaults(q)
+	base := `
+		WITH report AS (
+			SELECT *
+			FROM tenant_ledger_entries
+			WHERE tenant_id = $1
+		)`
+	whereSQL, args := buildReportWhere(q, reportFilterOptions{
+		DateColumn:    "created_at",
+		SearchColumns: []string{"source_ref", "midtrans_order_id", "midtrans_transaction_id", "transaction_status", "payment_type", "source_type", "status"},
+		StatusColumns: []string{"status", "transaction_status"},
+		MethodColumn:  "payment_type",
+		SourceColumn:  "source_type",
+	}, tenantID)
 
 	var items []TenantLedgerEntry
 	if err := r.db.SelectContext(ctx, &items, `
+		`+base+`
 		SELECT *
-		FROM tenant_ledger_entries
-		WHERE tenant_id = $1
+		FROM report`+whereSQL+`
 		ORDER BY created_at DESC
-		LIMIT $2 OFFSET $3`,
-		tenantID, pageSize, offset,
+		LIMIT $`+fmt.Sprint(len(args)+1)+` OFFSET $`+fmt.Sprint(len(args)+2),
+		append(args, q.PageSize, offset)...,
 	); err != nil {
 		return TenantLedgerReportRes{}, err
 	}
 
 	var total int
 	if err := r.db.GetContext(ctx, &total, `
+		`+base+`
 		SELECT COUNT(*)
-		FROM tenant_ledger_entries
-		WHERE tenant_id = $1`,
-		tenantID,
+		FROM report`+whereSQL,
+		args...,
 	); err != nil {
 		return TenantLedgerReportRes{}, err
 	}
 
 	var summary TenantLedgerSummary
 	if err := r.db.GetContext(ctx, &summary, `
+		`+base+`
 		SELECT
 			COALESCE(SUM(CASE WHEN status = 'settled' AND direction = 'credit' THEN net_amount ELSE 0 END), 0)
 				- COALESCE(SUM(CASE WHEN status = 'settled' AND direction = 'debit' THEN net_amount ELSE 0 END), 0) AS balance,
@@ -786,9 +835,8 @@ func (r *Repository) ListTenantLedgerEntries(ctx context.Context, tenantID uuid.
 			COALESCE(SUM(CASE WHEN status = 'pending' AND direction = 'credit' THEN net_amount ELSE 0 END), 0) AS pending_credit,
 			COALESCE(SUM(CASE WHEN status = 'pending' AND direction = 'debit' THEN net_amount ELSE 0 END), 0) AS pending_debit,
 			COUNT(*) AS entries
-		FROM tenant_ledger_entries
-		WHERE tenant_id = $1`,
-		tenantID,
+		FROM report`+whereSQL,
+		args...,
 	); err != nil {
 		return TenantLedgerReportRes{}, err
 	}
@@ -796,28 +844,39 @@ func (r *Repository) ListTenantLedgerEntries(ctx context.Context, tenantID uuid.
 	return TenantLedgerReportRes{Items: items, Total: total, Summary: summary}, nil
 }
 
-func (r *Repository) ListTenantMidtransNotifications(ctx context.Context, tenantID uuid.UUID, page, pageSize int) (TenantMidtransNotificationReportRes, error) {
-	page, pageSize, offset := normalizeReportPage(page, pageSize)
-	_ = page
+func (r *Repository) ListTenantMidtransNotifications(ctx context.Context, tenantID uuid.UUID, q ReportQuery) (TenantMidtransNotificationReportRes, error) {
+	q, offset := reportQueryDefaults(q)
+	base := `
+		WITH report AS (
+			SELECT *
+			FROM midtrans_notification_logs
+			WHERE tenant_id = $1
+		)`
+	whereSQL, args := buildReportWhere(q, reportFilterOptions{
+		DateColumn:    "received_at",
+		SearchColumns: []string{"order_id", "transaction_id", "transaction_status", "fraud_status", "payment_type", "processing_status", "error_message"},
+		StatusColumns: []string{"transaction_status", "processing_status", "fraud_status"},
+		MethodColumn:  "payment_type",
+	}, tenantID)
 
 	var items []MidtransNotificationLog
 	if err := r.db.SelectContext(ctx, &items, `
+		`+base+`
 		SELECT *
-		FROM midtrans_notification_logs
-		WHERE tenant_id = $1
+		FROM report`+whereSQL+`
 		ORDER BY received_at DESC
-		LIMIT $2 OFFSET $3`,
-		tenantID, pageSize, offset,
+		LIMIT $`+fmt.Sprint(len(args)+1)+` OFFSET $`+fmt.Sprint(len(args)+2),
+		append(args, q.PageSize, offset)...,
 	); err != nil {
 		return TenantMidtransNotificationReportRes{}, err
 	}
 
 	var total int
 	if err := r.db.GetContext(ctx, &total, `
+		`+base+`
 		SELECT COUNT(*)
-		FROM midtrans_notification_logs
-		WHERE tenant_id = $1`,
-		tenantID,
+		FROM report`+whereSQL,
+		args...,
 	); err != nil {
 		return TenantMidtransNotificationReportRes{}, err
 	}
