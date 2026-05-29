@@ -207,3 +207,9 @@ type TenantMidtransNotificationReportRes struct {
 	Items []MidtransNotificationLog `json:"items"`
 	Total int                       `json:"total"`
 }
+
+type TenantReportRowsRes struct {
+	Items   []map[string]any `json:"items"`
+	Total   int              `json:"total"`
+	Summary map[string]any   `json:"summary,omitempty"`
+}

@@ -42,6 +42,7 @@ const (
 	PermissionExpensesDelete = "expenses.delete"
 
 	PermissionAnalyticsRead = "analytics.read"
+	PermissionReportsRead   = "reports.read"
 	PermissionReceiptsSend  = "receipts.send"
 	PermissionReceiptsPrint = "receipts.print"
 
@@ -92,6 +93,7 @@ var AllowedPermissionKeys = map[string]struct{}{
 	PermissionExpensesDelete: {},
 
 	PermissionAnalyticsRead: {},
+	PermissionReportsRead:   {},
 	PermissionReceiptsSend:  {},
 	PermissionReceiptsPrint: {},
 
@@ -186,12 +188,6 @@ var permissionImplications = map[string][]string{
 	PermissionExpensesDelete: {PermissionExpensesRead},
 	PermissionReceiptsSend:   {PermissionBookingsRead, PermissionPosRead},
 	PermissionReceiptsPrint:  {PermissionBookingsRead, PermissionPosRead},
-	PermissionAnalyticsRead: {
-		PermissionBookingsRead,
-		PermissionResourcesRead,
-		PermissionCustomersRead,
-		PermissionExpensesRead,
-	},
 }
 
 func ExpandPermissionKeys(keys []string) []string {
@@ -286,6 +282,7 @@ func defaultStaffRoles() []StaffRole {
 				PermissionReceiptsSend,
 				PermissionReceiptsPrint,
 				PermissionAnalyticsRead,
+				PermissionReportsRead,
 			},
 			IsDefault: false,
 		},

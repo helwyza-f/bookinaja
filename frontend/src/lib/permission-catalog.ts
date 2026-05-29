@@ -81,12 +81,6 @@ export const PERMISSION_IMPLICATIONS: Record<string, string[]> = {
   "expenses.delete": ["expenses.read"],
   "receipts.send": ["bookings.read", "pos.read"],
   "receipts.print": ["bookings.read", "pos.read"],
-  "analytics.read": [
-    "bookings.read",
-    "resources.read",
-    "customers.read",
-    "expenses.read",
-  ],
 };
 
 export const PERMISSION_GROUPS = [
@@ -291,7 +285,12 @@ export const PERMISSION_GROUPS = [
       {
         key: "analytics.read",
         label: "Analytics - lihat",
-        help: "Membuka insight outlet seperti performa, tren, dan ringkasan bisnis sensitif.",
+        help: "Membuka analytics ringan untuk ringkasan operasional harian.",
+      },
+      {
+        key: "reports.read",
+        label: "Laporan - lihat",
+        help: "Membuka halaman laporan lengkap, audit transaksi, ledger, dan export CSV.",
       },
     ],
   },
@@ -357,6 +356,7 @@ export const RECOMMENDED_ROLE_PRESETS = [
       "receipts.send",
       "receipts.print",
       "analytics.read",
+      "reports.read",
     ],
   },
 ] as const;

@@ -41,6 +41,7 @@ const DASHBOARD_PERMISSIONS = [
   "pos.read",
   "fnb.read",
   "analytics.read",
+  "reports.read",
 ];
 
 const ROUTE_RULES: RouteRule[] = [
@@ -56,7 +57,7 @@ const ROUTE_RULES: RouteRule[] = [
   { prefix: "/admin/settings/nota", ownerOnly: true, feature: "advanced_receipt_branding" },
   { prefix: "/admin/settings", ownerOnly: true },
   { prefix: "/admin/analytics", permissions: ["analytics.read"] },
-  { prefix: "/admin/reports", permissions: ["analytics.read"], feature: "advanced_analytics" },
+  { prefix: "/admin/reports", permissions: ["reports.read"] },
   { prefix: "/admin/resources", permissions: ["resources.read"] },
   { prefix: "/admin/devices", permissions: ["devices.read"] },
   { prefix: "/admin/expenses", permissions: ["expenses.read"] },

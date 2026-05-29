@@ -319,9 +319,12 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			}
 
 			reports := adminArea.Group("/reports")
-			reports.Use(middleware.RequirePermission(tenant.PermissionAnalyticsRead))
-			reports.Use(middleware.RequireAnyTenantFeature(cfg.DB, access.FeatureAdvancedAnalytics))
+			reports.Use(middleware.RequirePermission(tenant.PermissionReportsRead))
 			{
+				reports.GET("/revenue", cfg.BillingHandler.ListTenantRevenueReport)
+				reports.GET("/expenses", cfg.BillingHandler.ListTenantExpenseReport)
+				reports.GET("/transactions", cfg.BillingHandler.ListTenantTransactionReport)
+				reports.GET("/customers", cfg.BillingHandler.ListTenantCustomerReport)
 				reports.GET("/ledger", cfg.BillingHandler.ListTenantLedgerEntries)
 				reports.GET("/midtrans-notifications", cfg.BillingHandler.ListTenantMidtransNotifications)
 			}

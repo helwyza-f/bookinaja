@@ -87,12 +87,17 @@ const formatDateTime = (value?: string) => {
   });
 };
 
-function exportCsv(filename: string, rows: Record<string, unknown>[]) {
+function getReportItems(payload: unknown) {
+  const data = payload as { items?: unknown };
+  return (Array.isArray(data?.items) ? data.items : []) as ApiRecord[];
+}
+
+function exportCsv(filename: string, rows: Record<string, unknown>[], columns: string[]) {
   if (rows.length === 0) {
     toast.info("Belum ada data untuk diexport");
     return;
   }
-  const headers = Object.keys(rows[0]);
+  const headers = columns;
   const csv = [
     headers.join(","),
     ...rows.map((row) =>
@@ -138,8 +143,8 @@ export function ReportDetailClient({ kind }: { kind: ReportKind }) {
   const metricCards = useMemo(() => buildMetrics(kind, rows, summary), [kind, rows, summary]);
 
   return (
-    <div className="space-y-5 p-4 md:p-6">
-      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <div className="space-y-4 p-4 md:p-6">
+      <header className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-950 md:flex-row md:items-end md:justify-between">
         <div>
           <Button asChild variant="ghost" className="-ml-3 mb-2 gap-2 rounded-xl">
             <Link href="/admin/reports">
@@ -147,10 +152,10 @@ export function ReportDetailClient({ kind }: { kind: ReportKind }) {
               Laporan
             </Link>
           </Button>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-blue-600">
-            Report detail
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+            Laporan
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950 dark:text-white">
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
             {config.title}
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
@@ -162,7 +167,7 @@ export function ReportDetailClient({ kind }: { kind: ReportKind }) {
             <RefreshCcw className={refreshing ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
             Refresh
           </Button>
-          <Button className="gap-2 rounded-xl bg-slate-950 text-white hover:bg-slate-800" onClick={() => exportCsv(config.filename, rows)}>
+          <Button className="gap-2 rounded-xl bg-slate-950 text-white hover:bg-slate-800" onClick={() => exportCsv(config.filename, rows, config.columns)}>
             <Download className="h-4 w-4" />
             Export CSV
           </Button>
@@ -232,34 +237,34 @@ export function ReportDetailClient({ kind }: { kind: ReportKind }) {
 
 async function fetchReportRows(kind: ReportKind) {
   if (kind === "expenses") {
-    const res = await api.get("/expenses", { params: { limit: 500 } });
-    const items = (Array.isArray(res.data) ? res.data : []) as ApiRecord[];
+    const res = await api.get("/reports/expenses", { params: { page_size: 200 } });
+    const items = getReportItems(res.data);
     const rows = items.map((item) => ({
-      tanggal: formatDateTime(String(item.expense_date || "")),
-      judul: String(item.title || "-"),
-      kategori: String(item.category || "-"),
+      tanggal: formatDateTime(String(item.tanggal || "")),
+      judul: String(item.judul || "-"),
+      kategori: String(item.kategori || "-"),
       vendor: String(item.vendor || "-"),
-      jumlah: Number(item.amount || 0),
+      jumlah: Number(item.jumlah || 0),
     }));
     return { rows };
   }
 
   if (kind === "customers") {
-    const res = await api.get("/customers");
-    const items = (Array.isArray(res.data) ? res.data : []) as ApiRecord[];
+    const res = await api.get("/reports/customers", { params: { page_size: 200 } });
+    const items = getReportItems(res.data);
     const rows = items.map((item) => ({
-      nama: String(item.name || "-"),
+      nama: String(item.nama || "-"),
       phone: String(item.phone || "-"),
       email: String(item.email || "-"),
-      kunjungan: Number(item.total_visits || 0),
-      belanja: Number(item.total_spent || 0),
-      terakhir: formatDateTime(String(item.last_visit || "")),
+      kunjungan: Number(item.kunjungan || 0),
+      belanja: Number(item.belanja || 0),
+      terakhir: formatDateTime(String(item.terakhir || "")),
     }));
     return { rows };
   }
 
   if (kind === "ledger") {
-    const res = await api.get("/reports/ledger", { params: { limit: 200 } });
+    const res = await api.get("/reports/ledger", { params: { page_size: 200 } });
     const items = (Array.isArray(res.data?.items) ? res.data.items : []) as ApiRecord[];
     const rows = items.map((item) => ({
       tanggal: formatDateTime(String(item.created_at || "")),
@@ -278,7 +283,7 @@ async function fetchReportRows(kind: ReportKind) {
   }
 
   if (kind === "midtrans") {
-    const res = await api.get("/reports/midtrans-notifications", { params: { limit: 200 } });
+    const res = await api.get("/reports/midtrans-notifications", { params: { page_size: 200 } });
     const items = (Array.isArray(res.data?.items) ? res.data.items : []) as ApiRecord[];
     const rows = items.map((item) => ({
       diterima: formatDateTime(String(item.received_at || "")),
@@ -294,37 +299,22 @@ async function fetchReportRows(kind: ReportKind) {
     return { rows };
   }
 
-  const [bookingRes, salesRes] = await Promise.all([
-    api.get("/bookings"),
-    api.get("/sales-orders", { params: { limit: 500, status: "all" } }),
-  ]);
-  const bookings = (Array.isArray(bookingRes.data) ? bookingRes.data : []) as ApiRecord[];
-  const bookingRows = bookings.map((item) => ({
-    tipe: "booking",
-    ref: String(item.id || "-"),
-    customer: String(item.customer_name || "-"),
-    status: String(item.payment_status || "-"),
-    status_booking: String(item.status || "-"),
-    status_bayar: String(item.payment_status || "-"),
-    total: Number(item.grand_total || 0),
-    paid: Number(item.paid_amount || 0),
-    sisa: Number(item.balance_due || 0),
-    tanggal: formatDateTime(String(item.start_time || item.created_at || "")),
+  const endpoint = kind === "revenue" ? "/reports/revenue" : "/reports/transactions";
+  const res = await api.get(endpoint, { params: { page_size: 200 } });
+  const items = getReportItems(res.data);
+  const rows = items.map((item) => ({
+    tipe: String(item.tipe || "-"),
+    ref: String(item.ref || "-"),
+    customer: String(item.customer || "-"),
+    status: String(item.status || "-"),
+    status_booking: String(item.status_booking || "-"),
+    status_bayar: String(item.status_bayar || item.status || "-"),
+    total: Number(item.total || 0),
+    paid: Number(item.paid || 0),
+    sisa: Number(item.sisa || 0),
+    tanggal: formatDateTime(String(item.tanggal || "")),
   }));
-  const sales = (Array.isArray(salesRes.data?.items) ? salesRes.data.items : []) as ApiRecord[];
-  const salesRows = sales.map((item) => ({
-    tipe: "pos",
-    ref: String(item.order_number || item.id || "-"),
-    customer: "-",
-    status: String(item.payment_status || item.status || "-"),
-    status_booking: String(item.status || "-"),
-    status_bayar: String(item.payment_status || "-"),
-    total: Number(item.grand_total || 0),
-    paid: Number(item.paid_amount || 0),
-    sisa: Number(item.balance_due || 0),
-    tanggal: formatDateTime(String(item.created_at || "")),
-  }));
-  return { rows: [...bookingRows, ...salesRows] };
+  return { rows };
 }
 
 function buildMetrics(kind: ReportKind, rows: Record<string, unknown>[], summary: Record<string, number>) {

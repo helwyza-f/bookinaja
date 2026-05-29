@@ -318,6 +318,62 @@ func (h *Handler) ListBookingPaymentAttempts(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": items})
 }
 
+func (h *Handler) ListTenantRevenueReport(c *gin.Context) {
+	tenantID, ok := parseTenantIDFromContext(c)
+	if !ok {
+		return
+	}
+	page, pageSize := parsePagination(c, 1, 50)
+	res, err := h.svc.ListTenantRevenueReport(c.Request.Context(), tenantID, page, pageSize)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) ListTenantExpenseReport(c *gin.Context) {
+	tenantID, ok := parseTenantIDFromContext(c)
+	if !ok {
+		return
+	}
+	page, pageSize := parsePagination(c, 1, 50)
+	res, err := h.svc.ListTenantExpenseReport(c.Request.Context(), tenantID, page, pageSize)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) ListTenantTransactionReport(c *gin.Context) {
+	tenantID, ok := parseTenantIDFromContext(c)
+	if !ok {
+		return
+	}
+	page, pageSize := parsePagination(c, 1, 50)
+	res, err := h.svc.ListTenantTransactionReport(c.Request.Context(), tenantID, page, pageSize)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) ListTenantCustomerReport(c *gin.Context) {
+	tenantID, ok := parseTenantIDFromContext(c)
+	if !ok {
+		return
+	}
+	page, pageSize := parsePagination(c, 1, 50)
+	res, err := h.svc.ListTenantCustomerReport(c.Request.Context(), tenantID, page, pageSize)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
 func (h *Handler) ListTenantLedgerEntries(c *gin.Context) {
 	tenantID, ok := parseTenantIDFromContext(c)
 	if !ok {

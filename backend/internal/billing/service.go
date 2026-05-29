@@ -406,6 +406,22 @@ func (s *Service) ListBookingPaymentAttempts(ctx context.Context, tenantID, book
 	return s.repo.ListBookingPaymentAttempts(ctx, bookingID, tenantID)
 }
 
+func (s *Service) ListTenantRevenueReport(ctx context.Context, tenantID uuid.UUID, page, pageSize int) (TenantReportRowsRes, error) {
+	return s.repo.ListTenantRevenueReport(ctx, tenantID, page, pageSize)
+}
+
+func (s *Service) ListTenantExpenseReport(ctx context.Context, tenantID uuid.UUID, page, pageSize int) (TenantReportRowsRes, error) {
+	return s.repo.ListTenantExpenseReport(ctx, tenantID, page, pageSize)
+}
+
+func (s *Service) ListTenantTransactionReport(ctx context.Context, tenantID uuid.UUID, page, pageSize int) (TenantReportRowsRes, error) {
+	return s.repo.ListTenantTransactionReport(ctx, tenantID, page, pageSize)
+}
+
+func (s *Service) ListTenantCustomerReport(ctx context.Context, tenantID uuid.UUID, page, pageSize int) (TenantReportRowsRes, error) {
+	return s.repo.ListTenantCustomerReport(ctx, tenantID, page, pageSize)
+}
+
 func (s *Service) ListTenantLedgerEntries(ctx context.Context, tenantID uuid.UUID, page, pageSize int) (TenantLedgerReportRes, error) {
 	return s.repo.ListTenantLedgerEntries(ctx, tenantID, page, pageSize)
 }

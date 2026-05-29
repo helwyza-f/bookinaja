@@ -535,6 +535,221 @@ func normalizeReportPage(page, pageSize int) (int, int, int) {
 	return page, pageSize, (page - 1) * pageSize
 }
 
+func normalizeReportRow(row map[string]any) map[string]any {
+	normalized := make(map[string]any, len(row))
+	for key, value := range row {
+		switch typed := value.(type) {
+		case []byte:
+			normalized[key] = string(typed)
+		default:
+			normalized[key] = value
+		}
+	}
+	return normalized
+}
+
+func scanReportRows(rows *sqlx.Rows) ([]map[string]any, error) {
+	defer rows.Close()
+
+	items := []map[string]any{}
+	for rows.Next() {
+		row := map[string]any{}
+		if err := rows.MapScan(row); err != nil {
+			return nil, err
+		}
+		items = append(items, normalizeReportRow(row))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (r *Repository) ListTenantRevenueReport(ctx context.Context, tenantID uuid.UUID, page, pageSize int) (TenantReportRowsRes, error) {
+	page, pageSize, offset := normalizeReportPage(page, pageSize)
+	_ = page
+
+	rows, err := r.db.QueryxContext(ctx, `
+		SELECT *
+		FROM (
+			SELECT
+				'booking'::text AS tipe,
+				b.id::text AS ref,
+				COALESCE(c.name, '-') AS customer,
+				COALESCE(b.payment_status, '-') AS status,
+				COALESCE(b.grand_total, 0)::double precision AS total,
+				COALESCE(b.paid_amount, 0)::double precision AS paid,
+				COALESCE(b.balance_due, 0)::double precision AS sisa,
+				COALESCE(b.start_time, b.created_at) AS tanggal
+			FROM bookings b
+			LEFT JOIN customers c ON c.id = b.customer_id
+			WHERE b.tenant_id = $1
+			UNION ALL
+			SELECT
+				'pos'::text AS tipe,
+				so.order_number::text AS ref,
+				COALESCE(c.name, '-') AS customer,
+				COALESCE(so.payment_status, so.status, '-') AS status,
+				COALESCE(so.grand_total, 0)::double precision AS total,
+				COALESCE(so.paid_amount, 0)::double precision AS paid,
+				COALESCE(so.balance_due, 0)::double precision AS sisa,
+				so.created_at AS tanggal
+			FROM sales_orders so
+			LEFT JOIN customers c ON c.id = so.customer_id
+			WHERE so.tenant_id = $1
+		) report_rows
+		ORDER BY tanggal DESC
+		LIMIT $2 OFFSET $3`,
+		tenantID, pageSize, offset,
+	)
+	if err != nil {
+		return TenantReportRowsRes{}, err
+	}
+	items, err := scanReportRows(rows)
+	if err != nil {
+		return TenantReportRowsRes{}, err
+	}
+
+	var total int
+	if err := r.db.GetContext(ctx, &total, `
+		SELECT
+			(SELECT COUNT(*) FROM bookings WHERE tenant_id = $1)
+			+ (SELECT COUNT(*) FROM sales_orders WHERE tenant_id = $1)`,
+		tenantID,
+	); err != nil {
+		return TenantReportRowsRes{}, err
+	}
+
+	return TenantReportRowsRes{Items: items, Total: total}, nil
+}
+
+func (r *Repository) ListTenantExpenseReport(ctx context.Context, tenantID uuid.UUID, page, pageSize int) (TenantReportRowsRes, error) {
+	page, pageSize, offset := normalizeReportPage(page, pageSize)
+	_ = page
+
+	rows, err := r.db.QueryxContext(ctx, `
+		SELECT
+			expense_date AS tanggal,
+			title AS judul,
+			category AS kategori,
+			COALESCE(vendor, '-') AS vendor,
+			COALESCE(amount, 0)::double precision AS jumlah
+		FROM expenses
+		WHERE tenant_id = $1
+		ORDER BY expense_date DESC, created_at DESC
+		LIMIT $2 OFFSET $3`,
+		tenantID, pageSize, offset,
+	)
+	if err != nil {
+		return TenantReportRowsRes{}, err
+	}
+	items, err := scanReportRows(rows)
+	if err != nil {
+		return TenantReportRowsRes{}, err
+	}
+
+	var total int
+	if err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM expenses WHERE tenant_id = $1`, tenantID); err != nil {
+		return TenantReportRowsRes{}, err
+	}
+
+	return TenantReportRowsRes{Items: items, Total: total}, nil
+}
+
+func (r *Repository) ListTenantTransactionReport(ctx context.Context, tenantID uuid.UUID, page, pageSize int) (TenantReportRowsRes, error) {
+	page, pageSize, offset := normalizeReportPage(page, pageSize)
+	_ = page
+
+	rows, err := r.db.QueryxContext(ctx, `
+		SELECT *
+		FROM (
+			SELECT
+				'booking'::text AS tipe,
+				b.id::text AS ref,
+				COALESCE(c.name, '-') AS customer,
+				COALESCE(b.status, '-') AS status_booking,
+				COALESCE(b.payment_status, '-') AS status_bayar,
+				COALESCE(b.grand_total, 0)::double precision AS total,
+				COALESCE(b.paid_amount, 0)::double precision AS paid,
+				COALESCE(b.balance_due, 0)::double precision AS sisa,
+				COALESCE(b.start_time, b.created_at) AS tanggal
+			FROM bookings b
+			LEFT JOIN customers c ON c.id = b.customer_id
+			WHERE b.tenant_id = $1
+			UNION ALL
+			SELECT
+				'pos'::text AS tipe,
+				so.order_number::text AS ref,
+				COALESCE(c.name, '-') AS customer,
+				COALESCE(so.status, '-') AS status_booking,
+				COALESCE(so.payment_status, '-') AS status_bayar,
+				COALESCE(so.grand_total, 0)::double precision AS total,
+				COALESCE(so.paid_amount, 0)::double precision AS paid,
+				COALESCE(so.balance_due, 0)::double precision AS sisa,
+				so.created_at AS tanggal
+			FROM sales_orders so
+			LEFT JOIN customers c ON c.id = so.customer_id
+			WHERE so.tenant_id = $1
+		) report_rows
+		ORDER BY tanggal DESC
+		LIMIT $2 OFFSET $3`,
+		tenantID, pageSize, offset,
+	)
+	if err != nil {
+		return TenantReportRowsRes{}, err
+	}
+	items, err := scanReportRows(rows)
+	if err != nil {
+		return TenantReportRowsRes{}, err
+	}
+
+	var total int
+	if err := r.db.GetContext(ctx, &total, `
+		SELECT
+			(SELECT COUNT(*) FROM bookings WHERE tenant_id = $1)
+			+ (SELECT COUNT(*) FROM sales_orders WHERE tenant_id = $1)`,
+		tenantID,
+	); err != nil {
+		return TenantReportRowsRes{}, err
+	}
+
+	return TenantReportRowsRes{Items: items, Total: total}, nil
+}
+
+func (r *Repository) ListTenantCustomerReport(ctx context.Context, tenantID uuid.UUID, page, pageSize int) (TenantReportRowsRes, error) {
+	page, pageSize, offset := normalizeReportPage(page, pageSize)
+	_ = page
+
+	rows, err := r.db.QueryxContext(ctx, `
+		SELECT
+			name AS nama,
+			phone,
+			COALESCE(email, '-') AS email,
+			COALESCE(total_visits, 0) AS kunjungan,
+			COALESCE(total_spent, 0)::double precision AS belanja,
+			last_visit AS terakhir
+		FROM customers
+		WHERE tenant_id = $1
+		ORDER BY COALESCE(total_spent, 0) DESC, updated_at DESC
+		LIMIT $2 OFFSET $3`,
+		tenantID, pageSize, offset,
+	)
+	if err != nil {
+		return TenantReportRowsRes{}, err
+	}
+	items, err := scanReportRows(rows)
+	if err != nil {
+		return TenantReportRowsRes{}, err
+	}
+
+	var total int
+	if err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM customers WHERE tenant_id = $1`, tenantID); err != nil {
+		return TenantReportRowsRes{}, err
+	}
+
+	return TenantReportRowsRes{Items: items, Total: total}, nil
+}
+
 func (r *Repository) ListTenantLedgerEntries(ctx context.Context, tenantID uuid.UUID, page, pageSize int) (TenantLedgerReportRes, error) {
 	page, pageSize, offset := normalizeReportPage(page, pageSize)
 	_ = page
