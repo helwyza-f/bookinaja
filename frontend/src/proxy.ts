@@ -265,6 +265,10 @@ function resolveRootRedirect(
 ) {
   const isPlatformLogin = path === "/login";
   const isPlatformDashboard = path === "/dashboard" || path.startsWith("/dashboard/");
+  const isRootWorkspaceAdminArea =
+    path === "/admin" ||
+    path === "/admin/dashboard" ||
+    path.startsWith("/admin/dashboard/");
   const isCustomerAuthPage =
     path === "/user/login" ||
     path === "/user/login/phone" ||
@@ -280,6 +284,13 @@ function resolveRootRedirect(
       return "/app";
     }
     return null;
+  }
+
+  if (isRootWorkspaceAdminArea) {
+    if (auth.hasAdminToken) {
+      return "/app/workspaces";
+    }
+    return "/login";
   }
 
   if (isPlatformDashboard) {

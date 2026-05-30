@@ -31,8 +31,26 @@ function LoginScreen() {
     toast.success("Email sudah terverifikasi. Silakan login.");
   }, [searchParams]);
 
+  function resolveSafePostLoginNext() {
+    const rawNext = (searchParams.get("next") || "").trim();
+    if (!rawNext) return "";
+
+    try {
+      const parsed = new URL(rawNext, window.location.origin);
+      if (parsed.pathname === "/admin" || parsed.pathname.startsWith("/admin/")) {
+        return "";
+      }
+      if (parsed.origin !== window.location.origin) {
+        return "";
+      }
+      return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    } catch {
+      return "";
+    }
+  }
+
   async function resolvePostLoginHref() {
-    const next = searchParams.get("next");
+    const next = resolveSafePostLoginNext();
     try {
       const me = await getAccountMe();
       if (me.workspaces.length === 0) {
