@@ -305,7 +305,6 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 	if err != nil {
 		return nil, nil, errors.New("FORMAT WAKTU SALAH, GUNAKAN STANDAR ISO8601")
 	}
-	localStart := start
 	start = start.UTC() // Database konsisten menggunakan UTC
 
 	// 3. HITUNG END TIME BERDASARKAN DURASI UNIT
@@ -342,7 +341,8 @@ func (s *Service) Create(ctx context.Context, req CreateBookingReq, isManualWalk
 
 	totalMinutes := req.Duration * unitMinutes
 	end := start.Add(time.Duration(totalMinutes) * time.Minute)
-	if err := s.validateBookingSchedule(ctx, tID, localStart, end.In(tenantLocation), mainPriceUnit, isManualWalkIn); err != nil {
+	localStart, localEnd := bookingWindowInLocation(start, end, tenantLocation)
+	if err := s.validateBookingSchedule(ctx, tID, localStart, localEnd, mainPriceUnit, isManualWalkIn); err != nil {
 		return nil, nil, err
 	}
 
@@ -881,6 +881,13 @@ func parseBookingStartTime(raw string, location *time.Location) (time.Time, erro
 	}
 	layout := "2006-01-02T15:04:05"
 	return time.ParseInLocation(layout, raw, location)
+}
+
+func bookingWindowInLocation(start, end time.Time, location *time.Location) (time.Time, time.Time) {
+	if location == nil {
+		location = time.Local
+	}
+	return start.In(location), end.In(location)
 }
 
 func (s *Service) ExchangeAccessToken(ctx context.Context, accessToken string) (*BookingDetail, *customer.Customer, string, error) {

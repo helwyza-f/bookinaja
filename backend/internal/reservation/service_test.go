@@ -140,6 +140,25 @@ func TestParseBookingStartTimeUsesTenantLocationForNaiveInput(t *testing.T) {
 	}
 }
 
+func TestBookingWindowInLocationUsesTenantLocalClockForRFC3339Input(t *testing.T) {
+	location, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		t.Fatalf("LoadLocation() error = %v", err)
+	}
+
+	start, err := parseBookingStartTime("2026-05-30T03:00:00.000Z", location)
+	if err != nil {
+		t.Fatalf("parseBookingStartTime() error = %v", err)
+	}
+	localStart, localEnd := bookingWindowInLocation(start.UTC(), start.UTC().Add(time.Hour), location)
+	if localStart.Hour() != 10 || localStart.Minute() != 0 {
+		t.Fatalf("localStart = %v, want 10:00 Asia/Jakarta", localStart)
+	}
+	if localEnd.Hour() != 11 || localEnd.Minute() != 0 {
+		t.Fatalf("localEnd = %v, want 11:00 Asia/Jakarta", localEnd)
+	}
+}
+
 func TestFormatBookingWindowUsesTenantTimezone(t *testing.T) {
 	start := time.Date(2026, 5, 9, 1, 30, 0, 0, time.UTC)
 	end := start.Add(90 * time.Minute)
