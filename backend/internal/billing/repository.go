@@ -793,6 +793,7 @@ func (r *Repository) ListTenantLedgerEntries(ctx context.Context, tenantID uuid.
 			SELECT *
 			FROM tenant_ledger_entries
 			WHERE tenant_id = $1
+				AND source_type IN ('booking_payment', 'sales_order_payment', 'refund', 'payout', 'adjustment')
 		)`
 	whereSQL, args := buildReportWhere(q, reportFilterOptions{
 		DateColumn:    "created_at",
@@ -851,6 +852,7 @@ func (r *Repository) ListTenantMidtransNotifications(ctx context.Context, tenant
 			SELECT *
 			FROM midtrans_notification_logs
 			WHERE tenant_id = $1
+				AND order_id NOT LIKE 'sub-%'
 		)`
 	whereSQL, args := buildReportWhere(q, reportFilterOptions{
 		DateColumn:    "received_at",

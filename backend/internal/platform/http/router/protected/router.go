@@ -355,6 +355,9 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			{
 				fnbGroup.GET("", middleware.RequirePermission(tenant.PermissionFnbRead), cfg.FnbHandler.GetMenu)
 				fnbGroup.POST("", middleware.RequirePermission(tenant.PermissionFnbCreate), cfg.FnbHandler.CreateItem)
+				fnbGroup.GET("/orders", middleware.RequirePermission(tenant.PermissionFnbRead), cfg.FnbHandler.ListOrders)
+				fnbGroup.POST("/orders", middleware.RequirePermission(tenant.PermissionPosOrderAdd), cfg.FnbHandler.CreateOrder)
+				fnbGroup.GET("/orders/summary", middleware.RequirePermission(tenant.PermissionFnbRead), cfg.FnbHandler.OrderSummary)
 				fnbGroup.PUT("/:id", middleware.RequirePermission(tenant.PermissionFnbUpdate), cfg.FnbHandler.UpdateItem)
 				fnbGroup.DELETE("/:id", middleware.RequirePermission(tenant.PermissionFnbDelete), cfg.FnbHandler.DeleteItem)
 				fnbGroup.POST("/upload", middleware.RequirePermission(tenant.PermissionFnbUpdate), func(c *gin.Context) {

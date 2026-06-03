@@ -487,7 +487,8 @@ func (r *Repository) CurrentTenantBalance(ctx context.Context, exec sqlx.ExtCont
 		SELECT COALESCE(SUM(CASE WHEN status = 'settled' AND direction = 'credit' THEN net_amount ELSE 0 END), 0)
 		     - COALESCE(SUM(CASE WHEN status = 'settled' AND direction = 'debit' THEN net_amount ELSE 0 END), 0) AS balance
 		FROM tenant_ledger_entries
-		WHERE tenant_id = $1`,
+		WHERE tenant_id = $1
+			AND source_type IN ('booking_payment', 'sales_order_payment', 'refund', 'payout', 'adjustment')`,
 		tenantID,
 	)
 	return balance, err

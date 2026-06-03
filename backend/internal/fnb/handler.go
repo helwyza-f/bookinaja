@@ -2,6 +2,7 @@ package fnb
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -22,7 +23,7 @@ func (h *Handler) GetMenu(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid, Tenant ID hilang"})
 		return
 	}
-	
+
 	tID, err := uuid.Parse(tIDRaw.(string))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Format ID Tenant rusak"})
@@ -64,7 +65,7 @@ func (h *Handler) CreateItem(c *gin.Context) {
 func (h *Handler) UpdateItem(c *gin.Context) {
 	tIDRaw, _ := c.Get("tenantID")
 	tID, _ := uuid.Parse(tIDRaw.(string))
-	
+
 	itemID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "ID menu tidak valid"})
@@ -89,7 +90,7 @@ func (h *Handler) UpdateItem(c *gin.Context) {
 func (h *Handler) DeleteItem(c *gin.Context) {
 	tIDRaw, _ := c.Get("tenantID")
 	tID, _ := uuid.Parse(tIDRaw.(string))
-	
+
 	itemID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "ID menu tidak valid"})
@@ -101,4 +102,63 @@ func (h *Handler) DeleteItem(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Menu berhasil dihapus"})
+}
+
+func (h *Handler) CreateOrder(c *gin.Context) {
+	tID, ok := tenantIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid, Tenant ID hilang"})
+		return
+	}
+
+	var req CreateOrderReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Input transaksi tidak valid: " + err.Error()})
+		return
+	}
+
+	order, err := h.service.CreateOrder(c.Request.Context(), tID, c.GetString("userID"), req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, order)
+}
+
+func (h *Handler) ListOrders(c *gin.Context) {
+	tID, ok := tenantIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid, Tenant ID hilang"})
+		return
+	}
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "30"))
+	orders, err := h.service.ListOrders(c.Request.Context(), tID, c.Query("source"), limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, orders)
+}
+
+func (h *Handler) OrderSummary(c *gin.Context) {
+	tID, ok := tenantIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid, Tenant ID hilang"})
+		return
+	}
+	summary, err := h.service.OrderSummary(c.Request.Context(), tID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, summary)
+}
+
+func tenantIDFromContext(c *gin.Context) (uuid.UUID, bool) {
+	raw, exists := c.Get("tenantID")
+	if !exists {
+		return uuid.Nil, false
+	}
+	tID, err := uuid.Parse(raw.(string))
+	return tID, err == nil
 }

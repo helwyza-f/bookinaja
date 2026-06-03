@@ -134,30 +134,6 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 			if updated.Status != "paid" || !isFinalStatus {
 				return nil
 			}
-			currentBalance, _ := s.repo.CurrentTenantBalance(ctx, tx, updated.TenantID)
-			netAmount := amountFromPayloadOrFallback(parseMidtransAmount(grossAmount), updated.Amount)
-			nextBalance := currentBalance + netAmount
-			dedupe := buildLedgerDedupeKey("subscription", orderID, transactionID, newStatus, paymentType)
-			if err := s.repo.CreateLedgerEntry(ctx, tx, TenantLedgerEntry{
-				TenantID:              updated.TenantID,
-				SourceType:            "subscription",
-				SourceRef:             orderID,
-				MidtransOrderID:       orderID,
-				MidtransTransactionID: transactionID,
-				TransactionStatus:     newStatus,
-				PaymentType:           paymentType,
-				Direction:             "credit",
-				GrossAmount:           netAmount,
-				NetAmount:             netAmount,
-				BalanceAfter:          nextBalance,
-				Status:                "settled",
-				DedupeKey:             dedupe,
-				RawPayload:            mustJSON(payload),
-				CreatedAt:             receivedAt,
-				UpdatedAt:             receivedAt,
-			}); err != nil {
-				return err
-			}
 			now := time.Now().UTC()
 			start := now
 			var currentEnd sql.NullTime
@@ -358,6 +334,10 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 			if err != nil {
 				return err
 			}
+			if attempt != nil {
+				logCommon.TenantID = &attempt.TenantID
+				logCommon.GrossAmount = attempt.Amount
+			}
 			salesMethod := paymentType
 			if attempt != nil && strings.TrimSpace(attempt.MethodCode) != "" {
 				salesMethod = attempt.MethodCode
@@ -375,12 +355,36 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 				if err := s.repo.MarkSalesOrderPaymentAttemptStatus(ctx, tx, attempt.ID, "paid", txIDPtr); err != nil {
 					return err
 				}
-				logCommon.TenantID = &attempt.TenantID
-				logCommon.GrossAmount = attempt.Amount
 			}
 			logCommon.ProcessingStatus = "processed"
 			if err := s.repo.CreateMidtransNotificationLog(ctx, tx, logCommon); err != nil {
 				return err
+			}
+			if attempt != nil && isFinalStatus {
+				currentBalance, _ := s.repo.CurrentTenantBalance(ctx, tx, attempt.TenantID)
+				netAmount := amountFromPayloadOrFallback(parseMidtransAmount(grossAmount), attempt.Amount)
+				nextBalance := currentBalance + netAmount
+				if err := s.repo.CreateLedgerEntry(ctx, tx, TenantLedgerEntry{
+					TenantID:              attempt.TenantID,
+					SourceType:            "sales_order_payment",
+					SourceID:              &salesOrderID,
+					SourceRef:             orderID,
+					MidtransOrderID:       orderID,
+					MidtransTransactionID: transactionID,
+					TransactionStatus:     newStatus,
+					PaymentType:           paymentType,
+					Direction:             "credit",
+					GrossAmount:           netAmount,
+					NetAmount:             netAmount,
+					BalanceAfter:          nextBalance,
+					Status:                "settled",
+					DedupeKey:             buildLedgerDedupeKey("sales_order_payment", orderID, transactionID, newStatus, paymentType),
+					RawPayload:            mustJSON(payload),
+					CreatedAt:             receivedAt,
+					UpdatedAt:             receivedAt,
+				}); err != nil {
+					return err
+				}
 			}
 			if attempt != nil {
 				salesOrderNotify = &SalesOrderRealtimeContext{

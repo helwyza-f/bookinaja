@@ -1,0 +1,2 @@
+-- Subscription ledger entries are platform revenue and should not be restored
+-- into tenant balance ledgers.

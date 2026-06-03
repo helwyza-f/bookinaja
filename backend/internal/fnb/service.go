@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -55,7 +56,7 @@ func (s *Service) UpdateItem(ctx context.Context, id, tenantID uuid.UUID, req Up
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if curr == nil || curr.TenantID != tenantID {
 		return nil, errors.New("menu tidak ditemukan atau anda tidak memiliki akses")
 	}
@@ -84,4 +85,23 @@ func (s *Service) UpdateItem(ctx context.Context, id, tenantID uuid.UUID, req Up
 // RemoveItem menghapus menu dari katalog
 func (s *Service) RemoveItem(ctx context.Context, id, tenantID uuid.UUID) error {
 	return s.repo.Delete(ctx, id, tenantID)
+}
+
+func (s *Service) CreateOrder(ctx context.Context, tenantID uuid.UUID, userID string, req CreateOrderReq) (*Order, error) {
+	var createdBy *uuid.UUID
+	if strings.TrimSpace(userID) != "" {
+		parsed, err := uuid.Parse(strings.TrimSpace(userID))
+		if err == nil {
+			createdBy = &parsed
+		}
+	}
+	return s.repo.CreateOrder(ctx, tenantID, createdBy, req)
+}
+
+func (s *Service) ListOrders(ctx context.Context, tenantID uuid.UUID, source string, limit int) ([]Order, error) {
+	return s.repo.ListOrders(ctx, tenantID, source, limit)
+}
+
+func (s *Service) OrderSummary(ctx context.Context, tenantID uuid.UUID) (OrderSummary, error) {
+	return s.repo.OrderSummary(ctx, tenantID)
 }

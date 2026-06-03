@@ -7,32 +7,32 @@ import { Card } from "@/components/ui/card";
 const reportMenus = [
   {
     title: "Pendapatan",
-    description: "Booking dan POS dengan total, paid amount, sisa tagihan, dan status bayar.",
+    description: "Ringkasan pemasukan dari booking dan penjualan langsung, lengkap dengan total dibayar dan sisa tagihan.",
     href: "/admin/reports/revenue",
   },
   {
     title: "Pengeluaran",
-    description: "Expense khusus dengan kategori, vendor, tanggal, dan nilai pengeluaran.",
+    description: "Catatan biaya operasional berdasarkan kategori, supplier, tanggal, dan nominal.",
     href: "/admin/reports/expenses",
   },
   {
     title: "Semua transaksi",
-    description: "Gabungan booking dan direct sale untuk audit transaksi operasional.",
+    description: "Gabungan booking dan penjualan langsung untuk melihat arus transaksi harian.",
     href: "/admin/reports/transactions",
   },
   {
     title: "Pelanggan",
-    description: "Customer, kunjungan, total belanja, kontak, dan aktivitas terakhir.",
+    description: "Daftar pelanggan, kontak, total kunjungan, belanja, dan aktivitas terakhir.",
     href: "/admin/reports/customers",
   },
   {
-    title: "Ledger tenant",
-    description: "Mutasi saldo tenant dari Midtrans: gross, fee, net, status, dan saldo berjalan.",
+    title: "Saldo tenant",
+    description: "Dana customer yang masuk lewat Midtrans Bookinaja dan menjadi saldo tenant sebelum dicairkan.",
     href: "/admin/reports/ledger",
   },
   {
-    title: "Webhook Midtrans",
-    description: "Notifikasi Midtrans tenant ini, lengkap dengan order id dan processing status.",
+    title: "Riwayat Midtrans",
+    description: "Riwayat pembayaran digital dari Midtrans untuk memastikan transaksi sudah diterima dan diproses.",
     href: "/admin/reports/midtrans",
   },
 ];
@@ -48,7 +48,7 @@ export default function ReportsIndexPage() {
           Laporan
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-          Data siap audit dan export. Satu permission laporan cukup untuk membuka semua laporan.
+          Pantau pemasukan, pengeluaran, pelanggan, saldo tenant, dan pembayaran digital dalam satu tempat.
         </p>
       </header>
 
