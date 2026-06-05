@@ -129,13 +129,13 @@ const FALLBACK_ASSETS: Record<string, FallbackAsset> = {
   gaming_hub: {
     banner:
       "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=2070",
-    tagline: "Arena Pro Player",
-    copy: "Hardware spesifikasi tinggi dengan koneksi ultra stabil.",
+    tagline: "Booking siap pakai",
+    copy: "Pilih unit, cek slot, dan lanjut booking dari satu halaman.",
     features: [
-      "RTX 4090 Ready",
-      "Internet 1Gbps",
-      "Pro Peripherals",
-      "240Hz Monitor",
+      "Booking online",
+      "Slot real-time",
+      "Pembayaran DP",
+      "Kontak cepat",
     ],
   },
   creative_space: {

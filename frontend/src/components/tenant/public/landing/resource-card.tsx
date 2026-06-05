@@ -43,9 +43,9 @@ export function ResourceCard({
     res.description || "Resource siap ditampilkan untuk booking customer.";
   const resolvedPriceUnitLabel = isDirectSale
     ? rawUnit && rawUnit !== "sesi"
-      ? priceUnitLabel
+      ? rawUnit
       : "pcs"
-    : priceUnitLabel;
+    : rawUnit || priceUnitLabel;
 
   const cardRadiusClass =
     radiusStyle === "square"

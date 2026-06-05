@@ -48,6 +48,40 @@ import {
 } from "@/components/tenant/public/landing/builder-renderer";
 import { useCustomerSessionPreview } from "@/lib/customer-session-preview";
 
+function priceUnitLabel(value?: string) {
+  switch (String(value || "").toLowerCase()) {
+    case "hour":
+      return "jam";
+    case "session":
+      return "sesi";
+    case "day":
+      return "hari";
+    case "week":
+      return "minggu";
+    case "month":
+      return "bulan";
+    case "year":
+      return "tahun";
+    default:
+      return "sesi";
+  }
+}
+
+function durationCountLabel(value?: string) {
+  switch (String(value || "").toLowerCase()) {
+    case "day":
+      return "hari";
+    case "week":
+      return "minggu";
+    case "month":
+      return "bulan";
+    case "year":
+      return "tahun";
+    default:
+      return "sesi";
+  }
+}
+
 export default function ResourceBookingDetail() {
   const params = useParams();
   const router = useRouter();
@@ -601,7 +635,7 @@ export default function ResourceBookingDetail() {
                     </p>
                     <p className={cn("mt-1.5 text-[9px] font-bold uppercase leading-none italic tracking-tighter", themeVisuals.mutedClass)}>
                       Rp {item.price.toLocaleString()} /{" "}
-                      {item.price_unit.toUpperCase()}
+                      {priceUnitLabel(item.price_unit)}
                     </p>
                     {selectedMainId === item.id && (
                       <Check
@@ -815,9 +849,7 @@ export default function ResourceBookingDetail() {
                     >
                       {val}{" "}
                       <span className="mt-1 text-[7px] font-bold uppercase not-italic text-slate-500 dark:text-slate-300">
-                        {isInterday
-                          ? selectedItem.price_unit.substring(0, 3)
-                          : "SESS"}
+                        {durationCountLabel(selectedItem.price_unit)}
                       </span>
                     </button>
                   ))}

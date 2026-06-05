@@ -413,8 +413,10 @@ export function OnboardingStepScreen({ step }: { step: string }) {
     (!bankTransferEnabled || hasBankTransferConfig(bankName, bankAccountName, bankAccountNumber)) &&
     (!qrisStaticEnabled || hasQrisConfig(qrisImageUrl)),
   );
+  const defaultBookingQuantity = Boolean(resourceName.trim() && priceName.trim() && Number(price || 0)) ? 1 : 0;
+  const effectiveBookingQuantity = bookingQuantity > 0 ? bookingQuantity : defaultBookingQuantity;
   const firstBookingValid = Boolean(
-    bookingQuantity > 0 && bookingTime && bookingName.trim() && bookingPhone.trim(),
+    effectiveBookingQuantity > 0 && bookingTime && bookingName.trim() && bookingPhone.trim(),
   );
   const continueDisabled = step === "resource"
     ? !resourceValid
@@ -438,7 +440,7 @@ export function OnboardingStepScreen({ step }: { step: string }) {
       return;
     }
     if (step === "first-booking") {
-      if (!bookingQuantity || bookingQuantity <= 0) {
+      if (!effectiveBookingQuantity || effectiveBookingQuantity <= 0) {
         toast.error("Pilih resource, paket, dan jumlah booking dulu.");
         return;
       }
@@ -500,7 +502,7 @@ export function OnboardingStepScreen({ step }: { step: string }) {
                 booking_date: bookingDate,
                 booking_time: bookingTime,
                 booking_mode: bookingMode,
-                quantity: bookingQuantity,
+                quantity: effectiveBookingQuantity,
               },
             }
           : {}),
@@ -616,7 +618,7 @@ export function OnboardingStepScreen({ step }: { step: string }) {
               bookingPhone={bookingPhone}
               bookingTime={bookingTime}
               bookingMode={bookingMode}
-              bookingQuantity={bookingQuantity}
+              bookingQuantity={effectiveBookingQuantity}
               setBookingName={setBookingName}
               setBookingPhone={setBookingPhone}
               setBookingDate={setBookingDate}
@@ -763,15 +765,6 @@ function ResourceStep(props: {
   function handleDurationChange(nextValue: string) {
     const digits = digitsOnly(nextValue);
     props.setDuration(digits);
-
-    if (props.priceUnit === "hour" && digits && digits !== "60") {
-      props.setPriceUnit("session");
-      return;
-    }
-
-    if (props.priceUnit === "day" && digits && digits !== "1440") {
-      props.setPriceUnit("session");
-    }
   }
 
   return (
@@ -963,16 +956,14 @@ function ResourceStep(props: {
               ) : null}
               {props.priceUnit === "hour" ? (
                 <>
-                  {" "}Kalau durasi kamu ubah dari
-                  <span className="font-semibold text-slate-950"> 60 menit</span>, sistem akan membaca paket ini sebagai
-                  <span className="font-semibold text-slate-950"> per sesi</span>.
+                  {" "}Durasi ini menentukan panjang 1 slot layanan. Rekomendasi paket per jam:
+                  <span className="font-semibold text-slate-950"> 60 menit</span>.
                 </>
               ) : null}
               {props.priceUnit === "day" ? (
                 <>
-                  {" "}Kalau durasi kamu ubah dari
-                  <span className="font-semibold text-slate-950"> 1440 menit</span>, sistem akan membaca paket ini sebagai
-                  <span className="font-semibold text-slate-950"> per sesi</span>.
+                  {" "}Durasi ini menentukan cakupan 1 paket harian. Untuk full day, gunakan
+                  <span className="font-semibold text-slate-950"> 1440 menit</span>.
                 </>
               ) : null}
             </div>
@@ -1721,8 +1712,9 @@ function BookingExperienceStep(props: {
   const todayValue = format(new Date(), "yyyy-MM-dd");
   const tomorrowDate = addDays(new Date(), 1);
   const tomorrowValue = format(tomorrowDate, "yyyy-MM-dd");
-  const [selectedResource, setSelectedResource] = useState(false);
-  const [selectedPackage, setSelectedPackage] = useState(false);
+  const hasDefaultSelection = Boolean(props.resourceName && props.priceName && Number(props.price || 0));
+  const [selectedResource, setSelectedResource] = useState(hasDefaultSelection);
+  const [selectedPackage, setSelectedPackage] = useState(hasDefaultSelection);
   const [selectedDay, setSelectedDay] = useState<"today" | "tomorrow" | "custom">("today");
   const [customDate, setCustomDate] = useState(format(addDays(new Date(), 7), "yyyy-MM-dd"));
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -1840,9 +1832,10 @@ function BookingExperienceStep(props: {
               type="button"
               onClick={() => {
                 setSelectedResource(true);
-                setSelectedPackage(false);
-                setQuantity(0);
-                props.setBookingTime("");
+                if (!selectedPackage) {
+                  setSelectedPackage(true);
+                  setQuantity(1);
+                }
               }}
               className={`rounded-2xl border p-4 text-left transition ${
                 selectedResource
@@ -1863,7 +1856,6 @@ function BookingExperienceStep(props: {
                 if (!selectedResource) return;
                 setSelectedPackage(true);
                 setQuantity(1);
-                props.setBookingTime("");
               }}
               className={`rounded-2xl border p-4 text-left transition ${
                 !selectedResource

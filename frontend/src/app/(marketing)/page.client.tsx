@@ -79,42 +79,6 @@ function revealStyle(visible: boolean, delay = 0): CSSProperties {
   };
 }
 
-function AnimatedCounter({
-  target,
-  suffix = "",
-  prefix = "",
-}: {
-  target: number;
-  suffix?: string;
-  prefix?: string;
-}) {
-  const [count, setCount] = useState(0);
-  const [ref, visible] = useReveal(0.35);
-
-  useEffect(() => {
-    if (!visible) return;
-
-    let frame = 0;
-    const totalFrames = 70;
-    const timer = window.setInterval(() => {
-      frame += 1;
-      const progress = 1 - Math.pow(1 - frame / totalFrames, 3);
-      setCount(Math.round(target * progress));
-      if (frame >= totalFrames) window.clearInterval(timer);
-    }, 18);
-
-    return () => window.clearInterval(timer);
-  }, [target, visible]);
-
-  return (
-    <span ref={ref}>
-      {prefix}
-      {count.toLocaleString("id-ID")}
-      {suffix}
-    </span>
-  );
-}
-
 function SectionHeader({
   eyebrow,
   title,
@@ -173,7 +137,7 @@ function SecondaryCta() {
         className="h-14 w-full rounded-2xl border-slate-300 bg-white/70 px-7 text-[12px] font-black uppercase tracking-[0.16em] text-slate-900 backdrop-blur transition-all hover:-translate-y-0.5 hover:bg-white dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15 sm:w-auto"
       >
         <Play className="mr-2 h-4 w-4 fill-current" />
-        Lihat Demo 2 Menit
+        Lihat Demo Produk
       </Button>
     </Link>
   );
@@ -214,9 +178,9 @@ function AvatarStack() {
         ))}
       </div>
       <div className="text-center text-sm font-bold text-slate-700 dark:text-slate-200 sm:text-left">
-        2.400+ bisnis aktif di Indonesia
+        Dibangun untuk operasional bisnis Indonesia
         <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
-          rental, studio, venue, sport, dan service appointment
+          rental, studio, venue, sport, dan appointment
         </div>
       </div>
     </div>
@@ -680,10 +644,10 @@ function AnimatedDashboard() {
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-300">
-                  Dashboard Preview
+                  Operational Preview
                 </div>
                 <h3 className="mt-1 text-2xl font-black tracking-tight text-white">
-                  Satu layar untuk booking, kasir, dan owner.
+                  Booking, POS, pembayaran, dan laporan dalam satu alur.
                 </h3>
               </div>
               <div className="grid grid-cols-5 gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
@@ -754,28 +718,17 @@ function SocialProof() {
 
         <div className="mt-4 grid gap-3 md:grid-cols-4">
           {[
-            ["2.400+", "bisnis aktif"],
+            ["7", "jenis bisnis siap demo"],
             ["Realtime", "update dashboard"],
-            ["50M+", "transaksi tercatat"],
-            ["4.9", "rating onboarding"],
+            ["POS", "booking & checkout"],
+            ["30 hari", "trial tanpa kartu"],
           ].map(([value, label]) => (
             <div
               key={label}
               className="rounded-3xl border border-slate-200 bg-white px-5 py-6 text-center dark:border-white/10 dark:bg-slate-950/50"
             >
               <div className="text-3xl font-black tracking-tight text-slate-950 dark:text-white">
-                {value === "2.400+" ? (
-                  <AnimatedCounter target={2400} suffix="+" />
-                ) : value === "50M+" ? (
-                  <AnimatedCounter target={50} suffix="M+" />
-                ) : value === "4.9" ? (
-                  <>
-                    <Star className="mb-1 mr-1 inline h-5 w-5 fill-amber-400 text-amber-400" />
-                    {value}
-                  </>
-                ) : (
-                  value
-                )}
+                {value}
               </div>
               <div className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-white/40">
                 {label}
@@ -810,7 +763,7 @@ function ProblemSolution() {
                 belum cukup.
               </>
             }
-            description="Kalau booking, pembayaran, dan staff tidak terkoneksi, bisnis tetap terasa berantakan."
+            description="Kalau slot, kasir, pembayaran, dan laporan tidak tersambung, owner tetap harus mengejar update manual."
           />
 
           <div className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white/80 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/[0.04]">
@@ -868,7 +821,7 @@ function ProblemSolution() {
                   Dengan Bookinaja
                 </div>
                 <div className="mt-1 text-2xl font-black tracking-tight">
-                  Semua bergerak dalam satu alur.
+                  Dari booking masuk sampai checkout tercatat.
                 </div>
               </div>
               <span className="hidden rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-300 sm:inline-flex">
@@ -882,7 +835,7 @@ function ProblemSolution() {
                   ["Booking masuk", "Studio A · 15:30"],
                   ["Slot terkunci", "Tidak bisa double booking"],
                   ["DP tercatat", "Rp50.000 via QRIS"],
-                  ["Staff melihat", "Siap check-in"],
+                  ["Kasir melihat", "Siap check-in"],
                 ].map(([label, value], index) => (
                   <div
                     key={label}
@@ -2275,7 +2228,6 @@ function FinalCta() {
 }
 
 export default function LandingPage() {
-  const [heroRef, heroVisible] = useReveal(0.04);
   const [demoRef, demoVisible] = useReveal(0.08);
 
   return (
@@ -2334,26 +2286,28 @@ export default function LandingPage() {
 
       <main className="relative z-10">
         <section
-          ref={heroRef}
           className="mx-auto flex min-h-[calc(100svh-7rem)] w-full max-w-7xl flex-col items-center justify-start px-4 pb-12 pt-36 text-center sm:px-6 sm:pt-32 md:min-h-[calc(100vh-2rem)] md:justify-center md:pt-36"
         >
-          <div style={revealStyle(heroVisible)} className="space-y-6">
+          <div className="space-y-6">
             <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-white/70 px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-blue-600 shadow-sm backdrop-blur dark:bg-white/5 dark:text-blue-300">
               <Sparkles className="h-3.5 w-3.5 fill-current" />
               Sistem booking dan operasional untuk bisnis Indonesia
             </div>
 
-            <h1 className="mx-auto max-w-5xl font-sans text-[2.35rem] font-[900] leading-[1.04] tracking-[-0.055em] text-slate-950 dark:text-white sm:text-[3.25rem] md:text-[4.1rem] lg:text-[4.75rem]">
-              <span className="block">Kendali Penuh Operasional</span>
+            <h1
+              className="mx-auto max-w-5xl font-sans text-[2.35rem] font-[900] leading-[1.04] tracking-[-0.055em] text-slate-950 dark:text-white sm:text-[3.25rem] md:text-[4.1rem] lg:text-[4.75rem]"
+              aria-label="Kendali penuh operasional bisnis Anda"
+            >
+              <span className="block">Kendali Penuh Operasional</span>{" "}
               <span className="block text-blue-600 dark:text-blue-300">
                 Bisnis Anda
               </span>
             </h1>
 
             <p className="mx-auto max-w-2xl text-base font-medium leading-8 text-slate-600 dark:text-slate-300 sm:text-lg">
-              Bookinaja merapikan booking otomatis, memantau unit secara
-              real-time, dan membantu owner tetap pegang kontrol tanpa harus
-              selalu ada di tempat.
+              Bookinaja menyambungkan booking, sesi/POS, pembayaran, dan
+              laporan supaya owner bisa melihat operasional tanpa mengejar
+              update manual.
             </p>
 
             <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">

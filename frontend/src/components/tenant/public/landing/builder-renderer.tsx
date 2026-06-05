@@ -72,7 +72,7 @@ export function LandingBuilderRenderer({
     if (typeof resource.starting_price === "number" && resource.starting_price > 0) {
       return {
         value: Number(resource.starting_price),
-        unit: resource.starting_price_unit === "hour" ? "Jam" : "Sesi",
+        unit: resource.starting_price_unit === "hour" ? "jam" : "sesi",
       };
     }
     const mains = resource.items?.filter(
@@ -84,7 +84,7 @@ export function LandingBuilderRenderer({
     );
     return {
       value: Number(lowest.price),
-      unit: lowest.price_unit === "hour" ? "Jam" : "Sesi",
+      unit: lowest.price_unit === "hour" ? "jam" : "sesi",
     };
   };
 
@@ -365,7 +365,7 @@ function renderSection({
                                       <span className={themeVisuals.titleClass}>
                                         Rp {bestPrice.value.toLocaleString("id-ID")}
                                       </span>
-                                      /{isTimed ? bestPrice.unit : bestPrice.unit === "Sesi" ? "pcs" : bestPrice.unit}
+                                      /{isTimed ? bestPrice.unit : bestPrice.unit === "sesi" ? "pcs" : bestPrice.unit}
                                     </>
                                   ) : (
                                     isTimed ? "Harga tampil saat item utama tersedia" : "Harga tampil saat produk utama tersedia"

@@ -1835,7 +1835,7 @@ export default function BookingDetailPage() {
                     Payment Summary
                   </p>
                   <p className="text-sm font-medium text-slate-500 dark:text-slate-300">
-                    Tombol aksi ada di kanan atas
+                    Ikuti status pembayaran dan pilih aksi pelunasan saat siap.
                   </p>
                 </div>
                 <Badge className="rounded-full border-none bg-[var(--bookinaja-600)] px-3 py-1 text-[10px] font-semibold uppercase text-white">

@@ -138,7 +138,7 @@ export function TenantNavbar({
             <div
               className={cn(
                 "truncate font-[1000] uppercase italic tracking-tighter",
-                "max-w-[112px] text-[16px] sm:max-w-[180px] sm:text-[18px] md:max-w-[320px] md:text-[24px]",
+                "max-w-[156px] text-[16px] sm:max-w-[180px] sm:text-[18px] md:max-w-[320px] md:text-[24px]",
               )}
             >
               {profile.name}
@@ -192,8 +192,8 @@ export function TenantNavbar({
                 buttonRadiusClass,
               )}
             >
-              <ShieldCheck className="mr-1.5 h-4 w-4" />
-              <span className="md:hidden">Admin</span>
+              <ShieldCheck className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline md:hidden">Admin</span>
               <span className="hidden md:inline">Masuk Admin</span>
             </Button>
           </a>
@@ -226,9 +226,9 @@ export function TenantNavbar({
                   {customerInitials || "CU"}
                 </span>
               ) : (
-                <UserCircle2 className="mr-1.5 h-4 w-4" />
+                <UserCircle2 className="h-4 w-4 sm:mr-1.5" />
               )}
-              <span className="inline md:hidden">
+              <span className="hidden sm:inline md:hidden">
                 {isAuthenticated ? "Akun" : "Customer"}
               </span>
               <span className="hidden md:inline">

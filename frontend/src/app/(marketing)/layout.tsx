@@ -157,6 +157,11 @@ export default function MarketingLayout({
     setProfileOpen(false);
   };
 
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false);
+    setOpenMobileSubmenu(null);
+  };
+
   const demoNavLinks = demoSectors.map((sector) => ({
     name: sector.shortTitle,
     href: `/demos/${sector.slug}`,
@@ -171,6 +176,14 @@ export default function MarketingLayout({
 
   return (
     <div className="marketing-calm flex min-h-screen flex-col selection:bg-blue-600/30 font-plus-jakarta transition-colors duration-300 relative">
+      {isMobileMenuOpen ? (
+        <button
+          type="button"
+          aria-label="Tutup menu"
+          onClick={closeMobileMenu}
+          className="fixed inset-0 z-[90] bg-slate-950/35 backdrop-blur-[2px] transition-opacity duration-300 lg:hidden"
+        />
+      ) : null}
       {/* --- HEADER (MELAYANG / FIXED) --- */}
       {/* Kita pakai fixed agar Hero naik ke paling atas layar */}
       <header className="fixed top-0 left-0 right-0 z-[100] w-full px-4 py-3 md:py-5 transition-all duration-300">
@@ -377,6 +390,7 @@ export default function MarketingLayout({
                 size="icon"
                 className="lg:hidden rounded-xl text-foreground"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                aria-label={isMobileMenuOpen ? "Tutup menu" : "Buka menu"}
               >
                 {isMobileMenuOpen ? <X /> : <Menu />}
               </Button>
@@ -387,7 +401,7 @@ export default function MarketingLayout({
         {/* Mobile Menu Dropdown */}
         <div
           className={cn(
-            "lg:hidden absolute top-20 left-4 right-4 bg-background/95 border border-border rounded-[1.5rem] p-5 shadow-xl transition-all duration-500 origin-top backdrop-blur-xl",
+            "lg:hidden absolute top-20 left-4 right-4 max-h-[calc(100svh-6rem)] overflow-y-auto rounded-[1.5rem] border border-border bg-background/98 p-5 shadow-[0_26px_80px_rgba(15,23,42,0.22)] transition-all duration-500 origin-top backdrop-blur-2xl dark:bg-[#07070d]/98",
             isMobileMenuOpen
               ? "scale-y-100 opacity-100 visible translate-y-0"
               : "scale-y-95 opacity-0 invisible -translate-y-4",
@@ -424,7 +438,7 @@ export default function MarketingLayout({
                   >
                     <Link
                       href={link.href}
-                      onClick={() => setIsMobileMenuOpen(false)}
+                      onClick={closeMobileMenu}
                       className="rounded-2xl bg-secondary/60 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
                     >
                       Semua demo
@@ -433,7 +447,7 @@ export default function MarketingLayout({
                       <Link
                         key={child.href}
                         href={child.href}
-                        onClick={() => setIsMobileMenuOpen(false)}
+                        onClick={closeMobileMenu}
                         className="rounded-2xl bg-secondary/60 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
                       >
                         {child.name}
@@ -445,7 +459,7 @@ export default function MarketingLayout({
                 <Link
                   key={link.name}
                   href={link.href}
-                  onClick={() => setIsMobileMenuOpen(false)}
+                  onClick={closeMobileMenu}
                   className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/80 py-3 border-b border-border/50 italic"
                 >
                   {link.name}
@@ -467,7 +481,7 @@ export default function MarketingLayout({
                 </div>
                 <Link
                   href={ownerEntryHref}
-                  onClick={() => setIsMobileMenuOpen(false)}
+                  onClick={closeMobileMenu}
                 >
                   <Button className="w-full h-12 rounded-[1.25rem] bg-blue-600 font-semibold text-white uppercase italic tracking-[0.14em] shadow-lg shadow-blue-500/20 border-b-4 border-blue-800">
                     Dashboard
@@ -475,7 +489,7 @@ export default function MarketingLayout({
                 </Link>
                 <Link
                   href="/user/me"
-                  onClick={() => setIsMobileMenuOpen(false)}
+                  onClick={closeMobileMenu}
                 >
                   <Button
                     variant="outline"
@@ -488,7 +502,7 @@ export default function MarketingLayout({
                   type="button"
                   onClick={() => {
                     handleOwnerLogout();
-                    setIsMobileMenuOpen(false);
+                    closeMobileMenu();
                   }}
                   className="flex h-12 w-full items-center justify-center gap-2 rounded-[1.25rem] text-xs font-semibold uppercase italic tracking-[0.14em] text-muted-foreground transition hover:bg-red-500/10 hover:text-red-600"
                 >
@@ -500,7 +514,7 @@ export default function MarketingLayout({
               <>
                 <Link
                   href="/login"
-                  onClick={() => setIsMobileMenuOpen(false)}
+                  onClick={closeMobileMenu}
                 >
                   <Button className="w-full h-12 rounded-[1.25rem] bg-blue-600 font-semibold text-white uppercase italic tracking-[0.14em] shadow-lg shadow-blue-500/20 border-b-4 border-blue-800">
                     Mulai
@@ -508,7 +522,7 @@ export default function MarketingLayout({
                 </Link>
                 <Link
                   href="/user/me"
-                  onClick={() => setIsMobileMenuOpen(false)}
+                  onClick={closeMobileMenu}
                 >
                   <Button
                     variant="outline"

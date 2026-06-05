@@ -120,7 +120,7 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
     <section
       className={cn(
         "relative flex items-center justify-center overflow-hidden bg-white dark:bg-[#050505]",
-        isCompact ? "min-h-[60dvh] md:min-h-[64dvh]" : isSplit ? "min-h-[72dvh] md:min-h-[78dvh]" : "min-h-[80dvh] md:min-h-[100dvh]",
+        isCompact ? "min-h-[56dvh] md:min-h-[64dvh]" : isSplit ? "min-h-[66dvh] md:min-h-[78dvh]" : "min-h-[70dvh] md:min-h-[100dvh]",
       )}
     >
       <div className="absolute inset-0 z-0">
@@ -152,7 +152,7 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
 
       <div
         className={cn(
-          "relative z-20 mx-auto w-full max-w-6xl px-4 pb-12 pt-28 md:px-12 md:pb-24 md:pt-32",
+          "relative z-20 mx-auto w-full max-w-6xl px-4 pb-10 pt-24 md:px-12 md:pb-24 md:pt-32",
           isSplit ? "text-left" : "text-center",
         )}
       >
