@@ -1882,8 +1882,8 @@ export default function BookingDetailPage() {
 
               {!isPaymentSettled && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-[11px] font-medium leading-relaxed text-amber-800 md:p-4 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
-                  Booking belum lunas. Silakan gunakan tombol Process Payment di
-                  kanan atas untuk pelunasan via Midtrans atau cash.
+                  Booking belum lunas. Gunakan aksi pembayaran yang tersedia
+                  untuk mencatat pelunasan via Midtrans, transfer, atau tunai.
                 </div>
               )}
             </div>

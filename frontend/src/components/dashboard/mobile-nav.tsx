@@ -46,10 +46,10 @@ type MobileUser = {
 };
 
 const activeItemClass =
-  "border border-[var(--bookinaja-200)] bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:border-[rgba(74,141,255,0.25)] dark:bg-[rgba(74,141,255,0.12)] dark:text-[var(--bookinaja-200)]";
+  "border border-[var(--bookinaja-200)] bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] shadow-sm dark:border-[rgba(74,141,255,0.25)] dark:bg-[rgba(74,141,255,0.12)] dark:text-[var(--bookinaja-200)]";
 
 const idleItemClass =
-  "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-900";
+  "text-slate-700 hover:bg-slate-100/80 dark:text-slate-300 dark:hover:bg-slate-900";
 
 export function MobileNav({
   mode,
@@ -84,7 +84,7 @@ export function MobileNav({
         <Button
           size="icon"
           className={cn(
-            "z-50 h-10 w-10 rounded-lg border border-[var(--bookinaja-600)] bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)] md:hidden",
+            "z-50 h-10 w-10 rounded-xl border border-[var(--bookinaja-600)] bg-[var(--bookinaja-600)] text-white hover:bg-[var(--bookinaja-700)] md:hidden",
             triggerClassName || "fixed bottom-4 left-4",
           )}
           aria-label="Open admin navigation"
@@ -96,10 +96,10 @@ export function MobileNav({
       <SheetContent
         side="left"
         showCloseButton={false}
-        className="w-[84vw] max-w-[320px] gap-0 overflow-hidden border-r border-slate-200 bg-white p-0 text-slate-950 shadow-lg dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+        className="w-[88vw] max-w-[340px] gap-0 overflow-hidden border-r border-[var(--admin-line)] bg-[var(--admin-surface)] p-0 text-slate-950 shadow-[0_24px_60px_rgba(15,23,42,0.16)] dark:text-white"
       >
         <div className="flex h-full flex-col overflow-hidden">
-          <SheetHeader className="border-b border-slate-200 px-4 py-3 text-left dark:border-slate-800">
+          <SheetHeader className="border-b border-[var(--admin-line)] px-4 py-3 text-left">
             <SheetTitle className="sr-only">Admin navigation</SheetTitle>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
@@ -139,7 +139,7 @@ export function MobileNav({
                 variant="ghost"
                 size="icon"
                 onClick={() => setOpen(false)}
-                className="h-9 w-9 shrink-0 rounded-lg"
+                className="h-9 w-9 shrink-0 rounded-xl"
                 aria-label="Tutup navigasi"
               >
                 <X className="h-4 w-4" />
@@ -162,7 +162,7 @@ export function MobileNav({
                     prefetch={false}
                     onClick={() => setOpen(false)}
                     className={cn(
-                      "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                    "flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors",
                       active ? activeItemClass : idleItemClass,
                     )}
                   >
@@ -174,14 +174,14 @@ export function MobileNav({
             </nav>
 
             {userData?.role === "owner" ? (
-              <div className="mt-auto shrink-0 border-t border-slate-200 pt-3 dark:border-slate-800">
+              <div className="mt-auto shrink-0 border-t border-[var(--admin-line)] pt-3">
                 <div className="space-y-1">
                   {workspaceUtilityNavItems.map((item) => {
                     const active =
                       item.href && (pathname === item.href || pathname.startsWith(`${item.href}/`));
                     const Icon = item.icon;
                     const className = cn(
-                      "flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors",
+                      "flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors",
                       active ? activeItemClass : idleItemClass,
                       item.key === "upgrade" &&
                         "border border-amber-200 bg-amber-50/70 text-amber-900 hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200 dark:hover:bg-amber-500/15",

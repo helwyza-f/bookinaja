@@ -539,7 +539,7 @@ export default function DashboardPage() {
       items.push({
         label: "Butuh tindakan",
         value: String(metrics.actionRequiredCount),
-        hint: metrics.verificationCount > 0 ? `${metrics.verificationCount} verifikasi` : "POS feed",
+        hint: metrics.verificationCount > 0 ? `${metrics.verificationCount} verifikasi` : "Perlu dicek",
         icon: Sparkles,
         tone: "amber",
       });
@@ -792,8 +792,8 @@ export default function DashboardPage() {
     customersCount > 0;
 
   return (
-    <div className="space-y-3 px-3 pb-20 pt-3 font-plus-jakarta md:px-4">
-      <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950 sm:p-3.5">
+    <div className="space-y-3 px-3 pb-20 pt-3 font-plus-jakarta md:px-5">
+      <div className="rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)] p-3 shadow-[var(--admin-shadow-soft)] sm:p-3.5">
         <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -810,7 +810,7 @@ export default function DashboardPage() {
                 Dashboard
               </h1>
               <p className="mt-0.5 text-[13px] text-slate-500 dark:text-slate-400">
-                Pulse operasional yang paling penting.
+                Ringkasan operasional hari ini.
               </p>
             </div>
           </div>
@@ -819,7 +819,7 @@ export default function DashboardPage() {
             <Button
               onClick={() => void fetchDashboard("background")}
               variant="outline"
-              className="h-8.5 rounded-lg px-3 text-sm"
+              className="h-9 rounded-xl px-3 text-sm"
             >
               <RefreshCcw className={cn("mr-2 h-4 w-4", refreshing && "animate-spin")} />
               Refresh
@@ -829,7 +829,7 @@ export default function DashboardPage() {
                 key={action.href}
                 asChild
                 variant="outline"
-                className="h-8.5 rounded-lg px-3 text-sm"
+                className="h-9 rounded-xl px-3 text-sm"
               >
                 <Link href={action.href} prefetch={false}>
                   <action.icon className="mr-2 h-4 w-4" />
@@ -989,7 +989,7 @@ export default function DashboardPage() {
         />
       ) : !loading && !hasOperationalData ? (
         <AdminSurfaceEmpty
-          title="Belum ada pulse operasional"
+          title="Belum ada aktivitas operasional"
           description="Tenant ini belum punya aktivitas yang cukup untuk mengisi dashboard. Mulai dari setup bisnis, resource, lalu booking pertama."
           action={
             <div className="flex flex-wrap justify-center gap-3">
@@ -1008,29 +1008,29 @@ export default function DashboardPage() {
         />
       ) : (
         <>
-          <section className="grid gap-4 xl:grid-cols-[1.45fr_0.7fr]">
-            <div className="space-y-4">
+        <section className="grid gap-3 xl:grid-cols-[1.45fr_0.72fr]">
+            <div className="space-y-3">
               <DashboardLineChartPanel
                 eyebrow="7 hari"
-                title="Revenue 7 hari"
-                description="Bandingkan total revenue harian dengan porsi revenue utama di rentang yang sama."
+                title="Pendapatan 7 hari"
+                description="Pantau pendapatan harian dan transaksi utama dari satu grafik."
                 points={weeklyRevenuePoints}
-                primaryLabel="Revenue"
-                secondaryLabel="Revenue utama"
+                primaryLabel="Pendapatan"
+                secondaryLabel="Transaksi utama"
                 formatValue={(value) => `Rp ${formatIDR(value)}`}
               />
-              <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+              <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-3">
                 <InfoChip label="Total 7 hari" value={`Rp ${formatIDR(weeklySummary.totalRevenue)}`} icon={Wallet} />
                 <InfoChip label="Hari aktif" value={`${weeklySummary.activeDays}/7`} icon={CalendarClock} />
                 <InfoChip label="Puncak" value={`${weeklySummary.peakLabel} · Rp ${formatIDR(weeklySummary.peakRevenue)}`} icon={TrendingUp} />
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <DashboardPanel
-                eyebrow="Decision pulse"
-                title="Yang perlu dibuka sekarang"
-                description="Sinyal singkat untuk bantu ambil keputusan, bukan sekadar baca status."
+                eyebrow="Prioritas"
+                title="Perlu ditindaklanjuti"
+                description="Hal penting yang sebaiknya dicek dulu oleh admin."
               >
                 <div className="space-y-2.5">
                   {decisionPulseItems.length ? (
@@ -1039,10 +1039,10 @@ export default function DashboardPage() {
                         key={item.label}
                         href={item.href}
                         prefetch={false}
-                        className="group block rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 transition hover:border-slate-300 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/30 dark:hover:border-slate-700 dark:hover:bg-slate-900/60"
+                        className="group block rounded-xl border border-[var(--admin-line-soft)] bg-[var(--admin-surface-soft)] px-3 py-3 transition hover:border-slate-300 hover:bg-slate-100 dark:hover:border-slate-700 dark:hover:bg-slate-900/60"
                       >
                         <div className="flex items-start gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[rgba(74,141,255,0.12)] dark:text-[var(--bookinaja-200)]">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[rgba(74,141,255,0.12)] dark:text-[var(--bookinaja-200)]">
                             <item.icon className="h-4 w-4" />
                           </div>
                           <div className="min-w-0 flex-1">
@@ -1079,7 +1079,7 @@ export default function DashboardPage() {
 
               {ownerOnly ? (
                 <DashboardPanel
-                  eyebrow="Recent transaction"
+                  eyebrow="Transaksi"
                   title="Transaksi terbaru"
                   description="Buka detail booking terakhir tanpa pindah lewat list panjang."
                 >
@@ -1090,7 +1090,7 @@ export default function DashboardPage() {
                           key={transaction.id}
                           href={`/admin/bookings/${transaction.id}`}
                           prefetch={false}
-                          className="group block rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 transition hover:border-slate-300 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/30 dark:hover:border-slate-700 dark:hover:bg-slate-900/60"
+                          className="group block rounded-xl border border-[var(--admin-line-soft)] bg-[var(--admin-surface-soft)] px-3 py-2.5 transition hover:border-slate-300 hover:bg-slate-100 dark:hover:border-slate-700 dark:hover:bg-slate-900/60"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
@@ -1110,7 +1110,7 @@ export default function DashboardPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="mt-2 flex items-center justify-between gap-3 border-t border-slate-200 pt-2 text-[11px] text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                          <div className="mt-2 flex items-center justify-between gap-3 border-t border-[var(--admin-line-soft)] pt-2 text-[11px] text-slate-500 dark:text-slate-400">
                             <span>{transaction.detailTime}</span>
                             <span className="inline-flex items-center gap-1 font-medium text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
                               Detail
@@ -1126,7 +1126,7 @@ export default function DashboardPage() {
                     )}
                   </div>
                   <div className="flex justify-end">
-                    <Button asChild variant="outline" className="rounded-lg">
+                    <Button asChild variant="outline">
                       <Link href="/admin/bookings" prefetch={false}>
                         Lihat semua booking
                         <ArrowRight className="ml-2 h-4 w-4" />
@@ -1136,7 +1136,7 @@ export default function DashboardPage() {
                 </DashboardPanel>
               ) : (
                 <DashboardPanel
-                  eyebrow="Pulse"
+                  eyebrow="Ringkasan"
                   title="Ringkasan cepat"
                   description="Konteks singkat untuk baca kondisi tenant saat ini."
                 >
@@ -1151,9 +1151,9 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+          <section className="grid gap-3 xl:grid-cols-[1fr_1fr]">
             <DashboardLeaderboardPanel
-              eyebrow="Resource pulse"
+              eyebrow="Resource"
               title="Resource paling aktif hari ini"
               description="Siapa yang paling aktif hari ini."
               rows={resourceRows}
@@ -1165,7 +1165,7 @@ export default function DashboardPage() {
             />
 
             <DashboardLeaderboardPanel
-              eyebrow="Recent activity"
+              eyebrow="Booking"
               title="Booking terbaru"
               description="Aktivitas booking terbaru."
               rows={bookingRows}
@@ -1273,9 +1273,9 @@ function InfoChip({
   icon: LucideIcon;
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900/30">
+    <div className="rounded-xl border border-[var(--admin-line-soft)] bg-[var(--admin-surface-soft)] px-3 py-2.5">
       <div className="flex items-center justify-between gap-3">
-        <div className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
           {label}
         </div>
         <Icon className="h-4 w-4 text-blue-600 dark:text-blue-300" />
@@ -1308,13 +1308,13 @@ function CompactMetricCard({
   };
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950 sm:p-4">
+    <div className="rounded-2xl border border-[var(--admin-line-soft)] bg-[var(--admin-surface)] p-3 shadow-[var(--admin-shadow-soft)] sm:p-3.5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
             {label}
           </div>
-          <div className="mt-1.5 text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
+          <div className="mt-1.5 text-xl font-semibold tracking-[-0.02em] text-slate-950 dark:text-white sm:text-2xl">
             {loading ? "..." : value}
           </div>
           {hint ? (
@@ -1323,7 +1323,7 @@ function CompactMetricCard({
             </div>
           ) : null}
         </div>
-        <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", toneClass[tone])}>
+        <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", toneClass[tone])}>
           <Icon className="h-4 w-4" />
         </div>
       </div>

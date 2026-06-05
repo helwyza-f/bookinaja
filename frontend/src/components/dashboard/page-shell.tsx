@@ -29,11 +29,11 @@ export function PageShell({
   className,
 }: PageShellProps) {
   return (
-    <main className={cn("mx-auto max-w-7xl space-y-3 px-4 py-3 sm:space-y-4 sm:px-6 lg:px-8", className)}>
+    <main className={cn("mx-auto max-w-7xl space-y-3 px-3 py-3 sm:space-y-4 sm:px-5 lg:px-6", className)}>
       <section
         className={cn(
-          "overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
-          compact ? "p-3 sm:p-3.5" : "p-4 sm:p-5",
+          "overflow-hidden rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)] shadow-[var(--admin-shadow-soft)]",
+          compact ? "p-3 sm:p-3.5" : "p-4 sm:p-4",
         )}
       >
         <div className={cn("flex flex-col", compact ? "gap-2.5" : "gap-4")}>
@@ -44,7 +44,7 @@ export function PageShell({
                   {eyebrow}
                 </div>
               ) : (
-                <Badge variant="outline" className="w-fit rounded-full border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide dark:border-slate-800 dark:bg-slate-900">
+                <Badge variant="outline" className="w-fit rounded-full border-[var(--admin-line)] bg-[var(--admin-surface-soft)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]">
                   {eyebrow}
                 </Badge>
               )
@@ -54,7 +54,7 @@ export function PageShell({
                 <h1
                   className={cn(
                     "font-semibold tracking-tight text-slate-950 dark:text-white",
-                    compact ? "text-[1.65rem] leading-none sm:text-[1.75rem]" : "text-xl sm:text-2xl",
+                    compact ? "text-[1.55rem] leading-none sm:text-[1.7rem]" : "text-xl sm:text-[1.45rem]",
                   )}
                 >
                   {title}
@@ -62,7 +62,7 @@ export function PageShell({
                 <p
                   className={cn(
                     "text-slate-600 dark:text-slate-300",
-                    compact ? "max-w-2xl text-[13px] leading-5" : "max-w-3xl text-sm leading-6",
+                    compact ? "max-w-2xl text-[13px] leading-5" : "max-w-3xl text-sm leading-5",
                   )}
                 >
                   {description}
@@ -72,7 +72,7 @@ export function PageShell({
                 <div
                   className={cn(
                     "flex gap-2 sm:flex-row sm:flex-wrap",
-                    compact ? "flex-wrap lg:justify-end [&_button]:h-9 [&_a]:h-9" : "flex-col lg:justify-end",
+                    compact ? "flex-wrap lg:justify-end [&_button]:h-9 [&_a]:h-9" : "flex-wrap lg:justify-end",
                   )}
                 >
                   {actions}
@@ -84,7 +84,7 @@ export function PageShell({
       </section>
 
       {stats?.length ? (
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
           {stats.map((stat, index) => (
             <DashboardMetricCard
               key={stat.label}

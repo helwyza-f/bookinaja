@@ -60,14 +60,14 @@ export function Sidebar({
   const operationalHrefs = operationalNavItems.map((item) => item.href);
 
   const itemBase = isCollapsed
-    ? "mx-auto flex h-10 w-10 items-center justify-center rounded-lg"
-    : "flex w-full items-center gap-3 rounded-lg px-3 py-2.5";
+    ? "mx-auto flex h-10 w-10 items-center justify-center rounded-xl"
+    : "flex w-full items-center gap-3 rounded-xl px-3 py-2.5";
 
   const itemActive =
-    "border border-[var(--bookinaja-200)] bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:border-[rgba(74,141,255,0.25)] dark:bg-[rgba(74,141,255,0.12)] dark:text-[var(--bookinaja-200)]";
+    "border border-[var(--bookinaja-200)] bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] shadow-sm dark:border-[rgba(74,141,255,0.25)] dark:bg-[rgba(74,141,255,0.12)] dark:text-[var(--bookinaja-200)]";
 
   const itemIdle =
-    "text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white";
+    "text-slate-600 hover:bg-slate-100/80 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white";
 
   const fallbackWorkspace =
     currentWorkspace || {
@@ -77,14 +77,14 @@ export function Sidebar({
     };
 
   return (
-    <div className="relative flex h-full flex-col bg-white font-sans text-slate-900 dark:bg-slate-950 dark:text-white">
-      <div className={cn("px-3 py-3", isCollapsed ? "px-2 pb-2" : "pb-4")}>
+    <div className="relative flex h-full flex-col bg-[var(--admin-surface)] font-sans text-slate-900 dark:text-white">
+      <div className={cn("px-3 py-3", isCollapsed ? "px-2 pb-2" : "pb-3")}>
         {isCollapsed ? (
           <div className="flex justify-center">
             <button
               type="button"
               onClick={() => setIsCollapsed(false)}
-              className="group relative flex h-10 w-10 items-center justify-center rounded-xl bg-white text-white outline-none ring-1 ring-slate-200 transition duration-200 hover:ring-slate-300 dark:bg-slate-950 dark:ring-slate-800 dark:hover:ring-slate-700"
+              className="group relative flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-white outline-none ring-1 ring-[var(--admin-line)] transition duration-200 hover:ring-slate-300 dark:bg-slate-950 dark:hover:ring-slate-700"
               aria-label="Expand sidebar"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 text-xs font-semibold uppercase text-white transition duration-200 group-hover:scale-[0.96] group-hover:opacity-15">
@@ -111,7 +111,7 @@ export function Sidebar({
             <button
               type="button"
               onClick={() => setIsCollapsed(true)}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition duration-200 hover:border-[var(--bookinaja-300)] hover:text-[var(--bookinaja-600)] dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 dark:hover:border-[rgba(74,141,255,0.35)] dark:hover:text-[var(--bookinaja-200)]"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[var(--admin-line)] bg-white text-slate-500 transition duration-200 hover:border-[var(--bookinaja-300)] hover:text-[var(--bookinaja-600)] dark:bg-slate-950 dark:text-slate-300 dark:hover:border-[rgba(74,141,255,0.35)] dark:hover:text-[var(--bookinaja-200)]"
               aria-label="Collapse sidebar"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
@@ -123,7 +123,7 @@ export function Sidebar({
       <nav
         className={cn(
           "flex min-h-0 flex-1 flex-col overflow-hidden",
-          isCollapsed ? "gap-2 p-2 pt-3" : "gap-1 p-3",
+          isCollapsed ? "gap-2 p-2 pt-3" : "gap-1 px-3 pb-3 pt-1",
         )}
       >
         <div className="min-h-0 flex-1 overflow-y-auto scrollbar-hide">
@@ -159,7 +159,7 @@ export function Sidebar({
           <div
             className={cn(
               "mt-auto shrink-0",
-              isCollapsed ? "border-t border-slate-200 pt-2 dark:border-slate-800" : "border-t border-slate-200 pt-3 dark:border-slate-800",
+              isCollapsed ? "border-t border-[var(--admin-line)] pt-2" : "border-t border-[var(--admin-line)] pt-3",
             )}
           >
             <div className={cn("flex flex-col gap-1", isCollapsed ? "items-center" : "")}>

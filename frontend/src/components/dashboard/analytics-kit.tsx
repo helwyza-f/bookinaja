@@ -126,13 +126,13 @@ export function DashboardMetricCard({
   const colors = toneMap[tone];
 
   return (
-    <Card className={cn("rounded-xl border p-3 sm:p-3.5", colors.shell)}>
+    <Card className={cn("rounded-2xl border p-3 sm:p-3.5", colors.shell)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-2">
-          <div className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+          <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-[0.16em]">
             {label}
           </div>
-          <div className="text-foreground text-xl font-semibold tracking-tight sm:text-2xl">
+          <div className="text-foreground text-xl font-semibold tracking-[-0.02em] sm:text-2xl">
             {loading ? "..." : value}
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -151,7 +151,7 @@ export function DashboardMetricCard({
         {Icon ? (
           <div
             className={cn(
-              "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
               colors.icon,
             )}
           >
@@ -175,7 +175,7 @@ export function DashboardPanel({
   return (
     <Card
       className={cn(
-        "rounded-xl border border-border bg-card",
+        "rounded-2xl border border-[var(--admin-line-soft,var(--border))] bg-card shadow-[var(--admin-shadow-soft)]",
         compact ? "p-3 sm:p-3.5" : "p-4 sm:p-4",
         className,
       )}
@@ -189,14 +189,14 @@ export function DashboardPanel({
         >
           <div className={cn(compact ? "space-y-1" : "space-y-2")}>
             {eyebrow ? (
-              <div className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+              <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-[0.16em]">
                 {eyebrow}
               </div>
             ) : null}
             <div>
               <h2
                 className={cn(
-                  "text-foreground font-semibold",
+                  "text-foreground font-semibold tracking-[-0.01em]",
                   compact ? "text-[1.05rem]" : "text-base sm:text-lg",
                 )}
               >
@@ -313,7 +313,7 @@ export function DashboardLineChartPanel({
     >
       {points.length ? (
         <>
-          <div className="overflow-hidden rounded-lg border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-3 shadow-inner dark:border-white/10 dark:from-white/[0.04] dark:to-transparent sm:p-4">
+          <div className="overflow-hidden rounded-2xl border border-[var(--admin-line-soft,var(--border))] bg-[var(--admin-surface-soft)] p-3 dark:bg-white/[0.03] sm:p-4">
             <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex flex-wrap gap-2">
                 <LegendPill tone="primary" label={primaryLabel} />
@@ -325,7 +325,7 @@ export function DashboardLineChartPanel({
                 ) : null}
               </div>
               {activePoint ? (
-                <div className="bg-card/80 min-w-[180px] rounded-lg border border-border px-3 py-2 backdrop-blur-sm sm:text-right">
+                <div className="min-w-[180px] rounded-xl border border-[var(--admin-line-soft,var(--border))] bg-card/90 px-3 py-2 backdrop-blur-sm sm:text-right">
                   <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-[0.22em]">
                     {activePoint.label}
                   </div>
@@ -691,21 +691,21 @@ export function DashboardLeaderboardPanel({
 }: LeaderboardPanelProps) {
   return (
     <DashboardPanel eyebrow={eyebrow} title={title} description={description}>
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {rows.length ? (
           rows.map((row, index) => (
             <div
               key={row.id}
-              className="bg-muted/40 rounded-lg border border-border p-3"
+              className="rounded-xl border border-[var(--admin-line-soft,var(--border))] bg-[var(--admin-surface-soft)] p-3"
             >
               <div className="flex items-start gap-3">
-                <div className="bg-muted text-muted-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-xs font-semibold">
+                <div className="bg-muted text-muted-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-semibold">
                   {index + 1}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-foreground truncate text-sm font-medium">
+                      <div className="text-foreground truncate text-sm font-semibold">
                         {row.title}
                       </div>
                       {row.subtitle ? (

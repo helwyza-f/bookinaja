@@ -2,7 +2,7 @@
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Zap } from "lucide-react";
+import { CalendarCheck, Zap } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { getLandingPresetTone } from "./theme-preset";
@@ -37,7 +37,7 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
   const radiusStyle = theme.radiusStyle || "rounded";
   const tone = getLandingPresetTone(themePreset);
   const sloganText =
-    normalizeLandingCopy(profile.slogan) || "Pengalaman Premium";
+    normalizeLandingCopy(profile.slogan) || "Booking online";
   const mobileSlogan = truncateLandingCopy(
     sloganText,
     LANDING_COPY_BUDGET.mobileHeroSlogan,
@@ -161,11 +161,11 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
           <div>
             <Badge
               className={cn(
-                "max-w-full px-3 py-1.5 font-bold text-[9px] md:px-4 md:py-2 md:text-xs uppercase tracking-[0.18em] md:tracking-[0.22em]",
+                "max-w-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] md:px-4 md:py-2 md:text-xs",
                 heroBadgeClass,
               )}
             >
-              <Sparkles className="mr-2 h-3.5 w-3.5" style={{ color: theme.primary }} />
+              <CalendarCheck className="mr-2 h-3.5 w-3.5" style={{ color: theme.primary }} />
               <span className="truncate md:hidden">{mobileSlogan}</span>
               <span className="hidden truncate md:inline">{sloganText}</span>
             </Badge>
@@ -174,13 +174,13 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
           <div className={cn("w-full select-none", isSplit ? "px-0 py-1" : "px-0 py-1")}>
             <h1
               className={cn(
-                "font-[1000] uppercase italic tracking-[-0.06em] leading-[0.92]",
+                "font-semibold uppercase leading-[0.98] tracking-normal",
                 tone.title,
                 isCompact
-                  ? "text-[10vw] md:text-[5.4rem]"
+                  ? "text-[11vw] md:text-[5rem]"
                   : isSplit
-                    ? "text-[10.5vw] md:text-[5.8rem]"
-                    : "text-[13vw] md:text-[6.5rem]",
+                    ? "text-[11vw] md:text-[5.4rem]"
+                    : "text-[12vw] md:text-[5.8rem]",
               )}
             >
               <span className="block">{firstName}</span>
@@ -199,7 +199,7 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
           </div>
 
           <div className={cn("space-y-3", isSplit ? "max-w-xl px-0" : "max-w-3xl px-1")}>
-            <h2 className={cn("line-clamp-2 text-base font-black italic leading-snug tracking-tight md:text-3xl", tone.title)}>
+            <h2 className={cn("line-clamp-2 text-base font-semibold leading-snug tracking-normal md:text-2xl", tone.title)}>
               <span className="md:hidden">{mobileTagline}</span>
               <span className="hidden md:inline">{heroTagline}</span>
             </h2>
@@ -214,7 +214,7 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
               <div
                 key={i}
                 className={cn(
-                  "flex min-w-0 max-w-full items-center gap-2 px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em]",
+                  "flex min-w-0 max-w-full items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.1em]",
                   floatingPanelClass,
                 )}
               >
@@ -244,7 +244,7 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
                     backgroundColor: theme.primary,
                   }}
                 />
-                <span className={cn("line-clamp-1 text-xs font-bold uppercase tracking-[0.14em]", tone.title)}>
+                <span className={cn("line-clamp-1 text-xs font-semibold uppercase tracking-[0.1em]", tone.title)}>
                   {f}
                 </span>
               </div>
@@ -258,7 +258,7 @@ export function TenantHero({ profile, content, theme, variant = "immersive" }: T
             >
               <Button
                 className={cn(
-                  "relative z-10 h-12 w-full overflow-hidden border-none px-5 text-sm font-[1000] uppercase italic tracking-[0.1em] text-white shadow-xl md:h-20 md:w-auto md:px-16 md:text-2xl md:tracking-[0.16em]",
+                  "relative z-10 h-12 w-full overflow-hidden border-none px-5 text-sm font-semibold uppercase tracking-[0.08em] text-white shadow-xl md:h-14 md:w-auto md:px-10 md:text-base",
                   ctaRadiusClass,
                   !isSplit && "mx-auto max-w-[300px] md:max-w-none",
                 )}

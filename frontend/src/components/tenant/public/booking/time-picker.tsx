@@ -26,23 +26,23 @@ export function TimePicker({
   activeTheme,
 }: TimePickerProps) {
   return (
-    <section className="space-y-6 pt-10 border-t border-slate-100 dark:border-white/5 animate-in fade-in slide-in-from-top-4 duration-500">
+    <section className="space-y-5 border-t border-slate-100 pt-8 animate-in fade-in slide-in-from-top-4 duration-500 dark:border-white/5">
       {/* --- HEADER SECTION --- */}
       <div className="flex items-center justify-between px-2">
         <div className="flex items-center gap-4">
           <div
             className={cn(
-              "h-10 w-10 rounded-2xl flex items-center justify-center text-white shadow-lg transition-transform hover:rotate-6",
+              "flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-lg",
               activeTheme.bgPrimary,
             )}
           >
             <Clock className="h-5 w-5" />
           </div>
           <div className="flex flex-col">
-            <h2 className="text-xl md:text-2xl font-black uppercase italic tracking-tight text-slate-900 dark:text-white">
+            <h2 className="text-lg font-semibold uppercase tracking-normal text-slate-900 dark:text-white md:text-xl">
               Jam Mulai
             </h2>
-            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 italic">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">
               Pilih waktu ketersediaan
             </p>
           </div>
@@ -51,7 +51,7 @@ export function TimePicker({
         {busySlots.length > 0 && (
           <Badge
             variant="outline"
-            className="font-black italic text-[9px] border-red-500/20 bg-red-500/5 text-red-500 uppercase px-3 py-1 rounded-lg"
+            className="rounded-lg border-red-500/20 bg-red-500/5 px-3 py-1 text-[9px] font-semibold uppercase text-red-500"
           >
             {busySlots.length} Slot Terisi
           </Badge>
@@ -59,7 +59,7 @@ export function TimePicker({
       </div>
 
       {/* --- TIME GRID --- */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3 p-4 bg-slate-50/50 dark:bg-white/[0.02] rounded-[2.5rem] shadow-inner border border-slate-100 dark:border-white/5">
+      <div className="grid grid-cols-3 gap-2 rounded-2xl border border-slate-100 bg-slate-50/60 p-3 shadow-inner dark:border-white/5 dark:bg-white/[0.02] sm:grid-cols-4 md:grid-cols-6">
         {availableSlots.map((time: string) => {
           const isBusy = isTimeBusy(time);
           const isSelected = selectedTime === time;
@@ -70,26 +70,24 @@ export function TimePicker({
               disabled={isBusy}
               onClick={() => onSelect(time)}
               className={cn(
-                "h-14 rounded-2xl border-4 font-black transition-all text-[14px] uppercase italic relative flex items-center justify-center overflow-hidden",
+                "relative flex h-12 items-center justify-center overflow-hidden rounded-xl border text-[14px] font-semibold transition-all",
                 // State: Selected
                 isSelected
-                  ? `${activeTheme.bgPrimary} border-current text-white shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] scale-105 z-10 ${activeTheme.glow}`
+                    ? `${activeTheme.bgPrimary} z-10 scale-[1.02] border-current text-white shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] ${activeTheme.glow}`
                   : // State: Busy/Full
                     isBusy
                     ? "bg-slate-100 dark:bg-white/5 border-transparent text-slate-300 dark:text-slate-700 cursor-not-allowed grayscale"
                     : // State: Available
-                      "bg-white dark:bg-[#111] border-white dark:border-white/5 text-slate-900 dark:text-slate-100 hover:border-blue-500 dark:hover:border-blue-400 shadow-sm active:scale-95",
+                      "border-white bg-white text-slate-900 shadow-sm active:scale-95 dark:border-white/5 dark:bg-[#111] dark:text-slate-100 dark:hover:border-blue-400",
               )}
             >
               {/* Teks Jam */}
-              <span className={cn(isSelected ? "animate-pulse" : "")}>
-                {time}
-              </span>
+              <span>{time}</span>
 
               {/* Label Status Busy */}
               {isBusy && (
                 <div className="absolute inset-0 flex items-center justify-center bg-slate-100/40 dark:bg-black/40 backdrop-blur-[1px]">
-                  <span className="text-[7px] font-[900] uppercase tracking-tighter text-slate-400 dark:text-slate-600">
+                    <span className="text-[8px] font-semibold uppercase text-slate-400 dark:text-slate-600">
                     N/A
                   </span>
                 </div>
@@ -105,9 +103,9 @@ export function TimePicker({
       </div>
 
       {/* --- FOOTER INFO (Mobile Only) --- */}
-      <div className="flex items-center gap-2 px-4 py-3 bg-blue-500/5 dark:bg-blue-400/5 border border-blue-500/10 dark:border-blue-400/10 rounded-2xl">
+      <div className="flex items-center gap-2 rounded-2xl border border-blue-500/10 bg-blue-500/5 px-4 py-3 dark:border-blue-400/10 dark:bg-blue-400/5">
         <Info className="h-3.5 w-3.5 text-blue-500" />
-        <p className="text-[9px] font-bold uppercase tracking-wider text-blue-600/80 dark:text-blue-400/80">
+        <p className="text-[10px] font-medium text-blue-600/80 dark:text-blue-400/80">
           Waktu yang tertera adalah zona waktu lokal (WIB).
         </p>
       </div>

@@ -137,8 +137,8 @@ export function TenantNavbar({
           <div className="min-w-0">
             <div
               className={cn(
-                "truncate font-[1000] uppercase italic tracking-tighter",
-                "max-w-[156px] text-[16px] sm:max-w-[180px] sm:text-[18px] md:max-w-[320px] md:text-[24px]",
+                "truncate font-semibold uppercase tracking-normal",
+                "max-w-[156px] text-[15px] sm:max-w-[180px] sm:text-[17px] md:max-w-[320px] md:text-[22px]",
               )}
             >
               {profile.name}
@@ -153,8 +153,8 @@ export function TenantNavbar({
               />
                 <span
                   className={cn(
-                  "truncate font-black uppercase",
-                  "max-w-[110px] text-[8px] tracking-[0.18em] sm:max-w-[170px] sm:text-[9px] sm:tracking-[0.2em] md:max-w-[320px] md:text-[10px] md:tracking-[0.28em]",
+                  "truncate font-semibold uppercase",
+                  "max-w-[110px] text-[8px] tracking-[0.12em] sm:max-w-[170px] sm:text-[9px] md:max-w-[320px] md:text-[10px]",
                   tone.eyebrow,
                 )}
               >
@@ -188,7 +188,7 @@ export function TenantNavbar({
               type="button"
               variant="outline"
               className={cn(
-                "h-11 border bg-white px-3 text-[10px] font-black uppercase italic tracking-[0.1em] text-slate-900 shadow-[0_14px_30px_rgba(15,23,42,0.12)] ring-1 ring-slate-200/80 transition-transform hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_18px_38px_rgba(15,23,42,0.16)] dark:bg-white/10 dark:text-white dark:ring-white/10 md:h-12 md:px-4 md:text-[11px]",
+                "h-11 border bg-white px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-900 shadow-[0_10px_24px_rgba(15,23,42,0.1)] ring-1 ring-slate-200/80 transition-transform hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_14px_30px_rgba(15,23,42,0.14)] dark:bg-white/10 dark:text-white dark:ring-white/10 md:h-12 md:px-4 md:text-[11px]",
                 buttonRadiusClass,
               )}
             >
@@ -201,7 +201,7 @@ export function TenantNavbar({
           <a href={customerHref} className="shrink-0">
             <Button
               className={cn(
-                "border-none font-black uppercase italic tracking-[0.14em] text-white",
+                "border-none font-semibold uppercase tracking-[0.08em] text-white",
                 cn(
                   "h-11 px-3 text-[10px] md:h-12 md:w-auto md:px-5 md:text-[11px]",
                   buttonRadiusClass,

@@ -35,7 +35,7 @@ export function ResourceCard({
   const rawUnit = String(bestPrice?.unit || "").trim().toLowerCase();
   const priceUnitLabel = bestPrice?.unit || (isDirectSale ? "pcs" : "jam");
   const footerLabel = isDirectSale ? "Harga produk" : "Mulai dari";
-  const modeLabel = isDirectSale ? "Direct Sale" : "Timed";
+  const modeLabel = isDirectSale ? "Produk" : "Booking";
   const href = isDirectSale ? `/orders/${res.id}` : `/bookings/${res.id}`;
   const directSaleDescription =
     res.description || "Pilih produk lalu lanjutkan checkout tanpa perlu memilih slot waktu.";
@@ -84,7 +84,7 @@ export function ResourceCard({
             <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent dark:from-black/55" />
 
             <div className="absolute left-4 top-4">
-              <Badge className="rounded-full border border-white/20 bg-black/55 px-3 py-1 text-[9px] font-black uppercase tracking-[0.22em] text-white backdrop-blur">
+              <Badge className="rounded-full border border-white/20 bg-black/55 px-3 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-white backdrop-blur">
                 {modeLabel}
               </Badge>
             </div>
@@ -93,7 +93,7 @@ export function ResourceCard({
           <div className="flex flex-1 flex-col p-5">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <h3 className={cn("line-clamp-2 text-2xl font-[1000] uppercase italic leading-[0.95] tracking-tight", tone.title)}>
+                <h3 className={cn("line-clamp-2 text-xl font-semibold uppercase leading-tight tracking-normal", tone.title)}>
                   {res.name}
                 </h3>
                 <p className={cn("mt-3 line-clamp-3 text-sm leading-6", tone.body)}>
@@ -111,13 +111,13 @@ export function ResourceCard({
 
             <div className="mt-auto pt-5">
               <div className="border-t border-slate-200/80 pt-4 dark:border-white/10">
-                <p className={cn("text-[10px] font-black uppercase tracking-[0.24em]", tone.cardMuted)}>
+                <p className={cn("text-[10px] font-semibold uppercase tracking-[0.14em]", tone.cardMuted)}>
                   {footerLabel}
                 </p>
 
                 {bestPrice ? (
                   <div className="mt-1 flex items-end gap-1">
-                    <span className="text-3xl font-black tracking-tight text-orange-500">
+                    <span className="text-2xl font-semibold tracking-normal" style={{ color: primaryColor }}>
                       Rp{bestPrice.value.toLocaleString("id-ID")}
                     </span>
                     <span className={cn("pb-1 text-xs font-semibold", tone.cardMuted)}>

@@ -528,11 +528,11 @@ export default function ResourceBookingDetail() {
   return (
     <div
       className={cn(
-        "min-h-screen overflow-x-hidden pb-[18rem] font-plus-jakarta transition-colors duration-500 md:pb-40",
+        "min-h-screen overflow-x-hidden pb-[16rem] font-plus-jakarta transition-colors duration-500 md:pb-36",
         surfaceClass,
       )}
     >
-      <div className="relative h-[30vh] w-full bg-slate-900 md:h-[40vh]">
+      <div className="relative h-[22vh] min-h-[190px] w-full bg-slate-900 md:h-[34vh]">
         {resource?.image_url ? (
           <Image
             src={resource.image_url}
@@ -540,10 +540,10 @@ export default function ResourceBookingDetail() {
             fill
             unoptimized
             sizes="100vw"
-            className="object-cover opacity-60"
+            className="object-cover opacity-50"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-slate-800">
+          <div className="flex h-full w-full items-center justify-center bg-slate-800">
             <ImageIcon className="h-10 w-10 text-slate-700" />
           </div>
         )}
@@ -552,21 +552,21 @@ export default function ResourceBookingDetail() {
           <Button
             onClick={() => router.back()}
             size="sm"
-            className="h-8 rounded-full bg-black/30 backdrop-blur-md text-white border border-white/10 px-3 text-[10px] font-bold"
+            className="h-8 rounded-full border border-white/10 bg-black/35 px-3 text-[10px] font-semibold text-white backdrop-blur-md"
           >
             <ArrowLeft size={14} className="mr-1.5" /> Kembali
           </Button>
         </div>
         <div className="absolute bottom-6 left-5 right-5 z-30 space-y-1">
           <Badge
-            className="px-2 py-0 text-[8px] uppercase italic tracking-widest text-white"
+            className="px-2 py-0 text-[8px] font-semibold uppercase tracking-[0.12em] text-white"
             style={{ backgroundColor: activeTheme.primary_color }}
           >
             {resource?.category}
           </Badge>
           <h1
             className={cn(
-              "break-words text-3xl font-[950] uppercase italic leading-[0.85] tracking-tighter md:text-6xl",
+              "break-words text-3xl font-semibold uppercase leading-none tracking-normal md:text-5xl",
               themeVisuals.heroTitleClass,
             )}
           >
@@ -575,23 +575,23 @@ export default function ResourceBookingDetail() {
         </div>
       </div>
 
-      <main className="max-w-4xl mx-auto px-3 -translate-y-4 relative z-40 space-y-4">
+      <main className="relative z-40 mx-auto max-w-4xl -translate-y-4 space-y-4 px-3">
         <Card
           className={cn(
             themeVisuals.panelClass,
-            "space-y-8 rounded-[2rem] p-5 shadow-2xl md:rounded-[3rem] md:p-10",
+            "space-y-6 rounded-2xl p-4 shadow-[0_18px_50px_rgba(15,23,42,0.1)] md:p-8",
           )}
         >
           {/* STEP 1: PAKET */}
           <section className="space-y-4">
             <div className="flex items-center gap-2 px-1">
               <span
-                className="flex h-6 w-6 items-center justify-center rounded-lg text-[10px] font-black italic text-white"
+                className="flex h-6 w-6 items-center justify-center rounded-lg text-[10px] font-semibold text-white"
                 style={{ backgroundColor: activeTheme.accent_color }}
               >
                 01
               </span>
-              <h2 className={cn("text-sm font-[950] uppercase italic", themeVisuals.titleClass)}>
+              <h2 className={cn("text-sm font-semibold uppercase tracking-[0.08em]", themeVisuals.titleClass)}>
                 Pilih Layanan
               </h2>
             </div>
@@ -606,7 +606,7 @@ export default function ResourceBookingDetail() {
                       setDurationValue(1);
                     }}
                     className={cn(
-                      "p-4 rounded-[1.2rem] border-[3px] text-left transition-all active:scale-95 relative overflow-hidden",
+                      "relative overflow-hidden rounded-xl border-2 p-4 text-left transition-all active:scale-95",
                       selectedMainId === item.id
                         ? "shadow-md"
                         : "border-slate-50 dark:border-white/5 bg-slate-50/50",
@@ -622,7 +622,7 @@ export default function ResourceBookingDetail() {
                   >
                     <p
                       className={cn(
-                        "text-base font-black uppercase italic tracking-tighter leading-none",
+                        "text-base font-semibold uppercase leading-none tracking-normal",
                         selectedMainId === item.id
                           ? ""
                           : "text-slate-900 dark:text-slate-100",
@@ -635,7 +635,7 @@ export default function ResourceBookingDetail() {
                     >
                       {item.name}
                     </p>
-                    <p className={cn("mt-1.5 text-[9px] font-bold uppercase leading-none italic tracking-tighter", themeVisuals.mutedClass)}>
+                    <p className={cn("mt-1.5 text-[10px] font-semibold uppercase leading-none tracking-normal", themeVisuals.mutedClass)}>
                       Rp {item.price.toLocaleString()} /{" "}
                       {priceUnitLabel(item.price_unit)}
                     </p>
@@ -658,18 +658,18 @@ export default function ResourceBookingDetail() {
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <span
-                  className="flex h-6 w-6 items-center justify-center rounded-lg text-[10px] font-black italic text-white"
+                  className="flex h-6 w-6 items-center justify-center rounded-lg text-[10px] font-semibold text-white"
                   style={{ backgroundColor: activeTheme.primary_color }}
                 >
                   02
                 </span>
-                <h2 className={cn("text-sm font-[950] uppercase italic", themeVisuals.titleClass)}>
+                <h2 className={cn("text-sm font-semibold uppercase tracking-[0.08em]", themeVisuals.titleClass)}>
                   Jadwal Kehadiran
                 </h2>
               </div>
               <Badge
                 variant="outline"
-                className={cn("text-[7px] font-black uppercase border-slate-200 dark:border-white/10", themeVisuals.mutedClass)}
+                className={cn("border-slate-200 text-[9px] font-semibold uppercase tracking-normal dark:border-white/10", themeVisuals.mutedClass)}
               >
                 {profile?.open_time} - {profile?.close_time}
               </Badge>
@@ -679,7 +679,7 @@ export default function ResourceBookingDetail() {
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className="h-14 w-full justify-start rounded-xl bg-slate-50/50 dark:bg-white/5 border-none font-black italic px-5 text-sm shadow-inner transition-all hover:bg-slate-100"
+                  className="h-12 w-full justify-start rounded-xl border border-slate-100 bg-slate-50/70 px-4 text-sm font-semibold shadow-inner transition-all hover:bg-slate-100 dark:border-white/5 dark:bg-white/5"
                 >
                   <CalendarIcon
                     className="mr-2 h-4 w-4"
@@ -689,7 +689,7 @@ export default function ResourceBookingDetail() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                className="w-[310px] md:w-[340px] p-2 border-none rounded-[2rem] overflow-hidden shadow-2xl bg-white dark:bg-slate-900"
+                className="w-[310px] overflow-hidden rounded-2xl border-none bg-white p-2 shadow-2xl dark:bg-slate-900 md:w-[340px]"
                 align="center"
               >
                 <Calendar
@@ -707,15 +707,15 @@ export default function ResourceBookingDetail() {
 
             {date && selectedMainId && !isInterday && (
               <div className="space-y-3">
-                <div className={cn("px-1 text-[10px] font-black uppercase tracking-widest", themeVisuals.eyebrowMutedClass)}>
+                <div className={cn("px-1 text-[10px] font-semibold uppercase tracking-[0.1em]", themeVisuals.eyebrowMutedClass)}>
                   Zona waktu {tenantTimezone}
                 </div>
                 {availableSlots.length === 0 ? (
-                  <div className={cn("rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50/30 p-6 text-center text-sm dark:border-white/10", themeVisuals.mutedClass)}>
+                  <div className={cn("rounded-2xl border border-dashed border-slate-200 bg-slate-50/30 p-6 text-center text-sm dark:border-white/10", themeVisuals.mutedClass)}>
                     Slot tidak tersedia untuk tanggal ini.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-4 gap-1.5 p-2.5 bg-slate-50/30 dark:bg-white/[0.02] rounded-[1.5rem] border border-slate-100 dark:border-white/5 animate-in fade-in duration-500">
+                  <div className="grid grid-cols-4 gap-1.5 rounded-2xl border border-slate-100 bg-slate-50/40 p-2.5 animate-in fade-in duration-500 dark:border-white/5 dark:bg-white/[0.02]">
                     {availableSlots.map((time) => {
                       const { isPast, isBusy } = ((timeStr: string) => {
                         const [h, m] = timeStr.split(":").map(Number);
@@ -742,7 +742,7 @@ export default function ResourceBookingDetail() {
                           disabled={isPast || isBusy}
                           onClick={() => setSelectedTime(time)}
                           className={cn(
-                            "h-10 rounded-lg border-2 font-black transition-all text-[11px] uppercase italic relative overflow-hidden",
+                            "relative h-10 overflow-hidden rounded-lg border text-[11px] font-semibold transition-all",
                             isSel
                               ? "text-white shadow-lg"
                             : isPast
@@ -786,7 +786,7 @@ export default function ResourceBookingDetail() {
                       : "text-emerald-500",
                   )}
                 />
-                <p className={cn("text-[10px] font-black uppercase italic", themeVisuals.strongBodyClass)}>
+                <p className={cn("text-[10px] font-semibold uppercase tracking-[0.08em]", themeVisuals.strongBodyClass)}>
                   {selectedRangeState.isPast
                     ? "Jam mulai hari ini sudah lewat"
                     : selectedRangeState.isBusy
@@ -807,17 +807,17 @@ export default function ResourceBookingDetail() {
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-2 text-emerald-500">
                     <span
-                      className="flex h-6 w-6 items-center justify-center rounded-lg text-[10px] font-black italic text-white"
+                      className="flex h-6 w-6 items-center justify-center rounded-lg text-[10px] font-semibold text-white"
                       style={{ backgroundColor: activeTheme.primary_color }}
                     >
                       03
                     </span>
-                    <h2 className={cn("text-sm font-[950] uppercase italic", themeVisuals.titleClass)}>
+                    <h2 className={cn("text-sm font-semibold uppercase tracking-[0.08em]", themeVisuals.titleClass)}>
                       Pilih Durasi
                     </h2>
                   </div>
                   <Badge
-                    className="rounded-full border-none text-[8px] font-black uppercase italic tracking-widest"
+                    className="rounded-full border-none text-[9px] font-semibold uppercase tracking-[0.08em]"
                     style={{
                       backgroundColor: `${activeTheme.primary_color}16`,
                       color: activeTheme.primary_color,
@@ -835,7 +835,7 @@ export default function ResourceBookingDetail() {
                       key={val}
                       onClick={() => setDurationValue(val)}
                       className={cn(
-                        "h-14 min-w-[65px] rounded-xl border-[3px] font-black text-xl transition-all italic snap-center flex flex-col items-center justify-center leading-none",
+                        "flex h-14 min-w-[65px] snap-center flex-col items-center justify-center rounded-xl border-2 text-lg font-semibold leading-none transition-all",
                         durationValue === val
                           ? "text-white shadow-xl scale-105"
                           : "bg-slate-50 dark:bg-white/5 border-transparent text-slate-500 dark:text-slate-300",
@@ -850,7 +850,7 @@ export default function ResourceBookingDetail() {
                       }
                     >
                       {val}{" "}
-                      <span className="mt-1 text-[7px] font-bold uppercase not-italic text-slate-500 dark:text-slate-300">
+                      <span className="mt-1 text-[8px] font-semibold uppercase text-slate-500 dark:text-slate-300">
                         {durationCountLabel(selectedItem.price_unit)}
                       </span>
                     </button>
@@ -858,36 +858,36 @@ export default function ResourceBookingDetail() {
                 </div>
 
                 {/* DETAILED TIMELINE BOX */}
-                <div className={cn(themeVisuals.innerPanelClass, "relative overflow-hidden rounded-[2rem] border-none p-5 shadow-xl space-y-4")}>
+                <div className={cn(themeVisuals.innerPanelClass, "relative space-y-4 overflow-hidden rounded-2xl border border-slate-100 p-4 shadow-sm dark:border-white/5")}>
                   <div className="mb-2 flex items-center gap-2" style={{ color: activeTheme.primary_color }}>
                     <Clock size={14} />
-                    <span className="text-[10px] font-black uppercase tracking-widest italic">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.1em]">
                       Rangkuman Jadwal
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-6 relative z-10">
                     <div className="space-y-1">
-                      <span className={cn("text-[8px] font-black uppercase tracking-widest", themeVisuals.eyebrowMutedClass)}>
+                      <span className={cn("text-[9px] font-semibold uppercase tracking-[0.1em]", themeVisuals.eyebrowMutedClass)}>
                         Waktu Mulai
                       </span>
-                      <p className={cn("text-lg font-black leading-none italic", themeVisuals.titleClass)}>
+                      <p className={cn("text-lg font-semibold leading-none", themeVisuals.titleClass)}>
                         {smartTimeline.start}
                       </p>
-                      <p className={cn("text-[9px] font-bold", themeVisuals.mutedClass)}>
+                      <p className={cn("text-[10px] font-medium", themeVisuals.mutedClass)}>
                         {smartTimeline.fullDate}
                       </p>
                     </div>
                     <div className="space-y-1 text-right border-l border-white/5 pl-6">
-                      <span className={cn("text-[8px] font-black uppercase tracking-widest", themeVisuals.eyebrowMutedClass)}>
+                      <span className={cn("text-[9px] font-semibold uppercase tracking-[0.1em]", themeVisuals.eyebrowMutedClass)}>
                         Waktu Selesai
                       </span>
                       <p
-                        className="text-lg font-black leading-none italic"
+                        className="text-lg font-semibold leading-none"
                         style={{ color: activeTheme.primary_color }}
                       >
                         {smartTimeline.end}
                       </p>
-                      <p className={cn("text-[9px] font-bold italic", themeVisuals.mutedClass)}>
+                      <p className={cn("text-[10px] font-medium", themeVisuals.mutedClass)}>
                         {isInterday ? "Akses Berakhir" : smartTimeline.fullDate}
                       </p>
                     </div>
@@ -898,8 +898,8 @@ export default function ResourceBookingDetail() {
 
               {/* ADDONS */}
               <div className="space-y-4 pt-2">
-                <h2 className={cn("flex items-center gap-2 px-1 text-[11px] font-black uppercase italic", themeVisuals.mutedClass)}>
-                  <Plus size={14} /> Tambahan (Optional)
+                <h2 className={cn("flex items-center gap-2 px-1 text-[11px] font-semibold uppercase tracking-[0.08em]", themeVisuals.mutedClass)}>
+                  <Plus size={14} /> Tambahan opsional
                 </h2>
                 <div className="grid grid-cols-1 gap-2 px-1">
                   {resource.items
@@ -932,7 +932,7 @@ export default function ResourceBookingDetail() {
                           }
                         >
                           <div className="text-left leading-none">
-                            <p className="font-black uppercase text-[10px] italic dark:text-white leading-none">
+                            <p className="text-[10px] font-semibold uppercase leading-none dark:text-white">
                               {item.name}
                             </p>
                             <p className={cn("mt-1 text-[8px] font-bold leading-none", themeVisuals.mutedClass)}>
@@ -967,34 +967,34 @@ export default function ResourceBookingDetail() {
               {/* CUSTOMER FORM */}
               <div className="space-y-6 pt-8 border-t-4 border-slate-50 dark:border-white/5 animate-in fade-in duration-1000">
                 <div className="space-y-1">
-                  <h2 className="text-xl font-[1000] italic uppercase tracking-tighter dark:text-white leading-none">
+                  <h2 className="text-xl font-semibold uppercase leading-none tracking-normal dark:text-white">
                     Konfirmasi{" "}
                     <span style={{ color: activeTheme.primary_color }}>
                       Booking
                     </span>
                   </h2>
-                  <p className={cn("text-[9px] font-bold uppercase tracking-widest italic", themeVisuals.mutedClass)}>
+                  <p className={cn("text-[10px] font-semibold uppercase tracking-[0.1em]", themeVisuals.mutedClass)}>
                     E-Ticket dikirim via WhatsApp
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
-                    <Label className={cn("ml-1 text-[9px] font-black uppercase", themeVisuals.eyebrowMutedClass)}>
+                    <Label className={cn("ml-1 text-[10px] font-semibold uppercase tracking-[0.08em]", themeVisuals.eyebrowMutedClass)}>
                       Kode Promo
                     </Label>
                     <div className="grid gap-2 md:grid-cols-[1fr_auto]">
                       <Input
                         value={promoCode}
                         onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                        className="h-12 rounded-xl bg-slate-50 dark:bg-black border-none px-6 font-black uppercase tracking-[0.18em] shadow-inner"
+                        className="h-12 rounded-xl border border-slate-100 bg-slate-50 px-4 font-semibold uppercase tracking-[0.08em] shadow-inner dark:border-white/5 dark:bg-black"
                         placeholder="VOUCHER"
                       />
                       <Button
                         type="button"
                         onClick={handlePromoPreview}
                         disabled={isCheckingPromo}
-                        className="h-12 rounded-xl px-4 text-xs font-black uppercase"
+                        className="h-12 rounded-xl px-4 text-xs font-semibold uppercase tracking-[0.08em]"
                         style={{ backgroundColor: activeTheme.primary_color }}
                       >
                         {isCheckingPromo ? <Loader2 className="h-4 w-4 animate-spin" /> : "Pakai Promo"}
@@ -1007,7 +1007,7 @@ export default function ResourceBookingDetail() {
                     )}
                   </div>
                   <div className="space-y-1.5">
-                    <Label className={cn("ml-1 text-[9px] font-black uppercase", themeVisuals.eyebrowMutedClass)}>
+                    <Label className={cn("ml-1 text-[10px] font-semibold uppercase tracking-[0.08em]", themeVisuals.eyebrowMutedClass)}>
                       WhatsApp Aktif
                     </Label>
                       <div className="relative">
@@ -1019,7 +1019,7 @@ export default function ResourceBookingDetail() {
                             setCustPhone(e.target.value.replace(/\D/g, ""));
                           }}
                           className={cn(
-                            "h-14 rounded-xl bg-slate-50 dark:bg-black border-none font-black px-6 text-lg shadow-inner",
+                            "h-14 rounded-xl border border-slate-100 bg-slate-50 px-4 text-base font-semibold shadow-inner dark:border-white/5 dark:bg-black",
                             phoneStatus === "valid"
                             ? "ring-2"
                             : phoneStatus === "invalid"
@@ -1050,11 +1050,11 @@ export default function ResourceBookingDetail() {
                   </div>
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between px-1">
-                      <Label className={cn("text-[9px] font-black uppercase", themeVisuals.eyebrowMutedClass)}>
+                      <Label className={cn("text-[10px] font-semibold uppercase tracking-[0.08em]", themeVisuals.eyebrowMutedClass)}>
                         Nama Sesuai KTP
                       </Label>
                       {isReturning && (
-                        <span className="text-[7px] font-black text-emerald-500 uppercase italic">
+                        <span className="text-[8px] font-semibold uppercase text-emerald-500">
                           Identitas Terdaftar
                         </span>
                       )}
@@ -1065,7 +1065,7 @@ export default function ResourceBookingDetail() {
                           userTouchedNameRef.current = true;
                           setCustName(e.target.value.toUpperCase());
                         }}
-                        className="h-14 rounded-xl bg-slate-50 dark:bg-black border-none font-black px-6 text-lg shadow-inner"
+                        className="h-14 rounded-xl border border-slate-100 bg-slate-50 px-4 text-base font-semibold shadow-inner dark:border-white/5 dark:bg-black"
                         placeholder="NAMA LENGKAP"
                     />
                   </div>
@@ -1081,46 +1081,52 @@ export default function ResourceBookingDetail() {
         <div className="mx-auto max-w-4xl px-3 py-3 md:px-4 md:py-4">
           <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
             <div className="space-y-2">
-              <span className={cn("text-[8px] font-black uppercase tracking-widest italic", themeVisuals.mutedClass)}>
+              <span className={cn("text-[10px] font-semibold uppercase tracking-[0.1em]", themeVisuals.mutedClass)}>
                 Estimasi Total Booking
               </span>
               <div className="flex flex-wrap items-end gap-2">
-                <div className="flex items-baseline gap-0.5">
-                  <span
-                    className="text-sm font-bold tracking-tighter"
-                    style={{ color: activeTheme.primary_color }}
-                  >
-                    Rp
-                  </span>
-                  <h3 className="text-2xl md:text-3xl font-[1000] italic text-slate-950 dark:text-white tracking-tighter leading-none">
-                    {totalAfterPromo().toLocaleString()}
+                {selectedMainId ? (
+                  <div className="flex items-baseline gap-1">
+                    <span
+                      className="text-sm font-semibold"
+                      style={{ color: activeTheme.primary_color }}
+                    >
+                      Rp
+                    </span>
+                    <h3 className="text-2xl font-semibold leading-none tracking-normal text-slate-950 dark:text-white md:text-3xl">
+                      {totalAfterPromo().toLocaleString()}
+                    </h3>
+                  </div>
+                ) : (
+                  <h3 className="text-base font-semibold text-slate-950 dark:text-white">
+                    Pilih layanan dulu
                   </h3>
-                </div>
+                )}
                 <div className="flex flex-wrap gap-2">
                   {promoPreview?.valid && (
-                    <Badge className="rounded-full border-none bg-emerald-500 px-3 py-1 text-[8px] font-black uppercase italic text-white">
+                    <Badge className="rounded-full border-none bg-emerald-500 px-3 py-1 text-[9px] font-semibold uppercase text-white">
                       Diskon Rp{Number(promoPreview.discount_amount || 0).toLocaleString()}
                     </Badge>
                   )}
                   <Badge
-                    className="rounded-full border-none px-3 py-1 text-[8px] font-black uppercase italic text-white"
+                    className="rounded-full border-none px-3 py-1 text-[9px] font-semibold uppercase text-white"
                     style={{ backgroundColor: activeTheme.primary_color }}
                   >
-                    DP ikut policy tenant
+                    DP mengikuti aturan tenant
                   </Badge>
                   <Badge
-                    className="rounded-full border-none px-3 py-1 text-[8px] font-black uppercase italic"
+                    className="rounded-full border-none px-3 py-1 text-[9px] font-semibold uppercase"
                     style={{
                       backgroundColor: `${activeTheme.primary_color}16`,
                       color: activeTheme.primary_color,
                     }}
                   >
-                    Final dihitung server
+                    Final saat checkout
                   </Badge>
                 </div>
               </div>
-              <p className={cn("max-w-md text-[10px] font-bold italic leading-relaxed", themeVisuals.mutedClass)}>
-                Setelah booking tersimpan, sistem akan menghitung DP sesuai policy tenant dan resource, lalu customer lanjut ke tiket pembayaran.
+              <p className={cn("max-w-md text-[11px] font-medium leading-relaxed", themeVisuals.mutedClass)}>
+                Setelah booking tersimpan, sistem menghitung DP sesuai aturan tenant lalu customer lanjut ke tiket pembayaran.
               </p>
             </div>
             <Button
@@ -1133,7 +1139,7 @@ export default function ResourceBookingDetail() {
                 selectedRangeState.isBusy
               }
               onClick={handleBooking}
-              className="h-14 md:h-16 w-full md:w-auto md:px-10 rounded-2xl text-white font-[1000] uppercase italic text-sm shadow-xl transition-all active:scale-95 gap-2 active:border-b-0"
+              className="h-14 w-full gap-2 rounded-2xl text-sm font-semibold uppercase tracking-[0.08em] text-white shadow-xl transition-all active:scale-95 active:border-b-0 md:h-14 md:w-auto md:px-10"
               style={{
                 backgroundColor: activeTheme.primary_color,
                 borderBottom: `4px solid ${activeTheme.accent_color}`,

@@ -37,7 +37,7 @@ const AdminMainContent = memo(function AdminMainContent({
 }) {
   return (
     <main className="min-h-screen w-full">
-      <div className="mx-auto mt-16 max-w-400 md:mt-6">{children}</div>
+      <div className="mx-auto mt-16 w-full max-w-[1520px] md:mt-5">{children}</div>
     </main>
   );
 });
@@ -150,10 +150,10 @@ export default function DashboardInternalLayout({
   return (
     <AdminSessionProvider value={sessionValue}>
       <TooltipProvider delayDuration={0} skipDelayDuration={0}>
-        <div className="tenant-admin-shell relative flex min-h-screen overflow-x-hidden bg-slate-50 selection:bg-[var(--bookinaja-200)] dark:bg-slate-950">
+        <div className="tenant-admin-shell relative flex min-h-screen overflow-x-hidden bg-[var(--admin-page)] selection:bg-[var(--bookinaja-200)] dark:bg-[var(--admin-page)]">
           <aside
             className={cn(
-              "hidden md:flex fixed inset-y-0 z-50 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 transition-[width] duration-150 ease-out motion-reduce:transition-none will-change-[width]",
+              "hidden md:flex fixed inset-y-0 z-50 flex-col border-r border-[var(--admin-line)] bg-[var(--admin-surface)] transition-[width] duration-150 ease-out motion-reduce:transition-none will-change-[width]",
               isCollapsed ? "w-20" : "w-72",
             )}
           >
@@ -180,13 +180,13 @@ export default function DashboardInternalLayout({
               isCollapsed ? "md:pl-20" : "md:pl-72",
             )}
           >
-            <div className="fixed inset-x-0 top-0 z-40 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 md:hidden">
+            <div className="fixed inset-x-0 top-0 z-40 border-b border-[var(--admin-line)] bg-[var(--admin-surface)]/95 backdrop-blur md:hidden">
               <div className="flex h-16 items-center justify-between gap-3 px-4">
                 <div className="min-w-0">
-                  <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
                     Admin
                   </div>
-                  <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                  <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">
                     {pageTitle}
                   </div>
                 </div>
@@ -203,7 +203,7 @@ export default function DashboardInternalLayout({
                     );
                   }}
                   onSignOut={handleSignOut}
-                  triggerClassName="relative left-auto bottom-auto z-auto h-10 w-10 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                  triggerClassName="relative left-auto bottom-auto z-auto h-10 w-10 rounded-xl border border-[var(--admin-line)] bg-white text-slate-700 shadow-sm hover:bg-slate-100 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
                 />
               </div>
             </div>
