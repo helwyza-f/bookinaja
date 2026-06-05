@@ -55,6 +55,32 @@ func TestCORSMiddlewareAllowsExactLVHMeOrigin(t *testing.T) {
 	}
 }
 
+func TestCORSMiddlewareAllowsLocalhostWildcardPort(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:*,http://127.0.0.1:*,http://*.lvh.me:*")
+
+	router := gin.New()
+	router.Use(CORSMiddleware())
+	router.POST("/ping", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	for _, origin := range []string{"http://localhost:3002", "http://127.0.0.1:3002", "http://smoke-gaming.lvh.me:3002"} {
+		req := httptest.NewRequest(http.MethodOptions, "/ping", nil)
+		req.Header.Set("Origin", origin)
+		req.Header.Set("Access-Control-Request-Headers", "content-type")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("origin %s status = %d, want %d", origin, rec.Code, http.StatusNoContent)
+		}
+		if got := rec.Header().Get("Access-Control-Allow-Origin"); got != origin {
+			t.Fatalf("origin %s Access-Control-Allow-Origin = %q", origin, got)
+		}
+	}
+}
+
 func TestCORSMiddlewareRejectsUnknownPreflightOrigin(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	t.Setenv("CORS_ALLOWED_ORIGINS", "https://bookinaja.com")

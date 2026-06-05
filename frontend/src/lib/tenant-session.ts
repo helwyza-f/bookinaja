@@ -6,7 +6,7 @@ const COOKIE_DOMAIN = normalizeCookieDomain(
 const COOKIE_BASE_OPTIONS = {
   path: "/",
   sameSite: "lax" as const,
-  secure: process.env.NODE_ENV === "production",
+  secure: shouldUseSecureCookies(),
   ...(COOKIE_DOMAIN ? { domain: COOKIE_DOMAIN } : {}),
 };
 
@@ -156,4 +156,18 @@ function normalizeCookieDomain(value?: string | null) {
   }
 
   return withoutPort.startsWith(".") ? withoutPort : `.${withoutPort}`;
+}
+
+function shouldUseSecureCookies() {
+  if (typeof window !== "undefined") {
+    const { hostname, protocol } = window.location;
+    if (
+      protocol === "http:" &&
+      (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "lvh.me" || hostname.endsWith(".lvh.me"))
+    ) {
+      return false;
+    }
+  }
+
+  return process.env.NODE_ENV === "production";
 }

@@ -1720,7 +1720,9 @@ function BookingExperienceStep(props: {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [activeHint, setActiveHint] = useState<string | null>(null);
   const baseUnitMinutes = Math.max(Number(props.duration || 60), 30);
-  const selectionReady = selectedResource && selectedPackage;
+  const resourceSelected = selectedResource || hasDefaultSelection;
+  const packageSelected = selectedPackage || hasDefaultSelection;
+  const selectionReady = resourceSelected && packageSelected;
   const unitMinutes = baseUnitMinutes * Math.max(quantity, 1);
   const startClock = normalizeTenantClock(props.openTime || "09:00");
   const endClock = normalizeTenantClock(props.closeTime || "22:00");
@@ -1832,13 +1834,13 @@ function BookingExperienceStep(props: {
               type="button"
               onClick={() => {
                 setSelectedResource(true);
-                if (!selectedPackage) {
+                if (!packageSelected) {
                   setSelectedPackage(true);
                   setQuantity(1);
                 }
               }}
               className={`rounded-2xl border p-4 text-left transition ${
-                selectedResource
+                resourceSelected
                   ? "border-blue-500 bg-blue-50 shadow-sm"
                   : "border-slate-200 bg-slate-50 hover:border-blue-200 hover:bg-white"
               }`}
@@ -1846,21 +1848,21 @@ function BookingExperienceStep(props: {
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Unit</div>
               <div className="mt-2 font-semibold text-slate-950">{props.resourceName || "Unit pertama"}</div>
               <div className="mt-1 text-sm text-slate-500">
-                {selectedResource ? "Unit dipilih" : "Klik untuk pilih unit"}
+                {resourceSelected ? "Unit dipilih" : "Klik untuk pilih unit"}
               </div>
             </button>
             <button
               type="button"
-              disabled={!selectedResource}
+              disabled={!resourceSelected}
               onClick={() => {
-                if (!selectedResource) return;
+                if (!resourceSelected) return;
                 setSelectedPackage(true);
                 setQuantity(1);
               }}
               className={`rounded-2xl border p-4 text-left transition ${
-                !selectedResource
+                !resourceSelected
                   ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300"
-                  : selectedPackage
+                  : packageSelected
                     ? "border-blue-500 bg-blue-50 shadow-sm"
                     : "border-slate-200 bg-slate-50 hover:border-blue-200 hover:bg-white"
               }`}
@@ -1871,7 +1873,7 @@ function BookingExperienceStep(props: {
                 Rp{Number(props.price || 0).toLocaleString("id-ID")} / {unitLabel}
               </div>
               <div className="mt-2 text-sm text-slate-500">
-                {!selectedResource ? "Pilih unit dulu" : selectedPackage ? "Paket dipilih" : "Klik untuk pilih paket"}
+                {!resourceSelected ? "Pilih unit dulu" : packageSelected ? "Paket dipilih" : "Klik untuk pilih paket"}
               </div>
             </button>
           </div>
@@ -2022,7 +2024,7 @@ function BookingExperienceStep(props: {
           )}
         </section>
 
-        <section className={`space-y-4 rounded-2xl border p-4 transition ${selectedPackage ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50 opacity-60"}`}>
+        <section className={`space-y-4 rounded-2xl border p-4 transition ${packageSelected ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50 opacity-60"}`}>
           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">3. Durasi booking</div>
           <h4 className="text-base font-semibold text-slate-950">Tentukan jumlah {quantityLabel}</h4>
           <p className="text-sm text-slate-500">
@@ -2031,9 +2033,9 @@ function BookingExperienceStep(props: {
           <div className="mt-2 flex items-center justify-center gap-3">
             <button
               type="button"
-              disabled={!selectedPackage || quantity <= 1}
+              disabled={!packageSelected || quantity <= 1}
               onClick={() => {
-                if (!selectedPackage) return;
+                if (!packageSelected) return;
                 const next = Math.max(1, quantity - 1);
                 setQuantity(next);
                 props.setBookingTime("");
@@ -2050,9 +2052,9 @@ function BookingExperienceStep(props: {
             </div>
             <button
               type="button"
-              disabled={!selectedPackage || quantity >= maxQuantity}
+              disabled={!packageSelected || quantity >= maxQuantity}
               onClick={() => {
-                if (!selectedPackage) return;
+                if (!packageSelected) return;
                 const next = Math.min(maxQuantity, Math.max(1, quantity + 1));
                 setQuantity(next);
                 props.setBookingTime("");
@@ -2067,14 +2069,14 @@ function BookingExperienceStep(props: {
               <button
                 key={value}
                 type="button"
-                disabled={!selectedPackage}
+                disabled={!packageSelected}
                 onClick={() => {
-                  if (!selectedPackage) return;
+                  if (!packageSelected) return;
                   setQuantity(value);
                   props.setBookingTime("");
                 }}
                 className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  !selectedPackage
+                  !packageSelected
                     ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300"
                     : quantity === value
                       ? "border-blue-500 bg-blue-50 text-blue-700"
@@ -2143,7 +2145,7 @@ function BookingExperienceStep(props: {
               <div className="mt-3 flex items-center justify-between gap-3">
                 <div>
                   <div className="font-semibold text-slate-950">
-                    {selectedResource ? (props.resourceName || "Unit pertama") : "Pilih unit"}
+                    {resourceSelected ? (props.resourceName || "Unit pertama") : "Pilih unit"}
                   </div>
                   <div className="mt-1 text-sm text-slate-500">
                     {format(bookingDate, "dd MMM yyyy")} | {timeRangeLabel}
@@ -2173,7 +2175,7 @@ function BookingExperienceStep(props: {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                        {selectedResource ? (props.resourceName || "Unit pertama") : "Resource"}
+                        {resourceSelected ? (props.resourceName || "Unit pertama") : "Resource"}
                       </div>
                       <div className="mt-2 text-sm font-semibold text-slate-950">
                         {format(bookingDate, "dd MMM yyyy")}
@@ -2190,13 +2192,13 @@ function BookingExperienceStep(props: {
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <div className="font-semibold text-slate-950">
-                          {selectedResource ? (props.resourceName || "Unit pertama") : "Pilih unit"}
+                          {resourceSelected ? (props.resourceName || "Unit pertama") : "Pilih unit"}
                         </div>
                         <div className="mt-1 text-sm text-slate-500">
                           {timeRangeLabel} | {props.bookingName || "Demo Customer"}
                         </div>
                         <div className="mt-2 text-xs text-slate-500">
-                          {selectedPackage ? packageLabel : "Pilih paket"} | {quantity > 0 ? `${quantity} ${quantityLabel}` : `Pilih jumlah ${quantityLabel}`}
+                          {packageSelected ? packageLabel : "Pilih paket"} | {quantity > 0 ? `${quantity} ${quantityLabel}` : `Pilih jumlah ${quantityLabel}`}
                         </div>
                       </div>
                       <div className="text-left sm:text-right">

@@ -69,6 +69,8 @@ function priceUnitLabel(value?: string) {
 
 function durationCountLabel(value?: string) {
   switch (String(value || "").toLowerCase()) {
+    case "hour":
+      return "jam";
     case "day":
       return "hari";
     case "week":
@@ -423,7 +425,7 @@ export default function ResourceBookingDetail() {
     if (phoneStatus !== "valid")
       return toast.error("Nomor WhatsApp tidak valid");
     if (!custName || !selectedTime || !date)
-      return toast.error("Lengkapi formulir boking");
+      return toast.error("Lengkapi formulir booking");
     if (selectedRangeState.isPast)
       return toast.error("Jam booking sudah lewat");
     if (selectedRangeState.isBusy)
@@ -968,7 +970,7 @@ export default function ResourceBookingDetail() {
                   <h2 className="text-xl font-[1000] italic uppercase tracking-tighter dark:text-white leading-none">
                     Konfirmasi{" "}
                     <span style={{ color: activeTheme.primary_color }}>
-                      Boking
+                      Booking
                     </span>
                   </h2>
                   <p className={cn("text-[9px] font-bold uppercase tracking-widest italic", themeVisuals.mutedClass)}>

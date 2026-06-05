@@ -23,6 +23,14 @@ function resolveAllowedRootHost() {
   return stripPort(cleaned);
 }
 
+function isLocalBridgeRequest(request: NextRequest) {
+  const hostname = request.nextUrl.hostname;
+  return (
+    request.nextUrl.protocol === "http:" &&
+    (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "lvh.me" || hostname.endsWith(".lvh.me"))
+  );
+}
+
 function resolveNextUrl(request: NextRequest, rawNext: string) {
   const fallback = new URL("/app", request.nextUrl.origin);
   const next = rawNext.trim();
@@ -59,14 +67,14 @@ export async function GET(request: NextRequest) {
 
   const response = NextResponse.redirect(destination);
 
-  if (process.env.NODE_ENV !== "production" && token) {
+  if ((process.env.NODE_ENV !== "production" || isLocalBridgeRequest(request)) && token) {
     const cookieDomain = normalizeCookieDomain(
       process.env.NEXT_PUBLIC_COOKIE_DOMAIN || process.env.NEXT_PUBLIC_ROOT_DOMAIN,
     );
     const cookieOptions = {
       path: "/",
       sameSite: "lax" as const,
-      secure: false,
+      secure: !isLocalBridgeRequest(request) && process.env.NODE_ENV === "production",
       maxAge: 60 * 60 * 24 * 7,
       ...(cookieDomain ? { domain: cookieDomain } : {}),
     };

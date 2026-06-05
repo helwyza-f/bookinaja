@@ -95,7 +95,9 @@ export function getTenantUrl(
   if (typeof window !== "undefined") {
     const url = new URL(window.location.href);
     url.hostname = `${normalizedSlug}.${root.host}`;
-    if (root.port) {
+    if (isLocalBrowserHost(window.location.hostname) && root.host === "lvh.me" && window.location.port) {
+      url.port = window.location.port;
+    } else if (root.port) {
       url.port = root.port;
     }
     url.pathname = safePath;
@@ -288,6 +290,10 @@ function resolveConfiguredRoot() {
     host: host || "bookinaja.local",
     port,
   };
+}
+
+function isLocalBrowserHost(hostname: string) {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "lvh.me" || hostname.endsWith(".lvh.me");
 }
 
 function stripPort(value: string) {

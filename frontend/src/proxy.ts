@@ -102,7 +102,8 @@ export default async function proxy(req: NextRequest) {
       return NextResponse.redirect(new URL(redirectTarget, req.url));
     }
 
-    const rewriteUrl = new URL(`/${tenantSlug}${path}${url.search}`, req.url);
+    const rewritePath = path === "/" ? `/${tenantSlug}` : `/${tenantSlug}${path}`;
+    const rewriteUrl = new URL(`${rewritePath}${url.search}`, req.url);
     const response = NextResponse.rewrite(rewriteUrl);
 
     // --- FIX: IDENTITAS TERTUKAR (Cookie Sync) ---
@@ -110,6 +111,7 @@ export default async function proxy(req: NextRequest) {
 
     if (currentSlugCookie !== tenantSlug) {
       const isProd = process.env.NODE_ENV === "production";
+      const isLocalHttp = resolveRequestProtocol(req) === "http:" && isLocalRootHost(rootDomain);
       const cookieDomain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN;
 
       // Update Slug Baru
@@ -118,7 +120,7 @@ export default async function proxy(req: NextRequest) {
         maxAge: 60 * 60 * 24 * 7,
         httpOnly: false,
         sameSite: "lax",
-        secure: isProd,
+        secure: isProd && !isLocalHttp,
         ...(isProd && cookieDomain ? { domain: cookieDomain } : {}),
       });
 
@@ -191,7 +193,7 @@ function stripPort(value: string) {
 }
 
 function isLocalRootHost(hostname: string) {
-  return hostname === "localhost" || hostname === "127.0.0.1";
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "lvh.me";
 }
 
 function resolveRequestProtocol(req: NextRequest) {

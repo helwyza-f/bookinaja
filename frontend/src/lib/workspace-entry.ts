@@ -14,7 +14,7 @@ function normalizeTarget(value: string) {
 }
 
 function shouldBridgeWorkspaceEntry(targetUrl: string) {
-  if (typeof window === "undefined" || process.env.NODE_ENV === "production") {
+  if (typeof window === "undefined") {
     return false;
   }
   if (!isLocalDevHost(window.location.hostname)) {

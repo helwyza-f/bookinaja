@@ -69,7 +69,7 @@ func loadAllowedOrigins() []string {
 		raw = strings.TrimSpace(os.Getenv("APP_ALLOWED_ORIGINS"))
 	}
 	if raw == "" {
-		raw = "https://bookinaja.com,https://www.bookinaja.com,https://*.bookinaja.com,http://localhost:3000,http://lvh.me:3000,http://*.lvh.me:3000"
+		raw = "https://bookinaja.com,https://www.bookinaja.com,https://*.bookinaja.com,http://localhost:*,http://127.0.0.1:*,http://lvh.me:*,http://*.lvh.me:*"
 	}
 
 	parts := strings.Split(raw, ",")
@@ -105,7 +105,12 @@ func originMatchesRule(origin string, parsed *url.URL, rule string) bool {
 		return true
 	}
 
-	ruleURL, err := url.Parse(rule)
+	rulePortWildcard := strings.HasSuffix(rule, ":*")
+	parseRule := rule
+	if rulePortWildcard {
+		parseRule = strings.TrimSuffix(rule, ":*")
+	}
+	ruleURL, err := url.Parse(parseRule)
 	if err != nil || ruleURL.Scheme == "" || ruleURL.Host == "" {
 		return false
 	}
@@ -115,12 +120,19 @@ func originMatchesRule(origin string, parsed *url.URL, rule string) bool {
 
 	ruleHost := ruleURL.Hostname()
 	if !strings.HasPrefix(ruleHost, "*.") {
-		return ruleURL.Host == parsed.Host
+		return ruleHost == parsed.Hostname() && (rulePortWildcard || portMatches(ruleURL.Port(), parsed.Port()))
 	}
 
 	suffix := strings.TrimPrefix(ruleHost, "*")
 	if !strings.HasSuffix(parsed.Hostname(), suffix) {
 		return false
 	}
-	return ruleURL.Port() == "" || ruleURL.Port() == parsed.Port()
+	if rulePortWildcard {
+		return true
+	}
+	return portMatches(ruleURL.Port(), parsed.Port())
+}
+
+func portMatches(rulePort string, originPort string) bool {
+	return rulePort == "" || rulePort == "*" || rulePort == originPort
 }
