@@ -18,11 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, ImagePlus, PackageCheck } from "lucide-react";
 import { SingleImageUpload } from "@/components/upload/single-image-upload";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { cn } from "@/lib/utils";
 
 interface FnbItemDialogProps {
@@ -78,7 +77,7 @@ export function FnbItemDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !price) return toast.error("Name and Price are required");
+    if (!name || !price) return toast.error("Nama menu dan harga wajib diisi");
 
     setIsSubmitting(true);
     const payload = {
@@ -93,15 +92,15 @@ export function FnbItemDialog({
     try {
       if (editingItem) {
         await api.put(`/fnb/${editingItem.id}`, payload);
-        toast.success("PRODUCT UPDATED");
+        toast.success("Menu berhasil diperbarui");
       } else {
         await api.post("/fnb", payload);
-        toast.success("NEW PRODUCT SAVED");
+        toast.success("Menu baru tersimpan");
       }
       onSuccess();
       onOpenChange(false);
     } catch {
-      toast.error("Failed to save product");
+      toast.error("Gagal menyimpan menu");
     } finally {
       setIsSubmitting(false);
     }
@@ -109,23 +108,28 @@ export function FnbItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] md:max-w-3xl p-0 overflow-hidden border bg-white dark:bg-slate-950 rounded-2xl shadow-2xl">
-        <VisuallyHidden.Root>
-          <DialogHeader>
-            <DialogTitle>F&B Item Editor</DialogTitle>
-          </DialogHeader>
-        </VisuallyHidden.Root>
+      <DialogContent className="left-0 top-0 h-[100dvh] max-h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-none border-0 bg-white p-0 shadow-2xl dark:bg-slate-950 sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[92dvh] sm:w-[calc(100vw-1rem)] sm:max-w-3xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:border-slate-200 dark:sm:border-white/10 md:overflow-hidden">
+        <DialogHeader className="shrink-0 border-b border-slate-100 bg-white px-4 py-4 pr-14 text-left dark:border-white/10 dark:bg-slate-950 sm:px-5">
+          <DialogTitle className="text-lg font-semibold text-slate-950 dark:text-white">
+            {editingItem ? "Edit menu" : "Tambah menu"}
+          </DialogTitle>
+          <p className="text-xs leading-5 text-slate-500">
+            Atur foto, harga, kategori, dan catatan operasional.
+          </p>
+        </DialogHeader>
 
-        <div className="flex flex-col md:flex-row w-full max-h-[88vh]">
-          {/* LEFT: MEDIA SIDE */}
-          <div className="w-full md:w-5/12 bg-slate-50 dark:bg-slate-900/50 p-4 md:p-6 flex flex-col justify-start border-b md:border-b-0 md:border-r border-slate-100 dark:border-white/5">
-            <div className="space-y-4 w-full max-w-[340px] mx-auto">
+        <div className="flex h-[calc(100dvh-73px)] w-full flex-col overflow-y-auto sm:h-auto md:max-h-[calc(92dvh-73px)] md:flex-row md:overflow-hidden">
+          <div className="flex w-full flex-col justify-start border-b border-slate-100 bg-slate-50 p-4 dark:border-white/5 dark:bg-slate-900/50 md:w-5/12 md:border-b-0 md:border-r md:p-6">
+            <div className="mx-auto grid w-full max-w-[420px] grid-cols-[116px_minmax(0,1fr)] items-center gap-4 md:block md:max-w-[340px] md:space-y-4">
               <div className="text-center md:text-left">
-                <h2 className="text-xl font-semibold tracking-tight dark:text-white">
-                  Product Media
+                <div className="mb-2 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white md:mb-3">
+                  <ImagePlus className="h-4 w-4" />
+                </div>
+                <h2 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-white md:text-xl">
+                  Foto menu
                 </h2>
-                <p className="text-xs font-medium text-slate-500 mt-1 leading-none">
-                  Ratio 1:1 Recommended
+                <p className="mt-1 text-xs font-medium leading-5 text-slate-500">
+                  Foto 1:1 bikin kartu katalog rapi.
                 </p>
               </div>
 
@@ -133,34 +137,47 @@ export function FnbItemDialog({
                 value={imageUrl}
                 onChange={setImageUrl}
                 endpoint="/fnb/upload"
-                className="w-[60%] md:w-full mx-auto" //kalo dimobile 80% aja klo di desktop baru full
+                label=""
+                emptyTitle="Upload"
+                emptyHint="PNG/JPG"
+                className="order-first mx-auto w-full [&_label]:px-2 [&_label]:py-3 [&_p]:text-[11px] md:order-none md:w-full md:[&_label]:px-6 md:[&_label]:py-8 md:[&_p]:text-sm"
               />
             </div>
           </div>
 
-          {/* RIGHT: FORM DETAILS */}
-          <div className="w-full md:w-7/12 p-5 md:p-6 overflow-y-auto bg-white dark:bg-slate-950">
-            <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="w-full bg-white p-4 dark:bg-slate-950 md:w-7/12 md:overflow-y-auto md:p-6">
+            <form onSubmit={handleSubmit} className="space-y-4 pb-4 md:space-y-5 md:pb-0">
+              <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04]">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-blue-600 shadow-sm dark:bg-slate-950">
+                  <PackageCheck className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                    {editingItem ? "Edit item katalog" : "Tambah item katalog"}
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    Dipakai untuk POS, transaksi menu, dan lampiran booking.
+                  </p>
+                </div>
+              </div>
               <div className="space-y-4">
-                {/* NAME */}
                 <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">
-                    Product Name
+                  <Label className="ml-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Nama menu
                   </Label>
                   <Input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="EX: CHICKEN PARMESAN"
-                    className="h-12 rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-white/10 font-semibold uppercase px-4 focus-visible:ring-4 focus-visible:ring-blue-600/10"
+                    placeholder="Contoh: Ayam goreng"
+                    className="h-12 rounded-xl border-slate-200 bg-slate-50 px-4 font-semibold uppercase focus-visible:ring-4 focus-visible:ring-blue-600/10 dark:border-white/10 dark:bg-slate-900"
                     required
                   />
                 </div>
 
-                {/* PRICE & CATEGORY */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_160px]">
                   <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">
-                      Price (IDR)
+                    <Label className="ml-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                      Harga jual
                     </Label>
                     <Input
                       value={price}
@@ -168,56 +185,56 @@ export function FnbItemDialog({
                         setPrice(e.target.value.replace(/\D/g, ""))
                       }
                       placeholder="0"
-                      className="h-12 rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-white/10 font-semibold text-blue-600 dark:text-blue-400 px-4 focus-visible:ring-4 focus-visible:ring-blue-600/10"
+                      className="h-12 rounded-xl border-slate-200 bg-slate-50 px-4 font-semibold text-blue-600 focus-visible:ring-4 focus-visible:ring-blue-600/10 dark:border-white/10 dark:bg-slate-900 dark:text-blue-400"
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">
-                      Category
+                    <Label className="ml-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                      Kategori
                     </Label>
                     <Select value={category} onValueChange={setCategory}>
-                      <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-white/10 font-semibold text-xs uppercase px-4 focus:ring-4 focus:ring-blue-600/10">
+                      <SelectTrigger className="h-12 w-full rounded-xl border-slate-200 bg-slate-50 px-4 text-xs font-semibold uppercase focus:ring-4 focus:ring-blue-600/10 dark:border-white/10 dark:bg-slate-900">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="rounded-xl font-semibold uppercase dark:bg-slate-800">
-                        <SelectItem value="Food">Food</SelectItem>
-                        <SelectItem value="Drink">Drink</SelectItem>
+                      <SelectContent position="popper" className="rounded-xl font-semibold uppercase dark:bg-slate-800">
+                        <SelectItem value="Food">Makanan</SelectItem>
+                        <SelectItem value="Drink">Minuman</SelectItem>
                         <SelectItem value="Snack">Snack</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
 
-                {/* DESCRIPTION */}
                 <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">
-                    Short Description
+                  <Label className="ml-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Catatan menu
                   </Label>
                   <Textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-white/10  p-4 font-medium text-sm focus-visible:ring-4 focus-visible:ring-blue-600/10"
-                    placeholder="Describe flavor, size, or ingredients..."
+                    className="min-h-20 rounded-xl border-slate-200 bg-slate-50 p-4 text-sm font-medium focus-visible:ring-4 focus-visible:ring-blue-600/10 dark:border-white/10 dark:bg-slate-900 md:min-h-24"
+                    placeholder="Opsional: ukuran, varian, bahan, atau catatan kasir."
                   />
                 </div>
               </div>
 
-              {/* SUBMIT BUTTON */}
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm gap-2 transition-all active:scale-[0.98]"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="animate-spin" />
-                ) : (
-                  <>
-                    {editingItem ? "Update Item" : "Commit to Catalog"}
-                    <ChevronRight size={18} strokeWidth={4} />
-                  </>
-                )}
-              </Button>
+              <div className="sticky bottom-0 -mx-4 border-t border-slate-100 bg-white/95 px-4 py-3 backdrop-blur dark:border-white/10 dark:bg-slate-950/95 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="h-12 w-full gap-2 rounded-xl bg-blue-600 text-sm font-semibold text-white transition-all hover:bg-blue-700 active:scale-[0.98]"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="animate-spin" />
+                  ) : (
+                    <>
+                      {editingItem ? "Simpan perubahan" : "Simpan ke katalog"}
+                      <ChevronRight size={18} strokeWidth={4} />
+                    </>
+                  )}
+                </Button>
+              </div>
             </form>
           </div>
         </div>

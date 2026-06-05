@@ -290,7 +290,7 @@ export default function FnbManagementPage() {
   };
 
   const categories = useMemo(
-    () => ["all", ...Array.from(new Set(items.map((item) => item.category)))],
+    () => ["all", ...Array.from(new Set(items.map((item) => item.category).filter(Boolean)))],
     [items],
   );
 
@@ -299,6 +299,7 @@ export default function FnbManagementPage() {
       total: items.length,
       ready: items.filter((item) => item.is_available).length,
       empty: items.filter((item) => !item.is_available).length,
+      categories: new Set(items.map((item) => item.category).filter(Boolean)).size,
     }),
     [items],
   );
@@ -318,10 +319,10 @@ export default function FnbManagementPage() {
   }, [items, searchQuery, categoryFilter]);
 
   return (
-    <div className="mx-auto max-w-[1600px] space-y-3 px-3 pb-32 pt-3 font-plus-jakarta animate-in fade-in duration-500 md:px-4">
+    <div className="mx-auto max-w-[1600px] space-y-4 px-3 pb-32 pt-3 font-plus-jakarta animate-in fade-in duration-500 md:px-4">
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
-        <div className="space-y-3 p-3">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-4 p-4">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="min-w-0 space-y-2">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--bookinaja-600)] text-white">
@@ -332,37 +333,46 @@ export default function FnbManagementPage() {
                     Katalog F&B
                   </div>
                   <h1 className="text-[1.35rem] font-semibold leading-none tracking-tight text-slate-950 dark:text-white md:text-[1.45rem]">
-                    Menu dan produk
+                    Menu operasional
                   </h1>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    Kelola katalog, stok siap jual, dan transaksi menu dari satu layar.
+                  </p>
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-1.5">
-                <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 dark:border-white/10 dark:bg-white/[0.04]">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-white/[0.04]">
                   <div>
-                    <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500">Total</div>
-                    <div className="text-sm font-semibold text-slate-950 dark:text-white">{stats.total}</div>
+                    <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500">Item katalog</div>
+                    <div className="mt-1 text-base font-semibold text-slate-950 dark:text-white">{stats.total}</div>
                   </div>
                 </div>
-                <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 dark:border-white/10 dark:bg-white/[0.04]">
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-400/20 dark:bg-emerald-400/10">
                   <div>
-                    <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500">Siap</div>
-                    <div className="flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
+                    <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-200">Siap jual</div>
+                    <div className="mt-1 flex items-center gap-1.5 text-base font-semibold text-emerald-700 dark:text-emerald-200">
                       {stats.ready} <BadgeCheck className="h-3.5 w-3.5" />
                     </div>
                   </div>
                 </div>
-                <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 dark:border-white/10 dark:bg-white/[0.04]">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-400/20 dark:bg-amber-400/10">
                   <div>
-                    <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500">Habis</div>
-                    <div className="text-sm font-semibold text-amber-600">{stats.empty}</div>
+                    <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-amber-700 dark:text-amber-200">Perlu restock</div>
+                    <div className="mt-1 text-base font-semibold text-amber-700 dark:text-amber-200">{stats.empty}</div>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-white/[0.04]">
+                  <div>
+                    <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500">Kategori</div>
+                    <div className="mt-1 text-base font-semibold text-slate-950 dark:text-white">{stats.categories}</div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 self-start lg:self-center">
-              <div className="flex h-8 rounded-lg border border-slate-200 bg-slate-50 p-0.5 dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="flex flex-wrap gap-2 self-start xl:self-center">
+              <div className="flex h-9 rounded-lg border border-slate-200 bg-slate-50 p-0.5 dark:border-white/10 dark:bg-white/[0.04]">
                 <button
                   type="button"
                   onClick={() => setViewMode("catalog")}
@@ -392,25 +402,25 @@ export default function FnbManagementPage() {
                 variant="outline"
                 onClick={refreshAll}
                 disabled={loading}
-                className="h-8 rounded-lg border-slate-200 px-3 text-sm dark:border-white/15 dark:bg-white/[0.03]"
+                className="h-9 rounded-lg border-slate-200 px-3 text-sm dark:border-white/15 dark:bg-white/[0.03]"
               >
                 <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-                Refresh
+                Muat ulang
               </Button>
               <Button
                 onClick={() => {
                   setEditingItem(null);
                   setOpen(true);
                 }}
-                className="h-8 rounded-lg bg-[var(--bookinaja-600)] px-3.5 text-sm font-semibold text-white hover:bg-[var(--bookinaja-700)]"
+                className="h-9 rounded-lg bg-[var(--bookinaja-600)] px-3.5 text-sm font-semibold text-white hover:bg-[var(--bookinaja-700)]"
               >
-                <Plus className="mr-2 h-4 w-4" /> Tambah
+                <Plus className="mr-2 h-4 w-4" /> Tambah menu
               </Button>
               <Button
                 onClick={() => setTransactionOpen(true)}
-                className="h-8 rounded-lg bg-slate-950 px-3.5 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950"
+                className="h-9 rounded-lg bg-slate-950 px-3.5 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950"
               >
-                <ShoppingCart className="mr-2 h-4 w-4" /> Jual
+                <ShoppingCart className="mr-2 h-4 w-4" /> Catat penjualan
               </Button>
             </div>
           </div>
@@ -447,25 +457,25 @@ export default function FnbManagementPage() {
 
       {viewMode === "orders" ? (
         <section className="space-y-3">
-          <div className="grid gap-3 md:grid-cols-3">
-            <Card className="rounded-xl border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Revenue F&B</div>
-              <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
+          <div className="grid grid-cols-3 gap-2 md:gap-3">
+            <Card className="rounded-xl border-slate-200 bg-white p-3 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] md:p-4">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 md:tracking-[0.14em]">Revenue</div>
+              <div className="mt-2 text-lg font-semibold text-slate-950 dark:text-white md:text-2xl">
                 Rp{formatIDR(orderSummary?.total_revenue || 0)}
               </div>
             </Card>
-            <Card className="rounded-xl border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Standalone</div>
-              <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
+            <Card className="rounded-xl border-slate-200 bg-white p-3 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] md:p-4">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 md:tracking-[0.14em]">Mandiri</div>
+              <div className="mt-2 text-lg font-semibold text-slate-950 dark:text-white md:text-2xl">
                 {orderSummary?.standalone_orders || 0}
               </div>
               <div className="mt-1 text-xs text-slate-500">
                 Rp{formatIDR(orderSummary?.standalone_revenue || 0)}
               </div>
             </Card>
-            <Card className="rounded-xl border-slate-200 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Attach booking</div>
-              <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
+            <Card className="rounded-xl border-slate-200 bg-white p-3 shadow-sm dark:border-white/15 dark:bg-[#0f0f17] md:p-4">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 md:tracking-[0.14em]">Booking</div>
+              <div className="mt-2 text-lg font-semibold text-slate-950 dark:text-white md:text-2xl">
                 {orderSummary?.booking_orders || 0}
               </div>
               <div className="mt-1 text-xs text-slate-500">
@@ -475,7 +485,7 @@ export default function FnbManagementPage() {
           </div>
 
           <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/15 dark:bg-[#0f0f17]">
-            <div className="flex items-center justify-between border-b border-slate-100 p-4 dark:border-white/10">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-4 dark:border-white/10">
               <div>
                 <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--bookinaja-600)]">
                   Transaksi terbaru
@@ -485,10 +495,10 @@ export default function FnbManagementPage() {
               <Button
                 type="button"
                 onClick={() => setTransactionOpen(true)}
-                className="h-9 rounded-lg bg-[var(--bookinaja-600)] text-white"
+                className="h-9 shrink-0 rounded-lg bg-[var(--bookinaja-600)] px-3 text-white"
               >
                 <ShoppingCart className="mr-2 h-4 w-4" />
-                Buat transaksi
+                Buat
               </Button>
             </div>
             {ordersLoading ? (
@@ -553,29 +563,32 @@ export default function FnbManagementPage() {
       ) : loading ? (
         <FnbSkeleton />
       ) : filteredItems.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 md:gap-4 animate-in slide-in-from-bottom-2 duration-500">
+        <div className="grid grid-cols-1 gap-3 animate-in slide-in-from-bottom-2 duration-500 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {filteredItems.map((item) => (
             <Card
               key={item.id}
               className={cn(
-                "group relative flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition-colors dark:border-white/15 dark:bg-[#0f0f17]",
+                "group relative grid min-h-[156px] grid-cols-[116px_minmax(0,1fr)] overflow-hidden rounded-xl border border-slate-200 bg-white transition-colors hover:border-[var(--bookinaja-200)] dark:border-white/15 dark:bg-[#0f0f17] sm:grid-cols-1",
                 !item.is_available && "opacity-60 grayscale-[0.5]",
               )}
             >
-              <div className="relative aspect-square w-full overflow-hidden bg-slate-100 dark:bg-white/[0.05]">
+              <div className="relative h-full min-h-[156px] overflow-hidden bg-slate-100 dark:bg-white/[0.05] sm:aspect-[4/3] sm:min-h-0">
                 {item.image_url ? (
                   <img
                     src={item.image_url}
                     alt={item.name}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center opacity-10">
+                  <div className="flex h-full w-full items-center justify-center opacity-10">
                     <Utensils size={40} />
                   </div>
                 )}
 
-                <div className="absolute right-2 top-2 flex items-center gap-2 rounded-md border border-black/5 bg-white/95 px-2 py-1 shadow-sm dark:border-white/10 dark:bg-slate-950/90">
+                <div className="absolute left-2 top-2 rounded-md border border-black/5 bg-white/95 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600 shadow-sm dark:border-white/10 dark:bg-slate-950/90 dark:text-slate-300">
+                  {item.category}
+                </div>
+                <div className="absolute bottom-2 left-2 flex items-center gap-2 rounded-md border border-black/5 bg-white/95 px-2 py-1 shadow-sm dark:border-white/10 dark:bg-slate-950/90">
                   <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">
                     {item.is_available ? "Siap" : "Habis"}
                   </span>
@@ -598,22 +611,22 @@ export default function FnbManagementPage() {
                 </div>
               </div>
 
-              <CardContent className="p-2.5 flex flex-col flex-1">
-                <div className="flex-1 min-h-[34px] mb-2.5">
+              <CardContent className="flex min-w-0 flex-1 flex-col p-3">
+                <div className="min-h-[52px] flex-1">
                   <h3 className="line-clamp-2 text-sm font-semibold leading-tight text-slate-900 transition-colors group-hover:text-[var(--bookinaja-600)] dark:text-white dark:group-hover:text-[var(--bookinaja-200)]">
                     {item.name}
                   </h3>
-                  <p className="mt-1 text-[11px] font-medium text-slate-500">
-                    {item.category}
+                  <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-500">
+                    {item.description || "Belum ada catatan menu."}
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between border-t border-slate-50 pt-2.5 dark:border-white/10">
+                <div className="mt-3 flex items-end justify-between border-t border-slate-100 pt-3 dark:border-white/10">
                   <div className="flex flex-col">
                     <span className="mb-0.5 text-[11px] font-medium text-slate-500">
-                      Harga
+                      Harga jual
                     </span>
-                    <span className="text-sm font-semibold text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
+                    <span className="text-base font-semibold text-[var(--bookinaja-600)] dark:text-[var(--bookinaja-200)]">
                       Rp{formatIDR(item.price)}
                     </span>
                   </div>
@@ -623,9 +636,9 @@ export default function FnbManagementPage() {
                       size="icon"
                       onClick={() => addToCart(item)}
                       disabled={!item.is_available}
-                      className="h-7 w-7 rounded-md bg-[var(--bookinaja-600)] text-white transition-colors hover:bg-[var(--bookinaja-700)] disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-white/[0.06]"
+                      className="h-8 w-8 rounded-md bg-[var(--bookinaja-600)] text-white transition-colors hover:bg-[var(--bookinaja-700)] disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-white/[0.06]"
                     >
-                      <ShoppingCart size={12} />
+                      <ShoppingCart size={14} />
                     </Button>
                     <Button
                       variant="ghost"
@@ -634,17 +647,17 @@ export default function FnbManagementPage() {
                         setEditingItem(item);
                         setOpen(true);
                       }}
-                      className="h-7 w-7 rounded-md bg-slate-50 text-slate-400 transition-colors hover:text-[var(--bookinaja-600)] dark:bg-white/[0.06] dark:hover:text-[var(--bookinaja-200)]"
+                      className="h-8 w-8 rounded-md bg-slate-50 text-slate-400 transition-colors hover:text-[var(--bookinaja-600)] dark:bg-white/[0.06] dark:hover:text-[var(--bookinaja-200)]"
                     >
-                      <Edit3 size={12} />
+                      <Edit3 size={14} />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => handleDelete(item.id)}
-                      className="h-7 w-7 rounded-md bg-slate-50 text-slate-400 transition-colors hover:text-red-500 dark:bg-slate-800"
+                      className="h-8 w-8 rounded-md bg-slate-50 text-slate-400 transition-colors hover:text-red-500 dark:bg-slate-800"
                     >
-                      <Trash2 size={12} />
+                      <Trash2 size={14} />
                     </Button>
                   </div>
                 </div>
@@ -687,15 +700,22 @@ export default function FnbManagementPage() {
           if (!nextOpen && !creatingOrder) resetTransaction();
         }}
       >
-        <DialogContent className="max-w-[95vw] rounded-2xl border bg-white p-0 shadow-2xl dark:bg-slate-950 md:max-w-3xl">
-          <DialogHeader className="border-b border-slate-100 px-5 py-4 dark:border-white/10">
-            <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
-              <ReceiptText className="h-5 w-5 text-[var(--bookinaja-600)]" />
-              Transaksi menu
+        <DialogContent className="left-0 top-0 h-[100dvh] max-h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-none border-0 bg-white p-0 shadow-2xl dark:bg-slate-950 sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[92dvh] sm:w-[calc(100vw-1rem)] sm:max-w-4xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:border-slate-200 dark:sm:border-white/10 md:overflow-hidden">
+          <DialogHeader className="shrink-0 border-b border-slate-100 bg-white px-4 py-4 pr-14 text-left dark:border-white/10 dark:bg-slate-950 sm:px-5">
+            <DialogTitle className="flex items-center gap-3 text-lg font-semibold text-slate-950 dark:text-white">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
+                <ReceiptText className="h-5 w-5" />
+              </span>
+              <span className="min-w-0">
+                Transaksi menu
+                <span className="mt-1 block text-xs font-medium text-slate-500">
+                  Penjualan mandiri atau masuk tagihan booking.
+                </span>
+              </span>
             </DialogTitle>
           </DialogHeader>
-          <div className="grid max-h-[78vh] overflow-hidden md:grid-cols-[minmax(0,1fr)_300px]">
-            <div className="overflow-y-auto p-5">
+          <div className="grid h-[calc(100dvh-73px)] overflow-y-auto md:h-auto md:max-h-[78vh] md:overflow-hidden md:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="p-3 md:overflow-y-auto md:p-5">
               <div className="mb-4 flex h-9 rounded-lg border border-slate-200 bg-slate-50 p-0.5 dark:border-white/10 dark:bg-white/[0.04]">
                 <button
                   type="button"
@@ -711,7 +731,7 @@ export default function FnbManagementPage() {
                   )}
                 >
                   <ShoppingCart className="h-4 w-4" />
-                  Standalone
+                  Mandiri
                 </button>
                 <button
                   type="button"
@@ -724,7 +744,7 @@ export default function FnbManagementPage() {
                   )}
                 >
                   <Link2 className="h-4 w-4" />
-                  Ke booking
+                  Masuk booking
                 </button>
               </div>
 
@@ -732,10 +752,10 @@ export default function FnbManagementPage() {
                 <div className="mb-4 space-y-2">
                   <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">Booking aktif</div>
                   <Select value={selectedBookingId} onValueChange={setSelectedBookingId}>
-                    <SelectTrigger className="h-11 rounded-xl bg-slate-50 dark:border-white/10 dark:bg-white/[0.04]">
+                    <SelectTrigger className="h-11 w-full rounded-xl bg-slate-50 dark:border-white/10 dark:bg-white/[0.04]">
                       <SelectValue placeholder="Pilih booking tujuan" />
                     </SelectTrigger>
-                    <SelectContent className="rounded-xl">
+                    <SelectContent position="popper" className="rounded-xl">
                       {activeBookings.map((booking) => (
                         <SelectItem key={booking.id} value={booking.id}>
                           {(booking.customer_name || "Customer")} / {booking.resource_name || "Resource"}
@@ -755,7 +775,7 @@ export default function FnbManagementPage() {
                   cart.map((line) => (
                     <div
                       key={line.item.id}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/[0.03]"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/[0.03]"
                     >
                       <div className="min-w-0">
                         <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">
@@ -789,14 +809,17 @@ export default function FnbManagementPage() {
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500 dark:border-white/10">
+                  <div className="rounded-xl border border-dashed border-slate-200 p-5 text-center text-sm text-slate-500 dark:border-white/10">
                     Pilih menu dari daftar cepat di bawah.
                   </div>
                 )}
               </div>
 
-              <div className="mt-5 space-y-3">
-                <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">Tambah dari katalog</div>
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">Tambah cepat dari katalog</div>
+                  <div className="hidden text-[11px] text-slate-400 sm:block">Maks. 8 item siap jual</div>
+                </div>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {items
                     .filter((item) => item.is_available)
@@ -806,7 +829,7 @@ export default function FnbManagementPage() {
                         key={item.id}
                         type="button"
                         onClick={() => addToCart(item)}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:border-[var(--bookinaja-300)] hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
+                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left transition hover:border-[var(--bookinaja-300)] hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
                       >
                         <span className="min-w-0">
                           <span className="block truncate text-sm font-semibold text-slate-900 dark:text-white">
@@ -823,53 +846,72 @@ export default function FnbManagementPage() {
               </div>
             </div>
 
-            <aside className="border-t border-slate-100 bg-slate-50 p-5 dark:border-white/10 dark:bg-white/[0.03] md:border-l md:border-t-0">
-              <div className="space-y-4">
-                <div>
+            <aside className="border-t border-slate-100 bg-slate-50 p-3 pb-0 dark:border-white/10 dark:bg-white/[0.03] md:border-l md:border-t-0 md:p-5">
+              <div className="space-y-2.5 md:space-y-4">
+                <div className="grid grid-cols-[112px_minmax(0,1fr)] items-center gap-3 md:block">
                   <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">Metode bayar</div>
                   <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                    <SelectTrigger className="mt-2 h-11 rounded-xl bg-white dark:border-white/10 dark:bg-slate-950">
+                    <SelectTrigger className="h-10 w-full rounded-xl bg-white dark:border-white/10 dark:bg-slate-950 md:mt-2 md:h-11">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                      <SelectItem value="cash">Cash</SelectItem>
+                    <SelectContent position="popper" className="rounded-xl">
+                      <SelectItem value="cash">Tunai</SelectItem>
                       <SelectItem value="transfer">Transfer</SelectItem>
                       <SelectItem value="qris">QRIS</SelectItem>
                       <SelectItem value="edc">EDC</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">Catatan</div>
+                <details className="group rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-950 md:border-0 md:bg-transparent md:dark:bg-transparent" open={Boolean(orderNotes)}>
+                  <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-300 md:px-0 md:py-0">
+                    Catatan
+                    <span className="text-[11px] font-medium text-slate-400 group-open:hidden">Opsional</span>
+                  </summary>
                   <Textarea
                     value={orderNotes}
                     onChange={(event) => setOrderNotes(event.target.value)}
                     placeholder="Opsional"
-                    className="mt-2 min-h-24 rounded-xl bg-white dark:border-white/10 dark:bg-slate-950"
+                    className="mx-3 mb-3 min-h-16 w-[calc(100%-1.5rem)] rounded-xl bg-white dark:border-white/10 dark:bg-slate-950 md:mx-0 md:mb-0 md:mt-2 md:min-h-24 md:w-full"
                   />
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950">
-                  <div className="flex items-center justify-between text-sm text-slate-500">
-                    <span>Total</span>
-                    <ClipboardList className="h-4 w-4" />
+                </details>
+                <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-slate-950 md:p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-xs text-slate-500">Total</div>
+                      <div className="mt-1 text-2xl font-semibold text-slate-950 dark:text-white">
+                        Rp{formatIDR(cartTotal)}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="min-w-14 rounded-lg bg-slate-50 p-2 text-center dark:bg-white/[0.04]">
+                        <div className="text-slate-400">Item</div>
+                        <div className="mt-0.5 font-semibold text-slate-700 dark:text-slate-200">
+                          {cart.reduce((sum, line) => sum + line.quantity, 0)}
+                        </div>
+                      </div>
+                      <div className="min-w-14 rounded-lg bg-slate-50 p-2 text-center dark:bg-white/[0.04]">
+                        <div className="text-slate-400">Entry</div>
+                        <div className="mt-0.5 font-semibold text-slate-700 dark:text-slate-200">{cart.length}</div>
+                      </div>
+                    </div>
+                    <ClipboardList className="hidden h-4 w-4 shrink-0 text-slate-400 md:block" />
                   </div>
-                  <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
-                    Rp{formatIDR(cartTotal)}
-                  </div>
-                  <div className="mt-1 text-xs text-slate-500">
+                  <div className="mt-2 text-xs leading-5 text-slate-500 md:mt-3">
                     {attachMode === "booking"
                       ? "Akan masuk ke tagihan booking."
                       : "Dicatat sebagai penjualan menu mandiri."}
                   </div>
                 </div>
-                <Button
-                  type="button"
-                  disabled={creatingOrder || cart.length === 0}
-                  onClick={submitTransaction}
-                  className="h-11 w-full rounded-xl bg-[var(--bookinaja-600)] font-semibold text-white hover:bg-[var(--bookinaja-700)]"
-                >
-                  {creatingOrder ? "Menyimpan..." : "Simpan transaksi"}
-                </Button>
+                <div className="sticky bottom-0 -mx-3 border-t border-slate-100 bg-slate-50/95 px-3 py-3 backdrop-blur dark:border-white/10 dark:bg-slate-950/95 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
+                  <Button
+                    type="button"
+                    disabled={creatingOrder || cart.length === 0}
+                    onClick={submitTransaction}
+                    className="h-11 w-full rounded-xl bg-[var(--bookinaja-600)] font-semibold text-white hover:bg-[var(--bookinaja-700)]"
+                  >
+                    {creatingOrder ? "Menyimpan..." : "Simpan transaksi"}
+                  </Button>
+                </div>
               </div>
             </aside>
           </div>

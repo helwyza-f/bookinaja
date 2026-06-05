@@ -1,5 +1,5 @@
 import axios from "axios";
-import { getCookie, deleteCookie } from "cookies-next";
+import { getCookie } from "cookies-next";
 import {
   getCentralAdminAuthUrl,
   getCentralCustomerAuthUrl,
@@ -8,6 +8,7 @@ import {
 } from "@/lib/tenant";
 import {
   clearAdminSession,
+  clearAccountSession,
   clearCustomerSession,
   clearTenantSession,
   isCrossTenantSessionError,
@@ -157,23 +158,29 @@ api.interceptors.response.use(
     if (err.response?.status === 401) {
       if (typeof window !== "undefined") {
         const path = window.location.pathname;
-        if (
+        const isAccountSurface =
           path === "/login" ||
+          path === "/app" ||
+          path.startsWith("/app/") ||
+          path === "/dashboard" ||
+          path.startsWith("/dashboard/");
+        if (
           path === "/admin" ||
-          path.startsWith("/admin/") ||
-          path.startsWith("/dashboard")
+          path.startsWith("/admin/")
         ) {
-          deleteCookie("auth_token");
+          clearAdminSession({ keepTenantSlug: true });
+        } else if (isAccountSurface) {
+          clearAccountSession();
+          clearAdminSession({ keepTenantSlug: true });
         } else if (
           path === "/user" ||
           path.startsWith("/user/") ||
           path === "/me" ||
           path.startsWith("/me/")
         ) {
-          deleteCookie("customer_auth");
+          clearCustomerSession({ keepTenantSlug: true });
         } else {
-          deleteCookie("auth_token");
-          deleteCookie("customer_auth");
+          clearTenantSession({ keepTenantSlug: true });
         }
       }
     }
