@@ -1,9 +1,10 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
-import { Moon, ShieldCheck, Sun, UserCircle2 } from "lucide-react";
+import { ChevronDown, Moon, ShieldCheck, Sun, UserCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   getCentralAdminAuthUrl,
@@ -41,6 +42,7 @@ export function TenantNavbar({
   landingTheme,
   enableCustomerContext = true,
 }: TenantNavbarProps) {
+  const [actionsOpen, setActionsOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
   const primaryColor = landingTheme?.primary || profile.primary_color || "#3b82f6";
   const preset = landingTheme?.preset || "bookinaja-classic";
@@ -164,7 +166,7 @@ export function TenantNavbar({
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2 md:gap-3">
+        <div className="relative flex shrink-0 items-center gap-2 md:gap-3">
           <Button
             type="button"
             variant="outline"
@@ -183,7 +185,55 @@ export function TenantNavbar({
             )}
           </Button>
 
-          <a href={adminHref} className="shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setActionsOpen((current) => !current)}
+            className={cn(
+              "inline-flex h-10 shrink-0 items-center gap-1.5 border bg-white px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-900 shadow-[0_10px_24px_rgba(15,23,42,0.1)] ring-1 ring-slate-200/80 hover:bg-white md:hidden dark:bg-white/10 dark:text-white dark:ring-white/10",
+              buttonRadiusClass,
+            )}
+            aria-expanded={actionsOpen}
+            aria-label="Buka aksi halaman"
+          >
+            Aksi
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", actionsOpen && "rotate-180")} />
+          </Button>
+
+          {actionsOpen ? (
+            <div className="absolute right-0 top-[calc(100%+0.55rem)] z-[110] w-[220px] rounded-2xl border border-white/60 bg-white/95 p-2 shadow-[0_18px_48px_rgba(15,23,42,0.18)] backdrop-blur-xl md:hidden dark:border-white/10 dark:bg-slate-950/95">
+              <button
+                type="button"
+                onClick={() => {
+                  setTheme(isDark ? "light" : "dark");
+                  setActionsOpen(false);
+                }}
+                className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10"
+              >
+                {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                {isDark ? "Mode terang" : "Mode gelap"}
+              </button>
+              <a
+                href={adminHref}
+                className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10"
+                onClick={() => setActionsOpen(false)}
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Masuk Admin
+              </a>
+              <a
+                href={customerHref}
+                className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold text-white"
+                style={{ backgroundColor: primaryColor }}
+                onClick={() => setActionsOpen(false)}
+              >
+                <UserCircle2 className="h-4 w-4" />
+                {isAuthenticated ? "Akun Customer" : "Masuk Customer"}
+              </a>
+            </div>
+          ) : null}
+
+          <a href={adminHref} className="hidden shrink-0 md:block">
             <Button
               type="button"
               variant="outline"
@@ -198,7 +248,7 @@ export function TenantNavbar({
             </Button>
           </a>
 
-          <a href={customerHref} className="shrink-0">
+          <a href={customerHref} className="hidden shrink-0 md:block">
             <Button
               className={cn(
                 "border-none font-semibold uppercase tracking-[0.08em] text-white",

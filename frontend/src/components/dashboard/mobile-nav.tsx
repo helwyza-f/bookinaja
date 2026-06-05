@@ -96,7 +96,7 @@ export function MobileNav({
       <SheetContent
         side="left"
         showCloseButton={false}
-        className="!w-[92vw] !max-w-[360px] gap-0 overflow-hidden border-r border-[var(--admin-line)] bg-white p-0 text-slate-950 shadow-[0_24px_60px_rgba(15,23,42,0.16)] dark:bg-slate-950 dark:text-white"
+        className="!w-[82vw] !max-w-[320px] gap-0 overflow-hidden border-r border-[var(--admin-line)] bg-white p-0 text-slate-950 shadow-[0_24px_60px_rgba(15,23,42,0.16)] dark:bg-slate-950 dark:text-white"
       >
         <div className="flex h-full flex-col overflow-hidden">
           <SheetHeader className="shrink-0 border-b border-[var(--admin-line)] bg-white px-4 py-3 text-left dark:bg-slate-950">

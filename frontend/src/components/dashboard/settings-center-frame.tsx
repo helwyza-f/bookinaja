@@ -96,8 +96,8 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
 
   return (
     <div className="fixed inset-0 z-[80] bg-slate-950/45 backdrop-blur-[5px]">
-      <div className="flex min-h-full items-stretch justify-center p-0 md:p-4">
-        <div className="flex min-h-full w-full overflow-hidden bg-white shadow-2xl dark:bg-slate-950 md:min-h-0 md:max-h-[calc(100vh-2rem)] md:max-w-[1120px] md:rounded-[1.35rem] md:border md:border-slate-200 dark:md:border-slate-800">
+      <div className="flex h-[100dvh] min-h-0 items-stretch justify-center p-0 md:p-4">
+        <div className="flex h-full min-h-0 w-full overflow-hidden bg-white shadow-2xl dark:bg-slate-950 md:h-auto md:max-h-[calc(100dvh-2rem)] md:max-w-[1120px] md:rounded-[1.35rem] md:border md:border-slate-200 dark:md:border-slate-800">
           <aside className="hidden w-[214px] shrink-0 border-r border-slate-200 bg-[#f8fafc] px-3 py-3 dark:border-slate-800 dark:bg-[#0b1120] md:flex md:flex-col">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
@@ -148,8 +148,8 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
             </div>
           </aside>
 
-          <div className="flex min-h-full min-w-0 flex-1 flex-col">
-            <div className="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-3 md:px-5 dark:border-slate-800 dark:bg-slate-950">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-3 md:px-5 dark:border-slate-800 dark:bg-slate-950">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 md:hidden">
@@ -271,7 +271,7 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
                 </aside>
               ) : null}
 
-              <main className="min-h-0 overflow-y-auto bg-white px-4 py-4 dark:bg-slate-950 md:px-4 md:py-4">
+              <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] dark:bg-slate-950 md:px-4 md:py-4">
                 {children}
               </main>
             </div>
