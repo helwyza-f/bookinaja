@@ -105,15 +105,15 @@ export function BillingPlanBoard({
         </div>
       ) : null}
 
-      <Card className={cn(boardClasses, compact ? "p-4 sm:p-5" : "p-5 sm:p-6")}>
-        <div className="space-y-5">
+      <Card className={cn(boardClasses, compact ? "rounded-2xl p-3 sm:p-5" : "p-5 sm:p-6")}>
+        <div className={cn(compact ? "space-y-3 sm:space-y-5" : "space-y-5")}>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="inline-flex w-fit items-center gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-white/[0.06]">
+            <div className="inline-flex w-full items-center gap-1 rounded-2xl bg-slate-100 p-1 sm:w-fit dark:bg-white/[0.06]">
               <button
                 type="button"
                 onClick={() => setIsAnnual(false)}
                 className={cn(
-                  "rounded-xl px-5 py-2 text-sm font-semibold transition-colors",
+                  "flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition-colors sm:flex-none sm:px-5",
                   !isAnnual
                     ? "bg-white text-slate-950 shadow-sm dark:bg-slate-950 dark:text-white"
                     : "text-slate-500 dark:text-slate-400",
@@ -125,7 +125,7 @@ export function BillingPlanBoard({
                 type="button"
                 onClick={() => setIsAnnual(true)}
                 className={cn(
-                  "rounded-xl px-5 py-2 text-sm font-semibold transition-colors",
+                  "flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition-colors sm:flex-none sm:px-5",
                   isAnnual
                     ? "bg-white text-slate-950 shadow-sm dark:bg-slate-950 dark:text-white"
                     : "text-slate-500 dark:text-slate-400",
@@ -133,7 +133,7 @@ export function BillingPlanBoard({
               >
                 Tahunan
               </button>
-              <span className="px-2 text-sm font-semibold text-emerald-600">
+              <span className="shrink-0 px-2 text-xs font-semibold text-emerald-600 sm:text-sm">
                 Hemat {annualDiscount}%
               </span>
             </div>
@@ -145,21 +145,21 @@ export function BillingPlanBoard({
             </div>
           </div>
 
-          <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50/70 p-5 dark:border-white/10 dark:bg-white/[0.03]">
-            <div className="grid gap-5 lg:grid-cols-[180px_minmax(0,260px)_minmax(0,1fr)] lg:items-center">
-              <div className="flex h-24 items-center justify-center rounded-2xl bg-white text-[0px] shadow-sm dark:bg-slate-950">
-                <span className="text-2xl font-semibold tracking-tight text-slate-500 dark:text-slate-300">
+          <div className={cn("rounded-[1.5rem] border border-slate-200 bg-slate-50/70 dark:border-white/10 dark:bg-white/[0.03]", compact ? "p-3" : "p-5")}>
+            <div className="grid gap-4 lg:grid-cols-[180px_minmax(0,260px)_minmax(0,1fr)] lg:items-center">
+              <div className={cn("flex items-center justify-center rounded-2xl bg-white text-[0px] shadow-sm dark:bg-slate-950", compact ? "h-14 sm:h-24" : "h-24")}>
+                <span className={cn("font-semibold tracking-tight text-slate-500 dark:text-slate-300", compact ? "text-lg sm:text-2xl" : "text-2xl")}>
                   {PLAN_LABEL[planState.rawPlan] || "Trial"}
                 </span>
                 {PLAN_EMOJI[planState.rawPlan] || "🛹"}
               </div>
               <div>
-                <div className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                <div className={cn("font-semibold tracking-tight text-slate-950 dark:text-white", compact ? "text-xl sm:text-3xl" : "text-3xl")}>
                   {currentPlan?.name || planState.title}
                 </div>
-                <div className="mt-2 text-4xl font-black tracking-tight text-slate-950 dark:text-white">
+                <div className={cn("mt-2 font-black tracking-tight text-slate-950 dark:text-white", compact ? "text-3xl sm:text-4xl" : "text-4xl")}>
                   Rp {formatIDR(isAnnual ? annualMonthlyEquivalent(currentPlan?.annualTotal || 0) : currentPlan?.monthly || 0)}
-                  <span className="ml-2 text-lg font-medium text-slate-400">/bulan</span>
+                  <span className="ml-1 text-sm font-medium text-slate-400 sm:ml-2 sm:text-lg">/bulan</span>
                 </div>
                 <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                   {currentPlan?.headline || "Paket workspace aktif"}
@@ -167,7 +167,7 @@ export function BillingPlanBoard({
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 {currentFeatures.length > 0 ? (
-                  currentFeatures.map((feature) => (
+                  currentFeatures.slice(0, compact ? 4 : 6).map((feature) => (
                     <div
                       key={feature}
                       className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300"
@@ -185,7 +185,7 @@ export function BillingPlanBoard({
             </div>
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-[repeat(2,minmax(0,1fr))]">
+          <div className={cn("grid gap-4 xl:grid-cols-[repeat(2,minmax(0,1fr))]", compact && "gap-3")}>
             {selectablePlans.map((plan) => {
               const monthlyEquivalent = isAnnual
                 ? annualMonthlyEquivalent(plan.annualTotal)
@@ -199,26 +199,27 @@ export function BillingPlanBoard({
                 <div
                   key={plan.key}
                   className={cn(
-                    "flex h-full flex-col rounded-[1.5rem] border bg-white p-5 shadow-sm dark:bg-[#0f1117]",
+                    "flex h-full flex-col rounded-[1.5rem] border bg-white shadow-sm dark:bg-[#0f1117]",
+                    compact ? "p-4" : "p-5",
                     active
                       ? "border-orange-500 ring-1 ring-orange-500/40"
                       : "border-slate-200 dark:border-white/10",
                   )}
                 >
-                  <div className="flex h-28 items-center justify-center rounded-2xl bg-slate-50 text-[0px] dark:bg-white/[0.03]">
-                    <span className="text-2xl font-semibold tracking-tight text-slate-500 dark:text-slate-300">
+                  <div className={cn("flex items-center justify-center rounded-2xl bg-slate-50 text-[0px] dark:bg-white/[0.03]", compact ? "h-16" : "h-28")}>
+                    <span className={cn("font-semibold tracking-tight text-slate-500 dark:text-slate-300", compact ? "text-xl" : "text-2xl")}>
                       {PLAN_LABEL[plan.key] || plan.name}
                     </span>
                     {PLAN_EMOJI[plan.key]}
                   </div>
 
-                  <div className="mt-5">
-                    <div className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                  <div className={cn(compact ? "mt-4" : "mt-5")}>
+                    <div className={cn("font-semibold tracking-tight text-slate-950 dark:text-white", compact ? "text-xl" : "text-2xl")}>
                       {plan.name}
                     </div>
-                    <div className="mt-2 text-4xl font-black tracking-tight text-slate-950 dark:text-white">
+                    <div className={cn("mt-2 font-black tracking-tight text-slate-950 dark:text-white", compact ? "text-3xl" : "text-4xl")}>
                       Rp {formatIDR(monthlyEquivalent)}
-                      <span className="ml-2 text-lg font-medium text-slate-400">/bulan</span>
+                      <span className="ml-1 text-sm font-medium text-slate-400 sm:ml-2 sm:text-lg">/bulan</span>
                     </div>
                     <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                       {billingLine}
@@ -228,7 +229,7 @@ export function BillingPlanBoard({
                     </p>
                   </div>
 
-                  <div className="mt-5 space-y-3 text-sm text-slate-600 dark:text-slate-300">
+                  <div className={cn("space-y-3 text-sm text-slate-600 dark:text-slate-300", compact ? "mt-4" : "mt-5")}>
                     {plan.publicFeatures.map((feature) => (
                       <div key={feature} className="flex items-start gap-2">
                         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
@@ -237,7 +238,7 @@ export function BillingPlanBoard({
                     ))}
                   </div>
 
-                  <div className="mt-6">
+                  <div className={cn(compact ? "mt-5" : "mt-6")}>
                     <Button
                       asChild
                       className="h-12 w-full rounded-xl bg-orange-500 text-base font-semibold text-white hover:bg-orange-600"
@@ -254,6 +255,7 @@ export function BillingPlanBoard({
             })}
           </div>
 
+          {!compact ? (
           <div className="flex justify-center">
             <button
               type="button"
@@ -263,8 +265,9 @@ export function BillingPlanBoard({
               <ChevronDown className="h-4 w-4" />
             </button>
           </div>
+          ) : null}
 
-          {enterprisePlan ? (
+          {enterprisePlan && !compact ? (
             <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50/70 p-5 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="grid gap-5 lg:grid-cols-[160px_minmax(0,220px)_minmax(0,1fr)_180px] lg:items-center">
                 <div className="flex h-24 items-center justify-center rounded-2xl bg-white text-[0px] shadow-sm dark:bg-slate-950">

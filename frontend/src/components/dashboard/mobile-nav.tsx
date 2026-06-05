@@ -96,10 +96,10 @@ export function MobileNav({
       <SheetContent
         side="left"
         showCloseButton={false}
-        className="w-[88vw] max-w-[340px] gap-0 overflow-hidden border-r border-[var(--admin-line)] bg-[var(--admin-surface)] p-0 text-slate-950 shadow-[0_24px_60px_rgba(15,23,42,0.16)] dark:text-white"
+        className="!w-[92vw] !max-w-[360px] gap-0 overflow-hidden border-r border-[var(--admin-line)] bg-white p-0 text-slate-950 shadow-[0_24px_60px_rgba(15,23,42,0.16)] dark:bg-slate-950 dark:text-white"
       >
         <div className="flex h-full flex-col overflow-hidden">
-          <SheetHeader className="border-b border-[var(--admin-line)] px-4 py-3 text-left">
+          <SheetHeader className="shrink-0 border-b border-[var(--admin-line)] bg-white px-4 py-3 text-left dark:bg-slate-950">
             <SheetTitle className="sr-only">Admin navigation</SheetTitle>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
@@ -147,8 +147,8 @@ export function MobileNav({
             </div>
           </SheetHeader>
 
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 py-3">
-            <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto scrollbar-hide">
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 pb-[calc(1rem+env(safe-area-inset-bottom))] scrollbar-hide">
+            <nav className="space-y-1">
               {items.map((item) => {
                 const active =
                   mode === "operational"
@@ -162,7 +162,7 @@ export function MobileNav({
                     prefetch={false}
                     onClick={() => setOpen(false)}
                     className={cn(
-                    "flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors",
+                      "flex min-h-10 items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors",
                       active ? activeItemClass : idleItemClass,
                     )}
                   >
@@ -174,7 +174,7 @@ export function MobileNav({
             </nav>
 
             {userData?.role === "owner" ? (
-              <div className="mt-auto shrink-0 border-t border-[var(--admin-line)] pt-3">
+              <div className="mt-3 border-t border-[var(--admin-line)] pt-3">
                 <div className="space-y-1">
                   {workspaceUtilityNavItems.map((item) => {
                     const active =

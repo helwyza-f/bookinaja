@@ -258,23 +258,23 @@ export default function ReferralSettingsPage() {
   const conversionRate = totalReferred > 0 ? Math.round((activeReferred / totalReferred) * 100) : 0;
 
   return (
-    <div className="space-y-4 px-3 py-3 pb-16 sm:px-4 lg:px-5">
-      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-950 text-white shadow-sm dark:border-white/10">
-        <div className="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-6">
+    <div className="space-y-3 px-3 py-3 pb-16 sm:space-y-4 sm:px-4 lg:px-5">
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950">
+        <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-5">
           <div className="min-w-0">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-blue-100">
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200">
               <Sparkles className="h-3.5 w-3.5" />
               Referral program
             </div>
-            <h1 className="mt-4 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl">
-              Bawa owner baru, bonus masuk saat mereka aktif berlangganan.
+            <h1 className="mt-3 max-w-2xl text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl dark:text-white">
+              Refer owner baru, pantau bonus dari satu layar.
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-              Satu link untuk tracking referral, saldo bonus, rekening payout, dan riwayat pencairan.
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+              Salin link, cek saldo tersedia, dan ajukan pencairan tanpa keluar dari halaman admin.
             </p>
 
-            <div className="mt-5 flex flex-wrap gap-2">
-              <Button onClick={copyReferralLink} disabled={!referralUrl} className="rounded-xl bg-white text-slate-950 hover:bg-slate-100">
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button onClick={copyReferralLink} disabled={!referralUrl} className="rounded-xl">
                 <Copy className="mr-2 h-4 w-4" />
                 Salin link
               </Button>
@@ -282,7 +282,7 @@ export default function ReferralSettingsPage() {
                 onClick={shareReferralLink}
                 disabled={!referralUrl}
                 variant="outline"
-                className="rounded-xl border-white/20 bg-white/10 text-white hover:bg-white/15 hover:text-white"
+                className="rounded-xl"
               >
                 <Share2 className="mr-2 h-4 w-4" />
                 Bagikan
@@ -290,7 +290,7 @@ export default function ReferralSettingsPage() {
               <Button
                 onClick={loadData}
                 variant="outline"
-                className="rounded-xl border-white/20 bg-white/10 text-white hover:bg-white/15 hover:text-white"
+                className="rounded-xl"
               >
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Refresh
@@ -299,7 +299,7 @@ export default function ReferralSettingsPage() {
                 variant="outline"
                 onClick={requestWithdrawal}
                 disabled={!canWithdraw || withdrawing || loading}
-                className="rounded-xl border-white/20 bg-white/10 text-white hover:bg-white/15 hover:text-white"
+                className="rounded-xl"
               >
                 <Banknote className="mr-2 h-4 w-4" />
                 Ajukan cair
@@ -307,13 +307,13 @@ export default function ReferralSettingsPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Saldo tersedia</p>
-                <p className="mt-2 text-3xl font-semibold">Rp {formatIDR(summary?.available_balance)}</p>
+                <p className="mt-2 text-3xl font-semibold text-slate-950 dark:text-white">Rp {formatIDR(summary?.available_balance)}</p>
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-200">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200">
                 <Trophy className="h-6 w-6" />
               </div>
             </div>
@@ -608,11 +608,11 @@ export default function ReferralSettingsPage() {
 
 function HeroMiniStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2">
+    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/[0.06]">
       <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
         {label}
       </div>
-      <div className="mt-1 text-lg font-semibold text-white">{value}</div>
+      <div className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">{value}</div>
     </div>
   );
 }

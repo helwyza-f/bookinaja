@@ -55,20 +55,20 @@ export function UpgradePlanDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] overflow-hidden rounded-[1.5rem] bg-white p-0 text-slate-950 shadow-2xl sm:max-w-[980px] dark:bg-slate-950 dark:text-white">
-        <div className="flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden">
-          <div className="border-b border-slate-200 px-5 py-5 dark:border-white/10 sm:px-6">
-            <DialogTitle className="text-xl font-semibold tracking-tight text-slate-950 dark:text-white">
-              Upgrade your plan
+      <DialogContent className="h-[100dvh] max-h-[100dvh] w-screen max-w-none overflow-hidden rounded-none bg-white p-0 text-slate-950 shadow-2xl sm:h-auto sm:max-h-[calc(100vh-2rem)] sm:max-w-[980px] sm:rounded-[1.5rem] dark:bg-slate-950 dark:text-white">
+        <div className="flex h-full max-h-[100dvh] flex-col overflow-hidden sm:max-h-[calc(100vh-2rem)]">
+          <div className="shrink-0 border-b border-slate-200 px-5 py-4 dark:border-white/10 sm:px-6 sm:py-5">
+            <DialogTitle className="pr-10 text-lg font-semibold tracking-tight text-slate-950 sm:text-xl dark:text-white">
+              Upgrade paket
             </DialogTitle>
             <DialogDescription className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Unlock more features and grow your workspace faster.
+              Pilih paket saat booking, POS, dan laporan sudah siap dipakai lebih serius.
             </DialogDescription>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
             {loading && !loaded ? (
-              <Skeleton className="h-[720px] rounded-[1.75rem] bg-slate-100 dark:bg-white/5" />
+              <Skeleton className="h-[620px] rounded-[1.25rem] bg-slate-100 dark:bg-white/5" />
             ) : (
               <BillingPlanBoard sub={sub} compact />
             )}
