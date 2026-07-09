@@ -8,6 +8,7 @@ import {
   ArrowRight,
   Building2,
   ChevronLeft,
+  Loader2,
   Lock,
   Mail,
   Shield,
@@ -212,10 +213,10 @@ export function AdminLoginClient() {
   const showTenantRequiredHint = !tenantSlug;
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.16),_transparent_36%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)] px-4 py-8 text-slate-950 dark:bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.14),_transparent_32%),linear-gradient(180deg,#050505_0%,#0b1220_100%)] dark:text-white">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.16),_transparent_34%),linear-gradient(180deg,#f8fbff_0%,#eef4ff_54%,#ffffff_100%)] px-4 py-6 text-slate-950 dark:bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.14),_transparent_32%),linear-gradient(180deg,#050505_0%,#0b1220_100%)] dark:text-white sm:py-8">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-5xl items-center">
-        <div className="grid w-full gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-          <div className="space-y-6 rounded-[2rem] border border-white/70 bg-white/85 p-6 shadow-[0_40px_120px_-40px_rgba(15,23,42,0.35)] backdrop-blur dark:border-white/10 dark:bg-black/45 lg:p-8">
+        <div className="grid w-full gap-5 lg:grid-cols-[0.95fr_1.05fr] lg:gap-6">
+          <div className="space-y-5 rounded-[1.75rem] border border-white/80 bg-white/90 p-5 shadow-[0_30px_90px_-42px_rgba(15,23,42,0.34)] backdrop-blur dark:border-white/10 dark:bg-black/45 lg:p-8">
             <Button
               asChild
               variant="ghost"
@@ -233,7 +234,7 @@ export function AdminLoginClient() {
             </div>
 
             <div className="space-y-3">
-              <h1 className="text-3xl font-black tracking-tight text-slate-950 dark:text-white sm:text-5xl">
+              <h1 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-5xl">
                 Login tenant.
               </h1>
               <p className="max-w-lg text-sm leading-7 text-slate-600 dark:text-slate-300">
@@ -262,16 +263,16 @@ export function AdminLoginClient() {
             </div>
           </div>
 
-          <Card className="rounded-[2rem] border-0 bg-slate-950 p-2 text-white shadow-[0_40px_120px_-40px_rgba(15,23,42,0.6)]">
+          <Card className="overflow-hidden rounded-[1.75rem] border border-white/80 bg-white/95 p-2 text-slate-950 shadow-[0_30px_90px_-42px_rgba(15,23,42,0.38)] backdrop-blur dark:border-white/10 dark:bg-slate-950 dark:text-white">
             <CardHeader className="space-y-4 p-5 sm:p-6">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 shadow-[0_14px_30px_rgba(37,99,235,0.28)]">
                 <Building2 className="h-7 w-7 text-white" />
               </div>
               <div>
-                <CardTitle className="text-2xl font-black tracking-tight text-white sm:text-3xl">
+                <CardTitle className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl dark:text-white">
                   Masuk ke tenant
                 </CardTitle>
-                <CardDescription className="mt-2 text-slate-400">
+                <CardDescription className="mt-2 text-slate-500 dark:text-slate-400">
                   {tenantSlug
                     ? `Masuk ke workspace ${tenantSlug}.`
                     : "Tenant belum terdeteksi. Mulai dari halaman tenant."}
@@ -295,16 +296,16 @@ export function AdminLoginClient() {
               )}
 
               <div className="mb-6 flex items-center gap-3">
-                <div className="h-px flex-1 bg-white/10" />
-                <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
+                <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+                <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">
                   Atau manual
                 </span>
-                <div className="h-px flex-1 bg-white/10" />
+                <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
               </div>
 
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
                 <div className="space-y-2">
-                  <Label className="ml-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-300">
+                  <Label className="ml-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-300">
                     Email
                   </Label>
                   <div className="relative">
@@ -312,7 +313,7 @@ export function AdminLoginClient() {
                     <Input
                       type="email"
                       placeholder="admin@bookinaja.com"
-                      className="h-14 rounded-2xl border-white/10 bg-white/5 pl-12 text-white placeholder:text-slate-500"
+                      className="h-14 rounded-2xl border-slate-200 bg-white pl-12 text-slate-950 placeholder:text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-500"
                       {...register("email")}
                       required
                     />
@@ -320,7 +321,7 @@ export function AdminLoginClient() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="ml-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-300">
+                  <Label className="ml-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-300">
                     Password
                   </Label>
                   <div className="relative">
@@ -328,7 +329,7 @@ export function AdminLoginClient() {
                     <Input
                       type="password"
                       placeholder="Kata sandi admin"
-                      className="h-14 rounded-2xl border-white/10 bg-white/5 pl-12 text-white placeholder:text-slate-500"
+                      className="h-14 rounded-2xl border-slate-200 bg-white pl-12 text-slate-950 placeholder:text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-500"
                       {...register("password")}
                       required
                     />
@@ -336,7 +337,7 @@ export function AdminLoginClient() {
                   <div className="flex justify-end">
                     <Link
                       href={forgotPasswordUrl}
-                      className="text-xs font-semibold text-sky-300 underline underline-offset-4"
+                      className="text-xs font-semibold text-blue-700 underline underline-offset-4 dark:text-sky-300"
                     >
                       Lupa password owner?
                     </Link>
@@ -344,19 +345,20 @@ export function AdminLoginClient() {
                 </div>
 
                 <Button
-                  className="h-13 w-full rounded-xl bg-blue-600 text-sm font-bold text-white hover:bg-blue-500 sm:h-14"
+                  className="h-13 w-full rounded-2xl bg-blue-600 text-sm font-bold text-white shadow-[0_14px_30px_rgba(37,99,235,0.22)] hover:bg-blue-500 sm:h-14"
                   disabled={loading || !tenantSlug}
                 >
+                  {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   {loading ? "Memverifikasi..." : "Masuk"}
                   {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
                 </Button>
               </form>
 
-              <div className="mt-6 rounded-[1.2rem] border border-white/10 bg-white/[0.03] px-4 py-4 text-sm leading-6 text-slate-400">
+              <div className="mt-6 rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
                 Belum punya tenant?{" "}
                 <Link
                   href={registerUrl}
-                  className="font-bold text-sky-300 underline underline-offset-4"
+                  className="font-bold text-blue-700 underline underline-offset-4 dark:text-sky-300"
                 >
                   Buat sekarang
                 </Link>{" "}

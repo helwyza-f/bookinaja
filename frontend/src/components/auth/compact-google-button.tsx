@@ -90,15 +90,28 @@ export function CompactGoogleButton({
   if (!googleClientID) return null;
 
   return (
-    <div className="space-y-2">
-      <div ref={buttonRef} className="min-h-[44px] w-full" />
+    <div className="relative space-y-2">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-1 shadow-sm transition-colors dark:border-white/10 dark:bg-white/[0.03]">
+        {!scriptReady ? (
+          <div className="flex h-11 w-full items-center justify-center gap-3 rounded-xl bg-slate-50 text-sm font-semibold text-slate-500 dark:bg-white/[0.04] dark:text-slate-300">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-sm font-black text-slate-700 shadow-sm dark:bg-slate-950 dark:text-slate-200">
+              G
+            </span>
+            <span>Menyiapkan Google</span>
+          </div>
+        ) : null}
+        <div
+          ref={buttonRef}
+          className={scriptReady ? "min-h-[44px] w-full [&>div]:mx-auto" : "h-0 overflow-hidden"}
+        />
+      </div>
       {!scriptReady ? (
-        <p className="text-center text-xs text-slate-400">Menyiapkan Google sign-in...</p>
+        <p className="text-center text-xs text-slate-400">Koneksi aman ke Google Identity.</p>
       ) : null}
       {loading ? (
-        <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Memproses Google...
+        <div className="absolute inset-0 flex items-center justify-center rounded-2xl border border-blue-100 bg-white/90 text-sm font-semibold text-slate-700 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-950/90 dark:text-slate-200">
+          <Loader2 className="mr-2 h-4 w-4 animate-spin text-blue-600" />
+          Memproses Google
         </div>
       ) : null}
     </div>

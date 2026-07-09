@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useEffect, useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { BookinajaAuthLogo } from "@/components/auth/bookinaja-auth-logo";
 import { CompactGoogleButton } from "@/components/auth/compact-google-button";
@@ -98,27 +98,42 @@ function LoginScreen() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f8fb] text-slate-950">
-      <div className="mx-auto grid min-h-screen max-w-6xl grid-cols-1 px-5 py-8 lg:grid-cols-[1fr_420px] lg:items-center lg:gap-16">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.16),transparent_32%),linear-gradient(180deg,#f8fbff_0%,#eef4ff_52%,#ffffff_100%)] text-slate-950">
+      <div className="mx-auto grid min-h-screen max-w-6xl grid-cols-1 px-4 py-6 sm:px-5 lg:grid-cols-[minmax(0,1fr)_430px] lg:items-center lg:gap-16">
         <section className="hidden lg:block">
           <div className="max-w-xl">
             <BookinajaAuthLogo priority className="mb-6" />
-            <h1 className="text-5xl font-semibold leading-tight tracking-normal">
-              Masuk ke akun, pilih workspace, lanjut operasional.
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white/80 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-blue-700 shadow-sm">
+              <ShieldCheck className="h-4 w-4" />
+              Secure workspace access
+            </div>
+            <h1 className="text-5xl font-semibold leading-tight tracking-tight">
+              Masuk, pilih workspace, lanjut operasional.
             </h1>
             <p className="mt-5 text-base leading-7 text-slate-600">
               Satu akun Bookinaja bisa mengelola beberapa workspace. Area admin tetap memakai subdomain workspace supaya konteks bisnis selalu jelas.
             </p>
+            <div className="mt-8 grid gap-3">
+              {["Akses multi-workspace", "Login Google atau email", "Session tenant tetap terpisah"].map((item) => (
+                <div key={item} className="flex items-center gap-3 text-sm font-semibold text-slate-700">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  {item}
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
-        <section className="flex min-h-[calc(100vh-4rem)] items-center lg:min-h-0">
-          <div className="w-full rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="flex min-h-[calc(100vh-3rem)] items-center lg:min-h-0">
+          <div className="w-full overflow-hidden rounded-[1.75rem] border border-white/80 bg-white/92 p-5 shadow-[0_24px_80px_-34px_rgba(15,23,42,0.38)] backdrop-blur sm:p-6">
             <div className="mb-6">
               <BookinajaAuthLogo className="mb-4 lg:hidden" />
-              <h2 className="text-2xl font-semibold tracking-normal">Login akun</h2>
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-blue-700">
+                Bookinaja account
+              </div>
+              <h2 className="text-2xl font-semibold tracking-tight">Login akun</h2>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                Gunakan akun global Bookinaja.
+                Gunakan akun global untuk masuk ke workspace yang kamu kelola.
               </p>
             </div>
 
@@ -128,9 +143,9 @@ function LoginScreen() {
               onCredential={onGoogleCredential}
             />
 
-            <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
+            <div className="my-5 flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
               <div className="h-px flex-1 bg-slate-200" />
-              atau pakai email
+              Email
               <div className="h-px flex-1 bg-slate-200" />
             </div>
 
@@ -157,7 +172,8 @@ function LoginScreen() {
                   required
                 />
               </label>
-              <Button type="submit" disabled={loading} className="h-10 w-full">
+              <Button type="submit" disabled={loading} className="h-12 w-full rounded-2xl text-sm font-bold shadow-[0_14px_30px_rgba(37,99,235,0.22)]">
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {loading ? "Memverifikasi..." : "Masuk"}
                 {!loading ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
               </Button>
@@ -165,7 +181,7 @@ function LoginScreen() {
 
             <p className="mt-5 text-center text-sm text-slate-500">
               Belum punya akun?{" "}
-              <Link href="/signup" className="font-semibold text-[#174ea6]">
+              <Link href="/signup" className="font-semibold text-blue-700">
                 Sign up
               </Link>
             </p>
