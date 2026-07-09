@@ -84,6 +84,16 @@ function durationCountLabel(value?: string) {
   }
 }
 
+function isMainBookingItem(item: any) {
+  return ["main_option", "main", "console_option", "package", "pricing"].includes(
+    String(item?.item_type || "").toLowerCase(),
+  );
+}
+
+function isAddonBookingItem(item: any) {
+  return ["add_on", "addon"].includes(String(item?.item_type || "").toLowerCase());
+}
+
 export default function ResourceBookingDetail() {
   const params = useParams();
   const router = useRouter();
@@ -597,7 +607,7 @@ export default function ResourceBookingDetail() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {resource.items
-                ?.filter((i: any) => i.item_type === "main_option")
+                ?.filter(isMainBookingItem)
                 .map((item: any) => (
                   <button
                     key={item.id}
@@ -903,7 +913,7 @@ export default function ResourceBookingDetail() {
                 </h2>
                 <div className="grid grid-cols-1 gap-2 px-1">
                   {resource.items
-                    ?.filter((i: any) => i.item_type === "add_on")
+                    ?.filter(isAddonBookingItem)
                     .map((item: any) => {
                       const isSel = selectedAddons.includes(item.id);
                       return (
