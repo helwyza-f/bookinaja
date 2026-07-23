@@ -146,7 +146,6 @@ function AdminGoogleConnectScreen() {
             </div>
             <TenantGoogleButton
               text="continue_with"
-              title="Google owner"
               description={
                 account?.auth?.google_linked
                   ? "Pilih akun baru kalau kamu memang ingin mengganti koneksi Google owner."

@@ -287,7 +287,6 @@ export function AdminLoginClient() {
               ) : (
                 <TenantGoogleButton
                   text="continue_with"
-                  title="Google"
                   description="Masuk cepat dengan akun Google admin."
                   loading={loading}
                   className="mb-6"

@@ -4,7 +4,6 @@ import { GoogleIdentityPanel } from "@/components/auth/google-identity-panel";
 
 type TenantGoogleButtonProps = {
   text?: "continue_with" | "signup_with";
-  title?: string;
   description?: string;
   loading?: boolean;
   className?: string;
@@ -13,7 +12,6 @@ type TenantGoogleButtonProps = {
 
 export function TenantGoogleButton({
   text = "continue_with",
-  title = "Google access",
   description,
   loading = false,
   className = "",
@@ -22,7 +20,6 @@ export function TenantGoogleButton({
   return (
     <GoogleIdentityPanel
       text={text}
-      title={title}
       description={description}
       loading={loading}
       className={className}
