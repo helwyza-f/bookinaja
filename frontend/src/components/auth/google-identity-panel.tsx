@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 type GoogleIdentityPanelProps = {
   text?: "continue_with" | "signup_with";
-  title?: string;
   description?: string;
   loading?: boolean;
   className?: string;
@@ -14,7 +13,6 @@ type GoogleIdentityPanelProps = {
 
 export function GoogleIdentityPanel({
   text = "continue_with",
-  title = "Google access",
   description,
   loading = false,
   className = "",
@@ -70,16 +68,10 @@ export function GoogleIdentityPanel({
   }, [googleClientID, scriptReady]);
 
   useEffect(() => {
-    if (
-      !scriptReady ||
-      !buttonRef.current ||
-      !googleClientID ||
-      !window.google?.accounts?.id
-    ) {
+    if (!scriptReady || !googleClientID || !window.google?.accounts?.id) {
       return;
     }
 
-    buttonRef.current.innerHTML = "";
     window.google.accounts.id.initialize({
       client_id: googleClientID,
       callback: async (response) => {
@@ -89,16 +81,23 @@ export function GoogleIdentityPanel({
       auto_select: false,
       cancel_on_tap_outside: true,
     });
-    const width = Math.min(buttonRef.current.clientWidth || 360, 360);
+  }, [googleClientID, onCredential, scriptReady, text]);
+
+  useEffect(() => {
+    if (!scriptReady || !buttonRef.current || !googleClientID || !window.google?.accounts?.id) {
+      return;
+    }
+
+    buttonRef.current.innerHTML = "";
     window.google.accounts.id.renderButton(buttonRef.current, {
       theme: "outline",
       size: "large",
-      width,
+      width: Math.min(buttonRef.current.clientWidth || 360, 360),
       text,
       shape: "pill",
       logo_alignment: "left",
     });
-  }, [googleClientID, onCredential, scriptReady, text]);
+  }, [googleClientID, scriptReady, text]);
 
   if (!googleClientID) {
     return null;
@@ -106,30 +105,16 @@ export function GoogleIdentityPanel({
 
   return (
     <div className={`space-y-3 ${className}`}>
-      <div className="flex items-center justify-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-blue-700 dark:text-sky-300">
-        <ShieldCheck className="h-3.5 w-3.5" />
-        {title}
-      </div>
-      <div className="relative overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white/90 p-4 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.22)] backdrop-blur dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="relative overflow-hidden rounded-2xl bg-transparent p-0">
         <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-3 text-center">
           {description ? (
             <p className="text-sm leading-6 text-slate-500 dark:text-slate-400">
               {description}
             </p>
           ) : null}
-          <div className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white p-1 shadow-sm dark:border-white/10 dark:bg-slate-950/40">
-            {!scriptReady ? (
-              <div className="flex h-11 w-full items-center justify-center gap-3 rounded-xl bg-slate-50 text-sm font-semibold text-slate-500 dark:bg-white/[0.04] dark:text-slate-300">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-sm font-black text-slate-700 shadow-sm dark:bg-slate-950 dark:text-slate-200">
-                  G
-                </span>
-                <span>Menyiapkan Google</span>
-              </div>
-            ) : null}
-            <div ref={buttonRef} className={scriptReady ? "min-h-[44px] [&>div]:mx-auto" : "h-0 overflow-hidden"} />
-          </div>
+          <div ref={buttonRef} className="min-h-[44px] w-full" />
           {loading ? (
-            <div className="absolute inset-0 flex items-center justify-center rounded-[1.5rem] bg-white/90 text-sm font-semibold text-slate-700 backdrop-blur dark:bg-slate-950/85 dark:text-slate-200">
+            <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-white/90 text-sm font-semibold text-slate-700 backdrop-blur dark:bg-slate-950/85 dark:text-slate-200">
               <Loader2 className="mr-2 h-4 w-4 animate-spin text-blue-600" />
               Memproses Google
             </div>

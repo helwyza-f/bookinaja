@@ -6,32 +6,21 @@ import {
   ArrowLeft,
   ArrowRight,
   Banknote,
-  Building2,
-  CalendarCheck,
-  CalendarIcon,
-  Check,
-  Clock3,
   Gamepad2,
   ImagePlus,
   Info,
-  LayoutDashboard,
-  MessageCircle,
-  Sparkles,
   Upload,
 } from "lucide-react";
-import { addDays, addMinutes, format } from "date-fns";
+import { format } from "date-fns";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import api from "@/lib/api";
 import { BOOKINAJA_LOGO_FRAMELESS_SRC } from "@/lib/brand";
 import { prepareImageForUpload } from "@/lib/image-upload-prep";
 import {
-  getSignupIntentPlanLabel,
   readSignupIntentFromParams,
   signupIntentToQuery,
   type SignupIntent,
@@ -40,65 +29,37 @@ import { getTenantAdminEntryUrl } from "@/lib/workspace-entry";
 import { getWorkspaceOnboarding, listWorkspaces, updateWorkspaceOnboardingStep } from "@/lib/workspace-client";
 
 const steps = [
-  { key: "template", label: "Start", icon: Sparkles },
   { key: "resource", label: "Resource", icon: Gamepad2 },
-  { key: "business", label: "Business", icon: Building2 },
   { key: "payments", label: "Payment", icon: Banknote },
-  { key: "first-booking", label: "Test", icon: CalendarCheck },
-  { key: "done", label: "Ready", icon: LayoutDashboard },
 ];
 
-const stepNext: Record<string, string> = {
+const legacyStepMap: Record<string, string> = {
   template: "resource",
-  resource: "business",
   business: "payments",
-  payments: "first-booking",
-  "first-booking": "done",
-  done: "done",
+  "first-booking": "payments",
+  done: "payments",
+};
+
+const stepNext: Record<string, string> = {
+  resource: "payments",
+  payments: "done",
 };
 
 const stepPrevious: Record<string, string> = {
-  template: "template",
-  resource: "template",
-  business: "resource",
-  payments: "business",
-  "first-booking": "payments",
-  done: "first-booking",
+  resource: "resource",
+  payments: "resource",
 };
 
-const hour12Options = Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, "0"));
-const minuteOptions = ["00", "15", "30", "45"];
-
 const stepTitles: Record<string, { title: string; subtitle: string; action: string }> = {
-  template: {
-    title: "Siapkan alur booking pertamamu.",
-    subtitle: "Kita bikin satu setup real: unit, paket harga, jam operasional, payment mode, lalu simulasi booking.",
-    action: "Mulai setup",
-  },
   resource: {
     title: "Buat unit dan paket pertamamu.",
-    subtitle: "Customer nanti melihat cover, nama unit, dan harga mulai dari paket utama yang kamu isi di sini.",
+    subtitle: "Mulai dari hal yang paling penting dulu: nama unit, cover, paket utama, dan harga mulai dari yang customer lihat.",
     action: "Simpan unit pertama",
-  },
-  business: {
-    title: "Atur dasar operasional bisnis.",
-    subtitle: "Isi aturan dasar agar customer tahu kapan bisa booking dan bagaimana menghubungi kamu.",
-    action: "Simpan info bisnis",
   },
   payments: {
     title: "Aktifkan metode pembayaran.",
-    subtitle: "Default: Midtrans dan cash. Tambahkan transfer atau QRIS kalau sudah siap.",
-    action: "Simpan pembayaran",
-  },
-  "first-booking": {
-    title: "Coba simulasi booking pertama.",
-    subtitle: "Preview bagaimana customer booking dan apa yang owner lihat di admin calendar.",
-    action: "Lanjut ke langkah akhir",
-  },
-  done: {
-    title: "Setup awal workspace selesai.",
-    subtitle: "Booking simulasi sudah tercatat. Buka dashboard untuk cek data internal dan lanjutkan keputusan billing dari sana.",
-    action: "Lihat dashboard",
+    subtitle: "Default-nya Midtrans dan cash sudah siap. Tambahkan transfer atau QRIS hanya kalau memang mau langsung dipakai.",
+    action: "Masuk dashboard",
   },
 };
 
@@ -233,23 +194,6 @@ function priceUnitLabel(value: string) {
   }
 }
 
-function quantityUnitLabel(value: string) {
-  switch (value) {
-    case "session":
-      return "sesi";
-    case "day":
-      return "hari";
-    case "week":
-      return "minggu";
-    case "month":
-      return "bulan";
-    case "year":
-      return "tahun";
-    default:
-      return "jam";
-  }
-}
-
 function durationHintByPriceUnit(value: string) {
   switch (value) {
     case "session":
@@ -304,8 +248,9 @@ export function OnboardingStepScreen({ step }: { step: string }) {
   const workspaceSlug = searchParams.get("slug");
   const workspaceCategoryQuery = searchParams.get("category") || "";
   const signupIntent = useMemo(() => readSignupIntentFromParams(searchParams), [searchParams]);
-  const currentIndex = Math.max(steps.findIndex((item) => item.key === step), 0);
-  const copy = stepTitles[step] || stepTitles.template;
+  const effectiveStep = legacyStepMap[step] || step;
+  const currentIndex = Math.max(steps.findIndex((item) => item.key === effectiveStep), 0);
+  const copy = stepTitles[effectiveStep] || stepTitles.resource;
   const [loading, setLoading] = useState(false);
   const [workspaceCategory, setWorkspaceCategory] = useState(workspaceCategoryQuery);
   const [resourceName, setResourceName] = useState("");
@@ -316,9 +261,6 @@ export function OnboardingStepScreen({ step }: { step: string }) {
   const [priceUnit, setPriceUnit] = useState("hour");
   const [price, setPrice] = useState("");
   const [duration, setDuration] = useState("");
-  const [openTime, setOpenTime] = useState("");
-  const [closeTime, setCloseTime] = useState("");
-  const [whatsapp, setWhatsapp] = useState("");
   const [bankTransferEnabled, setBankTransferEnabled] = useState(false);
   const [bankName, setBankName] = useState("");
   const [bankAccountName, setBankAccountName] = useState("");
@@ -327,12 +269,6 @@ export function OnboardingStepScreen({ step }: { step: string }) {
   const [qrisStaticEnabled, setQrisStaticEnabled] = useState(false);
   const [qrisImageUrl, setQrisImageUrl] = useState("");
   const [qrisInstructions, setQrisInstructions] = useState("");
-  const [bookingName, setBookingName] = useState("");
-  const [bookingPhone, setBookingPhone] = useState("");
-  const [bookingDate, setBookingDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [bookingTime, setBookingTime] = useState("");
-  const [bookingMode, setBookingMode] = useState<"scheduled" | "walkin">("scheduled");
-  const [bookingQuantity, setBookingQuantity] = useState(0);
   const categoryProfile = categoryProfileFor(workspaceCategory);
 
   useEffect(() => {
@@ -353,7 +289,6 @@ export function OnboardingStepScreen({ step }: { step: string }) {
       .then((state) => {
         if (!alive || !state.seed) return;
         const resource = state.seed.resource;
-        const business = state.seed.business;
         const payment = state.seed.payment_methods;
 
         if (resource) {
@@ -369,12 +304,6 @@ export function OnboardingStepScreen({ step }: { step: string }) {
           );
           setPrice((current) => current || String(resource.price || ""));
           setDuration((current) => current || String(resource.unit_duration || ""));
-        }
-
-        if (business) {
-          setOpenTime((current) => current || String(business.open_time || ""));
-          setCloseTime((current) => current || String(business.close_time || ""));
-          setWhatsapp((current) => current || String(business.whatsapp_number || ""));
         }
 
         if (payment) {
@@ -408,24 +337,14 @@ export function OnboardingStepScreen({ step }: { step: string }) {
     digitsOnly(price).trim() &&
     digitsOnly(duration).trim(),
   );
-  const businessValid = Boolean(openTime.trim() && closeTime.trim() && whatsapp.trim());
   const paymentsValid = Boolean(
     (!bankTransferEnabled || hasBankTransferConfig(bankName, bankAccountName, bankAccountNumber)) &&
     (!qrisStaticEnabled || hasQrisConfig(qrisImageUrl)),
   );
-  const defaultBookingQuantity = Boolean(resourceName.trim() && priceName.trim() && Number(price || 0)) ? 1 : 0;
-  const effectiveBookingQuantity = bookingQuantity > 0 ? bookingQuantity : defaultBookingQuantity;
-  const firstBookingValid = Boolean(
-    effectiveBookingQuantity > 0 && bookingTime && bookingName.trim() && bookingPhone.trim(),
-  );
-  const continueDisabled = step === "resource"
+  const continueDisabled = effectiveStep === "resource"
     ? !resourceValid
-    : step === "business"
-      ? !businessValid
-      : step === "payments"
+      : effectiveStep === "payments"
         ? !paymentsValid
-        : step === "first-booking"
-          ? !firstBookingValid
           : false;
 
   async function continueStep() {
@@ -434,34 +353,14 @@ export function OnboardingStepScreen({ step }: { step: string }) {
       router.replace("/app/workspaces");
       return;
     }
-    if (step === "done") {
-      if (workspaceSlug) window.location.href = getTenantAdminEntryUrl(workspaceSlug, adminWelcomePath(signupIntent));
-      else router.replace("/app/workspaces");
-      return;
-    }
-    if (step === "first-booking") {
-      if (!effectiveBookingQuantity || effectiveBookingQuantity <= 0) {
-        toast.error("Pilih resource, paket, dan jumlah booking dulu.");
-        return;
-      }
-      if (!bookingTime) {
-        toast.error("Pilih slot jam booking dulu.");
-        return;
-      }
-      if (!bookingName.trim() || !bookingPhone.trim()) {
-        toast.error("Isi nama dan WhatsApp customer simulasi.");
-        return;
-      }
-    }
-
     setLoading(true);
     try {
-      const target = stepNext[step] || "resource";
-      const state = await updateWorkspaceOnboardingStep(workspaceId, step, {
+      const target = stepNext[effectiveStep] || "resource";
+      const state = await updateWorkspaceOnboardingStep(workspaceId, effectiveStep, {
         next_step: target,
-        selected_start_mode: step === "template" ? "guided_real_setup" : undefined,
+        selected_start_mode: effectiveStep === "resource" ? "guided_real_setup" : undefined,
         complete: target === "done",
-        ...(step === "resource"
+        ...(effectiveStep === "resource"
           ? {
               resource_name: resourceName,
               resource_category: resourceCategory || workspaceCategory || "main",
@@ -473,7 +372,7 @@ export function OnboardingStepScreen({ step }: { step: string }) {
               unit_duration: Number(duration || 60),
             }
           : {}),
-        ...(step === "payments"
+        ...(effectiveStep === "payments"
           ? {
               payment_methods: {
                 bank_transfer_enabled: bankTransferEnabled && hasBankTransferConfig(bankName, bankAccountName, bankAccountNumber),
@@ -487,26 +386,15 @@ export function OnboardingStepScreen({ step }: { step: string }) {
               },
             }
           : {}),
-        ...(step === "business"
-          ? {
-              open_time: openTime || "09:00",
-              close_time: closeTime || "22:00",
-              whatsapp_number: whatsapp,
-            }
-          : {}),
-        ...(step === "first-booking"
-          ? {
-              first_booking: {
-                customer_name: bookingName,
-                customer_phone: bookingPhone,
-                booking_date: bookingDate,
-                booking_time: bookingTime,
-                booking_mode: bookingMode,
-                quantity: effectiveBookingQuantity,
-              },
-            }
-          : {}),
       });
+      if (target === "done") {
+        if (workspaceSlug) {
+          window.location.href = getTenantAdminEntryUrl(workspaceSlug, adminWelcomePath(signupIntent));
+        } else {
+          router.replace("/app/workspaces");
+        }
+        return;
+      }
       router.push(nextUrl(state.current_step, workspaceId, workspaceSlug, signupIntent));
     } catch (error) {
       const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
@@ -521,11 +409,11 @@ export function OnboardingStepScreen({ step }: { step: string }) {
       router.replace("/app/workspaces");
       return;
     }
-    if (step === "template") {
+    if (effectiveStep === "resource") {
       router.replace("/app/workspaces");
       return;
     }
-    router.push(nextUrl(stepPrevious[step] || "template", workspaceId, workspaceSlug, signupIntent));
+    router.push(nextUrl(stepPrevious[effectiveStep] || "resource", workspaceId, workspaceSlug, signupIntent));
   }
 
   return (
@@ -559,9 +447,7 @@ export function OnboardingStepScreen({ step }: { step: string }) {
             </div>
           </header>
 
-          {step === "template" ? (
-            <StartStep categoryLabel={categoryProfile.label} />
-          ) : step === "resource" ? (
+          {effectiveStep === "resource" ? (
             <ResourceStep
               categoryProfile={categoryProfile}
               resourceName={resourceName}
@@ -581,17 +467,7 @@ export function OnboardingStepScreen({ step }: { step: string }) {
               setPrice={setPrice}
               setDuration={setDuration}
             />
-          ) : step === "business" ? (
-            <BusinessStep
-              categoryProfile={categoryProfile}
-              openTime={openTime}
-              closeTime={closeTime}
-              whatsapp={whatsapp}
-              setOpenTime={setOpenTime}
-              setCloseTime={setCloseTime}
-              setWhatsapp={setWhatsapp}
-            />
-          ) : step === "payments" ? (
+          ) : effectiveStep === "payments" ? (
             <PaymentStep
               price={price}
               bankTransferEnabled={bankTransferEnabled}
@@ -611,38 +487,7 @@ export function OnboardingStepScreen({ step }: { step: string }) {
               qrisInstructions={qrisInstructions}
               setQrisInstructions={setQrisInstructions}
             />
-          ) : step === "first-booking" ? (
-            <BookingExperienceStep
-              categoryLabel={categoryProfile.label}
-              bookingName={bookingName}
-              bookingPhone={bookingPhone}
-              bookingTime={bookingTime}
-              bookingMode={bookingMode}
-              bookingQuantity={effectiveBookingQuantity}
-              setBookingName={setBookingName}
-              setBookingPhone={setBookingPhone}
-              setBookingDate={setBookingDate}
-              setBookingTime={setBookingTime}
-              setBookingMode={setBookingMode}
-              setBookingQuantity={setBookingQuantity}
-              resourceName={resourceName}
-              priceName={priceName}
-              priceUnit={priceUnit}
-              price={price}
-              duration={duration}
-              openTime={openTime}
-              closeTime={closeTime}
-              paymentLabel={
-                bankTransferEnabled && hasBankTransferConfig(bankName, bankAccountName, bankAccountNumber)
-                  ? "Bank transfer"
-                  : qrisStaticEnabled && hasQrisConfig(qrisImageUrl)
-                    ? "QRIS static"
-                    : "Cash / Midtrans"
-              }
-            />
-          ) : (
-            <DoneStep workspaceSlug={workspaceSlug} signupIntent={signupIntent} />
-          )}
+          ) : null}
 
           <OnboardingFooter
             currentIndex={currentIndex}
@@ -655,38 +500,6 @@ export function OnboardingStepScreen({ step }: { step: string }) {
         </div>
       </section>
     </main>
-  );
-}
-
-function StartStep({ categoryLabel }: { categoryLabel: string }) {
-  const cards = [
-    ["1", "Buat unit pertama", "Siapkan unit dan paket utama yang benar-benar akan dijual."],
-    ["2", "Atur dasar operasional", "Jam operasional, kontak, dan payment mode disiapkan."],
-    ["3", "Coba alur booking", "Lihat simulasi dari sisi customer sampai masuk admin."],
-  ];
-  return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center py-8 text-center">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-white">
-        <Sparkles className="h-6 w-6" />
-      </div>
-      <h2 className="mt-5 text-4xl font-semibold tracking-tight">Mari bikin workspace ini siap dipakai.</h2>
-      <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-500">
-        Setup ini disesuaikan untuk kategori <span className="font-semibold text-slate-950">{categoryLabel}</span>, jadi contoh data dan tipsnya lebih relevan.
-      </p>
-      <div className="mt-8 grid gap-3 text-left">
-        {cards.map(([number, title, description]) => (
-          <div key={number} className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-sm font-bold text-blue-600">
-              {number}
-            </div>
-            <div>
-              <div className="font-semibold">{title}</div>
-              <p className="mt-1 text-sm text-slate-500">{description}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -1011,148 +824,6 @@ function ResourceStep(props: {
                   Durasi {props.duration || "60"} menit
                 </div>
               </div>
-            </div>
-          </div>
-        </PreviewCard>
-      </div>
-    </div>
-  );
-}
-
-function BusinessStep(props: {
-  categoryProfile: ReturnType<typeof categoryProfileFor>;
-  openTime: string;
-  closeTime: string;
-  whatsapp: string;
-  setOpenTime: (value: string) => void;
-  setCloseTime: (value: string) => void;
-  setWhatsapp: (value: string) => void;
-}) {
-  const [activeHint, setActiveHint] = useState<string | null>(null);
-
-  useEffect(() => {
-    function handlePointerDown(event: PointerEvent) {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) return;
-      if (target.closest("[data-guided-field='true']")) return;
-      setActiveHint(null);
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown, true);
-    return () => document.removeEventListener("pointerdown", handlePointerDown, true);
-  }, []);
-
-  return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_440px]">
-      <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5">
-        <div className="rounded-2xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-slate-700">
-          Di langkah ini kita tentukan
-          <span className="font-semibold text-slate-950"> kapan customer bisa booking</span> dan
-          <span className="font-semibold text-slate-950"> ke nomor mana mereka diarahkan</span> kalau butuh konfirmasi cepat.
-          <span className="mt-1 block text-slate-500">{props.categoryProfile.businessTip}</span>
-        </div>
-        <section className="space-y-4 rounded-2xl border border-slate-200 p-4">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">Jam operasional</div>
-            <h3 className="mt-2 text-lg font-semibold">Kapan booking dibuka</h3>
-            <p className="mt-1 text-sm text-slate-500">
-              Customer hanya akan melihat slot booking di rentang jam ini.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {[
-              ["09:00", "22:00", "09.00 - 22.00"],
-              ["10:00", "22:00", "10.00 - 22.00"],
-              ["00:00", "23:59", "24 jam"],
-            ].map(([open, close, label]) => (
-              <button
-                key={`${open}-${close}`}
-                type="button"
-                onClick={() => {
-                  props.setOpenTime(open);
-                  props.setCloseTime(close);
-                }}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  props.openTime === open && props.closeTime === close
-                    ? "border-blue-500 bg-blue-50 text-blue-700"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/40"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <GuidedField
-              label="Jam buka"
-              hint="Jam paling awal customer bisa melihat slot dan membuat booking."
-              activeHint={activeHint}
-              onFocus={() => setActiveHint("open_time")}
-              hintKey="open_time"
-            >
-              <OnboardingTimePicker value={props.openTime} onChange={props.setOpenTime} placeholder="09:00" />
-            </GuidedField>
-            <GuidedField
-              label="Jam tutup"
-              hint="Jam terakhir booking masih bisa dijadwalkan di hari yang sama."
-              activeHint={activeHint}
-              onFocus={() => setActiveHint("close_time")}
-              hintKey="close_time"
-            >
-              <OnboardingTimePicker value={props.closeTime} onChange={props.setCloseTime} placeholder="22:00" />
-            </GuidedField>
-          </div>
-        </section>
-
-        <section className="space-y-4 rounded-2xl border border-slate-200 p-4">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">Kontak cepat</div>
-            <h3 className="mt-2 text-lg font-semibold">Nomor WhatsApp bisnis</h3>
-            <p className="mt-1 text-sm text-slate-500">
-              Ini dipakai kalau customer perlu tanya jadwal, konfirmasi, atau follow-up cepat.
-            </p>
-          </div>
-          <GuidedField
-            label="WhatsApp bisnis"
-            hint="Pakai nomor yang benar-benar aktif untuk admin atau CS. Contoh: 0812xxxx atau 62812xxxx."
-            activeHint={activeHint}
-            onFocus={() => setActiveHint("whatsapp")}
-            hintKey="whatsapp"
-          >
-            <div className="relative">
-              <MessageCircle className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <OnboardingInput
-                value={props.whatsapp}
-                onChange={(event) => props.setWhatsapp(event.target.value)}
-                placeholder="08123456789"
-                autoComplete="off"
-                inputMode="tel"
-                className="pl-11"
-              />
-            </div>
-          </GuidedField>
-        </section>
-      </div>
-      <div className="lg:sticky lg:top-8 lg:self-start">
-        <PreviewCard title="Preview public booking">
-          <div className="space-y-4 rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_48px_rgba(15,23,42,0.08)]">
-            <div className="rounded-2xl bg-blue-50 px-4 py-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">Customer bisa booking</div>
-              <div className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-                {props.openTime || "09:00"} - {props.closeTime || "22:00"}
-              </div>
-            </div>
-            <div className="rounded-2xl border border-slate-200 px-4 py-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Kontak follow-up</div>
-              <div className="mt-2 flex items-center gap-3 text-sm text-slate-700">
-                <MessageCircle className="h-4 w-4 text-emerald-600" />
-                <span>{props.whatsapp || "Nomor WhatsApp bisnis akan tampil di sini"}</span>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <InfoLine icon={Clock3} label={`Booking dibuka ${props.openTime || "09:00"} - ${props.closeTime || "22:00"}`} />
-              <InfoLine icon={CalendarCheck} label="Kalender customer mengikuti jam operasional ini" />
-              <InfoLine icon={Building2} label="Customer tahu ke mana harus kontak saat butuh bantuan" />
             </div>
           </div>
         </PreviewCard>
@@ -1680,559 +1351,6 @@ function BookingStep(props: {
     </div>
   );
 }
-/* eslint-enable @typescript-eslint/no-unused-vars */
-
-function BookingExperienceStep(props: {
-  categoryLabel: string;
-  bookingName: string;
-  bookingPhone: string;
-  bookingTime: string;
-  bookingMode: "scheduled" | "walkin";
-  bookingQuantity: number;
-  resourceName: string;
-  priceName: string;
-  priceUnit: string;
-  price: string;
-  duration: string;
-  openTime: string;
-  closeTime: string;
-  paymentLabel: string;
-  setBookingName: (value: string) => void;
-  setBookingPhone: (value: string) => void;
-  setBookingDate: (value: string) => void;
-  setBookingTime: (value: string) => void;
-  setBookingMode: (value: "scheduled" | "walkin") => void;
-  setBookingQuantity: (value: number) => void;
-}) {
-  const bookingTime = props.bookingTime;
-  const setBookingTime = props.setBookingTime;
-  const quantity = props.bookingQuantity;
-  const setQuantity = props.setBookingQuantity;
-  const setBookingDate = props.setBookingDate;
-  const todayValue = format(new Date(), "yyyy-MM-dd");
-  const tomorrowDate = addDays(new Date(), 1);
-  const tomorrowValue = format(tomorrowDate, "yyyy-MM-dd");
-  const hasDefaultSelection = Boolean(props.resourceName && props.priceName && Number(props.price || 0));
-  const [selectedResource, setSelectedResource] = useState(hasDefaultSelection);
-  const [selectedPackage, setSelectedPackage] = useState(hasDefaultSelection);
-  const [selectedDay, setSelectedDay] = useState<"today" | "tomorrow" | "custom">("today");
-  const [customDate, setCustomDate] = useState(format(addDays(new Date(), 7), "yyyy-MM-dd"));
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  const [activeHint, setActiveHint] = useState<string | null>(null);
-  const baseUnitMinutes = Math.max(Number(props.duration || 60), 30);
-  const resourceSelected = selectedResource || hasDefaultSelection;
-  const packageSelected = selectedPackage || hasDefaultSelection;
-  const selectionReady = resourceSelected && packageSelected;
-  const unitMinutes = baseUnitMinutes * Math.max(quantity, 1);
-  const startClock = normalizeTenantClock(props.openTime || "09:00");
-  const endClock = normalizeTenantClock(props.closeTime || "22:00");
-  const operatingWindow = getOperatingWindow(startClock, endClock);
-  const maxQuantity = Math.max(1, Math.floor((operatingWindow.closeMinutes - operatingWindow.openMinutes) / baseUnitMinutes));
-  const effectiveDay = props.bookingMode === "walkin" ? "today" : selectedDay;
-  const bookingDateValue = effectiveDay === "today"
-    ? todayValue
-    : effectiveDay === "tomorrow"
-      ? tomorrowValue
-      : customDate;
-  const bookingDate = new Date(`${bookingDateValue}T12:00:00`);
-  const dateLabel = effectiveDay === "today"
-    ? "Hari ini"
-    : effectiveDay === "tomorrow"
-      ? "Besok"
-      : format(bookingDate, "dd MMM");
-  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
-  const availableSlots = useMemo(() => {
-    const slots: { value: string; label: string; note?: string; disabled: boolean }[] = [];
-    let currentMinutes = operatingWindow.openMinutes;
-    while (currentMinutes + unitMinutes <= operatingWindow.closeMinutes) {
-      const value = minutesToClock(currentMinutes);
-      const isPast = bookingDateValue === todayValue && currentMinutes <= nowMinutes;
-      slots.push({
-        value,
-        label: props.priceUnit === "day" ? "Full day" : value,
-        note: props.priceUnit === "day" ? `${startClock} - ${props.closeTime || "23:59"}` : isPast ? "Lewat" : undefined,
-        disabled: isPast,
-      });
-      currentMinutes += baseUnitMinutes;
-    }
-    return slots;
-  }, [baseUnitMinutes, bookingDateValue, nowMinutes, operatingWindow.closeMinutes, operatingWindow.openMinutes, props.closeTime, props.priceUnit, startClock, todayValue, unitMinutes]);
-
-  useEffect(() => {
-    setBookingDate(bookingDateValue);
-  }, [bookingDateValue, setBookingDate]);
-
-  useEffect(() => {
-    function handlePointerDown(event: PointerEvent) {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) return;
-      if (target.closest("[data-guided-field='true']")) return;
-      setActiveHint(null);
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown, true);
-    return () => document.removeEventListener("pointerdown", handlePointerDown, true);
-  }, []);
-
-  useEffect(() => {
-    if (!bookingTime) return;
-    if (!selectionReady || !availableSlots.some((slot) => slot.value === bookingTime && !slot.disabled)) {
-      setBookingTime("");
-    }
-  }, [availableSlots, bookingTime, selectionReady, setBookingTime]);
-
-  const endTime = useMemo(() => {
-    if (!props.bookingTime) return "";
-    const [hours, minutes] = props.bookingTime.split(":").map(Number);
-    return format(addMinutes(new Date(2026, 0, 1, hours || 0, minutes || 0), unitMinutes), "HH:mm");
-  }, [props.bookingTime, unitMinutes]);
-
-  const statusLabel = props.bookingMode === "walkin" ? "active" : "pending";
-  const statusTone = props.bookingMode === "walkin" ? "bg-emerald-500 text-white" : "bg-orange-500 text-white";
-  const destinationLabel = props.bookingMode === "walkin" ? "Masuk ke POS" : "Masuk ke kalender booking";
-  const summaryTitle = props.bookingMode === "walkin" ? "Sesi langsung dibuka" : "Booking masuk ke antrean";
-  const summaryNote = props.bookingMode === "walkin"
-    ? "Owner lanjut billing dan kontrol sesi dari POS."
-    : "Owner melihat booking ini di kalender lalu lanjut ke detail booking.";
-  const packageLabel = props.priceName || "Paket utama";
-  const unitLabel = priceUnitLabel(props.priceUnit);
-  const quantityLabel = quantityUnitLabel(props.priceUnit);
-  const bookingTotal = Number(props.price || 0) * quantity;
-  const timeRangeLabel = props.bookingTime
-    ? props.priceUnit === "day"
-      ? `${startClock} - ${props.closeTime || "23:59"}`
-      : `${props.bookingTime}${endTime ? ` - ${endTime}` : ""}`
-    : "--:--";
-  const paymentTypeTone = props.paymentLabel.includes("Bank") || props.paymentLabel.includes("QRIS")
-    ? "bg-sky-50 text-sky-700"
-    : props.paymentLabel.includes("Cash")
-      ? "bg-slate-100 text-slate-700"
-      : "bg-emerald-50 text-emerald-700";
-  const paymentStateLabel = props.bookingMode === "walkin"
-    ? "unpaid"
-    : props.paymentLabel.includes("Bank") || props.paymentLabel.includes("QRIS")
-      ? "pending manual"
-      : "pending dp";
-  const paymentStateTone = props.bookingMode === "walkin"
-    ? "bg-rose-50 text-rose-700"
-    : "bg-amber-50 text-amber-700";
-  return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_420px]">
-      <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-        <div className="rounded-2xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-slate-700">
-          Simulasikan booking admin untuk kategori {props.categoryLabel}.
-        </div>
-
-        <section className="space-y-4 rounded-2xl border border-slate-200 p-4">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">1. Unit & paket</div>
-            <h3 className="mt-2 text-lg font-semibold">Pilih dulu yang dibooking</h3>
-            <p className="mt-1 text-sm text-slate-500">Mulai dari unit, lalu paket utamanya.</p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedResource(true);
-                if (!packageSelected) {
-                  setSelectedPackage(true);
-                  setQuantity(1);
-                }
-              }}
-              className={`rounded-2xl border p-4 text-left transition ${
-                resourceSelected
-                  ? "border-blue-500 bg-blue-50 shadow-sm"
-                  : "border-slate-200 bg-slate-50 hover:border-blue-200 hover:bg-white"
-              }`}
-            >
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Unit</div>
-              <div className="mt-2 font-semibold text-slate-950">{props.resourceName || "Unit pertama"}</div>
-              <div className="mt-1 text-sm text-slate-500">
-                {resourceSelected ? "Unit dipilih" : "Klik untuk pilih unit"}
-              </div>
-            </button>
-            <button
-              type="button"
-              disabled={!resourceSelected}
-              onClick={() => {
-                if (!resourceSelected) return;
-                setSelectedPackage(true);
-                setQuantity(1);
-              }}
-              className={`rounded-2xl border p-4 text-left transition ${
-                !resourceSelected
-                  ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300"
-                  : packageSelected
-                    ? "border-blue-500 bg-blue-50 shadow-sm"
-                    : "border-slate-200 bg-slate-50 hover:border-blue-200 hover:bg-white"
-              }`}
-            >
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Paket utama</div>
-              <div className="mt-2 font-semibold text-slate-950">{packageLabel}</div>
-              <div className="mt-1 text-sm text-slate-500">
-                Rp{Number(props.price || 0).toLocaleString("id-ID")} / {unitLabel}
-              </div>
-              <div className="mt-2 text-sm text-slate-500">
-                {!resourceSelected ? "Pilih unit dulu" : packageSelected ? "Paket dipilih" : "Klik untuk pilih paket"}
-              </div>
-            </button>
-          </div>
-        </section>
-
-        <section className={`space-y-4 rounded-2xl border p-4 transition ${selectionReady ? "border-slate-200" : "border-slate-100 bg-slate-50/70 opacity-70"}`}>
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">2. Jadwal</div>
-            <h3 className="mt-2 text-lg font-semibold">Pilih hari dan slot mulai</h3>
-            {!selectionReady ? (
-              <p className="mt-1 text-sm text-slate-500">Selesaikan step di atas dulu.</p>
-            ) : null}
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[
-              ["scheduled", "Scheduled booking", "Masuk ke kalender"],
-              ["walkin", "Walk-in / right away", "Langsung ke POS"],
-            ].map(([value, title, note]) => {
-              const active = props.bookingMode === value;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => {
-                    const nextMode = value as "scheduled" | "walkin";
-                    props.setBookingMode(nextMode);
-                    props.setBookingTime("");
-                  }}
-                  className={`rounded-2xl border px-4 py-4 text-left transition ${
-                    active
-                      ? "border-blue-500 bg-blue-50 text-slate-950 shadow-sm"
-                      : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/40"
-                  }`}
-                >
-                  <div className="font-semibold">{title}</div>
-                  <div className="mt-1 text-sm text-slate-500">{note}</div>
-                </button>
-              );
-            })}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {[
-              ["today", "Hari ini"],
-              ["tomorrow", "Besok"],
-            ].map(([value, label]) => {
-              const disabled = props.bookingMode === "walkin" && value !== "today";
-              const active = effectiveDay === value;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  disabled={disabled || !selectionReady}
-                  onClick={() => setSelectedDay(value as "today" | "tomorrow")}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                    disabled || !selectionReady
-                      ? "cursor-not-allowed border-slate-100 bg-slate-100 text-slate-300"
-                      : active
-                        ? "border-blue-500 bg-blue-50 text-blue-700"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/40"
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  disabled={props.bookingMode === "walkin" || !selectionReady}
-                  className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                    props.bookingMode === "walkin" || !selectionReady
-                      ? "cursor-not-allowed border-slate-100 bg-slate-100 text-slate-300"
-                      : effectiveDay === "custom"
-                        ? "border-blue-500 bg-blue-50 text-blue-700"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/40"
-                  }`}
-                >
-                  <span>Kalender</span>
-                  <span>{format(bookingDate, "dd/MM/yyyy")}</span>
-                  <CalendarIcon className="h-3.5 w-3.5" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                align="start"
-                className="w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl"
-              >
-                <Calendar
-                  mode="single"
-                  selected={bookingDate}
-                  onSelect={(value) => {
-                    if (!value) return;
-                    const nextValue = format(value, "yyyy-MM-dd");
-                    if (nextValue === todayValue) {
-                      setSelectedDay("today");
-                    } else if (nextValue === tomorrowValue) {
-                      setSelectedDay("tomorrow");
-                    } else {
-                      setSelectedDay("custom");
-                      setCustomDate(nextValue);
-                    }
-                    setCalendarOpen(false);
-                  }}
-                  disabled={(date) => format(date, "yyyy-MM-dd") < todayValue}
-                  initialFocus
-                  className="w-full [--cell-size:2.5rem]"
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
-            Jam operasional {startClock} - {props.closeTime || "23:59"} | dasar slot {baseUnitMinutes} menit
-          </div>
-          {selectionReady && !availableSlots.length ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-5 text-sm text-slate-500">
-              {quantity > maxQuantity
-                ? `Jumlah ${quantityLabel} melebihi kapasitas harian. Maksimal ${maxQuantity} ${quantityLabel}.`
-                : `Durasi total ${unitMinutes} menit tidak muat di rentang operasional ini. Kurangi jumlah ${quantityLabel} atau ubah jam buka-tutup.`}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2 min-[520px]:grid-cols-3 sm:grid-cols-4">
-              {availableSlots.map((slot) => {
-                const active = props.bookingTime === slot.value;
-                return (
-                  <button
-                    key={slot.value}
-                    type="button"
-                    disabled={!selectionReady || slot.disabled}
-                    onClick={() => props.setBookingTime(slot.value)}
-                    className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
-                      !selectionReady || slot.disabled
-                        ? "cursor-not-allowed border-slate-100 bg-slate-100 text-slate-300"
-                        : active
-                          ? "border-blue-500 bg-blue-600 text-white"
-                          : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/40"
-                    }`}
-                  >
-                    <div>{slot.label}</div>
-                    {slot.note ? (
-                      <div className={`mt-1 text-[11px] font-medium ${active ? "text-blue-100" : slot.disabled ? "text-rose-500" : "text-slate-400"}`}>
-                        {slot.note}
-                      </div>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        <section className={`space-y-4 rounded-2xl border p-4 transition ${packageSelected ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50 opacity-60"}`}>
-          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">3. Durasi booking</div>
-          <h4 className="text-base font-semibold text-slate-950">Tentukan jumlah {quantityLabel}</h4>
-          <p className="text-sm text-slate-500">
-            Maksimal {maxQuantity} {quantityLabel} dari jam operasional dan paket dasar yang kamu isi.
-          </p>
-          <div className="mt-2 flex items-center justify-center gap-3">
-            <button
-              type="button"
-              disabled={!packageSelected || quantity <= 1}
-              onClick={() => {
-                if (!packageSelected) return;
-                const next = Math.max(1, quantity - 1);
-                setQuantity(next);
-                props.setBookingTime("");
-              }}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-lg font-semibold text-slate-700 disabled:cursor-not-allowed disabled:border-slate-100 disabled:bg-slate-50 disabled:text-slate-300"
-            >
-              -
-            </button>
-            <div className="min-w-[136px] rounded-2xl bg-slate-50 px-4 py-3 text-center sm:min-w-[160px]">
-              <div className="text-2xl font-semibold text-slate-950">{quantity || "--"}</div>
-              <div className="mt-1 text-sm text-slate-500">
-                {quantity > 0 ? `${quantity} ${quantityLabel}` : "Pilih paket dulu"}
-              </div>
-            </div>
-            <button
-              type="button"
-              disabled={!packageSelected || quantity >= maxQuantity}
-              onClick={() => {
-                if (!packageSelected) return;
-                const next = Math.min(maxQuantity, Math.max(1, quantity + 1));
-                setQuantity(next);
-                props.setBookingTime("");
-              }}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-lg font-semibold text-slate-700 disabled:cursor-not-allowed disabled:border-slate-100 disabled:bg-slate-50 disabled:text-slate-300"
-            >
-              +
-            </button>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {Array.from({ length: Math.min(4, maxQuantity) }, (_, index) => index + 1).map((value) => (
-              <button
-                key={value}
-                type="button"
-                disabled={!packageSelected}
-                onClick={() => {
-                  if (!packageSelected) return;
-                  setQuantity(value);
-                  props.setBookingTime("");
-                }}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  !packageSelected
-                    ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300"
-                    : quantity === value
-                      ? "border-blue-500 bg-blue-50 text-blue-700"
-                      : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/40"
-                }`}
-              >
-                {value} {quantityLabel}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="space-y-4 rounded-2xl border border-slate-200 p-4">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">4. Customer</div>
-            <h3 className="mt-2 text-lg font-semibold">Isi profil booking</h3>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <GuidedField
-              label="Nama customer"
-              hint="Nama ini tampil di daftar booking, kalender, dan detail booking admin."
-              activeHint={activeHint}
-              onFocus={() => setActiveHint("booking_name")}
-              hintKey="booking_name"
-            >
-              <OnboardingInput
-                value={props.bookingName}
-                onChange={(event) => props.setBookingName(event.target.value)}
-                placeholder="Demo Customer"
-              />
-            </GuidedField>
-            <GuidedField
-              label="WhatsApp"
-              hint="Nomor ini dipakai untuk follow-up, konfirmasi, dan portal booking customer."
-              activeHint={activeHint}
-              onFocus={() => setActiveHint("booking_phone")}
-              hintKey="booking_phone"
-            >
-              <OnboardingInput
-                value={props.bookingPhone}
-                onChange={(event) => props.setBookingPhone(digitsOnly(event.target.value))}
-                inputMode="tel"
-                placeholder="08123456789"
-              />
-            </GuidedField>
-          </div>
-        </section>
-      </div>
-
-      <div className="space-y-5 lg:sticky lg:top-8 lg:self-start">
-        <PreviewCard title="Admin receives">
-          <div className="space-y-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_20px_48px_rgba(15,23,42,0.08)]">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">{dateLabel}</div>
-                <div className="mt-2 text-lg font-semibold text-slate-950">{summaryTitle}</div>
-                <p className="mt-1 text-sm text-slate-500">{summaryNote}</p>
-              </div>
-              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone}`}>
-                {statusLabel}
-              </span>
-            </div>
-
-            <div className="rounded-2xl bg-slate-50 p-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Ringkasan</div>
-              <div className="mt-3 flex items-center justify-between gap-3">
-                <div>
-                  <div className="font-semibold text-slate-950">
-                    {resourceSelected ? (props.resourceName || "Unit pertama") : "Pilih unit"}
-                  </div>
-                  <div className="mt-1 text-sm text-slate-500">
-                    {format(bookingDate, "dd MMM yyyy")} | {timeRangeLabel}
-                  </div>
-                </div>
-                <span className="text-sm font-semibold text-slate-950">Rp{bookingTotal.toLocaleString("id-ID")}</span>
-              </div>
-              <div className="mt-2 text-xs text-slate-500">
-                {quantity > 0 ? `${quantity} ${quantityLabel}` : `Pilih jumlah ${quantityLabel}`}
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${paymentTypeTone}`}>
-                  {props.paymentLabel}
-                </span>
-                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${paymentStateTone}`}>
-                  {paymentStateLabel}
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                {props.bookingMode === "walkin" ? "POS session card" : "Agenda booking"}
-              </div>
-              <div className="rounded-2xl border border-slate-200 p-3">
-                <div className="rounded-2xl bg-slate-50 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                        {resourceSelected ? (props.resourceName || "Unit pertama") : "Resource"}
-                      </div>
-                      <div className="mt-2 text-sm font-semibold text-slate-950">
-                        {format(bookingDate, "dd MMM yyyy")}
-                      </div>
-                      <div className="mt-1 text-sm text-slate-500">
-                        {props.bookingMode === "walkin" ? "Masuk ke sesi aktif / POS" : "Muncul di agenda booking admin"}
-                      </div>
-                    </div>
-                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusTone}`}>
-                      {statusLabel}
-                    </span>
-                  </div>
-                  <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <div className="font-semibold text-slate-950">
-                          {resourceSelected ? (props.resourceName || "Unit pertama") : "Pilih unit"}
-                        </div>
-                        <div className="mt-1 text-sm text-slate-500">
-                          {timeRangeLabel} | {props.bookingName || "Demo Customer"}
-                        </div>
-                        <div className="mt-2 text-xs text-slate-500">
-                          {packageSelected ? packageLabel : "Pilih paket"} | {quantity > 0 ? `${quantity} ${quantityLabel}` : `Pilih jumlah ${quantityLabel}`}
-                        </div>
-                      </div>
-                      <div className="text-left sm:text-right">
-                        <div className="text-sm font-semibold text-slate-950">
-                          Rp{bookingTotal.toLocaleString("id-ID")}
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-2 sm:justify-end">
-                          <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${paymentTypeTone}`}>
-                            {props.paymentLabel}
-                          </span>
-                          <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${paymentStateTone}`}>
-                            {paymentStateLabel}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-3 grid gap-2">
-                  <div className="rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-600">
-                    <span className="font-semibold text-slate-950">Next:</span> {destinationLabel}
-                  </div>
-                  <div className="rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-600">
-                    <span className="font-semibold text-slate-950">Phone:</span> {props.bookingPhone || "08xxxxxxxxxx"}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </PreviewCard>
-      </div>
-    </div>
-  );
-}
 
 function GuidedField({
   label,
@@ -2382,36 +1500,6 @@ function paymentStatusBadge(status: PaymentStatus | "default") {
   };
 }
 
-function DoneStep({ workspaceSlug, signupIntent }: { workspaceSlug?: string | null; signupIntent: SignupIntent }) {
-  const planLabel = getSignupIntentPlanLabel(signupIntent);
-  return (
-    <div className="mx-auto flex max-w-2xl flex-col items-center justify-center py-12 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
-        <Check className="h-7 w-7" />
-      </div>
-      <h2 className="mt-5 text-3xl font-semibold tracking-tight">Booking simulasi sudah tercatat.</h2>
-      <p className="mt-3 text-sm leading-6 text-slate-500">
-        Data setup awal sudah masuk ke workspace. Gunakan dashboard untuk cek resource, booking, dan status operasional sebelum lanjut ke billing.
-      </p>
-      <div className="mt-5 grid gap-3 text-left sm:grid-cols-3">
-        {[
-          ["Setup", "Resource dan aturan dasar tersimpan."],
-          ["Dashboard", "Booking simulasi siap dicek."],
-          ["Billing", signupIntent.plan ? `Plan ${planLabel} sudah terbawa.` : "Pilih plan dari dashboard."],
-        ].map(([label, body]) => (
-          <div key={label} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{label}</div>
-            <div className="mt-2 text-sm font-medium text-slate-700">{body}</div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-6 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">
-        {workspaceSlug ? `${workspaceSlug}.bookinaja.com/admin` : "Workspace admin"}
-      </div>
-    </div>
-  );
-}
-
 function PreviewCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <aside className="rounded-2xl border border-slate-200 bg-[#f8fafc] p-5">
@@ -2466,160 +1554,6 @@ function ProgressDots({ currentIndex }: { currentIndex: number }) {
   );
 }
 
-function OnboardingTimePicker({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const initial = parseTimeToParts(value || placeholder);
-  const [draftHour, setDraftHour] = useState(initial.hour);
-  const [draftMinute, setDraftMinute] = useState(initial.minute);
-  const [draftPeriod, setDraftPeriod] = useState<"AM" | "PM">(initial.period);
-
-  function syncDraftFromValue() {
-    const next = parseTimeToParts(value || placeholder);
-    setDraftHour(next.hour);
-    setDraftMinute(next.minute);
-    setDraftPeriod(next.period);
-  }
-
-  function applyDraft() {
-    onChange(to24HourTime(draftHour, draftMinute, draftPeriod));
-    setOpen(false);
-  }
-
-  return (
-    <Popover
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (nextOpen) syncDraftFromValue();
-        setOpen(nextOpen);
-      }}
-    >
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="flex h-12 w-full items-center justify-between rounded-xl border-2 border-slate-300 bg-white px-4 text-left text-base font-medium text-slate-950 shadow-[inset_0_1px_0_rgba(15,23,42,0.04)] outline-none transition hover:border-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-        >
-          <span className={value ? "text-slate-950" : "text-slate-400"}>
-            {value ? formatTimeDisplay(value) : placeholder}
-          </span>
-          <Clock3 className="h-4 w-4 text-slate-400" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-[320px] overflow-hidden rounded-2xl p-0">
-        <div className="border-b border-slate-200 px-5 py-4">
-          <div className="text-lg font-semibold">Select Time</div>
-        </div>
-        <div className="space-y-5 px-5 py-5">
-          <div>
-            <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Hour</div>
-            <PickerButtonGrid value={draftHour} options={hour12Options} onChange={setDraftHour} columns="grid-cols-6" />
-          </div>
-          <div className="flex items-end justify-between gap-4">
-            <div className="flex-1">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Minutes</div>
-              <PickerButtonGrid value={draftMinute} options={minuteOptions} onChange={setDraftMinute} columns="grid-cols-4" />
-            </div>
-            <div className="inline-flex rounded-xl bg-slate-100 p-1 text-sm font-semibold">
-            {(["AM", "PM"] as const).map((period) => (
-              <button
-                key={period}
-                type="button"
-                onClick={() => setDraftPeriod(period)}
-                className={`rounded-lg px-3 py-1.5 ${
-                  draftPeriod === period ? "bg-white text-blue-600 shadow-sm" : "text-slate-400"
-                }`}
-              >
-                {period}
-              </button>
-            ))}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center justify-end gap-3 border-t border-slate-200 px-5 py-4">
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="rounded-xl px-4 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={applyDraft}
-            className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
-          >
-            Apply
-          </button>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function PickerButtonGrid({
-  value,
-  options,
-  onChange,
-  columns,
-}: {
-  value: string;
-  options: string[];
-  onChange: (value: string) => void;
-  columns: string;
-}) {
-  return (
-    <div className={`grid gap-2 ${columns}`}>
-      {options.map((option) => (
-        <button
-          key={option}
-          type="button"
-          onClick={() => onChange(option)}
-          className={`h-10 rounded-lg text-sm font-semibold transition ${
-            value === option
-              ? "bg-blue-600 text-white shadow-sm"
-              : "bg-slate-50 text-slate-700 hover:bg-blue-50 hover:text-blue-700"
-          }`}
-        >
-            {option}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function parseTimeToParts(value: string) {
-  const [rawHour, rawMinute] = value.split(":");
-  const parsedHour = Number(rawHour);
-  const hour24 = Number.isFinite(parsedHour) ? parsedHour : 9;
-  const minute = minuteOptions.includes(rawMinute) ? rawMinute : "00";
-  const period = hour24 >= 12 ? "PM" : "AM";
-  const hour12 = hour24 % 12 || 12;
-  return {
-    hour: String(hour12).padStart(2, "0"),
-    minute,
-    period: period as "AM" | "PM",
-  };
-}
-
-function to24HourTime(hour: string, minute: string, period: "AM" | "PM") {
-  let hourNumber = Number(hour);
-  if (period === "AM" && hourNumber === 12) hourNumber = 0;
-  if (period === "PM" && hourNumber !== 12) hourNumber += 12;
-  return `${String(hourNumber).padStart(2, "0")}:${minute}`;
-}
-
-function formatTimeDisplay(value: string) {
-  const parts = parseTimeToParts(value);
-  return `${Number(parts.hour)}:${parts.minute} ${parts.period}`;
-}
-
 function OnboardingInput(props: React.ComponentProps<"input">) {
   const { className = "", style, ...rest } = props;
 
@@ -2629,14 +1563,5 @@ function OnboardingInput(props: React.ComponentProps<"input">) {
       className={`h-12 w-full rounded-xl border-2 border-slate-300 bg-white px-4 text-base font-medium text-slate-950 shadow-[inset_0_1px_0_rgba(15,23,42,0.04)] outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 ${className}`}
       style={{ ...readableInputStyle, ...style }}
     />
-  );
-}
-
-function InfoLine({ icon: Icon, label }: { icon: typeof Clock3; label: string }) {
-  return (
-    <div className="mb-3 flex items-center gap-3 rounded-xl bg-white p-3 text-sm text-slate-600">
-      <Icon className="h-4 w-4 text-blue-600" />
-      {label}
-    </div>
   );
 }

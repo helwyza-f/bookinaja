@@ -25,13 +25,6 @@ import {
 import api from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { hasPermission } from "@/lib/admin-access";
@@ -205,7 +198,6 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<string>("");
   const [showOnboarding, setShowOnboarding] = useState(true);
-  const [welcomeDialogOpen, setWelcomeDialogOpen] = useState(false);
   const hasLoadedRef = useRef(false);
   const refreshTimerRef = useRef<number | null>(null);
 
@@ -700,6 +692,13 @@ export default function DashboardPage() {
   const intendedBillingHref = signupIntent.plan
     ? `/admin/settings/billing/subscribe/checkout?${intendedCheckoutQuery}`
     : "/admin/settings/billing/subscribe";
+  const hasOperationalData =
+    resources.length > 0 ||
+    sessions.length > 0 ||
+    bookings.length > 0 ||
+    actionFeed.length > 0 ||
+    customersCount > 0;
+  const firstRunOwnerMode = ownerOnly && (onboardingWelcome || !hasOperationalData);
 
   useEffect(() => {
     if (!ownerOnly || !tenantId || !onboardingSteps.length) {
@@ -720,14 +719,7 @@ export default function DashboardPage() {
     tenantId,
   ]);
 
-  useEffect(() => {
-    if (!ownerOnly || !onboardingWelcome) return;
-    setWelcomeDialogOpen(true);
-  }, [onboardingWelcome, ownerOnly]);
-
   const dismissWelcomeDialog = useCallback(() => {
-    setWelcomeDialogOpen(false);
-
     const nextParams = new URLSearchParams(searchParams.toString());
     if (!nextParams.has("welcome")) return;
 
@@ -739,8 +731,9 @@ export default function DashboardPage() {
   const quickActions = ownerOnly
     ? [
         { href: "/admin/bookings", label: "Bookings", icon: CalendarClock },
+        { href: "/admin/pos", label: "POS", icon: Sparkles },
         { href: "/admin/resources", label: "Resources", icon: Monitor },
-        { href: "/admin/analytics", label: "Analytics", icon: PanelsTopLeft },
+        ...(firstRunOwnerMode ? [] : [{ href: "/admin/analytics", label: "Analytics", icon: PanelsTopLeft }]),
       ]
     : ([
         canReadBookings
@@ -783,13 +776,6 @@ export default function DashboardPage() {
       progress: (getBookingTotal(booking) / maxTotal) * 100,
     }));
   }, [ownerOnly, topBookings]);
-
-  const hasOperationalData =
-    resources.length > 0 ||
-    sessions.length > 0 ||
-    bookings.length > 0 ||
-    actionFeed.length > 0 ||
-    customersCount > 0;
 
   return (
     <div className="space-y-3 px-3 pb-20 pt-3 font-plus-jakarta md:px-5">
@@ -840,6 +826,73 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {ownerOnly && onboardingWelcome ? (
+        <DashboardPanel
+          eyebrow="Siap operasional"
+          title="Masuk ke layar kerja inti dulu"
+          description="Fokus owner baru cukup empat area: booking hari ini, sesi aktif, yang belum beres, lalu aksi berikutnya."
+          actions={
+            <Button
+              type="button"
+              variant="ghost"
+              className="rounded-lg"
+              onClick={dismissWelcomeDialog}
+            >
+              <X className="mr-2 h-4 w-4" />
+              Tutup mode baru
+            </Button>
+          }
+        >
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <FirstRunCard
+              label="Booking hari ini"
+              value={String(metrics.todayBookings)}
+              detail={metrics.todayBookings > 0 ? "Sudah ada aktivitas booking hari ini." : "Belum ada booking masuk hari ini."}
+              href="/admin/bookings"
+              icon={CalendarClock}
+            />
+            <FirstRunCard
+              label="Sesi aktif"
+              value={String(metrics.activeSessions)}
+              detail={metrics.activeSessions > 0 ? "Ada sesi yang sedang berjalan sekarang." : "Belum ada sesi live saat ini."}
+              href="/admin/pos"
+              icon={Clock3}
+            />
+            <FirstRunCard
+              label="Belum beres"
+              value={String(metrics.actionRequiredCount)}
+              detail={metrics.verificationCount > 0 ? `${metrics.verificationCount} pembayaran masih menunggu verifikasi.` : "Tidak ada antrean penting yang menunggu."}
+              href="/admin/pos"
+              icon={Sparkles}
+            />
+            <FirstRunCard
+              label="Resource siap"
+              value={`${metrics.availableResources}/${metrics.totalResources || 0}`}
+              detail={metrics.totalResources > 0 ? "Cek resource aktif sebelum terima booking." : "Tambahkan resource utama lebih dulu."}
+              href="/admin/resources"
+              icon={Monitor}
+            />
+          </div>
+          <div className="grid gap-3 pt-1 md:grid-cols-3">
+            <Button asChild className="rounded-xl">
+              <Link href="/admin/bookings" prefetch={false}>
+                Lihat booking hari ini
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="rounded-xl">
+              <Link href="/admin/pos" prefetch={false}>
+                Buka POS
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="rounded-xl">
+              <Link href="/admin/resources" prefetch={false}>
+                Cek resources
+              </Link>
+            </Button>
+          </div>
+        </DashboardPanel>
+      ) : null}
 
       {ownerOnly && showOnboarding && onboardingSteps.length ? (
         <DashboardPanel
@@ -990,22 +1043,107 @@ export default function DashboardPage() {
       ) : !loading && !hasOperationalData ? (
         <AdminSurfaceEmpty
           title="Belum ada aktivitas operasional"
-          description="Tenant ini belum punya aktivitas yang cukup untuk mengisi dashboard. Mulai dari setup bisnis, resource, lalu booking pertama."
+          description="Dashboard belum perlu dibaca dalam mode analitik. Isi dulu area kerja inti: resource, booking, dan POS."
           action={
             <div className="flex flex-wrap justify-center gap-3">
               <Button asChild className="rounded-xl">
-                <Link href="/admin/brand" prefetch={false}>
-                  Rapikan bisnis
+                <Link href="/admin/resources" prefetch={false}>
+                  Tambah resource
                 </Link>
               </Button>
               <Button asChild variant="outline" className="rounded-xl">
-                <Link href="/admin/resources" prefetch={false}>
-                  Buka resources
+                <Link href="/admin/bookings" prefetch={false}>
+                  Buka bookings
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="rounded-xl">
+                <Link href="/admin/pos" prefetch={false}>
+                  Buka POS
                 </Link>
               </Button>
             </div>
           }
         />
+      ) : firstRunOwnerMode ? (
+        <section className="grid gap-3 xl:grid-cols-[1.1fr_0.9fr]">
+          <DashboardPanel
+            eyebrow="Fokus sekarang"
+            title="Satu pintu operasional"
+            description="Owner baru tidak perlu baca semua modul dulu. Jalankan alur inti dari sini."
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
+              {decisionPulseItems.length ? (
+                decisionPulseItems.map((item) => (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    prefetch={false}
+                    className="group rounded-xl border border-[var(--admin-line-soft)] bg-[var(--admin-surface-soft)] p-4 transition hover:border-slate-300 hover:bg-slate-100 dark:hover:border-slate-700 dark:hover:bg-slate-900/60"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[rgba(74,141,255,0.12)] dark:text-[var(--bookinaja-200)]">
+                        <item.icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-slate-950 dark:text-white">{item.label}</div>
+                        <div className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">{item.value}</div>
+                        <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{item.detail}</div>
+                      </div>
+                    </div>
+                  </Link>
+                ))
+              ) : (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-400 sm:col-span-2">
+                  Belum ada sinyal operasional penting. Artinya setup awal sudah cukup aman untuk mulai terima booking.
+                </div>
+              )}
+            </div>
+          </DashboardPanel>
+
+          <DashboardPanel
+            eyebrow="Aksi berikutnya"
+            title="Lanjutkan tanpa bingung"
+            description="Pilih satu aksi yang paling masuk akal untuk owner baru."
+          >
+            <div className="space-y-2.5">
+              <Link
+                href="/admin/bookings/new"
+                prefetch={false}
+                className="flex items-center justify-between rounded-xl border border-[var(--admin-line-soft)] bg-[var(--admin-surface-soft)] px-4 py-3 transition hover:border-slate-300 hover:bg-slate-100 dark:hover:border-slate-700 dark:hover:bg-slate-900/60"
+              >
+                <div>
+                  <div className="text-sm font-semibold text-slate-950 dark:text-white">Input booking manual</div>
+                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Kalau owner mau simulasi ringan, lakukan dari flow booking asli.</div>
+                </div>
+                <ArrowRight className="h-4 w-4 text-slate-400" />
+              </Link>
+              <Link
+                href="/admin/resources"
+                prefetch={false}
+                className="flex items-center justify-between rounded-xl border border-[var(--admin-line-soft)] bg-[var(--admin-surface-soft)] px-4 py-3 transition hover:border-slate-300 hover:bg-slate-100 dark:hover:border-slate-700 dark:hover:bg-slate-900/60"
+              >
+                <div>
+                  <div className="text-sm font-semibold text-slate-950 dark:text-white">Rapikan resource & harga</div>
+                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Pastikan unit dan paket utama sudah benar sebelum live.</div>
+                </div>
+                <ArrowRight className="h-4 w-4 text-slate-400" />
+              </Link>
+              <Link
+                href={intendedBillingHref}
+                prefetch={false}
+                className="flex items-center justify-between rounded-xl border border-[var(--admin-line-soft)] bg-[var(--admin-surface-soft)] px-4 py-3 transition hover:border-slate-300 hover:bg-slate-100 dark:hover:border-slate-700 dark:hover:bg-slate-900/60"
+              >
+                <div>
+                  <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                    {signupIntent.plan ? `Lanjut billing ${intendedPlanLabel} ${intendedIntervalLabel}` : "Pilih paket berlangganan"}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Masuk ke billing setelah area operasional inti terasa jelas.</div>
+                </div>
+                <ArrowRight className="h-4 w-4 text-slate-400" />
+              </Link>
+            </div>
+          </DashboardPanel>
+        </section>
       ) : (
         <>
         <section className="grid gap-3 xl:grid-cols-[1.45fr_0.72fr]">
@@ -1191,75 +1329,48 @@ export default function DashboardPage() {
         </>
       )}
 
-      <Dialog open={welcomeDialogOpen} onOpenChange={(open) => (!open ? dismissWelcomeDialog() : setWelcomeDialogOpen(true))}>
-        <DialogContent
-          className="max-w-sm rounded-[1.5rem] border border-slate-200 bg-white p-0 text-slate-950 shadow-[0_28px_80px_-32px_rgba(15,23,42,0.35)] dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:shadow-[0_28px_90px_-30px_rgba(0,0,0,0.75)]"
-          showCloseButton={false}
-        >
-          <div className="p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="inline-flex rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--bookinaja-700)] dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200">
-                Next step
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-slate-200"
-                onClick={dismissWelcomeDialog}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <div className="mt-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-blue-500/10 dark:text-blue-200">
-              <Building2 className="h-5 w-5" />
-            </div>
-
-            <DialogHeader className="mt-4">
-              <DialogTitle className="text-[1.5rem] font-semibold leading-tight tracking-tight text-slate-950 dark:text-white">
-                Onboarding awal selesai.
-              </DialogTitle>
-              <DialogDescription className="max-w-sm text-sm leading-6 text-slate-500 dark:text-slate-400">
-                Booking simulasi sudah masuk ke dashboard. Cek data internal dulu, lalu lanjutkan keputusan billing dari area admin.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="mt-4 text-sm text-slate-600 dark:text-slate-300">
-              Data awal sudah siap untuk dicek: resource, jadwal, booking simulasi, dan ringkasan operasional.
-            </div>
-
-            <div className="mt-6 flex flex-col gap-2">
-              <Button asChild className="w-full rounded-xl">
-                <Link href={intendedBillingHref} prefetch={false} onClick={dismissWelcomeDialog}>
-                  {signupIntent.plan
-                    ? `Lanjut billing ${intendedPlanLabel} ${intendedIntervalLabel}`
-                    : "Buka pilihan paket"}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                className="w-full rounded-xl bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-950 dark:border-white/10 dark:bg-transparent dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white"
-              >
-                <Link href="/admin/bookings" prefetch={false} onClick={dismissWelcomeDialog}>
-                  Cek booking pertama
-                </Link>
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-200"
-                onClick={dismissWelcomeDialog}
-              >
-                Masuk dashboard dulu
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
+  );
+}
+
+function FirstRunCard({
+  label,
+  value,
+  detail,
+  href,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  href: string;
+  icon: LucideIcon;
+}) {
+  return (
+    <Link
+      href={href}
+      prefetch={false}
+      className="group rounded-xl border border-[var(--admin-line-soft)] bg-[var(--admin-surface-soft)] p-4 transition hover:border-slate-300 hover:bg-slate-100 dark:hover:border-slate-700 dark:hover:bg-slate-900/60"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+            {label}
+          </div>
+          <div className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+            {value}
+          </div>
+        </div>
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[rgba(74,141,255,0.12)] dark:text-[var(--bookinaja-200)]">
+          <Icon className="h-4 w-4" />
+        </div>
+      </div>
+      <div className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">{detail}</div>
+      <div className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
+        Buka
+        <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+      </div>
+    </Link>
   );
 }
 

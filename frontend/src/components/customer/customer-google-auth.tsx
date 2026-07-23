@@ -198,12 +198,6 @@ export function CustomerGoogleAuth({
     <>
       <GoogleIdentityPanel
         text={buttonText}
-        title="Google access"
-        description={
-          mode === "register"
-            ? "Daftar cepat dengan Google, lalu aktifkan akun via WhatsApp."
-            : "Masuk cepat dengan Google. Kalau akun baru, kami lanjutkan claim via WhatsApp."
-        }
         loading={loading}
         className={className}
         onCredential={handleGoogleCredential}

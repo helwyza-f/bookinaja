@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ChevronLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { BookinajaAuthLogo } from "@/components/auth/bookinaja-auth-logo";
 import { CompactGoogleButton } from "@/components/auth/compact-google-button";
@@ -90,28 +90,28 @@ function SignupContent() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f8fb] text-slate-950">
-      <div className="mx-auto grid min-h-screen max-w-6xl grid-cols-1 px-5 py-8 lg:grid-cols-[1fr_430px] lg:items-center lg:gap-16">
-        <section className="hidden lg:block">
-          <div className="max-w-xl">
-            <BookinajaAuthLogo priority className="mb-6" />
-            <h1 className="text-5xl font-semibold leading-tight tracking-normal">
-              Coba flow booking dulu. Berlangganan setelah terasa cocok.
-            </h1>
-            <p className="mt-5 text-base leading-7 text-slate-600">
-              Buat akun, siapkan workspace, lalu rasakan booking pertama masuk ke admin sebelum memilih paket berbayar.
-            </p>
-          </div>
-        </section>
-
-        <section className="flex min-h-[calc(100vh-4rem)] items-center lg:min-h-0">
-          <div className="w-full rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="mb-6">
-              <BookinajaAuthLogo className="mb-4 lg:hidden" />
-              <h2 className="text-2xl font-semibold tracking-normal">Sign up</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Setelah akun aktif, kamu lanjut membuat workspace pertama.
-              </p>
+    <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-950">
+      <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-md items-center">
+        <section className="w-full">
+          <Button
+            asChild
+            variant="ghost"
+            className="mb-4 w-fit gap-2 rounded-xl px-0 text-slate-500 hover:bg-transparent hover:text-slate-900"
+          >
+            <Link href="/">
+              <ChevronLeft className="h-4 w-4" />
+              <span>Kembali</span>
+            </Link>
+          </Button>
+          <div className="w-full rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-6 space-y-4">
+              <BookinajaAuthLogo priority />
+              <div>
+                <h1 className="text-2xl font-semibold tracking-tight">Buat akun</h1>
+                <p className="mt-2 text-sm text-slate-500">
+                  Setelah akun aktif, kamu lanjut membuat workspace pertama.
+                </p>
+              </div>
               {signupIntent.plan ? (
                 <p className="mt-3 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
                   Niat paket: {selectedPlanLabel}
@@ -133,7 +133,7 @@ function SignupContent() {
 
             <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
               <div className="h-px flex-1 bg-slate-200" />
-              atau pakai email
+              atau
               <div className="h-px flex-1 bg-slate-200" />
             </div>
 
@@ -161,7 +161,8 @@ function SignupContent() {
                   minLength={6}
                 />
               </label>
-              <Button type="submit" disabled={loading} className="h-10 w-full">
+              <Button type="submit" disabled={loading} className="h-12 w-full rounded-2xl text-sm font-bold shadow-[0_14px_30px_rgba(37,99,235,0.22)]">
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {loading ? "Membuat akun..." : "Buat akun"}
                 {!loading ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
               </Button>
@@ -169,7 +170,7 @@ function SignupContent() {
 
             <p className="mt-5 text-center text-sm text-slate-500">
               Sudah punya akun?{" "}
-              <Link href="/login" className="font-semibold text-[#174ea6]">
+              <Link href="/login" className="font-semibold text-blue-700">
                 Login
               </Link>
             </p>

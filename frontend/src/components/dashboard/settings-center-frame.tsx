@@ -95,9 +95,8 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
   };
 
   return (
-    <div className="fixed inset-0 z-[80] bg-slate-950/45 backdrop-blur-[5px]">
-      <div className="flex h-[100dvh] min-h-0 items-stretch justify-center p-0 md:p-4">
-        <div className="flex h-full min-h-0 w-full overflow-hidden bg-white shadow-2xl dark:bg-slate-950 md:h-auto md:max-h-[calc(100dvh-2rem)] md:max-w-[1120px] md:rounded-[1.35rem] md:border md:border-slate-200 dark:md:border-slate-800">
+    <div className="min-h-[calc(100vh-5.5rem)] px-3 pb-20 pt-3 md:px-5 md:pb-6">
+      <div className="mx-auto flex min-h-[calc(100vh-7rem)] min-h-0 w-full max-w-[1360px] overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-[0_24px_80px_-36px_rgba(15,23,42,0.28)] dark:border-slate-800 dark:bg-slate-950 dark:shadow-[0_28px_90px_-40px_rgba(0,0,0,0.7)]">
           <aside className="hidden w-[214px] shrink-0 border-r border-slate-200 bg-[#f8fafc] px-3 py-3 dark:border-slate-800 dark:bg-[#0b1120] md:flex md:flex-col">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
@@ -203,7 +202,7 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
 
             <div
               className={cn(
-                "flex min-h-0 flex-1 flex-col",
+                "flex min-h-0 flex-1 flex-col bg-[#fbfcfe] dark:bg-[#020617]",
                 hasSecondaryNav ? "md:grid md:grid-cols-[240px_minmax(0,1fr)]" : "",
               )}
             >
@@ -271,12 +270,11 @@ export function SettingsCenterFrame({ children }: { children: React.ReactNode })
                 </aside>
               ) : null}
 
-              <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] dark:bg-slate-950 md:px-4 md:py-4">
+              <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] dark:bg-slate-950 md:px-5 md:py-5">
                 {children}
               </main>
             </div>
           </div>
-        </div>
       </div>
     </div>
   );

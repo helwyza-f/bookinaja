@@ -71,6 +71,18 @@ export const operationalNavItems: AdminNavItem[] = [
   { label: "Laporan", icon: ReceiptText, href: "/admin/reports" },
 ];
 
+export const simpleOwnerOperationalNavHrefs = [
+  "/admin/dashboard",
+  "/admin/bookings/calendar",
+  "/admin/bookings",
+  "/admin/pos",
+  "/admin/resources",
+  "/admin/customers",
+  "/admin/fnb",
+];
+
+export const simpleOwnerUtilityNavKeys: WorkspaceUtilityNavItem["key"][] = ["settings"];
+
 export const workspaceUtilityNavItems: WorkspaceUtilityNavItem[] = [
   { key: "upgrade", label: "Upgrade", icon: CreditCard, kind: "upgrade" },
   { key: "refer", label: "Refer & Earn", icon: Gift, href: "/admin/referral", kind: "route" },

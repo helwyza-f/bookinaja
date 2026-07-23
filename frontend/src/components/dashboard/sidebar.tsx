@@ -17,6 +17,8 @@ import { WorkspaceSwitcher } from "@/components/dashboard/workspace-switcher";
 import {
   isAdminNavItemActive,
   operationalNavItems,
+  simpleOwnerOperationalNavHrefs,
+  simpleOwnerUtilityNavKeys,
   workspaceUtilityNavItems,
 } from "@/components/dashboard/admin-nav-config";
 import { canAccessAdminRoute } from "@/lib/admin-access";
@@ -55,9 +57,18 @@ export function Sidebar({
     trialInfo,
   } = useAdminSession();
   const userData = (user as SidebarUser | null) ?? null;
+  const simpleOwnerMode = userData?.role === "owner";
 
   const hasAccess = (href: string) => canAccessAdminRoute(href, userData);
-  const operationalHrefs = operationalNavItems.map((item) => item.href);
+  const visibleOperationalItems = operationalNavItems.filter((item) => {
+    if (simpleOwnerMode && !simpleOwnerOperationalNavHrefs.includes(item.href)) return false;
+    return hasAccess(item.href);
+  });
+  const operationalHrefs = visibleOperationalItems.map((item) => item.href);
+  const visibleUtilityItems = workspaceUtilityNavItems.filter((item) => {
+    if (!simpleOwnerMode) return true;
+    return simpleOwnerUtilityNavKeys.includes(item.key);
+  });
 
   const itemBase = isCollapsed
     ? "mx-auto flex h-10 w-10 items-center justify-center rounded-xl"
@@ -128,7 +139,7 @@ export function Sidebar({
       >
         <div className="min-h-0 flex-1 overflow-y-auto scrollbar-hide">
           <div className="flex flex-col gap-1">
-          {operationalNavItems.filter((route) => hasAccess(route.href)).map((route) => {
+          {visibleOperationalItems.map((route) => {
             const isActive = isAdminNavItemActive(pathname, route.href, operationalHrefs);
             return (
               <Tooltip key={route.href}>
@@ -163,7 +174,7 @@ export function Sidebar({
             )}
           >
             <div className={cn("flex flex-col gap-1", isCollapsed ? "items-center" : "")}>
-              {workspaceUtilityNavItems.map((item) => {
+              {visibleUtilityItems.map((item) => {
                 const active =
                   item.href && (pathname === item.href || pathname.startsWith(`${item.href}/`));
                 const Icon = item.icon;

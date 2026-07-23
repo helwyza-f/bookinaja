@@ -21,6 +21,8 @@ import {
 import {
   isAdminNavItemActive,
   operationalNavItems,
+  simpleOwnerOperationalNavHrefs,
+  simpleOwnerUtilityNavKeys,
   workspaceUtilityNavItems,
   type AdminNavItem,
 } from "@/components/dashboard/admin-nav-config";
@@ -69,11 +71,15 @@ export function MobileNav({
     trialInfo,
   } = useAdminSession();
   const userData = (user as MobileUser | null) ?? null;
+  const simpleOwnerMode = userData?.role === "owner";
 
   const items = useMemo<AdminNavItem[]>(() => {
     const source = mode === "settings" ? [] : operationalNavItems;
-    return source.filter((item) => canAccessAdminRoute(item.href, userData));
-  }, [mode, userData]);
+    return source.filter((item) => {
+      if (simpleOwnerMode && !simpleOwnerOperationalNavHrefs.includes(item.href)) return false;
+      return canAccessAdminRoute(item.href, userData);
+    });
+  }, [mode, simpleOwnerMode, userData]);
   const operationalHrefs = useMemo(
     () => operationalNavItems.map((item) => item.href),
     [],
@@ -176,7 +182,9 @@ export function MobileNav({
             {userData?.role === "owner" ? (
               <div className="mt-3 border-t border-[var(--admin-line)] pt-3">
                 <div className="space-y-1">
-                  {workspaceUtilityNavItems.map((item) => {
+                  {workspaceUtilityNavItems
+                    .filter((item) => !simpleOwnerMode || simpleOwnerUtilityNavKeys.includes(item.key))
+                    .map((item) => {
                     const active =
                       item.href && (pathname === item.href || pathname.startsWith(`${item.href}/`));
                     const Icon = item.icon;
@@ -254,7 +262,7 @@ export function MobileNav({
                         {content}
                       </Link>
                     );
-                  })}
+                    })}
                 </div>
               </div>
             ) : null}
