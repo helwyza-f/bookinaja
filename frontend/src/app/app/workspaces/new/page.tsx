@@ -131,11 +131,11 @@ function NewWorkspaceContent() {
         window.localStorage.removeItem(REFERRAL_STORAGE_KEY);
       }
       clearStoredSignupIntent();
-      toast.success("Workspace dibuat. Lanjut onboarding.");
+      toast.success("Bisnis berhasil dibuat. Lanjut setup.");
       router.replace(`/app/onboarding/template?${intentQuery.toString()}`);
     } catch (error) {
       const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      toast.error(message || "Workspace belum berhasil dibuat.");
+      toast.error(message || "Bisnis belum berhasil dibuat.");
     } finally {
       setLoading(false);
     }
@@ -158,9 +158,9 @@ function NewWorkspaceContent() {
 
       <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <section>
-          <h1 className="text-3xl font-semibold tracking-normal">Workspace pertama</h1>
+          <h1 className="text-3xl font-semibold tracking-normal">Buat bisnis pertamamu</h1>
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            Buat identitas dasar dulu. Setelah itu kita setup data real sampai booking pertama terlihat di admin.
+            Isi nama bisnis dan kategori, lalu lanjut ke setup unit pertama.
           </p>
           {signupIntent.plan ? (
             <p className="mt-4 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
@@ -188,19 +188,19 @@ function NewWorkspaceContent() {
             </label>
 
             <label className="block space-y-2">
-              <Label>Slug workspace</Label>
+              <Label>Alamat bisnis</Label>
               <Input
                 value={slug}
                 onChange={(event) => setSlug(event.target.value)}
                 placeholder={slugFromName(name) || "nexus-gaming"}
               />
               <p className="text-xs text-slate-500">
-                Preview: {resolvedSlug || "workspace"}.bookinaja.com
+                Opsional. Preview: {resolvedSlug || "bisnis"}.bookinaja.com
               </p>
             </label>
 
             <div className="space-y-2">
-              <Label>Kategori</Label>
+              <Label>Kategori bisnis</Label>
               <div className="grid gap-2 sm:grid-cols-2">
                 {categories.map((item) => (
                   <button
@@ -221,13 +221,13 @@ function NewWorkspaceContent() {
                 <Input
                   value={customCategory}
                   onChange={(event) => setCustomCategory(event.target.value)}
-                  placeholder="Contoh: Music Rehearsal, Kids Playground, atau lainnya"
+                  placeholder="Contoh: Music Rehearsal"
                 />
               ) : null}
             </div>
 
             <Button type="submit" disabled={loading || !name.trim() || !finalCategory.trim()} className="h-10 w-full">
-              {loading ? "Membuat workspace..." : "Buat workspace"}
+              {loading ? "Membuat bisnis..." : "Lanjut setup"}
               {!loading ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
             </Button>
           </form>

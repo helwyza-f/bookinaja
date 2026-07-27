@@ -25,8 +25,16 @@ import {
 import api from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { getTenantUrl } from "@/lib/tenant";
 import { hasPermission } from "@/lib/admin-access";
 import {
   getSignupIntentPlanLabel,
@@ -36,6 +44,7 @@ import {
 import { toast } from "sonner";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { RealtimePill } from "@/components/dashboard/realtime-pill";
+import { SingleImageUpload } from "@/components/upload/single-image-upload";
 import {
   AdminSurfaceEmpty,
   AdminSurfaceError,
@@ -177,131 +186,171 @@ const getBookingTotal = (booking: BookingRow) => {
 
 const isSameDay = (date: string | undefined, target: Date) => {
   const parsed = parseSafeDate(date);
-  return parsed ? format(parsed, "yyyy-MM-dd") === format(target, "yyyy-MM-dd") : false;
+  return parsed
+    ? format(parsed, "yyyy-MM-dd") === format(target, "yyyy-MM-dd")
+    : false;
 };
 
 export default function DashboardPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user: sessionUser } = useAdminSession();
-  const signupIntent = useMemo(() => readSignupIntentFromParams(searchParams), [searchParams]);
+  const { user: sessionUser, tenantSlug } = useAdminSession();
+  const signupIntent = useMemo(
+    () => readSignupIntentFromParams(searchParams),
+    [searchParams],
+  );
   const [resources, setResources] = useState<ResourceRow[]>([]);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [actionFeed, setActionFeed] = useState<ActionFeedRow[]>([]);
-  const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
-  const [onboardingSummary, setOnboardingSummary] = useState<OnboardingSummaryResponse | null>(null);
+  const [subscription, setSubscription] = useState<SubscriptionRow | null>(
+    null,
+  );
+  const [onboardingSummary, setOnboardingSummary] =
+    useState<OnboardingSummaryResponse | null>(null);
   const [customersCount, setCustomersCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<string>("");
-  const [showOnboarding, setShowOnboarding] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [bannerUrl, setBannerUrl] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [showWelcomeSuccess, setShowWelcomeSuccess] = useState(false);
   const hasLoadedRef = useRef(false);
   const refreshTimerRef = useRef<number | null>(null);
 
   const role = String(sessionUser?.role || "staff").toLowerCase();
-  const permissions = useMemo(() => sessionUser?.permission_keys || [], [sessionUser?.permission_keys]);
+  const permissions = useMemo(
+    () => sessionUser?.permission_keys || [],
+    [sessionUser?.permission_keys],
+  );
   const tenantId = sessionUser?.tenant_id || "";
   const ownerOnly = role === "owner";
   const canReadBookings =
-    ownerOnly || hasPermission({ role, permission_keys: permissions }, "bookings.read");
+    ownerOnly ||
+    hasPermission({ role, permission_keys: permissions }, "bookings.read");
   const canManageResources =
-    ownerOnly || hasPermission({ role, permission_keys: permissions }, "resources.read");
+    ownerOnly ||
+    hasPermission({ role, permission_keys: permissions }, "resources.read");
   const canReadCustomers =
-    ownerOnly || hasPermission({ role, permission_keys: permissions }, "customers.read");
+    ownerOnly ||
+    hasPermission({ role, permission_keys: permissions }, "customers.read");
   const canManageExpenses =
-    ownerOnly || hasPermission({ role, permission_keys: permissions }, "expenses.read");
+    ownerOnly ||
+    hasPermission({ role, permission_keys: permissions }, "expenses.read");
   const canManagePos =
-    ownerOnly || hasPermission({ role, permission_keys: permissions }, "pos.read");
+    ownerOnly ||
+    hasPermission({ role, permission_keys: permissions }, "pos.read");
 
-  const fetchDashboard = useCallback(async (mode: "initial" | "background" = "initial") => {
-    const background = mode === "background" && hasLoadedRef.current;
-    if (background) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-
-    try {
-      const scope = { role, permission_keys: permissions };
-      const allowBookings = hasPermission(scope, "bookings.read");
-      const allowResources = hasPermission(scope, "resources.read");
-      const allowCustomers = hasPermission(scope, "customers.read");
-      const allowPos = ownerOnly || hasPermission(scope, "pos.read");
-
-      const [resourcesRes, sessionsRes, bookingsRes, customersRes, actionFeedRes] = await Promise.allSettled([
-        allowResources ? api.get("/admin/resources/summary") : Promise.resolve(null),
-        allowBookings ? api.get("/bookings/pos/active") : Promise.resolve(null),
-        allowBookings ? api.get("/bookings") : Promise.resolve(null),
-        allowCustomers ? api.get("/customers/count") : Promise.resolve(null),
-        allowPos ? api.get("/pos/action-feed?window_minutes=360&limit=80") : Promise.resolve(null),
-      ]);
-
-      setResources(
-        resourcesRes.status === "fulfilled"
-          ? resourcesRes.value?.data?.items || []
-          : [],
-      );
-      setSessions(
-        sessionsRes.status === "fulfilled" ? sessionsRes.value?.data || [] : [],
-      );
-      setBookings(
-        bookingsRes.status === "fulfilled"
-          ? normalizeBookings(bookingsRes.value?.data)
-          : [],
-      );
-      setCustomersCount(
-        customersRes.status === "fulfilled"
-          ? Number(customersRes.value?.data?.count || 0)
-          : 0,
-      );
-      setActionFeed(
-        actionFeedRes.status === "fulfilled"
-          ? actionFeedRes.value?.data?.items || []
-          : [],
-      );
-      setLoadError(false);
-
-      if (ownerOnly) {
-        const [subscriptionRes, onboardingRes] = await Promise.allSettled([
-          api.get("/billing/subscription"),
-          api.get("/admin/tenant/onboarding-summary"),
-        ]);
-        setSubscription(
-          subscriptionRes.status === "fulfilled" ? subscriptionRes.value.data || null : null,
-        );
-        setOnboardingSummary(
-          onboardingRes.status === "fulfilled" ? onboardingRes.value.data || null : null,
-        );
-      } else {
-        setSubscription(null);
-        setOnboardingSummary(null);
-      }
-
-      setLastSyncAt(
-        new Date().toLocaleTimeString("id-ID", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      );
-      hasLoadedRef.current = true;
-    } catch {
-      if (!background) {
-        setLoadError(true);
-      }
-      if (!background) {
-        toast.error("Gagal memuat dashboard");
-      }
-    } finally {
+  const fetchDashboard = useCallback(
+    async (mode: "initial" | "background" = "initial") => {
+      const background = mode === "background" && hasLoadedRef.current;
       if (background) {
-        setRefreshing(false);
+        setRefreshing(true);
       } else {
-        setLoading(false);
+        setLoading(true);
       }
-    }
-  }, [ownerOnly, permissions, role]);
+
+      try {
+        const scope = { role, permission_keys: permissions };
+        const allowBookings = hasPermission(scope, "bookings.read");
+        const allowResources = hasPermission(scope, "resources.read");
+        const allowCustomers = hasPermission(scope, "customers.read");
+        const allowPos = ownerOnly || hasPermission(scope, "pos.read");
+
+        const [
+          resourcesRes,
+          sessionsRes,
+          bookingsRes,
+          customersRes,
+          actionFeedRes,
+        ] = await Promise.allSettled([
+          allowResources
+            ? api.get("/admin/resources/summary")
+            : Promise.resolve(null),
+          allowBookings
+            ? api.get("/bookings/pos/active")
+            : Promise.resolve(null),
+          allowBookings ? api.get("/bookings") : Promise.resolve(null),
+          allowCustomers ? api.get("/customers/count") : Promise.resolve(null),
+          allowPos
+            ? api.get("/pos/action-feed?window_minutes=360&limit=80")
+            : Promise.resolve(null),
+        ]);
+
+        setResources(
+          resourcesRes.status === "fulfilled"
+            ? resourcesRes.value?.data?.items || []
+            : [],
+        );
+        setSessions(
+          sessionsRes.status === "fulfilled"
+            ? sessionsRes.value?.data || []
+            : [],
+        );
+        setBookings(
+          bookingsRes.status === "fulfilled"
+            ? normalizeBookings(bookingsRes.value?.data)
+            : [],
+        );
+        setCustomersCount(
+          customersRes.status === "fulfilled"
+            ? Number(customersRes.value?.data?.count || 0)
+            : 0,
+        );
+        setActionFeed(
+          actionFeedRes.status === "fulfilled"
+            ? actionFeedRes.value?.data?.items || []
+            : [],
+        );
+        setLoadError(false);
+
+        if (ownerOnly) {
+          const [subscriptionRes, onboardingRes] = await Promise.allSettled([
+            api.get("/billing/subscription"),
+            api.get("/admin/tenant/onboarding-summary"),
+          ]);
+          setSubscription(
+            subscriptionRes.status === "fulfilled"
+              ? subscriptionRes.value.data || null
+              : null,
+          );
+          setOnboardingSummary(
+            onboardingRes.status === "fulfilled"
+              ? onboardingRes.value.data || null
+              : null,
+          );
+        } else {
+          setSubscription(null);
+          setOnboardingSummary(null);
+        }
+
+        setLastSyncAt(
+          new Date().toLocaleTimeString("id-ID", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        );
+        hasLoadedRef.current = true;
+      } catch {
+        if (!background) {
+          setLoadError(true);
+        }
+        if (!background) {
+          toast.error("Gagal memuat dashboard");
+        }
+      } finally {
+        if (background) {
+          setRefreshing(false);
+        } else {
+          setLoading(false);
+        }
+      }
+    },
+    [ownerOnly, permissions, role],
+  );
 
   useEffect(() => {
     if (!sessionUser) return;
@@ -352,19 +401,30 @@ export default function DashboardPage() {
   const metrics = useMemo(() => {
     const totalResources = resources.length;
     const activeSessions = sessions.length;
-    const occupiedPercent = totalResources > 0 ? Math.round((activeSessions / totalResources) * 100) : 0;
-    const availableResources = resources.filter((resource) => resource.status === "available").length;
-    const maintenanceResources = resources.filter((resource) => resource.status === "maintenance").length;
+    const occupiedPercent =
+      totalResources > 0
+        ? Math.round((activeSessions / totalResources) * 100)
+        : 0;
+    const availableResources = resources.filter(
+      (resource) => resource.status === "available",
+    ).length;
+    const maintenanceResources = resources.filter(
+      (resource) => resource.status === "maintenance",
+    ).length;
     const today = new Date();
     const todayBookings = bookings.filter((booking) =>
       isSameDay(booking.start_time || booking.created_at, today),
     ).length;
     const todayRevenue = bookings
-      .filter((booking) => isSameDay(booking.start_time || booking.created_at, today))
+      .filter((booking) =>
+        isSameDay(booking.start_time || booking.created_at, today),
+      )
       .reduce((sum, booking) => sum + getBookingTotal(booking), 0);
     const actionRequiredCount = actionFeed.length;
     const verificationCount = actionFeed.filter(
-      (item) => String(item.payment_status || "").toLowerCase() === "awaiting_verification",
+      (item) =>
+        String(item.payment_status || "").toLowerCase() ===
+        "awaiting_verification",
     ).length;
 
     return {
@@ -391,18 +451,22 @@ export default function DashboardPage() {
       const revenue = bookings.reduce((sum, booking) => {
         const rawDate = booking.start_time || booking.created_at;
         const bookingDate = parseSafeDate(rawDate);
-        if (!bookingDate || format(bookingDate, "yyyy-MM-dd") !== key) return sum;
+        if (!bookingDate || format(bookingDate, "yyyy-MM-dd") !== key)
+          return sum;
         return sum + getBookingTotal(booking);
       }, 0);
       const addonRevenue = bookings.reduce((sum, booking) => {
         const rawDate = booking.start_time || booking.created_at;
         const bookingDate = parseSafeDate(rawDate);
-        if (!bookingDate || format(bookingDate, "yyyy-MM-dd") !== key) return sum;
+        if (!bookingDate || format(bookingDate, "yyyy-MM-dd") !== key)
+          return sum;
         return sum + Number(booking.total_fnb || 0);
       }, 0);
       const resourceRevenue = Math.max(revenue - addonRevenue, 0);
       const sessionsCount = sessions.filter((session) => {
-        const dateValue = parseSafeDate(session.start_time || session.created_at);
+        const dateValue = parseSafeDate(
+          session.start_time || session.created_at,
+        );
         return dateValue ? format(dateValue, "yyyy-MM-dd") === key : false;
       }).length;
 
@@ -453,8 +517,11 @@ export default function DashboardPage() {
     });
 
     bookings.forEach((booking) => {
-      const bookingDate = parseSafeDate(booking.start_time || booking.created_at);
-      if (!bookingDate || format(bookingDate, "yyyy-MM-dd") !== todayKey) return;
+      const bookingDate = parseSafeDate(
+        booking.start_time || booking.created_at,
+      );
+      if (!bookingDate || format(bookingDate, "yyyy-MM-dd") !== todayKey)
+        return;
 
       const key = booking.resource_name || "Unknown";
       const current = resourceMap.get(key) || {
@@ -467,7 +534,9 @@ export default function DashboardPage() {
 
       current.bookingsToday += 1;
       current.revenueToday += getBookingTotal(booking);
-      const existingLast = current.lastBookingAt ? new Date(current.lastBookingAt).getTime() : 0;
+      const existingLast = current.lastBookingAt
+        ? new Date(current.lastBookingAt).getTime()
+        : 0;
       if (!current.lastBookingAt || bookingDate.getTime() > existingLast) {
         current.lastBookingAt = bookingDate.toISOString();
       }
@@ -476,17 +545,28 @@ export default function DashboardPage() {
     });
 
     return Array.from(resourceMap.values()).sort((a, b) => {
-      if (b.revenueToday !== a.revenueToday) return b.revenueToday - a.revenueToday;
+      if (b.revenueToday !== a.revenueToday)
+        return b.revenueToday - a.revenueToday;
       return b.bookingsToday - a.bookingsToday;
     });
   }, [bookings, resources]);
 
   const weeklySummary = useMemo(() => {
-    const totalRevenue = weeklyRevenuePoints.reduce((sum, point) => sum + point.primary, 0);
-    const activeDays = weeklyRevenuePoints.filter((point) => point.primary > 0).length;
+    const totalRevenue = weeklyRevenuePoints.reduce(
+      (sum, point) => sum + point.primary,
+      0,
+    );
+    const activeDays = weeklyRevenuePoints.filter(
+      (point) => point.primary > 0,
+    ).length;
     const peakPoint = weeklyRevenuePoints.reduce(
       (best, point) => (point.primary > best.primary ? point : best),
-      weeklyRevenuePoints[0] || { label: "-", primary: 0, secondary: 0, meta: "" },
+      weeklyRevenuePoints[0] || {
+        label: "-",
+        primary: 0,
+        secondary: 0,
+        meta: "",
+      },
     );
 
     return {
@@ -531,7 +611,10 @@ export default function DashboardPage() {
       items.push({
         label: "Butuh tindakan",
         value: String(metrics.actionRequiredCount),
-        hint: metrics.verificationCount > 0 ? `${metrics.verificationCount} verifikasi` : "Perlu dicek",
+        hint:
+          metrics.verificationCount > 0
+            ? `${metrics.verificationCount} verifikasi`
+            : "Perlu dicek",
         icon: Sparkles,
         tone: "amber",
       });
@@ -574,7 +657,9 @@ export default function DashboardPage() {
   const recentTransactionRows = useMemo(
     () =>
       topBookings.slice(0, 4).map((booking) => {
-        const bookedAt = parseSafeDate(booking.start_time || booking.created_at);
+        const bookedAt = parseSafeDate(
+          booking.start_time || booking.created_at,
+        );
         return {
           id: booking.id,
           customerName: booking.customer_name || "Guest",
@@ -675,16 +760,27 @@ export default function DashboardPage() {
     }));
   }, [onboardingSummary, ownerOnly]);
 
-  const completedOnboardingSteps = onboardingSteps.filter((step) => step.complete).length;
-  const requiredOnboardingSteps = onboardingSteps.filter((step) => step.required);
-  const requiredOnboardingIncomplete = requiredOnboardingSteps.some((step) => !step.complete);
-  const onboardingProgress = onboardingSummary?.progress_percent ?? (onboardingSteps.length
-    ? Math.round((completedOnboardingSteps / onboardingSteps.length) * 100)
-    : 100);
-  const onboardingDismissKey = tenantId ? `tenant-onboarding-dismissed:${tenantId}` : "";
+  const completedOnboardingSteps = onboardingSteps.filter(
+    (step) => step.complete,
+  ).length;
+  const requiredOnboardingSteps = onboardingSteps.filter(
+    (step) => step.required,
+  );
+  const requiredOnboardingIncomplete = requiredOnboardingSteps.some(
+    (step) => !step.complete,
+  );
+  const onboardingProgress =
+    onboardingSummary?.progress_percent ??
+    (onboardingSteps.length
+      ? Math.round((completedOnboardingSteps / onboardingSteps.length) * 100)
+      : 100);
+  const onboardingDismissKey = tenantId
+    ? `tenant-onboarding-dismissed:${tenantId}`
+    : "";
   const onboardingWelcome = searchParams.get("welcome") === "1";
   const intendedPlanLabel = getSignupIntentPlanLabel(signupIntent);
-  const intendedIntervalLabel = signupIntent.interval === "monthly" ? "bulanan" : "tahunan";
+  const intendedIntervalLabel =
+    signupIntent.interval === "monthly" ? "bulanan" : "tahunan";
   const intendedCheckoutQuery = signupIntentToQuery({
     ...signupIntent,
     interval: signupIntent.interval || "annual",
@@ -698,26 +794,8 @@ export default function DashboardPage() {
     bookings.length > 0 ||
     actionFeed.length > 0 ||
     customersCount > 0;
-  const firstRunOwnerMode = ownerOnly && (onboardingWelcome || !hasOperationalData);
-
-  useEffect(() => {
-    if (!ownerOnly || !tenantId || !onboardingSteps.length) {
-      setShowOnboarding(false);
-      return;
-    }
-    if (requiredOnboardingIncomplete) {
-      const dismissed = window.localStorage.getItem(onboardingDismissKey) === "1";
-      setShowOnboarding(!dismissed);
-      return;
-    }
-    setShowOnboarding(false);
-  }, [
-    onboardingDismissKey,
-    onboardingSteps,
-    ownerOnly,
-    requiredOnboardingIncomplete,
-    tenantId,
-  ]);
+  const firstRunOwnerMode =
+    ownerOnly && (onboardingWelcome || !hasOperationalData);
 
   const dismissWelcomeDialog = useCallback(() => {
     const nextParams = new URLSearchParams(searchParams.toString());
@@ -725,15 +803,34 @@ export default function DashboardPage() {
 
     nextParams.delete("welcome");
     const nextQuery = nextParams.toString();
-    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+      scroll: false,
+    });
   }, [pathname, router, searchParams]);
+
+  const handleWelcomeSubmit = useCallback(
+    (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      dismissWelcomeDialog();
+      setShowWelcomeSuccess(true);
+    },
+    [dismissWelcomeDialog],
+  );
 
   const quickActions = ownerOnly
     ? [
         { href: "/admin/bookings", label: "Bookings", icon: CalendarClock },
         { href: "/admin/pos", label: "POS", icon: Sparkles },
         { href: "/admin/resources", label: "Resources", icon: Monitor },
-        ...(firstRunOwnerMode ? [] : [{ href: "/admin/analytics", label: "Analytics", icon: PanelsTopLeft }]),
+        ...(firstRunOwnerMode
+          ? []
+          : [
+              {
+                href: "/admin/analytics",
+                label: "Analytics",
+                icon: PanelsTopLeft,
+              },
+            ]),
       ]
     : ([
         canReadBookings
@@ -745,10 +842,17 @@ export default function DashboardPage() {
         canManagePos
           ? { href: "/admin/pos", label: "Quick POS", icon: Sparkles }
           : null,
-      ].filter(Boolean) as Array<{ href: string; label: string; icon: LucideIcon }>);
+      ].filter(Boolean) as Array<{
+        href: string;
+        label: string;
+        icon: LucideIcon;
+      }>);
 
   const resourceRows = useMemo(() => {
-    const maxRevenue = Math.max(...resourceStats.map((item) => item.revenueToday), 1);
+    const maxRevenue = Math.max(
+      ...resourceStats.map((item) => item.revenueToday),
+      1,
+    );
     return resourceStats.slice(0, 8).map((resource) => ({
       id: resource.id,
       title: resource.name,
@@ -762,13 +866,20 @@ export default function DashboardPage() {
   }, [ownerOnly, resourceStats]);
 
   const bookingRows = useMemo(() => {
-    const maxTotal = Math.max(...topBookings.map((item) => getBookingTotal(item)), 1);
+    const maxTotal = Math.max(
+      ...topBookings.map((item) => getBookingTotal(item)),
+      1,
+    );
     return topBookings.map((booking) => ({
       id: booking.id,
       title: booking.customer_name || "Guest",
       subtitle: `${booking.resource_name || "-"} • ${
         parseSafeDate(booking.start_time || booking.created_at)
-          ? format(parseSafeDate(booking.start_time || booking.created_at) || new Date(), "dd MMM HH:mm")
+          ? format(
+              parseSafeDate(booking.start_time || booking.created_at) ||
+                new Date(),
+              "dd MMM HH:mm",
+            )
           : "-"
       }`,
       value: ownerOnly ? `Rp ${formatIDR(getBookingTotal(booking))}` : "Live",
@@ -789,7 +900,10 @@ export default function DashboardPage() {
               <Badge className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[10px] font-medium uppercase text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
                 {refreshing ? "Refreshing..." : `Sync ${lastSyncAt || "--:--"}`}
               </Badge>
-              <RealtimePill connected={realtimeConnected} status={realtimeStatus} />
+              <RealtimePill
+                connected={realtimeConnected}
+                status={realtimeStatus}
+              />
             </div>
             <div>
               <h1 className="text-[1.65rem] font-semibold leading-none text-slate-950 dark:text-white sm:text-[1.75rem]">
@@ -807,7 +921,9 @@ export default function DashboardPage() {
               variant="outline"
               className="h-9 rounded-xl px-3 text-sm"
             >
-              <RefreshCcw className={cn("mr-2 h-4 w-4", refreshing && "animate-spin")} />
+              <RefreshCcw
+                className={cn("mr-2 h-4 w-4", refreshing && "animate-spin")}
+              />
               Refresh
             </Button>
             {quickActions.map((action) => (
@@ -828,71 +944,169 @@ export default function DashboardPage() {
       </div>
 
       {ownerOnly && onboardingWelcome ? (
-        <DashboardPanel
-          eyebrow="Siap operasional"
-          title="Masuk ke layar kerja inti dulu"
-          description="Fokus owner baru cukup empat area: booking hari ini, sesi aktif, yang belum beres, lalu aksi berikutnya."
-          actions={
-            <Button
-              type="button"
-              variant="ghost"
-              className="rounded-lg"
-              onClick={dismissWelcomeDialog}
-            >
-              <X className="mr-2 h-4 w-4" />
-              Tutup mode baru
-            </Button>
-          }
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open) {
+              dismissWelcomeDialog();
+            }
+          }}
         >
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <FirstRunCard
-              label="Booking hari ini"
-              value={String(metrics.todayBookings)}
-              detail={metrics.todayBookings > 0 ? "Sudah ada aktivitas booking hari ini." : "Belum ada booking masuk hari ini."}
-              href="/admin/bookings"
-              icon={CalendarClock}
-            />
-            <FirstRunCard
-              label="Sesi aktif"
-              value={String(metrics.activeSessions)}
-              detail={metrics.activeSessions > 0 ? "Ada sesi yang sedang berjalan sekarang." : "Belum ada sesi live saat ini."}
-              href="/admin/pos"
-              icon={Clock3}
-            />
-            <FirstRunCard
-              label="Belum beres"
-              value={String(metrics.actionRequiredCount)}
-              detail={metrics.verificationCount > 0 ? `${metrics.verificationCount} pembayaran masih menunggu verifikasi.` : "Tidak ada antrean penting yang menunggu."}
-              href="/admin/pos"
-              icon={Sparkles}
-            />
-            <FirstRunCard
-              label="Resource siap"
-              value={`${metrics.availableResources}/${metrics.totalResources || 0}`}
-              detail={metrics.totalResources > 0 ? "Cek resource aktif sebelum terima booking." : "Tambahkan resource utama lebih dulu."}
-              href="/admin/resources"
-              icon={Monitor}
-            />
-          </div>
-          <div className="grid gap-3 pt-1 md:grid-cols-3">
-            <Button asChild className="rounded-xl">
-              <Link href="/admin/bookings" prefetch={false}>
-                Lihat booking hari ini
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="rounded-xl">
-              <Link href="/admin/pos" prefetch={false}>
-                Buka POS
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="rounded-xl">
-              <Link href="/admin/resources" prefetch={false}>
-                Cek resources
-              </Link>
-            </Button>
-          </div>
-        </DashboardPanel>
+          <DialogContent className="!w-[min(95vw,48rem)] !max-w-none overflow-hidden border-slate-200 bg-white p-0 shadow-[0_30px_80px_rgba(15,23,42,0.18)]">
+            <div className="flex max-h-[calc(100vh-2rem)] min-h-0 flex-col overflow-hidden">
+              <div className="border-b border-slate-200 px-5 py-5 sm:px-6 sm:py-6">
+                <DialogHeader className="space-y-1">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                    Setup pertama
+                  </div>
+                  <DialogTitle className="text-2xl leading-tight">
+                    Isi halaman publik
+                  </DialogTitle>
+                  <DialogDescription className="text-sm leading-6 text-slate-500">
+                    Tambahkan yang pertama kali dilihat customer.
+                  </DialogDescription>
+                </DialogHeader>
+              </div>
+
+            <form
+              className="flex-1 min-h-0 overflow-y-auto px-5 py-5 sm:px-6"
+              onSubmit={handleWelcomeSubmit}
+            >
+              <div className="space-y-5">
+                <div className="grid gap-4">
+                  <label className="grid gap-2">
+                    <span className="text-sm font-medium text-slate-900">
+                        Slogan
+                      </span>
+                      <input
+                        className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        placeholder="Booking cepat, rapi, langsung jalan"
+                      />
+                      <span className="text-xs leading-5 text-slate-500">
+                        Tampil di hero paling atas.
+                      </span>
+                    </label>
+                    <label className="grid gap-2">
+                      <span className="text-sm font-medium text-slate-900">
+                        Headline
+                      </span>
+                      <input
+                        className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        placeholder="Booking lebih cepat di sini"
+                      />
+                      <span className="text-xs leading-5 text-slate-500">
+                        Judul utama landing page.
+                      </span>
+                    </label>
+
+                    <label className="grid gap-2">
+                      <span className="text-sm font-medium text-slate-900">
+                        Deskripsi singkat
+                      </span>
+                      <textarea
+                        className="min-h-28 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        placeholder="Jelaskan bisnis kamu dalam 1-2 kalimat."
+                      />
+                      <span className="text-xs leading-5 text-slate-500">
+                        Muncul tepat di bawah headline.
+                      </span>
+                    </label>
+
+                    <div className="space-y-4">
+                      <SingleImageUpload
+                        value={bannerUrl}
+                        onChange={setBannerUrl}
+                        endpoint="/admin/upload"
+                        label="Banner"
+                        emptyTitle="Upload banner"
+                        emptyHint="Tampil di hero public"
+                        aspect="video"
+                        uploadPreset="media"
+                      />
+                      <SingleImageUpload
+                        value={logoUrl}
+                        onChange={setLogoUrl}
+                        endpoint="/admin/upload"
+                        label="Logo"
+                        emptyTitle="Upload logo"
+                        emptyHint="Tampil di header dan identitas bisnis"
+                        aspect="square"
+                        className="mx-auto w-[40%]"
+                        uploadPreset="media"
+                      />
+                    </div>
+
+                    <label className="grid gap-2">
+                      <span className="text-sm font-medium text-slate-900">
+                        Selling points
+                      </span>
+                      <input
+                        className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        placeholder="Contoh: AC dingin, booking real-time, lokasi strategis"
+                      />
+                      <span className="text-xs leading-5 text-slate-500">
+                        Muncul sebagai poin keunggulan di landing.
+                      </span>
+                    </label>
+
+                    <div className="grid gap-3 pt-1 sm:grid-cols-[1fr_auto]">
+                      <Button type="submit" className="h-12 w-full rounded-2xl">
+                        Simpan
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-12 rounded-2xl px-4"
+                        onClick={dismissWelcomeDialog}
+                      >
+                        Nanti
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </DialogContent>
+        </Dialog>
       ) : null}
+
+      <Dialog open={showWelcomeSuccess} onOpenChange={setShowWelcomeSuccess}>
+        <DialogContent className="!w-[min(92vw,32rem)] !max-w-none border-slate-200 bg-white p-0 shadow-[0_30px_80px_rgba(15,23,42,0.18)]">
+          <div className="space-y-5 px-5 py-6 sm:px-6">
+            <DialogHeader className="space-y-1">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-500">
+                Berhasil disimpan
+              </div>
+              <DialogTitle className="text-2xl leading-tight">
+                Website booking kamu siap dipakai
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-6 text-slate-500">
+                Setting minimum sudah tersimpan. Cek hasilnya di halaman publik tenant.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm leading-6 text-emerald-950">
+              Konten hero, banner, logo, dan selling points sekarang bisa dilihat customer.
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+              <Button asChild className="h-12 w-full rounded-2xl">
+                <Link href={tenantSlug ? getTenantUrl(tenantSlug) : "/"} prefetch={false}>
+                  Buka halaman publik
+                </Link>
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-12 rounded-2xl px-4"
+                onClick={() => setShowWelcomeSuccess(false)}
+              >
+                Tutup
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {ownerOnly && showOnboarding && onboardingSteps.length ? (
         <DashboardPanel
@@ -939,10 +1153,12 @@ export default function DashboardPage() {
               </div>
               <div className="mt-4 space-y-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                 <p>
-                  Fokus dulu ke identitas bisnis dan katalog resource. Dua area ini paling berpengaruh ke rasa “siap live”.
+                  Fokus dulu ke identitas bisnis dan katalog resource. Dua area
+                  ini paling berpengaruh ke rasa “siap live”.
                 </p>
                 <p>
-                  Begitu itu rapi, owner biasanya jauh lebih enak lanjut ke metode bayar dan page builder.
+                  Begitu itu rapi, owner biasanya jauh lebih enak lanjut ke
+                  metode bayar dan page builder.
                 </p>
               </div>
             </div>
@@ -1035,7 +1251,11 @@ export default function DashboardPage() {
           title="Dashboard gagal dimuat"
           description="Semua panel dashboard bergantung pada data operasional awal. Muat ulang sebelum memakai angka di halaman ini."
           action={
-            <Button onClick={() => void fetchDashboard("initial")} variant="outline" className="rounded-xl">
+            <Button
+              onClick={() => void fetchDashboard("initial")}
+              variant="outline"
+              className="rounded-xl"
+            >
               Coba lagi
             </Button>
           }
@@ -1085,16 +1305,23 @@ export default function DashboardPage() {
                         <item.icon className="h-4 w-4" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-semibold text-slate-950 dark:text-white">{item.label}</div>
-                        <div className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">{item.value}</div>
-                        <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{item.detail}</div>
+                        <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                          {item.label}
+                        </div>
+                        <div className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">
+                          {item.value}
+                        </div>
+                        <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                          {item.detail}
+                        </div>
                       </div>
                     </div>
                   </Link>
                 ))
               ) : (
                 <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-400 sm:col-span-2">
-                  Belum ada sinyal operasional penting. Artinya setup awal sudah cukup aman untuk mulai terima booking.
+                  Belum ada sinyal operasional penting. Artinya setup awal sudah
+                  cukup aman untuk mulai terima booking.
                 </div>
               )}
             </div>
@@ -1112,8 +1339,13 @@ export default function DashboardPage() {
                 className="flex items-center justify-between rounded-xl border border-[var(--admin-line-soft)] bg-[var(--admin-surface-soft)] px-4 py-3 transition hover:border-slate-300 hover:bg-slate-100 dark:hover:border-slate-700 dark:hover:bg-slate-900/60"
               >
                 <div>
-                  <div className="text-sm font-semibold text-slate-950 dark:text-white">Input booking manual</div>
-                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Kalau owner mau simulasi ringan, lakukan dari flow booking asli.</div>
+                  <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                    Input booking manual
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Kalau owner mau simulasi ringan, lakukan dari flow booking
+                    asli.
+                  </div>
                 </div>
                 <ArrowRight className="h-4 w-4 text-slate-400" />
               </Link>
@@ -1123,8 +1355,12 @@ export default function DashboardPage() {
                 className="flex items-center justify-between rounded-xl border border-[var(--admin-line-soft)] bg-[var(--admin-surface-soft)] px-4 py-3 transition hover:border-slate-300 hover:bg-slate-100 dark:hover:border-slate-700 dark:hover:bg-slate-900/60"
               >
                 <div>
-                  <div className="text-sm font-semibold text-slate-950 dark:text-white">Rapikan resource & harga</div>
-                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Pastikan unit dan paket utama sudah benar sebelum live.</div>
+                  <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                    Rapikan resource & harga
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Pastikan unit dan paket utama sudah benar sebelum live.
+                  </div>
                 </div>
                 <ArrowRight className="h-4 w-4 text-slate-400" />
               </Link>
@@ -1135,9 +1371,13 @@ export default function DashboardPage() {
               >
                 <div>
                   <div className="text-sm font-semibold text-slate-950 dark:text-white">
-                    {signupIntent.plan ? `Lanjut billing ${intendedPlanLabel} ${intendedIntervalLabel}` : "Pilih paket berlangganan"}
+                    {signupIntent.plan
+                      ? `Lanjut billing ${intendedPlanLabel} ${intendedIntervalLabel}`
+                      : "Pilih paket berlangganan"}
                   </div>
-                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Masuk ke billing setelah area operasional inti terasa jelas.</div>
+                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Masuk ke billing setelah area operasional inti terasa jelas.
+                  </div>
                 </div>
                 <ArrowRight className="h-4 w-4 text-slate-400" />
               </Link>
@@ -1146,7 +1386,7 @@ export default function DashboardPage() {
         </section>
       ) : (
         <>
-        <section className="grid gap-3 xl:grid-cols-[1.45fr_0.72fr]">
+          <section className="grid gap-3 xl:grid-cols-[1.45fr_0.72fr]">
             <div className="space-y-3">
               <DashboardLineChartPanel
                 eyebrow="7 hari"
@@ -1158,9 +1398,21 @@ export default function DashboardPage() {
                 formatValue={(value) => `Rp ${formatIDR(value)}`}
               />
               <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-3">
-                <InfoChip label="Total 7 hari" value={`Rp ${formatIDR(weeklySummary.totalRevenue)}`} icon={Wallet} />
-                <InfoChip label="Hari aktif" value={`${weeklySummary.activeDays}/7`} icon={CalendarClock} />
-                <InfoChip label="Puncak" value={`${weeklySummary.peakLabel} · Rp ${formatIDR(weeklySummary.peakRevenue)}`} icon={TrendingUp} />
+                <InfoChip
+                  label="Total 7 hari"
+                  value={`Rp ${formatIDR(weeklySummary.totalRevenue)}`}
+                  icon={Wallet}
+                />
+                <InfoChip
+                  label="Hari aktif"
+                  value={`${weeklySummary.activeDays}/7`}
+                  icon={CalendarClock}
+                />
+                <InfoChip
+                  label="Puncak"
+                  value={`${weeklySummary.peakLabel} · Rp ${formatIDR(weeklySummary.peakRevenue)}`}
+                  icon={TrendingUp}
+                />
               </div>
             </div>
 
@@ -1279,10 +1531,26 @@ export default function DashboardPage() {
                   description="Konteks singkat untuk baca kondisi tenant saat ini."
                 >
                   <div className="grid grid-cols-2 gap-3">
-                    <InfoChip label="Okupansi" value={`${metrics.occupiedPercent}%`} icon={TrendingUp} />
-                    <InfoChip label="Resource siap" value={String(metrics.availableResources)} icon={Monitor} />
-                    <InfoChip label="Customer" value={customersCount.toString()} icon={Users} />
-                    <InfoChip label="Verifikasi" value={String(metrics.verificationCount)} icon={Sparkles} />
+                    <InfoChip
+                      label="Okupansi"
+                      value={`${metrics.occupiedPercent}%`}
+                      icon={TrendingUp}
+                    />
+                    <InfoChip
+                      label="Resource siap"
+                      value={String(metrics.availableResources)}
+                      icon={Monitor}
+                    />
+                    <InfoChip
+                      label="Customer"
+                      value={customersCount.toString()}
+                      icon={Users}
+                    />
+                    <InfoChip
+                      label="Verifikasi"
+                      value={String(metrics.verificationCount)}
+                      icon={Sparkles}
+                    />
                   </div>
                 </DashboardPanel>
               )}
@@ -1322,13 +1590,13 @@ export default function DashboardPage() {
               description="Modul sensitif tetap disimpan untuk owner."
             >
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-300">
-                Saat ini akun ini belum memiliki modul operasional tambahan yang bisa dibuka.
+                Saat ini akun ini belum memiliki modul operasional tambahan yang
+                bisa dibuka.
               </div>
             </DashboardPanel>
           ) : null}
         </>
       )}
-
     </div>
   );
 }
@@ -1365,7 +1633,9 @@ function FirstRunCard({
           <Icon className="h-4 w-4" />
         </div>
       </div>
-      <div className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">{detail}</div>
+      <div className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+        {detail}
+      </div>
       <div className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
         Buka
         <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
@@ -1411,9 +1681,12 @@ function CompactMetricCard({
   loading,
 }: CompactMetric & { loading?: boolean }) {
   const toneClass: Record<MetricTone, string> = {
-    indigo: "bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[rgba(74,141,255,0.12)] dark:text-[var(--bookinaja-200)]",
-    emerald: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-200",
-    amber: "bg-amber-50 text-amber-700 dark:bg-amber-500/12 dark:text-amber-200",
+    indigo:
+      "bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[rgba(74,141,255,0.12)] dark:text-[var(--bookinaja-200)]",
+    emerald:
+      "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-200",
+    amber:
+      "bg-amber-50 text-amber-700 dark:bg-amber-500/12 dark:text-amber-200",
     cyan: "bg-cyan-50 text-cyan-700 dark:bg-cyan-500/12 dark:text-cyan-200",
     slate: "bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-200",
   };
@@ -1434,7 +1707,12 @@ function CompactMetricCard({
             </div>
           ) : null}
         </div>
-        <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", toneClass[tone])}>
+        <div
+          className={cn(
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+            toneClass[tone],
+          )}
+        >
           <Icon className="h-4 w-4" />
         </div>
       </div>
