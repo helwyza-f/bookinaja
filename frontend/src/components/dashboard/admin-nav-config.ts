@@ -79,9 +79,17 @@ export const simpleOwnerOperationalNavHrefs = [
   "/admin/resources",
   "/admin/customers",
   "/admin/fnb",
+  "/admin/expenses",
+  "/admin/analytics",
+  "/admin/reports",
 ];
 
-export const simpleOwnerUtilityNavKeys: WorkspaceUtilityNavItem["key"][] = ["settings"];
+export const simpleOwnerUtilityNavKeys: WorkspaceUtilityNavItem["key"][] = [
+  "refer",
+  "business",
+  "page_builder",
+  "settings",
+];
 
 export const workspaceUtilityNavItems: WorkspaceUtilityNavItem[] = [
   { key: "upgrade", label: "Upgrade", icon: CreditCard, kind: "upgrade" },

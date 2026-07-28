@@ -4,9 +4,15 @@ import Link from "next/link";
 import { ArrowRight, Layers3, ShieldCheck, Sparkles, type LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { settingsNavItems } from "@/components/dashboard/admin-nav-config";
+import {
+  operationalNavItems,
+  settingsNavItems,
+  simpleOwnerOperationalNavHrefs,
+  simpleOwnerUtilityNavKeys,
+  workspaceUtilityNavItems,
+} from "@/components/dashboard/admin-nav-config";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
-import { getAdminRouteGate } from "@/lib/admin-access";
+import { canAccessAdminRoute, getAdminRouteGate } from "@/lib/admin-access";
 
 type SettingsBucket = {
   title: string;
@@ -23,6 +29,7 @@ type SettingsBucket = {
 
 export default function SettingsIndexPage() {
   const { user } = useAdminSession();
+  const isOwner = user?.role === "owner";
 
   const visibleItems = settingsNavItems
     .map((item) => {
@@ -48,21 +55,56 @@ export default function SettingsIndexPage() {
       group: string;
     }>;
 
+  const movedOperationalItems = operationalNavItems
+    .filter((item) => {
+      if (!isOwner) return false;
+      if (simpleOwnerOperationalNavHrefs.includes(item.href)) return false;
+      return canAccessAdminRoute(item.href, user);
+    })
+    .map((item) => ({
+      label: item.label,
+      href: item.href,
+      hint: item.hint || "Area operasional lanjutan yang dipindah dari sidebar utama.",
+      icon: item.icon,
+      group: item.href === "/admin/reports" ? "system" : "ops",
+    }));
+
+  const movedUtilityItems = workspaceUtilityNavItems
+    .filter((item) => {
+      if (!isOwner) return false;
+      if (simpleOwnerUtilityNavKeys.includes(item.key)) return false;
+      return item.kind === "route" && Boolean(item.href);
+    })
+    .map((item) => ({
+      label: item.label,
+      href: item.href as string,
+      hint: "Area tambahan yang sengaja dipindah dari sidebar utama.",
+      icon: item.icon,
+      group:
+        item.key === "business"
+          ? "core"
+          : item.key === "page_builder" || item.key === "refer"
+            ? "growth"
+            : "system",
+    }));
+
+  const allItems = [...visibleItems, ...movedOperationalItems, ...movedUtilityItems];
+
   const buckets: SettingsBucket[] = [
     {
       title: "Operasional & Tim",
       description: "Atur akun, workspace, staff, dan alat kerja inti owner.",
-      items: visibleItems.filter((item) => item.group === "core" || item.group === "ops"),
+      items: allItems.filter((item) => item.group === "core" || item.group === "ops"),
     },
     {
       title: "Billing & Sistem",
       description: "Kelola pembayaran, subscription, printer, dan konfigurasi sistem lain.",
-      items: visibleItems.filter((item) => item.group === "system"),
+      items: allItems.filter((item) => item.group === "system"),
     },
     {
       title: "Growth & Tambahan",
       description: "Semua area sekunder sementara dikumpulkan di sini supaya nav utama tetap bersih.",
-      items: visibleItems.filter((item) => item.group === "growth"),
+      items: allItems.filter((item) => item.group === "growth"),
     },
   ].filter((bucket) => bucket.items.length > 0);
 

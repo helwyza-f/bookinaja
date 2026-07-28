@@ -46,7 +46,6 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRealtime } from "@/lib/realtime/use-realtime";
 import { RealtimePill } from "@/components/dashboard/realtime-pill";
-import { DashboardPanel } from "@/components/dashboard/analytics-kit";
 import {
   AdminSurfaceEmpty,
   AdminSurfaceError,

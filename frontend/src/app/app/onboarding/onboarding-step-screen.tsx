@@ -11,7 +11,6 @@ import {
   Info,
   Upload,
 } from "lucide-react";
-import { format } from "date-fns";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -137,38 +136,6 @@ function hasQrisConfig(qrisImageUrl: string) {
 
 function digitsOnly(value: string) {
   return value.replace(/\D/g, "");
-}
-
-function normalizeTenantClock(value: string) {
-  const match = value.match(/^(\d{1,2}):(\d{2})/);
-  if (!match) return "09:00";
-  const hours = Math.min(23, Math.max(0, Number(match[1] || "9")));
-  const minutes = Math.min(59, Math.max(0, Number(match[2] || "0")));
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-}
-
-function clockToMinutes(value: string) {
-  const [hours, minutes] = normalizeTenantClock(value).split(":").map(Number);
-  return hours * 60 + minutes;
-}
-
-function minutesToClock(totalMinutes: number) {
-  const safe = Math.max(0, Math.min(totalMinutes, 23 * 60 + 59));
-  const hours = Math.floor(safe / 60);
-  const minutes = safe % 60;
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-}
-
-function getOperatingWindow(openTime: string, closeTime: string) {
-  const openMinutes = clockToMinutes(openTime);
-  let closeMinutes = clockToMinutes(closeTime);
-  if (normalizeTenantClock(closeTime) === "23:59") {
-    closeMinutes = 24 * 60;
-  }
-  if (closeMinutes <= openMinutes) {
-    closeMinutes = 23 * 60 + 59;
-  }
-  return { openMinutes, closeMinutes };
 }
 
 function formatRupiahInput(value: string) {

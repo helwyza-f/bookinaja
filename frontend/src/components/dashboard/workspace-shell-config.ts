@@ -42,7 +42,7 @@ export const shellUtilityItems: ShellUtilityItem[] = [
 ];
 
 export function getSettingsDefaultRoute() {
-  return "/admin/settings/akun";
+  return "/admin/settings";
 }
 
 export function getWorkspaceFallbackRoute() {

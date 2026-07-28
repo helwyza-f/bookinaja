@@ -45,6 +45,7 @@ const DASHBOARD_PERMISSIONS = [
 ];
 
 const ROUTE_RULES: RouteRule[] = [
+  { prefix: "/admin/setup", ownerOnly: true },
   { prefix: "/admin/referral", ownerOnly: true },
   { prefix: "/admin/brand", ownerOnly: true },
   { prefix: "/admin/guide", ownerOnly: true },

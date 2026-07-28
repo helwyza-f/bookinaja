@@ -67,6 +67,13 @@ export function LandingBuilderRenderer({
   const themeVisuals = getThemeVisuals(theme);
   const leadingSection = page.sections.find((section) => section.enabled);
   const hasLeadingHero = leadingSection?.type === "hero";
+  const navigableSections = page.sections.filter((section) =>
+    isSectionNavigable({
+      section,
+      profile: normalizedProfile,
+      resources,
+    }),
+  );
 
   const getBestPrice = (resource: BuilderResource) => {
     if (typeof resource.starting_price === "number" && resource.starting_price > 0) {
@@ -102,6 +109,7 @@ export function LandingBuilderRenderer({
           previewMode={previewMode}
           embedded={embedded}
           enableCustomerContext={!isEditorPreview}
+          sections={navigableSections}
           landingTheme={{
             primary: theme.primary_color,
             accent: theme.accent_color,
@@ -849,6 +857,42 @@ function renderSection({
       );
     default:
       return null;
+  }
+}
+
+function isSectionNavigable({
+  section,
+  profile,
+  resources,
+}: {
+  section: BuilderSection;
+  profile: BuilderProfile;
+  resources: BuilderResource[];
+}) {
+  if (!section.enabled) {
+    return false;
+  }
+
+  switch (section.type) {
+    case "catalog":
+      return resources.length > 0;
+    case "gallery":
+      return (profile.gallery || []).some((image) => Boolean(image?.trim()));
+    case "about":
+      return Boolean(
+        String(section.props?.description || "").trim() ||
+          String(profile.about_us || "").trim() ||
+          String(section.props?.image_url || "").trim(),
+      );
+    case "contact":
+      return Boolean(
+        String(profile.address || "").trim() ||
+          String(profile.whatsapp_number || "").trim() ||
+          String(profile.open_time || "").trim() ||
+          String(profile.close_time || "").trim(),
+      );
+    default:
+      return true;
   }
 }
 

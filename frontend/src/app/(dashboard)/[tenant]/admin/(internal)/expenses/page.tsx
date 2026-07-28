@@ -43,7 +43,6 @@ import {
   ReceiptText,
   Search,
   Trash2,
-  type LucideIcon,
 } from "lucide-react";
 
 type ExpenseSummary = {
@@ -81,69 +80,6 @@ function formatCompactRange(from: string, to: string) {
   }
 
   return `${format(fromDate, "d MMM yyyy")} - ${format(toDate, "d MMM yyyy")}`;
-}
-
-function CompactMetricCard({
-  label,
-  value,
-  hint,
-  icon: Icon,
-  tone,
-  loading = false,
-}: {
-  label: string;
-  value: string;
-  hint: string;
-  icon: LucideIcon;
-  tone: "indigo" | "emerald" | "amber" | "slate";
-  loading?: boolean;
-}) {
-  const toneMap = {
-    indigo: {
-      shell: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
-      icon: "bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[color:rgba(59,130,246,0.14)] dark:text-[var(--bookinaja-100)]",
-    },
-    emerald: {
-      shell: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
-      icon: "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300",
-    },
-    amber: {
-      shell: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
-      icon: "bg-amber-500/10 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300",
-    },
-    slate: {
-      shell: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
-      icon: "bg-slate-100 text-slate-500 dark:bg-slate-900 dark:text-slate-300",
-    },
-  } as const;
-
-  const colors = toneMap[tone];
-
-  return (
-    <Card className={cn("rounded-xl border p-3 sm:p-4", colors.shell)}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-            {label}
-          </div>
-          <div className="mt-2 text-xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
-            {loading ? "..." : value}
-          </div>
-          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 sm:text-xs">
-            {hint}
-          </div>
-        </div>
-        <div
-          className={cn(
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl sm:h-11 sm:w-11",
-            colors.icon,
-          )}
-        >
-          <Icon className="h-4 w-4" />
-        </div>
-      </div>
-    </Card>
-  );
 }
 
 export default function ExpensesPage() {

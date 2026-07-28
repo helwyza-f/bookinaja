@@ -65,6 +65,15 @@ import {
   DashboardLineChartPanel,
   DashboardPanel,
 } from "@/components/dashboard/analytics-kit";
+import {
+  defaultTenantProfile,
+  type TenantProfile,
+} from "../settings/bisnis/sections/types";
+import {
+  DEFAULT_PAGE_BUILDER_CONFIG,
+  normalizePageBuilderConfig,
+  type LandingPageConfig,
+} from "@/lib/page-builder";
 
 type ResourceRow = {
   id: string;
@@ -159,6 +168,93 @@ type ActionFeedRow = {
   priority?: number;
 };
 
+type WelcomeExample = {
+  label: string;
+  slogan: string;
+  tagline: string;
+  about_us: string;
+  features: string[];
+};
+
+const WELCOME_EXAMPLES: Record<string, WelcomeExample> = {
+  gaming_hub: {
+    label: "Contoh gaming",
+    slogan: "Booking gaming room tanpa ribet",
+    tagline: "Pilih slot, datang, lalu langsung main",
+    about_us:
+      "Customer bisa cek jadwal, pilih perangkat, dan booking lebih cepat tanpa chat bolak-balik.",
+    features: ["Slot real-time", "Perangkat siap pakai", "Cocok untuk mabar"],
+  },
+  creative_space: {
+    label: "Contoh studio",
+    slogan: "Booking studio jadi lebih jelas",
+    tagline: "Pilih sesi yang pas lalu langsung produksi",
+    about_us:
+      "Halaman publik membantu customer memahami studio kamu, lihat visual utama, lalu booking tanpa banyak tanya.",
+    features: ["Visual studio jelas", "Sesi mudah dipilih", "Cocok untuk konten dan foto"],
+  },
+  sport_center: {
+    label: "Contoh sport",
+    slogan: "Booking lapangan lebih cepat",
+    tagline: "Cek jam kosong dan amankan slot main kamu",
+    about_us:
+      "Customer bisa langsung lihat jadwal, pilih durasi, dan booking tanpa proses manual yang panjang.",
+    features: ["Jadwal jelas", "Booking lebih singkat", "Cocok untuk main rutin"],
+  },
+  social_space: {
+    label: "Contoh ruang",
+    slogan: "Sewa ruang jadi lebih rapi",
+    tagline: "Cari ruang yang pas lalu booking dalam beberapa langkah",
+    about_us:
+      "Dipakai untuk meeting room, coworking, dan event kecil dengan alur booking yang lebih mudah dipahami.",
+    features: ["Info ruang singkat", "Durasi mudah dipahami", "Cocok untuk tim kecil"],
+  },
+  default: {
+    label: "Contoh umum",
+    slogan: "Booking lebih cepat dan lebih jelas",
+    tagline: "Pilih layanan, lihat slot, lalu booking tanpa ribet",
+    about_us:
+      "Halaman publik membantu customer memahami bisnis kamu lebih cepat sebelum lanjut booking.",
+    features: ["Info utama singkat", "Alur booking lebih ringkas", "Tampil lebih meyakinkan"],
+  },
+};
+
+type WelcomeDraftPayload = {
+  profile: TenantProfile;
+  featureInput: string;
+  heroDescription: string;
+};
+
+function syncWelcomeContentIntoLandingConfig(
+  input: LandingPageConfig | null | undefined,
+  patch: { tagline: string; heroDescription: string },
+): LandingPageConfig {
+  const pageConfig = normalizePageBuilderConfig(input || DEFAULT_PAGE_BUILDER_CONFIG);
+
+  return {
+    ...pageConfig,
+    sections: pageConfig.sections.map((section) => {
+      if (section.type !== "hero") return section;
+      return {
+        ...section,
+        props: {
+          ...(section.props || {}),
+          tagline: patch.tagline,
+          description: patch.heroDescription,
+        },
+      };
+    }),
+  };
+}
+
+function readHeroDescriptionFromLandingConfig(
+  input: LandingPageConfig | null | undefined,
+) {
+  const pageConfig = normalizePageBuilderConfig(input || DEFAULT_PAGE_BUILDER_CONFIG);
+  const heroSection = pageConfig.sections.find((section) => section.type === "hero");
+  return String(heroSection?.props?.description || "");
+}
+
 const normalizeBookings = (payload: unknown): BookingRow[] => {
   if (Array.isArray(payload)) return payload as BookingRow[];
   if (payload && typeof payload === "object" && "items" in payload) {
@@ -195,7 +291,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user: sessionUser, tenantSlug } = useAdminSession();
+  const { user: sessionUser, tenantCategory, tenantSlug } = useAdminSession();
   const signupIntent = useMemo(
     () => readSignupIntentFromParams(searchParams),
     [searchParams],
@@ -215,8 +311,12 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<string>("");
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [bannerUrl, setBannerUrl] = useState("");
-  const [logoUrl, setLogoUrl] = useState("");
+  const [welcomeProfile, setWelcomeProfile] =
+    useState<TenantProfile>(defaultTenantProfile);
+  const [welcomeSaving, setWelcomeSaving] = useState(false);
+  const [welcomeLoading, setWelcomeLoading] = useState(false);
+  const [welcomeFeatureInput, setWelcomeFeatureInput] = useState("");
+  const [welcomeHeroDescription, setWelcomeHeroDescription] = useState("");
   const [showWelcomeSuccess, setShowWelcomeSuccess] = useState(false);
   const hasLoadedRef = useRef(false);
   const refreshTimerRef = useRef<number | null>(null);
@@ -763,12 +863,6 @@ export default function DashboardPage() {
   const completedOnboardingSteps = onboardingSteps.filter(
     (step) => step.complete,
   ).length;
-  const requiredOnboardingSteps = onboardingSteps.filter(
-    (step) => step.required,
-  );
-  const requiredOnboardingIncomplete = requiredOnboardingSteps.some(
-    (step) => !step.complete,
-  );
   const onboardingProgress =
     onboardingSummary?.progress_percent ??
     (onboardingSteps.length
@@ -777,7 +871,14 @@ export default function DashboardPage() {
   const onboardingDismissKey = tenantId
     ? `tenant-onboarding-dismissed:${tenantId}`
     : "";
+  const welcomeDraftKey = tenantId
+    ? `tenant-welcome-draft:${tenantId}`
+    : "";
   const onboardingWelcome = searchParams.get("welcome") === "1";
+  const welcomeExample = useMemo(() => {
+    const normalized = String(tenantCategory || "").trim().toLowerCase();
+    return WELCOME_EXAMPLES[normalized] || WELCOME_EXAMPLES.default;
+  }, [tenantCategory]);
   const intendedPlanLabel = getSignupIntentPlanLabel(signupIntent);
   const intendedIntervalLabel =
     signupIntent.interval === "monthly" ? "bulanan" : "tahunan";
@@ -800,7 +901,6 @@ export default function DashboardPage() {
   const dismissWelcomeDialog = useCallback(() => {
     const nextParams = new URLSearchParams(searchParams.toString());
     if (!nextParams.has("welcome")) return;
-
     nextParams.delete("welcome");
     const nextQuery = nextParams.toString();
     router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
@@ -808,13 +908,175 @@ export default function DashboardPage() {
     });
   }, [pathname, router, searchParams]);
 
+  const fetchWelcomeProfile = useCallback(async () => {
+    setWelcomeLoading(true);
+    try {
+      const res = await api.get<TenantProfile>("/admin/profile");
+      const nextProfile = {
+        ...defaultTenantProfile,
+        ...(res.data || {}),
+      };
+
+      if (typeof window !== "undefined" && welcomeDraftKey) {
+        const rawDraft = window.sessionStorage.getItem(welcomeDraftKey);
+        if (rawDraft) {
+          try {
+            const draft = JSON.parse(rawDraft) as Partial<WelcomeDraftPayload>;
+            setWelcomeProfile({
+              ...nextProfile,
+              ...(draft.profile || {}),
+            });
+            setWelcomeFeatureInput(draft.featureInput || "");
+            setWelcomeHeroDescription(
+              draft.heroDescription ||
+                readHeroDescriptionFromLandingConfig(
+                  nextProfile.landing_page_config as
+                    | LandingPageConfig
+                    | null
+                    | undefined,
+                ) ||
+                "",
+            );
+            return;
+          } catch {}
+        }
+      }
+
+      setWelcomeProfile(nextProfile);
+      setWelcomeHeroDescription(
+        readHeroDescriptionFromLandingConfig(
+          nextProfile.landing_page_config as
+            | LandingPageConfig
+            | null
+            | undefined,
+        ) || "",
+      );
+    } catch {
+      toast.error("Gagal memuat identitas bisnis");
+    } finally {
+      setWelcomeLoading(false);
+    }
+  }, [welcomeDraftKey]);
+
+  useEffect(() => {
+    if (!ownerOnly || !onboardingWelcome) return;
+    void fetchWelcomeProfile();
+  }, [fetchWelcomeProfile, onboardingWelcome, ownerOnly]);
+
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      !ownerOnly ||
+      !onboardingWelcome ||
+      !welcomeDraftKey
+    ) {
+      return;
+    }
+
+    const payload: WelcomeDraftPayload = {
+      profile: welcomeProfile,
+      featureInput: welcomeFeatureInput,
+      heroDescription: welcomeHeroDescription,
+    };
+    window.sessionStorage.setItem(welcomeDraftKey, JSON.stringify(payload));
+  }, [
+    onboardingWelcome,
+    ownerOnly,
+    welcomeDraftKey,
+    welcomeFeatureInput,
+    welcomeHeroDescription,
+    welcomeProfile,
+  ]);
+
+  const applyWelcomeExample = useCallback(() => {
+    setWelcomeProfile((current) => ({
+      ...current,
+      slogan: current.slogan || welcomeExample.slogan,
+      tagline: current.tagline || welcomeExample.tagline,
+      about_us: current.about_us || welcomeExample.about_us,
+      features:
+        current.features.length > 0 ? current.features : welcomeExample.features,
+    }));
+  }, [welcomeExample]);
+
+  const removeWelcomeFeature = useCallback((index: number) => {
+    setWelcomeProfile((current) => ({
+      ...current,
+      features: current.features.filter((_, itemIndex) => itemIndex !== index),
+    }));
+  }, []);
+
+  const addWelcomeFeature = useCallback(() => {
+    const nextFeature = welcomeFeatureInput.trim();
+    if (!nextFeature) return;
+    setWelcomeProfile((current) => ({
+      ...current,
+      features: [...current.features, nextFeature],
+    }));
+    setWelcomeFeatureInput("");
+  }, [welcomeFeatureInput]);
+
   const handleWelcomeSubmit = useCallback(
-    (event: React.FormEvent<HTMLFormElement>) => {
+    async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      dismissWelcomeDialog();
-      setShowWelcomeSuccess(true);
+      if (
+        !welcomeProfile.tagline.trim() ||
+        !welcomeHeroDescription.trim() ||
+        !welcomeProfile.about_us.trim() ||
+        welcomeProfile.features.filter(Boolean).length === 0
+      ) {
+        toast.error("Isi headline hero, deskripsi hero, penjelasan bisnis, dan minimal 1 keunggulan.");
+        return;
+      }
+
+      setWelcomeSaving(true);
+      try {
+        const currentProfileRes = await api.get<TenantProfile>("/admin/profile");
+        const currentProfile = {
+          ...defaultTenantProfile,
+          ...(currentProfileRes.data || {}),
+        };
+        const nextTagline = welcomeProfile.tagline.trim();
+        const nextHeroDescription = welcomeHeroDescription.trim();
+        const nextAboutUs = welcomeProfile.about_us.trim();
+        const nextFeatures = welcomeProfile.features
+          .map((item) => item.trim())
+          .filter(Boolean);
+        const payload: TenantProfile = {
+          ...currentProfile,
+          slogan: welcomeProfile.slogan.trim(),
+          tagline: nextTagline,
+          about_us: nextAboutUs,
+          banner_url: welcomeProfile.banner_url,
+          logo_url: welcomeProfile.logo_url,
+          features: nextFeatures,
+          landing_page_config: syncWelcomeContentIntoLandingConfig(
+            currentProfile.landing_page_config as LandingPageConfig | null | undefined,
+            {
+              tagline: nextTagline,
+              heroDescription: nextHeroDescription,
+            },
+          ),
+        };
+        await api.put("/admin/profile", payload);
+        if (typeof window !== "undefined" && welcomeDraftKey) {
+          window.sessionStorage.removeItem(welcomeDraftKey);
+        }
+        toast.success("Identitas bisnis berhasil disimpan.");
+        dismissWelcomeDialog();
+        setShowWelcomeSuccess(true);
+      } catch {
+        toast.error("Gagal menyimpan identitas bisnis.");
+      } finally {
+        setWelcomeSaving(false);
+      }
     },
-    [dismissWelcomeDialog],
+    [
+      dismissWelcomeDialog,
+      welcomeDraftKey,
+      welcomeHeroDescription,
+      welcomeProfile,
+    ],
   );
 
   const quickActions = ownerOnly
@@ -947,9 +1209,7 @@ export default function DashboardPage() {
         <Dialog
           open
           onOpenChange={(open) => {
-            if (!open) {
-              dismissWelcomeDialog();
-            }
+            if (!open) dismissWelcomeDialog();
           }}
         >
           <DialogContent className="!w-[min(95vw,48rem)] !max-w-none overflow-hidden border-slate-200 bg-white p-0 shadow-[0_30px_80px_rgba(15,23,42,0.18)]">
@@ -957,101 +1217,242 @@ export default function DashboardPage() {
               <div className="border-b border-slate-200 px-5 py-5 sm:px-6 sm:py-6">
                 <DialogHeader className="space-y-1">
                   <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                    Setup pertama
+                    Setup cepat
                   </div>
                   <DialogTitle className="text-2xl leading-tight">
-                    Isi halaman publik
+                    Lengkapi identitas bisnis yang dilihat customer
                   </DialogTitle>
                   <DialogDescription className="text-sm leading-6 text-slate-500">
-                    Tambahkan yang pertama kali dilihat customer.
+                    Ini hanya merapikan permukaan halaman booking kamu. Bukan onboarding kedua.
                   </DialogDescription>
                 </DialogHeader>
               </div>
 
-            <form
-              className="flex-1 min-h-0 overflow-y-auto px-5 py-5 sm:px-6"
-              onSubmit={handleWelcomeSubmit}
-            >
-              <div className="space-y-5">
-                <div className="grid gap-4">
-                  <label className="grid gap-2">
-                    <span className="text-sm font-medium text-slate-900">
-                        Slogan
-                      </span>
-                      <input
-                        className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
-                        placeholder="Booking cepat, rapi, langsung jalan"
-                      />
-                      <span className="text-xs leading-5 text-slate-500">
-                        Tampil di hero paling atas.
-                      </span>
-                    </label>
+              <form
+                className="flex-1 min-h-0 overflow-y-auto px-5 py-5 sm:px-6"
+                onSubmit={handleWelcomeSubmit}
+              >
+                <div className="space-y-5">
+                  <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-4 text-sm leading-6 text-blue-950">
+                    <div className="font-semibold">Yang kamu isi di sini tampil di halaman publik.</div>
+                    <div className="mt-1 text-blue-800">
+                      Visitor akan melihat bagian ini sebelum mereka pilih resource dan lanjut booking.
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <div className="text-sm font-semibold text-slate-950">
+                          {welcomeExample.label}
+                        </div>
+                        <div className="mt-1 text-xs leading-5 text-slate-500">
+                          Pakai contoh ini kalau kamu belum tahu harus mulai dari copy seperti apa.
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="rounded-xl"
+                        onClick={applyWelcomeExample}
+                      >
+                        Pakai contoh
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4">
                     <label className="grid gap-2">
                       <span className="text-sm font-medium text-slate-900">
-                        Headline
+                        Kalimat kecil di atas judul
                       </span>
                       <input
+                        value={welcomeProfile.slogan}
+                        onChange={(event) =>
+                          setWelcomeProfile((current) => ({
+                            ...current,
+                            slogan: event.target.value,
+                          }))
+                        }
                         className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
-                        placeholder="Booking lebih cepat di sini"
+                        placeholder="Contoh: Booking cepat tanpa ribet"
                       />
                       <span className="text-xs leading-5 text-slate-500">
-                        Judul utama landing page.
+                        Letaknya paling atas di hero. Fungsinya memberi konteks cepat sebelum customer baca judul utama.
                       </span>
                     </label>
 
                     <label className="grid gap-2">
                       <span className="text-sm font-medium text-slate-900">
-                        Deskripsi singkat
+                        Judul utama halaman booking
+                      </span>
+                      <input
+                        value={welcomeProfile.tagline}
+                        onChange={(event) =>
+                          setWelcomeProfile((current) => ({
+                            ...current,
+                            tagline: event.target.value,
+                          }))
+                        }
+                        className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        placeholder="Contoh: Pilih slot, booking, lalu langsung datang"
+                      />
+                      <span className="text-xs leading-5 text-slate-500">
+                        Ini teks paling besar yang pertama dilihat visitor. Buat singkat dan langsung menjual alurnya.
+                      </span>
+                    </label>
+
+                    <label className="grid gap-2">
+                      <span className="text-sm font-medium text-slate-900">
+                        Deskripsi hero
                       </span>
                       <textarea
-                        className="min-h-28 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
-                        placeholder="Jelaskan bisnis kamu dalam 1-2 kalimat."
+                        value={welcomeHeroDescription}
+                        onChange={(event) =>
+                          setWelcomeHeroDescription(event.target.value)
+                        }
+                        className="min-h-24 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        placeholder="Contoh: Customer bisa cek jadwal, pilih perangkat, lalu booking lebih cepat tanpa chat bolak-balik."
                       />
                       <span className="text-xs leading-5 text-slate-500">
-                        Muncul tepat di bawah headline.
+                        Muncul tepat di bawah judul hero pada section paling atas halaman publik.
                       </span>
                     </label>
 
-                    <div className="space-y-4">
+                    <label className="grid gap-2">
+                      <span className="text-sm font-medium text-slate-900">
+                        Penjelasan singkat bisnis
+                      </span>
+                      <textarea
+                        value={welcomeProfile.about_us}
+                        onChange={(event) =>
+                          setWelcomeProfile((current) => ({
+                            ...current,
+                            about_us: event.target.value,
+                          }))
+                        }
+                        className="min-h-28 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        placeholder="Contoh: Customer bisa cek jadwal, pilih layanan, dan booking langsung dari halaman ini."
+                      />
+                      <span className="text-xs leading-5 text-slate-500">
+                        Ini untuk section “Tentang bisnis ini”, bukan untuk hero. Isi 1-2 kalimat yang menjelaskan bisnis kamu secara umum.
+                      </span>
+                    </label>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
                       <SingleImageUpload
-                        value={bannerUrl}
-                        onChange={setBannerUrl}
+                        value={welcomeProfile.banner_url}
+                        onChange={(url) =>
+                          setWelcomeProfile((current) => ({
+                            ...current,
+                            banner_url: url,
+                          }))
+                        }
                         endpoint="/admin/upload"
-                        label="Banner"
+                        label="Banner utama"
                         emptyTitle="Upload banner"
-                        emptyHint="Tampil di hero public"
+                        emptyHint="Tampil di hero paling depan"
                         aspect="video"
-                        uploadPreset="media"
+                        uploadPreset="hero"
                       />
                       <SingleImageUpload
-                        value={logoUrl}
-                        onChange={setLogoUrl}
+                        value={welcomeProfile.logo_url}
+                        onChange={(url) =>
+                          setWelcomeProfile((current) => ({
+                            ...current,
+                            logo_url: url,
+                          }))
+                        }
                         endpoint="/admin/upload"
-                        label="Logo"
+                        label="Logo bisnis"
                         emptyTitle="Upload logo"
                         emptyHint="Tampil di header dan identitas bisnis"
                         aspect="square"
-                        className="mx-auto w-[40%]"
-                        uploadPreset="media"
+                        uploadPreset="logo"
                       />
                     </div>
 
                     <label className="grid gap-2">
                       <span className="text-sm font-medium text-slate-900">
-                        Selling points
+                        Keunggulan utama
                       </span>
-                      <input
-                        className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
-                        placeholder="Contoh: AC dingin, booking real-time, lokasi strategis"
-                      />
+                      <div className="flex gap-2">
+                        <input
+                          value={welcomeFeatureInput}
+                          onChange={(event) => setWelcomeFeatureInput(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              addWelcomeFeature();
+                            }
+                          }}
+                          className="h-12 flex-1 rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                          placeholder="Contoh: Slot real-time"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-12 rounded-2xl px-4"
+                          onClick={addWelcomeFeature}
+                        >
+                          Tambah
+                        </Button>
+                      </div>
+                      <div className="flex min-h-12 flex-wrap gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                        {welcomeProfile.features.length === 0 ? (
+                          <span className="text-sm text-slate-400">
+                            Belum ada poin keunggulan. Isi 2-3 hal yang paling bikin customer yakin.
+                          </span>
+                        ) : (
+                          welcomeProfile.features.map((feature, index) => (
+                            <span
+                              key={`${feature}-${index}`}
+                              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
+                            >
+                              {feature}
+                              <button
+                                type="button"
+                                onClick={() => removeWelcomeFeature(index)}
+                                className="rounded-full bg-slate-100 px-1 text-[10px] text-slate-600"
+                                aria-label="Hapus keunggulan"
+                              >
+                                x
+                              </button>
+                            </span>
+                          ))
+                        )}
+                      </div>
                       <span className="text-xs leading-5 text-slate-500">
-                        Muncul sebagai poin keunggulan di landing.
+                        Poin ini tampil sebagai alasan cepat kenapa visitor harus lanjut booking di tempat kamu.
                       </span>
                     </label>
 
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                      <div className="text-sm font-semibold text-slate-950">
+                        Nanti masih bisa diedit lagi
+                      </div>
+                      <div className="mt-1 text-xs leading-5 text-slate-500">
+                        Tidak perlu perfect sekarang. Yang penting halaman publik kamu sudah cukup jelas untuk booking pertama.
+                      </div>
+                      {tenantSlug ? (
+                        <a
+                          href={getTenantUrl(tenantSlug)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 inline-flex text-xs font-semibold text-slate-700 underline underline-offset-2"
+                        >
+                          Lihat halaman publik
+                        </a>
+                      ) : null}
+                    </div>
+
                     <div className="grid gap-3 pt-1 sm:grid-cols-[1fr_auto]">
-                      <Button type="submit" className="h-12 w-full rounded-2xl">
-                        Simpan
+                      <Button
+                        type="submit"
+                        disabled={welcomeSaving || welcomeLoading}
+                        className="h-12 w-full rounded-2xl"
+                      >
+                        {welcomeSaving ? "Menyimpan..." : "Simpan dan lanjut"}
                       </Button>
                       <Button
                         type="button"
@@ -1059,7 +1460,7 @@ export default function DashboardPage() {
                         className="h-12 rounded-2xl px-4"
                         onClick={dismissWelcomeDialog}
                       >
-                        Nanti
+                        Nanti saja
                       </Button>
                     </div>
                   </div>
@@ -1071,38 +1472,71 @@ export default function DashboardPage() {
       ) : null}
 
       <Dialog open={showWelcomeSuccess} onOpenChange={setShowWelcomeSuccess}>
-        <DialogContent className="!w-[min(92vw,32rem)] !max-w-none border-slate-200 bg-white p-0 shadow-[0_30px_80px_rgba(15,23,42,0.18)]">
-          <div className="space-y-5 px-5 py-6 sm:px-6">
-            <DialogHeader className="space-y-1">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-500">
-                Berhasil disimpan
+        <DialogContent className="!w-[min(92vw,34rem)] !max-w-none overflow-hidden border-emerald-100 bg-white p-0 shadow-[0_36px_100px_rgba(16,185,129,0.18)]">
+          <div className="relative">
+            <div className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.24),transparent_65%)]" />
+            <div className="absolute -right-8 top-6 h-24 w-24 rounded-full bg-emerald-200/30 blur-2xl" />
+            <div className="absolute -left-6 top-14 h-20 w-20 rounded-full bg-blue-200/30 blur-2xl" />
+
+            <div className="relative space-y-5 px-5 py-6 sm:px-6">
+              <DialogHeader className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-[1.25rem] bg-[linear-gradient(135deg,#ecfdf5_0%,#d1fae5_100%)] shadow-[0_18px_40px_rgba(16,185,129,0.2)] ring-1 ring-emerald-100">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500 text-lg text-white">
+                      ✓
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-emerald-500">
+                      Horrey, berhasil
+                    </div>
+                    <div className="mt-1 text-sm font-semibold text-slate-950">
+                      Tampilan awal bisnis kamu sudah naik level
+                    </div>
+                  </div>
+                </div>
+                <DialogTitle className="text-[1.9rem] leading-tight tracking-tight text-slate-950">
+                  Sekarang halaman publik kamu sudah jauh lebih siap dilihat customer
+                </DialogTitle>
+                <DialogDescription className="text-sm leading-6 text-slate-600">
+                  Hero, visual utama, dan copy penting sudah tersimpan. Orang yang buka halaman booking sekarang akan lebih cepat paham bisnis kamu dan lebih siap lanjut booking.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="rounded-[1.35rem] border border-emerald-200 bg-[linear-gradient(135deg,#f0fdf4_0%,#ecfeff_100%)] px-4 py-4">
+                <div className="text-sm font-semibold text-slate-950">
+                  Milestone pertama beres
+                </div>
+                <div className="mt-1 text-sm leading-6 text-slate-600">
+                  Ini belum harus perfect, tapi sudah cukup proper untuk dipakai sebagai permukaan awal produk. Nanti masih bisa kamu poles lagi dari settings bisnis atau page builder.
+                </div>
               </div>
-              <DialogTitle className="text-2xl leading-tight">
-                Website booking kamu siap dipakai
-              </DialogTitle>
-              <DialogDescription className="text-sm leading-6 text-slate-500">
-                Setting minimum sudah tersimpan. Cek hasilnya di halaman publik tenant.
-              </DialogDescription>
-            </DialogHeader>
 
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm leading-6 text-emerald-950">
-              Konten hero, banner, logo, dan selling points sekarang bisa dilihat customer.
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-              <Button asChild className="h-12 w-full rounded-2xl">
-                <Link href={tenantSlug ? getTenantUrl(tenantSlug) : "/"} prefetch={false}>
-                  Buka halaman publik
-                </Link>
-              </Button>
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+              {tenantSlug ? (
+                <Button asChild className="h-12 w-full rounded-2xl shadow-[0_18px_40px_rgba(59,130,246,0.22)]">
+                  <a href={getTenantUrl(tenantSlug)} target="_blank" rel="noreferrer">
+                    Lihat halaman publik
+                  </a>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  className="h-12 w-full rounded-2xl shadow-[0_18px_40px_rgba(59,130,246,0.22)]"
+                  onClick={() => setShowWelcomeSuccess(false)}
+                >
+                  Kembali ke dashboard
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="ghost"
-                className="h-12 rounded-2xl px-4"
+                className="h-12 rounded-2xl px-4 text-slate-600"
                 onClick={() => setShowWelcomeSuccess(false)}
               >
                 Tutup
               </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
@@ -1598,49 +2032,6 @@ export default function DashboardPage() {
         </>
       )}
     </div>
-  );
-}
-
-function FirstRunCard({
-  label,
-  value,
-  detail,
-  href,
-  icon: Icon,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  href: string;
-  icon: LucideIcon;
-}) {
-  return (
-    <Link
-      href={href}
-      prefetch={false}
-      className="group rounded-xl border border-[var(--admin-line-soft)] bg-[var(--admin-surface-soft)] p-4 transition hover:border-slate-300 hover:bg-slate-100 dark:hover:border-slate-700 dark:hover:bg-slate-900/60"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-            {label}
-          </div>
-          <div className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
-            {value}
-          </div>
-        </div>
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[rgba(74,141,255,0.12)] dark:text-[var(--bookinaja-200)]">
-          <Icon className="h-4 w-4" />
-        </div>
-      </div>
-      <div className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
-        {detail}
-      </div>
-      <div className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
-        Buka
-        <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
-      </div>
-    </Link>
   );
 }
 
