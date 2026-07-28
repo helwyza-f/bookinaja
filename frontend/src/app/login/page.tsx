@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getAccountMe, googleAuthAccount, loginAccount } from "@/lib/auth-client";
 import { clearTenantSession } from "@/lib/tenant-session";
+import { getCentralAdminForgotPasswordUrl } from "@/lib/tenant";
 
 function LoginScreen() {
   const router = useRouter();
@@ -20,6 +21,7 @@ function LoginScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const forgotPasswordUrl = getCentralAdminForgotPasswordUrl();
 
   useEffect(() => {
     if (searchParams.get("signed_out") !== "1") return;
@@ -157,6 +159,14 @@ function LoginScreen() {
                   required
                 />
               </label>
+              <div className="-mt-2 flex justify-end">
+                <Link
+                  href={forgotPasswordUrl}
+                  className="text-sm font-medium text-slate-500 underline-offset-4 hover:text-slate-900 hover:underline"
+                >
+                  Lupa password?
+                </Link>
+              </div>
               <Button type="submit" disabled={loading} className="h-12 w-full rounded-2xl text-sm font-bold shadow-[0_14px_30px_rgba(37,99,235,0.22)]">
                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {loading ? "Memverifikasi..." : "Masuk"}

@@ -330,6 +330,16 @@ export default function UserLoginClient() {
                 </button>
               </div>
 
+              <div className="-mt-1 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setForgotOpen(true)}
+                  className="text-sm font-medium text-slate-500 underline-offset-4 hover:text-slate-900 hover:underline dark:text-slate-400 dark:hover:text-white"
+                >
+                  Lupa password?
+                </button>
+              </div>
+
               {mode === "wa" ? (
                 <div className="space-y-4">
                   <p className="text-sm leading-6 text-slate-500 dark:text-slate-400">
@@ -466,16 +476,6 @@ export default function UserLoginClient() {
                     </div>
                   </label>
 
-                  <div className="-mt-2 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setForgotOpen(true)}
-                      className="text-sm font-medium text-slate-600 underline-offset-4 hover:underline dark:text-slate-300"
-                    >
-                      Lupa password?
-                    </button>
-                  </div>
-
                   <Button
                     type="submit"
                     disabled={loading}
@@ -527,7 +527,7 @@ export default function UserLoginClient() {
           <SheetHeader className="border-b border-slate-200/80 pb-4 dark:border-white/10">
             <SheetTitle>Reset password customer</SheetTitle>
             <SheetDescription>
-              Pakai OTP WhatsApp untuk membuat password baru kalau kamu lupa password lama.
+              Pilih jalur yang masih kamu punya akses.
             </SheetDescription>
           </SheetHeader>
 
@@ -555,6 +555,9 @@ export default function UserLoginClient() {
 
                 {forgotMode === "wa" ? (
                   <>
+                <div className="rounded-2xl border border-[#1d4ed81a] bg-[#eff6ff] px-4 py-3 text-sm text-[#334155] dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+                  Kami kirim OTP reset ke WhatsApp yang terdaftar.
+                </div>
                 <label className="block space-y-2">
                   <span className="text-xs font-medium uppercase tracking-[0.18em] text-[#1d4ed8] dark:text-sky-300">
                     Nomor WhatsApp
@@ -588,6 +591,9 @@ export default function UserLoginClient() {
                   </>
                 ) : (
                   <>
+                    <div className="rounded-2xl border border-[#1d4ed81a] bg-[#eff6ff] px-4 py-3 text-sm text-[#334155] dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+                      Kami kirim link reset ke email akun yang aktif.
+                    </div>
                     <label className="block space-y-2">
                       <span className="text-xs font-medium uppercase tracking-[0.18em] text-[#1d4ed8] dark:text-sky-300">
                         Email terverifikasi

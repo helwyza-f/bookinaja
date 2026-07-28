@@ -336,9 +336,9 @@ export function AdminLoginClient() {
                   <div className="flex justify-end">
                     <Link
                       href={forgotPasswordUrl}
-                      className="text-xs font-semibold text-blue-700 underline underline-offset-4 dark:text-sky-300"
+                      className="text-xs font-semibold text-slate-500 underline-offset-4 hover:text-slate-900 hover:underline dark:text-slate-400 dark:hover:text-white"
                     >
-                      Lupa password owner?
+                      Lupa password?
                     </Link>
                   </div>
                 </div>
