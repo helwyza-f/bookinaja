@@ -194,6 +194,13 @@ export default function OwnerAccountSettingsPage() {
     : hasEmail
       ? "Perlu verifikasi"
       : "Belum diisi";
+  const accessSummary = data.auth.google_linked
+    ? needsPasswordSetup
+      ? "Google aktif. Tinggal buat password cadangan."
+      : "Google dan password cadangan sudah siap."
+    : needsPasswordSetup
+      ? "Siapkan Google atau password cadangan."
+      : "Password cadangan sudah aktif.";
   const accountSnapshot = [
     {
       label: "Email owner",
@@ -353,7 +360,7 @@ export default function OwnerAccountSettingsPage() {
           >
             <SectionTitle
               title="Profile"
-              description="Nama owner, email login, dan akun Google."
+              description="Cek cepat apakah akses owner kamu sudah aman dipakai harian."
             />
 
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -372,7 +379,7 @@ export default function OwnerAccountSettingsPage() {
           <Card className="rounded-3xl border-slate-200/80 p-6 shadow-sm dark:border-white/10 dark:bg-[#0f172a]">
             <SectionTitle
               title="Owner"
-              description="Dipakai untuk login, notifikasi penting, dan pemulihan akun."
+              description="Email owner dipakai untuk login manual, notifikasi penting, dan pemulihan akun."
               badge={
                 <Badge
                   className={
@@ -409,9 +416,9 @@ export default function OwnerAccountSettingsPage() {
                 {emailChanged
                   ? "Simpan email baru dulu, lalu kirim verifikasi."
                   : effectiveEmailVerified
-                    ? "Email owner sudah siap dipakai."
+                    ? "Email owner sudah siap dipakai untuk login dan recovery."
                     : hasEmail
-                      ? "Verifikasi email ini agar pemulihan akun aman."
+                      ? "Verifikasi email ini agar jalur recovery aman."
                       : "Tambahkan email owner yang aktif."}
               </div>
 
@@ -449,8 +456,8 @@ export default function OwnerAccountSettingsPage() {
 
           <Card className="rounded-3xl border-slate-200/80 p-6 shadow-sm dark:border-white/10 dark:bg-[#0f172a]">
             <SectionTitle
-              title="Google"
-              description="Login lebih cepat tanpa password."
+              title="Akses Google"
+              description="Kalau akun ini awalnya dibuat lewat Google, statusnya harus terbaca terhubung di sini."
               badge={
                 <Badge className="rounded-full border-none bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200">
                   {data.auth.google_linked ? "Terhubung" : "Belum terhubung"}
@@ -459,22 +466,25 @@ export default function OwnerAccountSettingsPage() {
             />
 
             <div className="mt-5 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="rounded-2xl border border-slate-200/80 bg-white px-4 py-3 text-sm font-medium text-slate-700 dark:border-white/10 dark:bg-slate-950/70 dark:text-slate-200">
+                {accessSummary}
+              </div>
               <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
                 {data.auth.google_linked ? (
                   <>
                     <p>
-                      Google owner aktif untuk{" "}
+                      Akun Google owner aktif untuk{" "}
                       <span className="font-medium text-slate-950 dark:text-white">
                         {data.user.email}
                       </span>
                       .
                     </p>
-                    <p>Pilih akun baru kalau ingin mengganti akses Google.</p>
+                    <p>Kalau mau ganti akun Google, hubungkan ulang dari tombol di bawah.</p>
                   </>
                 ) : (
                   <>
-                    <p>Hubungkan Google agar owner bisa login lebih cepat.</p>
-                    <p>Pilih akun yang memang dipakai untuk mengelola bisnis ini.</p>
+                    <p>Google belum terbaca sebagai jalur login owner.</p>
+                    <p>Hubungkan akun yang memang dipakai untuk mengelola bisnis ini.</p>
                   </>
                 )}
               </div>

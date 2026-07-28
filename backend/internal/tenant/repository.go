@@ -1244,6 +1244,7 @@ func (r *Repository) GetOwnerAccountSettings(ctx context.Context, userID, tenant
 		UserRole             string     `db:"user_role"`
 		UserPassword         string     `db:"user_password"`
 		UserGoogleSubject    *string    `db:"user_google_subject"`
+		AccountGoogleSubject *string    `db:"account_google_subject"`
 		UserEmailVerifiedAt  *time.Time `db:"user_email_verified_at"`
 		UserPasswordSetupReq bool       `db:"user_password_setup_required"`
 		TenantID             uuid.UUID  `db:"tenant_id"`
@@ -1260,6 +1261,7 @@ func (r *Repository) GetOwnerAccountSettings(ctx context.Context, userID, tenant
 			u.role AS user_role,
 			u.password AS user_password,
 			u.google_subject AS user_google_subject,
+			linked_account.google_subject AS account_google_subject,
 			u.email_verified_at AS user_email_verified_at,
 			COALESCE(u.password_setup_required, FALSE) AS user_password_setup_required,
 			t.id AS tenant_id,
@@ -1267,6 +1269,16 @@ func (r *Repository) GetOwnerAccountSettings(ctx context.Context, userID, tenant
 			t.slug AS tenant_slug
 		FROM users u
 		JOIN tenants t ON t.id = u.tenant_id
+		LEFT JOIN LATERAL (
+			SELECT a.google_subject
+			FROM workspace_memberships wm
+			JOIN workspaces w ON w.id = wm.workspace_id
+			JOIN accounts a ON a.id = wm.account_id
+			WHERE wm.admin_user_id = u.id
+			  AND w.tenant_id = u.tenant_id
+			  AND wm.status = 'active'
+			LIMIT 1
+		) linked_account ON TRUE
 		WHERE u.id = $1
 		  AND u.tenant_id = $2
 		  AND u.role = 'owner'
@@ -1280,7 +1292,15 @@ func (r *Repository) GetOwnerAccountSettings(ctx context.Context, userID, tenant
 		return nil, err
 	}
 
-	hasGoogle := item.UserGoogleSubject != nil && strings.TrimSpace(*item.UserGoogleSubject) != ""
+	userGoogleSubject := ""
+	if item.UserGoogleSubject != nil {
+		userGoogleSubject = strings.TrimSpace(*item.UserGoogleSubject)
+	}
+	accountGoogleSubject := ""
+	if item.AccountGoogleSubject != nil {
+		accountGoogleSubject = strings.TrimSpace(*item.AccountGoogleSubject)
+	}
+	hasGoogle := userGoogleSubject != "" || accountGoogleSubject != ""
 	hasPassword := strings.TrimSpace(item.UserPassword) != "" && !item.UserPasswordSetupReq
 
 	return &OwnerAccountSettingsResponse{

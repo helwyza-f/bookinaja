@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Layers3, ShieldCheck, Sparkles, type LucideIcon } from "lucide-react";
+import { ArrowRight, Layers3, type LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { settingsNavItems } from "@/components/dashboard/admin-nav-config";
 import { useAdminSession } from "@/components/dashboard/admin-session-context";
 import { getAdminRouteGate } from "@/lib/admin-access";
@@ -67,33 +66,20 @@ export default function SettingsIndexPage() {
   ].filter((bucket) => bucket.items.length > 0);
 
   return (
-    <div className="space-y-5">
-      <section className="rounded-[1.4rem] border border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_55%,#eef4ff_100%)] p-5 shadow-[0_24px_60px_-36px_rgba(15,23,42,0.24)] dark:border-slate-800 dark:bg-[linear-gradient(135deg,#020617_0%,#08111f_55%,#0b1730_100%)]">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
+    <div className="space-y-4">
+      <section className="rounded-[1.4rem] border border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_58%,#eef4ff_100%)] p-5 shadow-[0_24px_60px_-36px_rgba(15,23,42,0.24)] dark:border-slate-800 dark:bg-[linear-gradient(135deg,#020617_0%,#08111f_55%,#0b1730_100%)]">
+        <div className="flex flex-col gap-4">
+          <div className="max-w-xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-300">
               <Layers3 className="h-3.5 w-3.5" />
-              Settings Center
+              Settings
             </div>
-            <h1 className="mt-4 text-[2rem] font-semibold tracking-tight text-slate-950 dark:text-white">
-              Semua area sekunder dikumpulkan di satu tempat
+            <h1 className="mt-4 text-[1.9rem] font-semibold tracking-tight text-slate-950 dark:text-white">
+              Atur bisnis kamu dari sini
             </h1>
             <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-              Navigasi utama dipakai untuk kerja harian. Semua konfigurasi, billing, promo, dan fitur tambahan masuk ke halaman ini supaya owner baru tidak kebingungan.
+              Semua pengaturan penting dikumpulkan di satu halaman supaya lebih gampang dicari.
             </p>
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-2">
-            <QuickInfo
-              icon={ShieldCheck}
-              label="Nav utama"
-              value="Fokus operasional"
-            />
-            <QuickInfo
-              icon={Sparkles}
-              label="Settings"
-              value="Konfigurasi & fitur sekunder"
-            />
           </div>
         </div>
       </section>
@@ -130,7 +116,7 @@ export default function SettingsIndexPage() {
                         ) : null}
                       </div>
                       <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                        {item.hint || "Buka pengaturan ini."}
+                        {item.hint || "Buka pengaturan ini"}
                       </div>
                     </div>
                   </div>
@@ -141,44 +127,6 @@ export default function SettingsIndexPage() {
           </div>
         ))}
       </section>
-
-      <section className="rounded-[1.25rem] border border-dashed border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/40">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-sm font-semibold text-slate-950 dark:text-white">Rule produk yang sekarang dipakai</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Menu utama dipersempit untuk kerja harian. Area lain tetap hidup, tapi sengaja dipindah ke settings sampai threshold exposure berikutnya dibuat.
-            </p>
-          </div>
-          <Button asChild variant="outline" className="rounded-xl">
-            <Link href="/admin/dashboard" prefetch={false}>
-              Kembali ke dashboard
-            </Link>
-          </Button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function QuickInfo({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/70">
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-          {label}
-        </div>
-        <Icon className="h-4 w-4 text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]" />
-      </div>
-      <div className="mt-1.5 text-sm font-semibold text-slate-950 dark:text-white">{value}</div>
     </div>
   );
 }
