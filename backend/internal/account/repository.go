@@ -179,11 +179,11 @@ func (r *Repository) CreateWorkspaceWithOwner(ctx context.Context, workspace Wor
 
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO users (
-			id, tenant_id, name, email, password, email_verified_at,
+			id, tenant_id, name, email, password, google_subject, email_verified_at,
 			password_setup_required, role, created_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, FALSE, 'owner', NOW())
-	`, ownerUserID, tenantID, owner.Name, owner.Email, owner.PasswordHash, owner.EmailVerifiedAt); err != nil {
+		VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, 'owner', NOW())
+	`, ownerUserID, tenantID, owner.Name, owner.Email, owner.PasswordHash, owner.GoogleSubject, owner.EmailVerifiedAt); err != nil {
 		return nil, nil, nil, err
 	}
 

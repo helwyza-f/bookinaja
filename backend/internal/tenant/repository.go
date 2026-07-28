@@ -1328,6 +1328,27 @@ func (r *Repository) UpdateOwnerIdentity(ctx context.Context, userID, tenantID u
 	return r.GetOwnerAccountSettings(ctx, userID, tenantID)
 }
 
+func (r *Repository) SyncLinkedAccountIdentity(ctx context.Context, userID, tenantID uuid.UUID, name, email string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE accounts a
+		SET
+			name = CASE WHEN NULLIF(BTRIM($3), '') IS NOT NULL THEN BTRIM($3) ELSE a.name END,
+			email = CASE WHEN NULLIF(BTRIM($4), '') IS NOT NULL THEN LOWER(BTRIM($4)) ELSE a.email END,
+			email_verified_at = CASE
+				WHEN LOWER(TRIM(a.email)) = LOWER(TRIM($4::text)) THEN a.email_verified_at
+				ELSE NULL
+			END,
+			updated_at = NOW()
+		FROM workspace_memberships wm
+		JOIN workspaces w ON w.id = wm.workspace_id
+		WHERE wm.account_id = a.id
+		  AND wm.admin_user_id = $1
+		  AND w.tenant_id = $2
+		  AND wm.status = 'active'
+	`, userID, tenantID, name, email)
+	return err
+}
+
 func (r *Repository) SetOwnerPassword(ctx context.Context, userID, tenantID uuid.UUID, passwordHash string) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE users
@@ -1340,6 +1361,22 @@ func (r *Repository) SetOwnerPassword(ctx context.Context, userID, tenantID uuid
 	}
 	r.invalidateUserCache(ctx, userID)
 	return nil
+}
+
+func (r *Repository) SyncLinkedAccountPassword(ctx context.Context, userID, tenantID uuid.UUID, passwordHash string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE accounts a
+		SET
+			password_hash = $3,
+			updated_at = NOW()
+		FROM workspace_memberships wm
+		JOIN workspaces w ON w.id = wm.workspace_id
+		WHERE wm.account_id = a.id
+		  AND wm.admin_user_id = $1
+		  AND w.tenant_id = $2
+		  AND wm.status = 'active'
+	`, userID, tenantID, passwordHash)
+	return err
 }
 
 func (r *Repository) LinkOwnerGoogle(ctx context.Context, userID, tenantID uuid.UUID, subject, email string, emailVerified bool) (*OwnerAccountSettingsResponse, error) {
@@ -1359,6 +1396,27 @@ func (r *Repository) LinkOwnerGoogle(ctx context.Context, userID, tenantID uuid.
 	}
 	r.invalidateUserCache(ctx, userID)
 	return r.GetOwnerAccountSettings(ctx, userID, tenantID)
+}
+
+func (r *Repository) SyncLinkedAccountGoogle(ctx context.Context, userID, tenantID uuid.UUID, subject, email string, emailVerified bool) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE accounts a
+		SET
+			google_subject = $3,
+			email = CASE WHEN NULLIF(BTRIM($4), '') IS NOT NULL THEN LOWER(TRIM($4)) ELSE a.email END,
+			email_verified_at = CASE
+				WHEN $5::boolean = TRUE AND NULLIF(BTRIM($4), '') IS NOT NULL THEN COALESCE(a.email_verified_at, NOW())
+				ELSE a.email_verified_at
+			END,
+			updated_at = NOW()
+		FROM workspace_memberships wm
+		JOIN workspaces w ON w.id = wm.workspace_id
+		WHERE wm.account_id = a.id
+		  AND wm.admin_user_id = $1
+		  AND w.tenant_id = $2
+		  AND wm.status = 'active'
+	`, userID, tenantID, strings.TrimSpace(subject), strings.TrimSpace(email), emailVerified)
+	return err
 }
 
 func (r *Repository) MarkOwnerEmailVerified(ctx context.Context, userID, tenantID uuid.UUID, email string) (*OwnerAccountSettingsResponse, error) {

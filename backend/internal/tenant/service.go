@@ -2270,6 +2270,9 @@ func (s *Service) UpdateOwnerAccountIdentity(ctx context.Context, actorUserID, t
 		}
 		return nil, err
 	}
+	if err := s.repo.SyncLinkedAccountIdentity(ctx, actorUserID, tenantID, req.Name, req.Email); err != nil {
+		return nil, err
+	}
 
 	metadata, _ := json.Marshal(map[string]any{
 		"previous_email": current.User.Email,
@@ -2299,6 +2302,9 @@ func (s *Service) SetupOwnerPassword(ctx context.Context, actorUserID, tenantID 
 		return fmt.Errorf("gagal mengamankan password owner")
 	}
 	if err := s.repo.SetOwnerPassword(ctx, actorUserID, tenantID, string(hashed)); err != nil {
+		return err
+	}
+	if err := s.repo.SyncLinkedAccountPassword(ctx, actorUserID, tenantID, string(hashed)); err != nil {
 		return err
 	}
 	return nil
@@ -2487,6 +2493,9 @@ func (s *Service) LinkOwnerGoogle(ctx context.Context, actorUserID, tenantID uui
 			return nil, fmt.Errorf("akun Google ini sudah terhubung ke owner lain")
 		}
 		return nil, fmt.Errorf("akun Google owner belum berhasil dihubungkan")
+	}
+	if err := s.repo.SyncLinkedAccountGoogle(ctx, actorUserID, tenantID, identity.Subject, strings.TrimSpace(*identity.Email), true); err != nil {
+		return nil, err
 	}
 	return updated, nil
 }
