@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTheme } from "next-themes";
 import {
   Tooltip,
   TooltipContent,
@@ -50,6 +51,7 @@ export function Sidebar({
   onSignOut,
 }: SidebarProps) {
   const pathname = usePathname();
+  const { resolvedTheme, setTheme } = useTheme();
   const {
     user,
     tenantName,
@@ -174,6 +176,32 @@ export function Sidebar({
             )}
           >
             <div className={cn("flex flex-col gap-1", isCollapsed ? "items-center" : "")}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+                    className={cn(itemBase, "transition-colors", itemIdle)}
+                    aria-label="Toggle dark mode"
+                  >
+                    {resolvedTheme === "dark" ? (
+                      <Sun className={cn("shrink-0", isCollapsed ? "h-4.5 w-4.5" : "h-4 w-4")} />
+                    ) : (
+                      <Moon className={cn("shrink-0", isCollapsed ? "h-4.5 w-4.5" : "h-4 w-4")} />
+                    )}
+                    {!isCollapsed ? (
+                      <span className="truncate text-sm font-semibold">
+                        {resolvedTheme === "dark" ? "Mode terang" : "Mode gelap"}
+                      </span>
+                    ) : null}
+                  </button>
+                </TooltipTrigger>
+                {isCollapsed ? (
+                  <TooltipContent side="right" className="ml-2 border-none bg-[var(--bookinaja-900)] px-3 py-1.5 text-xs font-semibold text-white shadow-lg">
+                    {resolvedTheme === "dark" ? "Mode terang" : "Mode gelap"}
+                  </TooltipContent>
+                ) : null}
+              </Tooltip>
               {visibleUtilityItems.map((item) => {
                 const active =
                   item.href && (pathname === item.href || pathname.startsWith(`${item.href}/`));

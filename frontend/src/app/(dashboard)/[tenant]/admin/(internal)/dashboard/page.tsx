@@ -1394,17 +1394,17 @@ export default function DashboardPage() {
             if (!open) dismissWelcomeDialog();
           }}
         >
-          <DialogContent className="!w-[min(95vw,48rem)] !max-w-none overflow-hidden border-slate-200 bg-white p-0 shadow-[0_30px_80px_rgba(15,23,42,0.18)]">
+          <DialogContent className="!w-[min(95vw,48rem)] !max-w-none overflow-hidden border-slate-200 bg-white p-0 shadow-[0_30px_80px_rgba(15,23,42,0.18)] dark:border-slate-800 dark:bg-slate-950 dark:shadow-[0_30px_80px_rgba(2,6,23,0.55)]">
             <div className="flex max-h-[calc(100vh-2rem)] min-h-0 flex-col overflow-hidden">
-              <div className="border-b border-slate-200 px-5 py-5 sm:px-6 sm:py-6">
+              <div className="border-b border-slate-200 px-5 py-5 sm:px-6 sm:py-6 dark:border-slate-800">
                 <DialogHeader className="space-y-1">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
                     Setup cepat
                   </div>
-                  <DialogTitle className="text-2xl leading-tight">
+                  <DialogTitle className="text-2xl leading-tight text-slate-950 dark:text-white">
                     Lengkapi identitas bisnis yang dilihat customer
                   </DialogTitle>
-                  <DialogDescription className="text-sm leading-6 text-slate-500">
+                  <DialogDescription className="text-sm leading-6 text-slate-500 dark:text-slate-400">
                     Ini hanya merapikan permukaan halaman booking kamu. Bukan onboarding kedua.
                   </DialogDescription>
                 </DialogHeader>
@@ -1415,27 +1415,27 @@ export default function DashboardPage() {
                 onSubmit={handleWelcomeSubmit}
               >
                 <div className="space-y-5">
-                  <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-4 text-sm leading-6 text-blue-950">
+                  <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-4 text-sm leading-6 text-blue-950 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100">
                     <div className="font-semibold">Yang kamu isi di sini tampil di halaman publik.</div>
-                    <div className="mt-1 text-blue-800">
+                    <div className="mt-1 text-blue-800 dark:text-blue-200">
                       Visitor akan melihat bagian ini sebelum mereka pilih resource dan lanjut booking.
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-900/70">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <div className="text-sm font-semibold text-slate-950">
+                        <div className="text-sm font-semibold text-slate-950 dark:text-white">
                           {welcomeExample.label}
                         </div>
-                        <div className="mt-1 text-xs leading-5 text-slate-500">
+                        <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
                           Pakai contoh ini kalau kamu belum tahu harus mulai dari copy seperti apa.
                         </div>
                       </div>
                       <Button
                         type="button"
                         variant="outline"
-                        className="rounded-xl"
+                        className="rounded-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
                         onClick={applyWelcomeExample}
                       >
                         Pakai contoh
@@ -1445,7 +1445,7 @@ export default function DashboardPage() {
 
                   <div className="grid gap-4">
                     <label className="grid gap-2">
-                      <span className="text-sm font-medium text-slate-900">
+                      <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
                         Kalimat kecil di atas judul
                       </span>
                       <input
@@ -1456,16 +1456,16 @@ export default function DashboardPage() {
                             slogan: event.target.value,
                           }))
                         }
-                        className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
                         placeholder="Contoh: Booking cepat tanpa ribet"
                       />
-                      <span className="text-xs leading-5 text-slate-500">
+                      <span className="text-xs leading-5 text-slate-500 dark:text-slate-400">
                         Letaknya paling atas di hero. Fungsinya memberi konteks cepat sebelum customer baca judul utama.
                       </span>
                     </label>
 
                     <label className="grid gap-2">
-                      <span className="text-sm font-medium text-slate-900">
+                      <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
                         Judul utama halaman booking
                       </span>
                       <input
@@ -1476,16 +1476,16 @@ export default function DashboardPage() {
                             tagline: event.target.value,
                           }))
                         }
-                        className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
                         placeholder="Contoh: Pilih slot, booking, lalu langsung datang"
                       />
-                      <span className="text-xs leading-5 text-slate-500">
+                      <span className="text-xs leading-5 text-slate-500 dark:text-slate-400">
                         Ini teks paling besar yang pertama dilihat visitor. Buat singkat dan langsung menjual alurnya.
                       </span>
                     </label>
 
                     <label className="grid gap-2">
-                      <span className="text-sm font-medium text-slate-900">
+                      <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
                         Deskripsi hero
                       </span>
                       <textarea
@@ -1493,16 +1493,16 @@ export default function DashboardPage() {
                         onChange={(event) =>
                           setWelcomeHeroDescription(event.target.value)
                         }
-                        className="min-h-24 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        className="min-h-24 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
                         placeholder="Contoh: Customer bisa cek jadwal, pilih perangkat, lalu booking lebih cepat tanpa chat bolak-balik."
                       />
-                      <span className="text-xs leading-5 text-slate-500">
+                      <span className="text-xs leading-5 text-slate-500 dark:text-slate-400">
                         Muncul tepat di bawah judul hero pada section paling atas halaman publik.
                       </span>
                     </label>
 
                     <label className="grid gap-2">
-                      <span className="text-sm font-medium text-slate-900">
+                      <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
                         Penjelasan singkat bisnis
                       </span>
                       <textarea
@@ -1513,21 +1513,21 @@ export default function DashboardPage() {
                             about_us: event.target.value,
                           }))
                         }
-                        className="min-h-28 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                        className="min-h-28 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
                         placeholder="Contoh: Customer bisa cek jadwal, pilih layanan, dan booking langsung dari halaman ini."
                       />
-                      <span className="text-xs leading-5 text-slate-500">
+                      <span className="text-xs leading-5 text-slate-500 dark:text-slate-400">
                         Ini untuk section “Tentang bisnis ini”, bukan untuk hero. Isi 1-2 kalimat yang menjelaskan bisnis kamu secara umum.
                       </span>
                     </label>
 
                     <div className="grid gap-2">
-                      <span className="text-sm font-medium text-slate-900">
+                      <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
                         Jam operasional
                       </span>
                       <div className="grid grid-cols-2 gap-3">
                         <label className="grid gap-1.5">
-                          <span className="text-xs font-medium text-slate-500">Buka</span>
+                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Buka</span>
                           <input
                             type="time"
                             value={welcomeProfile.open_time || "09:00"}
@@ -1537,11 +1537,11 @@ export default function DashboardPage() {
                                 open_time: event.target.value,
                               }))
                             }
-                            className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                            className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
                           />
                         </label>
                         <label className="grid gap-1.5">
-                          <span className="text-xs font-medium text-slate-500">Tutup</span>
+                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Tutup</span>
                           <input
                             type="time"
                             value={welcomeProfile.close_time || "21:00"}
@@ -1551,11 +1551,11 @@ export default function DashboardPage() {
                                 close_time: event.target.value,
                               }))
                             }
-                            className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                            className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
                           />
                         </label>
                       </div>
-                      <span className="text-xs leading-5 text-slate-500">
+                      <span className="text-xs leading-5 text-slate-500 dark:text-slate-400">
                         Ini menentukan slot jam yang bisa dipilih customer saat booking. Bisa diubah lagi nanti di settings bisnis.
                       </span>
                     </div>
@@ -1594,7 +1594,7 @@ export default function DashboardPage() {
                     </div>
 
                     <label className="grid gap-2">
-                      <span className="text-sm font-medium text-slate-900">
+                      <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
                         Keunggulan utama
                       </span>
                       <div className="flex gap-2">
@@ -1607,7 +1607,7 @@ export default function DashboardPage() {
                               addWelcomeFeature();
                             }
                           }}
-                          className="h-12 flex-1 rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                          className="h-12 flex-1 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
                           placeholder="Contoh: Slot real-time"
                         />
                         <Button
@@ -1619,22 +1619,22 @@ export default function DashboardPage() {
                           Tambah
                         </Button>
                       </div>
-                      <div className="flex min-h-12 flex-wrap gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                        {welcomeProfile.features.length === 0 ? (
-                          <span className="text-sm text-slate-400">
-                            Belum ada poin keunggulan. Isi 2-3 hal yang paling bikin customer yakin.
-                          </span>
-                        ) : (
+                        <div className="flex min-h-12 flex-wrap gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/70">
+                          {welcomeProfile.features.length === 0 ? (
+                            <span className="text-sm text-slate-400 dark:text-slate-500">
+                              Belum ada poin keunggulan. Isi 2-3 hal yang paling bikin customer yakin.
+                            </span>
+                          ) : (
                           welcomeProfile.features.map((feature, index) => (
                             <span
                               key={`${feature}-${index}`}
-                              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
+                              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                             >
                               {feature}
                               <button
                                 type="button"
                                 onClick={() => removeWelcomeFeature(index)}
-                                className="rounded-full bg-slate-100 px-1 text-[10px] text-slate-600"
+                                className="rounded-full bg-slate-100 px-1 text-[10px] text-slate-600 dark:bg-slate-800 dark:text-slate-300"
                                 aria-label="Hapus keunggulan"
                               >
                                 x
@@ -1643,16 +1643,16 @@ export default function DashboardPage() {
                           ))
                         )}
                       </div>
-                      <span className="text-xs leading-5 text-slate-500">
+                      <span className="text-xs leading-5 text-slate-500 dark:text-slate-400">
                         Poin ini tampil sebagai alasan cepat kenapa visitor harus lanjut booking di tempat kamu.
                       </span>
                     </label>
 
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                      <div className="text-sm font-semibold text-slate-950">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-900/70">
+                      <div className="text-sm font-semibold text-slate-950 dark:text-white">
                         Nanti masih bisa diedit lagi
                       </div>
-                      <div className="mt-1 text-xs leading-5 text-slate-500">
+                      <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
                         Tidak perlu perfect sekarang. Yang penting halaman publik kamu sudah cukup jelas untuk booking pertama.
                       </div>
                       {tenantSlug ? (
@@ -1660,7 +1660,7 @@ export default function DashboardPage() {
                           href={getTenantUrl(tenantSlug)}
                           target="_blank"
                           rel="noreferrer"
-                          className="mt-2 inline-flex text-xs font-semibold text-slate-700 underline underline-offset-2"
+                          className="mt-2 inline-flex text-xs font-semibold text-slate-700 underline underline-offset-2 dark:text-slate-200"
                         >
                           Lihat halaman publik
                         </a>
@@ -1671,14 +1671,14 @@ export default function DashboardPage() {
                       <Button
                         type="submit"
                         disabled={welcomeSaving || welcomeLoading}
-                        className="h-12 w-full rounded-2xl"
+                        className="h-12 w-full rounded-2xl dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400"
                       >
                         {welcomeSaving ? "Menyimpan..." : "Simpan dan lanjut"}
                       </Button>
                       <Button
                         type="button"
                         variant="ghost"
-                        className="h-12 rounded-2xl px-4"
+                        className="h-12 rounded-2xl px-4 dark:text-slate-300 dark:hover:bg-slate-900"
                         onClick={dismissWelcomeDialog}
                       >
                         Nanti saja
@@ -1693,7 +1693,7 @@ export default function DashboardPage() {
       ) : null}
 
       <Dialog open={showWelcomeSuccess} onOpenChange={setShowWelcomeSuccess}>
-        <DialogContent className="!w-[min(92vw,34rem)] !max-w-none overflow-hidden border-emerald-100 bg-white p-0 shadow-[0_36px_100px_rgba(16,185,129,0.18)]">
+        <DialogContent className="!w-[min(92vw,34rem)] !max-w-none overflow-hidden border-emerald-100 bg-white p-0 shadow-[0_36px_100px_rgba(16,185,129,0.18)] dark:border-emerald-500/20 dark:bg-slate-950 dark:shadow-[0_36px_100px_rgba(2,6,23,0.55)]">
           <div className="relative">
             <div className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.24),transparent_65%)]" />
             <div className="absolute -right-8 top-6 h-24 w-24 rounded-full bg-emerald-200/30 blur-2xl" />
@@ -1708,39 +1708,39 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-emerald-500">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-emerald-500 dark:text-emerald-400">
                       Horrey, berhasil
                     </div>
-                    <div className="mt-1 text-sm font-semibold text-slate-950">
+                    <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
                       Tampilan awal bisnis kamu sudah naik level
                     </div>
                   </div>
                 </div>
-                <DialogTitle className="text-[1.9rem] leading-tight tracking-tight text-slate-950">
+                <DialogTitle className="text-[1.9rem] leading-tight tracking-tight text-slate-950 dark:text-white">
                   Sekarang halaman publik kamu sudah jauh lebih siap dilihat customer
                 </DialogTitle>
-                <DialogDescription className="text-sm leading-6 text-slate-600">
+                <DialogDescription className="text-sm leading-6 text-slate-600 dark:text-slate-400">
                   Hero, visual utama, dan copy penting sudah tersimpan. Orang yang buka halaman booking sekarang akan lebih cepat paham bisnis kamu dan lebih siap lanjut booking.
                 </DialogDescription>
               </DialogHeader>
 
               {tenantSlug ? (
-                <div className="rounded-[1.35rem] border border-blue-200 bg-[linear-gradient(135deg,#eff6ff_0%,#f5f3ff_100%)] px-4 py-4">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-blue-600">
+                <div className="rounded-[1.35rem] border border-blue-200 bg-[linear-gradient(135deg,#eff6ff_0%,#f5f3ff_100%)] px-4 py-4 dark:border-blue-500/20 dark:bg-[linear-gradient(135deg,rgba(30,64,175,0.18)_0%,rgba(88,28,135,0.16)_100%)]">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-blue-600 dark:text-blue-300">
                     Link booking kamu
                   </div>
-                  <div className="mt-1 text-sm leading-6 text-slate-600">
+                  <div className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
                     Bagikan link ini ke customer lewat WhatsApp, Instagram bio, atau status. Dari sini mereka langsung bisa booking.
                   </div>
-                  <div className="mt-3 flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-3 py-2.5">
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">
+                  <div className="mt-3 flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-3 py-2.5 dark:border-blue-500/20 dark:bg-slate-950">
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800 dark:text-slate-100">
                       {getTenantUrl(tenantSlug)}
                     </span>
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
-                      className="h-8 shrink-0 rounded-lg px-3"
+                      className="h-8 shrink-0 rounded-lg px-3 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
                       onClick={async () => {
                         const ok = await copyToClipboard(getTenantUrl(tenantSlug));
                         if (ok) {
@@ -1769,7 +1769,7 @@ export default function DashboardPage() {
                     asChild
                     type="button"
                     variant="ghost"
-                    className="mt-2 h-9 w-full justify-center rounded-xl text-emerald-700 hover:bg-emerald-50"
+                    className="mt-2 h-9 w-full justify-center rounded-xl text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-500/10"
                   >
                     <a
                       href={`https://wa.me/?text=${encodeURIComponent(
@@ -1784,11 +1784,11 @@ export default function DashboardPage() {
                   </Button>
                 </div>
               ) : (
-                <div className="rounded-[1.35rem] border border-emerald-200 bg-[linear-gradient(135deg,#f0fdf4_0%,#ecfeff_100%)] px-4 py-4">
-                  <div className="text-sm font-semibold text-slate-950">
+                <div className="rounded-[1.35rem] border border-emerald-200 bg-[linear-gradient(135deg,#f0fdf4_0%,#ecfeff_100%)] px-4 py-4 dark:border-emerald-500/20 dark:bg-[linear-gradient(135deg,rgba(6,95,70,0.2)_0%,rgba(8,145,178,0.15)_100%)]">
+                  <div className="text-sm font-semibold text-slate-950 dark:text-white">
                     Milestone pertama beres
                   </div>
-                  <div className="mt-1 text-sm leading-6 text-slate-600">
+                  <div className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
                     Ini belum harus perfect, tapi sudah cukup proper untuk dipakai sebagai permukaan awal produk. Nanti masih bisa kamu poles lagi dari settings bisnis atau page builder.
                   </div>
                 </div>
@@ -1796,7 +1796,7 @@ export default function DashboardPage() {
 
               <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
               {tenantSlug ? (
-                <Button asChild className="h-12 w-full rounded-2xl shadow-[0_18px_40px_rgba(59,130,246,0.22)]">
+                <Button asChild className="h-12 w-full rounded-2xl shadow-[0_18px_40px_rgba(59,130,246,0.22)] dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400">
                   <a href={getTenantUrl(tenantSlug)} target="_blank" rel="noreferrer">
                     Lihat halaman publik
                   </a>
@@ -1804,7 +1804,7 @@ export default function DashboardPage() {
               ) : (
                 <Button
                   type="button"
-                  className="h-12 w-full rounded-2xl shadow-[0_18px_40px_rgba(59,130,246,0.22)]"
+                  className="h-12 w-full rounded-2xl shadow-[0_18px_40px_rgba(59,130,246,0.22)] dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400"
                   onClick={() => setShowWelcomeSuccess(false)}
                 >
                   Kembali ke dashboard
@@ -1813,7 +1813,7 @@ export default function DashboardPage() {
               <Button
                 type="button"
                 variant="ghost"
-                className="h-12 rounded-2xl px-4 text-slate-600"
+                className="h-12 rounded-2xl px-4 text-slate-600 dark:text-slate-300 dark:hover:bg-slate-900"
                 onClick={() => setShowWelcomeSuccess(false)}
               >
                 Tutup
