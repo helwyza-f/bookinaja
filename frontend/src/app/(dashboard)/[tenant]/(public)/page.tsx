@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { SearchX } from "lucide-react";
 import { useParams } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
 import api from "@/lib/api";
@@ -106,54 +107,39 @@ function FullPageSkeleton() {
 function NotFoundUI() {
   const { cache, mutate } = useSWRConfig();
 
-  const handleForceReconnect = async () => {
-    // 1. Bersihkan Cookies (Auth, Tenant ID, Tenant Slug)
+  // Quiet recovery: reset any stale tenant/session state, then reload. Framed to
+  // the customer as a plain "try again" — no cache/session internals surfaced.
+  const handleRetry = () => {
     clearTenantSession();
-
-    // 2. Bersihkan Cache SWR secara brutal
-    // Kita panggil mutate dengan undefined untuk semua key yang kita pakai
     mutate("/public/site", undefined, { revalidate: false });
     mutate("/public/resources", undefined, { revalidate: false });
-
-    // 3. Optional: Bersihkan semua cache SWR yang tersimpan di memori
-    // (Bisa dilakukan jika ingin bener-bener nuklir semua state)
     if (cache instanceof Map) cache.clear();
-
-    // 4. Paksa Browser reload ke root untuk inisialisasi ulang interceptor API
     window.location.reload();
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] flex items-center justify-center text-white p-6">
-      <div className="text-center space-y-10 animate-in fade-in zoom-in duration-500">
-        <h1 className="text-[10rem] md:text-[15rem] font-[1000] italic opacity-5 leading-none tracking-tighter select-none">
-          404
-        </h1>
-        <div className="space-y-3 relative z-10 -mt-10 md:-mt-20">
-          <p className="font-black uppercase tracking-[0.6em] text-blue-600 text-sm md:text-base italic">
-            Halaman Tidak Ditemukan
-          </p>
-          <p className="text-slate-500 font-bold italic text-[10px] md:text-xs uppercase tracking-widest px-4 max-w-xs mx-auto">
-            Bisnis yang kamu cari belum tersedia atau sesi browser sedang tidak sinkron.
+    <div className="flex min-h-screen items-center justify-center bg-white p-6 text-slate-900 dark:bg-[#050505] dark:text-white">
+      <div className="w-full max-w-md space-y-8 text-center animate-in fade-in duration-500">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 dark:bg-white/5">
+          <SearchX className="h-8 w-8 text-slate-400 dark:text-slate-500" />
+        </div>
+        <div className="space-y-3">
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+            Halaman ini tidak tersedia
+          </h1>
+          <p className="mx-auto max-w-sm text-sm leading-6 text-slate-500 dark:text-slate-400">
+            Halaman booking yang kamu tuju mungkin sudah ditutup, dipindahkan, atau tautannya kurang lengkap. Coba periksa kembali tautannya.
           </p>
         </div>
-        <div className="flex flex-col items-center gap-4 relative z-10">
-          <Link href="/">
-            <Button
-              variant="outline"
-              className="rounded-full h-16 px-12 font-black uppercase border-white/10 hover:bg-white hover:text-black transition-all italic tracking-widest"
-            >
-              Kembali ke Beranda
-            </Button>
-          </Link>
+        <div className="flex flex-col items-center gap-3">
+          <Button asChild className="h-12 w-full max-w-xs rounded-xl">
+            <Link href="/">Kembali ke beranda</Link>
+          </Button>
           <button
-            onClick={handleForceReconnect}
-            className="group flex flex-col items-center gap-2 text-slate-500 hover:text-white transition-colors"
+            onClick={handleRetry}
+            className="text-sm font-medium text-slate-500 underline-offset-4 transition-colors hover:text-slate-900 hover:underline dark:text-slate-400 dark:hover:text-white"
           >
-            <span className="text-[10px] font-black uppercase italic tracking-[0.3em]">
-              Coba Muat Ulang
-            </span>
-            <div className="h-0.5 w-8 bg-blue-600 group-hover:w-24 transition-all duration-500" />
+            Muat ulang halaman
           </button>
         </div>
       </div>

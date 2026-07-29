@@ -84,6 +84,22 @@ function durationCountLabel(value?: string) {
   }
 }
 
+// Mirrors backend calculateDepositAmount (reservation/service.go) so the
+// customer sees the exact "pay now" amount before committing to the booking.
+function calculateDepositPreview(
+  grandTotal: number,
+  enabled?: boolean,
+  percentage?: number,
+) {
+  if (!enabled || grandTotal <= 0) return 0;
+  const pct = Number(percentage || 0);
+  if (pct <= 0) return 0;
+  let dp = Math.round(grandTotal * (pct / 100));
+  if (dp < 10000) dp = 10000;
+  if (dp > grandTotal) dp = grandTotal;
+  return dp;
+}
+
 function isMainBookingItem(item: any) {
   return ["main_option", "main", "console_option", "package", "pricing"].includes(
     String(item?.item_type || "").toLowerCase(),
@@ -107,6 +123,10 @@ export default function ResourceBookingDetail() {
   // Scroll Refs
   const step2Ref = useRef<HTMLDivElement>(null);
   const step3Ref = useRef<HTMLDivElement>(null);
+  // Only auto-scroll the first time a step is revealed, so changing an earlier
+  // choice later doesn't yank the page forward.
+  const didScrollStep2Ref = useRef(false);
+  const didScrollStep3Ref = useRef(false);
 
   // Form State
   const [date, setDate] = useState<Date | undefined>(undefined);
@@ -185,15 +205,17 @@ export default function ResourceBookingDetail() {
     setDate((current) => current ?? getTenantToday(new Date(), tenantTimezone));
   }, [tenantTimezone]);
 
-  // Smooth Scroll Trigger
+  // Smooth Scroll Trigger — first reveal only
   useEffect(() => {
-    if (selectedMainId && !loading) {
+    if (selectedMainId && !loading && !didScrollStep2Ref.current) {
+      didScrollStep2Ref.current = true;
       step2Ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [selectedMainId, loading]);
 
   useEffect(() => {
-    if (selectedTime) {
+    if (selectedTime && !didScrollStep3Ref.current) {
+      didScrollStep3Ref.current = true;
       step3Ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [selectedTime]);
@@ -240,9 +262,7 @@ export default function ResourceBookingDetail() {
     const normalizedPhone = String(sessionCustomer.phone || "")
       .replace(/\D/g, "")
       .trim();
-    const normalizedName = String(sessionCustomer.name || "")
-      .trim()
-      .toUpperCase();
+    const normalizedName = String(sessionCustomer.name || "").trim();
 
     const appliedPhone = !userTouchedPhoneRef.current && normalizedPhone && !custPhone;
     const appliedName = !userTouchedNameRef.current && normalizedName && !custName;
@@ -396,6 +416,14 @@ export default function ResourceBookingDetail() {
   const totalAfterPromo = () =>
     promoPreview?.valid ? Number(promoPreview.final_amount || 0) : calculateTotal();
 
+  const totalBooking = totalAfterPromo();
+  const depositAmount = calculateDepositPreview(
+    totalBooking,
+    resource?.dp_enabled,
+    resource?.dp_percentage,
+  );
+  const balanceAtVenue = Math.max(0, totalBooking - depositAmount);
+
   useEffect(() => {
     setPromoPreview(null);
   }, [selectedMainId, selectedAddons, selectedTime, date, durationValue]);
@@ -446,7 +474,7 @@ export default function ResourceBookingDetail() {
       const fullDate = buildTenantDateTime(date, selectedTime, tenantTimezone);
       const payload = {
         tenant_id: resource.tenant_id,
-        customer_name: custName.toUpperCase(),
+        customer_name: custName.trim(),
         customer_phone: custPhone,
         resource_id: resource.id,
         item_ids: [selectedMainId, ...selectedAddons],
@@ -833,7 +861,7 @@ export default function ResourceBookingDetail() {
                       color: activeTheme.primary_color,
                     }}
                   >
-                    {maxAvailableSessions} Slot Tersedia
+                    {maxAvailableSessions} {durationCountLabel(selectedItem.price_unit)} tersedia
                   </Badge>
                 </div>
                 <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar snap-x px-1">
@@ -859,8 +887,15 @@ export default function ResourceBookingDetail() {
                           : undefined
                       }
                     >
-                      {val}{" "}
-                      <span className="mt-1 text-[8px] font-semibold uppercase text-slate-500 dark:text-slate-300">
+                      {val}
+                      <span
+                        className={cn(
+                          "mt-0.5 text-[10px] font-bold uppercase tracking-[0.08em]",
+                          durationValue === val
+                            ? "text-white/90"
+                            : "text-slate-500 dark:text-slate-300",
+                        )}
+                      >
                         {durationCountLabel(selectedItem.price_unit)}
                       </span>
                     </button>
@@ -990,9 +1025,14 @@ export default function ResourceBookingDetail() {
 
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
-                    <Label className={cn("ml-1 text-[10px] font-semibold uppercase tracking-[0.08em]", themeVisuals.eyebrowMutedClass)}>
-                      Kode Promo
-                    </Label>
+                    <div className="ml-1 flex items-center gap-2">
+                      <Label className={cn("text-[10px] font-semibold uppercase tracking-[0.08em]", themeVisuals.eyebrowMutedClass)}>
+                        Kode Promo
+                      </Label>
+                      <span className={cn("rounded-full bg-slate-100 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-[0.08em] dark:bg-white/5", themeVisuals.mutedClass)}>
+                        Opsional
+                      </span>
+                    </div>
                     <div className="grid gap-2 md:grid-cols-[1fr_auto]">
                       <Input
                         value={promoCode}
@@ -1057,15 +1097,40 @@ export default function ResourceBookingDetail() {
                         )}
                       </div>
                     </div>
+                    {phoneStatus === "validating" ? (
+                      <p className="ml-1 flex items-center gap-1.5 text-[11px] font-medium text-blue-500">
+                        <Loader2 className="size-3 animate-spin" />
+                        Mengecek nomor WhatsApp...
+                      </p>
+                    ) : phoneStatus === "invalid" ? (
+                      <p className="ml-1 flex items-center gap-1.5 text-[11px] font-medium text-red-500">
+                        <AlertCircle className="size-3" />
+                        Nomor WhatsApp tidak valid. Cek lagi, e-ticket dikirim ke nomor ini.
+                      </p>
+                    ) : phoneStatus === "valid" && isReturning ? (
+                      <p className="ml-1 flex items-center gap-1.5 text-[11px] font-medium text-emerald-500">
+                        <ShieldCheck className="size-3" />
+                        Nomor dikenali — selamat datang kembali.
+                      </p>
+                    ) : phoneStatus === "valid" ? (
+                      <p className="ml-1 flex items-center gap-1.5 text-[11px] font-medium text-emerald-500">
+                        <ShieldCheck className="size-3" />
+                        Nomor valid. E-ticket & akses booking dikirim ke sini.
+                      </p>
+                    ) : (
+                      <p className={cn("ml-1 text-[11px] font-medium", themeVisuals.mutedClass)}>
+                        E-ticket & akses booking dikirim ke nomor WhatsApp ini.
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between px-1">
                       <Label className={cn("text-[10px] font-semibold uppercase tracking-[0.08em]", themeVisuals.eyebrowMutedClass)}>
-                        Nama Sesuai KTP
+                        Nama
                       </Label>
                       {isReturning && (
                         <span className="text-[8px] font-semibold uppercase text-emerald-500">
-                          Identitas Terdaftar
+                          Nama tersimpan
                         </span>
                       )}
                       </div>
@@ -1073,10 +1138,10 @@ export default function ResourceBookingDetail() {
                         value={custName}
                         onChange={(e) => {
                           userTouchedNameRef.current = true;
-                          setCustName(e.target.value.toUpperCase());
+                          setCustName(e.target.value);
                         }}
                         className="h-14 rounded-xl border border-slate-100 bg-slate-50 px-4 text-base font-semibold shadow-inner dark:border-white/5 dark:bg-black"
-                        placeholder="NAMA LENGKAP"
+                        placeholder="Nama lengkap"
                     />
                   </div>
                 </div>
@@ -1091,53 +1156,55 @@ export default function ResourceBookingDetail() {
         <div className="mx-auto max-w-4xl px-3 py-3 md:px-4 md:py-4">
           <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
             <div className="space-y-2">
-              <span className={cn("text-[10px] font-semibold uppercase tracking-[0.1em]", themeVisuals.mutedClass)}>
-                Estimasi Total Booking
-              </span>
-              <div className="flex flex-wrap items-end gap-2">
-                {selectedMainId ? (
-                  <div className="flex items-baseline gap-1">
-                    <span
-                      className="text-sm font-semibold"
-                      style={{ color: activeTheme.primary_color }}
-                    >
-                      Rp
-                    </span>
-                    <h3 className="text-2xl font-semibold leading-none tracking-normal text-slate-950 dark:text-white md:text-3xl">
-                      {totalAfterPromo().toLocaleString()}
-                    </h3>
+              {selectedMainId ? (
+                <>
+                  <span className={cn("text-[10px] font-semibold uppercase tracking-[0.1em]", themeVisuals.mutedClass)}>
+                    {depositAmount > 0 ? "Bayar sekarang (DP)" : "Total booking"}
+                  </span>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="flex items-baseline gap-1">
+                      <span
+                        className="text-sm font-semibold"
+                        style={{ color: activeTheme.primary_color }}
+                      >
+                        Rp
+                      </span>
+                      <h3 className="text-2xl font-semibold leading-none tracking-normal text-slate-950 dark:text-white md:text-3xl">
+                        {(depositAmount > 0 ? depositAmount : totalBooking).toLocaleString("id-ID")}
+                      </h3>
+                    </div>
+                    {promoPreview?.valid && (
+                      <Badge className="rounded-full border-none bg-emerald-500 px-3 py-1 text-[9px] font-semibold uppercase text-white">
+                        Diskon Rp{Number(promoPreview.discount_amount || 0).toLocaleString("id-ID")}
+                      </Badge>
+                    )}
                   </div>
-                ) : (
+                  {depositAmount > 0 ? (
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium">
+                      <span className={themeVisuals.mutedClass}>
+                        Total booking Rp{totalBooking.toLocaleString("id-ID")}
+                      </span>
+                      <span aria-hidden className={cn("opacity-40", themeVisuals.mutedClass)}>•</span>
+                      <span className={themeVisuals.mutedClass}>
+                        Sisa dibayar di lokasi Rp{balanceAtVenue.toLocaleString("id-ID")}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className={cn("max-w-md text-[11px] font-medium leading-relaxed", themeVisuals.mutedClass)}>
+                      Tanpa DP. Pembayaran penuh dilakukan saat sesi berlangsung.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span className={cn("text-[10px] font-semibold uppercase tracking-[0.1em]", themeVisuals.mutedClass)}>
+                    Total Booking
+                  </span>
                   <h3 className="text-base font-semibold text-slate-950 dark:text-white">
                     Pilih layanan dulu
                   </h3>
-                )}
-                <div className="flex flex-wrap gap-2">
-                  {promoPreview?.valid && (
-                    <Badge className="rounded-full border-none bg-emerald-500 px-3 py-1 text-[9px] font-semibold uppercase text-white">
-                      Diskon Rp{Number(promoPreview.discount_amount || 0).toLocaleString()}
-                    </Badge>
-                  )}
-                  <Badge
-                    className="rounded-full border-none px-3 py-1 text-[9px] font-semibold uppercase text-white"
-                    style={{ backgroundColor: activeTheme.primary_color }}
-                  >
-                    DP mengikuti aturan tenant
-                  </Badge>
-                  <Badge
-                    className="rounded-full border-none px-3 py-1 text-[9px] font-semibold uppercase"
-                    style={{
-                      backgroundColor: `${activeTheme.primary_color}16`,
-                      color: activeTheme.primary_color,
-                    }}
-                  >
-                    Final saat checkout
-                  </Badge>
-                </div>
-              </div>
-              <p className={cn("max-w-md text-[11px] font-medium leading-relaxed", themeVisuals.mutedClass)}>
-                Setelah booking tersimpan, sistem menghitung DP sesuai aturan tenant lalu customer lanjut ke tiket pembayaran.
-              </p>
+                </>
+              )}
             </div>
             <Button
               disabled={

@@ -50,14 +50,6 @@ export type WorkspaceUtilityNavItem = {
   kind: "route" | "upgrade" | "settings" | "external";
 };
 
-export const growthHubNavItem: AdminNavItem = {
-  label: "Promosi",
-  href: "/growth/feed",
-  icon: Sparkles,
-  hint: "Feed & performa",
-  group: "growth",
-};
-
 export const operationalNavItems: AdminNavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
   { label: "Kalender", icon: CalendarRange, href: "/admin/bookings/calendar" },

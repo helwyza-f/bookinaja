@@ -5,21 +5,29 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  AlertCircle,
+  ArrowDownRight,
   ArrowRight,
+  ArrowUpRight,
   Banknote,
   Building2,
   CalendarClock,
+  Check,
   CheckCircle2,
   Clock3,
+  Copy,
   ImagePlus,
+  MessageCircle,
   Monitor,
   PanelsTopLeft,
   RefreshCcw,
   Sparkles,
+  Timer,
   TrendingUp,
   Users,
   Wallet,
   X,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 import api from "@/lib/api";
@@ -34,6 +42,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { copyToClipboard } from "@/lib/clipboard";
 import { getTenantUrl } from "@/lib/tenant";
 import { hasPermission } from "@/lib/admin-access";
 import {
@@ -318,6 +327,7 @@ export default function DashboardPage() {
   const [welcomeFeatureInput, setWelcomeFeatureInput] = useState("");
   const [welcomeHeroDescription, setWelcomeHeroDescription] = useState("");
   const [showWelcomeSuccess, setShowWelcomeSuccess] = useState(false);
+  const [shareLinkCopied, setShareLinkCopied] = useState(false);
   const hasLoadedRef = useRef(false);
   const refreshTimerRef = useRef<number | null>(null);
 
@@ -677,22 +687,129 @@ export default function DashboardPage() {
     };
   }, [weeklyRevenuePoints]);
 
-  const keyMetrics = useMemo<CompactMetric[]>(() => {
-    const items: CompactMetric[] = [];
+  const greetingName = useMemo(() => {
+    const raw = String(sessionUser?.name || "").trim();
+    if (!raw) return ownerOnly ? "Owner" : "Tim";
+    return raw.split(" ")[0];
+  }, [sessionUser?.name, ownerOnly]);
 
-    if (ownerOnly) {
+  const greetingTime = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 11) return "Selamat pagi";
+    if (hour < 15) return "Selamat siang";
+    if (hour < 19) return "Selamat sore";
+    return "Selamat malam";
+  }, []);
+
+  const revenueComparison = useMemo(() => {
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    const yesterdayRevenue = bookings
+      .filter((booking) =>
+        isSameDay(booking.start_time || booking.created_at, yesterday),
+      )
+      .reduce((sum, booking) => sum + getBookingTotal(booking), 0);
+    const delta = metrics.todayRevenue - yesterdayRevenue;
+    const percent =
+      yesterdayRevenue > 0 ? Math.round((delta / yesterdayRevenue) * 100) : null;
+    return { yesterdayRevenue, delta, percent };
+  }, [bookings, metrics.todayRevenue]);
+
+  const liveSessions = useMemo(() => {
+    const now = Date.now();
+    return sessions
+      .map((session) => {
+        const end = parseSafeDate(session.end_time);
+        const remainingMin = end
+          ? Math.round((end.getTime() - now) / 60000)
+          : null;
+        return {
+          id: session.id,
+          resourceName: session.resource_name || "Tanpa unit",
+          customerName: session.customer_name || "Guest",
+          endLabel: end ? format(end, "HH:mm") : null,
+          remainingMin,
+        };
+      })
+      .sort(
+        (a, b) =>
+          (a.remainingMin ?? Number.POSITIVE_INFINITY) -
+          (b.remainingMin ?? Number.POSITIVE_INFINITY),
+      );
+  }, [sessions]);
+
+  const overtimeSessions = useMemo(
+    () =>
+      liveSessions.filter(
+        (session) => session.remainingMin != null && session.remainingMin < 0,
+      ).length,
+    [liveSessions],
+  );
+
+  type ActionTone = "amber" | "rose" | "sky";
+  const actionQueue = useMemo(() => {
+    const items: Array<{
+      label: string;
+      value: string;
+      detail: string;
+      href: string;
+      icon: LucideIcon;
+      tone: ActionTone;
+    }> = [];
+
+    if (canManagePos && metrics.verificationCount > 0) {
       items.push({
-        label: "Revenue",
-        value: `Rp ${formatIDR(metrics.todayRevenue)}`,
-        hint: "Hari ini",
-        icon: TrendingUp,
-        tone: "indigo",
+        label: "Verifikasi pembayaran",
+        value: String(metrics.verificationCount),
+        detail: "Bukti bayar manual menunggu persetujuan.",
+        href: "/admin/pos",
+        icon: CheckCircle2,
+        tone: "amber",
       });
     }
 
+    const otherActions = Math.max(
+      0,
+      metrics.actionRequiredCount - metrics.verificationCount,
+    );
+    if (canManagePos && otherActions > 0) {
+      items.push({
+        label: "Antrian POS",
+        value: String(otherActions),
+        detail: "Sesi atau pembayaran yang perlu dituntaskan.",
+        href: "/admin/pos",
+        icon: Clock3,
+        tone: "sky",
+      });
+    }
+
+    if (canReadBookings && overtimeSessions > 0) {
+      items.push({
+        label: "Sesi lewat waktu",
+        value: String(overtimeSessions),
+        detail: "Sudah melewati jam selesai, cek untuk closing.",
+        href: "/admin/bookings",
+        icon: AlertCircle,
+        tone: "rose",
+      });
+    }
+
+    return items;
+  }, [
+    canManagePos,
+    canReadBookings,
+    metrics.actionRequiredCount,
+    metrics.verificationCount,
+    overtimeSessions,
+  ]);
+
+  const glanceStats = useMemo<CompactMetric[]>(() => {
+    const items: CompactMetric[] = [];
+
     if (canReadBookings) {
       items.push({
-        label: "Booking",
+        label: "Booking hari ini",
         value: metrics.todayBookings.toString(),
         hint: "Hari ini",
         icon: CalendarClock,
@@ -726,7 +843,9 @@ export default function DashboardPage() {
         icon: Monitor,
         tone: "amber",
       });
-    } else if (canReadCustomers) {
+    }
+
+    if (canReadCustomers) {
       items.push({
         label: "Customer",
         value: customersCount.toString(),
@@ -748,10 +867,8 @@ export default function DashboardPage() {
     metrics.availableResources,
     metrics.occupiedPercent,
     metrics.todayBookings,
-    metrics.todayRevenue,
     metrics.totalResources,
     metrics.verificationCount,
-    ownerOnly,
   ]);
 
   const recentTransactionRows = useMemo(
@@ -1049,6 +1166,8 @@ export default function DashboardPage() {
           about_us: nextAboutUs,
           banner_url: welcomeProfile.banner_url,
           logo_url: welcomeProfile.logo_url,
+          open_time: welcomeProfile.open_time || currentProfile.open_time,
+          close_time: welcomeProfile.close_time || currentProfile.close_time,
           features: nextFeatures,
           landing_page_config: syncWelcomeContentIntoLandingConfig(
             currentProfile.landing_page_config as LandingPageConfig | null | undefined,
@@ -1152,28 +1271,59 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-3 px-3 pb-20 pt-3 font-plus-jakarta md:px-5">
-      <div className="rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)] p-3 shadow-[var(--admin-shadow-soft)] sm:p-3.5">
-        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-1">
+      <section className="overflow-hidden rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)] shadow-[var(--admin-shadow-soft)]">
+        <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 space-y-2.5">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[10px] font-medium uppercase text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
                 {ownerOnly ? "Owner" : "Staff"}
-              </Badge>
-              <Badge className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[10px] font-medium uppercase text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
-                {refreshing ? "Refreshing..." : `Sync ${lastSyncAt || "--:--"}`}
               </Badge>
               <RealtimePill
                 connected={realtimeConnected}
                 status={realtimeStatus}
               />
+              <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                {refreshing ? "Menyegarkan…" : `Sinkron ${lastSyncAt || "--:--"}`}
+              </span>
             </div>
-            <div>
-              <h1 className="text-[1.65rem] font-semibold leading-none text-slate-950 dark:text-white sm:text-[1.75rem]">
-                Dashboard
-              </h1>
-              <p className="mt-0.5 text-[13px] text-slate-500 dark:text-slate-400">
-                Ringkasan operasional hari ini.
+
+            <div className="space-y-1">
+              <p className="text-[13px] text-slate-500 dark:text-slate-400">
+                {greetingTime}, {greetingName}.
               </p>
+              {ownerOnly ? (
+                <>
+                  <div className="flex flex-wrap items-end gap-3">
+                    <h1 className="text-3xl font-semibold leading-none tracking-tight text-slate-950 dark:text-white sm:text-[2.4rem]">
+                      Rp {formatIDR(metrics.todayRevenue)}
+                    </h1>
+                    <DeltaBadge
+                      delta={revenueComparison.delta}
+                      percent={revenueComparison.percent}
+                    />
+                  </div>
+                  <p className="text-[13px] text-slate-500 dark:text-slate-400">
+                    Pendapatan hari ini
+                    {revenueComparison.yesterdayRevenue > 0
+                      ? ` · kemarin Rp ${formatIDR(revenueComparison.yesterdayRevenue)}`
+                      : ""}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <h1 className="text-3xl font-semibold leading-none tracking-tight text-slate-950 dark:text-white sm:text-[2.4rem]">
+                      {metrics.activeSessions}
+                    </h1>
+                    <span className="pb-1 text-base font-medium text-slate-500 dark:text-slate-400">
+                      sesi aktif
+                    </span>
+                  </div>
+                  <p className="text-[13px] text-slate-500 dark:text-slate-400">
+                    Kondisi lantai hari ini · okupansi {metrics.occupiedPercent}%
+                  </p>
+                </>
+              )}
             </div>
           </div>
 
@@ -1203,7 +1353,39 @@ export default function DashboardPage() {
             ))}
           </div>
         </div>
-      </div>
+
+        {glanceStats.length ? (
+          <div className="grid grid-cols-2 gap-px border-t border-[var(--admin-line)] bg-[var(--admin-line)] sm:grid-cols-4">
+            {glanceStats.map((stat) => (
+              <div
+                key={stat.label}
+                className="bg-[var(--admin-surface)] px-4 py-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                    {stat.label}
+                  </span>
+                  <stat.icon className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
+                </div>
+                {loading ? (
+                  <Skeleton className="mt-2 h-6 w-16 rounded-md" />
+                ) : (
+                  <>
+                    <div className="mt-1.5 text-xl font-semibold text-slate-950 dark:text-white">
+                      {stat.value}
+                    </div>
+                    {stat.hint ? (
+                      <div className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">
+                        {stat.hint}
+                      </div>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </section>
 
       {ownerOnly && onboardingWelcome ? (
         <Dialog
@@ -1338,6 +1520,45 @@ export default function DashboardPage() {
                         Ini untuk section “Tentang bisnis ini”, bukan untuk hero. Isi 1-2 kalimat yang menjelaskan bisnis kamu secara umum.
                       </span>
                     </label>
+
+                    <div className="grid gap-2">
+                      <span className="text-sm font-medium text-slate-900">
+                        Jam operasional
+                      </span>
+                      <div className="grid grid-cols-2 gap-3">
+                        <label className="grid gap-1.5">
+                          <span className="text-xs font-medium text-slate-500">Buka</span>
+                          <input
+                            type="time"
+                            value={welcomeProfile.open_time || "09:00"}
+                            onChange={(event) =>
+                              setWelcomeProfile((current) => ({
+                                ...current,
+                                open_time: event.target.value,
+                              }))
+                            }
+                            className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                          />
+                        </label>
+                        <label className="grid gap-1.5">
+                          <span className="text-xs font-medium text-slate-500">Tutup</span>
+                          <input
+                            type="time"
+                            value={welcomeProfile.close_time || "21:00"}
+                            onChange={(event) =>
+                              setWelcomeProfile((current) => ({
+                                ...current,
+                                close_time: event.target.value,
+                              }))
+                            }
+                            className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                          />
+                        </label>
+                      </div>
+                      <span className="text-xs leading-5 text-slate-500">
+                        Ini menentukan slot jam yang bisa dipilih customer saat booking. Bisa diubah lagi nanti di settings bisnis.
+                      </span>
+                    </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
                       <SingleImageUpload
@@ -1503,14 +1724,75 @@ export default function DashboardPage() {
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="rounded-[1.35rem] border border-emerald-200 bg-[linear-gradient(135deg,#f0fdf4_0%,#ecfeff_100%)] px-4 py-4">
-                <div className="text-sm font-semibold text-slate-950">
-                  Milestone pertama beres
+              {tenantSlug ? (
+                <div className="rounded-[1.35rem] border border-blue-200 bg-[linear-gradient(135deg,#eff6ff_0%,#f5f3ff_100%)] px-4 py-4">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-blue-600">
+                    Link booking kamu
+                  </div>
+                  <div className="mt-1 text-sm leading-6 text-slate-600">
+                    Bagikan link ini ke customer lewat WhatsApp, Instagram bio, atau status. Dari sini mereka langsung bisa booking.
+                  </div>
+                  <div className="mt-3 flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-3 py-2.5">
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">
+                      {getTenantUrl(tenantSlug)}
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 shrink-0 rounded-lg px-3"
+                      onClick={async () => {
+                        const ok = await copyToClipboard(getTenantUrl(tenantSlug));
+                        if (ok) {
+                          setShareLinkCopied(true);
+                          toast.success("Link booking disalin.");
+                          setTimeout(() => setShareLinkCopied(false), 2000);
+                        } else {
+                          toast.error("Gagal menyalin link. Salin manual ya.");
+                        }
+                      }}
+                    >
+                      {shareLinkCopied ? (
+                        <>
+                          <Check className="mr-1.5 h-3.5 w-3.5 text-emerald-500" />
+                          Tersalin
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="mr-1.5 h-3.5 w-3.5" />
+                          Salin
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <Button
+                    asChild
+                    type="button"
+                    variant="ghost"
+                    className="mt-2 h-9 w-full justify-center rounded-xl text-emerald-700 hover:bg-emerald-50"
+                  >
+                    <a
+                      href={`https://wa.me/?text=${encodeURIComponent(
+                        `Halo! Sekarang kamu bisa booking langsung di sini: ${getTenantUrl(tenantSlug)}`,
+                      )}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <MessageCircle className="mr-2 h-4 w-4" />
+                      Bagikan ke WhatsApp
+                    </a>
+                  </Button>
                 </div>
-                <div className="mt-1 text-sm leading-6 text-slate-600">
-                  Ini belum harus perfect, tapi sudah cukup proper untuk dipakai sebagai permukaan awal produk. Nanti masih bisa kamu poles lagi dari settings bisnis atau page builder.
+              ) : (
+                <div className="rounded-[1.35rem] border border-emerald-200 bg-[linear-gradient(135deg,#f0fdf4_0%,#ecfeff_100%)] px-4 py-4">
+                  <div className="text-sm font-semibold text-slate-950">
+                    Milestone pertama beres
+                  </div>
+                  <div className="mt-1 text-sm leading-6 text-slate-600">
+                    Ini belum harus perfect, tapi sudah cukup proper untuk dipakai sebagai permukaan awal produk. Nanti masih bisa kamu poles lagi dari settings bisnis atau page builder.
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
               {tenantSlug ? (
@@ -1666,20 +1948,6 @@ export default function DashboardPage() {
         </DashboardPanel>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
-        {keyMetrics.map((metric) => (
-          <CompactMetricCard
-            key={metric.label}
-            label={metric.label}
-            value={metric.value}
-            hint={metric.hint}
-            icon={metric.icon}
-            tone={metric.tone}
-            loading={loading}
-          />
-        ))}
-      </div>
-
       {loadError && !hasLoadedRef.current ? (
         <AdminSurfaceError
           title="Dashboard gagal dimuat"
@@ -1820,176 +2088,127 @@ export default function DashboardPage() {
         </section>
       ) : (
         <>
-          <section className="grid gap-3 xl:grid-cols-[1.45fr_0.72fr]">
-            <div className="space-y-3">
+          {canReadBookings ? (
+            <section className="grid gap-3 xl:grid-cols-[1.55fr_0.85fr]">
+              <DashboardPanel
+                eyebrow="Live"
+                title="Sedang berjalan"
+                description="Sesi yang aktif di lantai sekarang."
+              >
+                {liveSessions.length ? (
+                  <div className="space-y-2">
+                    {liveSessions.slice(0, 6).map((session) => (
+                      <LiveSessionRow key={session.id} session={session} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-400">
+                    Belum ada sesi aktif. Mulai sesi dari POS saat customer datang.
+                  </div>
+                )}
+                {canManagePos && liveSessions.length ? (
+                  <div className="flex justify-end">
+                    <Button asChild variant="outline">
+                      <Link href="/admin/pos" prefetch={false}>
+                        Buka POS
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
+                  </div>
+                ) : null}
+              </DashboardPanel>
+
+              <DashboardPanel
+                eyebrow="Prioritas"
+                title="Perlu tindakan"
+                description="Yang sebaiknya dituntaskan lebih dulu."
+              >
+                {actionQueue.length ? (
+                  <div className="space-y-2.5">
+                    {actionQueue.map((item) => (
+                      <ActionQueueItem key={item.label} item={item} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
+                    <CheckCircle2 className="h-5 w-5 shrink-0" />
+                    Tidak ada yang mendesak. Operasional aman terkendali.
+                  </div>
+                )}
+              </DashboardPanel>
+            </section>
+          ) : null}
+
+          {ownerOnly ? (
+            <section className="grid gap-3 xl:grid-cols-[1.5fr_0.85fr]">
               <DashboardLineChartPanel
                 eyebrow="7 hari"
-                title="Pendapatan 7 hari"
-                description="Pantau pendapatan harian dan transaksi utama dari satu grafik."
+                title="Tren pendapatan"
+                description={`Pendapatan harian minggu ini · total Rp ${formatIDR(weeklySummary.totalRevenue)} · puncak ${weeklySummary.peakLabel}.`}
                 points={weeklyRevenuePoints}
                 primaryLabel="Pendapatan"
                 secondaryLabel="Transaksi utama"
                 formatValue={(value) => `Rp ${formatIDR(value)}`}
               />
-              <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-3">
-                <InfoChip
-                  label="Total 7 hari"
-                  value={`Rp ${formatIDR(weeklySummary.totalRevenue)}`}
-                  icon={Wallet}
-                />
-                <InfoChip
-                  label="Hari aktif"
-                  value={`${weeklySummary.activeDays}/7`}
-                  icon={CalendarClock}
-                />
-                <InfoChip
-                  label="Puncak"
-                  value={`${weeklySummary.peakLabel} · Rp ${formatIDR(weeklySummary.peakRevenue)}`}
-                  icon={TrendingUp}
-                />
-              </div>
-            </div>
 
-            <div className="space-y-3">
               <DashboardPanel
-                eyebrow="Prioritas"
-                title="Perlu ditindaklanjuti"
-                description="Hal penting yang sebaiknya dicek dulu oleh admin."
+                eyebrow="Transaksi"
+                title="Transaksi terbaru"
+                description="Booking terakhir yang masuk."
               >
                 <div className="space-y-2.5">
-                  {decisionPulseItems.length ? (
-                    decisionPulseItems.map((item) => (
+                  {recentTransactionRows.length ? (
+                    recentTransactionRows.map((transaction) => (
                       <Link
-                        key={item.label}
-                        href={item.href}
+                        key={transaction.id}
+                        href={`/admin/bookings/${transaction.id}`}
                         prefetch={false}
-                        className="group block rounded-xl border border-[var(--admin-line-soft)] bg-[var(--admin-surface-soft)] px-3 py-3 transition hover:border-slate-300 hover:bg-slate-100 dark:hover:border-slate-700 dark:hover:bg-slate-900/60"
+                        className="group block rounded-xl border border-[var(--admin-line-soft)] bg-[var(--admin-surface-soft)] px-3 py-2.5 transition hover:border-slate-300 hover:bg-slate-100 dark:hover:border-slate-700 dark:hover:bg-slate-900/60"
                       >
-                        <div className="flex items-start gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[rgba(74,141,255,0.12)] dark:text-[var(--bookinaja-200)]">
-                            <item.icon className="h-4 w-4" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="text-sm font-semibold text-slate-950 dark:text-white">
-                                  {item.label}
-                                </div>
-                                <div className="mt-0.5 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                                  {item.detail}
-                                </div>
-                              </div>
-                              <div className="shrink-0 text-right">
-                                <div className="text-sm font-semibold text-slate-950 dark:text-white">
-                                  {item.value}
-                                </div>
-                                <div className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
-                                  Buka
-                                  <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
-                                </div>
-                              </div>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">
+                              {transaction.customerName}
+                            </div>
+                            <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                              {transaction.resourceName}
                             </div>
                           </div>
+                          <div className="shrink-0 text-right">
+                            <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                              {transaction.total}
+                            </div>
+                            <div className="mt-0.5 text-[11px] uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                              {transaction.status}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between gap-3 border-t border-[var(--admin-line-soft)] pt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                          <span>{transaction.detailTime}</span>
+                          <span className="inline-flex items-center gap-1 font-medium text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
+                            Detail
+                            <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+                          </span>
                         </div>
                       </Link>
                     ))
                   ) : (
                     <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-400">
-                      Belum ada sinyal penting yang perlu dibuka sekarang.
+                      Belum ada transaksi terbaru.
                     </div>
                   )}
                 </div>
+                <div className="flex justify-end">
+                  <Button asChild variant="outline">
+                    <Link href="/admin/bookings" prefetch={false}>
+                      Lihat semua booking
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
               </DashboardPanel>
-
-              {ownerOnly ? (
-                <DashboardPanel
-                  eyebrow="Transaksi"
-                  title="Transaksi terbaru"
-                  description="Buka detail booking terakhir tanpa pindah lewat list panjang."
-                >
-                  <div className="space-y-2.5">
-                    {recentTransactionRows.length ? (
-                      recentTransactionRows.map((transaction) => (
-                        <Link
-                          key={transaction.id}
-                          href={`/admin/bookings/${transaction.id}`}
-                          prefetch={false}
-                          className="group block rounded-xl border border-[var(--admin-line-soft)] bg-[var(--admin-surface-soft)] px-3 py-2.5 transition hover:border-slate-300 hover:bg-slate-100 dark:hover:border-slate-700 dark:hover:bg-slate-900/60"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">
-                                {transaction.customerName}
-                              </div>
-                              <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                                {transaction.resourceName}
-                              </div>
-                            </div>
-                            <div className="shrink-0 text-right">
-                              <div className="text-sm font-semibold text-slate-950 dark:text-white">
-                                {transaction.total}
-                              </div>
-                              <div className="mt-0.5 text-[11px] uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                                {transaction.status}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="mt-2 flex items-center justify-between gap-3 border-t border-[var(--admin-line-soft)] pt-2 text-[11px] text-slate-500 dark:text-slate-400">
-                            <span>{transaction.detailTime}</span>
-                            <span className="inline-flex items-center gap-1 font-medium text-[var(--bookinaja-700)] dark:text-[var(--bookinaja-200)]">
-                              Detail
-                              <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
-                            </span>
-                          </div>
-                        </Link>
-                      ))
-                    ) : (
-                      <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-400">
-                        Belum ada transaksi terbaru.
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex justify-end">
-                    <Button asChild variant="outline">
-                      <Link href="/admin/bookings" prefetch={false}>
-                        Lihat semua booking
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </Link>
-                    </Button>
-                  </div>
-                </DashboardPanel>
-              ) : (
-                <DashboardPanel
-                  eyebrow="Ringkasan"
-                  title="Ringkasan cepat"
-                  description="Konteks singkat untuk baca kondisi tenant saat ini."
-                >
-                  <div className="grid grid-cols-2 gap-3">
-                    <InfoChip
-                      label="Okupansi"
-                      value={`${metrics.occupiedPercent}%`}
-                      icon={TrendingUp}
-                    />
-                    <InfoChip
-                      label="Resource siap"
-                      value={String(metrics.availableResources)}
-                      icon={Monitor}
-                    />
-                    <InfoChip
-                      label="Customer"
-                      value={customersCount.toString()}
-                      icon={Users}
-                    />
-                    <InfoChip
-                      label="Verifikasi"
-                      value={String(metrics.verificationCount)}
-                      icon={Sparkles}
-                    />
-                  </div>
-                </DashboardPanel>
-              )}
-            </div>
-          </section>
+            </section>
+          ) : null}
 
           <section className="grid gap-3 xl:grid-cols-[1fr_1fr]">
             <DashboardLeaderboardPanel
@@ -2035,78 +2254,162 @@ export default function DashboardPage() {
   );
 }
 
-function InfoChip({
-  label,
-  value,
-  icon: Icon,
+function DeltaBadge({
+  delta,
+  percent,
 }: {
-  label: string;
-  value: string;
-  icon: LucideIcon;
+  delta: number;
+  percent: number | null;
 }) {
+  if (percent === null) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+        Belum ada acuan
+      </span>
+    );
+  }
+  const up = delta >= 0;
   return (
-    <div className="rounded-xl border border-[var(--admin-line-soft)] bg-[var(--admin-surface-soft)] px-3 py-2.5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-          {label}
-        </div>
-        <Icon className="h-4 w-4 text-blue-600 dark:text-blue-300" />
-      </div>
-      {value ? (
-        <div className="mt-1.5 text-sm font-semibold text-slate-950 dark:text-white">
-          {value}
-        </div>
-      ) : (
-        <Skeleton className="mt-2 h-5 w-24 rounded-md" />
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold",
+        up
+          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-200"
+          : "bg-rose-50 text-rose-700 dark:bg-rose-500/12 dark:text-rose-200",
       )}
+    >
+      {up ? (
+        <ArrowUpRight className="h-3.5 w-3.5" />
+      ) : (
+        <ArrowDownRight className="h-3.5 w-3.5" />
+      )}
+      {Math.abs(percent)}% vs kemarin
+    </span>
+  );
+}
+
+function LiveSessionRow({
+  session,
+}: {
+  session: {
+    id: string;
+    resourceName: string;
+    customerName: string;
+    endLabel: string | null;
+    remainingMin: number | null;
+  };
+}) {
+  const overtime = session.remainingMin != null && session.remainingMin < 0;
+  const endingSoon =
+    session.remainingMin != null &&
+    session.remainingMin >= 0 &&
+    session.remainingMin <= 15;
+
+  const remainingLabel =
+    session.remainingMin == null
+      ? "Tanpa batas waktu"
+      : overtime
+        ? `Lewat ${Math.abs(session.remainingMin)} mnt`
+        : `Sisa ${session.remainingMin} mnt`;
+
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-[var(--admin-line-soft)] bg-[var(--admin-surface-soft)] px-3 py-2.5">
+      <div
+        className={cn(
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+          overtime
+            ? "bg-rose-50 text-rose-600 dark:bg-rose-500/12 dark:text-rose-300"
+            : endingSoon
+              ? "bg-amber-50 text-amber-600 dark:bg-amber-500/12 dark:text-amber-300"
+              : "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/12 dark:text-emerald-300",
+        )}
+      >
+        <Zap className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">
+          {session.resourceName}
+        </div>
+        <div className="truncate text-xs text-slate-500 dark:text-slate-400">
+          {session.customerName}
+        </div>
+      </div>
+      <div className="shrink-0 text-right">
+        <div
+          className={cn(
+            "text-sm font-semibold",
+            overtime
+              ? "text-rose-600 dark:text-rose-300"
+              : endingSoon
+                ? "text-amber-600 dark:text-amber-300"
+                : "text-slate-950 dark:text-white",
+          )}
+        >
+          {remainingLabel}
+        </div>
+        {session.endLabel ? (
+          <div className="mt-0.5 flex items-center justify-end gap-1 text-[11px] text-slate-400 dark:text-slate-500">
+            <Timer className="h-3 w-3" />
+            selesai {session.endLabel}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
 
-function CompactMetricCard({
-  label,
-  value,
-  hint,
-  icon: Icon,
-  tone,
-  loading,
-}: CompactMetric & { loading?: boolean }) {
-  const toneClass: Record<MetricTone, string> = {
-    indigo:
-      "bg-[var(--bookinaja-50)] text-[var(--bookinaja-700)] dark:bg-[rgba(74,141,255,0.12)] dark:text-[var(--bookinaja-200)]",
-    emerald:
-      "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-200",
-    amber:
-      "bg-amber-50 text-amber-700 dark:bg-amber-500/12 dark:text-amber-200",
-    cyan: "bg-cyan-50 text-cyan-700 dark:bg-cyan-500/12 dark:text-cyan-200",
-    slate: "bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-200",
+function ActionQueueItem({
+  item,
+}: {
+  item: {
+    label: string;
+    value: string;
+    detail: string;
+    href: string;
+    icon: LucideIcon;
+    tone: "amber" | "rose" | "sky";
   };
+}) {
+  const toneClass: Record<"amber" | "rose" | "sky", string> = {
+    amber: "bg-amber-50 text-amber-700 dark:bg-amber-500/12 dark:text-amber-200",
+    rose: "bg-rose-50 text-rose-700 dark:bg-rose-500/12 dark:text-rose-200",
+    sky: "bg-sky-50 text-sky-700 dark:bg-sky-500/12 dark:text-sky-200",
+  };
+  const Icon = item.icon;
 
   return (
-    <div className="rounded-2xl border border-[var(--admin-line-soft)] bg-[var(--admin-surface)] p-3 shadow-[var(--admin-shadow-soft)] sm:p-3.5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-            {label}
-          </div>
-          <div className="mt-1.5 text-xl font-semibold tracking-[-0.02em] text-slate-950 dark:text-white sm:text-2xl">
-            {loading ? "..." : value}
-          </div>
-          {hint ? (
-            <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-              {hint}
-            </div>
-          ) : null}
+    <Link
+      href={item.href}
+      prefetch={false}
+      className="group flex items-center gap-3 rounded-xl border border-[var(--admin-line-soft)] bg-[var(--admin-surface-soft)] px-3 py-3 transition hover:border-slate-300 hover:bg-slate-100 dark:hover:border-slate-700 dark:hover:bg-slate-900/60"
+    >
+      <div
+        className={cn(
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+          toneClass[item.tone],
+        )}
+      >
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-slate-950 dark:text-white">
+            {item.label}
+          </span>
+          <span
+            className={cn(
+              "rounded-full px-1.5 py-0.5 text-[11px] font-bold",
+              toneClass[item.tone],
+            )}
+          >
+            {item.value}
+          </span>
         </div>
-        <div
-          className={cn(
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
-            toneClass[tone],
-          )}
-        >
-          <Icon className="h-4 w-4" />
+        <div className="mt-0.5 text-xs leading-5 text-slate-500 dark:text-slate-400">
+          {item.detail}
         </div>
       </div>
-    </div>
+      <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5" />
+    </Link>
   );
 }

@@ -22,6 +22,7 @@ import {
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { DISCOVERY_PUBLIC_ENABLED } from "@/lib/feature-flags";
 import { demoSectors } from "./demos/demo-data";
 import { BOOKINAJA_LOGO_NORMAL_SRC } from "@/lib/brand";
 import { clearAccountSession, clearAdminSession } from "@/lib/tenant-session";
@@ -171,7 +172,9 @@ export default function MarketingLayout({
     { name: "Home", href: "/" },
     { name: "Demo", href: "/demos", children: demoNavLinks },
     { name: "Pricing", href: "/pricing" },
-    { name: "Jelajah", href: "/discovery" },
+    ...(DISCOVERY_PUBLIC_ENABLED
+      ? [{ name: "Jelajah", href: "/discovery" }]
+      : []),
   ];
 
   return (
@@ -619,14 +622,16 @@ export default function MarketingLayout({
                       Demo Bisnis
                     </Link>
                   </li>
-                  <li>
-                    <Link
-                      href="/discovery"
-                      className="hover:text-blue-500 transition-colors"
-                    >
-                      Jelajah Bisnis
-                    </Link>
-                  </li>
+                  {DISCOVERY_PUBLIC_ENABLED ? (
+                    <li>
+                      <Link
+                        href="/discovery"
+                        className="hover:text-blue-500 transition-colors"
+                      >
+                        Jelajah Bisnis
+                      </Link>
+                    </li>
+                  ) : null}
                   <li>
                     <Link
                       href="/faq"

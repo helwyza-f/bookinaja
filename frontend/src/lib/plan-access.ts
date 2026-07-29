@@ -29,7 +29,8 @@ export type TenantFeatureKey =
   | "growth_analytics"
   | "multi_outlet_enabled"
   | "advanced_automation_controls"
-  | "franchise_visibility";
+  | "franchise_visibility"
+  | "smart_device";
 
 type FeatureMeta = {
   label: string;
@@ -52,6 +53,7 @@ const PLAN_FEATURES: Record<BillingPlanKey, TenantFeatureKey[]> = {
     "pricing_rules_flexible",
     "advanced_analytics",
     "whatsapp_blast",
+    "smart_device",
   ],
   scale: [
     "advanced_receipt_branding",
@@ -74,6 +76,7 @@ const PLAN_FEATURES: Record<BillingPlanKey, TenantFeatureKey[]> = {
     "multi_outlet_enabled",
     "advanced_automation_controls",
     "franchise_visibility",
+    "smart_device",
   ],
 };
 
@@ -179,6 +182,11 @@ const FEATURE_META: Record<TenantFeatureKey, FeatureMeta> = {
     label: "Franchise Visibility",
     shortLabel: "Franchise",
     description: "Visibilitas franchise dan struktur tenant yang lebih besar.",
+  },
+  smart_device: {
+    label: "Smart Point",
+    shortLabel: "Smart Point",
+    description: "Integrasi device dan kontrol Smart Point untuk otomasi unit.",
   },
 };
 

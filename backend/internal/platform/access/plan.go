@@ -51,6 +51,7 @@ const (
 	FeatureMultiOutletEnabled        Feature = "multi_outlet_enabled"
 	FeatureAdvancedAutomation        Feature = "advanced_automation_controls"
 	FeatureFranchiseVisibility       Feature = "franchise_visibility"
+	FeatureSmartDevice               Feature = "smart_device"
 )
 
 var (
@@ -78,6 +79,7 @@ func defaultPlanFeatures() map[BillingPlan]map[Feature]struct{} {
 			FeaturePricingRulesFlexible:      {},
 			FeatureCrmBasic:                  {},
 			FeatureAdvancedAnalytics:         {},
+			FeatureSmartDevice:               {},
 		},
 		PlanScale: {
 			FeatureAdvancedReceiptBranding:   {},
@@ -100,6 +102,7 @@ func defaultPlanFeatures() map[BillingPlan]map[Feature]struct{} {
 			FeatureMultiOutletEnabled:        {},
 			FeatureAdvancedAutomation:        {},
 			FeatureFranchiseVisibility:       {},
+			FeatureSmartDevice:               {},
 		},
 	}
 }

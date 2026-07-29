@@ -269,7 +269,7 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 				adminResources.GET("/:id", middleware.RequirePermission(tenant.PermissionResourcesRead), cfg.ResourceHandler.GetByID)
 			}
 
-			devices := adminArea.Group("/devices")
+			devices := adminArea.Group("/devices", middleware.RequireAnyTenantFeature(cfg.DB, access.FeatureSmartDevice))
 			{
 				devices.GET("/overview", middleware.RequirePermission(tenant.PermissionDevicesRead), cfg.SmartDeviceHandler.Overview)
 				devices.GET("", middleware.RequirePermission(tenant.PermissionDevicesRead), cfg.SmartDeviceHandler.List)
