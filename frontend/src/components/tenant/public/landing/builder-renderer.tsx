@@ -333,7 +333,7 @@ function renderSection({
                   resources.map((resource) => {
                     const bestPrice = getBestPrice(resource);
                     const isTimed = String(resource.operating_mode || "timed").toLowerCase() === "timed";
-                    const href = isTimed ? `/bookings/${resource.id}` : `/orders/${resource.id}`;
+                    const href = `/resources/${resource.id}`;
                     const summary =
                       resource.description ||
                       (isTimed

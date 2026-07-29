@@ -36,7 +36,9 @@ export function ResourceCard({
   const priceUnitLabel = bestPrice?.unit || (isDirectSale ? "pcs" : "jam");
   const footerLabel = isDirectSale ? "Harga produk" : "Mulai dari";
   const modeLabel = isDirectSale ? "Produk" : "Booking";
-  const href = isDirectSale ? `/orders/${res.id}` : `/bookings/${res.id}`;
+  const detailHref = `/resources/${res.id}`;
+  const bookHref = isDirectSale ? `/orders/${res.id}` : `/bookings/${res.id}`;
+  const bookLabel = isDirectSale ? "Pesan sekarang" : "Booking sekarang";
   const directSaleDescription =
     res.description || "Pilih produk lalu lanjutkan checkout tanpa perlu memilih slot waktu.";
   const timedDescription =
@@ -57,10 +59,10 @@ export function ResourceCard({
           : "rounded-[1.6rem]";
 
   return (
-    <Link href={href} className="group block h-full">
+    <div className="group relative block h-full">
       <Card
         className={cn(
-          "h-full overflow-hidden p-0 backdrop-blur transition-all duration-300 hover:-translate-y-1",
+          "relative h-full overflow-hidden p-0 backdrop-blur transition-all duration-300 hover:-translate-y-1",
           tone.card,
           cardRadiusClass,
         )}
@@ -101,12 +103,14 @@ export function ResourceCard({
                 </p>
               </div>
 
-              <div
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white"
+              <Link
+                href={bookHref}
+                aria-label={bookLabel}
+                className="relative z-20 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition-transform hover:scale-105"
                 style={{ backgroundColor: primaryColor }}
               >
                 <ChevronRight className="h-5 w-5" />
-              </div>
+              </Link>
             </div>
 
             <div className="mt-auto pt-5">
@@ -135,7 +139,17 @@ export function ResourceCard({
             </div>
           </div>
         </div>
+
+        {/* Stretched link: tapping the card opens the detail page, while the
+            arrow button above (higher z-index) jumps straight to booking. */}
+        <Link
+          href={detailHref}
+          aria-label={`Lihat detail ${res.name}`}
+          className="absolute inset-0 z-10"
+        >
+          <span className="sr-only">Lihat detail {res.name}</span>
+        </Link>
       </Card>
-    </Link>
+    </div>
   );
 }

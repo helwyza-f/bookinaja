@@ -1,6 +1,8 @@
+import { notFound } from "next/navigation";
 import DiscoveryPageClient from "./discovery-page-client";
 import type { DiscoveryFeedResponse } from "@/lib/discovery";
 import type { Metadata } from "next";
+import { DISCOVERY_PUBLIC_ENABLED } from "@/lib/feature-flags";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -28,6 +30,7 @@ async function getInitialDiscoveryFeed(): Promise<DiscoveryFeedResponse | null> 
 }
 
 export default async function DiscoveryPage() {
+  if (!DISCOVERY_PUBLIC_ENABLED) notFound();
   const initialFeed = await getInitialDiscoveryFeed();
   return <DiscoveryPageClient initialFeed={initialFeed} />;
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, Building2, CalendarClock, PlayCircle } from "lucide-react";
 import api from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
@@ -26,8 +26,10 @@ import {
 } from "@/lib/discovery";
 import { getTenantUrl } from "@/lib/tenant";
 import { trackDiscoveryEvent } from "@/lib/discovery-analytics";
+import { DISCOVERY_PUBLIC_ENABLED } from "@/lib/feature-flags";
 
 export default function DiscoverPostDetailPage() {
+  if (!DISCOVERY_PUBLIC_ENABLED) notFound();
   const params = useParams<{ postId: string }>();
   const [data, setData] = useState<DiscoveryPostDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);

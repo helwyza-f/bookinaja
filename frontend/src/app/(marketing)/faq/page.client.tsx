@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DISCOVERY_PUBLIC_ENABLED } from "@/lib/feature-flags";
 import {
   Accordion,
   AccordionContent,
@@ -70,11 +71,13 @@ export default function FAQPage() {
             lihat contoh website bisnis yang sudah terdaftar, buka Jelajah.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/discovery">
-              <Button className="h-12 rounded-2xl bg-blue-600 px-6 font-black uppercase tracking-widest text-white hover:bg-blue-700 shadow-lg shadow-blue-600/20">
-                Buka Jelajah
-              </Button>
-            </Link>
+            {DISCOVERY_PUBLIC_ENABLED ? (
+              <Link href="/discovery">
+                <Button className="h-12 rounded-2xl bg-blue-600 px-6 font-black uppercase tracking-widest text-white hover:bg-blue-700 shadow-lg shadow-blue-600/20">
+                  Buka Jelajah
+                </Button>
+              </Link>
+            ) : null}
             <Link href="/pricing">
               <Button
                 variant="secondary"

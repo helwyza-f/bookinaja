@@ -161,23 +161,6 @@ function priceUnitLabel(value: string) {
   }
 }
 
-function durationHintByPriceUnit(value: string) {
-  switch (value) {
-    case "session":
-      return "Isi durasi dalam menit untuk 1 sesi. Contoh: 120 berarti satu paket ini berlaku 2 jam per sesi.";
-    case "day":
-      return "Isi total menit untuk 1 hari layanan. Contoh: 720 untuk 12 jam, atau 1440 untuk full day.";
-    case "week":
-      return "Isi total menit yang dicakup paket mingguan ini. Cocok kalau durasi paket memang dihitung per minggu.";
-    case "month":
-      return "Isi total menit yang dicakup paket bulanan ini bila memang durasi layanan dibatasi per bulan.";
-    case "year":
-      return "Isi total menit yang dicakup paket tahunan ini bila memang ada kuota durasi per tahun.";
-    default:
-      return "Isi durasi dalam menit untuk 1 jam layanan. Contoh umum: 60 menit untuk per jam, atau 30 menit kalau billing setengah jam.";
-  }
-}
-
 function defaultDurationByPriceUnit(value: string) {
   switch (value) {
     case "day":
@@ -189,10 +172,30 @@ function defaultDurationByPriceUnit(value: string) {
     case "year":
       return "525600";
     case "session":
-      return "";
+      return "60";
     default:
       return "60";
   }
+}
+
+// A duration *choice* only makes sense for "per sesi", where the owner defines
+// how long one session runs. For "per jam"/"per hari" the unit is fixed by
+// definition (1 jam / 1 hari) and the customer picks the quantity at booking —
+// otherwise the "/jam" label and price would contradict the real slot length.
+const sessionDurationPresets: { label: string; minutes: number }[] = [
+  { label: "1 jam", minutes: 60 },
+  { label: "1,5 jam", minutes: 90 },
+  { label: "2 jam", minutes: 120 },
+  { label: "3 jam", minutes: 180 },
+];
+
+function humanizeDuration(minutesValue: number) {
+  if (!minutesValue || minutesValue <= 0) return "";
+  const hours = Math.floor(minutesValue / 60);
+  const minutes = minutesValue % 60;
+  if (hours === 0) return `${minutes} menit`;
+  if (minutes === 0) return `${hours} jam`;
+  return `${hours} jam ${minutes} menit`;
 }
 
 function nextUrl(step: string, workspaceId: string, slug?: string | null, signupIntent?: SignupIntent) {
@@ -493,6 +496,7 @@ function ResourceStep(props: {
   const workspaceId = searchParams.get("workspace");
   const [uploadingCover, setUploadingCover] = useState(false);
   const [activeHint, setActiveHint] = useState<string | null>(null);
+  const [customDuration, setCustomDuration] = useState(false);
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
@@ -505,6 +509,25 @@ function ResourceStep(props: {
     document.addEventListener("pointerdown", handlePointerDown, true);
     return () => document.removeEventListener("pointerdown", handlePointerDown, true);
   }, []);
+
+  // Per jam / per hari have a fixed unit length by definition — pin the
+  // canonical value so it can never contradict the "/jam" or "/hari" label.
+  // For per sesi, if the value doesn't map to a preset chip, reveal the custom
+  // minutes input so the value stays visible and editable.
+  useEffect(() => {
+    if (props.priceUnit !== "session") {
+      setCustomDuration(false);
+      const canonical = defaultDurationByPriceUnit(props.priceUnit);
+      if (props.duration !== canonical) props.setDuration(canonical);
+      return;
+    }
+    if (!props.duration) return;
+    const matches = sessionDurationPresets.some(
+      (preset) => preset.minutes === Number(props.duration),
+    );
+    if (!matches) setCustomDuration(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.duration, props.priceUnit]);
 
   async function uploadCover(file: File | null) {
     if (!file || !workspaceId) return;
@@ -530,16 +553,26 @@ function ResourceStep(props: {
   }
 
   function selectPriceUnit(nextValue: string) {
+    const nextDuration = defaultDurationByPriceUnit(nextValue);
     props.setPriceUnit(nextValue);
-    props.setDuration(defaultDurationByPriceUnit(nextValue));
-    setActiveHint(nextValue === "session" ? "duration" : "price_unit");
-    if (nextValue === "hour") {
-      toast.success("Durasi paket otomatis diisi 60 menit untuk pola per jam.");
-    } else if (nextValue === "day") {
-      toast.success("Durasi paket otomatis diisi 1440 menit untuk pola per hari.");
+    props.setDuration(nextDuration);
+    setCustomDuration(false);
+    setActiveHint("duration");
+    if (nextValue === "session") {
+      toast.success(
+        `Durasi sesi default: ${humanizeDuration(Number(nextDuration))}. Bisa diubah di bawah.`,
+      );
     } else {
-      toast.message("Isi sendiri durasi sesi dalam menit.");
+      const unitWord = nextValue === "day" ? "hari" : "jam";
+      toast.success(
+        `Paket per ${unitWord}: 1 ${unitWord} per unit. Customer pilih jumlahnya saat booking.`,
+      );
     }
+  }
+
+  function selectDurationPreset(minutes: number) {
+    setCustomDuration(false);
+    props.setDuration(String(minutes));
   }
 
   function handleDurationChange(nextValue: string) {
@@ -637,7 +670,7 @@ function ResourceStep(props: {
             <div className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">1. Pilih pola jual</div>
             <GuidedField
               label="Satuan harga"
-              hint="Pilih cara kamu menjual paket ini: per jam, per sesi, atau per hari. Durasi di bawah tetap diisi dalam menit."
+              hint="Pilih cara kamu menjual paket ini: per jam, per sesi, atau per hari. Durasinya nanti tinggal pilih dari opsi yang tersedia."
               activeHint={activeHint}
               onFocus={() => setActiveHint("price_unit")}
               hintKey="price_unit"
@@ -668,9 +701,8 @@ function ResourceStep(props: {
               </div>
             </GuidedField>
             <div className="mt-3 rounded-xl bg-white px-3 py-2 text-xs leading-5 text-slate-600">
-              Per jam otomatis mengisi <span className="font-semibold text-slate-950">60 menit</span>.
-              Per hari otomatis mengisi <span className="font-semibold text-slate-950">1440 menit</span>.
-              {props.priceUnit === "session" ? " Untuk per sesi, isi sendiri durasinya." : ""}
+              Setelah pilih pola jual, tinggal pilih durasi paket dari opsi yang tersedia. Butuh durasi lain? Ada tombol
+              <span className="font-semibold text-slate-950"> Durasi lain</span> untuk atur sendiri.
             </div>
           </div>
 
@@ -691,18 +723,74 @@ function ResourceStep(props: {
                 />
               </GuidedField>
               <GuidedField
-                label="Durasi paket (menit)"
-                hint={durationHintByPriceUnit(props.priceUnit)}
+                label={props.priceUnit === "session" ? "Durasi 1 sesi" : "Durasi paket"}
+                hint={
+                  props.priceUnit === "session"
+                    ? "Tentukan berapa lama satu sesi berlangsung. Harga di bawah dihitung per sesi ini."
+                    : "Untuk pola per jam / per hari, panjang 1 unit sudah tetap. Customer memilih jumlahnya saat booking."
+                }
                 activeHint={activeHint}
                 onFocus={() => setActiveHint("duration")}
                 hintKey="duration"
               >
-                <OnboardingInput
-                  value={props.duration}
-                  onChange={(event) => handleDurationChange(event.target.value)}
-                  inputMode="numeric"
-                  placeholder={props.priceUnit === "day" ? "1440" : props.priceUnit === "hour" ? "60" : "90"}
-                />
+                {props.priceUnit === "session" ? (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {sessionDurationPresets.map((preset) => {
+                        const active = !customDuration && Number(props.duration) === preset.minutes;
+                        return (
+                          <button
+                            key={preset.minutes}
+                            type="button"
+                            onClick={() => selectDurationPreset(preset.minutes)}
+                            className={`rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
+                              active
+                                ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm"
+                                : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/40"
+                            }`}
+                          >
+                            {preset.label}
+                          </button>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        onClick={() => setCustomDuration(true)}
+                        className={`rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
+                          customDuration
+                            ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/40"
+                        }`}
+                      >
+                        Durasi lain
+                      </button>
+                    </div>
+                    {customDuration ? (
+                      <div className="flex items-center gap-2">
+                        <OnboardingInput
+                          value={props.duration}
+                          onChange={(event) => handleDurationChange(event.target.value)}
+                          inputMode="numeric"
+                          placeholder="90"
+                          className="h-11 max-w-[130px]"
+                        />
+                        <span className="text-sm text-slate-500">
+                          menit
+                          {props.duration ? ` · ${humanizeDuration(Number(props.duration))}` : ""}
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <div className="text-sm font-semibold text-slate-950">
+                      1 {props.priceUnit === "day" ? "hari" : "jam"} per unit
+                    </div>
+                    <div className="mt-1 text-xs leading-5 text-slate-500">
+                      Customer tinggal pilih berapa {props.priceUnit === "day" ? "hari" : "jam"} saat booking, harganya dikali otomatis.
+                    </div>
+                  </div>
+                )}
               </GuidedField>
             </div>
             <GuidedField
@@ -725,27 +813,14 @@ function ResourceStep(props: {
               </div>
             </GuidedField>
             <div className="mt-4 rounded-xl bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
-              Semua durasi tetap diisi dalam menit. Sekarang kamu memilih pola
-              <span className="font-semibold text-slate-950"> {priceUnitLabel(props.priceUnit)}</span>, jadi preview customer akan membaca harga sebagai
-              <span className="font-semibold text-slate-950"> Rp{Number(props.price || 0).toLocaleString("id-ID")} / {priceUnitLabel(props.priceUnit)}</span>.
-              {props.priceUnit === "session" ? (
+              Pola jual kamu <span className="font-semibold text-slate-950">{priceUnitLabel(props.priceUnit)}</span>, jadi preview customer membaca harga sebagai
+              <span className="font-semibold text-slate-950"> Rp{Number(props.price || 0).toLocaleString("id-ID")} / {priceUnitLabel(props.priceUnit)}</span>
+              {props.priceUnit === "session" && props.duration ? (
                 <>
-                  {" "}Untuk
-                  <span className="font-semibold text-slate-950"> per sesi</span>, isi sendiri berapa menit durasi 1 sesi kamu.
+                  {" "}dengan <span className="font-semibold text-slate-950">1 sesi = {humanizeDuration(Number(props.duration))}</span>
                 </>
               ) : null}
-              {props.priceUnit === "hour" ? (
-                <>
-                  {" "}Durasi ini menentukan panjang 1 slot layanan. Rekomendasi paket per jam:
-                  <span className="font-semibold text-slate-950"> 60 menit</span>.
-                </>
-              ) : null}
-              {props.priceUnit === "day" ? (
-                <>
-                  {" "}Durasi ini menentukan cakupan 1 paket harian. Untuk full day, gunakan
-                  <span className="font-semibold text-slate-950"> 1440 menit</span>.
-                </>
-              ) : null}
+              .
             </div>
           </div>
         </section>
@@ -788,7 +863,9 @@ function ResourceStep(props: {
                   {props.priceName || "Nama paket utama"}
                 </div>
                 <div className="mt-2 text-[13px] text-slate-500">
-                  Durasi {props.duration || "60"} menit
+                  {props.priceUnit === "session"
+                    ? `1 sesi = ${humanizeDuration(Number(props.duration || "60"))}`
+                    : `Customer pilih jumlah ${priceUnitLabel(props.priceUnit)} saat booking`}
                 </div>
               </div>
             </div>

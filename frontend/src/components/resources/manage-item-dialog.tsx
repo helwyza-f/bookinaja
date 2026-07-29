@@ -13,13 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Zap,
   PlusCircle,
   Camera,
@@ -31,17 +24,35 @@ import { cn } from "@/lib/utils";
 import api from "@/lib/api";
 import { toast } from "sonner";
 
-const TIME_UNIT_OPTIONS = [
-  { value: "hour", label: "Per Jam", minutes: 60 },
-  { value: "session", label: "Per Sesi", minutes: 60 },
-  { value: "day", label: "Per Hari", minutes: 1440 },
-  { value: "week", label: "Per Minggu", minutes: 10080 },
-  { value: "month", label: "Per Bulan", minutes: 43200 },
-  { value: "year", label: "Per Tahun", minutes: 525600 },
+// Pola jual — mirrors the onboarding resource step so both surfaces speak the
+// same language (per jam / per sesi / per hari), no raw minutes for the owner.
+const PRICE_UNIT_CARDS = [
+  ["hour", "Per jam", "PC, PS, room, court"],
+  ["session", "Per sesi", "Studio, slot tetap"],
+  ["day", "Per hari", "Sewa harian / full day"],
+] as const;
+
+const SESSION_DURATION_PRESETS = [
+  { label: "1 jam", minutes: 60 },
+  { label: "1,5 jam", minutes: 90 },
+  { label: "2 jam", minutes: 120 },
+  { label: "3 jam", minutes: 180 },
 ];
 
-const getUnitMinutes = (unit: string) =>
-  TIME_UNIT_OPTIONS.find((option) => option.value === unit)?.minutes || 60;
+function defaultDurationForUnit(unit: string) {
+  if (unit === "day") return 1440;
+  return 60; // hour + session
+}
+
+function humanizeDuration(minutesValue: number) {
+  const total = Number(minutesValue || 0);
+  if (total <= 0) return "";
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  if (hours === 0) return `${minutes} menit`;
+  if (minutes === 0) return `${hours} jam`;
+  return `${hours} jam ${minutes} menit`;
+}
 
 interface ManageItemDialogProps {
   open: boolean;
@@ -82,6 +93,7 @@ export function ManageItemDialog({
   const [itemType, setItemType] = useState("main"); // "main" atau "addon"
   const [priceUnit, setPriceUnit] = useState("hour");
   const [unitDuration, setUnitDuration] = useState<number>(60);
+  const [customDuration, setCustomDuration] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const formatIDR = (val: number) => new Intl.NumberFormat("id-ID").format(val);
@@ -93,6 +105,7 @@ export function ManageItemDialog({
     setItemType("main");
     setPriceUnit(operatingMode === "direct_sale" ? "pcs" : "hour");
     setUnitDuration(operatingMode === "direct_sale" ? 0 : 60);
+    setCustomDuration(false);
   }, [operatingMode]);
 
   useEffect(() => {
@@ -104,12 +117,25 @@ export function ManageItemDialog({
       // Mapping dari backend type ke UI state
       setItemType(editingItem.item_type === "main_option" ? "main" : "add_on");
       const defaultUnit = operatingMode === "direct_sale" ? "pcs" : "hour";
-      setPriceUnit(editingItem.price_unit || defaultUnit);
-      setUnitDuration(editingItem.unit_duration || (defaultUnit === "pcs" ? 0 : 60));
+      const nextUnit = editingItem.price_unit || defaultUnit;
+      const nextDuration =
+        editingItem.unit_duration || (defaultUnit === "pcs" ? 0 : 60);
+      setPriceUnit(nextUnit);
+      setUnitDuration(nextDuration);
+      setCustomDuration(
+        nextUnit === "session" &&
+          !SESSION_DURATION_PRESETS.some((preset) => preset.minutes === nextDuration),
+      );
     } else {
       resetForm();
     }
   }, [editingItem, open, operatingMode, resetForm]);
+
+  function selectPriceUnit(nextUnit: string) {
+    setPriceUnit(nextUnit);
+    setUnitDuration(defaultDurationForUnit(nextUnit));
+    setCustomDuration(false);
+  }
 
   const handlePriceChange = (val: string) => {
     const numeric = parseInt(val.replace(/\D/g, "")) || 0;
@@ -141,8 +167,10 @@ export function ManageItemDialog({
       }
       onSuccess();
       onOpenChange(false);
-    } catch {
-      toast.error("Gagal menyimpan data");
+    } catch (error) {
+      const message = (error as { response?: { data?: { error?: string } } })
+        ?.response?.data?.error;
+      toast.error(message || "Gagal menyimpan data");
     } finally {
       setLoading(false);
     }
@@ -228,6 +256,7 @@ export function ManageItemDialog({
                 const mainUnit = operatingMode === "direct_sale" ? "pcs" : "hour";
                 setPriceUnit(v === "main" ? mainUnit : "pcs");
                 setUnitDuration(v === "main" ? (mainUnit === "pcs" ? 0 : 60) : 0);
+                setCustomDuration(false);
               }}
               className="grid grid-cols-2 gap-2.5"
             >
@@ -300,87 +329,137 @@ export function ManageItemDialog({
             />
           </div>
 
-          {/* HARGA & SATUAN */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 italic">
-                HARGA (RP)
-              </Label>
-              <Input
-                value={displayPrice}
-                onChange={(e) => handlePriceChange(e.target.value)}
-                placeholder="0"
-                className="h-11 rounded-xl font-black bg-slate-50 dark:bg-slate-900 border-none shadow-inner text-base"
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 italic">
-                METODE BILLING
-              </Label>
-              <Select
-                value={priceUnit}
-                onValueChange={(v) => {
-                  setPriceUnit(v);
-                  if (v !== "session") setUnitDuration(getUnitMinutes(v));
-                }}
-              >
-                <SelectTrigger className="h-11 rounded-xl bg-slate-50 dark:bg-slate-900 border-none font-bold text-[10px] uppercase italic">
-                  <SelectValue placeholder="Satuan" />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl font-bold uppercase">
-                  {itemType === "main" ? (
-                    <>
-                      {operatingMode === "direct_sale" ? (
-                        <SelectItem value="pcs">Per Pcs / Unit</SelectItem>
-                      ) : (
-                        <>
-                          {TIME_UNIT_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </>
-                      )}
-                    </>
-                  ) : (
-                    <SelectItem value="pcs">Per Pcs / Unit</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* HARGA */}
+          <div className="space-y-1.5">
+            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 italic">
+              HARGA (RP)
+            </Label>
+            <Input
+              value={displayPrice}
+              onChange={(e) => handlePriceChange(e.target.value)}
+              placeholder="0"
+              className="h-11 rounded-xl font-black bg-slate-50 dark:bg-slate-900 border-none shadow-inner text-base"
+              required
+            />
           </div>
 
-          {/* DURASI SESI (Dinamis) */}
-          {itemType === "main" && operatingMode !== "direct_sale" && priceUnit === "session" && (
-            <div className="space-y-1.5 animate-in slide-in-from-top-2">
-              <Label className="text-[9px] font-black uppercase tracking-widest text-blue-600 px-1 italic">
-                DURASI PER SESI (MENIT)
+          {/* POLA JUAL + DURASI (main + timed) */}
+          {itemType === "main" && operatingMode !== "direct_sale" ? (
+            <div className="space-y-3">
+              <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 italic">
+                POLA JUAL
               </Label>
-              <Input
-                type="number"
-                value={unitDuration}
-                onChange={(e) => setUnitDuration(Number(e.target.value))}
-                className="h-11 rounded-xl font-black bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900 text-base"
-                required
-              />
-            </div>
-          )}
+              <div className="grid grid-cols-3 gap-2">
+                {PRICE_UNIT_CARDS.map(([value, label, desc]) => {
+                  const active = priceUnit === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => selectPriceUnit(value)}
+                      className={cn(
+                        "rounded-xl border-2 px-3 py-2.5 text-left transition-all",
+                        active
+                          ? "border-blue-600 bg-blue-50 dark:bg-blue-900/20"
+                          : "border-slate-100 bg-slate-50 hover:border-blue-200 dark:border-slate-800 dark:bg-slate-900",
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "text-xs font-black uppercase leading-none",
+                          active ? "text-blue-700 dark:text-blue-300" : "text-slate-700 dark:text-slate-200",
+                        )}
+                      >
+                        {label}
+                      </div>
+                      <div className="mt-1 text-[9px] font-semibold leading-tight text-slate-400">
+                        {desc}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
 
-          {itemType === "main" && operatingMode !== "direct_sale" && priceUnit !== "session" && (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-[10px] font-semibold text-slate-500 dark:border-white/10 dark:bg-white/5">
-              Durasi otomatis: {unitDuration.toLocaleString("id-ID")} menit per{" "}
-              {TIME_UNIT_OPTIONS.find((option) => option.value === priceUnit)
-                ?.label.toLowerCase()
-                .replace("per ", "") || "unit"}
-              .
+              {priceUnit === "session" ? (
+                <div className="space-y-2 animate-in slide-in-from-top-2">
+                  <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1 italic">
+                    DURASI 1 SESI
+                  </Label>
+                  <div className="flex flex-wrap gap-2">
+                    {SESSION_DURATION_PRESETS.map((preset) => {
+                      const active = !customDuration && unitDuration === preset.minutes;
+                      return (
+                        <button
+                          key={preset.minutes}
+                          type="button"
+                          onClick={() => {
+                            setCustomDuration(false);
+                            setUnitDuration(preset.minutes);
+                          }}
+                          className={cn(
+                            "rounded-xl border-2 px-3.5 py-2 text-xs font-bold transition-all",
+                            active
+                              ? "border-blue-600 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
+                              : "border-slate-100 bg-slate-50 text-slate-600 hover:border-blue-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300",
+                          )}
+                        >
+                          {preset.label}
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => setCustomDuration(true)}
+                      className={cn(
+                        "rounded-xl border-2 px-3.5 py-2 text-xs font-bold transition-all",
+                        customDuration
+                          ? "border-blue-600 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
+                          : "border-slate-100 bg-slate-50 text-slate-600 hover:border-blue-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300",
+                      )}
+                    >
+                      Durasi lain
+                    </button>
+                  </div>
+                  {customDuration ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={unitDuration || ""}
+                        onChange={(e) => setUnitDuration(Number(e.target.value) || 0)}
+                        placeholder="90"
+                        className="h-10 w-28 rounded-xl font-bold bg-slate-50 dark:bg-slate-900 border-none text-sm"
+                      />
+                      <span className="text-xs font-medium text-slate-500">
+                        menit
+                        {unitDuration ? ` · ${humanizeDuration(unitDuration)}` : ""}
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[11px] font-medium text-slate-500 dark:border-white/10 dark:bg-white/5">
+                  <span className="font-bold text-slate-700 dark:text-slate-200">
+                    1 {priceUnit === "day" ? "hari" : "jam"} per unit.
+                  </span>{" "}
+                  Customer memilih jumlahnya saat booking.
+                </div>
+              )}
             </div>
-          )}
+          ) : null}
 
+          {/* DIRECT SALE (main) */}
           {itemType === "main" && operatingMode === "direct_sale" && (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-[10px] font-semibold text-slate-500 dark:border-white/10 dark:bg-white/5">
-              Resource direct sale tidak memakai durasi sesi. Item utama akan
-              langsung masuk katalog POS sebagai item jual.
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[11px] font-medium text-slate-500 dark:border-white/10 dark:bg-white/5">
+              Produk direct sale dijual per unit, tanpa jadwal. Langsung masuk
+              katalog POS sebagai item jual.
+            </div>
+          )}
+
+          {/* ADDON note */}
+          {itemType === "addon" && (
+            <div className="rounded-xl border border-orange-100 bg-orange-50/60 px-3 py-2.5 text-[11px] font-medium text-orange-700 dark:border-orange-500/20 dark:bg-orange-900/10 dark:text-orange-200">
+              Layanan tambahan dihitung per unit dan bisa dipilih customer saat
+              booking.
             </div>
           )}
 
