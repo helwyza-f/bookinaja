@@ -173,7 +173,7 @@ export default function MarketingLayout({
     { name: "Demo", href: "/demos", children: demoNavLinks },
     { name: "Pricing", href: "/pricing" },
     ...(DISCOVERY_PUBLIC_ENABLED
-      ? [{ name: "Jelajah", href: "/discovery" }]
+      ? [{ name: "Jelajah", href: "/jelajah" }]
       : []),
   ];
 
@@ -625,7 +625,7 @@ export default function MarketingLayout({
                   {DISCOVERY_PUBLIC_ENABLED ? (
                     <li>
                       <Link
-                        href="/discovery"
+                        href="/jelajah"
                         className="hover:text-blue-500 transition-colors"
                       >
                         Jelajah Bisnis

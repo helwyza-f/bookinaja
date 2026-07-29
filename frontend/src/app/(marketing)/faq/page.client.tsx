@@ -72,7 +72,7 @@ export default function FAQPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             {DISCOVERY_PUBLIC_ENABLED ? (
-              <Link href="/discovery">
+              <Link href="/jelajah">
                 <Button className="h-12 rounded-2xl bg-blue-600 px-6 font-black uppercase tracking-widest text-white hover:bg-blue-700 shadow-lg shadow-blue-600/20">
                   Buka Jelajah
                 </Button>
@@ -135,4 +135,3 @@ export default function FAQPage() {
     </div>
   );
 }
-
