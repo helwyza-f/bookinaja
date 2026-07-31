@@ -50,6 +50,7 @@ type ResourceDetail = {
   category?: string;
   operating_mode?: string;
   description?: string;
+  about?: string;
   image_url?: string;
   gallery?: string[];
   items?: ResourceItemConfig[];
@@ -79,6 +80,7 @@ export default function ResourceDetailPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ResourceItemConfig | null>(null);
   const [description, setDescription] = useState("");
+  const [about, setAbout] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [gallery, setGallery] = useState<string[]>([]);
   const [operatingMode, setOperatingMode] = useState("timed");
@@ -99,6 +101,7 @@ export default function ResourceDetailPage() {
               setResource(found);
               setBusinessCategory(parsed.business_category || "");
               setDescription(found.description || "");
+              setAbout(found.about || "");
               setImageUrl(found.image_url || "");
               setGallery(found.gallery || []);
               setOperatingMode(found.operating_mode || "timed");
@@ -111,6 +114,7 @@ export default function ResourceDetailPage() {
         const data = res.data;
         setResource(data);
         setDescription(data.description || "");
+        setAbout(data.about || "");
         setImageUrl(data.image_url || "");
         setGallery(data.gallery || []);
         setOperatingMode(data.operating_mode || "timed");
@@ -157,6 +161,7 @@ export default function ResourceDetailPage() {
       await api.put(`/resources-all/${resourceId}`, {
         ...resource,
         description,
+        about,
         image_url: imageUrl,
         gallery,
         operating_mode: operatingMode,
@@ -380,12 +385,38 @@ export default function ResourceDetailPage() {
                     {operatingModeMeta.description}
                   </p>
                 </div>
-                <Textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="min-h-[100px] rounded-lg border-slate-200 bg-slate-50 p-4 text-sm leading-relaxed dark:border-white/10 dark:bg-slate-800/50"
-                  placeholder="Tulis deskripsi singkat resource ini..."
-                />
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Fasilitas
+                  </div>
+                  <Textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="min-h-[80px] rounded-lg border-slate-200 bg-slate-50 p-4 text-sm leading-relaxed dark:border-white/10 dark:bg-slate-800/50"
+                    placeholder="Contoh: Netflix, PS5 Pro & PS4, Dolby Speaker, TV 4K 30 inch"
+                  />
+                  <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                    Pisahkan tiap fasilitas dengan koma. Tampil sebagai daftar
+                    dan tagline singkat di halaman unit.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Tentang unit ini
+                    <span className="ml-1 font-normal text-slate-400">
+                      (opsional)
+                    </span>
+                  </div>
+                  <Textarea
+                    value={about}
+                    onChange={(e) => setAbout(e.target.value)}
+                    className="min-h-[100px] rounded-lg border-slate-200 bg-slate-50 p-4 text-sm leading-relaxed dark:border-white/10 dark:bg-slate-800/50"
+                    placeholder="Ceritakan suasana, keunggulan, atau hal yang bikin unit ini spesial..."
+                  />
+                  <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                    Deskripsi naratif, bukan daftar. Kosongkan kalau belum perlu.
+                  </p>
+                </div>
                 <BulkImageUpload
                   values={gallery}
                   onChange={setGallery}

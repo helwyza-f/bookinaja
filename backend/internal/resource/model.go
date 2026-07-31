@@ -15,6 +15,7 @@ type Resource struct {
 	Category      string         `db:"category" json:"category"`
 	OperatingMode string         `db:"operating_mode" json:"operating_mode"`
 	Description   string         `db:"description" json:"description"`
+	About         string         `db:"about" json:"about"`
 	ImageURL      string         `db:"image_url" json:"image_url"`
 	Gallery       pq.StringArray `db:"gallery" json:"gallery"`
 	Status        string         `db:"status" json:"status"`

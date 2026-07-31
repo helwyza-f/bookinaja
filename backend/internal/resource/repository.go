@@ -571,11 +571,11 @@ func (r *Repository) ListDeviceMapByTenant(ctx context.Context, tenantID uuid.UU
 func (r *Repository) Create(ctx context.Context, res Resource) (*Resource, error) {
 	query := `
         INSERT INTO resources (
-            id, tenant_id, name, category, description, 
+            id, tenant_id, name, category, description, about,
             operating_mode, image_url, gallery, status, metadata
-        ) 
+        )
         VALUES (
-            :id, :tenant_id, :name, :category, :description, 
+            :id, :tenant_id, :name, :category, :description, :about,
             :operating_mode, :image_url, :gallery, :status, :metadata
         )`
 	_, err := r.db.NamedExecContext(ctx, query, res)
@@ -588,9 +588,10 @@ func (r *Repository) Update(ctx context.Context, res Resource) error {
 	query := `
         UPDATE resources 
         SET 
-            name = :name, 
-            category = :category, 
-            description = :description, 
+            name = :name,
+            category = :category,
+            description = :description,
+            about = :about,
             operating_mode = :operating_mode,
             image_url = :image_url, 
             gallery = :gallery, 
@@ -693,6 +694,7 @@ func (r *Repository) GetOneWithItems(ctx context.Context, id uuid.UUID) (*Resour
 			r.category,
 			r.operating_mode,
 			r.description,
+			COALESCE(r.about, '') AS about,
 			r.image_url,
 			r.gallery,
 			r.status,

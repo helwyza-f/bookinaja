@@ -69,6 +69,7 @@ func (h *Handler) Create(c *gin.Context) {
 		Name          string `json:"name" binding:"required"`
 		Category      string `json:"category"`
 		Description   string `json:"description"`
+		About         string `json:"about"`
 		ImageURL      string `json:"image_url"`
 		OperatingMode string `json:"operating_mode"`
 	}
@@ -84,6 +85,7 @@ func (h *Handler) Create(c *gin.Context) {
 		req.Name,
 		req.Category,
 		req.Description,
+		req.About,
 		req.ImageURL,
 		req.OperatingMode,
 	)

@@ -1067,7 +1067,7 @@ function getSectionAnchorId(sectionId: string) {
   return `landing-section-${sectionId}`;
 }
 
-function getPreviewFontStyle(fontStyle?: string) {
+export function getPreviewFontStyle(fontStyle?: string) {
   switch (fontStyle) {
     case "elegant":
       return { className: "font-serif", style: { fontFamily: "var(--font-plus-jakarta)" } };

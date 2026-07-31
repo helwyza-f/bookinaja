@@ -8,6 +8,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
+  Check,
   Clock,
   ImageIcon,
   MapPin,
@@ -25,6 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useTenant } from "@/context/tenant-context";
 import { TenantFooter } from "@/components/tenant/public/landing/footer";
 import {
+  getPreviewFontStyle,
   getPreviewSurfaceClass,
   getThemeVisuals,
 } from "@/components/tenant/public/landing/builder-renderer";
@@ -46,6 +48,7 @@ type ResourceDetail = {
   name: string;
   category?: string;
   description?: string;
+  about?: string;
   image_url?: string;
   gallery?: string[];
   operating_mode?: string;
@@ -79,6 +82,18 @@ function humanizeDuration(minutesValue?: number) {
   if (hours === 0) return `${minutes} menit`;
   if (minutes === 0) return `${hours} jam`;
   return `${hours} jam ${minutes} menit`;
+}
+
+// Deteksi apakah deskripsi sebenarnya daftar fasilitas gaya "A, B, C"
+// (dipisah koma, tanpa kalimat berakhiran titik) — bukan paragraf naratif.
+function parseFeatureList(description?: string): string[] {
+  const raw = String(description || "").trim();
+  if (!raw || raw.includes(".")) return [];
+  const parts = raw
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return parts.length >= 2 ? parts : [];
 }
 
 function isMainItem(item: ResourceItem) {
@@ -124,9 +139,20 @@ export default function ResourceDetailPage() {
     () => getPreviewSurfaceClass(activeTheme),
     [activeTheme],
   );
+  const fontStyle = useMemo(
+    () => getPreviewFontStyle(activeTheme.font_style),
+    [activeTheme],
+  );
 
   const isDirectSale =
     String(resource?.operating_mode || "timed").toLowerCase() === "direct_sale";
+
+  const features = useMemo(
+    () => parseFeatureList(resource?.description),
+    [resource?.description],
+  );
+
+  const aboutText = String(resource?.about || "").trim();
 
   const mainItems = useMemo(
     () => (resource?.items || []).filter(isMainItem),
@@ -168,9 +194,11 @@ export default function ResourceDetailPage() {
   return (
     <div
       className={cn(
-        "min-h-screen pb-28 font-plus-jakarta transition-colors duration-500 md:pb-16",
+        "min-h-screen pb-28 transition-colors duration-500 md:pb-16",
+        fontStyle.className,
         surfaceClass,
       )}
+      style={fontStyle.style}
     >
       {/* HERO */}
       <header className="relative h-[46vh] min-h-[320px] w-full overflow-hidden">
@@ -226,7 +254,7 @@ export default function ResourceDetailPage() {
           {/* GALLERY */}
           {galleryImages.length > 1 ? (
             <section className="space-y-4">
-              <SectionLabel themeVisuals={themeVisuals} eyebrow="Galeri" title="Lihat lebih dekat" />
+              <SectionLabel themeVisuals={themeVisuals} title="Galeri" />
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {galleryImages.map((image, index) => (
                   <button
@@ -250,21 +278,55 @@ export default function ResourceDetailPage() {
             </section>
           ) : null}
 
-          {/* ABOUT */}
-          <section className="space-y-4">
-            <SectionLabel themeVisuals={themeVisuals} eyebrow="Tentang" title="Tentang unit ini" />
-            <p className={cn("text-[15px] leading-8", themeVisuals.bodyClass)}>
-              {resource.description ||
-                "Deskripsi lengkap unit ini belum diisi. Hubungi admin untuk info lebih detail sebelum booking."}
-            </p>
-          </section>
+          {/* TENTANG (naratif) */}
+          {aboutText ? (
+            <section className="space-y-4">
+              <SectionLabel themeVisuals={themeVisuals} title="Tentang unit ini" />
+              <p className={cn("whitespace-pre-line text-[15px] leading-8", themeVisuals.bodyClass)}>
+                {aboutText}
+              </p>
+            </section>
+          ) : null}
+
+          {/* FASILITAS (daftar) */}
+          {features.length ? (
+            <section className="space-y-4">
+              <SectionLabel themeVisuals={themeVisuals} title="Fasilitas" />
+              <ul className="grid gap-2.5 sm:grid-cols-2">
+                {features.map((feature) => (
+                  <li
+                    key={feature}
+                    className={cn("flex items-start gap-2.5 text-[15px] leading-6", themeVisuals.bodyClass)}
+                  >
+                    <span
+                      className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+                      style={{ backgroundColor: `${activeTheme.primary_color}1a` }}
+                    >
+                      <Check className="h-3.5 w-3.5" style={{ color: activeTheme.primary_color }} />
+                    </span>
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {/* Fallback saat belum ada info sama sekali */}
+          {!aboutText && !features.length ? (
+            <section className="space-y-4">
+              <SectionLabel themeVisuals={themeVisuals} title="Tentang unit ini" />
+              <p className={cn("text-[15px] leading-8", themeVisuals.bodyClass)}>
+                {resource.description ||
+                  "Deskripsi lengkap unit ini belum diisi. Hubungi admin untuk info lebih detail sebelum booking."}
+              </p>
+            </section>
+          ) : null}
 
           {/* PACKAGES */}
           {mainItems.length ? (
             <section className="space-y-4">
               <SectionLabel
                 themeVisuals={themeVisuals}
-                eyebrow="Paket"
                 title={isDirectSale ? "Pilihan produk" : "Pilihan paket"}
               />
               <div className="grid gap-3 sm:grid-cols-2">
@@ -332,7 +394,7 @@ export default function ResourceDetailPage() {
 
           {/* INFO */}
           <section className="space-y-4">
-            <SectionLabel themeVisuals={themeVisuals} eyebrow="Info" title="Jam & lokasi" />
+            <SectionLabel themeVisuals={themeVisuals} title="Jam & lokasi" />
             <div className="grid gap-3 sm:grid-cols-2">
               {!isDirectSale && (profile?.open_time || profile?.close_time) ? (
                 <InfoRow
@@ -504,14 +566,16 @@ function SectionLabel({
   title,
 }: {
   themeVisuals: any;
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
 }) {
   return (
     <div className="space-y-1">
-      <div className={cn("text-[11px] font-semibold uppercase tracking-[0.18em]", themeVisuals.eyebrowClass)}>
-        {eyebrow}
-      </div>
+      {eyebrow ? (
+        <div className={cn("text-[11px] font-semibold uppercase tracking-[0.18em]", themeVisuals.eyebrowClass)}>
+          {eyebrow}
+        </div>
+      ) : null}
       <h2 className={cn("text-2xl font-semibold uppercase tracking-tight", themeVisuals.titleClass)}>
         {title}
       </h2>

@@ -35,7 +35,7 @@ func NormalizeOperatingMode(value string) string {
 }
 
 // CreateResource membuat unit utama dengan informasi visual untuk marketing
-func (s *Service) CreateResource(ctx context.Context, tenantID, name, category, description, imageURL, operatingMode string) (*Resource, error) {
+func (s *Service) CreateResource(ctx context.Context, tenantID, name, category, description, about, imageURL, operatingMode string) (*Resource, error) {
 	tID, err := uuid.Parse(tenantID)
 	if err != nil {
 		return nil, err
@@ -51,6 +51,7 @@ func (s *Service) CreateResource(ctx context.Context, tenantID, name, category, 
 		Category:      category,
 		OperatingMode: NormalizeOperatingMode(operatingMode),
 		Description:   description,
+		About:         about,
 		ImageURL:      imageURL,
 		Gallery:       []string{}, // [] bukan null
 		Status:        "available",
