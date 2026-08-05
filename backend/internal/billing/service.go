@@ -61,7 +61,7 @@ func (s *Service) Checkout(ctx context.Context, tenantID uuid.UUID, tenantSlug s
 
 	orderID := fmt.Sprintf("sub-%s-%d", tenantSlug, time.Now().UnixNano())
 
-	snapToken, redirectURL, err := CreateGatewayCharge(ctx, s.db, s.http, "", orderID, amount, display)
+	snapToken, redirectURL, err := CreateGatewayCharge(ctx, s.db, s.http, env.TenantURL(tenantSlug, "/admin/settings/billing"), orderID, amount, display)
 	if err != nil {
 		return CheckoutRes{}, err
 	}

@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/helwiza/backend/internal/billing"
 	"github.com/helwiza/backend/internal/customer"
+	"github.com/helwiza/backend/internal/platform/env"
 	"github.com/helwiza/backend/internal/platform/midtrans"
 	platformrealtime "github.com/helwiza/backend/internal/platform/realtime"
 	"github.com/helwiza/backend/internal/resource"
@@ -340,7 +341,7 @@ func (s *Service) CheckoutPayment(ctx context.Context, tenantID, orderID uuid.UU
 	}
 
 	orderRef := midtrans.SalesOrderPaymentOrderID(orderID, "settlement")
-	snapToken, redirectURL, err := billing.CreateGatewayCharge(ctx, s.db, s.http, "", orderRef, payAmount, "Pelunasan Direct Sale")
+	snapToken, redirectURL, err := billing.CreateGatewayCharge(ctx, s.db, s.http, env.PlatformURL("/user/me/orders/"+orderID.String()), orderRef, payAmount, "Pelunasan Direct Sale")
 	if err != nil {
 		return PaymentCheckoutRes{}, err
 	}
