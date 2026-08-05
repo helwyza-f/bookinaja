@@ -61,7 +61,7 @@ func (s *Service) Checkout(ctx context.Context, tenantID uuid.UUID, tenantSlug s
 
 	orderID := fmt.Sprintf("sub-%s-%d", tenantSlug, time.Now().UnixNano())
 
-	snapToken, redirectURL, err := CreateGatewayCharge(ctx, s.db, s.http, orderID, amount, display)
+	snapToken, redirectURL, err := CreateGatewayCharge(ctx, s.db, s.http, "", orderID, amount, display)
 	if err != nil {
 		return CheckoutRes{}, err
 	}
@@ -161,7 +161,7 @@ func (s *Service) CheckoutBookingPayment(ctx context.Context, tenantID uuid.UUID
 		}
 	}
 
-	snapToken, redirectURL, err := CreateGatewayCharge(ctx, s.db, s.http, orderID, int64(amount), display)
+	snapToken, redirectURL, err := CreateGatewayCharge(ctx, s.db, s.http, env.PlatformURL("/user/me/bookings/"+bookingID.String()+"/live"), orderID, int64(amount), display)
 	if err != nil {
 		return BookingCheckoutRes{}, err
 	}
@@ -545,12 +545,12 @@ func InvalidateGatewayCache() {
 // (token, checkoutURL). Untuk Midtrans, token = Snap token; untuk Xendit,
 // token kosong dan checkoutURL = invoice_url (murni redirect). Dipakai lintas
 // modul (billing, sales) agar pemilihan gateway konsisten di satu tempat.
-func CreateGatewayCharge(ctx context.Context, db *sqlx.DB, client *http.Client, orderID string, amount int64, itemName string) (string, string, error) {
+func CreateGatewayCharge(ctx context.Context, db *sqlx.DB, client *http.Client, redirectURL, orderID string, amount int64, itemName string) (string, string, error) {
 	if client == nil {
 		client = http.DefaultClient
 	}
 	if ActiveGateway(ctx, db) == "xendit" {
-		url, err := createXenditInvoice(ctx, client, orderID, amount, itemName)
+		url, err := createXenditInvoice(ctx, client, redirectURL, orderID, amount, itemName)
 		return "", url, err
 	}
 	return createSnapTransaction(ctx, client, orderID, amount, itemName)
@@ -559,19 +559,22 @@ func CreateGatewayCharge(ctx context.Context, db *sqlx.DB, client *http.Client, 
 // createXenditInvoice membuat invoice via Xendit Invoice API dan mengembalikan
 // invoice_url untuk di-redirect. external_id = orderID kita (dipakai lagi saat
 // callback untuk memetakan ke booking/sales/subscription).
-func createXenditInvoice(ctx context.Context, client *http.Client, orderID string, amount int64, itemName string) (string, error) {
+func createXenditInvoice(ctx context.Context, client *http.Client, redirectURL, orderID string, amount int64, itemName string) (string, error) {
 	secret := strings.TrimSpace(os.Getenv("XENDIT_SECRET_KEY"))
 	if secret == "" {
 		return "", errors.New("XENDIT_SECRET_KEY is required")
 	}
 
+	if strings.TrimSpace(redirectURL) == "" {
+		redirectURL = env.PlatformURL("/user")
+	}
 	body := map[string]any{
 		"external_id":          orderID,
 		"amount":               amount,
 		"description":          itemName,
 		"currency":             "IDR",
-		"success_redirect_url": env.PlatformURL("/user"),
-		"failure_redirect_url": env.PlatformURL("/user"),
+		"success_redirect_url": redirectURL,
+		"failure_redirect_url": redirectURL,
 	}
 	b, _ := json.Marshal(body)
 

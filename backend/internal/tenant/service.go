@@ -2888,11 +2888,11 @@ func defaultTenantPaymentMethods() []TenantPaymentMethod {
 	return []TenantPaymentMethod{
 		{
 			Code:             "midtrans",
-			DisplayName:      "Midtrans / QRIS Gateway",
+			DisplayName:      "Pembayaran Online (QRIS, VA, E-wallet)",
 			Category:         "gateway",
 			VerificationType: "auto",
 			Provider:         "midtrans",
-			Instructions:     "Pembayaran diverifikasi otomatis oleh gateway Midtrans.",
+			Instructions:     "Pembayaran diverifikasi otomatis oleh gateway pembayaran.",
 			IsActive:         true,
 			SortOrder:        10,
 			Metadata:         JSONB(`{}`),
