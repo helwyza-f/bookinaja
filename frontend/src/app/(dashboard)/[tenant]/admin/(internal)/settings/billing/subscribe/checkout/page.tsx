@@ -167,6 +167,10 @@ export default function SettingsBillingCheckoutPage() {
         interval: isAnnual ? "annual" : "monthly",
       });
 
+      if (!res.data?.snap_token && res.data?.redirect_url) {
+        window.location.assign(res.data.redirect_url);
+        return;
+      }
       snap.pay(res.data.snap_token, {
         onSuccess: () => {
           toast.success("Pembayaran berhasil");

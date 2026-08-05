@@ -310,6 +310,10 @@ export default function AdminBookingPaymentPage() {
           `/billing/bookings/checkout?mode=settlement&method=${selectedMethodDetail.code}`,
           { booking_id: booking.id },
         );
+        if (!res.data?.snap_token && res.data?.redirect_url) {
+          window.location.assign(res.data.redirect_url);
+          return;
+        }
         snap.pay(res.data.snap_token, {
           onSuccess: () => {
             toast.success("Pelunasan berhasil");

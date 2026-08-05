@@ -2,15 +2,26 @@ package platformadmin
 
 import (
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/helwiza/backend/internal/billing"
 	"github.com/helwiza/backend/internal/platform/security"
 	"github.com/lib/pq"
 )
+
+func xenditConfigured() bool {
+	return strings.TrimSpace(os.Getenv("XENDIT_SECRET_KEY")) != "" &&
+		strings.TrimSpace(os.Getenv("XENDIT_CALLBACK_TOKEN")) != ""
+}
+
+func midtransConfigured() bool {
+	return strings.TrimSpace(os.Getenv("MIDTRANS_SERVER_KEY")) != ""
+}
 
 type Handler struct {
 	svc  *Service
@@ -69,6 +80,64 @@ func (h *Handler) DiscoveryAnalytics(c *gin.Context) {
 		return
 	}
 	respondData(c, data)
+}
+
+func (h *Handler) GetPaymentGatewaySetting(c *gin.Context) {
+	data, err := h.repo.GetPaymentGatewaySetting(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	respondData(c, gin.H{
+		"active_gateway":      data.ActiveGateway,
+		"updated_at":          data.UpdatedAt,
+		"midtrans_configured": midtransConfigured(),
+		"xendit_configured":   xenditConfigured(),
+	})
+}
+
+func (h *Handler) UpdatePaymentGatewaySetting(c *gin.Context) {
+	var req struct {
+		ActiveGateway string `json:"active_gateway"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "payload gateway pembayaran tidak valid"})
+		return
+	}
+	gateway := strings.ToLower(strings.TrimSpace(req.ActiveGateway))
+	if gateway != "midtrans" && gateway != "xendit" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "gateway tidak dikenal (pilih midtrans atau xendit)"})
+		return
+	}
+	// Cegah mengaktifkan gateway yang key-nya belum ada di server.
+	if gateway == "xendit" && !xenditConfigured() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Key Xendit belum dikonfigurasi di server (XENDIT_SECRET_KEY & XENDIT_CALLBACK_TOKEN)"})
+		return
+	}
+	if gateway == "midtrans" && !midtransConfigured() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Key Midtrans belum dikonfigurasi di server (MIDTRANS_SERVER_KEY)"})
+		return
+	}
+	if err := h.repo.UpdatePaymentGatewaySetting(c.Request.Context(), gateway); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	billing.InvalidateGatewayCache()
+
+	data, err := h.repo.GetPaymentGatewaySetting(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "gateway pembayaran diperbarui",
+		"data": gin.H{
+			"active_gateway":      data.ActiveGateway,
+			"updated_at":          data.UpdatedAt,
+			"midtrans_configured": midtransConfigured(),
+			"xendit_configured":   xenditConfigured(),
+		},
+	})
 }
 
 func (h *Handler) GetDiscoveryFeedSetting(c *gin.Context) {

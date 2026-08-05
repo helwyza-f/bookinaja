@@ -2,7 +2,9 @@ package platformadmin
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -20,6 +22,53 @@ type Repository struct {
 type DiscoveryFeedSetting struct {
 	EnableDiscoveryPosts bool      `json:"enable_discovery_posts"`
 	UpdatedAt            time.Time `json:"updated_at"`
+}
+
+type PaymentGatewaySetting struct {
+	ActiveGateway string    `json:"active_gateway"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+// GetPaymentGatewaySetting membaca gateway aktif dari platform_feature_settings.
+// Default "midtrans" bila baris belum ada.
+func (r *Repository) GetPaymentGatewaySetting(ctx context.Context) (*PaymentGatewaySetting, error) {
+	var row struct {
+		ValueJSON json.RawMessage `db:"value_json"`
+		UpdatedAt time.Time       `db:"updated_at"`
+	}
+	err := r.db.GetContext(ctx, &row, `
+		SELECT value_json, updated_at
+		FROM platform_feature_settings
+		WHERE key = 'payment_gateway'
+		LIMIT 1`)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return &PaymentGatewaySetting{ActiveGateway: "midtrans"}, nil
+		}
+		return nil, err
+	}
+	var payload struct {
+		Active string `json:"active"`
+	}
+	_ = json.Unmarshal(row.ValueJSON, &payload)
+	gateway := strings.ToLower(strings.TrimSpace(payload.Active))
+	if gateway != "xendit" {
+		gateway = "midtrans"
+	}
+	return &PaymentGatewaySetting{ActiveGateway: gateway, UpdatedAt: row.UpdatedAt}, nil
+}
+
+func (r *Repository) UpdatePaymentGatewaySetting(ctx context.Context, gateway string) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO platform_feature_settings (key, value_json, updated_at)
+		VALUES ('payment_gateway', jsonb_build_object('active', $1::text), NOW())
+		ON CONFLICT (key)
+		DO UPDATE SET
+			value_json = jsonb_build_object('active', $1::text),
+			updated_at = NOW()`,
+		gateway,
+	)
+	return err
 }
 
 type PlanFeatureSettings struct {

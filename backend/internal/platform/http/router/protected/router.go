@@ -41,6 +41,8 @@ func Register(r *gin.RouterGroup, cfg routecfg.Config) {
 			platformProtected.GET("/discovery/analytics", cfg.PlatformHandler.DiscoveryAnalytics)
 			platformProtected.GET("/discovery-feed/settings", cfg.PlatformHandler.GetDiscoveryFeedSetting)
 			platformProtected.PATCH("/discovery-feed/settings", cfg.PlatformHandler.UpdateDiscoveryFeedSetting)
+			platformProtected.GET("/payment-gateway", cfg.PlatformHandler.GetPaymentGatewaySetting)
+			platformProtected.PATCH("/payment-gateway", cfg.PlatformHandler.UpdatePaymentGatewaySetting)
 			platformProtected.GET("/plan-features", cfg.PlatformHandler.GetPlanFeatureSettings)
 			platformProtected.PATCH("/plan-features", cfg.PlatformHandler.UpdatePlanFeatureSettings)
 			platformProtected.GET("/revenue", cfg.PlatformHandler.Revenue)

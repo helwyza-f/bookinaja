@@ -74,6 +74,7 @@ func NewRouter(cfg routecfg.Config, db *sqlx.DB, rdb *redis.Client) *gin.Engine 
 	registerPprofRoutes(r)
 
 	r.POST("/api/webhooks/midtrans", cfg.MidtransHandler.Webhook)
+	r.POST("/api/webhooks/xendit", cfg.MidtransHandler.XenditWebhook)
 	platformrouter.RegisterPlatformRoutes(r, cfg)
 
 	v1 := r.Group("/api/v1")

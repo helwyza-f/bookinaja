@@ -912,6 +912,10 @@ function TimedBookingControlHubInner({
           `/billing/bookings/checkout?mode=${activePaymentScope}&method=${selectedPaymentMethodDetail.code}`,
           { booking_id: session.id },
         );
+        if (!res.data?.snap_token && res.data?.redirect_url) {
+          window.location.assign(res.data.redirect_url);
+          return;
+        }
         snap.pay(res.data.snap_token, {
           onSuccess: () => {
             toast.success(`${activePaymentLabel} berhasil dibayar`);
@@ -2547,6 +2551,10 @@ function DirectSaleControlHub({
         const res = await api.post(`/sales-orders/${order.id}/payment-checkout`, {
           method: selectedPaymentMethodDetail.code,
         });
+        if (!res.data?.snap_token && res.data?.redirect_url) {
+          window.location.assign(res.data.redirect_url);
+          return;
+        }
         snap.pay(res.data.snap_token, {
           onSuccess: () => {
             toast.success("Pelunasan berhasil");

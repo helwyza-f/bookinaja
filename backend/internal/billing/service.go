@@ -14,6 +14,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -60,7 +61,7 @@ func (s *Service) Checkout(ctx context.Context, tenantID uuid.UUID, tenantSlug s
 
 	orderID := fmt.Sprintf("sub-%s-%d", tenantSlug, time.Now().UnixNano())
 
-	snapToken, redirectURL, err := s.createSnapTransaction(ctx, orderID, amount, display)
+	snapToken, redirectURL, err := CreateGatewayCharge(ctx, s.db, s.http, orderID, amount, display)
 	if err != nil {
 		return CheckoutRes{}, err
 	}
@@ -160,7 +161,7 @@ func (s *Service) CheckoutBookingPayment(ctx context.Context, tenantID uuid.UUID
 		}
 	}
 
-	snapToken, redirectURL, err := s.createSnapTransaction(ctx, orderID, int64(amount), display)
+	snapToken, redirectURL, err := CreateGatewayCharge(ctx, s.db, s.http, orderID, int64(amount), display)
 	if err != nil {
 		return BookingCheckoutRes{}, err
 	}
@@ -497,7 +498,114 @@ func (s *Service) withTx(ctx context.Context, fn func(tx *sqlx.Tx) error) error 
 	return tx.Commit()
 }
 
-func (s *Service) createSnapTransaction(ctx context.Context, orderID string, amount int64, itemName string) (string, string, error) {
+var (
+	gatewayCacheMu  sync.Mutex
+	gatewayCacheVal string
+	gatewayCacheAt  time.Time
+)
+
+const gatewayCacheTTL = 15 * time.Second
+
+// ActiveGateway membaca gateway pembayaran aktif dari platform_feature_settings
+// (key='payment_gateway', value_json->>'active'), bukan dari env — supaya bisa
+// di-toggle lewat platform admin. Default "midtrans". Hasil di-cache singkat
+// agar tidak query per transaksi.
+func ActiveGateway(ctx context.Context, db *sqlx.DB) string {
+	gatewayCacheMu.Lock()
+	defer gatewayCacheMu.Unlock()
+	if gatewayCacheVal != "" && time.Since(gatewayCacheAt) < gatewayCacheTTL {
+		return gatewayCacheVal
+	}
+	gateway := "midtrans"
+	if db != nil {
+		var v sql.NullString
+		_ = db.GetContext(ctx, &v, `
+			SELECT value_json->>'active'
+			FROM platform_feature_settings
+			WHERE key = 'payment_gateway'
+			LIMIT 1`)
+		if v.Valid && strings.ToLower(strings.TrimSpace(v.String)) == "xendit" {
+			gateway = "xendit"
+		}
+	}
+	gatewayCacheVal = gateway
+	gatewayCacheAt = time.Now()
+	return gateway
+}
+
+// InvalidateGatewayCache memaksa pembacaan ulang setting pada panggilan
+// berikutnya (dipanggil setelah admin mengubah toggle).
+func InvalidateGatewayCache() {
+	gatewayCacheMu.Lock()
+	gatewayCacheVal = ""
+	gatewayCacheMu.Unlock()
+}
+
+// CreateGatewayCharge membuat tagihan pada gateway aktif dan mengembalikan
+// (token, checkoutURL). Untuk Midtrans, token = Snap token; untuk Xendit,
+// token kosong dan checkoutURL = invoice_url (murni redirect). Dipakai lintas
+// modul (billing, sales) agar pemilihan gateway konsisten di satu tempat.
+func CreateGatewayCharge(ctx context.Context, db *sqlx.DB, client *http.Client, orderID string, amount int64, itemName string) (string, string, error) {
+	if client == nil {
+		client = http.DefaultClient
+	}
+	if ActiveGateway(ctx, db) == "xendit" {
+		url, err := createXenditInvoice(ctx, client, orderID, amount, itemName)
+		return "", url, err
+	}
+	return createSnapTransaction(ctx, client, orderID, amount, itemName)
+}
+
+// createXenditInvoice membuat invoice via Xendit Invoice API dan mengembalikan
+// invoice_url untuk di-redirect. external_id = orderID kita (dipakai lagi saat
+// callback untuk memetakan ke booking/sales/subscription).
+func createXenditInvoice(ctx context.Context, client *http.Client, orderID string, amount int64, itemName string) (string, error) {
+	secret := strings.TrimSpace(os.Getenv("XENDIT_SECRET_KEY"))
+	if secret == "" {
+		return "", errors.New("XENDIT_SECRET_KEY is required")
+	}
+
+	body := map[string]any{
+		"external_id":          orderID,
+		"amount":               amount,
+		"description":          itemName,
+		"currency":             "IDR",
+		"success_redirect_url": env.PlatformURL("/user"),
+		"failure_redirect_url": env.PlatformURL("/user"),
+	}
+	b, _ := json.Marshal(body)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.xendit.co/v2/invoices", bytes.NewReader(b))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.SetBasicAuth(secret, "")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	rawResp, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("xendit invoice error: http %d: %s", resp.StatusCode, strings.TrimSpace(string(rawResp)))
+	}
+
+	var out struct {
+		InvoiceURL string `json:"invoice_url"`
+	}
+	if err := json.Unmarshal(rawResp, &out); err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(out.InvoiceURL) == "" {
+		return "", errors.New("xendit invoice error: invoice_url kosong")
+	}
+	return out.InvoiceURL, nil
+}
+
+func createSnapTransaction(ctx context.Context, client *http.Client, orderID string, amount int64, itemName string) (string, string, error) {
 	serverKey := strings.TrimSpace(os.Getenv("MIDTRANS_SERVER_KEY"))
 	if serverKey == "" {
 		return "", "", errors.New("MIDTRANS_SERVER_KEY is required")
@@ -537,7 +645,7 @@ func (s *Service) createSnapTransaction(ctx context.Context, orderID string, amo
 	req.Header.Set("Content-Type", "application/json")
 	req.SetBasicAuth(serverKey, "")
 
-	resp, err := s.http.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", "", err
 	}

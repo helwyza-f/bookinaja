@@ -218,6 +218,13 @@ export type PlatformDiscoveryFeedSetting = {
   updated_at?: string;
 };
 
+export type PlatformPaymentGatewaySetting = {
+  active_gateway: "midtrans" | "xendit";
+  midtrans_configured: boolean;
+  xendit_configured: boolean;
+  updated_at?: string;
+};
+
 export type PlatformPlanFeatureSettings = {
   plans: Record<string, string[]>;
   updated_at?: string;
@@ -351,6 +358,20 @@ export function getPlatformDiscoveryFeedSetting() {
 export function updatePlatformDiscoveryFeedSetting(enableDiscoveryPosts: boolean) {
   return api.patch("/platform/discovery-feed/settings", {
     enable_discovery_posts: enableDiscoveryPosts,
+  });
+}
+
+export function getPlatformPaymentGateway() {
+  return safeGet<PlatformPaymentGatewaySetting>("/platform/payment-gateway", {
+    active_gateway: "midtrans",
+    midtrans_configured: false,
+    xendit_configured: false,
+  });
+}
+
+export function updatePlatformPaymentGateway(activeGateway: "midtrans" | "xendit") {
+  return api.patch("/platform/payment-gateway", {
+    active_gateway: activeGateway,
   });
 }
 

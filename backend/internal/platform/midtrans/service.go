@@ -88,6 +88,14 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 		return errors.New("invalid midtrans signature")
 	}
 
+	return s.processNotification(ctx, orderID, transactionStatus, fraudStatus, paymentType, transactionID, grossAmount, payload)
+}
+
+// processNotification menjalankan pipeline settlement yang provider-agnostic
+// (update booking/sales/subscription, ledger, poin, notifikasi). Dipakai oleh
+// Midtrans (setelah verifikasi signature) maupun Xendit (setelah verifikasi
+// callback token), dengan status yang sudah dinormalisasi ke kosakata internal.
+func (s *Service) processNotification(ctx context.Context, orderID, transactionStatus, fraudStatus, paymentType, transactionID, grossAmount string, payload map[string]any) error {
 	newStatus := mapMidtransStatus(transactionStatus, fraudStatus)
 
 	var txIDPtr *string
@@ -424,6 +432,50 @@ func (s *Service) HandleNotification(ctx context.Context, payload map[string]any
 		s.emitSalesOrderRealtime(eventType, *salesOrderNotify)
 	}
 	return nil
+}
+
+// HandleXenditNotification memetakan callback invoice Xendit ke pipeline
+// settlement bersama (processNotification). Verifikasi x-callback-token
+// dilakukan di handler sebelum fungsi ini dipanggil.
+func (s *Service) HandleXenditNotification(ctx context.Context, payload map[string]any) error {
+	orderID, _ := payload["external_id"].(string)
+	orderID = strings.TrimSpace(orderID)
+	xStatus := strings.ToUpper(strings.TrimSpace(fmt.Sprintf("%v", payload["status"])))
+
+	transactionID := strings.TrimSpace(fmt.Sprintf("%v", payload["id"]))
+	if transactionID == "<nil>" {
+		transactionID = ""
+	}
+
+	paymentType := strings.TrimSpace(fmt.Sprintf("%v", payload["payment_channel"]))
+	if paymentType == "" || paymentType == "<nil>" {
+		paymentType = strings.TrimSpace(fmt.Sprintf("%v", payload["payment_method"]))
+	}
+	if paymentType == "<nil>" {
+		paymentType = ""
+	}
+
+	grossAmount := strings.TrimSpace(fmt.Sprintf("%v", payload["amount"]))
+	if grossAmount == "" || grossAmount == "<nil>" {
+		grossAmount = strings.TrimSpace(fmt.Sprintf("%v", payload["paid_amount"]))
+	}
+
+	// Normalisasi status invoice Xendit -> kosakata Midtrans yang dipahami
+	// downstream (processNotification + mapMidtransStatus).
+	var transactionStatus string
+	switch xStatus {
+	case "PAID", "SETTLED":
+		transactionStatus = "settlement"
+	case "EXPIRED":
+		transactionStatus = "expire"
+	default:
+		transactionStatus = "pending"
+	}
+
+	if orderID == "" {
+		return errors.New("invalid xendit payload: external_id kosong")
+	}
+	return s.processNotification(ctx, orderID, transactionStatus, "accept", paymentType, transactionID, grossAmount, payload)
 }
 
 type SalesOrderRealtimeContext struct {
