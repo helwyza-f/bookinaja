@@ -3,10 +3,12 @@ package resource
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/helwiza/backend/internal/platform/access"
 )
 
 type Service struct {
@@ -39,6 +41,20 @@ func (s *Service) CreateResource(ctx context.Context, tenantID, name, category, 
 	tID, err := uuid.Parse(tenantID)
 	if err != nil {
 		return nil, err
+	}
+
+	// Enforcement quota unit per tier (Free=2, Starter=10, lainnya unlimited).
+	// Fail-safe: kalau snapshot langganan gagal dibaca, jangan blokir operasional.
+	if snap, snapErr := s.repo.GetTenantPlanSnapshot(ctx, tID); snapErr == nil {
+		plan := access.EffectivePlan(snap.Plan, snap.Status, snap.PeriodEnd)
+		if limit := access.UnitLimit(plan); limit >= 0 {
+			if count, _ := s.repo.CountActiveByTenant(ctx, tID); count >= limit {
+				return nil, fmt.Errorf(
+					"batas unit paket %s tercapai (maks %d unit). Upgrade paket untuk menambah unit lagi",
+					plan, limit,
+				)
+			}
+		}
 	}
 
 	// Inisialisasi metadata & gallery kosong agar tidak NULL di database (Clean JSON)

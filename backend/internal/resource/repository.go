@@ -567,6 +567,29 @@ func (r *Repository) ListDeviceMapByTenant(ctx context.Context, tenantID uuid.UU
 	return items, err
 }
 
+// CountActiveByTenant menghitung jumlah resource aktif (untuk enforcement quota).
+func (r *Repository) CountActiveByTenant(ctx context.Context, tenantID uuid.UUID) (int, error) {
+	var n int
+	err := r.db.GetContext(ctx, &n,
+		`SELECT COUNT(*) FROM resources WHERE tenant_id = $1 AND status != 'deleted'`, tenantID)
+	return n, err
+}
+
+// TenantPlanSnapshot = potongan info langganan untuk resolusi tier efektif.
+type TenantPlanSnapshot struct {
+	Plan      string     `db:"plan"`
+	Status    string     `db:"subscription_status"`
+	PeriodEnd *time.Time `db:"subscription_current_period_end"`
+}
+
+func (r *Repository) GetTenantPlanSnapshot(ctx context.Context, tenantID uuid.UUID) (TenantPlanSnapshot, error) {
+	var snap TenantPlanSnapshot
+	err := r.db.GetContext(ctx, &snap,
+		`SELECT plan, subscription_status, subscription_current_period_end FROM tenants WHERE id = $1 LIMIT 1`,
+		tenantID)
+	return snap, err
+}
+
 // Create menyisipkan resource baru
 func (r *Repository) Create(ctx context.Context, res Resource) (*Resource, error) {
 	query := `

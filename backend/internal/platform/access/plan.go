@@ -11,11 +11,35 @@ import (
 type BillingPlan string
 
 const (
+	PlanFree    BillingPlan = "free"
 	PlanTrial   BillingPlan = "trial"
 	PlanStarter BillingPlan = "starter"
 	PlanPro     BillingPlan = "pro"
 	PlanScale   BillingPlan = "scale"
 )
+
+// EffectivePlan mengembalikan tier efektif setelah mempertimbangkan status
+// langganan. Jika langganan tidak aktif (mis. trial sudah lewat, atau
+// inactive), tenant jatuh ke tier Free — apa pun nilai kolom plan-nya.
+func EffectivePlan(plan, status string, periodEnd *time.Time) BillingPlan {
+	if !IsSubscriptionActive(status, periodEnd) {
+		return PlanFree
+	}
+	return NormalizePlan(plan)
+}
+
+// UnitLimit adalah batas jumlah resource/unit per tier. -1 = tanpa batas.
+// Free dibatasi 2 unit; Starter 10; Trial/Pro/Scale tanpa batas.
+func UnitLimit(plan BillingPlan) int {
+	switch plan {
+	case PlanFree:
+		return 2
+	case PlanStarter:
+		return 10
+	default:
+		return -1
+	}
+}
 
 type SubscriptionStatus string
 
@@ -109,6 +133,8 @@ func defaultPlanFeatures() map[BillingPlan]map[Feature]struct{} {
 
 func NormalizePlan(value string) BillingPlan {
 	switch strings.ToLower(strings.TrimSpace(value)) {
+	case string(PlanFree):
+		return PlanFree
 	case string(PlanTrial):
 		return PlanTrial
 	case string(PlanPro):

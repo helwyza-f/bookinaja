@@ -133,8 +133,17 @@ export function AddResourceDialog({
       setOpen(false);
       resetForm();
       onRefresh();
-    } catch {
-      toast.error("GAGAL MENAMBAHKAN UNIT");
+    } catch (error) {
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        typeof (error as { response?: { data?: { error?: string } } }).response?.data
+          ?.error === "string"
+          ? (error as { response?: { data?: { error?: string } } }).response!.data!
+              .error!
+          : "GAGAL MENAMBAHKAN UNIT";
+      toast.error(message);
     } finally {
       setLoading(false);
     }
